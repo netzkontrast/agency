@@ -5,9 +5,11 @@ A comprehensive multi-agent system for exploring the intersection of epistemolog
 ### PRIMARY GOALS (in priority order):
 
 1. **Education**: Teach truth theories and identity frameworks through interactive exploration
-2. **Self-Exploration**: Help users analyze their own identity narratives using philosophical frameworks
-3. **Research**: Provide tools for philosophical analysis, literature mapping, and theory synthesis
+2. **Research**: Provide tools for philosophical analysis, literature mapping, and theory synthesis
+3. **Self-Exploration**: Help users analyze their own identity narratives using philosophical frameworks
 4. **Practical Support**: Offer frameworks for navigating identity conflicts and fragmentation
+
+**Note**: Phase 1 focuses primarily on Education + Research capabilities, with self-exploration tools added in Phase 2.
 
 ### TARGET USERS:
 
@@ -40,6 +42,13 @@ What this provides:
 - **Database**: PostgreSQL for sessions, SQLite for embedded philosophical content
 - **Frontend**: Initially CLI, Phase 2 adds web interface (React/Next.js)
 - **RAG**: Embedded vector store (ChromaDB) for philosophical texts
+- **i18n**: Bilingual from start (German + English) - content, UI, and agent responses
+
+**✅ CONFIRMED DECISIONS:**
+- **License**: MIT (open source, permissive)
+- **Development Style**: Methodical 4-phase approach (personal project, no hard deadlines)
+- **Phase 1 Scope**: All 6 agents implemented immediately
+- **Priority**: Education + Research tools first
 
 ### Multi-Agent Design:
 
@@ -98,31 +107,56 @@ case_studies (id, scenario, analyses, outcomes)
 
 ### PHASE 1 - MVP (Core Philosophical Agent System)
 
-**MUST HAVE:**
-1. **Interactive Dialogue** (Socratic questioning via CLI)
-   - Natural conversation with specialized agents
-   - Multi-turn context retention
-   - Agent handoffs for different perspectives
+**🎯 FOCUS: Education + Research Tools**
 
-2. **Identity Mapping** (Text-based initially)
+**MUST HAVE - ALL 6 AGENTS:**
+1. **Correspondence Agent**: Analyzes through correspondence theory lens
+2. **Coherence Agent**: Analyzes through coherence theory lens
+3. **Pragmatist Agent**: Applies pragmatic truth theory
+4. **Synthesizer Agent**: Integrates perspectives, identifies tensions
+5. **Socratic Agent**: Conducts guided questioning and exploration
+6. **Research Agent**: Literature search, citation analysis, theory mapping
+
+**MUST HAVE - CORE FEATURES:**
+1. **Interactive Dialogue** (Socratic questioning via CLI)
+   - Natural conversation with all 6 specialized agents
+   - Multi-turn context retention
+   - Intelligent agent routing and handoffs
+   - **Bilingual**: German + English interface and responses
+
+2. **Philosophical Tutoring** (Education Priority)
+   - Teach truth theories through examples and dialogue
+   - Connect theories to identity applications
+   - Adaptive difficulty based on user knowledge
+   - Interactive exercises and case studies
+   - **Bilingual**: Content in both German and English
+
+3. **Research Tools** (Research Priority)
+   - RAG-based search of philosophical content
+   - Retrieve relevant passages from source paper(s)
+   - Proper citation and source attribution
+   - Theory identification and classification
+   - Literature mapping capabilities
+   - **Bilingual**: Search and retrieve in both languages
+
+4. **Identity Mapping** (Text-based initially)
    - Identify correspondence conflicts (self-concept vs. external facts)
    - Identify coherence gaps (narrative inconsistencies)
    - Output structured analysis with theory references
+   - Multi-agent analysis showing different perspectives
 
-3. **Philosophical Tutoring**
-   - Teach truth theories through examples
-   - Connect theories to identity applications
-   - Adaptive difficulty based on user knowledge
-
-4. **Basic Research Tools**
-   - Search philosophical content via RAG
-   - Retrieve relevant passages from source paper
-   - Cite sources properly
+**MUST HAVE - BILINGUAL SUPPORT:**
+- All agent prompts available in German and English
+- Philosophical content in both languages
+- CLI supports language switching
+- Users can interact in either language
+- Responses adapt to user's language preference
 
 **NICE TO HAVE:**
-- Export analysis results to markdown/PDF
+- Export analysis results to markdown/PDF (bilingual)
 - Save and resume sessions
 - Basic visualization (ASCII art diagrams)
+- Mixed-language conversations (switch mid-session)
 
 ### PHASE 2 - Self-Analysis Framework
 
@@ -251,20 +285,28 @@ case_studies (id, scenario, analyses, outcomes)
 
 ### Philosophical Texts:
 
-**Phase 1:**
-- The provided German paper (primary source)
-- Stanford Encyclopedia of Philosophy entries on truth and identity
-- Key excerpts from cited sources (Kant, Frege, Stuart Hall, etc.)
-- Create synthetic case studies based on paper's examples
+**Phase 1 (BILINGUAL from start):**
+- **German**: The provided German philosophical paper (primary source - original)
+- **English**: Full English translation of the German paper (to be created)
+- **English**: Stanford Encyclopedia of Philosophy entries on truth and identity
+- **German/English**: Key excerpts from cited sources (Kant, Frege, Stuart Hall, etc.)
+- **Bilingual**: Synthetic case studies based on paper's examples
+- **Both languages**: Glossary of philosophical terms with translations
+
+**Bilingual Architecture:**
+- All content stored with language tags (de/en)
+- RAG retrieval supports queries in both languages
+- Cross-language semantic search (query in German, get English results and vice versa)
+- Parallel corpus approach where possible
 
 **Phase 2:**
-- Crawl4AI MCP to fetch additional papers
-- User-uploaded texts for analysis
-- Community-contributed philosophical content
+- Crawl4AI MCP to fetch additional papers (German and English sources)
+- User-uploaded texts for analysis (language auto-detected)
+- Community-contributed philosophical content (multilingual)
 
 **Phase 3:**
-- Integration with PhilPapers, JSTOR, etc.
-- Automated literature review capabilities
+- Integration with PhilPapers, JSTOR (English + German philosophy databases)
+- Automated literature review capabilities (multilingual)
 - Dynamic knowledge base updates
 
 ### Case Studies & Examples:
@@ -395,19 +437,25 @@ class PhilosophicalFramework(Protocol):
 ### Phasing Strategy:
 
 **PHASE 1: Core Philosophical Agent System (4-6 weeks)**
-- Multi-agent architecture with 4 core agents (Correspondence, Coherence, Pragmatist, Socratic)
-- CLI interface for interaction
-- RAG system with German paper + SEP entries
+- Multi-agent architecture with ALL 6 agents (Correspondence, Coherence, Pragmatist, Synthesizer, Socratic, Research)
+- **Bilingual system architecture** (German + English from ground up)
+- CLI interface for interaction (with language selection)
+- RAG system with German paper + English translation + SEP entries
+- **Education-focused**: Interactive tutoring on truth theories
+- **Research-focused**: Literature search and citation tools
 - Basic identity mapping (text output)
-- Session persistence
+- Session persistence with language preferences
 - Unit tests for all components
+- **Translation infrastructure**: i18n framework, language detection, bilingual prompts
 
 **Deliverables:**
-- Working CLI tool
-- 4 specialized agents with distinct perspectives
-- RAG retrieval with 90%+ accuracy
+- Working bilingual CLI tool
+- 6 specialized agents with distinct perspectives
+- RAG retrieval with 90%+ accuracy (both languages)
 - Test coverage >80%
-- Documentation for developers and users
+- Bilingual documentation for developers and users
+- English translation of German philosophical paper
+- Glossary of philosophical terms (German ↔ English)
 
 **PHASE 2: Self-Analysis Framework (4-6 weeks)**
 - Narrative analysis agent
@@ -582,44 +630,63 @@ class PhilosophicalFramework(Protocol):
 
 ### Immediate Next Steps:
 
-1. **Set up project structure** following CLAUDE.md conventions
-2. **Create base agent architecture** with Pydantic AI
-3. **Implement RAG system** with German paper as first content
-4. **Build Correspondence Agent** as proof of concept
-5. **Create CLI interface** for testing
-6. **Write comprehensive tests**
+1. **Set up bilingual project structure** following CLAUDE.md conventions
+2. **Create i18n framework** for German/English support
+3. **Translate German paper to English** (first major content task)
+4. **Create base agent architecture** with Pydantic AI (all 6 agents)
+5. **Implement bilingual RAG system** with German + English content
+6. **Build all 6 agents** (Correspondence, Coherence, Pragmatist, Synthesizer, Socratic, Research)
+7. **Create bilingual CLI interface** with language selection
+8. **Write comprehensive tests** (including language-specific tests)
 
 ### First Concrete Features to Implement:
 
-1. **Feature: Correspondence Theory Agent**
-   - Can explain correspondence theory
-   - Can analyze a user statement for correspondence conflicts
-   - Cites relevant passages from source paper
-   - Provides clear, accessible explanations
+1. **Feature: Bilingual System Foundation**
+   - i18n framework with language detection
+   - Configuration for user language preference
+   - Bilingual prompt templates for all agents
+   - Language-aware response formatting
 
-2. **Feature: RAG-based Philosophical Content Retrieval**
-   - Embed the German paper (with English translation)
-   - Retrieve relevant passages based on query
-   - Maintain context across conversation
+2. **Feature: Educational Tutoring System**
+   - Interactive lessons on correspondence theory
+   - Interactive lessons on coherence theory
+   - Interactive lessons on pragmatism
+   - Case studies and exercises (bilingual)
+   - Adaptive difficulty progression
 
-3. **Feature: Simple Identity Conflict Analysis**
-   - User describes identity statement
-   - System identifies potential correspondence/coherence issues
-   - Outputs structured analysis
+3. **Feature: Research Tools Suite**
+   - RAG-based bilingual search of philosophical content
+   - Citation and source attribution
+   - Theory identification and classification
+   - Literature relationship mapping
+   - Retrieve relevant passages in user's preferred language
+
+4. **Feature: All 6 Philosophical Agents**
+   - Correspondence Agent (analyzes via correspondence theory)
+   - Coherence Agent (analyzes via coherence theory)
+   - Pragmatist Agent (applies pragmatic truth theory)
+   - Synthesizer Agent (integrates multiple perspectives)
+   - Socratic Agent (conducts guided exploration)
+   - Research Agent (literature search and analysis)
+
+5. **Feature: Identity Conflict Analysis**
+   - Multi-agent analysis from all perspectives
+   - Identify correspondence conflicts
+   - Identify coherence gaps
+   - Synthesized insights
+   - Outputs structured, cited analysis (bilingual)
 
 ---
 
-## KEY DECISIONS NEEDED FROM YOU:
+## ✅ KEY DECISIONS CONFIRMED:
 
-Before generating PRP, please confirm/modify:
-
-1. **Is the phased approach correct?** Or do you want everything at once?
-2. **Technical stack**: Is Pydantic AI + FastAPI + CLI/Web the right choice?
-3. **Scope of Phase 1**: Is the 4-agent MVP the right starting point?
-4. **Open source**: Confirmed MIT license for core?
-5. **Priority**: Education first, or self-exploration first?
-6. **Content**: Should I translate the German paper to English as part of Phase 1?
-7. **Target launch**: Are you building this for a specific deadline/audience?
+1. **Phasing**: 4-phase methodical approach (as planned)
+2. **Technical stack**: Pydantic AI + FastAPI + CLI/Web ✓
+3. **Phase 1 Scope**: ALL 6 agents (not just 4) ✓
+4. **Open source**: MIT License ✓
+5. **Priority**: Education + Research tools first ✓
+6. **Content**: Bilingual from start (German + English) ✓
+7. **Target**: Personal project, no hard deadlines ✓
 
 ---
 
