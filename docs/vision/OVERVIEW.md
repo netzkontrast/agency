@@ -60,7 +60,7 @@ than one domain.
 
 ## Products live outside the system
 
-The three domains describe the machine. Final artifacts (code patches, files,
+The three domains describe the machine. Final artefacts (code patches, files,
 documents) are the product: they live in user-owned storage via pluggable
-artifact drivers and are recorded as `Artefact` nodes in the graph. No metadata
+artefact drivers and are recorded as `Artefact` nodes in the graph. No metadata
 sidecar files are written to user storage.

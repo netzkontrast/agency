@@ -2,7 +2,7 @@
 slug: vision-architecture
 type: vision
 status: ready
-summary: The runtime — one engine (FastMCP) hosts three domains over the four-verb contract; one substrate (GraphQLite context graph) is the only persistent state; workflows are graph paths; artifact drivers move bytes to user storage; CodeMode renders the three domain surfaces.
+summary: The runtime — one engine (FastMCP) hosts three domains over the four-verb contract; one substrate (GraphQLite context graph) is the only persistent state; workflows are graph paths; artefact drivers move bytes to user storage; CodeMode renders the three domain surfaces.
 ---
 
 # Architecture — one engine, one graph, three domain surfaces
@@ -44,7 +44,7 @@ awaiting the user) is a `Continuation` node — there is no state file on disk.
 
 ## Drivers — the user-facing edge
 
-Artifact drivers map `Artefact` nodes to external storage (`fs` is mandatory;
+Artefact drivers map `Artefact` nodes to external storage (`fs` is mandatory;
 `repo` / `s3` / `http` / `drive` follow). The graph holds the record; the
 driver moves the bytes. System metadata never leaks into user storage.
 

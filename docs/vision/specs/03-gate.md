@@ -10,6 +10,10 @@ summary: Gate definition (YAML) and the evaluator return contract. A passing har
 A gate guards a phase. It lives at `workflow/<row>/gates/<id>.yaml`. The workflow
 runner OWNS evaluation; the context PostToolUse hook INGESTS any emitted edge.
 
+**Flow:** a gate is authored here (03) → the runner evaluates it while walking a
+phase ([05](05-workflow-base.md)) → a passing hard gate's edge is ingested by the
+context hook ([06](06-context-base.md)).
+
 ```yaml
 id: research-complete           # ^[a-z][a-z0-9-]{0,60}$
 type: hard-blocking             # hard-blocking | advisory

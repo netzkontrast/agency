@@ -12,7 +12,7 @@ wins; code serves it.**
   agentic row.
 - Names derive from `(domain, row, export)`: `mcp__<domain>_<row>_<export>`,
   `/<domain>:<row>:<export>`.
-- One engine (FastMCP) + one graph (GraphQLite) + artifact drivers. See
+- One engine (FastMCP) + one graph (GraphQLite) + artefact drivers. See
   `docs/vision/ARCHITECTURE.md`.
 
 ## Canonical paths
@@ -30,6 +30,8 @@ wins; code serves it.**
 |---|---|
 | The model | `docs/vision/OVERVIEW.md` |
 | The runtime | `docs/vision/ARCHITECTURE.md` |
+| The four-verb contract | `docs/vision/specs/04-agentic-base.md` |
+| Add a row | `docs/vision/OVERVIEW.md` (Export & naming) |
 | A contract/schema | `docs/vision/specs/` |
 | Terms | `docs/vision/VOCABULARY.md` |
 | What's next | `docs/ROADMAP.md` |

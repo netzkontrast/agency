@@ -25,7 +25,7 @@ class Store:
 GraphQLite is the only substrate. If it fails to load, the store raises rather
 than falling back.
 
-## Artifact-driver REGISTRY
+## Artefact-driver REGISTRY
 
 ```python
 # context/_drivers/__init__.py
@@ -42,7 +42,7 @@ resolve(key: str) -> ArtefactDriver                  # KeyError (listing availab
   tools are validated against the row schemas ([01](01-manifest.md)).
 - **PostToolUse** — validation-first pipeline:
   1. validate `data.artefact_metadata` against `artefact-node.schema.json`
-  2. resolve `artifact_driver` via `REGISTRY` **before** upsert
+  2. resolve `artefact_driver` via `REGISTRY` **before** upsert
   3. upsert the `Artefact` node
   4. persist bytes via the driver (if present)
   5. ingest `data.emitted_edges[]`
@@ -52,7 +52,7 @@ resolve(key: str) -> ArtefactDriver                  # KeyError (listing availab
 ```
 label: Artefact
 required: content_type, sha256, size_bytes, created_at, produced_by, derived_from
-optional: artifact_driver, driver_pointer, row, satisfies_phase
+optional: artefact_driver, driver_pointer, row, satisfies_phase
 ```
 
 No `.meta.json` sidecar is ever written to user storage — these fields are

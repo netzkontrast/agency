@@ -14,7 +14,7 @@ The canon in `docs/vision/` defines the model. This file tracks milestones.
 - `agentic` harness: four-verb contract, domain/row discovery, name derivation,
   CodeMode rendering, cold-boot under the token budget.
 - `workflow` runner: graph-path walking, gate evaluation, `Continuation` nodes.
-- `context`: GraphQLite store, pre/post-tool hooks, artifact-driver protocol +
+- `context`: GraphQLite store, pre/post-tool hooks, artefact-driver protocol +
   `fs` driver, runtime schemas.
 - `jules` agentic row: the async-coding orchestrator (lifecycle, patches, bulk,
   source, trim, aliases) exposed as `mcp__agentic_jules_*` + `/agentic:jules:*`.
