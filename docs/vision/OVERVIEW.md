@@ -31,7 +31,7 @@ domains.
 - A capability is placed by its primary concern: orchestration → agentic, a
   multi-step process → workflow, a data/schema concern → context.
 - A row reaches the other domains' services through the engine (the four-verb
-  contract + the graph). It never creates cells in them.
+  contract + the graph). It never adds rows to them.
 
 ## Export & naming
 

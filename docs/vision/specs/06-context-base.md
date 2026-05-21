@@ -2,7 +2,7 @@
 slug: spec-context-base
 type: spec
 status: ready
-summary: The store — the GraphQLite-backed Store singleton, the artifact-driver REGISTRY, the pre/post-tool hooks, and the Artefact node payload. GraphQLite is the only substrate; no sidecar files, no raw-SQLite fallback.
+summary: The store — the GraphQLite-backed Store singleton, the Artefact-driver REGISTRY, the pre/post-tool hooks, and the Artefact node payload. GraphQLite is the only substrate; no sidecar files, no raw-SQLite fallback.
 ---
 
 # 06 — Context base (the store)
