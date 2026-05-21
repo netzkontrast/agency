@@ -16,6 +16,8 @@ code and canon disagree, the canon wins.
    rows nested in their owning domain, name derivation.
 2. **[ARCHITECTURE.md](ARCHITECTURE.md)** — the runtime: one engine (FastMCP), one
    graph (GraphQLite), workflows as graph paths, drivers, CodeMode.
+3. **[VOCABULARY.md](VOCABULARY.md)** — canonical terms.
+4. **[specs/](specs/README.md)** — the contracts implementation must satisfy.
+5. **[LESSONS.md](LESSONS.md)** — durable engineering knowledge.
 
-_(Forthcoming in this canon: `VOCABULARY.md`, `specs/`, `LESSONS.md`. Forward
-work is tracked in `../ROADMAP.md`.)_
+Forward work is tracked in [`../ROADMAP.md`](../ROADMAP.md).
