@@ -7,7 +7,9 @@ summary: The store — the GraphQLite-backed Store singleton, the Artefact-drive
 
 # 06 — Context base (the store)
 
-The store lives in `context/`. It is the only persistent state.
+The store lives in `context/`. It is the only persistent state. A capability's
+context aspect — its memory — materializes here lazily as `Artefact` and memory
+nodes the moment it first produces or learns.
 
 ## Store (singleton, GraphQLite-only)
 
@@ -39,7 +41,7 @@ resolve(key: str) -> ArtefactDriver                  # KeyError (listing availab
 ## Hooks
 
 - **PreToolUse** — `validate_envelope_in(tool_name, args)`: manifest-writing
-  tools are validated against the row schemas ([01](01-manifest.md)).
+  tools are validated against the aspect schemas ([01](01-manifest.md)).
 - **PostToolUse** — validation-first pipeline:
   1. validate `data.artefact_metadata` against `artefact-node.schema.json`
   2. resolve `artefact_driver` via `REGISTRY` **before** upsert
@@ -52,7 +54,7 @@ resolve(key: str) -> ArtefactDriver                  # KeyError (listing availab
 ```
 label: Artefact
 required: content_type, sha256, size_bytes, created_at, produced_by, derived_from
-optional: artefact_driver, driver_pointer, row, satisfies_phase
+optional: artefact_driver, driver_pointer, capability, satisfies_phase
 ```
 
 No `.meta.json` sidecar is ever written to user storage — these fields are

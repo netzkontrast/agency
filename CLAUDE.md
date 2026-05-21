@@ -1,17 +1,29 @@
 # agency — Claude Code plugin
 
-This repo **is** the `agency` plugin: a three-domain engine for agent
-workflows. The design canon in `docs/vision/` is authoritative — **the Vision
-wins; code serves it.**
+This repo **is** the `agency` plugin: ONE engine that exposes three domains
+over one FastMCP runtime and one GraphQLite graph. At this stage the repo is
+the **Concept, Vision canon, and Plan**; implementation follows on this branch.
+The design canon in `docs/vision/` is authoritative — **the Vision wins; code
+serves it.**
 
 ## The model (detail: docs/vision/OVERVIEW.md)
 
-- Three exported base domains: `agentic` (WHO/HOW), `workflow` (WHEN),
-  `context` (WHAT). Only these are exported as skills + MCP (CodeMode).
-- A **row** is a capability nested in its one owning domain. `jules` is an
-  agentic row.
-- Names derive from `(domain, row, export)`: `mcp__<domain>_<row>_<export>`,
-  `/<domain>:<row>:<export>`.
+- Three exported **domains**: `agentic` (actions — skills, tools, the four-verb
+  harness), `workflow` (process — graph-walking state machines), `context`
+  (memory — the GraphQLite graph, schemas, drivers, hooks). Only these are
+  exported as skills + MCP (CodeMode).
+- A **capability** is a vertical area of work (e.g. `jules`). It is authored in
+  exactly one **home domain** and expresses itself across the domains as
+  **aspects** (its agentic aspect, workflow aspect, context aspect — the same
+  capability restated per domain, isomorphic).
+- **Lazy-domaining**: a capability materializes an aspect in a non-home domain
+  only when it needs one. Default = lazy graph data (workflow `Phase` /
+  `Continuation`; context `Artefact` / memory nodes), no authored folder. A
+  capability with fixed structure may instead AUTHOR an aspect. Authored or
+  lazy, the holding domain owns the aspect. No eager triplication.
+- Names derive from `(domain, capability, export)`:
+  `mcp__<domain>_<capability>_<export>`, `/<plugin>:<domain>:<capability>:<export>`.
+  The name alone tells you domain, capability, and export.
 - One engine (FastMCP) + one graph (GraphQLite) + artefact drivers. See
   `docs/vision/ARCHITECTURE.md`.
 
@@ -19,9 +31,9 @@ wins; code serves it.**
 
 | What | Path |
 |---|---|
-| agentic row | `agentic/<row>/{manifest.toml, handlers/<export>.py, skills/<export>/SKILL.md}` |
-| workflow row | `workflow/<row>/{manifest.toml, phases/<NN>-*.md, gates/*.yaml}` |
-| context row | `context/<row>/{manifest.toml, schemas/*.schema.json, templates/*.jinja}` |
+| agentic aspect | `agentic/<capability>/{manifest.toml, handlers/<export>.py, skills/<export>/SKILL.md}` |
+| workflow aspect | `workflow/<capability>/{manifest.toml, phases/<NN>-*.md, gates/*.yaml}` (or lazy graph nodes) |
+| context aspect | `context/<capability>/{manifest.toml, schemas/*.schema.json, templates/*.jinja}` (or lazy graph nodes) |
 | engine | `agentic/_bootloader.py`, `agentic/_harness/`, `workflow/_runner/`, `context/{_store,_hooks,_drivers}` |
 
 ## Where to look
@@ -31,7 +43,7 @@ wins; code serves it.**
 | The model | `docs/vision/OVERVIEW.md` |
 | The runtime | `docs/vision/ARCHITECTURE.md` |
 | The four-verb contract | `docs/vision/specs/04-agentic-base.md` |
-| Add a row | `docs/vision/OVERVIEW.md` (Export & naming) |
+| Add a capability | `docs/vision/OVERVIEW.md` (Export & naming) |
 | A contract/schema | `docs/vision/specs/` |
 | Terms | `docs/vision/VOCABULARY.md` |
 | What's next | `docs/ROADMAP.md` |
@@ -43,8 +55,8 @@ wins; code serves it.**
 - Analysis / design / spec review: the `sc:` (superclaude) skills.
 - Claude Code plugin / MCP / hook mechanics: the
   `superpowers-developing-for-claude-code` plugin.
-- Add a capability = add **one row to one domain**. No cross-domain
-  scaffolding.
+- Add a capability = author its **home aspect** in one domain; let the other
+  aspects stay lazy until needed. No eager cross-domain scaffolding.
 
 ## Dev
 

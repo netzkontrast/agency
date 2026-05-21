@@ -2,19 +2,23 @@
 slug: spec-manifest
 type: spec
 status: ready
-summary: The row manifest (`<domain>/<row>/manifest.toml`) and the immutable name-derivation rules. One shape — universal preamble + export surface + optional domain-specific sections.
+summary: The capability manifest (`<domain>/<capability>/manifest.toml`, present when an aspect is authored) and the immutable name-derivation rules. One shape — universal preamble + export surface + optional domain-specific sections.
 ---
+
+> Amended by the capability/aspect/lazy-domaining model — see VOCABULARY.md.
 
 # 01 — Manifest & name derivation
 
-Every row is declared by one `manifest.toml` at `<domain>/<row>/manifest.toml`.
-The harness derives all public names from `(domain, row, export)`; exports
-carry no domain or row prefix.
+When a capability **authors** an aspect in a domain, that aspect is declared by
+one `manifest.toml` at `<domain>/<capability>/manifest.toml`. (A lazy aspect
+materializes as graph nodes instead and has no manifest.) The harness derives
+all public names from `(domain, capability, export)`; exports carry no domain
+or capability prefix.
 
 ## Preamble (required)
 
 ```toml
-[row]
+[capability]
 domain = "agentic"   # agentic | workflow | context — MUST match the parent dir
 name   = "jules"     # ^[a-z][a-z0-9-]{0,30}$
 ```
@@ -35,19 +39,19 @@ exports = ["create", "patch"]   # → mcp__<domain>_<name>_create, ...
 prefers = ["create", "patch"]   # tool exports that boot in CodeMode
 ```
 
-Exports MUST NOT contain a domain/row prefix (`jules-create` is forbidden;
-`create` is correct).
+Exports MUST NOT contain a domain/capability prefix (`jules-create` is
+forbidden; `create` is correct).
 
 ## Domain-specific sections (optional)
 
 ```toml
-# workflow rows
+# authored workflow aspect
 [[gates]]
 id           = "research-complete"
 path         = "gates/research-complete.yaml"
 blocks_phase = "02"
 
-# context rows
+# authored context aspect
 [ontology]
 node_types = ["ResearchTopic", "Finding"]
 [templates]
@@ -62,15 +66,15 @@ Phases are graph nodes, not manifest arrays (see [05](05-workflow-base.md)).
 
 | Derived | Rule |
 |---|---|
-| skill (slash) | `/<domain>:<row>:<export>` |
-| MCP tool | `mcp__<domain>_<row>_<export>` |
-| handler module | `<domain>.<row>.handlers.<export>` |
-| skill file | `<domain>/<row>/skills/<export>/SKILL.md` |
-| ontology node id | `<row>/<Type>` |
-| schema id | `tag:agency.local,2026:schema:<row>/<Type>` |
+| skill (slash) | `/<domain>:<capability>:<export>` |
+| MCP tool | `mcp__<domain>_<capability>_<export>` |
+| handler module | `<domain>.<capability>.handlers.<export>` |
+| skill file | `<domain>/<capability>/skills/<export>/SKILL.md` |
+| ontology node id | `<capability>/<Type>` |
+| schema id | `tag:agency.local,2026:schema:<capability>/<Type>` |
 
 ## Validation
 
-Three JSON Schemas (`agentic-row`, `workflow-row`, `context-row`), each
+Three JSON Schemas (`agentic-aspect`, `workflow-aspect`, `context-aspect`), each
 `$id`-tagged with `additionalProperties: false` at root. The regex on `name`
 and the exports-prefix ban are enforced at schema time.

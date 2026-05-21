@@ -8,9 +8,9 @@ summary: Durable engineering knowledge for building and operating the plugin —
 # Lessons — durable engineering knowledge
 
 Hard-won, model-agnostic guidance. Apply when building the engine or operating
-the `jules` row.
+the `jules` capability.
 
-## Operating the jules row
+## Operating the jules capability
 
 - **`COMPLETED` is not success.** A Jules session state of `COMPLETED` means
   "idle, awaiting input" — not "work done and pushed." A session can pause
@@ -28,9 +28,9 @@ the `jules` row.
 ## Building the engine
 
 - **The deriver's paths are canonical.** Names and file locations come from the
-  deriver: handlers at `<domain>/<row>/handlers/<export>.py`, skills at
-  `<domain>/<row>/skills/<export>/SKILL.md`. When delegating work, cross-check a
-  brief against the deriver — the deriver wins, not the brief.
+  deriver: handlers at `<domain>/<capability>/handlers/<export>.py`, skills at
+  `<domain>/<capability>/skills/<export>/SKILL.md`. When delegating work,
+  cross-check a brief against the deriver — the deriver wins, not the brief.
 - **FastMCP `add_tool` is strict.** It takes a `Tool` or callable and no `name=`
   kwarg, and rejects `**kwargs` wrapper functions. Bind tool name and function
   as closure defaults in the wrapper. Exercise the real boot path in tests — an

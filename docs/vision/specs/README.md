@@ -12,7 +12,7 @@ Each spec is the authoritative contract for one part of the system. Read
 
 | # | Spec | Owns |
 |---|---|---|
-| 01 | [manifest](01-manifest.md) | the row manifest + name derivation |
+| 01 | [manifest](01-manifest.md) | the capability manifest (when an aspect is authored) + name derivation |
 | 02 | [tool-result-envelope](02-tool-result-envelope.md) | the frozen tool return shape |
 | 03 | [gate](03-gate.md) | gate definition + evaluator contract |
 | 04 | [agentic-base](04-agentic-base.md) | harness: four-verb contract, discovery, CodeMode |

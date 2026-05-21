@@ -28,7 +28,7 @@ Every tool returns this exact root. No keys are added at the root.
 ## All variation lives in `data`
 
 Domain- and tool-specific payloads go inside `data`, validated by a per-tool
-schema at `context/_shared/schemas/tools/<domain>_<row>_<export>.schema.json`.
+schema at `context/_shared/schemas/tools/<domain>_<capability>_<export>.schema.json`.
 Common idioms: `audit_trail`, `gate_state` (workflow); `provenance`,
 `artefact_metadata`, `artefact_ref`, `emitted_edges` (context);
 `dispatch_target` (agentic).
