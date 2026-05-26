@@ -43,6 +43,8 @@ class Engine:
         for cap in discover():                                  # reflection: register + merge ontology
             self.registry.register(cap)
             self.ontology.extend(cap.ontology, cap.name)
+        # the Registry needs the effective ontology to build a CapabilityContext
+        self.registry.ontology = self.ontology
         # engine-supplied verb-param providers (the `inject` convention); `memory`
         # and `intent_id` are injected per-call by the Registry itself.
         self.registry.injectors = {

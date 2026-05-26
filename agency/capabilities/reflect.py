@@ -1,55 +1,47 @@
 """reflect — durable, scope-tagged cross-session memory.
 
-Scope-tagged insight nodes written into the one graph, with recency + keyword
-retrieval. This capability is the demonstration that **adding a capability is
-adding a file**: it self-registers (reflection), it OWNS its ontology fragment (a
+The reference migration to the class form: a `CapabilityBase` subclass whose
+verb-methods reach the graph through `self.ctx`. It OWNS its ontology fragment (a
 `Reflection` node type + a closed `scope` enum + the `OBSERVED_DURING` edge), and
-the engine INJECTS `memory`/`intent_id` so its verbs can read/write the graph.
+demonstrates that adding a capability is adding a file. The functional
+`Capability` form remains equally valid for other capabilities.
 """
 from __future__ import annotations
 
-from ..capability import Capability
+from ..capability import CapabilityBase, verb
 from ..ontology import OntologyExtension
 
 REFLECT_SCOPES = {"observation", "reflection", "project", "technical", "user", "world"}
 
 
-def note(scope: str, text: str, memory=None, intent_id=None) -> dict:
-    "Write a scope-tagged insight node (act); edged OBSERVED_DURING the intent."
-    rid = memory.record("Reflection", {"scope": scope, "text": text})
-    memory.link(rid, intent_id, "OBSERVED_DURING")
-    return {"result": rid}
+class ReflectCapability(CapabilityBase):
+    name = "reflect"
+    home = "memory"
+    ontology = OntologyExtension(
+        nodes={"Reflection": ["scope", "text"]},
+        enums={("Reflection", "scope"): REFLECT_SCOPES},
+        edges={"OBSERVED_DURING", "INFORMS"},
+    )
 
+    @verb(role="act")
+    def note(self, scope: str, text: str) -> dict:
+        "Write a scope-tagged insight node; edged OBSERVED_DURING the intent."
+        rid = self.ctx.record("Reflection", {"scope": scope, "text": text})
+        self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+        return {"result": rid}
 
-def recall(memory=None, scope: str = "") -> dict:
-    "Retrieve reflections (transform), newest first, optionally filtered by scope."
-    rows = sorted(memory.find("Reflection"), key=lambda p: p["vfrom"], reverse=True)
-    out = [{"scope": r["scope"], "text": r["text"]}
-           for r in rows if not scope or r.get("scope") == scope]
-    return {"result": out}
+    @verb(role="transform")
+    def recall(self, scope: str = "") -> dict:
+        "Retrieve reflections, newest first, optionally filtered by scope."
+        rows = sorted(self.ctx.find("Reflection"), key=lambda p: p["vfrom"], reverse=True)
+        out = [{"scope": r["scope"], "text": r["text"]}
+               for r in rows if not scope or r.get("scope") == scope]
+        return {"result": out}
 
-
-def search(query: str, memory=None) -> dict:
-    "Keyword search over reflection text (transform); deterministic substring match."
-    q = (query or "").lower()
-    out = [{"scope": r["scope"], "text": r["text"]}
-           for r in memory.find("Reflection") if q in r["text"].lower()]
-    return {"result": out}
-
-
-reflect_ontology = OntologyExtension(
-    nodes={"Reflection": ["scope", "text"]},
-    enums={("Reflection", "scope"): REFLECT_SCOPES},
-    edges={"OBSERVED_DURING", "INFORMS"},
-)
-
-reflect_capability = Capability(
-    name="reflect",
-    home="memory",
-    verbs={
-        "note":   {"role": "act", "fn": note, "inject": ["memory", "intent_id"]},
-        "recall": {"role": "transform", "fn": recall, "inject": ["memory"]},
-        "search": {"role": "transform", "fn": search, "inject": ["memory"]},
-    },
-    ontology=reflect_ontology,
-)
+    @verb(role="transform")
+    def search(self, query: str) -> dict:
+        "Keyword search over reflection text (deterministic substring match)."
+        q = (query or "").lower()
+        out = [{"scope": r["scope"], "text": r["text"]}
+               for r in self.ctx.find("Reflection") if q in r["text"].lower()]
+        return {"result": out}

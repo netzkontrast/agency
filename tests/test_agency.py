@@ -831,3 +831,57 @@ def test_cli_emits_json_on_error():
     assert proc.returncode == 1
     out = json.loads(proc.stdout)                            # ONE JSON document, never a raw traceback
     assert "error" in out
+
+
+def test_reflect_is_the_class_form():
+    """The reference migration: `reflect` is authored as a CapabilityBase subclass,
+    yet registers + behaves identically (verbs note/recall/search)."""
+    from agency.capability import CapabilityBase
+    from agency.capabilities.reflect import ReflectCapability
+    assert issubclass(ReflectCapability, CapabilityBase)
+    e = fresh()
+    assert set(e.registry.get("reflect").verbs) == {"note", "recall", "search"}
+    e.memory.close()
+
+
+def test_capability_context_delegates_with_provenance_and_guards_recursion():
+    """A CapabilityBase verb reaches everything via `self.ctx`: `ctx.call` delegates
+    to a sibling capability and the delegated Invocation is provenance too; a
+    self-call is stopped by the recursion-depth guard."""
+    from agency.capability import CapabilityBase, verb
+
+    class Compose(CapabilityBase):
+        name = "compose"
+        home = "capability"
+
+        @verb(role="act")
+        def lint_then_note(self, name: str, description: str) -> dict:
+            res = self.ctx.call("plugin", "lint_skill", name=name, description=description)
+            rid = self.ctx.record("Reflection", {"scope": "technical", "text": f"ok={res['ok']}"})
+            self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+            return {"result": {"ok": res["ok"], "note": rid}}
+
+    class Loop(CapabilityBase):
+        name = "loop"
+        home = "capability"
+
+        @verb(role="transform")
+        def go(self) -> dict:
+            return {"result": self.ctx.call("loop", "go")}
+
+    e = fresh()
+    e.registry.register(Compose.as_capability())             # opportunistic late registration
+    e.registry.register(Loop.as_capability())
+    iid = e.intent.capture("compose", "a clean skill", "ok")
+    e.intent.confirm(iid)
+
+    out, _ = e.registry.invoke(e.memory, iid, "compose", "lint_then_note",
+                               name="good-name", description="Use when you ship code")
+    assert out["result"]["ok"] is True
+    # both the compose verb AND the delegated lint_skill are recorded as SERVING the intent
+    verbs = [n.get("verb") for n in e.memory.provenance(iid)["serves"] if n.get("verb")]
+    assert "lint_then_note" in verbs and "lint_skill" in verbs
+
+    with pytest.raises(ValueError):                          # ctx.call recursion guard
+        e.registry.invoke(e.memory, iid, "loop", "go")
+    e.memory.close()
