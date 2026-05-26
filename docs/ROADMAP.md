@@ -2,58 +2,67 @@
 slug: roadmap
 type: roadmap
 status: ready
-summary: The Plan for the agency plugin — establish the engine, anchor the first capability (jules), then broaden. The canon (docs/vision/) defines the model; this tracks the plan and what comes next.
+summary: The Plan for the agency plugin (v2.1) — establish the engine + the four domains, anchor the first capability (jules in who, one authored aspect + lazy rest) as the minimal proof, then broaden. Maps research-surfaced features to their domain or engine home. The canon (docs/vision/) defines the model; this tracks the plan.
 ---
 
-# Roadmap — the Plan
+# Roadmap — the Plan (v2.1)
 
-The canon in `docs/vision/` defines the model. This file tracks the Plan. At
-this stage the repo is the Concept, Vision canon, and Plan; implementation
-follows on this branch in phased commits. Do not claim code is implemented that
-is not.
+The canon in `docs/vision/` defines the **v2.1 four-domain 5W1H model**. This
+file tracks the Plan. At this stage the repo is the Concept, Vision canon, and
+Plan — all documentation; implementation follows on this branch in phased
+commits. **Do not claim code is implemented that is not.** Everything is
+**"specced — not built"** unless explicitly marked otherwise.
 
-## 1 — Establish the engine
+## 1 — Establish the engine + four domains
 
-The three domains:
+- **Engine** — the four-verb meta-contract (`list_tools` / `call_tool` /
+  `list_skills` / `dispatch_skill`), code-mode call surface, progressive
+  disclosure (cold boot exposes only the four meta-verbs), engine guards
+  (quality-score, loop-detection, compaction checkpoints, `Slot`/quota).
+- **intent** — `why.capture` / `why.confirm` → the pinned Intent node;
+  `SERVES_INTENT` edges.
+- **who / how / when / where** — the four domains over the two-axis canonical
+  verb frame; `where` as the bi-temporal append-only GraphQLite graph with
+  `where.project()`.
 
-- `agentic` harness — four-verb contract, domain/capability discovery, name
-  derivation, CodeMode rendering, cold-boot under the token budget (the harness
-  exists in the prototype).
-- `workflow` runner — graph-path walking, gate evaluation, `Continuation`
-  nodes; a capability's workflow aspect materializes lazily as `Phase` nodes.
-- `context` store — GraphQLite store, pre/post-tool hooks, artefact-driver
-  protocol + `fs` driver, runtime schemas; the only persistent state.
+## 2 — First capability: `jules` (the minimal proof)
 
-## 2 — First capability: `jules`
+Anchored in **`who`** (its home domain): the async-coding orchestrator authored
+as the **who aspect** (dispatch / handoff / release + poll / roster / verify +
+the orchestration verbs), exposed as `mcp__who_jules_*` /
+`/agency:who:jules:*` / `who.jules.*`. Its **how aspect** (`patch` / `bulk`),
+**when aspect** (the task state machine, incl. silent-fail recovery —
+`COMPLETED` ≠ done), and **where aspect** (sessions / patches / lessons) stay
+**lazy** — they materialize as graph nodes when first needed. Plus the worked
+example ([EXAMPLE.md](vision/EXAMPLE.md)).
 
-Anchored in `agentic` (its home domain): the async-coding orchestrator
-(lifecycle, patches, bulk, source, trim, aliases) authored as the agentic
-aspect and exposed as `mcp__agentic_jules_*` + `/agency:agentic:jules:*`. Its
-**workflow aspect** (session state machine, incl. silent-fail recovery) and
-**context aspect** (session / patch / lesson memory) stay **lazy** — they
-materialize as graph nodes when first needed. This proves lazy-domaining end to
-end: one authored aspect, the rest lazy, no eager triplication.
+This proves lazy-domaining end to end: **one authored aspect, the rest lazy, no
+eager triplication, no eager folders for the other domains.**
 
 ## 3 — Broaden
 
 More capabilities, each placed by primary concern, plus cross-cutting engine
-features surfaced in research. Each item below is addressed as an engine
-feature OR a capability/aspect:
+features surfaced in research. Each research-surfaced feature is homed at a
+specific domain OR the engine:
 
-- **More capabilities** — `music` (home workflow; authors all three aspects),
-  `novel`, and others.
-- **Context-mode** — manifest, anchor triad, cache, watchers.
-- **Centralized ontology + GraphQLite** — one graph, one schema registry.
-- **Quality / loop-detection / compaction** — engine-level guards for
-  long-horizon runs.
-- **`agents.yaml` role manifest** — declarative agent roles.
-- **Composable watcher SDK** — reusable watchers for state changes.
-- **Harness-in-harness** — the L1/L2/L3 dispatch ladder.
-- **Cross-capability dispatch** — first-class one capability invoking another's
-  aspect via the four-verb contract, recorded as a `DISPATCHED_TO` edge (the
-  edge type already exists; e.g. `meta-development` → `jules`).
-- **Driver registry beyond `fs`** — `repo`, `s3`, `http`, `drive`.
+| Research-surfaced feature | Home |
+|---|---|
+| Context-mode (anchor triad, cache, watchers) | **where** |
+| Ontology / GraphQLite (one graph, one schema registry) | **where** |
+| `agents.yaml` role manifest | **who** |
+| Composable watcher SDK | **who** |
+| Quality / loop-detection | **engine guards** |
+| Compaction checkpoints + memory tool | **engine guards** |
+| Code-mode (callable domain API, in-sandbox deltas) | **engine** |
+| Harness-in-harness (nested Dispatch + SharedContext) | **who** |
+| `Slot` / quota accounting | **engine guards** (read by who) |
+| Driver registry beyond `fs` (`repo`/`s3`/`http`/`drive`) | **where** |
+| TOON tabular projections | **where** (`where.project`) |
+
+- **More capabilities** — `music` (home `how`; authors craft + heavier
+  aspects), `novel`, `meta-development` (home `who`; dispatches `jules`).
 
 ## Later
 
-- Hot-reload of skills; an alternative graph driver for larger deployments.
+- Hot-reload of capabilities; an alternative graph driver for larger
+  deployments.

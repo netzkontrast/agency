@@ -2,110 +2,124 @@
 slug: vision-overview
 type: vision
 status: ready
-summary: The model — one engine, three domains (agentic, workflow, context). A capability is authored in one home domain and expressed across the domains as isomorphic aspects, materialized only when needed (lazy-domaining). Names derive from (domain, capability, export). Products live outside the system via drivers.
+summary: The v2.1 model — one engine, one graph, designed as the 5W1H decomposition of work. The human owns Why/What = INTENT; the engine executes who/how/when/where as four isomorphic domains sharing a two-axis canonical verb frame. Capabilities are authored in one home domain and expressed across the four as aspects, materialized lazily. Names self-describe.
 ---
 
-# Overview — one engine, three domains, capabilities as aspects
+# Overview — intent + four domains (5W1H)
 
-The agency plugin is ONE Claude Code plugin, ONE FastMCP engine, backed by ONE
-GraphQLite graph. It exposes exactly **three domains**: `agentic`, `workflow`,
-`context`. These are the only units exported as skills and as MCP (CodeMode)
-surfaces. Everything the plugin can do is reached through one of the three.
+The agency plugin is ONE Claude Code plugin: **ONE FastMCP engine** backed by
+**ONE GraphQLite graph**. Its design is the **5W1H decomposition** of any unit
+of work — who, what, when, where, why, how. The human owns **Why / What**; the
+engine owns the other four.
 
-## The three domains
+## INTENT — the human's root (why / what)
 
-- **agentic** — actions. Skills, MCP tool handlers, and the four-verb harness
-  (`list_tools` / `call_tool` / `list_skills` / `dispatch_skill`). The engine
-  that hosts everything.
-- **workflow** — process. Graph-walking state machines: phases, gates,
-  continuations — lazily linked as paths through the graph.
-- **context** — memory. The GraphQLite node/edge graph + schemas + artefact
-  drivers + hooks. The only persistent state.
+The human owns **Why / What = INTENT**: the reason the work exists and what
+"done" means. Intent is captured via `why.capture` → `why.confirm` and
+persisted as a single **Intent node**, **pinned once** and thereafter
+referenced by node-id (cache-safe — the text is never re-pasted). Every action
+the engine takes edges back to it via a `SERVES_INTENT` edge.
+
+Intent is its **own root**, distinct from `where`'s execution memory: `where`
+remembers what happened; the Intent node remembers why it was supposed to
+happen. See [specs/intent.md](specs/intent.md).
+
+## The four domains
+
+- **who** — the agent-**session** lifecycle. Which actor performs the work:
+  dispatch, handoff, supervision, harness-in-harness. See [specs/who.md](specs/who.md).
+- **how** — the **craft**: skills, tools, actions. An OPEN domain of
+  capability-specific verbs, discoverable through a mandatory
+  `how.<capability>.help`. See [specs/how.md](specs/how.md).
+- **when** — the **task / process** lifecycle: order, gates, scheduling,
+  triggers. See [specs/when.md](specs/when.md).
+- **where** — **memory**: a bi-temporal, append-only GraphQLite graph plus
+  artefacts. See [specs/where.md](specs/where.md).
+
+The four are **isomorphic domains** — each is a lens on the same work, not a
+layer stacked on the others.
+
+### who ↔ when boundary
+
+`when` owns the **TASK** lifecycle (the process and its gates); `who` owns the
+**AGENT-SESSION** lifecycle (the actor doing the work). A `DRIVES` edge links a
+who-session to the when-task it advances. State is **never duplicated** across
+them: a session's progress lives in `who`; a task's phase/gate state lives in
+`when`; the `DRIVES` edge is the join.
+
+## The two-axis canonical verb frame
+
+The three **closed** domains (who / when / where) share ONE verb frame. Every
+function maps to exactly one axis:
+
+- **Lifecycle** (write): `open · move · close`
+- **Observe** (read): `read · find · check` (plus `watch` for live / subscribe)
+
+| Domain | open | move | close | read | find | check |
+|---|---|---|---|---|---|---|
+| **who** | dispatch | handoff | release | poll | roster | verify |
+| **when** | start | advance | complete | status | list | check (gate) |
+| **where** | record | link | supersede | recall | find | validate |
+
+`how` is the **OPEN** domain: its verbs are capability-specific (music:
+`write` / `master` / `mix`; jules: `patch` / `bulk`), and each is **TAGGED**
+with the frame role it fills. A specialist verb is allowed to live in any
+closed domain, but it MUST declare its frame role, and that role is surfaced as
+a call-site **ALIAS** — e.g. `where.music.supersede` ≡ `where.music.close`. The
+frame is the spine; specialist names are skins over it.
 
 ## Capabilities express themselves as aspects
 
-A **capability** is a vertical area of work — e.g. `jules`, `music`, `novel`.
-It is **authored in exactly one home domain** (its primary concern). It then
-expresses itself across the domains as **aspects**:
+A **capability** is a vertical area of work — e.g. `jules`, `music`, `novel`,
+`meta-development`. It is **authored in exactly one home domain** (its primary
+concern) and expresses itself across the four domains as **aspects**: a who
+aspect, a how aspect, a when aspect, a where aspect. The aspects are the SAME
+capability faithfully restated in each domain's language — they are
+**isomorphic**.
 
-- its **agentic aspect** — its actions,
-- its **workflow aspect** — its state machine,
-- its **context aspect** — its memory.
-
-The three aspects are the SAME capability faithfully restated in each domain's
-language — they are **isomorphic**. A capability is placed by its primary
-concern: orchestration → home in agentic, a multi-step process → home in
-workflow, a data/schema concern → home in context.
-
-## Lazy-domaining
+### Lazy-domaining
 
 A capability materializes an aspect in a non-home domain **only when it needs
-one** — this is **lazy-domaining**.
+one** — **lazy-domaining**.
 
-- The default is **lazy graph data**: a workflow aspect appears as `Phase` /
-  `Continuation` nodes the moment the capability first needs state; a context
-  aspect appears as `Artefact` / memory nodes the moment it first produces or
-  learns. No authored folder is required.
-- A capability with **fixed structure** may instead **author** an aspect — a
-  workflow pipeline of phase files + gates, or context schemas + templates.
+- The default is **lazy graph data**: a when aspect appears as `Task` / gate
+  nodes the moment the capability first needs process state; a where aspect
+  appears as `Artefact` / memory nodes the moment it first produces or learns.
+  No authored folder is required.
+- A capability with **fixed structure** may instead **author** an aspect.
 - Authored or lazy, **the holding domain owns the aspect**.
 
-There is **no eager triplication and no forced isomorphism** beyond what a
-capability actually needs.
+There is **no eager 4× triplication** and no forced isomorphism beyond what a
+capability actually needs. See [specs/capability-and-aspects.md](specs/capability-and-aspects.md).
 
-## Export & naming (self-explaining)
+## Naming (self-describing)
 
-The harness derives every public name from `(domain, capability, export)`:
+Every public name derives from `(domain, capability, verb)`:
 
-- MCP tools: `mcp__<domain>_<capability>_<export>` — e.g.
-  `mcp__agentic_jules_create`, `mcp__workflow_jules_advance`,
-  `mcp__context_jules_recall`.
-- Skills: `/<plugin>:<domain>:<capability>:<export>` — e.g.
-  `/agency:agentic:jules:research`.
+- MCP tool: `mcp__<domain>_<capability>_<verb>` — e.g. `mcp__who_jules_dispatch`.
+- Skill: `/agency:<domain>:<capability>:<verb>` — e.g. `/agency:how:jules:patch`.
+- code-mode: `domain.capability.verb()` — e.g. `where.jules.record(...)`.
 
-The name alone tells you the domain, the capability, and the export. The
-capability name is shared across domains; each domain owns its own exports for
-that capability. CodeMode renders one call-surface per domain; a capability's
-exports appear as grouped functions within it (e.g. `agentic.jules.create(...)`).
+The name alone tells you the domain, the capability, and the verb.
 
-## Per-domain aspect shape (when authored)
+## The stress test (proves the model)
 
-When a capability authors an aspect, it follows that domain's canonical shape —
-so knowing a domain teaches you all its aspects:
+- **`jules`** (home `who`): the async-coding orchestrator. Who aspect authored
+  (dispatch / handoff / release + poll / verify, plus the orchestration verbs);
+  how aspect lazy until its first specialist verb (`how.jules.patch`); when
+  aspect lazy (the task state machine, incl. silent-fail recovery —
+  `COMPLETED` ≠ done); where aspect lazy (sessions / patches / lessons). One
+  authored aspect. **This is the minimal proof.**
+- **`music`** (home `how`, specced — not built): heavy craft (write / master /
+  mix), authoring across domains; the "fully-domained" extreme proving home ≠
+  exclusive ownership.
+- **`meta-development`** (home `who`, specced — not built): the system improving
+  itself; its where aspect is the system's own graph (reflexive); it dispatches
+  `jules` via `who.dispatch`.
 
-| Domain | Authored aspect shape |
-|---|---|
-| agentic | `manifest.toml` + `handlers/<export>.py` + `skills/<export>/SKILL.md` |
-| workflow | `manifest.toml` + `phases/<NN>-*.md` + `gates/*.yaml` |
-| context | `manifest.toml` + `schemas/*.schema.json` + `templates/*.jinja` |
+## Scope
 
-Adding a capability = authoring its **home aspect** in one domain and letting
-the other aspects stay lazy until needed.
-
-## Stress test (proves the model)
-
-- **`jules`** (home agentic): agentic aspect authored (lifecycle / patch /
-  bulk); workflow aspect lazy (session state machine, incl. silent-fail
-  recovery — `COMPLETED` ≠ done); context aspect lazy (sessions / patches /
-  lessons). One authored aspect.
-- **`music`** (home workflow): heavy in all three; authors all three
-  (pre-generation + pre-release pipelines with hard gates; ~50 skills; Track /
-  Album schemas + audio artefacts). The "fully-domained" extreme — proves home
-  ≠ exclusive ownership.
-- **`meta-development`** (self-improvement, home agentic): workflow aspect is a
-  LOOP (observe → diagnose → propose → implement → verify → record); context
-  aspect is the system's own graph (reflexive); dispatches `jules` →
-  cross-capability dispatch.
-
-## Cross-capability dispatch (sketch, not yet first-classed)
-
-One capability invokes another's aspect via the four-verb contract, recorded as
-a `DISPATCHED_TO` graph edge (e.g. `meta-development` → `jules`). The edge type
-already exists in the graph.
-
-## Products live outside the system
-
-The three domains describe the machine. Final artefacts (code patches, files,
-documents) are the product: they live in user-owned storage via pluggable
-artefact drivers and are recorded as `Artefact` nodes in the graph. No metadata
-sidecar files are written to user storage.
+The Vision DOCUMENTS this entire four-domain model. The buildable/committed
+slice is MINIMAL — `jules` in `who`, one authored aspect, the rest lazy, plus
+the worked example. Everything else is **"specced — not built."** This repo is
+documentation; no code is implemented here.
