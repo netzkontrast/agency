@@ -1,10 +1,9 @@
 # agency — Core (v4, radically cut)
 
-> Supersedes the v3 `VISION.md` / `DESIGN.md` drafts (kept in the prototype repo
-> as the critiqued artifact). The adversarial panel (4/4) cut the 5W1H /
-> six-domain model to its irreducible core. **5W1H is now a lens, not the
-> architecture.** Names follow structure. The projection is an *observation*, not
-> a mechanism.
+> Supersedes the v3 `VISION.md` / `DESIGN.md` drafts (kept alongside as the
+> critiqued artifact). The adversarial panel (4/4) cut the 5W1H / six-domain
+> model to its irreducible core. **5W1H is now a lens, not the architecture.**
+> Names follow structure. The projection is an *observation*, not a mechanism.
 
 ## Four concepts + one substrate
 
@@ -15,9 +14,9 @@ that chains tools (`await call_tool(...)`); intermediate results stay in-sandbox
 only deltas cross into context. Tools are discovered via `search`. This one
 contract is exposed **three isomorphic ways — MCP · Skills · a bash CLI** (the
 harness-in-harness ladder) so a bash-only agent (Jules, no MCP/Skill) is a
-first-class participant; proven in the repo's `seed/` (`AGENTS.md` + a bash↔MCP
-isomorphism test). Cross-cutting guards (quality-score, loop-detection,
-compaction, `Slot`/quota) are engine middleware, **not** concepts.
+first-class participant; proven in `../agency/` (`AGENTS.md` + a bash↔MCP isomorphism
+test). Cross-cutting guards (quality-score, loop-detection, compaction,
+`Slot`/quota) are engine middleware, **not** concepts.
 
 **1. Intent** *(human-owned).* A supersedable node carrying **purpose +
 acceptance**, with the **deliverable as an attribute** (why/what merged).
@@ -61,7 +60,25 @@ typed answer), `ctx.sample(...)` (ask the caller's LLM), or `ctx.report_progress
 (stream). A gate that needs a human is just an `elicit` → the Lifecycle pauses at
 `input-required`, the answer resumes it, the outcome is recorded as a `Gate`.
 "askuser" is therefore not a special case — it is one node in the chain. All of
-this is proven runnable in the repo's `seed/` (real `ctx.elicit` round-trip).
+this is proven runnable in `../agency/` (real `ctx.elicit` round-trip).
+
+## Schemas & templates (the typed/generative layer)
+
+Both are ordinary nodes in **Memory**, forming a generate/validate pair:
+- A **Schema** is the typed contract for a node / artefact / verb-params. It powers
+  `validate` / `check`. **Design intent:** one schema per verb renders three ways
+  (MCP `inputSchema`, the Skill's frontmatter, the bash CLI's arg parser) — the
+  *isomorphism glue*. *(Not yet wired: in the seed the MCP `inputSchema` is derived
+  by FastMCP from the verb signature; making the ontology schema the single source
+  is the next step.)* In the seed today the ontology IS enforced on the graph
+  (`record`/`link` reject missing fields, broken enums, and unknown edges).
+- A **Template** is a parameterized generator. It powers `act`: a Capability
+  produces an Artefact `DERIVED_FROM` the Template, which `VALIDATES_AGAINST` its
+  Schema.
+
+Proven runnable in `../agency/` (a Template renders an Artefact that a Schema
+validates; a missing field fails). This is how a real capability ports: its verbs
+(Capability) + its schemas/templates (Memory) + its pipeline (Lifecycle).
 
 ## Dropped (and why)
 
@@ -85,10 +102,44 @@ Structure-first. Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool
 names `<concept>_<capability>_<verb>` (underscores, ≤64, no dots; the client
 injects `mcp__`).
 
-## Status
+## Status: the installable `agency` plugin proves it (19/19 green, `../agency/`)
 
-The core is **proven runnable** in `seed/` (7/7 green on graphqlite + fastmcp):
-the provenance moat, two-capability expressiveness, bi-temporal memory,
-`COMPLETED ≠ done`, code-mode as the contract, code-mode tool-chaining,
-gate/elicitation, and the bash↔MCP isomorphism that makes a shell-only agent a
-first-class participant.
+The seed has **graduated into an installable Claude Code plugin** (`../agency/`).
+Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:
+
+- the **provenance moat** (one traversal);
+- **two genuinely different capabilities** — a synchronous craft/compute
+  (`plugin`) and the **REAL Jules agent** wired to the actual orchestrator
+  (`jules_create`/`get`);
+- **bi-temporal memory** (`as_of`); **`COMPLETED != done`** (real Jules `verify`:
+  state completed AND a branch on origin);
+- **code-mode is the contract** (`search`/`get_schema`/`execute`) — exposed
+  isomorphically over MCP and a **bash CLI** (Jules-dogfooded, PR #175);
+- **code-mode tool-chaining**; **gates via `elicit`**;
+- **schemas & templates** (typed/generative layer);
+- a **strictly enforced ontology** (`ontology.py`: per-node required-field schemas
+  + an enumerated edge set + closed enums; `record`/`link`/`update` reject drift);
+- a **micro-step skill walker** (`skill.py`): one phase at a time (progressive
+  disclosure) through a **hard gate**, recording each phase as provenance;
+- **capabilities self-register by reflection** — the engine `discover()`s every
+  `Capability` in `capabilities/` and auto-wires one MCP tool per verb from the
+  verb signature (`inspect.signature`): adding a capability is adding a file;
+- the **plugin-development capability** — a complete port of the superpowers
+  skill-creation (`writing-skills`, Iron Law enforced by phase ordering) + plugin
+  authoring (manifest · SKILL.md · command · marketplace entry · CSO linter);
+- a **self-hosted install** — the engine authors and validates its own
+  `.claude-plugin/plugin.json` + `help` macroskill (mapping macroskills → verbs);
+- an **extensible, capability-owned ontology** — the core defines a base; each
+  capability contributes its own node types / skills / template-schemas
+  (`Capability.ontology`), merged strictly onto the core and enforced in Memory;
+- the **`reflect` capability** — durable, scope-tagged cross-session memory
+  (`note`/`recall`/`search` over `Reflection` nodes the capability owns).
+
+The whole capability landscape of every installed plugin was surveyed, clustered,
+and spec-paneled — see `CAPABILITY-CLUSTERS.md`. Verdict: the four concepts + the
+engine absorb it all; the only net-new specs were **`delegate`** (agent fan-out +
+quota + join) and **`reflect`** (durable cross-session memory) — `reflect` is now
+built.
+
+Next: build the `delegate` spec; grow the capability set by dropping files into
+`capabilities/` (no wiring).

@@ -7,10 +7,10 @@ separate invocations. It drives the very same code-mode surface
 (`search` / `get_schema` / `execute`) the MCP transport exposes, so bash and MCP
 are isomorphic by construction: same engine, same contract, same results.
 
-    python -m agency_seed.cli --db graph.db search "syllable"
-    python -m agency_seed.cli --db graph.db get-schema capability_syllables_count
-    python -m agency_seed.cli --db graph.db execute --code 'return await call_tool("capability_syllables_count", {"text": "fix the auth test", "intent_id": "intent:abc"})'
-    echo 'return await call_tool(...)' | python -m agency_seed.cli --db graph.db execute
+    python -m agency.cli --db graph.db search "lint skill"
+    python -m agency.cli --db graph.db get-schema capability_plugin_lint_skill
+    python -m agency.cli --db graph.db execute --code 'return await call_tool("capability_plugin_lint_skill", {"name": "Bad Name", "description": "does stuff", "intent_id": "intent:abc"})'
+    echo 'return await call_tool(...)' | python -m agency.cli --db graph.db execute
 
 Every command prints a single JSON document to stdout (token-safe, scriptable).
 The agent writes CODE that chains tools in-sandbox and returns only a delta — no
@@ -52,7 +52,23 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("tools", nargs="+")
     x = sub.add_parser("execute", help="run a code block that chains tools; returns a delta")
     x.add_argument("--code", default=None, help="code to run (else read from stdin)")
+    i = sub.add_parser("intent", help="capture + confirm an Intent; prints its id")
+    i.add_argument("--purpose", required=True)
+    i.add_argument("--deliverable", required=True)
+    i.add_argument("--acceptance", required=True)   # ontology requires it (non-empty)
     args = p.parse_args(argv)
+
+    # `intent` is the one verb that bootstraps state without an existing intent,
+    # so a bash-only agent is fully self-sufficient (Jules review PR #175, finding #3).
+    if args.cmd == "intent":
+        engine = Engine(args.db)
+        try:
+            iid = engine.intent.capture(args.purpose, args.deliverable, args.acceptance)
+            engine.intent.confirm(iid)
+        finally:
+            engine.memory.close()
+        print(json.dumps({"intent_id": iid}))
+        return 0
 
     if args.cmd == "search":
         name, params = "search", {"query": args.query}

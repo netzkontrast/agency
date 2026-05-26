@@ -1,89 +1,76 @@
 # agency — Claude Code plugin
 
-This repo **is** the `agency` plugin: **ONE FastMCP engine + ONE bi-temporal
-GraphQLite graph**, designed as **four concepts** over one substrate. The repo
-holds the **Concept, the Vision canon (v4), the Plan — and the first running
-code** (`seed/`). The canon in `docs/vision/` is authoritative — **the canon
-wins; code serves it.**
+This repo **is** the installable `agency` plugin: **ONE FastMCP engine + ONE
+bi-temporal GraphQLite graph**, four concepts over one substrate. The vision
+canon lives in `docs/vision/` (CORE.md is authoritative); the running engine is
+the `agency/` package at the repo root. **The canon wins; code serves it.**
 
-> **Supersedes v2.1.** The three-domain model (agentic / workflow / context) and
-> capability/aspect/lazy-domaining are superseded. 5W1H is now a lens, not the
-> architecture. Read [`docs/vision/CORE.md`](docs/vision/CORE.md) first.
+> Read [`docs/vision/CORE.md`](docs/vision/CORE.md) first, then
+> [`docs/getting-started.md`](docs/getting-started.md).
 
 ## The model (detail: docs/vision/CORE.md)
 
 Four concepts + one substrate (the Engine):
 
-- **Intent** *(human-owned)* — purpose + acceptance, deliverable as an attribute
-  (why/what merged). `capture · confirm · amend` (amend via supersede).
-  Everything edges back via `SERVES`. See [specs/intent.md](docs/vision/specs/intent.md).
+- **Intent** *(human-owned)* — purpose + acceptance, deliverable as an attribute.
+  `capture · confirm · amend` (amend via supersede). Everything edges back via `SERVES`.
 - **Capability** *(the craft — open set)* — invokable actions; verbs are
-  capability-defined and role-tagged `act` / `transform` / `effect`. Discover via
-  `<capability>.help`. See [specs/capability.md](docs/vision/specs/capability.md).
-- **Lifecycle** *(state + gates)* — the task/agent state-machine. Write frame
-  `open · move · close`; observe frame `read · find · check · watch`. A2A-aligned
-  states; an agent is a Lifecycle parameterization; `COMPLETED ≠ done`. See
-  [specs/lifecycle.md](docs/vision/specs/lifecycle.md).
-- **Memory** *(the moat)* — one bi-temporal append-only graph; `record · link ·
-  supersede` + `recall · find · validate`; `project(query, budget)`.
-  Cross-concern provenance is one traversal. See [specs/memory.md](docs/vision/specs/memory.md).
+  role-tagged `act` / `transform` / `effect`. Discovered by reflection.
+- **Lifecycle** *(state + gates)* — the task/agent state-machine; an agent is a
+  Lifecycle parameterization; `COMPLETED ≠ done`. Skills are Lifecycle templates.
+- **Memory** *(the moat)* — one bi-temporal append-only graph; cross-concern
+  provenance is one traversal.
 
-**Engine** = the substrate, NOT a concept: the four-verb contract + `execute(code)`
-code-mode. Guards (quality-score, loop-detection, compaction, `Slot`/quota) are
-engine middleware. See [specs/engine.md](docs/vision/specs/engine.md).
+**Engine** = the substrate. **Code-mode IS the contract** (no four-verb surface):
+the public surface is exactly `search` · `get_schema` · `execute`. Tools are
+discovered via `search` and called from inside `execute`. Exposed isomorphically
+over **MCP · Skills · a bash CLI** (`AGENTS.md`).
 
-## Skills are atomic, gated step-graphs
+## Capabilities are self-registering (add a file)
 
-A skill is a **Lifecycle template: a graph of atomic Capability steps + Gates**,
-walked via code-mode with progressive disclosure (only the next step's
-instruction loads). Gates / intent-verification / askuser are `ctx.elicit` steps:
-the Lifecycle pauses at `input-required`, the answer resumes it, the outcome is a
-`Gate`. See [specs/skills-and-gates.md](docs/vision/specs/skills-and-gates.md).
+Drop a module in `agency/capabilities/` that defines a `Capability` with
+role-tagged verbs. The engine `discover()`s it (reflection) and AUTO-WIRES one
+MCP tool per verb from the verb signature — no central registration, no per-tool
+boilerplate. A capability may carry its own `OntologyExtension` (node types,
+enums, skills, template-schemas), merged **strictly** onto the core ontology.
 
-## Naming (structure-first, self-describing)
+Shipped capabilities:
 
-Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool names
-`<concept>_<capability>_<verb>` — underscores, ≤64 chars, no dots; the client
-injects the `mcp__` prefix.
+| Capability | Role(s) | What |
+|---|---|---|
+| `plugin` | act/transform | Develop plugins: scaffold manifest, author skill/command, marketplace entry, lint skills (CSO rules), help |
+| `jules` | effect/transform | Dispatch real remote async Jules sessions; `COMPLETED ≠ done` `verify` |
+| `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`recall`/`search`) |
 
-## Where to look
+## Skills (installable, in `skills/`)
 
-| Task | Open |
-|---|---|
-| The authoritative v4 model | `docs/vision/CORE.md` |
-| Reading order for the canon | `docs/vision/README.md` |
-| The model, narrative | `docs/vision/OVERVIEW.md` |
-| The runtime + context-engineering commitments | `docs/vision/ARCHITECTURE.md` |
-| A worked walkthrough (now executable in `seed/`) | `docs/vision/EXAMPLE.md` |
-| The Engine substrate | `docs/vision/specs/engine.md` |
-| A concept contract | `docs/vision/specs/{intent,capability,lifecycle,memory}.md` |
-| Atomic step-graphs + elicitation | `docs/vision/specs/skills-and-gates.md` |
-| Every skill/function mapped to v4 | `docs/vision/PORTING-ROADMAP.md` |
-| Terms | `docs/vision/VOCABULARY.md` |
-| Durable lessons | `docs/vision/LESSONS.md` |
-| What's next | `docs/ROADMAP.md` |
-| The running seed | `seed/README.md` |
+- `plugin-development` — build/extend a plugin (drives the plugin-dev chain).
+- `skill-creation` — RED→GREEN→REFACTOR skill authoring (the Iron Law).
+- `help` — the macroskill→micro-skill discovery surface (generated by the engine).
 
-## Scope discipline
+## Jules backend (external dependency)
 
-The canon documents the full four-concept model. The first RUNNING code is
-`seed/` — a proof-of-concept (not the shipped engine) that proves the moat,
-code-mode chaining, and gate/elicitation. Everything else is **"specced — not
-built."** Do not claim other code is implemented.
-
-## How to work
-
-- Design before code: `superpowers:brainstorming` → `superpowers:writing-plans`
-  → `superpowers:executing-plans`. New skills via `superpowers:writing-skills`.
-- Analysis / design / spec review: the `sc:` (superclaude) skills.
-- Claude Code plugin / MCP / hook mechanics: the
-  `superpowers-developing-for-claude-code` plugin.
-- Add a capability = register its role-tagged verbs; its Lifecycle, gates, and
-  Memory edges follow from invoking it (every `call_tool` records an Invocation
-  that `SERVES` the Intent). No eager cross-concern scaffolding.
+The `jules` capability talks to the real Jules REST API via the vendored,
+httpx-based client `agency/capabilities/_jules_api.py`. It needs **`JULES_API_KEY`**
+in the environment (checked at call time) and the GitHub repo connected via the
+Jules GitHub app. `COMPLETED ≠ done`: a session state can read COMPLETED while the
+branch never landed on origin — always `verify` the branch on remote before
+trusting completion (the silent-fail guard).
 
 ## Dev
 
-- Keep `docs/vision/` authoritative; develop on the active feature branch.
-- The seed runs on the real substrate: `cd seed && pip install -r requirements.txt && pytest -q`.
-- Additive commits only — never rewrite history or force-push.
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt
+pytest -q                  # 19/19 green
+python -m agency.install   # regenerate the plugin install (manifest + help skill + command)
+python docs/examples/author_a_plugin.py
+```
+
+- Develop on the active feature branch; **PRs target `main`**. Additive commits;
+  never rewrite history or force-push.
+- Design before code: `superpowers:brainstorming` → `writing-plans` →
+  `executing-plans`. New skills via `superpowers:writing-skills`. Analysis / spec
+  review: the `sc:` (SuperClaude) skills.
+- Keep `docs/vision/` authoritative. Adding a capability = adding a file in
+  `agency/capabilities/` (it self-registers and auto-wires).
