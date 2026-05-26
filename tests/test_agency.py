@@ -886,9 +886,10 @@ def test_capability_context_delegates_with_provenance_and_guards_recursion():
 
 
 def test_delegate_fans_out_under_quota_and_joins():
-    """`delegate` is agent orchestration on ctx.spawn: fan a task across children
-    (capped by a quota), each a recorded Invocation SERVING the intent, with
-    DELEGATES_TO edges; join reduces them. `jules` is the first driver."""
+    """`delegate` is agent orchestration: fan a task across CHILD LIFECYCLES (an
+    agent IS a Lifecycle parameterization), capped by a quota, each dispatched via
+    the driver and edged DELEGATES_TO; join reduces over child state. jules is the
+    first driver."""
     e = fresh(StubJulesClient())                              # jules as the driver
     iid = e.intent.capture("ship many fixes", "N sessions", "all dispatched")
     e.intent.confirm(iid)
@@ -898,15 +899,17 @@ def test_delegate_fans_out_under_quota_and_joins():
                                driver="jules", driver_verb="dispatch", items=items, quota=3)
     r = out["result"]
     assert r["dispatched"] == 3 and r["skipped"] == 2         # the quota ceiling
-    assert all(c["status"] == "completed" for c in r["children"])
+    assert all(c["result"]["status"] == "completed" for c in r["children"])
 
     prov = e.memory.provenance(iid)
     assert sum(1 for n in prov["serves"] if n.get("verb") == "dispatch") == 3   # 3 child dispatches
-    rows = e.memory.g.query("MATCH (d:Delegation)-[:DELEGATES_TO]->(inv) RETURN inv")
-    assert len(rows) == 3                                     # delegation -> 3 children
+    lcs = e.memory.g.query("MATCH (d:Delegation)-[:DELEGATES_TO]->(lc:Lifecycle) RETURN lc")
+    assert len(lcs) == 3                                       # delegation -> 3 child Lifecycles
+    assert all(r["lc"]["properties"]["state"] == "working" for r in lcs)   # dispatched != done
 
     jout, _ = e.registry.invoke(e.memory, iid, "delegate", "join", delegation=r["delegation"])
-    assert jout["result"]["children"] == 3
+    assert jout["result"]["children"] == 3 and jout["result"]["done"] is False  # not done until verified
+    assert jout["result"]["states"] == {"working": 3}
     red = e.memory.g.query("MATCH (d:Delegation)-[:REDUCES_INTO]->(a:Artefact) RETURN a")
     assert len(red) == 1 and red[0]["a"]["properties"]["kind"] == "reduction"
     e.memory.close()

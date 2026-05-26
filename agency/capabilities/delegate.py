@@ -1,14 +1,15 @@
 """delegate — agent orchestration: fan-out + quota + join.
 
-The keystone primitive the capability roadmap flagged. An agent is a Lifecycle
-parameterization; `jules` is one *driver* (a single remote async worker).
-`delegate` generalizes it: fan a task out across N children (each child is an
-invocation of a driver capability/verb), capped by a quota, then join on the
-results. Built entirely on `ctx.spawn` — so every child is a recorded Invocation
-that SERVES the intent, and the delegation is a connected provenance subgraph.
+The keystone primitive the capability roadmap flagged. **An agent IS a Lifecycle
+parameterization** — so fanning out a task means opening one *child Lifecycle* per
+unit of work (each `SERVES` the intent and is `DISPATCHED_TO` the driver agent),
+dispatching the driver, and edging the child Lifecycle to the driver Invocation it
+`DRIVES`. A quota caps how many children are admitted; `join` reduces over the
+children's Lifecycle state (dispatched ≠ done — children start `working` until
+verified). `jules` is the first driver; any capability/verb can drive.
 
-`jules` is the first driver: `fan_out(capability="jules", verb="dispatch", items=…)`
-spawns one remote session per item. Any capability/verb can be the driver.
+Built on `ctx.spawn`, so every child dispatch is a recorded Invocation and the
+whole delegation is a connected provenance subgraph.
 """
 from __future__ import annotations
 
@@ -26,30 +27,43 @@ class DelegateCapability(CapabilityBase):
 
     @verb(role="effect")
     def fan_out(self, driver: str, driver_verb: str, items: list, quota: int = 8) -> dict:
-        """Fan a task out across children: invoke the driver capability/verb once
-        per item (capped at `quota`), each a child Invocation SERVING the intent;
-        record a Delegation node with a DELEGATES_TO edge to every child."""
+        """Open one child Lifecycle per item (capped at `quota`), dispatch the driver
+        for each, and record a Delegation that DELEGATES_TO every child. Children
+        start `working` (dispatched ≠ done)."""
         admitted = items[:quota]
         d = self.ctx.record("Delegation", {"driver": driver, "driver_verb": driver_verb,
                                             "count": len(admitted), "quota": quota})
         self.ctx.link(d, self.ctx.intent_id, "SERVES")
+        aid = f"agent:{driver}"
+        if self.ctx.recall(aid) is None:
+            self.ctx.record("Agent", {"runtime": "delegated"}, node_id=aid)
         children = []
         for item in admitted:
+            lc = self.ctx.record("Lifecycle", {"state": "working", "phase": 0})
+            self.ctx.link(lc, self.ctx.intent_id, "SERVES")
+            self.ctx.link(lc, aid, "DISPATCHED_TO")        # an agent IS a Lifecycle parameterization
+            self.ctx.link(d, lc, "DELEGATES_TO")
             result, inv = self.ctx.spawn(driver, driver_verb, **item)
-            self.ctx.link(d, inv, "DELEGATES_TO")
-            children.append(result)
+            self.ctx.link(lc, inv, "DRIVES")               # the child Lifecycle drives its dispatch
+            children.append({"lifecycle": lc, "result": result})
         return {"result": {"delegation": d, "dispatched": len(admitted),
                            "skipped": len(items) - len(admitted), "children": children}}
 
     @verb(role="transform")
     def join(self, delegation: str) -> dict:
-        """Join a delegation: gather its children and reduce them into one summary
-        artefact (`REDUCES_INTO`). The reduction is itself provenance."""
+        """Reduce a delegation over its children's Lifecycle state (dispatched ≠
+        done): tally states, record a REDUCES_INTO reduction. `done` only when every
+        child Lifecycle is `completed`."""
         rows = self.ctx.memory.g.query(
-            "MATCH (d:Delegation)-[:DELEGATES_TO]->(inv) WHERE d.id = $id RETURN inv",
+            "MATCH (d:Delegation)-[:DELEGATES_TO]->(lc:Lifecycle) WHERE d.id = $id RETURN lc",
             {"id": delegation})
+        states: dict[str, int] = {}
+        for r in rows:
+            s = r["lc"]["properties"].get("state", "?")
+            states[s] = states.get(s, 0) + 1
         children = len(rows)
+        done = children > 0 and states.get("completed", 0) == children
         red = self.ctx.record("Artefact", {"kind": "reduction", "children": children})
         self.ctx.link(delegation, red, "REDUCES_INTO")
         self.ctx.link(red, self.ctx.intent_id, "SERVES")
-        return {"result": {"children": children, "reduction": red}}
+        return {"result": {"children": children, "states": states, "done": done, "reduction": red}}
