@@ -2,7 +2,7 @@
 dispatches a remote async session and inserts a `verify` step, because
 `COMPLETED != done`: the Jules session state flips to COMPLETED even when it
 paused before pushing a branch. `verify` checks the branch on REMOTE — the
-silent-fail guard (CLAUDE.md, JULES_PROTOCOL §8).
+silent-fail guard — always verify the branch on origin before trusting completion.
 
 The capability's boundary is a `JulesBackend` (a Protocol). The default backend,
 `JulesClient`, talks to the real Jules REST API via the vendored `_jules_api`

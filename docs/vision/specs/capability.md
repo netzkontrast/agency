@@ -2,12 +2,12 @@
 slug: spec-capability
 type: spec
 status: ready
-summary: Capability — the craft, the OPEN set. An invokable action whose verbs are capability-defined and role-tagged act (craft write) / transform (stateless compute) / effect (external side-effect). Discover via <capability>.help. Invoking one records an Invocation in Memory edged SERVES->intent. 5W1H cross-sections are an optional observation, not a total function. Seed-proven.
+summary: Capability — the craft, the OPEN set. An invokable action whose verbs are capability-defined and role-tagged act (craft write) / transform (stateless compute) / effect (external side-effect). Discover via <capability>.help. Invoking one records an Invocation in Memory edged SERVES->intent. 5W1H cross-sections are an optional observation, not a total function. Proven.
 ---
 
 # Capability
 
-> **Status: specced; seed-proven where noted.** The seed ships two genuinely
+> **Status: specced; proven where noted.** The engine ships two genuinely
 > different capabilities — a stateless `transform` and an agent.
 
 ## Concept

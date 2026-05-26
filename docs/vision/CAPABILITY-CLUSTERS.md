@@ -1,100 +1,45 @@
-# Capability clusters — surveyed, clustered, spec-paneled
+# Capability roadmap
 
-> How this was produced (the loop): three agents surveyed **every installed
-> plugin** — superpowers (14 skills) + private-journal, bitwize-music (~54 skills,
-> ~72 MCP tools), and the agency-marketplace (~58 skills + a workflow/context/jules
-> runtime). A clustering agent grouped the findings into candidate capabilities. An
-> adversarial spec panel then **integrated them as concepts** against the v4 core.
->
-> **Disposition rule (per directive):** only **skill-creation** and
-> **plugin-development** are *full ports* (built — see `../agency/`). Everything
-> else is integrated **as a concept/spec**, not code.
+The capability surface the engine grows into, organized as clusters. Each cluster
+is a candidate capability (or a facet of an existing concept); the table records
+its role(s), the concept(s) it touches, a one-line spec sketch, and its
+disposition (built in v0.1, or specced-next). New capabilities arrive by dropping
+a file in `agency/capabilities/` — each self-registers and owns its ontology
+fragment.
 
-## The 12 candidate clusters
-
-| Cluster | Role(s) | Absorbs (sources) | Concept | Disposition |
+| Cluster | Role(s) | Concept(s) | Spec sketch | Disposition |
 |---|---|---|---|---|
-| `author-skill` / `plugin-dev` | act, process | writing-skills (sp); plugin/marketplace authoring; setup/health (bitwize) | Capability + Lifecycle + Engine | **full-port (built)** |
-| `delegate` | agent, effect | dispatching-parallel-agents, requesting/subagent-driven review (sp); jules-orchestrator + fan-out/bulk + discipline (agency-mp); release-director, researcher-lead (bitwize) | Capability + Lifecycle + Memory | concept-spec |
-| `gate` | transform, process | Gate Evaluator + phase-gate-envelope (agency-mp); verification-before-completion, receiving-code-review (sp); lyric/explicit/plagiarism/voice/pronunciation reviewers, validate-album, qc_audio, verifier, pre-generation-check (bitwize) | Lifecycle + Memory | concept-spec |
-| `walk-phases` | process, Engine | Pipeline Runner + Envelope state + Manifest Reader (agency-mp); executing-plans (sp); album-conceptualizer 7-phase (bitwize) | Lifecycle + Engine | concept-spec |
-| `craft` | act | lyric-writer, suno-engineer, art-director, promo, sheet-music, mix/mastering, genre, new-album (bitwize); writing-plans, brainstorming (sp) | Capability + Intent + Memory | concept-spec |
-| `transmute` | transform | CodeMode tool-list shaping, anchor tools, patch-summary (agency-mp); state indexer/parsers, help/about (bitwize) | Engine + Capability | concept-spec |
-| `commit-effect` | effect | finishing-a-branch, git-worktrees (sp); silent-fail-recovery (agency-mp); import/rename/promote/clipboard/cloud, document-hunter (bitwize) | Lifecycle + Memory + Engine | concept-spec |
-| `research` | agent, transform | researcher + 9 domain specialists + verifier, document-hunter (bitwize); research+verification chains (agency-mp) | Capability + Memory + Lifecycle | concept-spec |
-| `reflect` | act, transform | journal entries by scope + semantic-search + retrieval (private-journal) | Memory + Intent | concept-spec |
-| `navigate` | transform | resume, dashboard, next-step, state-nav (bitwize); envelope read-views (agency-mp) | Lifecycle + Memory + Intent | concept-spec |
-| `discipline` | process | TDD, systematic-debugging, subagent-driven-development (sp); context-safe-patch, jules-orchestrator-discipline (agency-mp) | Lifecycle | concept-spec |
-| `wire-handlers` | Engine, effect | Cell Loader + CodeMode integration + Store protocol + hooks (agency-mp); ~72 MCP tools + PostToolUse hooks (bitwize) | Engine + Memory | concept-spec |
+| `plugin` (skill + plugin authoring) | act, transform | Capability · Lifecycle · Engine | scaffold a manifest, author skills/commands, marketplace entries, lint skills (CSO rules) | **built (v0.1)** |
+| `develop` (dev disciplines) | process | Lifecycle | brainstorm · plan · tdd · debug · verify · spec-panel · review, as walkable gated skills | **built (v0.1)** |
+| `reflect` (durable memory) | act, transform | Memory | scope-tagged insight nodes + recency/keyword recall | **built (v0.1)** |
+| `jules` (remote async agent) | effect, transform | Capability · Lifecycle | dispatch a remote coding session; `COMPLETED ≠ done` `verify` | **built (v0.1)** |
+| `music` (domain bundle) | act | Capability · Memory | the album conceptualizer (a 7-phase gated skill) + `Album` types | **built (v0.1)** |
+| `delegate` | agent, effect | Capability · Lifecycle · Memory | spawn a child Lifecycle with a scoped Intent + budget; fan out N under a quota; join on terminal states (`DELEGATES_TO`, `REDUCES_INTO`) | **spec — next** |
+| `gate` | transform, process | Lifecycle · Memory | a stateless precondition/quality predicate that passes or blocks a Lifecycle phase, recording evidence | facet of Lifecycle |
+| `craft` | act | Capability · Intent · Memory | produce a domain artefact from an Intent + upstream artefacts | the open `act` set |
+| `transmute` | transform | Engine · Capability | pure functions over artefacts: views, indexes, summaries, tool-list shaping | the open `transform` set |
+| `commit-effect` | effect | Lifecycle · Memory | mutate external state (fs, git, cloud), verify the world reached the intended terminal state | the open `effect` set |
+| `research` | agent, transform | Capability · Memory | a lead agent fans out to specialists; a verifier gate admits only cited claims | composition (delegate + craft + gate) |
+| `navigate` | transform | Lifecycle · Memory · Intent | read-projections: "where am I, what's blocked, what's next" against acceptance | `project` / `provenance` |
+| `wire-handlers` | Engine | Engine · Memory | the substrate: reflection-based discovery + auto-wiring, the extensible ontology | the engine itself |
 
-## Panel verdict — collapse onto the four concepts
+## The verdict (why so few primitives)
 
-The v4 panel's discipline ("5W1H is a lens, not the architecture") applies again:
-**most clusters are facets of the existing four concepts, not new primitives.**
-Multiplying top-level concepts would re-introduce the six-domain bloat v4 cut.
+Most clusters are **facets of the four concepts**, not new top-level primitives —
+`gate`/`craft`/`transmute`/`commit-effect` are just the role-tags (`act` /
+`transform` / `effect`) of the open Capability set; `navigate` is a read
+projection; `wire-handlers` is the engine. Multiplying concepts would re-introduce
+bloat. After the collapse, exactly **two** net-new capabilities are worth specc'ing
+beyond v0.1:
 
-- **`gate` · `discipline` · `walk-phases` are three faces of Lifecycle.** A gate is
-  a *predicate* (a transition precondition), a discipline is a *policy* (an ordering
-  constraint), walk-phases is the *executor* (the skill walker). Keep
-  predicate/policy/executor distinct but all **inside Lifecycle** — they are not new
-  concepts. *Already realized:* `skill.py` is the executor; the hard gate + the
-  `lint_skill`-as-compute is a gate; the `SKILL_CREATION_SKILL` Iron Law (GREEN
-  unreachable until RED produced its baseline) is a discipline **enforced by
-  ordering**.
-- **`craft` · `transmute` · `commit-effect` are just the role-tags `act` /
-  `transform` / `effect`.** They are not concepts; they are the open Capability set.
-  The `plugin` capability already instances `act` + `transform`; `jules` instances
-  `effect`.
-- **`reflect` is Memory-scoped `craft` + a `recall`/`search` transform.** Since
-  Memory is one graph, journaling is a capability that writes scope-tagged nodes and
-  a transform that retrieves them — not a separate store.
-- **`navigate` is a read-projection over Lifecycle+Memory** — i.e. `Memory.project`
-  / `provenance` with an "unsatisfied-gates vs acceptance" view. Already the moat.
-- **`wire-handlers` is the Engine substrate** — and the agency engine now does the
-  reusable half of it: **reflection-based discovery + auto-wiring** (`discover()` +
-  `inspect.signature`), the agency analog of the marketplace's Cell Loader.
-- **`research` is a *composition*, not a primitive** — `delegate` (fan-out to
-  specialists) → `craft` (source nodes) → `gate` (the verifier). Ship it as a **skill
-  template**, not a capability.
-
-## What is genuinely net-new (the next specs)
-
-After the collapse, exactly **one** primitive is missing from the engine, and one
-capability is high-value enough to spec explicitly:
-
-1. **`delegate` (agent role) — the spec worth building next.** An agent IS a
-   Lifecycle parameterization; `delegate` spawns a *child* Lifecycle with a scoped
-   Intent, a context budget, and an acceptance contract, then **fans out** N siblings
-   under a quota ceiling and **joins** on their terminal states. New edges:
-   `DELEGATES_TO`, `REDUCES_INTO`. `jules` is the single-child reference
-   implementation; the fan-out/quota/join is the generalization. This is what lets
-   the engine scale past one context.
-2. **`reflect` (Memory capability).** Scope-tagged insight nodes
-   (`OBSERVED_DURING`, `INFORMS`) + recency/semantic retrieval — the durable
-   cross-session memory the private-journal proves is valuable, expressed as one
-   capability over the one graph.
-
-Everything else in the survey is **already expressible today** as capabilities
-(`act`/`transform`/`effect` verbs), skills (Lifecycle templates of phases + gates),
-or engine substrate — no new architecture required.
-
-## Implemented in v0.1
-
-- **author-skill / plugin-dev** → the `plugin` capability + `plugin-development` /
-  `skill-creation` skills (full port).
-- **reflect** → the `reflect` capability (built).
-- **discipline + walk-phases** → the `develop` capability: the dev-workflow
-  disciplines from superpowers + SuperClaude ship as **walkable agency skills**
-  (`brainstorm · plan · tdd · debug · verify · spec-panel · review`), each a
-  Lifecycle template the engine walks, with installable SKILL.md wrappers — the
-  toolkit for developing the system further.
-- **gate · transmute · craft · commit-effect · navigate · research · wire-handlers**
-  remain expressible today as capability verbs / skills / engine substrate; the
-  one net-new primitive still to build is **`delegate`** (agent fan-out + join).
+1. **`delegate`** — agent fan-out + quota + join. `jules` is the single-child
+   reference; `delegate` generalizes to N children with a join/reduce gate.
+2. **`research`** — a *composition* (delegate → craft → gate), shipped as a skill
+   template rather than a primitive.
 
 ## Confidence
 
-~0.9 that the four concepts + the engine absorb the entire surveyed surface, and
-that `delegate` + `reflect` are the only net-new specs worth carrying forward. The
-residual 0.1: `delegate`'s join/quota semantics and `reflect`'s retrieval ranking
-are unproven until built (the same falsification bar the rest of the seed met).
+~0.9 that the four concepts + the engine absorb the entire surface, and that
+`delegate` is the one net-new primitive worth carrying forward. The residual 0.1:
+`delegate`'s join/quota semantics are unproven until built — the same
+falsification bar every shipped capability met.

@@ -2,7 +2,7 @@
 slug: specs-index
 type: spec-index
 status: ready
-summary: The contracts for each part of the v4 four-concept model. One spec per part — the Engine substrate, the four concepts (intent, capability, lifecycle, memory), and the skills-and-gates step-graph model. Read CORE.md, OVERVIEW.md, ARCHITECTURE.md first. Supersedes the v2.1 who/how/when/where specs.
+summary: The contracts for each part of the v4 four-concept model. One spec per part — the Engine substrate, the four concepts (intent, capability, lifecycle, memory), and the skills-and-gates step-graph model. Read CORE.md, OVERVIEW.md, ARCHITECTURE.md first.
 ---
 
 # Specs — the contracts (per part)
@@ -10,11 +10,7 @@ summary: The contracts for each part of the v4 four-concept model. One spec per 
 Each spec is the authoritative contract for one part of the system. Read
 [`../CORE.md`](../CORE.md) (the model), `../OVERVIEW.md` (the narrative), and
 `../ARCHITECTURE.md` (the runtime) first. Every spec carries a **Status** line;
-parts proven by the seed are marked **seed-proven**.
-
-> **Supersedes v2.1.** The old per-domain specs (`who.md`, `how.md`, `when.md`,
-> `where.md`, `capability-and-aspects.md`) are removed; the model is now four
-> concepts, not four execution domains.
+parts proven by the engine are marked **proven**.
 
 | Spec | Owns |
 |---|---|

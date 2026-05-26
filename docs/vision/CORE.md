@@ -1,9 +1,8 @@
-# agency — Core (v4, radically cut)
+# agency — Core (v4)
 
-> Supersedes the v3 `VISION.md` / `DESIGN.md` drafts (kept alongside as the
-> critiqued artifact). The adversarial panel (4/4) cut the 5W1H / six-domain
-> model to its irreducible core. **5W1H is now a lens, not the architecture.**
-> Names follow structure. The projection is an *observation*, not a mechanism.
+> **5W1H is a lens, not the architecture** — the four concepts are the
+> irreducible core. Names follow structure; the projection is an *observation*,
+> not a mechanism.
 
 ## Four concepts + one substrate
 
@@ -14,7 +13,7 @@ that chains tools (`await call_tool(...)`); intermediate results stay in-sandbox
 only deltas cross into context. Tools are discovered via `search`. This one
 contract is exposed **three isomorphic ways — MCP · Skills · a bash CLI** (the
 harness-in-harness ladder) so a bash-only agent (Jules, no MCP/Skill) is a
-first-class participant; proven in `../agency/` (`AGENTS.md` + a bash↔MCP isomorphism
+first-class participant; proven in `agency/` (`AGENTS.md` + a bash↔MCP isomorphism
 test). Cross-cutting guards (quality-score, loop-detection, compaction,
 `Slot`/quota) are engine middleware, **not** concepts.
 
@@ -60,7 +59,7 @@ typed answer), `ctx.sample(...)` (ask the caller's LLM), or `ctx.report_progress
 (stream). A gate that needs a human is just an `elicit` → the Lifecycle pauses at
 `input-required`, the answer resumes it, the outcome is recorded as a `Gate`.
 "askuser" is therefore not a special case — it is one node in the chain. All of
-this is proven runnable in `../agency/` (real `ctx.elicit` round-trip).
+this is proven runnable in `agency/` (real `ctx.elicit` round-trip).
 
 ## Schemas & templates (the typed/generative layer)
 
@@ -68,15 +67,15 @@ Both are ordinary nodes in **Memory**, forming a generate/validate pair:
 - A **Schema** is the typed contract for a node / artefact / verb-params. It powers
   `validate` / `check`. **Design intent:** one schema per verb renders three ways
   (MCP `inputSchema`, the Skill's frontmatter, the bash CLI's arg parser) — the
-  *isomorphism glue*. *(Not yet wired: in the seed the MCP `inputSchema` is derived
+  *isomorphism glue*. *(Not yet wired: in the engine the MCP `inputSchema` is derived
   by FastMCP from the verb signature; making the ontology schema the single source
-  is the next step.)* In the seed today the ontology IS enforced on the graph
+  is the next step.)* In the engine today the ontology IS enforced on the graph
   (`record`/`link` reject missing fields, broken enums, and unknown edges).
 - A **Template** is a parameterized generator. It powers `act`: a Capability
   produces an Artefact `DERIVED_FROM` the Template, which `VALIDATES_AGAINST` its
   Schema.
 
-Proven runnable in `../agency/` (a Template renders an Artefact that a Schema
+Proven runnable in `agency/` (a Template renders an Artefact that a Schema
 validates; a missing field fails). This is how a real capability ports: its verbs
 (Capability) + its schemas/templates (Memory) + its pipeline (Lifecycle).
 
@@ -102,9 +101,9 @@ Structure-first. Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool
 names `<concept>_<capability>_<verb>` (underscores, ≤64, no dots; the client
 injects `mcp__`).
 
-## Status: the installable `agency` plugin proves it (19/19 green, `../agency/`)
+## Status: the installable `agency` plugin proves it (19/19 green, `agency/`)
 
-The seed has **graduated into an installable Claude Code plugin** (`../agency/`).
+v0.1 ships as an installable Claude Code plugin (this repo).
 Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:
 
 - the **provenance moat** (one traversal);
@@ -114,7 +113,7 @@ Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:
 - **bi-temporal memory** (`as_of`); **`COMPLETED != done`** (real Jules `verify`:
   state completed AND a branch on origin);
 - **code-mode is the contract** (`search`/`get_schema`/`execute`) — exposed
-  isomorphically over MCP and a **bash CLI** (Jules-dogfooded, PR #175);
+  isomorphically over MCP and a **bash CLI** (dogfooded over a bash-only session);
 - **code-mode tool-chaining**; **gates via `elicit`**;
 - **schemas & templates** (typed/generative layer);
 - a **strictly enforced ontology** (`ontology.py`: per-node required-field schemas

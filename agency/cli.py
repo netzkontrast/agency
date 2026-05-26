@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     # `intent` is the one verb that bootstraps state without an existing intent,
-    # so a bash-only agent is fully self-sufficient (Jules review PR #175, finding #3).
+    # so a bash-only agent is fully self-sufficient.
     if args.cmd == "intent":
         engine = Engine(args.db)
         try:

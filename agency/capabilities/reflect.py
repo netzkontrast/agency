@@ -1,5 +1,4 @@
-"""reflect — durable cross-session memory (the `reflect` cluster from the panel,
-ported as a CONCEPT from the private-journal plugin).
+"""reflect — durable, scope-tagged cross-session memory.
 
 Scope-tagged insight nodes written into the one graph, with recency + keyword
 retrieval. This capability is the demonstration that **adding a capability is

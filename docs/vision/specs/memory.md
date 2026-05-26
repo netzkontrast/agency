@@ -2,12 +2,12 @@
 slug: spec-memory
 type: spec
 status: ready
-summary: Memory — the moat. One bi-temporal, append-only GraphQLite graph holding every node and edge. record·link·supersede (write) + recall·find·validate (read). project(query, budget) returns ranked, token-budgeted, as-of deltas. Cross-concern provenance is a single traversal. Seed-proven: bi-temporal supersede, project, one-traversal provenance.
+summary: Memory — the moat. One bi-temporal, append-only GraphQLite graph holding every node and edge. record·link·supersede (write) + recall·find·validate (read). project(query, budget) returns ranked, token-budgeted, as-of deltas. Cross-concern provenance is a single traversal. Proven: bi-temporal supersede, project, one-traversal provenance.
 ---
 
 # Memory
 
-> **Status: specced; seed-proven where noted.** The seed runs Memory on real
+> **Status: specced; proven where noted.** The engine runs Memory on real
 > GraphQLite (SQLite + Cypher) and answers the provenance query in one traversal.
 
 ## Concept
@@ -36,7 +36,7 @@ project(query, budget, as_of?) -> ranked, token-budgeted deltas (never raw histo
 provenance(intent_id)       -> one traversal: serves + agents + artefacts + gates
 ```
 
-**Seed-proven:** bi-temporal `supersede` (the *what* changes while the *why*
+**Proven:** bi-temporal `supersede` (the *what* changes while the *why*
 holds, reconstructable `as_of`); `project` (recency-ranked, budget-capped);
 `provenance` (one Cypher walk).
 
@@ -67,7 +67,7 @@ provenance(I) = {
 ```
 
 **The one thing a flat SDK + memory-tool rival cannot match:** this is a *single
-graph traversal* from the Intent, not a join across four systems. **Seed-proven**
+graph traversal* from the Intent, not a join across four systems. **Proven**
 end to end.
 
 ## Artefact node + drivers
@@ -75,9 +75,9 @@ end to end.
 The graph holds the **record**; an **artefact driver** moves the **bytes** to
 user storage (`fs` mandatory; `repo` / `s3` / `http` / `drive` follow). No
 metadata sidecar files are written to user storage — these are graph properties.
-(This collapses the prototype's dual-store drift: `rebuild_state`, `db_*` tweet
-SQLite, and path-resolution helpers exist only because content lived on disk
-beside a cache; with one graph there is nothing to re-sync.)
+(This collapses an entire class of dual-store drift bugs: cache-rebuild and
+path-resolution helpers exist only when content lives on disk beside a cache;
+with one graph there is nothing to re-sync.)
 
 ## Interactions
 

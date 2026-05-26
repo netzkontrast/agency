@@ -23,7 +23,7 @@ and called from inside `execute`; they are **auto-wired by reflection** from eac
 the server exposes exactly `{search, get_schema, execute}`, and the bash CLI
 drives the identical contract. See [specs/engine.md](specs/engine.md).
 
-### Code-mode (the token-efficiency primitive — seed-proven)
+### Code-mode (the token-efficiency primitive — proven)
 
 On demand the Engine hides the raw tools behind **`search` / `get_schema` /
 `execute`**. The agent writes code that chains tools and filters/joins
@@ -31,7 +31,7 @@ On demand the Engine hides the raw tools behind **`search` / `get_schema` /
 as `elided_ref` handles; only filtered **deltas** reach context (Anthropic "Code
 execution with MCP", 2025-11-04 — up to −98% tokens). The code *is* an executable
 dataflow graph, and because every `call_tool` records an Invocation, that graph
-mirrors itself into the durable provenance graph. **Seed-proven:** an `execute`
+mirrors itself into the durable provenance graph. **Proven:** an `execute`
 block chains a `transform` into an agent capability; 4 in-sandbox calls return
 one small delta, and the chain appears as a connected provenance subgraph.
 
@@ -50,7 +50,7 @@ Reads go through **`project(query, budget)`**: a ranked, token-budgeted,
 supersession-aware (`as_of`) projection that returns **deltas**, never raw
 history. This is how an append-only store coexists with compaction — the history
 is complete on disk; what the model sees is always a budgeted projection.
-**Seed-proven:** bi-temporal `supersede` (the *what* changes while the *why*
+**Proven:** bi-temporal `supersede` (the *what* changes while the *why*
 holds, reconstructable `as_of`), `project`, and the one-traversal `provenance`.
 See [specs/memory.md](specs/memory.md).
 
@@ -78,9 +78,9 @@ skill. See [specs/skills-and-gates.md](specs/skills-and-gates.md).
 The Engine is built for long-horizon agentic work and MUST honor these:
 
 - **Code-mode deltas** — chain tools in-sandbox; return diffs, not whole objects
-  (seed-proven).
+  (proven).
 - **Append-only bi-temporal graph** — facts are never mutated; provenance
-  survives across sessions (seed-proven).
+  survives across sessions (proven).
 - **Compaction checkpoints + memory tool** — prune working context; the full
   record stays in Memory and is reachable via `project`.
 - **Ephemeral-subagent isolation** — heavy work runs in subagents that return

@@ -14,7 +14,7 @@ tracks the plan.
 
 ## v0.1 — DONE: the installable plugin (19/19 green)
 
-The seed graduated into an installable Claude Code plugin (this repo). Proven:
+v0.1 ships as an installable Claude Code plugin (this repo). Proven:
 
 - **the moat** — cross-concern provenance in one graph traversal;
 - **two genuinely different capabilities** — a synchronous craft/compute
@@ -26,9 +26,9 @@ The seed graduated into an installable Claude Code plugin (this repo). Proven:
 - an **extensible, capability-owned ontology** (core + per-capability extensions,
   merged strictly, enforced in Memory);
 - the **plugin-development capability** (skill-creation + plugin authoring,
-  ported from superpowers) and **`reflect`** (durable cross-session memory);
+  skill creation + plugin authoring) and **`reflect`** (durable cross-session memory);
 - a **self-hosted install** the engine generates and validates for itself;
-- a **vendored Jules backend** (httpx) — no dependency on the legacy orchestrator.
+- a **vendored Jules backend** (httpx) — no external orchestrator dependency.
 
 ## Next
 

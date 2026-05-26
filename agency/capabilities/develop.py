@@ -1,18 +1,16 @@
 """develop — the development-workflow capability.
 
-Implements the SuperClaude + superpowers development disciplines that help us
-build the system further, AS first-class agency skills: each is a Lifecycle
-template (an ordered phase-graph ending in a hard gate) the engine's skill walker
-can walk, recording every phase as provenance. The capability OWNS these skill
-schemas (its `OntologyExtension`) — adding the dev toolkit is adding this file.
+Implements the disciplines that help build the system further, AS first-class
+agency skills: each is a Lifecycle template (an ordered phase-graph ending in a
+hard gate) the engine's skill walker can walk, recording every phase as
+provenance. The capability OWNS these skill schemas (its `OntologyExtension`) —
+adding the dev toolkit is adding this file.
 
-Disciplines (sources): brainstorm (superpowers brainstorming · sc-brainstorm),
-plan (superpowers writing-plans · sc-workflow), tdd (superpowers
-test-driven-development — the Iron Law: RED before GREEN, enforced by ordering),
-debug (superpowers systematic-debugging), verify (superpowers
-verification-before-completion), spec-panel (sc-spec-panel), review (superpowers
-requesting/receiving-code-review). The matching installable SKILL.md files live in
-`skills/`.
+Disciplines: brainstorm (discover requirements), plan (bite-sized implementation
+plan), tdd (the Iron Law: RED before GREEN, enforced by ordering), debug (trace
+to root cause), verify (evidence before completion), spec-panel (multi-expert
+spec critique), review (request + work through findings). The matching installable
+SKILL.md files live in `skills/`.
 """
 from __future__ import annotations
 

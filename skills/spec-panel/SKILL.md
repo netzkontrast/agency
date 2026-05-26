@@ -15,4 +15,4 @@ Before committing to a design or building from a spec — to stress-test it.
 ## The chain (a walkable agency skill: `spec-panel`)
 `review` (expert_findings) → `synthesize` (revised_spec) → `approve` (hard gate).
 
-Run a multi-expert critique (specification + software-engineering experts), synthesize the findings into a revised spec, and gate on approval. Source: SuperClaude `/sc:spec-panel`.
+Run a multi-expert critique (specification + software-engineering experts), synthesize the findings into a revised spec, and gate on approval. 

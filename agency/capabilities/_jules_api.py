@@ -1,10 +1,9 @@
 """Minimal, self-contained Jules REST client (vendored into the agency plugin).
 
-A focused port of the legacy jules-orchestrator MCP server's HTTP layer + the
-two calls the `jules` capability needs — `jules_create` and `jules_get`. Built on
-`httpx` (the HTTP client the FastMCP stack already ships), not a hand-rolled
-stdlib transport. The agency plugin owns its Jules integration; it does not depend
-on the legacy orchestrator package.
+A thin client for the Jules REST API — the two calls the `jules` capability needs
+(`jules_create` and `jules_get`). Built on `httpx` (the HTTP client the FastMCP
+stack already ships). The agency plugin owns its Jules integration end to end; it
+depends on no external orchestrator package.
 
 Auth: set `JULES_API_KEY` in the environment. Base URL overridable via
 `JULES_API_BASE_URL` (default `https://jules.googleapis.com`).

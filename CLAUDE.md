@@ -47,7 +47,7 @@ Shipped capabilities:
 
 - `plugin-development` — build/extend a plugin (drives the plugin-dev chain).
 - `skill-creation` — RED→GREEN→REFACTOR skill authoring (the Iron Law).
-- **development workflow** (ported from superpowers + SuperClaude, each a walkable
+- **development workflow** (each a walkable
   `develop` skill): `brainstorming`, `writing-plans`, `test-driven-development`,
   `systematic-debugging`, `verification-before-completion`, `spec-panel`,
   `code-review`. This is the toolkit for developing the system further.

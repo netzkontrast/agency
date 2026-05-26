@@ -13,6 +13,7 @@ allowed-tools:
 
 - **develop** — checklist
 - **jules** — dispatch, status, verify
+- **music** — conceptualize
 - **plugin** — author_command, author_skill, help, lint_skill, marketplace_entry, scaffold, step_doc
 - **reflect** — note, recall, search
 

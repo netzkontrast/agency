@@ -17,7 +17,7 @@ to v4 (Intent / Capability / Lifecycle / Memory).
   "idle, awaiting input" — not "work done and pushed." A session can pause before
   pushing (a silent fail). After the Lifecycle `read` returns `COMPLETED`, run the
   inserted `verify` step (the parameterization difference) to confirm the branch
-  exists on the remote before trusting it. **Seed-proven** in
+  exists on the remote before trusting it. **Proven** in
   the `agency/` package.
 - **Recover, don't respawn.** When a session completed but no branch landed:
   probe it with one focused message (`retry`); if still nothing, extract the patch
@@ -44,7 +44,7 @@ to v4 (Intent / Capability / Lifecycle / Memory).
   seed's `engine.py` registers real `@mcp.tool` functions and is exercised by a
   real FastMCP `Client`.
 - **One store accessor / one graph.** A single graph (Memory) removes whole
-  classes of dual-store drift bugs — there is no cache to re-sync. The seed runs a
+  classes of dual-store drift bugs — there is no cache to re-sync. The engine runs a
   single thread-safe GraphQLite connection; revisit if a second concurrent
   consumer appears.
 - **Keep gates honest.** A placeholder gate that returns success unconditionally

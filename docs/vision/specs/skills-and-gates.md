@@ -2,12 +2,12 @@
 slug: spec-skills-and-gates
 type: spec
 status: ready
-summary: Skills are atomic, gated, progressively-disclosed Lifecycle step-graphs — a graph of atomic Capability steps + Gates walked step-by-step via code-mode, NOT a monolith loaded wholesale. Gates / intent-verification / askuser are ctx.elicit steps; the Lifecycle pauses at input-required, the answer resumes it, the outcome is recorded as a Gate. Seed-proven: a real ctx.elicit round-trip.
+summary: Skills are atomic, gated, progressively-disclosed Lifecycle step-graphs — a graph of atomic Capability steps + Gates walked step-by-step via code-mode, NOT a monolith loaded wholesale. Gates / intent-verification / askuser are ctx.elicit steps; the Lifecycle pauses at input-required, the answer resumes it, the outcome is recorded as a Gate. Proven: a real ctx.elicit round-trip.
 ---
 
 # Skills & gates
 
-> **Status: specced; seed-proven where noted.** The seed proves the gate
+> **Status: specced; proven where noted.** The engine proves the gate
 > mechanism with a real `ctx.elicit` round-trip recorded to the provenance graph.
 
 ## A skill is a Lifecycle step-graph, not a monolith
@@ -44,7 +44,7 @@ the outcome is recorded as a `Gate` node (`PASSED` or blocked). **"askuser" is
 therefore not a special case — it is one node in the chain.** Hard gates must
 pass to advance; advisory gates surface a warning and never block.
 
-**Seed-proven:** `lifecycle_gate(question, intent_id, lifecycle_id, ctx)` calls
+**Proven:** `lifecycle_gate(question, intent_id, lifecycle_id, ctx)` calls
 `await ctx.elicit("Approve release?", response_type=["approve","reject"])`; an
 elicitation handler returns `approve`; the Lifecycle records a `human-confirm`
 Gate `PASSED`, visible in `provenance(intent).gates`.
@@ -65,7 +65,7 @@ Three mechanisms compound:
   [lifecycle.md](lifecycle.md)); its steps are Capability invocations (see
   [capability.md](capability.md)); its record lives in Memory (see
   [memory.md](memory.md)); every step `SERVES` the Intent.
-- The same mechanism expresses the prototype's hard gates
-  (`lifecycle_track_pregate_check`), intent-confirmation phases (an Intent
+- The same mechanism expresses domain hard gates (a pre-action check),
+  intent-confirmation phases (an Intent
   `confirm` gate), and human source-verification (a `validate` + `confirm` gate)
   — all as `elicit` steps recorded as `Gate` nodes.

@@ -7,8 +7,8 @@ provenance graph, four concepts (Intent · Capability · Lifecycle · Memory), a
 **code-mode as the one contract**, exposed isomorphically over MCP · Skills · a
 bash CLI.
 
-> This graduated from the `agency-seed` proof-of-concept. It is early, but it is
-> the real thing: capabilities self-register by reflection, and the engine
+> v0.1. It is early, but it is the real thing: capabilities self-register by
+> reflection, and the engine
 > **authors and validates its own plugin install**.
 
 ## Install (Claude Code)
@@ -64,10 +64,10 @@ python -m agency.install            # rewrites the three files from the live reg
 12. **Capabilities self-register by reflection** — the engine `discover()`s every
     `Capability` in `capabilities/` and AUTO-WIRES one MCP tool per verb from the
     verb's signature (`inspect.signature`). Adding a capability is adding a file.
-13. **The plugin-development capability** — a complete port of the superpowers
-    `writing-skills` (skill creation) + plugin/marketplace authoring: `scaffold`
+13. **The plugin-development capability** — skill creation (TDD-for-docs with the
+    CSO rules as enforceable compute) + plugin/marketplace authoring: `scaffold`
     a manifest, `author_skill` a SKILL.md, `author_command`, `marketplace_entry`,
-    and `lint_skill` (the CSO rules as enforceable compute).
+    and `lint_skill`.
 14. **The skill-creation skill, with its Iron Law enforced structurally** — the
     `SKILL_CREATION_SKILL` cannot reach GREEN (authoring) until RED (the failing
     baseline) has produced its outputs; ordering *is* the rule.
@@ -84,10 +84,9 @@ python -m agency.install            # rewrites the three files from the live reg
     skill schemas, and template-schemas (`Capability.ontology`), merged STRICTLY
     onto the core (an extension may not redefine a core node) and enforced live in
     Memory. Schemata live with the capability that owns them, not hard-wired in core.
-19. **The `reflect` capability** — durable, scope-tagged cross-session memory
-    (ported as a concept from the private-journal plugin): `note` / `recall` /
-    `search` over `Reflection` nodes the capability owns, with the engine injecting
-    `memory`. Proof that adding a capability is adding a file.
+19. **The `reflect` capability** — durable, scope-tagged cross-session memory:
+    `note` / `recall` / `search` over `Reflection` nodes the capability owns, with
+    the engine injecting `memory`. Proof that adding a capability is adding a file.
 
 ## Run
 

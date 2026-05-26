@@ -6,7 +6,7 @@ graph traversal. Capabilities self-register by reflection, and the engine author
 (and validates) its own Claude Code plugin install. Code-mode IS the contract,
 exposed isomorphically over MCP · Skills · a bash CLI.
 """
-# Portability (Jules review, PR #175): GraphQLite loads a SQLite extension, but
+# Portability: GraphQLite loads a SQLite extension, but
 # many Python builds ship a `sqlite3` with extension loading disabled. If so, and
 # `pysqlite3` (a full SQLite) is installed, transparently swap it in BEFORE
 # graphqlite imports sqlite3. On builds where stdlib sqlite3 already supports

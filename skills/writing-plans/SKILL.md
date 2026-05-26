@@ -15,4 +15,4 @@ After the design is agreed, before implementation. Decompose into 2–5 minute s
 ## The chain (a walkable agency skill: `plan`)
 `map` (files, steps) → `self-review` (gaps_checked) → `approve` (hard gate).
 
-Each step is concrete (exact files, exact commands) — no "TODO" or placeholders. Self-review for gaps before the approval gate. Source: superpowers `writing-plans` · SuperClaude `/sc:workflow`.
+Each step is concrete (exact files, exact commands) — no "TODO" or placeholders. Self-review for gaps before the approval gate. 

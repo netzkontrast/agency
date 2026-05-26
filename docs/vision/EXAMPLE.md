@@ -43,11 +43,11 @@ Lifecycle is parameterized to insert a `verify` step because `COMPLETED ≠ done
 ## 2. Capability steps — the craft (role-tagged), chained in code-mode
 
 ```python
-# a stateless transform: pick the line with the most syllables
-scored = [(syllables.count(text=ln), ln) for ln in lines]   # role: transform
-best = max(scored)[1]
-# feed the winner into the agent capability (role: act)
-p = jules.patch(spec=best, agent_id="agent:jules", pushed=True)   # PRODUCES an Artefact, PERFORMED_BY the agent
+# a stateless transform: lint candidate skill specs, pick the cleanest
+scored = [(len(plugin.lint_skill(name=n, description=d)['violations']), n) for n, d in candidates]
+best = min(scored)[1]                                   # role: transform
+# feed the winner into the agent capability (role: effect)
+p = jules.dispatch(prompt=best, source='owner/repo', starting_branch='main')   # PRODUCES an Artefact, PERFORMED_BY the agent
 ```
 
 Run inside one `execute(code)` block, these are **4 in-sandbox calls returning
@@ -87,7 +87,7 @@ lifecycle.complete(lc)                            # -> "completed"
 ```python
 prov = memory.provenance(iid)
 # {
-#   "serves":    [the syllables transform, the jules patch, ...],   # every action SERVES iid
+#   "serves":    [the lint transform, the jules dispatch, ...],   # every action SERVES iid
 #   "agents":    [agent:jules],                                     # who PERFORMED_BY it
 #   "artefacts": [the patch],                                       # what it PRODUCES
 #   "gates":     [tests-green, human-confirm],                      # the gates it PASSED
@@ -95,7 +95,7 @@ prov = memory.provenance(iid)
 ```
 
 This is a **single graph traversal** from the Intent — not a join across four
-systems. **This is the moat**, and the seed answers it end to end.
+systems. **This is the moat**, and the engine answers it end to end.
 
 ## What this shows
 

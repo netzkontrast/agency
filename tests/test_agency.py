@@ -1,4 +1,4 @@
-"""The seed's proof. Runs on the REAL substrate (graphqlite + fastmcp).
+"""The agency engine's proof. Runs on the REAL substrate (graphqlite + fastmcp).
 
 Proves: the provenance moat; one graph carries two genuinely different
 capabilities (the plugin-dev craft + the REAL Jules agent); bi-temporal memory;
@@ -6,7 +6,7 @@ COMPLETED != done (real Jules verify); code-mode IS the contract
 (search/get_schema/execute); code-mode tool-chaining; gates via elicit;
 bash<->MCP isomorphism; schemas & templates; a strictly-enforced ontology; a
 micro-step skill walker with a hard gate; and the plugin-development capability —
-a complete port of the superpowers skill-creation + plugin-authoring skills,
+the skill-creation + plugin-authoring disciplines,
 plus a self-hosted Claude Code install that maps macroskills -> micro-skills.
 """
 import asyncio
@@ -26,7 +26,7 @@ from agency.capabilities.plugin import lint_skill
 from agency.engine import Engine
 from agency.skill import SkillRun
 
-SEED_DIR = os.path.dirname(os.path.dirname(__file__))
+REPO_DIR = os.path.dirname(os.path.dirname(__file__))
 # code that lints a (deliberately bad) skill and returns just the violation count
 _LINT_CODE = (
     "r = await call_tool('capability_plugin_lint_skill', "
@@ -80,12 +80,12 @@ def run_scenario(e: Engine) -> str:
     iid = e.intent.capture("ship green CI", "auth test passes", "tests green")
     e.intent.confirm(iid)
     lc = e.lifecycle.open(iid, agent="jules")
-    # a craft capability — validate a candidate skill (the writing-skills CSO linter)
+    # a craft capability — validate a candidate skill (the CSO linter)
     e.registry.invoke(e.memory, iid, "plugin", "lint_skill",
                       name="fix-auth", description="Use when the auth test fails")
     # the agent capability — really dispatches Jules (stand-in client at the boundary)
     e.registry.invoke(e.memory, iid, "jules", "dispatch", agent_id="agent:jules",
-                      source="netzkontrast/the-agency-system", starting_branch="main",
+                      source="owner/repo", starting_branch="main",
                       prompt="fix auth", client=StubJulesClient())
     assert e.lifecycle.move(lc, "tests-green", ok=True) == "working"
     assert e.lifecycle.complete(lc) == "completed"
@@ -122,7 +122,7 @@ def test_bitemporal_what_changes_why_holds():
 def test_completed_not_done():
     """COMPLETED != done: a Jules session reports state=completed even when it
     paused before pushing. `verify` returns done only when a branch is actually
-    on remote — the real silent-fail guard (CLAUDE.md JULES_PROTOCOL §8)."""
+    on remote — the silent-fail guard."""
     e = fresh()
     iid = e.intent.capture("x", "y", "z")
     disp, _ = e.registry.invoke(e.memory, iid, "jules", "dispatch", agent_id="agent:j",
@@ -289,8 +289,8 @@ def test_isomorphism_mcp_equals_bash_cli():
     # (2) bash path — the same contract via a shell-only invocation
     proc = subprocess.run(
         [sys.executable, "-m", "agency.cli", "--db", db, "execute", "--code", code],
-        cwd=SEED_DIR, capture_output=True, text=True,
-        env={**os.environ, "PYTHONPATH": SEED_DIR},
+        cwd=REPO_DIR, capture_output=True, text=True,
+        env={**os.environ, "PYTHONPATH": REPO_DIR},
     )
     assert proc.returncode == 0, proc.stderr
     cli_out = json.loads(proc.stdout)
@@ -305,9 +305,7 @@ def test_isomorphism_mcp_equals_bash_cli():
 
 def test_ontology_is_strictly_enforced():
     """The strict schemata are enforced on the real graph: an out-of-schema node
-    and an unknown edge both raise — the ontology cannot silently drift. And the
-    real bitwize conceptualizer ports as a strict 7-phase skill with a hard final
-    gate (the micro-step-skill template)."""
+    and an unknown edge both raise — the ontology cannot silently drift."""
     e = fresh()
     with pytest.raises(ValueError):                          # missing required Intent fields
         e.memory.record("Intent", {"purpose": "x"})
@@ -315,11 +313,17 @@ def test_ontology_is_strictly_enforced():
     agent = e.memory.record("Agent", {"runtime": "local"}, node_id="agent:x")
     with pytest.raises(ValueError):                          # unknown edge type
         e.memory.link(agent, iid, "FROBNICATES")
-    sk = ontology.ALBUM_CONCEPT_SKILL                        # the conceptualizer, schematized
-    assert len(sk["phases"]) == 7
-    assert sk["phases"][-1].get("gate") == "hard"            # Phase 7 = hard gate
-    assert all(p["produces"] for p in sk["phases"])          # every phase declares its required outputs
     e.memory.close()
+
+
+# a generic, domain-agnostic skill schema for exercising the walker mechanics
+_WALKER_SKILL = {
+    "name": "example-walk", "kind": "discipline", "phases": [
+        {"index": 1, "name": "gather", "produces": ["facts", "context"]},
+        {"index": 2, "name": "draft", "produces": ["draft"]},
+        {"index": 3, "name": "approve", "produces": ["user_confirmed"], "gate": "hard"},
+    ],
+}
 
 
 def test_skill_walker_micro_steps_with_hard_gate():
@@ -327,40 +331,27 @@ def test_skill_walker_micro_steps_with_hard_gate():
     phase's required outputs before advancing, and the hard-gate final phase
     blocks until explicitly confirmed. The run records itself as provenance."""
     e = fresh()
-    iid = e.intent.capture("plan an album", "album concept", "user confirms")
-    run = SkillRun(e.memory, iid, ontology.ALBUM_CONCEPT_SKILL)
+    iid = e.intent.capture("walk a skill", "a completed run", "user confirms")
+    run = SkillRun(e.memory, iid, _WALKER_SKILL)
 
-    assert run.current()["index"] == 1 and "artist" in run.current()["produces"]
-    with pytest.raises(ValueError):                          # missing required outputs
-        run.submit({"artist": "x"})
+    assert run.current()["name"] == "gather" and "facts" in run.current()["produces"]
+    with pytest.raises(ValueError):                          # missing a required output
+        run.submit({"facts": "x"})
+    assert run.submit({"facts": "x", "context": "c"})["status"] == "working"
+    assert run.submit({"draft": "d"})["status"] == "working"
 
-    fills = {
-        "foundation": {"artist": "a", "genre": "g", "type": "thematic",
-                       "scale": "ep", "theme": "t", "true_story": "no"},
-        "concept": {"key_subjects": "k", "emotional_core": "e", "why": "w"},
-        "sonic": {"references": "r", "production_style": "p", "vocal_approach": "v",
-                  "instrumentation": "i", "mood": "m", "target_duration": "4:00"},
-        "structure": {"tracklist": "t", "sequencing": "s", "energy_map": "e"},
-        "art": {"visual_concept": "v", "palette": "p", "symbols": "s"},
-        "practical": {"album_title": "t", "track_titles": "t", "research_needs": "n",
-                      "explicit": "no", "distributor_genres": "g"},
-    }
-    for name, out in fills.items():
-        assert run.current()["name"] == name                 # disclosed one at a time
-        assert run.submit(out)["status"] == "working"
-
-    assert run.current()["gate"] == "hard"                   # Phase 7 = hard gate
+    assert run.current()["gate"] == "hard"                   # final phase = hard gate
     assert run.submit({"user_confirmed": "yes"}, confirmed=False)["status"] == "input-required"
     assert run.submit({"user_confirmed": "yes"}, confirmed=True)["status"] == "completed"
     assert run.done
 
     rows = e.memory.g.query("MATCH (s:Skill)-[:HAS_PHASE]->(p:Phase) RETURN p")
-    assert len(rows) == 7                                     # the whole run is provenance
+    assert len(rows) == 3                                     # the whole run is provenance
     e.memory.close()
 
 
 def test_real_skill_executes_tools():
-    """The COMPLETE port of writing-skills as an executable micro-step skill: the
+    """The skill-creation skill as an executable micro-step skill: the
     Iron Law ("no skill without a failing test first") is enforced by ordering —
     the walker cannot reach GREEN (author_skill) until RED produced its baseline.
     The GREEN + lint phases run REAL capability verbs (recorded as Invocations)."""
@@ -408,7 +399,7 @@ def test_strict_enums_enforced_on_both_write_paths():
 
 
 def test_plugin_capability_generates_valid_artefacts():
-    """The plugin-development capability (ported from superpowers writing-skills +
+    """The plugin-development capability (skill creation +
     plugin authoring): every `act` verb renders a REAL artefact from a strict
     template, recorded as provenance and validating against its strict Schema."""
     e = fresh()
@@ -446,7 +437,7 @@ def test_plugin_capability_generates_valid_artefacts():
 
 
 def test_lint_skill_ports_cso_rules():
-    """The writing-skills CSO rules ported as ENFORCEABLE compute (judgment as
+    """The CSO rules as ENFORCEABLE compute (judgment as
     code): a clean skill passes; bad name, missing 'Use when…', first person, and
     over-length descriptions are each flagged."""
     assert lint_skill("good-name", "Use when you ship code")["ok"] is True
@@ -460,7 +451,7 @@ def test_lint_skill_ports_cso_rules():
 
 def test_plugin_dev_skill_each_step_yields_a_document():
     """The plugin-dev chain walks one phase at a time and EACH step yields a
-    prestructured document (the bitwize 'resulting document of each step' pattern,
+    prestructured document (the 'resulting document of each step' pattern,
     made strict + provenance-recorded): manifest → skill → command → marketplace
     entry → hard confirm gate."""
     e = fresh()
@@ -485,7 +476,7 @@ def test_plugin_dev_skill_each_step_yields_a_document():
 def test_help_maps_macroskills_to_microskills():
     """The `help` discovery surface maps the engine's capabilities (macroskills)
     to their verbs (the harness-in-harness micro-skills) over the LIVE registry —
-    and syllables is gone (it belongs to a future Music capability)."""
+    and a removed/unknown capability does not appear."""
     e = fresh()
     iid = e.intent.capture("discover", "the capability map", "ok")
     mcp = e.build_mcp(codemode=False)
@@ -511,7 +502,7 @@ def test_agency_plugin_install_is_self_hosted():
     files = install.generate(e)
     e.memory.close()
     for rel, content in files.items():                       # committed == regenerated (dogfood)
-        with open(os.path.join(SEED_DIR, rel)) as f:
+        with open(os.path.join(REPO_DIR, rel)) as f:
             assert f.read() == content, rel
     manifest = json.loads(files[".claude-plugin/plugin.json"])
     assert {"name", "version", "description"} <= set(manifest)
@@ -529,7 +520,7 @@ def test_ontology_extends_strictly_from_capabilities():
 
     e = fresh()
     assert "Plugin" in e.ontology.nodes                               # contributed by the plugin capability
-    assert {"skill-creation", "plugin-dev", "album-concept"} <= set(e.ontology.skills)
+    assert {"skill-creation", "plugin-dev", "tdd"} <= set(e.ontology.skills)   # capability-owned
     # the extension is LIVE in Memory: the contributed node type is enforced
     with pytest.raises(ValueError):
         e.memory.record("Plugin", {"name": "x"})                      # missing version + description
@@ -542,8 +533,8 @@ def test_ontology_extends_strictly_from_capabilities():
 
 
 def test_reflect_capability_writes_and_recalls():
-    """The `reflect` capability — the panel's net-new Memory spec, ported from the
-    private-journal plugin and added by DROPPING A FILE in capabilities/. It owns
+    """The `reflect` capability — durable cross-session memory, added by DROPPING A
+    FILE in capabilities/. It owns
     its ontology (a Reflection node + scope enum), the engine injects `memory`, and
     its writes are provenance (OBSERVED_DURING the intent)."""
     e = fresh()
@@ -570,8 +561,8 @@ def test_reflect_capability_writes_and_recalls():
 
 
 def test_develop_capability_ships_walkable_dev_skills():
-    """The `develop` capability implements the SuperClaude + superpowers dev
-    disciplines as first-class agency skills: the engine walks one (tdd) phase by
+    """The `develop` capability implements the development disciplines as
+    first-class agency skills: the engine walks one (tdd) phase by
     phase through its hard gate, recording provenance, and `checklist` returns a
     discipline's steps. The Iron Law (RED before GREEN) is enforced by ordering."""
     e = fresh()
@@ -595,4 +586,156 @@ def test_develop_capability_ships_walkable_dev_skills():
     assert {"brainstorm", "plan", "tdd", "debug", "verify", "spec-panel", "review"} <= set(e.ontology.skills)
     caps = {n: list(e.registry.get(n).verbs) for n in e.registry.names()}
     assert "develop" in caps and "checklist" in caps["develop"]
+    e.memory.close()
+
+
+def _walk_to_completion(run, schema):
+    for ph in schema["phases"]:
+        outputs = {k: "x" for k in ph["produces"]}
+        if ph.get("gate") == "hard":
+            assert run.submit(outputs, confirmed=False)["status"] == "input-required"
+            assert run.submit(outputs, confirmed=True)["status"] == "completed"
+        else:
+            assert run.submit(outputs)["status"] == "working"
+
+
+def test_every_dev_skill_walks_to_a_hard_gate():
+    """Each development discipline is a walkable Lifecycle template ending in a
+    hard gate that blocks until explicitly confirmed."""
+    from agency.capabilities.develop import DEV_SKILLS
+    for name, schema in DEV_SKILLS.items():
+        assert schema["phases"][-1].get("gate") == "hard", name
+        e = fresh()
+        iid = e.intent.capture("develop", "a run", "ok")
+        run = SkillRun(e.memory, iid, e.ontology.skill(name))
+        _walk_to_completion(run, schema)
+        assert run.done, name
+        e.memory.close()
+
+
+def test_checklist_returns_steps_and_handles_unknown():
+    e = fresh(); iid = e.intent.capture("a", "b", "c"); reg, mem = e.registry, e.memory
+    for d in ("brainstorm", "plan", "tdd", "debug", "verify", "spec-panel", "review"):
+        r = reg.invoke(mem, iid, "develop", "checklist", discipline=d)[0]["result"]
+        assert r["discipline"] == d and r["steps"] and r["steps"][-1]["gate"] == "hard"
+    bad = reg.invoke(mem, iid, "develop", "checklist", discipline="nope")[0]["result"]
+    assert "error" in bad and "brainstorm" in bad["available"]
+    e.memory.close()
+
+
+def test_all_shipped_skills_are_lint_clean():
+    """Every installable SKILL.md the plugin ships passes the engine's own CSO
+    linter — the engine validates its own skills."""
+    skills_dir = os.path.join(REPO_DIR, "skills")
+    found = 0
+    for name in os.listdir(skills_dir):
+        path = os.path.join(skills_dir, name, "SKILL.md")
+        if not os.path.exists(path):
+            continue
+        text = open(path).read()
+        nm = re.search(r"^name:\s*(.+)$", text, re.M).group(1).strip()
+        desc = re.search(r"^description:\s*(.+)$", text, re.M).group(1).strip()
+        res = lint_skill(nm, desc)
+        assert res["ok"], (name, res["violations"])
+        found += 1
+    assert found >= 8
+
+
+def test_templates_render_expected_shapes():
+    e = fresh(); iid = e.intent.capture("a", "b", "c"); reg, mem = e.registry, e.memory
+    cmd = reg.invoke(mem, iid, "plugin", "author_command",
+                     name="go", description="Use when go", body="do it")[0]["result"]
+    assert cmd.startswith("---\ndescription: Use when go") and "do it" in cmd
+    doc = reg.invoke(mem, iid, "plugin", "step_doc",
+                     step="manifest", output="written", inputs="name", notes="n")[0]["result"]
+    assert "## Inputs" in doc and "## Output" in doc and "## Notes" in doc
+    rel = json.loads(reg.invoke(mem, iid, "plugin", "marketplace_entry",
+                                name="x", version="0.1.0", description="d", source="./local")[0]["result"])
+    assert rel["source"] == "./local"                    # relative path stays a string, not a github object
+    e.memory.close()
+
+
+def test_ontology_collisions_and_enum_widening():
+    from agency.ontology import Ontology, OntologyExtension
+    o = Ontology.core()
+    o.extend(OntologyExtension(skills={"s": {"name": "s", "kind": "x", "phases": []}}), "a")
+    with pytest.raises(ValueError):                      # duplicate skill name
+        o.extend(OntologyExtension(skills={"s": {"name": "s", "kind": "x", "phases": []}}), "b")
+    o.extend(OntologyExtension(templates={"t": "x"}), "a")
+    with pytest.raises(ValueError):                      # duplicate template name
+        o.extend(OntologyExtension(templates={"t": "y"}), "b")
+    o2 = Ontology.core()
+    o2.extend(OntologyExtension(enums={("N", "f"): {"a"}}), "a")
+    o2.extend(OntologyExtension(enums={("N", "f"): {"b"}}), "b")   # enums WIDEN, never collide
+    assert o2.enums[("N", "f")] == {"a", "b"}
+
+
+def test_ontology_extension_contract_all_six_kinds():
+    """The defined extension contract: a capability extends the ontology in six
+    ways (nodes, edges, enums, skills, schemas, templates), each merged onto the
+    core and enforced live in Memory."""
+    from agency.ontology import Ontology, OntologyExtension
+    from agency.memory import Memory
+    ext = OntologyExtension(
+        nodes={"Widget": ["name", "size"]},
+        edges={"ATTACHES_TO"},
+        enums={("Widget", "size"): {"s", "m", "l"}},
+        skills={"assemble": {"name": "assemble", "kind": "x",
+                             "phases": [{"index": 1, "name": "build", "produces": ["part"]}]}},
+        schemas={"widget-doc": ["name", "size"]},
+        templates={"widget": "# $name"},
+    )
+    ont = Ontology.core().extend(ext, owner="widgets")
+    assert "Widget" in ont.nodes and "ATTACHES_TO" in ont.edges
+    assert ont.enums[("Widget", "size")] == {"s", "m", "l"}
+    assert "assemble" in ont.skills and ont.schemas["widget-doc"] == ["name", "size"]
+    assert ont.templates["widget"] == "# $name"
+
+    mem = Memory(tempfile.mktemp(suffix=".db"), ont=ont)
+    with pytest.raises(ValueError):                       # missing required 'size'
+        mem.record("Widget", {"name": "w"})
+    with pytest.raises(ValueError):                       # size not in the contributed enum
+        mem.record("Widget", {"name": "w", "size": "xl"})
+    w = mem.record("Widget", {"name": "w", "size": "m"})
+    a = mem.record("Widget", {"name": "a", "size": "s"})
+    mem.link(w, a, "ATTACHES_TO")                         # the contributed edge is allowed
+    with pytest.raises(ValueError):                       # an edge NOT in the effective set still raises
+        mem.link(w, a, "NOPE")
+    mem.close()
+
+
+def test_music_capability_owns_conceptualizer():
+    """The `music` DOMAIN capability owns the conceptualizer — a 7-phase gated
+    planning skill — plus an `Album` node type with a closed `type` enum. Proof a
+    domain capability extends the ontology (skill + node + enum) without touching
+    the core."""
+    from agency.capabilities.music import ALBUM_TYPES
+    e = fresh()
+    iid = e.intent.capture("plan an album", "album concept", "user confirms")
+
+    sk = e.ontology.skill("album-concept")                   # owned by music, not core
+    assert len(sk["phases"]) == 7 and sk["phases"][-1].get("gate") == "hard"
+    run = SkillRun(e.memory, iid, sk)
+    fills = [
+        {"artist": "a", "genre": "g", "type": "thematic", "scale": "ep", "theme": "t", "true_story": "no"},
+        {"key_subjects": "k", "emotional_core": "e", "why": "w"},
+        {"references": "r", "production_style": "p", "vocal_approach": "v",
+         "instrumentation": "i", "mood": "m", "target_duration": "4:00"},
+        {"tracklist": "t", "sequencing": "s", "energy_map": "e"},
+        {"visual_concept": "v", "palette": "p", "symbols": "s"},
+        {"album_title": "t", "track_titles": "t", "research_needs": "n",
+         "explicit": "no", "distributor_genres": "g"},
+    ]
+    for out in fills:
+        assert run.submit(out)["status"] == "working"
+    assert run.current()["gate"] == "hard"
+    assert run.submit({"user_confirmed": "yes"}, confirmed=True)["status"] == "completed"
+
+    e.intent.confirm(iid)
+    res, _ = e.registry.invoke(e.memory, iid, "music", "conceptualize",
+                               artist="A", title="T", type="narrative", theme="x")
+    assert "# T" in res["result"]
+    assert any(a["kind"] == "album-concept" for a in e.memory.provenance(iid)["artefacts"])
+    with pytest.raises(ValueError):                          # the capability-owned type enum bites
+        e.memory.record("Album", {"artist": "A", "title": "T", "type": "polka"})
     e.memory.close()

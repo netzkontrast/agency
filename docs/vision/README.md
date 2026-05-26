@@ -2,7 +2,7 @@
 slug: vision-readme
 type: vision-index
 status: ready
-summary: Entry point and reading order for the design canon (v4). The authoritative model is CORE.md — four concepts (Intent, Capability, Lifecycle, Memory) + the Engine substrate. Supersedes the v2.1 three-domain model. The canon is authoritative; code serves it. A running seed lives in seed/.
+summary: Entry point and reading order for the design canon (v4). The authoritative model is CORE.md — four concepts (Intent, Capability, Lifecycle, Memory) + the Engine substrate. The canon is authoritative; code serves it.
 ---
 
 # Vision — design canon (v4)
@@ -16,13 +16,9 @@ the engine serves it through **Capability**, **Lifecycle**, and **Memory**, over
 one FastMCP **Engine** and one bi-temporal GraphQLite graph. **5W1H is a lens,
 not the architecture.**
 
-> **Supersedes v2.1.** The earlier three-domain model (agentic / workflow /
-> context) and the capability/aspect/lazy-domaining framing are superseded. An
-> adversarial panel cut the six-domain 5W1H model to its irreducible core.
-
 ## Read in order
 
-1. **[CORE.md](CORE.md)** — the authoritative v4 model, radically cut: four
+1. **[CORE.md](CORE.md)** — the authoritative v4 model: four
    concepts + one substrate, skills as atomic gated step-graphs, what was dropped
    and why. **Read this first.**
 2. **[OVERVIEW.md](OVERVIEW.md)** — the narrative model: Intent + Capability +
@@ -37,8 +33,7 @@ not the architecture.**
    test, via jules"), **now executable** in the `agency/` package.
 6. **[specs/](specs/README.md)** — the per-part contracts (engine, intent,
    capability, lifecycle, memory, skills-and-gates).
-7. **[PORTING-ROADMAP.md](PORTING-ROADMAP.md)** — every skill & function from the
-   prototype plugins mapped to v4.
+7. **[CAPABILITY-CLUSTERS.md](CAPABILITY-CLUSTERS.md)** — the forward capability roadmap.
 8. **[LESSONS.md](LESSONS.md)** — durable engineering knowledge.
 
 Forward work is tracked in [`../ROADMAP.md`](../ROADMAP.md).

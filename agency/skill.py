@@ -1,14 +1,14 @@
 """Micro-step skill walker.
 
-A skill is a Lifecycle of ordered Phases (from a schema like
-`ontology.ALBUM_CONCEPT_SKILL`). The walker is the complete implementation of
+A skill is a Lifecycle of ordered Phases (a schema a capability contributes, e.g.
+the `develop` or `plugin` skills). The walker is the complete implementation of
 "real micro-step skills":
 
 - **Progressive disclosure / token efficiency:** `current()` returns ONLY the
   current phase's spec (its required outputs) — never the whole skill.
 - **Strict per-phase validation:** `submit()` rejects a phase whose required
   outputs are missing.
-- **Hard gate:** a phase marked `gate: hard` (the conceptualizer's Phase 7)
+- **Hard gate:** a phase marked `gate: hard` (e.g. a skill's final approve phase)
   blocks at `input-required` until an explicit confirmation — the elicit gate.
 - **Provenance:** every phase is recorded as a `Phase` node, edged into the
   `Skill` run (`HAS_PHASE`), the intent (`SERVES`), and the prior phase

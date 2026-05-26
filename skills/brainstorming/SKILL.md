@@ -21,4 +21,4 @@ Drive it via the engine's skill walker, or get the steps with the `develop` capa
 python -m agency.cli --db dev.db execute --code 'return await call_tool("capability_develop_checklist", {"discipline": "brainstorm", "intent_id": INTENT})'
 ```
 
-Source: superpowers `brainstorming` · SuperClaude `/sc:brainstorm`. Stop at the hard gate until the human confirms the design — do not jump to implementation.
+Stop at the hard gate until the human confirms the design — do not jump to implementation.

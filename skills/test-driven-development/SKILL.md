@@ -22,4 +22,4 @@ failing test.
 python -m agency.cli --db dev.db execute --code 'return await call_tool("capability_develop_checklist", {"discipline": "tdd", "intent_id": INTENT})'
 ```
 
-Source: superpowers `test-driven-development`. Wrote code before the test? Delete it and start over.
+Wrote code before the test? Delete it and start over.

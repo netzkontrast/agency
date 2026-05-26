@@ -7,8 +7,7 @@ summary: Canonical terms for the v4 four-concept model. One self-describing defi
 
 # Vocabulary (v4)
 
-> Authoritative model: [CORE.md](CORE.md). Supersedes the v2.1 four-domain
-> vocabulary (who/how/when/where, home domain, aspect, lazy-domaining, DRIVES).
+> Authoritative model: [CORE.md](CORE.md).
 
 | Term | Meaning |
 |---|---|
@@ -34,4 +33,4 @@ summary: Canonical terms for the v4 four-concept model. One self-describing defi
 | **AOP escape hatch** | For genuinely cross-cutting capabilities (`verify`/QC, observability) with no natural home: model the capability across concepts rather than forcing a home. No generating function is required. |
 | **Naming scheme** | Structure-first. Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool names `<concept>_<capability>_<verb>` — underscores, ≤64 chars, no dots; the client injects `mcp__`. |
 | **A2A-aligned states** | Lifecycle states mirror A2A tasks: `submitted · working · input-required · completed · failed · canceled`. `COMPLETED ≠ done`. |
-| **Frontmatter canon** | Required front-matter on canon docs and skills: `slug`, `type`, `status`, `summary`. Specs add a **Status** line ("specced; seed-proven where noted"). |
+| **Frontmatter canon** | Required front-matter on canon docs and skills: `slug`, `type`, `status`, `summary`. Specs add a **Status** line ("specced; proven where noted"). |

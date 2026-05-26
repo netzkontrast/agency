@@ -1,6 +1,6 @@
-"""The plugin-development capability — a COMPLETE port of two superpowers skills
-(`writing-skills` = skill creation, and plugin/marketplace authoring) into the
-agency capability model. Everything needed to develop a good plugin.
+"""The plugin-development capability — everything needed to develop a good plugin:
+skill creation (TDD-for-docs, with the CSO rules enforced as compute) and
+plugin/marketplace authoring, in the agency capability model.
 
 A REAL capability (template rendering + rule-checking is real compute — it
 mutates nothing external), role-tagged:
@@ -112,8 +112,8 @@ def help_map(caps: dict) -> dict:
 # The plugin-dev node types, its template-schemas, and its two skills live HERE,
 # with the capability that owns them — not hard-wired into the core ontology.
 
-# ported COMPLETELY from superpowers `writing-skills`. The Iron Law — "NO SKILL
-# WITHOUT A FAILING TEST FIRST" — is ENFORCED by phase ordering: GREEN (authoring)
+# skill creation as TDD-for-docs. The Iron Law — "NO SKILL WITHOUT A FAILING TEST
+# FIRST" — is ENFORCED by phase ordering: GREEN (authoring)
 # is unreachable until RED produced its baseline. RED → GREEN → lint → REFACTOR →
 # deploy(hard gate); GREEN + lint are bound to REAL verbs.
 SKILL_CREATION_SKILL = {

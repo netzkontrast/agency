@@ -2,12 +2,12 @@
 slug: spec-intent
 type: spec
 status: ready
-summary: Intent — the human-owned root. A supersedable node carrying purpose + acceptance, with the deliverable as an attribute (why/what merged). capture → confirm → amend (amend via bi-temporal supersede). Everything edges back via SERVES. Seed-proven: capture/confirm/amend and as-of reconstruction.
+summary: Intent — the human-owned root. A supersedable node carrying purpose + acceptance, with the deliverable as an attribute (why/what merged). capture → confirm → amend (amend via bi-temporal supersede). Everything edges back via SERVES. Proven: capture/confirm/amend and as-of reconstruction.
 ---
 
 # Intent
 
-> **Status: specced; seed-proven where noted.** Intent is the human's root, not a
+> **Status: specced; proven where noted.** Intent is the human's root, not a
 > concept the engine executes on its own — the engine executes Capability /
 > Lifecycle / Memory in service of it.
 
@@ -33,7 +33,7 @@ amend(intent_id, **changes)                -> new version (bi-temporal supersede
 - `amend` is a bi-temporal **supersede**: the *what* changes while the *why*
   holds, and the prior version keeps its valid window for `as_of` reconstruction.
 
-**Seed-proven:** `Intent.capture/confirm/amend`; after `amend(deliverable=...)`,
+**Proven:** `Intent.capture/confirm/amend`; after `amend(deliverable=...)`,
 `recall(intent, as_of=before)` still returns the old deliverable while the new
 version carries the new deliverable and the unchanged purpose.
 

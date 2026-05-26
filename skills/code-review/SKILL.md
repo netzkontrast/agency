@@ -16,4 +16,4 @@ When a task is complete or before a merge — and when receiving review feedback
 ## The chain (a walkable agency skill: `review`)
 `request` (context, diff) → `assess` (findings) → `resolve` (hard gate: addressed).
 
-Request a review with crafted context (spec + diff); assess each finding on its technical merits (push back on wrong suggestions, do not performatively agree); resolve before the gate. Source: superpowers `requesting-code-review` + `receiving-code-review`.
+Request a review with crafted context (spec + diff); assess each finding on its technical merits (push back on wrong suggestions, do not performatively agree); resolve before the gate. 

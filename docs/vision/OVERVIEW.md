@@ -11,9 +11,8 @@ The agency plugin is ONE Claude Code plugin: **ONE FastMCP engine** backed by
 **ONE bi-temporal GraphQLite graph**. Its design is **four concepts** over one
 substrate. The authoritative spec is [CORE.md](CORE.md); this is the narrative.
 
-> **Supersedes v2.1.** The three-domain model (agentic / workflow / context) and
-> capability/aspect/lazy-domaining are superseded. **5W1H is a lens, not the
-> architecture** — a journalistic checklist, not an execution theorem.
+> **5W1H is a lens, not the architecture** — a journalistic checklist, not an
+> execution theorem.
 
 ## The substrate — the Engine
 

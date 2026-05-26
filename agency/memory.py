@@ -22,7 +22,7 @@ OPEN = 10 ** 12  # sentinel valid_to for the currently-valid version
 class Memory:
     def __init__(self, path: str, ont: Optional["ontology.Ontology"] = None):
         # Build the Graph with a thread-safe SQLite connection: FastMCP and the
-        # code-mode (Monty) sandbox run tools in worker threads, and the seed is
+        # code-mode (Monty) sandbox run tools in worker threads, and the engine is
         # logically single-threaded, so check_same_thread=False is safe here.
         self.g = Graph.__new__(Graph)
         self.g._conn = connect(str(path), check_same_thread=False)

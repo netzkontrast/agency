@@ -2,12 +2,12 @@
 slug: spec-lifecycle
 type: spec
 status: ready
-summary: Lifecycle — the task/agent state-machine. Write frame open·move·close + observe frame read·find·check·watch. States align with A2A tasks (submitted·working·input-required·completed·failed·canceled). An agent is a Lifecycle parameterization (a remote async agent inserts verify; COMPLETED != done). Gates = input-required -> Intent re-entry. Seed-proven.
+summary: Lifecycle — the task/agent state-machine. Write frame open·move·close + observe frame read·find·check·watch. States align with A2A tasks (submitted·working·input-required·completed·failed·canceled). An agent is a Lifecycle parameterization (a remote async agent inserts verify; COMPLETED != done). Gates = input-required -> Intent re-entry. Proven.
 ---
 
 # Lifecycle
 
-> **Status: specced; seed-proven where noted.** The seed runs an agent Lifecycle
+> **Status: specced; proven where noted.** The engine runs an agent Lifecycle
 > (open → gate → complete) and encodes `COMPLETED ≠ done`.
 
 ## Concept
@@ -37,7 +37,7 @@ close / complete(lc_id)     -> "completed"
 read / status(lc_id)        -> current state
 ```
 
-**Seed-proven:** `open(intent, agent="jules")` creates a Lifecycle that `SERVES`
+**Proven:** `open(intent, agent="jules")` creates a Lifecycle that `SERVES`
 the Intent and is `DISPATCHED_TO` an Agent node; `move(gate, ok=True)` records a
 `PASSED` Gate and advances; `complete` reaches `completed`.
 
@@ -48,7 +48,7 @@ transitions/observers differ**: a remote async agent inserts a `verify` step
 because `COMPLETED ≠ done`; a local subagent skips it. A fan-out of N parallel
 agents is N Lifecycles under one Intent.
 
-**Seed-proven:** the `jules` capability returns `status: COMPLETED` with
+**Proven:** the `jules` capability returns `status: COMPLETED` with
 `branch_pushed=False`; the inserted `verify` step returns `done=False` until a
 real branch exists — the silent-fail lesson as a first-class observe-step.
 

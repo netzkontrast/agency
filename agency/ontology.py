@@ -50,42 +50,34 @@ FIELD_ENUMS: dict[tuple[str, str], set] = {
     ("Lifecycle", "state"): LIFECYCLE_STATES,
 }
 
-# --- a strict skill schema kept in the CORE as the canonical micro-step shape:
-# the bitwize album-conceptualizer (7 gated phases, progressive disclosure, a
-# Phase-7 hard gate). Capabilities contribute their OWN skills the same way.
-ALBUM_CONCEPT_SKILL = {
-    "name": "album-concept",
-    "kind": "conceptualizer",
-    "phases": [
-        {"index": 1, "name": "foundation",
-         "produces": ["artist", "genre", "type", "scale", "theme", "true_story"]},
-        {"index": 2, "name": "concept",
-         "produces": ["key_subjects", "emotional_core", "why"]},
-        {"index": 3, "name": "sonic",
-         "produces": ["references", "production_style", "vocal_approach",
-                      "instrumentation", "mood", "target_duration"]},
-        {"index": 4, "name": "structure",
-         "produces": ["tracklist", "sequencing", "energy_map"]},
-        {"index": 5, "name": "art",
-         "produces": ["visual_concept", "palette", "symbols"]},
-        {"index": 6, "name": "practical",
-         "produces": ["album_title", "track_titles", "research_needs",
-                      "explicit", "distributor_genres"]},
-        {"index": 7, "name": "confirmation",
-         "produces": ["user_confirmed"], "gate": "hard"},
-    ],
-}
-
-ALBUM_TYPES = {"documentary", "narrative", "thematic", "character-study",
-               "collection", "ost"}
-
-CORE_SKILLS = {"album-concept": ALBUM_CONCEPT_SKILL}
+# The core ships NO domain skills — skills are owned by the capabilities that
+# contribute them (via `OntologyExtension`). The core defines only the strict
+# node/edge/enum backbone every capability's skills are built on.
+CORE_SKILLS: dict[str, dict] = {}
 
 
 @dataclass
 class OntologyExtension:
-    """What a capability contributes to the ontology. All optional — a capability
-    that uses only core types contributes nothing. Merged onto the core strictly."""
+    """The contract by which a capability EXTENDS the ontology. All six fields are
+    optional — a capability that uses only core types contributes nothing. The
+    engine merges every discovered capability's extension onto the core (see
+    `Ontology.extend`), so schemata live with the capability that owns them.
+
+    The six ways to extend (with their merge rule):
+
+    - **nodes**   `{label: [required_fields]}` — new node types. STRICT: may not
+                  redefine a core/owned label with different required fields.
+    - **edges**   `{EDGE_TYPE, ...}` — new edge types (unioned in).
+    - **enums**   `{(label, field): {allowed, ...}}` — closed-enum constraints.
+                  WIDEN: a capability may add its OWN node's enum, or widen an
+                  existing one; it never shrinks/clobbers.
+    - **skills**  `{name: skill_schema}` — Lifecycle templates (phase-graphs).
+                  Unique name required (collision raises).
+    - **schemas** `{name: [required_fields]}` — artefact/template field schemas
+                  powering `validate`. Unique name required.
+    - **templates** `{name: body}` — named generator bodies. Unique name required.
+
+    Every field added here is enforced live in Memory (`record`/`link`/`update`)."""
     nodes: dict[str, list[str]] = field(default_factory=dict)        # label -> required fields
     edges: set = field(default_factory=set)                         # additional edge types
     enums: dict = field(default_factory=dict)                       # (label, field) -> allowed set

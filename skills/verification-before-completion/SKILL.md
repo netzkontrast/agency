@@ -15,4 +15,4 @@ verification and reading its output.
 ## The chain (a walkable agency skill: `verify`)
 `identify` (command) → `run` (output) → `confirm` (hard gate: evidence_matches).
 
-Source: superpowers `verification-before-completion`. The hard gate blocks the completion claim until the fresh output matches it.
+The hard gate blocks the completion claim until the fresh output matches it.

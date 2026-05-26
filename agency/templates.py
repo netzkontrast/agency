@@ -1,7 +1,7 @@
 """Templates — the prestructure for the resulting document of each step of a chain.
 
-The agency analog of the bitwize plugin's `templates/` directory: each is a
-*living document* skeleton a Capability `act` fills in. A Template pairs with a
+A small library of *living document* skeletons a Capability `act` fills in. A
+Template pairs with a
 strict Schema (`REQUIRED`) — the generate/validate layer from CORE: a Capability
 generates an Artefact `DERIVED_FROM` a Template that `VALIDATES_AGAINST` its
 Schema. Markdown docs use `string.Template` (`$field`, brace-safe for bodies
@@ -37,8 +37,7 @@ COMMAND_MD = Template(
 )
 
 # The prestructured *step document*: one chain step's result as a living doc
-# (inputs it consumed, the output it produced, notes) — the bitwize album.md /
-# track.md pattern, generalized to any chain step.
+# (inputs it consumed, the output it produced, notes), generalized to any chain step.
 STEP_DOC = Template(
     "---\n"
     "step: $step\n"
