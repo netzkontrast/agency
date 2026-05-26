@@ -38,8 +38,8 @@ _LINT_CODE = (
 NAME_RE = re.compile(r"^[a-zA-Z0-9_]{1,64}$")  # MCP / Claude-frontend strict
 
 
-def fresh(jules_client=None) -> Engine:
-    return Engine(tempfile.mktemp(suffix=".db"), jules_client=jules_client)
+def fresh(jules_client=None, vcs_backend=None) -> Engine:
+    return Engine(tempfile.mktemp(suffix=".db"), jules_client=jules_client, vcs_backend=vcs_backend)
 
 
 def _sc(result):
@@ -71,6 +71,31 @@ class StubJulesClient:
 
     def get(self, session: str) -> dict:
         return {"state": self._state, "url": "https://jules.google.com/session/123"}
+
+
+class StubVCS:
+    """Boundary stand-in for git/gh (deterministic tests). The default backend
+    (`GitClient` -> real `git`/`gh` subprocesses) is what the engine uses in
+    production; no test ever touches a real repository."""
+    def __init__(self, returncode: int = 0, ahead: int = 2, behind: int = 0, dirty: bool = False):
+        self._rc, self._ahead, self._behind, self._dirty = returncode, ahead, behind, dirty
+        self.calls: list = []
+
+    def worktree(self, branch: str, base: str) -> dict:
+        self.calls.append(("worktree", branch, base))
+        return {"path": f"/tmp/wt-{branch}", "branch": branch, "base": base}
+
+    def run(self, command: str, cwd: str) -> dict:
+        self.calls.append(("run", command, cwd))
+        return {"returncode": self._rc, "output": f"ran {command} in {cwd}"}
+
+    def state(self, branch: str, base: str) -> dict:
+        self.calls.append(("state", branch, base))
+        return {"ahead": self._ahead, "behind": self._behind, "dirty": self._dirty}
+
+    def finish(self, branch: str, action: str, base: str) -> dict:
+        self.calls.append(("finish", branch, action, base))
+        return {"action": action, "ok": True, "detail": f"{action} {branch} -> {base}"}
 
 
 def run_scenario(e: Engine) -> str:
@@ -986,4 +1011,72 @@ def test_review_skill_dispatches_reviewer_via_delegate():
     assert run.submit({"addressed": "all findings resolved"}, confirmed=False)["status"] == "input-required"
     assert run.submit({"addressed": "all findings resolved"}, confirmed=True)["status"] == "completed"
     assert run.done
+    e.memory.close()
+
+
+def test_workspace_isolates_and_baselines():
+    """superpowers-port Phase 2 — `workspace` ports using-git-worktrees as effect
+    verbs: `isolate` creates a worktree on a fresh branch (recorded as a Workspace
+    SERVING the intent) and `baseline` runs the test command there, recording the
+    green/red baseline. The VCS boundary is injected, so no real repo is touched."""
+    vcs = StubVCS(returncode=0)
+    e = fresh(vcs_backend=vcs)
+    iid = e.intent.capture("isolate work", "a green baseline", "tests pass")
+    e.intent.confirm(iid)
+
+    w, _ = e.registry.invoke(e.memory, iid, "workspace", "isolate", branch="feat/x", base="main")
+    wid = w["result"]["workspace"]
+    assert w["result"]["path"] == "/tmp/wt-feat/x" and w["result"]["branch"] == "feat/x"
+    assert ("worktree", "feat/x", "main") in vcs.calls
+
+    b, _ = e.registry.invoke(e.memory, iid, "workspace", "baseline", workspace=wid, command="pytest -q")
+    assert b["result"]["passed"] is True
+    assert ("run", "pytest -q", "/tmp/wt-feat/x") in vcs.calls
+
+    # provenance: the workspace and its green baseline are both recorded
+    assert e.memory.g.query("MATCH (w:Workspace)-[:BASELINED]->(b:Baseline) RETURN b")
+    assert e.memory.recall(wid)["branch"] == "feat/x"
+
+    # a red baseline is recorded as not-passed (COMPLETED != green)
+    red = StubVCS(returncode=1)
+    e2 = fresh(vcs_backend=red)
+    iid2 = e2.intent.capture("isolate", "baseline", "ok")
+    w2, _ = e2.registry.invoke(e2.memory, iid2, "workspace", "isolate", branch="b2")
+    b2, _ = e2.registry.invoke(e2.memory, iid2, "workspace", "baseline",
+                               workspace=w2["result"]["workspace"], command="false")
+    assert b2["result"]["passed"] is False
+    e.memory.close()
+    e2.memory.close()
+
+
+def test_branch_assesses_and_finishes():
+    """superpowers-port Phase 2 — `branch` ports finishing-a-development-branch:
+    `assess` (transform) reads the branch state and recommends an action; `finish`
+    (effect) executes the chosen action and records the outcome as provenance. The
+    VCS boundary is injected — no real git runs."""
+    from agency.capabilities.branch import _recommend
+    # the recommendation is judgment-as-code over the branch state
+    assert _recommend({"dirty": True, "ahead": 3}) == "keep"        # uncommitted -> not yet
+    assert _recommend({"dirty": False, "ahead": 0}) == "discard"    # nothing to land
+    assert _recommend({"dirty": False, "ahead": 2, "behind": 0}) == "merge"
+    assert _recommend({"dirty": False, "ahead": 2, "behind": 5}) == "pr"  # diverged -> open a PR
+
+    vcs = StubVCS(ahead=3, behind=0, dirty=False)
+    e = fresh(vcs_backend=vcs)
+    iid = e.intent.capture("finish a branch", "a landed branch", "merged")
+    e.intent.confirm(iid)
+
+    a, _ = e.registry.invoke(e.memory, iid, "branch", "assess", branch="feat/x", base="main")
+    assert a["result"]["ahead"] == 3 and a["result"]["recommended"] == "merge"
+
+    f, _ = e.registry.invoke(e.memory, iid, "branch", "finish", branch="feat/x", action="merge")
+    assert f["result"]["ok"] is True and f["result"]["action"] == "merge"
+    assert ("finish", "feat/x", "merge", "main") in vcs.calls
+    outs = e.memory.g.query("MATCH (o:BranchOutcome) RETURN o")
+    assert len(outs) == 1 and outs[0]["o"]["properties"]["action"] == "merge"
+
+    # an unknown action is rejected and records nothing
+    bad, _ = e.registry.invoke(e.memory, iid, "branch", "finish", branch="x", action="nuke")
+    assert "error" in bad["result"]
+    assert len(e.memory.g.query("MATCH (o:BranchOutcome) RETURN o")) == 1
     e.memory.close()

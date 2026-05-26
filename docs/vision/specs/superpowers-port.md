@@ -64,8 +64,8 @@ re-expressed as **gates and checks**, not prose.
 | dispatching-parallel-agents | agent | `delegate.fan_out` (child Lifecycles + quota + join) | the capability | **done** |
 | subagent-driven-development | process | composition: `delegate` (per-task child) + `gate` (spec-review then quality-review) | a skill template over `delegate` + the planned `gate` | **planned** (needs `gate`) |
 | executing-plans | process | a `develop` skill `execute` that walks a plan's steps with review checkpoints | skill walker over plan steps + gates | **planned** |
-| using-git-worktrees | effect | a new **`workspace`** capability (`isolate`/`baseline`) | `effect` verbs; records the workspace + baseline-test result | **new** |
-| finishing-a-development-branch | effect | a new **`branch`** capability (`finish`: merge/PR/keep/discard) | `effect` verbs over git/GitHub; records the outcome | **new** |
+| using-git-worktrees | effect | the **`workspace`** capability (`isolate`/`baseline`) | `effect` verbs over an injected VCS boundary; records the workspace + baseline-test result | **done** |
+| finishing-a-development-branch | effect | the **`branch`** capability (`assess` + `finish`: merge/PR/keep/discard) | `effect`/`transform` over an injected VCS boundary; records the outcome | **done** |
 | writing-skills refs (`testing-skills-with-subagents.md`, `persuasion-principles.md`, `anthropic-best-practices.md`) | reference | capability reference docs under the `plugin`/`develop` capabilities | T3 references, loaded on demand | **planned** |
 
 (Private-journal — a separate plugin — already has its Agency analog in the
@@ -78,8 +78,10 @@ re-expressed as **gates and checks**, not prose.
    two-stage (spec then quality) review and a verified `delegate.join`.
 2. **`workspace` capability** (`effect`) — `isolate` (worktree/branch) + `baseline`
    (run tests, record the green baseline) — the using-git-worktrees discipline.
-3. **`branch` capability** (`effect`) — `finish` (detect state → merge / open PR /
-   keep / discard) — the finishing-a-development-branch discipline.
+   **Done**, over an injected `VCSBackend` (default `GitClient`; stubbed in tests).
+3. **`branch` capability** (`effect`/`transform`) — `assess` (recommend) + `finish`
+   (merge / open PR / keep / discard) — the finishing-a-development-branch
+   discipline. **Done**, over the same injected `VCSBackend`.
 4. **Bind `develop` skills to verbs.** The complete port binds phases to real
    verbs where one exists, so walking the skill *executes*, not just *documents*.
    The skill walker makes execution **opt-in**: an `invoke` phase runs its verb
@@ -106,7 +108,8 @@ re-expressed as **gates and checks**, not prose.
 - **Phase 1:** `gate` capability (unblocks the rest) — **done**. Bind dev skills
   to verbs where one exists — `review`'s dispatch → `delegate.fan_out` **done**;
   `verify`'s run → a test runner deferred to Phase 2 (needs the net-new runner verb).
-- **Phase 2:** `workspace` + `branch` effect capabilities (worktrees, branch finish).
+- **Phase 2:** `workspace` + `branch` effect capabilities (worktrees, branch
+  finish) — **done**, over an injected `VCSBackend` so the suite never runs git.
 - **Phase 3:** `subagent-driven-development` + `executing-plans` as skill templates
   composing `delegate` + `gate`; add a local-subagent `delegate` driver.
 - **Phase 4:** carry skill references; document the discovery mapping in `help`.

@@ -44,6 +44,9 @@ Shipped capabilities:
 | `develop` | transform | The dev-workflow disciplines as walkable agency skills (brainstorm · plan · tdd · debug · verify · spec-panel · review); `checklist` returns a discipline's steps |
 | `music` | act | A domain bundle: the album conceptualizer (a 7-phase gated skill) + an `Album` node type and `type` enum |
 | `delegate` | effect/transform | Agent orchestration: `fan_out` a task across children under a quota + `join`; built on `ctx.spawn`, with `jules` as the first driver |
+| `gate` | transform | A reusable programmatic hard-gate predicate: `check` records a PASSED edge, or a BLOCKED_ON edge + an input-required pause on failure |
+| `workspace` | effect | Isolate work (using-git-worktrees): `isolate` a worktree on a fresh branch + `baseline` its green/red test result; over an injected VCS boundary |
+| `branch` | effect/transform | Finish a development branch (finishing-a-development-branch): `assess` recommends merge/pr/keep/discard, `finish` executes + records the outcome |
 
 ## Skills (installable, in `skills/`)
 

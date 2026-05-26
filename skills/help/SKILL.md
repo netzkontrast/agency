@@ -11,6 +11,7 @@ allowed-tools:
 
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
+- **branch** — assess, finish
 - **delegate** — fan_out, join
 - **develop** — checklist
 - **gate** — check
@@ -19,4 +20,5 @@ allowed-tools:
 - **plugin** — author_command, author_skill, help, lint_skill, marketplace_entry, scaffold, step_doc
 - **reflect** — note, recall, search
 - **skill_generator** — generate
+- **workspace** — baseline, isolate
 

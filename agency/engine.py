@@ -27,6 +27,7 @@ except ImportError:  # pragma: no cover
     HAVE_CODEMODE = False
 
 from .capabilities import discover
+from .capabilities._vcs import GitClient
 from .capabilities.jules import JulesClient
 from .capability import Registry
 from .intent import Intent
@@ -36,8 +37,9 @@ from .ontology import Ontology
 
 
 class Engine:
-    def __init__(self, path: str, jules_client=None):
+    def __init__(self, path: str, jules_client=None, vcs_backend=None):
         self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
+        self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
         self.registry = Registry()
         self.ontology = Ontology.core()                         # the base, then each capability extends it
         for cap in discover():                                  # reflection: register + merge ontology
@@ -47,7 +49,8 @@ class Engine:
         self.registry.ontology = self.ontology
         # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
         # injected per-call by the Registry itself, and the registry is on ctx.
-        self.registry.injectors = {"client": lambda: self.jules_client}
+        self.registry.injectors = {"client": lambda: self.jules_client,
+                                   "vcs": lambda: self.vcs_backend}
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)
