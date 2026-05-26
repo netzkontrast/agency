@@ -910,3 +910,25 @@ def test_delegate_fans_out_under_quota_and_joins():
     red = e.memory.g.query("MATCH (d:Delegation)-[:REDUCES_INTO]->(a:Artefact) RETURN a")
     assert len(red) == 1 and red[0]["a"]["properties"]["kind"] == "reduction"
     e.memory.close()
+
+
+def test_skill_generator_composes_author_and_lint():
+    """`skill_generator.generate` composes plugin.author_skill + plugin.lint_skill
+    via ctx.call into one deploy-ready-skill verb; the composition is provenance."""
+    e = fresh()
+    iid = e.intent.capture("make a skill", "a deploy-ready skill", "lint clean")
+    e.intent.confirm(iid)
+
+    out, _ = e.registry.invoke(e.memory, iid, "skill_generator", "generate",
+                               name="greet-user", description="Use when you greet the user",
+                               body="# Greet\nSay hi.")
+    r = out["result"]
+    assert r["ok"] is True and r["skill_md"].startswith("---\nname: greet-user")
+
+    bad, _ = e.registry.invoke(e.memory, iid, "skill_generator", "generate",
+                               name="Bad Name", description="does stuff", body="x")
+    assert bad["result"]["ok"] is False and bad["result"]["violations"]
+
+    verbs = {n.get("verb") for n in e.memory.provenance(iid)["serves"]}
+    assert {"generate", "author_skill", "lint_skill"} <= verbs    # composition recorded
+    e.memory.close()
