@@ -613,11 +613,13 @@ def test_develop_capability_ships_walkable_dev_skills():
 
 
 def _walk_to_completion(run, schema):
-    for ph in schema["phases"]:
+    phases = schema["phases"]
+    for idx, ph in enumerate(phases):
         outputs = {k: "x" for k in ph["produces"]}
         if ph.get("gate") == "hard":
             assert run.submit(outputs, confirmed=False)["status"] == "input-required"
-            assert run.submit(outputs, confirmed=True)["status"] == "completed"
+            expected = "completed" if idx == len(phases) - 1 else "working"   # gates may be mid-graph
+            assert run.submit(outputs, confirmed=True)["status"] == expected
         else:
             assert run.submit(outputs)["status"] == "working"
 
@@ -1079,4 +1081,57 @@ def test_branch_assesses_and_finishes():
     bad, _ = e.registry.invoke(e.memory, iid, "branch", "finish", branch="x", action="nuke")
     assert "error" in bad["result"]
     assert len(e.memory.g.query("MATCH (o:BranchOutcome) RETURN o")) == 1
+    e.memory.close()
+
+
+def test_subagent_driven_development_composes_delegate_and_gates():
+    """superpowers-port Phase 3 — subagent-driven-development composes `delegate` (a
+    per-task worker child Lifecycle) with the `gate` capability's TWO-STAGE review:
+    spec-review then quality-review. The child is 'done' only when BOTH gates pass
+    (a verified join); a failing spec-review pauses the child at input-required and
+    never reaches the quality stage. Both gates are real provenance."""
+    e = fresh()
+    iid = e.intent.capture("build via subagents", "reviewed work", "both gates pass")
+    e.intent.confirm(iid)
+    item = {"discipline": "tdd"}          # the worker runs develop.checklist (a local driver)
+
+    out, _ = e.registry.invoke(e.memory, iid, "subagent", "develop",
+                               driver="develop", driver_verb="checklist", item=item,
+                               spec_passed=True, quality_passed=True,
+                               spec_evidence="matches spec", quality_evidence="clean diff")
+    r = out["result"]
+    assert r["done"] is True
+    assert e.lifecycle.status(r["child"]) == "completed"          # verified join: both gates passed
+    gates = e.memory.provenance(iid)["gates"]
+    assert any(g["name"] == "spec-review" and g["passed"] for g in gates)
+    assert any(g["name"] == "quality-review" and g["passed"] for g in gates)
+
+    # a failing spec-review pauses the child and never reaches quality-review
+    bad, _ = e.registry.invoke(e.memory, iid, "subagent", "develop",
+                               driver="develop", driver_verb="checklist", item=item,
+                               spec_passed=False, quality_passed=True, spec_evidence="off-spec")
+    br = bad["result"]
+    assert br["done"] is False and br["quality"] is None
+    assert e.lifecycle.status(br["child"]) == "input-required"    # blocked at the first gate
+    e.memory.close()
+
+
+def test_executing_plans_discipline_walks_with_checkpoints():
+    """superpowers-port Phase 3 — executing-plans ships as the `execute` develop
+    discipline: load the plan, execute its steps, then a review checkpoint and a
+    final verification gate (both hard). A gated phase-graph, walkable like the
+    other disciplines."""
+    e = fresh()
+    iid = e.intent.capture("execute a plan", "completed plan", "all steps done")
+    run = SkillRun(e.memory, iid, e.ontology.skill("execute"))
+
+    assert run.current()["name"] == "load"
+    assert run.submit({"plan": "the written plan", "steps": "s1,s2"})["status"] == "working"
+    assert run.submit({"step_results": "s1 done; s2 done"})["status"] == "working"
+    assert run.current()["gate"] == "hard"                        # mid-execution review checkpoint
+    assert run.submit({"reviewed": "checkpoint ok"}, confirmed=False)["status"] == "input-required"
+    assert run.submit({"reviewed": "checkpoint ok"}, confirmed=True)["status"] == "working"
+    assert run.current()["gate"] == "hard"                        # final verification gate (the iron law)
+    assert run.submit({"all_pass": "yes"}, confirmed=True)["status"] == "completed"
+    assert run.done
     e.memory.close()

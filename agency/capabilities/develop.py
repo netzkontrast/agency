@@ -69,6 +69,14 @@ DEV_SKILLS = {
          "inputs": ["driver", "driver_verb", "items"]},
         _phase(3, "resolve", ["addressed"], gate="hard"),
     ]},
+    # executing-plans: walk a written plan's steps with review checkpoints, never
+    # claiming done without a final verification gate. (superpowers-port Phase 3.)
+    "execute": {"name": "execute", "kind": "discipline", "phases": [
+        _phase(1, "load", ["plan", "steps"]),
+        _phase(2, "execute", ["step_results"]),
+        _phase(3, "checkpoint", ["reviewed"], gate="hard"),
+        _phase(4, "verify", ["all_pass"], gate="hard"),
+    ]},
 }
 
 

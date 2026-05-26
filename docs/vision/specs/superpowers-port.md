@@ -62,8 +62,8 @@ re-expressed as **gates and checks**, not prose.
 | requesting-code-review | effect | `develop` skill `review` **+** `delegate` (dispatch a reviewer) | compose: review skill drives `delegate.fan_out` to a reviewer | **done** (skill's dispatch phase bound to `delegate.fan_out`; a dedicated reviewer driver is Phase 3) |
 | receiving-code-review | transform | folded into the `review` skill (assess/resolve phases) | gated phase-graph | **partial** |
 | dispatching-parallel-agents | agent | `delegate.fan_out` (child Lifecycles + quota + join) | the capability | **done** |
-| subagent-driven-development | process | composition: `delegate` (per-task child) + `gate` (spec-review then quality-review) | a skill template over `delegate` + the planned `gate` | **planned** (needs `gate`) |
-| executing-plans | process | a `develop` skill `execute` that walks a plan's steps with review checkpoints | skill walker over plan steps + gates | **planned** |
+| subagent-driven-development | process | the **`subagent`** capability `develop` — composes `delegate` (per-task child) + `gate` (spec-review then quality-review) | done iff both gates pass (a verified join); a failing spec-review pauses the child | **done** |
+| executing-plans | process | the `develop` skill `execute` — walks a plan with a review checkpoint + a final verification gate | gated phase-graph (two hard gates) | **done** |
 | using-git-worktrees | effect | the **`workspace`** capability (`isolate`/`baseline`) | `effect` verbs over an injected VCS boundary; records the workspace + baseline-test result | **done** |
 | finishing-a-development-branch | effect | the **`branch`** capability (`assess` + `finish`: merge/PR/keep/discard) | `effect`/`transform` over an injected VCS boundary; records the outcome | **done** |
 | writing-skills refs (`testing-skills-with-subagents.md`, `persuasion-principles.md`, `anthropic-best-practices.md`) | reference | capability reference docs under the `plugin`/`develop` capabilities | T3 references, loaded on demand | **planned** |
@@ -89,8 +89,11 @@ re-expressed as **gates and checks**, not prose.
    discipline stays walkable by hand). `review`'s dispatch phase is bound to
    `delegate.fan_out` (**done**); `verify`'s run phase → a test runner awaits the
    net-new test-runner `effect` verb (Phase 2).
-5. **Reviewer/worker drivers for `delegate`** — a local-subagent driver so
-   requesting-code-review and subagent-driven-development have a real backend.
+5. **Reviewer/worker drivers for `delegate`** — **satisfied** by driving any local
+   capability/verb: `review` dispatches a local reviewer and `subagent.develop`
+   dispatches a local worker, both via `delegate.fan_out` (no external runtime
+   required; `jules` remains the remote driver). No mock subagent runtime is
+   invented — a "local subagent" IS a recorded local capability invocation.
 6. **Skill references** — carry the heavy how-to files as capability references.
 
 ## What deliberately does NOT port
@@ -110,8 +113,9 @@ re-expressed as **gates and checks**, not prose.
   `verify`'s run → a test runner deferred to Phase 2 (needs the net-new runner verb).
 - **Phase 2:** `workspace` + `branch` effect capabilities (worktrees, branch
   finish) — **done**, over an injected `VCSBackend` so the suite never runs git.
-- **Phase 3:** `subagent-driven-development` + `executing-plans` as skill templates
-  composing `delegate` + `gate`; add a local-subagent `delegate` driver.
+- **Phase 3:** `subagent-driven-development` (the `subagent.develop` composition of
+  `delegate` + a two-stage `gate` review) + `executing-plans` (the `execute` gated
+  discipline) — **done**; the local-subagent driver is any local capability verb.
 - **Phase 4:** carry skill references; document the discovery mapping in `help`.
 
 ## CORE fidelity

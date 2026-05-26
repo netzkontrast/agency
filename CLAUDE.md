@@ -47,6 +47,7 @@ Shipped capabilities:
 | `gate` | transform | A reusable programmatic hard-gate predicate: `check` records a PASSED edge, or a BLOCKED_ON edge + an input-required pause on failure |
 | `workspace` | effect | Isolate work (using-git-worktrees): `isolate` a worktree on a fresh branch + `baseline` its green/red test result; over an injected VCS boundary |
 | `branch` | effect/transform | Finish a development branch (finishing-a-development-branch): `assess` recommends merge/pr/keep/discard, `finish` executes + records the outcome |
+| `subagent` | effect | Subagent-driven-development: `develop` dispatches a worker child (via `delegate`) then runs a two-stage gated review (spec→quality, via `gate`); done iff both gates pass |
 
 ## Skills (installable, in `skills/`)
 

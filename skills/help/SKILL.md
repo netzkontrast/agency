@@ -20,5 +20,6 @@ allowed-tools:
 - **plugin** — author_command, author_skill, help, lint_skill, marketplace_entry, scaffold, step_doc
 - **reflect** — note, recall, search
 - **skill_generator** — generate
+- **subagent** — develop
 - **workspace** — baseline, isolate
 
