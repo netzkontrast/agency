@@ -27,7 +27,7 @@ class SkillRun:
         self.intent_id = intent_id
         self.schema = schema
         self.phases = schema["phases"]
-        self.registry = registry            # required if any phase is executable (has `invoke`)
+        self.registry = registry            # wire it to EXECUTE `invoke` phases; omit to walk by hand
         self.i = 0
         self.skill_id = memory.record("Skill", {"name": schema["name"], "kind": schema["kind"]})
         memory.link(self.skill_id, intent_id, "SERVES")
@@ -48,16 +48,17 @@ class SkillRun:
     def submit(self, outputs: Optional[dict] = None, confirmed: bool = False) -> dict:
         """Advance one phase. An executable phase (`invoke`) runs a REAL capability
         verb (recorded as an Invocation) and uses its output to satisfy the schema;
-        a plain phase consumes the submitted `outputs`. Missing required outputs
-        raise; a hard gate pauses at `input-required` until confirmed."""
+        a plain phase consumes the submitted `outputs`. Execution is opt-in: an
+        `invoke` phase runs the verb only when a `registry` was wired — without one
+        it degrades to a plain document phase, so a discipline stays walkable by
+        hand. Missing required outputs raise; a hard gate pauses at `input-required`
+        until confirmed."""
         if self.done:
             raise RuntimeError("skill run already complete")
         p = self.phases[self.i]
         outputs = dict(outputs or {})
         inv_id = None
-        if "invoke" in p:
-            if self.registry is None:
-                raise RuntimeError(f"phase {p['name']!r} is executable but no registry was given")
+        if "invoke" in p and self.registry is not None:
             spec = p["invoke"]
             args = {k: outputs[k] for k in p.get("inputs", []) if k in outputs}
             result, inv_id = self.registry.invoke(

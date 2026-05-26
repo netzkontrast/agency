@@ -957,3 +957,33 @@ def test_gate_capability_records_and_pauses():
     assert any(g["name"] == "spec-review" and g["passed"] for g in gates)
     assert any(g["name"] == "code-quality" and not g["passed"] for g in gates)   # blocked gate is provenance
     e.memory.close()
+
+
+def test_review_skill_dispatches_reviewer_via_delegate():
+    """superpowers-port Phase 1 — the `review` discipline is BOUND to a verb: walked
+    with a registry it EXECUTES, its dispatch phase driving `delegate.fan_out` to
+    dispatch a reviewer (a real child Lifecycle + Invocation) rather than merely
+    documenting the step. Execution is opt-in: walked without a registry the same
+    phase degrades to a plain document phase (the discipline stays walkable by hand,
+    proven by test_every_dev_skill_walks_to_a_hard_gate)."""
+    e = fresh()
+    iid = e.intent.capture("get a change reviewed", "addressed findings", "reviewer dispatched")
+    run = SkillRun(e.memory, iid, e.ontology.skill("review"), registry=e.registry)
+
+    assert run.current()["name"] == "request"
+    assert run.submit({"context": "the diff under review", "diff": "+1 -0"})["status"] == "working"
+
+    # dispatch: REAL execution — fan a reviewer out across the items via delegate
+    assert run.current()["name"] == "dispatch"
+    assert run.submit({"driver": "develop", "driver_verb": "checklist",
+                       "items": [{"discipline": "review"}]})["status"] == "working"
+    rows = e.memory.g.query("MATCH (d:Delegation)-[:DELEGATES_TO]->(lc:Lifecycle) RETURN lc")
+    assert len(rows) == 1                                              # the reviewer was dispatched for real
+    assert any(n.get("verb") == "fan_out" for n in e.memory.provenance(iid)["serves"])
+
+    # resolve: address the findings at the hard gate
+    assert run.current()["gate"] == "hard"
+    assert run.submit({"addressed": "all findings resolved"}, confirmed=False)["status"] == "input-required"
+    assert run.submit({"addressed": "all findings resolved"}, confirmed=True)["status"] == "completed"
+    assert run.done
+    e.memory.close()

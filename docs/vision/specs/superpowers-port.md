@@ -59,7 +59,7 @@ re-expressed as **gates and checks**, not prose.
 | verification-before-completion | transform/process | `develop` skill `verify` | gated phase-graph | **done** |
 | brainstorming | process | `develop` skill `brainstorm` | gated phase-graph | **done** |
 | writing-plans | act | `develop` skill `plan` | gated phase-graph | **done** |
-| requesting-code-review | effect | `develop` skill `review` **+** `delegate` (dispatch a reviewer) | compose: review skill drives `delegate.fan_out` to a reviewer | **partial** (skill done; reviewer dispatch TODO) |
+| requesting-code-review | effect | `develop` skill `review` **+** `delegate` (dispatch a reviewer) | compose: review skill drives `delegate.fan_out` to a reviewer | **done** (skill's dispatch phase bound to `delegate.fan_out`; a dedicated reviewer driver is Phase 3) |
 | receiving-code-review | transform | folded into the `review` skill (assess/resolve phases) | gated phase-graph | **partial** |
 | dispatching-parallel-agents | agent | `delegate.fan_out` (child Lifecycles + quota + join) | the capability | **done** |
 | subagent-driven-development | process | composition: `delegate` (per-task child) + `gate` (spec-review then quality-review) | a skill template over `delegate` + the planned `gate` | **planned** (needs `gate`) |
@@ -80,10 +80,13 @@ re-expressed as **gates and checks**, not prose.
    (run tests, record the green baseline) — the using-git-worktrees discipline.
 3. **`branch` capability** (`effect`) — `finish` (detect state → merge / open PR /
    keep / discard) — the finishing-a-development-branch discipline.
-4. **Bind `develop` skills to verbs.** Today the 7 dev skills are document-only
-   phase-graphs. The complete port binds phases to real verbs where one exists
-   (e.g. `review`'s dispatch phase → `delegate`; `verify`'s run phase → a test
-   runner), so walking the skill *executes*, not just *documents*.
+4. **Bind `develop` skills to verbs.** The complete port binds phases to real
+   verbs where one exists, so walking the skill *executes*, not just *documents*.
+   The skill walker makes execution **opt-in**: an `invoke` phase runs its verb
+   when a registry is wired, and degrades to a document phase without one (so a
+   discipline stays walkable by hand). `review`'s dispatch phase is bound to
+   `delegate.fan_out` (**done**); `verify`'s run phase → a test runner awaits the
+   net-new test-runner `effect` verb (Phase 2).
 5. **Reviewer/worker drivers for `delegate`** — a local-subagent driver so
    requesting-code-review and subagent-driven-development have a real backend.
 6. **Skill references** — carry the heavy how-to files as capability references.
@@ -100,8 +103,9 @@ re-expressed as **gates and checks**, not prose.
 
 ## Build order
 
-- **Phase 1:** `gate` capability (unblocks the rest). Bind `review`/`verify` dev
-  skills to verbs.
+- **Phase 1:** `gate` capability (unblocks the rest) — **done**. Bind dev skills
+  to verbs where one exists — `review`'s dispatch → `delegate.fan_out` **done**;
+  `verify`'s run → a test runner deferred to Phase 2 (needs the net-new runner verb).
 - **Phase 2:** `workspace` + `branch` effect capabilities (worktrees, branch finish).
 - **Phase 3:** `subagent-driven-development` + `executing-plans` as skill templates
   composing `delegate` + `gate`; add a local-subagent `delegate` driver.
