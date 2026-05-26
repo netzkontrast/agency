@@ -85,8 +85,15 @@ def manifest_obj(name: str, version: str, description: str) -> dict:
 
 def marketplace_obj(name: str, version: str, description: str, source: str) -> dict:
     """One entry of a Claude Code `marketplace.json` `plugins` array. Per the
-    marketplace schema `source` is EITHER a relative path string OR a github
-    object — a bare `owner/name` is normalised to `{source: github, repo}`."""
-    src = ({"source": "github", "repo": source}
-           if "/" in source and not source.startswith(".") else source)
+    marketplace schema `source` is a relative-path string OR a github object. A
+    plain path (`./local`, `plugins/foo`, `owner/repo`) is kept verbatim as a
+    string; only a github URL is normalised to `{source: github, repo}` (the
+    ambiguous bare `owner/repo` is treated as a path, never auto-github'd)."""
+    if isinstance(source, str) and "github.com" in source:
+        path = source.split("github.com", 1)[1].lstrip(":/").rstrip("/")
+        if path.endswith(".git"):
+            path = path[:-4]
+        src = {"source": "github", "repo": path}
+    else:
+        src = source
     return {"name": name, "version": version, "description": description, "source": src}

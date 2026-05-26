@@ -26,7 +26,9 @@ class Lifecycle:
         lc = self.m.record("Lifecycle", {"state": WORKING, "phase": 0})
         self.m.link(lc, intent_id, "SERVES")
         if agent:
-            agent_id = self.m.record("Agent", {"runtime": "cloud-async"}, node_id=f"agent:{agent}")
+            agent_id = f"agent:{agent}"
+            if self.m.recall(agent_id) is None:          # reuse the Agent node; don't rewrite its history
+                self.m.record("Agent", {"runtime": "cloud-async"}, node_id=agent_id)
             self.m.link(lc, agent_id, "DISPATCHED_TO")
         return lc
 
@@ -37,6 +39,9 @@ class Lifecycle:
             phase = (self.m.recall(lc_id) or {}).get("phase", 0) + 1
             self.m.update(lc_id, {"phase": phase, "state": WORKING})
             return WORKING
+        # a failed gate is recorded too (so provenance shows what blocked the run)
+        g = self.m.record("Gate", {"name": gate, "passed": False})
+        self.m.link(lc_id, g, "BLOCKED_ON")
         self.m.update(lc_id, {"state": INPUT_REQUIRED})  # human (intent) re-entry
         return INPUT_REQUIRED
 

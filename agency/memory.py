@@ -147,22 +147,47 @@ class Memory:
         rows.sort(key=lambda p: p["vfrom"], reverse=True)
         return rows[:budget]
 
+    def _intent_chain(self, intent_id: str) -> set:
+        """All versions of one logical Intent — `amend` forks a new id linked by
+        SUPERSEDED_BY, so provenance must gather across the whole chain (both
+        directions) or it fragments after an amend."""
+        seen, frontier = {intent_id}, [intent_id]
+        while frontier:
+            cur = frontier.pop()
+            for cy in ("MATCH (a:Intent)-[:SUPERSEDED_BY]->(b:Intent) WHERE a.id = $id RETURN b",
+                       "MATCH (b:Intent)-[:SUPERSEDED_BY]->(a:Intent) WHERE a.id = $id RETURN b"):
+                for r in self.g.query(cy, {"id": cur}):
+                    bid = r["b"]["properties"].get("id")
+                    if bid and bid not in seen:
+                        seen.add(bid)
+                        frontier.append(bid)
+        return seen
+
     # --- the moat: cross-concern provenance in one traversal -----------------
     def provenance(self, intent_id: str) -> dict[str, list[dict]]:
-        def q(cypher: str) -> list[dict]:
-            return self.g.query(cypher, {"iid": intent_id})
+        chain = self._intent_chain(intent_id)
 
-        serves = [r["x"]["properties"]
-                  for r in q("MATCH (i:Intent)<-[:SERVES]-(x) WHERE i.id = $iid RETURN x")]
-        agents = [r["a"]["properties"]
-                  for r in q("MATCH (i:Intent)<-[:SERVES]-(x)-[:PERFORMED_BY]->(a:Agent) "
-                             "WHERE i.id = $iid RETURN DISTINCT a")]
-        artefacts = [r["p"]["properties"]
-                     for r in q("MATCH (i:Intent)<-[:SERVES]-(x)-[:PRODUCES]->(p:Artefact) "
-                                "WHERE i.id = $iid RETURN p")]
-        gates = [r["g"]["properties"]
-                 for r in q("MATCH (i:Intent)<-[:SERVES]-(:Lifecycle)-[:PASSED]->(g:Gate) "
-                            "WHERE i.id = $iid RETURN g")]
+        def collect(cypher: str, key: str) -> list[dict]:
+            out, seen = [], set()
+            for iid in chain:
+                for r in self.g.query(cypher, {"iid": iid}):
+                    p = r[key]["properties"]
+                    k = p.get("id") or id(p)
+                    if k not in seen:
+                        seen.add(k)
+                        out.append(p)
+            return out
+
+        serves = collect("MATCH (i:Intent)<-[:SERVES]-(x) WHERE i.id = $iid RETURN x", "x")
+        agents = collect("MATCH (i:Intent)<-[:SERVES]-(x)-[:PERFORMED_BY]->(a:Agent) "
+                         "WHERE i.id = $iid RETURN DISTINCT a", "a")
+        artefacts = collect("MATCH (i:Intent)<-[:SERVES]-(x)-[:PRODUCES]->(p:Artefact) "
+                            "WHERE i.id = $iid RETURN p", "p")
+        # both gate outcomes: PASSED and BLOCKED_ON (a rejected gate is provenance too)
+        gates = collect("MATCH (i:Intent)<-[:SERVES]-(:Lifecycle)-[:PASSED]->(g:Gate) "
+                        "WHERE i.id = $iid RETURN g", "g")
+        gates += collect("MATCH (i:Intent)<-[:SERVES]-(:Lifecycle)-[:BLOCKED_ON]->(g:Gate) "
+                         "WHERE i.id = $iid RETURN g", "g")
         return {"serves": serves, "agents": agents, "artefacts": artefacts, "gates": gates}
 
     def close(self) -> None:

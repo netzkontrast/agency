@@ -101,10 +101,17 @@ class Engine:
             "An intent-verification gate that ELICITS a human/agent decision mid-flow "
             "(askuser-in-the-flow): a tiny prompt streams out, the answer resumes the chain. "
             "Records the outcome to the provenance graph."
+            # guard: the lifecycle must SERVE the given intent (no cross-intent gates)
+            if not mem.g.query("MATCH (l:Lifecycle)-[:SERVES]->(i:Intent) "
+                               "WHERE l.id = $lid AND i.id = $iid RETURN i",
+                               {"lid": lifecycle_id, "iid": intent_id}):
+                return {"approved": False, "error": "lifecycle does not serve the given intent"}
             res = await ctx.elicit(question, response_type=["approve", "reject"])
             approved = getattr(res, "data", None) == "approve"
             g = mem.record("Gate", {"name": "human-confirm", "question": question, "passed": approved})
             mem.link(lifecycle_id, g, "PASSED" if approved else "BLOCKED_ON")
+            if not approved:                              # a rejected gate pauses the lifecycle for re-entry
+                mem.update(lifecycle_id, {"state": "input-required"})
             return {"approved": approved, "gate_id": g}
 
         @mcp.tool

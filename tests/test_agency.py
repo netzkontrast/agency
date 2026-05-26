@@ -425,9 +425,9 @@ def test_plugin_capability_generates_valid_artefacts():
                        name="my-skill", description="Use when you need X", body="# My Skill\nbody")
     assert sk["result"].startswith("---\nname: my-skill")    # the skill creator emits frontmatter
     reg.invoke(mem, iid, "plugin", "author_command", name="go", description="Use when go", body="do it")
-    me, _ = reg.invoke(mem, iid, "plugin", "marketplace_entry",
-                       name="demo", version="0.1.0", description="d", source="netzkontrast/agency")
-    src = json.loads(me["result"])["source"]                 # owner/name -> github object (spec)
+    me, _ = reg.invoke(mem, iid, "plugin", "marketplace_entry", name="demo", version="0.1.0",
+                       description="d", source="https://github.com/netzkontrast/agency")
+    src = json.loads(me["result"])["source"]                 # a github URL -> github object (spec)
     assert src == {"source": "github", "repo": "netzkontrast/agency"}
     reg.invoke(mem, iid, "plugin", "step_doc", step="manifest", output="written")
 
@@ -649,9 +649,10 @@ def test_templates_render_expected_shapes():
     doc = reg.invoke(mem, iid, "plugin", "step_doc",
                      step="manifest", output="written", inputs="name", notes="n")[0]["result"]
     assert "## Inputs" in doc and "## Output" in doc and "## Notes" in doc
-    rel = json.loads(reg.invoke(mem, iid, "plugin", "marketplace_entry",
-                                name="x", version="0.1.0", description="d", source="./local")[0]["result"])
-    assert rel["source"] == "./local"                    # relative path stays a string, not a github object
+    for path in ("./local", "plugins/agency"):           # relative paths stay strings, never auto-github'd
+        rel = json.loads(reg.invoke(mem, iid, "plugin", "marketplace_entry",
+                                    name="x", version="0.1.0", description="d", source=path)[0]["result"])
+        assert rel["source"] == path
     e.memory.close()
 
 
@@ -739,3 +740,94 @@ def test_music_capability_owns_conceptualizer():
     with pytest.raises(ValueError):                          # the capability-owned type enum bites
         e.memory.record("Album", {"artist": "A", "title": "T", "type": "polka"})
     e.memory.close()
+
+
+def test_rejected_gate_pauses_lifecycle_and_is_provenance():
+    """A rejected human gate pauses the Lifecycle at input-required AND records a
+    blocked Gate that provenance surfaces."""
+    e = fresh()
+    iid = e.intent.capture("ship the release", "v1 published", "human approves")
+    e.intent.confirm(iid)
+    lc = e.lifecycle.open(iid, agent="jules")
+    mcp = e.build_mcp(codemode=False)
+
+    async def reject(message, response_type, params, context):
+        return ElicitResult(action="accept", content="reject")
+
+    async def main():
+        async with Client(mcp, elicitation_handler=reject) as client:
+            return _sc(await client.call_tool("lifecycle_gate", {
+                "question": "Approve?", "intent_id": iid, "lifecycle_id": lc}))
+
+    out = asyncio.run(main())
+    assert out["approved"] is False
+    assert e.lifecycle.status(lc) == "input-required"        # rejected gate pauses the lifecycle
+    gates = e.memory.provenance(iid)["gates"]
+    assert any(g["name"] == "human-confirm" and not g["passed"] for g in gates)   # blocked gate is provenance
+    e.memory.close()
+
+
+def test_lifecycle_gate_guards_mismatched_intent():
+    e = fresh()
+    iid = e.intent.capture("a", "b", "c")
+    other = e.intent.capture("x", "y", "z")
+    lc = e.lifecycle.open(iid)
+    mcp = e.build_mcp(codemode=False)
+
+    async def approve(message, response_type, params, context):
+        return ElicitResult(action="accept", content="approve")
+
+    async def main():
+        async with Client(mcp, elicitation_handler=approve) as client:
+            return _sc(await client.call_tool("lifecycle_gate", {
+                "question": "?", "intent_id": other, "lifecycle_id": lc}))   # lc serves iid, not other
+
+    out = asyncio.run(main())
+    assert out["approved"] is False and "error" in out
+    e.memory.close()
+
+
+def test_failed_move_records_a_blocked_gate():
+    e = fresh()
+    iid = e.intent.capture("a", "b", "c")
+    lc = e.lifecycle.open(iid)
+    assert e.lifecycle.move(lc, "tests-green", ok=False) == "input-required"
+    gates = e.memory.provenance(iid)["gates"]
+    assert any(g["name"] == "tests-green" and not g["passed"] for g in gates)
+    e.memory.close()
+
+
+def test_provenance_follows_the_amend_chain():
+    """After `amend` (a supersede that forks a new intent id), provenance from
+    EITHER id gathers actions across the whole SUPERSEDED_BY chain."""
+    e = fresh()
+    iid = e.intent.capture("ship", "v1", "ok")
+    e.intent.confirm(iid)
+    e.registry.invoke(e.memory, iid, "plugin", "lint_skill", name="a", description="Use when a")
+    new = e.intent.amend(iid, deliverable="v2")
+    e.registry.invoke(e.memory, new, "plugin", "lint_skill", name="b", description="Use when b")
+    for q in (iid, new):
+        verbs = [n.get("verb") for n in e.memory.provenance(q)["serves"] if n.get("verb")]
+        assert verbs.count("lint_skill") == 2                # both pre- and post-amend invocations
+    e.memory.close()
+
+
+def test_agent_node_recorded_once_across_opens():
+    e = fresh()
+    iid = e.intent.capture("a", "b", "c")
+    e.lifecycle.open(iid, agent="jules")
+    before = e.memory.recall("agent:jules")
+    e.lifecycle.open(iid, agent="jules")                     # reuse the node, don't rewrite its history
+    after = e.memory.recall("agent:jules")
+    assert before["vfrom"] == after["vfrom"]
+    e.memory.close()
+
+
+def test_cli_emits_json_on_error():
+    db = tempfile.mktemp(suffix=".db")
+    proc = subprocess.run(
+        [sys.executable, "-m", "agency.cli", "--db", db, "execute", "--code", "raise ValueError('boom')"],
+        cwd=REPO_DIR, capture_output=True, text=True, env={**os.environ, "PYTHONPATH": REPO_DIR})
+    assert proc.returncode == 1
+    out = json.loads(proc.stdout)                            # ONE JSON document, never a raw traceback
+    assert "error" in out

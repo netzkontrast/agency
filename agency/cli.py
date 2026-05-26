@@ -81,11 +81,15 @@ def main(argv: list[str] | None = None) -> int:
     engine = Engine(args.db)
     mcp = engine.build_mcp(codemode=True)
     try:
-        out = asyncio.run(mcp.call_tool(name, params))
+        result = _structured(asyncio.run(mcp.call_tool(name, params)))
+        rc = 0
+    except Exception as e:                       # always emit ONE JSON document, never a raw traceback
+        result = {"error": type(e).__name__, "message": str(e)}
+        rc = 1
     finally:
         engine.memory.close()
-    print(json.dumps(_structured(out)))
-    return 0
+    print(json.dumps(result))
+    return rc
 
 
 if __name__ == "__main__":
