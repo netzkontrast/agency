@@ -17,6 +17,7 @@ parts proven by the engine are marked **proven**.
 | [engine](engine.md) | the substrate — code-mode IS the contract (`search`/`get_schema`/`execute`); capabilities self-register; engine-guard middleware |
 | [intent](intent.md) | the human-owned root; `capture · confirm · amend`; the `SERVES` spine |
 | [capability](capability.md) | the open craft; verbs role-tagged `act` / `transform` / `effect`; `<capability>.help`; the Invocation record |
+| [capability-base](capability-base.md) | `CapabilityContext` (the one typed handle) + optional `CapabilityBase`; first-class memory/ontology/schema/template/registry/intent access |
 | [lifecycle](lifecycle.md) | the task/agent state-machine; `open · move · close` + `read · find · check · watch`; A2A states; agent-as-parameterization; gates |
 | [memory](memory.md) | the moat — bi-temporal append-only graph; `record · link · supersede` + `recall · find · validate`; `project`; one-traversal provenance |
 | [skills-and-gates](skills-and-gates.md) | skills as atomic, gated, progressively-disclosed Lifecycle step-graphs; gates / intent-verification / askuser as `elicit` steps |
