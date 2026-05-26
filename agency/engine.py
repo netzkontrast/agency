@@ -45,12 +45,9 @@ class Engine:
             self.ontology.extend(cap.ontology, cap.name)
         # the Registry needs the effective ontology to build a CapabilityContext
         self.registry.ontology = self.ontology
-        # engine-supplied verb-param providers (the `inject` convention); `memory`
-        # and `intent_id` are injected per-call by the Registry itself.
-        self.registry.injectors = {
-            "client": lambda: self.jules_client,
-            "caps": lambda: {n: list(self.registry.get(n).verbs) for n in self.registry.names()},
-        }
+        # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
+        # injected per-call by the Registry itself, and the registry is on ctx.
+        self.registry.injectors = {"client": lambda: self.jules_client}
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)

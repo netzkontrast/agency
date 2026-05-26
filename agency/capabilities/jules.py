@@ -11,9 +11,9 @@ production while deterministic tests inject a stand-in.
 """
 from __future__ import annotations
 
-from typing import Optional, Protocol
+from typing import Protocol
 
-from ..capability import Capability
+from ..capability import CapabilityBase, verb
 
 
 class JulesBackend(Protocol):
@@ -37,40 +37,33 @@ class JulesClient:
         return _jules_api.jules_get(session)
 
 
-def dispatch(source: str, starting_branch: str, prompt: str,
-             client: Optional[JulesBackend] = None) -> dict:
-    "Spawn a remote Jules session (external effect). Returns its id/url/state."
-    s = (client or JulesClient()).create(
-        prompt=prompt, source=source, starting_branch=starting_branch)
-    sid = s.get("id") or s.get("name")
-    return {
-        "status": s.get("state", "submitted"),
-        "session": sid,
-        "url": s.get("url"),
-        "artefact": {"kind": "jules-session", "session": sid or "", "url": s.get("url") or ""},
-    }
+class JulesCapability(CapabilityBase):
+    name = "jules"
+    home = "lifecycle"
 
+    def _backend(self) -> JulesBackend:
+        return self.ctx.client or JulesClient()    # the engine injects its jules backend as ctx.client
 
-def status(session: str, client: Optional[JulesBackend] = None) -> dict:
-    "Read a session's current state from the backend."
-    s = (client or JulesClient()).get(session)
-    return {"state": s.get("state"), "url": s.get("url")}
+    @verb(role="effect")
+    def dispatch(self, source: str, starting_branch: str, prompt: str) -> dict:
+        "Spawn a remote Jules session (external effect). Returns its id/url/state."
+        s = self._backend().create(prompt=prompt, source=source, starting_branch=starting_branch)
+        sid = s.get("id") or s.get("name")
+        return {
+            "status": s.get("state", "submitted"),
+            "session": sid,
+            "url": s.get("url"),
+            "artefact": {"kind": "jules-session", "session": sid or "", "url": s.get("url") or ""},
+        }
 
+    @verb(role="transform")
+    def status(self, session: str) -> dict:
+        "Read a session's current state from the backend."
+        s = self._backend().get(session)
+        return {"state": s.get("state"), "url": s.get("url")}
 
-def verify(state: str, branch_on_remote: bool) -> dict:
-    "COMPLETED != done: done only if state is completed AND a branch is on origin."
-    done = str(state).lower() == "completed" and bool(branch_on_remote)
-    return {"done": done, "state": state, "branch_on_remote": bool(branch_on_remote)}
-
-
-jules_capability = Capability(
-    name="jules",
-    home="lifecycle",
-    verbs={
-        # `inject: ["client"]` — the engine supplies its jules backend (the boundary
-        # object) so the verb stays pure and the param is hidden from the MCP schema.
-        "dispatch": {"role": "effect", "fn": dispatch, "inject": ["client"]},   # spawns a remote session
-        "status": {"role": "transform", "fn": status, "inject": ["client"]},    # reads session state
-        "verify": {"role": "transform", "fn": verify},     # the COMPLETED != done guard (pure)
-    },
-)
+    @verb(role="transform")
+    def verify(self, state: str, branch_on_remote: bool) -> dict:
+        "COMPLETED != done: done only if state is completed AND a branch is on origin."
+        done = str(state).lower() == "completed" and bool(branch_on_remote)
+        return {"done": done, "state": state, "branch_on_remote": bool(branch_on_remote)}

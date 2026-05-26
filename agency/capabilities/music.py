@@ -9,7 +9,7 @@ contract end to end.
 """
 from __future__ import annotations
 
-from ..capability import Capability
+from ..capability import CapabilityBase, verb
 from ..ontology import OntologyExtension
 
 ALBUM_TYPES = {"documentary", "narrative", "thematic", "character-study",
@@ -61,9 +61,12 @@ music_ontology = OntologyExtension(
     schemas={"album-concept": ["artist", "title", "type"]},
 )
 
-music_capability = Capability(
-    name="music",
-    home="capability",
-    verbs={"conceptualize": {"role": "act", "fn": conceptualize}},
-    ontology=music_ontology,
-)
+class MusicCapability(CapabilityBase):
+    name = "music"
+    home = "capability"
+    ontology = music_ontology
+
+    @verb(role="act")
+    def conceptualize(self, artist: str, title: str, type: str,
+                      theme: str = "", tracklist: str = "") -> dict:
+        return conceptualize(artist, title, type, theme, tracklist)

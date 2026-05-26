@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import re
 
-from ..capability import Capability
+from ..capability import CapabilityBase, verb
 from ..ontology import OntologyExtension
 from .. import templates
 
@@ -164,17 +164,40 @@ plugin_ontology = OntologyExtension(
     schemas=dict(templates.REQUIRED),                    # the strict artefact schemas this capability generates
 )
 
-plugin_capability = Capability(
-    name="plugin",
-    home="capability",
-    verbs={
-        "scaffold": {"role": "act", "fn": scaffold},
-        "author_skill": {"role": "act", "fn": author_skill},
-        "author_command": {"role": "act", "fn": author_command},
-        "marketplace_entry": {"role": "act", "fn": marketplace_entry},
-        "step_doc": {"role": "act", "fn": step_doc},
-        "lint_skill": {"role": "transform", "fn": lint_skill},
-        "help": {"role": "transform", "fn": help_map, "inject": ["caps"]},
-    },
-    ontology=plugin_ontology,
-)
+class PluginCapability(CapabilityBase):
+    name = "plugin"
+    home = "capability"
+    ontology = plugin_ontology
+
+    # the act verbs are pure template renders (module functions above); the class
+    # methods are thin verb wrappers so the capability is authored in the class form.
+    @verb(role="act")
+    def scaffold(self, name: str, version: str, description: str) -> dict:
+        return scaffold(name, version, description)
+
+    @verb(role="act")
+    def author_skill(self, name: str, description: str, body: str) -> dict:
+        return author_skill(name, description, body)
+
+    @verb(role="act")
+    def author_command(self, name: str, description: str, body: str) -> dict:
+        return author_command(name, description, body)
+
+    @verb(role="act")
+    def marketplace_entry(self, name: str, version: str, description: str, source: str) -> dict:
+        return marketplace_entry(name, version, description, source)
+
+    @verb(role="act")
+    def step_doc(self, step: str, output: str, status: str = "done",
+                 inputs: str = "", notes: str = "") -> dict:
+        return step_doc(step, output, status, inputs, notes)
+
+    @verb(role="transform")
+    def lint_skill(self, name: str, description: str) -> dict:
+        return lint_skill(name, description)
+
+    @verb(role="transform")
+    def help(self) -> dict:
+        "Map the engine's capabilities (macroskills) to their verbs — via ctx.registry."
+        caps = {n: list(self.ctx.registry.get(n).verbs) for n in self.ctx.registry.names()}
+        return help_map(caps)

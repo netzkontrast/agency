@@ -14,7 +14,7 @@ SKILL.md files live in `skills/`.
 """
 from __future__ import annotations
 
-from ..capability import Capability
+from ..capability import CapabilityBase, verb
 from ..ontology import OntologyExtension
 
 
@@ -82,9 +82,12 @@ def checklist(discipline: str) -> dict:
 
 develop_ontology = OntologyExtension(skills=dict(DEV_SKILLS))
 
-develop_capability = Capability(
-    name="develop",
-    home="lifecycle",
-    verbs={"checklist": {"role": "transform", "fn": checklist}},
-    ontology=develop_ontology,
-)
+
+class DevelopCapability(CapabilityBase):
+    name = "develop"
+    home = "lifecycle"
+    ontology = develop_ontology
+
+    @verb(role="transform")
+    def checklist(self, discipline: str) -> dict:
+        return checklist(discipline)

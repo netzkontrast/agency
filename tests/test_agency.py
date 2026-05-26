@@ -38,8 +38,8 @@ _LINT_CODE = (
 NAME_RE = re.compile(r"^[a-zA-Z0-9_]{1,64}$")  # MCP / Claude-frontend strict
 
 
-def fresh() -> Engine:
-    return Engine(tempfile.mktemp(suffix=".db"))
+def fresh(jules_client=None) -> Engine:
+    return Engine(tempfile.mktemp(suffix=".db"), jules_client=jules_client)
 
 
 def _sc(result):
@@ -83,17 +83,16 @@ def run_scenario(e: Engine) -> str:
     # a craft capability — validate a candidate skill (the CSO linter)
     e.registry.invoke(e.memory, iid, "plugin", "lint_skill",
                       name="fix-auth", description="Use when the auth test fails")
-    # the agent capability — really dispatches Jules (stand-in client at the boundary)
+    # the agent capability — really dispatches Jules (stand-in backend on the engine)
     e.registry.invoke(e.memory, iid, "jules", "dispatch", agent_id="agent:jules",
-                      source="owner/repo", starting_branch="main",
-                      prompt="fix auth", client=StubJulesClient())
+                      source="owner/repo", starting_branch="main", prompt="fix auth")
     assert e.lifecycle.move(lc, "tests-green", ok=True) == "working"
     assert e.lifecycle.complete(lc) == "completed"
     return iid
 
 
 def test_provenance_moat():
-    e = fresh()
+    e = fresh(StubJulesClient())
     iid = run_scenario(e)
     prov = e.memory.provenance(iid)
 
@@ -123,11 +122,10 @@ def test_completed_not_done():
     """COMPLETED != done: a Jules session reports state=completed even when it
     paused before pushing. `verify` returns done only when a branch is actually
     on remote — the silent-fail guard."""
-    e = fresh()
+    e = fresh(StubJulesClient(state="completed"))
     iid = e.intent.capture("x", "y", "z")
     disp, _ = e.registry.invoke(e.memory, iid, "jules", "dispatch", agent_id="agent:j",
-                                source="o/r", starting_branch="main", prompt="do x",
-                                client=StubJulesClient(state="completed"))
+                                source="o/r", starting_branch="main", prompt="do x")
     assert disp["status"] == "completed"
     # state says completed, but no branch on remote -> NOT done (the silent-fail)
     assert e.registry.invoke(e.memory, iid, "jules", "verify",

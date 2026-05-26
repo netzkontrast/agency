@@ -93,5 +93,7 @@ It may return later as an opt-in `ctx` helper.
 ## Migration
 
 Additive. `inject: ["ctx"]` is a new injectable name alongside the existing ones;
-old verbs keep working unchanged. Capabilities migrate to the class form (or
-`ctx`) opportunistically — `reflect` is the reference migration.
+functional verbs keep working unchanged. All five shipped capabilities (`plugin`,
+`jules`, `develop`, `music`, `reflect`) are authored in the class form; `jules`
+reaches its backend via `ctx.client` and `plugin.help` derives the macroskill map
+from `ctx.registry`, so the per-call `client`/`caps` injectors are gone.
