@@ -1,18 +1,23 @@
 # agency — Core (v4, radically cut)
 
-> Supersedes the v3 `VISION.md` / `DESIGN.md` drafts (kept alongside as the
-> critiqued artifact). The adversarial panel (4/4) cut the 5W1H / six-domain
-> model to its irreducible core. **5W1H is now a lens, not the architecture.**
-> Names follow structure. The projection is an *observation*, not a mechanism.
+> Supersedes the v3 `VISION.md` / `DESIGN.md` drafts (kept in the prototype repo
+> as the critiqued artifact). The adversarial panel (4/4) cut the 5W1H /
+> six-domain model to its irreducible core. **5W1H is now a lens, not the
+> architecture.** Names follow structure. The projection is an *observation*, not
+> a mechanism.
 
 ## Four concepts + one substrate
 
-**Substrate — the Engine.** One FastMCP server + one bi-temporal graph. Public
-surface = the four-verb contract (`list_tools`, `call_tool`, `list_skills`,
-`dispatch_skill`) + one `execute(code)` code-mode tool (results stay in-sandbox;
-only deltas + `elided_ref` handles reach context). Cross-cutting guards
-(quality-score, loop-detection, compaction, `Slot`/quota) are engine middleware,
-**not** concepts.
+**Substrate — the Engine.** One FastMCP server + one bi-temporal graph.
+**Code-mode IS the contract** (lean — no four-verb surface): the public surface is
+exactly `search` · `get_schema` · `execute`. The agent writes code in `execute`
+that chains tools (`await call_tool(...)`); intermediate results stay in-sandbox,
+only deltas cross into context. Tools are discovered via `search`. This one
+contract is exposed **three isomorphic ways — MCP · Skills · a bash CLI** (the
+harness-in-harness ladder) so a bash-only agent (Jules, no MCP/Skill) is a
+first-class participant; proven in the repo's `seed/` (`AGENTS.md` + a bash↔MCP
+isomorphism test). Cross-cutting guards (quality-score, loop-detection,
+compaction, `Slot`/quota) are engine middleware, **not** concepts.
 
 **1. Intent** *(human-owned).* A supersedable node carrying **purpose +
 acceptance**, with the **deliverable as an attribute** (why/what merged).
@@ -56,7 +61,7 @@ typed answer), `ctx.sample(...)` (ask the caller's LLM), or `ctx.report_progress
 (stream). A gate that needs a human is just an `elicit` → the Lifecycle pauses at
 `input-required`, the answer resumes it, the outcome is recorded as a `Gate`.
 "askuser" is therefore not a special case — it is one node in the chain. All of
-this is proven runnable in `../../../seed/` (real `ctx.elicit` round-trip).
+this is proven runnable in the repo's `seed/` (real `ctx.elicit` round-trip).
 
 ## Dropped (and why)
 
@@ -71,8 +76,8 @@ this is proven runnable in `../../../seed/` (real `ctx.elicit` round-trip).
 ## Kept (panel-endorsed)
 
 The **isomorphic verb frame**; the **one bi-temporal provenance graph +
-`SERVES`**; the **four-verb contract + code-mode**; the **`COMPLETED ≠ done`**
-lesson.
+`SERVES`**; **code-mode as the one lean contract** (exposed isomorphically over
+MCP / Skills / bash); the **`COMPLETED ≠ done`** lesson.
 
 ## Naming
 
@@ -80,10 +85,10 @@ Structure-first. Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool
 names `<concept>_<capability>_<verb>` (underscores, ≤64, no dots; the client
 injects `mcp__`).
 
-## Next (panel-unanimous): BUILD A SEED — do not spec further.
+## Status
 
-The smallest running thing that **proves the moat** (the provenance traversal)
-and **falsifies the risks** (does the verb frame + one graph actually carry two
-different capabilities?). Target: a passing test that records an Intent, runs
-two capabilities through a gated Lifecycle, and answers the provenance query
-end-to-end.
+The core is **proven runnable** in `seed/` (7/7 green on graphqlite + fastmcp):
+the provenance moat, two-capability expressiveness, bi-temporal memory,
+`COMPLETED ≠ done`, code-mode as the contract, code-mode tool-chaining,
+gate/elicitation, and the bash↔MCP isomorphism that makes a shell-only agent a
+first-class participant.
