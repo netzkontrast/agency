@@ -18,7 +18,7 @@ to v4 (Intent / Capability / Lifecycle / Memory).
   pushing (a silent fail). After the Lifecycle `read` returns `COMPLETED`, run the
   inserted `verify` step (the parameterization difference) to confirm the branch
   exists on the remote before trusting it. **Seed-proven** in
-  [`seed/`](../../seed/README.md).
+  the `agency/` package.
 - **Recover, don't respawn.** When a session completed but no branch landed:
   probe it with one focused message (`retry`); if still nothing, extract the patch
   from the API and apply it via signed commits. The canon guard: **NEVER

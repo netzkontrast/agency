@@ -78,7 +78,7 @@ invocations, Lifecycle states, agents, artefacts, gates — and their edges
 **The one thing a flat SDK + memory-tool rival cannot match:** cross-concern
 provenance is a *single traversal* — "every action that `SERVES` intent Q1, the
 agent that ran it, the artefact it produced, the gate it passed." Proven in
-[`seed/`](../../seed/README.md). See [specs/memory.md](specs/memory.md).
+the `agency/` package. See [specs/memory.md](specs/memory.md).
 
 ## Skills are atomic, gated, progressively-disclosed step-graphs
 
@@ -113,16 +113,19 @@ Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool names
 injects the `mcp__` prefix. The serializer detail (skill/code-mode forms) is not
 a top-level concern.
 
-## What the seed proves
+## What v0.1 proves
 
-The smallest running thing that proves the moat and falsifies the risks: it
+The installable plugin proves the moat and falsifies the risks: it
 records an Intent, opens an agent Lifecycle, runs two genuinely different
 capabilities (a `transform` and an agent), passes a gate via `elicit`, chains
 tools in code-mode (one delta out), and answers the cross-concern provenance
-query end-to-end. 6/6 green on `graphqlite` + `fastmcp`. See
-[`seed/`](../../seed/README.md).
+query end-to-end. 19/19 green on `graphqlite` + `fastmcp`. See the `agency/`
+package and `tests/`.
 
 ## Scope
 
-The canon DOCUMENTS this entire four-concept model. The first RUNNING code is
-`seed/`. Everything else is **"specced — not built."**
+The canon DOCUMENTS the full four-concept model. **v0.1** (the `agency/` package,
+19/19 green) ships the engine, the `plugin` / `jules` / `reflect` capabilities, the
+reflection-based self-registration, the extensible ontology, and the self-hosted
+install. Capabilities beyond those are specced — see
+[CAPABILITY-CLUSTERS.md](CAPABILITY-CLUSTERS.md).

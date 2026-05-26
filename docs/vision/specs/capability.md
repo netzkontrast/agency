@@ -41,9 +41,9 @@ edges it:
 - `PERFORMED_BY → agent` (when an agent ran it),
 - `PRODUCES → artefact` (when it produced one).
 
-**Seed-proven:** `syllables` (`count`, role `transform`) and `jules` (`patch`
-role `act`, `verify` role `check`) register, invoke, and record Invocations that
-`SERVE` the Intent; provenance recovers both verbs and both roles.
+**Proven:** `plugin` (`lint_skill`, role `transform`) and `jules` (`dispatch`,
+role `effect`; `verify`, role `transform`) register, invoke, and record
+Invocations that `SERVE` the Intent; provenance recovers both verbs and roles.
 
 ## 5W1H cross-sections are an observation, not a structure
 

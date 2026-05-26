@@ -2,17 +2,16 @@
 slug: vision-example
 type: vision
 status: ready
-summary: A worked walkthrough — "fix the failing auth test, via jules" — tracing one trip through Intent + Capability + Lifecycle + Memory. Shows the verb frame, the agent-as-Lifecycle-parameterization (COMPLETED != done), the gate-as-elicit step, code-mode tool-chaining, and cross-concern provenance in one traversal. NOW EXECUTABLE in seed/.
+summary: A worked walkthrough — "fix the failing auth test, via jules" — tracing one trip through Intent + Capability + Lifecycle + Memory. Shows the verb frame, the agent-as-Lifecycle-parameterization (COMPLETED != done), the gate-as-elicit step, code-mode tool-chaining, and cross-concern provenance in one traversal. Runnable today via docs/examples/.
 ---
 
 # Worked example — "fix the failing auth test, via jules"
 
-> **Status: now executable.** This walkthrough is no longer spec-only — its
-> shape runs in [`seed/`](../../seed/README.md) (`run_scenario` +
-> `test_codemode_chaining_is_an_executable_graph` +
-> `test_gate_elicits_human_in_flow`, 6/6 green on `graphqlite` + `fastmcp`).
-> Names below use the seed's verbs; the MCP tool form is
-> `<concept>_<capability>_<verb>`.
+> **Status: illustrative.** This narrative traces the four concepts through a
+> Jules task. For a runnable, current example see
+> [`docs/examples/author_a_plugin.py`](../examples/author_a_plugin.py); the engine
+> and its 19/19 tests live in `agency/` + `tests/`. Tool names take the MCP form
+> `capability_<capability>_<verb>`.
 
 The task: *fix the failing auth test*, delegated to the `jules` async-coding
 agent. One trip through **Intent + Capability + Lifecycle + Memory**.

@@ -23,11 +23,11 @@ Because every `call_tool` records an Invocation, the executable chain mirrors
 itself into the durable provenance graph (a transform feeding an agent, both
 edged to the Intent).
 
-**Seed-proven:** an `execute` block scores three lines with
-`capability_syllables_count` (`transform`), then feeds the winner into
-`capability_jules_patch` (the agent). 4 in-sandbox calls return ONE small delta;
-the chain appears as a connected provenance subgraph (`count, count, count,
-patch`, plus the agent and the artefact).
+**Proven:** an `execute` block lints three candidate skills with
+`capability_plugin_lint_skill` (`transform`), then dispatches the cleanest via
+`capability_jules_dispatch` (the agent). Many in-sandbox calls return ONE small
+delta; the chain appears as a connected provenance subgraph (`lint_skill,
+lint_skill, lint_skill, dispatch`, plus the agent and the artefact).
 
 ## Gates / intent-verification / askuser are `elicit` steps
 
