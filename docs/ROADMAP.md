@@ -2,67 +2,71 @@
 slug: roadmap
 type: roadmap
 status: ready
-summary: The Plan for the agency plugin (v2.1) — establish the engine + the four domains, anchor the first capability (jules in who, one authored aspect + lazy rest) as the minimal proof, then broaden. Maps research-surfaced features to their domain or engine home. The canon (docs/vision/) defines the model; this tracks the plan.
+summary: The Plan for the agency plugin (v4) — a running seed already proves the moat, code-mode chaining, and gate/elicitation; next, grow the seed into the Engine (the four-verb contract + code-mode), port the four concepts, then broaden capabilities per the PORTING-ROADMAP. The canon (docs/vision/) defines the model; this tracks the plan. Supersedes the v2.1 plan.
 ---
 
-# Roadmap — the Plan (v2.1)
+# Roadmap — the Plan (v4)
 
-The canon in `docs/vision/` defines the **v2.1 four-domain 5W1H model**. This
-file tracks the Plan. At this stage the repo is the Concept, Vision canon, and
-Plan — all documentation; implementation follows on this branch in phased
-commits. **Do not claim code is implemented that is not.** Everything is
-**"specced — not built"** unless explicitly marked otherwise.
+The canon in `docs/vision/` defines the **v4 four-concept model** (see
+[CORE.md](vision/CORE.md)). This file tracks the Plan.
 
-## 1 — Establish the engine + four domains
+> **Supersedes the v2.1 plan** (establish three domains / anchor jules-in-who /
+> lazy-domaining). The adversarial panel's verdict was unanimous: *stop spec'ing,
+> build the smallest thing that proves the moat.* That seed now exists.
 
-- **Engine** — the four-verb meta-contract (`list_tools` / `call_tool` /
-  `list_skills` / `dispatch_skill`), code-mode call surface, progressive
-  disclosure (cold boot exposes only the four meta-verbs), engine guards
-  (quality-score, loop-detection, compaction checkpoints, `Slot`/quota).
-- **intent** — `why.capture` / `why.confirm` → the pinned Intent node;
-  `SERVES_INTENT` edges.
-- **who / how / when / where** — the four domains over the two-axis canonical
-  verb frame; `where` as the bi-temporal append-only GraphQLite graph with
-  `where.project()`.
+## 0 — DONE: the seed (the proof)
 
-## 2 — First capability: `jules` (the minimal proof)
+[`seed/`](../seed/README.md) — a running proof-of-concept on the **real
+substrate** (`graphqlite` + `fastmcp`), **6/6 green**. It proves:
 
-Anchored in **`who`** (its home domain): the async-coding orchestrator authored
-as the **who aspect** (dispatch / handoff / release + poll / roster / verify +
-the orchestration verbs), exposed as `mcp__who_jules_*` /
-`/agency:who:jules:*` / `who.jules.*`. Its **how aspect** (`patch` / `bulk`),
-**when aspect** (the task state machine, incl. silent-fail recovery —
-`COMPLETED` ≠ done), and **where aspect** (sessions / patches / lessons) stay
-**lazy** — they materialize as graph nodes when first needed. Plus the worked
-example ([EXAMPLE.md](vision/EXAMPLE.md)).
+- **the moat** — cross-concern provenance in one graph traversal;
+- **the falsifier** — one graph + the verb frame carry two genuinely different
+  capabilities (a stateless `transform` and an agent);
+- **bi-temporal Memory** — the *what* changes while the *why* holds (`as_of`);
+- **`COMPLETED ≠ done`** — the silent-fail lesson as a first-class `verify` step;
+- **the four-verb Engine** over real FastMCP with MCP-conformant names;
+- **code-mode tool-chaining** — an executable graph mirrored into provenance;
+- **gate/elicitation** — human-in-the-flow via `ctx.elicit`.
 
-This proves lazy-domaining end to end: **one authored aspect, the rest lazy, no
-eager triplication, no eager folders for the other domains.**
+## 1 — Grow the seed into the Engine
 
-## 3 — Broaden
+- **Engine** — the four-verb contract (`list_tools` / `call_tool` /
+  `list_skills` / `dispatch_skill`) + `execute(code)` code-mode, progressive
+  disclosure, engine-guard middleware (quality-score, loop-detection, compaction,
+  `Slot`/quota).
+- **The four concepts** — harden the seed's `Intent` / `Capability` /
+  `Lifecycle` / `Memory` into the production engine: `project(query, budget)`
+  (ranked/budgeted/`as_of`), artefact drivers (`fs` → `repo`/`s3`/`http`/`drive`),
+  the full provenance traversals.
+- **Skills as atomic gated step-graphs** — the Lifecycle-template runner; gates
+  as `ctx.elicit` steps recorded as `Gate` nodes. See
+  [specs/skills-and-gates.md](vision/specs/skills-and-gates.md).
 
-More capabilities, each placed by primary concern, plus cross-cutting engine
-features surfaced in research. Each research-surfaced feature is homed at a
-specific domain OR the engine:
+## 2 — Port the first real capability: `jules`
 
-| Research-surfaced feature | Home |
-|---|---|
-| Context-mode (anchor triad, cache, watchers) | **where** |
-| Ontology / GraphQLite (one graph, one schema registry) | **where** |
-| `agents.yaml` role manifest | **who** |
-| Composable watcher SDK | **who** |
-| Quality / loop-detection | **engine guards** |
-| Compaction checkpoints + memory tool | **engine guards** |
-| Code-mode (callable domain API, in-sandbox deltas) | **engine** |
-| Harness-in-harness (nested Dispatch + SharedContext) | **who** |
-| `Slot` / quota accounting | **engine guards** (read by who) |
-| Driver registry beyond `fs` (`repo`/`s3`/`http`/`drive`) | **where** |
-| TOON tabular projections | **where** (`where.project`) |
+`jules` is the clearest instance of the v4 thesis: **an agent IS a Lifecycle
+parameterization** whose transitions differ (it inserts `verify` because
+`COMPLETED ≠ done`). Port it as the reference Lifecycle: `lifecycle_agent_*`
+(open/move/close/watch) + the patch-recovery discipline. The seed already
+encodes the `jules` capability and the `COMPLETED ≠ done` lesson.
 
-- **More capabilities** — `music` (home `how`; authors craft + heavier
-  aspects), `novel`, `meta-development` (home `who`; dispatches `jules`).
+## 3 — Broaden (per the PORTING-ROADMAP)
+
+Every prototype skill and function is mapped to v4 in
+[PORTING-ROADMAP.md](vision/PORTING-ROADMAP.md). Highlights:
+
+- **bitwize-music** — craft acts (`capability_lyric_act`), transforms
+  (`capability_syllable_transform`), effects (`capability_master_effect`),
+  Lifecycle gates (`lifecycle_track_pregate_check`), Memory reads
+  (`memory_album_recall`).
+- **novel** — the second craft, the FALSIFICATION TEST that the verb frame + one
+  graph carry two different crafts. Same four concepts, different Capability set.
+- **The dual-store drift tools vanish** — `rebuild_state`, `db_*` tweet SQLite,
+  path-resolution helpers exist ONLY because content lives on disk beside a
+  cache. With one graph, ~12 tools delete rather than port (the strongest
+  validation of the "one graph" thesis).
 
 ## Later
 
 - Hot-reload of capabilities; an alternative graph driver for larger
-  deployments.
+  deployments; the A2A boundary adapter for external agents.
