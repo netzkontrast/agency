@@ -883,3 +883,30 @@ def test_capability_context_delegates_with_provenance_and_guards_recursion():
     with pytest.raises(ValueError):                          # ctx.call recursion guard
         e.registry.invoke(e.memory, iid, "loop", "go")
     e.memory.close()
+
+
+def test_delegate_fans_out_under_quota_and_joins():
+    """`delegate` is agent orchestration on ctx.spawn: fan a task across children
+    (capped by a quota), each a recorded Invocation SERVING the intent, with
+    DELEGATES_TO edges; join reduces them. `jules` is the first driver."""
+    e = fresh(StubJulesClient())                              # jules as the driver
+    iid = e.intent.capture("ship many fixes", "N sessions", "all dispatched")
+    e.intent.confirm(iid)
+    items = [{"source": "o/r", "starting_branch": "main", "prompt": f"fix {i}"} for i in range(5)]
+
+    out, _ = e.registry.invoke(e.memory, iid, "delegate", "fan_out",
+                               driver="jules", driver_verb="dispatch", items=items, quota=3)
+    r = out["result"]
+    assert r["dispatched"] == 3 and r["skipped"] == 2         # the quota ceiling
+    assert all(c["status"] == "completed" for c in r["children"])
+
+    prov = e.memory.provenance(iid)
+    assert sum(1 for n in prov["serves"] if n.get("verb") == "dispatch") == 3   # 3 child dispatches
+    rows = e.memory.g.query("MATCH (d:Delegation)-[:DELEGATES_TO]->(inv) RETURN inv")
+    assert len(rows) == 3                                     # delegation -> 3 children
+
+    jout, _ = e.registry.invoke(e.memory, iid, "delegate", "join", delegation=r["delegation"])
+    assert jout["result"]["children"] == 3
+    red = e.memory.g.query("MATCH (d:Delegation)-[:REDUCES_INTO]->(a:Artefact) RETURN a")
+    assert len(red) == 1 and red[0]["a"]["properties"]["kind"] == "reduction"
+    e.memory.close()

@@ -107,6 +107,7 @@ pytest -q
 | `agency/capabilities/plugin.py` | the **plugin-development** capability (skill creator + plugin authoring) |
 | `agency/capabilities/jules.py` | the **jules** agent capability (real remote async sessions) |
 | `agency/capabilities/reflect.py` | the **reflect** capability (durable cross-session memory) |
+| `agency/capabilities/delegate.py` | the **delegate** capability — agent orchestration (fan-out + quota + join), `jules` as first driver |
 | `agency/capabilities/develop.py` | the **develop** capability — dev-workflow disciplines (brainstorm · plan · tdd · debug · verify · spec-panel · review) as walkable skills |
 | `agency/templates.py` | **Templates** — prestructured documents (manifest · SKILL.md · command · step-doc) |
 | `agency/ontology.py` | the strict ontology + skill schemas |

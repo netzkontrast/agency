@@ -14,7 +14,7 @@ fragment.
 | `reflect` (durable memory) | act, transform | Memory | scope-tagged insight nodes + recency/keyword recall | **built (v0.1)** |
 | `jules` (remote async agent) | effect, transform | Capability · Lifecycle | dispatch a remote coding session; `COMPLETED ≠ done` `verify` | **built (v0.1)** |
 | `music` (domain bundle) | act | Capability · Memory | the album conceptualizer (a 7-phase gated skill) + `Album` types | **built (v0.1)** |
-| `delegate` | agent, effect | Capability · Lifecycle · Memory | spawn a child Lifecycle with a scoped Intent + budget; fan out N under a quota; join on terminal states (`DELEGATES_TO`, `REDUCES_INTO`) | **spec — next** |
+| `delegate` | effect, transform | Capability · Lifecycle · Memory | fan a task out across children under a quota + join; `DELEGATES_TO`/`REDUCES_INTO` edges; built on `ctx.spawn` with `jules` as first driver | **built** |
 | `gate` | transform, process | Lifecycle · Memory | a stateless precondition/quality predicate that passes or blocks a Lifecycle phase, recording evidence | facet of Lifecycle |
 | `craft` | act | Capability · Intent · Memory | produce a domain artefact from an Intent + upstream artefacts | the open `act` set |
 | `transmute` | transform | Engine · Capability | pure functions over artefacts: views, indexes, summaries, tool-list shaping | the open `transform` set |
@@ -29,17 +29,15 @@ Most clusters are **facets of the four concepts**, not new top-level primitives 
 `gate`/`craft`/`transmute`/`commit-effect` are just the role-tags (`act` /
 `transform` / `effect`) of the open Capability set; `navigate` is a read
 projection; `wire-handlers` is the engine. Multiplying concepts would re-introduce
-bloat. After the collapse, exactly **two** net-new capabilities are worth specc'ing
-beyond v0.1:
-
-1. **`delegate`** — agent fan-out + quota + join. `jules` is the single-child
-   reference; `delegate` generalizes to N children with a join/reduce gate.
-2. **`research`** — a *composition* (delegate → craft → gate), shipped as a skill
-   template rather than a primitive.
+bloat. After the collapse, the one net-new primitive — **`delegate`** (agent
+fan-out + quota + join, with `jules` as its first driver) — is now **built**.
+**`research`** remains: a *composition* (delegate → craft → gate), to ship as a
+skill template rather than a primitive.
 
 ## Confidence
 
-~0.9 that the four concepts + the engine absorb the entire surface, and that
-`delegate` is the one net-new primitive worth carrying forward. The residual 0.1:
-`delegate`'s join/quota semantics are unproven until built — the same
-falsification bar every shipped capability met.
+~0.9 that the four concepts + the engine absorb the entire surface. The one
+net-new primitive, `delegate`, is built and proven (fan-out under a quota + join,
+recorded as a connected provenance subgraph) — the same falsification bar every
+shipped capability met. The residual 0.1: `research`'s composition is unproven
+until built.

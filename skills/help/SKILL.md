@@ -11,6 +11,7 @@ allowed-tools:
 
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
+- **delegate** — fan_out, join
 - **develop** — checklist
 - **jules** — dispatch, status, verify
 - **music** — conceptualize

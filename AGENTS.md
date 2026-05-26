@@ -1,6 +1,12 @@
-# AGENTS.md — running the agency engine from bash only
+# AGENTS.md — agent guide (run · develop)
 
-This file is for **bash-only agents** (Jules, Codex, any LLM with a shell and no
+Two parts: **running** the engine from a bash-only shell (below), and
+**developing** the plugin (at the end). Read [`docs/vision/CORE.md`](docs/vision/CORE.md)
+for the model first.
+
+## Running the engine from bash only
+
+This section is for **bash-only agents** (Jules, Codex, any LLM with a shell and no
 MCP client / no Skill loader). You drive the engine with the **same contract** an
 MCP client uses — **code-mode** — over a small CLI. No MCP, no skills, no special
 integration. The isomorphism is proven in `tests/test_agency.py::test_isomorphism_mcp_equals_bash_cli`.
@@ -56,3 +62,55 @@ the result. Every command prints **one JSON document** to stdout.
 bash CLI. A bash-only agent is therefore a first-class participant: you run the
 *same* code-mode contract, against the *same* graph, with the *same* results as
 any MCP client. That is what lets Jules (which has only a shell) drive the engine.
+
+---
+
+## Developing the plugin (dev hints)
+
+**Add a capability = add a file.** Drop `agency/capabilities/<name>.py` with a
+`CapabilityBase` subclass; the engine `discover()`s it and auto-wires one MCP tool
+per `@verb` method. No registration code, no per-tool boilerplate.
+
+```python
+from ..capability import CapabilityBase, verb
+from ..ontology import OntologyExtension
+
+class GreetCapability(CapabilityBase):
+    name = "greet"
+    home = "capability"
+    ontology = OntologyExtension(nodes={"Greeting": ["text"]})   # this cap OWNS its types
+
+    @verb(role="act")
+    def hello(self, who: str) -> dict:
+        gid = self.ctx.record("Greeting", {"text": f"hi {who}"})  # services via self.ctx
+        self.ctx.link(gid, self.ctx.intent_id, "SERVES")
+        return {"result": gid}
+```
+
+**The one handle — `self.ctx` (`CapabilityContext`):** `ctx.memory`, `ctx.ontology`,
+`ctx.render(template,…)` / `ctx.schema(name)` / `ctx.validate(label, props)`,
+`ctx.call(cap, verb, …)` and `ctx.spawn(cap, verb, …)` to delegate to sibling
+capabilities (recorded as provenance, depth-guarded), `ctx.intent_id`, `ctx.client`.
+See [`docs/vision/specs/capability-base.md`](docs/vision/specs/capability-base.md).
+
+**Stay CORE-faithful** ([`docs/vision/CORE.md`](docs/vision/CORE.md)):
+- verbs are role-tagged `act` (writes an artefact) / `transform` (pure) / `effect`
+  (touches the world);
+- **code-mode is the only public contract** — never add a flat/four-verb surface;
+- every call records an Invocation that `SERVES` the intent (don't bypass it);
+- a capability **owns its ontology fragment** (nodes/edges/enums/skills/template-schemas),
+  merged strictly onto the domain-agnostic core;
+- never reintroduce a dropped idea (four-verb contract, fixed domains, `manifest.toml`).
+
+**Skills** are Lifecycle templates (ordered phases + a hard gate) contributed via
+a capability's `ontology.skills` and walked by `agency/skill.py` one phase at a time.
+
+**Workflow & conventions:**
+- Tests: `pytest -q`. **A complete, runnable implementation is the proof** — no
+  mock-only "realish" tests; assert real provenance / a real skill walk.
+- After adding/changing a capability, regenerate the self-hosted install:
+  `python -m agency.install` (rewrites `.claude-plugin/plugin.json` + `skills/help` + `commands/`).
+- Develop on the feature branch; **PRs target `main`**; additive commits, never
+  force-push or rewrite history.
+- The growth plan is [`docs/EXTENSION-PLAN.md`](docs/EXTENSION-PLAN.md); the capability
+  roadmap is [`docs/vision/CAPABILITY-CLUSTERS.md`](docs/vision/CAPABILITY-CLUSTERS.md).

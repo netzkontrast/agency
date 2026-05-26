@@ -42,6 +42,8 @@ Shipped capabilities:
 | `jules` | effect/transform | Dispatch real remote async Jules sessions; `COMPLETED ≠ done` `verify` |
 | `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`recall`/`search`) |
 | `develop` | transform | The dev-workflow disciplines as walkable agency skills (brainstorm · plan · tdd · debug · verify · spec-panel · review); `checklist` returns a discipline's steps |
+| `music` | act | A domain bundle: the album conceptualizer (a 7-phase gated skill) + an `Album` node type and `type` enum |
+| `delegate` | effect/transform | Agent orchestration: `fan_out` a task across children under a quota + `join`; built on `ctx.spawn`, with `jules` as the first driver |
 
 ## Skills (installable, in `skills/`)
 

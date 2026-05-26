@@ -28,22 +28,27 @@ v0.1 ships as an installable Claude Code plugin (this repo). Proven:
 - the **plugin-development capability** (skill-creation + plugin authoring,
   skill creation + plugin authoring) and **`reflect`** (durable cross-session memory);
 - a **self-hosted install** the engine generates and validates for itself;
-- a **vendored Jules backend** (httpx) — no external orchestrator dependency.
+- a **vendored Jules backend** (httpx) — no external orchestrator dependency;
+- the **`delegate` capability** — agent fan-out + quota + join on `ctx.spawn`
+  (`DELEGATES_TO`/`REDUCES_INTO`), with `jules` as its first driver;
+- a **CapabilityContext + CapabilityBase** — one typed handle per invocation; all
+  five capabilities authored in the class form.
 
 ## Next
 
-1. **`delegate` capability** — agent fan-out + quota + join (the other net-new
-   spec from the cluster panel). `jules` is the single-child reference; `delegate`
-   generalizes to N children with a join/reduce gate. New edges `DELEGATES_TO`,
-   `REDUCES_INTO`.
-2. **Deferred bi-temporal hardening** (from PR review): provenance follows the
-   `SUPERSEDED_BY` chain after `amend`; refuse `supersede` on closed versions;
-   enum enforcement in the skill walker; blocked-gate provenance.
-3. **Broaden the capability set** — port more crafts as their own capability
-   files (each self-registering, each owning its ontology fragment). Music and
-   novel become capability bundles, not core.
+The comprehensive growth plan is **[EXTENSION-PLAN.md](EXTENSION-PLAN.md)** (draft).
+Near-term:
+
+1. **`gate`** — extract the hard-gate predicate as a callable check; lift jules
+   `verify` to a `delegate` join-gate.
+2. **`research`** — a skill template composing `delegate` + `gate`; add a second
+   `delegate` driver (local subagent) to prove the driver seam.
+3. **Deferred bi-temporal hardening** — refuse `supersede` on closed versions;
+   enum enforcement in the skill walker.
+4. **Domain bundles** — music/novel `craft`/`effect` packs as separate capability
+   files (each owning its ontology fragment).
 
 ## Later
 
-- Hot-reload of capabilities; an alternative graph driver for larger
-  deployments; the A2A boundary adapter for external agents.
+- Loop-detection middleware (generalize the `ctx.spawn` depth guard); an
+  alternative graph driver for larger deployments; the A2A boundary adapter.

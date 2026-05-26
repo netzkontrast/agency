@@ -46,14 +46,18 @@ class CapabilityContext:
     depth: int = 0
     MAX_DEPTH: int = 16
 
+    def spawn(self, cap: str, verb: str, **args) -> tuple:
+        """Invoke a sibling capability and return BOTH its result and the recorded
+        Invocation id (so a caller can edge to it). Depth-guarded against cycles."""
+        if self.depth >= self.MAX_DEPTH:
+            raise ValueError(f"capability call depth exceeded ({self.MAX_DEPTH}) — possible cycle")
+        return self.registry.invoke(self.memory, self.intent_id, cap, verb,
+                                    agent_id=self.agent_id, _depth=self.depth + 1, **args)
+
     def call(self, cap: str, verb: str, **args) -> Any:
         """Delegate to a sibling capability — records an Invocation that SERVES the
         intent (provenance by construction). Guarded against runaway recursion."""
-        if self.depth >= self.MAX_DEPTH:
-            raise ValueError(f"capability call depth exceeded ({self.MAX_DEPTH}) — possible cycle")
-        result, _ = self.registry.invoke(self.memory, self.intent_id, cap, verb,
-                                         agent_id=self.agent_id, _depth=self.depth + 1, **args)
-        return result
+        return self.spawn(cap, verb, **args)[0]
 
     def render(self, template: str, **vars: Any) -> str:
         return _Template(self.ontology.templates[template]).substitute(**vars)
