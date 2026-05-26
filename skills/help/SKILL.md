@@ -13,6 +13,7 @@ allowed-tools:
 
 - **delegate** — fan_out, join
 - **develop** — checklist
+- **gate** — check
 - **jules** — dispatch, status, verify
 - **music** — conceptualize
 - **plugin** — author_command, author_skill, help, lint_skill, marketplace_entry, scaffold, step_doc

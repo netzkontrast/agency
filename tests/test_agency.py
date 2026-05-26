@@ -935,3 +935,25 @@ def test_skill_generator_composes_author_and_lint():
     verbs = {n.get("verb") for n in e.memory.provenance(iid)["serves"]}
     assert {"generate", "author_skill", "lint_skill"} <= verbs    # composition recorded
     e.memory.close()
+
+
+def test_gate_capability_records_and_pauses():
+    """The `gate` capability is a reusable programmatic gate: a passing check
+    records a PASSED gate and leaves the Lifecycle working; a failing check records
+    BLOCKED_ON and pauses the Lifecycle at input-required. Both are provenance."""
+    e = fresh()
+    iid = e.intent.capture("review a change", "approved change", "gates pass")
+    lc = e.lifecycle.open(iid)
+
+    p, _ = e.registry.invoke(e.memory, iid, "gate", "check",
+                             lifecycle_id=lc, name="spec-review", passed=True, evidence="matches spec")
+    assert p["result"]["passed"] is True and e.lifecycle.status(lc) == "working"
+
+    f, _ = e.registry.invoke(e.memory, iid, "gate", "check",
+                             lifecycle_id=lc, name="code-quality", passed=False, evidence="lint failed")
+    assert f["result"]["passed"] is False and e.lifecycle.status(lc) == "input-required"  # failed gate pauses
+
+    gates = e.memory.provenance(iid)["gates"]
+    assert any(g["name"] == "spec-review" and g["passed"] for g in gates)
+    assert any(g["name"] == "code-quality" and not g["passed"] for g in gates)   # blocked gate is provenance
+    e.memory.close()
