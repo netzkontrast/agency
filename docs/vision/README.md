@@ -29,7 +29,7 @@ not the architecture.**
    Lifecycle + Memory; the isomorphic verb frame; 5W1H as a lens; the
    structure-first naming scheme.
 3. **[ARCHITECTURE.md](ARCHITECTURE.md)** — the runtime: one Engine (FastMCP)
-   with the four-verb contract + `execute(code)` code-mode; one graph
+   with code-mode as the contract (`search`/`get_schema`/`execute`); one graph
    (GraphQLite, bi-temporal, append-only); engine guards as middleware; the
    context-engineering commitments the engine honors.
 4. **[VOCABULARY.md](VOCABULARY.md)** — canonical terms.

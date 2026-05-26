@@ -17,10 +17,11 @@ substrate. The authoritative spec is [CORE.md](CORE.md); this is the narrative.
 
 ## The substrate — the Engine
 
-ONE FastMCP server + ONE graph. Public surface = the four-verb contract
-(`list_tools`, `call_tool`, `list_skills`, `dispatch_skill`) + one
-`execute(code)` code-mode tool (results stay in-sandbox; only deltas +
-`elided_ref` handles reach context). Cross-cutting guards (quality-score,
+ONE FastMCP server + ONE graph. **Code-mode IS the contract**: the public surface
+is exactly `search` / `get_schema` / `execute` (no four-verb surface). Tools are
+discovered via `search` and called from inside `execute`; results stay in-sandbox,
+only deltas reach context. Capabilities self-register by reflection (add a file).
+Cross-cutting guards (quality-score,
 loop-detection, compaction, `Slot`/quota) are engine **middleware, not
 concepts**. The Engine is the host; it adds no concept vocabulary. See
 [specs/engine.md](specs/engine.md).

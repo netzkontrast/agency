@@ -1,5 +1,12 @@
 # PORTING ROADMAP — every skill & function → agency v4
 
+> **Status: historical mapping.** This per-skill table predates v0.1 and still
+> references the old four-verb engine contract (`list_skills`/`dispatch_skill`).
+> The current contract is **code-mode** (`search`/`get_schema`/`execute`), and the
+> current, panel-reviewed capability mapping for every installed plugin is
+> [CAPABILITY-CLUSTERS.md](CAPABILITY-CLUSTERS.md). Read that first; treat the
+> table below as background.
+
 > Target architecture: one Engine + one bi-temporal GraphQLite graph; FOUR concepts —
 > **Intent** (human goal: `capture·confirm·supersede`), **Capability** (the craft, open verbs
 > role-tagged `act`/`transform`/`effect`), **Lifecycle** (task/agent state-machine; write frame

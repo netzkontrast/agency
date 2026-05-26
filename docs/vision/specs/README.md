@@ -18,7 +18,7 @@ parts proven by the seed are marked **seed-proven**.
 
 | Spec | Owns |
 |---|---|
-| [engine](engine.md) | the substrate — four-verb contract + `execute(code)` code-mode + engine-guard middleware |
+| [engine](engine.md) | the substrate — code-mode IS the contract (`search`/`get_schema`/`execute`); capabilities self-register; engine-guard middleware |
 | [intent](intent.md) | the human-owned root; `capture · confirm · amend`; the `SERVES` spine |
 | [capability](capability.md) | the open craft; verbs role-tagged `act` / `transform` / `effect`; `<capability>.help`; the Invocation record |
 | [lifecycle](lifecycle.md) | the task/agent state-machine; `open · move · close` + `read · find · check · watch`; A2A states; agent-as-parameterization; gates |

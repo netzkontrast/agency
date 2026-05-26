@@ -2,7 +2,7 @@
 slug: vision-architecture
 type: vision
 status: ready
-summary: The runtime (v4) — one FastMCP Engine with the four-verb contract + one execute(code) code-mode tool; one bi-temporal append-only GraphQLite graph as the only persistent state; engine guards (quality-score, loop-detection, compaction, Slot/quota) as middleware, NOT concepts. Lists the SOTA context-engineering commitments. Seed-proven where noted.
+summary: The runtime (v4) — one FastMCP Engine where code-mode IS the contract (search/get_schema/execute); capabilities self-register by reflection and auto-wire one tool per verb; one bi-temporal append-only GraphQLite graph as the only persistent state; engine guards (quality-score, loop-detection, compaction, Slot/quota) as middleware, NOT concepts. Lists the SOTA context-engineering commitments. Proven in the v0.1 plugin.
 ---
 
 # Architecture — one Engine, one graph, four concepts
@@ -13,17 +13,15 @@ summary: The runtime (v4) — one FastMCP Engine with the four-verb contract + o
 
 **FastMCP** is the only runtime. It hosts the four concepts (Intent, Capability,
 Lifecycle, Memory) in one process. The Engine is **not a concept** — it is the
-host. Its public surface is the **four-verb contract** plus **one code-mode
-tool**:
+host. **Code-mode IS the contract** — its public surface is exactly:
 
-- `list_tools` · `call_tool` · `list_skills` · `dispatch_skill`
-- `execute(code)` — code-mode
+- `search` · `get_schema` · `execute`
 
-Every concept verb (`<concept>_<capability>_<verb>`) is an entry in the one
-registry reached through that contract. **Seed-proven:** the seed builds a real
-FastMCP server exposing MCP-conformant tool names and the four-verb surface
-(`agency_list_skills` / `agency_dispatch_skill` + `memory_graph_provenance` +
-the capability verbs). See [specs/engine.md](specs/engine.md).
+Capability verbs (`capability_<capability>_<verb>`) are discovered via `search`
+and called from inside `execute`; they are **auto-wired by reflection** from each
+`Capability`'s verb signatures (no hand-wiring). **Proven:** with code-mode on,
+the server exposes exactly `{search, get_schema, execute}`, and the bash CLI
+drives the identical contract. See [specs/engine.md](specs/engine.md).
 
 ### Code-mode (the token-efficiency primitive — seed-proven)
 
@@ -70,8 +68,8 @@ so they are never mistaken for one of the four:
 
 ## Discovery & progressive disclosure
 
-At cold boot the Engine exposes only the four-verb contract (+ code-mode);
-capability verbs and their schemas load on demand. A skill discloses only the
+At cold boot the Engine exposes only `search` / `get_schema` / `execute`;
+capability verbs and their schemas load on demand (discovered via `search`). A skill discloses only the
 *next* step's instruction, so tokens are paid per atomic step, not for the whole
 skill. See [specs/skills-and-gates.md](specs/skills-and-gates.md).
 
