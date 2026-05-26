@@ -2,46 +2,53 @@
 slug: spec-intent
 type: spec
 status: ready
-summary: Intent (why/what) — the human's root. why.capture/why.confirm produce a single Intent node, pinned once and referenced by node-id (cache-safe). Every action edges back via SERVES_INTENT. Intent is its own root, distinct from where's execution memory.
+summary: Intent — the human-owned root. A supersedable node carrying purpose + acceptance, with the deliverable as an attribute (why/what merged). capture → confirm → amend (amend via bi-temporal supersede). Everything edges back via SERVES. Seed-proven: capture/confirm/amend and as-of reconstruction.
 ---
 
-# Intent (why / what)
+# Intent
 
-> **Status: specced — not built.** Intent is the human's root, not a domain
-> the engine executes. The engine executes who/how/when/where in service of it.
+> **Status: specced; seed-proven where noted.** Intent is the human's root, not a
+> concept the engine executes on its own — the engine executes Capability /
+> Lifecycle / Memory in service of it.
 
 ## Concept
 
-The human owns **Why / What** — the reason the work exists and what "done"
-means. This is captured once and persisted as a single **Intent node**, then
-referenced by id forever after. Intent is its **own root**, distinct from
-`where`'s execution memory: `where` remembers what happened; the Intent node
-remembers why it was supposed to.
+The human owns the goal. Intent is a **supersedable node** carrying **purpose +
+acceptance**, with the **deliverable as an attribute**. why and what are NOT two
+domains: a deliverable change with the purpose held is just an attribute change
+on one Intent (the panel's finding). Intent is the root every action edges back
+to.
 
 ## Interface
 
 ```
-why.capture(text)        -> draft intent (proposed What/Why, success criteria)
-why.confirm(draft, ...)  -> Intent node (pinned once)
+capture(purpose, deliverable, acceptance) -> Intent node (status: draft)
+confirm(intent_id)                         -> intent_id (status: confirmed, in place)
+amend(intent_id, **changes)                -> new version (bi-temporal supersede)
 ```
 
-- `why.capture` proposes a structured intent from the human's words.
-- `why.confirm` freezes it into an **Intent node** in `where` and **pins it
-  once**. After pinning, the intent is referenced by **node-id** only — its
-  text is never re-pasted into context (cache-safe; preserves KV-cache
-  prefixes).
+- `capture` records a draft Intent.
+- `confirm` flips it to `confirmed` **in place** — confirming does not fork
+  identity, so `SERVES` edges stay stable.
+- `amend` is a bi-temporal **supersede**: the *what* changes while the *why*
+  holds, and the prior version keeps its valid window for `as_of` reconstruction.
+
+**Seed-proven:** `Intent.capture/confirm/amend`; after `amend(deliverable=...)`,
+`recall(intent, as_of=before)` still returns the old deliverable while the new
+version carries the new deliverable and the unchanged purpose.
 
 ## Intent node
 
 ```
 label: Intent
-fields: what, why, success_criteria, status, pinned_at
+fields: purpose, deliverable, acceptance, status   (+ bi-temporal vfrom/vto)
 ```
 
 ## Interactions
 
-- Every action node (Session, Task, Artefact, …) carries a
-  **`SERVES_INTENT → I`** edge to its root intent.
-- `who.dispatch(intent=I)` and `when.start(...)` take the intent **by id**.
-- The Intent node lives in `where` but is conceptually upstream of execution
-  memory: it is the goal, not a record of the run.
+- Every action node (Invocation, Lifecycle, Artefact, Gate, …) carries a
+  **`SERVES → Intent`** edge.
+- The Intent node lives in Memory but is conceptually upstream of execution
+  history: it is the goal, not a record of the run.
+- A gate that needs a human decision pauses the Lifecycle at `input-required` →
+  Intent re-entry (clarify / approve / `amend`).

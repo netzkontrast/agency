@@ -2,30 +2,34 @@
 slug: specs-index
 type: spec-index
 status: ready
-summary: The contracts for each system part of the v2.1 four-domain model. One spec per part — the engine, the four domains, intent, and the capability/aspect model. Read OVERVIEW.md and ARCHITECTURE.md first.
+summary: The contracts for each part of the v4 four-concept model. One spec per part — the Engine substrate, the four concepts (intent, capability, lifecycle, memory), and the skills-and-gates step-graph model. Read CORE.md, OVERVIEW.md, ARCHITECTURE.md first. Supersedes the v2.1 who/how/when/where specs.
 ---
 
-# Specs — the contracts (per system part)
+# Specs — the contracts (per part)
 
 Each spec is the authoritative contract for one part of the system. Read
-`../OVERVIEW.md` (the model) and `../ARCHITECTURE.md` (the runtime) first. Every
-spec carries a **Status** line; unless noted, the contract is **specced — not
-built**.
+[`../CORE.md`](../CORE.md) (the model), `../OVERVIEW.md` (the narrative), and
+`../ARCHITECTURE.md` (the runtime) first. Every spec carries a **Status** line;
+parts proven by the seed are marked **seed-proven**.
+
+> **Supersedes v2.1.** The old per-domain specs (`who.md`, `how.md`, `when.md`,
+> `where.md`, `capability-and-aspects.md`) are removed; the model is now four
+> concepts, not four execution domains.
 
 | Spec | Owns |
 |---|---|
-| [engine](engine.md) | the four-verb meta-contract + code-mode + engine guards |
-| [intent](intent.md) | `why.capture` / `why.confirm`; the Intent node; `SERVES_INTENT`; pin-once |
-| [who](who.md) | agent-session lifecycle; dispatch/handoff/release + poll/roster/verify; Dispatch/SharedContext/Slot nodes; orchestration verbs |
-| [how](how.md) | open craft verbs + mandatory help + frame-role tagging |
-| [when](when.md) | task lifecycle; start/advance/complete + status/list/check; gates; DRIVES |
-| [where](where.md) | bi-temporal append-only graph; record/link/supersede + recall/find/validate; `where.project`; drivers |
-| [capability-and-aspects](capability-and-aspects.md) | lazy-domaining over the four domains |
+| [engine](engine.md) | the substrate — four-verb contract + `execute(code)` code-mode + engine-guard middleware |
+| [intent](intent.md) | the human-owned root; `capture · confirm · amend`; the `SERVES` spine |
+| [capability](capability.md) | the open craft; verbs role-tagged `act` / `transform` / `effect`; `<capability>.help`; the Invocation record |
+| [lifecycle](lifecycle.md) | the task/agent state-machine; `open · move · close` + `read · find · check · watch`; A2A states; agent-as-parameterization; gates |
+| [memory](memory.md) | the moat — bi-temporal append-only graph; `record · link · supersede` + `recall · find · validate`; `project`; one-traversal provenance |
+| [skills-and-gates](skills-and-gates.md) | skills as atomic, gated, progressively-disclosed Lifecycle step-graphs; gates / intent-verification / askuser as `elicit` steps |
 
-The canonical two-axis verb frame is shared by who / when / where:
+The isomorphic verb frame across the concepts:
 
-| Domain | open | move | close | read | find | check |
-|---|---|---|---|---|---|---|
-| who | dispatch | handoff | release | poll | roster | verify |
-| when | start | advance | complete | status | list | check (gate) |
-| where | record | link | supersede | recall | find | validate |
+| Concept | write verbs | observe / read verbs |
+|---|---|---|
+| **intent** | `capture · confirm · amend` | (read via memory) |
+| **capability** | open craft verbs, role-tagged `act` / `transform` / `effect` | `<capability>.help` |
+| **lifecycle** | `open · move · close` | `read · find · check · watch` |
+| **memory** | `record · link · supersede` | `recall · find · validate` (+ `project`) |
