@@ -2,124 +2,126 @@
 slug: vision-overview
 type: vision
 status: ready
-summary: The v2.1 model — one engine, one graph, designed as the 5W1H decomposition of work. The human owns Why/What = INTENT; the engine executes who/how/when/where as four isomorphic domains sharing a two-axis canonical verb frame. Capabilities are authored in one home domain and expressed across the four as aspects, materialized lazily. Names self-describe.
+summary: The v4 model — one Engine, one bi-temporal graph, four concepts (Intent, Capability, Lifecycle, Memory). Intent is the human-owned root (why/what merged); Capability is the open craft (verbs role-tagged act/transform/effect); Lifecycle is the task/agent state-machine (an agent is a parameterization); Memory is the moat (provenance in one traversal). 5W1H is a lens. Names follow structure.
 ---
 
-# Overview — intent + four domains (5W1H)
+# Overview — Intent + Capability + Lifecycle + Memory
 
 The agency plugin is ONE Claude Code plugin: **ONE FastMCP engine** backed by
-**ONE GraphQLite graph**. Its design is the **5W1H decomposition** of any unit
-of work — who, what, when, where, why, how. The human owns **Why / What**; the
-engine owns the other four.
+**ONE bi-temporal GraphQLite graph**. Its design is **four concepts** over one
+substrate. The authoritative spec is [CORE.md](CORE.md); this is the narrative.
 
-## INTENT — the human's root (why / what)
+> **Supersedes v2.1.** The three-domain model (agentic / workflow / context) and
+> capability/aspect/lazy-domaining are superseded. **5W1H is a lens, not the
+> architecture** — a journalistic checklist, not an execution theorem.
 
-The human owns **Why / What = INTENT**: the reason the work exists and what
-"done" means. Intent is captured via `why.capture` → `why.confirm` and
-persisted as a single **Intent node**, **pinned once** and thereafter
-referenced by node-id (cache-safe — the text is never re-pasted). Every action
-the engine takes edges back to it via a `SERVES_INTENT` edge.
+## The substrate — the Engine
 
-Intent is its **own root**, distinct from `where`'s execution memory: `where`
-remembers what happened; the Intent node remembers why it was supposed to
-happen. See [specs/intent.md](specs/intent.md).
+ONE FastMCP server + ONE graph. Public surface = the four-verb contract
+(`list_tools`, `call_tool`, `list_skills`, `dispatch_skill`) + one
+`execute(code)` code-mode tool (results stay in-sandbox; only deltas +
+`elided_ref` handles reach context). Cross-cutting guards (quality-score,
+loop-detection, compaction, `Slot`/quota) are engine **middleware, not
+concepts**. The Engine is the host; it adds no concept vocabulary. See
+[specs/engine.md](specs/engine.md).
 
-## The four domains
+## 1. Intent — the human-owned root (why/what merged)
 
-- **who** — the agent-**session** lifecycle. Which actor performs the work:
-  dispatch, handoff, supervision, harness-in-harness. See [specs/who.md](specs/who.md).
-- **how** — the **craft**: skills, tools, actions. An OPEN domain of
-  capability-specific verbs, discoverable through a mandatory
-  `how.<capability>.help`. See [specs/how.md](specs/how.md).
-- **when** — the **task / process** lifecycle: order, gates, scheduling,
-  triggers. See [specs/when.md](specs/when.md).
-- **where** — **memory**: a bi-temporal, append-only GraphQLite graph plus
-  artefacts. See [specs/where.md](specs/where.md).
+A supersedable node carrying **purpose + acceptance**, with the **deliverable as
+an attribute**. why and what are NOT two domains: a deliverable change with the
+purpose held is just an attribute change on one Intent.
 
-The four are **isomorphic domains** — each is a lens on the same work, not a
-layer stacked on the others.
+- `capture → confirm`, revised via `amend` (a bi-temporal `supersede`, so the
+  prior version keeps its valid window for `as_of` reconstruction).
+- **Everything edges back to it via `SERVES`.** See [specs/intent.md](specs/intent.md).
 
-### who ↔ when boundary
+## 2. Capability — the craft (the open set)
 
-`when` owns the **TASK** lifecycle (the process and its gates); `who` owns the
-**AGENT-SESSION** lifecycle (the actor doing the work). A `DRIVES` edge links a
-who-session to the when-task it advances. State is **never duplicated** across
-them: a session's progress lives in `who`; a task's phase/gate state lives in
-`when`; the `DRIVES` edge is the join.
+An invokable action. Verbs are capability-defined and **role-tagged**:
 
-## The two-axis canonical verb frame
+- `act` — a craft write (e.g. write lyrics, apply a patch),
+- `transform` — stateless compute, no side-effect (e.g. count syllables),
+- `effect` — an external side-effect (e.g. master audio, upload, web search).
 
-The three **closed** domains (who / when / where) share ONE verb frame. Every
-function maps to exactly one axis:
+Discover via `<capability>.help` (progressive disclosure). Invoking a capability
+records an **Invocation** in Memory, edged `SERVES → intent` (and
+`PERFORMED_BY → agent` / `PRODUCES → artefact` when relevant). See
+[specs/capability.md](specs/capability.md).
 
-- **Lifecycle** (write): `open · move · close`
-- **Observe** (read): `read · find · check` (plus `watch` for live / subscribe)
+## 3. Lifecycle — the task/agent state-machine (+ gates)
 
-| Domain | open | move | close | read | find | check |
-|---|---|---|---|---|---|---|
-| **who** | dispatch | handoff | release | poll | roster | verify |
-| **when** | start | advance | complete | status | list | check (gate) |
-| **where** | record | link | supersede | recall | find | validate |
+The state-machine for a unit of work. Verb frame:
 
-`how` is the **OPEN** domain: its verbs are capability-specific (music:
-`write` / `master` / `mix`; jules: `patch` / `bulk`), and each is **TAGGED**
-with the frame role it fills. A specialist verb is allowed to live in any
-closed domain, but it MUST declare its frame role, and that role is surfaced as
-a call-site **ALIAS** — e.g. `where.music.supersede` ≡ `where.music.close`. The
-frame is the spine; specialist names are skins over it.
+- write: **`open · move · close`**
+- observe: **`read · find · check · watch`** (`check` validates against rules;
+  `watch` is a continuous monitor).
 
-## Capabilities express themselves as aspects
+States align with A2A tasks (`submitted · working · input-required · completed ·
+failed · canceled`). **An agent (the old "who") is a Lifecycle parameterization**
+— an agent-session is a Lifecycle whose transitions/observers differ: a remote
+async agent inserts `verify` because `COMPLETED ≠ done`. **Gates =
+`input-required` → Intent re-entry.** See [specs/lifecycle.md](specs/lifecycle.md).
 
-A **capability** is a vertical area of work — e.g. `jules`, `music`, `novel`,
-`meta-development`. It is **authored in exactly one home domain** (its primary
-concern) and expresses itself across the four domains as **aspects**: a who
-aspect, a how aspect, a when aspect, a where aspect. The aspects are the SAME
-capability faithfully restated in each domain's language — they are
-**isomorphic**.
+## 4. Memory — the moat
 
-### Lazy-domaining
+One bi-temporal, append-only graph holding **every** node — Intent, Capability
+invocations, Lifecycle states, agents, artefacts, gates — and their edges
+(`SERVES`, `PRODUCES`, `PERFORMED_BY`, `DISPATCHED_TO`, `PRECEDES`,
+`SUPERSEDED_BY`, `PASSED`).
 
-A capability materializes an aspect in a non-home domain **only when it needs
-one** — **lazy-domaining**.
+- write: `record · link · supersede`
+- read: `recall · find · validate`
+- `project(query, budget)` → ranked, token-budgeted, supersession-aware (`as_of`)
+  deltas.
 
-- The default is **lazy graph data**: a when aspect appears as `Task` / gate
-  nodes the moment the capability first needs process state; a where aspect
-  appears as `Artefact` / memory nodes the moment it first produces or learns.
-  No authored folder is required.
-- A capability with **fixed structure** may instead **author** an aspect.
-- Authored or lazy, **the holding domain owns the aspect**.
+**The one thing a flat SDK + memory-tool rival cannot match:** cross-concern
+provenance is a *single traversal* — "every action that `SERVES` intent Q1, the
+agent that ran it, the artefact it produced, the gate it passed." Proven in
+[`seed/`](../../seed/README.md). See [specs/memory.md](specs/memory.md).
 
-There is **no eager 4× triplication** and no forced isomorphism beyond what a
-capability actually needs. See [specs/capability-and-aspects.md](specs/capability-and-aspects.md).
+## Skills are atomic, gated, progressively-disclosed step-graphs
 
-## Naming (self-describing)
+A skill is **not** a monolithic file loaded wholesale. A skill is a **Lifecycle
+template: a graph of atomic Capability steps + Gates**, walked step-by-step via
+code-mode. Each step discloses only the *next* instruction
+(`search → get_schema → execute`), so tokens are paid per atomic step. The chain
+*is* an executable dataflow graph, and because every `call_tool` records an
+Invocation, it mirrors itself into the provenance graph.
 
-Every public name derives from `(domain, capability, verb)`:
+**Gates / intent-verification / human-in-the-loop are `elicit` steps.** A step
+can `ctx.elicit(prompt)` (ask the agent or human a one-line question and get a
+typed answer), `ctx.sample(...)`, or `ctx.report_progress(...)`. A gate that
+needs a human is just an `elicit` → the Lifecycle pauses at `input-required`, the
+answer resumes it, the outcome is recorded as a `Gate`. "askuser" is therefore
+not a special case — it is one node in the chain. See
+[specs/skills-and-gates.md](specs/skills-and-gates.md).
 
-- MCP tool: `mcp__<domain>_<capability>_<verb>` — e.g. `mcp__who_jules_dispatch`.
-- Skill: `/agency:<domain>:<capability>:<verb>` — e.g. `/agency:how:jules:patch`.
-- code-mode: `domain.capability.verb()` — e.g. `where.jules.record(...)`.
+## 5W1H is a lens, not the structure
 
-The name alone tells you the domain, the capability, and the verb.
+A Capability may be *observed* through a faceted home concept plus an optional
+`(home, target)` cross-section. That cross-section is an **observation**, NOT a
+total function — total decomposition always leaks (Cyc / RDF / Ranganathan). When
+a capability is genuinely cross-cutting (`verify`/QC, observability), an **AOP
+escape hatch** models it across concepts rather than forcing a home. There is no
+generating function and no eager triplication.
 
-## The stress test (proves the model)
+## Naming (structure-first, self-describing)
 
-- **`jules`** (home `who`): the async-coding orchestrator. Who aspect authored
-  (dispatch / handoff / release + poll / verify, plus the orchestration verbs);
-  how aspect lazy until its first specialist verb (`how.jules.patch`); when
-  aspect lazy (the task state machine, incl. silent-fail recovery —
-  `COMPLETED` ≠ done); where aspect lazy (sessions / patches / lessons). One
-  authored aspect. **This is the minimal proof.**
-- **`music`** (home `how`, specced — not built): heavy craft (write / master /
-  mix), authoring across domains; the "fully-domained" extreme proving home ≠
-  exclusive ownership.
-- **`meta-development`** (home `who`, specced — not built): the system improving
-  itself; its where aspect is the system's own graph (reflexive); it dispatches
-  `jules` via `who.dispatch`.
+Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool names
+`<concept>_<capability>_<verb>` — underscores, ≤64 chars, no dots; the client
+injects the `mcp__` prefix. The serializer detail (skill/code-mode forms) is not
+a top-level concern.
+
+## What the seed proves
+
+The smallest running thing that proves the moat and falsifies the risks: it
+records an Intent, opens an agent Lifecycle, runs two genuinely different
+capabilities (a `transform` and an agent), passes a gate via `elicit`, chains
+tools in code-mode (one delta out), and answers the cross-concern provenance
+query end-to-end. 6/6 green on `graphqlite` + `fastmcp`. See
+[`seed/`](../../seed/README.md).
 
 ## Scope
 
-The Vision DOCUMENTS this entire four-domain model. The buildable/committed
-slice is MINIMAL — `jules` in `who`, one authored aspect, the rest lazy, plus
-the worked example. Everything else is **"specced — not built."** This repo is
-documentation; no code is implemented here.
+The canon DOCUMENTS this entire four-concept model. The first RUNNING code is
+`seed/`. Everything else is **"specced — not built."**

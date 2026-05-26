@@ -2,122 +2,108 @@
 slug: vision-example
 type: vision
 status: ready
-summary: A worked spec walkthrough — "fix the failing auth test, via jules" — tracing one trip through intent + who/how/when/where. Shows the canonical verb frame, the who↔when DRIVES boundary, harness-in-harness handoff, and the silent-fail-recovery lesson. A SPEC walkthrough, NOT a shipped path.
+summary: A worked walkthrough — "fix the failing auth test, via jules" — tracing one trip through Intent + Capability + Lifecycle + Memory. Shows the verb frame, the agent-as-Lifecycle-parameterization (COMPLETED != done), the gate-as-elicit step, code-mode tool-chaining, and cross-concern provenance in one traversal. NOW EXECUTABLE in seed/.
 ---
 
 # Worked example — "fix the failing auth test, via jules"
 
-> **Status: specced — not built.** This is a walkthrough of how the v2.1 model
-> composes, written to make the design concrete. It is NOT a shipped execution
-> path. Names use the code-mode form (`domain.capability.verb()`); the MCP and
-> skill forms derive identically.
+> **Status: now executable.** This walkthrough is no longer spec-only — its
+> shape runs in [`seed/`](../../seed/README.md) (`run_scenario` +
+> `test_codemode_chaining_is_an_executable_graph` +
+> `test_gate_elicits_human_in_flow`, 6/6 green on `graphqlite` + `fastmcp`).
+> Names below use the seed's verbs; the MCP tool form is
+> `<concept>_<capability>_<verb>`.
 
 The task: *fix the failing auth test*, delegated to the `jules` async-coding
-agent. One trip through **why** + **who / how / when / where**.
+agent. One trip through **Intent + Capability + Lifecycle + Memory**.
 
-## 0. Intent (why / what) — the human's root
+## 0. Intent — the human's root (why/what merged)
 
-```
-why.capture(text="fix the failing auth test on main")
-why.confirm(...)                       # → Intent node I1, pinned once
-```
-
-`I1` is now referenced by id everywhere; the text is never re-pasted (cache-
-safe). Every node below carries a `SERVES_INTENT → I1` edge.
-
-## 1. who.dispatch — open a session (dispatcher vs dispatchee)
-
-```
-S1 = who.jules.dispatch(role="jules", intent="I1")   # who.jules is the DISPATCHER; role is a PARAMETER
+```python
+iid = intent.capture(purpose="ship green CI",
+                     deliverable="auth test passes",
+                     acceptance="tests green")
+intent.confirm(iid)                       # confirmed in place; SERVES edges stay stable
 ```
 
-- `dispatch` is the **who** `open` verb. It creates a **Session** node `S1` and
-  a per-hop **Dispatch** correlation node (so a later handoff can nest —
-  harness-in-harness).
-- `S1 —SERVES_INTENT→ I1`.
+`iid` is referenced by id everywhere; the text is never re-pasted (cache-safe).
+Every node below carries a `SERVES → iid` edge. If the *what* changes while the
+*why* holds, `intent.amend(iid, deliverable=...)` is a bi-temporal supersede (the
+old version is still reconstructable `as_of`).
 
-## 2. when.start + the DRIVES boundary
+## 1. Lifecycle.open — an agent is a Lifecycle parameterization
 
-```
-T1 = when.jules.start(task="fix-auth-test", phases=["investigate","patch","verify","pr"],
-                      gate="tests-green")
-where.link(S1, T1, rel="DRIVES")        # the who↔when join
+```python
+lc = lifecycle.open(iid, agent="jules")   # Lifecycle SERVES iid; DISPATCHED_TO agent:jules
 ```
 
-- `start` is the **when** `open` verb. `T1` is the **Task** node owning the
-  process: phases `investigate → patch → verify → pr`, with a hard gate
-  `tests-green`.
-- The **`DRIVES`** edge links the who-session `S1` to the when-task `T1` it
-  advances. Session state lives in `who`; phase/gate state lives in `when`;
-  **neither duplicates the other.**
+`open` creates a Lifecycle node in state `working`, `SERVES` the Intent, and is
+`DISPATCHED_TO` an `Agent` node. The agent is **not** a separate concept — this
+Lifecycle is parameterized to insert a `verify` step because `COMPLETED ≠ done`.
 
-## 3. how.jules.patch — the craft (open domain, frame-role tagged)
+## 2. Capability steps — the craft (role-tagged), chained in code-mode
 
-```
-result = how.jules.patch(session="S1")  # frame role: this how-verb fills "move" for the craft
-```
-
-- `how` is OPEN: `patch` is a jules-specific craft verb, TAGGED with the frame
-  role it fills. Discoverable via `how.jules.help`.
-
-## 4. where.record + where.link — append-only memory
-
-```
-A1 = where.jules.record(kind="patch", produced_by="S1", task="T1")   # where `open`
-where.jules.link(A1, T1, rel="PRODUCES")                             # where `move`
+```python
+# a stateless transform: pick the line with the most syllables
+scored = [(syllables.count(text=ln), ln) for ln in lines]   # role: transform
+best = max(scored)[1]
+# feed the winner into the agent capability (role: act)
+p = jules.patch(spec=best, agent_id="agent:jules", pushed=True)   # PRODUCES an Artefact, PERFORMED_BY the agent
 ```
 
-- `record` writes an **Artefact** node `A1` for the patch (bytes via a driver);
-  `link` connects it. **Append-only** — nothing is overwritten.
+Run inside one `execute(code)` block, these are **4 in-sandbox calls returning
+ONE small delta** (token-efficient). Each call records an Invocation that `SERVES`
+the Intent — so the executable chain mirrors into the provenance graph.
 
-## 5. who.poll / who.verify — COMPLETED ≠ done (the silent-fail lesson)
+## 3. Gate — askuser-in-the-flow via `elicit`
 
-```
-status = who.jules.poll(session="S1")     # who `read` → "COMPLETED"
-ok     = who.jules.verify(session="S1")   # who `check` → branch on remote?
-```
-
-- A jules `COMPLETED` means "idle, awaiting input," NOT "pushed." `verify`
-  confirms the branch exists on the remote.
-- If `verify` fails but a patch already exists: `who.jules.retry(...)` to probe,
-  then recover by applying the API patch. **NEVER `respawn`** while a patch
-  exists (canon guard) — respawn only if the patch is empty.
-
-## 6. when.advance — gate, then move the task
-
-```
-when.jules.check(task="T1", gate="tests-green")   # when `check` (gate)
-when.jules.advance(task="T1", to="pr")            # when `move`
+```python
+res = await ctx.elicit("Approve release?", response_type=["approve", "reject"])
+# pauses the Lifecycle at input-required; the answer resumes it
 ```
 
-## 7. who.handoff — harness-in-harness (context, not a baton)
+The human's `approve` is recorded as a `human-confirm` `Gate` node, `PASSED` by
+the Lifecycle. "askuser" is just one node in the chain.
 
-```
-S2 = who.jules.handoff(from_="S1", role="codex", shared_context=SC1)  # who `move`
-```
+## 4. COMPLETED ≠ done — the silent-fail lesson
 
-- `handoff` opens a nested session `S2` (a new actor, `codex`) under the same
-  Dispatch correlation chain — **harness-in-harness**. A **SharedContext** node
-  `SC1` ensures `S2` inherits what `S1` knew (context, not just a baton).
-
-## 8. when.complete · who.release — close out
-
-```
-when.jules.complete(task="T1")    # when `close`
-who.jules.release(session="S2")   # who `close`
+```python
+paused = jules.patch(spec=..., pushed=False)   # status: COMPLETED, branch_pushed: False
+jules.verify(branch_pushed=paused["branch_pushed"])  # -> {"done": False}
 ```
 
-- `complete` closes the **task**; `release` closes the **session**. The
-  `where` graph retains the full append-only trail; `where.project()` will
-  surface only ranked deltas of it, never the raw history.
+A jules `COMPLETED` means "idle, awaiting input," NOT "pushed." The inserted
+`verify` step confirms a real branch before trusting it. Canon guard: **never
+`respawn` while a patch exists; respawn only if the patch is empty.**
+
+## 5. Lifecycle.move / complete — gate then close
+
+```python
+lifecycle.move(lc, gate="tests-green", ok=True)  # records a PASSED Gate, advances
+lifecycle.complete(lc)                            # -> "completed"
+```
+
+## 6. The moat — cross-concern provenance in ONE traversal
+
+```python
+prov = memory.provenance(iid)
+# {
+#   "serves":    [the syllables transform, the jules patch, ...],   # every action SERVES iid
+#   "agents":    [agent:jules],                                     # who PERFORMED_BY it
+#   "artefacts": [the patch],                                       # what it PRODUCES
+#   "gates":     [tests-green, human-confirm],                      # the gates it PASSED
+# }
+```
+
+This is a **single graph traversal** from the Intent — not a join across four
+systems. **This is the moat**, and the seed answers it end to end.
 
 ## What this shows
 
-- The **two-axis verb frame** in action: `open` (dispatch/start/record),
-  `move` (advance/handoff/link), `close` (complete/release), `read`/`check`
-  (poll/verify/gate).
-- The **who ↔ when DRIVES boundary** — one join edge, zero duplicated state.
-- **Harness-in-harness** via nested Dispatch + SharedContext on handoff.
-- The **silent-fail-recovery** lesson encoded as `poll → verify → retry/recover`
-  with the respawn guard.
-- INTENT as the pinned root every node serves.
+- The **verb frame** in action: Intent `capture/confirm/amend`; Lifecycle
+  `open/move/close` + `read/check`; Memory `record/link` + `provenance`.
+- **An agent IS a Lifecycle parameterization** — the inserted `verify`,
+  `COMPLETED ≠ done`.
+- **Gate = `elicit`** — human-in-the-flow as one atomic, token-tiny step.
+- **Code-mode tool-chaining = an executable graph** mirrored into provenance.
+- **Cross-concern provenance in one traversal** — the moat.

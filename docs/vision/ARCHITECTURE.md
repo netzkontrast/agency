@@ -2,89 +2,96 @@
 slug: vision-architecture
 type: vision
 status: ready
-summary: The runtime — one FastMCP engine with a four-verb meta-contract and a code-mode call surface; one bi-temporal append-only GraphQLite graph as the only persistent state; engine guards (quality-score, loop-detection, compaction, Slot/quota) as cross-cutting concerns, not domains. Lists the SOTA context-engineering commitments the engine honors.
+summary: The runtime (v4) — one FastMCP Engine with the four-verb contract + one execute(code) code-mode tool; one bi-temporal append-only GraphQLite graph as the only persistent state; engine guards (quality-score, loop-detection, compaction, Slot/quota) as middleware, NOT concepts. Lists the SOTA context-engineering commitments. Seed-proven where noted.
 ---
 
-# Architecture — one engine, one graph, four domain surfaces
+# Architecture — one Engine, one graph, four concepts
 
-## One engine (NOT a domain)
+> Authoritative model: [CORE.md](CORE.md). This describes the runtime substrate.
 
-**FastMCP** is the only runtime. It hosts intent + all four domains in one
-process. The engine is itself **not a domain** — it is the host. Its public
-surface is the **four-verb meta-contract**:
+## One Engine (the substrate, NOT a concept)
+
+**FastMCP** is the only runtime. It hosts the four concepts (Intent, Capability,
+Lifecycle, Memory) in one process. The Engine is **not a concept** — it is the
+host. Its public surface is the **four-verb contract** plus **one code-mode
+tool**:
 
 - `list_tools` · `call_tool` · `list_skills` · `dispatch_skill`
+- `execute(code)` — code-mode
 
-Every domain verb (`mcp__who_*`, `mcp__how_*`, `mcp__when_*`, `mcp__where_*`,
-plus the `why.*` intent verbs) is an entry in the one registry reached through
-that contract. See [specs/engine.md](specs/engine.md).
+Every concept verb (`<concept>_<capability>_<verb>`) is an entry in the one
+registry reached through that contract. **Seed-proven:** the seed builds a real
+FastMCP server exposing MCP-conformant tool names and the four-verb surface
+(`agency_list_skills` / `agency_dispatch_skill` + `memory_graph_provenance` +
+the capability verbs). See [specs/engine.md](specs/engine.md).
 
-### Code-mode (the token-efficiency primitive)
+### Code-mode (the token-efficiency primitive — seed-proven)
 
-The engine can render the domains as a **callable code API** — `who.*`,
-`how.*`, `when.*`, `where.*` as functions inside a sandbox. The agent writes
-code that filters and joins **in-sandbox** and returns only **deltas**, never
-raw history. Code-mode is the engine's core token-efficiency primitive: it
-turns "fetch everything then read it" into "compute the answer, return the
-diff."
+On demand the Engine hides the raw tools behind **`search` / `get_schema` /
+`execute`**. The agent writes code that chains tools and filters/joins
+**in-sandbox**; intermediate results stay in the sandbox; large payloads return
+as `elided_ref` handles; only filtered **deltas** reach context (Anthropic "Code
+execution with MCP", 2025-11-04 — up to −98% tokens). The code *is* an executable
+dataflow graph, and because every `call_tool` records an Invocation, that graph
+mirrors itself into the durable provenance graph. **Seed-proven:** an `execute`
+block chains a `transform` into an agent capability; 4 in-sandbox calls return
+one small delta, and the chain appears as a connected provenance subgraph.
 
-## One substrate — where (bi-temporal, append-only)
+## One substrate — Memory (bi-temporal, append-only)
 
-The **`where` graph** is the only persistent state: a single GraphQLite graph
+The **Memory graph** is the only persistent state: a single GraphQLite graph
 (SQLite + Cypher + node/edge primitives + graph algorithms). It is
-**bi-temporal** (valid-time and transaction-time) and **append-only** — facts
-are never overwritten; a corrected fact `supersede`s the old one, leaving an
-audit trail. Typed nodes (`Intent`, `Session`, `Task`, `Gate`, `Artefact`,
-`Dispatch`, `SharedContext`, `Slot`, `Capability`, …) and typed edges
-(`SERVES_INTENT`, `DRIVES`, `PRECEDES`, `PRODUCES`, `DERIVED_FROM`,
-`SUPERSEDES`, …) record everything the system knows.
+**bi-temporal** (valid-time and transaction-time) and **append-only** — facts are
+never overwritten; a corrected fact `supersede`s the old one, leaving an audit
+trail. Typed nodes (`Intent`, `Invocation`, `Lifecycle`, `Agent`, `Artefact`,
+`Gate`, …) and typed edges (`SERVES`, `PRODUCES`, `PERFORMED_BY`,
+`DISPATCHED_TO`, `PRECEDES`, `SUPERSEDED_BY`, `PASSED`, …) record everything the
+system knows.
 
-Reads go through **`where.project()`**: a ranked, token-budgeted, TOON-encoded
-projection of the graph that returns **deltas**, never raw history. This is how
-an append-only store coexists with compaction — the history is complete on
-disk; what the model sees is always a budgeted projection. See
-[specs/where.md](specs/where.md).
+Reads go through **`project(query, budget)`**: a ranked, token-budgeted,
+supersession-aware (`as_of`) projection that returns **deltas**, never raw
+history. This is how an append-only store coexists with compaction — the history
+is complete on disk; what the model sees is always a budgeted projection.
+**Seed-proven:** bi-temporal `supersede` (the *what* changes while the *why*
+holds, reconstructable `as_of`), `project`, and the one-traversal `provenance`.
+See [specs/memory.md](specs/memory.md).
 
-## Engine guards (cross-cutting — NOT domains)
+## Engine guards (cross-cutting middleware — NOT concepts)
 
-These are engine concerns, referenced by who / when but owned by the engine.
-Named as such so they are never mistaken for domains:
+CORE.md is explicit: these are engine middleware, never concepts. Named as such
+so they are never mistaken for one of the four:
 
 - **quality-score** — a confidence/quality signal on a step's output.
 - **loop-detection** — halts repeating, non-progressing cycles.
-- **compaction checkpoints** — named checkpoints (e.g. `compact-2026-01-12`)
-  that summarize and prune working context while the full record stays in
-  `where`.
-- **`Slot` / quota accounting** — tracks concurrent dispatch slots and external
-  quotas; `who` reads it to gate fan-out and `reclaim_slot`.
+- **compaction checkpoints** — named checkpoints that summarize and prune working
+  context while the full record stays in Memory.
+- **`Slot` / quota accounting** — tracks concurrent dispatch slots + external
+  quotas; Lifecycle reads it to gate fan-out and `reclaim_slot`.
 
 ## Discovery & progressive disclosure
 
-At cold boot the engine exposes ONLY the four meta-verbs; domain verbs and their
-schemas load on demand. Under each domain the engine discovers capabilities and
-derives their verb names per the naming scheme. A capability appears in a domain
-only where it has materialized an aspect (lazy graph data or an authored
-folder).
+At cold boot the Engine exposes only the four-verb contract (+ code-mode);
+capability verbs and their schemas load on demand. A skill discloses only the
+*next* step's instruction, so tokens are paid per atomic step, not for the whole
+skill. See [specs/skills-and-gates.md](specs/skills-and-gates.md).
 
 ## Context-engineering commitments (SOTA)
 
-The engine is built for long-horizon agentic work and MUST honor these:
+The Engine is built for long-horizon agentic work and MUST honor these:
 
-- **Code-mode deltas** — render domains as a callable API; filter/join
-  in-sandbox; return diffs, not whole objects.
-- **Append-only bi-temporal graph + event log** — facts are never mutated;
-  provenance and continuations survive across sessions.
-- **Compaction checkpoints + memory tool** — named checkpoints (e.g.
-  `compact-2026-01-12`) prune working context; the full record stays in `where`
-  and is reachable via `where.project()`.
+- **Code-mode deltas** — chain tools in-sandbox; return diffs, not whole objects
+  (seed-proven).
+- **Append-only bi-temporal graph** — facts are never mutated; provenance
+  survives across sessions (seed-proven).
+- **Compaction checkpoints + memory tool** — prune working context; the full
+  record stays in Memory and is reachable via `project`.
 - **Ephemeral-subagent isolation** — heavy work runs in subagents that return
-  small (1–2k token) typed summaries; the orchestrator keeps a pristine context.
-- **Append-only, stable KV-cache prefixes** — prompt prefixes are stable and
-  only appended to, preserving cache hits; the pinned Intent node is referenced
-  by id, never re-pasted.
-- **Tool-masking, not tool-removal** — unavailable tools are masked, not
-  deleted, so the tool list (and its cache prefix) stays stable.
-- **Progressive disclosure** — cold boot exposes only the four meta-verbs;
-  domain verbs load on demand.
-- **TOON for tabular projections** — graph projections render as TOON
-  (token-oriented object notation) for compact tabular delivery.
+  small (1–2k token) typed summaries.
+- **Append-only, stable KV-cache prefixes** — prompt prefixes are stable and only
+  appended to; the Intent is referenced by id, never re-pasted.
+- **Tool-masking, not tool-removal** — unavailable tools are masked so the tool
+  list (and its cache prefix) stays stable.
+- **Progressive disclosure** — cold boot exposes only the contract; verbs and
+  per-step instructions load on demand.
+- **TOON for tabular projections** — graph projections render as TOON when
+  tabular-eligible, else JSON.

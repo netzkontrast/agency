@@ -2,37 +2,36 @@
 slug: vision-vocabulary
 type: vision
 status: ready
-summary: Canonical terms for the v2.1 four-domain 5W1H model. One self-describing definition each, used consistently across canon, specs, and code. Defines intent, who/how/when/where, capability, home domain, aspect, lazy-domaining, the two verb axes, DRIVES, dispatcher-vs-dispatchee, engine guards, where.project, and the naming scheme.
+summary: Canonical terms for the v4 four-concept model. One self-describing definition each. Defines Intent, Capability (act/transform/effect), Lifecycle (open·move·close + read·find·check·watch; agent as parameterization), Memory (record·link·supersede + recall·find·validate; project; provenance), the Engine substrate, engine guards, skills as atomic gated step-graphs, gates/elicit, 5W1H-as-lens, and the naming scheme.
 ---
 
-# Vocabulary
+# Vocabulary (v4)
+
+> Authoritative model: [CORE.md](CORE.md). Supersedes the v2.1 four-domain
+> vocabulary (who/how/when/where, home domain, aspect, lazy-domaining, DRIVES).
 
 | Term | Meaning |
 |---|---|
-| **Intent (why / what)** | The human's root — the reason the work exists and what "done" means. Captured via `why.capture` → `why.confirm`; persisted as a single **Intent node**, pinned once and thereafter referenced by node-id (cache-safe). Every action edges back to it via `SERVES_INTENT`. Intent is its OWN root, distinct from `where`'s execution memory. |
-| **who** | The agent-SESSION lifecycle domain — which actor performs the work: dispatch, handoff, supervision, harness-in-harness. Closed domain; verbs map to the canonical frame. |
-| **how** | The craft domain — skills, tools, actions. The OPEN domain: capability-specific verbs, discoverable via a mandatory `how.<capability>.help`. Each verb is tagged with the frame role it fills. |
-| **when** | The TASK / process lifecycle domain — order, gates, scheduling, triggers. Closed domain; verbs map to the canonical frame. |
-| **where** | The memory domain — a bi-temporal, append-only GraphQLite graph plus artefacts. Closed domain; verbs map to the canonical frame. The only persistent state. |
-| **Capability** | A vertical area of work (e.g. `jules`, `music`, `novel`, `meta-development`). Authored in exactly one home domain and expressed across the four domains as aspects. |
-| **Home domain** | The single domain in which a capability is authored — its primary concern (orchestration → who; craft → how; process → when; data/memory → where). Home ≠ exclusive ownership. |
-| **Aspect** | A capability's expression in one domain (its who aspect, how aspect, when aspect, where aspect). The aspects are the same capability faithfully restated per domain — isomorphic. The holding domain owns the aspect. |
-| **Lazy-domaining** | A capability materializes an aspect in a non-home domain only when it needs one. Default = lazy graph data (when `Task`/gate nodes; where `Artefact`/memory nodes), no authored folder; a capability with fixed structure may instead author the aspect. No eager 4× triplication. |
-| **Two verb axes** | The canonical frame for the closed domains (who/when/where). **Lifecycle** (write): `open · move · close`. **Observe** (read): `read · find · check` (+ `watch` for live/subscribe). Every closed-domain function maps to exactly one axis-role. |
-| **Frame role** | Which of the six canonical roles (open/move/close/read/find/check) a verb fills. Closed-domain verbs are named for their role directly; an open (`how`) verb declares its role and may surface it as a call-site alias. |
-| **Canonical alias** | A call-site alias mapping a specialist verb to its frame role — e.g. `where.music.supersede` ≡ `where.music.close`. The frame is the spine; specialist names are skins over it. |
-| **DRIVES** | The edge linking a who-session to the when-task it advances. The join across the who ↔ when boundary: `when` owns the TASK lifecycle, `who` owns the AGENT-SESSION lifecycle, and state is never duplicated across them. |
-| **Dispatcher vs dispatchee** | In `who.dispatch(role=jules)`, `who.<actor>` is the DISPATCHER and the target role is a PARAMETER (the dispatchee). A who-capability is the orchestrator; the role it spawns is data, not a separate domain. |
-| **Orchestration verbs** | `who` verbs beyond the frame: `retry` / `respawn` (canon guard: NEVER respawn jules if a patch already exists; DO if the patch is empty), `escalate`, `fan_out`, `reclaim_slot`. |
-| **Dispatch node** | A per-hop correlation node in `where` that records one dispatch hop; nesting them enables harness-in-harness (a dispatchee that itself dispatches). |
-| **SharedContext node** | A `where` node ensuring a handoff passes CONTEXT, not just a baton — the receiving session inherits what the prior one knew. |
-| **Engine guards** | Cross-cutting engine concerns (NOT domains): quality-score, loop-detection, compaction checkpoints, and `Slot`/quota accounting. Referenced by who/when, owned by the engine. |
-| **where.project()** | The mandatory read path into `where`: a ranked, token-budgeted, TOON-encoded projection that returns DELTAS, never raw history. How append-only memory coexists with compaction. |
-| **Four-verb meta-contract** | The engine's entire public surface: `list_tools`, `call_tool`, `list_skills`, `dispatch_skill`. Not a domain — the host. |
-| **Code-mode** | The engine rendering the domains as a callable code API (`who.*`, `how.*`, `when.*`, `where.*`); filter/join in-sandbox; return deltas. The token-efficiency primitive. |
-| **Naming scheme** | Every public name derives from `(domain, capability, verb)`: MCP `mcp__<domain>_<capability>_<verb>`; skill `/agency:<domain>:<capability>:<verb>`; code-mode `domain.capability.verb()`. The name alone tells you domain, capability, and verb. |
-| **Aspect (authored) shape** | When a capability authors an aspect it follows that domain's canonical shape, so knowing a domain teaches you all its aspects. |
-| **Intent node / Session / Task / Artefact** | Typed `where` nodes: `Intent` (the pinned root), `Session` (a who actor's run), `Task` (a when process instance), `Artefact` (a recorded product whose bytes live in user storage via a driver). |
-| **TOON** | Token-oriented object notation — the compact tabular encoding used for `where.project()` output. |
-| **Bi-temporal / append-only** | `where` records valid-time and transaction-time and never overwrites; a corrected fact `supersede`s the prior one via a `SUPERSEDES` edge. |
-| **Frontmatter canon** | Required front-matter on canon docs and skills: `slug`, `type`, `status`, `summary` (summary ≤ 240 chars for specs, ≤ 120 for skills). |
+| **Intent** | The human-owned root — a supersedable node carrying **purpose + acceptance**, with the **deliverable as an attribute** (why/what merged). `capture → confirm`, revised via `amend`. Every action edges back to it via `SERVES`. |
+| **Capability** | The craft — the OPEN set. An invokable action whose verbs are capability-defined and **role-tagged**. Discover via `<capability>.help`. Invoking one records an Invocation in Memory. |
+| **act / transform / effect** | The three capability roles. `act` = a craft write; `transform` = stateless compute, no side-effect; `effect` = an external side-effect. |
+| **Lifecycle** | The task/agent state-machine. Write frame `open · move · close`; observe frame `read · find · check · watch`. States align with A2A tasks. |
+| **Memory** | The moat — one bi-temporal, append-only graph holding every node and edge. Write frame `record · link · supersede`; read frame `recall · find · validate`; `project(query, budget)`. The only persistent state. |
+| **Engine** | The substrate (NOT a concept) — one FastMCP server + one graph. Public surface = the four-verb contract + one `execute(code)` code-mode tool. The host. |
+| **Verb frame** | The isomorphic frame the concepts share. Lifecycle: `open · move · close` (write) + `read · find · check · watch` (observe). Memory: `record · link · supersede` (write) + `recall · find · validate` (read). Intent: `capture · confirm · amend`. Capability verbs are open but role-tagged. |
+| **Agent (as parameterization)** | An agent (the old "who") is a **Lifecycle parameterization** — an agent-session is a Lifecycle whose transitions/observers differ. A remote async agent inserts a `verify` step because `COMPLETED ≠ done`. Not a separate concept. |
+| **Gate** | A Lifecycle step that pauses at `input-required` for a decision. A gate that needs a human is an `elicit` step; its outcome is recorded as a `Gate` node, `PASSED` (or blocked) by the Lifecycle. |
+| **elicit / sample / report_progress** | Mid-flow interaction steps. `ctx.elicit(prompt)` asks the agent/human a one-line question and gets a typed answer (askuser-in-the-flow); `ctx.sample(...)` asks the caller's LLM; `ctx.report_progress(...)` streams. |
+| **Skill (atomic step-graph)** | A **Lifecycle template: a graph of atomic Capability steps + Gates**, walked step-by-step via code-mode with progressive disclosure (only the next step's instruction loads). NOT a monolith loaded wholesale. |
+| **SERVES** | The edge from every action node back to the Intent it serves. The spine of the provenance graph. |
+| **provenance** | A single Memory traversal from an Intent returning every action that `SERVES` it, the agent that `PERFORMED_BY` it, the artefact it `PRODUCES`d, and the gate it `PASSED`. The moat — a flat SDK+memory-tool stack needs a multi-system join. |
+| **project(query, budget)** | The read path into Memory: a ranked, token-budgeted, supersession-aware (`as_of`) projection that returns DELTAS, never raw history. How append-only memory coexists with compaction. |
+| **bi-temporal / append-only / supersede** | Memory records valid-time and transaction-time and never overwrites; a corrected fact `supersede`s the prior one (`SUPERSEDED_BY` edge), which keeps its valid window for `as_of` reconstruction. |
+| **Invocation** | A Memory node recording one capability call: its capability, verb, and role; edged `SERVES → intent` (+ `PERFORMED_BY → agent`, `PRODUCES → artefact`). |
+| **Engine guards** | Cross-cutting engine **middleware** (NOT concepts): quality-score, loop-detection, compaction checkpoints, `Slot`/quota accounting. |
+| **Code-mode** | The Engine hiding raw tools behind `search` / `get_schema` / `execute`; the agent chains tools in-sandbox and returns only deltas (the −98%-token pattern). The executable chain mirrors into the provenance graph. |
+| **5W1H (a lens)** | The journalistic six-interrogative checklist. In v4 it is a **lens, not structure**. A Capability cross-section is an optional `(home, target)` **observation**, never a total function (total decomposition leaks). |
+| **AOP escape hatch** | For genuinely cross-cutting capabilities (`verify`/QC, observability) with no natural home: model the capability across concepts rather than forcing a home. No generating function is required. |
+| **Naming scheme** | Structure-first. Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool names `<concept>_<capability>_<verb>` — underscores, ≤64 chars, no dots; the client injects `mcp__`. |
+| **A2A-aligned states** | Lifecycle states mirror A2A tasks: `submitted · working · input-required · completed · failed · canceled`. `COMPLETED ≠ done`. |
+| **Frontmatter canon** | Required front-matter on canon docs and skills: `slug`, `type`, `status`, `summary`. Specs add a **Status** line ("specced; seed-proven where noted"). |
