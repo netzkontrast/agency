@@ -107,6 +107,8 @@ pytest -q
 | `agency/capability.py` + `capabilities/` | **Capability** — open verbs, role-tagged `act·transform·effect`; **discovered by reflection** |
 | `agency/capabilities/plugin.py` | the **plugin-development** capability (skill creator + plugin authoring) |
 | `agency/capabilities/jules.py` | the **jules** agent capability (real remote async sessions) |
+| `agency/capabilities/reflect.py` | the **reflect** capability (durable cross-session memory) |
+| `agency/capabilities/develop.py` | the **develop** capability — dev-workflow disciplines (brainstorm · plan · tdd · debug · verify · spec-panel · review) as walkable skills |
 | `agency/templates.py` | **Templates** — prestructured documents (manifest · SKILL.md · command · step-doc) |
 | `agency/ontology.py` | the strict ontology + skill schemas |
 | `agency/skill.py` | the micro-step skill walker (progressive disclosure + hard gate) |

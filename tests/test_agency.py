@@ -567,3 +567,32 @@ def test_reflect_capability_writes_and_recalls():
                        "WHERE i.id = $iid RETURN r", {"iid": iid})
     assert len(rows) == 2                                                 # reflections are provenance
     e.memory.close()
+
+
+def test_develop_capability_ships_walkable_dev_skills():
+    """The `develop` capability implements the SuperClaude + superpowers dev
+    disciplines as first-class agency skills: the engine walks one (tdd) phase by
+    phase through its hard gate, recording provenance, and `checklist` returns a
+    discipline's steps. The Iron Law (RED before GREEN) is enforced by ordering."""
+    e = fresh()
+    iid = e.intent.capture("develop the system", "a tested change", "tests pass")
+
+    # checklist is real compute over the shipped schemas
+    cl = e.registry.invoke(e.memory, iid, "develop", "checklist", discipline="tdd")[0]["result"]
+    assert [s["name"] for s in cl["steps"]] == ["red", "green", "refactor", "verify"]
+
+    # the discipline is a walkable agency skill (a Lifecycle template)
+    run = SkillRun(e.memory, iid, e.ontology.skill("tdd"))
+    assert run.current()["name"] == "red"                      # RED first (the Iron Law, by ordering)
+    assert run.submit({"failing_test": "test_x asserts behavior"})["status"] == "working"
+    assert run.submit({"implementation": "minimal code"})["status"] == "working"
+    assert run.submit({"refactored": "cleaned"})["status"] == "working"
+    assert run.current()["gate"] == "hard"                     # verify is a hard gate
+    assert run.submit({"tests_pass": "yes"}, confirmed=False)["status"] == "input-required"
+    assert run.submit({"tests_pass": "yes"}, confirmed=True)["status"] == "completed"
+
+    # all seven dev disciplines ship as skills, and `develop` is a macroskill
+    assert {"brainstorm", "plan", "tdd", "debug", "verify", "spec-panel", "review"} <= set(e.ontology.skills)
+    caps = {n: list(e.registry.get(n).verbs) for n in e.registry.names()}
+    assert "develop" in caps and "checklist" in caps["develop"]
+    e.memory.close()

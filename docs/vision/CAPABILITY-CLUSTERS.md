@@ -78,6 +78,20 @@ Everything else in the survey is **already expressible today** as capabilities
 (`act`/`transform`/`effect` verbs), skills (Lifecycle templates of phases + gates),
 or engine substrate — no new architecture required.
 
+## Implemented in v0.1
+
+- **author-skill / plugin-dev** → the `plugin` capability + `plugin-development` /
+  `skill-creation` skills (full port).
+- **reflect** → the `reflect` capability (built).
+- **discipline + walk-phases** → the `develop` capability: the dev-workflow
+  disciplines from superpowers + SuperClaude ship as **walkable agency skills**
+  (`brainstorm · plan · tdd · debug · verify · spec-panel · review`), each a
+  Lifecycle template the engine walks, with installable SKILL.md wrappers — the
+  toolkit for developing the system further.
+- **gate · transmute · craft · commit-effect · navigate · research · wire-handlers**
+  remain expressible today as capability verbs / skills / engine substrate; the
+  one net-new primitive still to build is **`delegate`** (agent fan-out + join).
+
 ## Confidence
 
 ~0.9 that the four concepts + the engine absorb the entire surveyed surface, and
