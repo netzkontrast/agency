@@ -105,6 +105,21 @@ def help_map(caps: dict) -> dict:
     lines = ["# agency — capabilities (macroskills) and their verbs (micro-skills)", ""]
     for name, verbs in ordered.items():
         lines.append(f"- **{name}** — {', '.join(verbs)}")
+    lines += [
+        "",
+        "## Discovery",
+        "",
+        "There is no separate 'remember to use the skill' layer — discovery IS the contract:",
+        "",
+        "- `search` finds a capability/verb or a discipline by symptom;",
+        "- `get_schema` discloses just what you need (a verb's signature, a discipline's current phase);",
+        "- `execute` runs it — and the run is recorded provenance (an Invocation, or a skill walk, that SERVES the intent).",
+        "",
+        "Walk a discipline one phase at a time (`develop.checklist` lists its steps); a hard gate halts until",
+        "confirmed, and a phase bound to a verb EXECUTES rather than merely documents. Fetch a discipline's",
+        "heavy how-to on demand with `develop.reference` (T3 progressive disclosure) — invoking a discipline IS",
+        "the recorded walk, so there is nothing extra to remember.",
+    ]
     return {"result": {"doc": "\n".join(lines) + "\n", "map": ordered}}
 
 

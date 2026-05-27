@@ -1135,3 +1135,33 @@ def test_executing_plans_discipline_walks_with_checkpoints():
     assert run.submit({"all_pass": "yes"}, confirmed=True)["status"] == "completed"
     assert run.done
     e.memory.close()
+
+
+def test_develop_reference_carries_on_demand_docs():
+    """superpowers-port Phase 4 — a discipline's heavy how-to travels as an ON-DEMAND
+    capability reference (T3 progressive disclosure via code-mode), not system-prompt
+    bloat: develop.reference(topic) returns the doc; an unknown topic lists what's
+    available."""
+    e = fresh()
+    iid = e.intent.capture("learn the craft", "a reference", "ok")
+    r = e.registry.invoke(e.memory, iid, "develop", "reference", topic="testing-skills")[0]["result"]
+    assert r["topic"] == "testing-skills" and "subagent" in r["doc"].lower()
+    for t in ("skill-descriptions", "best-practices"):
+        assert e.registry.invoke(e.memory, iid, "develop", "reference", topic=t)[0]["result"]["doc"]
+    bad = e.registry.invoke(e.memory, iid, "develop", "reference", topic="nope")[0]["result"]
+    assert "error" in bad and "best-practices" in bad["available"]
+    e.memory.close()
+
+
+def test_help_documents_the_discovery_mapping():
+    """superpowers-port Phase 4 — the help surface documents discovery itself
+    (using-superpowers → the engine): the search/get_schema/execute contract, and
+    that invoking a discipline IS a recorded walk (nothing extra to remember)."""
+    e = fresh()
+    iid = e.intent.capture("discover", "the map", "ok")
+    out = e.registry.invoke(e.memory, iid, "plugin", "help")[0]["result"]
+    doc = out["doc"]
+    assert "## Discovery" in doc
+    assert "search" in doc and "get_schema" in doc and "execute" in doc
+    assert "develop.reference" in doc                              # references are discoverable
+    e.memory.close()
