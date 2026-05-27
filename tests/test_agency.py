@@ -1256,3 +1256,34 @@ def test_logical_clock_survives_an_edge_as_last_write():
     m2 = Memory(path, ont=ontology.Ontology.core())
     assert m2._tick >= last                                       # picked the edge's vfrom up
     m2.close()
+
+
+def test_marketplace_source_parsed_by_hostname():
+    """A marketplace `source` is normalised to a github object only for a REAL
+    github.com URL (parsed by hostname), so a lookalike host or a relative path is
+    preserved verbatim as a string."""
+    from agency.templates import marketplace_obj
+    real = marketplace_obj("p", "0.1.0", "d", "https://github.com/netzkontrast/agency")["source"]
+    assert real == {"source": "github", "repo": "netzkontrast/agency"}
+    for bad in ("https://github.com.evil.tld/org/repo", "plugins/agency", "./local", "owner/repo"):
+        assert marketplace_obj("p", "0.1.0", "d", bad)["source"] == bad     # kept as a string
+
+
+def test_ontology_rejects_unknown_node_labels():
+    """The ontology is strict on labels too: a typo'd/unknown node label is rejected
+    at record time instead of being persisted with no schema."""
+    e = fresh()
+    with pytest.raises(ValueError):
+        e.memory.record("Intnet", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "x"})
+    e.memory.close()
+
+
+def test_reflect_note_surfaces_in_provenance():
+    """A reflection captured during an intent appears in that intent's provenance
+    (it SERVES the intent, not only OBSERVED_DURING)."""
+    e = fresh()
+    iid = e.intent.capture("learn", "a note", "ok")
+    e.registry.invoke(e.memory, iid, "reflect", "note", scope="technical", text="prefer code-mode deltas")
+    texts = [n.get("text") for n in e.memory.provenance(iid)["serves"]]
+    assert "prefer code-mode deltas" in texts
+    e.memory.close()

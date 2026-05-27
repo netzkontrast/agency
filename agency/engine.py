@@ -86,6 +86,8 @@ class Engine:
         mcp.tool(impl)
 
     def build_mcp(self, codemode: bool = True) -> FastMCP:
+        if codemode and not HAVE_CODEMODE:                  # fail loud, not a silent raw-tool fallback
+            raise RuntimeError("code-mode requested but unavailable; install fastmcp[code-mode]")
         transforms = [CodeMode()] if (codemode and HAVE_CODEMODE) else []
         mcp = FastMCP("agency", transforms=transforms)
         mem = self.memory

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -117,8 +118,8 @@ def _coerce_source(source: str) -> str:
         rest = s[len("sources/github/"):]
         if rest.count("/") == 1:
             owner, repo = rest.split("/", 1)
-    elif "github.com" in s:
-        path = s.split("github.com", 1)[1].lstrip(":/").rstrip("/")
+    elif urlparse(s).hostname in ("github.com", "www.github.com"):   # real host, not a substring
+        path = urlparse(s).path.strip("/")
         if path.endswith(".git"):
             path = path[:-4]
         parts = path.split("/")

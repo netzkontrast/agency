@@ -25,9 +25,10 @@ class ReflectCapability(CapabilityBase):
 
     @verb(role="act")
     def note(self, scope: str, text: str) -> dict:
-        "Write a scope-tagged insight node; edged OBSERVED_DURING the intent."
+        "Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent."
         rid = self.ctx.record("Reflection", {"scope": scope, "text": text})
         self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+        self.ctx.link(rid, self.ctx.intent_id, "SERVES")     # so the note surfaces in provenance
         return {"result": rid}
 
     @verb(role="transform")

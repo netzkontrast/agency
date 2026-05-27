@@ -130,6 +130,8 @@ class Ontology:
         return [f for f in self.nodes.get(label, []) if props.get(f) in (None, "")]
 
     def violations(self, label: str, props: dict) -> list[str]:
+        if label not in self.nodes:                      # strict: no typo/unknown labels slip in
+            return [f"unknown node label {label!r} (not in the ontology)"]
         out = [f"missing required {f!r}" for f in self.missing_required(label, props)]
         for (lbl, fld), allowed in self.enums.items():
             if lbl == label and fld in props and props[fld] not in allowed:
