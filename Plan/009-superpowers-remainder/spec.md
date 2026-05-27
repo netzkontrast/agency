@@ -31,9 +31,14 @@ wave: 1
 
 Agency's `develop` capability already ports the **bulk** of superpowers (see
 `docs/vision/specs/superpowers-port.md` and `research/capability-specs/
-capability-catalogue.md`). Reading every real `SKILL.md` in superpowers v5.1.0
-(@ `f2cbfbef…`) against the shipped engine shows **13 of 14 disciplines are
-already covered**:
+capability-catalogue.md`). This spec **finishes the only two non-`done` rows of
+the canonical mapping** in `superpowers-port.md`: line 63
+(`receiving-code-review`, status **partial** — "folded into the `review` skill")
+and line 69 (the writing-skills **references** row, status **planned**). Closing
+those two rows leaves the canon table with **zero `partial`/`planned` rows for
+in-scope items**. Reading every real `SKILL.md` in superpowers v5.1.0 (@
+`f2cbfbef…`) against the shipped engine confirms the canon: **13 of 14
+disciplines are already covered**:
 
 - `develop` skills (gated phase-graphs): `brainstorm` (brainstorming), `plan`
   (writing-plans), `tdd` (test-driven-development), `debug` (systematic-
@@ -121,12 +126,17 @@ drops in favor of code-mode). None become capability verbs.
       build/UX/example/pressure tooling and records the **primary expected
       outcome: ZERO runtime dependencies**, with the marketplace SHA
       `f2cbfbefebbfef77321e4c9abc9e949826bea9d7` (v5.1.0) as evidence.
-- [ ] The superpowers coverage table in `docs/vision/specs/superpowers-port.md`
-      has NO remaining `partial`/`planned` rows for the enumerated in-scope items
-      — every skill + every enumerated reference resolves to **covered** or an
-      explicit **dropped (with reason)** (e.g. the host-adapter
-      `using-superpowers/references/{codex,copilot,gemini}-tools.md` →
-      dropped, Agency-irrelevant).
+- [ ] **Both** non-`done` canon rows are flipped in
+      `docs/vision/specs/superpowers-port.md`: line 63
+      (`receiving-code-review`, **partial → covered**) AND line 69 (the
+      writing-skills **references** row, **planned → covered**). After this edit
+      the canonical mapping has **NO remaining `partial`/`planned` rows for the
+      enumerated in-scope items** — every skill + every enumerated reference
+      resolves to **covered** or an explicit **dropped (with reason)** (e.g. the
+      host-adapter `using-superpowers/references/{codex,copilot,gemini}-tools.md`
+      → dropped, Agency-irrelevant). The reference rows the spec enumerates
+      (debug/tdd technique docs) extend BEYOND what canon line 69 named; the
+      canon row must end with no `planned` residue regardless.
 - [ ] `tests/test_agency.py` (the develop suite) covers the new `receive-review`
       phase-graph: `triage` produces `classified_findings` and precedes the
       `resolve` hard gate; the existing `test_every_dev_skill_walks_to_a_hard_gate`
@@ -189,7 +199,7 @@ to `request → dispatch → resolve`.
 | superpowers item | current state | this spec's target | role |
 |---|---|---|---|
 | requesting-code-review | `review` (`request→dispatch→resolve`) — but SKILL.md drifted to `assess` | reconcile SKILL.md to `dispatch`; otherwise unchanged | — |
-| **receiving-code-review** | rigor implicitly folded into `resolve` (**partial**) | NEW skill `receive-review` (`read→understand→verify→triage→resolve`) | discipline (transform) |
+| **receiving-code-review** | canon line 63: rigor folded into `review`'s `resolve` (**partial**) | NEW skill `receive-review` (`read→understand→verify→triage→resolve`) | `develop` discipline (gated Lifecycle template) |
 | writing-skills: testing-skills-with-subagents | `REFERENCES["testing-skills"]` present | confirm parity; keep | reference (transform) |
 | writing-skills: persuasion-principles | absent (**planned**) | `REFERENCES["persuasion-principles"]`, RE-FRAMED (see OQ3) | reference (transform) |
 | writing-skills: anthropic-best-practices | absent (distinct from Agency's `best-practices`) | `REFERENCES["anthropic-best-practices"]` (re-expressed, NOT the 46KB copy) | reference (transform) |
@@ -218,14 +228,18 @@ this as the primary expected outcome, evidenced by the SHA — not via the false
 
 ### Verbs / skills touched
 
-- **NEW `develop` skill `receive-review`** (`DEV_SKILLS["receive-review"]`,
-  **transform-home** discipline): `read → understand → verify → triage →
-  resolve(hard)`. Receiving-review rigor becomes STRUCTURE: a finding cannot be
-  resolved before it is verified-against-the-codebase and triaged
+- **NEW `develop` skill `receive-review`** (`DEV_SKILLS["receive-review"]`, a
+  **`develop` discipline — a gated Lifecycle-template phase-graph** homed in
+  `lifecycle`, `kind = "discipline"`, NOT a `transform` verb): `read →
+  understand → verify → triage → resolve(hard)`. Receiving-review rigor becomes
+  STRUCTURE (the ordered phases) + a **judgment-as-code gate**: a finding cannot
+  be resolved before it is verified-against-the-codebase and triaged
   (`agree` / `disagree-with-reason` / `needs-verification`). The `resolve` gate
   predicate REJECTS unresolved `needs-verification` items ("can't verify → say so,
   ask for direction"). This is a distinct skill (distinct actor/trigger) from
-  `review`; the unsolicited-human-feedback case has no `request`/`dispatch` to walk.
+  `review`; the unsolicited-human-feedback case has no `request`/`dispatch` to
+  walk. (The only `transform` verb touched is `develop.reference`, signature
+  unchanged — see below.)
 - **`develop` skill `review`** (requesting): only its drifted SKILL.md is
   reconciled to `dispatch`; the phase-graph is unchanged.
 - **`develop.reference`** (**transform**): no signature change; `REFERENCES`

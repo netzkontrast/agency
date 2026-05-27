@@ -34,6 +34,39 @@ wave: A
 
 # Spec 002 — Generic `Boundary` / `Driver` Protocol Family + `DriverRegistry`
 
+## Vision alignment
+
+**This is engine substrate, not a new concept.** `Boundary`/`Driver`/
+`DriverRegistry` are the generalization of the engine's existing injector seams
+(`Registry.injectors["client"|"vcs"]`, `engine.py:55-56`) into one named table —
+the `wire-handlers` cluster, **"the engine itself"**
+(`docs/vision/CAPABILITY-CLUSTERS.md:24`: *"the substrate: reflection-based
+discovery + auto-wiring, the extensible ontology | the engine itself"*). Read
+`DriverRegistry` as "`Registry.injectors`, generalized to a named table"
+everywhere it appears below.
+
+They add **no fifth concept** — the four (Intent · Capability · Lifecycle ·
+Memory) are unchanged (`docs/vision/CORE.md:7-18`); multiplying concepts is the
+exact bloat the canon forbids (`CAPABILITY-CLUSTERS.md:26-43`, esp. :30-31). They
+add **no public tool** — the contract stays exactly `search` · `get_schema` ·
+`execute` (`CORE.md:10-18`); `ctx.drivers`/`ctx.get_driver` extend the *internal*
+`CapabilityContext`, "a DELEGATOR over the engine's services, never a new public
+surface" (`agency/capability.py:37-39`), and emit no MCP tool, declare no verb,
+and never enter `discover()`. They add **no new role-tag** — drivers sit *behind*
+existing `effect`/`transform` verbs (`jules.dispatch` is `effect`,
+`workspace.isolate` is `effect`; `CORE.md:25-28`, `CLUSTERS:26-43`), exposing no
+new role and no new public verb.
+
+D-2 (keep `inject=["vcs"]` as registry-backed sugar) is canon-faithful: it
+*extends* the existing `inject` substrate seam, it does not replace it. A `Driver`
+is an internal I/O seam reached only through `CapabilityContext`; the wrapping
+capability owns the `ToolResult` and **all** provenance writes. The driver records
+nothing itself — `CORE.md:53-54` ("every `call_tool` records an Invocation") stays
+intact because the wrapping verb's `Registry.invoke` records the Invocation
+(`capability.py:164-169`). That same guarantee is the canonical reason the
+`fan_out`-as-raw-`Driver` path is deferred (see Open Questions and the Design
+"OUT OF SCOPE" block).
+
 ## Why
 
 The engine already isolates external side-effects behind two **per-capability**
@@ -99,8 +132,11 @@ outweigh it.
       **no** uniform `dispatch(op, **kw)`). Each concrete driver keeps its own typed,
       named methods; the uniform contract is the RETURN TYPE (`ToolResult`, Spec 001),
       produced by the *capability* that wraps the boundary, not by a uniform method
-      name. `Driver` carries one optional introspection member (`name`/`describe()`)
-      so the `isinstance` check is meaningful (see Missing-depth note).
+      name. The marker has **no** members and is **not** `isinstance`-gated: a
+      memberless `runtime_checkable` Protocol is a no-op `isinstance` (PEP 544), and
+      requiring a member (e.g. `describe()`) would force a behaviour change onto
+      `JulesClient`/`GitClient` that this spec forbids (agrees with the Design block
+      + D-6).
 - [ ] `DriverRegistry` (in `agency/capability.py`) supports `register(name, driver)`,
       `get(name) -> Driver` (raising the typed `DriverMissing(LookupError)` when absent;
       the capability converts to `ToolResult.failure(NOT_FOUND)` — D-3),
@@ -131,8 +167,12 @@ outweigh it.
       with `driver="jules", driver_verb="dispatch"`, `subagent.py:23-28`). The new
       `DriverRegistry` introduces a *second, different* "driver" (a registered object),
       and a raw `Driver.create(...)` does NOT flow through `ctx.spawn`, so it records
-      **no Invocation** and breaks the connected-provenance guarantee
-      (`delegate.py:11-12,48-54`). Making a registered `Driver` a delegation target
+      **no Invocation** and breaks the connected-provenance guarantee. This is the
+      canonical reason for the carve-out: `CORE.md:53-54` ("because every `call_tool`
+      records an Invocation, it mirrors itself into the provenance graph"; enforced at
+      `capability.py:164-169`) — a raw `Driver` call records no Invocation, so it
+      cannot be a delegation target (`delegate.py:11-12,48-54`). Making a registered
+      `Driver` a delegation target
       therefore requires a capability-mediated, Invocation-recording path
       (`ctx.spawn`-equivalent) and a rename to remove the alias — that is a follow-up
       spec (see Open Questions). `delegate.py` is removed from `affects:` here.
@@ -355,7 +395,10 @@ via `ctx.spawn` so each child records an Invocation in the connected provenance
 subgraph (`delegate.py:11-12,40,52`; `subagent.develop` uses `driver="jules",
 driver_verb="dispatch"`, `subagent.py:23-28`). The `DriverRegistry`'s `Driver` is a
 *different* "driver" (a registered object), and calling it directly records **no**
-Invocation — it would break that provenance guarantee. Folding registry-`Driver`s into
+Invocation — it would break the canonical provenance guarantee `CORE.md:53-54`
+("every `call_tool` records an Invocation, it mirrors itself into the provenance
+graph"), enforced at `capability.py:164-169`. A raw `Driver` call runs through none
+of that, so it cannot be a delegation target. Folding registry-`Driver`s into
 `fan_out` therefore requires (a) renaming one of the two "driver" concepts to kill the
 alias, and (b) a capability-mediated, Invocation-recording dispatch path
 (`ctx.spawn`-equivalent). That is a follow-up spec; this spec touches no `delegate`
@@ -420,8 +463,11 @@ code and `Driver`s remain dumb I/O edges with no `CapabilityContext`/memory acce
    — `fan_out`'s `driver`/`driver_verb` already mean capability+verb via `ctx.spawn`
    (`delegate.py:29,40,52`; `subagent.py:23-28`), and the new registry-`Driver` is a
    different concept; one must be renamed. (b) the **provenance path** — a raw
-   `Driver` call records no Invocation, breaking the connected subgraph
-   (`delegate.py:11-12,48-54`); per D-6 a `Driver` is a dumb edge, so any
+   `Driver` call records no Invocation, breaking the connected subgraph; this is the
+   canonical reason it is deferred: `CORE.md:53-54` ("every `call_tool` records an
+   Invocation, it mirrors itself into the provenance graph"; enforced at
+   `capability.py:164-169`, `delegate.py:11-12,48-54`). Per D-6 a `Driver` is a dumb
+   edge, so any
    delegation-target dispatch must run through a capability-mediated,
    Invocation-recording path (`ctx.spawn`-equivalent, e.g. a thin wrapper capability or
    a `ctx.drive(name, op, **kw)` that records first). Until both are designed, this

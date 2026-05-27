@@ -46,6 +46,9 @@ probes; #4's severity is **downgraded** by that probe (see below):
    invocation. At 100k+ nodes this is a linear startup cliff. *Chesterton's
    fence:* the scan exists because the clock must stay monotonic across reopens
    (stateless CLI) — the fix must preserve that guarantee, not drop it.
+   *Canon tie-in:* upholds the bi-temporal append-only monotonic-clock invariant
+   (`CORE.md:38-45`); changes only the seed computation, never `_now()` or the
+   `as_of` window — so `recall`/`project` reconstruction stays byte-identical.
 
 2. **Pagination cap silently truncates source resolution (Low sev × Medium
    likelihood).** `_jules_api._paginate` (`agency/capabilities/_jules_api.py:70`)
@@ -69,6 +72,10 @@ probes; #4's severity is **downgraded** by that probe (see below):
    ahead/behind via `git rev-list`, never the remote. There is **no
    `remote_exists` and no `git ls-remote` anywhere in the file.** `jules.verify`
    does not even inject `vcs` today (its `@verb` has no `inject=`, line 138).
+   *Canon tie-in:* enforces the canon's own worked example — `verify =
+   COMPLETED AND branch-on-origin` (`CORE.md:33-35,113-114`) — by deriving the
+   remote truth independently and failing closed; the caller bool that defeated it
+   is removed. This moves the `COMPLETED != done` lesson from documented to enforced.
 
 4. **Code-mode sandbox `os.environ` exfiltration — premise REFUTED on the pinned
    stack; re-scoped to defense-in-depth (Low/Info residual).** The engine builds
@@ -94,6 +101,9 @@ probes; #4's severity is **downgraded** by that probe (see below):
    while `_api_key()` still resolves it from the captured store. *Chesterton's
    fence:* the per-request read lets the key be exported in the launching shell,
    so the env var cannot simply be deleted — it must be captured first.
+   *Canon tie-in:* a middleware-grade sandbox-boundary guard (`CORE.md:9-18` —
+   cross-cutting guards are engine middleware, **NOT** concepts); adds no node type
+   and no capability; scoped to `build_mcp` because that is the canon's sandbox surface.
 
 ## Done When
 
@@ -134,7 +144,12 @@ probes; #4's severity is **downgraded** by that probe (see below):
       called in **`build_mcp`** (the sandbox boundary, codemode branch) — NOT
       `Engine.__init__` — popping `JULES_API_KEY` from `os.environ` into a process-
       local store; `_jules_api._api_key()` reads that store, and a normal
-      `jules.dispatch` still authenticates against the captured key.
+      `jules.dispatch` still authenticates against the captured key. **Required
+      code comment:** `capture_api_key()` must carry an inline comment stating that
+      `_CAPTURED_KEY` is NOT sandbox-reachable today (the pinned Monty denies
+      `os.environ`/`import`/`globals`, per the REVIEW probe) — the global is
+      defense-in-depth against version drift, not the weak point; this comment is a
+      GREEN-gate requirement so a future reader does not mistake it for a hole.
 
 ## Design
 
@@ -251,7 +266,13 @@ class GitClient:
 # agency/capabilities/jules.py — verify derives the remote truth itself, FAIL-CLOSED
 @verb(role="transform", inject=["vcs"])
 def verify(self, vcs, state: str, branch: str = "") -> dict:
-    "COMPLETED != done: done only if state==completed AND the branch is on origin."
+    """COMPLETED != done: done only if state==completed AND the branch is on origin.
+
+    role="transform" tags the VERDICT (a computed truth), NOT the I/O: this verb
+    reads the remote via the injected vcs (an `ls-remote` subprocess), but a read
+    is not an `effect` (CORE.md:28 reserves `effect` for external *side-effects*),
+    so the compute-a-verdict role holds despite performing network I/O.
+    """
     completed = str(state).lower() == "completed"
     if not branch or vcs is None:
         # cannot independently verify the remote -> FAIL CLOSED (never trust a caller bool)

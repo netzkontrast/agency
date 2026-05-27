@@ -24,14 +24,30 @@ wave: 1
 > `[BLOCKED: clarification]` and stop — do not guess. Several decisions are parked in
 > `## Open Questions / Needs Research`; get them answered before writing code.
 
-# Spec 003 — First-Class `Skill` and `Phase` Objects
+# Spec 003 — Typed `Skill` / `Phase` Boundary over the Dict Walker
 
 ## Why
+
+> **Framing (canon, read first).** `Skill`/`Phase` are NOT a new concept. They are
+> a typed **parse/validate boundary** over the dict skill schemas that Memory
+> already stores. A skill stays a **Lifecycle template** — a graph of atomic
+> Capability steps + Gates (CORE.md:47-54) — recorded as ordinary Memory nodes
+> (CORE.md:64-66, "Dropped" §82-89); `Ontology.skills` keeps storing dicts and
+> `SkillRun` re-parses them. Each `Phase` is one atomic step that discloses only
+> its own `spec()`. A `Phase` with `gate == "hard"` is the canon's **elicit
+> hard-gate** (CORE.md:56-62): `submit()` pauses the Lifecycle at `input-required`
+> and resumes on `confirmed=True`. The role-tag (`act`/`transform`/`effect`,
+> CORE.md:26-28) stays on the Invocation the phase's verb records — never on the
+> `Phase`. Nothing about the four concepts, the public surface (`search` /
+> `get_schema` / `execute`), or the provenance edges changes; only the dict-poking
+> does. "First-class" here means *typed at the boundary*, not *promoted to a stored
+> concept*.
 
 The skill walker (`agency/skill.py`) is the engine's implementation of "real
 micro-step skills": progressive disclosure (`current()` returns only the current
 phase), strict per-phase validation (`submit()` rejects a phase missing required
-outputs), the hard-gate elicit pause, and provenance (every phase recorded as a
+outputs), the elicit hard-gate pause (`gate == "hard"` → Lifecycle pauses at
+`input-required`, CORE.md:56-62), and provenance (every phase recorded as a
 `Phase` node edged `HAS_PHASE`/`SERVES`/`PRECEDES`). All of that logic is sound —
 but it walks **raw, untyped dicts**:
 
@@ -71,12 +87,14 @@ research because every skill schema (the `dict`s in `develop.py:DEV_SKILLS`,
 `plugin.py:SKILL_CREATION_SKILL`/`PLUGIN_DEV_SKILL`) is authored as a dict literal
 and stored in `OntologyExtension.skills` (`agency/ontology.py:84`).
 
-This spec makes `Skill` and `Phase` first-class typed objects with **dynamic
+This spec adds a typed `Skill`/`Phase` **parse/validate boundary** with **dynamic
 validation at construction time**, while preserving the existing dict authoring
 *and storage* form (capabilities still write dict literals; `Ontology.skills`
 still holds raw dicts — the engine parses them into typed objects, validates them
 at registration time, and `SkillRun` re-parses on construction; the typed objects
-are never the canonical storage). This split — keep authoring/storage as dicts,
+are never the canonical storage). Skills stay Lifecycle artefacts/templates owned
+by the contributing capability (CORE.md:131-133) — this boundary does NOT promote
+`Skill` to a new stored concept. This split — keep authoring/storage as dicts,
 validate shape at the boundary — is the same model the real harness uses:
 `the-agency-system/Plan/harness/design.md:286` defers the required-field contract
 to a separate `test_skill_schema.py` while `dispatch_skill` (design.md:188,193)
@@ -136,6 +154,23 @@ them as additions rather than hiding them under "no behaviour change".
       invokable/gate branches to `Phase.is_invokable()`/`Phase.is_gate()`; behaviour
       (raise on missing, `input-required` on unconfirmed hard gate, `working`/
       `completed` status, identical provenance edges) is byte-for-byte preserved.
+- [ ] **`Phase` carries NO role tag (invariant).** The `act`/`transform`/`effect`
+      role (CORE.md:26-28) stays on the **Invocation** that `registry.invoke`
+      records for an `invoke` phase (`ontology.py:34,49`); `Phase`/`PhaseInvoke`
+      only forward `capability`/`verb` and never set, read, or strip a role. A test
+      asserts the invoked verb's role lands on the recorded Invocation, not on the
+      `Phase` node (pairs with the "invokable phase still runs its real verb" test).
+- [ ] **The elicit hard-gate is modelled, with two PRESERVED gaps named (not
+      introduced here).** `gate == "hard"` faithfully models the canon's elicit
+      hard-gate pause (CORE.md:56-62; `submit()` → `input-required`, resume on
+      `confirmed=True`). Two halves of the canon pair are NOT modelled and are
+      *preserved pre-existing gaps* deferred to a follow-up spec, NOT regressions:
+      (a) the **advisory gate** (warn-and-never-block, skills-and-gates.md:45) has
+      no representation — only `"hard"` is valid; (b) the walker records **no
+      `Gate` node on the pause path** (skills-and-gates.md:43) — it returns
+      `input-required` and records the `Phase` only once confirmed. The `Phase`
+      docstrings must say so explicitly so a reader does not mistake `is_gate()`
+      for a full model of the canon's `Gate`-node outcome.
 - [ ] The engine validates every capability's skill schemas at **registration
       time** — but in `Engine.__init__`, AFTER the extend loop, NOT inside
       `Ontology.extend`. **(Open Q4 RESOLVED → engine bootstrap.)** `Ontology.extend`
@@ -160,7 +195,9 @@ them as additions rather than hiding them under "no behaviour change".
       `produces` raises; `current()` output is field-identical to the pre-refactor
       dict; an invokable phase still runs its real verb (with a registry); an
       `invoke` phase walked WITHOUT a registry degrades to a document phase; the hard
-      gate still pauses; **and the headline registration-time test — a capability /
+      gate still pauses; an invoked verb's `act`/`transform`/`effect` role is
+      recorded on the **Invocation**, not on the `Phase` node (the role-tag
+      invariant); **and the headline registration-time test — a capability /
       `OntologyExtension` carrying a malformed skill raises at `Engine(...)`
       bootstrap, not at walk time.**
 
@@ -194,10 +231,23 @@ class PhaseInvoke:
 
 @dataclass(frozen=True)
 class Phase:
+    """One atomic Capability step in a Lifecycle-template step-graph (CORE.md:47-54).
+
+    Carries NO role tag: the act/transform/effect role (CORE.md:26-28) lives on the
+    Invocation that `registry.invoke` records for an `invoke` phase, never here.
+    `Phase` is a parse/validate boundary over a stored dict — not a new concept.
+    """
     index: int
     name: str
     produces: tuple[str, ...]
     inputs: tuple[str, ...] = ()
+    # Canon: the elicit hard-gate (CORE.md:56-62). `gate == "hard"` => submit()
+    # pauses the Lifecycle at `input-required` and resumes on confirmed=True.
+    # PRESERVED PRE-EXISTING GAPS (not introduced here, deferred to a follow-up):
+    #   - the advisory-gate half of the canon pair (warn-never-block,
+    #     skills-and-gates.md:45) is NOT modelled — only "hard" is valid (Open Q2);
+    #   - no `Gate` node is recorded on the pause path (skills-and-gates.md:43) —
+    #     the walker records the `Phase` only once confirmed.
     gate: Optional[str] = None              # only "hard" today (Open Q2)
     invoke: Optional[PhaseInvoke] = None
 
@@ -221,6 +271,11 @@ class Phase:
                    inputs=tuple(d.get("inputs", ())), gate=gate, invoke=inv)
 
     def is_gate(self) -> bool:
+        """True iff this is the canon's elicit HARD gate (CORE.md:56-62): submit()
+        pauses the Lifecycle at `input-required`, a later submit(confirmed=True)
+        resumes it. NOTE: this models only the hard half of the canon's hard/advisory
+        pair, and does NOT record a `Gate` node on pause (skills-and-gates.md:43,45)
+        — both are PRESERVED pre-existing gaps, deferred to a follow-up spec."""
         return self.gate == "hard"
 
     def is_invokable(self) -> bool:
@@ -311,6 +366,8 @@ def submit(self, outputs=None, confirmed=False) -> dict:
     inv_id = None
     if p.is_invokable() and self.registry is not None:
         args = {k: outputs[k] for k in p.inputs if k in outputs}
+        # registry.invoke records the role-tagged Invocation (act/transform/effect,
+        # CORE.md:26-28). The role lives on that Invocation — NOT on the Phase.
         result, inv_id = self.registry.invoke(
             self.memory, self.intent_id, p.invoke.capability, p.invoke.verb, **args)
         val = result.get("result", result) if isinstance(result, dict) else result
@@ -414,7 +471,12 @@ open (and it is correctly out of scope for 003 — a Spec 004 decision).
    `Optional[Callable[..., bool]]` predicate has no prior-art support in the walker
    or harness; the programmatic predicate gate already exists as the separate `gate`
    **capability**. So `Phase.gate: Optional[str]` constrained to `"hard"` is the
-   faithful model. The callable form is explicit future work.
+   faithful model. The callable form is explicit future work. **Canon trail:**
+   `gate == "hard"` is the elicit hard-gate (CORE.md:56-62). Two halves of the canon
+   pair stay UNMODELLED as *preserved* pre-existing gaps deferred to a follow-up: the
+   **advisory gate** (warn-never-block, skills-and-gates.md:45) and recording a
+   **`Gate` node on the pause path** (skills-and-gates.md:43). Neither is introduced
+   or regressed here — the walker already behaved this way.
 3. **Resolve `invoke` against a live registry? — RESOLVED (structural-only).** The
    registry is not populated when validation runs (capabilities register in a loop;
    order is not guaranteed). Validate structure only: `capability`/`verb` keys

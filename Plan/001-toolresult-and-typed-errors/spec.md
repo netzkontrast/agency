@@ -105,6 +105,15 @@ agency does **not** adopt: agency's `Engine._wire` reflection seam
 the envelope at `_wire` instead of decorating each verb. This is a deliberate
 divergence from ADR-0005's enforcement surface, not from its schema.
 
+**Scope guard (canon).** `ToolResult`/`TypedError` are an **Engine-substrate
+return SERIALIZER** (CORE.md:90 category — "a serializer detail, not a top-level
+concern"), **NOT a fifth concept** (the concepts are exactly four, CORE.md:7) and
+**NOT the verb input-schema**. The schema-as-single-source isomorphism — one
+ontology schema per verb rendering three ways (MCP `inputSchema` / Skill
+frontmatter / bash arg parser, CORE.md:64-73) — is a **separate, untouched axis**
+(spec 004's ladder). This spec is the *output/return* contract only; do not
+conflate `ToolResult.to_dict()` with "the schema."
+
 The hard constraint: **code-mode IS the contract**. Tools are wired by reflection
 in `Engine._wire`, and `_wire`'s `impl` already unwraps `result["result"]` and
 re-wraps non-dicts as `{"result": out}` (`agency/engine.py:73-74`).
@@ -114,6 +123,24 @@ seams. Per ADR-0005's own "Neutral" clause — *"the schema does not change the 
 wire format; clients see the same JSON shape they always did"* (`:90`) — **the
 envelope IS the wire shape**: callers read `data`. Agency's current unwrapping at
 `_wire` is the deviation to migrate *away* from (see Q-2).
+
+**The canon's two boundaries (CORE.md:11-13).** Code-mode distinguishes two
+distinct boundaries, and the envelope lives on the first one only:
+
+1. The **in-sandbox `call_tool` boundary** — what a verb returns to the Python the
+   agent runs *inside* `execute`. The canon places **no leanness constraint** here:
+   these are "intermediate results [that] stay in-sandbox." The `ToolResult`
+   envelope lives here as an intermediate value; `_wire` is reached only as
+   `await call_tool(...)` from inside `execute` (`specs/engine.md:30-31`), so its
+   return is an in-sandbox value. The envelope does **NOT auto-cross into context.**
+2. The **context boundary** — what `execute` *itself* returns. Only here does
+   "only deltas cross into context" apply, and that delta is whatever the agent's
+   code chooses to return after reading `r["ok"]`/`r["data"]` and filtering
+   in-sandbox.
+
+Serializing the full envelope at `_wire` therefore crosses boundary 1 (no leanness
+constraint) and **never** boundary 2. The lean surface
+(`search`/`get_schema`/`execute`) is untouched.
 
 ## Done When
 
@@ -164,9 +191,15 @@ envelope IS the wire shape**: callers read `data`. Agency's current unwrapping a
 - [ ] `Engine._wire`'s `impl` (`agency/engine.py:69-74`) serialises a `ToolResult`
       return via `.to_dict()` so the MCP/code-mode JSON shape is the full,
       deterministic, documented envelope. The migration target (full envelope on
-      the wire, callers read `data`) is the source-faithful resolution of Open Q-2;
-      the accept-the-break-vs-dual-surface call is the maintainer's, and tests pin
-      **both** the success and failure wire shapes.
+      the in-sandbox `call_tool` return, callers read `data`) is the
+      canon-faithful resolution of Open Q-2; the accept-the-break-vs-dual-surface
+      call is the maintainer's, and tests pin **both** the success and failure
+      wire shapes.
+- [ ] **bash↔MCP isomorphism test.** `agency/cli.py` and the MCP `_wire` path emit
+      a **byte-identical** `ToolResult.to_dict()` envelope for the same call — this
+      is the canon's litmus for the "three isomorphic renderings" (CORE.md:13-17;
+      `specs/engine.md:33-34`), so the bash-only agent (Jules) reads `ok`/`data`
+      identically to an MCP client.
 - [ ] At least one verb per capability is migrated to return `ToolResult`:
       `jules.dispatch` and `jules.stop` (the raw-dict and error-dict exemplars),
       `gate.check`, `delegate.fan_out`, `branch.finish` — and the migration pattern
@@ -456,23 +489,39 @@ cross-intent call. **Q-6 is closed: the proposal is source-aligned.**
    extensible enum for loop-recovery routing. Default for now: free string + the
    non-binding `Codes` sugar. Recommend deciding this in the spec that builds the
    recovery loop, not here.
-2. **[THE load-bearing decision] Full envelope on the wire — accept the break, or
-   dual-surface during migration?** Today an `execute()` caller receives the
-   *inner* dict (e.g. `gate.check` → `{"passed": ..., "gate": ...}`). After
-   migration it receives the full envelope `{"ok": true, "data": {...},
-   "warnings": [...], "artefacts_written": [...], ...}`. **ADR-0005's source steer
-   is explicit:** *"the schema does not change the MCP wire format; clients see
-   the same JSON shape they always did"* (`:90`) — i.e. in the source the envelope
-   **IS** the wire shape and callers read `data`. So the faithful resolution is:
-   surface the full envelope, callers read `data`; agency's current unwrapped
-   inner dict is the deviation to migrate *away* from, **not** to preserve. This
-   is a real breaking change for existing `execute()` scripts and `agency/cli.py`,
-   so the maintainer must choose **(a) accept the documented break now** (cleaner,
-   source-faithful, do the `cli.py` + `execute()` audit) **vs. (b) dual-surface
-   during migration** (keep unwrapping behind a flag until all verbs move, then
-   flip). "Keep unwrapping forever" is **not** an option — it is unfaithful to
-   source. Downstream specs **002/005/007 depend on this resolution and on the
-   field name being `data`.** Pin both success and failure wire shapes in tests.
+2. **[THE load-bearing decision] Full envelope on the in-sandbox `call_tool`
+   return — accept the break, or dual-surface during migration?** Today an
+   in-sandbox `await call_tool(...)` resolves to the *inner* dict (e.g.
+   `gate.check` → `{"passed": ..., "gate": ...}`). After migration it resolves to
+   the full envelope `{"ok": true, "data": {...}, "warnings": [...],
+   "artefacts_written": [...], ...}`.
+
+   **This is a `call_tool`-boundary change, NOT a context-boundary change
+   (CORE.md:11-13).** The envelope is an *intermediate, in-sandbox value* — the
+   agent reads `r["ok"]`/`r["data"]`, joins/filters in-sandbox, and returns its own
+   delta from `execute`. The envelope never auto-crosses into context; only
+   `execute`'s chosen delta does. So the blast radius is **narrow**: it is
+   **(a) `agency/cli.py`'s own result-printing/unwrap** and **(b) any in-sandbox
+   snippet that assumes `call_tool` hands back the pre-unwrapped inner dict** — it
+   is **NOT** "every `execute()` script," and it is **NOT** a break of the lean
+   public surface (`search`/`get_schema`/`execute`).
+
+   The canon and ADR-0005 agree on the target. CORE.md:11-13: intermediate
+   `call_tool` results stay in-sandbox (no leanness constraint there); ADR-0005's
+   "Neutral" clause (`:90`): *"the schema does not change the MCP wire format;
+   clients see the same JSON shape they always did"* — the envelope **IS** the
+   in-sandbox return shape and callers read `data`. Agency's current unwrapped
+   inner dict is the deviation to migrate *away* from. **Q-2's resolution is
+   canon-faithful: surface the full envelope on the `call_tool` return, callers
+   read `data`.** The only open part is sequencing — the maintainer chooses
+   **(a) accept the documented break now** (cleaner, canon-faithful; do the
+   `cli.py` + in-sandbox-unwrap audit, NOT a per-script `execute()` audit)
+   **vs. (b) dual-surface during migration** (keep unwrapping behind a flag until
+   all verbs move, then flip). "Keep unwrapping forever" is **not** an option — it
+   is unfaithful to the canon. Downstream specs **002/005/007 depend on this
+   resolution and on the field name being `data`.** Pin both the success and
+   failure in-sandbox wire shapes in tests, plus the bash↔MCP isomorphism test
+   (Done-When) proving `cli.py` and `_wire` emit byte-identical envelopes.
 3. **~~Exclude `artefact` from `to_dict()`?~~ MOOT — wrong question.** The source
    has no singular `artefact`; it ships `artefacts_written: list[str]` **on the
    wire** (canvas §5; every handler). It stays in `to_dict()` and the `PRODUCES`

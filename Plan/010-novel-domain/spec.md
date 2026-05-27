@@ -158,25 +158,55 @@ by `Memory.record`.
 | `Storyform` | `work`, `resolve`, `growth`, `approach` | the Dramatica spine |
 | `Coherence` | `work`, `status`, `violations` | a recorded coherence run (`status` enum) |
 
-**Enums** (`enums={(label, field): {allowed}}` — widen-only, never clobber):
+**Enums** (`enums={(label, field): {allowed}}` — widen-only, never clobber). An
+`OntologyExtension` enum is a `(label, field)` constraint enforced on a **graph
+node** (`ontology.py:136-138`); an enum keyed to a field the node never carries is
+inert (it never fires). So v1 declares ONLY the enums that key a real node field:
 
-- `("Chapter", "pov"): {"1st", "3rd_limited", "3rd_omniscient", "2nd"}`
-- `("Coherence", "status"): {"PASS", "FAIL"}`
-- `("Coherence", "severity"): {"fail", "warn", "info"}` (on violation items)
-- revision passes (carried on a `revision_pass` artefact field):
-  `{"structural", "line", "copy", "proof"}` (the source's 4 passes; the revision
-  *skill* that walks them is deferred to v2)
+- `("Chapter", "pov"): {"1st", "3rd_limited", "3rd_omniscient", "2nd"}` — keys
+  `Chapter.pov` ✓.
+- `("Coherence", "status"): {"PASS", "FAIL"}` — keys `Coherence.status` ✓.
 
-**Edges** (`edges={...}` — unioned onto the core set): `COHERES_WITH` (a `Scene`/
-`Chapter` → `Storyform`). All other relations reuse core edges (`SERVES`,
-`PRODUCES`, `PASSED`/`BLOCKED_ON`, `PRECEDES`, `HAS_PHASE`, `DERIVED_FROM`,
-`VALIDATES_AGAINST`, plus a supersede/override edge for `promote_premise` and the
-gate-override audit).
+**Not node enums** (deliberately — they key no v1 node field, so they would never
+fire as `OntologyExtension` enums):
+
+- **violation `severity`** `{"fail", "warn", "info"}` — a violation item is a
+  sub-object INSIDE the `coherence-report` artefact JSON, not a graph node. Its
+  severity is therefore validated as part of the `coherence-report` **artefact
+  schema** (`ctx.validate`), not as a `(Coherence, severity)` node enum (the
+  `Coherence` node schema is only `[work, status, violations]` — it carries no
+  `severity` field). See **Artefact/template schemas**, below.
+- **revision passes** `{"structural", "line", "copy", "proof"}` (the source's 4
+  passes) — documentation-only in v1: no v1 node or artefact carries a
+  `revision_pass` field, so the enum is NOT declared in the `OntologyExtension`. It
+  ships with the revision *skill* that walks the passes, which is deferred to v2.
+
+**Edges** (`edges={...}` — unioned onto the core set; the core edge set is CLOSED,
+so every new relation MUST be declared here or `Memory.link` rejects it as an
+unknown edge — `ontology.py:111,141`):
+
+- `COHERES_WITH` — a `Scene`/`Chapter` → `Storyform`.
+- `OVERRIDDEN_BY` — the **gate-override** edge: when `pre_drafting_gate(force=True)`
+  bypasses a failing gate, the `Gate` is edged `OVERRIDDEN_BY` the override record
+  (caller + reason). This is the graph analogue of the source's `force_overrides[]`
+  audit (see **Source fidelity §7**) and is NOT a `SUPERSEDED_BY` (an override is not
+  a supersession — a bypassed gate still stands as a recorded failure). It SHIPS in
+  v1 because `pre_drafting_gate` is a v1 verb; without it, `force=True` raises an
+  "unknown edge" error at runtime.
+
+All other relations reuse core edges (`SERVES`, `PRODUCES`, `PASSED`/`BLOCKED_ON`,
+`PRECEDES`, `HAS_PHASE`, `DERIVED_FROM`, `VALIDATES_AGAINST`). The
+`promote_premise` supersede edge is DEFERRED to v2 with that verb (it never ships in
+v1, so its edge does not need declaring yet).
 
 **Artefact/template schemas** (`schemas={name: [required]}` — power `ctx.validate`):
 `work` `[author, genre, slug, title]`, `premise` `[logline, central_question]`,
 `ncp` `[schema_version, story]` (the draft-07 top-level — see **Source fidelity
-§3**), `coherence-report` `[work, status]`.
+§3**), `coherence-report` `[work, status]`. The compact report's `violations[]`
+items each carry a `severity ∈ {"fail", "warn", "info"}`; because items are
+artefact-JSON sub-objects (not graph nodes), this constraint is enforced by the
+`coherence-report` artefact validator (`_coherence.py`), NOT by a node enum — see
+**Enums** above.
 
 **Skills** (`skills={name: skill_schema}` — Lifecycle templates the engine walker
 walks; each is an ordered phase-graph, final phase `gate: "hard"`):

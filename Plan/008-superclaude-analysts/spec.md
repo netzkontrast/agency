@@ -5,14 +5,14 @@ status: draft
 owner: "@agency"
 depends_on: [001, 003]
 affects:
-  - agency/capabilities/analyze.py
+  - agency/capabilities/transmute.py
   - agency/capabilities/develop.py
   - skills/analyze/SKILL.md
   - skills/brainstorm-discovery/SKILL.md
   - skills/business-panel/SKILL.md
   - docs/vision/specs/superclaude-analysts-port.md
-  - tests/test_analyze_capability.py
-  - tests/test_analyze_skills.py
+  - tests/test_transmute_capability.py
+  - tests/test_transmute_skills.py
 source-repos:
   - "https://github.com/SuperClaude-Org/SuperClaude_Framework @ 226c45cc93b865108843a669c6545d421784b68c"
   - "https://github.com/SuperClaude-Org/SuperClaude_Plugin @ de431dcc37aa6754be4a8d1be8c83cc834ac9dd5"
@@ -22,13 +22,15 @@ wave: 1
 ---
 
 > **Read `Plan/JULES_PROTOCOL.md` (or `AGENTS.md`) before starting.** This is an
-> ADDITIVE spec: drop a new capability file (`analyze.py`) that self-registers and
-> auto-wires; extend `develop` only where a phase-graph belongs. Only modify the
-> paths under `affects:`. Source repos are clone-and-read-only into `~/work/vendor/`
-> — never commit them. **The canon wins; code serves it** (`docs/vision/CORE.md`).
-> If anything is ambiguous, stop and open `[BLOCKED: clarification]` — do not guess.
+> ADDITIVE spec: BUILD the named-but-unbuilt `transmute` capability file
+> (`transmute.py`) that self-registers and auto-wires; extend `develop` only where
+> a phase-graph belongs. Only modify the paths under `affects:`. Source repos are
+> clone-and-read-only into `~/work/vendor/` — never commit them. **The canon wins;
+> code serves it** (`docs/vision/CORE.md`): this port POPULATES a cluster the canon
+> already maps (`CAPABILITY-CLUSTERS.md:20`), it does NOT mint a new primitive. If
+> anything is ambiguous, stop and open `[BLOCKED: clarification]` — do not guess.
 
-# Spec 008 — SuperClaude Analysts + Command/Mode Framework
+# Spec 008 — transmute: the analysis/transform facet (SuperClaude port)
 
 ## Why
 
@@ -57,6 +59,21 @@ verb iterates over (judgment-as-data), not a separate agent runtime. This spec
 ports the `sc:` analysis surface and the persona/mode model into Agency's
 `Capability` + `Skill` model, REPLACING the SuperClaude install for analysis use.
 
+**Where it lands — `transmute`, not a new primitive.** The `/sc:` analysis surface
+is *stateless compute over a target* (read → findings, mutating nothing external) —
+which is exactly the `transform` role. The canon already RESERVES a named home for
+this: `transmute` | `transform` | "pure functions over artefacts: views, indexes,
+summaries, tool-list shaping | **the open `transform` set**" (`CAPABILITY-CLUSTERS.md:20`).
+That cluster is *specced-but-unbuilt* (`agency/capabilities/transmute.py` does not
+yet exist). So this port does NOT mint a new `analyze` top-level primitive — that is
+the exact bloat the canon warns against (`CAPABILITY-CLUSTERS.md:26-33`: "Most clusters
+are **facets of the four concepts**, not new top-level primitives … Multiplying
+concepts would re-introduce bloat"; `CORE.md:139-141`: the census found "the four
+concepts + the engine absorb it all"). It instead BUILDS `transmute` by **populating
+that facet** with the analytic read-verbs + the `Analysis` ontology. The surface grows
+exactly as the canon prescribes — by dropping a file into `capabilities/` that fills a
+cluster the map already lists (`CORE.md:143-144`). Net-new top-level primitives: **0**.
+
 Agency already has `spec-panel` (the `develop` skill + `skills/spec-panel/`) and
 `brainstorm` (the `develop` skill). Those are SuperClaude's `spec-panel` and
 `brainstorm` in all but name — this spec must NOT re-port them; it must reuse the
@@ -65,12 +82,13 @@ persona/mode substrate that the existing two lean on implicitly.
 
 ## Done When
 
-- [ ] A new self-registering `analyze` capability exists at
-      `agency/capabilities/analyze.py`. The engine `discover()`s it and auto-wires
-      one MCP tool per verb (no central registration). `python -c "from
-      agency.engine import Engine; e=Engine(); assert 'analyze' in
+- [ ] The named-but-unbuilt `transmute` capability is BUILT as a self-registering
+      file at `agency/capabilities/transmute.py` (home `capability`/`transform`), the
+      canon's "open `transform` set" (`CAPABILITY-CLUSTERS.md:20`). The engine
+      `discover()`s it and auto-wires one MCP tool per verb (no central registration).
+      `python -c "from agency.engine import Engine; e=Engine(); assert 'transmute' in
       e.registry.names()"` passes.
-- [ ] `analyze` carries an `OntologyExtension` registering an `Analysis` node type
+- [ ] `transmute` carries an `OntologyExtension` registering an `Analysis` node type
       (fields: `target`, `dimension`, `findings`) and a `dimension` enum
       `{quality, security, performance, architecture}` — exactly the **four** focus
       axes of `/sc:analyze` (`commands/sc-analyze.md:20`, `--focus
@@ -81,22 +99,23 @@ persona/mode substrate that the existing two lean on implicitly.
       — `Ontology.extend` only widens enums, it never closes them. Merge is strict
       (no core-label redefinition); tests assert the merged ontology accepts an
       `Analysis` node and rejects a bad `dimension` (e.g. `maintainability`).
-- [ ] `analyze.analyze(target, dimension)` (**transform**) returns a structured,
+- [ ] `transmute.analyze(target, dimension)` (**transform**) returns a structured,
       **severity-ranked** finding set over the named dimension (severity ordering is
       a hard rule from `commands/sc-analyze.md:31` "Severity-based prioritization",
       re-expressed as a lint-style transform on the finding set, not prose).
-      `analyze.troubleshoot(symptom)` (**transform**) returns ranked root-cause
+      `transmute.troubleshoot(symptom)` (**transform**) returns ranked root-cause
       hypotheses + next probes — **diagnosis only**. (Source `/sc:troubleshoot` has
       a `--fix` step that *mutates* — `commands/sc-troubleshoot.md:33` "Resolve:
-      Apply appropriate fixes"; Agency splits it: diagnosis = `analyze.troubleshoot`
-      transform, the fix loop = the existing gated `develop` `debug` discipline.)
-      `analyze.estimate(scope)` (**transform**) returns an effort/complexity band.
-      `analyze.explain(subject, level)` (**transform**) returns a layered
-      explanation. Each records an Invocation that SERVES the intent.
-- [ ] `analyze.lens(persona)` (**transform**) returns a named expert lens
+      Apply appropriate fixes"; Agency splits it: diagnosis = `transmute.troubleshoot`
+      transform, the fix loop = the existing gated `develop` `debug` discipline. This
+      is canon-correct: `capability.md:67` "A capability spanning two roles … is split
+      by role".) `transmute.estimate(scope)` (**transform**) returns an
+      effort/complexity band. `transmute.explain(subject, level)` (**transform**)
+      returns a layered explanation. Each records an Invocation that SERVES the intent.
+- [ ] `transmute.lens(persona)` (**transform**) returns a named expert lens
       (the persona's review questions + priorities + anti-patterns) as DATA — the
       mechanism by which `spec-panel`/`analyze`/`business-panel` iterate experts.
-      The persona catalogue lives as a table in `analyze.py`, NOT as separate agent
+      The persona catalogue lives as a table in `transmute.py`, NOT as separate agent
       files. SuperClaude ships **20** agent files (`agents/sc-*.md`, excluding
       `sc-README`); **18 are pure analysis lenses** and become `lens()` rows, **2
       orchestrate and are dropped-not-lens** (`pm-agent`, `deep-research-agent`; see

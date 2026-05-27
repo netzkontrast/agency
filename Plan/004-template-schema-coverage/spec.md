@@ -24,16 +24,32 @@ wave: 1
 > recorded artefact kinds: `jules-session`, `reduction`) — the old "do not start
 > until Q1 is answered" gate is removed because the audit *is* the answer.
 
-# Spec 004 — Schema Coverage for the Uncovered Recorded Artefact Kinds
+# Spec 004 — Wire the Generate/Validate Loop End-to-End for Two Recorded Artefact Kinds
+
+*(RUNG 1 toward verb-param schema-as-single-source — see "Where this sits" below.)*
 
 ## Why
 
-The generate/validate loop is the typed spine of the graph: a capability `act`
-renders an Artefact from a `Template`, and `Memory.validate_schema`
-(`agency/memory.py:144`) checks the recorded node against a `Schema` node's
-`required` fields. Today that loop only closes for a minority of artefacts. The
-strict required-field schemas live in `REQUIRED` (`agency/templates.py:72`) and
-cover exactly **5 kinds**:
+CORE.md:66 names the generate/validate pair — `Schema` and `Template` as ordinary
+Memory nodes — as the typed/generative layer: a capability `act` renders an Artefact
+`DERIVED_FROM` a `Template`, which `VALIDATES_AGAINST` its `Schema`, checked by
+`Memory.validate_schema` (`agency/memory.py:144`) against the schema node's
+`required` fields. **In the live engine today that loop is test-proven, not
+production-wired.** `grep -rn 'validate_schema\|VALIDATES_AGAINST' agency/` returns
+only the definition (`memory.py:144`) and a docstring (`templates.py:6`); the only
+place the pair runs end-to-end is the test suite (`tests/test_agency.py:324-357`,
+`:501-508`), where the **test itself** hand-records the `Schema` node
+(`mem.record("Schema", …)`, `:332`/`:503`) and hand-links the edge (`:344`). So
+CORE.md:78-80's "Proven runnable in `agency/`" reads correctly only as
+*test-proven*; in production `Ontology.schemas` is a registry with no enforcement
+point — no code records a `Schema` node, links `VALIDATES_AGAINST`, or calls
+`validate_schema`. 004's purpose is to close that gap *in production* for the two
+uncovered recorded kinds, via the `Schema`-node materialiser promoted into Design
+below. (This is the exact "registry without enforcement" gap the spec exists to
+close — stated up front, not buried.)
+
+Today the strict required-field schemas live in `REQUIRED`
+(`agency/templates.py:72`) and cover exactly **5 kinds**:
 
 ```python
 REQUIRED = {
@@ -59,6 +75,36 @@ The templates-and-schemas research (`research/templates-and-schemas/`) proposed 
 **That count is wrong** — it conflates three distinct namespaces (artefact `kind`s,
 skill `kind`s, and skill-phase `produces:` slot names). This spec carries the
 audit that reconciles it (below) and scopes the work to the verified truth.
+
+## Where this sits — RUNG 1 of the isomorphism ladder
+
+The canon names a larger prize than this spec delivers, and 004 must point AT that
+axis instead of silently deferring it. CORE.md:67-72 makes the **verb-param schema**
+first-class — "**Design intent:** one schema per verb renders three ways (MCP
+`inputSchema`, the Skill's frontmatter, the bash CLI's arg parser) — the
+*isomorphism glue* … making the ontology schema the single source is **the next
+step**." That is the canon's stated single-source-of-truth, and it is shaped by the
+verb's INPUT contract, not an artefact's output contract.
+
+004 deliberately covers the *narrower, output* axis — artefact-kind schemas for two
+recorded kinds — because it is the **minimal runnable proof** of the node+edge
+mechanism (`Schema` node → `VALIDATES_AGAINST` → Artefact) that the verb-param work
+will reuse. Position 004 as **RUNG 1**: prove the generate/validate loop runs
+end-to-end in production for two kinds. The next rung is its own future spec:
+
+- **NEXT RUNG (its own spec, 006) — verb-param schema as the single source.**
+  Materialise one `Schema` node per verb signature so the MCP `inputSchema`, the
+  Skill frontmatter, and the bash CLI arg parser all derive from one ontology node
+  (CORE.md:68-72, "the isomorphism glue"). 004 builds the materialiser this rung
+  reuses; it does NOT itself touch verb-params.
+- **PARALLEL FOLLOW-UP (spec 005) — slots→artefacts.** Rewrite `develop`/`plugin`
+  verbs so each `produces:` slot is recorded as an Artefact and schema'd (see the
+  namespace audit below). A separate feature, not the isomorphism axis.
+
+End-state target across the three namespaces (audited below): artefact-`kind`s →
+`Schema` nodes (004 + 005); **verb-params → the single `Schema` node rendered three
+ways (006, the canonical glue)**; skill-`kind`s stay skill metadata, not artefacts.
+004 is rung 1; without naming the ladder it would point the wrong way.
 
 ## Audit — the recorded artefact kinds (this spec's ruling, do not skip)
 
@@ -286,16 +332,51 @@ return {
 }
 ```
 
-### Wiring the `Schema` nodes (the validate side)
+### The `Schema`-node materialiser (the load-bearing change)
 
-Per "The validate side is not wired yet" above: the engine bootstrap iterates
-`Ontology.schemas` and records one `Schema` node per entry — `node_id =
-f"schema:{name}"`, `props = {"name": name, "required": ",".join(required)}` (the
-`Schema` node schema is `["name", "required"]`, `ontology.py:25`; `validate_schema`
-splits `required` on commas, `memory.py:152`). The two new verbs then link their
-Artefact `VALIDATES_AGAINST` `schema:reduction` / `schema:jules-session`. This is
-the single addition that turns `Ontology.schemas` from an inert registry into a
-checkable loop, and is what makes the round-trip test pass.
+This is the single architectural advance in 004 and the thing the verb-param rung
+(006) reuses, so it lives in Design, not in an Open Question. It turns
+`Ontology.schemas` from an inert in-memory registry into `Schema` *nodes* on the
+graph that `Memory.validate_schema` can target.
+
+**What it does.** Materialise one `Schema` node per `Ontology.schemas` entry:
+`node_id = f"schema:{name}"`, `props = {"name": name, "required": ",".join(required)}`
+(the `Schema` node schema is `["name", "required"]`, `ontology.py:25`;
+`validate_schema` splits `required` on commas, `memory.py:152`).
+
+**Where it runs.** A small `Ontology.materialise_schemas(memory)` helper invoked once
+during engine construction, **after every discovered capability's `OntologyExtension`
+has been merged** (so the effective `Ontology.schemas` is complete) and after Memory
+is wired with the effective ontology (so the `Schema` records pass enforcement).
+Placement decision is settled here — it is not an Open Question.
+
+**Idempotency.** Materialising is keyed by the deterministic `node_id =
+f"schema:{name}"`, so a re-init (or a second engine over the same Memory) upserts the
+same node rather than duplicating. Use an upsert/`record`-if-absent on that id; the
+helper must be safe to call more than once.
+
+**Scope — it runs for ALL `Ontology.schemas` entries, not just the 2 new ones.**
+The materialiser does not special-case `reduction`/`jules-session`. It iterates the
+whole registry, so the **5 already-covered plugin kinds get `Schema` nodes too**,
+retroactively wiring them — 004 silently makes the existing 5 production-validatable
+as well, a bigger change than the title admits and one the canon applauds. State this
+in the PR. (The 5 keep their `REQUIRED` field lists byte-identical; only their graph
+presence as `Schema` nodes is new.)
+
+**The new verbs link the edge.** `delegate.join` and `jules.dispatch` link their
+recorded Artefact `VALIDATES_AGAINST` `schema:reduction` / `schema:jules-session`,
+so the round-trip test has a real `schema_id` to assert on.
+
+**Half the canon pair only — `DERIVED_FROM` stays unproven in production.** 004 wires
+the *validate* side (`Schema` node + `VALIDATES_AGAINST`). It does **not** record
+`Template` nodes, so the canon's generate-provenance edge `Artefact -DERIVED_FROM->
+Template` (CORE.md:74-76) remains test-only after 004 — the new `JULES_SESSION` /
+`DELEGATION_REDUCTION` stay `string.Template` constants (mirroring the existing 5,
+which are also never recorded as `Template` nodes in production). This is a deliberate
+RUNG-1 cut: prove the validate half end-to-end now; recording `Template` nodes and
+closing `DERIVED_FROM` is left to a follow-up (alongside the 006 single-source work).
+The round-trip test 004 ships is therefore validate-only; do not claim the generate
+half is production-wired.
 
 ## Files
 
@@ -327,11 +408,13 @@ checkable loop, and is what makes the round-trip test pass.
    are unaffected; assertions on the *reduction Artefact node's* fields change.
    List the exact jules/delegate test functions touched so "all existing tests
    pass" is verifiable.
-2. **Where does the `Schema`-node bootstrap live — engine or `ontology.py`?**
-   (Not blocking; an implementation-placement choice.) Recommend a small
-   `Ontology.materialise_schemas(memory)` (or engine-init step) that records one
-   `Schema` node per `Ontology.schemas` entry. Confirm it runs once at engine
-   construction, after all capability extensions are merged.
+2. **RESOLVED (moved to Design → "The `Schema`-node materialiser").** Placement,
+   idempotency, and the all-entries scope of the `Schema`-node materialiser are no
+   longer open: it is `Ontology.materialise_schemas(memory)`, run once at engine
+   construction after all extensions merge, upsert-keyed on `f"schema:{name}"`, and
+   it materialises a `Schema` node for **every** `Ontology.schemas` entry (incl. the
+   existing 5). See Design. The only remaining latitude is the exact module the
+   helper's body lives in (`ontology.py` recommended); state the choice in the PR.
 
 ## Evidence
 
