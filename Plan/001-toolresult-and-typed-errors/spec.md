@@ -66,65 +66,120 @@ tree today:
 `FINDINGS.md` names this the #1 rewrite vector: *"if the engine cannot reliably
 distinguish a failed action, a requirement for more data, or a successfully
 completed phase without complex heuristic string matching, the orchestration
-layer will collapse"* (`research/oo-architecture/FINDINGS.md:21-24`). The
-precedent is `the-agency-system`'s shared-envelope decision
-(`vendor/the-agency-system/Plan/decisions/0005-shared-toolresult-envelope.md`) and
-its repair-authority tiers
-(`vendor/the-agency-system/Plan/decisions/0011-repair-authority-tiers.md`), which
-need a typed error code to route a failure to the right tier. `PROPOSAL.md §1` and
-`§4` sketch the target `ToolResult` and `TypedError` dataclasses
-(`research/oo-architecture/PROPOSAL.md:5-42,129-167`).
+layer will collapse"* (`research/oo-architecture/FINDINGS.md:21-24`).
+
+**The precedent — and the authoritative schema this spec adopts — is
+`the-agency-system`'s shipped `ToolResult` envelope** (ADR-0005
+`Plan/decisions/0005-shared-toolresult-envelope.md`; schema canvas §5,
+`docs/superpowers/specs/_drafts/2026-05-19-agency-base-canvas.md:156-179`). That
+envelope is *already* hand-rolled in every shipped handler
+(`servers/agency-mcp/.../handlers/shared/skills.py:47-54`,
+`.../shared/search.py:85-87,132-134`, `.../shared/config.py:16-34`,
+`.../shared/session.py:21-92`). Its field set is the source of truth for this
+spec:
+
+```
+required: ok, warnings, artefacts_written
+optional: data, next_suggested_tools, error, archived_to   (+ next_cursor for read verbs)
+```
+
+Two corrections to the original draft, made after reconciling against the source:
+
+- **There is no closed `ErrorCode` enum and no `tier` in the source.** The
+  source's `error` sub-object is `{code: string, message: string, trace_id?:
+  string}` (canvas §5 `:168-176`) — `code` is a **free string** (real values
+  `"unsupported"`, `"illegal_transition"`, `"PRE_DRAFTING_GATES_FAILED"`,
+  `"NOT_IMPLEMENTED"`, `"MANIFEST_DRIFT"`). ADR-0011 (repair-authority tiers,
+  `Plan/decisions/0011-repair-authority-tiers.md:17-48`; `VOCABULARY.md:269-280`)
+  classifies **document/code mutations** into T1-T4 — it is change-governance,
+  **not** a runtime error→recovery-tier map. The earlier draft conflated the two;
+  there is no source-sanctioned `tier` on errors. This spec drops it.
+- **`artefacts_written: list[str]` is on the wire** (canvas §5, every handler),
+  not a private singular `artefact` dict stripped from the payload. It carries the
+  caller-visible "what did this write" contract; the engine's `PRODUCES` edge is
+  *derived from it*, not from a smuggled side channel.
+
+ADR-0005 is `adr_status: Proposed` and ships via a `@domain_tool` decorator that
+agency does **not** adopt: agency's `Engine._wire` reflection seam
+(`agency/engine.py:61-89`) already centralises emission, so this spec serialises
+the envelope at `_wire` instead of decorating each verb. This is a deliberate
+divergence from ADR-0005's enforcement surface, not from its schema.
 
 The hard constraint: **code-mode IS the contract**. Tools are wired by reflection
-in `Engine._wire` (`agency/engine.py:61-89`), and `_wire`'s `impl` already
-unwraps `result["result"]` and re-wraps non-dicts as `{"result": out}`
-(`agency/engine.py:73-74`). `Registry.invoke` additionally sniffs
-`result["artefact"]` to record a `PRODUCES` edge (`agency/capability.py:177-179`).
-A `ToolResult` envelope must thread through **both** seams without breaking the
-JSON shape an `execute()` caller already relies on. This spec introduces the
-envelope as the canonical *internal* verb return type and defines exactly how it
-serialises at the `_wire` boundary.
+in `Engine._wire`, and `_wire`'s `impl` already unwraps `result["result"]` and
+re-wraps non-dicts as `{"result": out}` (`agency/engine.py:73-74`).
+`Registry.invoke` additionally sniffs `result["artefact"]` to record a `PRODUCES`
+edge (`agency/capability.py:177-179`). The envelope must thread through **both**
+seams. Per ADR-0005's own "Neutral" clause — *"the schema does not change the MCP
+wire format; clients see the same JSON shape they always did"* (`:90`) — **the
+envelope IS the wire shape**: callers read `data`. Agency's current unwrapping at
+`_wire` is the deviation to migrate *away* from (see Q-2).
 
 ## Done When
 
-- [ ] `ToolResult` is a frozen-ish dataclass in `agency/capability.py` with fields
-      `ok: bool`, `data: dict | None`, `warnings: list[str]`,
-      `next_suggested_tools: list[str]`, `error: TypedError | None`, plus an
-      `artefact: dict | None` field (preserves the `Registry.invoke` PRODUCES hook).
-- [ ] `TypedError` is a dataclass with `code: ErrorCode` (an `Enum`),
-      `message: str`, `context: dict | None`; `ErrorCode` covers at minimum
-      `VALIDATION_FAILED`, `DEPENDENCY_MISSING`, `GATE_FAILED`, `NOT_FOUND`,
-      `UNSUPPORTED`, `BOUNDARY_ERROR`, `INTERNAL` (final list resolved in Open Q-1).
-- [ ] `ToolResult` has `to_dict()` producing a stable JSON-serialisable mapping and
-      `from_dict()` round-tripping it; `TypedError.to_dict()`/`from_dict()` likewise.
+- [ ] `ToolResult` is a dataclass in `agency/capability.py` whose fields match the
+      **source schema**: `ok: bool`, `data: Any = None` (NOT `dict` — read verbs
+      return lists, e.g. `skills.py:49` `data: limited_skills`), `warnings:
+      list[str]`, `artefacts_written: list[str]`, `next_suggested_tools:
+      list[str]`, `error: TypedError | None`, `archived_to: str | None`, and
+      `next_cursor: str | None` (shipped for paginating read verbs,
+      `skills.py:45,52`).
+- [ ] `TypedError` is a dataclass with `code: str` (a **free string**, not a closed
+      enum), `message: str`, `trace_id: str | None` (NOT `context`). A non-binding
+      `Codes` namespace of common string constants (`"validation_failed"`,
+      `"dependency_missing"`, `"not_found"`, `"unsupported"`, `"boundary_error"`,
+      `"internal"`, …) may be provided as call-site sugar, but `code` accepts any
+      string so source-style values (`"illegal_transition"`) are never rejected.
+      Whether agency upgrades to a closed enum later is Open Q-1 — default is the
+      free string.
+- [ ] `trace_id` is the `Invocation` node id: `Registry.invoke` wires `inv` into
+      any returned `TypedError` that does not already carry one, so a failure is
+      joinable to its provenance in the bi-temporal graph.
+- [ ] `ToolResult.to_dict()` produces the **full wire envelope** (every field
+      above, including `artefacts_written`, `next_cursor`, `archived_to`) and
+      `from_dict()` round-trips it; `TypedError.to_dict()`/`from_dict()` likewise.
       `assert ToolResult.from_dict(r.to_dict()) == r` holds for every constructed
-      result in the test suite.
-- [ ] Convenience constructors exist: `ToolResult.success(**data)` /
-      `ToolResult.ok_with(data=..., warnings=..., next_suggested_tools=...,
-      artefact=...)` and `ToolResult.failure(code, message, **context)`.
+      result in the test suite — the round-trip is **lossless-aware**: no wire
+      field is dropped (the original draft's `artefact`-excluded-from-`to_dict()`
+      trick is removed precisely because it broke this invariant).
+- [ ] Convenience constructors exist: `ToolResult.success(data=..., warnings=...,
+      next_suggested_tools=..., artefacts_written=..., next_cursor=...)` and
+      `ToolResult.failure(code, message, *, warnings=..., trace_id=...)`.
 - [ ] `Registry.invoke` (`agency/capability.py:144-180`) accepts a `ToolResult`
-      from a verb: it reads `.artefact` for the `PRODUCES` edge (replacing the
-      `result["artefact"]` dict-sniff at `:177`) and, when a verb returns
-      `ToolResult(ok=False, error=...)` **without raising**, records
-      `{"outcome": "failed", "error": error.code.value, "error_message":
-      error.message}` on the Invocation (typed, not the stringly-typed capture at
-      `:174-175`). A raised exception still records a failed Invocation and
-      re-raises (behaviour preserved; the string capture stays only for the
-      raised-exception path — see Open Q-4).
+      from a verb and records provenance correctly across **three** cases:
+      - `ok=False` **with** a `TypedError` (non-raising typed failure) →
+        `{"outcome": "failed", "error_code": error.code, "error_message":
+        error.message}`, after stamping `error.trace_id = inv` if unset.
+      - `ok=False` **without** an `error` object (warnings-only soft failure — the
+        source does this routinely, `handlers/novel/promo.py:14,59,65,69`) → still
+        recorded as `{"outcome": "failed", "error_code": "unspecified",
+        "warnings": [...]}`. This must NOT be mis-recorded as a success; the
+        condition keys off `not result.ok`, **not** off `result.error is not None`.
+      - `ok=True` → success; if `artefacts_written` is non-empty, record an
+        `Artefact` per entry and link `PRODUCES` (replacing the
+        `result["artefact"]` dict-sniff at `:177-179`).
+      A raised exception still records a failed Invocation with a default
+      `error_code="internal"` and re-raises (behaviour preserved; the string
+      capture stays only for the raised-exception path — see Open Q-4).
 - [ ] `Engine._wire`'s `impl` (`agency/engine.py:69-74`) serialises a `ToolResult`
-      return via `.to_dict()` so the MCP/code-mode JSON shape is deterministic and
-      documented. The exact wire shape is decided in Open Q-2; the implementation
-      must match whatever that resolves to and a test must pin it.
+      return via `.to_dict()` so the MCP/code-mode JSON shape is the full,
+      deterministic, documented envelope. The migration target (full envelope on
+      the wire, callers read `data`) is the source-faithful resolution of Open Q-2;
+      the accept-the-break-vs-dual-surface call is the maintainer's, and tests pin
+      **both** the success and failure wire shapes.
 - [ ] At least one verb per capability is migrated to return `ToolResult`:
       `jules.dispatch` and `jules.stop` (the raw-dict and error-dict exemplars),
       `gate.check`, `delegate.fan_out`, `branch.finish` — and the migration pattern
       is documented in the module docstrings so the remaining verbs follow it.
 - [ ] `tests/test_agency.py` keeps passing (currently 56) and gains tests for:
-      (a) `ToolResult`/`TypedError` round-trip, (b) `Registry.invoke` records a
-      typed `error.code` for a non-raising `ok=False` return, (c) `Registry.invoke`
-      still records `PRODUCES` from `ToolResult.artefact`, (d) `_wire` serialises a
-      `ToolResult` to the pinned wire shape, (e) the success path of a migrated verb
-      is unchanged at the JSON boundary (regression guard against Open Q-2).
+      (a) `ToolResult`/`TypedError` lossless round-trip incl. `artefacts_written`,
+      `next_cursor`, `archived_to`; (b) `Registry.invoke` records `error_code` for a
+      non-raising `ok=False` **with** error; (c) `Registry.invoke` records a failed
+      Invocation for `ok=False` **without** error (warnings-only); (d)
+      `Registry.invoke` records `PRODUCES` from `artefacts_written`; (e) `_wire`
+      serialises a `ToolResult` to the full pinned wire shape; (f) `trace_id` on a
+      returned failure equals the `Invocation` id; (g) the migrated success path is
+      the full envelope at the JSON boundary (regression guard for Open Q-2).
 - [ ] No verb anywhere returns a bare `{"error": ...}` or `{"result": {"error":
       ...}}` once migrated; failures go through `ToolResult.failure(...)`.
 
@@ -138,9 +193,13 @@ git clone --depth=1 https://github.com/SuperClaude-Org/SuperClaude_Framework.git
 ```
 
 Read `~/work/vendor/the-agency-system/Plan/decisions/0005-shared-toolresult-envelope.md`
-for the envelope-field rationale and `.../0011-repair-authority-tiers.md` for the
-error-code → repair-tier mapping that motivates `ErrorCode`. Do not copy code;
-consume the design only.
+for the envelope rationale and the authoritative schema at
+`~/work/vendor/the-agency-system/docs/superpowers/specs/_drafts/2026-05-19-agency-base-canvas.md:156-179`.
+Read `.../Plan/decisions/0011-repair-authority-tiers.md` only to confirm it governs
+**document-change authority (T1-T4)**, NOT runtime error tiers — do not derive an
+`ErrorCode.tier` from it. Do not copy code; consume the design only.
+(Path note: `~/work/vendor/...` is the clone target; this repo has no `vendor/`
+directory — cite the clone path, not a `vendor/` path inside agency.)
 
 ## Design
 
@@ -149,84 +208,106 @@ consume the design only.
 ```python
 from __future__ import annotations
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Optional
 
 
-class ErrorCode(Enum):
-    VALIDATION_FAILED = "validation_failed"   # bad/insufficient input to a verb
-    DEPENDENCY_MISSING = "dependency_missing" # a prerequisite (env var, prior node) absent
-    GATE_FAILED = "gate_failed"               # a programmatic hard-gate predicate returned False
-    NOT_FOUND = "not_found"                   # a referenced node/session/workspace is unknown
-    UNSUPPORTED = "unsupported"               # the boundary API does not expose this op (e.g. jules.stop)
-    BOUNDARY_ERROR = "boundary_error"         # an injected Driver/boundary failed (subprocess, HTTP, ...)
-    INTERNAL = "internal"                     # an unexpected raise captured by Registry.invoke
-    # NOTE: final set + repair-tier mapping is Open Q-1.
+# Non-binding call-site sugar. `code` is a FREE STRING (source uses inconsistent
+# values by design: "unsupported", "illegal_transition", "PRE_DRAFTING_GATES_FAILED").
+# These constants are conveniences, not a closed set; any string is legal.
+class Codes:
+    VALIDATION_FAILED = "validation_failed"
+    DEPENDENCY_MISSING = "dependency_missing"
+    GATE_FAILED = "gate_failed"
+    NOT_FOUND = "not_found"
+    UNSUPPORTED = "unsupported"
+    BOUNDARY_ERROR = "boundary_error"
+    INTERNAL = "internal"
+    UNSPECIFIED = "unspecified"       # ok=False with no structured error (warnings-only)
 
 
 @dataclass
 class TypedError:
-    code: ErrorCode
+    code: str                          # free string (source canvas §5 :168-176)
     message: str
-    context: Optional[dict[str, Any]] = None
+    trace_id: Optional[str] = None     # the Invocation id; stamped by Registry.invoke
 
     def to_dict(self) -> dict[str, Any]:
-        return {"code": self.code.value, "message": self.message,
-                "context": self.context or {}}
+        d = {"code": self.code, "message": self.message}
+        if self.trace_id is not None:
+            d["trace_id"] = self.trace_id
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "TypedError":
-        return cls(code=ErrorCode(d["code"]), message=d["message"],
-                   context=d.get("context") or None)
+        return cls(code=d["code"], message=d["message"], trace_id=d.get("trace_id"))
 
 
 @dataclass
 class ToolResult:
     ok: bool
-    data: Optional[dict[str, Any]] = None
+    # `data` is unconstrained in the source schema (canvas §5 :164) — read verbs
+    # return a LIST (skills.py:49 `data: limited_skills`), write verbs a dict.
+    data: Any = None
     warnings: list[str] = field(default_factory=list)
+    # ON THE WIRE (source: required field, every handler). The PRODUCES edge is
+    # derived from this — it is NOT a private provenance channel.
+    artefacts_written: list[str] = field(default_factory=list)
     next_suggested_tools: list[str] = field(default_factory=list)
     error: Optional[TypedError] = None
-    # carried through to Registry.invoke so a successful verb can still emit a
-    # PRODUCES edge (replaces today's result["artefact"] dict-sniff).
-    artefact: Optional[dict[str, Any]] = None
+    archived_to: Optional[str] = None  # set when a >4 KB body is trimmed (ADR-0005 :69)
+    next_cursor: Optional[str] = None  # pagination for read verbs (skills.py:45,52)
 
     # --- constructors -------------------------------------------------------
     @classmethod
-    def success(cls, *, data: Optional[dict] = None, warnings: Optional[list] = None,
+    def success(cls, *, data: Any = None, warnings: Optional[list] = None,
                 next_suggested_tools: Optional[list] = None,
-                artefact: Optional[dict] = None) -> "ToolResult":
-        return cls(ok=True, data=data or {}, warnings=warnings or [],
-                   next_suggested_tools=next_suggested_tools or [], artefact=artefact)
+                artefacts_written: Optional[list] = None,
+                next_cursor: Optional[str] = None) -> "ToolResult":
+        return cls(ok=True, data=data, warnings=warnings or [],
+                   next_suggested_tools=next_suggested_tools or [],
+                   artefacts_written=artefacts_written or [], next_cursor=next_cursor)
 
     @classmethod
-    def failure(cls, code: ErrorCode, message: str, *,
-                warnings: Optional[list] = None, **context) -> "ToolResult":
+    def failure(cls, code: str, message: str, *,
+                warnings: Optional[list] = None,
+                trace_id: Optional[str] = None) -> "ToolResult":
         return cls(ok=False, warnings=warnings or [],
-                   error=TypedError(code, message, context or None))
+                   error=TypedError(code, message, trace_id))
 
-    # --- serialisation (the wire boundary; see Open Q-2) --------------------
+    # --- serialisation: the FULL envelope IS the wire shape (Q-2; ADR-0005 :90) --
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "ok": self.ok,
-            "data": self.data or {},
+            "data": self.data,
             "warnings": list(self.warnings),
+            "artefacts_written": list(self.artefacts_written),
             "next_suggested_tools": list(self.next_suggested_tools),
             "error": self.error.to_dict() if self.error else None,
         }
+        if self.archived_to is not None:
+            d["archived_to"] = self.archived_to
+        if self.next_cursor is not None:
+            d["next_cursor"] = self.next_cursor
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "ToolResult":
         err = d.get("error")
-        return cls(ok=d["ok"], data=d.get("data") or {},
+        return cls(ok=d["ok"], data=d.get("data"),
                    warnings=list(d.get("warnings") or []),
+                   artefacts_written=list(d.get("artefacts_written") or []),
                    next_suggested_tools=list(d.get("next_suggested_tools") or []),
-                   error=TypedError.from_dict(err) if err else None)
+                   error=TypedError.from_dict(err) if err else None,
+                   archived_to=d.get("archived_to"),
+                   next_cursor=d.get("next_cursor"))
 ```
 
-> `artefact` is intentionally **not** in `to_dict()` — it is a provenance signal
-> consumed by `Registry.invoke`, never surfaced to the caller (mirrors today's
-> behaviour where `artefact` is stripped from the user payload). Confirm in Open Q-3.
+> `archived_to` reserves ADR-0005's oversize-body trim (`:69`, `:79`): the
+> decorator there routes any return body > 4 KB to the spec-117 archive and
+> replaces it with a pointer. Agency reserves the field now; the >4 KB intercept
+> at `_wire` (or `Registry.invoke`) is a follow-up spec, but for an engine that
+> fans out across child lifecycles (`delegate.fan_out`) the field must exist on
+> the wire from day one or it reproduces the exact token sink ADR-0005 closed.
 
 ### `Registry.invoke` migration (`agency/capability.py:144-180`)
 
@@ -234,19 +315,26 @@ class ToolResult:
 # ... after `inv = memory.record("Invocation", {...})` and the SERVES link ...
 try:
     result = spec["fn"](**call)
-except Exception as e:                                  # raised-exception path: unchanged shape today
+except Exception as e:                                   # raised path: shape preserved
     memory.update(inv, {"outcome": "failed",
-                        "error_code": ErrorCode.INTERNAL.value,
+                        "error_code": Codes.INTERNAL,
                         "error": f"{type(e).__name__}: {e}"})
     raise
 
 if isinstance(result, ToolResult):
-    if not result.ok and result.error is not None:      # NON-raising typed failure
-        memory.update(inv, {"outcome": "failed",
-                            "error_code": result.error.code.value,
-                            "error_message": result.error.message})
-    if result.artefact:                                 # PRODUCES from the envelope
-        art = memory.record("Artefact", dict(result.artefact))
+    if not result.ok:                                    # keys off ok, NOT off error
+        if result.error is not None:
+            if result.error.trace_id is None:            # thread the provenance id
+                result.error.trace_id = inv
+            memory.update(inv, {"outcome": "failed",
+                                "error_code": result.error.code,
+                                "error_message": result.error.message})
+        else:                                            # warnings-only soft failure
+            memory.update(inv, {"outcome": "failed",     # (promo.py:14 pattern)
+                                "error_code": Codes.UNSPECIFIED,
+                                "warnings": list(result.warnings)})
+    for path in (result.artefacts_written or []):        # PRODUCES from the wire field
+        art = memory.record("Artefact", {"path": path})
         memory.link(inv, art, "PRODUCES")
     return result, inv
 
@@ -265,7 +353,7 @@ def impl(**kwargs):
     agent_id = kwargs.pop("agent_id", "") or None
     result, _ = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
     if isinstance(result, ToolResult):
-        return result.to_dict()                 # the pinned code-mode wire shape — see Open Q-2
+        return result.to_dict()                  # FULL envelope on the wire — see Q-2
     # legacy unwrap (existing behaviour) until all verbs migrate:
     out = result["result"] if isinstance(result, dict) and "result" in result else result
     return out if isinstance(out, dict) else {"result": out}
@@ -296,12 +384,13 @@ def dispatch(self, source: str, starting_branch: str, prompt: str) -> ToolResult
     s = self._backend().create(prompt=prompt, source=source, starting_branch=starting_branch)
     sid = s.get("id") or s.get("name")
     if not sid:                                        # backend gave us nothing actionable
-        return ToolResult.failure(ErrorCode.BOUNDARY_ERROR,
-                                  "Jules backend returned no session id", raw=s)
+        return ToolResult.failure(Codes.BOUNDARY_ERROR,
+                                  "Jules backend returned no session id")
     return ToolResult.success(
         data={"status": s.get("state", "submitted"), "session": sid, "url": s.get("url")},
-        artefact={"kind": "jules-session", "session": sid, "url": s.get("url") or ""},
-        next_suggested_tools=["capability_jules_status", "capability_jules_verify"])
+        artefacts_written=[f"jules-session:{sid}"])    # on the wire; PRODUCES derives from it
+    # next_suggested_tools is a forward-looking router hook (ADR-0005 :58); always []
+    # in the shipped source today — leave it at its empty default, do NOT block on it.
 ```
 
 ### Before / After — `jules.stop` (the stringly-typed error, `:124-136`)
@@ -311,11 +400,12 @@ def dispatch(self, source: str, starting_branch: str, prompt: str) -> ToolResult
 **After:**
 ```python
 return ToolResult.failure(
-    ErrorCode.UNSUPPORTED,
+    Codes.UNSUPPORTED,
     "The Jules v1alpha API has no session cancellation. Use `message` to ask the "
-    "agent to stand down, or wait for COMPLETED/FAILED.",
-    session=session,
-    next_suggested_tools=["capability_jules_message"])  # passed via warnings/context — see Open Q-1
+    "agent to stand down, or wait for COMPLETED/FAILED.")
+# Note: `code="unsupported"` matches the source's real value verbatim
+# (handlers/jules/lifecycle.py:476). No next_suggested_tools on the failure path —
+# the field stays top-level + empty (Q-1 resolved: it does NOT live in error context).
 ```
 
 ### Migration of the `{"result": {...}}` wrapper verbs
@@ -325,62 +415,88 @@ return ToolResult.failure(
 inner dict to the caller. Under `ToolResult` that wrapper is replaced by
 `ToolResult.success(data={...})`; the error branches (e.g.
 `gate.py:26-27`, `delegate.py:34,37`, `branch.py:42`, `workspace.py:30-31,41-42`)
-become `ToolResult.failure(ErrorCode.X, ...)`. A `gate.check(passed=False)` is a
+become `ToolResult.failure(code, ...)`. A `gate.check(passed=False)` is a
 domain outcome, **not** an error — it stays `ok=True` with the failure encoded in
-`data`; only a *malformed call* (cross-intent lifecycle) returns
-`ToolResult.failure(GATE_FAILED|VALIDATION_FAILED, ...)`. Resolve the
-gate-semantics ambiguity in Open Q-6.
+`data` (source-confirmed: domain outcomes are `ok=True` with the result in `data`;
+only an *illegal* call is `ok=False`, `handlers/novel/status.py`). Reserve
+`code="gate_failed"` only for callers who *want* a hard stop on a malformed
+cross-intent call. **Q-6 is closed: the proposal is source-aligned.**
 
 ## Files
 
-- **Modify** `agency/capability.py`: add `ErrorCode`, `TypedError`, `ToolResult`;
-  migrate `Registry.invoke` to read `ToolResult.artefact`/`.error`.
-- **Modify** `agency/engine.py`: `_wire.impl` serialises `ToolResult` via `to_dict()`.
+- **Modify** `agency/capability.py`: add `Codes`, `TypedError`, `ToolResult`;
+  migrate `Registry.invoke` to derive PRODUCES from `artefacts_written`, handle the
+  three `ok`/`error` cases, and stamp `trace_id = inv`.
+- **Modify** `agency/engine.py`: `_wire.impl` serialises `ToolResult` via
+  `to_dict()` (full envelope on the wire).
 - **Modify** `agency/capabilities/jules.py`: migrate `dispatch`, `stop` (+ document
-  the pattern for the read verbs).
+  the pattern for the read verbs — they return `data` as a list and may carry
+  `next_cursor`).
 - **Modify** `agency/capabilities/{gate,delegate,branch,workspace,subagent}.py`:
   migrate the listed exemplar verbs; convert `{"result": {"error": ...}}` to
   `ToolResult.failure`.
 - **Modify** `agency/capabilities/{plugin,reflect,develop,skill_generator}.py`:
   migrate remaining verbs to `ToolResult` (follow-up within this spec; can be a
   second Jules session).
-- **Modify** `tests/test_agency.py`: add the round-trip, typed-error provenance,
-  PRODUCES-from-envelope, and `_wire` wire-shape tests.
-- **Create**: none (envelope lives in the existing `capability.py`, per `PROPOSAL.md §1`).
+- **Modify** `tests/test_agency.py`: add the lossless round-trip, typed-error +
+  warnings-only provenance, PRODUCES-from-`artefacts_written`, `trace_id`, and
+  `_wire` full-envelope wire-shape tests.
+- **Create**: none (envelope lives in the existing `capability.py`).
 
 ## Open Questions / Needs Research
 
-1. **Final `ErrorCode` set + repair-tier mapping.** The enum above is a proposal.
-   `the-agency-system` 0011-repair-authority-tiers maps error classes to repair
-   tiers — should `ErrorCode` carry a `tier` so the engine's loop-recovery can
-   route automatically, or is tier a separate concern? Also: where do
-   `next_suggested_tools` live on a *failure* (top-level field vs. inside
-   `TypedError.context`)? The `jules.stop` after-sketch shows the tension.
-2. **Does serialising `ToolResult.to_dict()` at `_wire` break the code-mode return
-   contract?** Today an `execute()` caller receives the *inner* dict (e.g.
-   `gate.check` yields `{"passed": ..., "gate": ...}`). After migration it would
-   receive `{"ok": true, "data": {"passed": ..., "gate": ...}, "warnings": [...],
-   ...}`. Is that acceptable, or must `_wire` keep returning the unwrapped `data`
-   for back-compat and surface `ok`/`error` some other way? **This is the single
-   load-bearing decision** — it determines whether 001 is additive or breaking for
-   existing `execute()` scripts and the bash CLI (`agency/cli.py`).
-3. **Should `artefact` be excluded from `to_dict()`?** Proposed yes (provenance-only,
-   matches today's stripping). Confirm no caller needs the artefact in the payload.
-4. **Raised exceptions vs. returned failures.** Should verbs ever raise, or must all
-   failures be returned as `ToolResult.failure`? If raising stays legal, the
-   `Registry.invoke` exception path records `ErrorCode.INTERNAL` — is that the right
-   default, or should specific exception types map to specific codes?
+1. **Free-string `code` vs. a closed enum (RESOLVED to the source default; the
+   upgrade is the only open part).** The source uses a **free string** `code`
+   (canvas §5 `:168-176`) with no closed enum and **no `tier`** — ADR-0011's
+   T1-T4 tiers govern *document-change authority*, not runtime error recovery
+   (`0011:17-48`, `VOCABULARY.md:269-280`), so the earlier `ErrorCode.tier`
+   premise is dropped. `next_suggested_tools` is a **top-level** field, always
+   `[]` in the source, populated later — it does NOT live in error context.
+   *Genuinely open:* whether agency later upgrades the free string to a closed,
+   extensible enum for loop-recovery routing. Default for now: free string + the
+   non-binding `Codes` sugar. Recommend deciding this in the spec that builds the
+   recovery loop, not here.
+2. **[THE load-bearing decision] Full envelope on the wire — accept the break, or
+   dual-surface during migration?** Today an `execute()` caller receives the
+   *inner* dict (e.g. `gate.check` → `{"passed": ..., "gate": ...}`). After
+   migration it receives the full envelope `{"ok": true, "data": {...},
+   "warnings": [...], "artefacts_written": [...], ...}`. **ADR-0005's source steer
+   is explicit:** *"the schema does not change the MCP wire format; clients see
+   the same JSON shape they always did"* (`:90`) — i.e. in the source the envelope
+   **IS** the wire shape and callers read `data`. So the faithful resolution is:
+   surface the full envelope, callers read `data`; agency's current unwrapped
+   inner dict is the deviation to migrate *away* from, **not** to preserve. This
+   is a real breaking change for existing `execute()` scripts and `agency/cli.py`,
+   so the maintainer must choose **(a) accept the documented break now** (cleaner,
+   source-faithful, do the `cli.py` + `execute()` audit) **vs. (b) dual-surface
+   during migration** (keep unwrapping behind a flag until all verbs move, then
+   flip). "Keep unwrapping forever" is **not** an option — it is unfaithful to
+   source. Downstream specs **002/005/007 depend on this resolution and on the
+   field name being `data`.** Pin both success and failure wire shapes in tests.
+3. **~~Exclude `artefact` from `to_dict()`?~~ MOOT — wrong question.** The source
+   has no singular `artefact`; it ships `artefacts_written: list[str]` **on the
+   wire** (canvas §5; every handler). It stays in `to_dict()` and the `PRODUCES`
+   edge is derived from it. The earlier "strip artefact from the payload" approach
+   is removed (it also broke the lossless round-trip invariant).
+4. **Raised exceptions vs. returned failures.** Should verbs ever raise, or must
+   all failures be returned as `ToolResult.failure`? No source equivalent (the
+   source decorator wraps but does not specify raise-vs-return policy). Reasonable
+   to keep raising legal and default the exception path to `code="internal"`;
+   specific exception→code mapping is a nice-to-have, not blocking.
 5. **Legacy-dict coexistence window.** Keep `Registry.invoke` / `_wire` dual-path
-   (dict + `ToolResult`) until every verb migrates, or migrate all verbs in this
-   spec and drop the legacy branches? Affects whether `plugin/reflect/develop/
-   skill_generator` migration is in-scope-mandatory or follow-up.
-6. **`gate.check(passed=False)` — `ok` or not-`ok`?** A failed gate is a real domain
-   outcome that records `BLOCKED_ON` provenance, not a tool error. Proposal:
-   `ok=True`, failure in `data`, and reserve `ErrorCode.GATE_FAILED` for callers who
-   *want* a hard stop. Maintainer to confirm.
+   (dict + `ToolResult`) until every verb migrates, or migrate all 12 verbs in
+   this spec and drop the legacy branches? No source input. Recommend dual-path
+   during this spec, drop legacy in a follow-up once `plugin/reflect/develop/
+   skill_generator` are migrated.
+6. **~~`gate.check(passed=False)` — `ok` or not-`ok`?~~ CONFIRMED → `ok=True`.**
+   The source treats a domain outcome as `ok=True` with the result in `data`
+   (`handlers/novel/status.py` dry-run is `ok=True`; only an illegal call is
+   `ok=False`). A failed gate records `BLOCKED_ON` provenance and stays `ok=True`;
+   reserve `code="gate_failed"` for a malformed call. Closed.
 7. **Frozen dataclass?** `ToolResult` with mutable `list` defaults can't be
-   `frozen=True` trivially. Acceptable to leave mutable, or require immutability
-   (tuples + `frozen=True`)?
+   `frozen=True` trivially, and `Registry.invoke` mutates `error.trace_id` in
+   place — so the dataclass must stay mutable (or trace_id stamping must rebuild
+   the object). Acceptable to leave mutable; note the trade-off.
 
 ## Evidence
 
@@ -396,7 +512,17 @@ gate-semantics ambiguity in Open Q-6.
   `{"result": {...}}` wrapper + `{"result": {"error": ...}}` failure idiom.
 - `research/oo-architecture/FINDINGS.md:13-24` — ad-hoc return types + stringly-typed
   errors named as the rewrite vector.
-- `research/oo-architecture/PROPOSAL.md:5-42,129-167` — `ToolResult` (§1) and
-  `TypedError` (§4) sketches + before/after.
-- `vendor/the-agency-system/Plan/decisions/0005-shared-toolresult-envelope.md`,
-  `.../0011-repair-authority-tiers.md` @ `0a6a9e71f6c26bc120a8fc1db02f8990b7916f22`.
+- **Source schema (authoritative):**
+  `~/work/vendor/the-agency-system/docs/superpowers/specs/_drafts/2026-05-19-agency-base-canvas.md:156-179`
+  — `required: [ok, warnings, artefacts_written]`; optional `data` (any),
+  `next_suggested_tools`, `error {code:str, message:str, trace_id?:str}`,
+  `archived_to`.
+- **Shipped hand-rolls (confirm the wire shape):**
+  `servers/agency-mcp/.../handlers/shared/skills.py:45-53` (`data` as list +
+  `next_cursor`), `.../shared/search.py:85-87,132-134`, `.../shared/config.py:16-34`,
+  `.../shared/session.py:21-92`; `ok=False` warnings-only failures at
+  `.../novel/promo.py:14,59,65,69`.
+- `Plan/decisions/0005-shared-toolresult-envelope.md` (`adr_status: Proposed`;
+  Neutral clause `:90`; `archived_to` / >4 KB trim `:69,:79`) and
+  `.../0011-repair-authority-tiers.md:17-48` (T1-T4 = document-change governance,
+  NOT error tiers) @ `0a6a9e71f6c26bc120a8fc1db02f8990b7916f22`.

@@ -9,7 +9,6 @@ affects:
   - agency/engine.py
   - agency/capabilities/jules.py
   - agency/capabilities/_vcs.py
-  - agency/capabilities/delegate.py
   - agency/capabilities/workspace.py
   - agency/capabilities/branch.py
   - tests/test_agency.py
@@ -65,18 +64,43 @@ precedent for one routing table over many domains.
 
 This spec generalises the two existing boundaries into a **`Driver` Protocol
 family + a `DriverRegistry`** reached via `ctx.drivers` / `ctx.get_driver(name)`,
-so a domain tool-cluster plugs in by registering a driver, returns `ToolResult`
-(Spec 001), and needs **no** new `Engine` kwarg or `injectors` key. `JulesBackend`
-and `VCSBackend` are kept as the typed-Protocol *shape* of two concrete drivers —
-the generalisation is additive, not a rip-out.
+so a domain tool-cluster plugs in by registering a driver and needs **no** new
+`Engine` kwarg or `injectors` key. `JulesBackend` and `VCSBackend` are kept
+unchanged as the typed-Protocol *shape* of two concrete drivers — the
+generalisation is additive, not a rip-out.
+
+**The load-bearing decision is resolved (was Open Q-1): Option B — a `Driver` is a
+marker `Boundary` that exposes its own typed, named methods. There is NO uniform
+`dispatch(op, **kw)`.** The uniform contract every driver shares is the **RETURN
+TYPE** (`ToolResult`, from Spec 001), reached through the *capability* that wraps the
+boundary — not a uniform method *name*. Rationale: (a) the prior art the spec cites,
+ADR-0004, is a *fixed taxonomy of domains exposing typed named handler functions*
+registered via `register_<domain>_handlers(mcp)`
+(`vendor/the-agency-system/servers/agency-mcp/src/agency_mcp/server.py:55-85`); there
+is **no `dispatch(op)` anywhere in `servers/`** (grep returns nothing), and the
+motivating clusters (`bitwize-music` mastering/audio/db) are *directories of named
+functions* (`…/tools/mastering/{analyze_tracks,master_tracks,qc_tracks,…}.py`) — the
+faithful reading is named methods, not one stringly-typed entry point; (b)
+`JulesBackend` (seven differently-signed methods, `jules.py:25-34`) and `VCSBackend`
+(four, `_vcs.py:18-23`) are richly typed, and collapsing them to `dispatch(op: str,
+**kw)` would re-introduce the stringly-typed smell Spec 001 exists to eliminate —
+incoherent across the wave; (c) the registry's value is *named lookup + uniform
+result type*, which Option B already delivers (`ctx.get_driver("jules").create(...)`
+returning into a `ToolResult`), while Option A only adds verb→op string-mapping
+boilerplate; (d) `PROPOSAL.md §2`'s `driver.dispatch({...})` is a 6-line `async`/`pass`
+sketch, not a constraint, and the two concrete typed Protocols already in the tree
+outweigh it.
 
 ## Done When
 
 - [ ] `Boundary` and `Driver` Protocols live in `agency/capability.py` (per
       `PROPOSAL.md §2` and Spec 001's file). `Boundary` is a marker Protocol for any
-      injected external dependency; `Driver` is a `Boundary` that exposes a uniform
-      invocation entry point returning `ToolResult` (exact method shape — single
-      `dispatch(op, **kw)` vs. arbitrary named methods — resolved in Open Q-1).
+      injected external dependency; `Driver` is a marker `Boundary` (Option B —
+      **no** uniform `dispatch(op, **kw)`). Each concrete driver keeps its own typed,
+      named methods; the uniform contract is the RETURN TYPE (`ToolResult`, Spec 001),
+      produced by the *capability* that wraps the boundary, not by a uniform method
+      name. `Driver` carries one optional introspection member (`name`/`describe()`)
+      so the `isinstance` check is meaningful (see Missing-depth note).
 - [ ] `DriverRegistry` (in `agency/capability.py`) supports `register(name, driver)`,
       `get(name) -> Driver` (raising a typed `NOT_FOUND` `ToolResult`/error when
       absent — see Open Q-3), `names() -> list[str]`, and `has(name) -> bool`.
@@ -92,15 +116,24 @@ the generalisation is additive, not a rip-out.
 - [ ] `JulesCapability._backend()` (`jules.py:76-77`) is rewritten to
       `self.ctx.get_driver("jules")`; `workspace`/`branch` verbs drop `inject=["vcs"]`
       and use `self.ctx.get_driver("vcs")` instead (or keep `inject` as sugar — Open Q-2).
-- [ ] `JulesBackend`/`VCSBackend` are re-expressed as concrete `Driver` Protocols
-      (they already are Protocols; this aligns their result types to `ToolResult` per
-      Open Q-1 and registers them by name). No behaviour change to `JulesClient` /
-      `GitClient` internals beyond return-type alignment.
-- [ ] `delegate.fan_out` (`agency/capabilities/delegate.py:28-56`) can resolve its
-      `driver` argument against the `DriverRegistry` *as well as* the capability
-      registry — i.e. a registered `Driver` is a first-class delegation target, not
-      only a capability/verb pair (the `PROPOSAL.md §2` "remote-agent" example).
-      Exact dispatch convention resolved in Open Q-5.
+- [ ] `JulesBackend`/`VCSBackend` are declared as `Driver` Protocols (they already
+      are Protocols; this is a marker-base change + registration by name). **No
+      behaviour change and no return-type change** to `JulesClient`/`GitClient`: they
+      stay raise-on-error I/O boundaries (they keep returning `dict`); the *capability*
+      owns the conversion into `ToolResult` (exactly as Spec 001 already migrates
+      `jules.dispatch` to do). This avoids Spec 001 and 002 both claiming the
+      boundary-error→`ToolResult` conversion.
+- [ ] **`delegate.fan_out` is OUT OF SCOPE for this spec** (de-collided). In the live
+      tree `fan_out(driver, driver_verb, …)` already means **capability name + verb**,
+      resolved via `ctx.spawn` (`delegate.py:29,40,52`; `subagent.develop` calls it
+      with `driver="jules", driver_verb="dispatch"`, `subagent.py:23-28`). The new
+      `DriverRegistry` introduces a *second, different* "driver" (a registered object),
+      and a raw `Driver.create(...)` does NOT flow through `ctx.spawn`, so it records
+      **no Invocation** and breaks the connected-provenance guarantee
+      (`delegate.py:11-12,48-54`). Making a registered `Driver` a delegation target
+      therefore requires a capability-mediated, Invocation-recording path
+      (`ctx.spawn`-equivalent) and a rename to remove the alias — that is a follow-up
+      spec (see Open Questions). `delegate.py` is removed from `affects:` here.
 - [ ] A test-only `FakeDriver` demonstrates the contract: register it under a name,
       invoke it through `ctx.get_driver`, assert it returns a `ToolResult`, and
       assert an unregistered name yields the typed `NOT_FOUND` path.
@@ -130,33 +163,43 @@ will plug into.
 
 ```python
 from __future__ import annotations
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol
 # ToolResult / TypedError / ErrorCode are defined earlier in this module (Spec 001).
 
 
-@runtime_checkable
 class Boundary(Protocol):
     """Marker Protocol for any injected external dependency (a seam tests can
-    stand in for). JulesClient and GitClient are Boundaries."""
+    stand in for). JulesClient and GitClient are Boundaries. NOT @runtime_checkable:
+    a memberless runtime_checkable Protocol makes isinstance() true for every object
+    (PEP 544), which is a no-op safety check."""
     ...
 
 
-@runtime_checkable
-class Driver(Protocol):
-    """A Boundary a capability invokes through a uniform entry point. Returns a
-    ToolResult so callers (and delegate.fan_out) treat every cluster identically.
+# Driver is a plain (NOT @runtime_checkable) marker base. RESOLVED (was Open Q-1):
+# a Driver is a marker, NOT a uniform dispatch surface. Each concrete driver keeps
+# its own typed, named methods (JulesBackend.create/get/list/…;
+# VCSBackend.worktree/run/state/finish). The uniform contract is the RETURN TYPE
+# (ToolResult, Spec 001), produced by the capability that wraps the boundary — not a
+# uniform method name. It is NOT @runtime_checkable: a memberless runtime_checkable
+# Protocol is a no-op isinstance (PEP 544), and requiring a member (e.g. describe())
+# would force a behaviour change onto JulesClient/GitClient, which this spec forbids.
+class Driver(Boundary, Protocol):
+    """Marker base for any object registrable in the DriverRegistry."""
+    ...
 
-    Open Q-1 decides between:
-      (A) one entry point:  def dispatch(self, op: str, **kw) -> ToolResult: ...
-      (B) named methods + a thin adapter that maps verb -> method and wraps the
-          result in ToolResult (keeps JulesBackend's create/get/list/... shape).
-    """
-    def dispatch(self, op: str, **kw: Any) -> "ToolResult": ...   # shape per Open Q-1
+
+class DriverMissing(LookupError):
+    """A typed miss raised by DriverRegistry.get(absent). The calling CAPABILITY
+    catches it and returns ToolResult.failure(ErrorCode.NOT_FOUND, …) (Spec 001),
+    so loop-recovery sees a typed code. The registry never builds a ToolResult
+    itself — get() returning a Driver-or-raise keeps the type honest."""
 
 
 class DriverRegistry:
     """One named table of Drivers, reached from a verb via ctx.get_driver(name).
-    Replaces the bespoke Registry.injectors['client'/'vcs'] entries."""
+    Replaces the bespoke Registry.injectors['client'/'vcs'] entries. Registration is
+    not isinstance-gated (the marker has no members to check); any object the host
+    supplies is accepted, and the capability that uses it owns the typed contract."""
     def __init__(self) -> None:
         self._drivers: dict[str, Driver] = {}
 
@@ -164,8 +207,8 @@ class DriverRegistry:
         self._drivers[name] = driver
 
     def get(self, name: str) -> Driver:
-        if name not in self._drivers:                      # typed miss — see Open Q-3
-            raise KeyError(name)                           # or return a ToolResult.failure(NOT_FOUND)
+        if name not in self._drivers:                      # RESOLVED (was Open Q-3)
+            raise DriverMissing(name)                      # capability -> ToolResult.failure(NOT_FOUND)
         return self._drivers[name]
 
     def has(self, name: str) -> bool:
@@ -185,14 +228,22 @@ class CapabilityContext:
     registry: "Registry"
     intent_id: str
     agent_id: Optional[str] = None
-    client: Any = None              # DEPRECATED alias for drivers.get("jules"); see Open Q-4
-    drivers: "DriverRegistry" = None   # NEW: the named Driver table
+    client: Any = None              # DEPRECATED alias for drivers.get("jules") (kept, Q-4)
+    # NEW: the named Driver table. Defaulted to a real empty registry, NOT None, so
+    # get_driver() never hits 'NoneType'. `Registry.invoke` always passes the real one.
+    drivers: "DriverRegistry" = field(default_factory=lambda: DriverRegistry())
     depth: int = 0
     MAX_DEPTH: int = 16
 
     def get_driver(self, name: str) -> "Driver":
         return self.drivers.get(name)
 ```
+
+Defaulting `drivers` to an empty `DriverRegistry` (via `field(default_factory=…)`,
+never `None`) removes the type-lie hazard — the field is typed non-Optional, so it
+must never be `None`. `Registry.invoke` (below) always injects the engine's real
+registry, so the default only ever applies to a hand-built `CapabilityContext` in a
+test.
 
 ### `Registry.invoke` — inject `drivers` (`agency/capability.py:144-163`)
 
@@ -223,18 +274,23 @@ def __init__(self, path, jules_client=None, vcs_backend=None, extra_capabilities
 
 **After:**
 ```python
-def __init__(self, path, drivers=None, extra_capabilities=None,
-             jules_client=None, vcs_backend=None):   # old kwargs kept per Open Q-4
+def __init__(self, path, extra_capabilities=None, drivers=None,
+             jules_client=None, vcs_backend=None):   # old kwargs kept (Q-4), keyword-only in tests
     self.drivers = DriverRegistry()
     self.drivers.register("jules", jules_client or JulesClient())
     self.drivers.register("vcs", vcs_backend or GitClient())
     for name, drv in (drivers or {}).items():        # host-supplied / domain clusters
-        self.drivers.register(name, drv)
+        self.drivers.register(name, drv)             # NOTE: a host CAN shadow "jules"/"vcs"
     ...
     self.registry.drivers = self.drivers
-    # back-compat: ctx.client still resolves to the jules driver for now (Open Q-4)
-    self.registry.injectors = {"client": lambda: self.drivers.get("jules"),
-                               "vcs": lambda: self.drivers.get("vcs")}
+    # back-compat shims (kept, Q-4): ctx.client -> the jules driver, inject=["vcs"] ->
+    # the vcs driver. `.has()`-guarded so these injectors CANNOT raise inside the
+    # Registry.invoke inject loop even if a host removed a default driver — today
+    # injectors["client"]() can't fail, and that property must be preserved.
+    self.registry.injectors = {
+        "client": lambda: self.drivers.get("jules") if self.drivers.has("jules") else None,
+        "vcs": lambda: self.drivers.get("vcs") if self.drivers.has("vcs") else None,
+    }
 ```
 
 ### Before / After — `JulesCapability._backend` (`jules.py:76-82`)
@@ -250,24 +306,25 @@ def dispatch(self, source, starting_branch, prompt) -> ToolResult:   # ToolResul
     ...
 ```
 
-**After (Open Q-1 option B — named methods kept, resolved via the registry):**
+**After (RESOLVED — Option B, typed named methods via the registry):** `_backend`
+becomes `_driver`, reaching the same `JulesClient` by name. The verb keeps calling the
+typed `.create(...)` (no `dispatch(op)` indirection), catches `DriverMissing`, and
+owns the `ToolResult` conversion (Spec 001):
 ```python
 def _driver(self) -> JulesBackend:
-    return self.ctx.get_driver("jules")
+    return self.ctx.get_driver("jules")     # raises DriverMissing if unregistered
 
 @verb(role="effect")
 def dispatch(self, source, starting_branch, prompt) -> ToolResult:
-    s = self._driver().create(prompt=prompt, source=source, starting_branch=starting_branch)
+    try:
+        s = self._driver().create(prompt=prompt, source=source, starting_branch=starting_branch)
+    except DriverMissing as e:
+        return ToolResult.failure(ErrorCode.NOT_FOUND, f"no driver: {e}")   # Spec 001
     ...
 ```
-
-**After (Open Q-1 option A — uniform dispatch):**
-```python
-@verb(role="effect")
-def dispatch(self, source, starting_branch, prompt) -> ToolResult:
-    return self.ctx.get_driver("jules").dispatch(
-        "create", prompt=prompt, source=source, starting_branch=starting_branch)
-```
+The deprecated `ctx.client` read (`jules.py:77`) is removed in favour of
+`ctx.get_driver("jules")`, but the `injectors["client"]` shim above keeps `ctx.client`
+resolving for any out-of-tree caller (Q-4).
 
 ### Before / After — `workspace.isolate` (`workspace.py:25-34`)
 

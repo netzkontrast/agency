@@ -9,7 +9,6 @@ affects:
   - agency/ontology.py
   - agency/capabilities/delegate.py
   - agency/capabilities/jules.py
-  - agency/capabilities/develop.py
   - agency/capabilities/plugin.py
   - tests/test_agency.py
 source-repos:
@@ -21,12 +20,11 @@ wave: 1
 
 > **Jules: read `Plan/JULES_PROTOCOL.md` before starting** (if present). Confidence ≥ 0.90,
 > TDD Red-Green-Refactor, Evidence pasted under `## Evidence`, Self-Review answered.
-> Only modify paths under `affects:`. **Do NOT start coding until the Open Questions
-> below are answered** — the source research has an internal count discrepancy (18 vs 13
-> vs 8) that must be reconciled with a maintainer ruling, or the wrong set of kinds
-> gets covered.
+> Only modify paths under `affects:`. The scope is **settled** below (2 uncovered
+> recorded artefact kinds: `jules-session`, `reduction`) — the old "do not start
+> until Q1 is answered" gate is removed because the audit *is* the answer.
 
-# Spec 004 — Template & Schema Coverage for ALL Artefact Kinds
+# Spec 004 — Schema Coverage for the Uncovered Recorded Artefact Kinds
 
 ## Why
 
@@ -49,305 +47,323 @@ REQUIRED = {
 
 `plugin_ontology` registers these (and only these) as the capability's `schemas`
 (`agency/capabilities/plugin.py:179`, `schemas=dict(templates.REQUIRED)`), so they
-are the only artefact kinds the graph can validate. Every other artefact is
-recorded as an opaque dict with no schema, so `validate_schema` cannot guard it —
-e.g. the delegation reduction is `record("Artefact", {"kind": "reduction",
-"children": children})` (`agency/capabilities/delegate.py:78`) and the Jules
-session is `{"kind": "jules-session", "session": ..., "url": ...}`
-(`agency/capabilities/jules.py:88`), neither paired with a `Template` or a
-`REQUIRED` entry.
+are the only artefact kinds the graph carries a schema for. Two other artefact
+kinds are *recorded as Artefact nodes* with no schema: the delegation reduction
+`record("Artefact", {"kind": "reduction", "children": children})`
+(`agency/capabilities/delegate.py:78`) and the Jules session
+`{"kind": "jules-session", "session": ..., "url": ...}`
+(`agency/capabilities/jules.py:88`), neither paired with a schema.
 
-The templates-and-schemas research (`research/templates-and-schemas/`) catalogued
-the gap and proposes a `REQUIRED.update({...})` plus a set of `string.Template`
-constants. **Its counts do not agree with each other** — the spec/FINDINGS claim
-"18 kinds, 5 covered, 13 remaining", the schemas-catalogue's `REQUIRED.update`
-adds 13 keys, and the spec's prose + `Files` list name only **8** new templates.
-This spec carries the concrete additions but **parks the count reconciliation as a
-blocking Open Question** (below), because a verification pass against the live code
-shows the research is conflating two distinct namespaces (artefact `kind`s vs skill
-`produces` slot names). Picking the wrong set covers slots that are never recorded
-as artefacts and misses real kinds.
+The templates-and-schemas research (`research/templates-and-schemas/`) proposed a
+13-key `REQUIRED.update({...})` and claimed "18 kinds / 5 covered / 13 remaining".
+**That count is wrong** — it conflates three distinct namespaces (artefact `kind`s,
+skill `kind`s, and skill-phase `produces:` slot names). This spec carries the
+audit that reconciles it (below) and scopes the work to the verified truth.
 
-## Verified counts (this spec's audit, do not skip)
+## Audit — the recorded artefact kinds (this spec's ruling, do not skip)
 
-Grepping the live tree (`agency/capabilities/*.py`) gives the ground truth the
-research approximated:
+An Artefact reaches the graph by exactly two routes:
 
-**A. Artefact `kind` literals actually recorded** (`record("Artefact", {"kind":...})`
-or returned as `"artefact": {"kind": ...}`) — **9 distinct**:
+1. a verb returns `{"artefact": {...}}`, recorded by the engine at
+   `agency/capability.py:178` (`memory.record("Artefact", dict(result["artefact"]))`);
+2. a verb calls `self.ctx.record("Artefact", {...})` directly.
 
-| kind | where | schema today? |
+Grepping both routes across the whole `agency/` tree, the complete, deduplicated
+set of artefact `kind` literals **actually recorded as Artefact nodes** is **7**:
+
+| kind | recorded at (`path:line`) | schema today? |
 |---|---|---|
-| `plugin-manifest` | plugin.py:43 | YES |
-| `skill-md` | plugin.py:53 | YES |
-| `command-md` | plugin.py:59 | YES |
-| `marketplace-entry` | plugin.py:65 | YES |
-| `step-doc` | plugin.py:74 | YES |
-| `authoring` | plugin.py:136,155 (skill `kind`, not an Artefact record) | no |
-| `discipline` | develop.py:29… (skill `kind`, not an Artefact record) | no |
-| `jules-session` | jules.py:88 | **NO** |
-| `reduction` | delegate.py:78 | **NO** |
+| `plugin-manifest` | `agency/capabilities/plugin.py:43` | YES (`templates.py:73`) |
+| `skill-md` | `agency/capabilities/plugin.py:53` | YES (`templates.py:74`) |
+| `command-md` | `agency/capabilities/plugin.py:59` | YES (`templates.py:75`) |
+| `marketplace-entry` | `agency/capabilities/plugin.py:65` | YES (`templates.py:76`) |
+| `step-doc` | `agency/capabilities/plugin.py:74` | YES (`templates.py:77`) |
+| `jules-session` | `agency/capabilities/jules.py:88` | **NO** |
+| `reduction` | `agency/capabilities/delegate.py:78` | **NO** |
 
-So among kinds **actually written as Artefact nodes**, only `jules-session` and
-`reduction` lack schemas. `authoring`/`discipline` are skill `kind`s
-(`SKILL_CREATION_SKILL["kind"] == "authoring"`), never artefact `kind`s.
+**7 recorded artefact kinds; 5 schema'd; exactly 2 uncovered: `jules-session`,
+`reduction`. The scope of 004 is to cover those 2 — nothing else.**
 
-**B. Skill-phase `produces` slot names** (the 9 distinct `produces` entries the
-walker validates per phase): `baseline`, `rationalizations`, `command_md`,
-`entry`, `findings`, `lint`, `manifest`, `rationalization_table`, `red_flags`,
-`skill_md`, `user_confirmed`. These are **phase output slots, snake_case**, not
-artefact kinds — and the research's "remaining 13" is mostly this set, kebab-cased.
+### Why "18 / 13 / 8" are all wrong
 
-**The research's "18" = roughly (A ∪ B) with the two namespaces merged.** That is
-the discrepancy. The 13-key `REQUIRED.update` mixes real artefact kinds
-(`jules-session`, `reduction`) with phase-slot names that are never recorded as
-Artefacts (`baseline`, `findings`, `discipline`, `lint`, `manifest`, `entry`,
-`rationalizations`, `rationalization-table`, `red-flags`, `user-confirmed`,
-`authoring`). The templates-catalogue then lists **13** numbered templates (items
-1–13), while the spec's `Files`/`Done When` mention only **8**. See Open Q1 — this
-must be resolved before implementation.
+The research's "uncovered" rows are mostly **not Artefact records**:
+
+- **Skill `kind`s, never recorded as Artefacts.** `authoring`
+  (`SKILL_CREATION_SKILL["kind"]` / `PLUGIN_DEV_SKILL["kind"]`,
+  `plugin.py:136,155`) and `discipline` (the eight discipline skills,
+  `develop.py:29-74`) are values of a *skill's* `kind` field, not `"kind"` keys
+  in any `record("Artefact", ...)` call.
+- **`produces:` phase-slot names, never recorded as Artefacts.** `baseline`,
+  `findings`, `lint`, `manifest`, `entry`, `rationalizations`,
+  `rationalization_table`, `red_flags`, `user_confirmed`, `skill_md`,
+  `command_md` are snake_case strings the skill walker validates per phase
+  (`plugin.py:139-169`, `develop.py:67`). Nothing calls
+  `record("Artefact", {"kind": "findings"})` (or any of these) anywhere.
+
+So three namespaces exist and only one is validatable by
+`Memory.validate_schema`: **artefact `kind`s** (kebab, 7 total) — because only
+they become `Artefact` nodes — versus **skill `kind`s** (`authoring`,
+`discipline`) and **`produces:` slots** (snake, ~11). The research merged them;
+the "18" was (artefact-kinds ∪ skill-kinds ∪ slots), the "13" was that minus the
+5 covered, and the "8" was an internal inconsistency in the research's own prose.
+**STOP counting skill `kind`s and `produces:` slots as artefacts.** Adding a
+schema for a kind no code records produces a dead schema and is forbidden by the
+prior art (`the-agency-system Plan/131-manifest-coverage-lint/spec.md`: no
+placeholder entries for unemitted things — "auto-defaulting placeholder entries
+would mask the human decision").
+
+Slots-become-artefacts (rewriting `develop`/`plugin` verbs so every `produces:`
+slot is recorded as an Artefact of that kind, then schema'ing them) is a
+legitimate but **separate** feature — split to a follow-up spec (005), not 004.
+
+## The validate side is not wired yet (must be addressed, not assumed)
+
+`Memory.validate_schema(node_id, schema_id)` (`agency/memory.py:144-153`) takes a
+**`Schema` node id** and reads that node's comma-joined `required` field. But in
+the live tree **nothing records a `Schema` node and nothing calls
+`validate_schema`** outside its own definition and a docstring
+(`grep -rn 'validate_schema\|VALIDATES_AGAINST' agency/` shows only `memory.py:144`
+and `templates.py:6`). `Ontology.schemas` is populated (via
+`schemas=dict(templates.REQUIRED)`, `plugin.py:179`) but it is an in-memory
+registry — it never becomes a `Schema` *node*, so there is no `schema_id` to pass.
+
+Therefore adding a `REQUIRED`/`schemas` entry alone does **not** make a kind
+validatable: the round-trip in `Done When` would have nothing to validate against.
+004 must wire the validate side. Decision: **wire it** with the minimal driver —
+
+- The engine bootstrap records **one `Schema` node per `Ontology.schemas` entry**
+  (`name` = the kind, `required` = the comma-joined required-field list). This is
+  the missing link between the registry and the enforcement point.
+- The two newly covered verbs link their recorded Artefact `VALIDATES_AGAINST`
+  the matching `Schema` node (the `VALIDATES_AGAINST` edge already exists in
+  `EDGE_TYPES`, `ontology.py:43`), so the provenance subgraph is complete and the
+  round-trip test has a real `schema_id` to assert on.
+
+(If wiring is judged out of scope at implementation time, the alternative is to
+explicitly scope the validate round-trip OUT and assert only registry membership
+— but the recommendation is to wire it, because an unwired schema is the same
+"registry without enforcement" gap this spec exists to close.)
 
 ## Done When
 
-- [ ] The exact set of artefact kinds to cover is **agreed with the maintainer**
-      (Open Q1) and recorded in this spec before any code lands.
-- [ ] For every agreed kind, `agency/templates.py` defines a `string.Template`
-      constant (the generate side) AND a `REQUIRED[...]` entry (the validate side),
-      so the generate/validate pair is complete.
-- [ ] `REQUIRED.update({...})` (the concrete additions, below) is applied to
-      `agency/templates.py`, scoped to the agreed set.
-- [ ] `plugin_ontology.schemas` (or a dedicated core-schemas owner — Open Q2)
-      registers every new `REQUIRED` key so `Ontology.schemas` carries them and
-      `Memory.validate_schema` can validate the kinds.
-- [ ] The two real uncovered Artefact kinds emit structured, validatable nodes:
-      `delegate.join` records a `reduction` with the full required field set
-      (`parent_intent`, `children`, `summary`), and `jules.dispatch` records a
-      `jules-session` with (`session_id`, `url`, `state`, `history`) — reconciling
-      the field-name mismatches noted in Open Q3.
-- [ ] A round-trip test instantiates each new `Template` with mock fields, records
-      the resulting Artefact, and asserts `Memory.validate_schema` returns `True`;
-      a node missing a required field returns `False` (the schema bites).
-- [ ] The field-naming discrepancy (snake `produces` slots vs kebab artefact
-      `kind`s; `children` as count vs list) is resolved per Open Q3/Q4 and applied
-      consistently — no silent guess.
-- [ ] All existing tests pass (the 5 currently-covered kinds keep their schemas
-      byte-identical).
+- [ ] `agency/capabilities/jules.py` and `agency/capabilities/delegate.py` carry a
+      capability-owned schema for their recorded kind (see Design); no schema is
+      added for any kind no code records.
+- [ ] `delegate.join` records a `reduction` Artefact with the full required field
+      set (`parent_intent`, `children`, `summary`), derived from `join`'s own
+      query rows.
+- [ ] `jules.dispatch` records a `jules-session` Artefact with the full required
+      field set (`session_id`, `url`, `state`, `history`).
+- [ ] The engine records a `Schema` node per `Ontology.schemas` entry and each new
+      verb links its Artefact `VALIDATES_AGAINST` the matching `Schema` node, so
+      `Memory.validate_schema` has a `schema_id` to check against.
+- [ ] A round-trip test, per new kind, records the Artefact and asserts
+      `Memory.validate_schema(artefact_id, schema_id)` returns `True`; an Artefact
+      missing a required field returns `False` (the schema bites).
+- [ ] The verb result-shape changes (`session`→`session_id`; the grown reduction
+      dict) are reflected in the existing `tests/test_agency.py` jules/delegate
+      assertions enumerated in Open Q1.
+- [ ] All other existing tests pass (the 5 currently-covered kinds keep their
+      schemas byte-identical).
 
 ## Design
 
-### `agency/templates.py` — `REQUIRED.update({...})` additions
+### Schemas — capability-owned, 2 keys only
 
-This is the catalogue from `research/templates-and-schemas/schemas-catalogue.md`
-§1, **scoped per Open Q1**. The full proposed superset (13 keys) is reproduced so
-the maintainer can strike rows; the recommended minimum (rows marked ★) covers the
-two real uncovered Artefact kinds plus the kinds the skill walker's `produces`
-slots map onto if 004 also normalises slots→kinds (Open Q4):
+Schemata live with the capability that owns them (`agency/ontology.py:60-86`), so
+`jules-session` and `reduction` go into their *own* capabilities' extensions, NOT
+into the plugin-owned `templates.REQUIRED`. `templates.REQUIRED` stays exactly the
+5 plugin-owned kinds.
 
 ```python
-REQUIRED.update({
-    "jules-session":          ["session_id", "url", "state", "history"],   # ★ real Artefact kind
-    "reduction":              ["parent_intent", "children", "summary"],    # ★ real Artefact kind
-    "baseline":               ["workspace", "command", "exit_code", "output"],
-    "findings":               ["branch", "base", "issues_found", "summary", "details"],
-    "discipline":             ["name", "rules", "checklists"],
-    "rationalization-table":  ["target", "rule", "rationalization", "verdict"],
-    "red-flags":              ["source", "issues"],
-    "user-confirmed":         ["prompt", "response", "timestamp"],
-    "authoring":              ["task", "files", "diff"],
-    "entry":                  ["key", "value"],
-    "lint":                   ["source", "issues"],
-    "manifest":               ["components"],
-    "rationalizations":       ["items"],
-})
+# agency/capabilities/delegate.py — ADD `schemas=` to the EXISTING extension
+# (delegate.py:23 already defines nodes + edges incl. REDUCES_INTO; no edge work needed):
+ontology = OntologyExtension(
+    nodes={"Delegation": ["driver", "driver_verb", "count", "quota"]},
+    edges={"DELEGATES_TO", "REDUCES_INTO"},
+    schemas={"reduction": ["parent_intent", "children", "summary"]},
+)
+
+# agency/capabilities/jules.py — JulesCapability currently has NO `ontology`
+# (it inherits the empty default at capability.py:29); ADD one:
+class JulesCapability(CapabilityBase):
+    name = "jules"
+    home = "lifecycle"
+    ontology = OntologyExtension(
+        schemas={"jules-session": ["session_id", "url", "state", "history"]},
+    )
 ```
 
-> WARNING (do not skip): some of these keys are **skill-phase slot names**, not
-> artefact kinds anything records. `baseline` collides with the `Workspace`/
-> `Baseline` *node* schema (`workspace.py:20`, fields `command`/`passed`/`output`),
-> which is a different shape than the proposed `["workspace","command","exit_code",
-> "output"]`. `manifest`/`entry`/`lint`/`findings`/`discipline`/`rationalizations`
-> are `produces` slots in `develop.py`/`plugin.py` skills, never `record("Artefact",
-> {"kind": ...})`. Covering them as artefact schemas only does something IF 004 also
-> changes the verbs to emit those kinds (Open Q4). Do not add a schema for a kind no
-> code emits without the maintainer agreeing the verb change.
+There is **no `REQUIRED.update({...})`** in this spec. The 13-key superset from
+`research/.../schemas-catalogue.md` is deliberately deleted: 11 of its keys are
+skill `kind`s or `produces:` slots nothing records (dead schemas), and its
+`baseline` key collides by name with the `Baseline` *node* schema
+(`workspace.py:21` = `["command", "passed"]`, output recorded at `:46` but not
+required) while having a different shape — a trap, not a requirement.
 
-### `agency/templates.py` — new `Template` constants
+### Templates — 2 constants only
 
-Carried from `research/templates-and-schemas/templates-catalogue.md` (items 1–13).
-The two ★ templates are mandatory; the rest land iff their kinds are in the agreed
-set. Representative pair (the rest follow the same `---`-frontmatter shape — see
-the catalogue for the full bodies):
+The generate side: one `string.Template` per newly covered kind, in
+`agency/templates.py`, mirroring the existing `---`-frontmatter shape.
 
 ```python
 from string import Template
 
-JULES_SESSION = Template(                                   # ★ pairs with kind "jules-session"
+JULES_SESSION = Template(                       # pairs with kind "jules-session"
     "---\nkind: jules-session\nsession-id: $session_id\n"
-    "url: $url\nstate: $state\n---\n\n# Session Log\n$history\n")
+    "url: $url\nstate: $state\n---\n\n# Session Log\n\n$history\n")
 
-DELEGATION_REDUCTION = Template(                            # ★ pairs with kind "reduction"
+DELEGATION_REDUCTION = Template(                # pairs with kind "reduction"
     "---\nkind: reduction\nparent-intent: $parent_intent\n"
-    "children: $children\n---\n\n# Reduction Summary\n$summary\n")
-
-BASELINE_REPORT = Template(
-    "---\nkind: baseline\nworkspace: $workspace\ncommand: $command\n"
-    "exit-code: $exit_code\n---\n\n# Baseline Run\n\n## Output\n```\n$output\n```\n")
-
-REVIEW_FINDINGS = Template(
-    "---\nkind: findings\nbranch: $branch\nbase: $base\n"
-    "issues-found: $issues_found\n---\n\n# Findings Summary\n$summary\n\n"
-    "## Details\n$details\n")
-# DISCIPLINE_DEF, RATIONALIZATION_TABLE, RED_FLAGS, USER_CONFIRMATION,
-# AUTHORING_RECORD, GENERIC_ENTRY, LINT_REPORT, COMPONENT_MANIFEST,
-# RATIONALIZATIONS_LIST — verbatim from templates-catalogue.md items 5–13.
+    "children: $children\n---\n\n# Reduction Summary\n\n$summary\n")
 ```
 
-### Verb changes for the two real uncovered kinds
+### Verb changes for the two uncovered kinds
 
 **`delegate.join` (`agency/capabilities/delegate.py:78`) — BEFORE:**
 
 ```python
+children = len(rows)
+done = children > 0 and states.get("completed", 0) == children
 red = self.ctx.record("Artefact", {"kind": "reduction", "children": children})
+self.ctx.link(delegation, red, "REDUCES_INTO")
+self.ctx.link(red, self.ctx.intent_id, "SERVES")
 ```
 
-**AFTER** (records the full `reduction` schema; note `children` is currently an
-**int count**, but the catalogue schema expects a list of child intent IDs — Open
-Q3):
+**AFTER** — `join` derives its own child ids and state tally from the `rows` it
+already queried (`delegate.py:69-75`); there is no `child_ids`/`states`-as-list in
+scope to borrow, so build them here. `children` becomes the comma-joined child
+Lifecycle ids (the schema field), and the count is kept separately for the result:
 
 ```python
+child_ids = [r["lc"]["properties"].get("id", r["lc"]["id"]) for r in rows]
+count = len(rows)
+done = count > 0 and states.get("completed", 0) == count
 red = self.ctx.record("Artefact", {
     "kind": "reduction",
     "parent_intent": self.ctx.intent_id,
-    "children": ",".join(child_ids),          # list-of-ids, not the count (Open Q3)
-    "summary": f"reduced {children} children: {states}",
+    "children": ",".join(child_ids),                 # list of child ids, not the count
+    "summary": f"reduced {count} children: {states}",
 })
+self.ctx.link(delegation, red, "REDUCES_INTO")
+self.ctx.link(red, self.ctx.intent_id, "SERVES")
+# link the Artefact to its Schema node so validate_schema has a target:
+self.ctx.link(red, "schema:reduction", "VALIDATES_AGAINST")
+return {"result": {"children": count, "states": states, "done": done, "reduction": red}}
 ```
+
+(Note: `states` is the existing `dict[str, int]` tally built at `delegate.py:72-75`;
+`rows` is the existing query result. The result dict keeps `children` as the count
+for backward-compatible callers — see Open Q1 for the test impact.)
 
 **`jules.dispatch` (`agency/capabilities/jules.py:88`) — BEFORE:**
 
 ```python
-"artefact": {"kind": "jules-session", "session": sid or "", "url": s.get("url") or ""},
+return {
+    "status": s.get("state", "submitted"),
+    "session": sid,
+    "url": s.get("url"),
+    "artefact": {"kind": "jules-session", "session": sid or "", "url": s.get("url") or ""},
+}
 ```
 
-**AFTER** (matches `REQUIRED["jules-session"]`; field rename `session`→`session_id`,
-adds `state`/`history` — Open Q3):
+**AFTER** — the artefact carries the full `jules-session` required set
+(`session`→`session_id`, plus `state`/`history`); the engine records it
+(`capability.py:178`) and links `VALIDATES_AGAINST` its `Schema` node:
 
 ```python
-"artefact": {
-    "kind": "jules-session",
-    "session_id": sid or "",
-    "url": s.get("url") or "",
-    "state": s.get("state", "submitted"),
-    "history": s.get("history", ""),
-},
+return {
+    "status": s.get("state", "submitted"),
+    "session": sid,
+    "url": s.get("url"),
+    "artefact": {
+        "kind": "jules-session",
+        "session_id": sid or "",
+        "url": s.get("url") or "",
+        "state": s.get("state", "submitted"),
+        "history": s.get("history", ""),
+    },
+}
 ```
 
-### Registering the schemas
+### Wiring the `Schema` nodes (the validate side)
 
-The new `REQUIRED` keys must reach `Ontology.schemas`. `plugin_ontology` already
-does `schemas=dict(templates.REQUIRED)` (`plugin.py:179`); since the additions land
-in `templates.REQUIRED`, they flow in automatically — but that puts cross-capability
-schemas (`jules-session`, `reduction`) under the `plugin` capability's ownership,
-which is wrong by the "schemata live with the capability that owns them" rule
-(`agency/ontology.py:60-86`). Open Q2: move `jules-session` into the `jules`
-capability's `OntologyExtension.schemas` and `reduction` into `delegate`'s, leaving
-`templates.REQUIRED` as the plugin-owned set only.
+Per "The validate side is not wired yet" above: the engine bootstrap iterates
+`Ontology.schemas` and records one `Schema` node per entry — `node_id =
+f"schema:{name}"`, `props = {"name": name, "required": ",".join(required)}` (the
+`Schema` node schema is `["name", "required"]`, `ontology.py:25`; `validate_schema`
+splits `required` on commas, `memory.py:152`). The two new verbs then link their
+Artefact `VALIDATES_AGAINST` `schema:reduction` / `schema:jules-session`. This is
+the single addition that turns `Ontology.schemas` from an inert registry into a
+checkable loop, and is what makes the round-trip test pass.
 
 ## Files
 
 - **Modify**:
-  - `agency/templates.py` — add the agreed `Template` constants and the scoped
-    `REQUIRED.update({...})`.
+  - `agency/templates.py` — add `JULES_SESSION` and `DELEGATION_REDUCTION`
+    `Template` constants. `REQUIRED` is **unchanged** (stays the 5 plugin kinds).
   - `agency/capabilities/delegate.py` — `join` records the full `reduction`
-    artefact; add `schemas={"reduction": [...]}` to its `OntologyExtension` (Open Q2).
+    artefact and links `VALIDATES_AGAINST`; add `schemas={"reduction": [...]}` to
+    the existing `OntologyExtension` (`delegate.py:23`).
   - `agency/capabilities/jules.py` — `dispatch` records the full `jules-session`
-    artefact; `JulesCapability.ontology = OntologyExtension(schemas={"jules-session":
-    [...]})` (it currently has no `ontology` — confirm; `jules.py:72` defines no
-    `ontology` attribute, so it inherits the empty `CapabilityBase.ontology`).
-  - `agency/capabilities/develop.py`, `agency/capabilities/plugin.py` — ONLY if Open
-    Q4 says the `produces`-slot kinds (`findings`, `baseline`, `lint`, `manifest`,
-    `entry`, `discipline`, `rationalizations`, `rationalization-table`, `red-flags`,
-    `user-confirmed`, `authoring`) become real recorded Artefacts; otherwise leave
-    untouched.
-  - `agency/ontology.py` — only if Open Q2 chooses to add a core-owned schemas slot
-    rather than capability-owned.
-  - `tests/test_agency.py` — round-trip generate/validate tests per new kind.
-- **Create**: none required (research suggested `tests/test_templates_expansion.py`;
-  this repo keeps tests in the single `tests/test_agency.py` — Open Q5).
+    artefact; add `ontology = OntologyExtension(schemas={"jules-session": [...]})`
+    to `JulesCapability` (it currently has none).
+  - `agency/ontology.py` — only if the `Schema`-node bootstrap is best placed here
+    (e.g. a helper that materialises `Ontology.schemas` into `Schema` nodes);
+    otherwise the bootstrap lives in the engine. Pick one and state it in the PR.
+  - `tests/test_agency.py` — round-trip generate/validate tests per new kind, plus
+    the assertion updates from Open Q1.
+- **Create**: none. Tests extend the single `tests/test_agency.py` (repo
+  convention), not a new file.
 
 ## Open Questions / Needs Research
 
-1. **Reconcile "18 / 5 / 13" vs the catalogue's 8 vs the verified 2.** (BLOCKING.)
-   The research is internally inconsistent: `research/templates-and-schemas/spec.md`
-   and `FINDINGS.md` say 18 kinds / 5 covered / 13 remaining; the
-   `schemas-catalogue.md` `REQUIRED.update` adds **13** keys; the
-   `templates-catalogue.md` lists **13** templates (items 1–13); but `spec.md`'s
-   prose and `Files`/`Done When` name only **8** new `Template`s
-   (`BASELINE_REPORT`, `REVIEW_FINDINGS`, `JULES_SESSION`, `DELEGATION_REDUCTION`,
-   `DISCIPLINE_DEF`, `RATIONALIZATION_TABLE`, `RED_FLAGS`, `USER_CONFIRMATION`).
-   **This spec's own grep of the live tree finds only 9 artefact `kind`s recorded,
-   of which 2 (`jules-session`, `reduction`) actually lack schemas.** The "remaining
-   13" is the research conflating artefact `kind`s with skill-phase `produces` slot
-   names (two different namespaces). Maintainer must decide the intended scope:
-   - (a) **Minimal/correct**: cover the 2 real uncovered Artefact kinds only.
-   - (b) **Slots-become-artefacts**: also change `develop`/`plugin` verbs so every
-     `produces` slot is recorded as an Artefact of that kind, then cover all of
-     them (the research's intent, but it requires verb changes the research omits).
-   - (c) **Research's literal list**: add all 13 `REQUIRED` keys as schemas even for
-     kinds nothing records (dead schemas — not recommended).
-   Recommend (a) for this wave with (b) as a follow-up spec. **Do not guess.**
-2. **Schema ownership.** Should `jules-session` / `reduction` schemas live in the
-   `jules` / `delegate` capabilities' `OntologyExtension.schemas` (per the
-   "schemata live with the capability that owns them" doctrine, `ontology.py:60`),
-   or stay in the plugin-owned `templates.REQUIRED`? Recommend capability-owned;
-   needs confirmation because it changes which `affects:` files are touched.
-3. **Field-name mismatches between live code and the catalogue.** `jules.dispatch`
-   records `session` (catalogue wants `session_id`) and omits `state`/`history`;
-   `delegate.join` records `children` as an **int count** (catalogue wants a list of
-   child intent IDs) and omits `parent_intent`/`summary`. Renaming/extending these
-   touches the verbs' public result shape and any test asserting on them
-   (`test_agency.py` delegate/jules tests). Which name wins — the live field or the
-   catalogue field? Recommend adopting the catalogue names and adapting the verbs.
-4. **snake_case `produces` slots vs kebab-case artefact `kind`s.** (Shared with spec
-   003 Open Q6.) `produces` slots are `skill_md`, `command_md`, `user_confirmed`,
-   `rationalization_table`, `red_flags`; the catalogue schemas use kebab kinds
-   `skill-md`, `command-md`, `user-confirmed`, `rationalization-table`, `red-flags`.
-   Is the snake/kebab split intentional (phase-slot namespace ≠ artefact-kind
-   namespace) or to be normalised? If 004 takes path (b) in Q1, a slot→kind mapping
-   must be defined. One ruling, cited by both specs.
-5. **Test location.** Research proposes `tests/test_templates_expansion.py`; the
-   repo currently uses one `tests/test_agency.py`. Add a new file or extend the
-   existing? (Cosmetic, but `affects:` should be accurate.)
-6. **`baseline` schema vs the `Baseline`/`Workspace` node schema collision.**
-   `workspace.py:20` already defines a `Baseline` *node* (`["command","passed","output"]`)
-   recorded by `workspace.baseline`. The catalogue adds a `baseline` *artefact*
-   schema with a different shape (`["workspace","command","exit_code","output"]`).
-   These are two different things sharing a lowercase name. If `baseline` is added
-   to `REQUIRED`, clarify it is the artefact-kind schema, not the node schema, and
-   confirm nothing conflates them (`Ontology.schemas` is keyed separately from
-   `Ontology.nodes`, so no hard clash — but the naming is a trap).
+1. **Which existing `tests/test_agency.py` assertions move under the verb
+   result-shape change?** (Not blocking — must be enumerated before/at PR.) The
+   `jules.dispatch` artefact renames `session`→`session_id` and adds
+   `state`/`history`; the top-level result still returns `session` (kept), so only
+   assertions reading the *artefact* sub-dict shape change. The `delegate.join`
+   result keeps `children` as the count, so callers asserting `result["children"]`
+   are unaffected; assertions on the *reduction Artefact node's* fields change.
+   List the exact jules/delegate test functions touched so "all existing tests
+   pass" is verifiable.
+2. **Where does the `Schema`-node bootstrap live — engine or `ontology.py`?**
+   (Not blocking; an implementation-placement choice.) Recommend a small
+   `Ontology.materialise_schemas(memory)` (or engine-init step) that records one
+   `Schema` node per `Ontology.schemas` entry. Confirm it runs once at engine
+   construction, after all capability extensions are merged.
 
 ## Evidence
 
 - `agency/templates.py:72-78` — `REQUIRED` covers exactly 5 kinds.
-- `agency/capabilities/plugin.py:179` — `schemas=dict(templates.REQUIRED)` is the
-  only place schemas reach the ontology.
+- `agency/capabilities/plugin.py:179` — `schemas=dict(templates.REQUIRED)`, the
+  only place schemas reach `Ontology.schemas`; `plugin.py:43,53,59,65,74` — the 5
+  covered artefact records.
+- `agency/capability.py:178` — the engine's single record-from-result site.
 - `agency/capabilities/delegate.py:78` — `reduction` recorded with only `children`
-  (an int count), no schema.
+  (= `len(rows)`, an int, `delegate.py:76`), no schema; `delegate.py:23-26` — the
+  existing `OntologyExtension` (nodes + `REDUCES_INTO` edge, **no schemas**);
+  `delegate.py:69-75` — the `rows`/`states` `join` already has in scope.
 - `agency/capabilities/jules.py:88` — `jules-session` artefact with `session`/`url`
-  only, no schema, field named `session` not `session_id`.
-- `agency/capabilities/workspace.py:45-48` — `Baseline` node schema
-  (`command`/`passed`/`output`), distinct from the proposed `baseline` artefact schema.
-- `agency/memory.py:144-153` — `validate_schema` reads a `Schema` node's
-  comma-joined `required`; the validate side of the loop.
-- Grep of `agency/capabilities/*.py`: 9 distinct `"kind": "..."` literals; 9
-  distinct `"produces": [...]` slot sets — the two namespaces the research merges.
-- `research/templates-and-schemas/spec.md:22-23,40,63` — "18 kinds / 5 covered / 13
-  remaining" and the 8-template `Files`/`Done When` list (the internal 8-vs-13
-  discrepancy).
-- `research/templates-and-schemas/schemas-catalogue.md:10-24` — the 13-key
-  `REQUIRED.update`.
-- `research/templates-and-schemas/templates-catalogue.md` — 13 numbered templates.
-- `research/templates-and-schemas/FINDINGS.md:7-29` — the gap matrix (18 rows) and
-  the "13 remaining" claim, plus the residual-risk note that dynamic discovery may
-  hide artefacts (corroborates the namespace-conflation finding).
+  only, field named `session` not `session_id`; `jules.py:72` — `JulesCapability`
+  defines no `ontology` (inherits the empty default, `capability.py:29`).
+- `agency/capabilities/workspace.py:20-21` — `Baseline` *node* schema =
+  `["command", "passed"]` (output recorded at `:46` but not required); distinct
+  namespace from artefact schemas, hence the `baseline` superset key is a name trap.
+- `agency/capabilities/plugin.py:136,155` — `"kind": "authoring"` skill kinds;
+  `plugin.py:139-169` — snake_case `produces:` slots; `agency/capabilities/develop.py:29-74`
+  — `"kind": "discipline"` skill kinds, `develop.py:67` — `produces:["findings"]`.
+  None are `record("Artefact", ...)` calls.
+- `agency/memory.py:144-153` — `validate_schema(node_id, schema_id)`; **no
+  production caller, no `Schema`-node creation** anywhere in `agency/`.
+- `agency/ontology.py:25` — `Schema` node schema `["name", "required"]`;
+  `ontology.py:43` — `VALIDATES_AGAINST` edge already enumerated; `ontology.py:60-86`
+  — `OntologyExtension.schemas` "schemata live with the capability that owns them";
+  `ontology.py:97` — `Ontology.schemas` starts empty.
+- `research/templates-and-schemas/FINDINGS.md:6-29` — the 18-row matrix conflating
+  slots/skill-kinds with artefact kinds (root of "18/13").
+- `research/templates-and-schemas/schemas-catalogue.md:10-24` — the rejected 13-key
+  `REQUIRED.update` superset.
+- `the-agency-system/Plan/131-manifest-coverage-lint/spec.md` — prior-art
+  keyspace-parity lint + "no placeholder entries for unemitted things" doctrine
+  (the acceptance model for the slots→artefacts follow-up, spec 005).

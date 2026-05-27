@@ -241,7 +241,7 @@ it is listed once as a verb and the gate skill calls it.
 | 35 | `prune_archival` | `prune_archival` | AudioDriver | effect | verb (cluster 5; lives in `processing/audio.py:1379`, deletes archival WAVs) |
 | 36 | `search` | `search` | StateDriver | transform | verb (domain FTS; distinct from engine `search`) |
 | 37 | `get_pending_verifications` | `get_pending_verifications` | StateDriver | transform | verb |
-| 38 | `extract_links` | `extract_links` | StateDriver | transform | verb |
+| 38 | `extract_links` | `extract_links` | TextDriver | transform | verb (cluster 4; lives in `text_analysis.py:530` — a pure-text extractor, not a state read) |
 | 39 | `list_skills` | `list_skills` | StateDriver | transform | verb (see Open Q: overlaps engine `help`/`plugin.help`) |
 | 40 | `get_skill` | `get_skill` | StateDriver | transform | verb (overlaps `develop.reference`) |
 | 41 | `count_syllables` | `count_syllables` | TextDriver | transform | verb |

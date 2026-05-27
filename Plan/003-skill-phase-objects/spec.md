@@ -7,6 +7,7 @@ depends_on: ["001"]
 affects:
   - agency/skill.py
   - agency/ontology.py
+  - agency/engine.py
   - agency/capabilities/develop.py
   - agency/capabilities/plugin.py
   - tests/test_agency.py
@@ -72,11 +73,25 @@ and stored in `OntologyExtension.skills` (`agency/ontology.py:84`).
 
 This spec makes `Skill` and `Phase` first-class typed objects with **dynamic
 validation at construction time**, while preserving the existing dict authoring
-form (capabilities still write dict literals — the engine parses them into typed
-objects once, at extension-merge time, and validates them then, not at walk time).
+*and storage* form (capabilities still write dict literals; `Ontology.skills`
+still holds raw dicts — the engine parses them into typed objects, validates them
+at registration time, and `SkillRun` re-parses on construction; the typed objects
+are never the canonical storage). This split — keep authoring/storage as dicts,
+validate shape at the boundary — is the same model the real harness uses:
+`the-agency-system/Plan/harness/design.md:286` defers the required-field contract
+to a separate `test_skill_schema.py` while `dispatch_skill` (design.md:188,193)
+returns the parsed frontmatter as a plain dict and callers tolerate optional
+fields with `.get(...)` — which is exactly why `Phase.inputs`/`gate`/`invoke` are
+`Optional` with defaults below.
+
 "Code-mode IS the contract": the walker is internal, so this is a pure
 internal-typing refactor — no change to the `search`/`get_schema`/`execute`
-surface.
+surface. **Two validations it adds are genuinely NEW behaviour, not preserved**
+(the live walker never enforced them): the contiguous-`1..N` `index` check
+(the walker walks by list position `self.i`, never reads `index` for control
+flow — `agency/skill.py:44,58,84`) and the single-`produces` guard on `invoke`
+phases. Both hold for every shipped skill; they are guards, but the spec labels
+them as additions rather than hiding them under "no behaviour change".
 
 ## Done When
 
@@ -89,33 +104,65 @@ surface.
       tuple[Phase, ...]`) with `Skill.from_schema(schema: dict) -> Skill` that
       parses + **validates** a raw dict skill schema (used to be hidden in `SkillRun`).
 - [ ] `Skill.from_schema` raises `SkillSchemaError` (a new typed error) with a
-      precise message when: `phases` missing/empty; a phase lacks `index`/`name`/
+      precise message when: the `phases` **key is missing** (a present-but-empty
+      `[]` is a LEGAL degenerate skill — see below); a phase lacks `index`/`name`/
       `produces`; `produces` is empty; phase `index` values are not the contiguous
-      sequence `1..N`; a phase has `invoke` but the named capability/verb is
-      unresolvable **(see Open Q3 — whether to resolve against a registry here)**;
-      `gate` is set to anything other than `"hard"` **(see Open Q2)**.
+      sequence `1..N` **(NEW invariant — the walker walks by position, never reads
+      `index`; see Open Q resolution)**; an `invoke` phase declares ≠1 `produces`
+      **(NEW guard — `submit()` only fills `produces[0]`)**; `invoke` is structurally
+      malformed (missing `capability`/`verb` keys — structural-only, NOT resolved
+      against a registry, see Open Q3); `gate` is set to anything other than
+      `"hard"` (see Open Q2, resolved: string tag).
+- [ ] `Skill.from_schema` does **NOT** raise on an empty `phases` list. A skill
+      with `"phases": []` parses to a `Skill` with `phases == ()` — a no-op walker
+      (`done` is `True` at `i=0`). This is REQUIRED to keep
+      `test_ontology_collisions_and_enum_widening` (`tests/test_agency.py:750,752`)
+      green: those fixtures register `{"name": "s", "kind": "x", "phases": []}` to
+      exercise the duplicate-name **collision** path in `Ontology.extend`, which
+      must be reached, not pre-empted by a phases check.
 - [ ] `SkillRun.__init__` accepts EITHER a `Skill` object OR a raw `dict` (it calls
       `Skill.from_schema` on a dict) — backwards compatible with the 9 existing
       `SkillRun(e.memory, iid, e.ontology.skill("..."))` call sites in
       `tests/test_agency.py`.
 - [ ] `SkillRun.current()` returns a `Phase` object's `.spec()` dict that is
       **field-identical** to today's output (`index`, `name`, `produces` list,
-      `inputs` list, `gate`) — existing assertions
-      (`run.current()["name"] == "gather"`, `run.current()["gate"] == "hard"`) pass
-      unchanged. **(See Open Q1: return `Phase` directly vs `.spec()` dict.)**
+      `inputs` list, `gate`) — the 6 subscripting assertions
+      (`run.current()["name"]`/`["produces"]`/`["gate"]` at
+      `tests/test_agency.py:423,429,449,453,458,465`) pass unchanged. **(Open Q1
+      RESOLVED: return the `.spec()` dict; `Phase` gets NO `__getitem__` — adding
+      one would re-introduce the stringly-typed access this refactor exists to kill.
+      The typed `current() -> Phase` return is deferred to a follow-up spec.)**
 - [ ] `SkillRun.submit()` delegates validation to `Phase.missing()` and the
       invokable/gate branches to `Phase.is_invokable()`/`Phase.is_gate()`; behaviour
       (raise on missing, `input-required` on unconfirmed hard gate, `working`/
       `completed` status, identical provenance edges) is byte-for-byte preserved.
-- [ ] The engine validates every capability's skill schemas at merge time:
-      `Ontology.extend` (`agency/ontology.py:104`) calls `Skill.from_schema` on each
-      entry of `ext.skills` so a malformed skill in a capability fails at
-      registration, not at walk time. **(See Open Q4: where validation lives —
-      ontology vs engine bootstrap.)**
+- [ ] The engine validates every capability's skill schemas at **registration
+      time** — but in `Engine.__init__`, AFTER the extend loop, NOT inside
+      `Ontology.extend`. **(Open Q4 RESOLVED → engine bootstrap.)** `Ontology.extend`
+      stays a pure dict merge (no `agency.skill` import), avoiding the real
+      `ontology → skill → memory → ontology` import cycle (`memory.py:17`
+      `from . import ontology`; `skill.py:21` `from .memory import Memory`).
+      `Engine.__init__` iterates `self.ontology.skills` after the loop at
+      `agency/engine.py:48-50` (before `Memory` is constructed at `:57`) and calls
+      `Skill.from_schema` on each, raising on the first malformed skill — the natural
+      "all capabilities now registered" point. Hence `agency/engine.py` is in
+      `affects:`.
+- [ ] `Ontology.skills` keeps storing the **raw dict** (Open Q5 RESOLVED → store
+      dict): `develop.checklist` (`agency/capabilities/develop.py:122-123`) and the
+      tests at `tests/test_agency.py` subscript the stored value (`sk["phases"]`,
+      `p["index"]`, `p["produces"]`). The implementer must NOT convert storage to
+      typed `Skill`. `SkillRun` re-parses the dict on construction (cheap; validation
+      already happened at bootstrap).
 - [ ] All 56 existing tests still pass; new tests cover: a well-formed dict parses to
-      a `Skill`; a phase missing `produces` raises `SkillSchemaError`; non-contiguous
-      indices raise; `current()` output is field-identical to the pre-refactor dict;
-      an invokable phase still runs its real verb; the hard gate still pauses.
+      a `Skill`; a present-but-empty `"phases": []` parses to a valid no-op `Skill`
+      (NOT a raise); a phase missing `produces` raises `SkillSchemaError`;
+      non-contiguous indices raise (the NEW invariant); an `invoke` phase with ≠1
+      `produces` raises; `current()` output is field-identical to the pre-refactor
+      dict; an invokable phase still runs its real verb (with a registry); an
+      `invoke` phase walked WITHOUT a registry degrades to a document phase; the hard
+      gate still pauses; **and the headline registration-time test — a capability /
+      `OntologyExtension` carrying a malformed skill raises at `Engine(...)`
+      bootstrap, not at walk time.**
 
 ## Design
 
@@ -163,9 +210,13 @@ class Phase:
         if not produces:
             raise SkillSchemaError(f"phase {d['name']!r} must declare at least one 'produces'")
         gate = d.get("gate")
-        if gate is not None and gate != "hard":          # Open Q2
+        if gate is not None and gate != "hard":          # Open Q2 (resolved: string tag)
             raise SkillSchemaError(f"phase {d['name']!r}: unknown gate {gate!r} (only 'hard')")
         inv = PhaseInvoke.from_dict(d["invoke"]) if "invoke" in d else None
+        if inv is not None and len(produces) != 1:        # NEW guard: submit() fills produces[0] only
+            raise SkillSchemaError(
+                f"phase {d['name']!r}: an invoke phase must declare exactly one "
+                f"'produces' (got {list(produces)}) — submit() only fills produces[0]")
         return cls(index=int(d["index"]), name=d["name"], produces=produces,
                    inputs=tuple(d.get("inputs", ())), gate=gate, invoke=inv)
 
@@ -195,12 +246,14 @@ class Skill:
     def from_schema(cls, schema: dict) -> "Skill":
         if "name" not in schema or "kind" not in schema:
             raise SkillSchemaError(f"skill schema needs 'name' and 'kind': {schema!r}")
-        raw = schema.get("phases")
-        if not raw:
-            raise SkillSchemaError(f"skill {schema.get('name')!r} has no phases")
-        phases = tuple(Phase.from_dict(p) for p in raw)
-        expected = list(range(1, len(phases) + 1))           # contiguous 1..N
-        if [p.index for p in phases] != expected:
+        if "phases" not in schema:                           # MISSING key only — see below
+            raise SkillSchemaError(f"skill {schema.get('name')!r} has no 'phases' key")
+        # IMPORTANT: an empty list is LEGAL. `{"phases": []}` parses to a no-op walker
+        # (done at i=0). The collision-path fixtures at tests/test_agency.py:750,752
+        # register empty-phase skills; rejecting `[]` here breaks 2 of the 56 tests.
+        phases = tuple(Phase.from_dict(p) for p in schema["phases"])
+        expected = list(range(1, len(phases) + 1))           # contiguous 1..N (NEW invariant)
+        if [p.index for p in phases] != expected:            # holds vacuously for []
             raise SkillSchemaError(
                 f"skill {schema['name']!r}: phase indices "
                 f"{[p.index for p in phases]} must be the contiguous sequence {expected}")
@@ -275,19 +328,37 @@ def submit(self, outputs=None, confirmed=False) -> dict:
     return {"status": "completed" if self.done else "working", "phase": p.name}
 ```
 
-### `agency/ontology.py` — validate skills at merge time
+### `agency/ontology.py` — UNCHANGED (no `agency.skill` import)
+
+`Ontology.extend` stays a pure dict merge. The skills loop keeps its existing
+name-collision check and stores the **raw dict** verbatim (Open Q5 RESOLVED → store
+dict): `develop.checklist` (`agency/capabilities/develop.py:122-123`) and several
+tests subscript `Ontology.skills[name]["phases"]`, so the stored value MUST remain
+a dict. Adding `from .skill import Skill` here would also create the real
+`ontology → skill → memory → ontology` import cycle (`memory.py:17`,
+`skill.py:21`). Validation does NOT live here.
+
+### `agency/engine.py` — validate skills at registration time (Open Q4 RESOLVED)
+
+Validation lives in `Engine.__init__`, AFTER the extend loop and BEFORE `Memory`
+is built — the natural "all capabilities now registered" point, with no import
+cycle (top-level `from .skill import Skill, SkillSchemaError` in `engine.py` is
+clean: `engine.py` already imports `memory`, `ontology`, capabilities).
 
 ```python
-# in Ontology.extend, replacing the bare assignment in the skills loop (line ~114):
-from .skill import Skill, SkillSchemaError          # local import avoids a cycle
-for name, sk in ext.skills.items():
-    if name in self.skills:
-        raise ValueError(f"{owner!r}: skill {name!r} already defined")
+# agency/engine.py, in Engine.__init__, right after the extend loop (currently :48-50):
+for cap in list(discover()) + list(extra_capabilities or []):
+    self.registry.register(cap)
+    self.ontology.extend(cap.ontology, cap.name)
+# NEW: every registered skill is well-formed — fail at bootstrap, not at walk time.
+for name, sk in self.ontology.skills.items():
     try:
-        Skill.from_schema(sk)                        # fail at registration, not at walk
+        Skill.from_schema(sk)
     except SkillSchemaError as e:
-        raise ValueError(f"{owner!r}: skill {name!r} is malformed: {e}") from e
-    self.skills[name] = sk                            # keep storing the dict (Open Q5)
+        raise ValueError(f"capability skill {name!r} is malformed: {e}") from e
+self.registry.ontology = self.ontology
+...
+self.memory = Memory(path, ont=self.ontology)
 ```
 
 **Note on a real authoring inconsistency this surfaces (cite for the maintainer):**
@@ -306,55 +377,66 @@ silently "fix" the names. **(See Open Q6.)**
   - `agency/skill.py` — add `SkillSchemaError`, `PhaseInvoke`, `Phase`, `Skill`;
     rewrite `SkillRun.__init__`/`current()`/`submit()` to use them. Keep the module
     docstring's contract description accurate.
-  - `agency/ontology.py` — `Ontology.extend` validates each skill via
-    `Skill.from_schema` (local import of `agency.skill` to avoid the import cycle;
-    `skill.py` already imports `memory`, not `ontology`, so the cycle is one-way —
-    confirm during implementation, see Open Q4).
-  - `tests/test_agency.py` — add the new typed-object tests; existing 9 `SkillRun`
-    call sites must remain green unchanged (they already pass dicts and ontology
-    skills).
+  - `agency/engine.py` — `Engine.__init__` validates each registered skill via
+    `Skill.from_schema` after the extend loop, before `Memory` is built (top-level
+    import of `agency.skill`; no cycle — see Design). This is where Open Q4 lands.
+  - `agency/ontology.py` — **UNCHANGED behaviour**: `Ontology.extend` keeps storing
+    the raw dict and its name-collision check. Do NOT import `agency.skill` here and
+    do NOT validate here (avoids the import cycle; the empty-`[]` collision fixtures
+    at `tests/test_agency.py:750,752` must still reach the collision raise).
+  - `agency/capabilities/develop.py` — listed in `affects:` because it is the
+    **10th raw-dict consumer** (`develop.py:122-123` subscripts `sk["phases"]`,
+    `p["index"]`, `p["produces"]`, `p.get("gate")`). It is left FUNCTIONALLY
+    unchanged precisely BECAUSE `Ontology.skills` keeps storing dicts; the spec names
+    it so the implementer does not convert storage to typed `Skill` and break
+    `checklist` + `test_checklist_returns_steps_and_handles_unknown`.
+  - `tests/test_agency.py` — add the new typed-object + registration-time tests;
+    existing 9 `SkillRun` call sites must remain green unchanged (they already pass
+    dicts and ontology skills).
 - **Create**: none (typed objects live in the existing `agency/skill.py`).
 - **Move / Delete**: none.
 
 ## Open Questions / Needs Research
 
-1. **`current()` return type — dict vs `Phase`.** The research wants
-   `current() -> Phase` (`PROPOSAL.md:122`), but 3 existing tests subscript the
-   result (`run.current()["name"]`, `["gate"]`, `["produces"]`). Options: (a) return
-   `p.spec()` dict now (zero test churn, defer the typed return), (b) return a
-   `Phase` and give it `__getitem__` for back-compat, (c) return `Phase` and update
-   the tests. **Recommend (a) for this wave; park (c) as a follow-up.** Maintainer
-   to confirm whether the typed return is in-scope here or a later spec.
-2. **Is `gate` ever non-`"hard"`?** Every shipped skill uses `gate: "hard"` only.
-   The research's `Phase.gate` is `Optional[Callable[..., bool]]` (a predicate), not
-   a string tag. Should `Phase.gate` stay the string `"hard"` (matches the live
-   walker + `Memory`/elicit semantics) or become a callable gate (bigger change,
-   overlaps the `gate` capability)? **Recommend keeping the string tag**; flag the
-   callable form as future work. Need maintainer ruling before widening the type.
-3. **Should `Skill.from_schema` resolve `invoke` capability/verb against a live
-   registry?** Validating that `{"capability": "delegate", "verb": "fan_out"}`
-   actually resolves requires the registry, which is not available at
-   `Ontology.extend` time (capabilities may not all be registered yet). Options:
-   structural-only validation now (keys present), or a second-pass resolution check
-   in the engine after all capabilities register. Needs the engine bootstrap order
-   confirmed (`agency/engine.py`).
-4. **Where does merge-time validation live — `Ontology.extend` or engine
-   bootstrap?** Putting `Skill.from_schema` in `Ontology.extend` creates an
-   `ontology → skill` import. `skill.py` imports `memory`; `memory.py` imports
-   `ontology`. So `ontology → skill → memory → ontology` is a cycle. The local
-   (function-scope) import in `extend` breaks it, but the cleaner alternative is to
-   validate in the engine after `extend`. Maintainer to pick; affects whether
-   `agency/engine.py` enters `affects:`.
-5. **Store typed `Skill` or keep the dict in `Ontology.skills`?** `extend` currently
-   stores the raw dict; `SkillRun` re-parses. Storing the parsed `Skill` avoids
-   re-parsing but changes `Ontology.skill(name)` callers
-   (`e.ontology.skill("skill-creation")` is passed straight into `SkillRun`, which
-   now accepts both — so storing typed is safe). Decide for one canonical form.
-6. **snake_case `produces` slots vs kebab-case artefact `kind`s.** See the Design
-   note. `Phase` does not reconcile these, but spec 004 must. Is the snake/kebab
-   split intentional (phase-slot namespace ≠ artefact-kind namespace) or an
-   accident to be normalised? This is the same naming ambiguity flagged in 004 Open
-   Q. Needs one ruling that both specs cite.
+The spec-panel review (`REVIEW.md`) resolved Q1–Q5; their resolutions are now
+baked into Done-When/Design above and recorded here for the trail. Only Q6 stays
+open (and it is correctly out of scope for 003 — a Spec 004 decision).
+
+1. **`current()` return type — dict vs `Phase`. — RESOLVED (dict).** Return
+   `p.spec()` dict. The 6 subscripting assertions
+   (`tests/test_agency.py:423,429,449,453,458,465`) stay green with zero churn.
+   `Phase` gets **no** `__getitem__` (rejected: it would re-introduce the
+   stringly-typed access this refactor kills). The typed `current() -> Phase`
+   return the research wants (`PROPOSAL.md:122`) is deferred to a follow-up spec.
+2. **Is `gate` ever non-`"hard"`? — RESOLVED (string tag `"hard"`).** Every shipped
+   skill (`develop.py`, `plugin.py`, `examples/music.py`) uses only `gate: "hard"`,
+   and the live walker reads it as a string (`agency/skill.py:71`). The research's
+   `Optional[Callable[..., bool]]` predicate has no prior-art support in the walker
+   or harness; the programmatic predicate gate already exists as the separate `gate`
+   **capability**. So `Phase.gate: Optional[str]` constrained to `"hard"` is the
+   faithful model. The callable form is explicit future work.
+3. **Resolve `invoke` against a live registry? — RESOLVED (structural-only).** The
+   registry is not populated when validation runs (capabilities register in a loop;
+   order is not guaranteed). Validate structure only: `capability`/`verb` keys
+   present and exactly one `produces`. A registry-resolution second pass (now
+   feasible since validation runs in `Engine.__init__` after all caps register) is a
+   separate spec.
+4. **Where does registration-time validation live? — RESOLVED (engine bootstrap).**
+   In `Engine.__init__` after the extend loop, NOT in `Ontology.extend`. This avoids
+   the real `ontology → skill → memory → ontology` import cycle with no local import,
+   and is the natural "all capabilities registered" point. `agency/engine.py` is now
+   in `affects:`.
+5. **Store typed `Skill` or the dict in `Ontology.skills`? — RESOLVED (store
+   dict).** Keep the raw dict. `develop.checklist` (`develop.py:122-123`) and tests
+   (`sk["phases"]`) subscript the stored value; storing typed `Skill` breaks them.
+   `SkillRun` re-parses on construction (cheap — validation already happened at
+   bootstrap).
+6. **snake_case `produces` slots vs kebab-case artefact `kind`s. — STILL OPEN (not
+   blocking 003).** See the Design note. `Phase` does not reconcile these (it only
+   checks slot presence, never artefact kind), so this is genuinely a Spec 004
+   decision. Is the snake/kebab split intentional (phase-slot namespace ≠
+   artefact-kind namespace) or an accident to be normalised? Needs one ruling that
+   both specs cite. This spec must NOT silently normalise the names.
 
 ## Evidence
 
@@ -363,14 +445,28 @@ silently "fix" the names. **(See Open Q6.)**
 - `agency/skill.py:40-46` — `current()` builds a dict by raw-indexing a phase dict.
 - `agency/skill.py:48-85` — `submit()` re-reads `p["invoke"]`, `p["produces"][0]`,
   `p.get("inputs")`, `p.get("gate")` ad-hoc each call.
-- `agency/ontology.py:84,114` — `OntologyExtension.skills` holds raw dict schemas;
-  `Ontology.extend` stores them with a name-collision check but NO shape check.
+- `agency/ontology.py:84,114-117` — `OntologyExtension.skills` holds raw dict
+  schemas; `Ontology.extend` stores them with a name-collision check but NO shape
+  check. This stays as-is (validation moves to the engine).
+- `agency/engine.py:48-50,57` — the extend loop, then `Memory(...)`. The new
+  `Skill.from_schema` validation pass goes between them (Q4).
+- `agency/capabilities/develop.py:122-123` — `checklist` subscripts `sk["phases"]`,
+  `p["index"]`, `p["produces"]`, `p.get("gate")` over the stored dict: the **10th
+  raw-dict consumer**, the reason `Ontology.skills` must keep storing dicts.
 - `research/oo-architecture/PROPOSAL.md` §3 — the `Phase`/`Skill` sketch and the
   `current() -> Phase` before/after at `agency/skill.py:40`, migration cost High.
-- `agency/capabilities/develop.py:28-80` — `DEV_SKILLS`, the dict skill schemas.
+- `the-agency-system/Plan/harness/design.md:188,193,286` — prior art: `dispatch_skill`
+  returns the parsed frontmatter as a dict; callers use `.get(...)`; a separate
+  `test_skill_schema.py` owns the required-field contract. Same split this spec makes.
+- `agency/capabilities/develop.py:28-80` — `DEV_SKILLS`, the dict skill schemas
+  (all indices 1..N; the `review` `dispatch` phase is the one `invoke` phase, with
+  exactly one `produces` `["findings"]`).
 - `agency/capabilities/plugin.py:134-171` — `SKILL_CREATION_SKILL`,
-  `PLUGIN_DEV_SKILL`, including the `invoke`/`inputs` phases and snake_case
-  `produces` slot names.
+  `PLUGIN_DEV_SKILL`, including the `invoke`/`inputs` phases (each one `produces`)
+  and snake_case `produces` slot names.
 - `tests/test_agency.py:406-468` — `_WALKER_SKILL` fixture and the 9 `SkillRun`
-  call sites + the assertions on `current()` shape and gate behaviour the refactor
-  must preserve.
+  call sites + the 6 `current()`-subscript / gate assertions the refactor preserves.
+- `tests/test_agency.py:750,752` — `test_ontology_collisions_and_enum_widening`
+  registers `{"name": "s", "kind": "x", "phases": []}` twice to test the
+  duplicate-name collision; the BLOCKER is that `from_schema` must NOT reject the
+  empty `phases` list, or these break before the collision raise is reached.

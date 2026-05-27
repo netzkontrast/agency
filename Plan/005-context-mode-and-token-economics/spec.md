@@ -5,25 +5,31 @@ status: draft
 owner: "@agency"
 depends_on: [001]
 affects:
-  - agency/capabilities/context.py        # NEW — the search/describe/invoke triad
+  # NOTE on paths: the Python package is `agency/`, BUT the plugin metadata,
+  # `skills/`, and `commands/` live at the REPO ROOT (verified:
+  # `.claude-plugin/plugin.json`, `skills/brainstorming`, `commands/help.md`).
+  # Hooks ship as root-level config too; their handler scripts live under the
+  # importable `agency/` package so the engine and the hook subprocess share code.
+  - agency/capabilities/context.py        # NEW — the search/describe/read triad
   - agency/capabilities/develop.py         # MODIFY — fold `reference` into context, or delegate to it
-  - agency/engine.py                       # MODIFY — context cap auto-wires like any other; surface the hook-layer entry points
+  - agency/engine.py                       # MODIFY — context cap auto-wires like any other; inject the shared Index
   - agency/context/__init__.py             # NEW — output-side index package re-exports
   - agency/context/index.py                # NEW — SessionDB (SQLite + FTS5) over large tool OUTPUTS
   - agency/context/summarize.py            # NEW — output -> summary + stored handle
   - agency/context/manifest.py             # NEW — build/load the doc corpus manifest the triad searches
-  - agency/hooks/hooks.json                # NEW — the 5 Claude-Code hook entry points
-  - agency/hooks/ctx_route.py              # NEW — PreToolUse/PostToolUse output router (stdin JSON in, decision JSON out)
-  - agency/hooks/ctx_session.py            # NEW — SessionStart/PreCompact/UserPromptSubmit handlers
-  - skills/ctx-insight/SKILL.md            # NEW — the local /ctx-insight surface (read the SessionDB index)
-  - commands/ctx-insight.md                # NEW — the `/ctx-insight` slash command
+  - hooks/hooks.json                       # NEW (ROOT) — the Claude-Code hook entry points
+  - agency/hooks/ctx_route.py              # NEW — PreToolUse routing + PostToolUse output capture (stdin JSON in, decision JSON out)
+  - agency/hooks/ctx_session.py            # NEW — SessionStart (restore) + UserPromptSubmit (capture decisions) handlers
+  - skills/ctx-insight/SKILL.md            # NEW (ROOT) — the local /ctx-insight surface (read the SessionDB index)
+  - commands/ctx-insight.md                # NEW (ROOT) — the `/ctx-insight` slash command
+  - .claude-plugin/plugin.json             # MODIFY (ROOT) — register hooks/ + the new command (additive)
   - tests/test_context_capability.py       # NEW — triad + next_suggested_tools + envelope composition
-  - tests/test_context_hooks.py            # NEW — hook contract: route, summarize, round-trip, graceful-offline
+  - tests/test_context_hooks.py            # NEW — hook contract: route, summarize, round-trip, graceful-offline, locked-DB
   - docs/vision/specs/context-mode-output-side.md  # NEW — disambiguate the two "context-mode"s; lifecycle diagram
 source-repos:
-  - "context-mode @ 11aeb2659e9c70811eef2a875704149e836ec9c4  # https://github.com/mksglu/context-mode"
+  - "context-mode @ https://github.com/mksglu/context-mode  # PATTERN-ONLY, read-only; ELv2 — copy NO source"
   - "FastMCP (fastmcp[code-mode]) — CodeMode transform; https://gofastmcp.com/servers/transforms/code-mode"
-  - "the-agency-system @ 0a6a9e71f6c26bc120a8fc1db02f8990b7916f22  # exemplar Plan/108 + 111/114/130"
+  - "the-agency-system @ 0a6a9e71f6c26bc120a8fc1db02f8990b7916f22  # exemplar Plan/108 + 111/112/114/120/130"
 estimated_jules_sessions: 3
 domain: cross
 wave: B
@@ -56,8 +62,10 @@ Three token leaks survive the boot win — each grounded in this tree:
    (`_wire.impl`) returns `out if isinstance(out, dict) else {"result": out}`: a
    shapeless dict with no `next_suggested_tools`. After every `execute`, the model
    must re-`search` / re-`get_schema` to find the next step — a full orienting
-   round-trip per action. (Spec 001 adds the `ToolResult` envelope; this spec is
-   its first heavy consumer.)
+   round-trip per action. (Spec 001 adds the `ToolResult` envelope — with the
+   field named **`data`**, not `result`; see `agency/Plan/001…/spec.md:90-93,
+   209-216`. This spec is its first heavy consumer, and depends on 001 resolving
+   its Open Q-2 so the envelope actually surfaces at `_wire` — see Open Questions.)
 2. **The doc corpus is a single hardcoded verb** — `agency/capabilities/develop.py:140`
    (`reference`) serves exactly 3 strings from the in-module `REFERENCES` dict
    (`develop.py:86-111`); everything else in `docs/` is unreachable through the
@@ -68,16 +76,27 @@ Three token leaks survive the boot win — each grounded in this tree:
    engine has no `PostToolUse` seam to route those into a searchable store and
    return a summary instead.
 
-The external plugin solves (3) at the **Claude-Code hook layer** (`PreToolUse` /
-`PostToolUse` / `SessionStart` / `PreCompact` / `UserPromptSubmit`): it routes
-large outputs into a local SQLite **SessionDB** indexed with **FTS5/BM25** and
-returns only a summary plus a handle, exposing the stored detail through a
-local-only `/ctx-insight` surface. This spec wires that pattern for the `agency/`
-tree and, crucially, fuses it with the engine: the hook layer's SessionDB is the
-same corpus the new **`ContextCapability`** triad (`search` / `describe` /
-`invoke`) searches — so the model reaches *both* the static doc manifest *and* the
-live session outputs through one in-engine triad, while the model's place is held
-by `next_suggested_tools` on every return.
+The external plugin solves (3) at the **Claude-Code hook layer**. Its verified
+hook contract (WebFetched 2026-05-27 from the live repo) is:
+`PreToolUse`=enforce sandbox **routing** before a tool runs, `PostToolUse`=capture
+the tool's output into the session store, `UserPromptSubmit`=extract **user
+decisions/corrections**, `PreCompact`=build a priority-tiered **snapshot** of
+session state before compaction, `SessionStart`=**restore** state after a
+compaction or resume. The output capture routes large outputs into a local SQLite
+**SessionDB** indexed with **FTS5/BM25** and returns only a summary plus a handle,
+exposing the stored detail through a local `/ctx-insight` surface.
+
+**This spec adopts only the `PostToolUse`-capture + `SessionStart`-attach slice**
+and fuses it with the engine: the hook layer's SessionDB is the same corpus the
+new **`ContextCapability`** triad (`search` / `describe` / `read`) searches — so
+the model reaches *both* the static doc manifest *and* the live session outputs
+through one in-engine triad, while the model's place is held by
+`next_suggested_tools` on every return. The **snapshot/restore pair**
+(`PreCompact`→`SessionStart` checkpointing) is a separate concern (the exemplar's
+Plan/120 `smart-compaction-checkpoints`: richness-weighted `pick_richest`,
+decision extraction, an ≤2 KB checkpoint) and is **explicitly deferred** to a
+follow-up spec — this spec uses `SessionStart` only to attach the DB, not to
+restore a checkpoint, and does **not** ship a `PreCompact` handler.
 
 Schema-side context-mode (boot) + output-side context-mode (runtime) bracket the
 two biggest token sinks; the `ToolResult` envelope (Spec 001) stitches them into a
@@ -86,49 +105,70 @@ guided loop.
 ## Done When
 
 - [ ] `agency/capabilities/context.py` defines a `ContextCapability(CapabilityBase)`
-      (`name = "context"`, `home = "memory"`) with exactly three verbs:
+      (`name = "context"`, `home = "memory"`) with exactly three verbs. The third
+      verb is named **`read`** (not `invoke`) to match the document-side prior-art
+      triad `context_search`/`context_describe`/`context_read`
+      (the-agency-system Plan/112). It still auto-wires to
+      `capability_context_read` per `engine.py:85`.
   - [ ] `search(query, kind=None, limit=20)` — role `transform`. Ranks the merged
         corpus (static doc manifest + live SessionDB entries) by BM25, returns
-        `{matches: [{id, kind, title, score, snippet}], cursor}` (≤20 items + an
+        `data={matches: [{id, kind, title, score, snippet}], cursor}` (≤20 items + an
         opaque cursor), and sets `next_suggested_tools=["capability_context_describe"]`.
   - [ ] `describe(ids, view="summary")` — role `transform`. Accepts a list of ids,
-        returns `{views: [{id, summary, preview}]}` (NOT full bodies), and sets
-        `next_suggested_tools=["capability_context_invoke"]`.
-  - [ ] `invoke(id)` — role `transform`. Returns the full body of ONE id
-        (`{id, kind, body}`) and sets `next_suggested_tools` to *actionable*
+        returns `data={views: [{id, summary, preview}]}` (NOT full bodies), and sets
+        `next_suggested_tools=["capability_context_read"]`.
+  - [ ] `read(id)` — role `transform`. Returns the full body of ONE id
+        (`data={id, kind, body}`) and sets `next_suggested_tools` to *actionable*
         capabilities relevant to the doc's `kind` (e.g. a discipline doc points to
         `capability_develop_checklist`).
 - [ ] Every `ContextCapability` verb returns through the Spec 001 `ToolResult`
-      envelope (`ok` + `result` + optional `error` + `next_suggested_tools`); the
-      auto-wired tool name is `capability_context_<verb>` per `engine.py:85`.
+      envelope **exactly as 001 defines it** — fields
+      `ok`, `data`, `warnings`, `next_suggested_tools`, `error`
+      (`agency/Plan/001…/spec.md:184-216`); the payload lives under **`data`**, NOT
+      under a legacy `result` key (`result` is the unwrapped key `_wire` strips
+      today at `engine.py:73`). The auto-wired tool name is `capability_context_<verb>`
+      per `engine.py:85`.
 - [ ] `agency/capabilities/develop.py:140` (`reference`) no longer hardcodes the
       doc body: it either (a) is removed and its 3 `REFERENCES` strings migrate
       into the context manifest as `kind="discipline-howto"`, or (b) thin-delegates
-      to `ctx.call("context", "invoke", id=...)`. The 3 docs remain reachable; a
+      to `ctx.call("context", "read", id=...)`. The 3 docs remain reachable; a
       test proves `context.search("best-practices")` finds `best-practices`.
 - [ ] `agency/context/index.py` opens a SQLite SessionDB (WAL mode, `busy_timeout`)
       with an FTS5 virtual table; `put(kind, title, body) -> id` stores an entry and
-      `search(query, kind, limit)` / `get(id)` read it. Survives concurrent writers
-      (the hook subprocess + the engine).
+      `search(query, kind, limit)` / `get(id)` read it. The multi-writer contract is
+      pinned (see `## Design` → SessionDB): the **engine** owns first-create + schema
+      migration under a transaction; the hook subprocess opens read-write but never
+      `CREATE`s — it `put`s into an already-initialised schema, retrying on
+      `SQLITE_BUSY` up to `busy_timeout`. Survives the two concurrent writers
+      (the hook subprocess + the engine MCP).
 - [ ] `agency/context/summarize.py` turns a large tool output into
       `{summary, stored_id, bytes_in, bytes_out}` — body goes to the SessionDB,
       a token-tiny summary comes back.
 - [ ] `agency/context/manifest.py` builds/loads a manifest of the static doc corpus
       (`docs/**`, the 3 develop references) into the same SessionDB so the triad
-      searches one merged index.
-- [ ] `agency/hooks/hooks.json` declares the 5 Claude-Code hook entry points
-      (`PreToolUse`, `PostToolUse`, `SessionStart`, `PreCompact`, `UserPromptSubmit`)
-      and dispatches `PreToolUse`/`PostToolUse` to `agency/hooks/ctx_route.py` and
-      the session events to `agency/hooks/ctx_session.py`.
+      searches one merged index. Rebuild is **mtime-gated at `SessionStart`** (and a
+      lazy first-`search` rebuild as a fallback, since `SessionStart` here only
+      attaches) — matching the exemplar's sha256/mtime drift guard (Plan/111).
+- [ ] `hooks/hooks.json` (repo ROOT) declares the hook entry points this spec
+      adopts: `PostToolUse` → `agency/hooks/ctx_route.py` (output capture),
+      `PreToolUse` → `agency/hooks/ctx_route.py` (routing; no-op default this spec),
+      `SessionStart` → `agency/hooks/ctx_session.py` (attach DB), and
+      `UserPromptSubmit` → `agency/hooks/ctx_session.py` (capture user decisions).
+      It does **not** declare a `PreCompact` snapshot handler — that pair is deferred
+      (see `## Why` and Open Questions).
 - [ ] `agency/hooks/ctx_route.py` reads a hook event JSON on stdin, and on
-      `PostToolUse` for an output over the threshold (default 2 KB) replaces the
-      output with a summary via `agency/context/summarize.py`, emitting the
-      Claude-Code hook decision JSON on stdout. Exits 0 and is a no-op (passes the
-      output through unchanged) for small outputs or on any internal failure —
-      **a hook must never break the session.**
-- [ ] `skills/ctx-insight/SKILL.md` + `commands/ctx-insight.md` document the local
-      `/ctx-insight` surface: query the SessionDB index for what was routed out of
-      context this session. Local-only; no network egress.
+      `PostToolUse` for an output over the threshold (provenance + value TBD by the
+      measured trace; see `## Design` → threshold) replaces the output with a summary
+      via `agency/context/summarize.py`, emitting the Claude-Code hook decision JSON
+      on stdout. Exits 0 and is a no-op (passes the output through unchanged) for
+      small outputs or on any internal failure — **a hook must never break the
+      session.**
+- [ ] `skills/ctx-insight/SKILL.md` + `commands/ctx-insight.md` (repo ROOT) document
+      the local `/ctx-insight` surface: query the SessionDB index for what was routed
+      out of context this session. It is **our own file-direct reader over the SQLite
+      DB** (no listener, no HTTP), which deliberately diverges from upstream
+      context-mode's local web-UI `/ctx-insight` — stated as such. Local-only; no
+      network egress.
 - [ ] **Measured token before/after** (see `## Design` → Token economics): a real
       trace of "find and read the `best-practices` doc" is captured with a token
       counter (not asserted from memory), the before/after numbers are pasted under

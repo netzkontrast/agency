@@ -25,12 +25,17 @@ wave: 1
 > `research/red-team/hardening-spec.md`) into one implementable hardening pass.
 > Each fix is grounded against the current code with a re-pinned `path:line`
 > citation (the research had drifted line numbers — corrected under `## Evidence`).
+> Refined per the spec-panel REVIEW (`Plan/006-core-hardening/REVIEW.md`), which
+> ran **live probes** against the pinned stack (GraphQLite 0.5.0, pydantic-monty
+> 0.0.16) to settle the open design choices — those findings are folded in below.
 > Only touch paths under `affects:`.
 
 ## Why
 
 Four architectural risks in the PR1 core, each verified against the code at the
-cited line on branch `claude/extract-agency-plugin-o4JRc`:
+cited line on branch `claude/extract-agency-plugin-o4JRc`. The REVIEW re-verified
+every citation as accurate and resolved the open design questions with live
+probes; #4's severity is **downgraded** by that probe (see below):
 
 1. **CLI-boot full graph scan (Medium sev × High likelihood).**
    `Memory._max_persisted_tick` (`agency/memory.py:39-62`) seeds the logical
@@ -65,78 +70,126 @@ cited line on branch `claude/extract-agency-plugin-o4JRc`:
    `remote_exists` and no `git ls-remote` anywhere in the file.** `jules.verify`
    does not even inject `vcs` today (its `@verb` has no `inject=`, line 138).
 
-4. **Code-mode sandbox can read `os.environ` (High sev × Medium likelihood).**
-   The engine builds FastMCP with `CodeMode()` (`agency/engine.py:94`), which
-   runs caller-supplied Python in the Monty sandbox. `_jules_api._api_key()`
+4. **Code-mode sandbox `os.environ` exfiltration — premise REFUTED on the pinned
+   stack; re-scoped to defense-in-depth (Low/Info residual).** The engine builds
+   FastMCP with `CodeMode()` (`agency/engine.py:94`), which runs caller-supplied
+   Python in the Monty sandbox. `_jules_api._api_key()`
    (`agency/capabilities/_jules_api.py:31-38`) reads `os.environ["JULES_API_KEY"]`
-   **lazily, per request** (line 32; consumed at line 61). If the sandbox can
-   reach `os.environ`, a prompt-injected `import os; os.environ['JULES_API_KEY']`
-   exfiltrates the key. *Chesterton's fence:* the per-request read lets the key
-   be exported in the launching shell — so we cannot just delete the env var;
-   we must **capture it into process-local state at engine boot, then withhold
-   it from `os.environ`** so the sandbox sees nothing, while `_api_key()` still
-   resolves it.
+   **lazily, per request** (line 32; consumed at line 61). The original theory:
+   if the sandbox can reach `os.environ`, a prompt-injected
+   `import os; os.environ['JULES_API_KEY']` exfiltrates the key. **The REVIEW ran
+   this as a RED probe against the real shipped sandbox (`pydantic-monty 0.0.16`,
+   driven exactly as `code_mode.py:133-138`) and the vector is NOT reachable:**
+   Monty is an allow-list reimplementation of Python, not a CPython `exec` —
+   `os.environ`/`os.getenv` raise `NotImplementedError` (they are unwired host
+   callbacks, no `os=` is passed), and `__import__`, `importlib`, `subprocess`,
+   `open`, `eval`, and `globals()` are all undefined or denied. There is therefore
+   **no in-process path** from sandbox code to `os.environ` or to a module global
+   like `_jules_api._CAPTURED_KEY`. The genuine residual risk is *future drift* —
+   a FastMCP/Monty version that wires an `os=` callback, a swapped-in
+   `SandboxProvider`, or a future `external_function` that incidentally surfaces
+   env. So #4 stays as cheap **defense-in-depth + a permanent RED-regression
+   guard**: capture `JULES_API_KEY` into process-local state and `pop()` it from
+   `os.environ` at the *sandbox boundary* (`build_mcp`, not `Engine.__init__`),
+   while `_api_key()` still resolves it from the captured store. *Chesterton's
+   fence:* the per-request read lets the key be exported in the launching shell,
+   so the env var cannot simply be deleted — it must be captured first.
 
 ## Done When
 
 - [ ] **(#1)** `Memory._max_persisted_tick` no longer issues an unconstrained
-      `MATCH (n)` / `MATCH ()-[r]->()` scan; it resolves the seed tick in O(1)
-      (single aggregation query, or read of a `_Metadata:Clock` node), and the
-      logical clock remains monotonic across reopens. A test seeds a graph, reopens
-      `Memory`, and asserts the next `_now()` exceeds the previously-persisted max
-      without scanning all rows.
+      `MATCH (n)` / `MATCH ()-[r]->()` materialization into Python; it resolves the
+      seed tick in O(1) via **two server-side `max(vfrom)` aggregation queries —
+      one over nodes, one over edges — taking the larger** (GraphQLite 0.5.0
+      supports server-side `max()`, REVIEW-probed). **No `_Metadata:Clock` node is
+      added.** Aggregate over `vfrom` only (never `vto`, which is `OPEN` for all live
+      rows). The edge query is **not** optional — dropping it reintroduces the
+      `link()` staleness bug documented at `memory.py:51-53`. The logical clock
+      remains monotonic across reopens. A test seeds a graph (last write an edge),
+      reopens `Memory`, and asserts the next `_now()` exceeds the previously-persisted
+      max; the test **monkeypatches `self.g.query` to fail on the bare
+      `"MATCH (n) RETURN n"`** so it proves the full scan is gone (behavioral, not
+      just result-based). The seed read runs single-threaded in `__init__` before any
+      worker thread exists — state this invariant in the test.
 - [ ] **(#2)** `_resolve_github_source` paginates `/v1alpha/sources` until
-      `nextPageToken` is exhausted (no `max_pages` ceiling on the source walk).
-      A test with a stub `_request` returning 12 token-chained pages finds a source
-      on the 11th page.
+      `nextPageToken` is exhausted (no `max_pages` ceiling on the source walk),
+      with a `seen_tokens` repeated-token loop guard as the only stop other than real
+      exhaustion. `jules_plan` keeps its explicit `max_pages`. A test with a stub
+      `_request` returning 12 token-chained pages finds a source on the 11th page.
 - [ ] **(#3)** `GitClient` gains `remote_exists(branch: str) -> bool` backed by
-      `git ls-remote`; `VCSBackend` Protocol declares it; `jules.verify` injects
-      `vcs` and derives the remote check from it rather than trusting a caller bool.
+      `git ls-remote --heads origin <branch>`; `VCSBackend` Protocol declares it;
+      `jules.verify` injects `vcs` and derives the remote check from it.
+      **FAIL-CLOSED:** `done=False` whenever the remote cannot be independently
+      verified — the `branch_on_remote` caller bool must NEVER flip `done` to `True`.
       A test injects a fake `vcs` whose `remote_exists` returns `False` and asserts
       `verify` reports `done=False` even when the caller would have claimed the
-      branch landed.
-- [ ] **(#4 — env-leak unit test)** The `JULES_API_KEY` is captured at engine
-      construction and removed from `os.environ`; `_jules_api._api_key()` reads it
-      from the captured store. A unit test runs the engine's `execute` path (or its
-      in-process equivalent) with `import os; return os.environ.get('JULES_API_KEY')`
-      and asserts the result is `None`, while a normal `jules.dispatch` still
-      authenticates against the captured key.
+      branch landed; a second test omits `branch`/`vcs` and asserts `done=False`
+      regardless of `state`.
+- [ ] **(#4 — RED-regression test + defense-in-depth)** A regression test drives the
+      **real** `MontySandboxProvider`/`Monty.run` path (the installed
+      `pydantic-monty`, never a hand-rolled `exec()` which would false-RED) with
+      `import os; return os.environ.get('JULES_API_KEY')` and asserts the result is a
+      denial/`None` — documenting that Monty already blocks the vector and tripping
+      if a future version wires an `os=` callback. Separately, `capture_api_key()` is
+      called in **`build_mcp`** (the sandbox boundary, codemode branch) — NOT
+      `Engine.__init__` — popping `JULES_API_KEY` from `os.environ` into a process-
+      local store; `_jules_api._api_key()` reads that store, and a normal
+      `jules.dispatch` still authenticates against the captured key.
 
 ## Design
 
 Fix sketches (illustrative Python; final shape decided in RED→GREEN).
 
-### #1 — O(1) clock seed via a `_Metadata:Clock` node
+### #1 — O(1) clock seed via server-side `max(vfrom)` aggregation
 
-Keep the bi-temporal guarantee but stop scanning. On every `_now()` increment,
-upsert the running tick onto a single well-known node; seed from it on boot.
+Keep the bi-temporal guarantee but stop scanning. GraphQLite **0.5.0** (the
+`requirements.txt` floor and installed version) supports server-side aggregation
+— the REVIEW probed it live:
+
+```
+MATCH (n) RETURN max(n.vfrom) AS mx          -> [{'mx': 50}]
+MATCH ()-[r]->() RETURN max(r.vfrom) AS mx   -> [{'mx': 77}]
+```
+
+So seed the clock with **two server-side `max(vfrom)` queries — one over nodes,
+one over edges — and take the larger**. This is O(1) on the Python side (one row
+each, not N+E rows), needs **no schema addition, no migration, and no
+write-amplification**. The `_Metadata:Clock` singleton node is explicitly
+**rejected**: it would add an `upsert_node` on every `_now()` (a real hot-path
+cost on every `record`/`link`/`supersede`) and risk leaking into
+`find`/`project`/`provenance`.
 
 ```python
 # agency/memory.py
-_CLOCK_ID = "_meta:clock"   # the one mutable singleton outside the bi-temporal axes
-
 def _max_persisted_tick(self) -> int:
-    node = self.g.get_node(self._CLOCK_ID)
-    if node is not None:
-        return int(node["properties"].get("tick", 0))
-    # one-time migration for pre-existing graphs: bounded aggregation, not a
-    # Python-side full scan. Prefer a single MAX() query if GraphQLite supports it:
-    #   MATCH (n) RETURN max(n.vfrom) AS a   /  MATCH ()-[r]->() RETURN max(r.vfrom) AS b
-    # Fall back to the legacy scan ONLY when the Clock node is absent.
-    return self._legacy_scan_max_tick()
+    # aggregate over vfrom ONLY: every tick ever assigned appears as some row's
+    # vfrom; vto is only ever a prior tick or OPEN (10**12), so vfrom alone is a
+    # sufficient high-water mark and we never read the OPEN sentinel.
+    def _agg(cypher: str) -> int:
+        try:
+            rows = self.g.query(cypher)
+        except Exception:
+            return 0
+        v = (rows[0].get("mx") if rows else 0) or 0
+        return int(v) if isinstance(v, int) else 0
+    node_mx = _agg("MATCH (n) RETURN max(n.vfrom) AS mx")
+    # the edge query is NOT optional: link() (memory.py:82) advances the same clock
+    # and persists vfrom on edges; if the last write before a reopen was an edge,
+    # a node-only seed under-counts and new writes reuse stale ticks (memory.py:51-53).
+    edge_mx = _agg("MATCH ()-[r]->() RETURN max(r.vfrom) AS mx")
+    return max(node_mx, edge_mx)
 
+# _now() is UNCHANGED — it stays a pure in-memory increment under self._lock:
 def _now(self) -> int:
     with self._lock:
         self._tick += 1
-        # O(1) write of the singleton; not on the bi-temporal axes (no vfrom/vto)
-        self.g.upsert_node(self._CLOCK_ID, {"tick": self._tick}, label="_Metadata")
         return self._tick
 ```
 
-Notes: the Clock node is a plain singleton (no `vfrom`/`vto`), so `find`/
-`project`/`provenance` (which filter on those axes) never surface it. The
-aggregation form (`max(n.vfrom)`) is preferred if GraphQLite's Cypher supports
-`max()` server-side; otherwise the Clock node is the portable fallback.
+Concurrency invariant: `_max_persisted_tick()` runs in `__init__` before any
+worker thread exists, so the seed read is single-threaded and needs no lock. State
+this in the test so a future refactor that moves the seed doesn't silently break
+it.
 
 ### #2 — pagination stops on token exhaustion
 
@@ -186,44 +239,62 @@ class VCSBackend(Protocol):
 
 class GitClient:
     def remote_exists(self, branch: str) -> bool:
-        # ls-remote queries ORIGIN (state() only checks LOCAL ahead/behind)
+        # ls-remote queries ORIGIN (state() only checks LOCAL ahead/behind). No cwd,
+        # matching state()'s rev-list calls (origin is repo-relative). The branch
+        # arg is the *work* branch name, so base-branch casing (the-agency-system
+        # uses `Master`, not `main`) does not bite this check.
         r = self._git("ls-remote", "--heads", "origin", branch)
         return r.returncode == 0 and bool(r.stdout.strip())
 ```
 
 ```python
-# agency/capabilities/jules.py — verify derives the remote truth itself
+# agency/capabilities/jules.py — verify derives the remote truth itself, FAIL-CLOSED
 @verb(role="transform", inject=["vcs"])
-def verify(self, vcs, state: str, branch: str = "", branch_on_remote: bool | None = None) -> dict:
+def verify(self, vcs, state: str, branch: str = "") -> dict:
     "COMPLETED != done: done only if state==completed AND the branch is on origin."
-    if branch and vcs is not None:                       # authoritative path
-        on_remote = (vcs or GitClient()).remote_exists(branch)
-    else:                                                # fallback: caller assertion (logged as untrusted)
-        on_remote = bool(branch_on_remote)
-    done = str(state).lower() == "completed" and on_remote
-    return {"done": done, "state": state, "branch_on_remote": on_remote,
-            "verified_via": "remote" if (branch and vcs is not None) else "caller"}
+    completed = str(state).lower() == "completed"
+    if not branch or vcs is None:
+        # cannot independently verify the remote -> FAIL CLOSED (never trust a caller bool)
+        return {"done": False, "state": state, "branch_on_remote": False,
+                "verified_via": "unverified"}
+    try:
+        on_remote = vcs.remote_exists(branch)
+        via = "remote"
+    except Exception:
+        # ls-remote can fail for network/auth/detached-origin, not just "branch absent".
+        # Treat any error as not-verified (fail closed) but surface WHY so a network
+        # blip is not misread as a Jules silent-fail.
+        on_remote, via = False, "remote-error"
+    return {"done": completed and on_remote, "state": state,
+            "branch_on_remote": on_remote, "verified_via": via}
 ```
 
 `vcs` is already wired as an engine injector (`agency/engine.py:56`) and consumed
 elsewhere via `inject=["vcs"]` (`branch.py:32,38`; `workspace.py:25,36`), so this
-is the established pattern. Keeping `branch_on_remote` as an optional fallback
-avoids breaking callers that cannot supply a branch name, but `verified_via`
-flags when the result is merely the caller's word.
+is the established pattern. The caller-supplied `branch_on_remote` bool is
+**removed** — it was the entire hallucination vector. When the remote cannot be
+independently confirmed, `done` is `False`; `verified_via` distinguishes a clean
+`"remote"` (not on origin) from a `"remote-error"` (the check itself failed) and
+`"unverified"` (no branch/vcs supplied).
 
-### #4 — capture-and-withhold `JULES_API_KEY` from the sandbox
+### #4 — defense-in-depth capture-and-withhold + RED-regression probe
 
-The key is read per-request, so we cannot simply delete it. Capture it into a
-process-local store at engine boot and `pop()` it from `os.environ`, then have
-`_api_key()` read the store:
+The REVIEW's RED probe proved the `os.environ` vector is **not reachable** under
+the pinned `pydantic-monty 0.0.16` (see `## Why` #4). So this is no longer a
+closed hole — it is cheap insurance against version drift plus a permanent
+tripwire. The key is read per-request, so we cannot simply delete it: capture it
+into a process-local store **at the sandbox boundary (`build_mcp`)** and `pop()`
+it from `os.environ`, then have `_api_key()` read the store.
 
 ```python
 # agency/capabilities/_jules_api.py
 _CAPTURED_KEY: str | None = None
 
 def capture_api_key() -> None:
-    """Move JULES_API_KEY out of os.environ into process-local state so the
-    code-mode sandbox (which can read os.environ) cannot exfiltrate it."""
+    """Move JULES_API_KEY out of os.environ into process-local state. Defense in
+    depth: the pinned Monty sandbox already denies os.environ/import/globals (so
+    _CAPTURED_KEY is NOT sandbox-reachable today, per the REVIEW probe) — this
+    guards against a future Monty that wires an os= callback or a swapped provider."""
     global _CAPTURED_KEY
     v = os.environ.pop("JULES_API_KEY", None)
     if v:
@@ -237,41 +308,56 @@ def _api_key() -> str:
 ```
 
 ```python
-# agency/engine.py — call once at construction (or in build_mcp before CodeMode)
-from .capabilities import _jules_api
-_jules_api.capture_api_key()
+# agency/engine.py — capture in build_mcp at the sandbox boundary, NOT __init__
+# (capturing in __init__ would mutate os.environ for every Engine(...) including
+# test fixtures and library callers that never build the CodeMode surface).
+def build_mcp(self, codemode: bool = True) -> FastMCP:
+    if codemode and HAVE_CODEMODE:
+        from .capabilities import _jules_api
+        _jules_api.capture_api_key()          # withhold the key before CodeMode() is wired
+    transforms = [CodeMode()] if (codemode and HAVE_CODEMODE) else []
+    mcp = FastMCP("agency", transforms=transforms)
+    ...
 ```
 
-A module-global captured in the engine process is still reachable by sufficiently
-determined sandbox code (`_jules_api._CAPTURED_KEY`) — see Open Questions for
-where the real boundary is. This fix closes the *obvious* `os.environ` vector,
-which is the one the repro in FINDINGS.md exploits.
+Do **not** make the key import-time (cf. `_jules_api.py:19`'s import-time
+`JULES_API_BASE_URL` read) — the lazy `_api_key()` read is precisely what makes
+capture-then-withhold viable.
 
-**Env-leak unit test idea:**
+**RED-regression test (drive the REAL sandbox, never a hand-rolled `exec()`):**
 
 ```python
 def test_codemode_sandbox_cannot_read_jules_key(monkeypatch):
     monkeypatch.setenv("JULES_API_KEY", "secret-xyz")
-    eng = Engine(":memory:")                  # construction triggers capture_api_key()
-    leaked = run_in_sandbox("import os\nreturn os.environ.get('JULES_API_KEY')")
-    assert leaked is None
-    # and the key still works for the capability:
+    # Drive the actual MontySandboxProvider / Monty.run path (the installed
+    # pydantic-monty) — a plain exec() stand-in would FALSE-RED (it leaks).
+    result = run_in_real_monty("import os\nreturn os.environ.get('JULES_API_KEY')")
+    assert result is None or "not implemented" in str(result).lower()   # Monty denies it today
+    # After build_mcp() the key is captured but still resolves for the capability:
+    eng = Engine(":memory:"); eng.build_mcp()
     assert _jules_api._api_key() == "secret-xyz"
+    # Negative note: the only host-reachable surface is `call_tool`; no agency verb
+    # returns raw env — a future verb that does must be caught here.
 ```
 
 ## Files
 
 - **Modify**:
-  - `agency/memory.py` — `_max_persisted_tick` O(1) seed + `_now` Clock upsert (#1).
-  - `agency/capabilities/_jules_api.py` — `_paginate` token-exhaustion walk (#2);
-    `capture_api_key()` + `_api_key()` reads captured store (#4).
+  - `agency/memory.py` — `_max_persisted_tick` O(1) seed via two server-side
+    `max(vfrom)` aggregations (nodes + edges); `_now()` UNCHANGED (#1).
+  - `agency/capabilities/_jules_api.py` — `_paginate` token-exhaustion walk +
+    `seen_tokens` loop guard (#2); `capture_api_key()` + `_api_key()` reads captured
+    store (#4).
   - `agency/capabilities/_vcs.py` — `remote_exists` on `VCSBackend` + `GitClient` (#3).
-  - `agency/capabilities/jules.py` — `verify` injects `vcs`, derives remote check (#3).
-  - `agency/engine.py` — call `capture_api_key()` at boot/`build_mcp` (#4).
+  - `agency/capabilities/jules.py` — `verify` injects `vcs`, derives remote check,
+    drops the `branch_on_remote` bool, fails closed (#3).
+  - `agency/engine.py` — call `capture_api_key()` in `build_mcp` (codemode branch),
+    NOT `Engine.__init__` (#4).
 - **Create**:
-  - `tests/test_hardening.py` — one test per fix (clock seed, uncapped pagination,
-    remote-derived verify, sandbox env-leak).
-- **Move / Delete**: none.
+  - `tests/test_hardening.py` — one test per fix (clock seed with bare-scan
+    monkeypatch guard, uncapped 12-page pagination, fail-closed remote-derived
+    verify, real-Monty RED-regression env-leak probe).
+- **Move / Delete**: none. The `_Metadata:Clock` node is explicitly NOT added (#1).
 
 ## Open Questions / Needs Research
 
