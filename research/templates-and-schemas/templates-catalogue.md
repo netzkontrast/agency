@@ -261,3 +261,49 @@ timestamp: 2024-05-27T10:15:30Z
 **Prompt:** Deploy to production?
 **Response:** YES
 ```
+
+## 9. Authoring
+**Artefact Kind:** `authoring`
+**Fields:** `task`, `files`, `diff`
+```python
+AUTHORING_RECORD = Template(
+    "---\nkind: authoring\ntask: $task\n---\n\n# Files\n$files\n\n## Diff\n```diff\n$diff\n```\n"
+)
+```
+
+## 10. Generic Entry
+**Artefact Kind:** `entry`
+**Fields:** `key`, `value`
+```python
+GENERIC_ENTRY = Template(
+    "---\nkind: entry\nkey: $key\n---\n\n# Value\n$value\n"
+)
+```
+
+## 11. Lint Report
+**Artefact Kind:** `lint`
+**Fields:** `source`, `issues`
+*(Re-uses RED_FLAGS template structure)*
+```python
+LINT_REPORT = Template(
+    "---\nkind: lint\nsource: $source\n---\n\n# Issues Found\n$issues\n"
+)
+```
+
+## 12. Component Manifest
+**Artefact Kind:** `manifest`
+**Fields:** `components`
+```python
+COMPONENT_MANIFEST = Template(
+    "---\nkind: manifest\n---\n\n# Components\n$components\n"
+)
+```
+
+## 13. Rationalizations
+**Artefact Kind:** `rationalizations`
+**Fields:** `items`
+```python
+RATIONALIZATIONS_LIST = Template(
+    "---\nkind: rationalizations\n---\n\n# Items\n$items\n"
+)
+```

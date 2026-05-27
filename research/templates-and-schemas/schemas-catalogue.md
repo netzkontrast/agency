@@ -16,6 +16,11 @@ REQUIRED.update({
     "rationalization-table": ["target", "rule", "rationalization", "verdict"],
     "red-flags": ["source", "issues"],
     "user-confirmed": ["prompt", "response", "timestamp"],
+    "authoring": ["task", "files", "diff"],
+    "entry": ["key", "value"],
+    "lint": ["source", "issues"],
+    "manifest": ["components"],
+    "rationalizations": ["items"],
 })
 ```
 
@@ -26,7 +31,7 @@ A verb (`act`) uses the **Template** to structurally compile the raw text or JSO
 
 These schema extensions decorate the Python verb functions to make `get_schema` fully self-documenting to standard MCP clients, substituting pure `dict` strings with parameter descriptions, enums, and explicit shapes.
 
-### `develop.baseline`
+### `workspace.baseline`
 *Current:* `def baseline(self, vcs, workspace: str, command: str) -> dict:`
 *Proposed Enriched Schema:*
 ```json
@@ -79,7 +84,7 @@ These schema extensions decorate the Python verb functions to make `get_schema` 
 }
 ```
 
-### `develop.assess`
+### `branch.assess`
 *Current:* `def assess(self, vcs, branch: str, base: str = "main") -> dict:`
 *Proposed Enriched Schema:*
 ```json
