@@ -1,0 +1,410 @@
+---
+spec_id: 007
+slug: music-domain-capability
+status: draft
+owner: "@agency"
+depends_on: [001, 002]
+affects:
+  - examples/music.py
+  - examples/music_drivers.py
+  - examples/test_music_capability.py
+source-repos:
+  - "https://github.com/bitwize-music-studio/claude-ai-music-skills.git @ v0.91.0 (SHA b4b70dbfa2e24e3b86ec3d6cbec4e9bf1baddfaf)"
+estimated_jules_sessions: 5
+domain: music
+wave: 2
+---
+
+> **Jules: read `Plan/JULES_PROTOCOL.md` before starting.** Run gates 1→4 in order:
+> (1) Confidence ≥ 0.90, (2) TDD Red-Green-Refactor, (3) Evidence pasted under `## Evidence`, (4) Self-Review answered.
+> Branch: `claude/extract-agency-plugin-o4JRc`. Only modify paths under `affects:` below.
+> Source repos under `source-repos:` are clone-and-read-only into `~/work/vendor/`; never commit them.
+> If anything is ambiguous, open a draft PR labelled `[BLOCKED: clarification]` and stop — do not guess.
+
+# Spec 007 — Music Domain Capability (the bitwize-music replacement)
+
+## Why
+
+[`bitwize-music`](https://github.com/bitwize-music-studio/claude-ai-music-skills)
+(v0.91.0) ships **89 distinct MCP tools** plus a stack of slash-command skills,
+across one FastMCP server (`servers/bitwize-music-server/handlers/`) organised
+into eleven handler modules: `streaming`, `skills`, `text_analysis`, `promo`,
+`database`, `lyrics_analysis`, `rename`, `processing/mixing`,
+`processing/video`, `processing/audio`, and `album_ops`. It is a flat,
+hand-wired tool surface: every handler is its own `@mcp.tool`, every workflow
+guard-rail lives in skill prose, and there is no provenance — a mastering run,
+a plagiarism scan, and a tweet insert leave no shared trace.
+
+Agency already proves the replacement shape with `examples/music.py` (the
+album-conceptualizer demo: one `act` verb + an `OntologyExtension` carrying the
+`Album` node, the `album type` enum, the 7-phase `album-concept` skill). This
+spec **completes that demo into a full counterpart** so the entire bitwize
+surface can be retired:
+
+- **89 tools collapse to one capability** that self-registers by reflection and
+  auto-wires one MCP tool per verb (no per-tool boilerplate — the engine's
+  `_wire` does it). Code-mode IS the contract: `search` finds a verb,
+  `get_schema` discloses its signature, `execute` runs it and records an
+  `Invocation` that `SERVES` the intent.
+- **Side-effecting tool-clusters plug in via the Boundary/Driver protocol**
+  from Spec 001 — `AudioDriver`, `TextDriver`, `DBDriver`, `StateDriver`,
+  `CloudDriver` are injected (exactly as `jules` injects `JulesBackend` on
+  `ctx.client`). The verb stays pure and testable; production binds the real
+  driver, tests bind a deterministic fake. This is why this spec **depends on
+  001** (ToolResult / Boundary / Driver / TypedError) **and 002**
+  (manifest-and-marketplace / OntologyExtension contract).
+- **Every verb returns a Spec-001 `ToolResult`** (`ok / data / warnings /
+  next_suggested_tools / error`), so the engine wraps a uniform envelope and a
+  failed master or a blocked gate is typed (`GATE_FAILED`,
+  `DEPENDENCY_MISSING`) rather than a stringly-typed raise.
+- **Workflow guard-rails become real `gate` calls and walkable skills**, not
+  prose. bitwize's `run_pre_generation_gates` (8 gates) and the release QA gate
+  map onto the `gate` capability (`gate.check` → PASSED / BLOCKED_ON + an
+  `input-required` pause) and onto `OntologyExtension.skills` phase-graphs
+  (like the existing `album-concept`), so a hard gate halts the lifecycle the
+  same way `album-concept` Phase 7 does today.
+
+The deliverable lives in `examples/` (not core `agency/capabilities/`) per the
+repo's standing rule that domain capabilities are out-of-tree extensions loaded
+via `Engine(..., extra_capabilities=[…])`, keeping the bootstrap harness minimal
+while proving the contract end-to-end. See **Open Questions** for the core-vs-
+example escalation.
+
+## Done When
+
+- [ ] `examples/music.py` defines a `MusicCapability(CapabilityBase)` whose
+      verbs cover all 89 bitwize tools per the migration map below — either as a
+      verb, an internal driver method, or an explicitly-deferred gated skill /
+      out-of-scope item (no tool silently dropped; every row accounted for).
+- [ ] Verbs are role-tagged `act` / `transform` / `effect` and grouped into the
+      **eight clusters** in the table below.
+- [ ] Side-effecting clusters reach their work through injected drivers
+      (`AudioDriver`, `TextDriver`, `DBDriver`, `StateDriver`, `CloudDriver`)
+      typed as Spec-001 `Boundary`/`Driver` protocols in
+      `examples/music_drivers.py`. No verb shells out to `ffmpeg`/AnthemScore/R2
+      directly; it calls `self.ctx.<driver>` (or `self.ctx.client` for the
+      primary driver, per the jules pattern).
+- [ ] Every verb returns a Spec-001 `ToolResult`. `act` verbs that produce a
+      document set `data["artefact"]` so the Registry records a `PRODUCES` edge
+      (matching `examples/music.py:conceptualize` today).
+- [ ] `MusicCapability.ontology` is an `OntologyExtension` carrying: the
+      `Album` and `Track` nodes (extended with the fields the verbs read/write —
+      `status`, `genre`, `slug`, `target_lufs`, …), the closed enums
+      (`(Album,status)`, `(Album,type)` reusing today's `ALBUM_TYPES`,
+      `(Track,status)`), a `Tweet`/`Idea`/`SheetMusic` node, the
+      `pre-generation` and `release-qa` gated skill phase-graphs, and the
+      artefact schemas (`album-concept` (kept), `promo-copy`, `mastering-report`,
+      `lyric-report`). Merged STRICTLY onto core (`Ontology.extend`).
+- [ ] The existing `conceptualize` act verb and the `album-concept` skill are
+      **preserved** (the spec extends, does not regress the demo).
+- [ ] `examples/test_music_capability.py` proves, with fake drivers: (a)
+      `MusicCapability.as_capability()` discovers all verbs; (b) each cluster's
+      representative verb returns a well-formed `ToolResult`; (c) a transform
+      verb (`count_syllables`) is deterministic and driver-free; (d) an effect
+      verb (`master_album`) routes through the injected `AudioDriver` fake and
+      records an `Invocation`; (e) a failed `pre-generation` gate returns
+      `ToolResult(ok=False, error=GATE_FAILED)` and pauses the lifecycle via
+      `gate.check`; (f) the ontology merges cleanly onto core with no strict-
+      schema collision.
+- [ ] Loading `Engine(path, extra_capabilities=[MusicCapability.as_capability()])`
+      registers the capability and merges its ontology without error (same path
+      `examples/music.py` already exercises).
+
+## Design
+
+### Driver clusters (the Boundary/Driver layer — Spec 001)
+
+bitwize's 89 tools split cleanly along the axis of *what external surface they
+touch*. Each surface is one Spec-001 `Driver` (a `Protocol`), injected on the
+`CapabilityContext` exactly as the engine injects the Jules backend as
+`ctx.client` today (`engine.py:55`). The verb is pure; the driver is the only
+thing that knows about `ffmpeg`, `librosa`, SQLite, the markdown state tree, or
+Cloudflare R2 — so tests bind fakes and CI needs no audio binaries.
+
+| Driver | Boundary it owns | Real backend | bitwize handler modules |
+|---|---|---|---|
+| `StateDriver` | the album/track markdown state tree + cache + path resolution + config + session | filesystem + state cache | `album_ops`, `rename`, session/config/health helpers |
+| `TextDriver` | pure text/lyric analysis (no I/O) | stdlib + `pronouncing`/`textstat` | `text_analysis`, `lyrics_analysis` |
+| `AudioDriver` | WAV analysis, mix/master/QC, video render, sheet-music transcription | `ffmpeg`/`librosa`/`pyloudnorm`/AnthemScore | `processing/audio`, `processing/mixing`, `processing/video` |
+| `DBDriver` | the tweet/promo SQLite database | SQLite (`sqlite3`) | `database` |
+| `CloudDriver` | streaming-URL checks + R2 publishing | `httpx` + boto3/R2 | `streaming`, `publish_sheet_music` |
+
+`StateDriver` is the **primary** driver and surfaces on `ctx.client` (the jules
+pattern). The other four are added as named injectors in the engine's
+`registry.injectors` map (`audio`, `text`, `db`, `cloud`) and reached via
+`@verb(inject=["ctx", "audio"])` etc., or via thin `self.ctx.driver("audio")`
+accessors — mirroring how `_vcs` is injected as `vcs`. (Spec 001 introduces a
+`DriverRegistry`; if it lands, the injectors route through it. See Open Q.)
+
+### The eight verb clusters (roles)
+
+Roles per the model: **act** = craft write that produces an artefact;
+**transform** = stateless pure compute; **effect** = external side-effect.
+
+| # | Cluster | Verbs (agency names) | Role(s) | Driver |
+|---|---|---|---|---|
+| 1 | **concept** (kept demo) | `conceptualize` | act | — (pure render) |
+| 2 | **catalog** (album/track/idea CRUD + read) | `create_album`, `create_track`, `create_idea`, `promote_idea`, `update_idea`, `rename_album`, `rename_track`, `update_album_status`, `update_track_field`, `list_albums`, `list_tracks`, `list_track_files`, `find_album`, `get_track`, `get_album_full`, `get_album_progress`, `get_ideas`, `resolve_track_file`, `extract_section`, `format_for_clipboard` | act (writes) / transform (reads) | StateDriver |
+| 3 | **state** (session/cache/config/path/health) | `get_session`, `update_session`, `rebuild_state`, `get_config`, `get_python_command`, `resolve_path`, `load_override`, `get_reference`, `get_plugin_version`, `check_venv_health`, `health_check`, `diagnose`, `cleanup_legacy_venvs`, `migrate_audio_layout`, `prune_archival`, `search`, `get_pending_verifications`, `extract_links`, `list_skills`, `get_skill` | transform (reads) / effect (cache/venv/fs mutation) | StateDriver |
+| 4 | **lyric** (text analysis, all pure) | `count_syllables`, `analyze_readability`, `analyze_rhyme_scheme`, `validate_section_structure`, `check_homographs`, `scan_artist_names`, `check_explicit_content`, `extract_distinctive_phrases`, `get_lyrics_stats`, `check_cross_track_repetition`, `check_pronunciation_enforcement`, `check_streaming_lyrics` | transform | TextDriver (or none — most are stdlib-pure) |
+| 5 | **audio** (analyze/mix/master/QC) | `analyze_audio`, `analyze_mix_issues`, `qc_audio`, `mono_fold_check`, `polish_audio`, `polish_album`, `master_audio`, `master_album`, `master_with_reference`, `polish_and_master_album`, `fix_dynamic_track`, `reset_mastering`, `render_codec_preview`, `measure_album_signature`, `album_coherence_check`, `album_coherence_correct` | effect (mastering writes WAVs) / transform (analyze/QC read-only) | AudioDriver |
+| 6 | **media** (video + sheet music) | `generate_promo_videos`, `generate_album_sampler`, `transcribe_audio`, `prepare_singles`, `create_songbook` | effect | AudioDriver |
+| 7 | **promo** (tweet DB + promo copy + cloud) | `db_init`, `db_sync_album`, `db_create_tweet`, `db_update_tweet`, `db_delete_tweet`, `db_list_tweets`, `db_search_tweets`, `db_get_tweet_stats`, `get_promo_status`, `get_promo_content`, `get_streaming_urls`, `update_streaming_url`, `verify_streaming_urls`, `publish_sheet_music` | effect (writes/network) / transform (reads) | DBDriver, CloudDriver |
+| 8 | **gates** (validation → gate/skill) | `run_pre_generation_gates`, `validate_album_structure`, `validate_section_structure`*, `create_album_structure` | act (records gate outcomes / scaffolds) | StateDriver + `gate` |
+
+\* `validate_section_structure` is pure text → also reachable from cluster 4;
+it is listed once as a verb and the gate skill calls it.
+
+### Verbs vs internal driver methods vs gated skills
+
+- **Verbs (auto-wired MCP tools):** every row in the cluster table above. One
+  agency verb per bitwize tool except where bitwize split one operation across
+  several tools that compose into a pipeline (see "pipelines" below).
+- **Internal driver methods (NOT verbs, no MCP tool):** the *primitive steps*
+  bitwize never exposed as separate tools but that the drivers need —
+  `AudioDriver.read_loudness()`, `AudioDriver.apply_limiter()`,
+  `StateDriver.read_markdown()`, `StateDriver.write_field()`,
+  `DBDriver.connect()`, `CloudDriver.head()`. These are driver-internal; the
+  verb orchestrates them. This is where the `ffmpeg`/`librosa` calls live so
+  they are mockable.
+- **Pipeline verbs (one verb wraps a bitwize multi-step chain):**
+  `master_album` already *is* a pipeline in bitwize (analyze→QC→master→verify→
+  update-status); we keep it as one `effect` verb that the AudioDriver executes
+  step-wise and the verb records as a single Invocation. `polish_and_master_album`
+  and `polish_album` likewise stay single pipeline verbs.
+- **Gated skills (walkable phase-graphs in the OntologyExtension, NOT one
+  tool):** bitwize's *workflow chains* (the pre-generation chain and the
+  pre-release chain from `the-agency-system/CLAUDE.md`) become
+  `OntologyExtension.skills` entries the engine's skill-walker advances one
+  phase at a time, with `gate: "hard"` phases — exactly like the existing
+  `album-concept` skill. `run_pre_generation_gates` becomes the `pre-generation`
+  skill whose final phase is a hard `gate.check`; the release QA becomes the
+  `release-qa` skill. The individual checks (`check_explicit_content`,
+  `scan_artist_names`, `check_pronunciation_enforcement`, …) remain callable
+  transform verbs that the skill phases `invoke:` (the `plugin.py`
+  skill→verb `invoke` binding pattern).
+
+### Full bitwize-tool → agency-verb migration map (all 89, nothing dropped)
+
+| # | bitwize tool | agency verb | driver | role | disposition |
+|---|---|---|---|---|---|
+| 1 | `create_album_structure` | `create_album` | StateDriver | act | verb (cluster 8/2) |
+| 2 | `create_track` | `create_track` | StateDriver | act | verb |
+| 3 | `create_idea` | `create_idea` | StateDriver | act | verb |
+| 4 | `update_idea` | `update_idea` | StateDriver | act | verb |
+| 5 | `promote_idea` | `promote_idea` | StateDriver | act | verb |
+| 6 | `get_ideas` | `get_ideas` | StateDriver | transform | verb |
+| 7 | `rename_album` | `rename_album` | StateDriver | act | verb |
+| 8 | `rename_track` | `rename_track` | StateDriver | act | verb |
+| 9 | `update_album_status` | `update_album_status` | StateDriver | act | verb |
+| 10 | `update_track_field` | `update_track_field` | StateDriver | act | verb |
+| 11 | `list_albums` | `list_albums` | StateDriver | transform | verb |
+| 12 | `list_tracks` | `list_tracks` | StateDriver | transform | verb |
+| 13 | `list_track_files` | `list_track_files` | StateDriver | transform | verb |
+| 14 | `find_album` | `find_album` | StateDriver | transform | verb |
+| 15 | `get_track` | `get_track` | StateDriver | transform | verb |
+| 16 | `get_album_full` | `get_album_full` | StateDriver | transform | verb |
+| 17 | `get_album_progress` | `get_album_progress` | StateDriver | transform | verb |
+| 18 | `resolve_track_file` | `resolve_track_file` | StateDriver | transform | verb |
+| 19 | `extract_section` | `extract_section` | StateDriver | transform | verb |
+| 20 | `format_for_clipboard` | `format_for_clipboard` | StateDriver | transform | verb |
+| 21 | `get_session` | `get_session` | StateDriver | transform | verb |
+| 22 | `update_session` | `update_session` | StateDriver | effect | verb |
+| 23 | `rebuild_state` | `rebuild_state` | StateDriver | effect | verb |
+| 24 | `get_config` | `get_config` | StateDriver | transform | verb |
+| 25 | `get_python_command` | `get_python_command` | StateDriver | transform | verb |
+| 26 | `resolve_path` | `resolve_path` | StateDriver | transform | verb |
+| 27 | `load_override` | `load_override` | StateDriver | transform | verb |
+| 28 | `get_reference` | `get_reference` | StateDriver | transform | verb |
+| 29 | `get_plugin_version` | `get_plugin_version` | StateDriver | transform | verb |
+| 30 | `check_venv_health` | `check_venv_health` | StateDriver | transform | verb (see Open Q: venv concept is bitwize-specific) |
+| 31 | `health_check` | `health_check` | StateDriver | transform | verb |
+| 32 | `diagnose` | `diagnose` | StateDriver | transform | verb |
+| 33 | `cleanup_legacy_venvs` | `cleanup_legacy_venvs` | StateDriver | effect | verb (likely out-of-scope — see Open Q) |
+| 34 | `migrate_audio_layout` | `migrate_audio_layout` | StateDriver | effect | verb |
+| 35 | `prune_archival` | `prune_archival` | StateDriver | effect | verb |
+| 36 | `search` | `search` | StateDriver | transform | verb (domain FTS; distinct from engine `search`) |
+| 37 | `get_pending_verifications` | `get_pending_verifications` | StateDriver | transform | verb |
+| 38 | `extract_links` | `extract_links` | StateDriver | transform | verb |
+| 39 | `list_skills` | `list_skills` | StateDriver | transform | verb (see Open Q: overlaps engine `help`/`plugin.help`) |
+| 40 | `get_skill` | `get_skill` | StateDriver | transform | verb (overlaps `develop.reference`) |
+| 41 | `count_syllables` | `count_syllables` | TextDriver | transform | verb |
+| 42 | `analyze_readability` | `analyze_readability` | TextDriver | transform | verb |
+| 43 | `analyze_rhyme_scheme` | `analyze_rhyme_scheme` | TextDriver | transform | verb |
+| 44 | `validate_section_structure` | `validate_section_structure` | TextDriver | transform | verb (also a gate-skill step) |
+| 45 | `check_homographs` | `check_homographs` | TextDriver | transform | verb |
+| 46 | `scan_artist_names` | `scan_artist_names` | TextDriver | transform | verb |
+| 47 | `check_explicit_content` | `check_explicit_content` | TextDriver | transform | verb |
+| 48 | `extract_distinctive_phrases` | `extract_distinctive_phrases` | TextDriver | transform | verb |
+| 49 | `get_lyrics_stats` | `get_lyrics_stats` | TextDriver | transform | verb |
+| 50 | `check_cross_track_repetition` | `check_cross_track_repetition` | TextDriver+StateDriver | transform | verb |
+| 51 | `check_pronunciation_enforcement` | `check_pronunciation_enforcement` | TextDriver+StateDriver | transform | verb |
+| 52 | `check_streaming_lyrics` | `check_streaming_lyrics` | TextDriver+StateDriver | transform | verb |
+| 53 | `analyze_audio` | `analyze_audio` | AudioDriver | transform | verb |
+| 54 | `analyze_mix_issues` | `analyze_mix_issues` | AudioDriver | transform | verb |
+| 55 | `qc_audio` | `qc_audio` | AudioDriver | transform | verb |
+| 56 | `mono_fold_check` | `mono_fold_check` | AudioDriver | effect | verb (writes audio) |
+| 57 | `polish_audio` | `polish_audio` | AudioDriver | effect | verb |
+| 58 | `polish_album` | `polish_album` | AudioDriver | effect | pipeline verb |
+| 59 | `master_audio` | `master_audio` | AudioDriver | effect | verb |
+| 60 | `master_album` | `master_album` | AudioDriver | effect | pipeline verb |
+| 61 | `master_with_reference` | `master_with_reference` | AudioDriver | effect | verb |
+| 62 | `polish_and_master_album` | `polish_and_master_album` | AudioDriver | effect | pipeline verb |
+| 63 | `fix_dynamic_track` | `fix_dynamic_track` | AudioDriver | effect | verb |
+| 64 | `reset_mastering` | `reset_mastering` | AudioDriver/StateDriver | effect | verb (removes subfolders) |
+| 65 | `render_codec_preview` | `render_codec_preview` | AudioDriver | effect | verb |
+| 66 | `measure_album_signature` | `measure_album_signature` | AudioDriver | transform | verb |
+| 67 | `album_coherence_check` | `album_coherence_check` | AudioDriver | transform | verb |
+| 68 | `album_coherence_correct` | `album_coherence_correct` | AudioDriver | effect | verb |
+| 69 | `generate_promo_videos` | `generate_promo_videos` | AudioDriver | effect | verb |
+| 70 | `generate_album_sampler` | `generate_album_sampler` | AudioDriver | effect | verb |
+| 71 | `transcribe_audio` | `transcribe_audio` | AudioDriver | effect | verb (AnthemScore — see Open Q) |
+| 72 | `prepare_singles` | `prepare_singles` | AudioDriver | effect | verb |
+| 73 | `create_songbook` | `create_songbook` | AudioDriver | effect | verb |
+| 74 | `db_init` | `db_init` | DBDriver | effect | verb |
+| 75 | `db_sync_album` | `db_sync_album` | DBDriver+StateDriver | effect | verb |
+| 76 | `db_create_tweet` | `db_create_tweet` | DBDriver | effect | verb |
+| 77 | `db_update_tweet` | `db_update_tweet` | DBDriver | effect | verb |
+| 78 | `db_delete_tweet` | `db_delete_tweet` | DBDriver | effect | verb |
+| 79 | `db_list_tweets` | `db_list_tweets` | DBDriver | transform | verb |
+| 80 | `db_search_tweets` | `db_search_tweets` | DBDriver | transform | verb |
+| 81 | `db_get_tweet_stats` | `db_get_tweet_stats` | DBDriver | transform | verb |
+| 82 | `get_promo_status` | `get_promo_status` | StateDriver | transform | verb |
+| 83 | `get_promo_content` | `get_promo_content` | StateDriver | transform | verb |
+| 84 | `get_streaming_urls` | `get_streaming_urls` | StateDriver | transform | verb |
+| 85 | `update_streaming_url` | `update_streaming_url` | StateDriver | act | verb |
+| 86 | `verify_streaming_urls` | `verify_streaming_urls` | CloudDriver | effect | verb (network HEAD) |
+| 87 | `publish_sheet_music` | `publish_sheet_music` | CloudDriver | effect | verb (R2 — see Open Q) |
+| 88 | `run_pre_generation_gates` | `pre-generation` skill (gate-walk) + `run_pre_generation_gates` verb | StateDriver+`gate` | act | gated skill + verb shim |
+| 89 | `validate_album_structure` | `validate_album_structure` | StateDriver | act | verb (feeds `release-qa` skill) |
+
+**Provenance bonus (no bitwize equivalent):** every verb above records an
+`Invocation` `SERVES`→intent; `act` verbs that emit a document (`promo-copy`,
+`mastering-report`, `lyric-report`) also record a `PRODUCES` edge. A release
+audit — "show me every master, QC pass, and tweet for this album" — is one
+`memory_graph_provenance(intent_id)` traversal, which bitwize cannot do.
+
+### Gated-skill mapping (bitwize chains → agency `gate` + skills)
+
+| bitwize workflow | agency mechanism | hard gate? |
+|---|---|---|
+| `run_pre_generation_gates` (8 gates: sources, lyrics, pronunciation, explicit, style box, artist names, …) | `pre-generation` skill in `OntologyExtension.skills`; phases `invoke:` the transform verbs (`check_explicit_content`, `scan_artist_names`, `check_pronunciation_enforcement`); final phase `gate: "hard"` → `gate.check(passed=…)` | yes (final) |
+| pre-release chain / release-director 9-domain QA | `release-qa` skill; phases invoke `validate_album_structure`, `qc_audio`, `check_streaming_lyrics`, `extract_distinctive_phrases`; final hard gate | yes (final) |
+| album-conceptualizer Phase 7 confirmation | already the `album-concept` skill's hard gate (kept) | yes (kept) |
+
+The pattern is identical to `plugin.py`'s `SKILL_CREATION_SKILL` (phases bound
+to `invoke: {capability, verb}`) and `examples/music.py`'s `ALBUM_CONCEPT_SKILL`
+(hard gate on the final phase).
+
+## Files
+
+- **Create**:
+  - `examples/music_drivers.py` — the five `Boundary`/`Driver` protocols
+    (`StateDriver`, `TextDriver`, `AudioDriver`, `DBDriver`, `CloudDriver`) +
+    their default real backends (lazy-importing `ffmpeg`/`librosa`/`sqlite3`/
+    `httpx` only when called, so import never fails in CI) + deterministic fakes
+    for tests. Models the `jules.py` `JulesBackend`/`JulesClient` split.
+  - `examples/test_music_capability.py` — the Done-When tests, using fake
+    drivers; no audio binaries required.
+- **Modify**:
+  - `examples/music.py` — keep `conceptualize` + `ALBUM_CONCEPT_SKILL`; add the
+    eight clusters' verbs (role-tagged), the expanded `OntologyExtension`
+    (nodes/enums/skills/schemas), and the driver-accessor plumbing
+    (`@verb(inject=[...])` or `self.ctx.driver(name)`).
+- **Out of this spec (Open Questions / follow-ups, not edited here)**:
+  - `agency/engine.py` would need to register the four extra injectors
+    (`audio`/`text`/`db`/`cloud`) for the drivers to surface — this is the one
+    place an `examples/` capability touches core. If Spec 001's `DriverRegistry`
+    lands, that becomes the wiring point instead and engine stays untouched. See
+    Open Q #2. (Listed in `affects:` only if the team chooses the engine route.)
+
+## Open Questions / Needs Research
+
+1. **Core vs. example.** Does Agency want the full 89-tool surface in core
+   (`agency/capabilities/music.py`, like the catalogue's `music-001` draft
+   proposed) or as an out-of-tree example extension (`examples/music.py`, this
+   spec's default per the repo's standing rule that domain capabilities live in
+   `examples/`)? The catalogue row says `agency/capabilities/music.py`; the
+   live CLAUDE.md and current demo say `examples/`. **This spec assumes
+   `examples/` and flags the conflict.** Resolving it changes the `affects:`
+   paths only, not the design.
+
+2. **Driver injection point.** Today only two boundaries are injected
+   (`client`=jules, `vcs`). The four new drivers (`audio`/`text`/`db`/`cloud`)
+   need either (a) new entries in `engine.py:registry.injectors`, or (b) the
+   `DriverRegistry` from Spec 001's PROPOSAL (`ctx.drivers.get("audio")`). If
+   001 shipped the registry, this is free and engine.py is untouched; if not,
+   this spec must touch engine.py (the one core edit). **Confirm 001's final
+   shape before coding.**
+
+3. **Audio/binary dependencies out of scope?** `analyze_audio`, the entire
+   `master_*`/`polish_*` family, `*_video`, `transcribe_audio` (AnthemScore is a
+   paid GUI/CLI), and `publish_sheet_music` (Cloudflare R2 creds) require heavy
+   non-Python binaries and external accounts. The verbs are mapped and the
+   `AudioDriver`/`CloudDriver` protocols defined, but should the *default* real
+   backends be (a) implemented, (b) shipped as no-op stubs that return
+   `ToolResult(ok=False, error=DEPENDENCY_MISSING)` with install guidance, or
+   (c) declared out-of-scope and left to a follow-up audio spec? **Recommend
+   (b)** so the surface is complete and testable without binaries; tests use
+   fakes regardless.
+
+4. **Gate granularity.** bitwize's `run_pre_generation_gates` runs 8 checks in
+   one call and returns pass/fail per gate. Mapping to `gate.check` (one
+   PASSED/BLOCKED_ON edge per call) means either 8 `gate.check` calls inside the
+   `pre-generation` skill (fine-grained provenance, more edges) or one aggregate
+   `gate.check` after the 8 transform checks. Which granularity does the team
+   want recorded in Memory?
+
+5. **Overlap with existing core capabilities.** `list_skills`/`get_skill`
+   overlap `plugin.help` + `develop.reference`; bitwize `search` overlaps the
+   engine's public `search`; `health_check`/`diagnose`/`check_venv_health`/
+   `cleanup_legacy_venvs` are bitwize-venv-specific and may be wholly obsolete
+   once the plugin is one Agency engine (no per-tool venvs). Keep as thin
+   domain verbs, delegate to the core capability via `ctx.call`, or drop? (#30,
+   #33, #36, #39, #40 in the map.)
+
+6. **`StateDriver` storage model.** bitwize's state is a markdown tree + a
+   cache. Agency has the bi-temporal graph (Memory). Should albums/tracks be
+   (a) mirrored into Memory nodes (`Album`/`Track`) as the source of truth
+   (graph-native, provenance for free), (b) kept on the filesystem with the
+   driver reading/writing markdown (1:1 with bitwize, easiest migration), or
+   (c) dual-written? Spec 002's ontology contract and a future state-migration
+   spec (`019-state-migration-from-bitwize` in the research) decide this.
+
+## Evidence
+
+- `/home/user/agency/research/capability-specs/specs/music.md` — the 89-tool
+  inventory (source of truth for the counterpart surface) and the eleven
+  handler-module names (line 113).
+- `/home/user/agency/research/capability-specs/capability-catalogue.md:20-21` —
+  `bitwize-music → music capability` (missing) and `sheet-music-rename →
+  music.rename verb` (missing).
+- `/home/user/agency/research/capability-specs/FINDINGS.md:20-21` — the
+  bitwize-music gap: "Need to draft a `music` spec stub that maps these handlers
+  … into Agency ontology fragments and verbs."
+- `/home/user/agency/examples/music.py` — the demo this spec extends:
+  `conceptualize` act verb, `ALBUM_TYPES` enum, `ALBUM_CONCEPT_SKILL` 7-phase
+  hard-gated skill, `music_ontology` `OntologyExtension`.
+- `/home/user/agency/agency/capability.py:84-123` — `@verb` decorator + role
+  tags + `CapabilityBase.as_capability()` reflection compile; `:36-81` —
+  `CapabilityContext` (`ctx.client`, `ctx.call`, `ctx.record`, `ctx.link`).
+- `/home/user/agency/agency/capabilities/plugin.py:134-180` — a real multi-verb
+  capability with skill→verb `invoke` bindings and an `OntologyExtension`
+  carrying nodes/skills/schemas (the structural template for this spec).
+- `/home/user/agency/agency/capabilities/jules.py:25-77` — the Boundary/Driver
+  injection pattern: `JulesBackend` Protocol + `JulesClient` default,
+  `self.ctx.client or JulesClient()`.
+- `/home/user/agency/agency/capabilities/gate.py:20-32` — `gate.check`:
+  PASSED / BLOCKED_ON + `input-required` pause — the target for bitwize's
+  workflow gates.
+- `/home/user/agency/agency/engine.py:40-56` — boundary injection
+  (`registry.injectors = {"client": …, "vcs": …}`) and `extra_capabilities`
+  extension point; `:61-89` — `_wire` auto-wiring one MCP tool per verb.
+- `/home/user/agency/research/oo-architecture/spec.md` (Spec 001, status done) +
+  `/home/user/agency/research/oo-architecture/PROPOSAL.md:5-83` — the
+  `ToolResult` envelope, the `Boundary`/`Driver`/`DriverRegistry` protocols, and
+  `TypedError`/`ErrorType` this spec returns and plugs into (the depends_on=001
+  basis). bitwize cited there as the motivating "pipeline scaling" case
+  (PROPOSAL.md:47).
+- `/home/user/agency/agency/ontology.py:60-111` — `OntologyExtension`
+  (nodes/edges/enums/skills/schemas/templates) + strict `extend()` merge.
