@@ -37,7 +37,7 @@ The Agency FastMCP plugin PR1 implements the core four-concept model over a bi-t
 3. **Provenance trust gap:** `jules.verify` (`agency/capabilities/jules.py`) accepts a `branch_on_remote` boolean from the caller instead of independently verifying it via the `VCSBackend`. This violates the principle established in `Plan/JULES_PROTOCOL.md` §8 that completion cannot be trusted without remote evidence.
 4. **Jules API pagination cap:** `_paginate` in `agency/capabilities/_jules_api.py` hardcodes `max_pages=10`, blocking users with >1000 repositories from correctly resolving their github sources.
 
-Furthermore, ingestion of the referenced vendor plugins (bitwize-music, SuperClaude, and superpowers) highlights that relying strictly on the unified MCP surface requires every tool and script in these domains to be correctly mapped and registered. The `hardening-spec.md` establishes the baseline fixes, while subsequent specs will need to address the structural mapping of the ~90 tools in bitwize-music (e.g. `get_streaming_urls`, `list_skills`, `check_explicit_content`, `db_init`, `analyze_audio`), and the extensive references, config, and script tooling inside SuperClaude and superpowers.
+This hardening spec is scoped to the four core risks above. The structural mapping of the ~90 bitwize-music tools and the SuperClaude/superpowers tooling is **out of scope here** — that inventory is owned by `research/capability-specs/` (see `specs/music.md` for the full bitwize tool list), not the red-team hardening work.
 
 ## Done When
 
