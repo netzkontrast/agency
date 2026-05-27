@@ -39,7 +39,7 @@ Shipped capabilities:
 | Capability | Role(s) | What |
 |---|---|---|
 | `plugin` | act/transform | Develop plugins: scaffold manifest, author skill/command, marketplace entry, lint skills (CSO rules), help |
-| `jules` | effect/transform | Dispatch real remote async Jules sessions; `COMPLETED ≠ done` `verify` |
+| `jules` | effect/transform | Full remote Jules session lifecycle: `dispatch` · read (`status`/`list`/`activities`/`plan`) · drive (`approve_plan`/`message`) · `COMPLETED ≠ done` `verify` · `stop` (documents the API's no-cancel) |
 | `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`recall`/`search`) |
 | `develop` | transform | The dev-workflow disciplines as walkable agency skills (brainstorm · plan · tdd · debug · verify · spec-panel · review · execute); `checklist` returns a discipline's steps, `reference` carries heavy how-to on demand |
 | `skill_generator` | act | Compose `plugin.author_skill` + `lint_skill` into one deploy-ready-skill verb |

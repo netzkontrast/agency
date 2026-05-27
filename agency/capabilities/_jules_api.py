@@ -168,3 +168,132 @@ def jules_get(session_id: str) -> dict:
         "url": s.get("url", ""),
         "has_outputs": bool(s.get("outputs")),
     }
+
+
+def jules_list(page_size: int = 20, page_token: str = "") -> dict:
+    """List sessions on the account, trimmed to {id,state,title,url} so a listing
+    cannot blow the context window. Returns {"sessions": [...], "nextPageToken": ...}.
+    A single page only — pass the returned token back to walk further (the listing
+    can truncate; never assume the first page is the whole account)."""
+    q: dict[str, Any] = {"pageSize": max(1, min(page_size, 100))}
+    if page_token:
+        q["pageToken"] = page_token
+    raw = _request("GET", "/v1alpha/sessions", params=q)
+    sessions = [{
+        "id": s.get("id") or _short_id(s.get("name", "")),
+        "state": s.get("state"),
+        "title": s.get("title", ""),
+        "url": s.get("url", ""),
+    } for s in (raw.get("sessions") or [])]
+    return {"sessions": sessions, "nextPageToken": raw.get("nextPageToken", "")}
+
+
+# Keys on an Activity that are NOT the polymorphic event-type field — meta that
+# can co-occur with the real event kind and must not be mistaken for it.
+_ACTIVITY_META_KEYS = {
+    "name", "id", "createTime", "updateTime", "originator", "description", "artifacts",
+}
+# The Activity.activity oneof per the Jules v1alpha schema.
+_ACTIVITY_KINDS = {
+    "agentMessaged", "userMessaged", "planGenerated", "planApproved",
+    "progressUpdated", "sessionCompleted", "sessionFailed",
+}
+
+
+def _activity_kind(a: dict) -> str:
+    """The activity's event kind — prefer a known oneof member; fall back to the
+    first non-meta key only when none matches."""
+    for k in _ACTIVITY_KINDS:
+        if k in a:
+            return k
+    for k in a:
+        if k not in _ACTIVITY_META_KEYS:
+            return k
+    return "unknown"
+
+
+def _activity_summary(a: dict) -> dict:
+    """Trim one activity to {id, originator, kind, summary} — the activities stream
+    is the single most context-expensive Jules read; never return it raw by default."""
+    kind = _activity_kind(a)
+    payload = a.get(kind) if isinstance(a.get(kind), dict) else {}
+    text = a.get("description") or ""
+    if not text and isinstance(payload, dict):
+        text = payload.get("description") or payload.get("message") or payload.get("title") or ""
+    return {
+        "id": a.get("id") or _short_id(a.get("name", "")),
+        "originator": a.get("originator", ""),
+        "kind": kind,
+        "summary": str(text)[:280],
+    }
+
+
+def jules_activities(session_id: str, page_size: int = 10, only_kinds: str = "",
+                     page_token: str = "", summary_only: bool = True) -> dict:
+    """List a session's activities, aggressively trimmed (summary_only=True →
+    {id,originator,kind,summary}). `only_kinds` is a comma list to keep, e.g.
+    'planGenerated,agentMessaged,sessionFailed'. Reads can lag / oscillate under
+    eventual consistency — poll ≥2 cycles before trusting a transition."""
+    sid = _short_id(session_id)
+    q: dict[str, Any] = {"pageSize": max(1, min(page_size, 100))}
+    if page_token:
+        q["pageToken"] = page_token
+    raw = _request("GET", f"/v1alpha/sessions/{sid}/activities", params=q)
+    wanted = {k.strip() for k in only_kinds.split(",") if k.strip()}
+    out: list[dict] = []
+    for a in (raw.get("activities") or []):
+        kind = _activity_kind(a)
+        if wanted and kind not in wanted:
+            continue
+        out.append(_activity_summary(a) if summary_only else a)
+    return {"activities": out, "nextPageToken": raw.get("nextPageToken", "")}
+
+
+def jules_plan(session_id: str, max_pages: int = 5, include_descriptions: bool = False) -> dict:
+    """Fetch the latest plan (the newest planGenerated activity, by createTime).
+    Use it to show the plan before approve_plan while a session is in
+    AWAITING_PLAN_APPROVAL — at that point NO PR exists yet, so this is the only
+    way to see what Jules intends. Returns {"steps":[...], "create_time":...} or
+    {"error":"no planGenerated activity found"}."""
+    sid = _short_id(session_id)
+    items = _paginate(f"/v1alpha/sessions/{sid}/activities", {"pageSize": 100}, max_pages=max_pages)
+    best: Optional[dict] = None
+    best_time = ""
+    for a in items:
+        pg = a.get("planGenerated")
+        if not pg:
+            continue
+        ct = a.get("createTime", "")
+        if best is None or ct > best_time:
+            best, best_time = pg, ct
+    if best is None:
+        return {"error": "no planGenerated activity found"}
+    steps = []
+    for s in ((best.get("plan") or {}).get("steps") or []):
+        step = {"title": s.get("title", "")}
+        if include_descriptions:
+            step["description"] = s.get("description", "")
+        steps.append(step)
+    return {"steps": steps, "create_time": best_time}
+
+
+def jules_approve_plan(session_id: str) -> dict:
+    """Approve the plan on a session in AWAITING_PLAN_APPROVAL. That is the ONE
+    state with a timeout/discard window — the backend appears to drop sessions whose
+    plan is never approved (they end COMPLETED with empty outputs) — so approve
+    promptly after surfacing the plan. Returns {"ok": true, "session": id}."""
+    sid = _short_id(session_id)
+    _request("POST", f"/v1alpha/sessions/{sid}:approvePlan", body={})
+    return {"ok": True, "session": sid}
+
+
+def jules_message(session_id: str, prompt: str) -> dict:
+    """Send a user message into a session's history (answer a question, request a
+    plan revision, nudge a COMPLETED session to push). INPUT ONLY, not a control
+    plane: it injects context, but state transitions (COMPLETED/AWAITING→IN_PROGRESS)
+    are racy and unreliable — poll state after sending, do not assume it resumed.
+    Never use it to revive a FAILED session (dispatch fresh) or to cancel one
+    (there is no cancel — see jules_stop). Returns {"ok": true, "session": id}."""
+    sid = _short_id(session_id)
+    _request("POST", f"/v1alpha/sessions/{sid}:sendMessage", body={"prompt": prompt})
+    return {"ok": True, "session": sid}

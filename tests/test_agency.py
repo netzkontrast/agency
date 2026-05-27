@@ -65,6 +65,7 @@ class StubJulesClient:
     engine uses in production."""
     def __init__(self, state: str = "completed"):
         self._state = state
+        self.calls: list[tuple] = []
 
     def create(self, prompt: str, source: str, starting_branch: str) -> dict:
         return {"id": "sessions/123", "state": self._state,
@@ -72,6 +73,29 @@ class StubJulesClient:
 
     def get(self, session: str) -> dict:
         return {"state": self._state, "url": "https://jules.google.com/session/123"}
+
+    def list(self, page_size: int, page_token: str) -> dict:
+        self.calls.append(("list", page_size, page_token))
+        return {"sessions": [{"id": "123", "state": self._state, "title": "t", "url": "u"}],
+                "nextPageToken": ""}
+
+    def activities(self, session: str, page_size: int, only_kinds: str) -> dict:
+        self.calls.append(("activities", session, page_size, only_kinds))
+        return {"activities": [{"id": "a1", "originator": "AGENT",
+                                "kind": "agentMessaged", "summary": "hi"}],
+                "nextPageToken": ""}
+
+    def plan(self, session: str, max_pages: int) -> dict:
+        self.calls.append(("plan", session, max_pages))
+        return {"steps": [{"title": "step one"}], "create_time": "2026-01-01T00:00:00Z"}
+
+    def approve_plan(self, session: str) -> dict:
+        self.calls.append(("approve_plan", session))
+        return {"ok": True, "session": session}
+
+    def message(self, session: str, prompt: str) -> dict:
+        self.calls.append(("message", session, prompt))
+        return {"ok": True, "session": session}
 
 
 class StubVCS:
@@ -161,6 +185,42 @@ def test_completed_not_done():
     # branch actually on origin -> done
     assert e.registry.invoke(e.memory, iid, "jules", "verify",
                              state=disp["status"], branch_on_remote=True)[0]["done"] is True
+    e.memory.close()
+
+
+def test_jules_complete_lifecycle():
+    """The jules capability covers the whole v1alpha session lifecycle — not just
+    dispatch/verify. read verbs (list/activities/plan) are transforms; drive verbs
+    (approve_plan/message) are effects routed to the backend; stop is documented as
+    unsupported (the API has no cancel). Every call lands on the injected backend."""
+    client = StubJulesClient(state="awaiting_plan_approval")
+    e = fresh(client)
+    cap = e.registry.get("jules")
+
+    # role tagging: reads transform, drives effect, the whole surface present.
+    assert {"dispatch", "status", "list", "activities", "plan",
+            "approve_plan", "message", "stop", "verify"} <= set(cap.verbs)
+    assert cap.role("approve_plan") == "effect"
+    assert cap.role("message") == "effect"
+    assert {cap.role(v) for v in ("list", "activities", "plan", "stop", "verify")} == {"transform"}
+
+    iid = e.intent.capture("drive a jules session", "through its lifecycle", "done")
+    e.intent.confirm(iid)
+
+    def call(verb, **kw):
+        return e.registry.invoke(e.memory, iid, "jules", verb, agent_id="agent:jules", **kw)[0]
+
+    assert call("list")["sessions"][0]["id"] == "123"
+    assert call("plan", session="123")["steps"][0]["title"] == "step one"
+    assert call("activities", session="123")["activities"][0]["kind"] == "agentMessaged"
+    assert call("approve_plan", session="123") == {"ok": True, "session": "123"}
+    assert call("message", session="123", prompt="push your branch")["ok"] is True
+    # stop is a pure transform that never hits the backend — it documents the gap.
+    assert call("stop", session="123")["error"] == "unsupported"
+
+    kinds = [c[0] for c in client.calls]
+    assert kinds == ["list", "plan", "activities", "approve_plan", "message"]  # stop absent
+    assert ("message", "123", "push your branch") in client.calls
     e.memory.close()
 
 

@@ -15,7 +15,7 @@ allowed-tools:
 - **delegate** — fan_out, join
 - **develop** — checklist, reference
 - **gate** — check
-- **jules** — dispatch, status, verify
+- **jules** — activities, approve_plan, dispatch, list, message, plan, status, stop, verify
 - **plugin** — author_command, author_skill, help, lint_skill, marketplace_entry, scaffold, step_doc
 - **reflect** — note, recall, search
 - **skill_generator** — generate
