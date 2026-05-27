@@ -22,3 +22,11 @@ vendor/the-agency-system/Plan/harness/VOCABULARY.md · y · vocabulary
 
 ## Web
 FastMCP Code Mode docs (https://gofastmcp.com/servers/transforms/code-mode) · y · search, get_schema, execute meta-tools, detail levels, patterns
+vendor/context-mode/README.md · y · MCP context-mode tools and FTS5 SessionDB mechanics
+vendor/context-mode/docs/adr/0001-sessiondb-multi-writer.md · y · SQLite WAL native multi-writer contracts and busy_timeout handling
+vendor/the-agency-system/Plan/108-context-mode-integration/spec.md · y · Context Mode 5-hook contract, /ctx-insight API, event schemas, mapping to session_log_mcp
+vendor/the-agency-system/Plan/111-context-mode-manifest/spec.md · y · Document deferral metadata indices, tags, schema shapes for Context Mode
+vendor/the-agency-system/Plan/114-read-cache-delta-mode/spec.md · y · ToolOutput read-cache PreToolUse hook, delta computation (unified_diff), 97% savings on re-reads
+vendor/the-agency-system/Plan/130-shared-toolresult-envelope/spec.md · y · Universal ToolResult shape preventing ad-hoc dict structures
+vendor/the-agency-system/Plan/104-tool-search-anchor-triad/spec.md · y · Anchor triad specifications for *_search, *_describe, *_invoke schema reduction
+vendor/the-agency-system/Plan/112-context-anchor-triad/spec.md · y · Context mode anchor triad metadata specs
