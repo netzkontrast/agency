@@ -1,0 +1,1610 @@
+# Ingestion Ledger
+## superpowers-marketplace
+- `LICENSE`: <no summary found>
+- `README.md`: # Superpowers Marketplace
+- `.claude-plugin/marketplace.json`: <no summary found>
+- `.claude/settings.local.json`: <no summary found>
+## the-agency-system (Plan)
+- `SOURCES.md`: # SOURCES.md — Canonical Source Repositories
+- `JULES_PROTOCOL.md`: # JULES_PROTOCOL.md
+- `JULES-REVIEW-LOOP.md`: # JULES-REVIEW-LOOP.md
+- `000-overview.md`: # Plan 000 — Agency-System Unified Plugin (Master Overview, v2)
+- `114-read-cache-delta-mode/spec.md`: slug: read-cache-delta-mode
+- `_reviews/README.md`: # Jules review sessions for PR #133
+- `_reviews/MERGE-PLAN.md`: slug: 2026-05-19-three-way-jules-merge-plan
+- `_reviews/session-C-from-scratch/.gitkeep`: # Session C workspace (from-scratch design). Jules writes CORE.md, DOMAIN-EXAMPL
+- `_reviews/session-B-improvements/.gitkeep`: # Session B workspace (improvement ideas). Jules writes IDEAS.md here.
+- `_reviews/session-B-improvements/IDEAS.md`: slug: 2026-05-19-agency-base-improvements
+- `_reviews/session-A-critical/REVIEW.md`: slug: session-A-critical
+- `_reviews/session-A-critical/.gitkeep`: # Session A workspace (critical review). Jules writes REVIEW.md here.
+- `105-toon-serializer/spec.md`: slug: toon-serializer
+- `007-jules-skills-and-commands-port/spec.md`: slug: jules-skills-and-commands-port
+- `139-evidence-snapshot-helper/spec.md`: slug: evidence-snapshot-helper
+- `119-loop-detection/spec.md`: slug: loop-detection
+- `019-state-migration-from-bitwize/spec.md`: slug: state-migration-from-bitwize
+- `131-manifest-coverage-lint/spec.md`: slug: manifest-coverage-lint
+- `135-spec-test-anchor-traceability/spec.md`: slug: spec-test-anchor-traceability
+- `phase-8-operational-hardening/acceptance.feature`: # Canonical naming for the layers and verbs referenced below lives in
+- `phase-8-operational-hardening/README.md`: # Phase 8 — Operational hardening
+- `132-skill-tool-hooks/spec.md`: slug: skill-tool-hooks
+- `003-unified-statecache-port/spec.md`: slug: unified-statecache-port
+- `phase-7-domain-handler-completion/acceptance.feature`: # anchor: phase-7.novel-skills-catalogue
+- `phase-7-domain-handler-completion/README.md`: # Phase 7: Domain handler completion (music + novel + agentic)
+- `134-plan-adr-convention/spec.md`: slug: plan-adr-convention
+- `113-context-cache-and-subscriptions/spec.md`: slug: context-cache-and-subscriptions
+- `004a-music-lib-port/spec.md`: slug: music-lib-port
+- `004a-music-lib-port/references/sheet-music-rename.md`: # Sheet Music Rename Reference
+- `138-frustration-log-protocol/spec.md`: slug: frustration-log-protocol
+- `118-quality-score-telemetry/spec.md`: slug: quality-score-telemetry
+- `111-context-mode-manifest/spec.md`: slug: context-mode-manifest
+- `121-contextignore-hardblock/spec.md`: slug: contextignore-hardblock
+- `decisions/0010-single-delegate-pre-commit.md`: slug: single-delegate-pre-commit
+- `decisions/0009-token-budget-invariants.md`: slug: token-budget-invariants
+- `decisions/0004-anchor-triad-as-wire-form.md`: slug: 0004-anchor-triad-as-wire-form
+- `decisions/0011-repair-authority-tiers.md`: slug: repair-authority-tiers
+- `decisions/0012-content-tier-ladder.md`: slug: content-tier-ladder
+- `decisions/0007-code-mode-opt-in.md`: slug: 0007-code-mode-opt-in
+- `decisions/0004-five-handler-domains.md`: slug: five-handler-domains
+- `decisions/0006-frontmatter-canon.md`: slug: 0006-frontmatter-canon
+- `decisions/0003-domain-plugin-contract.md`: slug: 0003-domain-plugin-contract
+- `decisions/0005-four-verb-contract.md`: slug: four-verb-contract
+- `decisions/0001-master-default-branch.md`: slug: master-default-branch
+- `decisions/0006-code-mode-anchor-triad.md`: slug: code-mode-anchor-triad
+- `decisions/0007-context-mode-path-b.md`: slug: context-mode-path-b
+- `decisions/0001-single-central-routing-skill.md`: slug: 0001-single-central-routing-skill
+- `decisions/0005-shared-toolresult-envelope.md`: slug: 0005-shared-toolresult-envelope
+- `decisions/readme.md`: slug: plan-decisions-readme
+- `decisions/0003-single-mcp-server.md`: slug: single-mcp-server
+- `decisions/0002-sub-spec-zero-padding.md`: slug: sub-spec-zero-padding
+- `decisions/0008-harness-path-a.md`: slug: harness-path-a
+- `decisions/0002-single-codemode-mcp-server.md`: slug: 0002-single-codemode-mcp-server
+- `decisions/0008-wave-d-ontology-graph.md`: slug: 0008-wave-d-ontology-graph
+- `_session-state/2026-05-18-research-3-spec-findings.md`: # Research Findings — Spec-driven development + spec governance (2026-05-18)
+- `_session-state/2026-05-18-research-correction-delta.md`: # Research correction sweep — 2026-05-18
+- `_session-state/2026-05-18-research-2-skills-findings.md`: # Research Agent 2 — Skills + Skill-Creator + Skill-Discovery Findings
+- `_session-state/2026-05-18-spec-022-dispatch.md`: # Spec 022 dispatch — 2026-05-18
+- `_session-state/2026-05-18-next-session-goal.md`: # /goal — next orchestration session
+- `_session-state/2026-05-18-orchestration-handoff.md`: # Orchestration handoff — 2026-05-17 → 2026-05-18
+- `_session-state/2026-05-18-jules-research-1-context-engineering.md`: ## Summary
+- `_session-state/2026-05-18-research-1-mcp-findings.md`: slug: 2026-05-18-research-1-mcp-findings
+- `_session-state/2026-05-18-research-5-process-findings.md`: # Research Agent 5 of 5 — Process & Quality-Gate Findings (2026-05-18)
+- `_session-state/2026-05-18-jules-research-3-spec-driven-dev.md`: ## Summary
+- `_session-state/2026-05-18-spec-hygiene-audit.md`: # Spec hygiene audit — 2026-05-18
+- `_session-state/2026-05-18-jules-research-2-token-efficiency.md`: # Research Findings: Token-Efficiency Patterns
+- `_session-state/2026-05-18-research-4-multi-findings.md`: # Research findings — Multi-agent orchestration + cross-agent hand-off
+- `_session-state/2026-05-18-jules-research-4-large-context-ingestion.md`: ## Summary
+- `_session-state/2026-05-18-jules-research-5-pipeline-and-plugin.md`: ## Summary
+- `010-novel-on-disk-layout/spec.md`: slug: novel-on-disk-layout
+- `010-novel-on-disk-layout/references/layout-spec.md`: # Canonical Novel On-Disk Layout
+- `104-tool-search-anchor-triad/spec.md`: slug: tool-search-anchor-triad
+- `102-pr-rebase-policy/spec.md`: slug: pr-rebase-policy
+- `133-skill-subagent-pressure-tests/spec.md`: slug: skill-subagent-pressure-tests
+- `100-session-log-mcp/spec.md`: slug: session-log-mcp
+- `020-bitwize-deprecation-and-docs/spec.md`: slug: bitwize-deprecation-and-docs
+- `124-graphqlite-codemode/spec.md`: slug: graphqlite-codemode
+- `009-shared-handlers/spec.md`: slug: shared-handlers
+- `_jules-briefs/dispatch.yaml`: ## Files to review (READ ONLY — do not modify)
+- `_jules-briefs/vision-dispatch.yaml`: ## Read first
+- `_jules-briefs/the-agency-system-dna-skill.md`: # the-agency-system DNA Skill — Spec & Jules Brief
+- `_jules-briefs/C-gherkin.md`: # Session C — acceptance Gherkin + extended brief (rev 2: 3×N matrix)
+- `_research/_synthesis-122-123-124.md`: # Synthesis: Specs 122 / 123 / 124 — Wave D (Path B extension)
+- `_research/graphqlite-codemode/findings.md`: # Research Findings: GraphQLite as the Plugin's Graph Query Layer
+- `_research/graphqlite-codemode/draft-spec.md`: slug: graphqlite-codemode
+- `_research/agency-repo-analysis/findings.md`: slug: agency-repo-analysis
+- `_research/agency-tooling-codemode/findings.md`: # Agency Tooling Extraction + MCP Code Mode Integration
+- `_research/agency-tooling-codemode/draft-spec.md`: slug: agency-tooling-codemode
+- `_research/centralized-ontology/findings.md`: # Centralized Ontology for Plugin Domains: Findings Report
+- `_research/centralized-ontology/draft-spec.md`: slug: centralized-ontology
+- `018-overrides-and-config-migration/spec.md`: slug: overrides-and-config-migration
+- `018-overrides-and-config-migration/references/config-diff.md`: # Config diff — bitwize-music.config.template.yaml → agency-system.config.templa
+- `001-scaffold-plugin-skeleton/spec.md`: slug: scaffold-plugin-skeleton
+- `117-tool-result-archive/spec.md`: slug: tool-result-archive
+- `123-agency-tooling-codemode/spec.md`: slug: agency-tooling-codemode
+- `101-jules-mcp-tool-additions/spec.md`: slug: jules-mcp-tool-additions
+- `phase-4-context-mode-path-b/acceptance.feature`: # Naming note: "Context Mode Path B" (this phase) is distinct from
+- `phase-4-context-mode-path-b/README.md`: # Phase 4: Context Mode Path B — document manifest
+- `004-music-handlers-port/spec.md`: slug: music-handlers-port
+- `122-centralized-ontology/spec.md`: slug: centralized-ontology
+- `_research-briefs/02-agency-tooling-codemode.md`: slug: agency-tooling-codemode
+- `_research-briefs/fanout-results.json`: <no summary found>
+- `_research-briefs/fanout-log.txt`: <no summary found>
+- `_research-briefs/01-centralized-ontology.md`: slug: centralized-ontology
+- `_research-briefs/readme.md`: # Research Briefs (Jules dispatch artefacts)
+- `_research-briefs/implicit-adrs-sweep.json`: "prompt": "---\ntype: research-brief\nstatus: dispatched\nslug: implicit-adrs-sw
+- `_research-briefs/fanout.json`: "prompt": "---\ntype: research-brief\nstatus: dispatched\nslug: centralized-onto
+- `107-cache-breakpoint-ordering/spec.md`: slug: cache-breakpoint-ordering
+- `022-dev-mode-install/spec.md`: slug: dev-mode-install
+- `103-view-fields-projection/spec.md`: slug: view-fields-projection
+- `137-watcher-sdk-composability/spec.md`: slug: watcher-sdk-composability
+- `112-context-anchor-triad/spec.md`: slug: context-anchor-triad
+- `016-agentic-handlers-and-skills/spec.md`: slug: agentic-handlers-and-skills
+- `016-agentic-handlers-and-skills/references/agentic-tool-catalog.md`: # Agentic Orchestration Tool Catalog — embedded brief
+- `023-harness-in-harness/spec.md`: slug: harness-in-harness
+- `116-bash-output-compression/spec.md`: slug: bash-output-compression
+- `phase-3-github-sink-wrapper/acceptance.feature`: # anchor: phase-3.pr-summary-size-cap
+- `phase-3-github-sink-wrapper/README.md`: # Phase 3 — GitHub MCP summary wrappers
+- `011-novel-handlers-core/spec.md`: slug: novel-handlers-core
+- `phase-5-ontology-and-graph-wave-d/acceptance.feature`: # anchor: phase-5.ontology-types
+- `phase-5-ontology-and-graph-wave-d/README.md`: # Phase 5: Ontology + Graph (Wave D)
+- `_lessons-learned/04-affects-list-incompleteness.md`: slug: affects-list-incompleteness
+- `_lessons-learned/05-independent-review-subagent-is-load-bearing.md`: slug: independent-review-subagent-is-load-bearing
+- `_lessons-learned/03-evidence-with-polluted-pythonpath.md`: slug: evidence-with-polluted-pythonpath-masks-broken-imports
+- `_lessons-learned/02-agent-messaged-and-wait-kills-sessions.md`: slug: agent-messaged-and-wait-kills-sessions
+- `_lessons-learned/08-jules-mcp-tool-gaps.md`: slug: jules-mcp-tool-gaps
+- `_lessons-learned/12-completed-without-pr-or-state-mismatch.md`: slug: completed-without-pr-or-state-mismatch
+- `_lessons-learned/11-side-quest-session-log-mcp.md`: slug: side-quest-session-log-mcp
+- `_lessons-learned/10-jules-message-can-revive-but-unreliable.md`: slug: jules-message-can-revive-but-unreliable
+- `_lessons-learned/01-scratch-files-on-pr-body-composition.md`: slug: scratch-files-on-pr-body-composition
+- `_lessons-learned/13-codex-bot-pr-reviews-are-gold.md`: slug: codex-bot-pr-reviews-are-gold
+- `_lessons-learned/09-watcher-pattern-idiom.md`: slug: watcher-pattern-idiom
+- `_lessons-learned/07-server-py-merge-conflicts-trivial.md`: slug: server-py-merge-conflicts-trivial
+- `_lessons-learned/14-token-consumption-postmortem.md`: slug: token-consumption-postmortem
+- `_lessons-learned/06-spec-vs-schema-drift.md`: slug: spec-vs-schema-drift
+- `_lessons-learned/15-manual-ops-the-mcp-should-automate.md`: slug: manual-ops-the-mcp-should-automate
+- `_lessons-learned/README.md`: # Lessons Learned — Jules orchestration wave (2026-05-17)
+- `phase-1-anchor-triad-and-envelope/acceptance.feature`: # anchor: phase-1.tools-list-payload
+- `phase-1-anchor-triad-and-envelope/README.md`: # Phase 1: Anchor triad + envelope (cold-start)
+- `014-novel-gates-and-revision/spec.md`: slug: novel-gates-and-revision
+- `120-smart-compaction-checkpoints/spec.md`: slug: smart-compaction-checkpoints
+- `136-agents-yaml-role-manifest/spec.md`: slug: agents-yaml-role-manifest
+- `006-jules-handlers-port/spec.md`: slug: jules-handlers-port
+- `106-github-mcp-summary-wrappers/spec.md`: slug: github-mcp-summary-wrappers
+- `005-music-skills-port/spec.md`: slug: music-skills-port
+- `005-music-skills-port/references/skill-mapping.md`: # Spec 005 — Music Skills Port: Old → New Slug Mapping
+- `013-novel-handlers-structural/spec.md`: slug: novel-handlers-structural
+- `013-novel-handlers-structural/references/dramatica-decidability.md`: # Dramatica Decidability Matrix (embedded brief)
+- `002-manifest-and-marketplace/spec.md`: slug: manifest-and-marketplace
+- `099-jules-orchestration-improvements/spec.md`: slug: jules-orchestration-improvements
+- `phase-2-hook-chain/acceptance.feature`: # anchor: phase-2.pretooluse-chain-order
+- `phase-2-hook-chain/README.md`: # Phase 2 — Hook chain (PreToolUse + PostToolUse + UserPromptSubmit)
+- `130-shared-toolresult-envelope/spec.md`: slug: shared-toolresult-envelope
+- `phase-0-foundation-cleanup/acceptance.feature`: # anchor: phase-0.legacy-dir-removed
+- `phase-0-foundation-cleanup/README.md`: # Phase 0: Foundation cleanup
+- `012-dramatica-and-ncp-libs/spec.md`: slug: dramatica-and-ncp-libs
+- `phase-6-quality-loop-compaction/acceptance.feature`: # anchor: phase-6.session-log-persistence
+- `phase-6-quality-loop-compaction/README.md`: # Phase 6: Quality / loop / compaction
+- `015-novel-skills-catalogue/spec.md`: slug: novel-skills-catalogue
+- `015-novel-skills-catalogue/references/parity-table.md`: # Novel-Craft Parity Table (embedded brief)
+- `008-codemode-registry/spec.md`: slug: codemode-registry
+- `098-wave-a-hardening/spec.md`: slug: wave-a-hardening
+- `108-context-mode-integration/spec.md`: slug: context-mode-integration
+- `harness/design.md`: slug: harness-in-harness
+- `harness/VOCABULARY.md`: slug: harness-vocabulary
+- `harness/restructure/spec.md`: slug: harness-restructure-domains
+- `harness/_research/01-fastmcp-in-memory.md`: # Research 01 — FastMCP in-memory transport
+- `harness/_research/06-phase-2-through-8-forward-compat.md`: # Research 06 — Phase 2-8 forward-compat audit (2026-05-18)
+- `harness/_research/05-domain-isomorphism.md`: # Research 05 — Per-domain isomorphism audit (2026-05-18)
+- `harness/_research/03-test-coverage-baseline.md`: # Research 03 — Test-coverage baseline (2026-05-18)
+- `harness/_research/02-claude-bare-plugin-dir.md`: # Research 02 — `claude --bare --plugin-dir <path>` boot path
+- `011a-novel-handlers-core-hardening/spec.md`: slug: novel-handlers-core-hardening
+- `021-novel-prompt-builder-family/spec.md`: slug: novel-prompt-builder-family
+- `021-novel-prompt-builder-family/references/prompt-builder-methods.md`: # Novel Prompt-Builder Methods (embedded brief)
+- `017-hooks-port-and-extend/spec.md`: slug: hooks-port-and-extend
+- `115-structure-map-ast/spec.md`: slug: structure-map-ast
+## superclaude-framework
+- `KNOWLEDGE.md`: # KNOWLEDGE.md
+- `.gitignore`: # Python
+- `TASK.md`: # TASK.md
+- `.env.example`: # SuperClaude Environment Variables
+- `CHANGELOG.md`: # Changelog
+- `PARALLEL_INDEXING_PLAN.md`: # Parallel Repository Indexing Execution Plan
+- `LICENSE`: <no summary found>
+- `PLUGIN_INSTALL.md`: # SuperClaude Plugin Installation Guide
+- `README-kr.md`: # 🚀 SuperClaude 프레임워크
+- `README-zh.md`: # 🚀 SuperClaude 框架
+- `DELETION_RATIONALE.md`: # Deletion Rationale (Evidence-Based)
+- `setup.py`: # All configuration is now in pyproject.toml
+- `QUALITY_COMPARISON.md`: # Quality Comparison: Python vs TypeScript Implementation
+- `PROJECT_INDEX.md`: # Project Index: SuperClaude Framework
+- `PLANNING.md`: # PLANNING.md
+- `PR_DOCUMENTATION.md`: # PR: PM Mode as Default - Phase 1 Implementation
+- `TEST_PLUGIN.md`: # PM Agent Plugin Performance Test
+- `CONTRIBUTING.md`: # Contributing to SuperClaude Framework
+- `CLAUDE.md`: # CLAUDE.md
+- `README-ja.md`: # 🚀 SuperClaudeフレームワーク
+- `pyproject.toml`: "scipy>=1.10.0",  # For A/B testing
+- `CODE_OF_CONDUCT.md`: # Code of Conduct
+- `install.sh`: # SuperClaude Framework Installation Script
+- `PROJECT_INDEX.json`: <no summary found>
+- `.pre-commit-config.yaml`: # SuperClaude Framework - Pre-commit Hooks
+- `AGENTS.md`: # Repository Guidelines
+- `SECURITY.md`: # Security Policy
+- `Makefile`: # Installation (local source, editable) - RECOMMENDED
+- `MANIFEST.in`: <no summary found>
+- `package.json`: <no summary found>
+- `VERSION`: <no summary found>
+- `README.md`: # 🚀 SuperClaude Framework
+- `CODEOWNERS`: <no summary found>
+- `src/superclaude/pytest_plugin.py`: # Get test complexity from marker
+- `src/superclaude/__init__.py`: # Expose main components
+- `src/superclaude/__version__.py`: <no summary found>
+- `src/superclaude/commands/git.md`: description: "Git operations with intelligent commit messages and workflow optim
+- `src/superclaude/commands/explain.md`: description: "Provide clear explanations of code, concepts, and system behavior
+- `src/superclaude/commands/sc.md`: description: SuperClaude command dispatcher - Use /sc [command] to access all Su
+- `src/superclaude/commands/workflow.md`: description: "Generate structured implementation workflows from PRDs and feature
+- `src/superclaude/commands/estimate.md`: description: "Provide development estimates for tasks, features, or projects wit
+- `src/superclaude/commands/save.md`: description: "Session lifecycle management with Serena MCP integration for sessi
+- `src/superclaude/commands/pm.md`: description: "Project Manager Agent - Default orchestration agent that coordinat
+- `src/superclaude/commands/index.md`: description: "Generate comprehensive project documentation and knowledge base wi
+- `src/superclaude/commands/task.md`: description: "Execute complex tasks with intelligent workflow management and del
+- `src/superclaude/commands/implement.md`: description: "Feature and code implementation with intelligent persona activatio
+- `src/superclaude/commands/troubleshoot.md`: description: "Diagnose and resolve issues in code, builds, deployments, and syst
+- `src/superclaude/commands/research.md`: description: Deep web research with adaptive planning and intelligent search
+- `src/superclaude/commands/__init__.py`: <no summary found>
+- `src/superclaude/commands/select-tool.md`: description: "Intelligent MCP tool selection based on complexity scoring and ope
+- `src/superclaude/commands/improve.md`: description: "Apply systematic improvements to code quality, performance, and ma
+- `src/superclaude/commands/reflect.md`: description: "Task reflection and validation using Serena MCP analysis capabilit
+- `src/superclaude/commands/business-panel.md`: # /sc:business-panel - Business Panel Analysis System
+- `src/superclaude/commands/help.md`: description: "List all available /sc commands and their functionality"
+- `src/superclaude/commands/design.md`: description: "Design system architecture, APIs, and component interfaces with co
+- `src/superclaude/commands/analyze.md`: description: "Comprehensive code analysis across quality, security, performance,
+- `src/superclaude/commands/spec-panel.md`: description: "Multi-expert specification review and improvement using renowned s
+- `src/superclaude/commands/cleanup.md`: description: "Systematically clean up code, remove dead code, and optimize proje
+- `src/superclaude/commands/agent.md`: description: SC Agent — session controller that orchestrates investigation, impl
+- `src/superclaude/commands/load.md`: description: "Session lifecycle management with Serena MCP integration for proje
+- `src/superclaude/commands/brainstorm.md`: description: "Interactive requirements discovery through Socratic dialogue and s
+- `src/superclaude/commands/spawn.md`: description: "Meta-system task orchestration with intelligent breakdown and dele
+- `src/superclaude/commands/test.md`: description: "Execute tests with coverage analysis and automated quality reporti
+- `src/superclaude/commands/build.md`: description: "Build, compile, and package projects with intelligent error handli
+- `src/superclaude/commands/recommend.md`: description: Ultra-intelligent command recommendation engine - recommends the mo
+- `src/superclaude/commands/README.md`: # SuperClaude Commands
+- `src/superclaude/commands/index-repo.md`: description: Repository Indexing - 94% token reduction (58K → 3K)
+- `src/superclaude/commands/document.md`: description: "Generate focused documentation for components, functions, APIs, an
+- `src/superclaude/agents/deep-research-agent.md`: description: Specialist for comprehensive research with adaptive strategies and
+- `src/superclaude/agents/repo-index.md`: description: Repository indexing and codebase briefing assistant
+- `src/superclaude/agents/technical-writer.md`: description: Create clear, comprehensive technical documentation tailored to spe
+- `src/superclaude/agents/frontend-architect.md`: description: Create accessible, performant user interfaces with focus on user ex
+- `src/superclaude/agents/self-review.md`: description: Post-implementation validation and reflexion partner
+- `src/superclaude/agents/performance-engineer.md`: description: Optimize system performance through measurement-driven analysis and
+- `src/superclaude/agents/python-expert.md`: description: Deliver production-ready, secure, high-performance Python code foll
+- `src/superclaude/agents/root-cause-analyst.md`: description: Systematically investigate complex problems to identify underlying
+- `src/superclaude/agents/quality-engineer.md`: description: Ensure software quality through comprehensive testing strategies an
+- `src/superclaude/agents/devops-architect.md`: description: Automate infrastructure and deployment processes with focus on reli
+- `src/superclaude/agents/__init__.py`: <no summary found>
+- `src/superclaude/agents/learning-guide.md`: description: Teach programming concepts and explain code with focus on understan
+- `src/superclaude/agents/requirements-analyst.md`: description: Transform ambiguous project ideas into concrete specifications thro
+- `src/superclaude/agents/socratic-mentor.md`: description: Educational guide specializing in Socratic method for programming k
+- `src/superclaude/agents/security-engineer.md`: description: Identify security vulnerabilities and ensure compliance with securi
+- `src/superclaude/agents/refactoring-expert.md`: description: Improve code quality and reduce technical debt through systematic r
+- `src/superclaude/agents/backend-architect.md`: description: Design reliable backend systems with focus on data integrity, secur
+- `src/superclaude/agents/system-architect.md`: description: Design scalable system architecture with focus on maintainability a
+- `src/superclaude/agents/pm-agent.md`: description: Self-improvement workflow executor that documents implementations,
+- `src/superclaude/agents/deep-research.md`: description: Adaptive research specialist for external knowledge gathering
+- `src/superclaude/agents/README.md`: # SuperClaude Agents
+- `src/superclaude/agents/business-panel-experts.md`: description: Multi-expert business strategy panel synthesizing Christensen, Port
+- `src/superclaude/examples/__init__.py`: <no summary found>
+- `src/superclaude/examples/deep_research_workflows.md`: # Deep Research Workflows
+- `src/superclaude/hooks/hooks.json`: <no summary found>
+- `src/superclaude/hooks/__init__.py`: <no summary found>
+- `src/superclaude/hooks/README.md`: # SuperClaude Hooks
+- `src/superclaude/core/PRINCIPLES.md`: # Software Engineering Principles
+- `src/superclaude/core/FLAGS.md`: # SuperClaude Framework Flags
+- `src/superclaude/core/RESEARCH_CONFIG.md`: # Deep Research Configuration
+- `src/superclaude/core/__init__.py`: <no summary found>
+- `src/superclaude/core/RULES.md`: # Claude Code Behavioral Rules
+- `src/superclaude/core/BUSINESS_SYMBOLS.md`: # BUSINESS_SYMBOLS.md - Business Analysis Symbol System
+- `src/superclaude/core/BUSINESS_PANEL_EXAMPLES.md`: # BUSINESS_PANEL_EXAMPLES.md - Usage Examples and Integration Patterns
+- `src/superclaude/mcp/MCP_Mindbase.md`: # MindBase MCP Server
+- `src/superclaude/mcp/MCP_Serena.md`: # Serena MCP Server
+- `src/superclaude/mcp/__init__.py`: <no summary found>
+- `src/superclaude/mcp/MCP_Tavily.md`: # Tavily MCP Server
+- `src/superclaude/mcp/MCP_Magic.md`: # Magic MCP Server
+- `src/superclaude/mcp/MCP_Morphllm.md`: # Morphllm MCP Server
+- `src/superclaude/mcp/MCP_Context7.md`: # Context7 MCP Server
+- `src/superclaude/mcp/MCP_Chrome-DevTools.md`: # Chrome DevTools MCP Server
+- `src/superclaude/mcp/MCP_Sequential.md`: # Sequential MCP Server
+- `src/superclaude/mcp/MCP_Playwright.md`: # Playwright MCP Server
+- `src/superclaude/mcp/MCP_Airis-Agent.md`: # Airis Agent MCP Server
+- `src/superclaude/mcp/configs/magic.json`: <no summary found>
+- `src/superclaude/mcp/configs/serena-docker.json`: <no summary found>
+- `src/superclaude/mcp/configs/mindbase.json`: <no summary found>
+- `src/superclaude/mcp/configs/airis-agent.json`: <no summary found>
+- `src/superclaude/mcp/configs/context7.json`: <no summary found>
+- `src/superclaude/mcp/configs/__init__.py`: <no summary found>
+- `src/superclaude/mcp/configs/morphllm.json`: <no summary found>
+- `src/superclaude/mcp/configs/serena.json`: <no summary found>
+- `src/superclaude/mcp/configs/playwright.json`: <no summary found>
+- `src/superclaude/mcp/configs/sequential.json`: <no summary found>
+- `src/superclaude/mcp/configs/tavily.json`: <no summary found>
+- `src/superclaude/pm_agent/reflexion.py`: # When error occurs
+- `src/superclaude/pm_agent/token_budget.py`: # Token limits by complexity
+- `src/superclaude/pm_agent/__init__.py`: <no summary found>
+- `src/superclaude/pm_agent/self_check.py`: # 7 Red Flags for Hallucination Detection
+- `src/superclaude/pm_agent/confidence.py`: # High confidence - proceed immediately
+- `src/superclaude/cli/main.py`: # List only mode
+- `src/superclaude/cli/install_mcp.py`: # AIRIS MCP Gateway - Unified MCP solution (recommended)
+- `src/superclaude/cli/__init__.py`: - superclaude install-skill pm-agent  # Install PM Agent skill
+- `src/superclaude/cli/install_commands.py`: # Default to ~/.claude/commands/sc to maintain /sc: namespace
+- `src/superclaude/cli/doctor.py`: # Check 1: pytest plugin loaded
+- `src/superclaude/cli/install_skill.py`: # Get skill source directory
+- `src/superclaude/scripts/__init__.py`: <no summary found>
+- `src/superclaude/scripts/session-init.sh`: # SuperClaude SessionStart initialization script
+- `src/superclaude/scripts/clean_command_names.py`: # Look for plugin.json up to 3 levels up
+- `src/superclaude/scripts/README.md`: # SuperClaude Scripts
+- `src/superclaude/execution/__init__.py`: # Phase 1: Reflection × 3
+- `src/superclaude/execution/reflection.py`: score: float  # 0.0 - 1.0
+- `src/superclaude/execution/self_correction.py`: category: str  # e.g., "validation", "dependency", "logic", "assumption"
+- `src/superclaude/execution/parallel.py`: description: str
+- `src/superclaude/skills/__init__.py`: <no summary found>
+- `src/superclaude/skills/confidence-check/confidence.ts`: <no summary found>
+- `src/superclaude/skills/confidence-check/__init__.py`: <no summary found>
+- `src/superclaude/skills/confidence-check/SKILL.md`: description: Pre-implementation confidence assessment (≥90% required). Use befor
+- `src/superclaude/modes/MODE_Task_Management.md`: # Task Management Mode
+- `src/superclaude/modes/MODE_DeepResearch.md`: description: Research mindset for systematic investigation and evidence-based re
+- `src/superclaude/modes/MODE_Orchestration.md`: # Orchestration Mode
+- `src/superclaude/modes/MODE_Introspection.md`: # Introspection Mode
+- `src/superclaude/modes/__init__.py`: <no summary found>
+- `src/superclaude/modes/MODE_Brainstorming.md`: # Brainstorming Mode
+- `src/superclaude/modes/MODE_Business_Panel.md`: # MODE_Business_Panel.md - Business Panel Analysis Mode
+- `src/superclaude/modes/MODE_Token_Efficiency.md`: # Token Efficiency Mode
+- `plugins/superclaude/.mcp.json`: <no summary found>
+- `plugins/superclaude/README.md`: # SuperClaude Plugin for Claude Code
+- `plugins/superclaude/commands/git.md`: description: "Git operations with intelligent commit messages and workflow optim
+- `plugins/superclaude/commands/explain.md`: description: "Provide clear explanations of code, concepts, and system behavior
+- `plugins/superclaude/commands/sc.md`: description: SuperClaude command dispatcher - Use /sc [command] to access all Su
+- `plugins/superclaude/commands/workflow.md`: description: "Generate structured implementation workflows from PRDs and feature
+- `plugins/superclaude/commands/estimate.md`: description: "Provide development estimates for tasks, features, or projects wit
+- `plugins/superclaude/commands/save.md`: description: "Session lifecycle management with Serena MCP integration for sessi
+- `plugins/superclaude/commands/pm.md`: description: "Project Manager Agent - Default orchestration agent that coordinat
+- `plugins/superclaude/commands/index.md`: description: "Generate comprehensive project documentation and knowledge base wi
+- `plugins/superclaude/commands/task.md`: description: "Execute complex tasks with intelligent workflow management and del
+- `plugins/superclaude/commands/implement.md`: description: "Feature and code implementation with intelligent persona activatio
+- `plugins/superclaude/commands/troubleshoot.md`: description: "Diagnose and resolve issues in code, builds, deployments, and syst
+- `plugins/superclaude/commands/research.md`: description: Deep web research with adaptive planning and intelligent search
+- `plugins/superclaude/commands/select-tool.md`: description: "Intelligent MCP tool selection based on complexity scoring and ope
+- `plugins/superclaude/commands/improve.md`: description: "Apply systematic improvements to code quality, performance, and ma
+- `plugins/superclaude/commands/reflect.md`: description: "Task reflection and validation using Serena MCP analysis capabilit
+- `plugins/superclaude/commands/business-panel.md`: # /sc:business-panel - Business Panel Analysis System
+- `plugins/superclaude/commands/help.md`: description: "List all available /sc commands and their functionality"
+- `plugins/superclaude/commands/design.md`: description: "Design system architecture, APIs, and component interfaces with co
+- `plugins/superclaude/commands/analyze.md`: description: "Comprehensive code analysis across quality, security, performance,
+- `plugins/superclaude/commands/spec-panel.md`: description: "Multi-expert specification review and improvement using renowned s
+- `plugins/superclaude/commands/cleanup.md`: description: "Systematically clean up code, remove dead code, and optimize proje
+- `plugins/superclaude/commands/agent.md`: description: SC Agent — session controller that orchestrates investigation, impl
+- `plugins/superclaude/commands/load.md`: description: "Session lifecycle management with Serena MCP integration for proje
+- `plugins/superclaude/commands/brainstorm.md`: description: "Interactive requirements discovery through Socratic dialogue and s
+- `plugins/superclaude/commands/spawn.md`: description: "Meta-system task orchestration with intelligent breakdown and dele
+- `plugins/superclaude/commands/test.md`: description: "Execute tests with coverage analysis and automated quality reporti
+- `plugins/superclaude/commands/build.md`: description: "Build, compile, and package projects with intelligent error handli
+- `plugins/superclaude/commands/recommend.md`: description: Ultra-intelligent command recommendation engine - recommends the mo
+- `plugins/superclaude/commands/index-repo.md`: description: Repository Indexing - 94% token reduction (58K → 3K)
+- `plugins/superclaude/commands/document.md`: description: "Generate focused documentation for components, functions, APIs, an
+- `plugins/superclaude/agents/deep-research-agent.md`: description: Specialist for comprehensive research with adaptive strategies and
+- `plugins/superclaude/agents/repo-index.md`: description: Repository indexing and codebase briefing assistant
+- `plugins/superclaude/agents/technical-writer.md`: description: Create clear, comprehensive technical documentation tailored to spe
+- `plugins/superclaude/agents/frontend-architect.md`: description: Create accessible, performant user interfaces with focus on user ex
+- `plugins/superclaude/agents/self-review.md`: description: Post-implementation validation and reflexion partner
+- `plugins/superclaude/agents/performance-engineer.md`: description: Optimize system performance through measurement-driven analysis and
+- `plugins/superclaude/agents/python-expert.md`: description: Deliver production-ready, secure, high-performance Python code foll
+- `plugins/superclaude/agents/root-cause-analyst.md`: description: Systematically investigate complex problems to identify underlying
+- `plugins/superclaude/agents/quality-engineer.md`: description: Ensure software quality through comprehensive testing strategies an
+- `plugins/superclaude/agents/devops-architect.md`: description: Automate infrastructure and deployment processes with focus on reli
+- `plugins/superclaude/agents/learning-guide.md`: description: Teach programming concepts and explain code with focus on understan
+- `plugins/superclaude/agents/requirements-analyst.md`: description: Transform ambiguous project ideas into concrete specifications thro
+- `plugins/superclaude/agents/socratic-mentor.md`: description: Educational guide specializing in Socratic method for programming k
+- `plugins/superclaude/agents/security-engineer.md`: description: Identify security vulnerabilities and ensure compliance with securi
+- `plugins/superclaude/agents/refactoring-expert.md`: description: Improve code quality and reduce technical debt through systematic r
+- `plugins/superclaude/agents/backend-architect.md`: description: Design reliable backend systems with focus on data integrity, secur
+- `plugins/superclaude/agents/system-architect.md`: description: Design scalable system architecture with focus on maintainability a
+- `plugins/superclaude/agents/pm-agent.md`: description: Self-improvement workflow executor that documents implementations,
+- `plugins/superclaude/agents/deep-research.md`: description: Adaptive research specialist for external knowledge gathering
+- `plugins/superclaude/agents/business-panel-experts.md`: description: Multi-expert business strategy panel synthesizing Christensen, Port
+- `plugins/superclaude/examples/deep_research_workflows.md`: # Deep Research Workflows
+- `plugins/superclaude/hooks/hooks.json`: <no summary found>
+- `plugins/superclaude/.claude-plugin/plugin.json`: <no summary found>
+- `plugins/superclaude/core/PRINCIPLES.md`: # Software Engineering Principles
+- `plugins/superclaude/core/FLAGS.md`: # SuperClaude Framework Flags
+- `plugins/superclaude/core/RESEARCH_CONFIG.md`: # Deep Research Configuration
+- `plugins/superclaude/core/RULES.md`: # Claude Code Behavioral Rules
+- `plugins/superclaude/core/BUSINESS_SYMBOLS.md`: # BUSINESS_SYMBOLS.md - Business Analysis Symbol System
+- `plugins/superclaude/core/BUSINESS_PANEL_EXAMPLES.md`: # BUSINESS_PANEL_EXAMPLES.md - Usage Examples and Integration Patterns
+- `plugins/superclaude/mcp/MCP_Serena.md`: # Serena MCP Server
+- `plugins/superclaude/mcp/MCP_Tavily.md`: # Tavily MCP Server
+- `plugins/superclaude/mcp/MCP_Magic.md`: # Magic MCP Server
+- `plugins/superclaude/mcp/MCP_Morphllm.md`: # Morphllm MCP Server
+- `plugins/superclaude/mcp/MCP_Context7.md`: # Context7 MCP Server
+- `plugins/superclaude/mcp/MCP_Chrome-DevTools.md`: # Chrome DevTools MCP Server
+- `plugins/superclaude/mcp/MCP_Sequential.md`: # Sequential MCP Server
+- `plugins/superclaude/mcp/MCP_Playwright.md`: # Playwright MCP Server
+- `plugins/superclaude/mcp/configs/magic.json`: <no summary found>
+- `plugins/superclaude/mcp/configs/serena-docker.json`: <no summary found>
+- `plugins/superclaude/mcp/configs/context7.json`: <no summary found>
+- `plugins/superclaude/mcp/configs/morphllm.json`: <no summary found>
+- `plugins/superclaude/mcp/configs/serena.json`: <no summary found>
+- `plugins/superclaude/mcp/configs/playwright.json`: <no summary found>
+- `plugins/superclaude/mcp/configs/sequential.json`: <no summary found>
+- `plugins/superclaude/mcp/configs/tavily.json`: <no summary found>
+- `plugins/superclaude/scripts/session-init.sh`: # SuperClaude SessionStart initialization script
+- `plugins/superclaude/scripts/clean_command_names.py`: # Look for plugin.json up to 3 levels up
+- `plugins/superclaude/skills/troubleshoot/SKILL.md`: description: Systematic troubleshooting with root cause analysis. Use when users
+- `plugins/superclaude/skills/token-efficiency/SKILL.md`: description: Activate ultra-compressed output mode for maximum token efficiency.
+- `plugins/superclaude/skills/confidence-check/confidence.ts`: <no summary found>
+- `plugins/superclaude/skills/confidence-check/SKILL.md`: description: Pre-implementation confidence assessment (≥90% required). Use befor
+- `plugins/superclaude/skills/deep-research/SKILL.md`: description: Activate deep research mode for systematic investigation. Use when
+- `plugins/superclaude/skills/pm/SKILL.md`: description: Project management with PDCA cycles, confidence checks, and context
+- `plugins/superclaude/skills/brainstorm/SKILL.md`: description: Activate brainstorming mode for collaborative discovery and creativ
+- `plugins/superclaude/modes/MODE_Task_Management.md`: # Task Management Mode
+- `plugins/superclaude/modes/MODE_DeepResearch.md`: description: Research mindset for systematic investigation and evidence-based re
+- `plugins/superclaude/modes/MODE_Orchestration.md`: # Orchestration Mode
+- `plugins/superclaude/modes/MODE_Introspection.md`: # Introspection Mode
+- `plugins/superclaude/modes/MODE_Brainstorming.md`: # Brainstorming Mode
+- `plugins/superclaude/modes/MODE_Business_Panel.md`: # MODE_Business_Panel.md - Business Panel Analysis Mode
+- `plugins/superclaude/modes/MODE_Token_Efficiency.md`: # Token Efficiency Mode
+- `docs/plugin-reorg.md`: # SuperClaude Plugin Re-organization Plan
+- `docs/PR_STRATEGY.md`: # PR Strategy for Clean Architecture Migration
+- `docs/next-refactor-plan.md`: # Next Refactor Direction Overview
+- `docs/pm-agent-implementation-status.md`: # PM Agent Implementation Status
+- `docs/README.md`: # SuperClaude Documentation
+- `docs/capability-mapping-v5.md`: # SuperClaude v5: Capability-Driven Architecture
+- `docs/agents/pm-agent-guide.md`: # PM Agent Guide
+- `docs/testing/pm-workflow-test-results.md`: # PM Agent Workflow Test Results - 2025-10-14
+- `docs/testing/procedures.md`: # テスト手順とCI/CD
+- `docs/reference/advanced-workflows.md`: # SuperClaude Advanced Workflows Collection
+- `docs/reference/mcp-server-guide.md`: # MCP Server Troubleshooting Guide
+- `docs/reference/suggested-commands.md`: # 推奨コマンド集
+- `docs/reference/troubleshooting.md`: # SuperClaude Troubleshooting Guide 🔧
+- `docs/reference/integration-patterns.md`: # SuperClaude Integration Patterns Collection
+- `docs/reference/basic-examples.md`: # SuperClaude Basic Examples Collection
+- `docs/reference/common-issues.md`: # SuperClaude Common Issues - Quick Reference 🚀
+- `docs/reference/claude-code-history-management.md`: # Claude Code Conversation History Management Research
+- `docs/reference/advanced-patterns.md`: # SuperClaude Advanced Patterns
+- `docs/reference/pm-agent-autonomous-reflection.md`: # PM Agent: Autonomous Reflection & Token Optimization
+- `docs/reference/comprehensive-features.md`: # SuperClaude Framework - Comprehensive Feature List
+- `docs/reference/diagnostic-reference.md`: # SuperClaude Diagnostic Reference Guide
+- `docs/reference/commands-list.md`: # SuperClaude Commands Reference
+- `docs/reference/examples-cookbook.md`: # SuperClaude Examples Cookbook
+- `docs/reference/README.md`: # SuperClaude Framework Reference Documentation
+- `docs/Development/PROJECT_STATUS.md`: # SuperClaude Project Status
+- `docs/Development/pm-agent-integration.md`: # PM Agent Mode Integration Guide
+- `docs/Development/TASKS.md`: # SuperClaude Development Tasks
+- `docs/Development/project-structure-understanding.md`: # SuperClaude Framework - Project Structure Understanding
+- `docs/Development/ROADMAP.md`: # SuperClaude Development Roadmap
+- `docs/Development/installation-flow-understanding.md`: # SuperClaude Installation Flow - Complete Understanding
+- `docs/Development/pm-agent-ideal-workflow.md`: # PM Agent - Ideal Autonomous Workflow
+- `docs/Development/hypothesis-pm-autonomous-enhancement-2025-10-14.md`: # PM Agent Autonomous Enhancement - 改善提案
+- `docs/Development/ARCHITECTURE.md`: # SuperClaude Architecture
+- `docs/Development/tasks/current-tasks.md`: # Current Tasks - SuperClaude Framework
+- `docs/user-guide-jp/commands.md`: # SuperClaude コマンドガイド
+- `docs/user-guide-jp/session-management.md`: # セッション管理ガイド
+- `docs/user-guide-jp/agents.md`: # SuperClaude エージェントガイド 🤖
+- `docs/user-guide-jp/mcp-servers.md`: # SuperClaude MCP サーバーガイド 🔌
+- `docs/user-guide-jp/modes.md`: # SuperClaude 行動モードガイド 🧠
+- `docs/user-guide-jp/flags.md`: # SuperClaude フラグガイド 🏁
+- `docs/sessions/2025-10-14-summary.md`: # Session Summary - PM Agent Enhancement (2025-10-14)
+- `docs/troubleshooting/serena-installation.md`: # Serena MCP Installation Troubleshooting
+- `docs/mcp/mcp-integration-policy.md`: # MCP Integration Policy
+- `docs/mcp/mcp-optional-design.md`: # MCP Optional Design
+- `docs/user-guide-zh/commands.md`: # SuperClaude 命令指南
+- `docs/user-guide-zh/session-management.md`: # 会话管理指南
+- `docs/user-guide-zh/agents.md`: # SuperClaude 智能体指南 🤖
+- `docs/user-guide-zh/mcp-servers.md`: # SuperClaude MCP 服务器指南 🔌
+- `docs/user-guide-zh/modes.md`: # SuperClaude 行为模式指南 🧠
+- `docs/user-guide-zh/flags.md`: # SuperClaude 标志指南 🏁
+- `docs/user-guide/mcp-installation.md`: # MCP Server Installation Guide
+- `docs/user-guide/commands.md`: # SC Commands Reference
+- `docs/user-guide/session-management.md`: # Session Management Guide
+- `docs/user-guide/agents.md`: # SuperClaude Agents Guide 🤖
+- `docs/user-guide/memory-system.md`: # Memory System Guide
+- `docs/user-guide/mcp-servers.md`: # SuperClaude MCP Servers Guide 🔌
+- `docs/user-guide/modes.md`: # SuperClaude Behavioral Modes Guide 🧠
+- `docs/user-guide/claude-code-integration.md`: # Claude Code Integration Guide
+- `docs/user-guide/flags.md`: # SuperClaude Flags Guide 🏁
+- `docs/research/research_oss_fork_workflow_2025.md`: # OSS Fork Workflow Best Practices 2025
+- `docs/research/parallel-execution-findings.md`: # Parallel Execution Findings & Implementation
+- `docs/research/skills-migration-test.md`: # Skills Migration Test - PM Agent
+- `docs/research/research_serena_mcp_2025-01-16.md`: # Serena MCP Research Report
+- `docs/research/mcp-installer-fix-summary.md`: # MCP Installer Fix Summary
+- `docs/research/phase1-implementation-strategy.md`: # Phase 1 Implementation Strategy
+- `docs/research/research_installer_improvements_20251017.md`: # SuperClaude Installer Improvement Recommendations
+- `docs/research/research_python_directory_naming_automation_2025.md`: # Research: Python Directory Naming & Automation Tools (2025)
+- `docs/research/reflexion-integration-2025.md`: # Reflexion Framework Integration - PM Agent
+- `docs/research/research_python_directory_naming_20251015.md`: # Python Documentation Directory Naming Convention Research
+- `docs/research/python_src_layout_research_20251021.md`: # Python Src Layout Research - Repository vs Package Naming
+- `docs/research/pm_agent_roi_analysis_2025-10-21.md`: # PM Agent ROI Analysis: Self-Improving Agents with Latest Models (2025)
+- `docs/research/parallel-execution-complete-findings.md`: # Complete Parallel Execution Findings - Final Report
+- `docs/research/repository-understanding-proposal.md`: # Repository Understanding & Auto-Indexing Proposal
+- `docs/research/research_git_branch_integration_2025.md`: # Git Branch Integration Research: Master/Dev Divergence Resolution (2025)
+- `docs/research/pm-mode-performance-analysis.md`: # PM Mode Performance Analysis
+- `docs/research/task-tool-parallel-execution-results.md`: # Task Tool Parallel Execution - Results & Analysis
+- `docs/research/research_repository_scoped_memory_2025-10-16.md`: # Repository-Scoped Memory Management for AI Coding Assistants
+- `docs/research/pm-skills-migration-results.md`: # PM Agent Skills Migration - Results
+- `docs/research/pm-mode-validation-methodology.md`: # PM Mode Validation Methodology
+- `docs/research/markdown-to-python-migration-plan.md`: # Markdown → Python Migration Plan
+- `docs/research/complete-python-skills-migration.md`: # Complete Python + Skills Migration Plan
+- `docs/research/llm-agent-token-efficiency-2025.md`: # LLM Agent Token Efficiency & Context Management - 2025 Best Practices
+- `docs/research/intelligent-execution-architecture.md`: # Intelligent Execution Architecture
+- `docs/architecture/PHASE_1_COMPLETE.md`: # Phase 1 Migration Complete ✅
+- `docs/architecture/PM_AGENT_COMPARISON.md`: # PM Agent: Upstream vs Clean Architecture Comparison
+- `docs/architecture/PHASE_2_COMPLETE.md`: # Phase 2 Migration Complete ✅
+- `docs/architecture/MIGRATION_TO_CLEAN_ARCHITECTURE.md`: # Migration to Clean Plugin Architecture
+- `docs/architecture/pm-agent-responsibility-cleanup.md`: # PM Agent Responsibility Cleanup & MCP Integration
+- `docs/architecture/SKILLS_CLEANUP.md`: # Skills Cleanup for Clean Architecture
+- `docs/architecture/PHASE_3_COMPLETE.md`: # Phase 3 Migration Complete ✅
+- `docs/architecture/pm-agent-auto-activation.md`: # PM Agent Auto-Activation Architecture
+- `docs/architecture/CONTEXT_WINDOW_ANALYSIS.md`: # Context Window Analysis: Old vs New Architecture
+- `docs/user-guide-kr/commands.md`: # SuperClaude 명령어 가이드
+- `docs/user-guide-kr/session-management.md`: # 세션 관리 가이드
+- `docs/user-guide-kr/agents.md`: # SuperClaude 에이전트 가이드 🤖
+- `docs/user-guide-kr/mcp-servers.md`: # SuperClaude MCP 서버 가이드 🔌
+- `docs/user-guide-kr/modes.md`: # SuperClaude 행동 모드 가이드 🧠
+- `docs/user-guide-kr/flags.md`: # SuperClaude 플래그 가이드 🏁
+- `docs/memory/WORKFLOW_METRICS_SCHEMA.md`: # Workflow Metrics Schema
+- `docs/memory/next_actions.md`: # Next Actions
+- `docs/memory/token_efficiency_validation.md`: # Token Efficiency Validation Report
+- `docs/memory/last_session.md`: # Last Session Summary
+- `docs/memory/pm_context.md`: # PM Agent Context
+- `docs/memory/reflexion.jsonl.example`: <no summary found>
+- `docs/memory/solutions_learned.jsonl`: <no summary found>
+- `docs/memory/patterns_learned.jsonl`: <no summary found>
+- `docs/memory/README.md`: # Memory Directory
+- `docs/memory/workflow_metrics.jsonl`: <no summary found>
+- `docs/developer-guide/testing-debugging.md`: # SuperClaude Verification and Troubleshooting Guide
+- `docs/developer-guide/documentation-index.md`: # SuperClaude Framework developer-guide Index
+- `docs/developer-guide/contributing-code.md`: # Contributing Context Files to SuperClaude Framework 🛠️
+- `docs/developer-guide/README.md`: # SuperClaude Framework Developer Guide
+- `docs/developer-guide/technical-architecture.md`: # SuperClaude Context Architecture Guide
+- `docs/getting-started/windows-installation.md`: # Windows Installation Guide
+- `docs/getting-started/quick-start.md`: # 🚀 SuperClaude Quick Start Guide
+- `docs/getting-started/installation.md`: # 📦 SuperClaude Installation Guide
+- `docs/Templates/__init__.py`: <no summary found>
+- `docs/mistakes/test_database_connection-2025-11-14.md`: # Mistake Record: test_database_connection
+- `docs/mistakes/test_reflexion_with_real_exception-2025-11-14.md`: # Mistake Record: test_reflexion_with_real_exception
+- `docs/mistakes/unknown-2025-11-14.md`: # Mistake Record: unknown
+- `docs/mistakes/test_reflexion_with_real_exception-2026-03-22.md`: # Mistake Record: test_reflexion_with_real_exception
+- `docs/mistakes/unknown-2026-03-22.md`: # Mistake Record: unknown
+- `docs/mistakes/test_database_connection-2026-03-22.md`: # Mistake Record: test_database_connection
+- `docs/mistakes/test_reflexion_with_real_exception-2025-11-11.md`: # Mistake Record: test_reflexion_with_real_exception
+- `docs/mistakes/unknown-2025-11-11.md`: # Mistake Record: unknown
+- `docs/mistakes/test_database_connection-2025-11-11.md`: # Mistake Record: test_database_connection
+- `scripts/publish.sh`: set -e  # Exit on any error
+- `scripts/analyze_workflow_metrics.py`: # Score = avg_tokens (lower is better)
+- `scripts/ab_test_workflows.py`: # Handle boolean metrics
+- `scripts/uninstall_legacy.sh`: # SuperClaude Legacy Cleanup Script
+- `scripts/sync_from_framework.py`: # Configure logging
+- `scripts/README.md`: # SuperClaude PyPI Publishing Scripts
+- `scripts/cleanup.sh`: # SuperClaude Project Cleanup Script
+- `scripts/build_superclaude_plugin.py`: # Fall back to metadata override or default version
+- `skills/confidence-check/confidence.ts`: <no summary found>
+- `skills/confidence-check/SKILL.md`: description: Pre-implementation confidence assessment (≥90% required). Use befor
+- `.claude/settings.json`: <no summary found>
+- `.claude/skills/confidence-check/confidence.ts`: <no summary found>
+- `.claude/skills/confidence-check/SKILL.md`: description: Pre-implementation confidence assessment (≥90% required). Use befor
+- `tests/conftest.py`: # Create empty memory files
+- `tests/__init__.py`: <no summary found>
+- `tests/integration/test_execution_engine.py`: # Create PROJECT_INDEX.md so context check passes
+- `tests/integration/__init__.py`: <no summary found>
+- `tests/integration/test_pytest_plugin.py`: # 1. Confidence check
+- `tests/unit/test_confidence.py`: "duplicate_check_complete": True,  # 25%
+- `tests/unit/test_parallel.py`: assert task.can_execute({"t1"}) is False  # t3 missing
+- `tests/unit/test_reflexion.py`: # Should not raise an exception
+- `tests/unit/__init__.py`: <no summary found>
+- `tests/unit/test_self_correction.py`: # Add a past failure
+- `tests/unit/test_cli_install.py`: # Check that command files were copied
+- `tests/unit/test_self_check.py`: # Check specific issues
+- `tests/unit/test_reflection.py`: # Create PROJECT_INDEX.md to satisfy freshness check
+- `tests/unit/test_token_budget.py`: # Check if usage tracking is available
+## superclaude-plugin
+- `.gitignore`: # IDE and Editor
+- `LICENSE`: <no summary found>
+- `BACKUP_GUIDE.md`: # 🛡️ SuperClaude Plugin - Complete Backup & Safety Guide
+- `README-zh.md`: # 🚀 SuperClaude 框架
+- `.gitattributes`: # .gitattributes — Plugin-owned file merge strategy
+- `plugin.json`: <no summary found>
+- `MIGRATION_GUIDE.md`: # SuperClaude Migration Guide
+- `CLAUDE.md`: # SuperClaude Plugin
+- `README-ja.md`: # 🚀 SuperClaude フレームワーク
+- `SECURITY.md`: # Security Policy
+- `README.md`: # 🚀 SuperClaude Framework
+- `commands/sc-spec-panel.md`: description: "Multi-expert specification review and improvement using renowned s
+- `commands/sc-agent.md`: description: SC Agent — session controller that orchestrates investigation, impl
+- `commands/sc-recommend.md`: description: Ultra-intelligent command recommendation engine - recommends the mo
+- `commands/setup-mcp.md`: description: Interactive MCP server setup wizard
+- `commands/sc-test.md`: description: "Execute tests with coverage analysis and automated quality reporti
+- `commands/sc-implement.md`: description: "Feature and code implementation with intelligent persona activatio
+- `commands/sc-document.md`: description: "Generate focused documentation for components, functions, APIs, an
+- `commands/sc-help.md`: description: "List all available /sc:sc commands and their functionality"
+- `commands/sc-design.md`: description: "Design system architecture, APIs, and component interfaces with co
+- `commands/sc-troubleshoot.md`: description: "Diagnose and resolve issues in code, builds, deployments, and syst
+- `commands/sc-sc.md`: description: SuperClaude command dispatcher - Use /sc:sc [command] to access all
+- `commands/sc-index-repo.md`: description: Repository Indexing - 94% token reduction (58K → 3K)
+- `commands/sc-brainstorm.md`: description: "Interactive requirements discovery through Socratic dialogue and s
+- `commands/sc-pm.md`: description: "Project Manager Agent - Default orchestration agent that coordinat
+- `commands/sc-cleanup.md`: description: "Systematically clean up code, remove dead code, and optimize proje
+- `commands/sc-explain.md`: description: "Provide clear explanations of code, concepts, and system behavior
+- `commands/sc-research.md`: description: Deep web research with adaptive planning and intelligent search
+- `commands/sc-business-panel.md`: # /sc:sc:sc:business-panel - Business Panel Analysis System
+- `commands/sc-git.md`: description: "Git operations with intelligent commit messages and workflow optim
+- `commands/sc-load.md`: description: "Session lifecycle management with Serena MCP integration for proje
+- `commands/sc-reflect.md`: description: "Task reflection and validation using Serena MCP analysis capabilit
+- `commands/sc-README.md`: # SuperClaude Commands
+- `commands/sc-estimate.md`: description: "Provide development estimates for tasks, features, or projects wit
+- `commands/sc-analyze.md`: description: "Comprehensive code analysis across quality, security, performance,
+- `commands/sc-build.md`: description: "Build, compile, and package projects with intelligent error handli
+- `commands/sc-improve.md`: description: "Apply systematic improvements to code quality, performance, and ma
+- `commands/sc-select-tool.md`: description: "Intelligent MCP tool selection based on complexity scoring and ope
+- `commands/verify-mcp.md`: description: Verify MCP server installation and configuration status
+- `commands/sc-spawn.md`: description: "Meta-system task orchestration with intelligent breakdown and dele
+- `commands/sc-index.md`: description: "Generate comprehensive project documentation and knowledge base wi
+- `commands/sc-workflow.md`: description: "Generate structured implementation workflows from PRDs and feature
+- `commands/sc-save.md`: description: "Session lifecycle management with Serena MCP integration for sessi
+- `commands/sc-task.md`: description: "Execute complex tasks with intelligent workflow management and del
+- `agents/sc-business-panel-experts.md`: description: Multi-expert business strategy panel synthesizing Christensen, Port
+- `agents/sc-performance-engineer.md`: description: Optimize system performance through measurement-driven analysis and
+- `agents/sc-backend-architect.md`: description: Design reliable backend systems with focus on data integrity, secur
+- `agents/sc-socratic-mentor.md`: description: Educational guide specializing in Socratic method for programming k
+- `agents/sc-frontend-architect.md`: description: Create accessible, performant user interfaces with focus on user ex
+- `agents/sc-self-review.md`: description: Post-implementation validation and reflexion partner
+- `agents/sc-system-architect.md`: description: Design scalable system architecture with focus on maintainability a
+- `agents/sc-requirements-analyst.md`: description: Transform ambiguous project ideas into concrete specifications thro
+- `agents/sc-quality-engineer.md`: description: Ensure software quality through comprehensive testing strategies an
+- `agents/sc-repo-index.md`: description: Repository indexing and codebase briefing assistant
+- `agents/sc-root-cause-analyst.md`: description: Systematically investigate complex problems to identify underlying
+- `agents/sc-python-expert.md`: description: Deliver production-ready, secure, high-performance Python code foll
+- `agents/sc-security-engineer.md`: description: Identify security vulnerabilities and ensure compliance with securi
+- `agents/sc-devops-architect.md`: description: Automate infrastructure and deployment processes with focus on reli
+- `agents/sc-learning-guide.md`: description: Teach programming concepts and explain code with focus on understan
+- `agents/sc-deep-research.md`: description: Adaptive research specialist for external knowledge gathering
+- `agents/sc-README.md`: # SuperClaude Agents
+- `agents/sc-deep-research-agent.md`: description: Specialist for comprehensive research with adaptive strategies and
+- `agents/sc-refactoring-expert.md`: description: Improve code quality and reduce technical debt through systematic r
+- `agents/sc-technical-writer.md`: description: Create clear, comprehensive technical documentation tailored to spe
+- `agents/sc-pm-agent.md`: description: Self-improvement workflow executor that documents implementations,
+- `agents/ContextEngineering/metrics-analyst.md`: # 📊 Metrics Analyst Agent
+- `agents/ContextEngineering/output-architect.md`: # 🗂️ Output Architect Agent
+- `agents/ContextEngineering/IMPLEMENTATION_SUMMARY.md`: # Context Engineering Implementation Summary
+- `agents/ContextEngineering/documentation-specialist.md`: # 📚 Documentation Specialist Agent
+- `agents/ContextEngineering/context-orchestrator.md`: # 🧠 Context Orchestrator Agent
+- `agents/ContextEngineering/README.md`: # Context Engineering Agents for SuperClaude
+- `.claude-plugin/marketplace.json`: <no summary found>
+- `.claude-plugin/plugin.json`: <no summary found>
+- `docs/SYNC_SYSTEM.md`: # Automated Sync System Documentation
+- `docs/.framework-sync-commit`: <no summary found>
+- `core/PRINCIPLES.md`: # Software Engineering Principles
+- `core/FLAGS.md`: # SuperClaude Framework Flags
+- `core/RESEARCH_CONFIG.md`: # Deep Research Configuration
+- `core/RULES.md`: # Claude Code Behavioral Rules
+- `core/BUSINESS_SYMBOLS.md`: # BUSINESS_SYMBOLS.md - Business Analysis Symbol System
+- `core/BUSINESS_PANEL_EXAMPLES.md`: # BUSINESS_PANEL_EXAMPLES.md - Usage Examples and Integration Patterns
+- `scripts/backup-claude-config.sh`: # SuperClaude Plugin - Automated Backup Script
+- `scripts/sync_from_framework.py`: # Configure logging
+- `scripts/clean_command_names.py`: # Look for plugin.json up to 3 levels up
+- `benchmark/performance-test.sh`: # SuperClaude Plugin Performance Benchmark
+- `benchmark/detailed-analysis.sh`: # Detailed Plugin Analysis - Runtime Behavior Study
+- `benchmark/fair-comparison-test.sh`: # Fair Comparison Test - Unbiased Performance Measurement
+- `benchmark/BIAS_ANALYSIS.md`: # Test Bias Analysis - Critical Review
+- `benchmark/SUMMARY.md`: # Benchmark Summary - Quick Reference
+- `benchmark/FAIR_CONCLUSION.md`: # Fair Performance Comparison - Honest Analysis
+- `benchmark/PERFORMANCE_EVIDENCE.md`: # SuperClaude Plugin Performance Evidence
+- `benchmark/README.md`: # Performance Benchmark
+- `benchmark/STRATEGIC_ANALYSIS.md`: # Strategic Analysis: Plugin vs MCP Gateway Architecture
+- `benchmark/results/benchmark_20251121_121132.json`: <no summary found>
+- `benchmark/results/detailed_analysis_20251121_121502.json`: <no summary found>
+- `benchmark/results/fair_comparison_20251121_122250.json`: <no summary found>
+- `benchmark/results/detailed_analysis_20251121_121528.json`: <no summary found>
+- `backups/plugin.json.20260212_001942.backup`: <no summary found>
+- `backups/plugin.json.20260212_001931.backup`: <no summary found>
+- `tests/test_sync.py`: # Add scripts to path
+- `modes/MODE_Task_Management.md`: # Task Management Mode
+- `modes/MODE_DeepResearch.md`: description: Research mindset for systematic investigation and evidence-based re
+- `modes/MODE_Orchestration.md`: # Orchestration Mode
+- `modes/MODE_Introspection.md`: # Introspection Mode
+- `modes/MODE_Brainstorming.md`: # Brainstorming Mode
+- `modes/MODE_Business_Panel.md`: # MODE_Business_Panel.md - Business Panel Analysis Mode
+- `modes/MODE_Token_Efficiency.md`: # Token Efficiency Mode
+## bitwize-music
+- `.gitignore`: # User content (private)
+- `CHANGELOG.md`: # Changelog
+- `LICENSE`: <no summary found>
+- `requirements-test.txt`: # Test dependencies
+- `.mcp.json`: <no summary found>
+- `TESTING.md`: # Testing Plan for claude-ai-music-skills
+- `CONTRIBUTING.md`: # Contributing to claude-ai-music-skills
+- `requirements.txt`: # Claude AI Music Skills - Python Dependencies
+- `CLAUDE.md`: # AI Music Skills - Claude Instructions
+- `pyproject.toml`: "servers/bitwize-music-server/run.py",   # uvicorn entry point
+- `CODE_OF_CONDUCT.md`: # Code of Conduct
+- `Makefile`: # Development Makefile — local dev convenience (CI uses its own workflow)
+- `ruff.toml`: # Ruff linter configuration
+- `README.md`: # Claude AI Music Skills
+- `templates/track.md`: # [Track Title]
+- `templates/album.md`: release_date: ""  # YYYY-MM-DD (fill in when releasing)
+- `templates/research.md`: # [Album Name] - Research & Source Documentation
+- `templates/ideas.md`: # Album Ideas
+- `templates/sources.md`: # [Album Name] - Sources & Documentation
+- `templates/genre.md`: # [Genre Name]
+- `templates/artist.md`: # [Artist Name]
+- `templates/promo/facebook.md`: # [Album Name] — Facebook
+- `templates/promo/instagram.md`: # [Album Name] — Instagram
+- `templates/promo/tiktok.md`: # [Album Name] — TikTok
+- `templates/promo/youtube.md`: # [Album Name] — YouTube
+- `templates/promo/twitter.md`: # [Album Name] — Twitter/X
+- `templates/promo/campaign.md`: # [Album Name] — Promo Campaign
+- `config/config.example.yaml`: # =============================================================================
+- `config/README.md`: # Configuration
+- `config/overrides.example/suno-preferences.md`: # Suno Preferences
+- `config/overrides.example/research-preferences.md`: # Research Preferences
+- `config/overrides.example/album-planning-guide.md`: # Album Planning Guide
+- `config/overrides.example/promotion-preferences.md`: # Promotion Preferences
+- `config/overrides.example/mastering-presets.yaml`: # Custom Mastering Presets
+- `config/overrides.example/album-art-preferences.md`: # Album Art Preferences
+- `config/overrides.example/sheet-music-preferences.md`: # Sheet Music Preferences
+- `config/overrides.example/CLAUDE.md`: # Custom Workflow Instructions
+- `config/overrides.example/explicit-words.md`: # Custom Explicit Words
+- `config/overrides.example/lyric-writing-guide.md`: # Lyric Writing Guide
+- `config/overrides.example/pronunciation-guide.md`: # Pronunciation Guide (Override)
+- `config/overrides.example/README.md`: # Override Examples
+- `config/overrides.example/release-preferences.md`: # Release Preferences
+- `reference/model-strategy.md`: # Model Selection Strategy
+- `reference/SKILL_INDEX.md`: # Skill Index & Decision Tree
+- `reference/distribution.md`: # Distribution Reference
+- `reference/state-schema.md`: # State Cache Schema (v1.2.0)
+- `reference/terminology.md`: # Terminology Glossary
+- `reference/streaming-mastering-specs.md`: # Streaming Mastering Specs
+- `reference/promotion/promotion-preferences-override.md`: # Promotion Preferences Override Template
+- `reference/promotion/platform-specs.md`: # Platform Specifications for Promo Videos
+- `reference/promotion/social-media-best-practices.md`: # Social Media Best Practices for Music Promotion
+- `reference/promotion/ffmpeg-reference.md`: # ffmpeg Technical Reference for Promo Videos
+- `reference/promotion/example-output.md`: # Promo Video Example Output
+- `reference/promotion/promo-workflow.md`: # Promo Video Workflow
+- `reference/quick-start/true-story-album.md`: # Quick Start: True Story Album
+- `reference/quick-start/first-album.md`: # Quick Start: Your First Album
+- `reference/quick-start/bulk-releases.md`: # Quick Start: Bulk Releases
+- `reference/overrides/override-index.md`: # Override Index
+- `reference/overrides/how-to-customize.md`: # How to Customize the Plugin
+- `reference/sheet-music/workflow.md`: # Sheet Music Generation Workflow
+- `reference/sheet-music/troubleshooting.md`: # Sheet Music Troubleshooting
+- `reference/sheet-music/genre-recommendations.md`: # Sheet Music Genre Recommendations
+- `reference/cloud/setup-guide.md`: # Cloud Storage Setup Guide
+- `reference/mastering/genre-specific-presets.md`: # Genre-Specific Mastering Presets
+- `reference/mastering/mastering-workflow.md`: # Audio Mastering Workflow for Album Releases
+- `reference/mastering/mastering-checklist.md`: # Mastering Checklist
+- `reference/mastering/loudness-measurement.md`: # Loudness Measurement Guide
+- `reference/cross-platform/tool-compatibility-matrix.md`: # Tool Compatibility Matrix
+- `reference/cross-platform/wsl-setup-guide.md`: # WSL2 Setup Guide for Claude AI Music Skills
+- `reference/workflows/importing-audio.md`: # Importing Audio Files
+- `reference/workflows/release-procedures.md`: # Release Procedures
+- `reference/workflows/checkpoint-scripts.md`: # Checkpoint Scripts
+- `reference/workflows/album-planning-phases.md`: # Album Planning: The 7 Phases
+- `reference/workflows/source-verification-handoff.md`: # Source Verification Handoff Procedures
+- `reference/workflows/status-tracking.md`: # Status Tracking
+- `reference/workflows/error-recovery.md`: # Error Recovery Procedures
+- `reference/suno/structure-tags.md`: # Suno Structure Tags Reference
+- `reference/suno/CHANGELOG.md`: # Suno Documentation Changelog
+- `reference/suno/voice-tags.md`: # Suno Voice Tags Reference
+- `reference/suno/genre-list.md`: # Suno Genre List
+- `reference/suno/tips-and-tricks.md`: # Suno Tips & Tricks
+- `reference/suno/workspace-management.md`: # Suno Workspace Management
+- `reference/suno/artist-blocklist.md`: # Artist Name Blocklist for Suno
+- `reference/suno/v5-best-practices.md`: # Suno V5 / V5.5 Best Practices
+- `reference/suno/instrumental-tags.md`: # Suno Instrumental Tags Reference
+- `reference/suno/pronunciation-guide.md`: # Pronunciation Guide for Suno Lyrics
+- `reference/suno/README.md`: # Suno Reference Documentation
+- `reference/suno/version-history/v5-changes.md`: # Suno V4 → V5 Migration Guide
+- `reference/release/distributor-guide.md`: # Distributor Comparison Guide
+- `reference/release/platform-comparison.md`: # Platform Comparison Guide
+- `reference/release/metadata-by-platform.md`: # Metadata Requirements by Platform
+- `reference/release/rights-and-claims.md`: # Rights and Claims Guide
+- `hooks/hooks.json`: <no summary found>
+- `hooks/validate_track.py`: # Write tool provides full content
+- `hooks/install.sh`: # Install git hooks for bitwize-music plugin
+- `hooks/pre-commit`: # Pre-commit hook: validate before committing
+- `hooks/README.md`: # Git Hooks
+- `hooks/check_version_sync.py`: # If the other file is also modified in the working tree, this is
+- `.claude-plugin/marketplace.json`: <no summary found>
+- `.claude-plugin/plugin.json`: <no summary found>
+- `docs/skills.md`: # Skills Reference
+- `docs/troubleshooting.md`: # Troubleshooting
+- `docs/configuration.md`: # Configuration
+- `docs/images/be-excellent-to-each-other.jpg`: <error: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte>
+- `servers/bitwize-music-server/server.py`: # Derive plugin root from environment or file location
+- `servers/bitwize-music-server/__init__.py`: # bitwize-music-state MCP server
+- `servers/bitwize-music-server/README.md`: # bitwize-music MCP Server
+- `servers/bitwize-music-server/run.py`: # Get the directory containing this script
+- `servers/bitwize-music-server/handlers/maintenance.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/streaming.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/skills.py`: # Apply model filter
+- `servers/bitwize-music-server/handlers/text_analysis.py`: # =============================================================================
+- `servers/bitwize-music-server/handlers/_shared.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/promo.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/gates.py`: # =============================================================================
+- `servers/bitwize-music-server/handlers/database.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/__init__.py`: <no summary found>
+- `servers/bitwize-music-server/handlers/core.py`: # =============================================================================
+- `servers/bitwize-music-server/handlers/lyrics_analysis.py`: # =============================================================================
+- `servers/bitwize-music-server/handlers/status.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/ideas.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/rename.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/content.py`: # Resolve overrides directory
+- `servers/bitwize-music-server/handlers/_atomic.py`: tmp_path = None  # Rename succeeded, nothing to clean up
+- `servers/bitwize-music-server/handlers/health.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/album_ops.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/processing/_helpers.py`: from handlers._shared import _resolve_audio_dir as _resolve_audio_dir  # noqa: F
+- `servers/bitwize-music-server/handlers/processing/mixing.py`: album_slug: str,
+- `servers/bitwize-music-server/handlers/processing/__init__.py`: # ---------------------------------------------------------------------------
+- `servers/bitwize-music-server/handlers/processing/video.py`: # _resolve_audio_dir accessed via _helpers for patch compatibility
+- `servers/bitwize-music-server/handlers/processing/audio.py`: # Progress log filename written at the album's audio_dir. Operators
+- `servers/bitwize-music-server/handlers/processing/sheet_music.py`: # _resolve_audio_dir accessed via _helpers for patch compatibility
+- `servers/bitwize-music-server/handlers/processing/_album_stages.py`: TRACK_GENERATED,  # noqa: F401 — kept for backward-compat exports
+- `skills/mix-engineer/mix-presets.md`: # Mix Polish Genre Presets
+- `skills/mix-engineer/SKILL.md`: description: Polishes raw Suno audio by processing per-stem WAVs (vocals, backin
+- `skills/test/SKILL.md`: description: Runs automated tests to validate plugin integrity across 14 categor
+- `skills/test/test-definitions.md`: # TEST CATEGORIES
+- `skills/clipboard/USAGE_EXAMPLES.md`: # Clipboard Skill - Usage Examples
+- `skills/clipboard/SKILL.md`: description: Copies track content (lyrics, style prompts, streaming lyrics) to t
+- `skills/document-hunter/SKILL.md`: description: Searches and retrieves documents from free public sources using aut
+- `skills/document-hunter/site-patterns.md`: # Site-Specific Patterns
+- `skills/plagiarism-checker/SKILL.md`: description: Scans lyrics for phrases that may match existing songs using web se
+- `skills/album-dashboard/SKILL.md`: description: Shows a structured progress dashboard for an album with percentage
+- `skills/voice-checker/SKILL.md`: description: Reviews lyrics and prose for AI-written patterns (abstract noun sta
+- `skills/album-ideas/STATUS_VALUES.md`: # Album Ideas - Status Values
+- `skills/album-ideas/SKILL.md`: description: Tracks and manages album ideas including brainstorming, planning, a
+- `skills/promo-director/visualization-guide.md`: # Promo Video Visualization Styles
+- `skills/promo-director/SKILL.md`: description: Generates 15-second vertical promo videos for social media from mas
+- `skills/promo-director/technical-reference.md`: # Promo Director - Technical Reference
+- `skills/researchers-legal/DISCOVERY_GUIDE.md`: # Legal Document Discovery Guide
+- `skills/researchers-legal/SKILL.md`: description: Researches court documents, indictments, plea agreements, and sente
+- `skills/new-album/SKILL.md`: description: Creates a new album with the correct directory structure and templa
+- `skills/researchers-journalism/SKILL.md`: description: Researches investigative articles, interviews, and news coverage. U
+- `skills/researchers-journalism/SOURCE_EXTRACTION.md`: # Journalism Source Extraction Guide
+- `skills/pronunciation-specialist/SKILL.md`: description: Scans lyrics for pronunciation risks and prevents Suno mispronuncia
+- `skills/pronunciation-specialist/word-lists.md`: # Pronunciation Word Lists
+- `skills/suno-engineer/genre-practices.md`: # Genre-Specific Best Practices
+- `skills/suno-engineer/SKILL.md`: description: Constructs technical Suno V5/V5.5 style prompts, selects genres, an
+- `skills/mastering-engineer/genre-presets.md`: # Genre-Specific Mastering Presets
+- `skills/mastering-engineer/SKILL.md`: description: Guides audio mastering for streaming platforms including loudness o
+- `skills/cloud-uploader/SKILL.md`: description: Uploads promo videos and content to Cloudflare R2 or AWS S3. Use wh
+- `skills/about/SKILL.md`: description: Provides information about the bitwize-music plugin, its version, a
+- `skills/about/PROJECT_HISTORY.md`: # Project History
+- `skills/researcher/templates.md`: # Research Templates & Examples
+- `skills/researcher/source-standards.md`: # Source Standards & Hierarchy
+- `skills/researcher/SKILL.md`: description: Conducts investigative-grade research with primary source analysis,
+- `skills/researcher/free-sources.md`: # Free Document Sources
+- `skills/promo-writer/copy-formulas.md`: # Copy Formulas Reference
+- `skills/promo-writer/SKILL.md`: description: Generates platform-specific social media copy from album themes, tr
+- `skills/sheet-music-publisher/anthemscore-reference.md`: # AnthemScore CLI Reference
+- `skills/sheet-music-publisher/SKILL.md`: description: Converts mastered audio to sheet music and creates printable songbo
+- `skills/sheet-music-publisher/REQUIREMENTS.md`: # Sheet Music Publisher - Software Requirements
+- `skills/sheet-music-publisher/publishing-guide.md`: # Sheet Music Distribution Guide
+- `skills/sheet-music-publisher/musescore-reference.md`: # MuseScore Polish Reference
+- `skills/sheet-music-publisher/workflow-detail.md`: # Sheet Music Publisher - Workflow Detail
+- `skills/next-step/SKILL.md`: description: Analyzes album state and recommends the optimal next action. Use wh
+- `skills/help/SKILL.md`: description: Shows available skills, common workflows, and quick reference for t
+- `skills/help/SKILL_GLOSSARY.md`: # Skill Glossary
+- `skills/genre-creator/SKILL.md`: description: Create new genre documentation files for the bitwize-music genre li
+- `skills/pre-generation-check/SKILL.md`: description: Validates all pre-generation gates before sending tracks to Suno. C
+- `skills/import-audio/SKILL.md`: description: Moves audio files to the correct album location with proper path st
+- `skills/session-start/SKILL.md`: description: Runs the session startup procedure - verifies setup, loads config a
+- `skills/import-art/SKILL.md`: description: Places album art files in the correct audio and content directory l
+- `skills/validate-album/SKILL.md`: description: Validates album directory structure, file locations, and content in
+- `skills/configure/SETTINGS_REFERENCE.md`: # Configure Skill - Settings Reference
+- `skills/configure/SKILL.md`: description: Sets up or edits the plugin configuration file interactively. Use o
+- `skills/skill-model-updater/SKILL.md`: description: Updates model references across all skill files when new Claude mod
+- `skills/resume/SKILL.md`: description: Finds an album by name and shows detailed status with next steps. U
+- `skills/setup/SKILL.md`: description: Detects your Python environment and guides you through installing p
+- `skills/researchers-gov/AGENCY_SOURCES.md`: # Government Agency Sources Guide
+- `skills/researchers-gov/SKILL.md`: description: Researches DOJ/FBI/SEC press releases, agency statements, and gover
+- `skills/researchers-tech/PROJECT_RESEARCH.md`: # Tech Project Research Guide
+- `skills/researchers-tech/SKILL.md`: description: Researches project histories, changelogs, developer interviews, and
+- `skills/explicit-checker/SKILL.md`: description: Scans lyrics for explicit content and verifies that explicit flags
+- `skills/researchers-biographical/INTERVIEW_SOURCES.md`: # Interview and Biographical Sources Guide
+- `skills/researchers-biographical/SKILL.md`: description: Researches personal backgrounds, interviews, motivations, and human
+- `skills/tutorial/phases.md`: # The 7 Planning Phases
+- `skills/tutorial/SKILL.md`: description: Provides interactive guided album creation for new users. Use when
+- `skills/researchers-historical/ARCHIVE_SOURCES.md`: # Historical Archive Sources Guide
+- `skills/researchers-historical/SKILL.md`: description: Researches archives, contemporary accounts, and timeline reconstruc
+- `skills/lyric-reviewer/checklist-reference.md`: # 14-Point Checklist Reference
+- `skills/lyric-reviewer/SKILL.md`: description: Reviews lyrics against a quality checklist before Suno generation.
+- `skills/album-conceptualizer/album-types.md`: # Album Types Reference
+- `skills/album-conceptualizer/SKILL.md`: description: Designs album concepts, tracklist architecture, and thematic planni
+- `skills/promo-reviewer/SKILL.md`: description: Reviews and iterates on social media copy in album promo/ files. Us
+- `skills/promo-reviewer/platform-rules.md`: # Platform Rules Reference
+- `skills/promote-idea/SKILL.md`: description: Converts an album idea from IDEAS.md into an actual album project i
+- `skills/lyric-refiner/SKILL.md`: description: Autonomous multi-pass lyric refinement for tightening, cohesion, an
+- `skills/import-track/SKILL.md`: description: Moves track markdown files to the correct album location. Use when
+- `skills/lyric-writer/SKILL.md`: description: Writes or reviews lyrics with professional prosody, rhyme craft, an
+- `skills/lyric-writer/examples.md`: # Lyric Writer Examples
+- `skills/lyric-writer/documentary-standards.md`: # Documentary & True Crime Legal Standards
+- `skills/lyric-writer/craft-reference.md`: # Lyric Writer Craft Reference
+- `skills/researchers-primary-source/SKILL.md`: description: Researches the subject's own words from tweets, blogs, forums, and
+- `skills/researchers-primary-source/DIRECT_SOURCES.md`: # Direct Source Research Guide
+- `skills/researchers-verifier/checklists.md`: # Verification Checklists
+- `skills/researchers-verifier/patterns.md`: # Common Verification Patterns
+- `skills/researchers-verifier/SKILL.md`: description: Performs quality control, citation validation, and fact-checking be
+- `skills/researchers-verifier/VERIFICATION_CHECKLIST.md`: # Verification Methodology Guide
+- `skills/verify-sources/SKILL.md`: description: Captures human source verification for tracks, timestamps it, and u
+- `skills/researchers-financial/SEC_FILING_GUIDE.md`: # SEC Filing Guide
+- `skills/researchers-financial/SKILL.md`: description: Researches SEC filings, earnings calls, analyst reports, and market
+- `skills/researchers-security/CVE_RESEARCH.md`: # CVE and Security Research Guide
+- `skills/researchers-security/SKILL.md`: description: Researches malware analysis, CVEs, attribution reports, and hacker
+- `skills/health-check/SKILL.md`: description: Runs plugin health checks (venv packages and skill registration). U
+- `skills/album-art-director/album-types.md`: # Album Types & Visual Approaches
+- `skills/album-art-director/SKILL.md`: description: Creates visual concepts for album artwork and generates AI art prom
+- `skills/album-art-director/visual-styles.md`: # Visual Styles & References
+- `skills/album-art-director/prompt-examples.md`: # AI Art Prompt Examples
+- `skills/rename/SKILL.md`: description: Renames an album or track, updating slugs, titles, and all mirrored
+- `skills/release-director/platform-guides.md`: # Platform Upload Guides
+- `skills/release-director/SKILL.md`: description: Coordinates album release including QA, distribution prep, and plat
+- `tools/validate_help_completeness.py`: # Ensure project root is on sys.path
+- `tools/promotion/generate_all_promos.py`: # Ensure project root is on sys.path
+- `tools/promotion/generate_album_sampler.py`: # Ensure project root is on sys.path
+- `tools/promotion/generate_promo_video.py`: # Single track
+- `tools/database/__init__.py`: <no summary found>
+- `tools/database/schema.sql`: <no summary found>
+- `tools/database/connection.py`: import psycopg2  # noqa: F401
+- `tools/database/README.md`: # Database Tools
+- `tools/database/migrations/001_initial_schema.sql`: <no summary found>
+- `tools/n8n/n8n-auto-post-twitter.json`: "jsCode": "\nconst picked = $('Pick Random').first().json;\n\nreturn [{\n  json:
+- `tools/n8n/README.md`: # n8n Workflows
+- `tools/mixing/excitation.py`: # Clamp high to stay below Nyquist.
+- `tools/mixing/__init__.py`: <no summary found>
+- `tools/mixing/mix-presets.yaml`: # Mix Polish Presets — Per-Stem Processing Settings
+- `tools/mixing/mix_tracks.py`: yaml = None  # type: ignore[assignment]
+- `tools/sheet-music/create_songbook.py`: # With config integration (auto-detects artist, cover art):
+- `tools/sheet-music/prepare_singles.py`: # Ensure project root is on sys.path
+- `tools/sheet-music/transcribe.py`: # By album name (reads config)
+- `tools/sheet-music/README.md`: # Sheet Music Tools
+- `tools/cloud/upload_to_cloud.py`: # Upload all promos for an album
+- `tools/mastering/archival.py`: # Caller-level verification catches leftovers; keep the helper
+- `tools/mastering/ceiling_guard.py`: # Threshold bounds — see #290 section "[8] album-ceiling guard".
+- `tools/mastering/fix_dynamic_track.py`: # Ensure project root is on sys.path
+- `tools/mastering/metadata.py`: # mutagen's FileType.tags is a class-level `None` literal, so mypy sees
+- `tools/mastering/mono_fold_report.py`: lines.append(f"# Mono Fold-Down Report — {track_name}")
+- `tools/mastering/mono_fold.py`: # Frequency bands — identical layout to tools/mastering/analyze_tracks.py so
+- `tools/mastering/signature_persistence.py`: album_slug: "my-album"
+- `tools/mastering/analyze_tracks.py`: # Ensure project root is on sys.path
+- `tools/mastering/config.py`: # Canonical default values for the ``mastering:`` config block.
+- `tools/mastering/album_signature.py`: # Metrics that get aggregated across tracks (median/p95/min/max/range).
+- `tools/mastering/layout.py`: # Defaults from #290 issue section "Layout & transitions".
+- `tools/mastering/anchor_selector.py`: # Walrus-filter so mypy sees the narrowed (non-None) value in the
+- `tools/mastering/reference_master.py`: # Ensure project root is on sys.path
+- `tools/mastering/genre-presets.yaml`: # Genre-Specific Mastering Presets
+- `tools/mastering/master_tracks.py`: yaml = None  # type: ignore[assignment]
+- `tools/mastering/coherence.py`: # Hardcoded — matches master_album Stage 5 verify spec. Not a preset field.
+- `tools/mastering/codec_preview.py`: <no summary found>
+- `tools/mastering/adm_validation.py`: # ffmpeg encode/decode of a typical ~5-minute master finishes in seconds; a
+- `tools/mastering/qc_tracks.py`: # Ensure project root is on sys.path
+- `tools/shared/progress.py`: # Truncate long names to fit terminal
+- `tools/shared/logging_config.py`: # Sentinel to track whether file logging has already been configured
+- `tools/shared/__init__.py`: # Shared utilities for bitwize-music tools
+- `tools/shared/text_utils.py`: def slug_to_title(slug: str) -> str:
+- `tools/shared/fonts.py`: <no summary found>
+- `tools/shared/config.py`: yaml = None  # type: ignore[assignment]
+- `tools/shared/colors.py`: NC = '\033[0m'  # No Color
+- `tools/shared/paths.py`: {content_root}/artists/[artist]/albums/[genre]/[album]/   # Content
+- `tools/shared/media_utils.py`: # Filter out very dark and very light pixels
+- `tools/userscripts/suno-autofill.user.js`: <no summary found>
+- `tools/userscripts/README.md`: # Userscripts
+- `tools/state/__main__.py`: <no summary found>
+- `tools/state/parsers.py`: # Try to import yaml, provide helpful error if missing
+- `tools/state/__init__.py`: # State cache tools for claude-ai-music-skills
+- `tools/state/indexer.py`: # Lock timeout in seconds (prevents indefinite blocking)
+- `tools/state/README.md`: # State Cache Indexer
+- `tests/conftest.py`: # Ensure project root is on sys.path for imports
+- `tests/__init__.py`: <no summary found>
+- `tests/fixtures/__init__.py`: <no summary found>
+- `tests/fixtures/README.md`: # Test Fixtures
+- `tests/fixtures/albums/__init__.py`: <no summary found>
+- `tests/fixtures/albums/coherence/__init__.py`: # Slightly different freq per track for realism
+- `tests/fixtures/adm/__init__.py`: amplitude = 10.0 ** (-0.1 / 20.0)  # -0.1 dBFS
+- `tests/fixtures/audio/__init__.py`: shift = int(DEFAULT_RATE * 0.0003 * width)  # ~0.3ms offset
+- `tests/unit/__init__.py`: <no summary found>
+- `tests/unit/promotion/test_generate_album_sampler.py`: # Import the module under test
+- `tests/unit/promotion/test_generate_promo_video.py`: # Import the module under test
+- `tests/unit/promotion/test_generate_all_promos.py`: # Import the module under test
+- `tests/unit/promotion/__init__.py`: <no summary found>
+- `tests/unit/sheet_music/test_prepare_singles.py`: # Import the module under test via importlib (hyphenated directory)
+- `tests/unit/sheet_music/test_transcribe.py`: # Import the module under test via importlib (hyphenated directory)
+- `tests/unit/sheet_music/test_create_songbook.py`: # Import the module under test
+- `tests/unit/sheet_music/__init__.py`: <no summary found>
+- `tests/unit/handlers/test_shared_helpers.py`: from handlers import _shared  # noqa: E402
+- `tests/unit/handlers/__init__.py`: <no summary found>
+- `tests/unit/mixing/test_polish_analyzer_overrides.py`: # click_removal is handled via _resolve_analyzer_peak_ratio, not merged here
+- `tests/unit/mixing/test_excitation.py`: # Byte-identical no-op for default / off case.
+- `tests/unit/mixing/test_mix_tracks.py`: # Ensure project root is on sys.path
+- `tests/unit/mixing/test_polish_adm_aware_excitation.py`: from handlers.processing.mixing import _build_analyzer  # type: ignore
+- `tests/unit/mixing/__init__.py`: <no summary found>
+- `tests/unit/mixing/test_analyze_mix_issues.py`: # lo=0.8 @ 500 Hz + hi=0.3 @ 3 kHz → high_mid_ratio ≈ 0.123 (in-band)
+- `tests/unit/mixing/test_detector_parity.py`: # Genres picked to cover the main click-threshold classes: tight/dense
+- `tests/unit/mixing/test_polish_peak_invariant.py`: from tools.mixing.mix_tracks import (  # noqa: E402
+- `tests/unit/mixing/test_polish_audio_stems.py`: # no stem_output_dir
+- `tests/unit/mixing/test_analyzer_canonical_stem_keys.py`: album_slug: str) -> None:
+- `tests/unit/cloud/__init__.py`: <no summary found>
+- `tests/unit/cloud/test_upload_to_cloud.py`: # Import the module under test
+- `tests/unit/mastering/test_master_album_recovery_delivery_format.py`: # First-order pink filter
+- `tests/unit/mastering/test_master_album_coherence_stages.py`: from handlers.processing import _album_stages as album_stages_mod  # noqa: E402
+- `tests/unit/mastering/test_signature_metrics.py`: # Chorus at 0.5 amplitude for 80 Hz → RMS ≈ -9 dB; windowed on loud
+- `tests/unit/mastering/test_post_master_spectral_regression.py`: # Real (tiny) audio files — qc_track will be mocked out anyway,
+- `tests/unit/mastering/test_album_stages_ctx.py`: from handlers.processing._album_stages import MasterAlbumCtx, _build_notices  #
+- `tests/unit/mastering/test_fix_dynamic_convergence.py`: # Cheap pink filter: accumulate + decay.
+- `tests/unit/mastering/test_integration_realistic_audio.py`: # Should show a measurable but non-total mono fold loss
+- `tests/unit/mastering/test_analyze_tracks_is_dark.py`: # High-pass around 800 Hz — forces high_mid band to dominate.
+- `tests/unit/mastering/test_reference_master.py`: # Import the module under test
+- `tests/unit/mastering/test_post_qc_genre.py`: from handlers.processing import _album_stages as album_stages_mod  # noqa: E402
+- `tests/unit/mastering/test_mono_fold_report.py`: assert "FAIL" not in md.split("\n")[0:5][0]  # header line shouldn't claim FAIL
+- `tests/unit/mastering/test_master_album_freeze_flags.py`: from handlers.processing import _helpers as processing_helpers  # noqa: E402
+- `tests/unit/mastering/test_master_audio_config_wiring.py`: from handlers import _shared as shared_mod  # noqa: E402
+- `tests/unit/mastering/test_master_tracks.py`: # Ensure project root is on sys.path
+- `tests/unit/mastering/test_album_coherence_handlers.py`: from handlers.processing import _helpers as processing_helpers  # noqa: E402
+- `tests/unit/mastering/test_pipeline.py`: # ---------------------------------------------------------------------------
+- `tests/unit/mastering/test_coherence_presets.py`: # load_genre_presets merges defaults into every genre. Pick "pop" —
+- `tests/unit/mastering/test_mono_fold.py`: # The signal is at 1000 Hz, which lives in the "mid" band (500-2000)
+- `tests/unit/mastering/test_signature_metrics_snapshot.py`: from tests.fixtures.audio import make_full_mix, write_wav  # noqa: E402
+- `tests/unit/mastering/test_fix_dynamic.py`: # Quiet base signal (most of the content)
+- `tests/unit/mastering/test_master_album_adm_flow.py`: from handlers.processing import _helpers as processing_helpers  # noqa: E402
+- `tests/unit/mastering/__init__.py`: <no summary found>
+- `tests/unit/mastering/test_archival_prune.py`: from tools.mastering.archival import prune_archival_orphans  # noqa: E402
+- `tests/unit/mastering/test_signature_persistence.py`: from tools.mastering.signature_persistence import (  # noqa: E402
+- `tests/unit/mastering/test_master_album_selective_remaster.py`: from handlers import _shared  # noqa: E402
+- `tests/unit/mastering/test_master_album_signature_flow.py`: from handlers.processing import _album_stages as album_stages_mod  # noqa: E402
+- `tests/unit/mastering/test_master_album_adm_retry.py`: from handlers import _shared  # noqa: E402
+- `tests/unit/mastering/test_build_effective_preset.py`: # effective_preset must carry resolved delivery targets
+- `tests/unit/mastering/test_mastering_config.py`: # Unmentioned keys keep defaults
+- `tests/unit/mastering/test_master_album_layout_flow.py`: from handlers.processing import _helpers as processing_helpers  # noqa: E402
+- `tests/unit/mastering/test_notices_on_failure.py`: from handlers.processing import _helpers as processing_helpers  # noqa: E402
+- `tests/unit/mastering/test_ceiling_guard.py`: from tools.mastering.ceiling_guard import (  # noqa: E402
+- `tests/unit/mastering/test_master_album_dark_track_adm.py`: from handlers import _shared  # noqa: E402
+- `tests/unit/mastering/test_adm_validation.py`: wav = _write_sine(tmp_path / "clean.wav", amplitude=0.25)  # ~-12 dBTP
+- `tests/unit/mastering/test_layout_preservation.py`: from tools.mastering.layout import (  # noqa: E402
+- `tests/unit/mastering/test_album_signature.py`: # Median of {-14.0, -13.8, -14.2} is -14.0
+- `tests/unit/mastering/test_master_album_lra_floor.py`: from handlers.processing import _album_stages as album_stages_mod  # noqa: E402
+- `tests/unit/mastering/test_archival_output.py`: from handlers import _shared as shared_mod  # noqa: E402
+- `tests/unit/mastering/test_master_album_adm_off_end_to_end.py`: from handlers import _shared  # noqa: E402
+- `tests/unit/mastering/test_tilt_eq.py`: assert out is data  # identity: short-circuit returns same object
+- `tests/unit/mastering/test_qc_tracks.py`: # Ensure project root is on sys.path
+- `tests/unit/mastering/test_master_album_progress_log.py`: from handlers import _shared  # noqa: E402
+- `tests/unit/mastering/test_master_album_per_track_ceiling.py`: from handlers import _shared  # noqa: E402
+- `tests/unit/mastering/test_coherence.py`: preset = {"coherence_stl_95_lu": 0.8}  # only override one
+- `tests/unit/mastering/test_codec_preview.py`: # ffprobe should identify it as AAC audio in an MP4 container
+- `tests/unit/mastering/test_metadata.py`: embed_wav_metadata(wav)  # no fields set
+- `tests/unit/mastering/test_stage_status_update.py`: # ---------------------------------------------------------------------------
+- `tests/unit/mastering/test_anchor_selector.py`: off = {**REF, "mid": 5.0, "high": 30.0}  # large distance
+- `tests/unit/mastering/test_measure_album_signature_handler.py`: from handlers import _shared as handlers_shared  # noqa: E402
+- `tests/unit/mastering/test_analyze_tracks.py`: # Ensure project root is on sys.path
+- `tests/unit/mastering/test_master_album_verification_warn_fallback.py`: # Pretend we did all the math and landed 9 dB under target.
+- `tests/unit/mastering/test_layout.py`: from tools.mastering.layout import (  # noqa: E402
+- `tests/unit/mastering/test_master_album_ceiling_guard_flow.py`: from handlers.processing import _helpers as processing_helpers  # noqa: E402
+- `tests/unit/mastering/test_master_album_config_wiring.py`: from handlers import _shared as shared_mod  # noqa: E402
+- `tests/unit/mastering/test_config_album_overrides.py`: # No mastering block at all:
+- `tests/unit/mastering/test_master_album_metadata_flow.py`: from handlers.processing import _album_stages as album_stages_mod  # noqa: E402
+- `tests/unit/mastering/test_prune_archival.py`: from handlers.processing import _helpers as processing_helpers  # noqa: E402
+- `tests/unit/shared/test_progress.py`: bar.is_tty = False  # suppress output
+- `tests/unit/shared/test_colors.py`: <no summary found>
+- `tests/unit/shared/test_debug_logging.py`: # Remove any RotatingFileHandlers we added
+- `tests/unit/shared/__init__.py`: <no summary found>
+- `tests/unit/shared/test_fonts.py`: # Make all Path().exists() return False
+- `tests/unit/shared/test_media_utils.py`: # Import the module under test
+- `tests/unit/shared/test_paths.py`: <no summary found>
+- `tests/unit/shared/test_config.py`: <no summary found>
+- `tests/unit/shared/test_logging_config.py`: <no summary found>
+- `tests/unit/state/test_parsers_layout.py`: from tools.state.parsers import parse_album_readme  # noqa: E402
+- `tests/unit/state/test_state_recovery.py`: # Should return empty dict (not None)
+- `tests/unit/state/test_server_qc.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/test_server_integration.py`: # Ensure project root is on sys.path
+- `tests/unit/state/test_atomic_write.py`: <no summary found>
+- `tests/unit/state/test_server.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/test_indexer.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/test_lock_backoff.py`: <no summary found>
+- `tests/unit/state/test_handlers_promote_idea.py`: # Mock the MCP SDK if not installed
+- `tests/unit/state/test_parsers.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/__init__.py`: <no summary found>
+- `tests/unit/state/test_server_features.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/test_handlers_streaming.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/test_server_database.py`: # ---------------------------------------------------------------------------
+- `tests/unit/state/test_silent_exceptions.py`: # ---------------------------------------------------------------------------
+- `tests/unit/state/test_server_lyrics.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/test_server_mastering_samples.py`: import mcp  # noqa: F401
+- `tests/unit/state/test_handlers_gates.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/test_handlers_mixing.py`: # ---------------------------------------------------------------------------
+- `tests/unit/state/test_handlers_rename.py`: # ---------------------------------------------------------------------------
+- `tests/unit/state/test_handlers_album_ops.py`: # Ensure project root is on sys.path for imports
+- `tests/unit/state/fixtures/album-readme.md`: # Sample Album
+- `tests/unit/state/fixtures/ideas.md`: # Album Ideas
+- `tests/unit/state/fixtures/track-file.md`: # Boot Sequence
+- `tests/unit/state/fixtures/track-not-started.md`: # Kernel Panic
+- `tests/plugin/test_consistency.py`: 'opus': r'## Opus.*?(?=## Sonnet|## Haiku|## Decision|$)',
+- `tests/plugin/test_skills.py`: # Required frontmatter fields
+- `tests/plugin/test_state.py`: <no summary found>
+- `tests/plugin/test_templates.py`: # Ensure project root is on sys.path for imports
+- `tests/plugin/test_references.py`: <no summary found>
+- `tests/plugin/__init__.py`: <no summary found>
+- `tests/plugin/test_terminology.py`: # Files that intentionally document deprecated terms
+- `tests/plugin/test_integration.py`: # Build adjacency graph
+- `tests/plugin/test_links.py`: # External links and anchors
+- `tests/plugin/test_migrations.py`: expected_version = migration_file.stem  # e.g., "0.44.0"
+- `tests/plugin/test_config.py`: <no summary found>
+- `tests/plugin/test_genres.py`: # Ensure project root is on sys.path for imports
+- `migrations/0.44.0.md`: summary: "New promo/ directory for social media copy"
+- `migrations/0.90.0.md`: summary: "Mastered output format upgrades to 24-bit WAV at 96 kHz by default (st
+- `migrations/0.91.0.md`: summary: "ADM validation is now per-album opt-in via README frontmatter (default
+- `migrations/0.43.0.md`: summary: "MCP server renamed and expanded to 30 tools"
+- `migrations/0.59.0.md`: summary: "New configurable generation gates in config"
+- `migrations/0.40.0.md`: summary: "Unified venv — remove old per-tool virtual environments"
+- `migrations/README.md`: # Plugin Migration Notes
+- `genres/INDEX.md`: # Genre Index
+- `genres/qawwali/README.md`: # Qawwali
+- `genres/afroswing/README.md`: # Afroswing
+- `genres/lovers-rock/README.md`: # Lovers Rock
+- `genres/fuji/README.md`: # Fuji
+- `genres/jazz/README.md`: # Jazz
+- `genres/jangle-pop/README.md`: # Jangle Pop
+- `genres/big-band/README.md`: # Big Band
+- `genres/p-funk/README.md`: # P-Funk
+- `genres/synthwave/README.md`: # Synthwave
+- `genres/synthwave/artists/the-midnight.md`: # The Midnight — Deep Dive
+- `genres/synthwave/artists/timecop1983.md`: # Timecop1983 — Deep Dive
+- `genres/synthwave/artists/fm-84.md`: # FM-84 — Deep Dive
+- `genres/synthwave/artists/gunship.md`: # GUNSHIP — Deep Dive
+- `genres/synthwave/artists/INDEX.md`: # Synthwave — Artist References
+- `genres/space-disco/README.md`: # Space Disco
+- `genres/reggaeton/README.md`: # Reggaeton
+- `genres/benga/README.md`: # Benga
+- `genres/post-punk/README.md`: # Post-Punk
+- `genres/lo-fi/README.md`: # Lo-Fi
+- `genres/witch-house/README.md`: # Witch House
+- `genres/bakersfield-sound/README.md`: # Bakersfield Sound
+- `genres/chanson/README.md`: # Chanson
+- `genres/smooth-jazz/README.md`: # Smooth Jazz
+- `genres/bounce/README.md`: # Bounce
+- `genres/grime/README.md`: # Grime
+- `genres/roots-reggae/README.md`: # Roots Reggae
+- `genres/ranchera/README.md`: # Ranchera
+- `genres/future-bass/README.md`: # Future Bass
+- `genres/cantopop/README.md`: # Cantopop
+- `genres/death-metal/README.md`: # Death Metal
+- `genres/stoner-rock/README.md`: # Stoner Rock
+- `genres/power-metal/README.md`: # Power Metal
+- `genres/riddim/README.md`: # Riddim
+- `genres/bro-country/README.md`: # Bro-Country
+- `genres/post-dubstep/README.md`: # Post-Dubstep
+- `genres/psychobilly/README.md`: # Psychobilly
+- `genres/flamenco/README.md`: # Flamenco
+- `genres/chimurenga/README.md`: # Chimurenga
+- `genres/horrorcore/README.md`: # Horrorcore
+- `genres/djent/README.md`: # Djent
+- `genres/quiet-storm/README.md`: # Quiet Storm
+- `genres/thrash-metal/README.md`: # Thrash Metal
+- `genres/ebm/README.md`: # EBM
+- `genres/dembow/README.md`: # Dembow
+- `genres/art-pop/README.md`: # Art Pop
+- `genres/vocaloid/README.md`: # Vocaloid
+- `genres/electro/README.md`: # Electro
+- `genres/carnatic/README.md`: # Carnatic
+- `genres/uk-funky/README.md`: # UK Funky
+- `genres/latin-jazz/README.md`: # Latin Jazz
+- `genres/laiko/README.md`: # Laiko
+- `genres/classical/README.md`: # Classical
+- `genres/britpop/README.md`: # Britpop
+- `genres/funk/README.md`: # Funk
+- `genres/disco/README.md`: # Disco
+- `genres/turbo-folk/README.md`: # Turbo-Folk
+- `genres/cabaret/README.md`: # Cabaret
+- `genres/trap-soul/README.md`: # Trap Soul
+- `genres/reggae/README.md`: # Reggae
+- `genres/choir/README.md`: # Choir
+- `genres/electroswing/README.md`: # Electroswing
+- `genres/bebop/README.md`: # Bebop
+- `genres/boogaloo/README.md`: # Boogaloo
+- `genres/edm/README.md`: # Electronic Dance Music (EDM)
+- `genres/guaracha/README.md`: # Guaracha
+- `genres/music-hall/README.md`: # Music Hall
+- `genres/garage-rock/README.md`: # Garage Rock
+- `genres/hardstyle/README.md`: # Hardstyle
+- `genres/crust-punk/README.md`: # Crust Punk
+- `genres/deep-techno/README.md`: # Deep Techno
+- `genres/middle-eastern-pop/README.md`: # Middle Eastern Pop
+- `genres/nu-jazz/README.md`: # Nu Jazz
+- `genres/surf-rock/README.md`: # Surf Rock
+- `genres/bass-house/README.md`: # Bass House
+- `genres/crossover-thrash/README.md`: # Crossover Thrash
+- `genres/vallenato/README.md`: # Vallenato
+- `genres/vocal-trance/README.md`: # Vocal Trance
+- `genres/g-funk/README.md`: # G-Funk
+- `genres/visual-kei/README.md`: # Visual Kei
+- `genres/hardwave/README.md`: # Hardwave
+- `genres/latin-trap/README.md`: # Latin Trap
+- `genres/dark-jazz/README.md`: # Dark Jazz
+- `genres/motown/README.md`: # Motown
+- `genres/celtic/README.md`: # Celtic
+- `genres/mumble-rap/README.md`: # Mumble Rap
+- `genres/rai/README.md`: # Rai
+- `genres/glitch-hop/README.md`: # Glitch Hop
+- `genres/kuduro/README.md`: # Kuduro
+- `genres/hyperpop/README.md`: # HYPERPOP
+- `genres/city-pop/README.md`: # City Pop
+- `genres/merengue/README.md`: # Merengue
+- `genres/indie-rock/README.md`: # Indie Rock
+- `genres/indie-rock/artists/rilo-kiley.md`: # Rilo Kiley — Deep Dive
+- `genres/indie-rock/artists/INDEX.md`: # Indie Rock — Artist References
+- `genres/childrens-music/README.md`: # Children's Music
+- `genres/swing/README.md`: # Swing / Neo-Swing
+- `genres/darksynth/README.md`: # Darksynth
+- `genres/acid-jazz/README.md`: # Acid Jazz
+- `genres/emo/README.md`: # Emo
+- `genres/dark-electro/README.md`: # Dark Electro
+- `genres/hip-hop/README.md`: # Hip-Hop
+- `genres/hip-hop/artists/brock-berrigan.md`: # Brock Berrigan — Deep Dive
+- `genres/hip-hop/artists/immortal-technique.md`: # Immortal Technique — Artist Deep Dive
+- `genres/hip-hop/artists/run-the-jewels.md`: # Run the Jewels — Deep Dive
+- `genres/hip-hop/artists/INDEX.md`: # Hip-Hop — Artist References
+- `genres/hip-hop/artists/kendrick-lamar.md`: # Kendrick Lamar — Deep Dive
+- `genres/morna/README.md`: # Morna
+- `genres/pc-music/README.md`: # PC Music
+- `genres/piano-blues/README.md`: # Piano Blues
+- `genres/thai-pop/README.md`: # Thai Pop
+- `genres/cowpunk/README.md`: # Cowpunk
+- `genres/emo-rap/README.md`: # Emo Rap
+- `genres/doom-metal/README.md`: # Doom Metal
+- `genres/mandopop/README.md`: # Mandopop
+- `genres/moombahton/README.md`: # Moombahton
+- `genres/mbalax/README.md`: # Mbalax
+- `genres/industrial/README.md`: # Industrial
+- `genres/juju/README.md`: # Juju
+- `genres/punk/README.md`: # Punk
+- `genres/punk/artists/mest.md`: # Mest — Deep Dive
+- `genres/punk/artists/lagwagon.md`: # Lagwagon — Deep Dive
+- `genres/punk/artists/masked-intruder.md`: # Masked Intruder — Deep Dive
+- `genres/punk/artists/me-first-and-the-gimme-gimmes.md`: # Me First and the Gimme Gimmes — Deep Dive
+- `genres/punk/artists/propagandhi.md`: # Propagandhi — Deep Dive
+- `genres/punk/artists/blink-182.md`: # Blink-182 — Deep Dive
+- `genres/punk/artists/the-offspring.md`: # The Offspring — Deep Dive
+- `genres/punk/artists/bad-religion.md`: # Bad Religion — Deep Dive
+- `genres/punk/artists/INDEX.md`: # Punk — Artist References
+- `genres/punk/artists/green-day.md`: # Green Day — Deep Dive
+- `genres/punk/artists/descendents.md`: # Descendents — Deep Dive
+- `genres/punk/artists/nofx.md`: # NOFX — Deep Dive
+- `genres/punk/artists/rancid.md`: # Rancid — Deep Dive
+- `genres/noise-pop/README.md`: # Noise Pop
+- `genres/afropop/README.md`: # Afropop
+- `genres/go-go/README.md`: # Go-Go
+- `genres/zydeco/README.md`: # Zydeco
+- `genres/complextro/README.md`: # Complextro
+- `genres/maskandi/README.md`: # Maskandi
+- `genres/deathcore/README.md`: # Deathcore
+- `genres/deconstructed-club/README.md`: # Deconstructed Club
+- `genres/zouk/README.md`: # Zouk
+- `genres/isicathamiya/README.md`: # Isicathamiya
+- `genres/dance-punk/README.md`: # Dance-Punk
+- `genres/post-punk-revival/README.md`: # Post-Punk Revival
+- `genres/medieval/README.md`: # Medieval
+- `genres/boom-bap/README.md`: # Boom Bap
+- `genres/piano-rock/README.md`: # Piano Rock
+- `genres/piano-rock/artists/elton-john.md`: # Elton John — Deep Dive
+- `genres/piano-rock/artists/INDEX.md`: # Piano Rock — Artist References
+- `genres/piano-rock/artists/ben-folds-solo.md`: # Ben Folds — Solo Career Deep Dive
+- `genres/piano-rock/artists/billy-joel.md`: # Billy Joel — Deep Dive
+- `genres/piano-rock/artists/ben-folds-five.md`: # Ben Folds Five — Deep Dive
+- `genres/post-britpop/README.md`: # Post-Britpop
+- `genres/gospel/README.md`: # Gospel
+- `genres/kayokyoku/README.md`: # Kayokyoku
+- `genres/amapiano/README.md`: # Amapiano
+- `genres/chicha/README.md`: # Chicha
+- `genres/underground-hip-hop/README.md`: # Underground Hip Hop
+- `genres/ska-punk/README.md`: # Ska Punk
+- `genres/bachata/README.md`: # Bachata
+- `genres/nerdcore/README.md`: # Nerdcore
+- `genres/pagode/README.md`: # Pagode
+- `genres/post-disco/README.md`: # Post-Disco
+- `genres/blues/README.md`: # Blues
+- `genres/progressive-house/README.md`: # Progressive House
+- `genres/dream-pop/README.md`: # Dream Pop
+- `genres/sludge-metal/README.md`: # Sludge Metal
+- `genres/cool-jazz/README.md`: # Cool Jazz
+- `genres/italo-disco/README.md`: # Italo Disco
+- `genres/worship/README.md`: # Worship
+- `genres/oi/README.md`: # Oi!
+- `genres/post-rock/README.md`: # Post-Rock
+- `genres/breakcore/README.md`: # Breakcore
+- `genres/piano-pop/README.md`: # Piano Pop
+- `genres/psychedelic-rock/README.md`: # Psychedelic Rock
+- `genres/beatboxing/README.md`: # Beatboxing
+- `genres/bongo-flava/README.md`: # Bongo Flava
+- `genres/soul-jazz/README.md`: # Soul Jazz
+- `genres/drone/README.md`: # Drone
+- `genres/contemporary-christian/README.md`: # Contemporary Christian Music
+- `genres/abstract-hip-hop/README.md`: # Abstract Hip-Hop
+- `genres/kompa/README.md`: # Kompa
+- `genres/rockabilly/README.md`: # Rockabilly
+- `genres/ragga/README.md`: # Ragga
+- `genres/forro/README.md`: # Forro
+- `genres/darkwave/README.md`: # Darkwave
+- `genres/boogie/README.md`: # Boogie
+- `genres/new-age/README.md`: # New Age
+- `genres/grindcore/README.md`: # Grindcore
+- `genres/ghazal/README.md`: # Ghazal
+- `genres/riot-grrrl/README.md`: # Riot Grrrl
+- `genres/cumbia/README.md`: # Cumbia
+- `genres/delta-blues/README.md`: # Delta Blues
+- `genres/punta/README.md`: # Punta
+- `genres/polka/README.md`: # Polka
+- `genres/screamo/README.md`: # Screamo
+- `genres/crunk/README.md`: # Crunk
+- `genres/nu-metal/README.md`: # Nu-Metal
+- `genres/metal/README.md`: # Metal
+- `genres/gabber/README.md`: # Gabber
+- `genres/opera/README.md`: # Opera
+- `genres/tejano/README.md`: # Tejano
+- `genres/sea-shanties/README.md`: # Sea Shanties
+- `genres/chamber-pop/README.md`: # Chamber Pop
+- `genres/hindustani/README.md`: # Hindustani
+- `genres/glitch/README.md`: # Glitch
+- `genres/jazz-fusion/README.md`: # Jazz Fusion
+- `genres/wave/README.md`: # Wave
+- `genres/shoegaze/README.md`: # Shoegaze
+- `genres/klezmer/README.md`: # Klezmer
+- `genres/folk-metal/README.md`: # Folk Metal
+- `genres/gengetone/README.md`: # Gengetone
+- `genres/eurodance/README.md`: # Eurodance
+- `genres/dark-cabaret/README.md`: # Dark Cabaret
+- `genres/future-house/README.md`: # Future House
+- `genres/rock/README.md`: # Rock
+- `genres/rock/artists/linkin-park.md`: # Linkin Park — Deep Dive
+- `genres/rock/artists/hoobastank.md`: # Hoobastank -- Deep Dive
+- `genres/rock/artists/polaris.md`: # Polaris — Deep Dive
+- `genres/rock/artists/weezer.md`: # Weezer — Deep Dive
+- `genres/rock/artists/toto.md`: # Toto — Deep Dive
+- `genres/rock/artists/incubus.md`: # Incubus -- Deep Dive
+- `genres/rock/artists/INDEX.md`: # Rock — Artist References
+- `genres/rock/artists/fountains-of-wayne.md`: # Fountains of Wayne — Deep Dive
+- `genres/rock/artists/phil-collins.md`: # Phil Collins — Deep Dive
+- `genres/rock/artists/jeff-buckley.md`: # Jeff Buckley -- Deep Dive
+- `genres/goa-trance/README.md`: # Goa Trance
+- `genres/nightcore/README.md`: # Nightcore
+- `genres/bassline/README.md`: # Bassline
+- `genres/rebetiko/README.md`: # Rebetiko
+- `genres/phonk/README.md`: # PHONK
+- `genres/d-beat/README.md`: # D-Beat
+- `genres/symphonic-metal/README.md`: # Symphonic Metal
+- `genres/corridos-tumbados/README.md`: # Corridos Tumbados
+- `genres/mento/README.md`: # Mento
+- `genres/chutney/README.md`: # Chutney
+- `genres/neo-soul/README.md`: # Neo-Soul
+- `genres/country/README.md`: # Country
+- `genres/country/artists/dolly-parton.md`: # Dolly Parton — Deep Dive
+- `genres/country/artists/tyler-childers.md`: # Tyler Childers — Deep Dive
+- `genres/country/artists/sturgill-simpson.md`: # Sturgill Simpson — Deep Dive
+- `genres/country/artists/randy-travis.md`: # Randy Travis — Deep Dive
+- `genres/country/artists/george-strait.md`: # George Strait — Deep Dive
+- `genres/country/artists/alan-jackson.md`: # Alan Jackson — Deep Dive
+- `genres/country/artists/johnny-cash.md`: # Johnny Cash — Deep Dive
+- `genres/country/artists/INDEX.md`: # Country — Artist References
+- `genres/country/artists/garth-brooks.md`: # Garth Brooks — Deep Dive
+- `genres/country/artists/willie-nelson.md`: # Willie Nelson — Deep Dive
+- `genres/progressive-rock/README.md`: # Progressive Rock
+- `genres/bolero/README.md`: # Bolero
+- `genres/krautrock/README.md`: # Krautrock
+- `genres/soca/README.md`: # Soca
+- `genres/math-rock/README.md`: # Math Rock
+- `genres/dark-ambient/README.md`: # Dark Ambient
+- `genres/dub-techno/README.md`: # Dub Techno
+- `genres/space-rock/README.md`: # Space Rock
+- `genres/turkish-pop/README.md`: # Turkish Pop
+- `genres/powerviolence/README.md`: # Powerviolence
+- `genres/gregorian-chant/README.md`: # Gregorian Chant
+- `genres/electroacoustic/README.md`: # Electroacoustic
+- `genres/jam-band/README.md`: # Jam Band
+- `genres/bubblegum-pop/README.md`: # Bubblegum Pop
+- `genres/west-coast-rap/README.md`: # West Coast Rap
+- `genres/coupe-decale/README.md`: # Coupe-Decale
+- `genres/trip-hop/README.md`: # Trip-Hop
+- `genres/indian-classical/README.md`: # Indian Classical
+- `genres/ragtime/README.md`: # Ragtime
+- `genres/celtic-punk/README.md`: # Celtic Punk / Irish Punk
+- `genres/celtic-punk/artists/dropkick-murphys.md`: # Dropkick Murphys --- Deep Dive
+- `genres/celtic-punk/artists/INDEX.md`: # Celtic Punk --- Artist References
+- `genres/grunge/README.md`: # Grunge
+- `genres/trap-metal/README.md`: # Trap Metal
+- `genres/anisong/README.md`: # Anisong
+- `genres/dancehall/README.md`: # Dancehall
+- `genres/sophisti-pop/README.md`: # Sophisti-pop
+- `genres/dangdut/README.md`: # Dangdut
+- `genres/happy-hardcore/README.md`: # Happy Hardcore
+- `genres/uk-garage/README.md`: # UK Garage
+- `genres/cloud-rap/README.md`: # Cloud Rap
+- `genres/tech-house/README.md`: # Tech House
+- `genres/bossa-nova/README.md`: # Bossa Nova
+- `genres/huayno/README.md`: # Huayno
+- `genres/honky-tonk/README.md`: # Honky-Tonk
+- `genres/conscious-hip-hop/README.md`: # Conscious Hip-Hop
+- `genres/jungle/README.md`: # Jungle
+- `genres/gypsy-jazz/README.md`: # Gypsy Jazz
+- `genres/metalcore/README.md`: # Metalcore
+- `genres/sega/README.md`: # Sega
+- `genres/schlager/README.md`: # Schlager
+- `genres/norteno/README.md`: # Norteno
+- `genres/gangsta-rap/README.md`: # Gangsta Rap
+- `genres/speed-metal/README.md`: # Speed Metal
+- `genres/techno/README.md`: # Techno
+- `genres/hair-metal/README.md`: # Hair Metal
+- `genres/gnawa/README.md`: # Gnawa
+- `genres/alternative/README.md`: # Alternative Rock
+- `genres/heartland-rock/README.md`: # Heartland Rock
+- `genres/new-wave/README.md`: # New Wave
+- `genres/pop/README.md`: # Pop
+- `genres/pop/artists/ace-of-base.md`: # Ace of Base — Deep Dive
+- `genres/pop/artists/aqua.md`: # Aqua — Deep Dive
+- `genres/pop/artists/taylor-swift.md`: # Taylor Swift — Deep Dive
+- `genres/pop/artists/INDEX.md`: # Pop — Artist References
+- `genres/pop/artists/carly-rae-jepsen.md`: # Carly Rae Jepsen — Deep Dive
+- `genres/pop/artists/la-bouche.md`: # La Bouche — Deep Dive
+- `genres/hard-bop/README.md`: # Hard Bop
+- `genres/2-step-garage/README.md`: # 2-Step Garage
+- `genres/j-pop/README.md`: # J-Pop
+- `genres/noise-rock/README.md`: # Noise Rock
+- `genres/rocksteady/README.md`: # Rocksteady
+- `genres/vocal-house/README.md`: # Vocal House
+- `genres/afro-cuban/README.md`: # Afro-Cuban
+- `genres/red-dirt/README.md`: # Red Dirt
+- `genres/ska/README.md`: # Ska
+- `genres/calypso/README.md`: # Calypso
+- `genres/indie-folk/README.md`: # Indie Folk
+- `genres/western-swing/README.md`: # Western Swing
+- `genres/k-pop/README.md`: # K-Pop
+- `genres/k-pop/artists/ateez.md`: # ATEEZ — Deep Dive
+- `genres/k-pop/artists/stray-kids.md`: # Stray Kids — Deep Dive
+- `genres/k-pop/artists/itzy.md`: # ITZY -- Deep Dive
+- `genres/k-pop/artists/blackpink.md`: # BLACKPINK — Deep Dive
+- `genres/k-pop/artists/newjeans.md`: # NewJeans — Deep Dive
+- `genres/k-pop/artists/aespa.md`: # aespa — Deep Dive
+- `genres/k-pop/artists/ive.md`: # IVE — Deep Dive
+- `genres/k-pop/artists/twice.md`: # TWICE -- Deep Dive
+- `genres/k-pop/artists/seventeen.md`: # SEVENTEEN — Deep Dive
+- `genres/k-pop/artists/enhypen.md`: # ENHYPEN -- Deep Dive
+- `genres/k-pop/artists/dreamcatcher.md`: # Dreamcatcher -- Deep Dive
+- `genres/k-pop/artists/zion-t.md`: # Zion.T -- Deep Dive
+- `genres/k-pop/artists/dean.md`: # DEAN -- Deep Dive
+- `genres/k-pop/artists/gi-dle.md`: # (G)I-DLE — Deep Dive
+- `genres/k-pop/artists/iu.md`: # IU -- Deep Dive
+- `genres/k-pop/artists/epik-high.md`: # Epik High -- Deep Dive
+- `genres/k-pop/artists/INDEX.md`: # K-Pop — Artist References
+- `genres/k-pop/artists/crush.md`: # Crush -- Deep Dive
+- `genres/k-pop/artists/girls-generation.md`: # Girls' Generation (SNSD) — Deep Dive
+- `genres/k-pop/artists/tvxq.md`: # TVXQ -- Deep Dive
+- `genres/k-pop/artists/big-bang.md`: # Big Bang — Deep Dive
+- `genres/k-pop/artists/le-sserafim.md`: # LE SSERAFIM — Deep Dive
+- `genres/k-pop/artists/txt.md`: # TXT (TOMORROW X TOGETHER) -- Deep Dive
+- `genres/k-pop/artists/exo.md`: # EXO — Deep Dive
+- `genres/k-pop/artists/2ne1.md`: # 2NE1 -- Deep Dive
+- `genres/k-pop/artists/shinee.md`: # SHINee — Deep Dive
+- `genres/k-pop/artists/bts.md`: # BTS (Bangtan Sonyeondan) — Deep Dive
+- `genres/k-pop/artists/red-velvet.md`: # Red Velvet -- Deep Dive
+- `genres/ambient/README.md`: # Ambient
+- `genres/ambient/artists/INDEX.md`: # Ambient — Artist References
+- `genres/ambient/artists/enya.md`: # Enya --- Deep Dive
+- `genres/doo-wop/README.md`: # Doo-Wop
+- `genres/afro-house/README.md`: # Afro House
+- `genres/viking-metal/README.md`: # Viking Metal
+- `genres/champeta/README.md`: # Champeta
+- `genres/mambo/README.md`: # Mambo
+- `genres/nwobhm/README.md`: # NWOBHM
+- `genres/progressive-metal/README.md`: # Progressive Metal
+- `genres/desert-blues/README.md`: # Desert Blues
+- `genres/neurofunk/README.md`: # Neurofunk
+- `genres/chillwave/README.md`: # CHILLWAVE
+- `genres/tropicalia/README.md`: # Tropicalia
+- `genres/vaporwave/README.md`: # Vaporwave
+- `genres/black-metal/README.md`: # Black Metal
+- `genres/enka/README.md`: # Enka
+- `genres/tango/README.md`: # Tango
+- `genres/spoken-word/README.md`: # Spoken Word
+- `genres/sufi/README.md`: # Sufi
+- `genres/groove-metal/README.md`: # Groove Metal
+- `genres/lo-fi-house/README.md`: # Lo-Fi House
+- `genres/folktronica/README.md`: # Folktronica
+- `genres/northern-soul/README.md`: # Northern Soul
+- `genres/kizomba/README.md`: # Kizomba
+- `genres/canterbury-scene/README.md`: # Canterbury Scene
+- `genres/musicals/README.md`: # Musicals
+- `genres/lounge/README.md`: # Lounge
+- `genres/chopped-and-screwed/README.md`: # Chopped and Screwed
+- `genres/no-wave/README.md`: # No Wave
+- `genres/baroque-pop/README.md`: # Baroque Pop
+- `genres/soukous/README.md`: # Soukous
+- `genres/southern-hip-hop/README.md`: # Southern Hip Hop
+- `genres/cinematic/README.md`: # Cinematic
+- `genres/glitch-pop/README.md`: # Glitch Pop
+- `genres/chiptune/README.md`: # Chiptune
+- `genres/ethio-jazz/README.md`: # Ethio-Jazz
+- `genres/vocal-jazz/README.md`: # Vocal Jazz
+- `genres/new-jack-swing/README.md`: # New Jack Swing
+- `genres/samba/README.md`: # Samba
+- `genres/gqom/README.md`: # Gqom
+- `genres/axe/README.md`: # Axe
+- `genres/dungeon-synth/README.md`: # Dungeon Synth
+- `genres/idm/README.md`: # IDM
+- `genres/psychedelic-soul/README.md`: # Psychedelic Soul
+- `genres/electropop/README.md`: # Electropop
+- `genres/rave/README.md`: # Rave
+- `genres/modal-jazz/README.md`: # Modal Jazz
+- `genres/drill/README.md`: # Drill
+- `genres/dubstep/README.md`: # Dubstep
+- `genres/sevdah/README.md`: # Sevdah
+- `genres/drum-and-bass/README.md`: # Drum and Bass
+- `genres/shaabi/README.md`: # Shaabi
+- `genres/semba/README.md`: # Semba
+- `genres/speed-garage/README.md`: # Speed Garage
+- `genres/spaghetti-western/README.md`: # Spaghetti Western
+- `genres/slowcore/README.md`: # Slowcore
+- `genres/barbershop/README.md`: # Barbershop
+- `genres/swamp-pop/README.md`: # Swamp Pop
+- `genres/future-funk/README.md`: # Future Funk
+- `genres/afrobeats/README.md`: # Afrobeats
+- `genres/singer-songwriter/README.md`: # Singer-Songwriter
+- `genres/rnb/README.md`: # R&B / Soul
+- `genres/fado/README.md`: # Fado
+- `genres/outlaw-country/README.md`: # Outlaw Country
+- `genres/brostep/README.md`: # Brostep
+- `genres/alternative-rnb/README.md`: # Alternative R&B
+- `genres/speedcore/README.md`: # Speedcore
+- `genres/drone-metal/README.md`: # Drone Metal
+- `genres/pop-rap/README.md`: # Pop Rap
+- `genres/deep-house/README.md`: # Deep House
+- `genres/broken-beat/README.md`: # Broken Beat
+- `genres/mbaqanga/README.md`: # Mbaqanga
+- `genres/hardcore-punk/README.md`: # Hardcore Punk
+- `genres/dabke/README.md`: # Dabke
+- `genres/americana/README.md`: # Americana
+- `genres/blackgaze/README.md`: # Blackgaze
+- `genres/chicano-rap/README.md`: # Chicano Rap
+- `genres/synth-pop/README.md`: # Synth-Pop
+- `genres/east-coast-hip-hop/README.md`: # East Coast Hip Hop
+- `genres/dub/README.md`: # Dub
+- `genres/post-metal/README.md`: # Post-Metal
+- `genres/jersey-club/README.md`: # Jersey Club
+- `genres/kwaito/README.md`: # Kwaito
+- `genres/twee-pop/README.md`: # Twee Pop
+- `genres/neotraditional-country/README.md`: # Neotraditional Country
+- `genres/cyberpunk/README.md`: # Cyberpunk
+- `genres/manele/README.md`: # Manele
+- `genres/highlife/README.md`: # Highlife
+- `genres/latin/README.md`: # Latin
+- `genres/soundtrack/README.md`: # Soundtrack
+- `genres/downtempo/README.md`: # Downtempo
+- `genres/footwork/README.md`: # Footwork
+- `genres/a-cappella/README.md`: # A Cappella
+- `genres/banda/README.md`: # Banda
+- `genres/trance/README.md`: # Trance
+- `genres/trance/artists/cascada.md`: # Cascada — Deep Dive
+- `genres/trance/artists/tatu.md`: # t.A.T.u. — Deep Dive
+- `genres/trance/artists/ian-van-dahl.md`: # Ian Van Dahl — Deep Dive
+- `genres/trance/artists/INDEX.md`: # Trance — Artist References
+- `genres/trance/artists/alice-deejay.md`: # Alice Deejay — Deep Dive
+- `genres/trance/artists/atb.md`: # ATB — Deep Dive
+- `genres/trot/README.md`: # Trot
+- `genres/video-game-music/README.md`: # Video Game Music
+- `genres/pop-punk/README.md`: # Pop Punk
+- `genres/breakbeat/README.md`: # Breakbeat
+- `genres/mpb/README.md`: # MPB (Musica Popular Brasileira)
+- `genres/country-rap/README.md`: # Country Rap
+- `genres/madchester/README.md`: # Madchester
+- `genres/bluegrass/README.md`: # Bluegrass
+- `genres/bhangra/README.md`: # Bhangra
+- `genres/bollywood/README.md`: # Bollywood
+- `genres/plugg/README.md`: # Plugg
+- `genres/cajun/README.md`: # Cajun
+- `genres/throat-singing/README.md`: # Throat Singing
+- `genres/electronic/README.md`: # Electronic
+- `genres/electronic/artists/daft-punk.md`: # Daft Punk — Deep Dive
+- `genres/electronic/artists/INDEX.md`: # Electronic — Artist References
+- `genres/electronic/artists/eiffel-65.md`: # Eiffel 65 — Deep Dive
+- `genres/musical-comedy/README.md`: # Musical Comedy
+- `genres/madrigal/README.md`: # Madrigal
+- `genres/jazz-rap/README.md`: # Jazz Rap
+- `genres/house/README.md`: # House
+- `genres/balearic/README.md`: # Balearic
+- `genres/melodic-death-metal/README.md`: # Melodic Death Metal
+- `genres/nu-disco/README.md`: # Nu Disco
+- `genres/tropical-house/README.md`: # Tropical House
+- `genres/taarab/README.md`: # Taarab
+- `genres/arena-rock/README.md`: # Arena Rock
+- `genres/son-cubano/README.md`: # Son Cubano
+- `genres/baile-funk/README.md`: # Baile Funk
+- `genres/trap/README.md`: # Trap
+- `genres/folk/README.md`: # Folk
+- `genres/folk/artists/israel-kamakawiwoole.md`: # Israel Kamakawiwoʻole (IZ) — Deep Dive
+- `genres/folk/artists/INDEX.md`: # Folk — Artist References
+- `genres/folk/artists/mumford-and-sons.md`: # Mumford & Sons — Deep Dive
+- `genres/minimal-techno/README.md`: # Minimal Techno
+- `genres/mariachi/README.md`: # Mariachi
+- `genres/french-house/README.md`: # French House
+- `genres/psychedelic-trance/README.md`: # Psychedelic Trance
+- `genres/psybient/README.md`: # Psybient
