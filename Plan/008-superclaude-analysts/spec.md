@@ -123,9 +123,11 @@ persona/mode substrate that the existing two lean on implicitly.
       persona aliases (`commands/sc-estimate.md:7` `personas: [architect,
       performance, project-manager]`; `commands/sc-explain.md:7` `personas:
       [educator, architect, security]`) — e.g. `educator`→`learning-guide`,
-      `project-manager`→`pm-agent`-as-lens. `analyze.lens("requirements-analyst")`
-      returns the requirements lens.
-- [ ] `analyze.mode(name)` (**transform**) returns a behavioral mode descriptor
+      `project-manager`→`pm-agent`-as-lens. `transmute.lens("requirements-analyst")`
+      returns the requirements lens. (Persona-as-lens-DATA is canon-endorsed:
+      `capability.md:62-66` and `CORE.md:64-80` "judgment-as-data"; a persona that does
+      NO lifecycle work is correctly NOT an agent — `CORE.md:33-35`.)
+- [ ] `transmute.mode(name)` (**transform**) returns a behavioral mode descriptor
       (trigger, posture, output-shape) so a caller can adopt a mode without a
       system-prompt edit. `mode` is a closed enum of **at most 3** genuine
       descriptors — `{brainstorming, business-panel, introspection}` — NOT 7.
@@ -155,7 +157,7 @@ persona/mode substrate that the existing two lean on implicitly.
 - [ ] `docs/vision/specs/superclaude-analysts-port.md` records the full coverage
       mapping (every `/sc:` command + every persona + every MODE → Agency target →
       covered/new/dropped) in the style of `superpowers-port.md`.
-- [ ] `tests/test_analyze_capability.py` and `tests/test_analyze_skills.py` are
+- [ ] `tests/test_transmute_capability.py` and `tests/test_transmute_skills.py` are
       GREEN; the existing suite still passes (`pytest -q`).
 - [ ] No SuperClaude source is copied into the tree. We re-express its disciplines
       in Agency's model; vendor source stays read-only under `~/work/vendor/`.
@@ -179,15 +181,23 @@ troubleshoot,brainstorm,spec-panel,business-panel,explain,estimate,reflect}.md`
 
 ## Design
 
-The port lands as **one new `transform`-home capability (`analyze`) + a small set
-of skills + an optional `develop` skill**. Rationale: the `/sc:` analysis surface
-is stateless compute over a target (read → findings), which is exactly the
-`transform` role. Personas are **not agents** in Agency — an Agency agent is a
-Lifecycle parameterization (`delegate`), and analysis personas do no external
-work; they are *lenses* (data the verb iterates). Modes are **not a runtime** —
-they are descriptors a caller adopts.
+The port lands as **the built-out `transmute` capability (the open `transform` set)
++ a small set of skills + a `develop` skill**. Rationale, citing the canon map: the
+`/sc:` analysis surface is stateless compute over a target (read → findings), which
+is exactly the `transform` role — and the canon already NAMES that home as
+`transmute` (`CAPABILITY-CLUSTERS.md:20`: `transmute` | `transform` | "pure functions
+over artefacts: views, indexes, summaries, tool-list shaping | the open `transform`
+set"). Severity-ranked findings, an effort band, a layered explanation, a persona
+lens, a mode descriptor are *precisely* "pure functions over artefacts" (read →
+derived view, no external mutation). So this port POPULATES the `transmute` facet
+rather than minting a new `analyze` primitive the cluster census did not surface
+(`CAPABILITY-CLUSTERS.md:26-33`, `CORE.md:139-141`) — the plan and the canon map now
+agree. Personas are **not agents** in Agency — an Agency agent is a Lifecycle
+parameterization (`delegate`), and analysis personas do no external work; they are
+*lenses* (data the verb iterates). Modes are **not a runtime** — they are descriptors
+a caller adopts.
 
-### Verbs to add (capability `analyze`, home `transform`)
+### Verbs to add (capability `transmute`, home `transform`)
 
 | verb | role | what |
 |---|---|---|
@@ -208,6 +218,9 @@ not re-ported.
 
 ### Skills to add (installable Lifecycle templates under `skills/`)
 
+The walkable skill is still named `analyze` (the user-facing discipline keeps the
+SuperClaude name); only the *capability* that hosts the verbs is `transmute`.
+
 | skill | kind | phase-graph (→ hard gate) |
 |---|---|---|
 | `analyze` | discipline | `scope` (target, dimension) → `examine` (findings) → `report` (recommendations) [gate] |
@@ -225,7 +238,7 @@ explicitly disclaims doing external work (even the `engineering`-tagged
 architects — `agents/sc-system-architect.md` "Will Not: Implement detailed code",
 `sc-backend-architect.md` "Will Not: Manage infrastructure deployment",
 `sc-devops-architect.md` "Will Not: Write application business logic") — so they
-are pure **design/analysis lenses**, returned as data by `analyze.lens()`. The
+are pure **design/analysis lenses**, returned as data by `transmute.lens()`. The
 **only** two personas that DO orchestrate are already out of scope (their commands
 are dropped), so no in-scope persona is an agent:
 
@@ -246,13 +259,13 @@ That is 18 lens rows + 2 dropped = the full 20-file catalogue.
 ### Mode classification (the 7 MODE files → disposition)
 
 The earlier draft assumed all 7 modes become a `mode()` enum; the source forces a
-per-mode call. `analyze.mode()` is a closed enum of **≤3** genuine descriptors:
+per-mode call. `transmute.mode()` is a closed enum of **≤3** genuine descriptors:
 
 | MODE file | what it is | Agency disposition |
 |---|---|---|
-| `MODE_Brainstorming` | Socratic requirements discovery | **covered** — backs `develop` `brainstorm`; descriptor `analyze.mode("brainstorming")` |
-| `MODE_Business_Panel` | 9-expert panel runtime (Expert Engine + 3-phase pipeline) | **covered** — backs `skills/business-panel/`; descriptor `analyze.mode("business-panel")` |
-| `MODE_Introspection` | meta-cognitive self-analysis (`--introspect`) | **cover-by-`reflect`** — descriptor `analyze.mode("introspection")` points at the `reflect` capability |
+| `MODE_Brainstorming` | Socratic requirements discovery | **covered** — backs `develop` `brainstorm`; descriptor `transmute.mode("brainstorming")` |
+| `MODE_Business_Panel` | 9-expert panel runtime (Expert Engine + 3-phase pipeline) | **covered** — backs `skills/business-panel/`; descriptor `transmute.mode("business-panel")` |
+| `MODE_Introspection` | meta-cognitive self-analysis (`--introspect`) | **cover-by-`reflect`** — descriptor `transmute.mode("introspection")` points at the `reflect` capability |
 | `MODE_Task_Management` | hierarchical Plan→Phase→Task→Todo + write_memory | **cover-by-Lifecycle+Memory** — this IS Agency's `Lifecycle`/`Memory` substrate; NOT a descriptor |
 | `MODE_Orchestration` | Serena/Morphllm/Magic tool-routing matrix | **dropped** — same two-MCP plumbing as `select-tool`; no Agency analogue |
 | `MODE_Token_Efficiency` | symbol-compression communication styling | **dropped** — pure system-prompt styling (superpowers-port: "pressure does NOT port") |
@@ -262,20 +275,20 @@ per-mode call. `analyze.mode()` is a closed enum of **≤3** genuine descriptors
 
 | SuperClaude item | Agency target | status |
 |---|---|---|
-| `/sc:brainstorm` + `MODE_Brainstorming` | `develop` skill `brainstorm` (exists) + `analyze.mode("brainstorming")` | **covered** |
+| `/sc:brainstorm` + `MODE_Brainstorming` | `develop` skill `brainstorm` (exists) + `transmute.mode("brainstorming")` | **covered** |
 | `/sc:spec-panel` | `develop` skill `spec-panel` + `skills/spec-panel/` (exists) | **covered** |
-| `/sc:analyze` | `analyze.analyze` + `skills/analyze/` | **new** |
-| `/sc:troubleshoot` | `analyze.troubleshoot` (diagnosis) + existing `develop` `debug` (the `--fix` loop) | **new (split)** |
+| `/sc:analyze` | `transmute.analyze` + `skills/analyze/` | **new** |
+| `/sc:troubleshoot` | `transmute.troubleshoot` (diagnosis) + existing `develop` `debug` (the `--fix` loop) | **new (split)** |
 | `/sc:design` | new `develop` skill `design` (distinct from `plan`; `sc-design.md:24-28`) | **new** |
-| `/sc:estimate` | `analyze.estimate` | **new** |
-| `/sc:explain` | `analyze.explain` | **new** |
-| `/sc:business-panel` + `MODE_Business_Panel` | `skills/business-panel/` + `analyze.lens(business-expert)` | **new** |
+| `/sc:estimate` | `transmute.estimate` | **new** |
+| `/sc:explain` | `transmute.explain` | **new** |
+| `/sc:business-panel` + `MODE_Business_Panel` | `skills/business-panel/` + `transmute.lens(business-expert)` | **new** |
 | `/sc:reflect` | memory aspect → `reflect` capability; "are we done"/task-adherence aspect (`sc-reflect.md:24-26`) → `gate.check` + `develop` `verify` | **covered (split)** |
 | `/sc:select-tool` + `MODE_Orchestration` | DROP — Serena-vs-Morphllm MCP routing (`sc-select-tool.md:6,34`); no Agency analogue (one FastMCP engine) | **dropped** |
 | `/sc:{implement,build,test,document,improve,cleanup,git,task,spawn,pm,workflow,index,save,load,research,recommend}` | out of scope (build/session/MCP-install surface, not analysis) | **dropped** |
-| 18 in-scope `agents/*.md` personas | `analyze.lens(persona)` — lenses as data | **new** |
+| 18 in-scope `agents/*.md` personas | `transmute.lens(persona)` — lenses as data | **new** |
 | `agents/sc-pm-agent` (meta), `agents/sc-deep-research-agent` (analysis) | orchestrate/effect → not lenses; their commands `/sc:pm`,`/sc:research` already dropped | **dropped** |
-| `MODE_{Brainstorming,Business_Panel,Introspection}` | `analyze.mode(name)` descriptors (≤3) — see mode table | **new/covered** |
+| `MODE_{Brainstorming,Business_Panel,Introspection}` | `transmute.mode(name)` descriptors (≤3) — see mode table | **new/covered** |
 | `MODE_Task_Management` | Agency `Lifecycle` + `Memory` substrate | **covered** |
 | `MODE_{Token_Efficiency,DeepResearch}` | pure styling / dropped-command backing | **dropped** |
 | `core/{RULES,FLAGS,PRINCIPLES}.md` | hard rules → `gate`/lint checks; stylistic → dropped | **partial** |
@@ -284,22 +297,40 @@ per-mode call. `analyze.mode()` is a closed enum of **≤3** genuine descriptors
 ## Files
 
 - **Create**:
-  - `agency/capabilities/analyze.py` — the new capability (verbs + `OntologyExtension` + persona/mode tables).
+  - `agency/capabilities/transmute.py` — BUILD the named-but-unbuilt `transmute`
+    capability, the open `transform` set (`CAPABILITY-CLUSTERS.md:20`): the analytic
+    read-verbs + `OntologyExtension` (`Analysis` node) + persona/mode tables.
   - `skills/analyze/SKILL.md` — walkable `analyze` discipline.
   - `skills/business-panel/SKILL.md` — multi-expert business critique.
   - `skills/brainstorm-discovery/SKILL.md` — Socratic discovery (conditional; see Open Questions).
   - `docs/vision/specs/superclaude-analysts-port.md` — the full coverage mapping.
-  - `tests/test_analyze_capability.py`, `tests/test_analyze_skills.py`.
+  - `tests/test_transmute_capability.py`, `tests/test_transmute_skills.py`.
 - **Modify**:
   - `agency/capabilities/develop.py` — add a `design` discipline to `DEV_SKILLS`
     (`/sc:design` is distinct from `plan`; Q2 resolved).
-- **Move / Delete**: none.
+- **Move / Delete**: none. (No new top-level capability is minted; `transmute` is a
+  cluster the canon already lists — this builds it.)
 
 ## Open Questions / Needs Research
 
 Q1–Q4 are **RESOLVED against source** by the spec-panel review (see `REVIEW.md`)
-and are now baked into the Design above. Only Q5 remains genuinely open (and is
-narrowed).
+and are now baked into the Design above. Q5 is narrowed. Q6 is the one genuinely
+open canon-shape question (raised by `VISION-REVIEW.md`).
+
+0. **`transmute` (fold) vs. amend-canon (mint a distinct `analyze`).** *(Open —
+   canon-shape; the one real decision.)* This spec REHOMES the analysis surface onto
+   the canon's already-named-but-unbuilt `transmute` cluster (`CAPABILITY-CLUSTERS.md:20`,
+   the open `transform` set) rather than minting a new `analyze` top-level primitive —
+   per the `VISION-REVIEW.md` ruling **FOLD, don't mint** (`CAPABILITY-CLUSTERS.md:26-33`
+   warns a 12th primitive the cluster census never surfaced is bloat). **Alternative,
+   if the maintainer judges `analyze` a *distinct* facet** (e.g. "transmute =
+   data-shaping; analyze = judgment-bearing findings"): that case is legitimate, but
+   "the canon wins; code serves it" (`CLAUDE.md`) requires it be made **in the canon
+   FIRST** — amend `CAPABILITY-CLUSTERS.md:10-24` to add an `analyze` row + a
+   fold-vs-distinct rationale in the verdict (`:26-43`) — landed BEFORE any code, so
+   the map never silently disagrees with the tree. Pick one before coding; the spec as
+   written takes the fold path (preferred — it matches the existing map, 0 net-new
+   primitives).
 
 1. **Personas → lenses, not agents.** **RESOLVED → lenses, for every in-scope
    persona.** Two personas DO orchestrate/dispatch — `pm-agent` is a meta-layer
@@ -307,7 +338,7 @@ narrowed).
    orchestrates external Tavily/Playwright/Context7 calls
    (`agents/sc-deep-research-agent.md:95`) — but **both are already out of scope**
    (their commands `/sc:pm`, `/sc:research` are in the dropped bucket). So no
-   in-scope persona orchestrates; every one that ports is a pure `analyze.lens()`
+   in-scope persona orchestrates; every one that ports is a pure `transmute.lens()`
    row. Decided — not a blocker.
 2. **`design` vs `plan`.** **RESOLVED → distinct; ADD `design`.**
    `commands/sc-design.md:24-28` is an interface/architecture flow producing
@@ -356,3 +387,9 @@ narrowed).
   `CapabilityBase`/`@verb`/`OntologyExtension` contract), `skills/spec-panel/SKILL.md`
   (the SKILL.md shape to mirror), `docs/vision/specs/superpowers-port.md` (the
   pressure→structure thesis and port-doc format).
+- Canon (the rehome rationale): `docs/vision/CAPABILITY-CLUSTERS.md:20` (`transmute`
+  = the open `transform` set, "pure functions over artefacts") + `:26-43` (the
+  "few primitives" verdict — folding facets, not minting primitives);
+  `docs/vision/CORE.md:139-144` (the cluster census; "grow the capability set by
+  dropping files into `capabilities/`"). `agency/capabilities/transmute.py` does NOT
+  exist yet — this spec BUILDS it (the cluster is specced-but-unbuilt).

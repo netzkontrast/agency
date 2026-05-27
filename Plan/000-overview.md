@@ -33,19 +33,19 @@ evidence trail behind its current shape.
 
 ## The spec set
 
-| Spec | Replaces / enables | deps | Panel verdict → refined state |
+| Spec | What it delivers | deps | Post-alignment home |
 |---|---|---|---|
-| `001-toolresult-and-typed-errors` | a uniform return envelope + typed errors (foundation) | — | conditional → envelope corrected to shipped shape (`data`, `artefacts_written`, free-string codes + `trace_id`); **carries the one remaining blocker (Q2)** |
-| `002-boundary-driver-protocol` | generic Boundary/Driver + DriverRegistry (foundation) | 001 | changes → resolved to **Option B** (typed methods); `fan_out` collision deferred |
-| `003-skill-phase-objects` | typed `Skill`/`Phase` replacing the dict walker | 001 | approve w/ must-fix → don't-reject-empty-phases; validate in `Engine.__init__`; dicts stay |
-| `004-template-schema-coverage` | ontology schema coverage for artefact kinds | 003 | approve ruling → **2** real uncovered kinds; superset dropped; validate-side wiring flagged |
-| `005-context-mode-and-token-economics` | output-side context capture (context-mode) | 001 | conditional → field=`data`, hook lifecycle fixed, reimplement-in-tree; residual rides on 001-Q2 |
-| `006-core-hardening` | red-team fixes (tick · pagination · verify · env) | — | approve → 3 fixes verified; **#4 reframed** (Monty-probe: not exploitable); `max()` not Clock-node |
-| `007-music-domain-capability` | **bitwize-music** (all 89 tools → clusters/drivers) | 001, 002 | approve w/ must-fix → backends corrected (Postgres; urllib/boto3 split; 19 modules); 89-map intact |
-| `008-superclaude-analysts` | **SuperClaude** `sc:` analysis surface + modes | 001, 003 | approve w/ must-fix → 4 axes; drop `select_tool`; modes ≤3; lens-not-agent confirmed |
-| `009-superpowers-remainder` | **superpowers** disciplines not yet in `develop` | 003 | changes → real gap = **1** (`receiving-code-review`); no `lib/bin`; SHA fixed |
-| `010-novel-domain` | **the-agency-system** novel domain (Dramatica/NCP) | 001,002,003 | conditional → NCP=draft-07, counts measured (303/54), honest maturity; v1 scope cut |
-| `011-agentic-capabilities` | agentic invariants/loop-detection + skill pressure-tests | 001, 003 | approve w/ must-fix → transcript-as-input; `dry_run`-only v1; phantom `core.py` dropped |
+| `001-toolresult-and-typed-errors` | uniform return envelope + typed errors | — | **engine substrate** — an in-sandbox return serializer (does not cross the context boundary); carries the one remaining blocker (Q2) |
+| `002-boundary-driver-protocol` | generic Boundary/Driver + DriverRegistry | 001 | **engine substrate** (`wire-handlers`, not a concept); Option B typed methods |
+| `003-skill-phase-objects` | typed `Skill`/`Phase` parse/validate boundary | 001 | **Lifecycle** internals — skills stay Memory-stored templates; no new concept |
+| `004-template-schema-coverage` | wire the generate/validate loop (2 uncovered kinds) | 003 | **Memory** — rung 1 of the verb-param schema-as-single-source ladder |
+| `005-context-mode-and-token-economics` | output-overflow capture + recall | 001 | **engine middleware + a `transform`** (NOT a new capability — compaction is middleware per CORE.md:16-18); no hooks, no SQLite |
+| `006-core-hardening` | red-team fixes (tick · pagination · verify · env) | — | **engine substrate** — fully aligned; enforces canon invariants |
+| `007-music-domain-capability` | prove the clustered contract on a real domain | 001, 002 | **`examples/` extension** — ~14 representative verbs; 89-tool map = appendix (not a 1:1 bitwize port) |
+| `008-superclaude-analysts` | the SuperClaude analysis surface | 001, 003 | **`transmute` cluster** — populates the canon's named-but-unbuilt `transform` facet (not a new `analyze` primitive) |
+| `009-superpowers-remainder` | finish the superpowers port | 003 | **`develop` extension** — 1 discipline (`receive-review`) + references; no new capability |
+| `010-novel-domain` | novel domain (Dramatica/NCP, gates) | 001,002,003 | **`examples/` extension** — capability-owned ontology; the heaviest proof of absorption |
+| `011-agentic-capabilities` | agentic guardrails | 001, 003 | **middleware + `gate` predicates + a skill** — both proposed capabilities deleted; `detect_loop`=middleware, checks=`gate.check`, pressure-test=skill |
 
 ## Implementation order (dependency-topological)
 
@@ -100,6 +100,29 @@ Resolved by the panels (no longer open):
 Residual per-spec open questions are all non-blocking and listed in each spec
 (e.g. 007's driver-injection point depends on whether 002's registry shipped; 011's
 `pressure.run` wet path needs a local LLM-bearing driver that doesn't exist yet).
+
+## Vision alignment (second pass)
+
+Each spec went through a **vision-alignment review** (a `VISION-REVIEW.md` beside each
+`spec.md`) judging it against the canon (`CORE.md`, `CAPABILITY-CLUSTERS.md`), then a
+design pass applying the verdicts (**canon wins; code serves it**). The headline
+outcome **validates the canon's "few primitives" thesis** — the alignment pass
+*reduced* the net-new top-level capabilities rather than adding them:
+
+- `005` context-mode and `011` agentic were demoted from "new capabilities" to **engine
+  middleware + facets of `gate`/Memory + a skill** — because `CORE.md:16-18` lists
+  compaction/loop-detection/quota as **middleware, not concepts**.
+- `008` was **rehomed onto the existing `transmute` cluster** (`CLUSTERS:20`) instead of
+  minting a new `analyze` primitive.
+- `007`/`010` are confirmed **`examples/` extensions**, not core; `007` rescoped from a
+  1:1 89-tool port to a representative-verb proof (89-map kept as an appendix).
+
+After alignment, **no spec proposes a net-new top-level capability**: the set is
+foundation/substrate (`001`–`004`, `006`), middleware+facets (`005`, `011`), an
+existing-cluster populate (`008`), `develop`/skill extensions (`009`, `011`-skill),
+and two domain examples (`007`, `010`). That is the four-concepts model holding under
+the whole surveyed plugin surface — exactly the `CAPABILITY-CLUSTERS` verdict, now
+re-derived spec-by-spec.
 
 ## Provenance
 

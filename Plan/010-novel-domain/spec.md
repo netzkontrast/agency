@@ -77,7 +77,10 @@ can carry a **vendored reference dataset** (the Dramatica ontology) and a
   raises no ontology-conflict error).
 - [ ] The extension adds the node types `Work`, `Chapter`, `Scene`, `Character`,
   `Premise`, `Storyform`, `Coherence` with strict required-field schemas, the
-  closed enums for `pov`, `revision_pass`, and `coherence` status/severity, the
+  closed node enums for `Chapter.pov` and `Coherence.status` (the only two enums
+  that key a real v1 node field — violation `severity` lives in the
+  `coherence-report` artefact schema, and `revision_pass` defers to v2; see
+  **Enums**), the named edges `COHERES_WITH` + `OVERRIDDEN_BY` (gate-override), the
   `work-concept` conceptualizer **skill** (a Lifecycle template), and the artefact
   schemas for `work`, `premise`, `ncp`, `coherence-report`.
 - [ ] The verb table (below) is implemented and role-tagged; every `act`/`effect`
@@ -110,8 +113,9 @@ can carry a **vendored reference dataset** (the Dramatica ontology) and a
   of the 6 gates against the work's `Lifecycle`; `chapter` drafting is admitted
   only when all 6 PASS. A failing gate records a `BLOCKED_ON` edge + an
   `input-required` pause (exactly like `gate.check`). A `force=True` override path
-  is recorded as an explicit override edge with caller + reason (the graph analogue
-  of the source's `force_overrides[]` audit; see **Source fidelity §7**).
+  is recorded as an explicit `OVERRIDDEN_BY` edge (declared in the extension's
+  `edges`; see **Edges**) carrying caller + reason — the graph analogue of the
+  source's `force_overrides[]` audit (see **Source fidelity §7**).
 - [ ] The `work-concept` conceptualizer skill ends in a **hard** confirm gate
   (mirrors `examples/music.py`'s `album-concept`); the engine's skill walker walks
   it one phase at a time (progressive disclosure: `current()` returns only the
@@ -221,11 +225,11 @@ walks; each is an ordered phase-graph, final phase `gate: "hard"`):
 | Verb | Role | What | Provenance |
 |---|---|---|---|
 | `scaffold` | effect | Record a `Work` + return the 14-entry layout manifest; write to disk only when `apply=True`. | `Work` recorded, `SERVES` intent; on `apply` an `Artefact{kind:work}` `PRODUCES`d |
-| `conceptualize` | act | Render a work-concept document (the album-concept analogue); the body the `work-concept` skill's phases fill. | `Artefact{kind:work}` `PRODUCES`d, `DERIVED_FROM` the `work-concept` Template |
+| `conceptualize` | act | Render a work-concept document (the album-concept analogue); the body the `work-concept` skill's phases fill. Builds the body INLINE (exactly like `music.conceptualize`), so no `templates=` map is needed. | `Artefact{kind:work}` `PRODUCES`d (no `DERIVED_FROM Template` edge — `music.py` precedent; the `OntologyExtension` declares no `templates=`) |
 | `dramatica_lookup` | transform | Resolve elements / classes / types / variations + `check_dynamic_pair_reciprocity` over the bundled ontology. | none (pure) |
 | `ncp_validate` | transform | Validate a doc against the bundled **draft-07** NCP schema via real `jsonschema`; `{ok, errors}`, never raises on bad data. | none (pure) |
 | `coherence_check` | transform | Run ONLY the decidable checks over an NCP projection; return the compact report. | none (pure) |
-| `pre_drafting_gate` | act | Compose `gate.check` for each of the 6 gates on the work's `Lifecycle`; done iff all PASS, with a recorded `force=True` override path. | one `Gate` per check, `PASSED`/`BLOCKED_ON` edges via `gate`; override edge on force |
+| `pre_drafting_gate` | act | Compose `gate.check` for each of the 6 gates on the work's `Lifecycle`; done iff all PASS, with a recorded `force=True` override path. | one `Gate` per check, `PASSED`/`BLOCKED_ON` edges via `gate`; `OVERRIDDEN_BY` edge (with caller + reason) on `force=True` |
 
 Role assignment follows the core contract: `transform` = stateless compute (the
 structural-truth surface — decidable, replayable), `act` = a craft write that records
@@ -321,7 +325,8 @@ These corrections re-base the spec on the SHIPPED artefacts, MEASURED here:
    (`dramatica_confirmed, ncp_valid, premise_locked, cast_complete, pov_declared,
    sources_verified`) match `gates.py:81–225` exactly; the source writes
    `force_overrides[]` (timestamp + caller) on bypass (`gates.py:263–274`). The
-   Agency `pre_drafting_gate` reproduces this as an explicit override edge.
+   Agency `pre_drafting_gate` reproduces this as the explicit `OVERRIDDEN_BY` edge
+   declared in the extension's `edges` (see **Edges**).
 
 ### Migration / coverage map (the-agency-system → Agency)
 

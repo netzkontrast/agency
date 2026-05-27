@@ -139,11 +139,17 @@ drops in favor of code-mode). None become capability verbs.
       canon row must end with no `planned` residue regardless.
 - [ ] `tests/test_agency.py` (the develop suite) covers the new `receive-review`
       phase-graph: `triage` produces `classified_findings` and precedes the
-      `resolve` hard gate; the existing `test_every_dev_skill_walks_to_a_hard_gate`
+      `resolve` hard gate. The `test_every_dev_skill_walks_to_a_hard_gate`
       invariant (`phases[-1].gate == "hard"`, `_walk_to_completion` reaches the
-      final gate) still holds — `triage` must be a NON-terminal, non-gate phase.
-      A Given/When/Then fixture encodes the pushback path: GIVEN a finding the
-      agent believes is wrong, WHEN triaged, THEN it is `disagree-with-reason`
+      final gate) must be asserted over the **FULL `DEV_SKILLS` set** — today the
+      tests cover only 7 disciplines; this spec REQUIRES the invariant to range
+      over **every** entry, including `execute` (already shipped, canon line 66
+      `done`, but untested by this invariant) AND the new `receive-review`. This
+      preserves the canon's "every dev skill ends in a hard gate" (CORE.md;
+      `develop.py` invariant) rather than weakening it. `triage` MUST be a
+      NON-terminal, non-gate phase so the final phase stays the `resolve` hard
+      gate. A Given/When/Then fixture encodes the pushback path: GIVEN a finding
+      the agent believes is wrong, WHEN triaged, THEN it is `disagree-with-reason`
       and `resolve` records the reasoning, not silent agreement. Reference tests
       assert every new topic resolves via `develop.reference` and unknown topics
       return the available list.
@@ -253,14 +259,18 @@ this as the primary expected outcome, evidenced by the SHA — not via the false
     (`read→understand→verify→triage→resolve`) with the `needs-verification`-aware
     `resolve` gate; grow `REFERENCES` per the Design table (original prose).
   - `skills/code-review/SKILL.md` — reconcile `assess → dispatch` (drift fix).
-  - `docs/vision/specs/superpowers-port.md` — flip `receiving-code-review` and
-    the enumerated reference rows to **covered**/**dropped**; record the per-skill
-    SCRIPT audit (no runtime deps; SHA `f2cbfbef…`).
+  - `docs/vision/specs/superpowers-port.md` — flip BOTH non-`done` canon rows:
+    line 63 `receiving-code-review` (partial → covered) and line 69 the
+    writing-skills references row (planned → covered); resolve the enumerated
+    reference rows to **covered**/**dropped**; record the per-skill SCRIPT audit
+    (no runtime deps; SHA `f2cbfbef…`).
 - **Create**:
   - `skills/receiving-code-review/SKILL.md` — the receiving phase-graph.
   - Tests in `tests/test_agency.py` (the develop suite) — `receive-review`
     ordering + the `needs-verification` gate + the disagree-with-reason Given/
-    When/Then; reference resolution.
+    When/Then; reference resolution; and widen
+    `test_every_dev_skill_walks_to_a_hard_gate` to range over the FULL
+    `DEV_SKILLS` set (adding `execute` + `receive-review`).
 - **Move / Delete**: none.
 
 ## Open Questions / Needs Research

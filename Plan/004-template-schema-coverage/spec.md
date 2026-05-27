@@ -175,20 +175,19 @@ registry — it never becomes a `Schema` *node*, so there is no `schema_id` to p
 
 Therefore adding a `REQUIRED`/`schemas` entry alone does **not** make a kind
 validatable: the round-trip in `Done When` would have nothing to validate against.
-004 must wire the validate side. Decision: **wire it** with the minimal driver —
+004 wires the validate side via the **`Schema`-node materialiser** specified in
+Design — it is the load-bearing change, not an optional extra. In brief: the engine
+records one `Schema` node per `Ontology.schemas` entry, and the two newly covered
+verbs link their recorded Artefact `VALIDATES_AGAINST` the matching `Schema` node
+(the `VALIDATES_AGAINST` edge already exists in `EDGE_TYPES`, `ontology.py:43`), so
+the provenance subgraph is complete and the round-trip test has a real `schema_id`
+to assert on. See Design → "The `Schema`-node materialiser" for placement,
+idempotency, and the all-entries scope.
 
-- The engine bootstrap records **one `Schema` node per `Ontology.schemas` entry**
-  (`name` = the kind, `required` = the comma-joined required-field list). This is
-  the missing link between the registry and the enforcement point.
-- The two newly covered verbs link their recorded Artefact `VALIDATES_AGAINST`
-  the matching `Schema` node (the `VALIDATES_AGAINST` edge already exists in
-  `EDGE_TYPES`, `ontology.py:43`), so the provenance subgraph is complete and the
-  round-trip test has a real `schema_id` to assert on.
-
-(If wiring is judged out of scope at implementation time, the alternative is to
-explicitly scope the validate round-trip OUT and assert only registry membership
-— but the recommendation is to wire it, because an unwired schema is the same
-"registry without enforcement" gap this spec exists to close.)
+(Note the generate half — recording `Template` nodes and the `DERIVED_FROM` edge —
+stays unproven in production; 004 wires only the validate half, by design. This is
+no longer optional-vs-wire: wiring the validate side is the spec's reason to exist,
+since an unwired schema is the same "registry without enforcement" gap 004 closes.)
 
 ## Done When
 
@@ -200,12 +199,18 @@ explicitly scope the validate round-trip OUT and assert only registry membership
       query rows.
 - [ ] `jules.dispatch` records a `jules-session` Artefact with the full required
       field set (`session_id`, `url`, `state`, `history`).
-- [ ] The engine records a `Schema` node per `Ontology.schemas` entry and each new
-      verb links its Artefact `VALIDATES_AGAINST` the matching `Schema` node, so
+- [ ] `Ontology.materialise_schemas(memory)` runs once at engine construction (after
+      all extensions merge) and records one `Schema` node per `Ontology.schemas`
+      entry — including the 5 existing covered kinds, retroactively wiring them — and
+      is idempotent (upsert-keyed on `schema:{name}`). Each new verb links its
+      Artefact `VALIDATES_AGAINST` the matching `Schema` node, so
       `Memory.validate_schema` has a `schema_id` to check against.
 - [ ] A round-trip test, per new kind, records the Artefact and asserts
       `Memory.validate_schema(artefact_id, schema_id)` returns `True`; an Artefact
-      missing a required field returns `False` (the schema bites).
+      missing a required field returns `False` (the schema bites). The round-trip is
+      **validate-only**: the generate-side `DERIVED_FROM` → `Template` edge is
+      explicitly OUT of scope for 004 (no `Template` nodes recorded; the new
+      generators stay `string.Template` constants — see Design).
 - [ ] The verb result-shape changes (`session`→`session_id`; the grown reduction
       dict) are reflected in the existing `tests/test_agency.py` jules/delegate
       assertions enumerated in Open Q1.
@@ -389,9 +394,10 @@ half is production-wired.
   - `agency/capabilities/jules.py` — `dispatch` records the full `jules-session`
     artefact; add `ontology = OntologyExtension(schemas={"jules-session": [...]})`
     to `JulesCapability` (it currently has none).
-  - `agency/ontology.py` — only if the `Schema`-node bootstrap is best placed here
-    (e.g. a helper that materialises `Ontology.schemas` into `Schema` nodes);
-    otherwise the bootstrap lives in the engine. Pick one and state it in the PR.
+  - `agency/ontology.py` — add `Ontology.materialise_schemas(memory)`: records one
+    idempotent `Schema` node per `Ontology.schemas` entry (all entries, incl. the
+    existing 5). The engine calls it once at construction after all extensions merge
+    (see Design → "The `Schema`-node materialiser"). State the exact call site in the PR.
   - `tests/test_agency.py` — round-trip generate/validate tests per new kind, plus
     the assertion updates from Open Q1.
 - **Create**: none. Tests extend the single `tests/test_agency.py` (repo
