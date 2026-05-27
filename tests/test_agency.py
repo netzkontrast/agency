@@ -1287,3 +1287,15 @@ def test_reflect_note_surfaces_in_provenance():
     texts = [n.get("text") for n in e.memory.provenance(iid)["serves"]]
     assert "prefer code-mode deltas" in texts
     e.memory.close()
+
+
+def test_failed_invocation_is_recorded_as_provenance():
+    """Every call is recorded: a verb that raises still leaves a SERVES Invocation
+    marked failed, so failed production runs are auditable."""
+    e = fresh()
+    iid = e.intent.capture("audit failures", "a record", "ok")
+    with pytest.raises(TypeError):
+        e.registry.invoke(e.memory, iid, "plugin", "lint_skill")   # missing required args -> raises
+    serves = e.memory.provenance(iid)["serves"]
+    assert any(n.get("verb") == "lint_skill" and n.get("outcome") == "failed" for n in serves)
+    e.memory.close()

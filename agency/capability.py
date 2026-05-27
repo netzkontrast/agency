@@ -161,13 +161,19 @@ class Registry:
                 call["intent_id"] = intent_id
             elif name in self.injectors:
                 call[name] = self.injectors[name]()
-        result = spec["fn"](**call)
+        # record the Invocation BEFORE calling, so a verb that raises still leaves a
+        # SERVES invocation in provenance (a failed run must be auditable too).
         inv = memory.record("Invocation", {
             "capability": cap_name, "verb": verb, "role": spec["role"],
         })
         memory.link(inv, intent_id, "SERVES")
         if agent_id:
             memory.link(inv, agent_id, "PERFORMED_BY")  # 'BY' is a Cypher reserved word
+        try:
+            result = spec["fn"](**call)
+        except Exception as e:
+            memory.update(inv, {"outcome": "failed", "error": f"{type(e).__name__}: {e}"})
+            raise
         if isinstance(result, dict) and result.get("artefact"):
             art = memory.record("Artefact", dict(result["artefact"]))
             memory.link(inv, art, "PRODUCES")
