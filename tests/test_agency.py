@@ -1165,3 +1165,94 @@ def test_help_documents_the_discovery_mapping():
     assert "search" in doc and "get_schema" in doc and "execute" in doc
     assert "develop.reference" in doc                              # references are discoverable
     e.memory.close()
+
+
+def test_delegate_validates_quota_and_items():
+    """fan_out rejects a negative quota (negative slicing would over-admit) and
+    non-mapping items (each item is unpacked as driver kwargs)."""
+    e = fresh(); iid = e.intent.capture("fan", "out", "ok"); e.intent.confirm(iid)
+    neg = e.registry.invoke(e.memory, iid, "delegate", "fan_out",
+                            driver="develop", driver_verb="checklist", items=[{"discipline": "tdd"}], quota=-1)[0]
+    assert "error" in neg["result"] and neg["result"]["quota"] == -1
+    badit = e.registry.invoke(e.memory, iid, "delegate", "fan_out",
+                              driver="develop", driver_verb="checklist", items=["nope", 3])[0]
+    assert "error" in badit["result"]                             # nothing dispatched on bad input
+    assert not e.memory.g.query("MATCH (d:Delegation) RETURN d")
+    e.memory.close()
+
+
+def test_gate_and_join_reject_cross_intent():
+    """A computed gate and a delegation reduction must serve the CURRENT intent —
+    passing another intent's lifecycle/delegation is rejected (no cross-intent
+    provenance corruption)."""
+    e = fresh(StubJulesClient())
+    a = e.intent.capture("intent a", "x", "y"); b = e.intent.capture("intent b", "x", "y")
+    lc_a = e.lifecycle.open(a)
+    # gate.check under intent b on intent a's lifecycle -> rejected
+    g = e.registry.invoke(e.memory, b, "gate", "check", lifecycle_id=lc_a, name="x", passed=True)[0]
+    assert "error" in g["result"] and e.lifecycle.status(lc_a) == "working"  # untouched
+    # join under intent b on a delegation created under intent a -> rejected
+    out, _ = e.registry.invoke(e.memory, a, "delegate", "fan_out",
+                               driver="jules", driver_verb="dispatch",
+                               items=[{"source": "o/r", "starting_branch": "main", "prompt": "p"}])
+    j = e.registry.invoke(e.memory, b, "delegate", "join", delegation=out["result"]["delegation"])[0]
+    assert "error" in j["result"]
+    e.memory.close()
+
+
+def test_workspace_baseline_rejects_unknown_workspace():
+    """baseline fails fast on an unresolved workspace id instead of silently running
+    the command in the process working directory."""
+    e = fresh(vcs_backend=StubVCS())
+    iid = e.intent.capture("base", "line", "ok")
+    r = e.registry.invoke(e.memory, iid, "workspace", "baseline",
+                          workspace="workspace:does-not-exist", command="pytest -q")[0]
+    assert "error" in r["result"]
+    e.memory.close()
+
+
+def test_provenance_includes_dispatched_agents_and_served_artefacts():
+    """Provenance is complete: an agent reached only via DISPATCHED_TO (no
+    invocation yet) appears, and an artefact linked directly via SERVES (a
+    delegation reduction) appears in `artefacts`, not just `serves`."""
+    e = fresh(StubJulesClient())
+    iid = e.intent.capture("complete", "provenance", "ok"); e.intent.confirm(iid)
+    e.lifecycle.open(iid, agent="solo")                           # DISPATCHED_TO only, no PERFORMED_BY
+    out, _ = e.registry.invoke(e.memory, iid, "delegate", "fan_out",
+                               driver="jules", driver_verb="dispatch",
+                               items=[{"source": "o/r", "starting_branch": "main", "prompt": "p"}])
+    e.registry.invoke(e.memory, iid, "delegate", "join", delegation=out["result"]["delegation"])
+    prov = e.memory.provenance(iid)
+    assert any(a["id"] == "agent:solo" for a in prov["agents"])   # DISPATCHED_TO agent surfaced
+    assert any(p.get("kind") == "reduction" for p in prov["artefacts"])  # directly-SERVES artefact
+    e.memory.close()
+
+
+def test_supersede_validates_before_closing_old_version():
+    """A rejected amend leaves the current version intact — validation happens
+    before the old version is closed, so the temporal chain never loses its head."""
+    e = fresh()
+    iid = e.intent.capture("ship", "fix auth", "green")
+    from agency.memory import OPEN
+    with pytest.raises(ValueError):
+        e.intent.amend(iid, deliverable="")                       # missing required field
+    cur = e.memory.recall(iid)
+    assert cur["vto"] == OPEN and cur["deliverable"] == "fix auth"   # still the open head
+    e.memory.close()
+
+
+def test_logical_clock_survives_an_edge_as_last_write():
+    """The version tick is restored from edges too: if the last write before a
+    reopen is an edge, the clock must not reset below the true max (else new writes
+    reuse stale ticks and break temporal ordering)."""
+    from agency.memory import Memory
+    path = tempfile.mktemp(suffix=".db")
+    m = Memory(path, ont=ontology.Ontology.core())
+    i1 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft"})
+    i2 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft"})
+    m.link(i1, i2, "SUPERSEDED_BY")                               # the edge is the LAST write
+    last = m._tick
+    m.close()
+    m2 = Memory(path, ont=ontology.Ontology.core())
+    assert m2._tick >= last                                       # picked the edge's vfrom up
+    m2.close()

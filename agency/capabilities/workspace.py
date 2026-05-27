@@ -33,8 +33,11 @@ class WorkspaceCapability(CapabilityBase):
     @verb(role="effect", inject=["vcs"])
     def baseline(self, vcs, workspace: str, command: str) -> dict:
         "Run the baseline test command in the workspace and record the green/red result."
-        ws = self.ctx.recall(workspace) or {}
-        res = (vcs or GitClient()).run(command=command, cwd=ws.get("path", ""))
+        ws = self.ctx.recall(workspace)
+        if not ws or not ws.get("path"):                       # don't silently run in the process cwd
+            return {"result": {"error": "unknown workspace (run workspace.isolate first)",
+                               "workspace": workspace}}
+        res = (vcs or GitClient()).run(command=command, cwd=ws["path"])
         passed = int(res.get("returncode", 1)) == 0
         b = self.ctx.record("Baseline", {"command": command, "passed": passed,
                                          "output": (res.get("output") or "")[:2000]})

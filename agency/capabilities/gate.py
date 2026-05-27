@@ -17,9 +17,14 @@ class GateCapability(CapabilityBase):
     name = "gate"
     home = "lifecycle"   # uses the core Gate node + PASSED/BLOCKED_ON edges — no extension needed
 
-    @verb(role="transform")
+    @verb(role="act")
     def check(self, lifecycle_id: str, name: str, passed: bool, evidence: str = "") -> dict:
         "Record a gate outcome on a Lifecycle: PASSED, or BLOCKED_ON + an input-required pause on failure."
+        if not self.ctx.memory.g.query(                        # no cross-intent gates
+                "MATCH (l:Lifecycle)-[:SERVES]->(i:Intent) WHERE l.id = $l AND i.id = $i RETURN i",
+                {"l": lifecycle_id, "i": self.ctx.intent_id}):
+            return {"result": {"error": "lifecycle does not serve the current intent",
+                               "lifecycle_id": lifecycle_id}}
         g = self.ctx.record("Gate", {"name": name, "passed": bool(passed), "evidence": evidence})
         self.ctx.link(lifecycle_id, g, "PASSED" if passed else "BLOCKED_ON")
         if not passed:

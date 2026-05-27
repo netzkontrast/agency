@@ -30,6 +30,12 @@ class DelegateCapability(CapabilityBase):
         """Open one child Lifecycle per item (capped at `quota`), dispatch the driver
         for each, and record a Delegation that DELEGATES_TO every child. Children
         start `working` (dispatched ≠ done)."""
+        if quota < 0:                                          # negative slicing would over-admit
+            return {"result": {"error": "quota must be >= 0", "quota": quota}}
+        nonmap = [it for it in items if not isinstance(it, dict)]
+        if nonmap:                                             # each item is unpacked as driver kwargs
+            return {"result": {"error": "every item must be a mapping of driver kwargs",
+                               "offending": nonmap[:3]}}
         admitted = items[:quota]
         d = self.ctx.record("Delegation", {"driver": driver, "driver_verb": driver_verb,
                                             "count": len(admitted), "quota": quota})
@@ -49,11 +55,17 @@ class DelegateCapability(CapabilityBase):
         return {"result": {"delegation": d, "dispatched": len(admitted),
                            "skipped": len(items) - len(admitted), "children": children}}
 
-    @verb(role="transform")
+    @verb(role="act")
     def join(self, delegation: str) -> dict:
         """Reduce a delegation over its children's Lifecycle state (dispatched ≠
         done): tally states, record a REDUCES_INTO reduction. `done` only when every
-        child Lifecycle is `completed`."""
+        child Lifecycle is `completed`. Writes a reduction, so it is an `act`, not a
+        pure read."""
+        if not self.ctx.memory.g.query(                        # no cross-intent reductions
+                "MATCH (d:Delegation)-[:SERVES]->(i:Intent) WHERE d.id = $d AND i.id = $i RETURN i",
+                {"d": delegation, "i": self.ctx.intent_id}):
+            return {"result": {"error": "delegation does not serve the current intent",
+                               "delegation": delegation}}
         rows = self.ctx.memory.g.query(
             "MATCH (d:Delegation)-[:DELEGATES_TO]->(lc:Lifecycle) WHERE d.id = $id RETURN lc",
             {"id": delegation})

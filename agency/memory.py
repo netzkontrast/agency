@@ -37,17 +37,28 @@ class Memory:
         self._tick = self._max_persisted_tick()
 
     def _max_persisted_tick(self) -> int:
+        mx = 0
         try:
             rows = self.g.query("MATCH (n) RETURN n")
         except Exception:
-            return 0
-        mx = 0
+            rows = []
         for r in rows:
             p = r.get("n", {}).get("properties", {})
             for k in ("vfrom", "vto"):
                 v = p.get(k, 0)
                 if isinstance(v, int) and v != OPEN and v > mx:
                     mx = v
+        # edges advance the same clock and persist `vfrom`; if the last write before
+        # a reopen was an edge, scanning nodes alone would reset the tick below the
+        # true max and let new writes reuse stale ticks — so scan edges too.
+        try:
+            erows = self.g.query("MATCH ()-[r]->() RETURN r")
+        except Exception:
+            erows = []
+        for r in erows:
+            v = r.get("r", {}).get("properties", {}).get("vfrom", 0)
+            if isinstance(v, int) and v != OPEN and v > mx:
+                mx = v
         return mx
 
     def _now(self) -> int:
@@ -90,15 +101,15 @@ class Memory:
             raise KeyError(node_id)
         old = dict(node["properties"])
         label = node["labels"][0] if node.get("labels") else "Entity"
+        new_props = {k: v for k, v in old.items() if k not in ("vfrom", "vto", "id")}
+        new_props.update(changes)
+        bad = self.ont.violations(label, new_props)            # validate BEFORE mutating:
+        if bad:                                                # a rejected amend must leave
+            raise ValueError(f"{label} supersede violates ontology: {bad}")   # history intact
         now = self._now()
         # close the old version (append-only: it keeps its valid window)
         self.g.upsert_node(node_id, {**old, "vto": now}, label=label)
         new_id = f"{node_id}#{now}"
-        new_props = {k: v for k, v in old.items() if k not in ("vfrom", "vto", "id")}
-        new_props.update(changes)
-        bad = self.ont.violations(label, new_props)            # supersede stays strict too
-        if bad:
-            raise ValueError(f"{label} supersede violates ontology: {bad}")
         new_props.update({"vfrom": now, "vto": OPEN})
         self.g.upsert_node(new_id, new_props, label=label)
         self.link(node_id, new_id, "SUPERSEDED_BY")
@@ -178,11 +189,29 @@ class Memory:
                         out.append(p)
             return out
 
+        def dedup(items: list[dict]) -> list[dict]:
+            out, seen = [], set()
+            for p in items:
+                k = p.get("id") or id(p)
+                if k not in seen:
+                    seen.add(k)
+                    out.append(p)
+            return out
+
         serves = collect("MATCH (i:Intent)<-[:SERVES]-(x) WHERE i.id = $iid RETURN x", "x")
-        agents = collect("MATCH (i:Intent)<-[:SERVES]-(x)-[:PERFORMED_BY]->(a:Agent) "
-                         "WHERE i.id = $iid RETURN DISTINCT a", "a")
-        artefacts = collect("MATCH (i:Intent)<-[:SERVES]-(x)-[:PRODUCES]->(p:Artefact) "
-                            "WHERE i.id = $iid RETURN p", "p")
+        # an agent reaches an intent two ways: it PERFORMED_BY an invocation, or a
+        # Lifecycle was DISPATCHED_TO it before any invocation recorded — collect both.
+        agents = dedup(
+            collect("MATCH (i:Intent)<-[:SERVES]-(x)-[:PERFORMED_BY]->(a:Agent) "
+                    "WHERE i.id = $iid RETURN a", "a")
+            + collect("MATCH (i:Intent)<-[:SERVES]-(:Lifecycle)-[:DISPATCHED_TO]->(a:Agent) "
+                      "WHERE i.id = $iid RETURN a", "a"))
+        # an artefact is either PRODUCED by an invocation or linked to the intent
+        # directly via SERVES (e.g. a delegation reduction) — collect both.
+        artefacts = dedup(
+            collect("MATCH (i:Intent)<-[:SERVES]-(x)-[:PRODUCES]->(p:Artefact) "
+                    "WHERE i.id = $iid RETURN p", "p")
+            + collect("MATCH (i:Intent)<-[:SERVES]-(p:Artefact) WHERE i.id = $iid RETURN p", "p"))
         # both gate outcomes: PASSED and BLOCKED_ON (a rejected gate is provenance too)
         gates = collect("MATCH (i:Intent)<-[:SERVES]-(:Lifecycle)-[:PASSED]->(g:Gate) "
                         "WHERE i.id = $iid RETURN g", "g")

@@ -65,10 +65,13 @@ def main(argv: list[str] | None = None) -> int:
         try:
             iid = engine.intent.capture(args.purpose, args.deliverable, args.acceptance)
             engine.intent.confirm(iid)
+            out, rc = {"intent_id": iid}, 0           # one JSON document on every path
+        except Exception as e:                        # bad input (e.g. empty required field)
+            out, rc = {"error": type(e).__name__, "message": str(e)}, 1
         finally:
             engine.memory.close()
-        print(json.dumps({"intent_id": iid}))
-        return 0
+        print(json.dumps(out))
+        return rc
 
     if args.cmd == "search":
         name, params = "search", {"query": args.query}
