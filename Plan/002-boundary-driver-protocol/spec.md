@@ -135,8 +135,9 @@ outweigh it.
       (`ctx.spawn`-equivalent) and a rename to remove the alias — that is a follow-up
       spec (see Open Questions). `delegate.py` is removed from `affects:` here.
 - [ ] A test-only `FakeDriver` demonstrates the contract: register it under a name,
-      invoke it through `ctx.get_driver`, assert it returns a `ToolResult`, and
-      assert an unregistered name yields the typed `NOT_FOUND` path.
+      resolve it via `ctx.get_driver`, call its typed method, and assert the *capability*
+      that wraps it returns a `ToolResult`; assert an unregistered name raises
+      `DriverMissing` and the capability maps it to `ToolResult.failure(NOT_FOUND, …)`.
 - [ ] `tests/test_agency.py` still passes (56+), with existing Jules/VCS injection
       tests rewritten to inject via the `DriverRegistry` and proving the old
       `jules_client=`/`vcs_backend=` test seams still resolve (or their replacement).
@@ -152,10 +153,13 @@ git clone --depth=1 --branch=v0.91.0 \
 ```
 
 Read `~/work/vendor/the-agency-system/Plan/decisions/0004-five-handler-domains.md`
-for the one-routing-table-over-many-domains precedent. Skim the `bitwize-music`
-MCP tool clusters (audio/master/transcribe/db families) as the motivating set of
-future drivers — do **not** port them here; this spec only builds the registry they
-will plug into.
+**and** `servers/agency-mcp/src/agency_mcp/server.py:55-85` for the precedent: a fixed
+taxonomy of domains, each registered via `register_<domain>_handlers(mcp)` exposing
+**typed named handler functions** — not a single `dispatch(op)` (there is none in
+`servers/`). This is the source grounding for D-1 (Option B). Skim the `bitwize-music`
+MCP tool clusters (audio/master/transcribe/db families) — directories of named
+functions — as the motivating set of future drivers; do **not** port them here; this
+spec only builds the registry they will plug into.
 
 ## Design
 
@@ -330,7 +334,11 @@ resolving for any out-of-tree caller (Q-4).
 
 **Before:** `@verb(role="effect", inject=["vcs"])` + `def isolate(self, vcs, branch, base)` + `(vcs or GitClient()).worktree(...)`.
 
-**After (Open Q-2 = drop the inject):**
+**After (RESOLVED — Q-2: `ctx.get_driver` is the documented path; `inject=["vcs"]`
+keeps working as registry-backed sugar):** the `injectors["vcs"]` shim above is
+registry-backed, so the existing `inject=["vcs"]` verbs in `workspace`/`branch`
+continue to resolve unchanged (least churn, preserves the `vcs_backend` test seams).
+New code uses `ctx.get_driver("vcs")`:
 ```python
 @verb(role="effect")
 def isolate(self, branch: str, base: str = "main") -> ToolResult:
@@ -338,15 +346,20 @@ def isolate(self, branch: str, base: str = "main") -> ToolResult:
     ...
 ```
 
-### How `delegate.fan_out` consumes a Driver (`delegate.py:28-56`)
+### `delegate.fan_out` — explicitly OUT OF SCOPE (de-collided)
 
-Today `fan_out(driver, driver_verb, items, ...)` resolves `driver`/`driver_verb`
-via `ctx.spawn(driver, driver_verb, **item)` against the **capability** registry
-(`delegate.py:52`). After this spec a `driver` name that is registered in the
-`DriverRegistry` is dispatched through the Driver's uniform entry point instead,
-so a remote-agent cluster is a delegation target without being a capability. The
-resolution order (driver-registry first vs. capability-registry first) and how
-`driver_verb` maps onto a `Driver` (the `op` argument) are Open Q-5.
+`fan_out`'s `driver`/`driver_verb` already mean **capability name + verb**, dispatched
+via `ctx.spawn` so each child records an Invocation in the connected provenance
+subgraph (`delegate.py:11-12,40,52`; `subagent.develop` uses `driver="jules",
+driver_verb="dispatch"`, `subagent.py:23-28`). The `DriverRegistry`'s `Driver` is a
+*different* "driver" (a registered object), and calling it directly records **no**
+Invocation — it would break that provenance guarantee. Folding registry-`Driver`s into
+`fan_out` therefore requires (a) renaming one of the two "driver" concepts to kill the
+alias, and (b) a capability-mediated, Invocation-recording dispatch path
+(`ctx.spawn`-equivalent). That is a follow-up spec; this spec touches no `delegate`
+code and `Driver`s remain dumb I/O edges with no `CapabilityContext`/memory access
+(former Q-7: the calling capability owns all graph writes — matching how
+`workspace`/`branch` already treat the VCS boundary, `_vcs.py:1-9`).
 
 ## Files
 
@@ -356,51 +369,66 @@ resolution order (driver-registry first vs. capability-registry first) and how
 - **Modify** `agency/engine.py`: build the `DriverRegistry`, register `jules`/`vcs`,
   accept a `drivers=` override, keep `injectors` as a back-compat shim.
 - **Modify** `agency/capabilities/jules.py`: `_backend` → `_driver` via
-  `ctx.get_driver("jules")`; align `JulesBackend` to the `Driver` Protocol.
+  `ctx.get_driver("jules")`; declare `JulesBackend` as a `Driver` Protocol (marker
+  base only; no method/return-type change — the capability owns `ToolResult`).
 - **Modify** `agency/capabilities/_vcs.py`: declare `VCSBackend` as a `Driver`
-  Protocol (align return types per Open Q-1); no `GitClient` behaviour change.
-- **Modify** `agency/capabilities/{workspace,branch}.py`: use `ctx.get_driver("vcs")`.
-- **Modify** `agency/capabilities/delegate.py`: let `fan_out` resolve a registered
-  Driver as a delegation target (Open Q-5).
+  Protocol (marker base only); no `GitClient` behaviour or return-type change.
+- **Modify** `agency/capabilities/{workspace,branch}.py`: use `ctx.get_driver("vcs")`
+  in any new code; their existing `inject=["vcs"]` verbs keep working via the
+  registry-backed injector shim (Q-2 — no rewrite required).
+- **NOT modified** `agency/capabilities/delegate.py`: the `fan_out` Driver-target
+  change is de-collided and deferred to a follow-up spec (see Done When + Design).
 - **Modify** `tests/test_agency.py`: rewrite Jules/VCS injection to use the registry;
-  add `FakeDriver` + `NOT_FOUND` tests.
+  prove the old `jules_client=`/`vcs_backend=`/`ctx.client` seams still resolve; add
+  `FakeDriver` + `DriverMissing`/`NOT_FOUND` tests.
 - **Create**: none (everything lands in `capability.py`, per `PROPOSAL.md §2`).
+
+## Decided (was open — resolved in this revision per REVIEW)
+
+- **D-1 (`Driver` shape) → Option B.** A `Driver` is a marker `Boundary` exposing its
+  own typed, named methods; there is **no** uniform `dispatch(op, **kw)`. The uniform
+  contract is the RETURN TYPE (`ToolResult`, Spec 001), owned by the wrapping
+  capability. Rationale in **Why** (prior art = named handlers, not `dispatch`; anti-
+  stringly-typed coherence with Spec 001; richly-typed existing Protocols; `PROPOSAL.md`
+  is a non-binding sketch).
+- **D-2 (`inject=["vcs"]`) → keep as registry-backed sugar.** `ctx.get_driver` is the
+  documented path; the injector shim keeps existing `inject=["vcs"]` verbs working with
+  no rewrite (preserves the `vcs_backend` test seams).
+- **D-3 (missing driver) → typed raise + capability-side convert.**
+  `DriverRegistry.get(absent)` raises `DriverMissing(LookupError)`; the *capability*
+  catches and returns `ToolResult.failure(NOT_FOUND, …)` (Spec 001 pattern). The
+  back-compat injector lambdas are `.has()`-guarded so they never raise in the inject
+  loop.
+- **D-4 (back-compat) → keep the shims.** Verified small blast radius (7 `vcs_backend`,
+  3 `jules_client`, 1 `ctx.client`): `jules_client=`/`vcs_backend=` kwargs and
+  `ctx.client` are kept as deprecated forwarders into the `DriverRegistry`, so 002 is
+  additive and the suite stays green. Migrate the call sites in a later cleanup.
+- **D-5 (async) → sync, matching today.** `JulesClient`/`GitClient`, `_wire.impl`, and
+  `Registry.invoke` are all sync; async drivers would force a sync→async conversion
+  across the call chain and are a separate, larger spec — out of scope.
+- **D-6 (Driver + memory) → no.** A `Driver` is a dumb I/O edge with no
+  `CapabilityContext`/memory access; the calling capability owns all graph writes
+  (matching `workspace`/`branch`/`_vcs.py:1-9`). This constrains the deferred
+  `delegate` work (Q-1 below).
 
 ## Open Questions / Needs Research
 
-1. **`Driver` shape: uniform `dispatch(op, **kw)` vs. arbitrary named methods.**
-   Option A (uniform `dispatch`) is the cleanest registry contract and matches
-   `PROPOSAL.md §2`'s `driver.dispatch({...})`, but forces a verb→op string and
-   loses the typed `JulesBackend.create/get/list/...` signatures. Option B keeps the
-   named methods and makes `Driver` a generic marker, with the *capability* deciding
-   which method to call. **This is the load-bearing decision** — it determines
-   whether `JulesBackend`/`VCSBackend` survive as-is or collapse to one method.
-2. **Keep `inject=["vcs"]` as sugar, or always reach via `ctx.get_driver`?** The
-   `inject` convention (`engine.py:67`, `capability.py:103`) is a general mechanism;
-   `ctx.get_driver` is more explicit. Do we deprecate `inject` for drivers, or wire
-   the registry so `inject=["vcs"]` still resolves (registry-backed injector)?
-3. **Missing-driver behaviour.** `DriverRegistry.get(absent)` — raise `KeyError`,
-   raise a typed exception, or return `ToolResult.failure(NOT_FOUND, ...)`? A verb
-   can't easily return a `ToolResult` from inside `get()`; likely the verb catches
-   and converts. Define the contract so loop-recovery (Spec 001) sees a typed code.
-4. **Back-compat for `jules_client=`/`vcs_backend=` kwargs and `ctx.client`.** Many
-   tests construct `Engine(path, jules_client=Fake())` and verbs read `ctx.client`
-   (`jules.py:77`). Keep both as deprecated shims that forward into the
-   `DriverRegistry` (proposed), or migrate every call site in this spec and drop
-   them? Affects blast radius and whether 002 is additive.
-5. **`delegate.fan_out` driver resolution.** When `driver="jules"` is *both* a
-   capability and a registered Driver, which wins? And does `fan_out` keep using
-   `ctx.spawn` (which records an Invocation + provenance, `delegate.py:52-53`) when
-   the target is a Driver — i.e. does a Driver dispatch also record an Invocation,
-   and through what path? The provenance subgraph (`delegate.py` docstring) must stay
-   connected.
-6. **Async vs. sync.** `PROPOSAL.md §2` sketches `async def dispatch`. The current
-   `JulesClient`/`GitClient` are sync and `_wire.impl` is sync (`engine.py:69`).
-   Are drivers sync (matching today) or must the registry support async drivers
-   (and would that force `_wire`/`Registry.invoke` to become async)?
-7. **Does a Driver get a `CapabilityContext` or memory access?** Boundaries today
-   are pure I/O with no graph access. Should a Driver be able to record provenance
-   itself, or stay a dumb edge with the calling capability owning all graph writes?
+1. **`delegate.fan_out` as a registry-`Driver` target (DEFERRED to a follow-up spec;
+   out of scope here).** Two unresolved sub-problems: (a) the terminology **collision**
+   — `fan_out`'s `driver`/`driver_verb` already mean capability+verb via `ctx.spawn`
+   (`delegate.py:29,40,52`; `subagent.py:23-28`), and the new registry-`Driver` is a
+   different concept; one must be renamed. (b) the **provenance path** — a raw
+   `Driver` call records no Invocation, breaking the connected subgraph
+   (`delegate.py:11-12,48-54`); per D-6 a `Driver` is a dumb edge, so any
+   delegation-target dispatch must run through a capability-mediated,
+   Invocation-recording path (`ctx.spawn`-equivalent, e.g. a thin wrapper capability or
+   a `ctx.drive(name, op, **kw)` that records first). Until both are designed, this
+   stays out of `affects:` — do not implement `fan_out` against the `DriverRegistry`
+   in this spec.
+2. **`DriverRegistry` immutability after `Engine.__init__`?** The `drivers=` overlay
+   lets a host silently shadow `"jules"`/`"vcs"` (Missing-depth note). Decide whether
+   re-`register` is allowed or the registry is frozen post-construction; low risk,
+   non-blocking for the core build.
 
 ## Evidence
 
@@ -409,15 +437,27 @@ resolution order (driver-registry first vs. capability-registry first) and how
 - `agency/capabilities/_vcs.py:18-23,26-67` — `VCSBackend` Protocol + `GitClient`.
 - `agency/engine.py:40-59` — `Engine.__init__`: the `jules_client=`/`vcs_backend=`
   kwargs (`:40-42`) and `Registry.injectors` wiring (`:55-56`).
-- `agency/capability.py:35-82,126-163` — `CapabilityContext`, `Registry`,
-  `injectors` (`:129-133`), and the `ctx` injection branch (`:152-157`).
+- `agency/capability.py:35-47,126-163` — `CapabilityContext` dataclass (`:35-47`),
+  `Registry`, `injectors` (`:129-133`), and the `inject` *resolution* in
+  `Registry.invoke` at `capability.py:149-163` (the `ctx` branch is `:152-157`). The
+  `inject` convention is declared at `capability.py:84-90` (`verb()`) + `:103`
+  (`_wrap_method`) — **NOT** `engine.py:67`, which only computes `user_params` in
+  `_wire` (corrected citation).
 - `agency/capabilities/workspace.py:25,36`, `branch.py:32,38` — the `inject=["vcs"]`
-  verb convention these specs replace.
-- `agency/capabilities/delegate.py:28-56` — `fan_out` resolving `driver`/`driver_verb`
-  through `ctx.spawn`.
-- `research/oo-architecture/FINDINGS.md:16` — scattered boundaries / mocking
-  duplication.
+  verb convention, kept working via the registry-backed injector (D-2).
+- `agency/capabilities/delegate.py:11-12,28-56`, `subagent.py:23-28` — `fan_out`
+  resolving `driver`/`driver_verb` via `ctx.spawn` (capability+verb), and the
+  connected-provenance docstring guarantee — the basis for de-colliding "driver" and
+  deferring the `fan_out`-as-Driver change.
+- `research/oo-architecture/FINDINGS.md:16,18` — scattered boundaries / mocking
+  duplication, and the stringly-typed smell Spec 001/002 must not re-introduce.
 - `research/oo-architecture/PROPOSAL.md:44-83` — `Boundary`/`Driver`/`DriverRegistry`
-  sketch + before/after (§2).
+  sketch + before/after (§2); a non-binding `async`/`pass` sketch (D-1, D-5).
+- `vendor/the-agency-system/servers/agency-mcp/src/agency_mcp/server.py:55-85` @
+  `0a6a9e71f6c26bc120a8fc1db02f8990b7916f22` — `register_<domain>_handlers(mcp)`:
+  named handler functions per domain. `tools/mastering/{analyze_tracks,master_tracks,
+  qc_tracks,…}.py` are directories of named functions; **no `dispatch(op)` anywhere in
+  `servers/`** (grep returns nothing) — the prior art for D-1 (Option B, named methods).
 - `vendor/the-agency-system/Plan/decisions/0004-five-handler-domains.md` @
-  `0a6a9e71f6c26bc120a8fc1db02f8990b7916f22` — one routing table over many domains.
+  `0a6a9e71f6c26bc120a8fc1db02f8990b7916f22` — a fixed taxonomy of domains, each a set
+  of typed named handlers (one registration table over many domains, not one `dispatch`).

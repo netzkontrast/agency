@@ -361,31 +361,39 @@ def test_codemode_sandbox_cannot_read_jules_key(monkeypatch):
 
 ## Open Questions / Needs Research
 
-1. **Is the `os.environ` read actually exploitable under Monty's restrictions?**
-   FINDINGS.md §1 and both research self-reviews flag that the FastMCP `CodeMode`
-   /Monty sandbox was *not* tested directly — the escape is "architecturally
-   present but theoretical." If Monty already blocks `import os` (or strips
-   `os.environ`), fix #4 is defense-in-depth, not a closed hole. **Action:** write
-   the env-leak test first as a RED probe — if it already returns `None` before any
-   change, document Monty's restriction and downgrade #4 to belt-and-suspenders.
+The three original open questions were all **RESOLVED** by the REVIEW's live
+probes; none blocks implementation. Recorded here for provenance:
 
-2. **What is the right home to clear/withhold the key?** Options: (a) `Engine.__init__`
-   (every engine, including tests — may surprise fixtures that set the env); (b)
-   `build_mcp` right before `CodeMode()` is instantiated (scoped to the actual
-   sandbox boundary); (c) the CLI entry / `agency/cli.py` (covers the bash path but
-   not direct `build_mcp` callers). Capturing into a `_jules_api` module global is
-   itself reachable from sandbox code (`_jules_api._CAPTURED_KEY`) — does the real
-   fix need an out-of-process secret holder or a Monty deny-list, making the
-   env-pop merely the first layer?
+1. **Is the `os.environ` read exploitable under Monty? — RESOLVED: No (pinned
+   stack).** A RED probe against the real `pydantic-monty 0.0.16` sandbox denied
+   `os.environ`/`os.getenv`/attribute-`import os`/`__import__`/`importlib`/
+   `subprocess`/`open`/`eval`/`globals` — every vector unimplemented or undefined.
+   The escape is not even theoretically reachable in-process today. #4 is therefore
+   defense-in-depth + a RED-regression tripwire, not a closed hole; FINDINGS.md §1
+   should be downgraded from High to Low/Info with the probe transcript attached.
 
-3. **Does GraphQLite's Cypher support server-side `max()` aggregation?** If yes,
-   #1 can be a one-line `MATCH (n) RETURN max(n.vfrom)` with no schema addition and
-   no migration concern. If not, the `_Metadata:Clock` singleton is required — which
-   adds a node that every `find`/`project`/`provenance` path must be confirmed to
-   ignore (it carries no `vfrom`/`vto`, so it should fall out of those filters, but
-   this needs a test). Also: should the Clock node persist `tick` on every `_now()`
-   (write amplification — one extra upsert per logical event) or be flushed lazily
-   on `close()` (risk of losing the last tick on a hard crash, reintroducing reuse)?
+2. **Where to clear the key? — RESOLVED: `build_mcp` (codemode branch), not
+   `Engine.__init__`.** Scoped to the actual sandbox boundary; avoids mutating
+   `os.environ` for non-MCP `Engine` users and test fixtures. The module-global
+   `_CAPTURED_KEY` is acceptable *because* the probe shows it is not sandbox-
+   reachable (no `import`, no `globals`); an out-of-process secret holder or Monty
+   deny-list is over-engineering given that finding — revisit only if a future
+   Monty version wires an `os=` callback.
+
+3. **Does GraphQLite support server-side `max()`? — RESOLVED: Yes (0.5.0).**
+   Probed live (`MATCH (n) RETURN max(n.vfrom)` returns one row). Use the
+   aggregation form over BOTH nodes and edges; the `_Metadata:Clock` node is NOT
+   added (avoids write-amplification and the find/project/provenance-leak hazard).
+   This collapses #1 to a clean, migration-free change with no schema addition.
+
+Remaining watch-items (non-blocking, noted for the implementer):
+
+- **#2 has no overall page budget.** An uncapped walk is correct, but a 10k-source
+  account now pages ~100 times per `_coerce_source` call. Acceptable (source
+  resolution is rare); add a one-line comment that `seen_tokens` is the sole stop
+  other than real exhaustion.
+- **#1 reopen test must be behavioral, not result-only** (monkeypatch the bare
+  `MATCH (n) RETURN n` to fail) so the scan can't silently survive.
 
 ## Evidence
 
@@ -410,5 +418,11 @@ All citations re-pinned against branch `claude/extract-agency-plugin-o4JRc`
 - **#4** `agency/engine.py:94` (`CodeMode()` in `transforms`), `:95`
   (`FastMCP("agency", transforms=...)`). `agency/capabilities/_jules_api.py:31-38`
   (`_api_key`), `:32` (`os.environ.get("JULES_API_KEY", "")`, read lazily),
-  `:61` (consumed in `_request` headers). *(Research cited `engine.py:94` and
-  `_jules_api.py:32` — both verified accurate.)*
+  `:61` (consumed in `_request` headers). Engine/CLI do not touch `JULES_API_KEY`
+  today (grep: zero hits). *(All citations verified accurate.)* **REVIEW probe
+  against `pydantic-monty 0.0.16`** (driven as `code_mode.py:133-138`, no `os=`):
+  `os.environ`/`os.getenv` → `NotImplementedError`; `__import__`/`importlib`/
+  `subprocess`/`open`/`eval`/`globals` → undefined/`ModuleNotFoundError`. Monty is
+  an allow-list reimplementation (`pydantic_monty/os_access.py:194-197`,
+  `:925-929`); FastMCP's `MontySandboxProvider.run` passes no `os=`, so the vector
+  is unreachable — premise refuted, severity downgraded to Low/Info.

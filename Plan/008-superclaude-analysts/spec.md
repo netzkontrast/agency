@@ -151,8 +151,9 @@ git clone --depth=1 https://github.com/SuperClaude-Org/SuperClaude_Plugin.git \
 ```
 
 Read for the analysis surface: `src/superclaude/commands/{analyze,design,
-troubleshoot,brainstorm,spec-panel,business-panel,explain,estimate,reflect,
-select-tool}.md`. For personas: `src/superclaude/agents/*.md`. For modes:
+troubleshoot,brainstorm,spec-panel,business-panel,explain,estimate,reflect}.md`
+(NOT `select-tool` — it is dropped MCP-routing plumbing). For personas:
+`src/superclaude/agents/*.md`. For modes:
 `src/superclaude/modes/MODE_*.md`. For pressure-machinery: `src/superclaude/core/
 {RULES,FLAGS,PRINCIPLES}.md`. The Plugin repo mirrors these under `commands/sc-*.md`,
 `agents/`, `modes/`, `skills/` — diff the two; the Plugin is the deployed shape.
@@ -245,16 +246,19 @@ per-mode call. `analyze.mode()` is a closed enum of **≤3** genuine descriptors
 | `/sc:brainstorm` + `MODE_Brainstorming` | `develop` skill `brainstorm` (exists) + `analyze.mode("brainstorming")` | **covered** |
 | `/sc:spec-panel` | `develop` skill `spec-panel` + `skills/spec-panel/` (exists) | **covered** |
 | `/sc:analyze` | `analyze.analyze` + `skills/analyze/` | **new** |
-| `/sc:troubleshoot` | `analyze.troubleshoot` (+ existing `develop` `debug` for the fix loop) | **new** |
-| `/sc:design` | `develop` skill `plan` (cover) OR new `develop` skill `design` | **needs-research** |
+| `/sc:troubleshoot` | `analyze.troubleshoot` (diagnosis) + existing `develop` `debug` (the `--fix` loop) | **new (split)** |
+| `/sc:design` | new `develop` skill `design` (distinct from `plan`; `sc-design.md:24-28`) | **new** |
 | `/sc:estimate` | `analyze.estimate` | **new** |
 | `/sc:explain` | `analyze.explain` | **new** |
 | `/sc:business-panel` + `MODE_Business_Panel` | `skills/business-panel/` + `analyze.lens(business-expert)` | **new** |
-| `/sc:reflect` | `reflect` capability (exists) | **covered** |
-| `/sc:select-tool` | engine `search` (cover) OR `analyze.select_tool` | **needs-research** |
+| `/sc:reflect` | memory aspect → `reflect` capability; "are we done"/task-adherence aspect (`sc-reflect.md:24-26`) → `gate.check` + `develop` `verify` | **covered (split)** |
+| `/sc:select-tool` + `MODE_Orchestration` | DROP — Serena-vs-Morphllm MCP routing (`sc-select-tool.md:6,34`); no Agency analogue (one FastMCP engine) | **dropped** |
 | `/sc:{implement,build,test,document,improve,cleanup,git,task,spawn,pm,workflow,index,save,load,research,recommend}` | out of scope (build/session/MCP-install surface, not analysis) | **dropped** |
-| ~20 `agents/*.md` personas | `analyze.lens(persona)` — lenses as data | **new** |
-| 7 `MODE_*.md` | `analyze.mode(name)` — descriptors as data | **new** |
+| 18 in-scope `agents/*.md` personas | `analyze.lens(persona)` — lenses as data | **new** |
+| `agents/sc-pm-agent` (meta), `agents/sc-deep-research-agent` (analysis) | orchestrate/effect → not lenses; their commands `/sc:pm`,`/sc:research` already dropped | **dropped** |
+| `MODE_{Brainstorming,Business_Panel,Introspection}` | `analyze.mode(name)` descriptors (≤3) — see mode table | **new/covered** |
+| `MODE_Task_Management` | Agency `Lifecycle` + `Memory` substrate | **covered** |
+| `MODE_{Token_Efficiency,DeepResearch}` | pure styling / dropped-command backing | **dropped** |
 | `core/{RULES,FLAGS,PRINCIPLES}.md` | hard rules → `gate`/lint checks; stylistic → dropped | **partial** |
 | MCP install machinery (`setup-mcp`, `verify-mcp`, `install.sh`, `cli/`) | out of scope (Agency is one FastMCP engine; no installer port) | **dropped** |
 
@@ -268,46 +272,60 @@ per-mode call. `analyze.mode()` is a closed enum of **≤3** genuine descriptors
   - `docs/vision/specs/superclaude-analysts-port.md` — the full coverage mapping.
   - `tests/test_analyze_capability.py`, `tests/test_analyze_skills.py`.
 - **Modify**:
-  - `agency/capabilities/develop.py` — add a `design` discipline to `DEV_SKILLS` ONLY if Open-Question Q2 resolves "distinct from plan".
+  - `agency/capabilities/develop.py` — add a `design` discipline to `DEV_SKILLS`
+    (`/sc:design` is distinct from `plan`; Q2 resolved).
 - **Move / Delete**: none.
 
 ## Open Questions / Needs Research
 
-1. **Personas → lenses, not agents.** This spec asserts SuperClaude personas
-   become `analyze.lens()` DATA, not Agency agents, because they do no external
-   work. Confirm against the agent files: do any personas (e.g. `deep-research-
-   agent`, `pm-agent`) actually orchestrate/dispatch? If so, those specific ones
-   route to `delegate` drivers instead and leave this spec for the analysis-only
-   ones. **Decide before coding.**
-2. **`design` vs `plan`.** Is SuperClaude `/sc:design` (architecture/API/interface
-   design) materially distinct from Agency's existing `develop` `plan` discipline,
-   warranting a new `design` skill, or is it the same phase-graph with a different
-   framing? If the latter, do NOT add a skill; document covered-by-`plan`.
-3. **Modes: enum vs skills vs nothing.** Should the 7 MODE files become (a) a
-   closed `mode` enum returned by `analyze.mode()` as descriptors, (b) installable
-   skills, or (c) dropped as pure system-prompt styling? Draft assumes (a) for all
-   7, but `MODE_Brainstorming`/`MODE_Business_Panel` clearly back skills, and
-   `MODE_Token_Efficiency` may be pure styling (drop). Classify each of the 7.
-4. **`select-tool` vs the engine `search`.** SuperClaude's `/sc:select-tool` scores
-   tools by complexity. Agency's contract is already `search`/`get_schema`/`execute`
-   for discovery. Is `analyze.select_tool` net-new value (a complexity-aware
-   recommender layered on `search`) or a duplicate of `search`? If duplicate, drop.
-5. **RULES/FLAGS/PRINCIPLES as structure.** Which of SuperClaude's behavioral
-   rules are *hard constraints* that should become `gate.check`/lint call-sites,
-   versus stylistic guidance that Agency deliberately drops (per superpowers-port
-   "system-prompt pressure does NOT port")? Enumerate the hard ones explicitly in
-   the port doc.
+Q1–Q4 are **RESOLVED against source** by the spec-panel review (see `REVIEW.md`)
+and are now baked into the Design above. Only Q5 remains genuinely open (and is
+narrowed).
+
+1. **Personas → lenses, not agents.** **RESOLVED → lenses, for every in-scope
+   persona.** Two personas DO orchestrate/dispatch — `pm-agent` is a meta-layer
+   that delegates (`agents/sc-pm-agent.md:528,520`) and `deep-research-agent`
+   orchestrates external Tavily/Playwright/Context7 calls
+   (`agents/sc-deep-research-agent.md:95`) — but **both are already out of scope**
+   (their commands `/sc:pm`, `/sc:research` are in the dropped bucket). So no
+   in-scope persona orchestrates; every one that ports is a pure `analyze.lens()`
+   row. Decided — not a blocker.
+2. **`design` vs `plan`.** **RESOLVED → distinct; ADD `design`.**
+   `commands/sc-design.md:24-28` is an interface/architecture flow producing
+   specifications; `develop`'s `plan` (`develop.py:34-38`) is an implementation
+   step-list. Different artefacts → new `develop` `design` discipline.
+3. **Modes: enum vs skills vs nothing.** **RESOLVED → per-mode (see the mode
+   table).** NOT all-7-enum. 2 back skills (`Brainstorming`→`brainstorm`,
+   `Business_Panel`→`business-panel`); `Introspection`→`reflect`;
+   `Task_Management`→Lifecycle/Memory; `Token_Efficiency`/`DeepResearch`/
+   `Orchestration`→dropped. The `mode` enum is therefore **≤3**.
+4. **`select-tool` vs the engine `search`.** **RESOLVED → DROP.**
+   `/sc:select-tool` is solely Serena-vs-Morphllm MCP routing
+   (`commands/sc-select-tool.md:6,34`); neither backend exists in Agency. It is
+   neither net-new value nor a `search` duplicate — it is environment plumbing.
+   The `select_tool` verb is removed; the command sits in the dropped coverage row.
+5. **RULES/FLAGS/PRINCIPLES as structure.** *(Open — narrowed.)* Most of
+   `core/{RULES,FLAGS,PRINCIPLES}.md` is stylistic and drops per the
+   superpowers-port "system-prompt pressure does NOT port" thesis. The HARD rules
+   to re-express as structure: (a) evidence-before-claim / "are we done"
+   validation → `gate.check` + `develop` `verify`; (b) the analyze
+   severity-prioritization rule (`commands/sc-analyze.md:31`) → a lint-style
+   transform on the finding set. Enumerate the full hard set explicitly in the
+   port doc; resolve the remainder during the port-doc pass.
 
 ## Evidence
 
 - `~/work/vendor/superclaude-framework/src/superclaude/commands/*.md` — the `/sc:`
   analysis surface (analyze, design, troubleshoot, brainstorm, spec-panel,
-  business-panel, explain, estimate, reflect, select-tool).
-- `~/work/vendor/superclaude-framework/src/superclaude/agents/*.md` — ~20 personas
-  (requirements-analyst, quality-engineer, root-cause-analyst, system-architect,
-  security-engineer, performance-engineer, refactoring-expert, backend/frontend-
-  architect, devops-architect, technical-writer, python-expert, learning-guide,
-  socratic-mentor, self-review, deep-research-agent, pm-agent, business-panel-experts).
+  business-panel, explain, estimate, reflect). `select-tool` is read only to
+  confirm it is Serena/Morphllm MCP plumbing (dropped).
+- `~/work/vendor/superclaude-framework/src/superclaude/agents/*.md` — the **20**
+  agent files (18 in-scope lenses: requirements-analyst, root-cause-analyst,
+  deep-research, quality-engineer, performance-engineer, refactoring-expert,
+  security-engineer, self-review, system-architect, backend-architect,
+  frontend-architect, devops-architect, learning-guide, socratic-mentor,
+  technical-writer, python-expert, repo-index, business-panel-experts; 2 dropped
+  orchestrators: pm-agent, deep-research-agent).
 - `~/work/vendor/superclaude-framework/src/superclaude/modes/MODE_*.md` — the 7 modes.
 - `~/work/vendor/superclaude-framework/src/superclaude/core/{RULES,FLAGS,PRINCIPLES}.md`
   — the pressure machinery to re-express or drop.

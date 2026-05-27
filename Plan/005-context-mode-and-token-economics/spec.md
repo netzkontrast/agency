@@ -176,14 +176,18 @@ guided loop.
       "97%"/"98%" assertion without the trace).
 - [ ] `tests/test_context_capability.py` + `tests/test_context_hooks.py` pass;
       `pytest -q` stays green (was 56 passing). Hook tests cover: `ctx_route.py`
-      summarizes a >2 KB fixture and stores it; small output passes through;
-      `search → describe → invoke` round-trips an id stored by the router; and the
-      triad degrades gracefully (returns `ok=True` with empty matches) when the
-      SessionDB is absent.
-- [ ] No source from the external `context-mode` plugin is copied into the tree
-      (license: see Open Questions). We reimplement the pattern in stdlib + the
-      engine's own primitives, or depend on the marketplace plugin — decided in
-      `## Open Questions` before code lands.
+      summarizes an over-threshold fixture and stores it; small output passes
+      through; `search → describe → read` round-trips an id stored by the router;
+      the triad degrades gracefully (returns `ok=True` with empty matches) when the
+      SessionDB is **absent**; AND the triad degrades gracefully when the SessionDB
+      is **present but locked/corrupt mid-session** (returns `ToolResult.failure(
+      BOUNDARY_ERROR, ...)` per Spec 001's `ErrorCode`, never an unhandled raise).
+- [ ] No source from the external `context-mode` plugin is copied into the tree.
+      **Resolved (Open Q-1 = reimplement):** we reimplement the pattern in stdlib
+      `sqlite3` + the engine's own primitives so the triad and the hook share one
+      in-process SessionDB; the marketplace plugin stays a documented opt-in
+      companion only (ELv2 makes a runtime dependency license-toxic for an opt-in
+      plugin). No `context-mode` API is consumed.
 
 ## Design
 
@@ -194,12 +198,18 @@ Two orthogonal axes, one loop:
 | Axis | Owns | Mechanism | Where |
 |---|---|---|---|
 | **schema-side context-mode** (existing) | tool *schemas* | `CodeMode()` + `search`/`get_schema`/`execute` | `engine.py:91-95` |
-| **output-side context-mode** (this spec) | tool *outputs* | SessionDB/FTS5 + `ContextCapability` triad + 5 hooks | `agency/context/*`, `agency/hooks/*`, `capabilities/context.py` |
-| **ToolResult envelope** (Spec 001) | the *seam between steps* | `ok` + `result` + `next_suggested_tools` | `engine.py:_wire`, all verbs |
+| **output-side context-mode** (this spec) | tool *outputs* | SessionDB/FTS5 + `ContextCapability` triad + the `PostToolUse`-capture/`SessionStart`-attach hooks | `agency/context/*`, `agency/hooks/*`, `capabilities/context.py` |
+| **ToolResult envelope** (Spec 001) | the *seam between steps* | `ok` + **`data`** + `warnings` + `next_suggested_tools` + `error` | `engine.py:_wire`, all verbs |
+
+> **Hard dependency, stated plainly:** this spec does not invent its own wire
+> shape. Spec 001's `ToolResult` **is** the wire shape — its `to_dict()` emits
+> `{ok, data, warnings, next_suggested_tools, error}` (`001:209-216`). Every verb
+> sketch below uses **`data`**. The legacy `result` key that `_wire` strips today
+> (`engine.py:73`) is gone here.
 
 The triad is an ordinary self-registering capability: `discover()` finds it,
 `Engine._wire` (`engine.py:61-89`) auto-wires `capability_context_search` /
-`_describe` / `_invoke` from the verb signatures, `CodeMode` defers their schemas
+`_describe` / `_read` from the verb signatures, `CodeMode` defers their schemas
 like every other tool. No core change — the engine treats `context` exactly like
 `develop` or `reflect`. The triad reaches the SessionDB through `ctx` (the index is
 constructed once and handed to the capability via the engine's injector seam,
@@ -207,64 +217,94 @@ mirroring how `jules_client`/`vcs_backend` are injected in `engine.py:55-56`).
 
 `next_suggested_tools` is the glue. Spec 001 puts the field on the `ToolResult`
 envelope; this spec is its first real consumer — `search` points at `describe`,
-`describe` points at `invoke`, `invoke` points at an actionable capability. That
+`describe` points at `read`, `read` points at an actionable capability. That
 collapses the orienting round-trips that the bare dict at `engine.py:74` forces
-today.
+today. **This glue presumes 001 Open Q-2 resolves in favour of surfacing the
+envelope (or at least `next_suggested_tools`) at `_wire`** — see Open Questions;
+it is this spec's true critical-path blocker.
 
 ### ContextCapability verbs (the triad)
 
 ```
-search(query, kind?, limit=20)  -> ToolResult(result={matches:[{id,kind,title,score,snippet}], cursor},
-                                              next=["capability_context_describe"])
-describe(ids, view="summary")    -> ToolResult(result={views:[{id, summary, preview}]},
-                                              next=["capability_context_invoke"])
-invoke(id)                       -> ToolResult(result={id, kind, body},
-                                              next=<actionable caps for that kind>)
+search(query, kind?, limit=20)  -> ToolResult(ok=True, data={matches:[{id,kind,title,score,snippet}], cursor},
+                                              next_suggested_tools=["capability_context_describe"])
+describe(ids, view="summary")    -> ToolResult(ok=True, data={views:[{id, summary, preview}]},
+                                              next_suggested_tools=["capability_context_read"])
+read(id)                         -> ToolResult(ok=True, data={id, kind, body},
+                                              next_suggested_tools=<actionable caps for that kind>)
 ```
 
 `kind` partitions the merged corpus: `doc` (static `docs/**`), `discipline-howto`
 (the migrated develop references), `tool-output` (live session payloads routed by
-the hook). `search` never returns bodies; `describe` returns summaries/previews;
-only `invoke` pays for a full body — and only for one id. This is the same
-narrow→narrow→pay funnel the FastMCP search/get_schema/execute loop uses, applied
-to *content* instead of *schemas*.
+the hook). **Why no event taxonomy:** the exemplar's Plan/108 carried a
+26-category `event_map.py` *because* it bridged outputs into a Spec 100 SessionLog
+event stream (the live context-mode repo lists 23 such categories). Agency has no
+SessionLog to map into, so this spec deliberately drops the event taxonomy and
+uses just these three `kind`s. `search` never returns bodies; `describe` returns
+summaries/previews; only `read` pays for a full body — and only for one id. This
+is the same narrow→narrow→pay funnel the FastMCP search/get_schema/execute loop
+uses, applied to *content* instead of *schemas*, mirroring Plan/112's view ladder.
 
 ### The hook map (output-side, Claude-Code layer)
 
-`agency/hooks/hooks.json`:
+`hooks/hooks.json` (repo ROOT). Roles below match the **verified live
+context-mode contract** (WebFetched 2026-05-27), restricted to the slice this
+spec adopts:
 
-| Hook | Handler | Job |
+| Hook | Handler | Job (this spec) |
 |---|---|---|
-| `PreToolUse` | `ctx_route.py` | (optional, follow-up) note intended large reads; no-op default this spec |
-| `PostToolUse` | `ctx_route.py` | if output > threshold (2 KB): store body in SessionDB, return summary + handle |
-| `SessionStart` | `ctx_session.py` | open/attach SessionDB; rebuild the static manifest if stale |
-| `PreCompact` | `ctx_session.py` | flush any in-flight summaries so detail survives a compaction |
-| `UserPromptSubmit` | `ctx_session.py` | (optional) seed a recall hint from the SessionDB for the new prompt |
+| `PreToolUse` | `ctx_route.py` | upstream role = sandbox **routing** before a tool runs; **no-op default this spec** (routing hardening is a follow-up) |
+| `PostToolUse` | `ctx_route.py` | capture the tool's output: if over threshold, store body in SessionDB, return summary + handle |
+| `SessionStart` | `ctx_session.py` | upstream role = **restore** after compaction/resume; here = **attach** the SessionDB + mtime-gated manifest rebuild |
+| `UserPromptSubmit` | `ctx_session.py` | upstream role = capture **user decisions/corrections**; here = record them into the SessionDB as `kind="decision"` for `/ctx-insight` recall |
 
-Contract details that mirror the exemplar (Plan/108) for THIS tree:
+> **`PreCompact` is intentionally absent.** Upstream uses it to build an ≤2 KB
+> priority-tiered snapshot that `SessionStart` then restores — the
+> snapshot→restore checkpoint pattern that the-agency-system Plan/120
+> (`smart-compaction-checkpoints`) implements as a full 2-session spec
+> (`pick_richest`, decision regex, `compose_digest`). This spec does **not** ship a
+> `PreCompact` handler and does **not** restore checkpoints; doing so would either
+> half-implement the pattern (silently losing continuity) or balloon scope. It is
+> deferred to a follow-up that adopts Plan/120's depth honestly.
+
+Contract details:
 - `ctx_route.py` is the I/O shape of a Claude-Code hook: a JSON event on stdin, a
   decision JSON on stdout, exit 0. On *any* exception or a missing SessionDB it
   emits a pass-through decision (the original output, unchanged) and exits 0.
-  Bridge/store failure must never break the orchestrator.
-- Local-only: the SessionDB and `/ctx-insight` never bind a public port. If a port
-  is used at all (see Open Questions), it is `127.0.0.1`.
+  Store failure must never break the orchestrator.
+- Local-only: the SessionDB is a file; `/ctx-insight` reads it directly (no
+  listener). No port is bound — this diverges from upstream's local web UI by
+  design (Open Q-4). Claude-Code hooks are stdin/stdout; none require HTTP.
 
-### The SessionDB bridge
+### The SessionDB (in-process shared store)
 
 `agency/context/index.py` is a thin SQLite wrapper:
 - `CREATE VIRTUAL TABLE entries USING fts5(kind, title, body)` + a side table for
   `id`, `created_at`, `bytes`.
 - WAL mode + `busy_timeout` so the hook subprocess (a separate process from the MCP
-  server) and the engine can both write — the multi-writer contract the external
-  plugin documents in its `0001-sessiondb-multi-writer` ADR. Pure stdlib `sqlite3`;
-  no new dependency.
+  server) and the engine can both write. Pure stdlib `sqlite3`; no new dependency.
+- **Multi-writer write-ordering contract** (the question Plan/108 deferred to an
+  ADR; pinned here because we own the store): the **engine** is the sole creator —
+  on `SessionStart`/first construction it opens the DB, runs `CREATE TABLE IF NOT
+  EXISTS` + the FTS5 schema inside one transaction, and sets `PRAGMA
+  journal_mode=WAL`. The **hook subprocess never `CREATE`s**; it opens read-write
+  against the already-initialised schema and `put`s, retrying on `SQLITE_BUSY` for
+  up to `busy_timeout`. First-write race is resolved by `IF NOT EXISTS` +
+  transaction so two processes hitting an uninitialised FTS5 table cannot
+  double-create. If the hook opens before the engine has created the schema, it
+  no-ops (pass-through) rather than `CREATE`-ing a divergent table.
 - DB path under the plugin data dir (`$CLAUDE_PLUGIN_DATA` or `~/.agency/`), one DB
-  per session keyed by the Claude session id from the hook event.
+  per session keyed by the Claude session id from the hook event. The filename is
+  **distinct** from any context-mode DB so an installed companion plugin never
+  shares or fights our file.
 
 The *same* `Index` object backs both `PostToolUse` storage (process A, the hook)
-and `ContextCapability.search/invoke` (process B, the engine MCP). That single
+and `ContextCapability.search/read` (process B, the engine MCP). That single
 shared corpus is the point: there is one canon for "what left the window," reachable
 both from `/ctx-insight` (browse) and from `capability_context_*` (query in-flow).
+This in-process sharing is exactly why the vendor decision must be **reimplement,
+not depend** — a bridge-only dependency could not back `read(id)` without a
+network hop into context-mode's HTTP surface.
 
 ### Token economics — the measured trace
 
@@ -285,16 +325,28 @@ Task: *find and read the `best-practices` development doc, then act on it.*
 
 **After** (this spec + Spec 001 envelope):
 - `context_search("best-practices")` → ~50-token id list, `next` → `describe`.
-- `context_describe(ids=["best-practices"])` → ~120-token preview, `next` → `invoke`.
-- `context_invoke(id="best-practices")` → ~500-token body, `next` → the actionable
+- `context_describe(ids=["best-practices"])` → ~120-token preview, `next` → `read`.
+- `context_read(id="best-practices")` → ~500-token body, `next` → the actionable
   capability (no orienting round-trip; the envelope already named it).
 - **After total ≈ 670 tokens** AND the whole `docs/**` corpus is now searchable.
 
 For a *re-read of an already-seen large output* (the hook path), the win is larger:
 a `PostToolUse` on a 50-KB log dump (~12k tokens) returns a ~150-token summary +
-handle — the body never re-enters context; the model `context_invoke`s only the
-slice it needs. **These exact numbers are placeholders to be replaced by a real
-counted trace** (Done-When) — the spec asserts the *method*, not the percentage.
+handle — the body never re-enters context; the model `context_read`s only the
+slice it needs. **Every numeric figure above (the ~1,300/~670 totals, the ~12k/~150
+hook figures, and any percentage) is an UNMEASURED placeholder.** The Done-When
+gate requires a real counted trace (a tokenizer over the actual `ToolResult` JSON
+for each step) before any number is asserted in prose or the disambiguation doc.
+The spec asserts the *method*, not the percentage — do not ship "97%/98%" unbacked.
+
+### The PostToolUse threshold (needs a measured value)
+
+The capture threshold is **not asserted**. Prior art disagrees: the live
+context-mode repo routes at **5 KB** with intent-driven filtering; Plan/108 cited
+context-mode's ">2 KB Think-in-Code" rule; Plan/114's read-cache uses
+token-optimizer's 50 KB / 2,000-line / 1,000-token-minimum thresholds. The
+implementation ships a configurable default and the chosen value is justified by
+the same measured trace that backs the token numbers — not picked from memory.
 
 ## Files
 

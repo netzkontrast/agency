@@ -110,11 +110,16 @@ example escalation.
       `MusicCapability.as_capability()` discovers all verbs; (b) each cluster's
       representative verb returns a well-formed `ToolResult`; (c) a transform
       verb (`count_syllables`) is deterministic and driver-free; (d) an effect
-      verb (`master_album`) routes through the injected `AudioDriver` fake and
-      records an `Invocation`; (e) a failed `pre-generation` gate returns
-      `ToolResult(ok=False, error=GATE_FAILED)` and pauses the lifecycle via
-      `gate.check`; (f) the ontology merges cleanly onto core with no strict-
-      schema collision.
+      verb (`master_album`) routes through the injected `AudioDriver` fake
+      (whose typed `read_loudness()`/`run_ffmpeg()` methods stand in for
+      pyloudnorm/ffmpeg) and records an `Invocation`; (e) a failed
+      `pre-generation` gate, run against a `lifecycle_id` that `SERVES` the
+      intent, returns `ToolResult(ok=False, error=GATE_FAILED)` and pauses the
+      lifecycle via `gate.check`; (f) the ontology merges cleanly onto core with
+      no strict-schema collision; (g) the `DBDriver` fake models a psycopg2-
+      shaped cursor (no Postgres host) and the `CloudDriver` fake's `url_head`
+      (stdlib urllib) is testable while `r2_put` (boto3) returns
+      `DEPENDENCY_MISSING` when unconfigured.
 - [ ] Loading `Engine(path, extra_capabilities=[MusicCapability.as_capability()])`
       registers the capability and merges its ontology without error (same path
       `examples/music.py` already exercises).
@@ -161,7 +166,7 @@ Roles per the model: **act** = craft write that produces an artefact;
 | 4 | **lyric** (text analysis, all pure) | `count_syllables`, `analyze_readability`, `analyze_rhyme_scheme`, `validate_section_structure`, `check_homographs`, `scan_artist_names`, `check_explicit_content`, `extract_distinctive_phrases`, `extract_links`, `get_lyrics_stats`, `check_cross_track_repetition`, `check_pronunciation_enforcement`, `check_streaming_lyrics` | transform | TextDriver (or none — most are stdlib-pure) |
 | 5 | **audio** (analyze/mix/master/QC) | `analyze_audio`, `analyze_mix_issues`, `qc_audio`, `mono_fold_check`, `polish_audio`, `polish_album`, `master_audio`, `master_album`, `master_with_reference`, `polish_and_master_album`, `fix_dynamic_track`, `reset_mastering`, `render_codec_preview`, `measure_album_signature`, `album_coherence_check`, `album_coherence_correct`, `prune_archival` | effect (mastering writes WAVs / archival delete) / transform (analyze/QC read-only) | AudioDriver |
 | 6 | **media** (video + sheet music) | `generate_promo_videos`, `generate_album_sampler`, `transcribe_audio`, `prepare_singles`, `create_songbook` | effect | AudioDriver |
-| 7 | **promo** (tweet DB + promo copy + cloud) | `db_init`, `db_sync_album`, `db_create_tweet`, `db_update_tweet`, `db_delete_tweet`, `db_list_tweets`, `db_search_tweets`, `db_get_tweet_stats`, `get_promo_status`, `get_promo_content`, `get_streaming_urls`, `update_streaming_url`, `verify_streaming_urls`, `publish_sheet_music` | effect (writes/network) / transform (reads) | DBDriver, CloudDriver |
+| 7 | **promo** (tweet DB + promo copy + cloud) | `db_init`, `db_sync_album`, `db_create_tweet`, `db_update_tweet`, `db_delete_tweet`, `db_list_tweets`, `db_search_tweets`, `db_get_tweet_stats`, `get_promo_status`, `get_promo_content`, `get_streaming_urls`, `update_streaming_url`, `verify_streaming_urls`, `publish_sheet_music` | effect (writes/network) / transform (reads) | DBDriver (Postgres/psycopg2), CloudDriver (urllib URL-verify + boto3 R2) |
 | 8 | **gates** (validation → gate/skill) | `run_pre_generation_gates`, `validate_album_structure`, `validate_section_structure`*, `create_album_structure` | act (records gate outcomes / scaffolds) | StateDriver + `gate` |
 
 \* `validate_section_structure` is pure text → also reachable from cluster 4;
@@ -241,7 +246,7 @@ it is listed once as a verb and the gate skill calls it.
 | 35 | `prune_archival` | `prune_archival` | AudioDriver | effect | verb (cluster 5; lives in `processing/audio.py:1379`, deletes archival WAVs) |
 | 36 | `search` | `search` | StateDriver | transform | verb (domain FTS; distinct from engine `search`) |
 | 37 | `get_pending_verifications` | `get_pending_verifications` | StateDriver | transform | verb |
-| 38 | `extract_links` | `extract_links` | StateDriver | transform | verb |
+| 38 | `extract_links` | `extract_links` | TextDriver | transform | verb (cluster 4; lives in `text_analysis.py:530` — a pure-text extractor, not a state read) |
 | 39 | `list_skills` | `list_skills` | StateDriver | transform | verb (see Open Q: overlaps engine `help`/`plugin.help`) |
 | 40 | `get_skill` | `get_skill` | StateDriver | transform | verb (overlaps `develop.reference`) |
 | 41 | `count_syllables` | `count_syllables` | TextDriver | transform | verb |
@@ -274,9 +279,9 @@ it is listed once as a verb and the gate skill calls it.
 | 68 | `album_coherence_correct` | `album_coherence_correct` | AudioDriver | effect | verb |
 | 69 | `generate_promo_videos` | `generate_promo_videos` | AudioDriver | effect | verb |
 | 70 | `generate_album_sampler` | `generate_album_sampler` | AudioDriver | effect | verb |
-| 71 | `transcribe_audio` | `transcribe_audio` | AudioDriver | effect | verb (AnthemScore — see Open Q) |
-| 72 | `prepare_singles` | `prepare_singles` | AudioDriver | effect | verb |
-| 73 | `create_songbook` | `create_songbook` | AudioDriver | effect | verb |
+| 71 | `transcribe_audio` | `transcribe_audio` | AudioDriver | effect | verb (`processing/sheet_music.py`; AnthemScore shell-out — see Open Q) |
+| 72 | `prepare_singles` | `prepare_singles` | AudioDriver | effect | verb (`processing/sheet_music.py`) |
+| 73 | `create_songbook` | `create_songbook` | AudioDriver | effect | verb (`processing/sheet_music.py`) |
 | 74 | `db_init` | `db_init` | DBDriver | effect | verb |
 | 75 | `db_sync_album` | `db_sync_album` | DBDriver+StateDriver | effect | verb |
 | 76 | `db_create_tweet` | `db_create_tweet` | DBDriver | effect | verb |
@@ -288,9 +293,9 @@ it is listed once as a verb and the gate skill calls it.
 | 82 | `get_promo_status` | `get_promo_status` | StateDriver | transform | verb |
 | 83 | `get_promo_content` | `get_promo_content` | StateDriver | transform | verb |
 | 84 | `get_streaming_urls` | `get_streaming_urls` | StateDriver | transform | verb |
-| 85 | `update_streaming_url` | `update_streaming_url` | StateDriver | act | verb |
-| 86 | `verify_streaming_urls` | `verify_streaming_urls` | CloudDriver | effect | verb (network HEAD) |
-| 87 | `publish_sheet_music` | `publish_sheet_music` | CloudDriver | effect | verb (R2 — see Open Q) |
+| 85 | `update_streaming_url` | `update_streaming_url` | StateDriver | effect | verb (writes URL into markdown state — a state side-effect) |
+| 86 | `verify_streaming_urls` | `verify_streaming_urls` | CloudDriver | effect | verb (network HEAD via stdlib `urllib`, `streaming.py:247-301` — no creds, runs in CI) |
+| 87 | `publish_sheet_music` | `publish_sheet_music` | CloudDriver | effect | verb (`processing/sheet_music.py:435`, boto3/R2 — see Open Q) |
 | 88 | `run_pre_generation_gates` | `pre-generation` skill (gate-walk) + `run_pre_generation_gates` verb | StateDriver+`gate` | act | gated skill + verb shim |
 | 89 | `validate_album_structure` | `validate_album_structure` | StateDriver | act | verb (feeds `release-qa` skill) |
 
@@ -304,22 +309,27 @@ audit — "show me every master, QC pass, and tweet for this album" — is one
 
 | bitwize workflow | agency mechanism | hard gate? |
 |---|---|---|
-| `run_pre_generation_gates` (8 gates: sources, lyrics, pronunciation, explicit, style box, artist names, …) | `pre-generation` skill in `OntologyExtension.skills`; phases `invoke:` the transform verbs (`check_explicit_content`, `scan_artist_names`, `check_pronunciation_enforcement`); final phase `gate: "hard"` → `gate.check(passed=…)` | yes (final) |
-| pre-release chain / release-director 9-domain QA | `release-qa` skill; phases invoke `validate_album_structure`, `qc_audio`, `check_streaming_lyrics`, `extract_distinctive_phrases`; final hard gate | yes (final) |
+| `run_pre_generation_gates` — **exactly 8 gates** (`gates.py:_check_pre_gen_gates_for_track`, lines 42-189), in order: (1) Sources Verified, (2) Lyrics Reviewed, (3) Pronunciation Resolved, (4) Explicit Flag Set, (5) Style Prompt Complete, (6) Artist Names Cleared, (7) Homograph Check, (8) Lyric Length | `pre-generation` skill in `OntologyExtension.skills`; only **3 of the 8** checks exist as standalone transform verbs the phases can `invoke:` (`check_pronunciation_enforcement`, `check_explicit_content`, `scan_artist_names`); the other 5 (Sources/Lyrics/Style/Homograph/Length) are computed **inline inside `run_pre_generation_gates`**, not separate tools. The skill therefore `invoke:`s the 3 verbs and threads the rest through one aggregate gate; final phase `gate: "hard"` → `gate.check(lifecycle_id, name, passed=…)` | yes (final) |
+| pre-release chain (the **release-director prose chain**; there is **no single `run_release_gates` tool** — the QA is `validate_album_structure` + `check_streaming_lyrics` + manual checks) | `release-qa` skill; phases invoke `validate_album_structure`, `qc_audio`, `check_streaming_lyrics`, `extract_distinctive_phrases`; final hard gate | yes (final) |
 | album-conceptualizer Phase 7 confirmation | already the `album-concept` skill's hard gate (kept) | yes (kept) |
 
 The pattern is identical to `plugin.py`'s `SKILL_CREATION_SKILL` (phases bound
 to `invoke: {capability, verb}`) and `examples/music.py`'s `ALBUM_CONCEPT_SKILL`
-(hard gate on the final phase).
+(hard gate on the final phase). Note `gate.check` requires a `lifecycle_id` that
+`SERVES` the current intent (`gate.py:23-27` rejects cross-intent gates), so
+both the `pre-generation` and `release-qa` skills must thread a lifecycle id.
 
 ## Files
 
 - **Create**:
   - `examples/music_drivers.py` — the five `Boundary`/`Driver` protocols
-    (`StateDriver`, `TextDriver`, `AudioDriver`, `DBDriver`, `CloudDriver`) +
-    their default real backends (lazy-importing `ffmpeg`/`librosa`/`sqlite3`/
-    `httpx` only when called, so import never fails in CI) + deterministic fakes
-    for tests. Models the `jules.py` `JulesBackend`/`JulesClient` split.
+    (`StateDriver`, `TextDriver`, `AudioDriver`, `DBDriver`, `CloudDriver`),
+    each exposing typed named methods (Spec 002 Option B) + their default real
+    backends (lazy-importing `pyloudnorm`/`ffmpeg`(subprocess)/AnthemScore/
+    `psycopg2`/`boto3` only when called, so import never fails in CI; TextDriver
+    and the urllib half of CloudDriver are stdlib-only with no lazy deps) +
+    deterministic fakes for tests. Models the `jules.py` `JulesBackend`/
+    `JulesClient` split.
   - `examples/test_music_capability.py` — the Done-When tests, using fake
     drivers; no audio binaries required.
 - **Modify**:
@@ -336,14 +346,13 @@ to `invoke: {capability, verb}`) and `examples/music.py`'s `ALBUM_CONCEPT_SKILL`
 
 ## Open Questions / Needs Research
 
-1. **Core vs. example.** Does Agency want the full 89-tool surface in core
-   (`agency/capabilities/music.py`, like the catalogue's `music-001` draft
-   proposed) or as an out-of-tree example extension (`examples/music.py`, this
-   spec's default per the repo's standing rule that domain capabilities live in
-   `examples/`)? The catalogue row says `agency/capabilities/music.py`; the
-   live CLAUDE.md and current demo say `examples/`. **This spec assumes
-   `examples/` and flags the conflict.** Resolving it changes the `affects:`
-   paths only, not the design.
+1. **Core vs. example — RESOLVED to `examples/` (spec-panel).** The catalogue
+   row (`agency/capabilities/music.py`, the `music-001` draft) conflicts with
+   CLAUDE.md's standing rule ("Domain capabilities live OUT of the core as
+   example extensions in `examples/`") and the existing `examples/music.py`.
+   The spec-panel ruled the catalogue row is the stale one: **keep `examples/`,
+   demote the catalogue row.** Not a blocker; resolving it changes the
+   `affects:` paths only, not the design.
 
 2. **Driver injection point.** Today only two boundaries are injected
    (`client`=jules, `vcs`). The four new drivers (`audio`/`text`/`db`/`cloud`)
@@ -353,23 +362,36 @@ to `invoke: {capability, verb}`) and `examples/music.py`'s `ALBUM_CONCEPT_SKILL`
    this spec must touch engine.py (the one core edit). **Confirm 001's final
    shape before coding.**
 
-3. **Audio/binary dependencies out of scope?** `analyze_audio`, the entire
-   `master_*`/`polish_*` family, `*_video`, `transcribe_audio` (AnthemScore is a
-   paid GUI/CLI), and `publish_sheet_music` (Cloudflare R2 creds) require heavy
-   non-Python binaries and external accounts. The verbs are mapped and the
-   `AudioDriver`/`CloudDriver` protocols defined, but should the *default* real
-   backends be (a) implemented, (b) shipped as no-op stubs that return
-   `ToolResult(ok=False, error=DEPENDENCY_MISSING)` with install guidance, or
-   (c) declared out-of-scope and left to a follow-up audio spec? **Recommend
-   (b)** so the surface is complete and testable without binaries; tests use
-   fakes regardless.
+3. **External dependencies — the real per-driver matrix (recommend stubs where
+   creds/binaries needed).** Not all of "audio/cloud" lump together; the actual
+   dep surface is:
+   - **AudioDriver** — `pyloudnorm`(+numpy/scipy/soundfile) for loudness,
+     **`ffmpeg` via subprocess** for encode/render, **AnthemScore** (paid GUI/
+     CLI) shelled out for `transcribe_audio`. Heavy binaries.
+   - **DBDriver** — **PostgreSQL via `psycopg2`** + a Postgres host & creds from
+     `~/.bitwize-music/config.yaml`. There is **no local-sqlite-file fallback**;
+     this invalidates any "no external account" claim for cluster 7.
+   - **CloudDriver (split)** — `url_head` (`verify_streaming_urls`) is **stdlib
+     `urllib`, needs NO stub and runs in CI today**; only `r2_put`
+     (`publish_sheet_music`, boto3/R2 creds) needs a stub.
+   Should the *default* real backends be (a) implemented, (b) shipped as stubs
+   returning `ToolResult(ok=False, error=DEPENDENCY_MISSING)` with install
+   guidance, or (c) deferred to a follow-up audio spec? **Recommend (b) for
+   AudioDriver, the boto3 half of CloudDriver, AND DBDriver (Postgres)** so the
+   surface is complete and testable without binaries/accounts; the urllib half
+   of CloudDriver and all of TextDriver are implementable now. Tests use fakes
+   regardless (the `DBDriver` fake is psycopg2-cursor-shaped, not a sqlite file).
 
-4. **Gate granularity.** bitwize's `run_pre_generation_gates` runs 8 checks in
-   one call and returns pass/fail per gate. Mapping to `gate.check` (one
-   PASSED/BLOCKED_ON edge per call) means either 8 `gate.check` calls inside the
-   `pre-generation` skill (fine-grained provenance, more edges) or one aggregate
-   `gate.check` after the 8 transform checks. Which granularity does the team
-   want recorded in Memory?
+4. **Gate granularity — RECOMMEND one aggregate `gate.check` (spec-panel).**
+   bitwize's `run_pre_generation_gates` runs 8 checks in one call and returns
+   pass/fail per track. Only **3 of the 8** checks are standalone verbs
+   (`check_explicit_content`, `scan_artist_names`,
+   `check_pronunciation_enforcement`); the other 5 (Sources/Lyrics/Style/
+   Homograph/Length) are internal to the gate function. Fine-grained per-gate
+   `gate.check` edges would force exposing those 5 currently-internal checks as
+   verbs; one aggregate `gate.check` after the 8 internal checks matches the
+   real tool's single per-track pass/fail and is the recommendation. (Per-gate
+   provenance later = a refactor of the gate function, out of scope here.)
 
 5. **Overlap with existing core capabilities.** `list_skills`/`get_skill`
    overlap `plugin.help` + `develop.reference`; bitwize `search` overlaps the
