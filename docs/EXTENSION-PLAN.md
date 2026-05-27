@@ -38,7 +38,7 @@ service through one `CapabilityContext`. The core stays domain-agnostic.
 | `develop` | transform | 7 dev-discipline skills (brainstorm·plan·tdd·debug·verify·spec-panel·review) | built |
 | `reflect` | act/transform | `Reflection` node + `scope` enum + `OBSERVED_DURING` edge | built |
 | `jules` | effect/transform | (core types) — the first delegation driver | built |
-| `music` | act | `Album`/`Track` nodes + `album type` enum + `album-concept` skill | built |
+| `music` | act | `Album`/`Track` nodes + `album type` enum + `album-concept` skill | example extension (`examples/music.py`) |
 | `delegate` | effect/transform | `Delegation` node + `DELEGATES_TO`/`REDUCES_INTO` edges; fan-out+quota+join on `ctx.spawn` | built |
 
 ## Planned capability surface

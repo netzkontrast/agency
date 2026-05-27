@@ -37,12 +37,15 @@ from .ontology import Ontology
 
 
 class Engine:
-    def __init__(self, path: str, jules_client=None, vcs_backend=None):
+    def __init__(self, path: str, jules_client=None, vcs_backend=None, extra_capabilities=None):
         self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
         self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
         self.registry = Registry()
         self.ontology = Ontology.core()                         # the base, then each capability extends it
-        for cap in discover():                                  # reflection: register + merge ontology
+        # discovered core capabilities, plus any external ones the host supplies —
+        # the extension point: an out-of-tree capability registers + extends exactly
+        # like a core one (no need to live in the capabilities package).
+        for cap in list(discover()) + list(extra_capabilities or []):
             self.registry.register(cap)
             self.ontology.extend(cap.ontology, cap.name)
         # the Registry needs the effective ontology to build a CapabilityContext

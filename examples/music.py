@@ -1,16 +1,17 @@
-"""music — a domain capability: album conceptualization.
+"""music — an EXAMPLE out-of-tree domain capability: album conceptualization.
 
-Demonstrates a DOMAIN capability that OWNS its ontology fragment — none of this
-lives in the core. It contributes the `album-concept` conceptualizer (a 7-phase
-gated planning skill ending in a hard confirm gate), an `Album` node type, the
-closed `album type` enum, and an album-concept artefact schema. This is how a
-domain (music, novels, …) becomes a capability bundle, proving the extension
-contract end to end.
+Lives in `examples/`, not the core capabilities package, to keep the
+self-bootstrapping harness minimal. It loads through the engine's extension point
+(`Engine(..., extra_capabilities=[MusicCapability.as_capability()])`), proving a
+domain capability registers and extends the ontology exactly like a core one
+without shipping in the core: it OWNS the `album-concept` conceptualizer (a
+7-phase gated planning skill ending in a hard confirm gate), an `Album` node type,
+the closed `album type` enum, and an album-concept artefact schema.
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
+from agency.capability import CapabilityBase, verb
+from agency.ontology import OntologyExtension
 
 ALBUM_TYPES = {"documentary", "narrative", "thematic", "character-study",
                "collection", "ost"}

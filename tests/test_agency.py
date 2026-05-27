@@ -38,8 +38,9 @@ _LINT_CODE = (
 NAME_RE = re.compile(r"^[a-zA-Z0-9_]{1,64}$")  # MCP / Claude-frontend strict
 
 
-def fresh(jules_client=None, vcs_backend=None) -> Engine:
-    return Engine(tempfile.mktemp(suffix=".db"), jules_client=jules_client, vcs_backend=vcs_backend)
+def fresh(jules_client=None, vcs_backend=None, extra_capabilities=None) -> Engine:
+    return Engine(tempfile.mktemp(suffix=".db"), jules_client=jules_client,
+                  vcs_backend=vcs_backend, extra_capabilities=extra_capabilities)
 
 
 def _sc(result):
@@ -731,12 +732,13 @@ def test_ontology_extension_contract_all_six_kinds():
 
 
 def test_music_capability_owns_conceptualizer():
-    """The `music` DOMAIN capability owns the conceptualizer — a 7-phase gated
-    planning skill — plus an `Album` node type with a closed `type` enum. Proof a
-    domain capability extends the ontology (skill + node + enum) without touching
-    the core."""
-    from agency.capabilities.music import ALBUM_TYPES
-    e = fresh()
+    """The `music` DOMAIN capability is an EXAMPLE out-of-tree extension: loaded via
+    the engine's `extra_capabilities` hook (not shipped in core), it owns the
+    conceptualizer — a 7-phase gated planning skill — plus an `Album` node type with
+    a closed `type` enum. Proof a domain capability extends the ontology (skill +
+    node + enum) without touching the core."""
+    from examples.music import ALBUM_TYPES, MusicCapability
+    e = fresh(extra_capabilities=[MusicCapability.as_capability()])
     iid = e.intent.capture("plan an album", "album concept", "user confirms")
 
     sk = e.ontology.skill("album-concept")                   # owned by music, not core
