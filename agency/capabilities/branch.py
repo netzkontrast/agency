@@ -1,7 +1,7 @@
 """branch — finish a development branch: detect state, then merge / open a PR /
-keep / discard (superpowers-port Phase 2).
+keep / discard.
 
-Ports the `finishing-a-development-branch` discipline. `assess` (transform) reads
+`assess` (transform) reads
 the branch state and recommends an action (judgment-as-code); `finish` (effect)
 executes the chosen action and records the outcome as provenance. The VCS boundary
 (`VCSBackend`) is injected, so tests never touch a real repo.

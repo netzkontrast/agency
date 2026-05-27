@@ -987,7 +987,7 @@ def test_gate_capability_records_and_pauses():
 
 
 def test_review_skill_dispatches_reviewer_via_delegate():
-    """superpowers-port Phase 1 — the `review` discipline is BOUND to a verb: walked
+    """the `review` discipline is BOUND to a verb: walked
     with a registry it EXECUTES, its dispatch phase driving `delegate.fan_out` to
     dispatch a reviewer (a real child Lifecycle + Invocation) rather than merely
     documenting the step. Execution is opt-in: walked without a registry the same
@@ -1017,7 +1017,7 @@ def test_review_skill_dispatches_reviewer_via_delegate():
 
 
 def test_workspace_isolates_and_baselines():
-    """superpowers-port Phase 2 — `workspace` ports using-git-worktrees as effect
+    """`workspace` ports using-git-worktrees as effect
     verbs: `isolate` creates a worktree on a fresh branch (recorded as a Workspace
     SERVING the intent) and `baseline` runs the test command there, recording the
     green/red baseline. The VCS boundary is injected, so no real repo is touched."""
@@ -1052,7 +1052,7 @@ def test_workspace_isolates_and_baselines():
 
 
 def test_branch_assesses_and_finishes():
-    """superpowers-port Phase 2 — `branch` ports finishing-a-development-branch:
+    """`branch` ports finishing-a-development-branch:
     `assess` (transform) reads the branch state and recommends an action; `finish`
     (effect) executes the chosen action and records the outcome as provenance. The
     VCS boundary is injected — no real git runs."""
@@ -1085,7 +1085,7 @@ def test_branch_assesses_and_finishes():
 
 
 def test_subagent_driven_development_composes_delegate_and_gates():
-    """superpowers-port Phase 3 — subagent-driven-development composes `delegate` (a
+    """subagent-driven-development composes `delegate` (a
     per-task worker child Lifecycle) with the `gate` capability's TWO-STAGE review:
     spec-review then quality-review. The child is 'done' only when BOTH gates pass
     (a verified join); a failing spec-review pauses the child at input-required and
@@ -1117,7 +1117,7 @@ def test_subagent_driven_development_composes_delegate_and_gates():
 
 
 def test_executing_plans_discipline_walks_with_checkpoints():
-    """superpowers-port Phase 3 — executing-plans ships as the `execute` develop
+    """executing-plans ships as the `execute` develop
     discipline: load the plan, execute its steps, then a review checkpoint and a
     final verification gate (both hard). A gated phase-graph, walkable like the
     other disciplines."""
@@ -1138,7 +1138,7 @@ def test_executing_plans_discipline_walks_with_checkpoints():
 
 
 def test_develop_reference_carries_on_demand_docs():
-    """superpowers-port Phase 4 — a discipline's heavy how-to travels as an ON-DEMAND
+    """a discipline's heavy how-to travels as an ON-DEMAND
     capability reference (T3 progressive disclosure via code-mode), not system-prompt
     bloat: develop.reference(topic) returns the doc; an unknown topic lists what's
     available."""
@@ -1154,7 +1154,7 @@ def test_develop_reference_carries_on_demand_docs():
 
 
 def test_help_documents_the_discovery_mapping():
-    """superpowers-port Phase 4 — the help surface documents discovery itself
+    """the help surface documents discovery itself
     (using-superpowers → the engine): the search/get_schema/execute contract, and
     that invoking a discipline IS a recorded walk (nothing extra to remember)."""
     e = fresh()

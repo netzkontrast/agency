@@ -1,4 +1,4 @@
-"""gate — a reusable, programmatic gate predicate (superpowers-port Phase 1).
+"""gate — a reusable, programmatic gate predicate.
 
 The hard-gate predicate as a first-class capability verb, callable by any
 capability or skill via `ctx.call`. Where `lifecycle_gate` (the engine tool) asks

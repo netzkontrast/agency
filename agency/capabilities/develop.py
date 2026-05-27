@@ -61,7 +61,7 @@ DEV_SKILLS = {
     ]},
     # the dispatch phase is BOUND to delegate.fan_out: walking review with a
     # registry dispatches a reviewer for real (a child Lifecycle + Invocation);
-    # without one it degrades to a document phase. (superpowers-port Phase 1.)
+    # without one it degrades to a document phase.
     "review": {"name": "review", "kind": "discipline", "phases": [
         _phase(1, "request", ["context", "diff"]),
         {"index": 2, "name": "dispatch", "produces": ["findings"],
@@ -70,7 +70,7 @@ DEV_SKILLS = {
         _phase(3, "resolve", ["addressed"], gate="hard"),
     ]},
     # executing-plans: walk a written plan's steps with review checkpoints, never
-    # claiming done without a final verification gate. (superpowers-port Phase 3.)
+    # claiming done without a final verification gate.
     "execute": {"name": "execute", "kind": "discipline", "phases": [
         _phase(1, "load", ["plan", "steps"]),
         _phase(2, "execute", ["step_results"]),

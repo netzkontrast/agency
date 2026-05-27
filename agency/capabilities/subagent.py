@@ -1,7 +1,7 @@
-"""subagent — subagent-driven-development as a composition (superpowers-port Phase 3).
+"""subagent — subagent-driven-development as a composition.
 
-Ports the `subagent-driven-development` discipline: dispatch a worker as a child
-Lifecycle (via `delegate`), then run a TWO-STAGE gated review over that child
+Dispatch a worker as a child Lifecycle (via `delegate`), then run a TWO-STAGE
+gated review over that child
 (via `gate`): spec-review first, then quality-review. The child is `done` only
 when BOTH gates pass — a verified join. A failing spec-review pauses the child at
 input-required and the quality stage is skipped.

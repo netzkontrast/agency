@@ -1,7 +1,6 @@
-"""workspace — isolate work in a git worktree + record a green baseline
-(superpowers-port Phase 2).
+"""workspace — isolate work in a git worktree + record a green baseline.
 
-Ports the `using-git-worktrees` discipline as `effect` verbs: `isolate` creates a
+`effect` verbs for isolated development: `isolate` creates a
 worktree on a fresh branch (so work can't clobber the main tree) and `baseline`
 runs the test command there and records whether the tree starts GREEN — the
 baseline later work is measured against. Both record provenance; the VCS boundary
