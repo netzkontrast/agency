@@ -393,27 +393,43 @@ both the `pre-generation` and `release-qa` skills must thread a lifecycle id.
    real tool's single per-track pass/fail and is the recommendation. (Per-gate
    provenance later = a refactor of the gate function, out of scope here.)
 
-5. **Overlap with existing core capabilities.** `list_skills`/`get_skill`
-   overlap `plugin.help` + `develop.reference`; bitwize `search` overlaps the
-   engine's public `search`; `health_check`/`diagnose`/`check_venv_health`/
-   `cleanup_legacy_venvs` are bitwize-venv-specific and may be wholly obsolete
-   once the plugin is one Agency engine (no per-tool venvs). Keep as thin
-   domain verbs, delegate to the core capability via `ctx.call`, or drop? (#30,
-   #33, #36, #39, #40 in the map.)
+5. **Overlap with existing core capabilities — RECOMMEND (spec-panel): drop
+   the venv-specific ones, keep the rest as thin delegating verbs.**
+   `list_skills`/`get_skill` overlap `plugin.help` + `develop.reference`;
+   bitwize `search` overlaps the engine's public `search`. **Recommendation:**
+   keep `search`/`list_skills`/`get_skill` as thin domain verbs that `ctx.call`
+   the core capability; **drop `check_venv_health` (#30) and
+   `cleanup_legacy_venvs` (#33)** as obsolete-once-one-engine (the whole
+   per-tool-venv model disappears under Agency — no per-tool venvs). This
+   resolves the lingering "verb (see Open Q)" disposition on map rows #30, #33,
+   #36, #39, #40.
 
-6. **`StateDriver` storage model.** bitwize's state is a markdown tree + a
-   cache. Agency has the bi-temporal graph (Memory). Should albums/tracks be
-   (a) mirrored into Memory nodes (`Album`/`Track`) as the source of truth
-   (graph-native, provenance for free), (b) kept on the filesystem with the
-   driver reading/writing markdown (1:1 with bitwize, easiest migration), or
-   (c) dual-written? Spec 002's ontology contract and a future state-migration
-   spec (`019-state-migration-from-bitwize` in the research) decide this.
+6. **`StateDriver` storage model — interim (b), end-state (a) (spec-panel).**
+   bitwize's state is a markdown tree + a cache; Agency has the bi-temporal
+   graph (Memory). For **this** spec, adopt **(b) filesystem markdown, 1:1 with
+   bitwize** so 007 is shippable without committing to a graph-native rewrite;
+   flag **(a) mirror albums/tracks into Memory nodes** (graph-native, provenance
+   for free) as the desirable end-state, deferred to the named
+   `019-state-migration-from-bitwize` spec. (c) dual-write is the bridge if
+   needed. No blocker for 007 under (b).
 
 ## Evidence
 
 - `/home/user/agency/research/capability-specs/specs/music.md` — the 89-tool
-  inventory (source of truth for the counterpart surface) and the eleven
-  handler-module names (line 113).
+  inventory (source of truth for the counterpart surface). NB the authoritative
+  module layout is `server.py:338-353` (**19 modules**), not this research note.
+- Backend ground truth (spec-panel-verified against bitwize v0.91.0):
+  `handlers/database.py:19` + `tools/database/connection.py` —
+  `psycopg2.connect(..., connect_timeout=5)`, creds from
+  `~/.bitwize-music/config.yaml`, `db_init` runs `tools/database/schema.sql`
+  (**PostgreSQL, not SQLite**); `handlers/streaming.py:247-301` —
+  `urllib.request.urlopen` HEAD→GET (**no `httpx`**);
+  `handlers/processing/audio.py:258` `import pyloudnorm`,
+  `handlers/processing/_helpers.py:161` `_check_anthemscore`, ffmpeg via
+  subprocess in `processing/_album_stages.py` (**no `librosa`** in any handler);
+  `handlers/processing/sheet_music.py:435` + boto3 for R2;
+  `handlers/text_analysis.py:530` owns `extract_links`;
+  `handlers/processing/audio.py:1379` owns `prune_archival`.
 - `/home/user/agency/research/capability-specs/capability-catalogue.md:20-21` —
   `bitwize-music → music capability` (missing) and `sheet-music-rename →
   music.rename verb` (missing).
@@ -440,9 +456,13 @@ both the `pre-generation` and `release-qa` skills must thread a lifecycle id.
   extension point; `:61-89` — `_wire` auto-wiring one MCP tool per verb.
 - `/home/user/agency/research/oo-architecture/spec.md` (Spec 001, status done) +
   `/home/user/agency/research/oo-architecture/PROPOSAL.md:5-83` — the
-  `ToolResult` envelope, the `Boundary`/`Driver`/`DriverRegistry` protocols, and
+  `ToolResult` envelope, the `Boundary`/`Driver` protocols, and
   `TypedError`/`ErrorType` this spec returns and plugs into (the depends_on=001
   basis). bitwize cited there as the motivating "pipeline scaling" case
   (PROPOSAL.md:47).
+- `/home/user/agency/Plan/002-boundary-driver-protocol/spec.md:69-98` — Spec 002
+  resolves Option B: a `Driver` is a marker `Boundary` exposing **typed, named
+  methods** (`ctx.get_driver("jules").create(...)`), NOT a stringly-typed
+  `dispatch(op, **kw)`. The five music drivers follow this shape (depends_on=002).
 - `/home/user/agency/agency/ontology.py:60-111` — `OntologyExtension`
   (nodes/edges/enums/skills/schemas/templates) + strict `extend()` merge.

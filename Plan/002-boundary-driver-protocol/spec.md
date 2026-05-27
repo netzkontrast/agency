@@ -102,8 +102,9 @@ outweigh it.
       name. `Driver` carries one optional introspection member (`name`/`describe()`)
       so the `isinstance` check is meaningful (see Missing-depth note).
 - [ ] `DriverRegistry` (in `agency/capability.py`) supports `register(name, driver)`,
-      `get(name) -> Driver` (raising a typed `NOT_FOUND` `ToolResult`/error when
-      absent — see Open Q-3), `names() -> list[str]`, and `has(name) -> bool`.
+      `get(name) -> Driver` (raising the typed `DriverMissing(LookupError)` when absent;
+      the capability converts to `ToolResult.failure(NOT_FOUND)` — D-3),
+      `names() -> list[str]`, and `has(name) -> bool`.
 - [ ] `CapabilityContext` gains `drivers: DriverRegistry` and a
       `get_driver(name) -> Driver` convenience (`agency/capability.py:35-47`),
       injected by `Registry.invoke` the same way `client`/`memory`/`intent_id` are
@@ -111,11 +112,12 @@ outweigh it.
 - [ ] `Engine.__init__` builds the `DriverRegistry` and registers the two existing
       boundaries under stable names — `"jules"` (the `JulesClient`) and `"vcs"` (the
       `GitClient`) — replacing the bespoke `jules_client=`/`vcs_backend=` kwargs with
-      a single `drivers: dict[str, Driver] | None = None` override (back-compat for
-      the two old kwargs is Open Q-4).
+      a single `drivers: dict[str, Driver] | None = None` override, while keeping the
+      two old kwargs as deprecated forwarders (D-4 — back-compat shims kept).
 - [ ] `JulesCapability._backend()` (`jules.py:76-77`) is rewritten to
-      `self.ctx.get_driver("jules")`; `workspace`/`branch` verbs drop `inject=["vcs"]`
-      and use `self.ctx.get_driver("vcs")` instead (or keep `inject` as sugar — Open Q-2).
+      `self.ctx.get_driver("jules")`; new `workspace`/`branch` code uses
+      `self.ctx.get_driver("vcs")`, and their existing `inject=["vcs"]` verbs keep
+      working via the registry-backed injector shim (D-2 — kept as sugar, no rewrite).
 - [ ] `JulesBackend`/`VCSBackend` are declared as `Driver` Protocols (they already
       are Protocols; this is a marker-base change + registration by name). **No
       behaviour change and no return-type change** to `JulesClient`/`GitClient`: they
@@ -222,7 +224,7 @@ class DriverRegistry:
         return sorted(self._drivers)
 ```
 
-### `CapabilityContext` — expose the registry (`agency/capability.py:35-82`)
+### `CapabilityContext` — expose the registry (`agency/capability.py:35-47`)
 
 ```python
 @dataclass
@@ -432,8 +434,9 @@ code and `Driver`s remain dumb I/O edges with no `CapabilityContext`/memory acce
 
 ## Evidence
 
-- `agency/capabilities/jules.py:25-34,37-69,76-82` — `JulesBackend` Protocol,
-  `JulesClient` default, `_backend()` access via `ctx.client`.
+- `agency/capabilities/jules.py:25-34,37-69,76-77,79-89` — `JulesBackend` Protocol
+  (seven typed named methods), `JulesClient` default, `_backend()` (`:76-77`) reading
+  the lone `ctx.client` (`:77`), and `dispatch` (`:79-89`).
 - `agency/capabilities/_vcs.py:18-23,26-67` — `VCSBackend` Protocol + `GitClient`.
 - `agency/engine.py:40-59` — `Engine.__init__`: the `jules_client=`/`vcs_backend=`
   kwargs (`:40-42`) and `Registry.injectors` wiring (`:55-56`).

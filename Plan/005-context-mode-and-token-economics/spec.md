@@ -350,20 +350,27 @@ the same measured trace that backs the token numbers — not picked from memory.
 
 ## Files
 
-> The research drafts disagree on the package root (`agency_mcp` in the exemplar's
-> tree vs `agency` here). **This repo is `agency/`.** All paths below use `agency/`.
+> **Path discipline (verified against the tree).** The Python **package** is
+> `agency/` (import target). But the **plugin metadata, `skills/`, and
+> `commands/` live at the repo ROOT** — verified: `/.claude-plugin/plugin.json`
+> (`name:"agency"`, `skills:"./skills/"`, `commands:"./commands/"`),
+> `skills/brainstorming/`, `commands/help.md`. `hooks/hooks.json` is root-level
+> plugin config; its handler **scripts** live under `agency/hooks/` so the engine
+> and the hook subprocess import the same code. So three paths are NOT
+> `agency/`-prefixed: `.claude-plugin/`, `skills/`, `commands/` (and `hooks/`).
 
 - **Create**:
-  - `agency/capabilities/context.py` — `ContextCapability` (search/describe/invoke).
+  - `agency/capabilities/context.py` — `ContextCapability` (search/describe/read).
   - `agency/context/__init__.py` — re-exports `Index`, `summarize`, `build_manifest`.
   - `agency/context/index.py` — SQLite + FTS5 SessionDB (WAL, busy_timeout, multi-writer).
   - `agency/context/summarize.py` — large-output → summary + stored id.
   - `agency/context/manifest.py` — build/load the static `docs/**` corpus into the index.
-  - `agency/hooks/hooks.json` — the 5 hook entry points.
-  - `agency/hooks/ctx_route.py` — PreToolUse/PostToolUse stdin→stdout router.
-  - `agency/hooks/ctx_session.py` — SessionStart/PreCompact/UserPromptSubmit handlers.
-  - `skills/ctx-insight/SKILL.md` — the `/ctx-insight` local index surface.
-  - `commands/ctx-insight.md` — the slash command.
+  - `hooks/hooks.json` — **(repo ROOT)** the hook entry points this spec adopts
+    (`PostToolUse`, `SessionStart`, `UserPromptSubmit`, `PreToolUse` no-op).
+  - `agency/hooks/ctx_route.py` — PreToolUse (routing, no-op) + PostToolUse (capture) stdin→stdout router.
+  - `agency/hooks/ctx_session.py` — SessionStart (attach) + UserPromptSubmit (capture decisions) handlers.
+  - `skills/ctx-insight/SKILL.md` — **(repo ROOT)** the `/ctx-insight` local index surface.
+  - `commands/ctx-insight.md` — **(repo ROOT)** the slash command.
   - `tests/test_context_capability.py`, `tests/test_context_hooks.py`.
   - `docs/vision/specs/context-mode-output-side.md` — disambiguates the two
     "context-mode"s; the both-halves lifecycle diagram.
@@ -373,44 +380,70 @@ the same measured trace that backs the token numbers — not picked from memory.
     beyond what Spec 001 lands.
   - `agency/capabilities/develop.py` — drop/redirect `reference` (`develop.py:139-145`);
     migrate the 3 `REFERENCES` bodies into the manifest.
-  - `agency/.claude-plugin/plugin.json` — register `hooks/hooks.json` and the new
-    command (additive; the external plugin stays an opt-in companion, not a hard dep).
+  - `.claude-plugin/plugin.json` — **(repo ROOT, NOT `agency/.claude-plugin/`)**
+    register `hooks/hooks.json` and the new command (additive; the external plugin
+    stays an opt-in companion, not a hard dep).
 - **Move / Delete**: none beyond the `reference` redirect above.
 
 ## Open Questions / Needs Research
 
-1. **Vendor vs depend.** Do we (a) reimplement the output-side pattern in-tree
-   (stdlib `sqlite3` + our own router) so the engine owns the SessionDB and the
-   triad reads it directly, or (b) depend on the marketplace `context-mode` plugin
-   and only *bridge* to its `/ctx-insight`? The exemplar (Plan/108) chose (b)
-   strictly (copies no source). **Recommendation to confirm:** (a) — because the
-   triad must read the *same* corpus in-process, a bridge-only approach can't back
-   `context_invoke` without a network hop. Decide before code.
-2. **License.** The external `context-mode` is Elastic License 2.0. Reimplementing
-   the *pattern* (not the code) is fine, but confirm we copy no source and that an
-   optional runtime *dependency* (if (b)) is compatible with the agency plugin's
-   license. Blocker for the vendor decision.
-3. **The name.** "context-mode" already means schema-side progressive disclosure in
-   this repo (`docs/guide/usage.md:36,61`, `CORE.md:11-13`). Adopting the external
-   plugin's name for the output side risks confusion. Options: keep both under one
-   "context-mode" umbrella with "schema-side"/"output-side" qualifiers (current
-   plan), or rename the new half ("session-index" / "output-mode"). Resolve in the
-   new doc before merging.
-4. **Local HTTP port policy.** The external plugin exposes `/ctx-insight` over local
-   HTTP. Do we need a port at all, or can `/ctx-insight` read the SessionDB file
-   directly (no listener)? **Recommendation:** file-direct, no port — simpler and
-   removes the egress question entirely. Confirm against any Claude-Code hook
-   constraint that needs the HTTP shape.
-5. **Real token numbers.** The Before/After in `## Design` are reasoned estimates,
-   not a trace. Needs a counted run (tokenizer over the actual `ToolResult` JSON for
-   each step) before the doc states a percentage. Do not ship "97%"/"98%" unbacked.
-6. **PreToolUse read-cache (deferred).** The research (Plan/114) proposes a
-   `difflib.unified_diff` read-cache on `PreToolUse` for repeated file reads. Worth
-   it, but a separate concern from the output-index — propose splitting into a
-   follow-up spec rather than expanding this one.
-7. **Manifest staleness.** When does `manifest.py` rebuild the static `docs/**`
-   index — every `SessionStart`, on mtime change, or on demand? Cheapest correct
-   answer needed (proposed: mtime-gated rebuild at `SessionStart`).
+0. **[CRITICAL-PATH BLOCKER] Spec 001 Open Q-2 — does the envelope surface at
+   `_wire`?** This spec's entire `next_suggested_tools` glue presumes the
+   `ToolResult` envelope (or at minimum its `next_suggested_tools` field) reaches
+   the model at the `execute()`/`_wire` boundary. **Spec 001 has not yet decided
+   this** — its Open Q-2 (`agency/Plan/001…/spec.md:359-366`) calls it *"the single
+   load-bearing decision … whether 001 is additive or breaking."* If 001 resolves to
+   keep returning the unwrapped `data` for back-compat, `next_suggested_tools` never
+   reaches the model through `_wire` and **005's glue collapses**. **Precondition:**
+   005 cannot land until 001 Q-2 resolves in favour of surfacing the envelope (or a
+   `next` field); otherwise 005 must define its own surfacing path. Track this as a
+   hard dependency on `depends_on: [001]`.
+1. **Vendor vs depend — RESOLVED: (a) reimplement.** We reimplement the output-side
+   pattern in-tree (stdlib `sqlite3` + our own router) so the engine owns the
+   SessionDB and the triad reads it directly. Rationale: the triad must read the
+   *same* corpus in-process to back `read(id)`; a bridge-only approach (Plan/108's
+   choice) can't without a network hop. Resolves Q-2/Q-4 below.
+2. **License — RESOLVED by Q-1.** The external `context-mode` is Elastic License 2.0
+   (confirmed via WebFetch 2026-05-27). An ELv2 *runtime dependency* drags a
+   non-OSI, field-of-use-restricted obligation into an opt-in plugin — toxic. Since
+   we reimplement the *pattern* (well-known prior art: SQLite + FTS5 + BM25 + hooks),
+   we copy no source and consume no API. The marketplace plugin remains a documented
+   opt-in companion only.
+3. **The name — resolve before merge.** "context-mode" already means schema-side
+   progressive disclosure in this repo (`docs/guide/usage.md:36,61`, `CORE.md:11-13`).
+   **Recommendation:** keep both under one "context-mode" umbrella with
+   "schema-side"/"output-side" qualifiers (rather than a rename that breaks
+   `develop.reference` muscle memory). Confirm `name="context"` does not shadow the
+   existing doc term in `search` results. Resolve in the new disambiguation doc.
+4. **Local HTTP port policy — RESOLVED: file-direct, no port.** `/ctx-insight` reads
+   the SessionDB file directly; no listener, no egress. This **diverges from
+   upstream's local web-UI `/ctx-insight`** by design — the `skills/ctx-insight`
+   surface is our own reader, not a bridge to context-mode's UI. No Claude-Code hook
+   constraint requires HTTP (hooks are stdin/stdout).
+5. **Real token numbers + threshold value — hard gate (a Done-When item).** The
+   Before/After in `## Design` and the PostToolUse threshold are UNMEASURED
+   placeholders. Needs a counted run (tokenizer over the actual `ToolResult` JSON for
+   each step) before the doc states a percentage or pins the threshold. Prior-art
+   thresholds disagree (context-mode 5 KB; Plan/108 ">2 KB"; Plan/114 50 KB /
+   2,000-line / 1,000-token-min) — cite the chosen value, do not assert it.
+6. **PreToolUse read-cache (deferred).** Plan/114 (`read-cache-delta-mode`) proposes
+   a `difflib.unified_diff` read-cache on `PreToolUse` for repeated file reads — a
+   standalone 2-session spec. A separate concern from the output-index; split into a
+   follow-up rather than expanding this one.
+7. **Manifest staleness — RESOLVED: mtime-gated at `SessionStart`** (matching
+   Plan/111's sha256/mtime drift guard), with a lazy first-`search` rebuild fallback
+   since `SessionStart` here only attaches the DB.
+8. **Snapshot/restore (`PreCompact`→`SessionStart`) — deferred.** The checkpoint
+   pattern (Plan/120: `pick_richest`, decision regex, ≤2 KB checkpoint,
+   `compose_digest`) is out of scope; this spec ships no `PreCompact` handler and
+   does not restore checkpoints. A follow-up adopts Plan/120's depth honestly rather
+   than half-implementing it here.
+9. **Verb naming `read` vs `invoke` — RESOLVED: `read`.** The third triad verb is
+   `read` (auto-wires to `capability_context_read`), matching the document-side
+   prior-art triad `context_search`/`context_describe`/`context_read` (Plan/112).
+   "invoke" read like *executing* something; "read" is the term the document-side
+   prior art settled on. Intentional divergence from the tool-side triad's `_invoke`
+   (Plan/104), noted so it is not mistaken for an accident.
 
 ## Evidence
 
