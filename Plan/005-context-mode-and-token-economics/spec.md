@@ -457,15 +457,29 @@ the same measured trace that backs the token numbers — not picked from memory.
   (confirmed by `ls`; the engine has no `PostToolUse` integration).
 - Existing "context-mode" meaning (the collision): `docs/guide/usage.md:36,61`,
   `docs/vision/CORE.md:11-13`, `docs/guide/concepts.md:74`.
-- Envelope deliberately deferred (so Spec 001 must land it):
-  `docs/vision/specs/capability-base.md:87-91`; opt-in note in
-  `docs/EXTENSION-PLAN.md:73-74`.
+- Spec 001 envelope field is **`data`** (the wire shape this spec consumes):
+  `agency/Plan/001-toolresult-and-typed-errors/spec.md:90-93` (`ToolResult.data`),
+  `:209-216` (`to_dict()` emits `{ok, data, warnings, next_suggested_tools,
+  error}`). The legacy `result` key is what `_wire` strips today
+  (`agency/engine.py:73`; `develop.py:124,145` still emit `{"result": …}`).
+- 001's critical-path Open Q-2 (envelope surfacing at `_wire`):
+  `agency/Plan/001…/spec.md:359-366`.
+- Verified live context-mode hook contract (WebFetched 2026-05-27,
+  https://github.com/mksglu/context-mode): `PreToolUse`=sandbox routing,
+  `PostToolUse`=capture events, `UserPromptSubmit`=capture user decisions,
+  `PreCompact`=≤2 KB snapshot, `SessionStart`=restore after compaction/resume;
+  ELv2; **23 event categories**; 5 KB intent-driven routing threshold.
+- Snapshot/restore depth lives in a whole separate spec: `the-agency-system`
+  Plan/120 `smart-compaction-checkpoints` (`pick_richest`, decision regex,
+  `compose_digest`, ≤8 KB checkpoint cap).
 - Self-registration + auto-wire seam this capability rides:
   `agency/engine.py:48-52` (`discover()` + register/extend), `engine.py:61-89`
   (`_wire`), `engine.py:55-56` (injector seam for boundary objects).
-- The exemplar to match/extend for THIS tree: `the-agency-system` Plan/108
-  (5-hook contract, `/ctx-insight`, graceful-offline, multi-writer SessionDB ADR);
-  triad shape from research `code-context-mode/SPEC.md:39-47` and
-  `capability-specs/specs/context-mode.md`.
-- `_ingest.md` ledger (glanced): research `code-context-mode/_ingest.md:25-32`
-  enumerates the context-mode/FTS5/hook/triad sources.
+- Plan/112 document-triad verb naming (`context_search`/`context_describe`/
+  `context_read`): the source of the `read` verb choice.
+- The exemplar to extend for THIS tree: `the-agency-system` Plan/108
+  (hook contract, `/ctx-insight`, graceful-offline). NOTE 108's own readings are
+  partly stale vs the live repo — it asserts "26 event categories" where the live
+  repo says 23, and the hook *semantics* above supersede 108's. This spec adopts
+  only the `PostToolUse`-capture + `SessionStart`-attach slice (no event taxonomy:
+  agency has no Spec 100 SessionLog to bridge into).
