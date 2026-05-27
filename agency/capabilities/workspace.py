@@ -26,6 +26,9 @@ class WorkspaceCapability(CapabilityBase):
     def isolate(self, vcs, branch: str, base: str = "main") -> dict:
         "Create an isolated git worktree on a fresh branch off `base`; record the Workspace."
         wt = (vcs or GitClient()).worktree(branch=branch, base=base)
+        if not wt.get("ok", True):                             # don't record a phantom worktree
+            return {"result": {"error": "worktree creation failed", "branch": branch,
+                               "detail": wt.get("detail", "")}}
         w = self.ctx.record("Workspace", {"path": wt["path"], "branch": wt["branch"], "base": base})
         self.ctx.link(w, self.ctx.intent_id, "SERVES")
         return {"result": {"workspace": w, "path": wt["path"], "branch": wt["branch"], "base": base}}

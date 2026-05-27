@@ -32,8 +32,11 @@ class GitClient:
 
     def worktree(self, branch: str, base: str) -> dict:
         path = os.path.abspath(os.path.join("..", f"wt-{branch.replace('/', '-')}"))
-        self._git("worktree", "add", "-b", branch, path, base)
-        return {"path": path, "branch": branch, "base": base}
+        r = self._git("worktree", "add", "-b", branch, path, base)
+        # signal failure (e.g. branch already exists) so callers don't record a
+        # Workspace for a worktree that was never created.
+        return {"path": path, "branch": branch, "base": base, "ok": r.returncode == 0,
+                "detail": (r.stdout + r.stderr).strip()}
 
     def run(self, command: str, cwd: str) -> dict:
         # the operator-provided verification command; split (no shell) to avoid injection
@@ -41,10 +44,14 @@ class GitClient:
         return {"returncode": p.returncode, "output": (p.stdout + p.stderr)}
 
     def state(self, branch: str, base: str) -> dict:
-        ahead = self._git("rev-list", "--count", f"{base}..{branch}").stdout.strip()
-        behind = self._git("rev-list", "--count", f"{branch}..{base}").stdout.strip()
+        a = self._git("rev-list", "--count", f"{base}..{branch}")
+        b = self._git("rev-list", "--count", f"{branch}..{base}")
+        if a.returncode or b.returncode:                       # invalid ref -> surface, don't fake 0/0
+            return {"ahead": 0, "behind": 0, "dirty": False, "ok": False,
+                    "detail": (a.stderr + b.stderr).strip()}
         dirty = bool(self._git("status", "--porcelain").stdout.strip())
-        return {"ahead": int(ahead or 0), "behind": int(behind or 0), "dirty": dirty}
+        return {"ahead": int(a.stdout.strip() or 0), "behind": int(b.stdout.strip() or 0),
+                "dirty": dirty, "ok": True}
 
     def finish(self, branch: str, action: str, base: str) -> dict:
         if action == "merge":

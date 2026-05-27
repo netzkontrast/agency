@@ -78,13 +78,15 @@ class StubVCS:
     """Boundary stand-in for git/gh (deterministic tests). The default backend
     (`GitClient` -> real `git`/`gh` subprocesses) is what the engine uses in
     production; no test ever touches a real repository."""
-    def __init__(self, returncode: int = 0, ahead: int = 2, behind: int = 0, dirty: bool = False):
+    def __init__(self, returncode: int = 0, ahead: int = 2, behind: int = 0, dirty: bool = False,
+                 worktree_ok: bool = True):
         self._rc, self._ahead, self._behind, self._dirty = returncode, ahead, behind, dirty
+        self._worktree_ok = worktree_ok
         self.calls: list = []
 
     def worktree(self, branch: str, base: str) -> dict:
         self.calls.append(("worktree", branch, base))
-        return {"path": f"/tmp/wt-{branch}", "branch": branch, "base": base}
+        return {"path": f"/tmp/wt-{branch}", "branch": branch, "base": base, "ok": self._worktree_ok}
 
     def run(self, command: str, cwd: str) -> dict:
         self.calls.append(("run", command, cwd))
@@ -1210,6 +1212,18 @@ def test_workspace_baseline_rejects_unknown_workspace():
     r = e.registry.invoke(e.memory, iid, "workspace", "baseline",
                           workspace="workspace:does-not-exist", command="pytest -q")[0]
     assert "error" in r["result"]
+    e.memory.close()
+
+
+def test_workspace_isolate_fails_when_worktree_creation_fails():
+    """isolate does not record a Workspace when the VCS reports the worktree could
+    not be created (e.g. the branch already exists), so no phantom worktree leaks
+    into provenance."""
+    e = fresh(vcs_backend=StubVCS(worktree_ok=False))
+    iid = e.intent.capture("isolate", "fails", "ok")
+    r = e.registry.invoke(e.memory, iid, "workspace", "isolate", branch="dup", base="main")[0]
+    assert "error" in r["result"]
+    assert not e.memory.g.query("MATCH (w:Workspace) RETURN w")   # nothing recorded
     e.memory.close()
 
 
