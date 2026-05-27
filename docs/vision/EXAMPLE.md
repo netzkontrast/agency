@@ -10,7 +10,7 @@ summary: A worked walkthrough — "fix the failing auth test, via jules" — tra
 > **Status: illustrative.** This narrative traces the four concepts through a
 > Jules task. For a runnable, current example see
 > [`docs/examples/author_a_plugin.py`](../examples/author_a_plugin.py); the engine
-> and its 19/19 tests live in `agency/` + `tests/`. Tool names take the MCP form
+> and its 56 tests live in `agency/` + `tests/`. Tool names take the MCP form
 > `capability_<capability>_<verb>`.
 
 The task: *fix the failing auth test*, delegated to the `jules` async-coding

@@ -101,7 +101,7 @@ Structure-first. Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool
 names `<concept>_<capability>_<verb>` (underscores, ≤64, no dots; the client
 injects `mcp__`).
 
-## Status: the installable `agency` plugin proves it (19/19 green, `agency/`)
+## Status: the installable `agency` plugin proves it (56 passing, `agency/`)
 
 v0.1 ships as an installable Claude Code plugin (this repo).
 Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:

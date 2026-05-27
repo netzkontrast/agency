@@ -41,7 +41,7 @@ to v4 (Intent / Capability / Lifecycle / Memory).
 - **FastMCP tool registration is strict.** Bind tool name and function as closure
   defaults in the wrapper rather than passing `**kwargs`. Exercise the real boot
   path in tests — an empty-cwd fixture can hide a broken registration loop. The
-  seed's `engine.py` registers real `@mcp.tool` functions and is exercised by a
+  engine registers real `@mcp.tool` functions and is exercised by a
   real FastMCP `Client`.
 - **One store accessor / one graph.** A single graph (Memory) removes whole
   classes of dual-store drift bugs — there is no cache to re-sync. The engine runs a

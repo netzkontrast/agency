@@ -78,7 +78,7 @@ trusting completion (the silent-fail guard).
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-pytest -q                  # 19/19 green
+pytest -q                  # 56 passing
 python -m agency.install   # regenerate the plugin install (manifest + help skill + command)
 python docs/examples/author_a_plugin.py
 ```

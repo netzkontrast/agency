@@ -1,6 +1,6 @@
 # agency
 
-An **installable Claude Code plugin** and a running engine for the v4 core (see
+An **installable Claude Code plugin** and a running engine for its core model (see
 [`docs/vision/CORE.md`](docs/vision/CORE.md)) on the **real substrate** — `graphqlite` (SQLite +
 Cypher) + `fastmcp` (incl. the experimental code-mode transform). One bi-temporal
 provenance graph, four concepts (Intent · Capability · Lifecycle · Memory), and
@@ -10,6 +10,16 @@ bash CLI.
 > v0.1. It is early, but it is the real thing: capabilities self-register by
 > reflection, and the engine
 > **authors and validates its own plugin install**.
+
+## Documentation
+
+New here? Start with the human guides in [`docs/`](docs/README.md):
+[getting-started](docs/getting-started.md) ·
+[concepts](docs/guide/concepts.md) ·
+[usage](docs/guide/usage.md) ·
+[capabilities](docs/guide/capabilities.md) ·
+[extending](docs/guide/extending.md). The authoritative design canon is
+[`docs/vision/`](docs/vision/CORE.md).
 
 ## Install (Claude Code)
 
@@ -30,7 +40,7 @@ points here), or regenerate the install after adding capabilities:
 python -m agency.install            # rewrites the three files from the live registry
 ```
 
-## What it proves (`tests/test_agency.py`, 19/19 green)
+## What it proves (`tests/test_agency.py`, 56 passing)
 
 1. **The moat — cross-concern provenance is one graph traversal.**
    `Memory.provenance(intent)` returns, in one Cypher walk, every action that
@@ -105,10 +115,15 @@ pytest -q
 | `agency/lifecycle.py` | **Lifecycle** — `open·move·complete·status`; A2A-aligned states; gates |
 | `agency/capability.py` + `capabilities/` | **Capability** — open verbs, role-tagged `act·transform·effect`; **discovered by reflection** |
 | `agency/capabilities/plugin.py` | the **plugin-development** capability (skill creator + plugin authoring) |
+| `agency/capabilities/skill_generator.py` | the **skill_generator** capability — author + lint into one deploy-ready skill |
+| `agency/capabilities/develop.py` | the **develop** capability — dev-workflow disciplines (brainstorm · plan · tdd · debug · verify · spec-panel · review · execute) as walkable skills, + `reference` |
+| `agency/capabilities/delegate.py` | the **delegate** capability — agent orchestration (fan-out + quota + join), `jules` as first driver |
+| `agency/capabilities/subagent.py` | the **subagent** capability — subagent-driven development (dispatch + two-stage gated review) |
+| `agency/capabilities/gate.py` | the **gate** capability — a reusable hard-gate predicate (pass / block + evidence) |
+| `agency/capabilities/workspace.py` + `branch.py` | the **workspace** / **branch** capabilities — isolate a worktree, baseline, and finish a branch (over an injected VCS boundary) |
 | `agency/capabilities/jules.py` | the **jules** agent capability (real remote async sessions) |
 | `agency/capabilities/reflect.py` | the **reflect** capability (durable cross-session memory) |
-| `agency/capabilities/delegate.py` | the **delegate** capability — agent orchestration (fan-out + quota + join), `jules` as first driver |
-| `agency/capabilities/develop.py` | the **develop** capability — dev-workflow disciplines (brainstorm · plan · tdd · debug · verify · spec-panel · review) as walkable skills |
+| `examples/music.py` | an **example** out-of-tree domain capability (album conceptualizer), loaded via `Engine(extra_capabilities=…)` |
 | `agency/templates.py` | **Templates** — prestructured documents (manifest · SKILL.md · command · step-doc) |
 | `agency/ontology.py` | the strict ontology + skill schemas |
 | `agency/skill.py` | the micro-step skill walker (progressive disclosure + hard gate) |

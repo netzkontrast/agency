@@ -41,8 +41,10 @@ Forward work is tracked in [`../ROADMAP.md`](../ROADMAP.md).
 ## Scope
 
 The canon DOCUMENTS the full four-concept model. **v0.1** (the `agency/` package,
-19/19 green) ships the engine, three capabilities (`plugin` / `jules` / `reflect`),
-reflection-based self-registration, the extensible ontology, and the self-hosted
-install — proving the moat (cross-concern provenance in one traversal), code-mode
-tool-chaining, and gate/elicitation. Capabilities beyond those are specced — see
+56 passing) ships the engine, ten core capabilities (`plugin` · `skill_generator` ·
+`develop` · `delegate` · `subagent` · `gate` · `workspace` · `branch` · `jules` ·
+`reflect`), reflection-based self-registration, the extensible ontology, and the
+self-hosted install — proving the moat (cross-concern provenance in one traversal),
+code-mode tool-chaining, and gate/elicitation. Domain capabilities load as example
+extensions (`examples/`). Further capabilities are specced — see
 [CAPABILITY-CLUSTERS.md](CAPABILITY-CLUSTERS.md).

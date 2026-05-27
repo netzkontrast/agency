@@ -118,13 +118,15 @@ The installable plugin proves the moat and falsifies the risks: it
 records an Intent, opens an agent Lifecycle, runs two genuinely different
 capabilities (a `transform` and an agent), passes a gate via `elicit`, chains
 tools in code-mode (one delta out), and answers the cross-concern provenance
-query end-to-end. 19/19 green on `graphqlite` + `fastmcp`. See the `agency/`
+query end-to-end. 56 passing on `graphqlite` + `fastmcp`. See the `agency/`
 package and `tests/`.
 
 ## Scope
 
 The canon DOCUMENTS the full four-concept model. **v0.1** (the `agency/` package,
-19/19 green) ships the engine, the `plugin` / `jules` / `reflect` capabilities, the
-reflection-based self-registration, the extensible ontology, and the self-hosted
-install. Capabilities beyond those are specced — see
+56 passing) ships the engine, ten core capabilities (`plugin` · `skill_generator` ·
+`develop` · `delegate` · `subagent` · `gate` · `workspace` · `branch` · `jules` ·
+`reflect`), the reflection-based self-registration, the extensible ontology, and the
+self-hosted install; domain capabilities load as example extensions (`examples/`).
+Further capabilities are specced — see
 [CAPABILITY-CLUSTERS.md](CAPABILITY-CLUSTERS.md).

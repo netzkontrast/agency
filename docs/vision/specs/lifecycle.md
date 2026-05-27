@@ -28,7 +28,7 @@ submitted · working · input-required · completed · failed · canceled
 States mirror the A2A task model. **`COMPLETED ≠ done`** — a state of
 `completed` means "idle, awaiting input," not "work done and pushed."
 
-## Interface (seed shape)
+## Interface
 
 ```
 open(intent_id, agent=None) -> Lifecycle node (state: working)   # SERVES intent; DISPATCHED_TO agent
