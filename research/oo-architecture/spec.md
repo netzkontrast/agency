@@ -36,7 +36,7 @@ The current implementation of the PR1 `agency` engine exposes an excellent exter
 - Boundaries like `VCSBackend` do not use a common protocol.
 - `Skill` and `Phase` are built heavily on loosely typed dictionaries (`agency/skill.py:40`).
 
-As synthesized from the robust architecture in `the-agency-system` (specifically `vendor/the-agency-system/Plan/decisions/0005-shared-toolresult-envelope.md:1`), unifying tool outputs allows strict token-budget checks and generic loop recovery. Further, `superclaude-framework/KNOWLEDGE.md` metrics indicate that explicit typing and pre-execution checks (PM Agent ROI) saves 25-250x tokens. Formalizing `Phase` classes over nested dictionaries enables dynamic validation to catch mistakes before invoking LLM tasks. Finally, examining `bitwize-music` pipeline orchestrations confirms that a formalized `DriverRegistry` allows capability drivers to be scaled as independent modules.
+As synthesized from the robust architecture in `the-agency-system` (specifically `vendor/the-agency-system/Plan/decisions/0005-shared-toolresult-envelope.md:1`), unifying tool outputs allows strict token-budget checks and generic loop recovery. Further, `superclaude-framework/KNOWLEDGE.md` metrics indicate that explicit typing and pre-execution checks (PM Agent ROI) saves 25-250x tokens. Formalizing `Phase` classes over nested dictionaries enables dynamic validation to catch mistakes before invoking LLM tasks. Finally, examining external registry systems confirms that a formalized `DriverRegistry` allows capability drivers to be scaled as independent modules.
 
 ## Done When
 
@@ -68,10 +68,11 @@ git clone --depth=1 --branch=v0.91.0 https://github.com/bitwize-music-studio/cla
 - `agency/skill.py`: Deprecate dict walker, enforce `Skill` and `Phase` dataclass wrappers.
 - `agency/capabilities/delegate.py`: Update to use generic `DriverRegistry` from driver protocol.
 - `agency/engine.py`: Wrap native internal execution calls in `ToolResult`.
+- `agency/capabilities/_vcs.py`: Refactor boundary bindings.
 
 **Added Deliverables:**
-- `research/oo-architecture/FINDINGS.md`: Critique document.
-- `research/oo-architecture/PROPOSAL.md`: Redesign models mapping specific Python structs and Before/After examples.
+- `research/oo-architecture/FINDINGS.md`: Critique document and pre-mortem.
+- `research/oo-architecture/PROPOSAL.md`: Redesign models mapping specific Python structs and Before/After examples for ToolResult, Boundary/Driver, Skill/Phase, and TypedError.
 
 ## Evidence
 
@@ -85,6 +86,6 @@ git clone --depth=1 --branch=v0.91.0 https://github.com/bitwize-music-studio/cla
 
 ## Self-Review
 
-1. **Coverage:** Exhaustively mapped the full extent of PR1 repository (88/88 files) and newly onboarded ~1420 files from external `the-agency-system`, `superpowers-marketplace`, `superclaude-framework`, `superclaude-plugin`, and `bitwize-music` into the ingestion ledger using a comprehensive script. Included `FINDINGS.md` and `PROPOSAL.md` as explicit independent deliverables natively integrated into the specification path.
+1. **Coverage:** Exhaustively mapped the full extent of PR1 repository (88/88 files) and newly onboarded ~1420 files from external `the-agency-system`, `superpowers-marketplace`, `superclaude-framework`, `superclaude-plugin`, and `bitwize-music` into the ingestion ledger using a comprehensive script. Included `FINDINGS.md` and `PROPOSAL.md` as explicit independent deliverables.
 2. **Residual risk / unknowns:** The migration impact of turning dictionary phases in `agency/skill.py` into formal objects may require retrofitting several JSON manifests and documentation tests.
-3. **Method reflection:** Emulating the robust architecture formats from `the-agency-system` transforms raw unstructured critique into concrete engineering plans with explicit boundaries and actionable implementation checklist. Scanning real skills proved the functional value of concrete OO pipelines.
+3. **Method reflection:** Emulating the robust architecture formats from `the-agency-system` transforms raw unstructured critique into concrete engineering plans with explicit boundaries and actionable implementation checklist.

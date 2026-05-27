@@ -65,6 +65,21 @@ class DriverRegistry:
         ...
 ```
 
+### Before/After
+**Before (`agency/capabilities/delegate.py`):**
+```python
+def dispatch(self, task: str) -> dict:
+    # Direct internal routing or hardcoded boundary calls
+    pass
+```
+
+**After:**
+```python
+def dispatch(self, task: str) -> ToolResult:
+    driver = self.ctx.drivers.get("remote-agent")
+    return driver.dispatch({"task": task})
+```
+
 **Migration Cost:** Low. Eliminates hardcoded `JulesBackend` and `VCSBackend` in favor of generic driver dependency injection across orchestrator tasks.
 
 ## 3. First-Class `Phase` / `Skill` Objects
@@ -130,6 +145,23 @@ class TypedError:
     code: ErrorType
     message: str
     context: Optional[dict] = None
+```
+
+### Before/After
+**Before (`agency/capabilities/plugin.py`):**
+```python
+def validate(self) -> dict:
+    if not valid:
+        raise Exception("Validation failed")
+    return {"passed": True}
+```
+
+**After:**
+```python
+def validate(self) -> ToolResult:
+    if not valid:
+        return ToolResult(ok=False, error=TypedError(ErrorType.VALIDATION_FAILED, "Missing fields"))
+    return ToolResult(ok=True)
 ```
 
 **Migration Cost:** Moderate. Will allow programmatic Engine loops to halt explicitly on `GATE_FAILED` without arbitrary `try/catch` heuristics.
