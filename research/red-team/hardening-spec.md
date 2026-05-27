@@ -1,0 +1,661 @@
+---
+spec_id: 150
+slug: red-team-hardening
+status: ready
+owner: jules
+depends_on: []
+affects:
+  - agency/memory.py
+  - agency/capabilities/_jules_api.py
+  - agency/capabilities/jules.py
+  - agency/engine.py
+source-repos:
+  - url: https://github.com/netzkontrast/the-agency-system
+    ref: master
+  - url: https://github.com/obra/superpowers-marketplace
+    ref: main
+  - url: https://github.com/SuperClaude-Org/SuperClaude_Framework
+    ref: default
+  - url: https://github.com/SuperClaude-Org/SuperClaude_Plugin
+    ref: default
+  - url: https://github.com/bitwize-music-studio/claude-ai-music-skills
+    ref: v0.91.0
+estimated_jules_sessions: 2
+domain: core
+wave: 1
+---
+
+# PR1 Hardening Spec
+
+> **Status: ready.** Proposed fixes for the risks identified in the red-team analysis (`research/red-team/FINDINGS.md`).
+
+## Why
+
+The Agency FastMCP plugin PR1 implements the core four-concept model over a bi-temporal graph (`agency/memory.py`). A red-team review revealed four architectural risks:
+1. **Code-mode sandbox escape:** The `CodeMode()` transform in `agency/engine.py` executes arbitrary Python. If an attacker can access sensitive environment variables (e.g. `JULES_API_KEY`) before they are cleared, or directly import `sqlite3` to modify the graph without ontology validation, the security boundary fails.
+2. **Single-graph scaling cliff:** `Memory._max_persisted_tick` in `agency/memory.py` uses unbounded `MATCH` queries to scan every node and edge. As graph size grows, the O(N) scan linearly degrades the CLI's boot performance.
+3. **Provenance trust gap:** `jules.verify` (`agency/capabilities/jules.py`) accepts a `branch_on_remote` boolean from the caller instead of independently verifying it via the `VCSBackend`. This violates the principle established in `Plan/JULES_PROTOCOL.md` §8 that completion cannot be trusted without remote evidence.
+4. **Jules API pagination cap:** `_paginate` in `agency/capabilities/_jules_api.py` hardcodes `max_pages=10`, blocking users with >1000 repositories from correctly resolving their github sources.
+
+Furthermore, ingestion of the referenced vendor plugins (bitwize-music, SuperClaude, and superpowers) highlights that relying strictly on the unified MCP surface requires every tool and script in these domains to be correctly mapped and registered. The `hardening-spec.md` establishes the baseline fixes, while subsequent specs will need to address the structural mapping of the ~90 tools in bitwize-music (e.g. `get_streaming_urls`, `list_skills`, `check_explicit_content`, `db_init`, `analyze_audio`), and the extensive references, config, and script tooling inside SuperClaude and superpowers.
+
+## Done When
+
+- [ ] `agency/memory.py` implements a fast O(1) path for `_max_persisted_tick`, either by using an aggregation query or maintaining a `_Metadata:Clock` node.
+- [ ] `agency/capabilities/_jules_api.py` modifies the `_paginate` function to support up to 1000 pages instead of 10.
+- [ ] `agency/capabilities/jules.py`'s `verify` verb requires a `branch` string instead of a `branch_on_remote` boolean, and uses the injected `vcs` object to run `git ls-remote` (or equivalent) to deterministically check the remote.
+- [ ] `agency/engine.py` or the CLI initialization path securely removes `JULES_API_KEY` from `os.environ` after capturing it in memory, mitigating exposure to scripts running in the code-mode sandbox.
+
+
+### Bitwize-Music Tools
+
+- **`analyze_one(data, rate)`**: No description provided.
+- **`atomic_write_text(path, content, encoding)`**: Write *content* to *path* atomically.
+- **`get_plugin_version()`**: Return the plugin version string from .claude-plugin/plugin.json.
+- **`is_album_released(album_slug)`**: Return True when the album's cached status is ``Released``.
+- **`add_footer_to_pdf(input_path, output_path, footer_url, page_size_name)`**: Add a footer URL to every page of an existing PDF.
+- **`analyze_track(filepath)`**: Analyze a single track and return metrics.
+- **`apply_deesser(data, rate, freq, bandwidth, threshold_db, ratio)`**: Frequency-selective de-esser for sibilance reduction.
+- **`apply_eq(data, rate, freq, gain_db, q)`**: Apply parametric EQ (peaking filter) to audio data.
+- **`apply_fade_out(data, rate, duration, curve)`**: Apply a fade-out to the end of audio data.
+- **`apply_harmonic_excitation(data, rate, amount_db, freq_range, drive)`**: Add synthetic upper harmonics to ``data`` via saturate-hipass-diff-mix.
+- **`apply_high_shelf(data, rate, freq, gain_db)`**: Apply high shelf EQ for taming brightness/sibilance.
+- **`apply_highpass(data, rate, cutoff)`**: Apply Butterworth highpass filter for rumble removal.
+- **`apply_linear_phase_eq(data, rate, freq, gain_db, q, filter_type)`**: Apply linear-phase FIR EQ to audio data.
+- **`apply_low_shelf(data, rate, freq, gain_db, q)`**: Apply low shelf EQ for bass shaping.
+- **`apply_lowpass(data, rate, cutoff)`**: Apply Butterworth lowpass filter for dark/vintage character.
+- **`apply_midside_eq(data, rate, low_gain, low_freq, high_gain, high_freq, linear_phase)`**: Apply EQ to the side channel only for frequency-selective stereo management.
+- **`apply_multiband_compress(data, rate, low_crossover, high_crossover, low_ratio, mid_ratio, high_ratio, low_threshold, mid_threshold, high_threshold, attack_ms, release_ms)`**: 3-band multiband compressor using Linkwitz-Riley crossovers.
+- **`apply_pull_down_db(path)`**: Apply a scalar gain to *path* in-place.
+- **`apply_saturation(data, rate, drive)`**: Apply tanh soft saturation for harmonic warmth.
+- **`apply_stereo_width(data, rate, width, bass_mono_freq)`**: Adjust stereo width with optional low-frequency mono fold.
+- **`apply_sub_bass_exciter(data, rate, amount, freq)`**: Generate sub-bass harmonics for weight on large speakers and audibility on small ones.
+- **`apply_tilt_eq(data, rate, tilt_db, pivot_hz)`**: Apply a tilt EQ: low-shelf cut + high-shelf boost around *pivot_hz*.
+- **`apply_tpdf_dither(data, target_bits, seed)`**: Apply TPDF (Triangular Probability Density Function) dithering.
+- **`apply_transient_shaper(data, rate, attack_gain, sustain_gain, fast_attack_ms, slow_attack_ms)`**: Shape transients using dual-envelope detection.
+- **`auto(cls)`**: Disable colors if stdout is not a TTY.
+- **`auto_detect_cover_art(sheet_music_dir)`**: Auto-detect album art by walking up from the given directory.
+- **`batch_process_album(album_dir, artwork_path, output_dir, duration, style, artist_name, font_path, content_dir, jobs, color_hex, glow, text_color)`**: Process all audio files in an album directory.
+- **`build_config_section(config)`**: Build the config section of state.json.
+- **`build_correction_plan(classifications, analysis_results, anchor_index_1based, max_tilt_db)`**: Build a per-track correction plan for LUFS + spectral outliers.
+- **`build_delivery_targets(config)`**: Resolve effective mastering targets from config + preset + explicit args.
+- **`build_effective_preset()`**: Return an effective_preset bundle for the mastering pipeline.
+- **`build_signature(analysis_results)`**: Build per-track + album-level signature summary.
+- **`build_state(config, plugin_root)`**: Build complete state from scratch.
+- **`check_aac_intersample_clips(input_path)`**: Encode input WAV to AAC, decode, scan for inter-sample peaks.
+- **`check_claude_md(plugin_root, skills)`**: Check which skills are missing from CLAUDE.md.
+- **`check_db_deps()`**: Return error message if database deps missing, else None.
+- **`check_ffmpeg()`**: Verify ffmpeg is installed with showwaves filter.
+- **`check_ffmpeg(require_showwaves)`**: Verify ffmpeg is installed, optionally check for showwaves filter.
+- **`check_help_skill(plugin_root, skills)`**: Check which skills are missing from skills/help/SKILL.md.
+- **`classify_outliers(deltas, analysis_results, tolerances, anchor_index_1based)`**: Classify each track against the coherence tolerance bands.
+- **`cmd_cleanup(args)`**: Remove albums from cache that no longer exist on disk.
+- **`cmd_rebuild(args)`**: Full rebuild of state cache.
+- **`cmd_session(args)`**: Update session context in state.json.
+- **`cmd_show(args)`**: Pretty-print current state summary.
+- **`cmd_update(args)`**: Incremental update of state cache.
+- **`cmd_validate(args)`**: Validate state.json against schema.
+- **`compute_anchor_deltas(analysis_results, anchor_index_1based)`**: Compute per-track deltas from the anchor for every aggregate metric.
+- **`compute_overshoots(tracks)`**: Classify each track against the album-mode loudness ceiling.
+- **`compute_transitions(track_filenames)`**: Build one transition per adjacent pair using *default_transition*.
+- **`concatenate_with_crossfade(clip_paths, output_path, crossfade, clip_duration)`**: Concatenate clips with audio and video crossfades.
+- **`configure_file_logging(config)`**: Attach a RotatingFileHandler to the root logger if config enables it.
+- **`create_copyright_page(title, artist, year, page_size, website)`**: Create a copyright page PDF.
+- **`create_footer_overlay(page_size, footer_url)`**: Create a transparent overlay page with just a footer URL.
+- **`create_section_header(track_name, track_num, page_size)`**: Create a section header page for each track.
+- **`create_single_title_page(track_title, artist, page_size, cover_image, footer_url)`**: Create a title/cover page for an individual single PDF.
+- **`create_songbook(source_dir, output_path, title, artist, page_size_name, include_section_headers, year, cover_image, website, footer_url)`**: Create a complete songbook PDF.
+- **`create_title_page(title, artist, page_size, cover_image, website)`**: Create a title page PDF with optional cover image.
+- **`create_toc_page(tracks, page_size)`**: Create a table of contents page.
+- **`disable(cls)`**: Disable colors for non-TTY output.
+- **`discover_stems(track_dir)`**: Discover and categorize stem WAV files in a directory.
+- **`embed_wav_metadata(path)`**: Embed ID3v2.4 tags into a WAV file in-place.
+- **`enhance_stereo(data, rate, amount)`**: Adjust stereo width using mid-side processing.
+- **`export_pdf(xml_path, pdf_path, musescore_path, dry_run)`**: Export MusicXML to PDF using MuseScore.
+- **`extract_dominant_color(image_path)`**: Extract the dominant color from an image using PIL.
+- **`find_album_path(config, album_name, audio_root_override)`**: Find the album directory in audio_root.
+- **`find_anthemscore()`**: Detect AnthemScore based on OS
+- **`find_artwork(album_dir)`**: Find album artwork.
+- **`find_best_segment(audio_path, duration)`**: Find the most energetic segment by analyzing audio energy.
+- **`find_font()`**: Find an available system font for video text rendering.
+- **`find_mastered_dir(album_dir)`**: Find the mastered tracks directory.
+- **`find_musescore()`**: Find MuseScore executable based on OS
+- **`finish(self)`**: Ensure the progress bar ends with a newline.
+- **`fix_dynamic(data, rate, target_lufs, eq_settings, ceiling_db)`**: Core dynamic range fix: EQ → (compress → normalize → limit)×N.
+- **`fold_to_mono(data)`**: Downmix stereo to mono via simple mean — codebase convention.
+- **`format(self, record)`**: No description provided.
+- **`format_size(size_bytes)`**: Format file size in human-readable format.
+- **`generate_album_sampler(tracks_dir, artwork_path, output_path, clip_duration, crossfade, artist_name, font_path, titles, style, color_hex, glow, text_color)`**: Generate album sampler video.
+- **`generate_clip(audio_path, artwork_path, title, output_path, duration, start_time, color_hex, artist_name, font_path, style, glow, text_color)`**: Generate a single clip for one track.
+- **`generate_waveform_video(audio_path, artwork_path, title, output_path, duration, style, start_time, artist_name, font_path, color_hex, glow, text_color)`**: Generate promo video with waveform visualization.
+- **`gentle_compress(data, rate, threshold_db, ratio, attack_ms, release_ms)`**: Apply gentle dynamic compression using envelope following.
+- **`gentle_compress(data, threshold_db, ratio, attack_ms, release_ms, rate)`**: Apply gentle compression to reduce dynamic range.
+- **`get_all_skills(plugin_root)`**: Find all skills (directories under skills/ with SKILL.md).
+- **`get_analogous_colors(rgb)`**: Get two analogous colors (30 degrees on each side).
+- **`get_audio_duration(audio_path)`**: Get duration of audio file in seconds.
+- **`get_bucket_name(config)`**: Get bucket name from config.
+- **`get_complementary_color(rgb)`**: Get complementary color with boosted visibility.
+- **`get_config_mtime()`**: Get config file modification time.
+- **`get_connection(db_config)`**: Create a psycopg2 connection from config dict.
+- **`get_content_type(file_path)`**: Get MIME type for file.
+- **`get_db_config()`**: Read database config from ~/.bitwize-music/config.yaml.
+- **`get_files_to_upload(album_path, upload_type)`**: Get list of files to upload based on type.
+- **`get_footer_url_from_config()`**: Get the footer URL for PDFs from config.
+- **`get_pdf_page_count(pdf_path)`**: Get number of pages in a PDF.
+- **`get_s3_client(config)`**: Create S3 client based on provider configuration.
+- **`get_title_from_markdown(track_md_path)`**: Extract title from track markdown frontmatter.
+- **`get_track_title(filename)`**: Extract clean track title from filename.
+- **`get_wav_files(source)`**: Get list of WAV files from source (file or directory)
+- **`get_website_from_config()`**: Extract website URL from config (short display form, no protocol).
+- **`incremental_update(existing_state, config)`**: Incrementally update state, only re-parsing changed files.
+- **`limit_peaks(data, ceiling_db)`**: True peak limiter using 4x oversampled peak detection.
+- **`limit_peaks_lookahead(data, ceiling_db, lookahead_ms, release_ms, rate)`**: Look-ahead limiter with smooth gain reduction envelope.
+- **`load_config()`**: Load bitwize-music config file (required).
+- **`load_config(required, fallback)`**: Load ~/.bitwize-music/config.yaml.
+- **`load_genre_presets()`**: Load genre presets from YAML, merging built-in with user overrides.
+- **`load_mastering_config()`**: Return the resolved mastering config dict (defaults + user overrides).
+- **`load_mix_presets()`**: Load mix presets from YAML, merging built-in with user overrides.
+- **`load_tolerances(preset)`**: Return effective tolerance-band dict, merging preset on top of defaults.
+- **`main()`**: No description provided.
+- **`master_track(input_path, output_path, target_lufs, eq_settings, ceiling_db, fade_out, compress_ratio, preset, tilt_db)`**: Master a single track.
+- **`master_with_reference(target_path, reference_path, output_path)`**: Master a single track using a reference.
+- **`measure_true_peak(data, rate)`**: Measure true peak level using 4x oversampling per ITU-R BS.1770-4.
+- **`migrate_state(state)`**: Apply all needed migrations in sequence.
+- **`mix_track_full(input_path, output_path, genre, dry_run)`**: Full-mix fallback: process a stereo mix directly (no stems).
+- **`mix_track_stems(stem_paths, output_path, genre, dry_run, stem_output_dir, analyzer_recs)`**: Full stems pipeline: load stems, process each, remix, write output.
+- **`mono_fold_metrics(data, rate, thresholds)`**: Measure mono fold-down deltas.
+- **`non_silent_before(idx)`**: No description provided.
+- **`parse_album_readme(path)`**: Parse an album README.md into structured data.
+- **`parse_frontmatter(text)`**: Parse YAML frontmatter from markdown content.
+- **`parse_ideas_file(path)`**: Parse IDEAS.md into structured data.
+- **`parse_layout_yaml(markdown)`**: Extract and parse the YAML transitions block from a LAYOUT.md string.
+- **`parse_skill_file(path)`**: Parse a SKILL.md file into structured metadata.
+- **`parse_track_file(path)`**: Parse a track markdown file into structured data.
+- **`prepare_singles(source_dir, singles_dir, musescore, dry_run, xml_only, artist, cover_image, footer_url, page_size_name, title_map)`**: Prepare consumer-ready singles from source files.
+- **`prepare_xml(source_xml, singles_dir, title, dry_run, output_name)`**: Update <work-title> in MusicXML and write to singles/ with clean filename.
+- **`process_backing_vocals(data, rate, settings, report)`**: Process backing vocal stem: declick -> noise reduction -> presence boost -> high tame -> width -> compress -> sat -> lp.
+- **`process_bass(data, rate, settings, report)`**: Process bass stem: declick -> highpass -> mud cut -> compress -> sub-bass exciter -> sat.
+- **`process_brass(data, rate, settings, report)`**: Process brass stem: declick -> highpass -> mud cut -> presence -> high tame -> compress -> sat -> lp.
+- **`process_drums(data, rate, settings, report)`**: Process drum stem: click removal -> transient shape -> compress (fast attack) -> sat.
+- **`process_guitar(data, rate, settings, report)`**: Process guitar stem: declick -> highpass -> mud cut -> presence -> high tame -> width -> compress -> sat -> lp.
+- **`process_keyboard(data, rate, settings, report)`**: Process keyboard stem: declick -> highpass -> mud cut -> presence -> high tame -> width -> compress -> sat -> lp.
+- **`process_other(data, rate, settings, report)`**: Process 'other' stem (instruments, synths): declick -> noise reduction -> mud cut -> high tame -> lp.
+- **`process_percussion(data, rate, settings, report)`**: Process percussion stem: highpass -> click removal -> presence -> high tame -> width -> compress -> sat.
+- **`process_strings(data, rate, settings, report)`**: Process strings stem: declick -> highpass -> mud cut -> presence -> high tame -> width -> compress -> lp.
+- **`process_synth(data, rate, settings, report)`**: Process synth stem: declick -> highpass -> mid boost -> high tame -> width -> compress -> sat -> lp.
+- **`process_vocals(data, rate, settings, report)`**: Process vocal stem: declick -> noise reduction -> presence boost -> high tame -> compress -> sat -> lp.
+- **`process_woodwinds(data, rate, settings, report)`**: Process woodwinds stem: declick -> highpass -> mud cut -> presence -> high tame -> compress -> sat -> lp.
+- **`prune_archival_orphans(archival_dir, expected_names)`**: Remove files in ``archival_dir`` whose basename is not in ``expected_names``.
+- **`qc_track(filepath, checks, genre)`**: Run QC checks on a single audio track.
+- **`read_config()`**: Read ~/.bitwize-music/config.yaml
+- **`read_signature_file(audio_dir)`**: Load and validate ``ALBUM_SIGNATURE.yaml`` from ``audio_dir``.
+- **`read_state()`**: Read state from cache file.
+- **`reduce_noise(data, rate, strength)`**: Apply spectral gating noise reduction for AI artifact cleanup.
+- **`remix_stems(stems_dict, gains_dict)`**: Combine processed stems into a stereo mix.
+- **`remove_clicks(data, rate, threshold, peak_ratio, repair, window_ms)`**: Detect and remove clicks/pops via interpolation.
+- **`render_aac_preview(input_wav, output_m4a, bitrate_kbps)`**: Encode a WAV to AAC/M4A at the given bitrate using ffmpeg.
+- **`render_adm_validation_markdown(album_slug, results)`**: Render ADM_VALIDATION.md content for the mastered album.
+- **`render_layout_markdown(album_slug, transitions)`**: Render LAYOUT.md content as a markdown string.
+- **`render_mono_fold_markdown(track_name, metrics, sample_filename)`**: Produce the MONO_FOLD.md content for a single track.
+- **`resolve_album_path(album_name)`**: Resolve album name to audio path using config
+- **`resolve_overrides_dir(config)`**: Resolve the overrides directory path.
+- **`resolve_path(path_type, album, artist, genre, config)`**: Resolve a path for the given type and album.
+- **`resolve_path(raw)`**: Resolve a config path, expanding ~ and making absolute.
+- **`resolve_source_dir(given_path)`**: Resolve the source directory, handling backward compatibility.
+- **`resolve_tracks_dir(album, genre, artist, config)`**: Resolve the tracks/ directory for an album.
+- **`retry_upload(s3_client, bucket, file_path, s3_key, public_read, dry_run, max_retries)`**: Upload with exponential backoff retry.
+- **`rgb_to_hex(rgb)`**: Convert RGB tuple to hex string for ffmpeg.
+- **`sanitize_filename(title)`**: Remove characters invalid in filenames (Windows + macOS + Linux).
+- **`scan_albums(content_root, artist_name)`**: Scan all album READMEs and their tracks.
+- **`scan_ideas(config, content_root)`**: Scan IDEAS.md file.
+- **`scan_skills(plugin_root)`**: Scan all skill SKILL.md files and build skills index.
+- **`scan_tracks(album_dir)`**: Scan all track files in an album's tracks/ directory.
+- **`select_anchor(tracks, preset, override_index)`**: Select the anchor track for album mastering.
+- **`setup_logging(name, verbose, quiet, config)`**: Configure logging for a tool.
+- **`show_install_instructions(system)`**: Show OS-specific MuseScore install instructions
+- **`slug_to_title(slug)`**: Convert '01-ocean-of-tears' → 'Ocean of Tears'.
+- **`soft_clip(data, threshold)`**: Soft clipping limiter to prevent harsh digital clipping.
+- **`strip_track_number(name)`**: Remove track number prefix from filename/title.
+- **`transcribe_track(anthemscore, wav_file, output_dir, args)`**: Transcribe a single WAV file
+- **`update(self, item_name)`**: Advance the progress bar by one step.
+- **`upload_file(s3_client, bucket, file_path, s3_key, public_read, dry_run)`**: Upload a single file to S3/R2.
+- **`validate_overrides(overrides_dir)`**: Validate override files in the given directory.
+- **`validate_state(state)`**: Validate state against expected schema.
+- **`write_signature_file(audio_dir, payload)`**: Write ``ALBUM_SIGNATURE.yaml`` atomically to ``audio_dir``.
+- **`write_state(state)`**: Write state to cache file atomically with file locking.
+
+
+### SuperClaude & Superpowers Framework Tools, Commands, and Skills
+
+- **`- SKILL.md (50 tokens)`** (from `skills-migration-test.md`): Documented capability/command.
+- **`- Verify skill loads on-demand`** (from `skills-migration-test.md`): Documented capability/command.
+- **`/sc:command-name`** (from `contributing-code.md`): Documented capability/command.
+- **`/sc:command-name`** (from `technical-architecture.md`): Documented capability/command.
+- **`/sc:help - Command Reference Documentation`** (from `help.md`): Documented capability/command.
+- **`/sc:research - Deep Research Command`** (from `research.md`): Documented capability/command.
+- **`/sc:sc:sc:help - Command Reference Documentation`** (from `sc-help.md`): Documented capability/command.
+- **`/sc:sc:sc:research - Deep Research Command`** (from `sc-research.md`): Documented capability/command.
+- **`1. Revert slash command`** (from `pm-skills-migration-results.md`): Documented capability/command.
+- **`1. Uninstall plugin`** (from `BACKUP_GUIDE.md`): Documented capability/command.
+- **`1. Uninstall plugin`** (from `README.md`): Documented capability/command.
+- **`1. Uninstall the plugin`** (from `BACKUP_GUIDE.md`): Documented capability/command.
+- **`2. Identify backup file (format: plugin.json.YYYYMMDD_HHMMSS.backup)`** (from `SYNC_SYSTEM.md`): Documented capability/command.
+- **`2. Pytest plugin registered`** (from `PHASE_1_COMPLETE.md`): Documented capability/command.
+- **`2. Remove Skills directory`** (from `pm-skills-migration-results.md`): Documented capability/command.
+- **`4. Reinstall plugin`** (from `BACKUP_GUIDE.md`): Documented capability/command.
+- **`@import commands/*.md`** (from `testing-debugging.md`): Documented capability/command.
+- **`CLI commands`** (from `PROJECT_INDEX.md`): Documented capability/command.
+- **`Check available commands`** (from `MIGRATION_GUIDE.md`): Documented capability/command.
+- **`Check if command file exists`** (from `testing-debugging.md`): Documented capability/command.
+- **`Check if plugin is installed`** (from `setup-mcp.md`): Documented capability/command.
+- **`Check if the plugin's MCP server configuration exists`** (from `verify-mcp.md`): Documented capability/command.
+- **`Check plugin installation`** (from `setup-mcp.md`): Documented capability/command.
+- **`Check plugin is installed`** (from `verify-mcp.md`): Documented capability/command.
+- **`Check plugin is loaded`** (from `BACKUP_GUIDE.md`): Documented capability/command.
+- **`Check plugin loaded`** (from `KNOWLEDGE.md`): Documented capability/command.
+- **`Check pytest plugin`** (from `MIGRATION_TO_CLEAN_ARCHITECTURE.md`): Documented capability/command.
+- **`Claude Code: Test commands`** (from `commands.md`): Documented capability/command.
+- **`Commands that trigger auto-activation`** (from `agents.md`): Documented capability/command.
+- **`Complete Python + Skills Migration Plan`** (from `complete-python-skills-migration.md`): Documented capability/command.
+- **`Confidence Check Skill`** (from `SKILL.md`): Documented capability/command.
+- **`Copy Python implementations to skills/`** (from `complete-python-skills-migration.md`): Documented capability/command.
+- **`Create SKILL.md for each`** (from `complete-python-skills-migration.md`): Documented capability/command.
+- **`Day 1-2: Basic commands`** (from `basic-examples.md`): Documented capability/command.
+- **`Default (no command needed - PM Agent handles all interactions)`** (from `pm.md`): Documented capability/command.
+- **`Default (no command needed - PM Agent handles all interactions)`** (from `sc-pm.md`): Documented capability/command.
+- **`Diagnose command issues`** (from `diagnostic-reference.md`): Documented capability/command.
+- **`Document installed plugins`** (from `BACKUP_GUIDE.md`): Documented capability/command.
+- **`Each command builds on previous context within the conversation`** (from `advanced-patterns.md`): Documented capability/command.
+- **`Example behavior: List of available commands`** (from `commands.md`): Documented capability/command.
+- **`Example: plugin.json.20260211_160000.backup`** (from `SYNC_SYSTEM.md`): Documented capability/command.
+- **`Expected: CLAUDE.md, FLAGS.md, RULES.md, agents/, commands/, modes/`** (from `testing-debugging.md`): Documented capability/command.
+- **`Follow-up commands for progression:`** (from `basic-examples.md`): Documented capability/command.
+- **`Heavy session (50 commands)`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Install all 30 commands`** (from `commands-list.md`): Documented capability/command.
+- **`Install all 30 commands`** (from `comprehensive-features.md`): Documented capability/command.
+- **`Install commands (installs all 30 slash commands)`** (from `README.md`): Documented capability/command.
+- **`Install plugin`** (from `BACKUP_GUIDE.md`): Documented capability/command.
+- **`Install the plugin`** (from `README.md`): Documented capability/command.
+- **`Light session (3 commands)`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`List installed commands`** (from `commands-list.md`): Documented capability/command.
+- **`List installed commands`** (from `windows-installation.md`): Documented capability/command.
+- **`Medium session (10 commands)`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Migration to Clean Plugin Architecture`** (from `MIGRATION_TO_CLEAN_ARCHITECTURE.md`): Documented capability/command.
+- **`Only if you want Skills`** (from `PR_STRATEGY.md`): Documented capability/command.
+- **`Open Claude Code and try these commands:`** (from `installation.md`): Documented capability/command.
+- **`Optional: Install PM Agent skill`** (from `MIGRATION_TO_CLEAN_ARCHITECTURE.md`): Documented capability/command.
+- **`Optional: Install Skills for auto-activation`** (from `PHASE_3_COMPLETE.md`): Documented capability/command.
+- **`Or use: /sc:command --no-mcp`** (from `troubleshooting.md`): Documented capability/command.
+- **`Or without tree command:`** (from `diagnostic-reference.md`): Documented capability/command.
+- **`PM Agent Plugin Performance Test`** (from `TEST_PLUGIN.md`): Documented capability/command.
+- **`PM Agent Skills Migration - Results`** (from `pm-skills-migration-results.md`): Documented capability/command.
+- **`Plugin Packaging`** (from `CLAUDE.md`): Documented capability/command.
+- **`Plugin auto-discovery確認`** (from `CONTEXT_WINDOW_ANALYSIS.md`): Documented capability/command.
+- **`Plugin: 109K tokens once, then zero cost`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Plugin: All commands work`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Plugin`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Quick Fix: Reduce scope or use simpler commands`** (from `modes.md`): Documented capability/command.
+- **`Reinstall commands component`** (from `testing-debugging.md`): Documented capability/command.
+- **`Reinstall plugin if needed`** (from `setup-mcp.md`): Documented capability/command.
+- **`Reinstall plugin if needed`** (from `verify-mcp.md`): Documented capability/command.
+- **`Report: Plugin vs MCP`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Result: pytest plugin + PM Agent core`** (from `PHASE_3_COMPLETE.md`): Documented capability/command.
+- **`Revert slash command`** (from `skills-migration-test.md`): Documented capability/command.
+- **`SC Commands Reference`** (from `commands.md`): Documented capability/command.
+- **`See all available commands`** (from `CLAUDE.md`): Documented capability/command.
+- **`See all commands`** (from `README.md`): Documented capability/command.
+- **`Should have 21 commands  `** (from `testing-debugging.md`): Documented capability/command.
+- **`Should show command metadata and instructions`** (from `testing-debugging.md`): Documented capability/command.
+- **`Skills Cleanup for Clean Architecture`** (from `SKILLS_CLEANUP.md`): Documented capability/command.
+- **`Skills Migration Test - PM Agent`** (from `skills-migration-test.md`): Documented capability/command.
+- **`Skills PM Agent (Upstream) - optional`** (from `PM_AGENT_COMPARISON.md`): Documented capability/command.
+- **`Skillsなし`** (from `PM_AGENT_COMPARISON.md`): Documented capability/command.
+- **`Start with command (auto-activation)`** (from `agents.md`): Documented capability/command.
+- **`Step 1: Use command with auto-activation`** (from `basic-examples.md`): Documented capability/command.
+- **`Strategic Analysis: Plugin vs MCP Gateway Architecture`** (from `STRATEGIC_ANALYSIS.md`): Documented capability/command.
+- **`SuperClaude Command Dispatcher`** (from `sc-sc.md`): Documented capability/command.
+- **`SuperClaude Command Dispatcher`** (from `sc.md`): Documented capability/command.
+- **`SuperClaude Commands Reference`** (from `commands-list.md`): Documented capability/command.
+- **`SuperClaude Commands`** (from `README.md`): Documented capability/command.
+- **`SuperClaude Commands`** (from `sc-README.md`): Documented capability/command.
+- **`SuperClaude Intelligent Command Recommender`** (from `recommend.md`): Documented capability/command.
+- **`SuperClaude Intelligent Command Recommender`** (from `sc-recommend.md`): Documented capability/command.
+- **`SuperClaude Plugin Installation Guide`** (from `PLUGIN_INSTALL.md`): Documented capability/command.
+- **`SuperClaude Plugin Performance Evidence`** (from `PERFORMANCE_EVIDENCE.md`): Documented capability/command.
+- **`SuperClaude Plugin Re-organization Plan`** (from `plugin-reorg.md`): Documented capability/command.
+- **`SuperClaude Plugin for Claude Code`** (from `README.md`): Documented capability/command.
+- **`SuperClaude Plugin`** (from `CLAUDE.md`): Documented capability/command.
+- **`SuperClaude pytest plugin auto-loads these fixtures:`** (from `PHASE_2_COMPLETE.md`): Documented capability/command.
+- **`Test basic /sc: command`** (from `commands.md`): Documented capability/command.
+- **`Test command help`** (from `commands.md`): Documented capability/command.
+- **`Test command transformation`** (from `SYNC_SYSTEM.md`): Documented capability/command.
+- **`Test plugin loaded`** (from `KNOWLEDGE.md`): Documented capability/command.
+- **`Test pytest plugin loading`** (from `PHASE_2_COMPLETE.md`): Documented capability/command.
+- **`These commands auto-activate relevant agents`** (from `agents.md`): Documented capability/command.
+- **`Time to first successful command`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Try all commands`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Updated to reference skill: pm`** (from `skills-migration-test.md`): Documented capability/command.
+- **`Use 50 different commands in one session`** (from `BIAS_ANALYSIS.md`): Documented capability/command.
+- **`Verify plugin loaded`** (from `MIGRATION_TO_CLEAN_ARCHITECTURE.md`): Documented capability/command.
+- **`Verify plugin loads`** (from `README.md`): Documented capability/command.
+- **`Verify pytest_plugin.py has fixture`** (from `KNOWLEDGE.md`): Documented capability/command.
+- **`View a command context`** (from `README.md`): Documented capability/command.
+- **`add_prefix(match)`**: No description provided.
+- **`allocate(self, amount)`**: Allocate tokens from budget
+- **`analyze_by_complexity(self, metrics)`**: Analyze metrics grouped by complexity level
+- **`analyze_by_task_type(self, metrics)`**: Analyze metrics grouped by task type
+- **`analyze_by_workflow(self, metrics)`**: Analyze metrics grouped by workflow variant
+- **`analyze_root_cause(self, task, failure)`**: Analyze root cause of failure
+- **`assess(self, context)`**: Assess confidence level (0.0 - 1.0)
+- **`backup_current(self)`**: Create backup of current plugin.json.
+- **`calculate_statistics(self, values)`**: Calculate statistical measures
+- **`calculate_token_savings(self, metrics)`**: Calculate token savings vs unlimited baseline
+- **`can_execute(self, completed_tasks)`**: Check if all dependencies are satisfied
+- **`check_against_past_mistakes(self, task)`**: Check if task is similar to past mistakes
+- **`check_docker_available()`**: Check if Docker is available and running.
+- **`check_mcp_server_installed(server_name)`**: Check if an MCP server is already installed.
+- **`check_prerequisites()`**: Check if required tools are available.
+- **`clean_name_attributes(content)`**: Remove 'name:' attributes from YAML frontmatter.
+- **`compare_variants(self, variant_a_id, variant_b_id, metric, lower_is_better)`**: Compare two workflow variants on a specific metric.
+- **`confidence_checker()`**: Fixture for pre-execution confidence checking
+- **`copy_directory(self, source_dir, dest_dir)`**: Copy directory contents as-is (no transformation).
+- **`copy_tree(src, dest)`**: No description provided.
+- **`correction_engine(tmp_path)`**: Create a SelfCorrectionEngine with temporary repo path
+- **`detect_failure(self, execution_result)`**: Detect if execution failed
+- **`determine_winner(self, variant_a_stats, variant_b_stats, p_value, metric, lower_is_better)`**: Determine winning variant based on statistics.
+- **`doctor(verbose)`**: Check SuperClaude installation health
+- **`engine_with_history(tmp_path)`**: Create engine with existing failure history
+- **`engine_with_mistakes(tmp_path)`**: Create a ReflectionEngine with past mistakes in memory
+- **`example_dependent_tasks()`**: Example: Tasks with dependencies
+- **`example_parallel_read()`**: Example: Parallel file reading
+- **`execute(self, plan)`**: Execute plan with parallel groups
+- **`extract_metric_values(self, metrics, metric)`**: Extract specific metric values from metrics list
+- **`failing()`**: No description provided.
+- **`failing_implementation()`**: Provide a failing implementation for self-check validation
+- **`failing_task()`**: No description provided.
+- **`filter_by_period(self, period)`**: Filter metrics by time period
+- **`find_project_root()`**: Find the project root directory by locating plugin.json.
+- **`fn()`**: No description provided.
+- **`format_report(self, passed, issues)`**: Format validation report
+- **`from_dict(cls, data)`**: Create from dict (does not mutate input)
+- **`generate(self, framework_version)`**: Generate plugin.json with command mappings.
+- **`generate_recommendation(self, winner, variant_a_stats, variant_b_stats, p_value)`**: Generate actionable recommendation
+- **`generate_report(self, period)`**: Generate comprehensive analysis report
+- **`get_prevention_rules(self)`**: Get all active prevention rules
+- **`get_recommendation(self, confidence)`**: Get recommended action based on confidence level
+- **`get_reflection_engine(repo_path)`**: Get or create reflection engine singleton
+- **`get_self_correction_engine(repo_path)`**: Get or create self-correction engine singleton
+- **`get_solution(self, error_info)`**: Get known solution for similar error
+- **`get_statistics(self)`**: Get reflexion pattern statistics
+- **`get_variant_metrics(self, workflow_id)`**: Get all metrics for a specific workflow variant
+- **`identify_best_workflows(self, metrics)`**: Identify best workflow for each task type
+- **`identify_inefficiencies(self, metrics)`**: Identify inefficient patterns
+- **`install(target, force, list_only)`**: Install SuperClaude commands to Claude Code
+- **`install_agents(target_path, force)`**: Install SuperClaude agent files to ~/.claude/agents/
+- **`install_airis_gateway(dry_run)`**: Install AIRIS MCP Gateway using Docker.
+- **`install_commands(target_path, force)`**: Install all SuperClaude commands to Claude Code
+- **`install_mcp_server(server_info, scope, dry_run)`**: Install a single MCP server using modern Claude Code API.
+- **`install_mcp_servers(selected_servers, scope, dry_run, use_gateway)`**: Install MCP servers for Claude Code.
+- **`install_skill(skill_name, target, force)`**: Install a SuperClaude skill to Claude Code
+- **`install_skill_command(skill_name, target_path, force)`**: Install a skill to target directory
+- **`intelligent_execute(task, operations, context, repo_path, auto_correct)`**: Intelligent Task Execution with Reflection, Parallelization, and Self-Correction
+- **`learn_and_prevent(self, task, failure, root_cause, fixed, fix_description)`**: Learn from failure and store prevention rules
+- **`learn_from_failure(task, failure, fixed, fix_description)`**: Learn from execution failure
+- **`list_available_agents()`**: List all available agent files
+- **`list_available_commands()`**: List all available commands
+- **`list_available_servers()`**: List all available MCP servers.
+- **`list_available_skills()`**: List all available skills
+- **`list_installed_commands()`**: List installed commands in ~/.claude/commands/sc/
+- **`load_metadata()`**: No description provided.
+- **`low_confidence_context()`**: Provide a context that should result in low confidence
+- **`main()`**: Main entry point.
+- **`main()`**: Main execution function.
+- **`main()`**: No description provided.
+- **`main()`**: SuperClaude - AI-enhanced development framework for Claude Code
+- **`make_task(name)`**: No description provided.
+- **`mcp(servers, list_only, scope, dry_run)`**: Install and manage MCP servers for Claude Code
+- **`merge(self, framework_mcp, plugin_mcp)`**: Merge MCP configurations with conflict detection.
+- **`parallel_file_operations(files, operation)`**: Execute operation on multiple files in parallel
+- **`perform_ttest(self, variant_a_values, variant_b_values)`**: Perform independent t-test between two variants.
+- **`plan(self, tasks)`**: Create execution plan with automatic parallelization
+- **`plugins/superclaude/commands/pm.md`** (from `skills-migration-test.md`): Documented capability/command.
+- **`pm_context(tmp_path)`**: Fixture providing PM Agent context for testing
+- **`process_commands_directory(commands_dir)`**: Process all command markdown files in directory.
+- **`prompt_for_api_key(server_name, env_var, description)`**: Prompt user for API key if needed.
+- **`pytest_collection_modifyitems(config, items)`**: Modify test collection to add automatic markers
+- **`pytest_configure(config)`**: Register SuperClaude plugin and custom markers
+- **`pytest_report_header(config)`**: Add SuperClaude version to pytest header
+- **`pytest_runtest_makereport(item, call)`**: Post-test hook for self-check and reflexion
+- **`pytest_runtest_setup(item)`**: Pre-test hook for confidence checking
+- **`quick_execute(operations)`**: Quick parallel execution without reflection
+- **`record_error(self, error_info)`**: Record error and solution for future learning
+- **`record_reflection(self, task, confidence, decision)`**: Record reflection results for future learning
+- **`reflect(self, task, context)`**: 3-Stage Reflection Process
+- **`reflect_before_execution(task, context)`**: Perform 3-stage reflection before task execution
+- **`reflection_engine(tmp_path)`**: Create a ReflectionEngine with temporary repo path
+- **`reflexion_pattern()`**: Fixture for reflexion error learning pattern
+- **`remaining(self)`**: Number of tokens still available.
+- **`remaining_tokens(self)`**: Backward compatible helper that mirrors the remaining property.
+- **`render_template(template_path, placeholders)`**: No description provided.
+- **`reset(self)`**: Reset used tokens counter
+- **`run_doctor(verbose)`**: Run SuperClaude health checks
+- **`run_tests()`**: Run all tests.
+- **`safe_execute(task, operation, context)`**: Safe single operation execution with reflection
+- **`sample_context()`**: Provide a sample context for confidence checking tests
+- **`sample_implementation()`**: Provide a sample implementation for self-check validation
+- **`self_check_protocol()`**: Fixture for post-implementation self-check protocol
+- **`setUp(self)`**: Set up test fixtures.
+- **`should_parallelize(items, threshold)`**: Auto-trigger for parallel execution
+- **`slow_task(n)`**: No description provided.
+- **`superclaude = "superclaude.pytest_plugin"`** (from `KNOWLEDGE.md`): Documented capability/command.
+- **`superclaude not listed in plugins`** (from `KNOWLEDGE.md`): Documented capability/command.
+- **`sync(self)`**: Execute full sync workflow.
+- **`sync_directory(self, source_dir, dest_dir, filename_prefix, transform_fn)`**: Sync directory with namespace prefix and transformation.
+- **`temp_memory_dir(tmp_path)`**: Create temporary memory directory structure for PM Agent tests
+- **`test_agent_name_already_prefixed(self)`**: Test agent with sc- prefix already doesn't get double-prefixed.
+- **`test_agent_name_transformation(self)`**: Test agent frontmatter name gets sc- prefix.
+- **`test_agent_without_name(self)`**: Test agent without name field remains unchanged.
+- **`test_all_expected_commands_available(self)`**: Test that all expected commands are available
+- **`test_all_fixtures_work_together(self, confidence_checker, self_check_protocol, reflexion_pattern, token_budget)`**: Test that all PM Agent fixtures can be used together
+- **`test_analyze_root_cause(self, correction_engine)`**: Should produce a RootCause with all fields populated
+- **`test_architecture_compliance_check(self)`**: Test architecture compliance validation
+- **`test_auto_markers_applied(self, request)`**: Test that auto-markers are applied based on test location
+- **`test_available_commands_format(self)`**: Test that available commands have expected format
+- **`test_budget_allocation_strategy(self)`**: Test token budget allocation strategy
+- **`test_categorize_dependency(self, correction_engine)`**: Dependency errors should be categorized correctly
+- **`test_categorize_logic(self, correction_engine)`**: Logic errors should be categorized correctly
+- **`test_categorize_type(self, correction_engine)`**: Type errors should be categorized correctly
+- **`test_categorize_unknown(self, correction_engine)`**: Uncategorizable errors should be 'unknown'
+- **`test_categorize_validation(self, correction_engine)`**: Validation errors should be categorized correctly
+- **`test_check_against_past_mistakes(self, engine_with_history)`**: Should find relevant past failures for similar task
+- **`test_check_against_past_mistakes_no_match(self, engine_with_history)`**: Unrelated task should have no relevant past failures
+- **`test_check_assumptions_verified(self)`**: Test assumptions verification
+- **`test_check_evidence_exists(self)`**: Test evidence requirement validation
+- **`test_check_requirements_met(self)`**: Test requirements validation
+- **`test_check_tests_passing_with_output(self)`**: Test that tests_passed requires actual output
+- **`test_clarity_specific_verbs_boost(self, reflection_engine)`**: Specific action verbs should boost clarity score
+- **`test_cli_integration()`**: Integration test: verify CLI can import and use install functions
+- **`test_command_cross_references(self)`**: Test cross-references to other commands get transformed.
+- **`test_command_header_pattern(self)`**: Test command header pattern matches various formats.
+- **`test_command_header_transformation(self)`**: Test command header gets sc: prefix.
+- **`test_command_link_references(self)`**: Test markdown link references get transformed.
+- **`test_command_mixed_references(self)`**: Test mixed command references in complex markdown.
+- **`test_command_ref_pattern_boundaries(self)`**: Test command reference pattern respects word boundaries.
+- **`test_complex_complexity(self)`**: Test token budget for complex tasks (features)
+- **`test_complexity_examples(self)`**: Test that complexity levels match documented examples
+- **`test_complexity_marker_complex(token_budget)`**: Test that complexity marker works with complex budget
+- **`test_complexity_marker_medium(token_budget)`**: Test that complexity marker works with medium budget
+- **`test_complexity_marker_simple(token_budget)`**: Test that complexity marker works with pytest plugin fixture
+- **`test_confidence_above_threshold(self, reflection_engine)`**: Confidence above 70% should allow execution
+- **`test_confidence_check_marker_integration(confidence_checker)`**: Test that confidence_check marker works with pytest plugin fixture
+- **`test_confidence_checker_fixture_available(self, confidence_checker)`**: Test that confidence_checker fixture is available
+- **`test_confidence_checks_recorded(self, sample_context)`**: Test that confidence checks are recorded in context
+- **`test_confidence_threshold(self, reflection_engine)`**: Confidence below 70% should block execution
+- **`test_default_complexity(self)`**: Test default complexity is medium
+- **`test_detect_failure_error(self, correction_engine)`**: Should detect 'error' status
+- **`test_detect_failure_failed(self, correction_engine)`**: Should detect 'failed' status
+- **`test_detect_failure_success(self, correction_engine)`**: Should not detect success as failure
+- **`test_detect_failure_unknown(self, correction_engine)`**: Should not detect unknown status as failure
+- **`test_detect_hallucinations_complete_with_failing_tests(self)`**: Test hallucination detection: claims complete despite failing tests
+- **`test_detect_hallucinations_complete_without_evidence(self)`**: Test hallucination detection: claims complete without evidence
+- **`test_detect_hallucinations_ignored_errors(self)`**: Test hallucination detection: ignored errors/warnings
+- **`test_detect_hallucinations_tests_without_output(self)`**: Test hallucination detection: claims tests pass without output
+- **`test_detect_hallucinations_uncertainty_language(self)`**: Test hallucination detection: uncertainty language
+- **`test_empty_framework_mcp(self)`**: Test merge with empty Framework MCP.
+- **`test_empty_plugin_mcp(self)`**: Test merge with empty Plugin MCP.
+- **`test_empty_target_directory_ok(self, tmp_path)`**: Test that installation works with empty target directory
+- **`test_error_learning_across_sessions(self)`**: Test that errors can be learned across sessions
+- **`test_error_pattern_matching(self)`**: Test error pattern matching functionality
+- **`test_execute_blocked_by_low_confidence(self, tmp_path)`**: Vague task should be blocked by reflection engine
+- **`test_execute_handles_failures(self)`**: Failed tasks should have None result and error set
+- **`test_execute_no_auto_correct(self, tmp_path)`**: Disabling auto_correct should skip self-correction phase
+- **`test_execute_parallel_speedup(self)`**: Parallel execution should be faster than sequential
+- **`test_execute_respects_dependency_order(self)`**: Dependent tasks should run after their dependencies
+- **`test_execute_returns_results(self)`**: Execute should return dict of task_id -> result
+- **`test_execute_with_clear_task(self, tmp_path)`**: Clear task with simple operations should succeed
+- **`test_execute_with_failing_operation(self, tmp_path)`**: Failing operation should trigger self-correction
+- **`test_find_no_similar_failures(self, engine_with_history)`**: Unrelated task should find no similar failures
+- **`test_find_similar_failures(self, engine_with_history)`**: Should find past failures with keyword overlap
+- **`test_format_report_failing(self)`**: Test report formatting for failing validation
+- **`test_format_report_passing(self)`**: Test report formatting for passing validation
+- **`test_framework_precedence(self)`**: Test Framework servers take precedence.
+- **`test_generate_prevention_rule_with_similar(self, correction_engine)`**: Prevention rule should note recurrence when similar failures exist
+- **`test_generate_validation_tests_known_category(self, correction_engine)`**: Known categories should return specific tests
+- **`test_generate_validation_tests_unknown_category(self, correction_engine)`**: Unknown category should return generic tests
+- **`test_get_prevention_rules(self, engine_with_history)`**: Should return stored prevention rules
+- **`test_get_recommendation_high(self)`**: Test recommendation for high confidence
+- **`test_get_recommendation_low(self)`**: Test recommendation for low confidence
+- **`test_get_recommendation_medium(self)`**: Test recommendation for medium confidence
+- **`test_get_solution_for_known_error(self)`**: Test retrieving solution for a known error pattern
+- **`test_has_official_docs_with_flag(self)`**: Test official docs check with direct flag
+- **`test_high_confidence_scenario(self, sample_context)`**: Test that a well-prepared context returns high confidence (≥90%)
+- **`test_identical_servers_no_warning(self)`**: Test identical servers don't generate warnings.
+- **`test_init_creates_reflexion_file(self, correction_engine)`**: Engine should create reflexion.json on init
+- **`test_initialization(self)`**: Test ReflexionPattern initialization
+- **`test_install_commands_creates_target_directory(self, tmp_path)`**: Test that target directory is created if it doesn't exist
+- **`test_install_commands_force_reinstall(self, tmp_path)`**: Test force reinstall of existing commands
+- **`test_install_commands_skip_existing(self, tmp_path)`**: Test that existing commands are skipped without --force
+- **`test_install_commands_to_temp_dir(self, tmp_path)`**: Test installing commands to a temporary directory
+- **`test_install_to_nonexistent_parent(self, tmp_path)`**: Test installation to path with nonexistent parent directories
+- **`test_integration_marker_works()`**: Test that integration marker can be explicitly applied
+- **`test_invalid_complexity_defaults_to_medium(self)`**: Test that invalid complexity defaults to medium
+- **`test_learn_and_prevent_new_failure(self, correction_engine)`**: New failure should be stored in reflexion memory
+- **`test_learn_and_prevent_recurring_failure(self, correction_engine)`**: Same failure twice should increment recurrence count
+- **`test_list_available_commands(self)`**: Test listing available commands
+- **`test_list_installed_commands(self, tmp_path)`**: Test listing installed commands
+- **`test_low_confidence_scenario(self, low_confidence_context)`**: Test that an unprepared context returns low confidence (<70%)
+- **`test_medium_complexity(self)`**: Test token budget for medium tasks (bug fixes)
+- **`test_medium_confidence_scenario(self)`**: Test medium confidence scenario (70-89%)
+- **`test_no_duplicates_check(self)`**: Test duplicate check validation
+- **`test_oss_reference_check(self)`**: Test OSS reference validation
+- **`test_parallel_file_operations(self)`**: parallel_file_operations should apply operation to all files
+- **`test_plan_circular_dependency_detection(self)`**: Circular dependencies should raise ValueError
+- **`test_plan_independent_tasks(self)`**: Independent tasks should be in a single parallel group
+- **`test_plan_mixed_dependencies(self)`**: Wave-Checkpoint-Wave pattern should create correct groups
+- **`test_plan_sequential_tasks(self)`**: Tasks with chain dependencies should be in separate groups
+- **`test_plan_speedup_calculation(self)`**: Speedup should be > 1 for parallelizable tasks
+- **`test_plugin_loaded(self)`**: Test that SuperClaude plugin is loaded
+- **`test_pm_context_fixture_available(self, pm_context)`**: Test that pm_context fixture is available
+- **`test_pm_context_memory_structure(pm_context)`**: Test that PM context memory structure is correct
+- **`test_preserve_plugin_specific(self)`**: Test Plugin-specific servers are preserved.
+- **`test_pytest_markers_registered(self)`**: Test that custom markers are registered
+- **`test_quick_execute_empty(self)`**: Quick execute with no operations should return empty list
+- **`test_quick_execute_simple_ops(self)`**: Quick execute should run simple operations and return results
+- **`test_quick_execute_single(self)`**: Quick execute with single operation
+- **`test_record_error_basic(self)`**: Test recording a basic error
+- **`test_record_error_with_solution(self)`**: Test recording an error with a solution
+- **`test_record_reflection(self, reflection_engine)`**: Recording reflection should persist to file
+- **`test_reflect_full_context(self, reflection_engine)`**: Full context should give high context readiness
+- **`test_reflect_no_context(self, reflection_engine)`**: Missing context should lower context readiness score
+- **`test_reflect_no_past_mistakes(self, reflection_engine)`**: No reflexion file should give high mistake check score
+- **`test_reflect_short_task(self, reflection_engine)`**: Very short task should be flagged
+- **`test_reflect_specific_task(self, reflection_engine)`**: Specific task description should get higher clarity score
+- **`test_reflect_vague_task(self, reflection_engine)`**: Vague task description should get lower clarity score
+- **`test_reflect_with_similar_mistakes(self, engine_with_mistakes)`**: Similar past mistakes should lower the score
+- **`test_reflexion_marker_integration(reflexion_pattern)`**: Test that reflexion marker works with pytest plugin fixture
+- **`test_reflexion_memory_persistence(self, temp_memory_dir)`**: Test that reflexion can work with memory directory
+- **`test_reflexion_pattern_fixture_available(self, reflexion_pattern)`**: Test that reflexion_pattern fixture is available
+- **`test_reflexion_with_real_exception()`**: Test reflexion pattern with a real exception scenario
+- **`test_repr_high_score(self)`**: High score should show green checkmark
+- **`test_repr_low_score(self)`**: Low score should show red X
+- **`test_repr_medium_score(self)`**: Medium score should show warning
+- **`test_research_command_exists(self, tmp_path)`**: Test that research command specifically gets installed
+- **`test_root_cause_check(self)`**: Test root cause identification validation
+- **`test_root_cause_creation(self)`**: Test basic RootCause creation
+- **`test_root_cause_repr(self)`**: RootCause repr should show key info
+- **`test_safe_execute_success(self, tmp_path)`**: Safe execute should return result on success
+- **`test_self_check_marker_integration(self_check_protocol, sample_implementation)`**: Test that self_check marker works with pytest plugin fixture
+- **`test_self_check_protocol_fixture_available(self, self_check_protocol)`**: Test that self_check_protocol fixture is available
+- **`test_should_parallelize_above_threshold(self)`**: Items above threshold should trigger parallelization
+- **`test_should_parallelize_below_threshold(self)`**: Items below threshold should not trigger parallelization
+- **`test_should_parallelize_custom_threshold(self)`**: Custom threshold should be respected
+- **`test_simple_complexity(self)`**: Test token budget for simple tasks (typo fixes)
+- **`test_task_can_execute_all_deps_met(self)`**: Task can execute when all multiple dependencies are met
+- **`test_task_can_execute_no_deps(self)`**: Task with no dependencies can always execute
+- **`test_task_can_execute_with_deps_met(self)`**: Task can execute when all dependencies are completed
+- **`test_task_cannot_execute_deps_unmet(self)`**: Task cannot execute when dependencies are not met
+- **`test_task_creation(self)`**: Test basic task creation
+- **`test_to_dict_roundtrip(self)`**: FailureEntry should survive dict serialization roundtrip
+- **`test_token_budget_fixture_available(self, token_budget)`**: Test that token_budget fixture is available
+- **`test_token_budget_no_marker(token_budget)`**: Test that token_budget fixture defaults to medium without marker
+- **`test_token_usage_tracking(self)`**: Test token usage tracking if implemented
+- **`test_validate_failing_implementation(self, failing_implementation)`**: Test validation of a failing implementation
+- **`test_validate_passing_implementation(self, sample_implementation)`**: Test validation of a complete, passing implementation
+- **`test_weights_sum_to_one(self, reflection_engine)`**: Weight values should sum to 1.0
+- **`tests/skills/test_skills_efficiency.py`** (from `phase1-implementation-strategy.md`): Documented capability/command.
+- **`tests/test_pytest_plugin.py`** (from `MIGRATION_TO_CLEAN_ARCHITECTURE.md`): Documented capability/command.
+- **`to_dict(self)`**: Convert to JSON-serializable dict
+- **`to_dict(self)`**: No description provided.
+- **`token_budget(request)`**: Fixture for token budget management
+- **`transform_agent(content, filename)`**: Transform agent frontmatter name.
+- **`transform_command(content, filename)`**: Transform command content for sc: namespace.
+- **`update(target)`**: Update SuperClaude commands to latest version
+- **`use(self, amount)`**: Consume tokens from the budget.
+- **`validate(self, implementation)`**: Run self-check validation
+- **`version()`**: Show SuperClaude version
+- **`write(self, plugin_json, dry_run)`**: Write plugin.json to .claude-plugin/ directory.
+- **`~/.claude/commands/sc/ に配置されるのね」`** (from `project-structure-understanding.md`): Documented capability/command.
+- **`→ ~/.claude/skills/pm/ にコピー`** (from `SKILLS_CLEANUP.md`): Documented capability/command.
+- **`✅ pytest plugin loaded`** (from `PR_STRATEGY.md`): Documented capability/command.
+- **`⭐ CLI commands`** (from `MIGRATION_TO_CLEAN_ARCHITECTURE.md`): Documented capability/command.
+- **`⭐ pytest plugin auto-discovery`** (from `MIGRATION_TO_CLEAN_ARCHITECTURE.md`): Documented capability/command.
+- **`「なるほど、setup/components/commands.py でこう処理されて、`** (from `project-structure-understanding.md`): Documented capability/command.
+- **`他のSkillsは残す`** (from `SKILLS_CLEANUP.md`): Documented capability/command.
+- **`他のSkillsは残す（deep-research, orchestration等）`** (from `SKILLS_CLEANUP.md`): Documented capability/command.
+- **`使っているSkillsを確認`** (from `SKILLS_CLEANUP.md`): Documented capability/command.
+- **`全Skills削除`** (from `SKILLS_CLEANUP.md`): Documented capability/command.
+- **`本家Skills版のみ使用`** (from `PM_AGENT_COMPARISON.md`): Documented capability/command.
+- **`🛡️ SuperClaude Plugin - Complete Backup & Safety Guide`** (from `BACKUP_GUIDE.md`): Documented capability/command.
+
+## Source clones
+
+```bash
+git clone --depth=1 https://github.com/netzkontrast/the-agency-system.git        ~/work/vendor/the-agency-system
+git clone --depth=1 https://github.com/obra/superpowers-marketplace.git          ~/work/vendor/superpowers-marketplace
+git clone --depth=1 https://github.com/SuperClaude-Org/SuperClaude_Framework.git ~/work/vendor/superclaude-framework
+git clone --depth=1 https://github.com/SuperClaude-Org/SuperClaude_Plugin.git    ~/work/vendor/superclaude-plugin
+git clone --depth=1 --branch=v0.91.0   https://github.com/bitwize-music-studio/claude-ai-music-skills.git             ~/work/vendor/bitwize-music
+```
+
+## Files
+
+- **Create**: none.
+- **Modify**:
+  - `agency/memory.py`
+  - `agency/capabilities/_jules_api.py`
+  - `agency/capabilities/jules.py`
+  - `agency/engine.py`
+- **Move / Delete**: none.
+
+## Evidence
+
+- Read `~/work/vendor/the-agency-system/Plan/JULES_PROTOCOL.md` (Commit SHA: 0a6a9e71f6c26bc120a8fc1db02f8990b7916f22) and `~/work/vendor/the-agency-system/Plan/harness/design.md`.
+- Read PR1 work repo files (`agency/memory.py:35-51`, `agency/engine.py:101-104`, `agency/capabilities/_jules_api.py:53`, `agency/capabilities/jules.py:46-50`).
+- Identified the scaling, sandbox, remote verification, and pagination limits directly from the PR1 source code.
+- Explored vendor directories (`~/work/vendor/bitwize-music`, `~/work/vendor/superclaude-framework`, `~/work/vendor/superclaude-plugin`, `~/work/vendor/superpowers-marketplace`) checking for scale (e.g. 203 python files in bitwize-music).
+
+## Self-Review
+
+1. **Coverage:** 44 of 44 files read (100% of scope).
+2. **Residual risk / unknowns:** I could not test the FastMCP CodeMode execution directly to see exactly what `Monty` allows or restricts, so the extent of the sandbox escape risk is theoretical but architecturally present. The `branch` capability was not fully available in my source tree to verify how agents interact with it before calling `jules.verify`.
+3. **Method reflection:** Chesterton's fence forced me to understand *why* the logical clock scan and the `branch_on_remote` boolean exist (stateless CLI boots and delegated capability checks) before attacking them, which led to more accurate risk assessments rather than just saying "this is slow" or "this is insecure."
