@@ -4,6 +4,11 @@ Two parts: **running** the engine from a bash-only shell (below), and
 **developing** the plugin (at the end). Read [`docs/vision/CORE.md`](docs/vision/CORE.md)
 for the model first.
 
+> **Dispatching a remote async agent (Jules, etc.)?** Read
+> [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md) first. The doctrine: `COMPLETED ≠
+> done`; verify via `git ls-remote`, never local HEAD; name the publish tool
+> in the prompt; questions go through the blocking-ask tool only.
+
 ## Running the engine from bash only
 
 This section is for **bash-only agents** (Jules, Codex, any LLM with a shell and no
@@ -15,7 +20,7 @@ integration. The isomorphism is proven in `tests/test_agency.py::test_isomorphis
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt   # graphqlite + fastmcp
+pip install -e ".[dev]"   # pyproject.toml is canonical; requirements.txt is legacy
 ```
 
 ## The contract: code-mode
@@ -112,5 +117,36 @@ a capability's `ontology.skills` and walked by `agency/skill.py` one phase at a 
   `python -m agency.install` (rewrites `.claude-plugin/plugin.json` + `skills/help` + `commands/`).
 - Develop on the feature branch; **PRs target `main`**; additive commits, never
   force-push or rewrite history.
+- Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`); one concern per commit.
 - The growth plan is [`docs/EXTENSION-PLAN.md`](docs/EXTENSION-PLAN.md); the capability
   roadmap is [`docs/vision/CAPABILITY-CLUSTERS.md`](docs/vision/CAPABILITY-CLUSTERS.md).
+
+## Remote-agent dispatch — tools to name explicitly
+
+When dispatching a remote async agent (e.g. Jules) the prompt MUST name the
+agent's tools by their canonical symbols — prose alone leaves work in the
+agent's VM (the silent-fail mode that [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md)
+exists to close). The Jules canon (see `agency/capabilities/_jules_reference.md` §3):
+
+- `pre_commit_instructions()` — mandatory pre-flight.
+- **`submit(branch_name, commit_message, title, description)`** — the *one*
+  tool that publishes work to remote. Always name it literally.
+- `request_user_input(message)` — the **blocking** ask. NEVER use
+  `message_user` for questions; it does not block.
+- `replace_with_git_merge_diff` — preferred multi-line edit primitive
+  (avoids JSON-escape failures on multiline code).
+- `request_code_review()` — triggers the Jules Critic before `submit`.
+
+## Mode A (dogfood) vs Mode B (delegate)
+
+- **Mode A** — Jules works directly in this repo. R+W here. AGENTS.md and
+  `AGENCY_PROTOCOL.md` are inherited via Jules's lexical scoping (cloned into
+  the VM with the repo).
+- **Mode B** — the `agency` plugin is installed in *another project's*
+  Claude Code; Jules works on that target repo. The dispatch preamble
+  instructs Jules to `git clone --depth=1
+  https://github.com/netzkontrast/agency.git ~/work/vendor/agency`
+  **READ-ONLY**, then `read_file` both root docs before drafting any plan.
+  Writes happen in the target repo only, never in the agency clone.
+
+See `Plan/013-…/DESIGN.md` for the full split-ownership table.
