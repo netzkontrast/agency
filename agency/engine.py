@@ -47,6 +47,7 @@ from .intent import Intent
 from .lifecycle import Lifecycle
 from .memory import Memory
 from .ontology import Ontology
+from .render import parse_slices
 
 
 _SURFACES = ("mcp", "bash")
@@ -133,10 +134,8 @@ class Engine:
         impl.__signature__ = inspect.Signature(params)
         impl.__name__ = f"capability_{cap_name}_{verb}"
         # Spec 023 Phase 3: tighten the FastMCP tool description to the BRIEF
-        # slice (first-paragraph one-liner) instead of the full docstring.
-        # Cuts ~50% of catalog tokens; full doc is still reachable via
-        # get_schema (fastmcp renders parameters + the registered description).
-        from .render import parse_slices  # local import: render.py is leaf
+        # slice (first-sentence) instead of the full docstring. Cuts ~58% of
+        # catalog tokens; full doc remains reachable via get_schema.
         raw = (fn.__doc__ or "").strip()
         brief = parse_slices(raw)["brief"]
         impl.__doc__ = brief or raw or f"{cap_name}.{verb} ({spec['role']})"

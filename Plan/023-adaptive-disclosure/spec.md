@@ -48,14 +48,18 @@ does not narrow the prose-per-match. Spec 023 closes that gap.
     `both` would double the emission and defeat the point).
   - `depth` ∈ {`brief`, `standard`, `deep`}; default `brief`.
   - `format` ∈ {`markdown`, `json`, `snippet`}; default `markdown`.
-- [ ] `agency/capability.py` registration path parses each verb's docstring
-  via the Spec 016 Hint #7 markers (`Inputs:` / `Returns:` / `chain_next:`)
-  into `VerbSpec._render_slices: dict[(surface, depth, format), str]`
-  (panel F5.3 — "render slice", not "micro-skill", in the impl). Parsing
-  happens **once at engine start** (panel F2.2 — not hot-path). Verbs
-  WITHOUT compliant docstrings get a single `(mcp, standard, markdown)`
-  fallback slice; `plugin.lint_capability` (paired with Spec 016 Phase 4)
-  flags them.
+- [x] **v1 (shipped, dadd9d1)**: `agency/engine.py:_wire()` parses the
+  verb's docstring at registration via `parse_slices()` and caches the
+  **brief slice** as `impl.__doc__` — this is what FastMCP's catalog
+  reads. Other slices are computed on demand by `render_verb` (fast: one
+  `re.search` per axis on a ≤2KB string). No `_render_slices` cache
+  populated in v1 because the brief alone closes the Phase-7 budget gap.
+  v2 promotes to a `dict[(surface, depth, format), str]` cache on
+  `VerbSpec` if profiling shows render hot-path cost (current measurement:
+  negligible).
+- [ ] **v2 (deferred)**: When v2 lands, verbs WITHOUT Spec-016-Hint-#7
+  compliant docstrings get a single `(mcp, standard, markdown)` fallback
+  slice; `plugin.lint_capability` (paired with Spec 016 Phase 4) flags them.
 - [ ] `agency/engine.py` `search` signature extended:
   `search(query, *, depth='brief', intent_id=None, format='markdown', limit=20)`.
   Surface is **NOT** a runtime kwarg (panel F1.1 — removed to eliminate
