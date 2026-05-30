@@ -47,10 +47,46 @@ from .intent import Intent
 from .lifecycle import Lifecycle
 from .memory import Memory
 from .ontology import Ontology
+from .render import parse_slices
+
+
+_SURFACES = ("mcp", "bash")
+
+
+def resolve_surface(arg: str | None = None) -> str:
+    """Spec 023 §Done When — surface resolution.
+
+    Precedence: arg > env (AGENCY_SURFACE) > auto. Auto resolution falls
+    back to ``mcp`` (panel F3.2 — the more-capable surface is the safer
+    default when introspection is unavailable; an MCP-equipped agent
+    reading bash prose cannot execute it, but a bash agent reading MCP
+    prose can still parse the structure).
+
+    Inputs: arg (None/empty treated as unset).
+    Returns: 'mcp' | 'bash'.
+    chain_next: Engine.__init__ caches this on self.surface for the lifetime
+                of the engine (deploy-time, not per-call).
+    """
+    if arg:
+        if arg not in _SURFACES:
+            raise ValueError(
+                f"unknown surface {arg!r}; expected one of {_SURFACES}"
+            )
+        return arg
+    import os as _os
+    env = _os.environ.get("AGENCY_SURFACE", "").strip()
+    if env in _SURFACES:
+        return env
+    # Unknown env value: silent fallback. Mistyping AGENCY_SURFACE should
+    # not crash the engine — user-set env vars are common, surface is not
+    # safety-critical.
+    return "mcp"
 
 
 class Engine:
-    def __init__(self, path: str, jules_client=None, vcs_backend=None, extra_capabilities=None):
+    def __init__(self, path: str, jules_client=None, vcs_backend=None,
+                 extra_capabilities=None, surface: str | None = None):
+        self.surface = resolve_surface(surface)
         self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
         self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
         self.registry = Registry()
@@ -97,10 +133,19 @@ class Engine:
 
         impl.__signature__ = inspect.Signature(params)
         impl.__name__ = f"capability_{cap_name}_{verb}"
-        impl.__doc__ = (fn.__doc__ or "").strip() or f"{cap_name}.{verb} ({spec['role']})"
+        # Spec 023 Phase 3: tighten the FastMCP tool description to the BRIEF
+        # slice (first-sentence) instead of the full docstring. Cuts ~58% of
+        # catalog tokens; full doc remains reachable via get_schema.
+        raw = (fn.__doc__ or "").strip()
+        brief = parse_slices(raw)["brief"]
+        impl.__doc__ = brief or raw or f"{cap_name}.{verb} ({spec['role']})"
         impl.__annotations__ = {p.name: p.annotation for p in params}
         impl.__annotations__["return"] = dict
-        mcp.tool(impl)
+        # Spec 025 R2 (Codex): propagate the verb's `tags` to FastMCP's Tool
+        # metadata so `search(tags=["skill:*"])` actually finds the verb.
+        # Without this the tags lived only on the internal verb spec and
+        # the public discovery surface couldn't reach them.
+        mcp.tool(impl, tags=set(spec.get("tags") or ()) or None)
 
     def _make_lifespan(self):
         """Build the FastMCP lifespan that starts the Jules watcher on enter

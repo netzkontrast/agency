@@ -102,6 +102,11 @@ def _wrap_method(cls: type, mname: str, member: Callable, meta: dict) -> dict:
     fn.__name__ = mname
     fn.__doc__ = member.__doc__
     fn.__signature__ = inspect.Signature(params)
+    # Spec 016 P4: expose the underlying class so lint_capability (and any
+    # future introspector) can reach the source file the verb was authored
+    # in — the closure above otherwise hides it behind capability.py.
+    fn.__capability_cls__ = cls
+    fn.__capability_method__ = member
     return {"role": meta["role"], "fn": fn, "inject": ["ctx"] + meta["inject"]}
 
 
@@ -135,7 +140,43 @@ class Registry:
         self.ontology: Any = None       # the effective Ontology; set by the engine (for ctx)
 
     def register(self, cap: Capability) -> None:
+        # Spec 025 Phase 1: every verb spec carries a `tags` set. Manual
+        # `skill:*` tags are stripped — only phase-invoke wiring (below,
+        # in `_wire_skill_tags`) legitimately creates them. This preserves
+        # the discovery invariant: `tags=["skill:X"]` filters to exactly
+        # the verbs that participate in skill X's phase graph.
+        for verb_name, spec in cap.verbs.items():
+            raw = spec.get("tags") or set()
+            if not isinstance(raw, set):
+                raw = set(raw)
+            spec["tags"] = {t for t in raw if not t.startswith("skill:")}
         self._caps[cap.name] = cap
+        self._wire_skill_tags(cap)
+
+    def _wire_skill_tags(self, cap: Capability) -> None:
+        """Walk `cap.ontology.skills`; for every phase with
+        `invoke={capability, verb}`, tag the bound verb `skill:<skillname>`.
+
+        Cross-capability wiring: the `develop.review` skill binds to
+        `delegate.fan_out`, so this method (called once per registered
+        cap) tags verbs on OTHER capabilities. It is idempotent and
+        order-insensitive: when a skill names a verb whose capability is
+        not yet registered, we re-walk on every register call. Cheap —
+        skills are O(handful)."""
+        for owner_name, owner_cap in self._caps.items():
+            skills = getattr(owner_cap.ontology, "skills", {}) or {}
+            for skill_name, schema in skills.items():
+                for phase in schema.get("phases", ()):
+                    invoke = phase.get("invoke")
+                    if not invoke:
+                        continue
+                    target_cap = self._caps.get(invoke.get("capability"))
+                    if target_cap is None:
+                        continue
+                    target_verb = target_cap.verbs.get(invoke.get("verb"))
+                    if target_verb is None:
+                        continue
+                    target_verb.setdefault("tags", set()).add(f"skill:{skill_name}")
 
     def get(self, name: str) -> Capability:
         return self._caps[name]

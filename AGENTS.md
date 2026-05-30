@@ -111,8 +111,10 @@ See [`docs/vision/specs/capability-base.md`](docs/vision/specs/capability-base.m
 a capability's `ontology.skills` and walked by `agency/skill.py` one phase at a time.
 
 **Workflow & conventions:**
-- Tests: `pytest -q`. **A complete, runnable implementation is the proof** — no
-  mock-only "realish" tests; assert real provenance / a real skill walk.
+- Tests: `python -m pytest -q` (activate venv first; bare `pytest` may
+  resolve to a globally-installed copy that can't see project deps).
+  **A complete, runnable implementation is the proof** — no mock-only
+  "realish" tests; assert real provenance / a real skill walk.
 - After adding/changing a capability, regenerate the self-hosted install:
   `python -m agency.install` (rewrites `.claude-plugin/plugin.json` + `skills/help` + `commands/`).
 - Develop on the feature branch; **PRs target `main`**; additive commits, never

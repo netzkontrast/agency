@@ -5,7 +5,7 @@
       "args": [],
       "env": {
         "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}",
-        "AGENCY_DB": "${CLAUDE_PLUGIN_DATA}/agency.db",
+        "AGENCY_DB": "${CLAUDE_PROJECT_DIR}/.agency/session.db",
         "JULES_API_KEY": "${user_config.jules_api_key}"
       }
     }
