@@ -1,21 +1,27 @@
 ---
-spec_id: "016"
+spec_id: "017"
 slug: "dogfood-graph-inversion"
 status: draft
+owner: "@agency"
 depends_on: ["014"]
 affects: ["agency/capabilities/dogfood.py", "agency/capabilities/_jules_skills.py"]
+source-repos: []
+estimated_jules_sessions: 2
+domain: "capability"
+wave: 2
 ---
-# Spec 016 — Graph-Native Dogfood Ledgers
+# Spec 017 — Graph-Native Dogfood Ledgers
 
 ## Why
 
-The current `dogfood.collect` flow relies on markdown ledgers (`DOGFOOD-NOTES.md`) as the primary store for feedback, reading files on disk and extracting patterns. This directly violates the canon architecture principle ("the moat is the graph" — CORE.md). Inverting this relationship creates a system where knowledge is stored natively as `Reflection` nodes in the bi-temporal graph, and the markdown files become on-demand rendered views of the state.
+The current `dogfood.collect` flow relies on markdown ledgers (`DOGFOOD-NOTES.md`) as the primary store for feedback, reading files on disk and extracting patterns. This directly violates the canon architecture principle ("the moat is the graph" — CORE.md). Inverting this relationship creates a system where knowledge is stored natively as `Reflection` nodes in the bi-temporal graph, and the markdown files become on-demand rendered views of the state. Additionally, `agency/install.py:145` writes to files via `with open(path, "w") as f:` directly, utilizing the same anti-pattern. Both should be addressed for architectural consistency.
 
 ## Done When
 
 - [ ] Add the `dogfood.render` transform capability to emit a markdown ledger from `Reflection` nodes.
 - [ ] Deprecate the `dogfood.collect` capability into a one-shot migration utility.
 - [ ] Modify the self-improvement skills in `_jules_skills.py` to use `reflect.note` from code-mode instead of depending on files on disk.
+- [ ] Refactor `agency/install.py` file writes to output rendered views natively.
 
 ## Source clones
 
@@ -25,23 +31,34 @@ None
 
 - `agency/capabilities/dogfood.py` (add `render`, deprecate `collect`).
 - `agency/capabilities/_jules_skills.py` (modify skill schemas).
+- `agency/install.py` (refactor writes).
 
 ## Evidence
 
 - `ARCHITECTURE-REVIEW.md` `graph-vs-file-misuse` weaknesses 1 & 2.
 
+## Open Questions
+
+1. Should the `dogfood.render` capability overwrite `DOGFOOD-NOTES.md` natively, or return a payload that the agent will render instead? Overwriting creates a hybrid state, returning payloads enforces separation of concerns.
+2. Should `install.py` be decoupled entirely from graph principles, or should all writes be strictly audited by the core?
+
 ## Self-Review
 
-The change forces the `dogfood` system into proper compliance with the core doctrine where the graph is the primary store for knowledge.
+The change forces the `dogfood` and `install` systems into proper compliance with the core doctrine where the graph is the primary store for knowledge.
 
 ---
-spec_id: "017"
+spec_id: "018"
 slug: "cli-token-efficiency-code-mode"
 status: draft
+owner: "@agency"
 depends_on: []
 affects: ["agency/cli.py", "agency/engine.py"]
+source-repos: []
+estimated_jules_sessions: 2
+domain: "capability"
+wave: 2
 ---
-# Spec 017 — CLI Execution Output Formatting & Token Efficiency
+# Spec 018 — CLI Execution Output Formatting & Token Efficiency
 
 ## Why
 
@@ -65,27 +82,37 @@ None
 
 - `ARCHITECTURE-REVIEW.md` `token-leak` weakness.
 
+## Open Questions
+
+1. Should `--fields` support nested dictionary projections (e.g., `--fields result.id,status`), or just top-level keys?
+2. Should the `ToolError` extraction completely eliminate stack traces, or keep an abbreviated 1-level trace for critical debugging?
+
 ## Self-Review
 
 Limits token consumption for orchestrators heavily reliant on the CLI outputs.
 
 ---
-spec_id: "018"
+spec_id: "019"
 slug: "engine-result-unwrapping-vision-drift"
 status: draft
+owner: "@agency"
 depends_on: []
-affects: ["agency/engine.py", "agency/capability.py"]
+affects: ["agency/engine.py", "tests/test_engine.py"]
+source-repos: []
+estimated_jules_sessions: 1
+domain: "meta"
+wave: 2
 ---
-# Spec 018 — Enforce Standardized Output Shapes for Capabilities
+# Spec 019 — Document Explicit Result Unwrapping Contract for Code-Mode
 
 ## Why
 
-Currently, `agency/engine.py` uses `out = result["result"] if isinstance(result, dict) and "result" in result else result` to extract results from capabilities dynamically. This results in unpredictable returned types via `execute`, where a function like `capability_reflect_note` natively returns a dictionary `{"result": rid}`, but via `execute`, it evaluates to a string `"reflection:xxxx"`. This introduces a vision drift from expected `call_tool` shapes vs the engine CLI shapes, leading to trial-and-error executions.
+Currently, `agency/engine.py` uses `out = result["result"] if isinstance(result, dict) and "result" in result else result` to extract results from capabilities dynamically. This is intentional: verbs return `{"result": <delta>}` internally; the engine surfaces `<delta>` as the wire shape to keep code-mode lean (the Spec 001 envelope discipline). However, docstrings often mistakenly document the internal shape (e.g., `Returns: {result: rid}`) rather than the unwrapped shape.
 
 ## Done When
 
-- [ ] Remove the unwrapping logic in `agency/engine.py`. Capabilities that specify an output shape must map perfectly onto what `execute` returns.
-- [ ] Add validation tests to `tests/test_engine.py` to assert that output remains unmutated dicts if defined by the schema.
+- [ ] Add explicit documentation inside `agency/engine.py` that verbs return `{result: <delta>}` internally, while clients see `<delta>`.
+- [ ] Enforce docstring compliance to ensure that tools document their unwrapped returns, avoiding trial-and-error by agents reading `get-schema`.
 
 ## Source clones
 
@@ -100,6 +127,10 @@ None
 
 - `ARCHITECTURE-REVIEW.md` `vision-drift` weakness.
 
+## Open Questions
+
+1. Can `lint_capability` natively statically analyze docstring mismatch against engine execution types, or do we rely on manual PR review to enforce this new documentation standard?
+
 ## Self-Review
 
-Removing automatic unwrapping makes API design strictly explicit and typed.
+This solidifies the existing engine unwrapping contract through documentation and policy instead of a destructive refactor, minimizing maintenance burden.
