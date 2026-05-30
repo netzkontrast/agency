@@ -24,50 +24,56 @@ from agency.capabilities import discover
 
 @pytest.fixture
 def temp_subpackage_capability(tmp_path, monkeypatch):
-    """Create a folder-form capability on disk inside agency/capabilities/
-    for the duration of one test. Cleans up by deleting the folder + any
-    cached import; restores the registry path on teardown.
+    """Create a folder-form capability ON tmp_path and extend
+    `agency.capabilities.__path__` so `discover()` sees it WITHOUT
+    touching the production source tree (Spec 016 v2 panel F1 — the
+    prior implementation wrote into agency/capabilities/ directly,
+    leaving production polluted on SIGKILL / xdist parallel-run
+    collisions).
 
-    Returns the capability NAME so the test can assert `discover()` found it.
+    Returns the capability NAME so the test can assert `discover()`
+    found it.
     """
     import agency.capabilities as caps_pkg
-    pkg_dir = Path(caps_pkg.__file__).parent
     subpkg_name = "ztemp_folder_form"
-    subpkg_dir = pkg_dir / subpkg_name
-    subpkg_dir.mkdir()
+    subpkg_dir = tmp_path / subpkg_name
+    subpkg_dir.mkdir(exist_ok=False)
+    (subpkg_dir / "__init__.py").write_text(textwrap.dedent("""
+        from agency.capability import CapabilityBase, verb
+        from agency.ontology import OntologyExtension
+
+        class FolderFormCapability(CapabilityBase):
+            name = "ztemp-folder-form"
+            home = "capability"
+            ontology = OntologyExtension()
+
+            @verb(role="transform")
+            def ping(self) -> dict:
+                '''Folder-form sentinel.
+
+                Inputs: (none).
+                Returns: {result: "pong"}.
+                chain_next: (terminal).
+                '''
+                return {"result": "pong"}
+    """).lstrip())
+    # Inner sibling file with underscore prefix MUST be skipped
+    # (the boundary marker convention — Hint #1's discovery rule).
+    (subpkg_dir / "_helper.py").write_text(
+        "RAISE_IF_IMPORTED = 'discovery should not have walked into me'\n"
+    )
+    # Extend the package's __path__ so pkgutil.iter_modules picks up
+    # the temp subpackage. monkeypatch reverses on teardown.
+    monkeypatch.setattr(
+        caps_pkg, "__path__", [str(tmp_path), *caps_pkg.__path__]
+    )
     try:
-        (subpkg_dir / "__init__.py").write_text(textwrap.dedent("""
-            from agency.capability import CapabilityBase, verb
-            from agency.ontology import OntologyExtension
-
-            class FolderFormCapability(CapabilityBase):
-                name = "ztemp-folder-form"
-                home = "capability"
-                ontology = OntologyExtension()
-
-                @verb(role="transform")
-                def ping(self) -> dict:
-                    '''Folder-form sentinel.
-
-                    Inputs: (none).
-                    Returns: {result: "pong"}.
-                    chain_next: (terminal).
-                    '''
-                    return {"result": "pong"}
-        """).lstrip())
-        # Inner sibling file with underscore prefix MUST be skipped
-        # (the boundary marker convention — Hint #1's discovery rule).
-        (subpkg_dir / "_helper.py").write_text(
-            "RAISE_IF_IMPORTED = 'discovery should not have walked into me'\n"
-        )
         yield subpkg_name
     finally:
         for mod in list(sys.modules):
             if mod.startswith(f"agency.capabilities.{subpkg_name}"):
                 del sys.modules[mod]
-        # Recursive removal — __pycache__/ may exist after import
-        import shutil
-        shutil.rmtree(subpkg_dir, ignore_errors=True)
+        # tmp_path is pytest-managed; nothing else to clean.
 
 
 def test_discover_finds_folder_form_capability(temp_subpackage_capability):

@@ -28,11 +28,14 @@ from agency.engine import Engine
 
 @pytest.fixture
 def engine(tmp_path):
-    """Disk-backed engine — drop-in for the 11 legacy
-    `Engine(tempfile.mktemp(suffix=".db"))` fixture blocks. Uses
-    pytest's `tmp_path` (auto-cleaned per test; no race condition).
-    Adds explicit `e.memory.close()` cleanup the legacy duplicates
-    lacked (latent sqlite handle leak)."""
+    """Disk-backed engine — drop-in for the legacy
+    `Engine(tempfile.mktemp(suffix=".db"))` fixture blocks (panel F6
+    audit: 9 trivial drop-ins remaining + 5 custom-kwarg tests that
+    need `make_engine` instead — total 14 legacy fixtures, not the
+    11 v1 estimated). Uses pytest's `tmp_path` (auto-cleaned per test;
+    no race condition vs the deprecated `tempfile.mktemp`). Adds
+    explicit `e.memory.close()` cleanup the legacy duplicates lacked
+    (latent sqlite handle leak)."""
     e = Engine(str(tmp_path / "agency.db"))
     try:
         yield e
@@ -51,16 +54,32 @@ def memory_engine():
         e.memory.close()
 
 
+def _default_intent(eng: Engine) -> str:
+    """Capture + confirm a generic test intent on the given engine.
+    Shared by `iid` and `memory_iid` so the contract stays identical
+    across disk/memory backends."""
+    i = eng.intent.capture("test intent", "test deliverable", "test acceptance")
+    eng.intent.confirm(i)
+    return i
+
+
 @pytest.fixture
 def iid(engine):
-    """Captured + confirmed intent on the disk-backed engine. Drop-in
-    for the 11 legacy `iid` fixture blocks. Use the default purpose/
-    deliverable/acceptance unless your test specifically asserts on
-    intent text (in which case call `engine.intent.capture(...)`
-    directly)."""
-    i = engine.intent.capture("test intent", "test deliverable", "test acceptance")
-    engine.intent.confirm(i)
-    return i
+    """Captured + confirmed intent on the DISK-backed engine. Drop-in
+    for the legacy `iid` fixture blocks (9-11 tests across the suite —
+    survey a7e6bd1 verified the count). Tests that assert on intent
+    text should call `engine.intent.capture(...)` directly."""
+    return _default_intent(engine)
+
+
+@pytest.fixture
+def memory_iid(memory_engine):
+    """Captured + confirmed intent on the MEMORY engine — the symmetric
+    counterpart to `iid` (Spec 016 v2 panel F3). Prevents the silent
+    dual-engine footgun where a test requesting (memory_engine, iid)
+    would have two engines: an in-memory one for the test + an unused
+    disk-backed one created just to hang `iid` off."""
+    return _default_intent(memory_engine)
 
 
 @pytest.fixture
@@ -68,7 +87,8 @@ def make_engine(tmp_path):
     """Factory for tests that need a non-default Engine — custom
     `jules_client`, `vcs_backend`, `surface`, or `extra_capabilities`.
     Returns a callable; each call yields a fresh Engine. All created
-    engines are cleaned up at teardown.
+    engines are cleaned up at teardown, each guarded so a single
+    locked sqlite handle doesn't leak the rest (Spec 016 v2 panel F2).
 
     Usage:
         def test_with_custom_client(make_engine):
@@ -85,4 +105,9 @@ def make_engine(tmp_path):
 
     yield _factory
     for e in created:
-        e.memory.close()
+        try:
+            e.memory.close()
+        except Exception:
+            # one stuck handle (locked sqlite, double-close, etc.) must
+            # not leak the rest — panel F2 fix
+            pass
