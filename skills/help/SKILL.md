@@ -21,24 +21,31 @@ the return crosses back into your context.
 # 1. Discover a verb (token-cheap)
 await mcp__plugin_agency_agency__search(query="reflect note", limit=3)
 
-# 2. Run it (sandboxed; intermediate results stay in-sandbox)
+# 2. Run it (sandboxed; intermediate results stay in-sandbox).
+#    `intent_id` must be a captured Intent. MCP has no intent.capture
+#    verb yet, so obtain one from the bash `intent` command in the
+#    fallback below and paste it here (replace the placeholder):
 await mcp__plugin_agency_agency__execute(code="""
-  r = await call_tool('capability_plugin_help', {'intent_id': iid})
+  intent_id = 'intent:...'  # from `bin/agency intent ...` (see below)
+  r = await call_tool('capability_plugin_help', {'intent_id': intent_id})
   return r
 """)
 ```
 
-`intent_id` must be a captured Intent — today only the bash CLI exposes
-`intent` (see fallback below). Tracking issue: add a `capability_intent_capture`
-verb so MCP-only sessions can self-bootstrap.
+Tracking issue: add a `capability_intent_capture` verb so MCP-only
+sessions can self-bootstrap without the bash hop.
 
 ## Quick start — bash (Jules / no-MCP)
 
+The CLI resolves the graph DB itself (Spec 020: `AGENCY_DB` env, else
+`./.agency/session.db`) — do NOT pass `--db`, or the bash surface writes
+to a different store than MCP.
+
 ```bash
 AGENCY="${CLAUDE_PLUGIN_ROOT}/bin/agency"
-iid=$("$AGENCY" --db agency.db intent --purpose help --deliverable map --acceptance ok \
+iid=$("$AGENCY" intent --purpose help --deliverable map --acceptance ok \
       | python3 -c 'import sys,json; print(json.load(sys.stdin)["intent_id"])')
-"$AGENCY" --db agency.db execute --code \
+"$AGENCY" execute --code \
   "return await call_tool('capability_plugin_help', {'intent_id': '$iid'})"
 ```
 

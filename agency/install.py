@@ -19,9 +19,12 @@ Usage::
                                                    # of the package's repo root
 
 The bash wrapper ``bin/agency-install`` calls ``python -m agency.install
---scaffold-db`` on fresh installs so the Spec 020 ``.agency/`` directory
-lands in $1 (= CLAUDE_PLUGIN_ROOT under marketplace install; the local
-project root during dev).
+--scaffold-db $1`` on fresh installs. ``$1`` is the plugin install root
+(= CLAUDE_PLUGIN_ROOT under marketplace install) and receives the
+regenerated manifest / .mcp.json / help skill. The Spec 020 ``.agency/``
+scaffold, by contrast, lands in the user's PROJECT (CLAUDE_PROJECT_DIR
+when set, else $1 during local dev) because that is where the runtime DB
+resolves — see ``_scaffold_target``.
 """
 from __future__ import annotations
 
@@ -69,21 +72,27 @@ _MCP_QUICKSTART = (
     "```python\n"
     "# 1. Discover a verb (token-cheap)\n"
     'await mcp__plugin_agency_agency__search(query="reflect note", limit=3)\n\n'
-    "# 2. Run it (sandboxed; intermediate results stay in-sandbox)\n"
+    "# 2. Run it (sandboxed; intermediate results stay in-sandbox).\n"
+    "#    `intent_id` must be a captured Intent. MCP has no intent.capture\n"
+    "#    verb yet, so obtain one from the bash `intent` command in the\n"
+    "#    fallback below and paste it here (replace the placeholder):\n"
     "await mcp__plugin_agency_agency__execute(code=\"\"\"\n"
-    "  r = await call_tool('capability_plugin_help', {'intent_id': iid})\n"
+    "  intent_id = 'intent:...'  # from `bin/agency intent ...` (see below)\n"
+    "  r = await call_tool('capability_plugin_help', {'intent_id': intent_id})\n"
     "  return r\n"
     "\"\"\")\n"
     "```\n\n"
-    "`intent_id` must be a captured Intent — today only the bash CLI exposes\n"
-    "`intent` (see fallback below). Tracking issue: add a `capability_intent_capture`\n"
-    "verb so MCP-only sessions can self-bootstrap.\n\n"
+    "Tracking issue: add a `capability_intent_capture` verb so MCP-only\n"
+    "sessions can self-bootstrap without the bash hop.\n\n"
     "## Quick start — bash (Jules / no-MCP)\n\n"
+    "The CLI resolves the graph DB itself (Spec 020: `AGENCY_DB` env, else\n"
+    "`./.agency/session.db`) — do NOT pass `--db`, or the bash surface writes\n"
+    "to a different store than MCP.\n\n"
     "```bash\n"
     'AGENCY="${CLAUDE_PLUGIN_ROOT}/bin/agency"\n'
-    'iid=$("$AGENCY" --db agency.db intent --purpose help --deliverable map --acceptance ok \\\n'
+    'iid=$("$AGENCY" intent --purpose help --deliverable map --acceptance ok \\\n'
     '      | python3 -c \'import sys,json; print(json.load(sys.stdin)["intent_id"])\')\n'
-    '"$AGENCY" --db agency.db execute --code \\\n'
+    '"$AGENCY" execute --code \\\n'
     "  \"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
     "```\n\n"
 )
@@ -92,12 +101,13 @@ CMD_BODY = (
     _MCP_QUICKSTART
     + "Use the plugin's `bin/agency` wrapper — it resolves the plugin venv\n"
     "+ PYTHONPATH so the `agency` package is always importable. Bootstrap\n"
-    "an intent, then call the help verb with its id:\n\n"
+    "an intent, then call the help verb with its id (no `--db` — the Spec\n"
+    "020 resolver picks `./.agency/session.db`, the same store MCP uses):\n\n"
     "    AGENCY=\"${CLAUDE_PLUGIN_ROOT}/bin/agency\"\n"
-    "    iid=$(\"$AGENCY\" --db agency.db intent --purpose help "
+    "    iid=$(\"$AGENCY\" intent --purpose help "
     "--deliverable map --acceptance ok | python3 -c "
     "'import sys,json; print(json.load(sys.stdin)[\"intent_id\"])')\n"
-    "    \"$AGENCY\" --db agency.db execute --code "
+    "    \"$AGENCY\" execute --code "
     "\"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
 )
 
@@ -319,6 +329,28 @@ def scaffold_db(root: str) -> dict:
     }
 
 
+def _scaffold_target(install_root: str) -> str:
+    """Where the Spec 020 ``.agency/`` provenance scaffold must land.
+
+    Plugin root vs project root — two different directories:
+    - ``install_root`` (the positional ``root`` arg, = ``${CLAUDE_PLUGIN_ROOT}``
+      under a marketplace install) holds the read-only plugin CODE: the
+      manifest, ``.mcp.json``, the help skill. Those are written there by
+      ``write()``.
+    - The graph DB, however, resolves to ``${CLAUDE_PROJECT_DIR}/.agency/
+      session.db`` (see ``_mcp_config`` + ``_db_path.resolve_db_path``). The
+      ``.agency/`` scaffold (README/.gitkeep/.gitattributes) must therefore
+      sit in the user's PROJECT, not the plugin install dir — otherwise a
+      marketplace-installed plugin scaffolds the provenance home next to the
+      code where no DB ever lives, and the project never gets its committed
+      ``.agency/`` files.
+
+    So: prefer ``${CLAUDE_PROJECT_DIR}`` when set (the plugin-runtime case),
+    falling back to ``install_root`` (the local-dev case, where the plugin
+    root IS the project root)."""
+    return os.environ.get("CLAUDE_PROJECT_DIR") or install_root
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="python -m agency.install",
                                      description="Regenerate the Claude Code plugin install files.")
@@ -331,8 +363,10 @@ if __name__ == "__main__":
     for p in write(target):
         print(p)
     if ns.scaffold_db:
-        result = scaffold_db(target)
+        # The DB lives in the PROJECT, not the plugin root — scaffold there.
+        scaffold_root = _scaffold_target(target)
+        result = scaffold_db(scaffold_root)
         for p in result["written"]:
             print(p)
         if result["gitattributes_updated"]:
-            print(os.path.join(target, ".gitattributes"))
+            print(os.path.join(scaffold_root, ".gitattributes"))
