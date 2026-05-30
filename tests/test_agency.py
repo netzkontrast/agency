@@ -79,8 +79,8 @@ class StubJulesClient:
         return {"sessions": [{"id": "123", "state": self._state, "title": "t", "url": "u"}],
                 "nextPageToken": ""}
 
-    def activities(self, session: str, page_size: int, only_kinds: str) -> dict:
-        self.calls.append(("activities", session, page_size, only_kinds))
+    def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "") -> dict:
+        self.calls.append(("activities", session, page_size, only_kinds, page_token))
         return {"activities": [{"id": "a1", "originator": "AGENT",
                                 "kind": "agentMessaged", "summary": "hi"}],
                 "nextPageToken": ""}

@@ -44,7 +44,7 @@ class JulesBackend(Protocol):
     def create(self, prompt: str, source: str, starting_branch: str) -> dict: ...
     def get(self, session: str) -> dict: ...
     def list(self, page_size: int, page_token: str) -> dict: ...
-    def activities(self, session: str, page_size: int, only_kinds: str) -> dict: ...
+    def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "") -> dict: ...
     def plan(self, session: str, max_pages: int) -> dict: ...
     def approve_plan(self, session: str) -> dict: ...
     def message(self, session: str, prompt: str) -> dict: ...
@@ -68,9 +68,10 @@ class JulesClient:
         from . import _jules_api
         return _jules_api.jules_list(page_size=page_size, page_token=page_token)
 
-    def activities(self, session: str, page_size: int, only_kinds: str) -> dict:
+    def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "") -> dict:
         from . import _jules_api
-        return _jules_api.jules_activities(session, page_size=page_size, only_kinds=only_kinds)
+        return _jules_api.jules_activities(session, page_size=page_size,
+                                           only_kinds=only_kinds, page_token=page_token)
 
     def plan(self, session: str, max_pages: int) -> dict:
         from . import _jules_api
@@ -134,9 +135,13 @@ class JulesCapability(CapabilityBase):
         return self._backend().list(page_size, page_token)
 
     @verb(role="transform")
-    def activities(self, session: str, page_size: int = 10, only_kinds: str = "") -> dict:
-        "A session's activity stream, trimmed to summaries (the costliest Jules read)."
-        return self._backend().activities(session, page_size, only_kinds)
+    def activities(self, session: str, page_size: int = 10, only_kinds: str = "",
+                   page_token: str = "") -> dict:
+        """A session's activity stream, trimmed to summaries (the costliest Jules read).
+        `page_token` walks older pages — without it, older `agentMessaged` /
+        failure details become unreachable through `jules.activities` (Codex
+        review ccb8f03 / jules.py:139)."""
+        return self._backend().activities(session, page_size, only_kinds, page_token)
 
     @verb(role="transform")
     def plan(self, session: str, max_pages: int = 5) -> dict:

@@ -46,6 +46,34 @@ becomes more interesting when *we* are the dispatch target — the policy needs
 a clear scope-locked rejection path ("Jules touched a path outside `affects:`"
 → reject + emit a `BLOCKED:` PR per JULES_PROTOCOL §1).
 
+## 2026-05-30 — Codex review on ccb8f03 (4 P2 comments, mid-Phase-2)
+
+Triage:
+- **#3 (jules.py:139, `activities` missing `page_token`)** — real, fixed
+  inline. `JulesBackend` Protocol + `JulesClient` + `StubJulesClient` + verb
+  all carry `page_token` now.
+- **#4 (engine.py:94, unbounded CodeMode sandbox)** — real, fixed inline.
+  `MontySandboxProvider(limits={max_duration_secs: 30, max_memory: 512MB})`
+  with env overrides (`AGENCY_SANDBOX_MAX_{SECS,MEM_MB}`). Without limits a
+  bad `/execute` ties up the MCP process.
+- **#2 (jules.py:117, `dispatch` returns `id` vs `name`)** — **false positive**.
+  Downstream methods all normalize via `_jules_api._short_id()` which strips
+  the `sessions/` prefix and accepts the bare numeric id; the Jules API
+  accepts both forms in path params.
+- **#1 (jules.py:166, `DELETE /v1alpha/sessions/{id}` may now exist)** —
+  **deferred**: needs API verification (container SSL clock skew is blocking
+  direct calls; will check via `WebFetch` on the Jules docs once the network
+  cooperates). If real, the fix is small (try `DELETE` first, gracefully
+  degrade to the current "unsupported" string on 404/405).
+
+**Observation 5 — container SSL clock skew blocks `jules_get` calls from
+*this* environment**, while the earlier dispatch went through. `httpx`
+reports `CERTIFICATE_VERIFY_FAILED: certificate is not yet valid`. → **Design
+fold-back:** the watcher (Phase 6) must handle transient TLS errors as
+retriable, not terminal, and the recovery flow needs an alternate "check via
+GitHub MCP" path when the Jules API itself is unreachable (lesson-15 §15
+flavour). Track as `OQ9`.
+
 ## What to watch for next
 
 - Did either session reach `AWAITING_PLAN_APPROVAL`? If yes, we may need to

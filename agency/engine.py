@@ -21,10 +21,22 @@ import inspect
 from fastmcp import Context, FastMCP
 
 try:
-    from fastmcp.experimental.transforms.code_mode import CodeMode
+    from fastmcp.experimental.transforms.code_mode import CodeMode, MontySandboxProvider
     HAVE_CODEMODE = True
 except ImportError:  # pragma: no cover
     HAVE_CODEMODE = False
+
+
+# Bounded sandbox limits — without these, an infinite loop or runaway
+# allocation in an `execute` script ties up the whole MCP server. Codex
+# review ccb8f03 / engine.py:94. Tunable via env: AGENCY_SANDBOX_MAX_SECS
+# (default 30), AGENCY_SANDBOX_MAX_MEM_MB (default 512).
+def _sandbox_limits() -> dict:
+    import os as _os
+    return {
+        "max_duration_secs": float(_os.environ.get("AGENCY_SANDBOX_MAX_SECS", "30")),
+        "max_memory": int(_os.environ.get("AGENCY_SANDBOX_MAX_MEM_MB", "512")) * 1024 * 1024,
+    }
 
 from .capabilities import discover
 from .capabilities._vcs import GitClient
@@ -91,7 +103,8 @@ class Engine:
     def build_mcp(self, codemode: bool = True) -> FastMCP:
         if codemode and not HAVE_CODEMODE:                  # fail loud, not a silent raw-tool fallback
             raise RuntimeError("code-mode requested but unavailable; install fastmcp[code-mode]")
-        transforms = [CodeMode()] if (codemode and HAVE_CODEMODE) else []
+        transforms = ([CodeMode(sandbox_provider=MontySandboxProvider(limits=_sandbox_limits()))]
+                      if (codemode and HAVE_CODEMODE) else [])
         mcp = FastMCP("agency", transforms=transforms)
         mem = self.memory
 
