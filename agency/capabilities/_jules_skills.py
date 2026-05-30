@@ -54,6 +54,142 @@ JULES_PROTOCOL_PREAMBLE_SKILL: dict = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Phase 6 — jules-tool-discipline (collapsed)
+# ---------------------------------------------------------------------------
+# Phase C REVIEW must-fix #5: the original 5-phase shape was tautological
+# ("was this string in the prompt?" × 5 isn't a skill). The cleaner answer:
+# one advisory phase that invokes the real predicate. Reusable from inside
+# `jules-protocol-preamble` Phase 3 (same `invoke` binding); also walked
+# standalone when a caller wants to lint a draft prompt without committing
+# to a dispatch.
+JULES_TOOL_DISCIPLINE_SKILL: dict = {
+    "name": "jules-tool-discipline",
+    "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "apply-tool-discipline",
+         "produces": ["lint_result"],
+         "invoke": {"capability": "jules", "verb": "lint_prompt"},
+         "inputs": ["text", "must_name"]},
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 — jules-recovery-when-stuck
+# ---------------------------------------------------------------------------
+# Walked by the watcher's recover flow (Spec 012 §5; AGENCY_PROTOCOL.md §5).
+# 4 phases, 1 hard gate at the end. The phases mirror the three silent-fail
+# routing options: probe → check for reply → fall back to patch-extract.
+#
+# Phase 1 (`classify-state`) binds to `jules.status`: returns the session
+# resource so downstream phases can branch on state + has_outputs.
+# Phase 2 (`probe-once`) binds to `jules.message`: nudges the agent to push
+# or reply EMPTY (the canonical recovery probe; AGENCY_PROTOCOL.md §5).
+# Phase 3 (`patch-or-empty`) binds to `jules.patch`: extracts the session's
+# patch outputs for the recovery plan (returns files/lines/bytes counts).
+# Phase 4 (`recovered`) is the HARD GATE: caller supplies pr_url (or a
+# sentinel "EMPTY" when no recovery was needed) + confirms.
+JULES_RECOVERY_WHEN_STUCK_SKILL: dict = {
+    "name": "jules-recovery-when-stuck",
+    "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "classify-state",
+         "produces": ["status"],
+         "invoke": {"capability": "jules", "verb": "status"},
+         "inputs": ["session"]},
+        {"index": 2, "name": "probe-once",
+         "produces": ["probe"],
+         "invoke": {"capability": "jules", "verb": "message"},
+         "inputs": ["session", "prompt"]},
+        {"index": 3, "name": "patch-or-empty",
+         "produces": ["patch"],
+         "invoke": {"capability": "jules", "verb": "patch"},
+         "inputs": ["session"]},
+        {"index": 4, "name": "recovered",
+         "produces": ["pr_url"], "gate": "hard"},
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
+# Phase 8 — jules-pr-review-cycle
+# ---------------------------------------------------------------------------
+# 3 advisory phases composing the @jules review-comment flow. The
+# `draft-replies` phase binds to `jules.review_comment` so every drafted
+# reply ships with the mandatory AGENCY_PROTOCOL.md §9 handshake tail
+# (`reply_to_pr_comments(...)`). The `read-comments` and `reply-on-github`
+# phases are document phases — the caller fetches via GitHub MCP, drafts,
+# then posts the replies, since GitHub MCP is the orchestrator's tool,
+# not a capability the engine wires directly.
+JULES_PR_REVIEW_CYCLE_SKILL: dict = {
+    "name": "jules-pr-review-cycle",
+    "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "read-comments",
+         "produces": ["comments"]},
+        {"index": 2, "name": "draft-replies",
+         "produces": ["draft_reply"],
+         "invoke": {"capability": "jules", "verb": "review_comment"},
+         "inputs": ["body"]},
+        {"index": 3, "name": "reply-on-github",
+         "produces": ["posted"]},
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
+# Phase 9 — jules-fanout
+# ---------------------------------------------------------------------------
+# Composes the canonical pattern from develop.review: a `dispatch` phase
+# invokes `delegate.fan_out(driver="jules")` to spawn N child Lifecycles,
+# each driving a Jules session. The HARD GATE at `join` pauses until the
+# caller confirms every child resolved to an outcome (this skill does not
+# auto-join; it expects the orchestrator's confirmation that the fan-out
+# completed). Quota is the existing `delegate` arg.
+JULES_FANOUT_SKILL: dict = {
+    "name": "jules-fanout",
+    "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "plan-batch",
+         "produces": ["items"]},
+        {"index": 2, "name": "fan-out",
+         "produces": ["fanout_result"],
+         "invoke": {"capability": "delegate", "verb": "fan_out"},
+         "inputs": ["driver", "driver_verb", "items", "quota"]},
+        {"index": 3, "name": "join",
+         "produces": ["child_outcomes"], "gate": "hard"},
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
+# Phase 10 — jules-self-improvement
+# ---------------------------------------------------------------------------
+# The dogfood loop made first-class. Phase 1 collects observations (the
+# caller passes a list — usually scraped from Plan/**/DOGFOOD-NOTES.md);
+# Phase 2 binds to `reflect.note` so each observation becomes a Reflection
+# node in the bi-temporal graph, durable cross-session memory for the
+# orchestrator's future "what did we learn?" queries.
+JULES_SELF_IMPROVEMENT_SKILL: dict = {
+    "name": "jules-self-improvement",
+    "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "collect-dogfood",
+         "produces": ["observations"]},
+        {"index": 2, "name": "fold-into-spec",
+         "produces": ["reflection"],
+         "invoke": {"capability": "reflect", "verb": "note"},
+         "inputs": ["scope", "text"]},
+    ],
+}
+
+
 JULES_SKILLS: dict[str, dict] = {
-    "jules-protocol-preamble": JULES_PROTOCOL_PREAMBLE_SKILL,
+    "jules-protocol-preamble":   JULES_PROTOCOL_PREAMBLE_SKILL,
+    "jules-tool-discipline":     JULES_TOOL_DISCIPLINE_SKILL,
+    "jules-recovery-when-stuck": JULES_RECOVERY_WHEN_STUCK_SKILL,
+    "jules-pr-review-cycle":     JULES_PR_REVIEW_CYCLE_SKILL,
+    "jules-fanout":              JULES_FANOUT_SKILL,
+    "jules-self-improvement":    JULES_SELF_IMPROVEMENT_SKILL,
 }

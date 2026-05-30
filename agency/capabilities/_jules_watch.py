@@ -6,16 +6,50 @@ from typing import Any
 from agency.capabilities import _jules_api
 from agency.capabilities._vcs import GitClient
 
+# Spec 013 Phase 11 update: every instruction names the Jules-side tool the
+# agent must call EXPLICITLY (per AGENCY_PROTOCOL.md §2 — prose alone leaves
+# work in the VM). Cap relaxed to ≤ 480 chars (~120 tokens / event); the
+# literal-tool-name discipline is reliable, an indirected one re-introduces
+# the silent-fail mode.
 INSTRUCTIONS: dict[str, str] = {
     "noop": "Working.",
-    "review_and_approve_plan": "Plan ready ({plan_steps} steps). Read it via jules.plan, then jules.approve_plan within ~5 min — this state has a timeout window.",
-    "answer_agent_question": "Agent asked: '{agent_message:.200s}'. Reply via jules.message with a concrete answer; never leave it idle — sessions waiting on their own question time out and FAIL.",
-    "verify_pr": "Session done; branch {branch} on origin. Verify the PR contents match the spec's `affects:`.",
-    "recover_silent_fail": "COMPLETED without a branch on origin ({files} files in patch). Call jules.recover — it will probe once, then apply the patch via the GitHub MCP.",
-    "recover_apply_plan": "Recovery plan ready. Execute the operations via github MCP.",
-    "dispatch_fresh": "COMPLETED with empty patch — genuine no-op. Re-dispatch with the same prompt (the only legitimate fresh-dispatch trigger).",
-    "inspect_and_resume": "PAUSED. Inspect last activities via jules.activities, then jules.message to resume.",
-    "terminal": "CANCELLED (cause: {cause})."
+    "review_and_approve_plan": (
+        "Plan ready ({plan_steps} steps). Use jules.plan to read it, then "
+        "jules.approve_plan within ~5 min — this state has a timeout window. "
+        "Agent-side: set_plan + request_plan_review."
+    ),
+    "answer_agent_question": (
+        "Agent asked: '{agent_message:.200s}'. Reply via jules.message with a "
+        "concrete answer; never leave idle (sessions waiting on their own "
+        "question time out and FAIL). Agent-side: questions must use "
+        "request_user_input, NEVER message_user."
+    ),
+    "verify_pr": (
+        "Session done; branch {branch} on origin. Verify the PR contents match "
+        "the spec's `affects:`. Verify via `git ls-remote` — NEVER trust local "
+        "HEAD. Use read_pr_comments + reply_to_pr_comments for review threads."
+    ),
+    "recover_silent_fail": (
+        "COMPLETED without a branch on origin ({files} files in patch). "
+        "Call jules.recover — probes once, then applies via GitHub MCP. "
+        "Agent-side: pre_commit_instructions() → submit(branch_name, "
+        "commit_message, title, description) is the canonical publish pair."
+    ),
+    "recover_apply_plan": (
+        "Recovery plan ready. Execute the ops via GitHub MCP "
+        "(create_branch / push_files / delete_file / create_pull_request)."
+    ),
+    "dispatch_fresh": (
+        "COMPLETED with empty patch — genuine no-op. Re-dispatch with the "
+        "same prompt naming submit + pre_commit_instructions + "
+        "request_user_input + replace_with_git_merge_diff + request_code_review."
+    ),
+    "inspect_and_resume": (
+        "PAUSED. Inspect via jules.activities + read_file/list_files, then "
+        "plan_step_complete to verify state before any submit. Use "
+        "jules.message to resume."
+    ),
+    "terminal": "CANCELLED (cause: {cause}).",
 }
 
 _PROBE_PROMPT = "Your state is COMPLETED but there is no branch on origin. Push your branch and reply with the PR URL. If already pushed, reply with the branch name and SHA."
