@@ -20,6 +20,22 @@ from __future__ import annotations
 from typing import Protocol
 
 from ..capability import CapabilityBase, verb
+from ..ontology import OntologyExtension
+
+
+# Closed enums — single source of truth for the watcher (spec 012). The state
+# set is the Jules v1alpha state machine; the action set is the WatchEvent
+# verb the agent reacts to (see Plan/012-…/spec.md "WatchEvent shape").
+JULES_STATES = {
+    "STATE_UNSPECIFIED", "QUEUED", "PLANNING", "AWAITING_PLAN_APPROVAL",
+    "IN_PROGRESS", "AWAITING_USER_FEEDBACK", "COMPLETED", "FAILED",
+    "PAUSED", "CANCELLED",
+}
+WATCH_ACTIONS = {
+    "noop", "review_and_approve_plan", "answer_agent_question",
+    "verify_pr", "recover_silent_fail", "recover_apply_plan",
+    "dispatch_fresh", "inspect_and_resume", "terminal",
+}
 
 
 class JulesBackend(Protocol):
@@ -72,6 +88,24 @@ class JulesClient:
 class JulesCapability(CapabilityBase):
     name = "jules"
     home = "lifecycle"
+    # Spec-012 ontology extension: typed nodes for the session registry, alias
+    # table, watcher event stream, and patch artefact (the silent-fail recovery
+    # input). Merged strictly onto the core per CORE.md:131-133 — never leaks
+    # into the core ontology. Extras allowed (the ontology validates required
+    # + enums only; richer fields like `title`, `branch`, `url` ride along).
+    ontology = OntologyExtension(
+        nodes={
+            "JulesSession":    ["sid"],
+            "JulesAlias":      ["name", "sid"],
+            "JulesWatchEvent": ["sid", "action"],
+            "JulesPatch":      ["sid", "files", "lines", "bytes"],
+        },
+        edges={"OBSERVED_OF", "RECOVERED_BY", "ALIAS_OF"},
+        enums={
+            ("JulesSession",    "state"):  JULES_STATES,
+            ("JulesWatchEvent", "action"): WATCH_ACTIONS,
+        },
+    )
 
     def _backend(self) -> JulesBackend:
         return self.ctx.client or JulesClient()    # the engine injects its jules backend as ctx.client

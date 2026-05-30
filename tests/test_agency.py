@@ -157,6 +157,43 @@ def test_provenance_moat():
     e.memory.close()
 
 
+def test_jules_capability_ontology_extension_loads_and_enforces_enums():
+    """Spec 012 Phase 1: the JulesCapability ships an OntologyExtension that
+    adds JulesSession / JulesAlias / JulesWatchEvent / JulesPatch + the
+    OBSERVED_OF / RECOVERED_BY / ALIAS_OF edges, and constrains the closed
+    JulesState / WatchAction enums. The engine merges it strictly onto the
+    core (no leak into other capabilities); records that violate the enums
+    are rejected before reaching the graph."""
+    e = fresh()
+    # nodes registered
+    for label in ("JulesSession", "JulesAlias", "JulesWatchEvent", "JulesPatch"):
+        assert label in e.ontology.nodes, label
+    # edges registered
+    for rel in ("OBSERVED_OF", "RECOVERED_BY", "ALIAS_OF"):
+        assert e.ontology.is_known_edge(rel), rel
+    # valid record: state in the enum
+    sid = e.memory.record("JulesSession", {"sid": "sess-1", "state": "AWAITING_PLAN_APPROVAL", "url": "u"})
+    assert sid                                                  # accepted
+    # invalid record: state outside the enum is rejected
+    try:
+        e.memory.record("JulesSession", {"sid": "sess-2", "state": "BOGUS"})
+    except ValueError as exc:
+        assert "not in" in str(exc).lower() or "violates ontology" in str(exc).lower()
+    else:
+        raise AssertionError("expected ValueError on bogus JulesState")
+    # invalid WatchEvent action also rejected
+    try:
+        e.memory.record("JulesWatchEvent", {"sid": "sess-1", "action": "bogus_action"})
+    except ValueError as exc:
+        assert "not in" in str(exc).lower() or "violates ontology" in str(exc).lower()
+    else:
+        raise AssertionError("expected ValueError on bogus WatchAction")
+    # edge link smoke: OBSERVED_OF event -> session
+    ev = e.memory.record("JulesWatchEvent", {"sid": "sess-1", "action": "noop"})
+    e.memory.link(ev, sid, "OBSERVED_OF")                       # no exception = edge type accepted
+    e.memory.close()
+
+
 def test_toolresult_envelope_unwraps_to_data_and_records_metadata():
     """Spec 001 (Option C): a verb returning a `ToolResult` envelope has its
     `.data` unwrapped at the Registry boundary so the wire shape stays the
