@@ -20,5 +20,7 @@ else
   PY="$(command -v python)"
 fi
 
-export PYTHONPATH="${PYTHONPATH:-}:${ROOT}"
+# PREPEND, not append: a user project cwd containing its own `agency/` package
+# would otherwise shadow the plugin's. Codex review d5758b2 / bin/agency-mcp:28.
+export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 exec "$PY" -m agency.cli "$@"

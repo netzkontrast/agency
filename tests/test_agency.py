@@ -232,6 +232,46 @@ def test_toolresult_envelope_unwraps_to_data_and_records_metadata():
     e.memory.close()
 
 
+def test_toolresult_ok_false_without_typed_error_marks_invocation_failed():
+    """Codex review d5758b2 / capability.py:188 — a verb returning
+    `ToolResult(ok=False)` without an attached `TypedError` must still flip the
+    Invocation `outcome` to `failed`; otherwise the envelope's primary status
+    disagrees with provenance."""
+    from agency.toolresult import ToolResult
+    from agency.capability import Capability
+    def bad_no_error(ctx):                                       # noqa: ARG001
+        return ToolResult(data={"n": 1}, ok=False)               # ok=False, no error
+    e = fresh()
+    e.registry.register(Capability(
+        name="trbad", home="capability",
+        verbs={"go": {"role": "transform", "fn": bad_no_error, "inject": ["ctx"]}}))
+    iid = e.intent.capture("a", "b", "c"); e.intent.confirm(iid)
+    res, inv = e.registry.invoke(e.memory, iid, "trbad", "go")
+    assert res == {"n": 1}                                       # .data unwrapped on the wire
+    assert e.memory.recall(inv)["outcome"] == "failed"
+    e.memory.close()
+
+
+def test_invoke_with_agent_id_kwarg_records_an_agent_node():
+    """Codex review d5758b2 / capability.py:171 — when callers pass
+    `agent_id` directly (e.g. MCP/CLI `jules.dispatch(agent_id=...)`)
+    without first opening a Lifecycle, the Registry must ensure a labeled
+    `Agent` node exists so `memory.provenance()` picks up the performer."""
+    from agency.capability import Capability
+    def ok(ctx):                                                  # noqa: ARG001
+        return {"x": 1}
+    e = fresh()
+    e.registry.register(Capability(
+        name="trag", home="capability",
+        verbs={"go": {"role": "transform", "fn": ok, "inject": ["ctx"]}}))
+    iid = e.intent.capture("a", "b", "c"); e.intent.confirm(iid)
+    e.registry.invoke(e.memory, iid, "trag", "go", agent_id="agent:foo")
+    assert e.memory.recall("agent:foo") is not None              # Agent node created
+    prov = e.memory.provenance(iid)
+    assert any(a.get("id") == "agent:foo" for a in prov["agents"])  # provenance picks it up
+    e.memory.close()
+
+
 def test_bitemporal_what_changes_why_holds():
     e = fresh()
     iid = e.intent.capture("ship green CI", "fix auth test", "tests green")

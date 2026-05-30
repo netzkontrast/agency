@@ -168,6 +168,14 @@ class Registry:
         })
         memory.link(inv, intent_id, "SERVES")
         if agent_id:
+            # Ensure the agent_id resolves to a labeled Agent node so
+            # `memory.provenance()`'s `MATCH ->(a:Agent)` picks it up (Codex
+            # review d5758b2 / capability.py:171). When the caller passes
+            # agent_id directly (e.g. MCP/CLI `jules.dispatch(agent_id=…)`)
+            # without first opening a Lifecycle, this idempotent upsert keeps
+            # the performer visible in audits.
+            if memory.recall(agent_id) is None:
+                memory.record("Agent", {"runtime": "external"}, node_id=agent_id)
             memory.link(inv, agent_id, "PERFORMED_BY")  # 'BY' is a Cypher reserved word
         try:
             result = spec["fn"](**call)
@@ -183,7 +191,9 @@ class Registry:
         from .toolresult import ToolResult
         if isinstance(result, ToolResult):
             updates: dict = {}
-            if result.error is not None:
+            if not result.ok:                                    # ok=False alone marks the run failed
+                updates["outcome"] = "failed"                   # (Codex review d5758b2 / capability.py:188)
+            if result.error is not None:                         # TypedError, when attached, carries the message
                 updates["outcome"] = "failed"
                 updates["error"] = f"{result.error.code}: {result.error.message}"
             if result.warnings:
