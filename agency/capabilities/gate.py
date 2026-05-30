@@ -19,11 +19,23 @@ class GateCapability(CapabilityBase):
 
     @verb(role="act")
     def check(self, lifecycle_id: str, name: str, passed: bool, evidence: str = "") -> dict:
-        "Record a gate outcome on a Lifecycle: PASSED, or BLOCKED_ON + an input-required pause on failure."
-        if not self.ctx.memory.g.query(                        # no cross-intent gates
-                "MATCH (l:Lifecycle)-[:SERVES]->(i:Intent) WHERE l.id = $l AND i.id = $i RETURN i",
-                {"l": lifecycle_id, "i": self.ctx.intent_id}):
-            return {"result": {"error": "lifecycle does not serve the current intent",
+        """Record a gate outcome on a Lifecycle: PASSED, or BLOCKED_ON +
+        an input-required pause on failure.
+
+        Codex C2 (capability/gate.py:25): an exact ``i.id = $iid`` match
+        rejected lifecycles serving a pre-amend intent — `memory.provenance`
+        deliberately walks the ``SUPERSEDED_BY`` chain (memory.py:161-175),
+        but this guard didn't. A gate against an amended intent would
+        incorrectly report "lifecycle does not serve the current intent"
+        and silently drop the gate outcome. Fix: query the whole
+        ``SUPERSEDED_BY`` chain via ``memory._intent_chain``.
+        """
+        chain = list(self.ctx.memory._intent_chain(self.ctx.intent_id))
+        if not self.ctx.memory.g.query(
+                "MATCH (l:Lifecycle)-[:SERVES]->(i:Intent) "
+                "WHERE l.id = $l AND i.id IN $ids RETURN i",
+                {"l": lifecycle_id, "ids": chain}):
+            return {"result": {"error": "lifecycle does not serve the current intent (or its amended chain)",
                                "lifecycle_id": lifecycle_id}}
         g = self.ctx.record("Gate", {"name": name, "passed": bool(passed), "evidence": evidence})
         self.ctx.link(lifecycle_id, g, "PASSED" if passed else "BLOCKED_ON")

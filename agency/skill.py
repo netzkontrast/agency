@@ -68,8 +68,31 @@ class SkillRun:
         missing = [f for f in p["produces"] if outputs.get(f) in (None, "")]
         if missing:
             raise ValueError(f"phase {p['name']!r} missing required outputs: {missing}")
+        # Codex C3 (skill.py:72): an unconfirmed hard gate previously returned
+        # `input-required` but wrote no Gate / blocked-state to the graph —
+        # auditors could not see WHY a run paused. Fix: record a
+        # `Gate{passed:False, paused:True}` + `BLOCKED_ON` edge from the
+        # SkillRun to the Gate before returning, so the pause is provenance.
+        # On the confirmed re-submission path, record a symmetric
+        # `Gate{passed:True}` + `PASSED` edge so the resume is also
+        # provenance — the append-only graph carries both halves of the
+        # block→resume cycle.
         if p.get("gate") == "hard" and not confirmed:
-            return {"status": "input-required", "phase": p["name"], "gate": "hard"}
+            blocked_id = self.memory.record("Gate", {
+                "name": p["name"], "passed": False, "paused": True,
+                "evidence": f"hard gate at phase {p['name']!r} awaiting confirmation",
+            })
+            self.memory.link(self.skill_id, blocked_id, "BLOCKED_ON")
+            self.memory.link(blocked_id, self.intent_id, "SERVES")
+            return {"status": "input-required", "phase": p["name"], "gate": "hard",
+                    "blocked_on": blocked_id}
+        if p.get("gate") == "hard" and confirmed:
+            passed_id = self.memory.record("Gate", {
+                "name": p["name"], "passed": True, "paused": False,
+                "evidence": f"hard gate at phase {p['name']!r} confirmed",
+            })
+            self.memory.link(self.skill_id, passed_id, "PASSED")
+            self.memory.link(passed_id, self.intent_id, "SERVES")
         phase_id = self.memory.record("Phase", {
             "skill": self.schema["name"], "index": p["index"], "name": p["name"],
             "produces": ",".join(p["produces"]),
