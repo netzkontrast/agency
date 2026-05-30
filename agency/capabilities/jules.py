@@ -48,6 +48,13 @@ class JulesBackend(Protocol):
     def plan(self, session: str, max_pages: int) -> dict: ...
     def approve_plan(self, session: str) -> dict: ...
     def message(self, session: str, prompt: str) -> dict: ...
+    # Spec 012 Phase 2/3 — orbital surface (resolve / ops hygiene / patches).
+    def resolve_source(self, owner: str, repo: str) -> dict: ...
+    def get_full(self, session: str) -> dict: ...
+    def status_all(self, page_size: int, max_pages: int) -> dict: ...
+    def approve_awaiting(self, limit: int) -> dict: ...
+    def quota(self, daily_limit: int) -> dict: ...
+    def patch(self, session: str) -> dict: ...
 
 
 class JulesClient:
@@ -84,6 +91,31 @@ class JulesClient:
     def message(self, session: str, prompt: str) -> dict:
         from . import _jules_api
         return _jules_api.jules_message(session, prompt)
+
+    # Spec 012 Phase 2/3 — orbital surface.
+    def resolve_source(self, owner: str, repo: str) -> dict:
+        from . import _jules_api
+        return _jules_api.jules_resolve_source_public(owner, repo)
+
+    def get_full(self, session: str) -> dict:
+        from . import _jules_api
+        return _jules_api.jules_get_full(session)
+
+    def status_all(self, page_size: int, max_pages: int) -> dict:
+        from . import _jules_api
+        return _jules_api.jules_status_all(page_size=page_size, max_pages=max_pages)
+
+    def approve_awaiting(self, limit: int) -> dict:
+        from . import _jules_api
+        return _jules_api.jules_approve_awaiting(limit=limit)
+
+    def quota(self, daily_limit: int) -> dict:
+        from . import _jules_api
+        return _jules_api.jules_quota(daily_limit=daily_limit)
+
+    def patch(self, session: str) -> dict:
+        from . import _jules_api
+        return _jules_api.jules_patch_extract(session)
 
 
 class JulesCapability(CapabilityBase):
@@ -179,3 +211,76 @@ class JulesCapability(CapabilityBase):
         "COMPLETED != done: done only if state is completed AND a branch is on origin."
         done = str(state).lower() == "completed" and bool(branch_on_remote)
         return {"done": done, "state": state, "branch_on_remote": bool(branch_on_remote)}
+
+    # === Spec 012 Phase 3 — orbital read/admin verbs ==========================
+
+    @verb(role="transform")
+    def resolve_source(self, owner: str, repo: str) -> dict:
+        """Resolve `owner/repo` to the opaque `sources/<id>` the API expects
+        (the composition is undocumented; must list-and-match). Read-only."""
+        return self._backend().resolve_source(owner, repo)
+
+    @verb(role="transform")
+    def status_all(self, page_size: int = 100, max_pages: int = 20) -> dict:
+        """Paginated, grouped-by-state listing of every session on the
+        account. Returns `{by_state, totals, total, truncated}`. Operational
+        hygiene (lesson-15 §3); the watcher uses it to seed the registry."""
+        return self._backend().status_all(page_size, max_pages)
+
+    @verb(role="effect")
+    def approve_awaiting(self, limit: int = 0) -> dict:
+        """Bulk-approve every session in `AWAITING_PLAN_APPROVAL` (up to
+        `limit`, 0 = all). Returns `{approved, skipped}`. The one state with a
+        timeout/discard window; don't let it sit (lesson-15 §6)."""
+        return self._backend().approve_awaiting(limit)
+
+    @verb(role="transform")
+    def quota(self, daily_limit: int = 0) -> dict:
+        """Count sessions created today (UTC). `daily_limit` is a caller-
+        supplied budget (the API has no quota surface); returns `headroom`
+        when supplied. Operational hygiene (lesson-15 §6)."""
+        return self._backend().quota(daily_limit)
+
+    @verb(role="transform")
+    def patch(self, session: str) -> dict:
+        """Per-output stats (`files`, `lines`, `bytes`) from the session's
+        `outputs[*].changeSet.gitPatch.unidiffPatch` — NO body. Used by the
+        watcher to classify silent-fail variants (empty patch vs missing
+        push). Body retrieval is the explicit `patch_body` verb."""
+        return self._backend().patch(session)
+
+    @verb(role="transform")
+    def patch_body(self, session: str, output_index: int = 0, max_bytes: int = 4096) -> dict:
+        """Explicit, capped unidiff retrieval for one of the session's outputs
+        — default cap 4 KB so a careless call can't blow the agent's context.
+        Returns `{unidiff, truncated, original_bytes}`. The recovery flow's
+        `apply_patch` is the only common caller (spec 012)."""
+        outs = (self._backend().get_full(session).get("outputs") or [])
+        if output_index < 0 or output_index >= len(outs):
+            return {"error": f"output_index {output_index} out of range (0..{len(outs)-1})"}
+        diff = (((outs[output_index] or {}).get("changeSet") or {})
+                .get("gitPatch") or {}).get("unidiffPatch") or ""
+        orig = len(diff.encode("utf-8"))
+        cap = max(0, int(max_bytes))
+        return {"unidiff": diff[:cap], "truncated": orig > cap, "original_bytes": orig}
+
+    @verb(role="act")
+    def alias(self, name: str, session: str = "") -> dict:
+        """Read or upsert a stable alias for a Jules sid. Stored as a
+        `JulesAlias` node in the bi-temporal graph (no parallel sessions.json
+        per the canon CORE.md:38-45). With `session=""` looks up; with a
+        non-empty `session`, upserts both the alias and a stub `JulesSession`
+        node (the watcher fills in fields later) and links `ALIAS_OF`."""
+        mem = self.ctx.memory
+        alias_id = f"jules-alias:{name}"
+        if not session:
+            node = mem.recall(alias_id)
+            if not node:
+                return {"error": f"no such alias: {name}"}
+            return {"name": name, "session": node.get("sid")}
+        sess_id = f"jules-session:{session}"
+        if mem.recall(sess_id) is None:
+            mem.record("JulesSession", {"sid": session}, node_id=sess_id)
+        mem.record("JulesAlias", {"name": name, "sid": session}, node_id=alias_id)
+        mem.link(alias_id, sess_id, "ALIAS_OF")
+        return {"name": name, "session": session}

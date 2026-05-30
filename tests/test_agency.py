@@ -97,6 +97,35 @@ class StubJulesClient:
         self.calls.append(("message", session, prompt))
         return {"ok": True, "session": session}
 
+    # Spec 012 Phase 2/3 — orbital surface stubs.
+    def resolve_source(self, owner: str, repo: str) -> dict:
+        self.calls.append(("resolve_source", owner, repo))
+        return {"source": f"sources/{owner}-{repo}", "github": {"owner": owner, "repo": repo}}
+
+    def get_full(self, session: str) -> dict:
+        self.calls.append(("get_full", session))
+        return {"id": session, "state": self._state, "title": "t",
+                "outputs": [{"changeSet": {"gitPatch": {"unidiffPatch": "diff --git a/x b/x\n+hi\n"}}}]}
+
+    def status_all(self, page_size: int, max_pages: int) -> dict:
+        self.calls.append(("status_all", page_size, max_pages))
+        return {"by_state": {"IN_PROGRESS": [{"id": "1"}], "COMPLETED": [{"id": "2"}]},
+                "totals": {"IN_PROGRESS": 1, "COMPLETED": 1}, "total": 2, "truncated": False}
+
+    def approve_awaiting(self, limit: int) -> dict:
+        self.calls.append(("approve_awaiting", limit))
+        return {"approved": ["a", "b"], "skipped": []}
+
+    def quota(self, daily_limit: int) -> dict:
+        self.calls.append(("quota", daily_limit))
+        return {"active_today": 3, "daily_limit": daily_limit,
+                "headroom": max(0, daily_limit - 3), "truncated": False}
+
+    def patch(self, session: str) -> dict:
+        self.calls.append(("patch", session))
+        return {"sid": session, "outputs": [{"output_index": 0, "files": 1, "lines": 1, "bytes": 24}],
+                "total_files": 1, "total_lines": 1, "total_bytes": 24}
+
 
 class StubVCS:
     """Boundary stand-in for git/gh (deterministic tests). The default backend
@@ -225,6 +254,44 @@ def test_jules_api_phase2_endpoint_wrappers():
         pe = J.jules_patch_extract("s1")
     assert pe["sid"] == "s1" and pe["total_files"] == 1 and pe["total_lines"] >= 1
     assert pe["outputs"][0]["files"] == 1
+
+
+def test_jules_phase3_orbital_verbs():
+    """Spec 012 Phase 3: the new read/admin verbs land on the capability —
+    `resolve_source`, `status_all`, `approve_awaiting`, `quota`, `patch`,
+    `patch_body`, `alias`. Most route through the injected backend; `alias`
+    is memory-only (no backend call — dogfoods the bi-temporal graph)."""
+    client = StubJulesClient()
+    e = fresh(client)
+    iid = e.intent.capture("phase 3 surface", "all new verbs work", "stub returns")
+    e.intent.confirm(iid)
+
+    def call(verb, **kw):
+        return e.registry.invoke(e.memory, iid, "jules", verb, agent_id="agent:jules", **kw)[0]
+
+    assert call("resolve_source", owner="o", repo="r")["source"] == "sources/o-r"
+    sa = call("status_all", page_size=100, max_pages=20)
+    assert sa["total"] == 2 and "IN_PROGRESS" in sa["by_state"]
+    aw = call("approve_awaiting", limit=0)
+    assert aw["approved"] == ["a", "b"]
+    q = call("quota", daily_limit=10)
+    assert q["active_today"] == 3 and q["headroom"] == 7
+    pp = call("patch", session="s1")
+    assert pp["total_files"] == 1
+    # patch_body uses get_full + slices the unidiff
+    pb = call("patch_body", session="s1", output_index=0, max_bytes=1024)
+    assert "diff --git" in pb["unidiff"] and pb["truncated"] is False
+    # alias: lookup-miss then upsert then lookup-hit
+    miss = call("alias", name="phase3-test")
+    assert "error" in miss
+    set_ = call("alias", name="phase3-test", session="sess-xyz")
+    assert set_["session"] == "sess-xyz"
+    hit = call("alias", name="phase3-test")
+    assert hit["session"] == "sess-xyz"
+    # the JulesAlias node + JulesSession node are real graph nodes
+    assert e.memory.recall("jules-alias:phase3-test") is not None
+    assert e.memory.recall("jules-session:sess-xyz") is not None
+    e.memory.close()
 
 
 def test_jules_capability_ontology_extension_loads_and_enforces_enums():
