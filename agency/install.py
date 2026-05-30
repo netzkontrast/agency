@@ -47,12 +47,52 @@ LICENSE = "MIT"
 HELP_DESC = ("Use when you need to discover the agency engine's capabilities "
              "(macroskills) and their verbs (the micro-skills).")
 CMD_DESC = "Use when you want to list the agency capabilities and their verbs."
+
+# The MCP server this plugin installs surfaces three tools to Claude Code:
+# `mcp__plugin_agency_agency__{search,get_schema,execute}`. When the skill
+# is read inside Claude Code those are reachable in-process and should be
+# the primary surface. The bash bootstrap remains for Jules / no-MCP
+# harnesses (see AGENCY_PROTOCOL.md) — the engine is isomorphic over both.
+HELP_ALLOWED_TOOLS = (
+    "  - mcp__plugin_agency_agency__search\n"
+    "  - mcp__plugin_agency_agency__get_schema\n"
+    "  - mcp__plugin_agency_agency__execute\n"
+    "  - Bash"
+)
+
+_MCP_QUICKSTART = (
+    "## Quick start — MCP (Claude Code)\n\n"
+    "The plugin installs an MCP server exposing three tools:\n"
+    "`mcp__plugin_agency_agency__search`, `…__get_schema`, `…__execute`.\n"
+    "Inside `execute`, chain capability calls via `call_tool(...)` — only\n"
+    "the return crosses back into your context.\n\n"
+    "```python\n"
+    "# 1. Discover a verb (token-cheap)\n"
+    'await mcp__plugin_agency_agency__search(query="reflect note", limit=3)\n\n'
+    "# 2. Run it (sandboxed; intermediate results stay in-sandbox)\n"
+    "await mcp__plugin_agency_agency__execute(code=\"\"\"\n"
+    "  r = await call_tool('capability_plugin_help', {'intent_id': iid})\n"
+    "  return r\n"
+    "\"\"\")\n"
+    "```\n\n"
+    "`intent_id` must be a captured Intent — today only the bash CLI exposes\n"
+    "`intent` (see fallback below). Tracking issue: add a `capability_intent_capture`\n"
+    "verb so MCP-only sessions can self-bootstrap.\n\n"
+    "## Quick start — bash (Jules / no-MCP)\n\n"
+    "```bash\n"
+    'AGENCY="${CLAUDE_PLUGIN_ROOT}/bin/agency"\n'
+    'iid=$("$AGENCY" --db agency.db intent --purpose help --deliverable map --acceptance ok \\\n'
+    '      | python3 -c \'import sys,json; print(json.load(sys.stdin)["intent_id"])\')\n'
+    '"$AGENCY" --db agency.db execute --code \\\n'
+    "  \"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
+    "```\n\n"
+)
+
 CMD_BODY = (
-    "Map the agency engine's capabilities (macroskills) to their verbs "
-    "(micro-skills). Use the plugin's `bin/agency` wrapper — it resolves the "
-    "plugin venv + PYTHONPATH so the `agency` package is always importable "
-    "(plain `python -m agency.cli` would fail in the user's project "
-    "interpreter). Bootstrap an intent, then call the help verb with its id:\n\n"
+    _MCP_QUICKSTART
+    + "Use the plugin's `bin/agency` wrapper — it resolves the plugin venv\n"
+    "+ PYTHONPATH so the `agency` package is always importable. Bootstrap\n"
+    "an intent, then call the help verb with its id:\n\n"
     "    AGENCY=\"${CLAUDE_PLUGIN_ROOT}/bin/agency\"\n"
     "    iid=$(\"$AGENCY\" --db agency.db intent --purpose help "
     "--deliverable map --acceptance ok | python3 -c "
@@ -148,15 +188,25 @@ def _marketplace() -> dict:
 
 def generate(engine: Engine) -> dict[str, str]:
     """Produce the install files from the LIVE registry (so `help` always reflects
-    the real capability set). Returns {relative_path: file_contents}."""
+    the real capability set). Returns {relative_path: file_contents}.
+
+    The `help` skill body is `_MCP_QUICKSTART` (MCP-first, bash-fallback)
+    PREPENDED to the auto-discovered capability map from `plugin.help_map`.
+    Two surfaces in one skill so MCP-equipped (Claude Code) and bash-only
+    (Jules) harnesses both find their idiomatic call shape — the canon's
+    isomorphism guarantee landing in the install artefacts."""
     reg = engine.registry
     caps = {n: list(reg.get(n).verbs) for n in reg.names()}
     help_doc = help_map(caps)["result"]["doc"]
+    skill_body = _MCP_QUICKSTART + "\n" + help_doc
     return {
         ".claude-plugin/plugin.json":      json.dumps(_manifest(), indent=2),
         ".claude-plugin/marketplace.json": json.dumps(_marketplace(), indent=2),
         ".mcp.json":                       json.dumps(_mcp_config(), indent=2),
-        "skills/help/SKILL.md":            author_skill("help", HELP_DESC, help_doc)["result"],
+        "skills/help/SKILL.md":            author_skill(
+            "help", HELP_DESC, skill_body,
+            allowed_tools=HELP_ALLOWED_TOOLS,
+        )["result"],
         "commands/help.md":                author_command("help", CMD_DESC, CMD_BODY)["result"],
     }
 
