@@ -1,8 +1,15 @@
 ---
 spec_id: "016"
 slug: capability-authoring-doctrine
-status: in-progress              # v2 — Phase 1+4 done; 2/3/5 this iteration; 6 deferred; 7 dropped
+status: complete                 # v2 shipped 2026-05-30: Phases 2/3/5 landed; 7 dropped; 6 → Spec 028
 version: 2
+shipped_commits:
+  - "f5f7575 (Phase 1 — CAPABILITY-AUTHORING.md)"
+  - "7e3de29 (Phase 2 — CORE.md CapabilityContext paragraph)"
+  - "8a5a45d (Phase 3 — folder-form discover RED→GREEN)"
+  - "d76135a (Phase 5 — tests/conftest.py + proof-of-concept migration)"
+  - "e9a529d (Phase 5 hardening — 4 spec-panel findings folded)"
+  - "Plan/024 PR-A (Phase 4 — plugin.lint_capability, in-flight)"
 owner: "@agency"
 depends_on: ["001", "012", "013"]
 affects:
