@@ -140,41 +140,6 @@ agents) in the bi-temporal graph. The session node carries:
 Provenance is one traversal. No parallel `sessions.json`. `memory.graph_
 provenance(intent_id)` returns the full causal chain.
 
-## §9a — When to dispatch to Jules vs work inline (token-economics)
-
-Dispatching to Jules costs:
-- the dispatch prompt itself (~700 tokens including the preamble + scope
-  + acceptance + literal `submit(...)` incantation);
-- the orchestrator's wake-up to triage CI + review the PR + post the
-  `@jules` review (and any follow-up rounds);
-- the review-cycle handshake budget (§9 below).
-
-That cost only pays off when the task is **context-heavy**: the agent
-needs to read many files, run repeated greps, or explore an unfamiliar
-subtree to find the right code locations. For a context-heavy task,
-Jules does the file-reading inside its own VM and the orchestrator
-never loads the files into its window — real savings.
-
-For a **clear greenfield write** (a new test file + a new module from a
-crisp spec, no exploration needed), the dispatch overhead exceeds what
-inline work would cost. Default to **inline**.
-
-**Heuristic — dispatch when at least one is true:**
-- the task requires reading ≥ 4 files the orchestrator has not yet seen;
-- the task requires repeated grep/find exploration of an unfamiliar
-  subtree to locate the right edit sites;
-- the task is independently parallelisable with ≥ 3 other Jules tasks
-  (fan-out amortises the per-dispatch boilerplate);
-- the task is genuinely long-running (≥ 15 min wall-clock) and the
-  orchestrator has higher-leverage work to do meanwhile.
-
-**When dispatching: hand Jules the exact bash commands that surface the
-right files.** E.g. `grep -rn "verify(" agency/capabilities/` or
-`find tests -name "test_jules_*.py"`. This is cheap on tokens for the
-orchestrator (we don't quote file contents) AND fast for Jules (it
-doesn't waste tokens flailing). The bash-hint pattern is the canonical
-way to lend Jules orchestrator context without paying for it twice.
-
 ## §9 — PR review cycle: the comment-back handshake
 
 When the agency posts a `@jules`-style review comment on a Jules PR

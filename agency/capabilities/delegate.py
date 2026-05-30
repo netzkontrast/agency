@@ -17,13 +17,124 @@ from ..capability import CapabilityBase, verb
 from ..ontology import OntologyExtension
 
 
+def _phase(idx: int, name: str, produces: list[str], gate: str = "") -> dict:
+    p: dict = {"index": idx, "name": name, "produces": produces}
+    if gate:
+        p["gate"] = gate
+    return p
+
+
+# The dispatch-decision skill: the token-economics heuristic, walked as a
+# Lifecycle template every time the orchestrator considers a fan-out. Doctrine
+# about Jules's behaviour lives in AGENCY_PROTOCOL.md; this skill is about
+# the orchestrator's decision, so it lives here on `delegate` (the capability
+# that owns the dispatch abstraction) — not on the protocol doc.
+_DISPATCH_DECISION_SKILL = {
+    "name": "dispatch-decision",
+    "kind": "discipline",
+    "phases": [
+        _phase(1, "estimate-shape", [
+            "file_count",          # int — files the orchestrator has NOT seen
+            "exploration_needed",  # bool — repeated grep/find through unfamiliar subtree
+            "parallelism",         # int — sibling tasks that would dispatch together
+            "est_duration_min",    # int — wall-clock when done inline
+        ]),
+        _phase(2, "apply-heuristic", [
+            "recommendation",      # "inline" | "dispatch"
+            "rationale",           # one-paragraph why
+        ]),
+        _phase(3, "assemble-bash-hints", [
+            "bash_hints",          # list[str] — grep/sed/find cmds; empty when inline
+        ]),
+        _phase(4, "decide", ["decision"], gate="hard"),  # "inline" | "dispatch"
+    ],
+}
+
+
 class DelegateCapability(CapabilityBase):
     name = "delegate"
     home = "lifecycle"
     ontology = OntologyExtension(
         nodes={"Delegation": ["driver", "driver_verb", "count", "quota"]},
         edges={"DELEGATES_TO", "REDUCES_INTO"},
+        skills={"dispatch-decision": _DISPATCH_DECISION_SKILL},
     )
+
+    @verb(role="transform")
+    def dispatch_decision(self, file_count: int = 0, exploration_needed: bool = False,
+                          parallelism: int = 1, est_duration_min: int = 0) -> dict:
+        """Apply the dispatch-vs-inline heuristic and return a recommendation.
+
+        Decision logic (pure; no provenance writes — the heuristic itself is
+        a transform, and the `dispatch-decision` skill walk records the
+        provenance via Phase.invoke bindings if the caller chooses to walk it).
+
+        Dispatch wins when ANY of:
+        - file_count >= 4 (context the orchestrator has not yet loaded);
+        - exploration_needed (repeated grep/find through unfamiliar subtree);
+        - parallelism >= 3 (fan-out amortises the per-dispatch boilerplate);
+        - est_duration_min >= 15 AND the orchestrator has higher-leverage
+          work waiting.
+
+        Otherwise: inline. Dispatch costs ~700 tokens of preamble + the
+        review-cycle wake budget; that overhead only pays off on the
+        context-heavy / parallel / long-running shape.
+
+        Returns ``{recommendation, rationale, triggers}`` where ``triggers``
+        is the subset of criteria that fired.
+        """
+        triggers: list[str] = []
+        if file_count >= 4:
+            triggers.append("file_count>=4")
+        if exploration_needed:
+            triggers.append("exploration_needed")
+        if parallelism >= 3:
+            triggers.append("parallelism>=3")
+        if est_duration_min >= 15:
+            triggers.append("est_duration_min>=15")
+
+        if triggers:
+            rec = "dispatch"
+            rationale = (
+                f"context-heavy / parallel / long-running shape "
+                f"(triggers: {', '.join(triggers)}); dispatch overhead amortises."
+            )
+        else:
+            rec = "inline"
+            rationale = (
+                "clear in-context task; dispatch overhead (~700 tokens preamble "
+                "+ review-cycle) exceeds inline cost."
+            )
+        return {"recommendation": rec, "rationale": rationale, "triggers": triggers}
+
+    @verb(role="transform")
+    def dispatch_bash_hints(self, paths: str = "", symbols: str = "") -> dict:
+        """Compose the bash-hint context block for a dispatch prompt.
+
+        When the orchestrator decides to dispatch (per ``dispatch_decision``),
+        hand the agent the exact bash commands that surface the right files
+        — cheap on orchestrator tokens (no file contents quoted), fast for
+        the agent (no flailing).
+
+        ``paths`` and ``symbols`` are comma-separated. Empty → empty hints.
+        Returns ``{hints: [str], block: str}`` where ``block`` is the
+        ready-to-paste markdown.
+        """
+        ps = [s.strip() for s in paths.split(",") if s.strip()] if paths else []
+        ss = [s.strip() for s in symbols.split(",") if s.strip()] if symbols else []
+        hints: list[str] = []
+        for p in ps:
+            hints.append(f"find {p} -type f | head -50")
+        for s in ss:
+            hints.append(f"grep -rn '{s}' agency/ tests/ 2>/dev/null | head -30")
+        if not hints:
+            return {"hints": [], "block": ""}
+        body = "\n".join(hints)
+        block = (
+            "Context — read these first, in this order:\n\n"
+            f"```bash\n{body}\n```\n"
+        )
+        return {"hints": hints, "block": block}
 
     @verb(role="effect")
     def fan_out(self, driver: str, driver_verb: str, items: list, quota: int = 8) -> dict:

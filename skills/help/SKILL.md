@@ -12,7 +12,7 @@ allowed-tools:
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
 - **branch** — assess, finish
-- **delegate** — fan_out, join
+- **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
 - **develop** — checklist, reference
 - **gate** — check
 - **jules** — activities, alias, approve_awaiting, approve_plan, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, resolve_source, review_comment, status, status_all, stop, verify

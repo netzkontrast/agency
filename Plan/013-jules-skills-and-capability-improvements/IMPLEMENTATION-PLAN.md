@@ -30,8 +30,11 @@ canonical dispatch shape + the expected walked artefact.
 
 ## Dispatch options
 
-**Revised per `AGENCY_PROTOCOL.md §9a` (dispatch-vs-inline token heuristic):**
-none of phases 5-10 individually meets the "context-heavy" bar — each
+**Revised per the `delegate.dispatch-decision` skill (the dispatch-vs-inline
+heuristic was moved out of `AGENCY_PROTOCOL.md` and into a walkable skill on
+the `delegate` capability where it belongs — orchestrator decision-making,
+not agent doctrine):** none of phases 5-10 individually meets the
+"context-heavy" bar — each
 needs to read 1-2 verb signatures + the existing skill exemplar
 (`develop.py` / `music.py`), which the orchestrator already has in its
 window. Dispatching them would pay ~700 tokens of preamble + review-cycle
@@ -65,11 +68,12 @@ dispatches a stub-clients session with `source="somebody-else/whatever"`,
 asserts the assembled prompt contains the clone block, and verifies the
 preamble's pointer line points at the right paths.
 
-## Bundled Jules dispatch prompt — bash-hint pattern (per §9a)
+## Bundled Jules dispatch prompt — bash-hint pattern
 
-If skills 5-10 are dispatched as a single bundle, the prompt MUST hand
-Jules the bash commands that surface the right context — cheap on
-orchestrator tokens, fast for Jules:
+Per `delegate.dispatch_bash_hints` (and the `dispatch-decision` skill's
+Phase 3): if skills 5-10 are dispatched as a single bundle, the prompt
+MUST hand Jules the bash commands that surface the right context —
+cheap on orchestrator tokens, fast for Jules:
 
 ```
 Context — read these first, in this order:
