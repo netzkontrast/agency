@@ -1,3 +1,17 @@
+> **PROMOTED TO STANDALONE SPECS.** The three proposals below were the
+> Spec 015 dogfood-run deliverable; they have since been promoted to full
+> standalone specs (with deeper Done When lists, Open Questions, and
+> evidence). Use the standalone files as the canonical versions:
+> - Spec 017 → [`Plan/017-graph-native-dogfood-ledgers/spec.md`](../017-graph-native-dogfood-ledgers/spec.md)
+> - Spec 018 → [`Plan/018-cli-token-efficiency-bundle/spec.md`](../018-cli-token-efficiency-bundle/spec.md)
+>   (broader than Jules's narrow CLI proposal — bundles 5 token wins + Jules's two)
+> - Spec 019 → [`Plan/019-engine-output-shape-contract/spec.md`](../019-engine-output-shape-contract/spec.md)
+>
+> The content below stays as a historical record of Jules's
+> architecture-review-pass output.
+>
+> ---
+
 ---
 spec_id: "017"
 slug: "dogfood-graph-inversion"
