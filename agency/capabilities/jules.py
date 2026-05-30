@@ -135,6 +135,8 @@ class JulesCapability(CapabilityBase):
     # input). Merged strictly onto the core per CORE.md:131-133 — never leaks
     # into the core ontology. Extras allowed (the ontology validates required
     # + enums only; richer fields like `title`, `branch`, `url` ride along).
+    from ._jules_skills import JULES_SKILLS as _JULES_SKILLS
+
     ontology = OntologyExtension(
         nodes={
             "JulesSession":    ["sid"],
@@ -147,6 +149,7 @@ class JulesCapability(CapabilityBase):
             ("JulesSession",    "state"):  JULES_STATES,
             ("JulesWatchEvent", "action"): WATCH_ACTIONS,
         },
+        skills=_JULES_SKILLS,
     )
 
     def _backend(self) -> JulesBackend:
@@ -376,6 +379,25 @@ class JulesCapability(CapabilityBase):
         from ._jules_preambles import lint_must_name
         names = [s.strip() for s in must_name.split(",") if s.strip()] if must_name else None
         return lint_must_name(text, must_name=names)
+
+    @verb(role="transform")
+    def detect_mode(self, source: str) -> dict:
+        """Mode A (dogfood) vs Mode B (delegate) — pure decision based on the
+        dispatch ``source``. Mode A when ``source == DISPATCH_SELF_SOURCE``
+        (the agency repo itself, default ``netzkontrast/agency``); Mode B
+        for any other source. Mode A relies on Jules's lexical scoping to
+        inherit ``AGENTS.md`` + ``AGENCY_PROTOCOL.md`` from the cloned
+        agency repo; Mode B prepends an explicit READ-ONLY clone block.
+
+        Returns ``{mode, self_source, reason}``. Bound by Phase 1 of the
+        ``jules-protocol-preamble`` skill.
+        """
+        from ._jules_preambles import DISPATCH_SELF_SOURCE
+        if source == DISPATCH_SELF_SOURCE:
+            return {"mode": "dogfood", "self_source": DISPATCH_SELF_SOURCE,
+                    "reason": "source matches DISPATCH_SELF_SOURCE; AGENTS.md inherited via lexical scoping"}
+        return {"mode": "delegate", "self_source": DISPATCH_SELF_SOURCE,
+                "reason": "source differs from DISPATCH_SELF_SOURCE; preamble carries the READ-ONLY clone block"}
 
     @verb(role="transform")
     def review_comment(self, body: str) -> dict:
