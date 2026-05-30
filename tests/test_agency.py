@@ -157,6 +157,76 @@ def test_provenance_moat():
     e.memory.close()
 
 
+def test_jules_api_phase2_endpoint_wrappers():
+    """Spec 012 Phase 2: the new `_jules_api` wrappers (`jules_get_full`,
+    `jules_status_all`, `jules_approve_awaiting`, `jules_quota`,
+    `jules_resolve_source_public`, `jules_patch_extract`) cover the v1alpha
+    surface the capability needs for the watcher + recovery + ops hygiene.
+    Each function's HTTP shape is mocked via `_request`."""
+    import datetime as _dt
+    from unittest.mock import patch as _patch
+    from agency.capabilities import _jules_api as J
+
+    # jules_get_full returns the raw response (not the trimmed shape).
+    raw = {"id": "s1", "state": "COMPLETED", "outputs": [{"changeSet": {"gitPatch": {
+        "unidiffPatch": "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -0,0 +1 @@\n+hello\n"}}}]}
+    with _patch.object(J, "_request", return_value=raw) as m:
+        out = J.jules_get_full("sessions/s1")
+        assert out == raw
+        m.assert_called_once_with("GET", "/v1alpha/sessions/s1")
+
+    # jules_status_all paginates and groups by state.
+    sessions = [
+        {"id": "a", "state": "IN_PROGRESS",            "title": "A", "url": "ua"},
+        {"id": "b", "state": "AWAITING_PLAN_APPROVAL", "title": "B", "url": "ub"},
+        {"id": "c", "state": "AWAITING_PLAN_APPROVAL", "title": "C", "url": "uc"},
+        {"id": "d", "state": "COMPLETED",              "title": "D", "url": "ud"},
+    ]
+    with _patch.object(J, "_request",
+                       return_value={"sessions": sessions, "nextPageToken": ""}) as _:
+        result = J.jules_status_all(page_size=4, max_pages=1)
+    assert result["totals"]["AWAITING_PLAN_APPROVAL"] == 2
+    assert result["total"] == 4
+    assert {r["id"] for r in result["by_state"]["AWAITING_PLAN_APPROVAL"]} == {"b", "c"}
+
+    # jules_approve_awaiting: list AWAITING + POST :approvePlan per session.
+    calls = []
+    def fake_req(method, path, body=None, params=None):
+        calls.append((method, path))
+        if method == "GET":
+            return {"sessions": sessions, "nextPageToken": ""}
+        return {}
+    with _patch.object(J, "_request", side_effect=fake_req):
+        ap = J.jules_approve_awaiting()
+    assert ap["approved"] == ["b", "c"] and ap["skipped"] == []
+    assert ("POST", "/v1alpha/sessions/b:approvePlan") in calls
+    assert ("POST", "/v1alpha/sessions/c:approvePlan") in calls
+
+    # jules_quota counts sessions whose createTime starts with today (UTC).
+    today = _dt.datetime.utcnow().strftime("%Y-%m-%d")
+    quota_sessions = [
+        {"id": "x", "createTime": today + "T01:00:00Z"},
+        {"id": "y", "createTime": today + "T02:00:00Z"},
+        {"id": "z", "createTime": "1970-01-01T00:00:00Z"},
+    ]
+    with _patch.object(J, "_request",
+                       return_value={"sessions": quota_sessions, "nextPageToken": ""}):
+        q = J.jules_quota(daily_limit=10)
+    assert q["active_today"] == 2 and q["daily_limit"] == 10 and q["headroom"] == 8
+
+    # jules_resolve_source_public — delegates to _resolve_github_source.
+    with _patch.object(J, "_resolve_github_source",
+                       return_value={"source": "sources/abc",
+                                     "github": {"owner": "o", "repo": "r"}}):
+        assert J.jules_resolve_source_public("o", "r")["source"] == "sources/abc"
+
+    # jules_patch_extract: per-output stats from the unidiff (no body).
+    with _patch.object(J, "_request", return_value=raw):
+        pe = J.jules_patch_extract("s1")
+    assert pe["sid"] == "s1" and pe["total_files"] == 1 and pe["total_lines"] >= 1
+    assert pe["outputs"][0]["files"] == 1
+
+
 def test_jules_capability_ontology_extension_loads_and_enforces_enums():
     """Spec 012 Phase 1: the JulesCapability ships an OntologyExtension that
     adds JulesSession / JulesAlias / JulesWatchEvent / JulesPatch + the

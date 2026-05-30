@@ -287,6 +287,102 @@ def jules_approve_plan(session_id: str) -> dict:
     return {"ok": True, "session": sid}
 
 
+def jules_get_full(session_id: str) -> dict:
+    """The RAW session response — the trimmed `jules_get` discards `outputs`,
+    `sourceContext`, `requirePlanApproval` etc. The watcher + the patch
+    planner need the full shape (esp. `outputs[*].changeSet.gitPatch.unidiffPatch`).
+    Spec 012 Phase 2."""
+    return _request("GET", f"/v1alpha/sessions/{_short_id(session_id)}")
+
+
+def jules_resolve_source_public(owner: str, repo: str) -> dict:
+    """Public wrapper over `_resolve_github_source` so the capability can expose
+    a `jules.resolve_source` verb. Returns {"source": "sources/<id>", "github":
+    {"owner", "repo"}} on success, {"error": ...} on no-match. Spec 012 Phase 2."""
+    return _resolve_github_source(owner, repo)
+
+
+def jules_status_all(page_size: int = 100, max_pages: int = 20) -> dict:
+    """List every session on the account (up to `max_pages` of `page_size`) and
+    group by `state` for operational hygiene. Returns:
+        {"by_state": {state: [{"id","state","title","url"}, ...]},
+         "totals": {state: count}, "truncated": bool, "total": int}
+    Spec 012 Phase 2."""
+    items = _paginate("/v1alpha/sessions", {"pageSize": max(1, min(page_size, 100))},
+                      max_pages=max(1, max_pages))
+    by_state: dict[str, list[dict]] = {}
+    for s in items:
+        sid = s.get("id") or _short_id(s.get("name", ""))
+        row = {"id": sid, "state": s.get("state"), "title": s.get("title", ""),
+               "url": s.get("url", "")}
+        by_state.setdefault(row["state"] or "STATE_UNSPECIFIED", []).append(row)
+    totals = {k: len(v) for k, v in by_state.items()}
+    return {"by_state": by_state, "totals": totals,
+            "total": sum(totals.values()),
+            "truncated": len(items) >= page_size * max_pages}
+
+
+def jules_approve_awaiting(limit: int = 0) -> dict:
+    """Bulk-approve every session in AWAITING_PLAN_APPROVAL (up to `limit`,
+    0 = all). Returns {"approved": [sid, ...], "skipped": [(sid, error), ...]}.
+    Spec 012 Phase 2."""
+    all_sessions = jules_status_all().get("by_state", {})
+    awaiting = all_sessions.get("AWAITING_PLAN_APPROVAL", [])
+    if limit and limit > 0:
+        awaiting = awaiting[:limit]
+    approved: list[str] = []
+    skipped: list[tuple] = []
+    for row in awaiting:
+        sid = _short_id(row["id"])
+        try:
+            _request("POST", f"/v1alpha/sessions/{sid}:approvePlan", body={})
+            approved.append(sid)
+        except JulesAPIError as exc:
+            skipped.append((sid, f"{exc.status}: {exc}"))
+    return {"approved": approved, "skipped": skipped}
+
+
+def _today_iso() -> str:
+    import datetime as _dt
+    return _dt.datetime.utcnow().strftime("%Y-%m-%d")
+
+
+def jules_quota(daily_limit: int = 0) -> dict:
+    """Operational hygiene: count sessions created today (UTC) by `createTime`
+    prefix-match. `daily_limit` is a caller-supplied budget (API does not
+    expose one); a positive value enables a `headroom` field. Returns:
+        {"active_today": int, "daily_limit": int, "headroom": int,
+         "truncated": bool}
+    Spec 012 Phase 2."""
+    items = _paginate("/v1alpha/sessions", {"pageSize": 100}, max_pages=20)
+    day = _today_iso()
+    active = sum(1 for s in items if str(s.get("createTime", "")).startswith(day))
+    return {"active_today": active, "daily_limit": int(daily_limit),
+            "headroom": max(0, int(daily_limit) - active) if daily_limit else 0,
+            "truncated": len(items) >= 100 * 20}
+
+
+def jules_patch_extract(session_id: str) -> dict:
+    """Extract patch metadata from a session's `outputs[*].changeSet.gitPatch.
+    unidiffPatch`. Returns per-output summary stats (files/lines/bytes) but NO
+    body — bodies are too large to cross the agent boundary by default; use
+    `jules_get_full(sid)["outputs"][i]["changeSet"]["gitPatch"]["unidiffPatch"]`
+    for the bytes when the recovery flow needs them. Spec 012 Phase 2."""
+    s = jules_get_full(session_id)
+    outs = s.get("outputs") or []
+    summary = []
+    total_files = total_lines = total_bytes = 0
+    for i, out in enumerate(outs):
+        diff = (((out or {}).get("changeSet") or {}).get("gitPatch") or {}).get("unidiffPatch") or ""
+        files = sum(1 for ln in diff.splitlines() if ln.startswith("diff --git "))
+        lines = sum(1 for ln in diff.splitlines() if ln and ln[0] in "+-" and not ln.startswith(("+++", "---")))
+        b = len(diff.encode("utf-8"))
+        summary.append({"output_index": i, "files": files, "lines": lines, "bytes": b})
+        total_files += files; total_lines += lines; total_bytes += b
+    return {"sid": _short_id(session_id), "outputs": summary,
+            "total_files": total_files, "total_lines": total_lines, "total_bytes": total_bytes}
+
+
 def jules_message(session_id: str, prompt: str) -> dict:
     """Send a user message into a session's history (answer a question, request a
     plan revision, nudge a COMPLETED session to push). INPUT ONLY, not a control
