@@ -69,9 +69,12 @@ class StubJulesClient:
 
     def create(self, prompt: str, source: str, starting_branch: str,
                title: str = "", require_plan_approval: bool = True,
-               auto_create_pr: bool = False) -> dict:
+               auto_create_pr: bool = False,
+               automation_mode: str = "",
+               protocol_preset: str = "") -> dict:
         self.calls.append(("create", source, starting_branch, title,
-                           require_plan_approval, auto_create_pr))
+                           require_plan_approval, auto_create_pr,
+                           automation_mode, protocol_preset, prompt))
         return {"id": "sessions/123", "state": self._state,
                 "title": title, "url": "https://jules.google.com/session/123"}
 

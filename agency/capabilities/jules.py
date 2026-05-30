@@ -44,7 +44,9 @@ class JulesBackend(Protocol):
     session lifecycle the v1alpha API actually exposes."""
     def create(self, prompt: str, source: str, starting_branch: str,
                title: str = "", require_plan_approval: bool = True,
-               auto_create_pr: bool = False) -> dict: ...
+               auto_create_pr: bool = False,
+               automation_mode: str = "",
+               protocol_preset: str = "") -> dict: ...
     def get(self, session: str) -> dict: ...
     def list(self, page_size: int, page_token: str) -> dict: ...
     def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "") -> dict: ...
@@ -66,12 +68,16 @@ class JulesClient:
 
     def create(self, prompt: str, source: str, starting_branch: str,
                title: str = "", require_plan_approval: bool = True,
-               auto_create_pr: bool = False) -> dict:
+               auto_create_pr: bool = False,
+               automation_mode: str = "",
+               protocol_preset: str = "") -> dict:
         from . import _jules_api
         return _jules_api.jules_create(
             prompt=prompt, source=source, starting_branch=starting_branch,
             title=title, require_plan_approval=require_plan_approval,
-            auto_create_pr=auto_create_pr)
+            auto_create_pr=auto_create_pr,
+            automation_mode=automation_mode,
+            protocol_preset=protocol_preset)
 
     def get(self, session: str) -> dict:
         from . import _jules_api
@@ -152,20 +158,43 @@ class JulesCapability(CapabilityBase):
     @verb(role="effect")
     def dispatch(self, source: str, starting_branch: str, prompt: str,
                  title: str = "", require_plan_approval: bool = True,
-                 auto_create_pr: bool = False, alias: str = "") -> dict:
+                 auto_create_pr: bool = False, alias: str = "",
+                 automation_mode: str = "",
+                 protocol_preset: str = "") -> dict:
         """Spawn a remote Jules session (external effect). Returns id/url/state.
 
-        Param completeness (R2 audit gap closure): the default flips to
-        `require_plan_approval=True` — the recommended-by-the-reference shape
-        the watcher's `review_and_approve_plan` WatchEvent is built for; the
-        old `False` default is a opt-out, not the doctrine. `title`,
-        `auto_create_pr`, `alias` ride through to the API. When `alias` is
-        supplied, the alias + the JulesSession node are recorded in the bi-
-        temporal graph (the registry is the graph, per CORE.md:38-45)."""
+        Param completeness: the default `require_plan_approval=True` is the
+        recommended doctrine shape the watcher's `review_and_approve_plan`
+        WatchEvent is built for. Spec 013 Phase 4 adds:
+
+        - `automation_mode` — canonical Jules-side field
+          (``"" | "AUTO_CREATE_PR"``). The flag interaction matrix
+          (`Plan/013-…/DESIGN.md`):
+          - `require_plan_approval=True`, `automation_mode=""` — doctrine
+            default. Plan-gated, agent confirms PR.
+          - `require_plan_approval=True`, `automation_mode="AUTO_CREATE_PR"` —
+            agency-driving-Jules pattern. Plan-gated, PR auto-opens.
+          - `require_plan_approval=False`, `automation_mode="AUTO_CREATE_PR"` —
+            zero-touch. Only safe with a tight `affects:` allow-list.
+        - `protocol_preset` (e.g. ``"agency-default"``) — when non-empty,
+          prepends the Mode-A/B preamble assembled by
+          `_jules_preambles.assemble(...)`. Mode A (dogfood) when source
+          == `DISPATCH_SELF_SOURCE`; Mode B (delegate) otherwise. The Mode
+          B preamble carries the explicit READ-ONLY `git clone` instruction
+          + `read_file` pointers to both root docs.
+        - `auto_create_pr=True` is a deprecated back-compat alias for
+          `automation_mode="AUTO_CREATE_PR"`; emits a `DeprecationWarning`
+          once per process. Use `automation_mode` for new code.
+
+        When `alias` is supplied, the alias + the JulesSession node are
+        recorded in the bi-temporal graph (the registry IS the graph, per
+        CORE.md:38-45)."""
         s = self._backend().create(prompt=prompt, source=source,
                                    starting_branch=starting_branch, title=title,
                                    require_plan_approval=require_plan_approval,
-                                   auto_create_pr=auto_create_pr)
+                                   auto_create_pr=auto_create_pr,
+                                   automation_mode=automation_mode,
+                                   protocol_preset=protocol_preset)
         sid = s.get("id") or s.get("name")
         # Register in the bi-temporal graph (spec 012 — no parallel sessions.json).
         if sid:
