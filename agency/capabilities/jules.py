@@ -333,3 +333,24 @@ class JulesCapability(CapabilityBase):
         mem.record("JulesAlias", {"name": name, "sid": session}, node_id=alias_id)
         mem.link(alias_id, sess_id, "ALIAS_OF")
         return {"name": name, "session": session}
+
+    @verb(role="transform")
+    def lint_prompt(self, text: str, must_name: str = "") -> dict:
+        """Lint a dispatch prompt against the canonical must-name tool list.
+
+        Returns ``{ok: bool, missing: [str], extras: [str]}``. Symmetric with
+        ``plugin.lint_skill``: a pure predicate, no side effects, no memory
+        writes. Consumed by the ``jules-protocol-preamble`` skill (Phase 3
+        ``name-canonical-tools``) and reusable by ``jules-pr-review-cycle``
+        for outbound replies.
+
+        ``must_name`` is a comma-separated override; empty string falls back
+        to the full canon from ``_jules_preambles._MUST_NAME_TOOLS``
+        (``pre_commit_instructions``, ``submit``, ``request_user_input``,
+        ``replace_with_git_merge_diff``, ``request_code_review``). String
+        instead of ``list[str]`` so the verb auto-wires cleanly through MCP
+        / bash CLI without nested-type schema gymnastics.
+        """
+        from ._jules_preambles import lint_must_name
+        names = [s.strip() for s in must_name.split(",") if s.strip()] if must_name else None
+        return lint_must_name(text, must_name=names)
