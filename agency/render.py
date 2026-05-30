@@ -32,11 +32,11 @@ import re
 from typing import Any, Union
 
 
-_INPUTS_RE = re.compile(r"^\s*Inputs:\s*(.+?)(?=^\s*(?:Returns:|chain_next:|$))",
+_INPUTS_RE = re.compile(r"^\s*Inputs:\s*(.+?)(?=^\s*(?:Returns:|chain_next:|$)|\Z)",
                         re.MULTILINE | re.DOTALL)
-_RETURNS_RE = re.compile(r"^\s*Returns:\s*(.+?)(?=^\s*(?:Inputs:|chain_next:|$))",
+_RETURNS_RE = re.compile(r"^\s*Returns:\s*(.+?)(?=^\s*(?:Inputs:|chain_next:|$)|\Z)",
                          re.MULTILINE | re.DOTALL)
-_CHAIN_RE = re.compile(r"^\s*chain_next:\s*(.+?)(?=^\s*(?:Inputs:|Returns:|$))",
+_CHAIN_RE = re.compile(r"^\s*chain_next:\s*(.+?)(?=^\s*(?:Inputs:|Returns:|$)|\Z)",
                        re.MULTILINE | re.DOTALL)
 
 
@@ -102,15 +102,23 @@ def parse_slices(docstring: str) -> dict[str, str]:
 
 def _render_markdown(name: str, role: str, slices: dict[str, str], depth: str) -> str:
     lines = [f"**{name}** _(role: {role})_", "", slices["brief"]]
+    has_markers = bool(slices["inputs"] or slices["returns"] or slices["chain_next"])
     if depth in ("standard", "deep"):
         if slices["inputs"]:
             lines += ["", f"Inputs: {slices['inputs']}"]
         if slices["returns"]:
             lines += ["", f"Returns: {slices['returns']}"]
+        # Legacy (markerless) fallback: a multi-paragraph docstring with no
+        # Inputs:/Returns:/chain_next: markers keeps paragraphs 2+ in `body`.
+        # Spec 023 says `standard` should expose the whole docstring, so emit
+        # `body` here when there are no markers. When markers DO exist, `body`
+        # stays deep-only (handled below) to keep `standard` token-tight.
+        if not has_markers and slices["body"]:
+            lines += ["", slices["body"]]
     if depth == "deep":
         if slices["chain_next"]:
             lines += ["", f"chain_next: {slices['chain_next']}"]
-        if slices["body"]:
+        if has_markers and slices["body"]:
             lines += ["", slices["body"]]
     return "\n".join(lines)
 
@@ -130,19 +138,57 @@ def _render_json(name: str, role: str, slices: dict[str, str], depth: str) -> di
     return out
 
 
+_IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_PARENS_RE = re.compile(r"\([^()]*\)")
+
+
+def _input_names(inputs_prose: str) -> list[str]:
+    """Pull the parameter identifiers out of `Inputs:` prose.
+
+    The prose shape is `name (type), other_name (type), bare_name` — each
+    parameter is a leading identifier optionally followed by a parenthetical
+    type hint. We strip the parenthetical groups first (so their internal
+    commas / `|` unions can't fool the split), then take the first
+    identifier of each comma-separated segment. Returns [] when nothing
+    parses (caller falls back to a `...` placeholder)."""
+    if not inputs_prose:
+        return []
+    stripped = _PARENS_RE.sub("", inputs_prose)
+    names: list[str] = []
+    for segment in stripped.split(","):
+        m = _IDENT_RE.search(segment)
+        if m:
+            names.append(m.group(0))
+    return names
+
+
+def _args_literal(inputs_prose: str) -> str:
+    """A valid Python dict literal of placeholder kwargs from input prose.
+
+    `body (str), intent_id (str)` -> `{"body": ..., "intent_id": ...}`.
+    Falls back to `{...}` (a valid set-literal placeholder) when no input
+    names can be parsed."""
+    names = _input_names(inputs_prose)
+    if not names:
+        return "{...}"
+    return "{" + ", ".join(f'"{n}": ...' for n in names) + "}"
+
+
 def _render_snippet(name: str, role: str, slices: dict[str, str], surface: str) -> str:
     """A paste-and-go invocation example, syntax matched to the surface."""
-    inputs_hint = slices["inputs"] or "..."
+    args = _args_literal(slices["inputs"])
     if surface == "mcp":
         body = (
-            f'r = await call_tool("{name}", {{ {inputs_hint} }})\n'
+            f'r = await call_tool("{name}", {args})\n'
             f"return r"
         )
         return f"```python\n{body}\n```"
-    # bash
+    # bash — the `agency` console script is the MCP server; the CLI is
+    # `python -m agency.cli` (pyproject [project.scripts]).
+    bash_args = args.replace('"', '\\"')
     body = (
-        f'agency --db .agency/session.db execute --code \\\n'
-        f'  "return await call_tool(\\"{name}\\", {{ {inputs_hint} }})"'
+        f'python -m agency.cli --db .agency/session.db execute --code \\\n'
+        f'  "return await call_tool(\\"{name}\\", {bash_args})"'
     )
     return f"```bash\n{body}\n```"
 

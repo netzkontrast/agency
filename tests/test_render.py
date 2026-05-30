@@ -8,6 +8,7 @@ Done When (subset, Spec 023 §Done When):
 """
 from __future__ import annotations
 
+import ast
 import json
 
 import pytest
@@ -67,6 +68,36 @@ def test_parse_slices_handles_empty_docstring():
     assert s == {"brief": "", "inputs": "", "returns": "", "chain_next": "", "body": ""}
 
 
+def test_parse_slices_terminal_chain_next_without_trailing_newline():
+    # Finding 4 (Codex, PR #12): a docstring whose final marker block is at
+    # end-of-string with NO trailing blank line. The lookahead must anchor on
+    # \Z too, else the marker text stays stuck in `body` and the marker slice
+    # comes back empty.
+    doc = "Do a thing.\n\nchain_next: foo.bar()"
+    s = parse_slices(doc)
+    assert s["chain_next"] == "foo.bar()"
+    # the marker text must NOT leak into body
+    assert "chain_next" not in s["body"]
+    assert "foo.bar()" not in s["body"]
+
+
+def test_parse_slices_terminal_inputs_and_returns_without_trailing_newline():
+    # Same EOF-anchor defect for Inputs:/Returns: as the final block.
+    assert parse_slices("Do.\n\nInputs: a (str), b (int)")["inputs"] == "a (str), b (int)"
+    assert parse_slices("Do.\n\nReturns: {x, y}")["returns"] == "{x, y}"
+
+
+def test_parse_slices_full_marker_run_terminal_chain_next():
+    # All three markers in order, the run ending at EOF on chain_next with no
+    # trailing newline — every slice captured, nothing left in body.
+    doc = "Do.\n\nInputs: a (str).\nReturns: x.\nchain_next: foo.bar()"
+    s = parse_slices(doc)
+    assert s["inputs"].startswith("a (str)")
+    assert s["returns"].startswith("x")
+    assert s["chain_next"] == "foo.bar()"
+    assert s["body"] == ""
+
+
 # ---- render_verb: depth axis ----------------------------------------------
 
 
@@ -98,6 +129,38 @@ def test_depth_deep_adds_chain_next_and_body():
     assert "Idempotent" in out
 
 
+def test_standard_depth_exposes_full_legacy_body():
+    # Finding 6 (Codex, PR #12): a legacy (markerless) multi-paragraph
+    # docstring keeps paragraphs 2+ in `body`. Spec 023 says the standard
+    # fallback should expose the whole docstring — it must not collapse to
+    # the first sentence only.
+    legacy3 = (
+        "First paragraph one-liner gist.\n\n"
+        "Second paragraph with crucial elaboration.\n\n"
+        "Third paragraph with even more detail."
+    )
+    brief = render_verb(NAME, ROLE, legacy3,
+                        surface="mcp", depth="brief", format="markdown")
+    standard = render_verb(NAME, ROLE, legacy3,
+                           surface="mcp", depth="standard", format="markdown")
+    # brief stays a one-liner; standard exposes the rest of the body
+    assert "Second paragraph" not in brief
+    assert "Second paragraph" in standard
+    assert "Third paragraph" in standard
+
+
+def test_standard_depth_keeps_compliant_body_deep_only():
+    # Guard the other side of Finding 6: when markers DO exist, `body` stays
+    # deep-only so `standard` remains token-tight. (COMPLIANT_DOC's body is
+    # the "The tail instructs Jules… Idempotent." trailer.)
+    standard = render_verb(NAME, ROLE, COMPLIANT_DOC,
+                           surface="mcp", depth="standard", format="markdown")
+    assert "Idempotent" not in standard
+    deep = render_verb(NAME, ROLE, COMPLIANT_DOC,
+                       surface="mcp", depth="deep", format="markdown")
+    assert "Idempotent" in deep
+
+
 # ---- render_verb: format axis ---------------------------------------------
 
 
@@ -121,11 +184,48 @@ def test_format_snippet_emits_code_block_with_call_signature():
     assert NAME in out
 
 
+def test_format_snippet_mcp_renders_valid_python_dict_with_named_keys():
+    # Finding 5 (Codex, PR #12): the snippet must interpolate parsed input
+    # NAMES as dict keys, not the raw `Inputs:` prose. `Inputs: body (str),
+    # intent_id (str)` previously produced `{ body (str), intent_id (str) }`
+    # which is not valid Python.
+    out = render_verb(NAME, ROLE, COMPLIANT_DOC,
+                      surface="mcp", depth="standard", format="snippet")
+    assert '"body": ...' in out
+    assert '"intent_id": ...' in out
+    # the raw prose / type hints must NOT bleed into the snippet
+    assert "(str)" not in out
+    # the interpolated dict literal must be valid, parseable Python
+    dict_literal = out[out.index("{"):out.rindex("}") + 1]
+    parsed = ast.literal_eval(dict_literal)
+    assert parsed == {"body": ..., "intent_id": ...}
+
+
+def test_format_snippet_falls_back_to_placeholder_when_no_inputs():
+    # No parseable input names → `{...}` placeholder, still valid Python
+    # (a set literal). LEGACY_DOC has no Inputs: marker.
+    out = render_verb(NAME, ROLE, LEGACY_DOC,
+                      surface="mcp", depth="standard", format="snippet")
+    assert "{...}" in out
+    dict_literal = out[out.index("{"):out.rindex("}") + 1]
+    ast.literal_eval(dict_literal)  # must parse without raising
+
+
 def test_format_snippet_bash_surface_uses_cli_syntax():
     out = render_verb(NAME, ROLE, COMPLIANT_DOC,
                       surface="bash", depth="standard", format="snippet")
     assert "agency" in out  # the CLI binary
     assert "execute" in out or "search" in out
+
+
+def test_format_snippet_bash_uses_python_m_cli_not_bare_agency():
+    # Finding 9 (Codex, PR #12): the `agency` console script points at the
+    # MCP server (agency.__main__:main), not the CLI. The bash snippet must
+    # invoke `python -m agency.cli` to actually reach `execute`.
+    out = render_verb(NAME, ROLE, COMPLIANT_DOC,
+                      surface="bash", depth="standard", format="snippet")
+    assert "python -m agency.cli" in out
+    assert "agency --db" not in out  # must not call the bare console script
 
 
 # ---- render_verb: legacy fallback -----------------------------------------
