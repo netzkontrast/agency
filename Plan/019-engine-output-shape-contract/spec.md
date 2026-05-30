@@ -110,6 +110,17 @@ contract bug.
    vision-conformance subagent finding). The docstring must mention
    this OR the lint must understand the `artefact` convention as a
    second wrap-variant. Recommend: document the convention; lint reads it.
+
+4. **Exception for genuinely-rich-dict verbs (panel addition).** Some
+   verbs return rich structured dicts without the `{result: <delta>}`
+   wrap — `jules.dispatch` returns `{status, session, url, alias,
+   artefact}` straight to the wire. The lint rule must NOT flag these.
+   The detection heuristic: if the verb's actual return contains a
+   `result` key at the top level AND no other keys, treat as wrapped;
+   otherwise treat as rich. The lint then requires the docstring's
+   `Returns:` line to MATCH the actual top-level shape (the wire
+   shape). Test: assert lint passes on `jules.dispatch` (rich) AND
+   on `reflect.note` (wrapped, docstring says "reflection id (str)").
 4. **Should this spec absorb Spec 016 Hint #7 entirely?** Hint #7 says
    "every verb docstring follows the Inputs/Returns/chain_next shape."
    This spec is just one slice (the Returns line). Recommend KEEP them

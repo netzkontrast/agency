@@ -65,8 +65,24 @@ so the doctrine traces back to real code, not speculation.
   - `jules` (heavy) → folder form (Hint #1). Sibling `_jules_*.py` files
     move under `agency/capabilities/jules/`.
   - `reflect` (light) → stays single-file (Hint #2: don't fix what works).
-  - One other (Jules-finding-driven; likely `plugin` if templates.py
-    consolidates cleanly).
+  - `plugin` (medium) → folder form, consolidating `templates.py`
+    ownership under `agency/capabilities/plugin/templates.py`. The
+    third migration is no longer hypothetical — `plugin` is the clean
+    pick because `templates.py` is already a shared module + the
+    folder form makes ownership explicit (panel W1).
+- [ ] **Folder-form precedence rule** (panel W2): when both
+  `jules/__init__.py` AND `jules/jules.py` declare a `CapabilityBase`
+  subclass, `__init__.py`'s explicit re-export wins (this is the
+  canonical pattern — `jules.py` is the class file; `__init__.py` is
+  the discovery surface). The `discover()` patch enforces this
+  ordering in a RED test (two competing classes; the re-exported one
+  is what `registry.names()` carries).
+- [ ] **`@verb(skip_lint=True)` escape hatch** (panel W3): intentional
+  minimal docstrings (e.g. trivial wrappers, single-line predicates)
+  can opt out of the docstring lint. `lint_capability` skips these +
+  records the count in its output (so reviewers see "5 verbs linted, 1
+  skip_lint=True"). Used SPARINGLY by doctrine; the default is
+  enforcement.
 - [ ] `pytest -q` stays green throughout (currently 216).
 
 ## The capability contract (refresh + corrections)

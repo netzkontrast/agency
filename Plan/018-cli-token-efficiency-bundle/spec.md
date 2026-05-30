@@ -3,7 +3,7 @@ spec_id: "018"
 slug: cli-token-efficiency-bundle
 status: draft
 owner: "@agency"
-depends_on: ["016"]
+depends_on: ["016", "020"]   # 020 needed for cross-session skill.walk resume
 affects:
   - agency/engine.py                 # tool name registration (capability-prefix elision)
   - agency/cli.py                    # --chain (YAML compiler), --fields, traceback wrapper
@@ -42,10 +42,23 @@ independently useful and reverts cleanly.**
   (~80 LOC + tests).** Atomic walker that runs an entire skill to first
   hard gate. Replaces the 5× `SkillRun(...).submit(...)` boilerplate
   pattern (~300 tokens per walk) with a single call (~30 tokens).
-  Returns `{status: "completed"}` OR `{status: "input-required", phase,
-  blocked_on, resume_with: [keys]}` per the Spec 016 Hint #8 contract.
   This is the structural lever — DSPy-style "compile the program, run
   it, return the result."
+
+  **Return shapes (the contract):**
+  - **Success** → `{status: "completed", skill_id, outputs: <map>}`
+  - **Hard-gate pause** → `{status: "input-required", phase, blocked_on, resume_with: [keys], skill_id, partial_outputs}` (Spec 016 Hint #8)
+  - **Phase failure** → `{status: "failed", phase, error, skill_id, completed_phases}` — walk ABORTS on first phase failure (not a half-walked state); the `Gate{passed:False, paused:False, error}` node lands in the graph for audit (parallel to Codex C3 pause persistence).
+
+  **Resume contract** (panel addition):
+  - Caller re-invokes `skill.walk(name, inputs, resume_from=skill_id)` with
+    the `resume_with` keys populated. The walker looks up the skill_id,
+    resumes at the paused phase, supplies the new inputs.
+  - Resume is **idempotent**: re-calling with the same args after a
+    `completed` status returns the same outputs (read from the graph,
+    no re-execution).
+  - Resume across orchestrator sessions: the skill_id is the bridge
+    (lives in the central `.agency/session.db` per Spec 020).
 
 - [ ] **Win 2 — capability-prefix elision in tool names (~30 LOC).** The
   engine registers verbs as `capability_jules_dispatch`; agents type

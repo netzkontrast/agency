@@ -38,11 +38,12 @@ as the format reference. Required fields: `spec_id`, `slug`, `status`,
 
 | Spec | What it proposes | depends_on |
 |---|---|---|
-| **014** [`observation-to-spec-amendment`](014-observation-to-spec-amendment/spec.md) | Close the self-improvement loop — Reflection → spec amendment (LLM-shaped). | 013 |
+| **014** [`observation-to-spec-amendment`](014-observation-to-spec-amendment/spec.md) | Close the self-improvement loop — Reflection → spec amendment via `dogfood.parse_amendment` + `classify` + `propose` (structured JSON ops, not LLM free-text). | 013, 017, 020 |
 | **016** [`capability-authoring-doctrine`](016-capability-authoring-doctrine/spec.md) | **First Core Expansion.** 11 hints for capability authors (folder layout, role tags, docstring contract, `input-required` convention, graph-as-store, …). | 001, 012, 013 |
-| **017** [`graph-native-dogfood-ledgers`](017-graph-native-dogfood-ledgers/spec.md) | `dogfood.note` + `dogfood.render` invert the markdown-as-store anti-pattern; closes Jules's Spec 015 W1/W2. | 013, 014, 015 |
-| **018** [`cli-token-efficiency-bundle`](018-cli-token-efficiency-bundle/spec.md) | Five token wins bundled: `skill.walk`, capability-prefix elision, implicit `intent_id`, compact `get_schema`, YAML `--chain`. Plus Jules's `--fields` + traceback wrapper. | 016 |
+| **017** [`graph-native-dogfood-ledgers`](017-graph-native-dogfood-ledgers/spec.md) | `dogfood.note` + `dogfood.render` invert the markdown-as-store anti-pattern; closes Jules's Spec 015 W1/W2. | 013, 014, 015, 020 |
+| **018** [`cli-token-efficiency-bundle`](018-cli-token-efficiency-bundle/spec.md) | Five token wins bundled: `skill.walk`, capability-prefix elision, implicit `intent_id`, compact `get_schema`, YAML `--chain`. Plus Jules's `--fields` + traceback wrapper. | 016, 020 |
 | **019** [`engine-output-shape-contract`](019-engine-output-shape-contract/spec.md) | Document the engine unwrap as the contract; `lint_capability` enforces docstring describes WIRE shape (resolves Jules's Spec 015 W4 without removing the unwrap). | 016 |
+| **020** [`central-graph-db`](020-central-graph-db/spec.md) | `.agency/session.db` as the per-project default; committed to git; auto-scaffolded on install. Foundational — every spec relying on cross-session persistence depends on this. | — |
 
 ### Wave-1 backlog (early planning era — revisit when canon needs new ground)
 
@@ -63,19 +64,24 @@ spec-panel run.
 
 ## Recommended next implementation order
 
-The wave-3 specs (012-019) are the active push. Sequence:
+The wave-3 specs (012-020) are the active push. Sequence:
 
-1. **Spec 016** (capability authoring doctrine — first Core Expansion).
+1. **Spec 020** (central `.agency/session.db`) — foundational; gives every
+   subsequent spec a stable persistent store. Small (~100 LOC + tests),
+   no dependencies, unblocks cross-session continuity.
+2. **Spec 016** (capability authoring doctrine — first Core Expansion).
    The doctrine page + the subpackage-form discovery patch + the
    `lint_capability` scaffold are prerequisites for clean execution of 017-019.
-2. **Spec 017** (graph-native dogfood) — closes the highest-visibility
-   anti-pattern + makes Spec 014's amendment pipeline cleaner.
-3. **Spec 018** (CLI compactness) — the structural lever; saves tokens
-   for every future session.
-4. **Spec 019** (output-shape contract) — proves Spec 016's lint
+3. **Spec 017** (graph-native dogfood) — depends on 020; closes the
+   highest-visibility anti-pattern + makes Spec 014's amendment
+   pipeline cleaner.
+4. **Spec 018** (CLI compactness) — the structural lever; saves tokens
+   for every future session. Depends on 016 (lint scaffold) + 020
+   (skill.walk resume across sessions).
+5. **Spec 019** (output-shape contract) — proves Spec 016's lint
    extensibility on a real rule.
-5. **Spec 014** (observation → amendment) — depends on 017's
-   Reflection-tagging pattern.
+6. **Spec 014** (observation → amendment) — depends on 017's Reflection-
+   tagging + 020's persistent DB. Closes the self-improvement loop.
 
 ## Done When (this overview)
 

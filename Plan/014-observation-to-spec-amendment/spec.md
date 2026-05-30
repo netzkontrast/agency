@@ -29,20 +29,93 @@ edit to a DESIGN.md / spec.md / IMPLEMENTATION-PLAN.md.** Pre-baked hints
 below come from running `jules-self-improvement` on the *real* `Plan/`
 tree once (commit `a07c65a`) — 10 observations across specs 012 + 013.
 
+## Actors (panel W2)
+
+- **Orchestrator** (Claude Code session OR Jules dispatched session) —
+  walks the `jules-self-improvement` skill end-to-end, queries the graph
+  for unprocessed Reflections, drives parse → classify → propose.
+- **Human reviewer** (or orchestrator acting as human-proxy when the
+  human is offline) — confirms the `review` HARD GATE; decides apply
+  vs reject for each proposed amendment.
+- **Memory** (the bi-temporal graph) — durable substrate; holds
+  Reflections + ProposedAmendment nodes; queryable via `reflect.search`.
+
 ## Done When
 
-- [ ] **Phase A — Research (parallel subagents).** Mine the existing 10
-  observations for the *structural patterns* a generator needs to detect,
-  the resolution-status taxonomy, the spec-section targeting rules.
-- [ ] **Phase B — Design draft.** Lands `Plan/014-…/DESIGN.md` covering
-  the proposed pipeline shape (see hint #1 below) and the closed set of
-  amendment kinds (hint #4).
-- [ ] **Phase C — Spec-panel.** Multi-expert review per the established loop.
-- [ ] **Phase D — Refine.** Per the panel's must-fixes.
-- [ ] **Phase E — Implementation plan.** Mirrors Spec 012's structure;
-  per-phase boundary calls (us-inline vs Jules dispatched per the
-  `delegate.dispatch-decision` skill heuristic).
-- [ ] **Phase F — TDD execution.** Out of scope for spec 014's draft.
+**Verb-level acceptance** (replaces the process-phase markers — panel W1):
+
+- [ ] **`dogfood.parse_amendment(reflection_id)`** — returns
+  `{has_amendment: bool, kind: str|None, prescription: str|None,
+  cited_artefacts: [{file, line_range, original_text}]}` for **100% of
+  the 10-Reflection fixture** (`tests/fixtures/dogfood_v2/`). Pattern
+  hits ≥ 6/10 cleanly; the other 4 return `has_amendment=False`.
+
+- [ ] **`dogfood.classify(reflection_id)`** — returns
+  `{status, confidence}` where status ∈ {`proposed`, `already-resolved`,
+  `tactical-only`, `uncertain`} and `confidence ∈ [0,1]`. **≥ 80%
+  agreement with the human-labeled fixture**; `uncertain` fires when
+  confidence < 0.5 (defers to human).
+
+- [ ] **`dogfood.propose(reflection_id)`** — returns the proposed
+  amendment as ordered JSON ops (panel W3 format, see "Output format"
+  below). **Idempotent** on heuristic-version match (panel W6): each
+  ProposedAmendment node carries `parsed_at_version: str`; re-walk only
+  fires on version mismatch.
+
+- [ ] **`dogfood.cite_exists(cite)`** — returns
+  `{exists: bool, current_line_range: (int, int)|None, drift_detected: bool}`.
+  `drift_detected=True` when file exists but line content no longer
+  matches the cited region (heuristic upgrade); routes to the
+  cite-stale failure mode (below).
+
+- [ ] **`jules-self-improvement` skill rebound** to chain through the
+  four new verbs; HARD GATE at `review` accepting either `confirm` or
+  `reject` per amendment in the batch.
+
+- [ ] **Failure-mode coverage** (panel W5; each is a TEST FIXTURE):
+  - `classify-uncertain` (confidence<0.5) → status=`uncertain`,
+    propose=None, defer-to-human.
+  - `cite-stale` (file exists, line moved) → reject amendment with
+    `reason="cite_drift"`; surface to human for manual re-cite.
+  - `cite-missing` (file deleted) → reject with `reason="cite_missing"`;
+    mark Reflection `deferred-to-human=True`.
+  - `multi-match dedupe` (`reflect.search` returns ≥ 2 semantically
+    similar Reflections) → propose ONCE; mark others as duplicates
+    with `duplicate_of: reflection_id`.
+
+- [ ] **Worked example shipped** in spec body (panel W4) — a full pipeline
+  run on a real Reflection from the live graph.
+
+- [ ] **216+ existing tests stay green** + ≥ 8 new tests covering the
+  acceptance criteria above + the failure modes.
+
+## Output format — JSON ops (panel W3)
+
+```json
+{
+  "amendment_id": "amendment:abc123",
+  "reflection_id": "reflection:766d9f69",
+  "kind": "add-section",
+  "ops": [
+    {
+      "file": "AGENCY_PROTOCOL.md",
+      "line_range": [17, 17],
+      "before": "",
+      "after": "## §1 — COMPLETED ≠ done\n\n...",
+      "why": "Reflection observed: 'COMPLETED is not terminal...'"
+    }
+  ],
+  "cites": ["agency/capabilities/_jules_watch.py:73-145"],
+  "novel": true,
+  "duplicates": []
+}
+```
+
+**Why JSON ops, not unidiff:** trivially reviewable (each op has a
+`why` field), mechanically applicable, isomorphic to
+`_jules_patch.build_recovery_plan` ops (proven shape), and structured
+enough for the orchestrator to validate before applying without
+running a 3-way merge tool.
 
 ## Hints from the live self-improvement run (the actual signal)
 
@@ -186,16 +259,66 @@ JULES_SELF_IMPROVEMENT_V2_SKILL = {
 The HARD GATE at `review` is the canonical "orchestrator approves
 amendments before they touch the spec" step.
 
+## Worked example (panel W4) — end-to-end pipeline on a real Reflection
+
+**Input**: `reflection:766d9f69` (recorded live in this session)
+
+> "Watcher _classify (agency/capabilities/_jules_watch.py:73-135) lacks
+> a 'COMPLETED + planGenerated + no codeChanges' branch — it would
+> currently route such state to dispatch_fresh (treats as no-op) when
+> the right action is review_and_approve_plan. New branch needed
+> before the watcher can safely run in a long-lived engine."
+
+**Step 1 — `dogfood.parse_amendment(reflection:766d9f69)`** →
+```python
+{"has_amendment": True, "kind": "add-config-field",
+ "prescription": "New branch needed before the watcher can safely run in a long-lived engine.",
+ "cited_artefacts": [{"file": "agency/capabilities/_jules_watch.py",
+                      "line_range": [73, 135],
+                      "original_text": "<full _classify function body>"}]}
+```
+
+**Step 2 — `dogfood.classify(reflection:766d9f69)`** →
+```python
+{"status": "already-resolved", "confidence": 0.95,
+ "resolved_in_commit": "6d1d7c4",  # found via git log -p -S "plan_unapproved"
+ "reason": "verb signature already updated; new branch already in _classify"}
+```
+
+**Step 3 — `dogfood.propose(reflection:766d9f69)`** →
+```python
+# classify=already-resolved, so propose returns no ops:
+{"amendment_id": None, "reflection_id": "reflection:766d9f69",
+ "skipped_reason": "already-resolved in 6d1d7c4",
+ "novel": False}
+```
+
+**Outcome**: skill walks past Phase 5 (propose) without emitting a
+candidate; HARD GATE at `review` shows "0 novel proposals from 1
+Reflection (1 skipped: already-resolved)." Human reviewer confirms.
+Reflection marked `processed_at: <ts>` so subsequent walks skip it.
+
+A `proposed` Reflection (e.g. "→ Design fold-back: add `dogfood`
+scope to REFLECT_SCOPES") would instead produce JSON ops targeting
+`agency/capabilities/reflect.py:14` adding `"dogfood"` to the set;
+the orchestrator confirms; ops apply via filesystem write OR a
+`develop.apply_amendment(amendment_id)` follow-on verb (Open Q).
+
 ## Files (the design will refine)
 
 - **Create**:
   - `agency/capabilities/dogfood.py` — extend with `parse_amendment`,
     `classify`, `propose`, `cite_exists` verbs (Hints 1, 2, 3, 6).
+  - `tests/fixtures/dogfood_v2/` — the 10-Reflection fixture with
+    human labels for classify accuracy; the 4 failure-mode fixtures
+    (uncertain · stale · missing · multi-match).
   - `Plan/014-…/DESIGN.md` (Phase B), `REVIEW.md` (Phase C),
     `IMPLEMENTATION-PLAN.md` (Phase E).
 - **Modify** later (Phase F):
   - `agency/capabilities/_jules_skills.py` — extend
     `JULES_SELF_IMPROVEMENT_SKILL` per Hint 8.
+  - `agency/capabilities/reflect.py` — ProposedAmendment node ontology
+    (parsed_at_version, status, duplicate_of edges).
 
 ## Open Questions / for the spec-panel
 

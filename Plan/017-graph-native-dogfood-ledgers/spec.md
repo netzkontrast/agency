@@ -3,7 +3,7 @@ spec_id: "017"
 slug: graph-native-dogfood-ledgers
 status: draft
 owner: "@agency"
-depends_on: ["013", "014", "015"]
+depends_on: ["013", "014", "015", "020"]   # 020 = central .agency/session.db
 affects:
   - agency/capabilities/dogfood.py        # add note/render; deprecate collect to one-shot
   - agency/capabilities/_jules_skills.py  # rebind jules-self-improvement
@@ -91,6 +91,51 @@ orchestrator runs `await call_tool("capability_reflect_note", {scope, text})`
 - **Documentation:** update `CLAUDE.md` rule 2 to cite Spec 017 as the
   closure; update `AGENCY_PROTOCOL.md` if the graph-as-store rule needs
   a sharper line.
+
+## Worked example (panel addition)
+
+**Setup**: `.agency/session.db` exists at the project root (Spec 020).
+
+**Old flow** (markdown round-trip):
+```bash
+# Author edits Plan/013-…/DOGFOOD-NOTES.md by hand
+# Later: dogfood.collect parses the markdown, batch_note seeds the graph
+python -m agency.cli execute --code '
+  c = await call_tool("capability_dogfood_collect", {"plan_dir": "Plan", "intent_id": "intent:abc"})
+  return await call_tool("capability_reflect_batch_note", {"scope": "observation", "texts": c["texts"], "intent_id": "intent:abc"})
+'
+```
+
+**New flow** (graph-native):
+```bash
+# Observation lands DIRECTLY in the graph (no markdown file authored)
+python -m agency.cli execute --code '
+  return await call_tool("capability_dogfood_note", {
+    "observation": "COMPLETED in Jules is idle, not terminal — _classify needs a plan_unapproved branch.",
+    "plan_slug": "013-jules-skills-and-capability-improvements",
+    "intent_id": "intent:abc",
+  })
+'
+# Later, when humans need the rendered ledger:
+python -m agency.cli execute --code '
+  return await call_tool("capability_dogfood_render", {"plan_slug": "013-jules-skills-and-capability-improvements", "intent_id": "intent:abc"})
+' > Plan/013-…/DOGFOOD-NOTES.md   # optional: only when PR description needs it
+```
+
+The markdown file is no longer authoritative; the graph is. Render
+runs on demand.
+
+## Failure modes (panel addition)
+
+- **No Reflections for the requested `plan_slug`** → `render` returns
+  empty markdown with a heading (`# DOGFOOD-NOTES — plan-slug\n\n(none yet)\n`),
+  never raises. Empty is a valid state, not an error.
+- **`plan_slug` not in any spec's frontmatter** → `note` accepts it
+  anyway (Reflection persists); `render` returns it cleanly. Linking
+  to non-existent plans is a content concern, not a data-integrity one.
+- **Spec 020's `.agency/session.db` not yet scaffolded** → `note` and
+  `render` work against whatever DB the caller passes via `--db`;
+  the `.agency/` default is opt-in, not enforced. Backward compatible.
 
 ## Open Questions
 
