@@ -166,21 +166,32 @@ JULES_FANOUT_SKILL: dict = {
 # ---------------------------------------------------------------------------
 # Phase 10 — jules-self-improvement
 # ---------------------------------------------------------------------------
-# The dogfood loop made first-class. Phase 1 collects observations (the
-# caller passes a list — usually scraped from Plan/**/DOGFOOD-NOTES.md);
-# Phase 2 binds to `reflect.note` so each observation becomes a Reflection
-# node in the bi-temporal graph, durable cross-session memory for the
-# orchestrator's future "what did we learn?" queries.
+# The dogfood loop made first-class. Both phases bind to real verbs so
+# the walk EXECUTES:
+# - Phase 1 (`collect-dogfood`) binds to `dogfood.collect(plan_dir)`:
+#   walks Plan/**/DOGFOOD-NOTES.md, returns observations + a flat texts
+#   list ready for bulk ingestion.
+# - Phase 2 (`fold-into-graph`) binds to `reflect.batch_note(scope, texts)`:
+#   one Reflection node per text in a single invocation, no longer
+#   capped at one-observation-per-walk.
+#
+# The observation -> spec-amendment step (taking a Reflection and
+# proposing a delta to a DESIGN.md / spec.md) is genuinely harder
+# (LLM-shaped) and deferred to a future spec. v1 closes the durable-
+# memory half of the loop; the surface-to-orchestrator half is a
+# follow-on.
 JULES_SELF_IMPROVEMENT_SKILL: dict = {
     "name": "jules-self-improvement",
     "kind": "discipline",
     "phases": [
         {"index": 1, "name": "collect-dogfood",
-         "produces": ["observations"]},
-        {"index": 2, "name": "fold-into-spec",
-         "produces": ["reflection"],
-         "invoke": {"capability": "reflect", "verb": "note"},
-         "inputs": ["scope", "text"]},
+         "produces": ["collection"],
+         "invoke": {"capability": "dogfood", "verb": "collect"},
+         "inputs": ["plan_dir"]},
+        {"index": 2, "name": "fold-into-graph",
+         "produces": ["reflections"],
+         "invoke": {"capability": "reflect", "verb": "batch_note"},
+         "inputs": ["scope", "texts"]},
     ],
 }
 

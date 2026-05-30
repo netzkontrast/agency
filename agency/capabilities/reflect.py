@@ -31,6 +31,22 @@ class ReflectCapability(CapabilityBase):
         self.ctx.link(rid, self.ctx.intent_id, "SERVES")     # so the note surfaces in provenance
         return {"result": rid}
 
+    @verb(role="act")
+    def batch_note(self, scope: str, texts: list) -> dict:
+        """Bulk version of ``note``: one Reflection node per text. Returns
+        ``{ids, count}``. Closes the gap that made ``jules-self-improvement``
+        only fold the first observation per walk — a real loop ingests N
+        observations from ``dogfood.collect`` in one Phase-2 invocation."""
+        ids: list[str] = []
+        for t in texts or []:
+            if not t:
+                continue
+            rid = self.ctx.record("Reflection", {"scope": scope, "text": t})
+            self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+            self.ctx.link(rid, self.ctx.intent_id, "SERVES")
+            ids.append(rid)
+        return {"ids": ids, "count": len(ids)}
+
     @verb(role="transform")
     def recall(self, scope: str = "") -> dict:
         "Retrieve reflections, newest first, optionally filtered by scope."

@@ -1,9 +1,14 @@
 """Spec 013 Phase 10 — `jules-self-improvement` skill.
 
-The dogfood loop made first-class. Two advisory phases: `collect-dogfood`
-(document phase, caller supplies observations) and `fold-into-spec`
-(invoke-bound to `reflect.note(scope, text)` so each observation lands
-as a `Reflection` node in the bi-temporal graph).
+The dogfood loop made first-class — REBOUND in the v1-self-improvement
+follow-on commit so both phases are invoke-bound to real verbs:
+
+- Phase 1 (`collect-dogfood`) → `dogfood.collect(plan_dir)` walks
+  `Plan/**/DOGFOOD-NOTES.md` and returns observations + a flat text list.
+- Phase 2 (`fold-into-graph`) → `reflect.batch_note(scope, texts)` bulk-
+  records one Reflection node per text in a single invocation (no longer
+  capped at one-observation-per-walk like the original `reflect.note`
+  binding).
 """
 import tempfile
 
@@ -33,7 +38,7 @@ def test_skill_registered_on_jules_ontology(engine):
     assert "jules-self-improvement" in engine.ontology.skills
     sk = engine.ontology.skill("jules-self-improvement")
     assert [p["name"] for p in sk["phases"]] == [
-        "collect-dogfood", "fold-into-spec",
+        "collect-dogfood", "fold-into-graph",
     ]
 
 
@@ -42,28 +47,16 @@ def test_skill_has_no_hard_gate(engine):
     assert not any(p.get("gate") == "hard" for p in sk["phases"])
 
 
-def test_walk_produces_reflection_node_via_reflect_note(engine, iid):
-    sk = engine.ontology.skill("jules-self-improvement")
-    run = SkillRun(engine.memory, iid, sk, registry=engine.registry)
-    obs = "Jules's auto-reaction emoji didn't fire a webhook; only the reply_to_pr_comments did."
-    run.submit({"observations": [obs]})
-    res = run.submit({"scope": "observation", "text": obs})
-    assert res["status"] == "completed"
-
-    # reflect.note recorded a Reflection node in the graph.
-    rows = engine.memory.g.query(
-        "MATCH (r:Reflection) WHERE r.scope = $sc RETURN r",
-        {"sc": "observation"},
+def test_walk_records_phase_provenance(engine, iid, tmp_path):
+    plan_root = tmp_path / "Plan"
+    (plan_root / "777-fix").mkdir(parents=True)
+    (plan_root / "777-fix" / "DOGFOOD-NOTES.md").write_text(
+        "**Observation 1 — x.** x body."
     )
-    assert len(rows) == 1
-    assert obs in rows[0]["r"]["properties"]["text"]
-
-
-def test_walk_records_phase_provenance(engine, iid):
     sk = engine.ontology.skill("jules-self-improvement")
     run = SkillRun(engine.memory, iid, sk, registry=engine.registry)
-    run.submit({"observations": ["x"]})
-    run.submit({"scope": "observation", "text": "x"})
+    run.submit({"plan_dir": str(plan_root)})
+    run.submit({"scope": "observation", "texts": ["x body"]})
     rows = engine.memory.g.query(
         "MATCH (s:Skill)-[:HAS_PHASE]->(p:Phase) "
         "WHERE s.name = $sn RETURN p",

@@ -1249,7 +1249,7 @@ def test_reflect_is_the_class_form():
     from agency.capabilities.reflect import ReflectCapability
     assert issubclass(ReflectCapability, CapabilityBase)
     e = fresh()
-    assert set(e.registry.get("reflect").verbs) == {"note", "recall", "search"}
+    assert set(e.registry.get("reflect").verbs) == {"note", "batch_note", "recall", "search"}
     e.memory.close()
 
 
