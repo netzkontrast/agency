@@ -214,3 +214,59 @@ def render_verb(name: str,
     if format == "snippet":
         return _render_snippet(name, role, slices, surface)
     return _render_markdown(name, role, slices, depth)
+
+
+# ---- Spec 025 Phase 1: render_phase ---------------------------------------
+
+
+def render_phase(phase: dict, *, depth: str, registry: Any = None) -> str:
+    """Render a skill phase per Spec 025 disclosure tiers.
+
+    Inputs: phase (dict — name, produces, gate?, cue?, invoke?), depth
+            (brief=T1 cue | standard=T2 produces+gate | deep=T3 reference),
+            registry (for verb-bound phases — used to delegate to render_verb).
+    Returns: str — the phase's slice at the requested depth.
+    chain_next: skill.walk emits render_phase(current, depth='brief') each step;
+                agent asks for `standard` to learn the data-flow contract.
+
+    Verb-bound phases (carrying `invoke={capability,verb}`) ALWAYS delegate
+    to `render_verb` of the bound verb — the 'never duplicate' rule. The
+    phase author writes nothing; the verb's own Spec-023 slice IS the
+    phase's instruction at every depth.
+    """
+    invoke = phase.get("invoke")
+    if invoke and registry is not None:
+        try:
+            cap = registry.get(invoke["capability"])
+            verb_name = invoke["verb"]
+            spec = cap.verbs[verb_name]
+            mcp_name = f"capability_{invoke['capability']}_{verb_name}"
+            return render_verb(
+                mcp_name, spec.get("role", "act"),
+                (spec["fn"].__doc__ or ""),
+                surface="mcp", depth=depth, format="markdown",
+            )
+        except (KeyError, AttributeError):
+            pass  # fall through to native render
+
+    name = phase.get("name", "phase")
+    cue = phase.get("cue") or f"Execute the `{name}` phase."
+    # T1 — cue only, ≤120 chars (truncated defensively; lint will flag long cues)
+    out = cue if len(cue) <= 120 else cue[:117] + "..."
+    if depth == "brief":
+        return out
+    # T2 — add produces + gate
+    produces = phase.get("produces") or []
+    if produces:
+        out += f"\nproduces: {', '.join(produces)}"
+    gate = phase.get("gate")
+    if gate:
+        out += f"\ngate: {gate}"
+    if depth == "standard":
+        return out
+    # T3 — reference (deep). For now, identical to standard; Phase-3-of-the-loop
+    # adds heavy how-to via develop.reference. Authors keep T3 empty by default.
+    ref = phase.get("reference", "")
+    if ref:
+        out += f"\n\n{ref}"
+    return out
