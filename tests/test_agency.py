@@ -379,6 +379,53 @@ def test_toolresult_envelope_unwraps_to_data_and_records_metadata():
     e.memory.close()
 
 
+def test_toolresult_artefacts_written_become_produces_edges():
+    """Codex review 6059c74 / capability.py:202 — a ToolResult with
+    `artefacts_written` lands those paths as `Artefact{kind:"file"}` nodes
+    plus `PRODUCES` edges, so file-writing verbs show their produced
+    artefacts in provenance (not just a clean Invocation with paths
+    silently dropped — the envelope's documented purpose)."""
+    from agency.toolresult import ToolResult
+    from agency.capability import Capability
+    def writes(ctx):                                              # noqa: ARG001
+        return ToolResult(data={"ok": True},
+                          artefacts_written=["a.md", "b/c.json"])
+    e = fresh()
+    e.registry.register(Capability(
+        name="trw", home="capability",
+        verbs={"go": {"role": "act", "fn": writes, "inject": ["ctx"]}}))
+    iid = e.intent.capture("a", "b", "c"); e.intent.confirm(iid)
+    e.registry.invoke(e.memory, iid, "trw", "go")
+    prov = e.memory.provenance(iid)
+    paths = {a.get("path") for a in prov["artefacts"] if a.get("path")}
+    assert {"a.md", "b/c.json"} <= paths
+    e.memory.close()
+
+
+def test_invoke_rejects_intent_id_that_is_not_an_intent_node():
+    """Codex review 6059c74 / capability.py:169 — a mistyped/forged
+    `intent_id` would otherwise produce an orphan Invocation that the
+    provenance traversal cannot see while side-effect verbs still mutate the
+    world. The check fires BEFORE the Invocation is recorded."""
+    from agency.capability import Capability
+    def did_run(ctx):                                              # noqa: ARG001
+        return {"ran": True}                                      # would mutate in real code
+    e = fresh()
+    e.registry.register(Capability(
+        name="trz", home="capability",
+        verbs={"go": {"role": "effect", "fn": did_run, "inject": ["ctx"]}}))
+    try:
+        e.registry.invoke(e.memory, "intent:does-not-exist", "trz", "go")
+    except ValueError as exc:
+        assert "intent_id" in str(exc).lower() and "intent" in str(exc).lower()
+    else:
+        raise AssertionError("expected ValueError for non-Intent intent_id")
+    # The forged id must NOT have produced an Invocation.
+    invs = [n for n in (e.memory.g.query("MATCH (i:Invocation) RETURN i") or [])]
+    assert not any(True for _ in invs)
+    e.memory.close()
+
+
 def test_toolresult_ok_false_without_typed_error_marks_invocation_failed():
     """Codex review d5758b2 / capability.py:188 — a verb returning
     `ToolResult(ok=False)` without an attached `TypedError` must still flip the

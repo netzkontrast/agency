@@ -74,6 +74,71 @@ retriable, not terminal, and the recovery flow needs an alternate "check via
 GitHub MCP" path when the Jules API itself is unreachable (lesson-15 §15
 flavour). Track as `OQ9`.
 
+## 2026-05-30 (later) — verified silent-fail on Phase 4 + Phase 6 sessions
+
+After ~1 h of work, both dispatched Jules sessions were COMPLETED with
+`has_outputs=True` — i.e. authored code in their sandbox — but
+**`mcp__github__list_branches netzkontrast/agency` shows neither
+session branch on origin.** Classic silent-fail.
+
+- Phase 4 (sid `17080122233254972311`): COMPLETED, has_outputs=True, no branch on origin.
+- Phase 6 (sid `1696509658639614343`): COMPLETED, has_outputs=True, no branch on origin.
+
+Per JULES_PROTOCOL §8 + the user's standing directive ("send messages to
+Jules if you don't know what's happening — most of the time Jules just did
+not publish the PR"), I sent a tailored probe to each via
+`_jules_api.jules_message`. The probe text is the prototype of what the
+watcher's `recover_silent_fail` `WatchEvent.instruction` should carry —
+verb-driven, action-itemized, with an `EMPTY` escape and a `git ls-remote`
+verification step.
+
+**OQ9 (SSL/clock-skew flakiness) hit again.** After the probe was sent
+(window open), the subsequent `jules_activities` call to read the agent's
+reply failed with `CERTIFICATE_VERIFY_FAILED: certificate is not yet
+valid`. GitHub MCP, on a different network path, still works. → **Design
+fold-back:** the watcher classifier must treat *Jules API errors* and
+*Jules state-machine errors* as orthogonal failure modes. A `network_error`
+WatchEvent should be a NEW action (retry/back-off, but never confuse with
+a session failure). Promote OQ9 to a numbered Done-When item.
+
+**Dogfood lesson 5 (architectural):** the probe is a **stop-gap for the
+verb-driven watcher** the spec is building. Spec 012's watcher is the
+durable answer; this manual loop is its proof-by-construction.
+
+## 2026-05-30 (later) — Codex review batch on 6059c74
+
+Applied inline (small + confident + in code I just wrote):
+
+- **C1 (`templates.py:51`, escape skill name)** — `author_skill` now `_yaml_scalar`-
+  quotes `name` like it already does for `description` (same class of bug
+  the previous fix only handled half of). CSO kebab-case naming makes the
+  unsafe path rare, but the artefact must never be rendered invalid.
+- **C4 (`capability.py:202`, `artefacts_written` → `PRODUCES`)** — my own
+  Spec 001 unwrap was silently dropping the documented `artefacts_written`
+  list. Each entry now lands as an `Artefact{kind:"file", path:…}` node
+  with a `PRODUCES` edge, so file-writing verbs show their outputs in
+  `memory.provenance()`.
+- **C5 (`capability.py:169`, validate intent_id)** — `Registry.invoke` now
+  rejects intent_ids that don't resolve to a labeled `Intent` node BEFORE
+  recording side effects. Otherwise an `effect` verb with a forged
+  intent_id mutates the world and leaves an orphan Invocation the provenance
+  traversal cannot see.
+
+Deferred (real but architectural — want care, not speed):
+
+- **C2 (`gate.py:25`, accept gates across amended intents)** — exact
+  `i.id = $iid` check rejects the pre-amend lifecycle on an amended-intent
+  workflow, even though `memory.provenance()` deliberately follows
+  `SUPERSEDED_BY`. Fix: follow the chain in `gate.check` too. Touches the
+  intent-versioning model; should land alongside an amend-history test.
+- **C3 (`skill.py:72`, persist hard-gate pause)** — `submit` returns
+  `input-required` but writes no `Gate`/`Phase`/blocked-state to the graph.
+  Auditors cannot see *why* a run paused. Fix: record a `Gate{passed:False,
+  paused:True}` + `BLOCKED_ON` edge before returning.
+
+Both deserve their own test fixtures (amend roundtrip; pause-resume
+roundtrip) and probably one shared follow-on commit.
+
 ## What to watch for next
 
 - Did either session reach `AWAITING_PLAN_APPROVAL`? If yes, we may need to

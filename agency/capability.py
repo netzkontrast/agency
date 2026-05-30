@@ -161,6 +161,15 @@ class Registry:
                 call["intent_id"] = intent_id
             elif name in self.injectors:
                 call[name] = self.injectors[name]()
+        # C5 (Codex review 6059c74 / capability.py:169): the SERVES edge IS
+        # the moat's foundation; reject any invocation whose intent_id does not
+        # resolve to a labeled Intent BEFORE recording side effects. A
+        # mistyped/forged intent_id would otherwise produce an orphan
+        # Invocation that the provenance traversal cannot see, while real
+        # `effect` verbs still mutate the world.
+        intent_node = memory.g.get_node(intent_id)
+        if intent_node is None or "Intent" not in (intent_node.get("labels") or []):
+            raise ValueError(f"intent_id {intent_id!r} is not an Intent node")
         # record the Invocation BEFORE calling, so a verb that raises still leaves a
         # SERVES invocation in provenance (a failed run must be auditable too).
         inv = memory.record("Invocation", {
@@ -202,6 +211,15 @@ class Registry:
                 updates["archived_to"] = result.archived_to
             if updates:
                 memory.update(inv, updates)
+            # C4 (Codex review 6059c74 / capability.py:202): convert
+            # `artefacts_written` into Artefact nodes + PRODUCES edges, the
+            # envelope's documented purpose. Each entry is a file path the
+            # verb produced; recorded so provenance shows the file-writing
+            # effect, not just a clean Invocation with the path silently
+            # dropped.
+            for path in (result.artefacts_written or []):
+                art = memory.record("Artefact", {"kind": "file", "path": str(path)})
+                memory.link(inv, art, "PRODUCES")
             result = result.data
         if isinstance(result, dict) and result.get("artefact"):
             art = memory.record("Artefact", dict(result["artefact"]))

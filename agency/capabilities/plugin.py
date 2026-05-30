@@ -46,8 +46,14 @@ def scaffold(name: str, version: str, description: str) -> dict:
 
 def author_skill(name: str, description: str, body: str,
                  allowed_tools: str = DEFAULT_TOOLS, title: str | None = None) -> dict:
+    # C1 (Codex review 6059c74 / templates.py:51) — same class of bug as the
+    # description-escape fix: a name carrying a newline or YAML indicator chars
+    # would inject frontmatter keys before lint_skill caught it. Defense in
+    # depth — CSO kebab-case lint runs after, but the SKILL.md artefact must
+    # never be rendered invalid in the first place.
     rendered = templates.SKILL_MD.substitute(
-        name=name, description=templates._yaml_scalar(description), body=body,
+        name=templates._yaml_scalar(name),
+        description=templates._yaml_scalar(description), body=body,
         allowed_tools=allowed_tools, title=title or name)
     return {"result": rendered, "artefact": {
         "kind": "skill-md", "name": name, "description": description, "body": rendered}}
