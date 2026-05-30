@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# agency-mcp — start the Agency MCP server (stdio).
+# Called by Claude Code from .mcp.json. Picks the plugin's local venv if one
+# exists (.venv), otherwise falls back to the system python3. Execs
+# `python -m agency`, which builds the FastMCP engine and run()s it on stdio.
+set -euo pipefail
+
+# CLAUDE_PLUGIN_ROOT is provided by the harness; default to this script's parent dir.
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+if [[ -x "$ROOT/.venv/bin/python" ]]; then
+  PY="$ROOT/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  PY="$(command -v python3)"
+else
+  PY="$(command -v python)"
+fi
+
+export PYTHONPATH="${PYTHONPATH:-}:${ROOT}"
+exec "$PY" -m agency

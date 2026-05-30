@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Harness-in-harness agency engine: code-mode capabilities (macroskills) over one provenance graph.",
   "author": {
-    "name": "agency"
+    "name": "netzkontrast"
   },
   "keywords": [
     "agency",
@@ -11,5 +11,17 @@
     "capabilities"
   ],
   "skills": "./skills/",
-  "commands": "./commands/"
+  "commands": "./commands/",
+  "displayName": "Agency",
+  "homepage": "https://github.com/netzkontrast/agency",
+  "repository": "https://github.com/netzkontrast/agency",
+  "license": "MIT",
+  "userConfig": {
+    "jules_api_key": {
+      "type": "string",
+      "title": "Jules API Key",
+      "description": "Optional. Needed only for the `jules` capability (remote async coding agent). Get a key from https://jules.google.com \u2014 Claude Code stores it in your system keychain and exposes it to the Agency MCP server as JULES_API_KEY.",
+      "sensitive": true
+    }
+  }
 }
