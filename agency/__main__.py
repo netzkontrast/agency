@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import os
 
+from ._db_path import resolve_db_path
 from .engine import Engine
 
 
 def main() -> None:
-    db_path = os.environ.get("AGENCY_DB") or os.path.expanduser("~/.agency.db")
+    # Spec 020: --db > AGENCY_DB env > ./.agency/session.db > ~/.agency.db
+    db_path = resolve_db_path()
     os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
     engine = Engine(db_path)
     mcp = engine.build_mcp(codemode=True)
