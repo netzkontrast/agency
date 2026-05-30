@@ -199,10 +199,35 @@ class Watcher:
                 if st["attempt"] >= 3:
                     try:
                         from agency.capabilities import _jules_patch
-                        plan = await asyncio.to_thread(_jules_patch.build_recovery_plan, sid)
-                    except ImportError:
-                         # Phase 4 hasn't merged yet
-                         plan = {}
+                        # Fetch outputs + source-derived owner/repo for the
+                        # recovery plan (build_recovery_plan signature landed
+                        # in PR #9: (outputs, branch, base, owner, repo, sid)).
+                        sess = await asyncio.to_thread(_jules_api.jules_get_full, sid)
+                        outputs = sess.get("outputs", [])
+                        # source shape varies: "sources/owner-repo" (resolve_source
+                        # output) or "owner/repo" directly. Owner/repo can be
+                        # pre-plumbed via arm() — fall back to parsing.
+                        owner = st.get("owner", "")
+                        repo = st.get("repo", "")
+                        if not owner or not repo:
+                            src = sess.get("sourceContext", {}).get("source", "")
+                            short = src.rsplit("/", 1)[-1]   # strip "sources/" prefix
+                            if "-" in short:
+                                owner, _, repo = short.partition("-")
+                            elif "/" in src:
+                                owner, _, repo = src.partition("/")
+                        recover_branch = st.get("recover_branch", f"recover-{sid}")
+                        base = st.get("base", "main")
+                        plan = await asyncio.to_thread(
+                            _jules_patch.build_recovery_plan,
+                            outputs, recover_branch, base,
+                            owner or "unknown", repo or "unknown", sid,
+                        )
+                    except Exception:
+                        # _jules_patch missing OR jules_get_full failed OR
+                        # parse failed — emit an empty plan so the agent
+                        # can fall back to a manual recovery.
+                        plan = {}
 
                     self._put_event(st["intent_id"], {
                         "action": "recover_apply_plan",
