@@ -102,6 +102,11 @@ def _wrap_method(cls: type, mname: str, member: Callable, meta: dict) -> dict:
     fn.__name__ = mname
     fn.__doc__ = member.__doc__
     fn.__signature__ = inspect.Signature(params)
+    # Spec 016 P4: expose the underlying class so lint_capability (and any
+    # future introspector) can reach the source file the verb was authored
+    # in — the closure above otherwise hides it behind capability.py.
+    fn.__capability_cls__ = cls
+    fn.__capability_method__ = member
     return {"role": meta["role"], "fn": fn, "inject": ["ctx"] + meta["inject"]}
 
 

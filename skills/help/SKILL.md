@@ -61,7 +61,7 @@ python -m agency.cli execute --code \
 - **dogfood** — collect
 - **gate** — check
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch
-- **plugin** — author_command, author_skill, help, lint_skill, marketplace_entry, scaffold, step_doc
+- **plugin** — author_command, author_skill, help, lint_capability, lint_skill, marketplace_entry, scaffold, step_doc
 - **reflect** — batch_note, note, recall, search
 - **skill_generator** — generate
 - **subagent** — develop
