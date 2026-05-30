@@ -43,14 +43,20 @@ minimal.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q                    # 200+ passing
+python -m pytest -q          # 228 passing
 python -m agency.install     # regen the plugin install when capabilities change
 ```
+
+**Always activate the venv** (`. .venv/bin/activate`) before invoking
+`python -m agency.cli` or `python -m pytest`. The bare `pytest` command
+may resolve to a globally-installed pytest that does not see the venv's
+deps (`graphqlite`, `fastmcp`) → silent collection errors. Use
+`python -m pytest` to force venv-Python's site-packages.
 
 - Feature branches; PRs target `main`; additive history; never rewrite or
   force-push.
 - Add a capability = add a file (folder-per-capability when Spec 016 lands).
 - Spec lifecycle: research → design → spec-panel → refine → IMPLEMENTATION-PLAN → TDD.
-  Per-phase: RED → GREEN → green `pytest -q` → commit → push.
+  Per-phase: RED → GREEN → green `python -m pytest -q` → commit → push.
 - Doctrine evolves through dogfooding: surface lessons via
   `reflect.note(scope="observation", …)` — NOT new markdown files.

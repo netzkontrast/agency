@@ -24,8 +24,8 @@ New to the model? Read [guide/concepts.md](guide/concepts.md) first.
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-pytest -q                      # 56 passing, on the real substrate (graphqlite + fastmcp)
+pip install -e ".[dev]"
+python -m pytest -q            # 228 passing, on the real substrate (graphqlite + fastmcp)
 ```
 
 ## Install into Claude Code
