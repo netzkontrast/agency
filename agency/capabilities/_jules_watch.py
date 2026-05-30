@@ -330,6 +330,9 @@ class Watcher:
                 pass
 
 def start(engine: Any) -> asyncio.Task:
+    """Start the watcher's poll loop, attaching the Watcher instance to the
+    engine at `engine._jules_watcher`. Idempotent (re-call returns the same
+    task; further `start` is a no-op once a Watcher is attached)."""
     if not hasattr(engine, '_jules_watcher'):
         engine._jules_watcher = Watcher()
     return engine._jules_watcher.start(engine)

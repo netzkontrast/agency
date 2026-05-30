@@ -44,6 +44,8 @@ class CapabilityContext:
     agent_id: Optional[str] = None
     client: Any = None                  # boundary objects (e.g. the Jules backend)
     depth: int = 0
+    engine: Any = None                  # the owning Engine; for verbs that need engine-attached state
+                                        # (e.g. the long-lived watcher singleton at engine._jules_watcher)
     MAX_DEPTH: int = 16
 
     def spawn(self, cap: str, verb: str, **args) -> tuple:
@@ -154,7 +156,7 @@ class Registry:
                     memory=memory, ontology=self.ontology, registry=self,
                     intent_id=intent_id, agent_id=agent_id,
                     client=(self.injectors["client"]() if "client" in self.injectors else None),
-                    depth=_depth)
+                    depth=_depth, engine=getattr(self, "engine", None))
             elif name == "memory":
                 call["memory"] = memory
             elif name == "intent_id":

@@ -35,3 +35,12 @@ packages = ["agency"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"
+filterwarnings = [
+    # Third-party noise: opentelemetry-api 1.42 calls
+    # `entry_points()` with no args (legacy SelectableGroups path) then
+    # `.values()` on the result, instead of the modern
+    # `entry_points(group=...).select(...)` pattern. Fix is upstream
+    # (no newer version available as of this commit); suppress the
+    # noise locally so the test output is clean.
+    "ignore::DeprecationWarning:opentelemetry.util._importlib_metadata",
+]

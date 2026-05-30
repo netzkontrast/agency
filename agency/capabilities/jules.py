@@ -372,3 +372,156 @@ class JulesCapability(CapabilityBase):
         from ._jules_preambles import REVIEW_COMMENT_TAIL, review_comment as _rc
         already = REVIEW_COMMENT_TAIL.strip() in body
         return {"text": _rc(body), "tail_appended": not already}
+
+    @verb(role="transform")
+    def watch(self, session: str = "", for_intent: str = "", timeout: int = 30) -> dict:
+        """Await the next `WatchEvent` for a session or intent.
+
+        Caller supplies EITHER ``session`` (sid; resolves the watching intent
+        via the `JulesSession SERVES Intent` edge) OR ``for_intent`` directly.
+        ``for_intent`` is named distinctly from the engine's auto-injected
+        ``intent_id`` (which always points to the *calling* intent).
+
+        Returns the next event from the per-intent queue, OR a heartbeat noop
+        after ``min(timeout, 25)`` seconds — so client stdio stays alive even
+        when no transition fires (Spec 012 Refinement Notes must-fix #5).
+
+        Returns ``{action, session, state, instruction, evidence}`` for a real
+        event, or ``{action: "noop", instruction: "Working.", evidence: {}}``
+        for the heartbeat. The watcher's poll loop ALSO emits noop heartbeats
+        every 20s; this verb's heartbeat is the client-facing fallback if the
+        queue is otherwise empty.
+
+        Sync wrapper around the async queue: drains any pending event via
+        ``get_nowait``, else polls 10×/sec for up to ``min(timeout, 25)``s.
+
+        **Intent semantics** — the *calling intent* (auto-injected as
+        ``intent_id``) wraps THIS verb call in code-mode; the *watching
+        intent* is the one that originated the dispatch (recorded on the
+        ``JulesSession``'s ``SERVES`` edge). They are often the same (one
+        orchestrator dispatches + watches), but on cross-session resume —
+        a fresh intent later asking ``jules.watch(session=sid)`` — they
+        differ. This verb resolves through ``JulesSession SERVES Intent``
+        to pick the right queue; ``for_intent`` lets the caller override
+        the resolution explicitly. Returns the resolved intent on the
+        response under ``_for_intent`` so the caller knows whose queue
+        was read.
+        """
+        import time as _time
+        if not session and not for_intent:
+            return {"action": "error", "instruction": "must supply session or for_intent"}
+
+        # Resolve watching intent from JulesSession SERVES Intent if needed.
+        # The labeled intent id (e.g. "intent:abc123") lives in node properties,
+        # NOT the graph's internal numeric id at row["i"]["id"].
+        iid = for_intent
+        if not iid and session:
+            mem = self.ctx.memory
+            rows = mem.g.query(
+                "MATCH (js:JulesSession)-[:SERVES]->(i:Intent) "
+                "WHERE js.sid = $sid RETURN i",
+                {"sid": session},
+            )
+            if rows:
+                iid = rows[0]["i"]["properties"].get("id", "")
+            if not iid:
+                iid = self.ctx.intent_id   # fall back to the calling intent
+
+        from ._jules_watch import INSTRUCTIONS
+        engine = self.ctx.engine
+        watcher = getattr(engine, "_jules_watcher", None) if engine else None
+        if watcher is None:
+            return {"action": "noop", "instruction": INSTRUCTIONS["noop"],
+                    "evidence": {"reason": "watcher not started"}, "_for_intent": iid}
+
+        def _emit(ev: dict) -> dict:
+            # Return a NEW dict — never mutate the queued event in place
+            # (callers may hold a reference; mutation is a leaky abstraction).
+            return {**ev, "_for_intent": iid}
+
+        q = watcher._get_queue(iid)
+        # Drain pending event first (cheap path).
+        try:
+            return _emit(q.get_nowait())
+        except Exception:
+            pass
+
+        # Sync poll with cap at 25s — leaves 5s of slack for stdio liveness.
+        cap = min(max(timeout, 0), 25)
+        deadline = _time.time() + cap
+        while _time.time() < deadline:
+            try:
+                return _emit(q.get_nowait())
+            except Exception:
+                _time.sleep(0.1)
+        return {"action": "noop", "instruction": INSTRUCTIONS["noop"],
+                "evidence": {}, "_for_intent": iid}
+
+    @verb(role="effect")
+    def recover(self, session: str, owner: str = "", repo: str = "",
+                branch: str = "", base: str = "main") -> dict:
+        """Promote a session to the watcher's recovery-in-flight tracker.
+
+        Returns ``{status: "probing", session, attempts_planned: 3}`` IMMEDIATELY
+        — the probe-wait-recheck cycle (~5 min × 3 attempts per AGENCY_PROTOCOL
+        §5) lives in the watcher's poll loop. The outcome arrives later as a
+        ``verify_pr`` or ``recover_apply_plan`` `WatchEvent`.
+
+        ``owner``/``repo``/``branch``/``base`` are optional plumbed-through
+        fields the recovery path uses for ``build_recovery_plan(...)``. If
+        omitted, the watcher's recovery loop falls back to deriving them from
+        the session's `sourceContext.source` at probe-exhaustion time.
+        """
+        import time as _time
+        engine = self.ctx.engine
+        watcher = getattr(engine, "_jules_watcher", None) if engine else None
+        if watcher is None:
+            return {"status": "error",
+                    "reason": "watcher not started; call jules.recover via the engine that owns the lifespan task"}
+        watcher.recovery_in_flight[session] = {
+            "attempt": 0,
+            "next_probe_at": _time.time() + 5 * 60,
+            "started_at": _time.time(),
+            "intent_id": self.ctx.intent_id,
+            "branch": branch,
+            "recover_branch": f"recover-{session}",
+            "base": base,
+            "owner": owner,
+            "repo": repo,
+        }
+        return {"status": "probing", "session": session, "attempts_planned": 3}
+
+    @verb(role="transform")
+    def apply_patch(self, session: str, branch: str = "", base: str = "main",
+                    owner: str = "", repo: str = "") -> dict:
+        """Compute a recovery plan for a session's patch (verb mirror of the
+        watcher's `recover_apply_plan` `WatchEvent`).
+
+        Returns the planner output verbatim — an ordered list of
+        ``{tool, args}`` ops the agent executes via GitHub MCP. The verb does
+        NOT execute the ops itself (that would couple us to the GitHub MCP
+        boundary inside the verb; per spec 012 REVIEW must-fix #1 the agent
+        owns execution, the verb owns planning).
+
+        Falls back to ``sourceContext.source`` for owner/repo and to
+        ``f"recover-{session}"`` for branch when args are omitted.
+        """
+        from ._jules_api import jules_get_full
+        from . import _jules_patch
+        sess = jules_get_full(session)
+        outputs = sess.get("outputs", [])
+        if not owner or not repo:
+            src = sess.get("sourceContext", {}).get("source", "")
+            short = src.rsplit("/", 1)[-1]
+            if "-" in short:
+                owner = owner or short.partition("-")[0]
+                repo = repo or short.partition("-")[2]
+            elif "/" in src:
+                owner = owner or src.partition("/")[0]
+                repo = repo or src.partition("/")[2]
+        recover_branch = branch or f"recover-{session}"
+        plan = _jules_patch.build_recovery_plan(
+            outputs, recover_branch, base,
+            owner or "unknown", repo or "unknown", session,
+        )
+        return plan

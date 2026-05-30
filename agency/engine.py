@@ -53,6 +53,7 @@ class Engine:
         self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
         self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
         self.registry = Registry()
+        self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it
         # discovered core capabilities, plus any external ones the host supplies —
         # the extension point: an out-of-tree capability registers + extends exactly
