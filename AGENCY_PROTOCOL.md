@@ -119,13 +119,10 @@ When `verify` reports no branch on origin despite COMPLETED state:
 |---|---|---|
 | `True` (default) | `""` (manual PR confirm) | Doctrine default — plan is reviewed, then PR is confirmed. |
 | `True` | `"AUTO_CREATE_PR"` | Agency drives Jules end-to-end; plan gated, PR auto-opens. **Opt-in for spec-driven dispatch.** |
-| `False` | `""` | Legacy / pre-spec-012 shape. |
+| `False` | `""` | No plan gate; agent confirms PR. |
 | `False` | `"AUTO_CREATE_PR"` | **Zero-touch — only safe with a tight `affects:` allow-list.** |
 
-`auto_create_pr=True` is a back-compat alias for
-`automation_mode="AUTO_CREATE_PR"`; it emits a `DeprecationWarning` and
-will be removed in a future spec. See `agency/capabilities/jules.py` for
-the dispatch signature.
+See `agency/capabilities/jules.py` for the dispatch signature.
 
 ## §8 — The bi-temporal record
 

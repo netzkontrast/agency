@@ -137,39 +137,17 @@ def _coerce_source(source: str) -> str:
     raise RuntimeError(f"could not parse source {source!r}.")
 
 
-_AUTO_CREATE_PR_DEPRECATION_FIRED = False
-
-
 def jules_create(prompt: str, source: str, starting_branch: str,
                  title: str = "", require_plan_approval: bool = True,
-                 auto_create_pr: bool = False,
                  automation_mode: str = "",
                  protocol_preset: str = "") -> dict:
     """Create a Jules session. Returns the session resource (id, state, url, ...).
 
     Spec 013 Phase 4: ``automation_mode`` is the canonical Jules-side field
-    name (``"" | "AUTO_CREATE_PR"``). ``auto_create_pr=True`` is a back-compat
-    alias that maps to ``automation_mode="AUTO_CREATE_PR"`` with a one-shot
-    ``DeprecationWarning``. ``protocol_preset`` non-empty prepends the
-    assembled Mode-A/B preamble to ``prompt`` via
+    name (``"" | "AUTO_CREATE_PR"``). ``protocol_preset`` non-empty prepends
+    the assembled Mode-A/B preamble to ``prompt`` via
     ``_jules_preambles.assemble(...)``.
     """
-    # Back-compat alias: auto_create_pr=True -> automation_mode="AUTO_CREATE_PR".
-    # If both supplied, automation_mode wins (explicit canonical name).
-    if auto_create_pr and not automation_mode:
-        global _AUTO_CREATE_PR_DEPRECATION_FIRED
-        if not _AUTO_CREATE_PR_DEPRECATION_FIRED:
-            import warnings
-            warnings.warn(
-                "`auto_create_pr=True` is deprecated; use "
-                "`automation_mode=\"AUTO_CREATE_PR\"` instead. The alias "
-                "will be removed in a future spec.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            _AUTO_CREATE_PR_DEPRECATION_FIRED = True
-        automation_mode = "AUTO_CREATE_PR"
-
     # Preset-driven preamble: prepend Mode-A/B preamble to the prompt when
     # a preset is named. Empty preset_name = no prepend (caller assembled
     # their own prompt).

@@ -7,16 +7,10 @@ Two new pass-through args on `jules.dispatch` (and `JulesBackend.create` /
 - `protocol_preset` — when non-empty, prepends the Mode-A/B preamble via
   `_jules_preambles.assemble(...)`.
 
-`auto_create_pr=True` becomes a back-compat alias for
-`automation_mode="AUTO_CREATE_PR"` with a one-shot DeprecationWarning.
-
 Tests verify each cell of the flag interaction matrix at the Stub backend
-boundary (we record what `create` is invoked with) AND exercise the full
-chain `dispatch -> backend.create -> _jules_api.jules_create` for the
-deprecation-alias semantics.
+boundary AND the protocol-preset preamble wiring through to the request body.
 """
 import tempfile
-import warnings
 
 import pytest
 
@@ -90,7 +84,6 @@ def test_matrix_default_is_plan_gated_no_automation(engine, iid):
     kw = _client(engine).last_kwargs
     assert kw["require_plan_approval"] is True
     assert kw["automation_mode"] == ""
-    assert kw["auto_create_pr"] is False
 
 
 def test_matrix_plan_gated_with_auto_pr(engine, iid):
@@ -110,66 +103,6 @@ def test_matrix_zero_touch(engine, iid):
     kw = _client(engine).last_kwargs
     assert kw["require_plan_approval"] is False
     assert kw["automation_mode"] == "AUTO_CREATE_PR"
-
-
-# ---------------------------------------------------------------------------
-# Back-compat alias: auto_create_pr -> automation_mode.
-# ---------------------------------------------------------------------------
-
-
-def test_auto_create_pr_passes_through_to_api(engine, iid):
-    """At the dispatch verb boundary `auto_create_pr=True` is forwarded
-    verbatim; the API client is what does the mapping + the deprecation
-    warning (deprecation belongs at the lowest layer that knows the
-    canonical name)."""
-    _dispatch(engine, iid, auto_create_pr=True)
-    kw = _client(engine).last_kwargs
-    assert kw["auto_create_pr"] is True
-    # The verb does NOT pre-translate — that's the API's job.
-    assert kw["automation_mode"] == ""
-
-
-def test_api_maps_auto_create_pr_to_automation_mode_with_warning(monkeypatch):
-    """At `_jules_api.jules_create`, `auto_create_pr=True` produces a body
-    with `automationMode: AUTO_CREATE_PR` AND fires a DeprecationWarning
-    (once per process, per the spec). Reset the module-level guard so the
-    test exercises the warning path."""
-    captured: dict = {}
-    monkeypatch.setattr(_jules_api, "_request",
-                        lambda method, path, body=None, params=None: captured.setdefault("body", body) or {"id": "s"})
-    monkeypatch.setattr(_jules_api, "_coerce_source", lambda s: f"sources/{s.replace('/', '-')}")
-    monkeypatch.setattr(_jules_api, "_AUTO_CREATE_PR_DEPRECATION_FIRED", False)
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        _jules_api.jules_create(prompt="p", source="o/r", starting_branch="main",
-                                auto_create_pr=True)
-
-    assert captured["body"]["automationMode"] == "AUTO_CREATE_PR"
-    # DeprecationWarning fired exactly once for this call.
-    deprecations = [x for x in w if issubclass(x.category, DeprecationWarning)]
-    assert len(deprecations) == 1
-    assert "automation_mode" in str(deprecations[0].message)
-
-
-def test_api_explicit_automation_mode_wins_over_alias(monkeypatch):
-    """When both `automation_mode` and `auto_create_pr` are supplied, the
-    explicit canonical name wins and no deprecation fires."""
-    captured: dict = {}
-    monkeypatch.setattr(_jules_api, "_request",
-                        lambda method, path, body=None, params=None: captured.setdefault("body", body) or {"id": "s"})
-    monkeypatch.setattr(_jules_api, "_coerce_source", lambda s: f"sources/{s.replace('/', '-')}")
-    monkeypatch.setattr(_jules_api, "_AUTO_CREATE_PR_DEPRECATION_FIRED", False)
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        _jules_api.jules_create(prompt="p", source="o/r", starting_branch="main",
-                                auto_create_pr=True,
-                                automation_mode="AUTO_CREATE_PR")
-
-    assert captured["body"]["automationMode"] == "AUTO_CREATE_PR"
-    # Explicit canonical name → no deprecation fires (auto_create_pr is ignored).
-    assert not [x for x in w if issubclass(x.category, DeprecationWarning)]
 
 
 # ---------------------------------------------------------------------------
