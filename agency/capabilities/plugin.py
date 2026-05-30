@@ -47,14 +47,15 @@ def scaffold(name: str, version: str, description: str) -> dict:
 def author_skill(name: str, description: str, body: str,
                  allowed_tools: str = DEFAULT_TOOLS, title: str | None = None) -> dict:
     rendered = templates.SKILL_MD.substitute(
-        name=name, description=description, body=body,
+        name=name, description=templates._yaml_scalar(description), body=body,
         allowed_tools=allowed_tools, title=title or name)
     return {"result": rendered, "artefact": {
         "kind": "skill-md", "name": name, "description": description, "body": rendered}}
 
 
 def author_command(name: str, description: str, body: str) -> dict:
-    rendered = templates.COMMAND_MD.substitute(description=description, body=body)
+    rendered = templates.COMMAND_MD.substitute(
+        description=templates._yaml_scalar(description), body=body)
     return {"result": rendered, "artefact": {
         "kind": "command-md", "name": name, "description": description, "body": rendered}}
 

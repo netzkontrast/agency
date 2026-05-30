@@ -14,6 +14,27 @@ from string import Template
 from urllib.parse import urlparse
 
 
+def _yaml_scalar(s: str) -> str:
+    """Return a YAML 1.2 single-line scalar safe to splice into frontmatter.
+
+    Leaves CSO-clean descriptions (e.g. `Use when …`) as PLAIN scalars
+    untouched; only single-quotes when the value carries characters that would
+    actually break frontmatter parsing — newlines collapsed to a space, leading
+    YAML indicator chars, `: ` (key indicator) or ` #` (comment indicator),
+    edge whitespace. Doubles internal `'` per YAML spec."""
+    text = (s or "").replace("\n", " ").replace("\r", " ")
+    if not text:
+        return "''"
+    unsafe = (
+        text[0] in "!&*[]{}|>'\"#%@`?-:," or text[0].isspace()
+        or text[-1].isspace()
+        or ": " in text or " #" in text
+    )
+    if not unsafe:
+        return text
+    return "'" + text.replace("'", "''") + "'"
+
+
 def _github_repo(source: str) -> str | None:
     """`owner/repo` iff `source` is a real github.com URL (parsed by hostname, not a
     substring — so `github.com.evil.tld` is NOT treated as GitHub). Else None."""
