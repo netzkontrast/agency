@@ -19,8 +19,10 @@ from agency.capabilities._jules_preambles import (
     DISPATCH_PROTOCOL_SOURCE_URL,
     DISPATCH_SELF_SOURCE,
     PREAMBLE,
+    REVIEW_COMMENT_TAIL,
     assemble,
     lint_must_name,
+    review_comment,
 )
 
 
@@ -209,3 +211,34 @@ def test_lint_must_name_extras_reports_tools_outside_caller_set():
     )
     assert res["ok"] is True
     assert "replace_with_git_merge_diff" in res["extras"]
+
+
+# ---------------------------------------------------------------------------
+# review_comment — the PR review-cycle handshake (AGENCY_PROTOCOL.md §9).
+# ---------------------------------------------------------------------------
+
+
+def test_preamble_names_reply_to_pr_comments():
+    """Every dispatch carries the doctrine that responding to PR reviews
+    requires `reply_to_pr_comments` after `submit` — the wake mechanism."""
+    assert "reply_to_pr_comments" in PREAMBLE
+    assert "AGENCY_PROTOCOL.md §9" in PREAMBLE
+
+
+def test_review_comment_tail_carries_the_wake_instruction():
+    assert "reply_to_pr_comments" in REVIEW_COMMENT_TAIL
+    assert "AGENCY_PROTOCOL.md §9" in REVIEW_COMMENT_TAIL
+
+
+def test_review_comment_appends_tail_when_missing():
+    body = "Verdict: changes-requested. Fix the off-by-one."
+    out = review_comment(body)
+    assert body in out
+    assert REVIEW_COMMENT_TAIL.strip() in out
+
+
+def test_review_comment_is_idempotent():
+    body = "Verdict: changes-requested." + REVIEW_COMMENT_TAIL
+    out = review_comment(body)
+    # Tail should not appear twice.
+    assert out.count("reply_to_pr_comments") == 1

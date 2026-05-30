@@ -15,7 +15,7 @@ allowed-tools:
 - **delegate** — fan_out, join
 - **develop** — checklist, reference
 - **gate** — check
-- **jules** — activities, alias, approve_awaiting, approve_plan, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, resolve_source, status, status_all, stop, verify
+- **jules** — activities, alias, approve_awaiting, approve_plan, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, resolve_source, review_comment, status, status_all, stop, verify
 - **plugin** — author_command, author_skill, help, lint_skill, marketplace_entry, scaffold, step_doc
 - **reflect** — note, recall, search
 - **skill_generator** — generate

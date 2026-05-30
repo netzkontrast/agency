@@ -136,6 +136,14 @@ exists to close). The Jules canon (see `agency/capabilities/_jules_reference.md`
 - `replace_with_git_merge_diff` — preferred multi-line edit primitive
   (avoids JSON-escape failures on multiline code).
 - `request_code_review()` — triggers the Jules Critic before `submit`.
+- `reply_to_pr_comments(...)` — **required after `submit(...)`** when
+  Jules is responding to a `@jules`-style review comment. Wakes the
+  watching session via PR-comment webhook (see
+  [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md) §9).
+
+Use **`jules.review_comment(body)`** to compose any agency-posted `@jules`
+review comment — it appends the mandatory handshake tail so Jules always
+receives the explicit `reply_to_pr_comments` instruction.
 
 ## Mode A (dogfood) vs Mode B (delegate)
 

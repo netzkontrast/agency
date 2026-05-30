@@ -84,3 +84,24 @@ def test_lint_prompt_empty_must_name_falls_back_to_canon(engine, iid):
     res_a = _call(engine, iid, "lint_prompt", text=text)
     res_b = _call(engine, iid, "lint_prompt", text=text, must_name="")
     assert res_a == res_b
+
+
+# ---------------------------------------------------------------------------
+# jules.review_comment — review-cycle handshake (AGENCY_PROTOCOL.md §9).
+# ---------------------------------------------------------------------------
+
+
+def test_review_comment_appends_handshake_tail(engine, iid):
+    body = "Verdict: changes-requested. Fix the test."
+    res = _call(engine, iid, "review_comment", body=body)
+    assert "reply_to_pr_comments" in res["text"]
+    assert res["tail_appended"] is True
+    assert body in res["text"]
+
+
+def test_review_comment_is_idempotent(engine, iid):
+    body_with_tail = _call(engine, iid, "review_comment", body="x")["text"]
+    res2 = _call(engine, iid, "review_comment", body=body_with_tail)
+    # The tail must not duplicate.
+    assert res2["text"].count("reply_to_pr_comments") == 1
+    assert res2["tail_appended"] is False

@@ -23,8 +23,10 @@ __all__ = [
     "DISPATCH_PROTOCOL_SOURCE_URL",
     "AGENCY_CLONE_PATH",
     "PREAMBLE",
+    "REVIEW_COMMENT_TAIL",
     "assemble",
     "lint_must_name",
+    "review_comment",
 ]
 
 # Configurable via env in __main__ wiring; module-level for tests.
@@ -58,6 +60,11 @@ PREAMBLE: str = (
     "  questions.\n"
     "- `replace_with_git_merge_diff` — preferred multi-line edit primitive.\n"
     "- `request_code_review()` — triggers the Jules Critic before submit.\n"
+    "- `reply_to_pr_comments(...)` — if you are responding to PR review\n"
+    "  feedback, after `submit(...)` you MUST also call this to post a\n"
+    "  one-paragraph summary on the review thread. The watching session\n"
+    "  subscribes to PR-comment events; without your reply it is blind to\n"
+    "  your push until the next poll (AGENCY_PROTOCOL.md §9).\n"
     "\n"
     "Scope is a hard allow-list: if you need a path outside the spec's "
     "`affects:`, emit a `BLOCKED:` PR explaining what extra paths are needed "
@@ -122,6 +129,34 @@ def assemble(
         return f"{PREAMBLE}\n---\n{prompt}"
 
     return f"{_mode_b_clone_block()}{PREAMBLE}\n---\n{prompt}"
+
+
+REVIEW_COMMENT_TAIL: str = (
+    "\n\n"
+    "---\n"
+    "After you push the fix, **REPLY to this thread via "
+    "`reply_to_pr_comments(...)`** with a one-paragraph summary of what you "
+    "addressed (and what you deferred). This is how this session learns your "
+    "changes landed — without the reply we are blind to your push until the "
+    "next poll (AGENCY_PROTOCOL.md §9).\n"
+)
+
+
+def review_comment(body: str) -> str:
+    """Compose an @jules-style review-comment body with the mandatory tail.
+
+    Per AGENCY_PROTOCOL.md §9: every agency-posted PR review comment MUST
+    end with the explicit `reply_to_pr_comments(...)` instruction. The
+    tail is the wake mechanism — without it, the watching session is
+    blind to Jules's push until the next poll.
+
+    Idempotent: if ``body`` already contains the tail, it is returned
+    unchanged. This makes the helper safe to apply twice (e.g. once at
+    draft time, once at post time).
+    """
+    if REVIEW_COMMENT_TAIL.strip() in body:
+        return body
+    return body.rstrip() + REVIEW_COMMENT_TAIL
 
 
 def lint_must_name(text: str, must_name: list[str] | None = None) -> dict:

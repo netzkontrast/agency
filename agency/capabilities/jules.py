@@ -354,3 +354,21 @@ class JulesCapability(CapabilityBase):
         from ._jules_preambles import lint_must_name
         names = [s.strip() for s in must_name.split(",") if s.strip()] if must_name else None
         return lint_must_name(text, must_name=names)
+
+    @verb(role="transform")
+    def review_comment(self, body: str) -> dict:
+        """Compose an @jules-style PR review-comment body with the mandatory
+        review-cycle handshake tail (AGENCY_PROTOCOL.md §9).
+
+        The tail instructs Jules to `reply_to_pr_comments(...)` after
+        pushing — without it, this session is blind to Jules's push until
+        the next poll. Idempotent: re-applying does not duplicate the tail.
+
+        Returns ``{text: str, tail_appended: bool}``. The text is what the
+        caller should pass to GitHub MCP `add_issue_comment` /
+        `add_comment_to_pending_review`. The boolean is informational
+        (false if the body already carried a compliant tail).
+        """
+        from ._jules_preambles import REVIEW_COMMENT_TAIL, review_comment as _rc
+        already = REVIEW_COMMENT_TAIL.strip() in body
+        return {"text": _rc(body), "tail_appended": not already}
