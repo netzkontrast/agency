@@ -31,13 +31,16 @@ sessions can self-bootstrap without the bash hop.
 
 The CLI resolves the graph DB itself (Spec 020: `AGENCY_DB` env, else
 `./.agency/session.db`) — do NOT pass `--db`, or the bash surface writes
-to a different store than MCP.
+to a different store than MCP. The canonical entrypoint is
+`python -m agency.cli` (works in Jules / no-MCP / any context where the
+venv is activated). The `${CLAUDE_PLUGIN_ROOT}/bin/agency` wrapper is
+a convenience inside Claude Code; under Jules / no-MCP it expands to
+`/bin/agency` and fails — Codex review of cedcea0.
 
 ```bash
-AGENCY="${CLAUDE_PLUGIN_ROOT}/bin/agency"
-iid=$("$AGENCY" intent --purpose help --deliverable map --acceptance ok \
+iid=$(python -m agency.cli intent --purpose help --deliverable map --acceptance ok \
       | python3 -c 'import sys,json; print(json.load(sys.stdin)["intent_id"])')
-"$AGENCY" execute --code \
+python -m agency.cli execute --code \
   "return await call_tool('capability_plugin_help', {'intent_id': '$iid'})"
 ```
 

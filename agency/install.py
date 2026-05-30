@@ -87,12 +87,15 @@ _MCP_QUICKSTART = (
     "## Quick start — bash (Jules / no-MCP)\n\n"
     "The CLI resolves the graph DB itself (Spec 020: `AGENCY_DB` env, else\n"
     "`./.agency/session.db`) — do NOT pass `--db`, or the bash surface writes\n"
-    "to a different store than MCP.\n\n"
+    "to a different store than MCP. The canonical entrypoint is\n"
+    "`python -m agency.cli` (works in Jules / no-MCP / any context where the\n"
+    "venv is activated). The `${CLAUDE_PLUGIN_ROOT}/bin/agency` wrapper is\n"
+    "a convenience inside Claude Code; under Jules / no-MCP it expands to\n"
+    "`/bin/agency` and fails — Codex review of cedcea0.\n\n"
     "```bash\n"
-    'AGENCY="${CLAUDE_PLUGIN_ROOT}/bin/agency"\n'
-    'iid=$("$AGENCY" intent --purpose help --deliverable map --acceptance ok \\\n'
+    'iid=$(python -m agency.cli intent --purpose help --deliverable map --acceptance ok \\\n'
     '      | python3 -c \'import sys,json; print(json.load(sys.stdin)["intent_id"])\')\n'
-    '"$AGENCY" execute --code \\\n'
+    'python -m agency.cli execute --code \\\n'
     "  \"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
     "```\n\n"
 )

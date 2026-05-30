@@ -124,9 +124,12 @@ def test_snippet_empty_inputs_is_valid_callable_python():
     DOC_NO_INPUTS = "Spawn a remote Jules session."
     out = render_verb("capability_jules_dispatch", "effect", DOC_NO_INPUTS,
                       surface="mcp", depth="standard", format="snippet")
-    # must contain `{}` (empty dict), NOT `{...}` (set of Ellipsis)
-    assert '{...}' not in out, f"`{{...}}` is a set-of-Ellipsis, not a dict params mapping: {out}"
-    assert '{}' in out, f"empty-inputs snippet should fall back to `{{}}`; got: {out}"
+    # must NOT be either of the historical buggy placeholders:
+    assert '{...}' not in out, f"`{{...}}` is a set-of-Ellipsis: {out}"
+    # `{}` was the R4 fix (660d7f5 → 19058fe), but Codex (cedcea0 review)
+    # caught that empty-dict silently DROPS the verb's params instead of
+    # signaling the gap. New contract: TODO sentinel pointing at get_schema.
+    assert "_TODO" in out, f"empty-inputs must emit a TODO sentinel, not bare `{{}}`: {out}"
     # the snippet must be parseable Python AND the params arg must be a dict
     code = out.split("```python")[1].split("```")[0].strip() if "```python" in out else ""
     assert code, f"expected a ```python``` block; got: {out!r}"

@@ -201,16 +201,34 @@ def test_format_snippet_mcp_renders_valid_python_dict_with_named_keys():
     assert parsed == {"body": ..., "intent_id": ...}
 
 
-def test_format_snippet_falls_back_to_placeholder_when_no_inputs():
-    # R4 (Codex review of 660d7f5): the original Finding-5 fix landed
-    # `{...}` as the empty-inputs placeholder, but `{...}` is a set
-    # containing Ellipsis — NOT a dict. call_tool's second arg must be a
-    # Mapping; passing a set fails at runtime. Empty-inputs falls back
-    # to `{}` (empty dict). LEGACY_DOC has no Inputs: marker.
+def test_format_snippet_falls_back_to_honest_placeholder_when_no_inputs():
+    # R4 (Codex review of 660d7f5): `{...}` is a set-of-Ellipsis, not a
+    # dict — call_tool's second arg must be a Mapping; the snippet would
+    # fail at runtime.
+    #
+    # Follow-up (Codex review of cedcea0): the `{}` fallback is valid
+    # Python BUT silently declares a zero-arg call, which is misleading
+    # for legacy markerless docstrings whose verbs (reflect.note,
+    # plugin.help, ...) actually need params. The honest fallback emits
+    # a TODO sentinel that no agent can mistake for paste-and-go.
     out = render_verb(NAME, ROLE, LEGACY_DOC,
                       surface="mcp", depth="standard", format="snippet")
-    assert "{}" in out
-    assert "{...}" not in out, "`{...}` is a set-of-Ellipsis, not a valid dict params mapping"
+    # Must NOT be either of the prior buggy forms:
+    assert "{...}" not in out, "`{...}` is a set-of-Ellipsis, fails at runtime"
+    # Must signal "look up the schema":
+    assert "_TODO" in out, (
+        "legacy markerless snippets must emit a TODO sentinel, not a "
+        f"misleading empty `{{}}`: {out!r}"
+    )
+    assert "get_schema" in out, "TODO sentinel should point at the discovery escape hatch"
+    # Must still parse as Python AND be a Dict (not a Set):
+    code = out.split("```python")[1].split("```")[0].strip()
+    tree = ast.parse(code)
+    call = next(n for n in ast.walk(tree) if isinstance(n, ast.Call)
+                and getattr(n.func, "id", "") == "call_tool")
+    assert isinstance(call.args[1], ast.Dict), (
+        f"call_tool's 2nd arg must be a Dict node, got {type(call.args[1]).__name__}"
+    )
 
 
 def test_format_snippet_bash_surface_uses_cli_syntax():

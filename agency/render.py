@@ -166,12 +166,24 @@ def _args_literal(inputs_prose: str) -> str:
     """A valid Python dict literal of placeholder kwargs from input prose.
 
     `body (str), intent_id (str)` -> `{"body": ..., "intent_id": ...}`.
-    Falls back to `{}` (empty dict — call_tool's second arg must be a
-    Mapping; `{...}` is a set of Ellipsis, not a dict, and fails at
-    runtime — R4, Codex review of 660d7f5)."""
+
+    When the docstring has no parseable `Inputs:` marker (legacy verbs
+    — the majority — like `reflect.note(scope, text)`), we don't know
+    the call shape FROM THE DOCSTRING. Falling back to `{}` was the R4
+    fix for the `{...}` set-of-Ellipsis bug, but `{}` then misleadingly
+    declared a zero-arg call. Codex (cedcea0 review) caught this:
+    `call_tool("capability_reflect_note", {})` is valid Python but
+    silently drops `scope`/`text`/`intent_id`.
+
+    Honest fallback: emit a dict literal containing a TODO sentinel
+    that the reader cannot mistake for paste-and-go. The agent learns
+    the actual params via `get_schema(name)`, which IS the canonical
+    discovery flow.
+    """
     names = _input_names(inputs_prose)
     if not names:
-        return "{}"
+        return ('{"_TODO": "no Inputs: marker in docstring — '
+                'call get_schema(name) for params"}')
     return "{" + ", ".join(f'"{n}": ...' for n in names) + "}"
 
 
