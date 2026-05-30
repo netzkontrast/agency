@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# agency-install — idempotent setup for the Agency Claude Code plugin.
+# Creates ${CLAUDE_PLUGIN_ROOT}/.venv (or ./.venv if not running under the
+# harness), installs requirements.txt into it, and verifies the engine imports.
+# Re-running is a no-op once the deps are present.
+set -euo pipefail
+
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+VENV="$ROOT/.venv"
+REQS="$ROOT/requirements.txt"
+
+if [[ ! -d "$VENV" ]]; then
+  echo "Creating venv at $VENV"
+  python3 -m venv "$VENV"
+fi
+
+"$VENV/bin/pip" install --quiet --upgrade pip
+"$VENV/bin/pip" install --quiet -r "$REQS"
+
+# Smoke check: the engine must import + build an MCP server.
+"$VENV/bin/python" - <<'PY'
+import os, sys
+sys.path.insert(0, os.environ.get("CLAUDE_PLUGIN_ROOT", os.getcwd()))
+from agency.engine import Engine
+e = Engine(":memory:")
+mcp = e.build_mcp(codemode=True)
+assert mcp is not None
+e.memory.close()
+print("agency: engine imports and builds MCP — ready.")
+PY
+
+echo "agency: venv at $VENV ready. Set JULES_API_KEY via Claude Code's plugin manager (userConfig)."

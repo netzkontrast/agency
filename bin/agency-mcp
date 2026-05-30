@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# agency-mcp — start the Agency MCP server (stdio).
+# Called by Claude Code from .mcp.json. On first run, if no .venv exists,
+# auto-bootstraps it via bin/agency-install (idempotent), then picks the plugin's
+# .venv python and execs `python -m agency`, which builds the FastMCP engine and
+# run()s it on stdio.
+set -euo pipefail
+
+# CLAUDE_PLUGIN_ROOT is provided by the harness; default to this script's parent dir.
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+# First-run bootstrap: without this a marketplace install has no fastmcp/graphqlite/httpx
+# in system python and the server would crash before exposing any tools.
+if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
+  echo "agency: first run — bootstrapping .venv via bin/agency-install …" >&2
+  CLAUDE_PLUGIN_ROOT="$ROOT" "$ROOT/bin/agency-install" >&2
+fi
+
+if [[ -x "$ROOT/.venv/bin/python" ]]; then
+  PY="$ROOT/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  PY="$(command -v python3)"
+else
+  PY="$(command -v python)"
+fi
+
+# PREPEND, not append: a user project cwd containing its own `agency/` package
+# would otherwise shadow the plugin's. Codex review d5758b2 / bin/agency-mcp:28.
+export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+exec "$PY" -m agency

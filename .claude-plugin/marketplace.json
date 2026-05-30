@@ -1,0 +1,16 @@
+{
+  "name": "agency",
+  "owner": {
+    "name": "netzkontrast"
+  },
+  "plugins": [
+    {
+      "name": "agency",
+      "source": "./",
+      "version": "0.1.0",
+      "description": "Harness-in-harness agency engine: code-mode capabilities (macroskills) over one provenance graph.",
+      "homepage": "https://github.com/netzkontrast/agency",
+      "license": "MIT"
+    }
+  ]
+}

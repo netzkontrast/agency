@@ -1,0 +1,163 @@
+"""Engine — one FastMCP server + one graph.
+
+**Code-mode IS the contract** (lean: no separate four-verb surface). The engine
+exposes exactly `search` / `get_schema` / `execute`; the underlying tools
+(capabilities, gate, provenance) are discovered via `search` and called from
+inside `execute` (`await call_tool(name, params)`). This is the same surface a
+bash agent drives via `agency/cli.py` — so MCP and bash are isomorphic by
+construction. Tool names are MCP-conformant `capability_<capability>_<verb>`.
+
+**Capabilities are self-registering.** The engine does not hand-wire a tool per
+verb. It `discover()`s every `Capability` in the `capabilities/` package
+(reflection) and AUTO-WIRES one MCP tool per verb from the verb function's
+signature (`inspect.signature`). Adding a capability is adding a file — no
+registration code, no per-tool boilerplate. Params named in a verb's `inject`
+list (e.g. `client`, `caps`) are supplied by the engine, not the caller.
+"""
+from __future__ import annotations
+
+import inspect
+from contextlib import asynccontextmanager
+
+from fastmcp import Context, FastMCP
+
+try:
+    from fastmcp.experimental.transforms.code_mode import CodeMode, MontySandboxProvider
+    HAVE_CODEMODE = True
+except ImportError:  # pragma: no cover
+    HAVE_CODEMODE = False
+
+
+# Bounded sandbox limits — without these, an infinite loop or runaway
+# allocation in an `execute` script ties up the whole MCP server. Codex
+# review ccb8f03 / engine.py:94. Tunable via env: AGENCY_SANDBOX_MAX_SECS
+# (default 30), AGENCY_SANDBOX_MAX_MEM_MB (default 512).
+def _sandbox_limits() -> dict:
+    import os as _os
+    return {
+        "max_duration_secs": float(_os.environ.get("AGENCY_SANDBOX_MAX_SECS", "30")),
+        "max_memory": int(_os.environ.get("AGENCY_SANDBOX_MAX_MEM_MB", "512")) * 1024 * 1024,
+    }
+
+from .capabilities import discover
+from .capabilities._vcs import GitClient
+from .capabilities.jules import JulesClient
+from .capability import Registry
+from .intent import Intent
+from .lifecycle import Lifecycle
+from .memory import Memory
+from .ontology import Ontology
+
+
+class Engine:
+    def __init__(self, path: str, jules_client=None, vcs_backend=None, extra_capabilities=None):
+        self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
+        self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
+        self.registry = Registry()
+        self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
+        self.ontology = Ontology.core()                         # the base, then each capability extends it
+        # discovered core capabilities, plus any external ones the host supplies —
+        # the extension point: an out-of-tree capability registers + extends exactly
+        # like a core one (no need to live in the capabilities package).
+        for cap in list(discover()) + list(extra_capabilities or []):
+            self.registry.register(cap)
+            self.ontology.extend(cap.ontology, cap.name)
+        # the Registry needs the effective ontology to build a CapabilityContext
+        self.registry.ontology = self.ontology
+        # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
+        # injected per-call by the Registry itself, and the registry is on ctx.
+        self.registry.injectors = {"client": lambda: self.jules_client,
+                                   "vcs": lambda: self.vcs_backend}
+        self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
+        self.intent = Intent(self.memory)
+        self.lifecycle = Lifecycle(self.memory)
+
+    def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
+        """Auto-wire ONE MCP tool for a capability verb from its fn signature.
+        Injected params (`inject`) are resolved by the Registry, so they are not
+        exposed in the tool's schema."""
+        reg, mem = self.registry, self.memory
+        fn, inject = spec["fn"], list(spec.get("inject", []))
+        user_params = [p for n, p in inspect.signature(fn).parameters.items() if n not in inject]
+
+        def impl(**kwargs):
+            intent_id = kwargs.pop("intent_id")
+            agent_id = kwargs.pop("agent_id", "") or None
+            result, _ = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
+            out = result["result"] if isinstance(result, dict) and "result" in result else result
+            return out if isinstance(out, dict) else {"result": out}
+
+        params = []
+        for p in user_params:
+            ann = p.annotation if p.annotation is not inspect.Parameter.empty else str
+            default = p.default if p.default is not inspect.Parameter.empty else inspect.Parameter.empty
+            params.append(inspect.Parameter(p.name, inspect.Parameter.KEYWORD_ONLY, annotation=ann, default=default))
+        params.append(inspect.Parameter("intent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str))
+        params.append(inspect.Parameter("agent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str, default=""))
+
+        impl.__signature__ = inspect.Signature(params)
+        impl.__name__ = f"capability_{cap_name}_{verb}"
+        impl.__doc__ = (fn.__doc__ or "").strip() or f"{cap_name}.{verb} ({spec['role']})"
+        impl.__annotations__ = {p.name: p.annotation for p in params}
+        impl.__annotations__["return"] = dict
+        mcp.tool(impl)
+
+    def _make_lifespan(self):
+        """Build the FastMCP lifespan that starts the Jules watcher on enter
+        and stops it cleanly on exit. Closes over `self` so the lifespan
+        callable (which receives the FastMCP server, not the engine) can
+        reach engine state. Idempotent — `_jules_watch.start` only attaches
+        a watcher if one isn't already present."""
+        engine = self
+
+        @asynccontextmanager
+        async def lifespan(server):
+            from agency.capabilities import _jules_watch
+            _jules_watch.start(engine)              # attaches engine._jules_watcher + starts poll loop
+            try:
+                yield {}                             # lifespan state available via Context
+            finally:
+                await _jules_watch.stop(engine)     # cancels the poll loop cleanly
+
+        return lifespan
+
+    def build_mcp(self, codemode: bool = True) -> FastMCP:
+        if codemode and not HAVE_CODEMODE:                  # fail loud, not a silent raw-tool fallback
+            raise RuntimeError("code-mode requested but unavailable; install fastmcp[code-mode]")
+        transforms = ([CodeMode(sandbox_provider=MontySandboxProvider(limits=_sandbox_limits()))]
+                      if (codemode and HAVE_CODEMODE) else [])
+        mcp = FastMCP("agency", transforms=transforms, lifespan=self._make_lifespan())
+        mem = self.memory
+
+        # every capability verb -> one MCP tool, by reflection (no hand-wiring)
+        for cap_name in self.registry.names():
+            cap = self.registry.get(cap_name)
+            for verb, spec in cap.verbs.items():
+                self._wire(mcp, cap_name, verb, spec)
+
+        # engine-substrate tools (not capabilities): a human-in-the-loop gate that
+        # needs `ctx.elicit`, and the provenance traversal over the graph.
+        @mcp.tool
+        async def lifecycle_gate(question: str, intent_id: str, lifecycle_id: str, ctx: Context) -> dict:
+            "An intent-verification gate that ELICITS a human/agent decision mid-flow "
+            "(askuser-in-the-flow): a tiny prompt streams out, the answer resumes the chain. "
+            "Records the outcome to the provenance graph."
+            # guard: the lifecycle must SERVE the given intent (no cross-intent gates)
+            if not mem.g.query("MATCH (l:Lifecycle)-[:SERVES]->(i:Intent) "
+                               "WHERE l.id = $lid AND i.id = $iid RETURN i",
+                               {"lid": lifecycle_id, "iid": intent_id}):
+                return {"approved": False, "error": "lifecycle does not serve the given intent"}
+            res = await ctx.elicit(question, response_type=["approve", "reject"])
+            approved = getattr(res, "data", None) == "approve"
+            g = mem.record("Gate", {"name": "human-confirm", "question": question, "passed": approved})
+            mem.link(lifecycle_id, g, "PASSED" if approved else "BLOCKED_ON")
+            if not approved:                              # a rejected gate pauses the lifecycle for re-entry
+                mem.update(lifecycle_id, {"state": "input-required"})
+            return {"approved": approved, "gate_id": g}
+
+        @mcp.tool
+        def memory_graph_provenance(intent_id: str) -> dict:
+            "Cross-concern provenance for an intent — one graph traversal."
+            return mem.provenance(intent_id)
+
+        return mcp

@@ -1,0 +1,50 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  # Run on EVERY pull request, regardless of target branch. PRs against the
+  # active feature branch (e.g. claude/*) should still get CI coverage —
+  # they're the path most changes take before reaching main. The earlier
+  # `branches: [main]` filter caused PR #10 to register 0 checks because
+  # the PR targeted the feature branch, not main.
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install agency in editable mode with dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run pytest
+        run: pytest -q
+
+      - name: Verify self-hosted install is up to date
+        run: |
+          # Regenerate the install — should be a no-op if the committed
+          # manifest matches the current capability surface.
+          python -m agency.install
+          # If anything changed, fail loudly so the PR author regenerates
+          # locally and commits the result.
+          if ! git diff --quiet; then
+            echo "::error::self-hosted install drifted; run 'python -m agency.install' and commit the result"
+            git diff --stat
+            exit 1
+          fi

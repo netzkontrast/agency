@@ -1,0 +1,9 @@
+diff --git a/existing_file.txt b/existing_file.txt
+index e69de29..d95f3ad 100644
+--- a/existing_file.txt
++++ b/existing_file.txt
+@@ -10,3 +10,3 @@
+ context
+-old partial content
++new partial content
+ context

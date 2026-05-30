@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# agency — CLI wrapper. Mirrors bin/agency-mcp's python detection so the agency
+# package is importable regardless of the user's project interpreter. Used by
+# generated slash commands (/agency:help) to invoke `python -m agency.cli` via
+# the plugin venv + PYTHONPATH, not the user's project python.
+set -euo pipefail
+
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
+  echo "agency: first run — bootstrapping .venv via bin/agency-install …" >&2
+  CLAUDE_PLUGIN_ROOT="$ROOT" "$ROOT/bin/agency-install" >&2
+fi
+
+if [[ -x "$ROOT/.venv/bin/python" ]]; then
+  PY="$ROOT/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  PY="$(command -v python3)"
+else
+  PY="$(command -v python)"
+fi
+
+# PREPEND, not append: a user project cwd containing its own `agency/` package
+# would otherwise shadow the plugin's. Codex review d5758b2 / bin/agency-mcp:28.
+export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+exec "$PY" -m agency.cli "$@"
