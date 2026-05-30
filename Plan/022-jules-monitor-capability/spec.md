@@ -1,0 +1,153 @@
+---
+spec_id: "022"
+slug: jules-monitor-capability
+status: draft
+owner: "@agency"
+depends_on: ["012", "013", "021"]   # 012 = watcher; 013 = INSTRUCTIONS; 021 = channel
+affects:
+  - agency/capabilities/_jules_watch.py   # emit through ctx.engine.monitor on transitions
+  - agency/capabilities/jules.py          # emit on dispatch/recover/verify
+  - tests/test_jules_monitor.py           # new — coverage of emitted events
+estimated_jules_sessions: 0
+domain: capability
+wave: 3
+---
+
+# Spec 022 — Jules events surface through the engine monitor (first real use of Spec 021)
+
+## Why
+
+Spec 021 lands the engine-level monitor channel — one `monitors/monitors.json`
+entry, many capability event sources fanning in. This spec is the FIRST
+real use: the Jules watcher's state transitions become live notifications
+in Claude Code.
+
+The orchestration problem this closes: today, when the orchestrator
+dispatches Jules + walks away, **the watcher's `WatchEvent`s land in a
+per-intent asyncio Queue inside the engine process**. If the orchestrator
+isn't actively calling `jules.watch(...)`, the events accumulate
+unseen. From a Claude Code session (where the user is doing other
+things between dispatches), live awareness costs a polling loop the
+orchestrator has to remember to run.
+
+**The monitor channel fixes this without exposing a separate Jules-only
+monitor** (which would violate "every improvement here is carried
+through the complete system" — the user's directive). The Jules watcher
+adds ONE call to `ctx.engine.monitor.emit(MonitorEvent(...))` per
+classified transition; the agent reads the same stream that future
+capabilities also feed.
+
+## Done When
+
+- [ ] **`_jules_watch.Watcher._poll_loop` emits a `MonitorEvent` on every
+  classified transition** (alongside the existing per-intent queue put).
+  The classifier `_classify(...)` already produces a structured event
+  shape; the emit translates it. Event fields:
+  ```python
+  MonitorEvent(
+      source="jules",
+      kind=event["action"],             # one of the 9 WatchActions
+      message=f"sid={sid} {prev_state}→{state}: {event['instruction'][:200]}",
+      intent_id=sinfo["intent_id"],
+      ts=time.time(),
+  )
+  ```
+
+- [ ] **No duplicate queue + monitor.** The per-intent queue stays
+  (programmatic consumers like `jules.watch` need it); the monitor is
+  the SIDE-CHANNEL for live awareness. Both fire on the same transition;
+  test asserts both land.
+
+- [ ] **`jules.dispatch` emits on session creation**:
+  ```python
+  ctx.emit_monitor(source="jules", kind="dispatched",
+                   message=f"sid={sid} state=QUEUED title={title}",
+                   intent_id=ctx.intent_id)
+  ```
+  So the user sees "dispatched" immediately in CC, not just when the
+  first state transition fires (seconds-to-minutes later).
+
+- [ ] **`jules.recover` emits on session promotion to recovery_in_flight**:
+  ```python
+  ctx.emit_monitor(source="jules", kind="recovery_started",
+                   message=f"sid={sid} entering recovery (probe budget: 3 × 5min)",
+                   intent_id=ctx.intent_id)
+  ```
+
+- [ ] **`jules.verify` emits on the `branch_on_remote=False` path**:
+  silent-fail detection becomes visible without the user reading the
+  `verify` return value.
+
+- [ ] **NO new `monitors/monitors.json` entry.** Spec 022 must not modify
+  the install's monitors file at all — all events flow through Spec 021's
+  single `agency-engine` entry. Regression test: `python -m agency.install`
+  produces a `monitors/monitors.json` with `len(entries) == 1` after
+  Spec 022 lands.
+
+- [ ] **Tests** (`tests/test_jules_monitor.py`):
+  - Watcher transition (mocked clock + stubbed API) → MonitorEvent
+    appended to the engine's monitor.log AND the per-intent queue.
+  - `jules.dispatch` → MonitorEvent with `kind="dispatched"`.
+  - `jules.recover` → MonitorEvent with `kind="recovery_started"`.
+  - `jules.verify` with `branch_on_remote=False` → MonitorEvent with
+    `kind="silent_fail_detected"`.
+  - `monitors.json` contains exactly one entry post-install.
+
+- [ ] **AGENCY_PROTOCOL.md doc update** — add a short section explaining
+  that Jules state transitions surface via the engine monitor stream;
+  orchestrators reading CC's notification feed know Jules state changes
+  WITHOUT polling.
+
+## Files
+
+- **Modify:**
+  - `agency/capabilities/_jules_watch.py` — `_poll_loop` calls
+    `engine.monitor.emit(...)` per transition (~5 LOC + the event
+    construction).
+  - `agency/capabilities/jules.py` — `dispatch`, `recover`, `verify`
+    each gain a `ctx.emit_monitor(...)` call (~3 lines per verb).
+  - `AGENCY_PROTOCOL.md` — new section: "Live awareness via the
+    engine monitor stream."
+
+- **Create:**
+  - `tests/test_jules_monitor.py` — coverage of the contract above.
+
+## Open Questions
+
+1. **Token cost of monitor events flowing to the agent.** Every transition
+   = one stdout line ≈ ~80 chars typically. A noisy session (many
+   state transitions) could spam the agent's notification feed.
+   Recommend: emit only on **state-change** transitions
+   (the existing `_classify` already deduplicates same-state); the `noop`
+   action does NOT emit (Spec 022 v1 filter at the emit call site).
+
+2. **Should `recover_silent_fail` emit a HIGH-PRIORITY event?** Today CC's
+   notification API is uniform (one line = one notification). Future
+   work could prefix events with `[ALERT]` or `[INFO]` for the agent
+   to filter on. Recommend NO priority field in v1; defer until CC's
+   monitor API gains priority levels OR we observe noise-vs-signal
+   problems in practice.
+
+3. **Cross-session continuity.** Spec 021 OQ5 already raises this; the
+   answer applies: events emitted while CC was disconnected are visible
+   in the log file but NOT delivered as live notifications. For Jules
+   that's fine — the GRAPH carries `JulesSession` + `JulesWatchEvent`
+   nodes (Spec 012 ontology), so on next session the orchestrator can
+   query `memory.provenance(intent_id)` and find every transition
+   that fired.
+
+4. **Should `delegate.fan_out` ALSO emit completion events?** That's
+   Spec 023 territory (the second user of Spec 021). Not in 022.
+
+## Evidence
+
+- `agency/capabilities/_jules_watch.py` (the watcher this spec hooks).
+- `Plan/012-jules-complete-lifecycle-and-watcher/spec.md` (the watcher
+  + per-intent queue this spec extends with the side-channel emit).
+- `Plan/013-jules-skills-and-capability-improvements/DESIGN.md` (the
+  INSTRUCTIONS template strings this spec reuses for the
+  monitor.message body).
+- `Plan/021-engine-monitor-channel/spec.md` (the substrate).
+- User's directive ("we don't want to expose too many Monitors") — the
+  hard constraint this spec respects by routing all Jules events
+  through Spec 021's single engine channel.

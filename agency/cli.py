@@ -44,7 +44,11 @@ def _structured(result):
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="agency", description="bash-callable agency engine (code-mode is the contract)")
-    p.add_argument("--db", required=True, help="path to the persisted graph database")
+    # Spec 020: --db is OPTIONAL; resolution order is
+    # --db > AGENCY_DB env > ./.agency/session.db > ~/.agency.db.
+    # The flag stays for explicit overrides (testing, multi-DB workflows).
+    p.add_argument("--db", default=None,
+                   help="path to the graph DB (default: per Spec 020 resolution order)")
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("search", help="discover tools/capabilities")
     s.add_argument("query")
@@ -58,10 +62,18 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("--acceptance", required=True)   # ontology requires it (non-empty)
     args = p.parse_args(argv)
 
+    # Spec 020: resolve the DB path via the canonical helper.
+    from ._db_path import resolve_db_path
+    db_path = resolve_db_path(args.db)
+    # Ensure parent dir exists for fresh installs (e.g. first run after
+    # `install --scaffold-db` created an empty .agency/ but no session.db yet).
+    import os as _os
+    _os.makedirs(_os.path.dirname(db_path) or ".", exist_ok=True)
+
     # `intent` is the one verb that bootstraps state without an existing intent,
     # so a bash-only agent is fully self-sufficient.
     if args.cmd == "intent":
-        engine = Engine(args.db)
+        engine = Engine(db_path)
         try:
             iid = engine.intent.capture(args.purpose, args.deliverable, args.acceptance)
             engine.intent.confirm(iid)
@@ -81,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
         code = args.code if args.code is not None else sys.stdin.read()
         name, params = "execute", {"code": code}
 
-    engine = Engine(args.db)
+    engine = Engine(db_path)
     mcp = engine.build_mcp(codemode=True)
     try:
         result = _structured(asyncio.run(mcp.call_tool(name, params)))

@@ -44,6 +44,8 @@ as the format reference. Required fields: `spec_id`, `slug`, `status`,
 | **018** [`cli-token-efficiency-bundle`](018-cli-token-efficiency-bundle/spec.md) | Five token wins bundled: `skill.walk`, capability-prefix elision, implicit `intent_id`, compact `get_schema`, YAML `--chain`. Plus Jules's `--fields` + traceback wrapper. | 016, 020 |
 | **019** [`engine-output-shape-contract`](019-engine-output-shape-contract/spec.md) | Document the engine unwrap as the contract; `lint_capability` enforces docstring describes WIRE shape (resolves Jules's Spec 015 W4 without removing the unwrap). | 016 |
 | **020** [`central-graph-db`](020-central-graph-db/spec.md) | `.agency/session.db` as the per-project default; committed to git; auto-scaffolded on install. Foundational — every spec relying on cross-session persistence depends on this. | — |
+| **021** [`engine-monitor-channel`](021-engine-monitor-channel/spec.md) | Engine-level Monitor channel: ONE `monitors/monitors.json` entry; capabilities fan in via `ctx.emit_monitor(...)`. Same shape principle as code-mode (one wire surface; many tools). | 020 |
+| **022** [`jules-monitor-capability`](022-jules-monitor-capability/spec.md) | First use of 021: Jules watcher state transitions + `dispatch`/`recover`/`verify` surface through the engine monitor stream. No new monitors.json entry. | 012, 013, 021 |
 
 ### Wave-1 backlog (early planning era — revisit when canon needs new ground)
 
