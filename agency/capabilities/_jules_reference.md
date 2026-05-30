@@ -151,6 +151,17 @@ Base `https://jules.googleapis.com/v1alpha`, header `x-goog-api-key`. Three hier
 
 `STATE_UNSPECIFIED → QUEUED → PLANNING → AWAITING_PLAN_APPROVAL → AWAITING_USER_FEEDBACK ↔ IN_PROGRESS → COMPLETED | FAILED | PAUSED | CANCELLED`
 
+**Critical: `COMPLETED` is NOT a single terminal state.** The same value
+overloads four distinct situations distinguishable only via the activity
+stream — see `AGENCY_PROTOCOL.md §1` for the routing rules. The watcher's
+`_classify` (`agency/capabilities/_jules_watch.py`) discriminates them via
+`plan_unapproved` + `branch_on_remote` + `patch_summary`. From a one-shot
+orchestrator (no long-lived watcher), call `jules.activities(sid)` after
+any COMPLETED read to determine which case actually applies.
+
+`FAILED`, `PAUSED`, and `CANCELLED` are genuinely terminal — see the
+classifier's terminal-stickiness invariant.
+
 ## 5. CLI
 
 `@google/jules` — Node.js. Surface includes `jules remote new`, `jules remote list`, **`--parallel`** (up to 60 concurrent agents on the Ultra tier). Unix-pipe friendly: `gh issue list | jq | jules remote new`.

@@ -59,8 +59,22 @@ def _classify(
     curr: dict,
     last_agent_msg_id: str | None,
     branch_on_remote: bool,
-    patch_summary: dict | None
+    patch_summary: dict | None,
+    plan_unapproved: bool = False,
 ) -> dict | None:
+    """Map a (prev, curr) state pair + side-channel facts to a WatchEvent.
+
+    Doctrine correction (the COMPLETED-is-idle insight): in Jules's
+    state machine COMPLETED does NOT mean terminal — it means
+    "session-idle, ball-in-orchestrator's-court". The same state value
+    is reused for: (a) plan generated and waiting for approval,
+    (b) work pushed and PR open, (c) work in VM and never pushed
+    (silent-fail), (d) no work needed (genuine no-op).
+    `plan_unapproved` disambiguates the awaiting-approval case from
+    the others — without it the classifier routed (a) to `dispatch_fresh`
+    (treating a waiting session as a no-op) which silently no-opped
+    the dispatch.
+    """
     if prev is None:
         return None
 
@@ -107,6 +121,24 @@ def _classify(
             "evidence": {"agent_message": agent_message, "url": curr.get("url", "")}
         }
     elif state == "COMPLETED":
+        # COMPLETED is the union of FOUR real situations — check the most
+        # specific first. Doctrine: COMPLETED ≠ terminal; it means "idle,
+        # waiting on the orchestrator." See AGENCY_PROTOCOL.md §1.
+        if plan_unapproved:
+            # Jules generated a plan + nothing else has happened. Awaiting
+            # approval. (The dispatched session's `requirePlanApproval=True`
+            # parks here.) Same instruction as state=AWAITING_PLAN_APPROVAL
+            # — the routing surfaces it as a real approval gate, not as
+            # a no-op to be re-dispatched.
+            plan_steps = curr.get("plan_steps", 0)
+            return {
+                "action": "review_and_approve_plan",
+                "session": sid,
+                "state": state,
+                "instruction": INSTRUCTIONS["review_and_approve_plan"].format(plan_steps=plan_steps),
+                "evidence": {"plan_steps": plan_steps, "url": curr.get("url", ""),
+                             "completed_means": "awaiting plan approval"}
+            }
         if branch_on_remote:
             branch = curr.get("branch", "unknown")
             return {
@@ -116,24 +148,22 @@ def _classify(
                 "instruction": INSTRUCTIONS["verify_pr"].format(branch=branch),
                 "evidence": {"branch": branch, "pr_url": curr.get("pr_url", "")}
             }
-        else:
-            files = patch_summary.get("files", 0) if patch_summary else 0
-            if files > 0:
-                return {
-                    "action": "recover_silent_fail",
-                    "session": sid,
-                    "state": state,
-                    "instruction": INSTRUCTIONS["recover_silent_fail"].format(files=files),
-                    "evidence": {"files": files, "lines": patch_summary.get("lines", 0), "bytes": patch_summary.get("bytes", 0)}
-                }
-            else:
-                 return {
-                    "action": "dispatch_fresh",
-                    "session": sid,
-                    "state": state,
-                    "instruction": INSTRUCTIONS["dispatch_fresh"],
-                    "evidence": {"original_prompt_hash": curr.get("_prompt_hash", "")}
-                }
+        files = patch_summary.get("files", 0) if patch_summary else 0
+        if files > 0:
+            return {
+                "action": "recover_silent_fail",
+                "session": sid,
+                "state": state,
+                "instruction": INSTRUCTIONS["recover_silent_fail"].format(files=files),
+                "evidence": {"files": files, "lines": patch_summary.get("lines", 0), "bytes": patch_summary.get("bytes", 0)}
+            }
+        return {
+            "action": "dispatch_fresh",
+            "session": sid,
+            "state": state,
+            "instruction": INSTRUCTIONS["dispatch_fresh"],
+            "evidence": {"original_prompt_hash": curr.get("_prompt_hash", "")}
+        }
     elif state == "FAILED":
         error = curr.get("error", "Unknown error")
         return {
@@ -285,17 +315,45 @@ class Watcher:
             for sid, sinfo in list(self.sessions.items()):
                 try:
                     curr = await asyncio.to_thread(_jules_api.jules_get, sid)
-                    acts = await asyncio.to_thread(_jules_api.jules_activities, sid, only_kinds="agentMessaged,planGenerated", page_size=5)
-                    # Decorate curr with activities data
+                    # Pull activities including planApproved + codeChanges so we
+                    # can disambiguate COMPLETED-awaiting-approval from
+                    # COMPLETED-genuine-no-op (doctrine: COMPLETED ≠ terminal).
+                    acts = await asyncio.to_thread(
+                        _jules_api.jules_activities, sid,
+                        only_kinds="agentMessaged,planGenerated,planApproved,codeChanges",
+                        page_size=10,
+                    )
+                    # Activities arrive newest-first. Track which "later" events
+                    # have fired so the plan-unapproved test works regardless of
+                    # iteration order.
+                    plan_generated_at = None
+                    plan_approved_at = None
+                    code_changes_at = None
                     if acts and "activities" in acts and acts["activities"]:
                         for act in acts["activities"]:
-                            if act.get("kind") == "agentMessaged" and "_last_agent_msg_id" not in curr:
+                            kind = act.get("kind")
+                            t = act.get("createTime", "")
+                            if kind == "agentMessaged" and "_last_agent_msg_id" not in curr:
                                 curr["_last_agent_msg_id"] = act.get("id")
                                 curr["_agent_message"] = act.get("agentMessaged", {}).get("message", "")
-                            elif act.get("kind") == "planGenerated" and "plan_steps" not in curr:
-                                 curr["plan_steps"] = len(act.get("planGenerated", {}).get("plan", {}).get("steps", []))
-                            if "_last_agent_msg_id" in curr and "plan_steps" in curr:
-                                break
+                            elif kind == "planGenerated":
+                                if "plan_steps" not in curr:
+                                    curr["plan_steps"] = len(act.get("planGenerated", {}).get("plan", {}).get("steps", []))
+                                if plan_generated_at is None or t > plan_generated_at:
+                                    plan_generated_at = t
+                            elif kind == "planApproved":
+                                if plan_approved_at is None or t > plan_approved_at:
+                                    plan_approved_at = t
+                            elif kind == "codeChanges":
+                                if code_changes_at is None or t > code_changes_at:
+                                    code_changes_at = t
+                    # plan_unapproved == latest plan was generated and neither
+                    # approved nor superseded by codeChanges. Comparing ISO-8601
+                    # timestamp strings is correct (lexicographic order).
+                    plan_unapproved = bool(plan_generated_at) and not (
+                        (plan_approved_at and plan_approved_at >= plan_generated_at) or
+                        (code_changes_at and code_changes_at >= plan_generated_at)
+                    )
 
                     branch = curr.get("branch")
                     if branch:
@@ -310,7 +368,9 @@ class Watcher:
                         patch_summary = {"files": 0, "lines": 0, "bytes": 0}
 
                     prev = sinfo["last_state"]
-                    event = _classify(prev, curr, sinfo["last_agent_msg_id"], branch_on_remote, patch_summary)
+                    event = _classify(prev, curr, sinfo["last_agent_msg_id"],
+                                      branch_on_remote, patch_summary,
+                                      plan_unapproved=plan_unapproved)
 
                     if event:
                         self._put_event(sinfo["intent_id"], event)

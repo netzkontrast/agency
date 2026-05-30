@@ -14,20 +14,38 @@ Read [`AGENTS.md`](AGENTS.md) first for the repo-wide conventions.
 ## §1 — `COMPLETED ≠ done`
 
 A session reading `state=COMPLETED` with `has_outputs=True` does **not**
-imply the work is published. The canonical silent-fail variants:
+imply the work is published. **Furthermore: COMPLETED is NOT terminal.**
+In Jules's state machine the same `state="COMPLETED"` value covers four
+distinct situations — only ONE of which means "the agent is done." The
+other three need orchestrator action before Jules will resume:
 
-1. **COMPLETED + no branch on origin.** Publish step never ran — the
-   agent finished the work in its VM but never called `submit(...)`.
-   Most common variant.
-2. **COMPLETED + branch on origin + no PR open.** Work pushed but no
-   pull request opened. `automationMode` was misconfigured or the agent
-   skipped the PR step.
-3. **COMPLETED + branch on origin + agent reports fabricated SHAs in
-   chat.** Agent confabulates progress. Trust `git ls-remote`, never the
-   in-chat SHAs.
+1. **COMPLETED + plan generated, never approved.** The dispatched session
+   set `requirePlanApproval=True` (the doctrine default); Jules generated
+   a plan and is parked waiting for `jules.approve_plan(sid)`. Without
+   approval the session stays here indefinitely (the COMPLETED label is
+   misleading — semantically this is AWAITING_PLAN_APPROVAL). **Action:**
+   `jules.plan(sid)` to inspect, then `jules.approve_plan(sid)` to resume.
+2. **COMPLETED + no branch on origin + patch outputs > 0.** Publish step
+   never ran — work in the VM, never `submit(...)`ed. **Action:** the
+   canonical silent-fail recovery (§5): probe → wait → patch-extract.
+3. **COMPLETED + branch on origin.** Work pushed; verify the PR contents
+   match `affects:`. (Sub-case: branch on origin but no PR open means
+   `automationMode` was misconfigured — open the PR via GitHub MCP.)
+4. **COMPLETED + no branch + zero patch + plan was approved or never
+   needed.** Genuine no-op. Re-dispatch with the same prompt is the only
+   legitimate path.
+
+The watcher's `_classify` (`agency/capabilities/_jules_watch.py`) discriminates
+all four cases via `branch_on_remote`, `patch_summary`, and `plan_unapproved`
+flags. The orchestrator must reach the same routing when polling manually.
 
 **The verification rule:** never declare done without checking the remote
 yourself. `git ls-remote origin <branch>` is the source of truth.
+
+**The state-reading rule:** never assume COMPLETED is terminal. Always pull
+the activity stream (`jules.activities`) to know which of the four cases
+applies — a `planGenerated` with no subsequent `planApproved` or
+`codeChanges` means case 1; absence of either means case 2-4.
 
 ## §2 — Name the publish tool
 
