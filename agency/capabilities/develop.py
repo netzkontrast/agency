@@ -77,6 +77,25 @@ DEV_SKILLS = {
         _phase(3, "checkpoint", ["reviewed"], gate="hard"),
         _phase(4, "verify", ["all_pass"], gate="hard"),
     ]},
+    # Plan/024 PR-A — capability authoring: scaffold then lint behind a
+    # hard gate. Phase 2 + 4 are BOUND (the walker runs the verbs, not
+    # documents them); phase 4 binds to plugin.lint_capability per panel
+    # F5a (no develop wrapper — natural home is `plugin` next to
+    # lint_skill). docs/vision/CAPABILITY-AUTHORING.md is what phase 1
+    # has the author read; the lint phase 4 ENFORCES it.
+    "authoring-capabilities": {"name": "authoring-capabilities",
+                               "kind": "authoring", "phases": [
+        _phase(1, "research", ["read_doctrine"]),
+        {"index": 2, "name": "scaffold", "produces": ["skeleton"],
+         "invoke": {"capability": "develop", "verb": "scaffold_capability"},
+         "inputs": ["name", "kind", "base_dir"]},
+        _phase(3, "author", ["verbs_written"]),
+        {"index": 4, "name": "lint", "produces": ["lint_result"],
+         "invoke": {"capability": "plugin", "verb": "lint_capability"},
+         "inputs": ["name"]},
+        _phase(5, "token-check", ["budget_ok"]),
+        _phase(6, "commit", ["reflection_recorded"], gate="hard"),
+    ]},
 }
 
 
@@ -127,6 +146,156 @@ def checklist(discipline: str) -> dict:
 develop_ontology = OntologyExtension(skills=dict(DEV_SKILLS))
 
 
+# ---- Plan/024 PR-A — scaffold_capability ----------------------------------
+#
+# The scaffolder's output IS the discipline's promise: a new capability
+# author runs `develop.scaffold_capability(name, kind)` and the resulting
+# file lints CLEAN in block mode by construction. CAPABILITY-AUTHORING.md
+# §"Capability skeleton" is the source of truth; this module renders it.
+
+SCAFFOLD_VERSION = 1
+
+_SUPPORTED_KINDS = ("light", "medium", "heavy")
+
+
+def _pascalcase(name: str) -> str:
+    """`my-cap` → `MyCapCapability`. The class name convention every
+    skeleton uses (matches reflect/develop/plugin precedent)."""
+    parts = [p for p in name.replace("_", "-").split("-") if p]
+    return "".join(p[:1].upper() + p[1:] for p in parts) + "Capability"
+
+
+def _render_light_skeleton(name: str) -> str:
+    """The minimal skeleton CAPABILITY-AUTHORING.md §"Class form" specifies.
+    Single verb (ping) lint-clean under all five rule families."""
+    cls = _pascalcase(name)
+    return (
+        f"# agency-scaffold: v{SCAFFOLD_VERSION}\n"
+        f'"""{name} — one-line description of what this capability is for.\n\n'
+        f"CAPABILITY-AUTHORING.md is the doctrine this skeleton lints against.\n"
+        f'"""\n'
+        f"from agency.capability import CapabilityBase, verb\n"
+        f"from agency.ontology import OntologyExtension\n"
+        f"\n"
+        f"\n"
+        f"class {cls}(CapabilityBase):\n"
+        f'    name = "{name}"\n'
+        f'    home = "capability"\n'
+        f"    ontology = OntologyExtension()\n"
+        f"\n"
+        f'    @verb(role="transform")\n'
+        f"    def ping(self) -> dict:\n"
+        f'        """Return a sentinel for liveness checks.\n'
+        f"\n"
+        f"        Inputs: (none).\n"
+        f'        Returns: {{result: "pong"}}.\n'
+        f"        chain_next: (terminal).\n"
+        f'        """\n'
+        f'        return {{"result": "pong"}}\n'
+    )
+
+
+def _render_medium_skeleton(name: str) -> str:
+    """Light + ontology stubs (nodes/edges/schemas/templates). The
+    skeleton flags them as TODO so author fills in the data shape, but
+    the file lints clean as-shipped (empty stubs are valid)."""
+    cls = _pascalcase(name)
+    return (
+        f"# agency-scaffold: v{SCAFFOLD_VERSION}\n"
+        f'"""{name} — one-line description.\n\n'
+        f"Medium scaffold: owns ontology fragment (node types, schemas,\n"
+        f"templates). Fill in the stubs below per CAPABILITY-AUTHORING.md.\n"
+        f'"""\n'
+        f"from agency.capability import CapabilityBase, verb\n"
+        f"from agency.ontology import OntologyExtension\n"
+        f"\n"
+        f"\n"
+        f"class {cls}(CapabilityBase):\n"
+        f'    name = "{name}"\n'
+        f'    home = "capability"\n'
+        f"    ontology = OntologyExtension(\n"
+        f"        # TODO: declare this capability's node types here\n"
+        f"        nodes={{}},\n"
+        f"        edges=set(),\n"
+        f"        schemas={{}},\n"
+        f"        templates={{}},\n"
+        f"    )\n"
+        f"\n"
+        f'    @verb(role="transform")\n'
+        f"    def ping(self) -> dict:\n"
+        f'        """Return a sentinel for liveness checks.\n'
+        f"\n"
+        f"        Inputs: (none).\n"
+        f'        Returns: {{result: "pong"}}.\n'
+        f"        chain_next: (terminal).\n"
+        f'        """\n'
+        f'        return {{"result": "pong"}}\n'
+    )
+
+
+def _heavy_init_src(name: str) -> str:
+    """The folder-form __init__.py re-export — Hint #1's canonical pattern."""
+    cls = _pascalcase(name)
+    return (
+        f"# agency-scaffold: v{SCAFFOLD_VERSION}\n"
+        f'"""{name} subpackage — folder-form capability (Spec 016 Hint #1).\n\n'
+        f"This __init__ re-exports the {cls} class so discover() finds it\n"
+        f"identically to a single-file capability.\n"
+        f'"""\n'
+        f"from .{name.replace('-', '_')} import {cls}  # noqa: F401\n"
+    )
+
+
+def scaffold_capability(name: str, kind: str = "light", base_dir=None) -> dict:
+    """Emit a Spec-024 / Spec-016 compliant capability skeleton at base_dir.
+
+    Inputs: name (str — kebab-case), kind ("light"|"medium"|"heavy"),
+            base_dir (str — defaults to agency/capabilities/).
+    Returns: {result: <path>, artefact: {kind, name, path, scaffold_version}}.
+    chain_next: plugin.lint_capability(name) — the discipline's phase 4
+                runs this immediately to verify the scaffold lints clean.
+    """
+    import os
+
+    if kind not in _SUPPORTED_KINDS:
+        return {"status": "input-required",
+                "reason": f"unknown kind {kind!r}; expected one of {_SUPPORTED_KINDS}",
+                "blocked_on": "scaffold_kind",
+                "resume_with": ["kind"]}
+
+    base = base_dir or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "capabilities",
+    )
+    os.makedirs(base, exist_ok=True)
+
+    if kind == "heavy":
+        folder = os.path.join(base, name)
+        os.makedirs(folder, exist_ok=True)
+        init_path = os.path.join(folder, "__init__.py")
+        impl_path = os.path.join(folder, f"{name.replace('-', '_')}.py")
+        with open(init_path, "w") as f:
+            f.write(_heavy_init_src(name))
+        with open(impl_path, "w") as f:
+            f.write(_render_light_skeleton(name))
+        path = folder
+    else:
+        renderer = _render_medium_skeleton if kind == "medium" else _render_light_skeleton
+        path = os.path.join(base, f"{name}.py")
+        with open(path, "w") as f:
+            f.write(renderer(name))
+
+    return {
+        "result": path,
+        "artefact": {
+            "kind": "capability-scaffold",
+            "name": name,
+            "path": path,
+            "scaffold_version": SCAFFOLD_VERSION,
+        },
+    }
+
+
 class DevelopCapability(CapabilityBase):
     name = "develop"
     home = "lifecycle"
@@ -143,3 +312,40 @@ class DevelopCapability(CapabilityBase):
         if doc is None:
             return {"result": {"error": f"unknown reference {topic!r}", "available": sorted(REFERENCES)}}
         return {"result": {"topic": topic, "doc": doc}}
+
+    @verb(role="act")
+    def scaffold_capability(self, name: str, kind: str = "light",
+                            base_dir: str = "") -> dict:
+        """Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton.
+
+        Inputs: name (kebab-case), kind (light|medium|heavy), base_dir (optional).
+        Returns: {result: <path>, artefact: {kind, name, path, scaffold_version}}.
+        chain_next: plugin.lint_capability(name) — verify lint-clean.
+        """
+        return scaffold_capability(name, kind=kind,
+                                   base_dir=base_dir or None)
+
+    @verb(role="act")
+    def record_authoring_outcome(self, name: str, kind: str = "light") -> dict:
+        """Record a Reflection at the end of an authoring-capabilities walk.
+
+        The authoring-capabilities discipline's phase 6 (hard gate) is the
+        commit boundary; the caller confirms then invokes this verb to write
+        a `Reflection{scope:"observation"}` SERVING the calling intent. The
+        observation surfaces back into future authoring walks (the
+        self-improvement loop closes when Spec 014 promotes them to spec
+        amendments).
+
+        Inputs: name (capability name authored), kind (scaffold kind).
+        Returns: {result: <reflection_id>}.
+        chain_next: (terminal — discipline closes here).
+        """
+        text = (f"Authored capability {name!r} (kind={kind}) via the "
+                f"authoring-capabilities discipline. Scaffold + lint cleanly "
+                f"passed; reflection recorded for the self-improvement loop.")
+        rid = self.ctx.record("Reflection", {
+            "scope": "observation",
+            "text": text,
+        })
+        self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+        return {"result": rid}

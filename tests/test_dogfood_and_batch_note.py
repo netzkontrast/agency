@@ -8,28 +8,16 @@
   collects, Phase 2 folds into the graph.
 """
 import os
-import tempfile
 
 import pytest
 
-from agency.engine import Engine
 from agency.skill import SkillRun
 
-
-@pytest.fixture
-def engine():
-    return Engine(tempfile.mktemp(suffix=".db"))
-
-
-@pytest.fixture
-def iid(engine):
-    intent = engine.intent.capture(
-        "fold dogfood observations into the graph",
-        "Reflection nodes land per observation",
-        "every observation produces a memorable artefact",
-    )
-    engine.intent.confirm(intent)
-    return intent
+# Spec 016 v2 Phase 5 — `engine` + `iid` fixtures now come from
+# tests/conftest.py. This file is the proof-of-concept migration:
+# 13 lines deleted, behaviour unchanged. The other 10 files with the
+# same duplicate fixture block migrate opportunistically per Spec
+# 016 v2 frontmatter (no "must-migrate-all" mandate).
 
 
 def _call(engine, iid, cap, verb, **kw):

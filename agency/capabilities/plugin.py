@@ -103,6 +103,205 @@ def lint_skill(name: str, description: str) -> dict:
     return {"ok": not v, "violations": v}
 
 
+# ---- Spec 016 P4 / Plan/024 PR-A — lint_capability ------------------------
+
+_SCAFFOLD_MARKER_RE = __import__("re").compile(r"^\s*#\s*agency-scaffold:")
+_NET_IMPORTS = ("requests", "httpx", "urllib", "urllib3", "subprocess",
+                "socket", "aiohttp")
+
+
+def _capability_source_path(cap):
+    """Find the source file backing a Capability. Used to read the
+    scaffold marker + scan for mis-tagged transform/effect imports.
+
+    `_wrap_method` (agency/capability.py) attaches `__capability_cls__`
+    to every wrapped verb fn so we can find the original class — the fn
+    itself is a closure inside capability.py and would otherwise hide
+    the user's source file."""
+    import inspect
+    for spec in cap.verbs.values():
+        fn = spec.get("fn")
+        if fn is None:
+            continue
+        # Spec 016 P4: prefer the exposed class pointer; fall back to
+        # naive lookup for functional-form capabilities (no class wrap).
+        target = getattr(fn, "__capability_cls__", None) or fn
+        try:
+            path = inspect.getsourcefile(target)
+            if path:
+                return path
+        except (TypeError, OSError):
+            continue
+    return None
+
+
+def _has_scaffold_marker(source_path):
+    """Marker = first non-blank line of the file is `# agency-scaffold: …`.
+    Read it version-agnostically: any prefix triggers block mode."""
+    if not source_path:
+        return False
+    try:
+        with open(source_path) as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                return bool(_SCAFFOLD_MARKER_RE.match(stripped))
+    except OSError:
+        return False
+    return False
+
+
+def _check_structural(cap):
+    """Hint #7: every @verb docstring carries Inputs:/Returns:/chain_next:."""
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        doc = (spec.get("fn").__doc__ or "")
+        missing = [m for m in ("Inputs:", "Returns:", "chain_next:") if m not in doc]
+        if missing:
+            out.append({
+                "verb": verb_name, "kind": "structural",
+                "msg": f"docstring missing markers: {', '.join(missing)}",
+                "fix": "add `Inputs:`, `Returns:`, `chain_next:` lines per CAPABILITY-AUTHORING.md",
+            })
+    return out
+
+
+def _check_role_tag(cap, source_path):
+    """Hint #3: a transform verb whose MODULE imports a network/IO library
+    is mis-tagged — should be `effect`. Conservative: scan the source for
+    `import X` / `from X` for X in _NET_IMPORTS."""
+    if not source_path:
+        return []
+    try:
+        src = open(source_path).read()
+    except OSError:
+        return []
+    flagged_imports = []
+    for imp in _NET_IMPORTS:
+        if f"import {imp}" in src or f"from {imp}" in src:
+            flagged_imports.append(imp)
+    if not flagged_imports:
+        return []
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        if spec.get("role") == "transform":
+            out.append({
+                "verb": verb_name, "kind": "role_tag",
+                "msg": f"transform role but module imports {flagged_imports!r} (network/IO)",
+                "fix": "re-tag as @verb(role='effect') — the provenance moat relies on the tag",
+            })
+    return out
+
+
+def _check_render_slice(cap):
+    """Spec 023: brief is non-empty AND ≤120 chars; first sentence cleaves."""
+    from agency.render import parse_slices
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        doc = (spec.get("fn").__doc__ or "")
+        brief = parse_slices(doc)["brief"]
+        if not brief:
+            out.append({
+                "verb": verb_name, "kind": "render_slice",
+                "msg": "first-sentence brief is empty (no docstring or unparseable)",
+                "fix": "add a one-sentence gist as the first line; see CAPABILITY-AUTHORING.md §verb docstring contract",
+            })
+        elif len(brief) > 120:
+            out.append({
+                "verb": verb_name, "kind": "render_slice",
+                "msg": f"brief is {len(brief)} chars; must be ≤120 (token-budget gate)",
+                "fix": "tighten the first sentence; move detail to body / Inputs/Returns markers",
+            })
+    return out
+
+
+def _check_consumer_contract(cap):
+    """Codex R2 lesson: the cap must round-trip through mcp._list_tools().
+    Build a throwaway in-memory engine + assert every verb registered."""
+    import asyncio
+    from agency.engine import Engine
+    try:
+        e = Engine(":memory:", extra_capabilities=[cap])
+    except Exception as exc:  # ontology collision, etc.
+        return [{"verb": None, "kind": "consumer_contract",
+                 "msg": f"Engine refused to load capability: {exc}",
+                 "fix": "check ontology fragment for collision with core or another cap"}]
+    try:
+        try:
+            mcp = e.build_mcp(codemode=False)
+        except Exception as exc:
+            return [{"verb": None, "kind": "consumer_contract",
+                     "msg": f"build_mcp failed: {exc}",
+                     "fix": "verb signatures must be FastMCP-compatible"}]
+        tool_names = asyncio.run(_tool_names(mcp))
+    finally:
+        e.memory.close()
+    out = []
+    for verb_name in cap.verbs:
+        expected = f"capability_{cap.name}_{verb_name}"
+        if expected not in tool_names:
+            out.append({
+                "verb": verb_name, "kind": "consumer_contract",
+                "msg": f"{expected!r} did not register as an MCP tool",
+                "fix": "verb signature must not collide with reserved kwargs; check FastMCP errors",
+            })
+    return out
+
+
+async def _tool_names(mcp):
+    tools = await mcp._list_tools()
+    return {t.name for t in tools}
+
+
+def _check_token_budget(cap, max_per_verb=20):
+    """Spec 023 budget adapted: brief slice ≤ max_per_verb cl100k tokens
+    per verb. Skips silently if tiktoken missing (non-dev install)."""
+    try:
+        import tiktoken
+    except ImportError:
+        return []
+    enc = tiktoken.encoding_for_model("gpt-4")
+    from agency.render import parse_slices
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        brief = parse_slices(spec.get("fn").__doc__ or "")["brief"]
+        n = len(enc.encode(brief))
+        if n > max_per_verb:
+            out.append({
+                "verb": verb_name, "kind": "token_budget",
+                "msg": f"brief is {n} cl100k tokens; budget {max_per_verb}",
+                "fix": "tighten the first sentence",
+            })
+    return out
+
+
+def lint_capability(cap) -> dict:
+    """Run the five rule families against `cap` (a Capability instance).
+
+    Mode dispatch: if the capability's source file carries the
+    `# agency-scaffold: …` marker on its first non-blank line → BLOCK
+    mode (violations are real errors, ok=False). Otherwise WARN mode
+    (legacy grandfathering — violations move to warnings, ok=True).
+
+    Returns: {ok, violations, warnings, skipped, mode}."""
+    source_path = _capability_source_path(cap)
+    mode = "block" if _has_scaffold_marker(source_path) else "warn"
+    all_findings = (
+        _check_structural(cap)
+        + _check_role_tag(cap, source_path)
+        + _check_render_slice(cap)
+        + _check_consumer_contract(cap)
+        + _check_token_budget(cap)
+    )
+    if mode == "block":
+        return {"ok": not all_findings, "violations": all_findings,
+                "warnings": [], "skipped": 0, "mode": mode}
+    # warn mode — findings move to warnings; ok always True
+    return {"ok": True, "violations": [], "warnings": all_findings,
+            "skipped": 0, "mode": mode}
+
+
 def help_map(caps: dict) -> dict:
     """Map macroskills (capabilities) -> micro-skills (verbs). `caps` is the live
     registry view `{capability: [verb, ...]}`; the engine INJECTS it (the `inject`
@@ -217,6 +416,11 @@ class PluginCapability(CapabilityBase):
     @verb(role="transform")
     def lint_skill(self, name: str, description: str) -> dict:
         return lint_skill(name, description)
+
+    @verb(role="transform")
+    def lint_capability(self, name: str) -> dict:
+        cap = self.ctx.registry.get(name)
+        return lint_capability(cap)
 
     @verb(role="transform")
     def help(self) -> dict:

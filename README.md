@@ -60,7 +60,7 @@ git clone https://github.com/netzkontrast/agency.git
 cd agency
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q                       # 216+ passing on the real substrate
+python -m pytest -q             # 228 passing on the real substrate
 claude --plugin-dir .           # point Claude Code at this directory
 ```
 
@@ -212,22 +212,28 @@ Drafted (wave 3): **014** (observation → spec amendment) · **016**
 | `agency/capabilities/_jules_preambles.py` | Mode A/B preamble assembler + `review_comment` helper |
 | `examples/music.py` | Out-of-tree domain capability (album conceptualizer) |
 | `Plan/` | Specs (one dir per spec; `000-overview.md` is the index) |
-| `tests/` | Real-substrate tests (216+ passing on `pytest -q`) |
+| `tests/` | Real-substrate tests (228 passing on `python -m pytest -q`) |
 | `.github/workflows/test.yml` | CI runs pytest on every PR + verifies the self-hosted install hasn't drifted |
 
 ## Develop
 
 ```bash
-pytest -q                    # 216+ passing
+. .venv/bin/activate         # always activate first
+python -m pytest -q          # 228 passing
 python -m agency.install     # regen the plugin install when capabilities change
 ```
+
+> **Venv hygiene.** A globally-installed `pytest` (e.g. via `uv tool`) will
+> fail to find `graphqlite` / `fastmcp` and produce silent collection
+> errors. Always run `python -m pytest` from an activated venv so
+> imports resolve against the project's site-packages.
 
 - Feature branches; PRs target `main`; additive history; never rewrite
   or force-push.
 - Add a capability = add a file (or folder when Spec 016 lands).
 - Spec lifecycle: research → design → spec-panel → refine →
-  IMPLEMENTATION-PLAN → TDD. Per-phase: RED → GREEN → green `pytest -q`
-  → commit → push.
+  IMPLEMENTATION-PLAN → TDD. Per-phase: RED → GREEN → green
+  `python -m pytest -q` → commit → push.
 - Doctrine evolves through dogfooding: surface lessons via
   `reflect.note(scope="observation", …)` — **NOT** new markdown files
   (graph-as-store; Spec 017 closes the inversion).

@@ -48,6 +48,29 @@ thing the SDK-native rival cannot match:** cross-concern provenance is a *single
 traversal* — "every action that `SERVES` intent Q1, the agent that ran it, the
 gate it passed."
 
+## CapabilityContext — the verb's typed handle
+
+Every verb that takes `ctx` (the default for class-form `CapabilityBase`
+methods, or via `inject: ["ctx"]` for the functional form) receives a
+single `CapabilityContext` object — a DELEGATOR over the engine's
+services, never a parallel public surface. Eight fields:
+
+| Field | Purpose | Example use |
+|---|---|---|
+| `memory` | The graph (Memory instance) | `ctx.memory.record(...)`, `ctx.memory.g.query(...)` |
+| `ontology` | The merged effective ontology (read-only) | `ctx.ontology.skills["jules-fanout"]` |
+| `registry` | The capability registry | `ctx.registry.invoke(...)` for cross-capability calls |
+| `intent_id` | The SERVING intent (auto-injected per call) | every node `SERVES` this |
+| `agent_id` | Optional performer (e.g. `agent:claude` / `agent:jules`) | provenance attribution |
+| `client` | Boundary object the engine injects (e.g. `JulesClient`) | `self.ctx.client.create(...)` |
+| `depth` | Recursion-depth guard for `spawn`/`call` | enforces `MAX_DEPTH=16` |
+| `engine` | The owning Engine — for verbs that need engine-attached singletons (rare) | `self.ctx.engine._jules_watcher` |
+
+See [`CAPABILITY-AUTHORING.md`](CAPABILITY-AUTHORING.md) for the
+authoring contract that uses these — when each field is needed, when
+it isn't, and the rules a verb's docstring must follow so the
+provenance moat stays whole.
+
 ## Skills are atomic, gated, progressively-disclosed step-graphs
 
 A "skill" is **not** a monolithic `SKILL.md` loaded wholesale. In v4 a skill is a
