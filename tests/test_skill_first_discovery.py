@@ -78,6 +78,30 @@ def test_untagged_verbs_have_empty_tag_set():
         e.memory.close()
 
 
+async def test_search_finds_skill_tagged_verbs():
+    """R2 (Codex review of 660d7f5): the wiring test above proves tags
+    land on the internal verb spec, but the ADVERTISED contract is that
+    `search(tags=["skill:review"])` finds the bound verb via the public
+    MCP surface. This test exercises the consumer — without the
+    `_wire`→`mcp.tool(..., tags=...)` propagation it would fail despite
+    the wiring test passing."""
+    e = Engine(":memory:")
+    try:
+        mcp = e.build_mcp(codemode=False)
+        tools = await mcp._list_tools()
+        bound = next(
+            (t for t in tools if t.name == "capability_delegate_fan_out"),
+            None,
+        )
+        assert bound is not None, "capability_delegate_fan_out should be a registered MCP tool"
+        assert "skill:review" in bound.tags, (
+            f"FastMCP Tool.tags must carry `skill:review` (R2): "
+            f"propagation from verb spec → mcp.tool failed. got tags={bound.tags!r}"
+        )
+    finally:
+        e.memory.close()
+
+
 def test_skill_prefix_is_reserved():
     """`skill:` is a reserved tag prefix — the wiring path is the only
     legitimate source. A capability author cannot smuggle a fake skill

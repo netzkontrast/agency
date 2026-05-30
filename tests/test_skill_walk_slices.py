@@ -11,9 +11,11 @@ Verb-bound phases (with `invoke={capability, verb}`) DELEGATE to
 """
 from __future__ import annotations
 
+import ast
+
 import pytest
 
-from agency.render import render_phase
+from agency.render import render_phase, render_verb
 from agency.engine import Engine
 
 
@@ -92,6 +94,48 @@ def test_verb_bound_phase_inherits_verb_slice():
         )
     finally:
         e.memory.close()
+
+
+def test_hard_gate_phase_without_cue_still_asks_a_question():
+    """R3 (Codex review of 660d7f5): the `gate="hard"` contract requires
+    a question at T1 — but legacy schemas (e.g. develop.review's resolve
+    phase) carry `gate="hard"` with no explicit `cue`. The fallback must
+    synthesize a confirmation question, not emit `Execute the X phase.`"""
+    phase = {
+        "index": 3, "name": "resolve",
+        "produces": ["addressed"], "gate": "hard",
+        # NO cue field
+    }
+    out = render_phase(phase, depth="brief")
+    assert "?" in out, (
+        f"hard-gate cue-less fallback must read as a question (R3); got {out!r}"
+    )
+    assert "Execute the" not in out, (
+        "the legacy 'Execute the X phase.' fallback breaks the hard-gate T1 contract"
+    )
+
+
+def test_snippet_empty_inputs_is_valid_callable_python():
+    """R4 (Codex review of 660d7f5): `{...}` is a set containing Ellipsis,
+    not a dict. `call_tool("x", set)` fails at runtime — call_tool's
+    second arg must be a Mapping. The empty-inputs fallback must produce
+    a valid params dict that survives ast.parse AND can be passed to
+    a function expecting **kwargs."""
+    DOC_NO_INPUTS = "Spawn a remote Jules session."
+    out = render_verb("capability_jules_dispatch", "effect", DOC_NO_INPUTS,
+                      surface="mcp", depth="standard", format="snippet")
+    # must contain `{}` (empty dict), NOT `{...}` (set of Ellipsis)
+    assert '{...}' not in out, f"`{{...}}` is a set-of-Ellipsis, not a dict params mapping: {out}"
+    assert '{}' in out, f"empty-inputs snippet should fall back to `{{}}`; got: {out}"
+    # the snippet must be parseable Python AND the params arg must be a dict
+    code = out.split("```python")[1].split("```")[0].strip() if "```python" in out else ""
+    assert code, f"expected a ```python``` block; got: {out!r}"
+    tree = ast.parse(code)
+    call = next(n for n in ast.walk(tree) if isinstance(n, ast.Call)
+                and getattr(n.func, "id", "") == "call_tool")
+    assert isinstance(call.args[1], ast.Dict), (
+        f"call_tool's second arg must be a Dict node, got {type(call.args[1]).__name__}"
+    )
 
 
 def test_render_phase_missing_cue_falls_back_gracefully():

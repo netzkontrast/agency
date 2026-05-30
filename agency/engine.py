@@ -141,7 +141,11 @@ class Engine:
         impl.__doc__ = brief or raw or f"{cap_name}.{verb} ({spec['role']})"
         impl.__annotations__ = {p.name: p.annotation for p in params}
         impl.__annotations__["return"] = dict
-        mcp.tool(impl)
+        # Spec 025 R2 (Codex): propagate the verb's `tags` to FastMCP's Tool
+        # metadata so `search(tags=["skill:*"])` actually finds the verb.
+        # Without this the tags lived only on the internal verb spec and
+        # the public discovery surface couldn't reach them.
+        mcp.tool(impl, tags=set(spec.get("tags") or ()) or None)
 
     def _make_lifespan(self):
         """Build the FastMCP lifespan that starts the Jules watcher on enter

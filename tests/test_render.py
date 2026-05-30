@@ -202,13 +202,15 @@ def test_format_snippet_mcp_renders_valid_python_dict_with_named_keys():
 
 
 def test_format_snippet_falls_back_to_placeholder_when_no_inputs():
-    # No parseable input names → `{...}` placeholder, still valid Python
-    # (a set literal). LEGACY_DOC has no Inputs: marker.
+    # R4 (Codex review of 660d7f5): the original Finding-5 fix landed
+    # `{...}` as the empty-inputs placeholder, but `{...}` is a set
+    # containing Ellipsis — NOT a dict. call_tool's second arg must be a
+    # Mapping; passing a set fails at runtime. Empty-inputs falls back
+    # to `{}` (empty dict). LEGACY_DOC has no Inputs: marker.
     out = render_verb(NAME, ROLE, LEGACY_DOC,
                       surface="mcp", depth="standard", format="snippet")
-    assert "{...}" in out
-    dict_literal = out[out.index("{"):out.rindex("}") + 1]
-    ast.literal_eval(dict_literal)  # must parse without raising
+    assert "{}" in out
+    assert "{...}" not in out, "`{...}` is a set-of-Ellipsis, not a valid dict params mapping"
 
 
 def test_format_snippet_bash_surface_uses_cli_syntax():

@@ -166,11 +166,12 @@ def _args_literal(inputs_prose: str) -> str:
     """A valid Python dict literal of placeholder kwargs from input prose.
 
     `body (str), intent_id (str)` -> `{"body": ..., "intent_id": ...}`.
-    Falls back to `{...}` (a valid set-literal placeholder) when no input
-    names can be parsed."""
+    Falls back to `{}` (empty dict — call_tool's second arg must be a
+    Mapping; `{...}` is a set of Ellipsis, not a dict, and fails at
+    runtime — R4, Codex review of 660d7f5)."""
     names = _input_names(inputs_prose)
     if not names:
-        return "{...}"
+        return "{}"
     return "{" + ", ".join(f'"{n}": ...' for n in names) + "}"
 
 
@@ -184,10 +185,16 @@ def _render_snippet(name: str, role: str, slices: dict[str, str], surface: str) 
         )
         return f"```python\n{body}\n```"
     # bash — the `agency` console script is the MCP server; the CLI is
-    # `python -m agency.cli` (pyproject [project.scripts]).
+    # `python -m agency.cli` (pyproject [project.scripts]). NO `--db` —
+    # the Spec 020 resolver (--db > AGENCY_DB > ./.agency/session.db)
+    # converges with MCP when AGENCY_DB is set by the plugin and falls
+    # back to the same project-local store otherwise. Hard-coding
+    # `--db .agency/session.db` here would override AGENCY_DB and split
+    # the graph when the snippet runs outside the project root
+    # (R1, Codex review of 660d7f5).
     bash_args = args.replace('"', '\\"')
     body = (
-        f'python -m agency.cli --db .agency/session.db execute --code \\\n'
+        f'python -m agency.cli execute --code \\\n'
         f'  "return await call_tool(\\"{name}\\", {bash_args})"'
     )
     return f"```bash\n{body}\n```"
@@ -250,7 +257,18 @@ def render_phase(phase: dict, *, depth: str, registry: Any = None) -> str:
             pass  # fall through to native render
 
     name = phase.get("name", "phase")
-    cue = phase.get("cue") or f"Execute the `{name}` phase."
+    # R3 (Codex review of 660d7f5): hard-gate phases without an explicit
+    # cue MUST still read as a question — the T1 contract says hard-gate
+    # cues ask the user/agent to confirm. `develop.review`'s resolve phase
+    # is `_phase(3, "resolve", ["addressed"], gate="hard")` with no cue;
+    # the fallback above produced a non-question prompt despite the test
+    # asserting hard-gate phases contain "?".
+    if phase.get("cue"):
+        cue = phase["cue"]
+    elif phase.get("gate") == "hard":
+        cue = f"Confirm: is `{name}` complete and ready to proceed?"
+    else:
+        cue = f"Execute the `{name}` phase."
     # T1 — cue only, ≤120 chars (truncated defensively; lint will flag long cues)
     out = cue if len(cue) <= 120 else cue[:117] + "..."
     if depth == "brief":
