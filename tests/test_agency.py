@@ -67,9 +67,13 @@ class StubJulesClient:
         self._state = state
         self.calls: list[tuple] = []
 
-    def create(self, prompt: str, source: str, starting_branch: str) -> dict:
+    def create(self, prompt: str, source: str, starting_branch: str,
+               title: str = "", require_plan_approval: bool = True,
+               auto_create_pr: bool = False) -> dict:
+        self.calls.append(("create", source, starting_branch, title,
+                           require_plan_approval, auto_create_pr))
         return {"id": "sessions/123", "state": self._state,
-                "url": "https://jules.google.com/session/123"}
+                "title": title, "url": "https://jules.google.com/session/123"}
 
     def get(self, session: str) -> dict:
         return {"state": self._state, "url": "https://jules.google.com/session/123"}
@@ -132,10 +136,16 @@ class StubVCS:
     (`GitClient` -> real `git`/`gh` subprocesses) is what the engine uses in
     production; no test ever touches a real repository."""
     def __init__(self, returncode: int = 0, ahead: int = 2, behind: int = 0, dirty: bool = False,
-                 worktree_ok: bool = True):
+                 worktree_ok: bool = True, remote_branches: tuple = ()):
         self._rc, self._ahead, self._behind, self._dirty = returncode, ahead, behind, dirty
         self._worktree_ok = worktree_ok
+        self._remote = set(remote_branches)                  # set of branch names that "exist on origin"
         self.calls: list = []
+
+    def remote_exists(self, branch: str, remote: str = "origin") -> dict:
+        self.calls.append(("remote_exists", branch, remote))
+        return {"exists": branch in self._remote, "sha": "deadbeef" if branch in self._remote else "",
+                "ok": True, "detail": ""}
 
     def worktree(self, branch: str, base: str) -> dict:
         self.calls.append(("worktree", branch, base))
@@ -424,20 +434,29 @@ def test_bitemporal_what_changes_why_holds():
 
 def test_completed_not_done():
     """COMPLETED != done: a Jules session reports state=completed even when it
-    paused before pushing. `verify` returns done only when a branch is actually
-    on remote — the silent-fail guard."""
-    e = fresh(StubJulesClient(state="completed"))
+    paused before pushing. `verify` derives `branch_on_remote` independently
+    via the injected vcs boundary (`git ls-remote`) — the silent-fail guard.
+    Spec 012 Phase 5 / spec 006 F3."""
+    # state says completed, but the branch is NOT on origin -> NOT done.
+    e = fresh(StubJulesClient(state="completed"), vcs_backend=StubVCS(remote_branches=()))
     iid = e.intent.capture("x", "y", "z")
     disp, _ = e.registry.invoke(e.memory, iid, "jules", "dispatch", agent_id="agent:j",
                                 source="o/r", starting_branch="main", prompt="do x")
     assert disp["status"] == "completed"
-    # state says completed, but no branch on remote -> NOT done (the silent-fail)
-    assert e.registry.invoke(e.memory, iid, "jules", "verify",
-                             state=disp["status"], branch_on_remote=False)[0]["done"] is False
-    # branch actually on origin -> done
-    assert e.registry.invoke(e.memory, iid, "jules", "verify",
-                             state=disp["status"], branch_on_remote=True)[0]["done"] is True
+    v_silent, _ = e.registry.invoke(e.memory, iid, "jules", "verify",
+                                    state="completed", branch="recover-x")
+    assert v_silent["done"] is False and v_silent["branch_on_remote"] is False
     e.memory.close()
+    # branch actually on origin -> done.
+    e2 = fresh(StubJulesClient(state="completed"),
+               vcs_backend=StubVCS(remote_branches=("recover-x",)))
+    iid2 = e2.intent.capture("x", "y", "z")
+    e2.registry.invoke(e2.memory, iid2, "jules", "dispatch", agent_id="agent:j",
+                       source="o/r", starting_branch="main", prompt="do x")
+    v_done, _ = e2.registry.invoke(e2.memory, iid2, "jules", "verify",
+                                   state="completed", branch="recover-x")
+    assert v_done["done"] is True and v_done["branch_on_remote"] is True
+    e2.memory.close()
 
 
 def test_jules_complete_lifecycle():

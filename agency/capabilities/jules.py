@@ -21,6 +21,7 @@ from typing import Protocol
 
 from ..capability import CapabilityBase, verb
 from ..ontology import OntologyExtension
+from ._vcs import GitClient
 
 
 # Closed enums — single source of truth for the watcher (spec 012). The state
@@ -41,7 +42,9 @@ WATCH_ACTIONS = {
 class JulesBackend(Protocol):
     """The external boundary the `jules` capability talks to — the full Jules
     session lifecycle the v1alpha API actually exposes."""
-    def create(self, prompt: str, source: str, starting_branch: str) -> dict: ...
+    def create(self, prompt: str, source: str, starting_branch: str,
+               title: str = "", require_plan_approval: bool = True,
+               auto_create_pr: bool = False) -> dict: ...
     def get(self, session: str) -> dict: ...
     def list(self, page_size: int, page_token: str) -> dict: ...
     def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "") -> dict: ...
@@ -61,11 +64,14 @@ class JulesClient:
     """The default `jules` backend — the real Jules REST API via the vendored
     `_jules_api` client. Needs `JULES_API_KEY` (checked at call time)."""
 
-    def create(self, prompt: str, source: str, starting_branch: str) -> dict:
+    def create(self, prompt: str, source: str, starting_branch: str,
+               title: str = "", require_plan_approval: bool = True,
+               auto_create_pr: bool = False) -> dict:
         from . import _jules_api
         return _jules_api.jules_create(
             prompt=prompt, source=source, starting_branch=starting_branch,
-            require_plan_approval=False)
+            title=title, require_plan_approval=require_plan_approval,
+            auto_create_pr=auto_create_pr)
 
     def get(self, session: str) -> dict:
         from . import _jules_api
@@ -144,22 +150,51 @@ class JulesCapability(CapabilityBase):
         return self.ctx.client or JulesClient()    # the engine injects its jules backend as ctx.client
 
     @verb(role="effect")
-    def dispatch(self, source: str, starting_branch: str, prompt: str) -> dict:
-        "Spawn a remote Jules session (external effect). Returns its id/url/state."
-        s = self._backend().create(prompt=prompt, source=source, starting_branch=starting_branch)
+    def dispatch(self, source: str, starting_branch: str, prompt: str,
+                 title: str = "", require_plan_approval: bool = True,
+                 auto_create_pr: bool = False, alias: str = "") -> dict:
+        """Spawn a remote Jules session (external effect). Returns id/url/state.
+
+        Param completeness (R2 audit gap closure): the default flips to
+        `require_plan_approval=True` — the recommended-by-the-reference shape
+        the watcher's `review_and_approve_plan` WatchEvent is built for; the
+        old `False` default is a opt-out, not the doctrine. `title`,
+        `auto_create_pr`, `alias` ride through to the API. When `alias` is
+        supplied, the alias + the JulesSession node are recorded in the bi-
+        temporal graph (the registry is the graph, per CORE.md:38-45)."""
+        s = self._backend().create(prompt=prompt, source=source,
+                                   starting_branch=starting_branch, title=title,
+                                   require_plan_approval=require_plan_approval,
+                                   auto_create_pr=auto_create_pr)
         sid = s.get("id") or s.get("name")
+        # Register in the bi-temporal graph (spec 012 — no parallel sessions.json).
+        if sid:
+            sess_id = f"jules-session:{sid}"
+            if self.ctx.memory.recall(sess_id) is None:
+                node_props = {"sid": sid, "url": s.get("url") or "",
+                              "title": title, "branch": starting_branch, "source": source}
+                state = s.get("state")
+                if state in JULES_STATES:                       # only set if valid (avoid ontology violation)
+                    node_props["state"] = state
+                self.ctx.memory.record("JulesSession", node_props, node_id=sess_id)
+            if alias:
+                alias_id = f"jules-alias:{alias}"
+                self.ctx.memory.record("JulesAlias", {"name": alias, "sid": sid}, node_id=alias_id)
+                self.ctx.memory.link(alias_id, sess_id, "ALIAS_OF")
         return {
             "status": s.get("state", "submitted"),
             "session": sid,
             "url": s.get("url"),
+            "alias": alias,
             "artefact": {"kind": "jules-session", "session": sid or "", "url": s.get("url") or ""},
         }
 
     @verb(role="transform")
     def status(self, session: str) -> dict:
-        "Read a session's current state from the backend."
-        s = self._backend().get(session)
-        return {"state": s.get("state"), "url": s.get("url")}
+        """Read a session's full state from the backend — the trimmed `{state,
+        url}` shape was dropping 5 fields the watcher + recovery flow need
+        (R2 audit fix; spec 012 Phase 5)."""
+        return self._backend().get(session)
 
     @verb(role="transform")
     def list(self, page_size: int = 20, page_token: str = "") -> dict:
@@ -206,11 +241,25 @@ class JulesCapability(CapabilityBase):
                         "for COMPLETED/FAILED."),
         }
 
-    @verb(role="transform")
-    def verify(self, state: str, branch_on_remote: bool) -> dict:
-        "COMPLETED != done: done only if state is completed AND a branch is on origin."
-        done = str(state).lower() == "completed" and bool(branch_on_remote)
-        return {"done": done, "state": state, "branch_on_remote": bool(branch_on_remote)}
+    @verb(role="transform", inject=["vcs"])
+    def verify(self, vcs, state: str, branch: str, remote: str = "origin") -> dict:
+        """COMPLETED != done. Derives `branch_on_remote` INDEPENDENTLY from
+        origin via the injected `vcs` boundary (`git ls-remote`), dropping the
+        caller-supplied bool the original draft trusted (spec 006 F3 / spec
+        012 Phase 5). Fail-closed: if the lookup itself errors (network/auth/
+        unknown remote), `done=False`; the silent-fail guard must never assume
+        truth it cannot prove."""
+        if not branch:
+            return {"done": False, "state": state, "branch_on_remote": False,
+                    "error": "branch is required"}
+        chk = (vcs or GitClient()).remote_exists(branch=branch, remote=remote)
+        if not chk.get("ok"):
+            return {"done": False, "state": state, "branch_on_remote": False,
+                    "error": f"remote check failed: {chk.get('detail','')}"}
+        branch_on_remote = bool(chk.get("exists"))
+        done = str(state).lower() == "completed" and branch_on_remote
+        return {"done": done, "state": state, "branch_on_remote": branch_on_remote,
+                "sha": chk.get("sha", "")}
 
     # === Spec 012 Phase 3 — orbital read/admin verbs ==========================
 

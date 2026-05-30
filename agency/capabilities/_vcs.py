@@ -21,6 +21,7 @@ class VCSBackend(Protocol):
     def run(self, command: str, cwd: str) -> dict: ...
     def state(self, branch: str, base: str) -> dict: ...
     def finish(self, branch: str, action: str, base: str) -> dict: ...
+    def remote_exists(self, branch: str, remote: str = "origin") -> dict: ...
 
 
 class GitClient:
@@ -52,6 +53,21 @@ class GitClient:
         dirty = bool(self._git("status", "--porcelain").stdout.strip())
         return {"ahead": int(a.stdout.strip() or 0), "behind": int(b.stdout.strip() or 0),
                 "dirty": dirty, "ok": True}
+
+    def remote_exists(self, branch: str, remote: str = "origin") -> dict:
+        """Authoritative remote-branch check via `git ls-remote` — used by
+        `jules.verify` to enforce `COMPLETED != done` (CORE.md:33-35) without
+        trusting a caller-supplied bool (spec 006 F3 / spec 012 verify
+        independence). `state()` checks only LOCAL ahead/behind; this one
+        actually hits origin. Returns `{exists, sha, ok, detail}` — `ok=False`
+        means the lookup itself failed (network/auth/unknown remote)."""
+        r = self._git("ls-remote", "--heads", remote, branch)
+        if r.returncode != 0:
+            return {"exists": False, "sha": "", "ok": False,
+                    "detail": (r.stdout + r.stderr).strip()}
+        line = r.stdout.strip().splitlines()[0] if r.stdout.strip() else ""
+        sha = line.split("\t", 1)[0] if line else ""
+        return {"exists": bool(sha), "sha": sha, "ok": True, "detail": ""}
 
     def finish(self, branch: str, action: str, base: str) -> dict:
         if action == "merge":
