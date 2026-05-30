@@ -45,18 +45,36 @@ def _clean(s: str) -> str:
     return " ".join(s.split()).strip()
 
 
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z`(]|$)")
+
+
+def _first_sentence(text: str) -> str:
+    """First sentence-ish unit of `text`. Falls back to first line if no
+    sentence terminator is found. The cleavage rule for `brief`."""
+    cleaned = _clean(text)
+    parts = _SENTENCE_END.split(cleaned, maxsplit=1)
+    return parts[0]
+
+
 def parse_slices(docstring: str) -> dict[str, str]:
     """Cleave a docstring into its Spec 016 Hint #7 slices.
 
     Returns: {brief, inputs, returns, chain_next, body}. Missing markers
-    yield empty strings (never None — render-time absence == empty)."""
+    yield empty strings (never None — render-time absence == empty).
+
+    `brief` is the FIRST SENTENCE of the docstring (Phase 7 refinement:
+    Spec-016-Hint-#7-compliant docstrings have their lead-line as the
+    gist, but legacy docstrings often run multiple sentences in the first
+    paragraph — taking just the first sentence keeps the brief tight even
+    on non-compliant docs, where the second sentence is usually elaboration
+    that belongs in `body` / depth=deep)."""
     out = {"brief": "", "inputs": "", "returns": "", "chain_next": "", "body": ""}
     if not docstring:
         return out
 
-    # brief = first paragraph collapsed to one line
+    # brief = first sentence of the first paragraph
     first_para, _, rest = docstring.strip().partition("\n\n")
-    out["brief"] = _clean(first_para)
+    out["brief"] = _first_sentence(first_para)
 
     if not rest:
         return out
