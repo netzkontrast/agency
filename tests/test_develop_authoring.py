@@ -328,3 +328,93 @@ def test_lint_returns_shape_ok_violations_warnings_skipped_mode(tmp_path):
     assert isinstance(result["warnings"], list)
     assert isinstance(result["skipped"], int)
     assert result["mode"] in ("block", "warn")
+
+
+# ---- Phase A2: develop.scaffold_capability RED ----------------------------
+
+
+def test_scaffold_light_emits_single_file(tmp_path):
+    """light kind emits a single .py file in base_dir."""
+    from agency.capabilities.develop import scaffold_capability
+    result = scaffold_capability("mycap", kind="light", base_dir=str(tmp_path))
+    path = result["result"]
+    assert path.endswith("mycap.py")
+    assert (tmp_path / "mycap.py").is_file()
+
+
+def test_scaffold_medium_emits_single_file_plus_ontology_stubs(tmp_path):
+    """medium kind = same single file but with OntologyExtension(nodes=...)
+    populated as a TODO stub the author fills in."""
+    from agency.capabilities.develop import scaffold_capability
+    result = scaffold_capability("midcap", kind="medium", base_dir=str(tmp_path))
+    body = (tmp_path / "midcap.py").read_text()
+    assert "nodes=" in body
+    assert "templates=" in body or "schemas=" in body
+
+
+def test_scaffold_heavy_emits_folder_with_init_and_reexport(tmp_path):
+    """heavy kind emits a folder per Spec 016 Hint #1: __init__.py
+    re-exports the CapabilityBase subclass; main impl in <name>.py."""
+    from agency.capabilities.develop import scaffold_capability
+    result = scaffold_capability("bigcap", kind="heavy", base_dir=str(tmp_path))
+    folder = tmp_path / "bigcap"
+    assert folder.is_dir()
+    assert (folder / "__init__.py").is_file()
+    assert (folder / "bigcap.py").is_file()
+    init_src = (folder / "__init__.py").read_text()
+    # re-export pattern — discover() finds the cap via this
+    assert "BigcapCapability" in init_src or "from .bigcap import" in init_src
+
+
+def test_scaffold_first_line_is_agency_scaffold_marker_v1(tmp_path):
+    """Every scaffolded file's first non-blank line is the marker."""
+    from agency.capabilities.develop import scaffold_capability
+    for kind in ("light", "medium"):
+        result = scaffold_capability(f"m_{kind}", kind=kind, base_dir=str(tmp_path))
+        first_line = (tmp_path / f"m_{kind}.py").read_text().lstrip().split("\n", 1)[0]
+        assert first_line == "# agency-scaffold: v1", (
+            f"{kind}: first non-blank line must be the marker; got {first_line!r}"
+        )
+
+
+def test_scaffold_returns_artefact_kind_capability_scaffold_with_path(tmp_path):
+    """The act-role return shape: {result: <path>, artefact: {kind, name,
+    path, scaffold_version}}."""
+    from agency.capabilities.develop import scaffold_capability
+    result = scaffold_capability("acap", kind="light", base_dir=str(tmp_path))
+    assert "result" in result
+    assert "artefact" in result
+    a = result["artefact"]
+    assert a["kind"] == "capability-scaffold"
+    assert a["name"] == "acap"
+    assert "path" in a
+    assert a.get("scaffold_version") == 1
+
+
+def test_scaffold_output_lints_clean_in_block_mode(tmp_path):
+    """The cross-assertion that ties A2 to A1: a scaffolded capability
+    must lint clean (mode=block, ok=True, violations=[]). Lint-clean
+    by construction — the discipline's promise."""
+    from agency.capabilities.develop import scaffold_capability
+    from agency.capabilities.plugin import lint_capability
+    scaffold_capability("zcap", kind="light", base_dir=str(tmp_path))
+    # Load the scaffolded file as a Capability and lint it
+    cap, _ = _load_capability_from_source(
+        (tmp_path / "zcap.py").read_text(),
+        tmp_path, "zcap_loader",
+    )
+    result = lint_capability(cap)
+    assert result["mode"] == "block", "marker present → block mode"
+    assert result["ok"] is True, (
+        f"scaffolded capability must lint clean in block mode; "
+        f"violations={result['violations']!r}"
+    )
+
+
+def test_scaffold_unknown_kind_returns_input_required(tmp_path):
+    """Unknown kind doesn't crash — returns the input-required shape per
+    Spec 016 Hint #8 (universal input-required convention)."""
+    from agency.capabilities.develop import scaffold_capability
+    result = scaffold_capability("ucap", kind="WRONG", base_dir=str(tmp_path))
+    assert result.get("status") == "input-required"
+    assert "kind" in (result.get("resume_with") or [])
