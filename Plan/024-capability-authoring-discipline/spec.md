@@ -2,42 +2,61 @@
 spec_id: "024"
 slug: authoring-capabilities-discipline
 status: draft
-version: 2                              # v2 — folds shipped foundations + Matcher-mode scope expansion
+version: 3                              # v3 — folds spec-panel REVISE on v2 (5 changes + 1 tightening)
 owner: "@agency"
-depends_on: ["016", "020", "023", "025"]   # 025 Phase-1 (tags + render_phase) is the foundation v2 uses
-unblocks: ["026"]                          # Matcher-mode scaffolds are the prerequisite for 026 implementation
+depends_on: ["016", "020", "023", "025-P1", "026-P0"]   # 025-P1 shipped (19058fe); 026-P0 = Matcher schema + benchmark baseline
+unblocks: ["026"]                          # PR-C of THIS spec (Matcher scaffolds) ships AFTER 026-P0 lands the schema
+ship_as: ["PR-A (discipline+lint)", "PR-B (doc-slicing)", "PR-C (Matcher scaffolds, gated on 026-P0)", "PR-D (pressure tests, @pytest.mark.slow)"]
+panel_revision: "a583d6004bdb3fc67"  # spec-panel verdict REVISE on v2
 affects:
-  - agency/capabilities/develop.py                  # NEW discipline + 3 verbs (scaffold/lint/reference) + 3 matcher-mode helpers
-  - agency/capabilities/plugin.py                   # lint_capability lives here (Spec 016 P4) — develop wraps it
+  - agency/capabilities/develop.py                  # NEW discipline + 2 verbs (scaffold_capability + doc) — NO lint wrapper
+  - agency/capabilities/plugin.py                   # lint_capability lives here (Spec 016 P4) including the consumer-contract checks
   - skills/authoring-capabilities/SKILL.md          # NEW — model-invoked discipline guide (≤200 words; references CAPABILITY-AUTHORING.md)
-  - docs/vision/CAPABILITY-AUTHORING.md             # ALREADY SHIPPED at f5f7575 — develop.reference returns slices of THIS
-  - tests/test_develop_authoring.py                 # NEW — RED-GREEN-REFACTOR coverage of scaffold + lint
-  - tests/test_authoring_pressure_scenarios.py      # NEW — TDD-for-docs subagent pressure tests
-  - tests/test_develop_matcher_modes.py             # NEW — three Matcher-mode scaffolds (unblocks 026)
+  - docs/vision/CAPABILITY-AUTHORING.md             # ALREADY SHIPPED at f5f7575 — develop.doc("authoring") returns slices of THIS
+  - tests/test_develop_authoring.py                 # PR-A — discipline + scaffold + lint
+  - tests/test_develop_doc.py                       # PR-B — sliced long-doc rendering
+  - tests/test_authoring_pressure_scenarios.py      # PR-D — TDD-for-docs subagent pressure tests (slow, marked)
+  - tests/test_develop_matcher_modes.py             # PR-C — three Matcher-mode scaffolds (depends 026-P0)
 estimated_jules_sessions: 0
 domain: meta / self-improvement
 wave: 3
 ---
 
-# Spec 024 v2 — Authoring-capabilities discipline (self-guiding development)
+# Spec 024 v3 — Authoring-capabilities discipline (self-guiding development)
 
-> **What changed in v2 from v1 (`29a9cfc`):**
-> 1. **Foundations are no longer "proposed" — they're shipped.** Render-slice
->    contract (Spec 023), verb→skill tags + `render_phase` (Spec 025 Phase 1,
->    `19058fe`), the unified doctrine page (`docs/vision/CAPABILITY-AUTHORING.md`
->    at `f5f7575`). v2 *consumes* them — doesn't propose them.
-> 2. **Scope expanded to unblock Spec 026.** v1 shipped scaffold + lint + a
->    discipline. v2 adds **three Matcher-mode scaffolds** (pattern / verb-code /
->    llm-select) so the matchers Spec 026 needs to test against are
->    *real, scaffolded capabilities*, not stubs.
-> 3. **`references/` subdir dropped.** v1 split the synthesis across 5 sub-pages;
->    v2 points at the single unified `CAPABILITY-AUTHORING.md` (the user's
->    explicit directive: "Single unified page, all four sources synthesized").
-> 4. **Lessons from Spec 023+025 R1-R4 + F1-F2 folded.** The pressure-test
->    contracts must verify the *consumer*, not the *wiring* — a test that
->    only asserts on registry state misses the FastMCP propagation bug
->    Codex R2 caught. v2 pressure tests round-trip through `mcp._list_tools()`
->    and through `search` output.
+> **What changed in v3 from v2 (panel `a583d6`, verdict REVISE):**
+> 1. **`develop.lint_capability` wrapper dropped (panel F5a).** Consumer-contract
+>    checks (`Engine(":memory:")` round-trip, `mcp._list_tools()` tag
+>    propagation) live directly on `plugin.lint_capability` — its natural home
+>    next to `plugin.lint_skill`. The discipline's lint phase binds to
+>    `plugin.lint_capability`, not a develop wrapper. Removes the layering
+>    inversion (`develop` would otherwise import `Engine` and become a
+>    meta-engine).
+> 2. **`develop.reference` no longer overloaded (panel F1a).** New verb
+>    `develop.doc(topic, depth=)` for sliced long-form docs (`authoring`,
+>    later `core`, `goals`). `develop.reference(topic)` stays for the existing
+>    short prose blobs (`testing-skills` / `skill-descriptions` / `best-practices`)
+>    — two contracts, two verbs.
+> 3. **026-P0 dependency made explicit (panel F3a + F6b).** PR-C (Matcher
+>    scaffolds) gates on Spec 026 phase 0 landing the Matcher JSON Schema +
+>    `MATCHER_SCHEMA_VERSION` constant + the Jules-benchmark baseline. Without
+>    that gate, the three example scaffolds become orphans referencing a
+>    defunct schema.
+> 4. **Scaffold marker for lint-mode dispatch (panel F4a).** Scaffold emits
+>    `# agency-scaffold: v1` as the file's first comment; `plugin.lint_capability`
+>    reads it: present → block on violations, absent → warn (legacy
+>    grandfathering rule from F4b).
+> 5. **Sliced shipping (panel F7a).** Four PRs explicit in frontmatter:
+>    PR-A (discipline+lint), PR-B (doc-slicing), PR-C (Matcher scaffolds,
+>    gated 026-P0), PR-D (pressure tests, `@pytest.mark.slow`). Natural
+>    cleavage already existed; the spec makes it the merge plan.
+> 6. **Pressure-test stability (panel F2a, optional).** N=5 runs + ≥2
+>    distinct violation kinds across the set, not single-run kind-assertion.
+
+> **What changed in v2 from v1** (kept for history; superseded by v3 above):
+> consumed shipped foundations (Specs 023, 025-P1, the unified
+> `CAPABILITY-AUTHORING.md`), added Matcher-mode scope for Spec 026, dropped
+> the `references/` subdir, folded R1-R4 + F1-F2 consumer-contract lessons.
 
 ## Why
 
@@ -67,19 +86,20 @@ real test fixtures instead of inventing skills.
 
 ## Done When
 
-### A. The discipline + the three develop verbs
+### A. The discipline + verbs (PR-A; no cross-spec deps)
 
 - [ ] **`authoring-capabilities` discipline** lands in
   `agency/capabilities/develop.py`'s `DEV_SKILLS` — 6 phases, hard gate:
   1. **research** — author reads `docs/vision/CAPABILITY-AUTHORING.md`
-     (T1/T2/T3 slices via `develop.reference("authoring")`).
+     (T1/T2/T3 slices via `develop.doc("authoring", depth=)` — PR-B).
   2. **scaffold** — invoke `develop.scaffold_capability(name, kind)`
-     (bound — the discipline RUNS the verb, not documents it).
+     (bound).
   3. **author** — write verbs with Hint #7 docstrings + role tags.
-  4. **lint** — invoke `develop.lint_capability(name)` — must pass.
+  4. **lint** — invoke `plugin.lint_capability(name)` — bound directly
+     (no develop wrapper; panel F5a — `plugin.lint_skill` precedent).
   5. **token-check** — `parse_slices(verb.doc)["brief"]` non-empty + ≤120 chars; simulated `search` on the new capability ≤20 tokens/verb.
   6. **commit** — hard gate: tests green, lint green, `reflection:`
-     recorded SERVES the calling intent. Phase 2 and 4 are **bound**
+     recorded SERVES the calling intent. Phases 2 and 4 are **bound**
      (carry `invoke={capability, verb}`) — discipline executes, not
      documents.
 
@@ -92,12 +112,21 @@ real test fixtures instead of inventing skills.
   - `heavy` (folder form, Spec 016 Hint #1) — emits
     `agency/capabilities/<name>/{__init__.py, <name>.py}` with the
     re-export pattern.
-  Returns `{result: path, artefact: {kind: "capability-scaffold", name, path, kind}}`.
-  **Acceptance**: scaffolded skeleton lints clean immediately (no
-  manual edits required to pass `develop.lint_capability`).
 
-- [ ] **`develop.lint_capability(name)`** verb (role: `transform`).
-  Wraps `plugin.lint_capability` (Spec 016 P4) and adds the v2 checks:
+  **Every scaffolded file emits `# agency-scaffold: v1` as the first
+  line** (panel F4a — the marker `plugin.lint_capability` reads to
+  switch lint mode between block-on-violation (scaffolded) and
+  warn-only (legacy)). The marker version bumps when the scaffolded
+  contract evolves.
+
+  Returns `{result: path, artefact: {kind: "capability-scaffold", name, path, kind, scaffold_version: 1}}`.
+
+  **Acceptance**: scaffolded skeleton lints clean immediately (no
+  manual edits required to pass `plugin.lint_capability`).
+
+- [ ] **`plugin.lint_capability(name)`** verb on the `plugin`
+  capability (role: `transform`). Owns all the checks; the discipline
+  binds to it directly (panel F5a, no wrapper):
   - **structural** — every `@verb` has `Inputs:` / `Returns:` /
     `chain_next:` markers; role tag matches docstring shape (`effect`
     verbs name an external system; `transform` verbs have no I/O
@@ -105,25 +134,45 @@ real test fixtures instead of inventing skills.
   - **render-slice** — `parse_slices(verb.doc)["brief"]` non-empty +
     ≤120 chars; first sentence cleaves on `_first_sentence`; the
     delta after the brief cleanly survives `parse_slices` (the EOF +
-    legacy-body bugs Codex caught).
-  - **consumer-contract** (new in v2, from the R1-R4 + F1-F2 lessons):
-    a simulated `Engine(":memory:", extra_capabilities=[scaffolded_cap])`
-    actually builds; `mcp._list_tools()` returns the new tools with
-    correct tags; a `search` for the capability's domain finds them
-    under budget. **The lint exercises the consumer surface, not just
-    the wiring** — every R-finding in PR #12 came from skipping this.
+    legacy-body bugs Codex caught in PR #12).
+  - **consumer-contract** — a simulated
+    `Engine(":memory:", extra_capabilities=[scaffolded_cap])` builds;
+    `mcp._list_tools()` returns the new tools with correct tags; a
+    `search` for the capability's domain finds them under budget.
+    Lives on `plugin` (not `develop`) — `plugin` already imports
+    `Engine` for `lint_skill`'s precedent, no layering inversion.
   - **token-budget** — simulated `search` containing only this
     capability's verbs returns ≤ 20 × verb_count tiktoken cl100k tokens.
-  Returns `{ok, violations: [{verb?, phase?, kind, msg, fix}], skipped: N}`
-  (mirrors `plugin.lint_skill`).
+  - **mode dispatch** (panel F4a + F4b): reads the scaffold marker:
+    - Marker present + violations → `{ok: False, ...}` (block).
+    - Marker absent + violations → `{ok: True, warnings: [...]}`
+      (warn-only; grandfathered legacy).
+    - Marker absent + clean → `{ok: True}`.
+  Returns `{ok, violations: [{verb?, kind, msg, fix}],
+                 warnings: [{...}], skipped: N, mode: "block"|"warn"}`.
 
-- [ ] **`develop.reference(topic)`** verb (role: `transform`) — extends
-  the existing `develop.reference`. New topic: `"authoring"`. Returns
-  slices of `docs/vision/CAPABILITY-AUTHORING.md` at T1/T2/T3 depth
-  using `render_phase` machinery — Spec 023 progressive disclosure
-  applied to a long doc. Caller passes `depth='brief'|'standard'|'deep'`.
+### B. Doc-slicing (PR-B; independent of A and C)
 
-### B. The model-invoked SKILL.md
+- [ ] **`develop.doc(topic, *, depth='brief'|'standard'|'deep')`** —
+  NEW verb (role: `transform`). Returns slices of long-form docs at
+  T1/T2/T3 using the `render_phase` machinery. Panel F1a: keep
+  `develop.reference(topic)` for the existing short prose blobs
+  (`testing-skills`, `skill-descriptions`, `best-practices`); the new
+  `develop.doc` handles sliced long docs (`authoring` is the first;
+  later `core`, `goals`).
+
+  - Input: `topic ∈ {"authoring"}` initially; extends to more long
+    docs as they land.
+  - Output (markdown):
+    - `brief` — H1 title + the doc's first paragraph + a TOC of section
+      titles (~250 tokens).
+    - `standard` — full §"The four-line summary" + §"Decision tree" +
+      §"Common docstring mistakes" + §"Role tags" (~900 tokens).
+    - `deep` — entire document (~5000 tokens).
+  - **Acceptance**: each depth's token count (tiktoken cl100k) is
+    asserted in `tests/test_develop_doc.py` against a budget fixture.
+
+### C. The model-invoked SKILL.md
 
 - [ ] **`skills/authoring-capabilities/SKILL.md`** — ≤200 words total
   (anthropic-best-practices token-efficiency rule). Description is
@@ -155,10 +204,21 @@ real test fixtures instead of inventing skills.
   for the why/how. **Drop `references/` subdir** (user directive:
   single unified page).
 
-### C. Three Matcher-mode scaffolds (unblocks Spec 026)
+### D. Three Matcher-mode scaffolds (PR-C; gated on 026-P0)
 
-Each scaffold is a **real capability**, lint-clean by construction, that
-Spec 026's `intent.suggests_skill` then matches against. Concrete files:
+> **Cross-spec contract** (panel F3a + F6b): this section depends on
+> Spec 026 phase 0 landing the Matcher JSON Schema in
+> `OntologyExtension.schemas` + the `MATCHER_SCHEMA_VERSION` constant.
+> Until 026-P0 is on `main`, PR-C does not ship. The three scaffolds
+> import the constant; if it doesn't exist, the import fails loud at
+> CI rather than silently drifting.
+
+Each scaffold is a **fixture** — a real capability authored
+clean-by-construction (panel F2b — NOT a TDD cycle on the scaffolder;
+the property "scaffold output lints clean" is the assertion). Spec
+026's `intent.suggests_skill` then matches against these fixtures.
+
+Concrete files:
 
 - [ ] **Pattern mode**: a scaffolded `examples/notebook.py` capability
   with a skill whose `applies_when={kind:"pattern", purpose_kw:["note","journal"]}`.
@@ -187,27 +247,31 @@ Spec 026's `intent.suggests_skill` then matches against. Concrete files:
   - a unit test of the matcher payload (pattern matches expected keywords;
     decider verb returns the right shape; llm-select prompt is well-formed).
 
-### D. The TDD-for-docs validation (load-bearing for THIS spec)
+### E. The TDD-for-docs validation (PR-D; @pytest.mark.slow)
 
 - [ ] **`tests/test_authoring_pressure_scenarios.py`** —
-  RED-GREEN-REFACTOR per writing-skills doctrine:
+  RED-GREEN-REFACTOR per writing-skills doctrine. **Stability tightened
+  per panel F2a**: each scenario runs N=5 times and asserts on the
+  *set* of violations across runs, not single-run kind-matching.
+
   - **RED**: dispatch a subagent to "Add a `notebook` capability with
     verbs `save(content, path)` and `list(directory)`" WITHOUT the
-    discipline. Capture the result. Run `develop.lint_capability` —
-    assert violations exist (this is the documented baseline failure
-    mode; the *rationalization table* in `CAPABILITY-AUTHORING.md` was
-    seeded from running this scenario).
+    discipline. Repeat **5 times**. Run `plugin.lint_capability` on
+    each result. Assertion: **≥2 distinct violation kinds** appear
+    across the 5 runs (e.g. at least one `kind:"render_slice"` AND
+    at least one `kind:"role_tag"` somewhere in the set). Single-run
+    stochasticity tolerated; population behaviour pinned.
   - **GREEN**: dispatch same task pointing at the
-    `authoring-capabilities` discipline. Run `develop.lint_capability` —
-    assert `{ok: True}`.
-  - **REFACTOR slot**: every new rationalization the RED agent
-    invokes ("the docstring is self-evident", "I'll add markers later",
-    "this verb is too simple for the contract") becomes a row in the
-    rationalization table. The Rev-2 spec INCLUDES the seven rows
-    `CAPABILITY-AUTHORING.md` already documents; the test asserts the
-    table grows monotonically (entries don't disappear silently).
+    `authoring-capabilities` discipline. Repeat **5 times**.
+    Assertion: **all 5 runs produce `{ok: True}`** (the discipline
+    is supposed to be deterministic in outcome even if route differs).
+  - **REFACTOR slot**: every new rationalization the RED agents
+    invoke becomes a row in the rationalization table.
+    `CAPABILITY-AUTHORING.md` already documents the seven seeded rows;
+    the test asserts the table grows monotonically (entries don't
+    disappear silently).
   - Marked `@pytest.mark.slow`; skipped in CI unless
-    `AGENCY_RUN_PRESSURE_TESTS=1` (the v1 question — defaulted yes).
+    `AGENCY_RUN_PRESSURE_TESTS=1`.
 
 - [ ] **Self-improvement loop wired** — every successful walk of
   `authoring-capabilities` records a Reflection SERVES
@@ -237,34 +301,31 @@ Spec 026's `intent.suggests_skill` then matches against. Concrete files:
   - `agency/engine.py` verb tag propagation (`19058fe`)
   - `agency/capability.py:_wire_skill_tags` (`660d7f5`)
 
-## Open Questions
+## Open Questions (v3 — most v2 questions resolved by panel revisions)
 
-1. **Reference verb topic disambiguation.** `develop.reference("authoring")`
-   returns the new doc; `develop.reference("testing-skills")` etc. already
-   exist (T3 progressive disclosure precedent). Should "authoring" be
-   the canonical topic name, or "capabilities" / "capability-authoring"?
-   Recommend "authoring" — gerund form per anthropic-best-practices.
+1. **Doc-topic naming.** `develop.doc("authoring")` — confirmed
+   gerund-form per anthropic-best-practices. Future topics: `core`,
+   `goals`. Resolved.
 
-2. **Lint mode**: warn-only vs hard-block. Spec 016 v1's Open Q #1 said
-   warn during migration → block after. v2 says: **block immediately**
-   for newly-scaffolded capabilities (the scaffold lints clean by
-   construction; first-time violation means someone modified it
-   wrongly); **warn-only** for existing 17 (migration path).
+2. **Lint mode dispatch** — resolved by scaffold marker (§A).
+   Marker present + violations → block. Marker absent + violations →
+   warn-only (grandfathered legacy). No more "newly-scaffolded
+   detection" ambiguity.
 
-3. **Pressure-test stability**. Subagent dispatch is non-deterministic;
-   the RED test asserts "violations exist" not "violations match X".
-   Is that strong enough? Recommend: assert the *kind* of violation
-   matches a documented baseline (e.g. at least one
-   `kind:"render_slice"` and one `kind:"role_tag"`), not just count.
+3. **Pressure-test stability** — resolved by N=5 + population
+   assertion (§E). Was Open Q #3 in v2.
 
-4. **The three example scaffolds — light/medium/heavy distribution.**
-   v2 puts all three under `examples/` (out of core, per the existing
-   pattern). The scaffolds are *also* the test fixtures for matcher
-   modes. Should one be promoted to a real core capability if it
-   proves load-bearing in Spec 026 (e.g. `code_advisor` matches the
-   "decider" pattern `delegate.dispatch_decision` already does)?
-   Recommend: keep in `examples/` for v2; promote in a Spec 028 if
-   real usage warrants.
+4. **The three example scaffolds — promotion path.** Keep in
+   `examples/` for v3; promote in a future Spec 028 if real usage
+   warrants. Was Open Q #4 in v2; unchanged.
+
+5. **NEW Open Q (panel-derived):** If 026 fails its Jules-workflow
+   benchmark gate and gets rewritten / dropped, what happens to
+   PR-C? Recommend: PR-C ships only AFTER 026-P0 lands AND 026's
+   benchmark passes. If 026 fails the gate, PR-C either rewrites
+   against 026's revised schema or gets archived (not orphaned in
+   `examples/`). The cross-spec contract is concrete; the rescue
+   path is explicit.
 
 ## Evidence (cites)
 
@@ -290,11 +351,14 @@ Spec 026's `intent.suggests_skill` then matches against. Concrete files:
 - ✅ v1 drafted (`29a9cfc`, predated 023/025 shipping)
 - ✅ Foundations shipped (PR #12 carries them)
 - ✅ Unified doctrine page shipped (`f5f7575`)
-- ✅ **v2 drafted** (this revision)
-- ⏭ spec-panel — pressure test v2
-- ⏭ refine
-- ⏭ Workflow — IMPLEMENTATION-PLAN.md
-- ⏭ Implement — TDD per phase
+- ✅ v2 drafted (`482cf4b`)
+- ✅ spec-panel on v2 — verdict REVISE, 5+1 findings (panel `a583d6`)
+- ✅ **v3 drafted** (this revision, folds all 6 panel findings)
+- ⏭ Workflow — IMPLEMENTATION-PLAN.md (next)
+- ⏭ Implement PR-A — TDD; ship discipline + scaffold + plugin.lint_capability
+- ⏭ Implement PR-B — develop.doc + the long-doc render slice
+- ⏭ Implement PR-D — pressure tests (parallel; @pytest.mark.slow)
+- ⏭ Implement PR-C — Matcher scaffolds (BLOCKED on 026-P0)
 
 Goal: every future capability (including the `skills` capability
 from Spec 026) is authored under this discipline → lint-clean by
