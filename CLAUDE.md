@@ -1,92 +1,55 @@
 # agency — Claude Code plugin
 
-This repo **is** the installable `agency` plugin: **ONE FastMCP engine + ONE
-bi-temporal GraphQLite graph**, four concepts over one substrate. The vision
-canon lives in `docs/vision/` (CORE.md is authoritative); the running engine is
-the `agency/` package at the repo root. **The canon wins; code serves it.**
+This repo IS the plugin: a **FastMCP engine + bi-temporal GraphQLite graph**,
+exposing exactly **`search` · `get_schema` · `execute`** as the wire contract.
+Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
 
-> Read [`docs/vision/CORE.md`](docs/vision/CORE.md) first, then
-> [`docs/getting-started.md`](docs/getting-started.md).
+> **Read first:** [`docs/vision/CORE.md`](docs/vision/CORE.md) (canon),
+> [`AGENTS.md`](AGENTS.md) (operational), [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md)
+> (remote-agent doctrine).
 
-## The model (detail: docs/vision/CORE.md)
+## Three rules for working in this repo
 
-Four concepts + one substrate (the Engine):
+1. **Dogfood the engine.** First instinct: `python -m agency.cli execute`
+   chains tools inside the Monty sandbox; only the return crosses back. Direct
+   `ctx.call` is fine inside a capability; orchestrator workflows chain via
+   code-mode. Don't write code that bypasses the substrate.
 
-- **Intent** *(human-owned)* — purpose + acceptance, deliverable as an attribute.
-  `capture · confirm · amend` (amend via supersede). Everything edges back via `SERVES`.
-- **Capability** *(the craft — open set)* — invokable actions; verbs are
-  role-tagged `act` / `transform` / `effect`. Discovered by reflection.
-- **Lifecycle** *(state + gates)* — the task/agent state-machine; an agent is a
-  Lifecycle parameterization; `COMPLETED ≠ done`. Skills are Lifecycle templates.
-- **Memory** *(the moat)* — one bi-temporal append-only graph; cross-concern
-  provenance is one traversal.
+2. **The graph is the store; files are a rendered view.** If you find yourself
+   writing markdown that downstream code will parse, you have it backwards:
+   `reflect.note(scope, text)` writes to the graph; render markdown on demand.
+   Exceptions: canon/doctrine docs (CORE / AGENTS / AGENCY_PROTOCOL) serve
+   external readers and stay as files.
 
-**Engine** = the substrate. **Code-mode IS the contract** (no four-verb surface):
-the public surface is exactly `search` · `get_schema` · `execute`. Tools are
-discovered via `search` and called from inside `execute`. Exposed isomorphically
-over **MCP · Skills · a bash CLI** (`AGENTS.md`).
+3. **Decide before dispatching.** Walk `delegate.dispatch-decision` (skill)
+   before dispatching to Jules. Dispatch only when context-heavy (≥ 4
+   unfamiliar files / repeated exploration / ≥ 3 parallel siblings / ≥ 15 min
+   wall-clock). Otherwise inline.
 
-## Capabilities are self-registering (add a file)
+## Surface (discoverable; don't memorize)
 
-Drop a module in `agency/capabilities/` that defines a `Capability` with
-role-tagged verbs. The engine `discover()`s it (reflection) and AUTO-WIRES one
-MCP tool per verb from the verb signature — no central registration, no per-tool
-boilerplate. A capability may carry its own `OntologyExtension` (node types,
-enums, skills, template-schemas), merged **strictly** onto the core ontology.
+Capabilities self-register from `agency/capabilities/`. Skills live on
+`<capability>.ontology.skills` (Lifecycle templates, CORE.md:47-62).
+`python -m agency.cli search <kw>` lists both. Jules needs `JULES_API_KEY`
+at call time; see `AGENCY_PROTOCOL.md`.
 
-Shipped capabilities:
-
-| Capability | Role(s) | What |
-|---|---|---|
-| `plugin` | act/transform | Develop plugins: scaffold manifest, author skill/command, marketplace entry, lint skills (CSO rules), help |
-| `jules` | effect/transform | Full remote Jules session lifecycle: `dispatch` · read (`status`/`list`/`activities`/`plan`) · drive (`approve_plan`/`message`) · `COMPLETED ≠ done` `verify` · `stop` (documents the API's no-cancel) |
-| `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`recall`/`search`) |
-| `develop` | transform | The dev-workflow disciplines as walkable agency skills (brainstorm · plan · tdd · debug · verify · spec-panel · review · execute); `checklist` returns a discipline's steps, `reference` carries heavy how-to on demand |
-| `skill_generator` | act | Compose `plugin.author_skill` + `lint_skill` into one deploy-ready-skill verb |
-| `delegate` | effect/act | Agent orchestration: `fan_out` a task across child Lifecycles under a quota + `join`; built on `ctx.spawn`, with `jules` as the first driver |
-| `gate` | act | A reusable programmatic hard-gate predicate: `check` records a PASSED edge, or a BLOCKED_ON edge + an input-required pause on failure |
-| `workspace` | effect | Isolate work (using-git-worktrees): `isolate` a worktree on a fresh branch + `baseline` its green/red test result; over an injected VCS boundary |
-| `branch` | effect/transform | Finish a development branch (finishing-a-development-branch): `assess` recommends merge/pr/keep/discard, `finish` executes + records the outcome |
-| `subagent` | effect | Subagent-driven-development: `develop` dispatches a worker child (via `delegate`) then runs a two-stage gated review (spec→quality, via `gate`); done iff both gates pass |
-
-Domain capabilities live OUT of the core as example extensions in `examples/`
-(e.g. `examples/music.py` — the album conceptualizer), loaded via
-`Engine(..., extra_capabilities=[…])`. This keeps the bootstrapping harness
-minimal while proving the extension contract end to end.
-
-## Skills (installable, in `skills/`)
-
-- `plugin-development` — build/extend a plugin (drives the plugin-dev chain).
-- `skill-creation` — RED→GREEN→REFACTOR skill authoring (the Iron Law).
-- **development workflow** (each a walkable
-  `develop` skill): `brainstorming`, `writing-plans`, `test-driven-development`,
-  `systematic-debugging`, `verification-before-completion`, `spec-panel`,
-  `code-review`. This is the toolkit for developing the system further.
-- `help` — the macroskill→micro-skill discovery surface (generated by the engine).
-
-## Jules backend (external dependency)
-
-The `jules` capability talks to the real Jules REST API via the vendored,
-httpx-based client `agency/capabilities/_jules_api.py`. It needs **`JULES_API_KEY`**
-in the environment (checked at call time) and the GitHub repo connected via the
-Jules GitHub app. `COMPLETED ≠ done`: a session state can read COMPLETED while the
-branch never landed on origin — always `verify` the branch on remote before
-trusting completion (the silent-fail guard).
+Domain capabilities live in `examples/` (e.g. `examples/music.py`), loaded
+via `Engine(..., extra_capabilities=[…])` — the bootstrapping harness stays
+minimal.
 
 ## Dev
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-pytest -q                  # 56 passing
-python -m agency.install   # regenerate the plugin install (manifest + help skill + command)
-python docs/examples/author_a_plugin.py
+pip install -e ".[dev]"
+pytest -q                    # 200+ passing
+python -m agency.install     # regen the plugin install when capabilities change
 ```
 
-- Develop on the active feature branch; **PRs target `main`**. Additive commits;
-  never rewrite history or force-push.
-- Design before code: `superpowers:brainstorming` → `writing-plans` →
-  `executing-plans`. New skills via `superpowers:writing-skills`. Analysis / spec
-  review: the `sc:` (SuperClaude) skills.
-- Keep `docs/vision/` authoritative. Adding a capability = adding a file in
-  `agency/capabilities/` (it self-registers and auto-wires).
+- Feature branches; PRs target `main`; additive history; never rewrite or
+  force-push.
+- Add a capability = add a file (folder-per-capability when Spec 016 lands).
+- Spec lifecycle: research → design → spec-panel → refine → IMPLEMENTATION-PLAN → TDD.
+  Per-phase: RED → GREEN → green `pytest -q` → commit → push.
+- Doctrine evolves through dogfooding: surface lessons via
+  `reflect.note(scope="observation", …)` — NOT new markdown files.
