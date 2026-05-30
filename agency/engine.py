@@ -17,6 +17,7 @@ list (e.g. `client`, `caps`) are supplied by the engine, not the caller.
 from __future__ import annotations
 
 import inspect
+from contextlib import asynccontextmanager
 
 from fastmcp import Context, FastMCP
 
@@ -101,12 +102,31 @@ class Engine:
         impl.__annotations__["return"] = dict
         mcp.tool(impl)
 
+    def _make_lifespan(self):
+        """Build the FastMCP lifespan that starts the Jules watcher on enter
+        and stops it cleanly on exit. Closes over `self` so the lifespan
+        callable (which receives the FastMCP server, not the engine) can
+        reach engine state. Idempotent — `_jules_watch.start` only attaches
+        a watcher if one isn't already present."""
+        engine = self
+
+        @asynccontextmanager
+        async def lifespan(server):
+            from agency.capabilities import _jules_watch
+            _jules_watch.start(engine)              # attaches engine._jules_watcher + starts poll loop
+            try:
+                yield {}                             # lifespan state available via Context
+            finally:
+                await _jules_watch.stop(engine)     # cancels the poll loop cleanly
+
+        return lifespan
+
     def build_mcp(self, codemode: bool = True) -> FastMCP:
         if codemode and not HAVE_CODEMODE:                  # fail loud, not a silent raw-tool fallback
             raise RuntimeError("code-mode requested but unavailable; install fastmcp[code-mode]")
         transforms = ([CodeMode(sandbox_provider=MontySandboxProvider(limits=_sandbox_limits()))]
                       if (codemode and HAVE_CODEMODE) else [])
-        mcp = FastMCP("agency", transforms=transforms)
+        mcp = FastMCP("agency", transforms=transforms, lifespan=self._make_lifespan())
         mem = self.memory
 
         # every capability verb -> one MCP tool, by reflection (no hand-wiring)
