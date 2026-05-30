@@ -38,18 +38,26 @@ def test_parse_malformed():
     with pytest.raises(ValueError, match="Malformed diff header"):
         parse_unidiff(diff)
 
+def test_parse_modify_partial_raises():
+    with open("tests/fixtures/jules/modify_partial.patch") as f:
+        diff = f.read()
+    with pytest.raises(ValueError, match="Partial modify patches require I/O to apply; unsupported in pure parser"):
+        parse_unidiff(diff)
+
 def test_build_recovery_plan_single_output_add():
     with open("tests/fixtures/jules/add_only.patch") as f:
         diff = f.read()
     outputs = [{"changeSet": {"gitPatch": {"unidiffPatch": diff}}}]
-    plan = build_recovery_plan(outputs, "recover-123", "main", "123")
+    plan = build_recovery_plan(outputs, "recover-123", "main", "testowner", "testrepo", "123")
     assert plan["branch"] == "recover-123"
     assert plan["base_branch"] == "main"
     assert len(plan["ops"]) == 3
-    assert plan["ops"][0] == {"tool": "mcp__github__create_branch", "args": {"branch": "recover-123", "from_branch": "main"}}
+    assert plan["ops"][0] == {"tool": "mcp__github__create_branch", "args": {"owner": "testowner", "repo": "testrepo", "branch": "recover-123", "from_branch": "main"}}
     assert plan["ops"][1]["tool"] == "mcp__github__push_files"
+    assert plan["ops"][1]["args"]["owner"] == "testowner"
+    assert plan["ops"][1]["args"]["repo"] == "testrepo"
     assert plan["ops"][1]["args"]["branch"] == "recover-123"
-    assert plan["ops"][1]["args"]["files"] == [("new_file.txt", "hello world\n")]
+    assert plan["ops"][1]["args"]["files"] == [{"path": "new_file.txt", "content": "hello world\n"}]
     assert plan["ops"][2]["tool"] == "mcp__github__create_pull_request"
 
 def test_build_recovery_plan_multi_output_chaining():
@@ -59,20 +67,17 @@ def test_build_recovery_plan_multi_output_chaining():
             {"changeSet": {"gitPatch": {"unidiffPatch": f1.read()}}},
             {"changeSet": {"gitPatch": {"unidiffPatch": f2.read()}}}
         ]
-    plan = build_recovery_plan(outputs, "recover-456", "main", "456")
-    # Base branch propagates: first output pushed to main base? No, wait.
-    # The pseudocode says: branch = recover-456, base = main.
-    # create_branch(recover-456, from_branch=main)
-    # 1st output: push_files to branch=recover-456. current_base becomes recover-456.
-    # 2nd output: delete_file to branch=recover-456. current_base becomes recover-456.
-    # We should just ensure that `delete_file` arguments have the correct branch and path.
-    # And the `ops` sequence reflects the operations for both patches sequentially.
+    plan = build_recovery_plan(outputs, "recover-456", "main", "testowner", "testrepo", "456")
     ops = plan["ops"]
-    assert ops[0] == {"tool": "mcp__github__create_branch", "args": {"branch": "recover-456", "from_branch": "main"}}
+    assert ops[0] == {"tool": "mcp__github__create_branch", "args": {"owner": "testowner", "repo": "testrepo", "branch": "recover-456", "from_branch": "main"}}
     assert ops[1]["tool"] == "mcp__github__push_files"
+    assert ops[1]["args"]["owner"] == "testowner"
+    assert ops[1]["args"]["repo"] == "testrepo"
     assert ops[1]["args"]["branch"] == "recover-456"
-    assert ops[1]["args"]["files"] == [("new_file.txt", "hello world\n")]
+    assert ops[1]["args"]["files"] == [{"path": "new_file.txt", "content": "hello world\n"}]
     assert ops[2]["tool"] == "mcp__github__delete_file"
+    assert ops[2]["args"]["owner"] == "testowner"
+    assert ops[2]["args"]["repo"] == "testrepo"
     assert ops[2]["args"]["branch"] == "recover-456"
     assert ops[2]["args"]["path"] == "deleted_file.txt"
     assert ops[3]["tool"] == "mcp__github__create_pull_request"

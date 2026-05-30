@@ -1,18 +1,18 @@
 def _parse_diff_header_a_path(line: str) -> str | None:
-    body = line[len("diff --git "):].rstrip("\n")
-    parts = body.split(" ")
-    if len(parts) < 2: return None
-    p = parts[-2]
-    if not p.startswith("a/"): return None
-    return p[2:]
+    # Now expects a line starting with '--- a/' or '--- /dev/null'
+    if line.startswith("--- /dev/null"):
+        return None
+    if not line.startswith("--- a/"):
+        return None
+    return line[6:].rstrip("\n")
 
 def _parse_diff_header_b_path(line: str) -> str | None:
-    body = line[len("diff --git "):].rstrip("\n")
-    parts = body.split(" ")
-    if len(parts) < 2: return None
-    p = parts[-1]
-    if not p.startswith("b/"): return None
-    return p[2:]
+    # Now expects a line starting with '+++ b/' or '+++ /dev/null'
+    if line.startswith("+++ /dev/null"):
+        return None
+    if not line.startswith("+++ b/"):
+        return None
+    return line[6:].rstrip("\n")
 
 def parse_unidiff(diff: str) -> list[dict]:
     files = []
@@ -28,23 +28,42 @@ def parse_unidiff(diff: str) -> list[dict]:
                 if current["op"] in ("add", "modify") or (current["op"] == "rename" and content_lines):
                     current["content"] = "\n".join(content_lines) + "\n" if content_lines else ""
                 files.append(current)
-            a_path = _parse_diff_header_a_path(line)
-            b_path = _parse_diff_header_b_path(line)
-            if not a_path or not b_path:
-                raise ValueError("Malformed diff header")
-            current = {"path": a_path, "op": "modify"}
-            if a_path != b_path:
-                current["new_path"] = b_path
+            current = {"path": "", "op": "modify"}
             in_hunk = False
             content_lines = []
+        elif line.startswith("--- "):
+            if current:
+                a_path = _parse_diff_header_a_path(line)
+                if a_path:
+                    current["path"] = a_path
+        elif line.startswith("+++ "):
+            if current:
+                b_path = _parse_diff_header_b_path(line)
+                if b_path:
+                    if not current["path"]:
+                        current["path"] = b_path
+                    elif current["path"] != b_path:
+                        current["new_path"] = b_path
         elif line.startswith("new file mode "):
             if current: current["op"] = "add"
         elif line.startswith("deleted file mode "):
             if current: current["op"] = "delete"
         elif line.startswith("rename from "):
-            if current: current["op"] = "rename"
+            if current:
+                current["op"] = "rename"
+                current["path"] = line[12:].rstrip("\n")
+        elif line.startswith("rename to "):
+            if current:
+                current["new_path"] = line[10:].rstrip("\n")
         elif line.startswith("@@ "):
             in_hunk = True
+            if current and current["op"] == "modify":
+                parts = line.split(" ")
+                if len(parts) >= 3:
+                    a_info = parts[1] # -start,count
+                    b_info = parts[2] # +start,count
+                    if not (a_info.startswith("-1,") or a_info == "-0,0" or a_info == "-1"):
+                        raise ValueError("Partial modify patches require I/O to apply; unsupported in pure parser")
         elif in_hunk:
             if line.startswith("+") and not line.startswith("+++"):
                 content_lines.append(line[1:])
@@ -52,6 +71,8 @@ def parse_unidiff(diff: str) -> list[dict]:
                 content_lines.append(line[1:] if line else "")
 
     if current:
+        if not current.get("path"):
+            raise ValueError("Malformed diff header")
         if current["op"] in ("add", "modify") or (current["op"] == "rename" and content_lines):
             current["content"] = "\n".join(content_lines) + "\n" if content_lines else ""
         files.append(current)
@@ -65,23 +86,29 @@ def build_recovery_plan(
     outputs: list[dict],
     branch: str,
     base: str,
+    owner: str,
+    repo: str,
     sid: str = "",
 ) -> dict:
-    ops = [{"tool": "mcp__github__create_branch", "args": {"branch": branch, "from_branch": base}}]
-    current_base = base
+    ops = [{"tool": "mcp__github__create_branch", "args": {"owner": owner, "repo": repo, "branch": branch, "from_branch": base}}]
+
+    # chaining is implicit via pushing sequentially to the same `branch`
+
     for out in outputs:
         diff = out.get("changeSet", {}).get("gitPatch", {}).get("unidiffPatch", "")
         if not diff:
             continue
         files = parse_unidiff(diff)
 
-        upserts = [(f["path"], f.get("content", "")) for f in files if f["op"] in ("add", "modify")]
+        upserts = [{"path": f["path"], "content": f.get("content", "")} for f in files if f["op"] in ("add", "modify")]
         renames = [(f["path"], f.get("new_path", ""), f.get("content", "")) for f in files if f["op"] == "rename"]
 
         if upserts:
             ops.append({
                 "tool": "mcp__github__push_files",
                 "args": {
+                    "owner": owner,
+                    "repo": repo,
                     "branch": branch,
                     "files": upserts,
                     "message": f"recover({sid}) chunk"
@@ -92,14 +119,18 @@ def build_recovery_plan(
             ops.append({
                 "tool": "mcp__github__push_files",
                 "args": {
+                    "owner": owner,
+                    "repo": repo,
                     "branch": branch,
-                    "files": [(dst, content)],
+                    "files": [{"path": dst, "content": content}],
                     "message": f"rename {src}->{dst}"
                 }
             })
             ops.append({
                 "tool": "mcp__github__delete_file",
                 "args": {
+                    "owner": owner,
+                    "repo": repo,
                     "branch": branch,
                     "path": src,
                     "message": f"rename source {src}"
@@ -111,13 +142,13 @@ def build_recovery_plan(
                 ops.append({
                     "tool": "mcp__github__delete_file",
                     "args": {
+                        "owner": owner,
+                        "repo": repo,
                         "branch": branch,
                         "path": f["path"],
                         "message": f"delete {f['path']}"
                     }
                 })
-
-        current_base = branch
 
     pr_title = f"Recover Jules session {sid}"
     pr_body = (
@@ -128,6 +159,8 @@ def build_recovery_plan(
     ops.append({
         "tool": "mcp__github__create_pull_request",
         "args": {
+            "owner": owner,
+            "repo": repo,
             "base": base,
             "head": branch,
             "title": pr_title,
