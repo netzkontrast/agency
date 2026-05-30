@@ -11,10 +11,14 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
 
 ## Three rules for working in this repo
 
-1. **Dogfood the engine.** First instinct: `python -m agency.cli execute`
-   chains tools inside the Monty sandbox; only the return crosses back. Direct
-   `ctx.call` is fine inside a capability; orchestrator workflows chain via
-   code-mode. Don't write code that bypasses the substrate.
+1. **Dogfood the engine — MCP-first when available.** When your harness has
+   `mcp__plugin_agency_agency__{search,get_schema,execute}` (i.e. Claude
+   Code with this plugin installed), use those tools directly — no
+   subprocess hop, same per-project graph. The bash CLI (`python -m
+   agency.cli execute` via `bin/agency`) is the fallback for Jules /
+   no-MCP harnesses. Either surface chains tools inside the sandbox;
+   only the return crosses back. Don't write code that bypasses the
+   substrate.
 
 2. **The graph is the store; files are a rendered view.** If you find yourself
    writing markdown that downstream code will parse, you have it backwards:
