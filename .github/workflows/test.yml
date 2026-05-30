@@ -3,8 +3,12 @@ name: test
 on:
   push:
     branches: [main]
+  # Run on EVERY pull request, regardless of target branch. PRs against the
+  # active feature branch (e.g. claude/*) should still get CI coverage —
+  # they're the path most changes take before reaching main. The earlier
+  # `branches: [main]` filter caused PR #10 to register 0 checks because
+  # the PR targeted the feature branch, not main.
   pull_request:
-    branches: [main]
 
 concurrency:
   group: test-${{ github.ref }}
