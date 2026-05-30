@@ -1,0 +1,3 @@
+# Spec 020 — central graph DB
+.agency/session.db binary
+.agency/session.db diff=sqlite
