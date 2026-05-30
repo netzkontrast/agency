@@ -19,6 +19,12 @@ dependencies = [
 dev = [
     "pytest>=9.0.0",
     "pytest-asyncio>=0.23.0",
+    # Spec 023 token-budget gate (tests/test_token_budget.py) is specified in
+    # tiktoken cl100k tokens. Without it the test would fall back to a char/4
+    # proxy whose counts differ from the real tokenizer and false-fail in CI
+    # (a 521-char search rendered 130 by proxy vs 112 by tiktoken). Pin it so
+    # CI validates the real budget; the test skips if it's somehow absent.
+    "tiktoken>=0.7.0",
 ]
 
 [project.scripts]

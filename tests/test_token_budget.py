@@ -15,12 +15,18 @@ from agency.engine import Engine
 
 
 def _count_tokens(text: str) -> int:
+    # The Spec 023 budget is DEFINED in tiktoken cl100k tokens. A char/4 proxy
+    # counts differently (e.g. a 521-char search = 130 by proxy vs 112 by
+    # tiktoken), so validating the gate without the real tokenizer would
+    # false-fail. tiktoken is pinned in [dev]; if it is genuinely absent
+    # (minimal install) we SKIP rather than assert against the wrong unit.
     try:
         import tiktoken
-        return len(tiktoken.encoding_for_model("gpt-4").encode(text))
-    except ImportError:
-        # char/4 — well-known rough proxy for cl100k
-        return len(text) // 4
+    except ImportError:  # pragma: no cover
+        import pytest
+        pytest.skip("tiktoken not installed; token-budget gate needs the real "
+                    "cl100k tokenizer (pinned in [dev]) — skipping vs false-fail")
+    return len(tiktoken.encoding_for_model("gpt-4").encode(text))
 
 
 async def _search(query: str, limit: int = 5) -> str:
