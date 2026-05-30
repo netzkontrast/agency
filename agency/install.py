@@ -91,10 +91,25 @@ def _manifest() -> dict:
 def _mcp_config() -> dict:
     """`.mcp.json` — the in-plugin MCP server declaration. Launches the Agency
     FastMCP engine in stdio mode via the bin/ wrapper, which picks the plugin's
-    venv if present and falls back to the system Python. `${CLAUDE_PLUGIN_ROOT}`
-    is the plugin install dir; `${CLAUDE_PLUGIN_DATA}` is the persistent data
-    dir (survives plugin updates); `${user_config.jules_api_key}` is wired by
-    the manifest's `userConfig`."""
+    venv if present and falls back to the system Python.
+
+    Path conventions:
+    - ``${CLAUDE_PLUGIN_ROOT}`` — the plugin install dir (read-only code).
+      Holds the launcher + PYTHONPATH; survives plugin updates by design.
+    - ``${CLAUDE_PROJECT_DIR}`` — the user's project root. Holds the graph
+      DB so MCP + bash CLI converge on one store per project (the CLI
+      defaults to ``./.agency/session.db`` via ``_db_path.resolve_db_path``;
+      pointing AGENCY_DB at the same path is the unification — see
+      reflection:9cd97a38 + tests/test_install_db_path.py).
+    - ``${user_config.jules_api_key}`` — wired by the manifest's
+      ``userConfig`` (secret).
+
+    Previously this used ``${CLAUDE_PLUGIN_DATA}/agency.db`` (a path
+    outside the project), which diverged from the CLI default and
+    silently split observations between two stores. The plugin-data
+    path is the right home for cross-project plugin state; the agency
+    graph is per-project (the moat IS the graph; the graph lives with
+    the project the agency is working on)."""
     return {
         "mcpServers": {
             "agency": {
@@ -102,7 +117,7 @@ def _mcp_config() -> dict:
                 "args": [],
                 "env": {
                     "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}",
-                    "AGENCY_DB": "${CLAUDE_PLUGIN_DATA}/agency.db",
+                    "AGENCY_DB": "${CLAUDE_PROJECT_DIR}/.agency/session.db",
                     "JULES_API_KEY": "${user_config.jules_api_key}",
                 },
             }

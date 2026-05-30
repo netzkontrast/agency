@@ -2,8 +2,10 @@
 
 Resolution order (Spec 020 Done When item):
   1. ``explicit`` (e.g. the ``--db <path>`` CLI flag).
-  2. ``AGENCY_DB`` env var (set by .mcp.json to
-     ``${CLAUDE_PLUGIN_DATA}/agency.db`` when installed as a plugin).
+  2. ``AGENCY_DB`` env var (set by ``.mcp.json`` to
+     ``${CLAUDE_PROJECT_DIR}/.agency/session.db`` when installed as a
+     plugin — the SAME path the CLI's CWD-local fallback resolves to,
+     so MCP and bash surfaces converge on one graph per project).
   3. ``./.agency/session.db`` (CWD-local — the default in any project
      that has been scaffolded by ``python -m agency.install --scaffold-db``).
   4. ``~/.agency.db`` (system fallback — only when neither env nor CWD
