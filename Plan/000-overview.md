@@ -68,19 +68,22 @@ land last because they consume the most foundation.
 
 ## Decide first
 
-The spec-panel pass **resolved five of the six** original cross-cutting questions
-(now baked into the specs). **One true blocker remains** — answer it before building
-`002`/`005`/`007`:
+The spec-panel pass **resolved five of the six** original cross-cutting questions.
+The sixth (`001-Q2`) is now also resolved (decision recorded 2026-05-30):
 
-- **⛔ Code-mode return contract** (001 Q2 → gates 002, 005, 007). Does `Engine._wire`
-  wrap verb results in the `ToolResult` envelope (so every `execute()`/CLI caller sees
-  `{ok, data, …}`) or keep returning the unwrapped inner value? The panels showed the
-  source (ADR-0005, "clients see the same JSON") steers toward **the envelope *is* the
-  wire shape, field name `data`** — but this changes what existing `execute()` scripts
-  receive, so it's the maintainer's call: accept the break, or run a dual surface
-  during migration. Everything downstream assumes `data`.
+- ✅ **Code-mode return contract** (`001-Q2`) — **Option C — internal-only envelope,
+  no wire change.** `ToolResult` is a Python dataclass (`agency/toolresult.py`); when
+  a verb returns one, `Registry.invoke` records its metadata (typed error, warnings,
+  archived_to) as Invocation side-effects and unwraps `.data` for the wire. Existing
+  `cli.py` / `execute()` callers see no change (zero of 58 tests churned). The
+  envelope is opt-in for verbs that need it (esp. spec 005's context-mode middleware
+  writes `archived_to`; spec 012's `WatchEvent` lives in `.data`). Rationale: most
+  token-efficient (0 envelope overhead per call) AND most canon-aligned for THIS
+  repo's `CORE.md:9-18` lean contract (the panel's "envelope IS the wire shape"
+  steer came from `the-agency-system`'s ADR-0005 — a different system's doctrine).
+  **Spec 001 status: done.**
 
-Resolved by the panels (no longer open):
+Already resolved by the panels:
 
 - ✅ **Driver shape** → **Option B**: typed named methods; `Driver` is a marker; the
   uniform contract is the *return type* (`ToolResult`), not the method name. (The cited

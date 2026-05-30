@@ -157,6 +157,44 @@ def test_provenance_moat():
     e.memory.close()
 
 
+def test_toolresult_envelope_unwraps_to_data_and_records_metadata():
+    """Spec 001 (Option C): a verb returning a `ToolResult` envelope has its
+    `.data` unwrapped at the Registry boundary so the wire shape stays the
+    lean code-mode contract; the auxiliary fields land as side-effects on
+    the Invocation. Verbs that return plain dicts are unchanged."""
+    from agency.toolresult import ToolResult, TypedError
+    from agency.capability import Capability, CapabilityContext
+
+    def ok_verb(ctx):                                              # noqa: ARG001
+        return ToolResult(data={"x": 1}, warnings=["w1", "w2"], archived_to="mem://abc")
+
+    def bad_verb(ctx):                                             # noqa: ARG001
+        return ToolResult(data={"x": 2}, ok=False,
+                          error=TypedError(code="illegal_transition", message="boom"))
+
+    e = fresh()
+    e.registry.register(Capability(
+        name="tr", home="capability",
+        verbs={
+            "ok":  {"role": "transform", "fn": ok_verb,  "inject": ["ctx"]},
+            "bad": {"role": "transform", "fn": bad_verb, "inject": ["ctx"]},
+        }))
+    iid = e.intent.capture("a", "b", "c"); e.intent.confirm(iid)
+
+    res, inv = e.registry.invoke(e.memory, iid, "tr", "ok")
+    assert res == {"x": 1}                                          # data unwrapped on the wire
+    props = e.memory.recall(inv)
+    assert props["warnings"] == ["w1", "w2"] and props["archived_to"] == "mem://abc"
+    assert props.get("outcome") != "failed"
+
+    res, inv = e.registry.invoke(e.memory, iid, "tr", "bad")
+    assert res == {"x": 2}
+    props = e.memory.recall(inv)
+    assert props["outcome"] == "failed"
+    assert "illegal_transition: boom" in props["error"]
+    e.memory.close()
+
+
 def test_bitemporal_what_changes_why_holds():
     e = fresh()
     iid = e.intent.capture("ship green CI", "fix auth test", "tests green")

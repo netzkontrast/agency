@@ -174,6 +174,25 @@ class Registry:
         except Exception as e:
             memory.update(inv, {"outcome": "failed", "error": f"{type(e).__name__}: {e}"})
             raise
+        # ToolResult unwrap (Spec 001, Option C): when a verb returns the in-sandbox
+        # envelope, record its metadata as Invocation side-effects (typed error,
+        # warnings, archived_to) and replace `result` with the unwrapped `.data` so
+        # the wire shape stays the lean code-mode contract (CORE.md:9-18). Plain-dict
+        # returns are unchanged. The auxiliary fields are opt-in for verbs that need
+        # them (esp. spec 005's context-mode middleware which writes archived_to).
+        from .toolresult import ToolResult
+        if isinstance(result, ToolResult):
+            updates: dict = {}
+            if result.error is not None:
+                updates["outcome"] = "failed"
+                updates["error"] = f"{result.error.code}: {result.error.message}"
+            if result.warnings:
+                updates["warnings"] = list(result.warnings)
+            if result.archived_to:
+                updates["archived_to"] = result.archived_to
+            if updates:
+                memory.update(inv, updates)
+            result = result.data
         if isinstance(result, dict) and result.get("artefact"):
             art = memory.record("Artefact", dict(result["artefact"]))
             memory.link(inv, art, "PRODUCES")

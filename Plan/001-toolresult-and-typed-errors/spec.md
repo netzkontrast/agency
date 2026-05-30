@@ -1,7 +1,7 @@
 ---
 spec_id: 001
 slug: toolresult-and-typed-errors
-status: draft
+status: done
 owner: "@agency"
 depends_on: []
 affects:
