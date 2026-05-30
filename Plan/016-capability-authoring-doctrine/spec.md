@@ -1,22 +1,54 @@
 ---
 spec_id: "016"
 slug: capability-authoring-doctrine
-status: draft
+status: in-progress              # v2 — Phase 1+4 done; 2/3/5 this iteration; 6 deferred; 7 dropped
+version: 2
 owner: "@agency"
 depends_on: ["001", "012", "013"]
 affects:
-  - docs/vision/CORE.md                          # extend with capability-authoring section
-  - docs/vision/CAPABILITY-AUTHORING.md          # new — the doctrine page
-  - agency/capabilities/__init__.py              # subpackage discovery
-  - agency/capability.py                         # docstring lint helpers
-  - agency/capabilities/plugin.py                # extend lint_skill → lint_capability
-  - tests/conftest.py                            # shared engine/iid fixtures (eliminates 13 duplicates)
-estimated_jules_sessions: 0   # draft now; revise after Spec 015 (Jules architecture review) lands
+  - docs/vision/CORE.md                          # Phase 2 — CapabilityContext paragraph (this iteration)
+  - docs/vision/CAPABILITY-AUTHORING.md          # Phase 1 — SHIPPED f5f7575
+  - agency/capabilities/__init__.py              # Phase 3 — folder-form discover() RED→GREEN
+  - agency/capabilities/plugin.py                # Phase 4 — lint_capability — DEFERRED to Plan/024 PR-A
+  - tests/conftest.py                            # Phase 5 — shared fixtures (13 dup blocks VERIFIED by survey a7e6bd1)
+defers_to:
+  - "028 (jules-folder-migration)"  # Phase 6 — heavy mechanical move; warrants its own spec
+drops:
+  - phase: 7
+    reason: |
+      plugin → folder form. v1 cited "consolidating templates.py
+      ownership" but (a) plugin.py has ZERO sibling helpers,
+      violating Hint #2's own ≥3-sibling bar; (b) templates.py is a
+      top-level shared module used by plugin AND install AND jules —
+      folder consolidation would break the sharing. Phase 7's
+      rationale collapses on two grounds rooted in Spec 016's own
+      doctrine.
+estimated_jules_sessions: 0
 domain: meta
 wave: 3
 ---
 
-# Spec 016 — Capability authoring doctrine (first Core Expansion)
+# Spec 016 v2 — Capability authoring doctrine (Foundation iteration)
+
+> **What changed in v2 from v1:**
+> - **Status**: `draft` → `in-progress`. Phases 1 + 4 are done (1 shipped
+>   `f5f7575`; 4 absorbed by Plan/024 PR-A — implementation lives on
+>   `plugin.lint_capability`, not `develop.lint_capability`, per spec-panel
+>   F5a). This iteration ships Phases 2 + 3 + 5.
+> - **Phase 7 DROPPED** with rationale in frontmatter `drops:` block.
+>   v1 was self-contradictory; v2 honors Hint #2.
+> - **Phase 6 DEFERRED** to a future Spec 028 (jules-folder-migration).
+>   The mechanical refactor is genuinely heavy (6 file moves + 13 test-file
+>   import rewires); it warrants its own spec rather than landing under
+>   the doctrine umbrella.
+> - **Phase 5 fixture design** now grounded in a real survey
+>   (`reflection a7e6bd1`): the v1 "13 duplicate fixture blocks" claim
+>   verified EXACTLY. Design upgraded from v1's two fixtures (`engine`,
+>   `iid`) to four (adds `memory_engine` for the ~13 inline `:memory:`
+>   call-sites and `make_engine(**overrides)` factory for the 5 special-purpose
+>   tests). Also fixes a latent bug: v1's `tempfile.mktemp()` is deprecated
+>   (race condition); v2 uses pytest's `tmp_path`.
+
 
 ## Why
 
