@@ -23,6 +23,9 @@ class VCSBackend(Protocol):
     def finish(self, branch: str, action: str, base: str) -> dict: ...
 
 
+    def remote_exists(self, branch: str) -> bool: ...
+
+
 class GitClient:
     """The default VCS backend: real `git`/`gh` subprocesses against the current
     repository. Never invoked by the test suite (tests inject a stand-in)."""
@@ -65,3 +68,8 @@ class GitClient:
             r = self._git("branch", "-D", branch)
             return {"action": "discard", "ok": r.returncode == 0, "detail": (r.stdout + r.stderr).strip()}
         return {"action": "keep", "ok": True, "detail": "branch kept as-is"}
+
+    def remote_exists(self, branch: str) -> bool:
+        """Verify if a branch exists on origin."""
+        r = self._git("ls-remote", "--heads", "origin", branch)
+        return r.returncode == 0 and bool(r.stdout.strip())

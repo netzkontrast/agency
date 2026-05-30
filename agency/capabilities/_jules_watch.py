@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 from agency.capabilities import _jules_api
+from agency.capabilities._vcs import GitClient
 
 INSTRUCTIONS: dict[str, str] = {
     "noop": "Working.",
@@ -171,12 +172,22 @@ class Watcher:
         else:
             return 300.0 # 300s after 20 mins
 
+
     async def _poll_loop(self):
+        last_heartbeat = self.time_func()
+
         while True:
+            # 0. Heartbeat
+            now = self.time_func()
+            if now - last_heartbeat >= 20:
+                for intent_id in self.queues:
+                    self._put_event(intent_id, {"action": "noop", "instruction": INSTRUCTIONS["noop"], "evidence": {}})
+                last_heartbeat = now
+
             # 1. Recovery Cycle
             for sid, st in list(self.recovery_in_flight.items()):
-                # Call verify_truth
-                branch_on_remote = False # In a real implementation we would call something here
+                vcs = GitClient()
+                branch_on_remote = vcs.remote_exists(st.get("branch", ""))
                 if branch_on_remote:
                     self._put_event(st["intent_id"], {"action": "verify_pr", "instruction": "...", "evidence": {}})
                     del self.recovery_in_flight[sid]
@@ -218,16 +229,26 @@ class Watcher:
                     acts = await asyncio.to_thread(_jules_api.jules_activities, sid, only_kinds="agentMessaged,planGenerated", page_size=5)
                     # Decorate curr with activities data
                     if acts and "activities" in acts and acts["activities"]:
-                        latest_act = acts["activities"][0]
-                        if latest_act.get("kind") == "agentMessaged":
-                            curr["_last_agent_msg_id"] = latest_act.get("id")
-                            curr["_agent_message"] = latest_act.get("agentMessaged", {}).get("message", "")
-                        elif latest_act.get("kind") == "planGenerated":
-                             curr["plan_steps"] = len(latest_act.get("planGenerated", {}).get("plan", {}).get("steps", []))
+                        for act in acts["activities"]:
+                            if act.get("kind") == "agentMessaged" and "_last_agent_msg_id" not in curr:
+                                curr["_last_agent_msg_id"] = act.get("id")
+                                curr["_agent_message"] = act.get("agentMessaged", {}).get("message", "")
+                            elif act.get("kind") == "planGenerated" and "plan_steps" not in curr:
+                                 curr["plan_steps"] = len(act.get("planGenerated", {}).get("plan", {}).get("steps", []))
+                            if "_last_agent_msg_id" in curr and "plan_steps" in curr:
+                                break
 
-                    # Assume branch_on_remote and patch_summary are computed via other API calls not available yet
-                    branch_on_remote = False
-                    patch_summary = {"files": 0, "lines": 0, "bytes": 0}
+                    branch = curr.get("branch")
+                    if branch:
+                        vcs = GitClient()
+                        branch_on_remote = await asyncio.to_thread(vcs.remote_exists, branch)
+                    else:
+                        branch_on_remote = False
+
+                    try:
+                        patch_summary = await asyncio.to_thread(_jules_api.jules_patch_extract, sid)
+                    except Exception:
+                        patch_summary = {"files": 0, "lines": 0, "bytes": 0}
 
                     prev = sinfo["last_state"]
                     event = _classify(prev, curr, sinfo["last_agent_msg_id"], branch_on_remote, patch_summary)
@@ -243,7 +264,7 @@ class Watcher:
                     sinfo["last_state"] = curr
                     sinfo["last_agent_msg_id"] = curr.get("_last_agent_msg_id")
 
-                    self._429_count = 0
+                    self._429_count = 0 # successful cycle resets
                 except Exception as e:
                     if hasattr(e, "status_code") and getattr(e, "status_code") == 429:
                         self._429_count += 1

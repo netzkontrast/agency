@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from agency.capabilities._jules_watch import INSTRUCTIONS, _classify, Watcher
 
