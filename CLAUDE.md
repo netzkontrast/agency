@@ -4,7 +4,8 @@ This repo IS the plugin: a **FastMCP engine + bi-temporal GraphQLite graph**,
 exposing exactly **`search` · `get_schema` · `execute`** as the wire contract.
 Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
 
-> **Read first:** [`docs/vision/CORE.md`](docs/vision/CORE.md) (canon),
+> **Read first:** [`docs/vision/GOALS.md`](docs/vision/GOALS.md) (why),
+> [`docs/vision/CORE.md`](docs/vision/CORE.md) (canon),
 > [`AGENTS.md`](AGENTS.md) (operational), [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md)
 > (remote-agent doctrine).
 

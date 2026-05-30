@@ -1,5 +1,9 @@
 # agency — Core (v4)
 
+> See [`GOALS.md`](GOALS.md) for the **why**; this file is the **how**.
+> If a change weakens a goal listed there, the spec body must carry the
+> explicit trade-off argument.
+
 > **5W1H is a lens, not the architecture** — the four concepts are the
 > irreducible core. Names follow structure; the projection is an *observation*,
 > not a mechanism.
