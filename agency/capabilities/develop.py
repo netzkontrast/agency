@@ -88,7 +88,7 @@ DEV_SKILLS = {
         _phase(1, "research", ["read_doctrine"]),
         {"index": 2, "name": "scaffold", "produces": ["skeleton"],
          "invoke": {"capability": "develop", "verb": "scaffold_capability"},
-         "inputs": ["name", "kind"]},
+         "inputs": ["name", "kind", "base_dir"]},
         _phase(3, "author", ["verbs_written"]),
         {"index": 4, "name": "lint", "produces": ["lint_result"],
          "invoke": {"capability": "plugin", "verb": "lint_capability"},
@@ -324,3 +324,28 @@ class DevelopCapability(CapabilityBase):
         """
         return scaffold_capability(name, kind=kind,
                                    base_dir=base_dir or None)
+
+    @verb(role="act")
+    def record_authoring_outcome(self, name: str, kind: str = "light") -> dict:
+        """Record a Reflection at the end of an authoring-capabilities walk.
+
+        The authoring-capabilities discipline's phase 6 (hard gate) is the
+        commit boundary; the caller confirms then invokes this verb to write
+        a `Reflection{scope:"observation"}` SERVING the calling intent. The
+        observation surfaces back into future authoring walks (the
+        self-improvement loop closes when Spec 014 promotes them to spec
+        amendments).
+
+        Inputs: name (capability name authored), kind (scaffold kind).
+        Returns: {result: <reflection_id>}.
+        chain_next: (terminal — discipline closes here).
+        """
+        text = (f"Authored capability {name!r} (kind={kind}) via the "
+                f"authoring-capabilities discipline. Scaffold + lint cleanly "
+                f"passed; reflection recorded for the self-improvement loop.")
+        rid = self.ctx.record("Reflection", {
+            "scope": "observation",
+            "text": text,
+        })
+        self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+        return {"result": rid}

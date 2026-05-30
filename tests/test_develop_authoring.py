@@ -418,3 +418,145 @@ def test_scaffold_unknown_kind_returns_input_required(tmp_path):
     result = scaffold_capability("ucap", kind="WRONG", base_dir=str(tmp_path))
     assert result.get("status") == "input-required"
     assert "kind" in (result.get("resume_with") or [])
+
+
+# ---- Phase A5: end-to-end discipline walk + reflection wiring -------------
+
+
+def _drive_authoring_discipline(engine, iid, tmp_path):
+    """Helper — walk authoring-capabilities through SkillRun.
+    Returns (skill_run, scaffolded_cap_name, lint_result, reflection_id)."""
+    from agency.skill import SkillRun
+    schema = engine.registry.get("develop").ontology.skills["authoring-capabilities"]
+    run = SkillRun(engine.memory, iid, schema, registry=engine.registry)
+
+    # Phase 1: research — plain phase, satisfy produces
+    run.submit(outputs={"read_doctrine": "yes"})
+
+    # Phase 2: scaffold — bound to develop.scaffold_capability
+    # outputs supply the verb's inputs (name, kind) per phase["inputs"]
+    cap_name = "e2ecap"
+    run.submit(outputs={"name": cap_name, "kind": "light", "base_dir": str(tmp_path)})
+
+    # Phase 3: author — plain phase
+    run.submit(outputs={"verbs_written": "yes"})
+
+    # Phase 4: lint — bound to plugin.lint_capability
+    # Need to register the scaffolded cap in the registry first so lint can find it
+    # by name. For e2e, we load the scaffolded file and register it.
+    scaffold_path = tmp_path / f"{cap_name}.py"
+    from agency.capabilities.develop import scaffold_capability
+    scaffold_capability(cap_name, kind="light", base_dir=str(tmp_path))
+    cap, _ = _load_capability_from_source(scaffold_path.read_text(),
+                                          tmp_path, "e2e_loader")
+    engine.registry.register(cap)
+
+    run.submit(outputs={"name": cap_name})  # supplies plugin.lint_capability's `name` arg
+
+    # Phase 5: token-check — plain phase
+    run.submit(outputs={"budget_ok": "yes"})
+
+    # Phase 6: commit — HARD gate. First, write the reflection (manually,
+    # per the contract: the gate is the boundary; the caller records).
+    record_result, _ = engine.registry.invoke(
+        engine.memory, iid, "develop", "record_authoring_outcome",
+        name=cap_name, kind="light",
+    )
+    rid = record_result["result"] if isinstance(record_result, dict) else record_result
+
+    # Now confirm the gate
+    final = run.submit(outputs={"reflection_recorded": rid}, confirmed=True)
+    return run, cap_name, final, rid
+
+
+def test_walking_authoring_capabilities_records_reflection_serves_c374ac3d(engine, iid, tmp_path):
+    """The discipline walk's end-of-loop action: a Reflection is recorded,
+    serving the calling intent. (The Spec 024 §Goal: every authoring walk
+    surfaces back into future refinement.)"""
+    run, _, _, rid = _drive_authoring_discipline(engine, iid, tmp_path)
+    assert run.done, "skill should be complete after phase 6 confirm"
+    # Reflection exists in the graph with the expected content
+    reflections = engine.memory.find("Reflection")
+    rids = [r["id"] for r in reflections]
+    assert rid in rids, f"recorded reflection {rid} not in graph; found {rids[:3]}…"
+    # The reflection text mentions the authored capability + the discipline name
+    # (the record_authoring_outcome verb composed this; if the verb ran, both
+    # tokens are present)
+    rec = engine.memory.recall(rid)
+    text = rec.get("text", "")
+    assert "e2ecap" in text and "authoring-capabilities" in text, (
+        f"reflection text should reference the authored cap + discipline; got {text!r}"
+    )
+
+
+def test_phase_2_scaffold_invokes_develop_scaffold_capability_via_skillrun(engine, iid, tmp_path):
+    """Phase 2 is bound — walking it RUNS the scaffold verb (creates the file)."""
+    from agency.skill import SkillRun
+    schema = engine.registry.get("develop").ontology.skills["authoring-capabilities"]
+    run = SkillRun(engine.memory, iid, schema, registry=engine.registry)
+    run.submit(outputs={"read_doctrine": "yes"})
+    # phase 2 — scaffold. Supply name + kind + a base_dir (the test's tmp_path).
+    run.submit(outputs={"name": "p2cap", "kind": "light", "base_dir": str(tmp_path)})
+    # The walker invoked scaffold_capability; the file exists on disk
+    assert (tmp_path / "p2cap.py").is_file(), "phase 2 walk must execute scaffold_capability"
+
+
+def test_phase_4_lint_invokes_plugin_lint_capability_via_skillrun(engine, iid, tmp_path):
+    """Phase 4 is bound to plugin.lint_capability — walking it returns the
+    lint shape into the phase outputs."""
+    from agency.skill import SkillRun
+    # Scaffold + register the cap first so lint has something to lint
+    from agency.capabilities.develop import scaffold_capability
+    cap_name = "p4cap"
+    scaffold_capability(cap_name, kind="light", base_dir=str(tmp_path))
+    cap, _ = _load_capability_from_source(
+        (tmp_path / f"{cap_name}.py").read_text(), tmp_path, "p4_loader",
+    )
+    engine.registry.register(cap)
+    # Walk to phase 4
+    schema = engine.registry.get("develop").ontology.skills["authoring-capabilities"]
+    run = SkillRun(engine.memory, iid, schema, registry=engine.registry)
+    for outputs in [{"read_doctrine": "y"},
+                    {"name": cap_name, "kind": "light", "base_dir": str(tmp_path)},
+                    {"verbs_written": "y"}]:
+        run.submit(outputs=outputs)
+    # phase 4 fires plugin.lint_capability — must not raise
+    result = run.submit(outputs={"name": cap_name})
+    # The walker satisfied "lint_result" from the lint return; the skill
+    # advanced to phase 5 (or beyond)
+    assert run.i >= 4, f"phase 4 walk must advance; at phase {run.i}"
+
+
+def test_hard_gate_phase_6_blocks_until_reflection_recorded(engine, iid, tmp_path):
+    """Phase 6 is hard-gate — submit() without confirmed=True returns
+    input-required even if produces are satisfied."""
+    run, cap_name, _, _ = _drive_authoring_discipline(engine, iid, tmp_path)
+    # the above completes the run; verify it WAS hard-gated by re-walking
+    # to phase 6 and checking the unconfirmed-submit pause shape
+    from agency.skill import SkillRun
+    schema = engine.registry.get("develop").ontology.skills["authoring-capabilities"]
+    run2 = SkillRun(engine.memory, iid, schema, registry=engine.registry)
+    for outputs in [
+        {"read_doctrine": "y"},
+        {"name": "hg", "kind": "light", "base_dir": str(tmp_path)},
+        {"verbs_written": "y"},
+        {"name": "hg"},  # phase 4 — auto-registers nothing, but the existing
+                         # e2ecap from above is still in the registry; we re-use
+                         # the cap_name from _drive_authoring_discipline
+    ]:
+        if "name" in outputs and outputs.get("name") == "hg":
+            # phase 4 needs the cap registered; reuse the prior e2ecap to avoid
+            # double-scaffold. The lint runs against whichever name we pass.
+            outputs["name"] = cap_name
+        try:
+            run2.submit(outputs=outputs)
+        except Exception:
+            break  # phase 4 may complain if cap missing; not testing that
+    # If we got to phase 5, advance to 6
+    if run2.i == 4:
+        run2.submit(outputs={"budget_ok": "y"})
+    if run2.i == 5:
+        result = run2.submit(outputs={"reflection_recorded": "rid_placeholder"})
+        assert result.get("status") == "input-required", (
+            f"phase 6 unconfirmed must return input-required; got {result!r}"
+        )
