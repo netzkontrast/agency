@@ -265,6 +265,84 @@ class Engine:
             return install_op(target or None)
 
         @mcp.tool
+        def agency_doctor() -> dict:
+            """Health-check substrate tool — diagnose silent-failure modes.
+
+            Reports python version, dep imports, DB reachability, and the
+            two env vars users hit problems with (JULES_API_KEY,
+            CLAUDE_PROJECT_DIR). The KEY VALUE is NEVER in the report —
+            only its presence/absence. ``next_steps`` carries
+            copy-pasteable fixes for any issue found.
+
+            Covers F2 (Jules-key inheritance) + F5 (system python3 vs
+            plugin venv) from the KP Fehlerbericht.
+
+            Inputs: none.
+            Returns: ``{ok, python_version, deps, db, env, next_steps}``.
+            chain_next: ``next_steps`` are literal calls/commands.
+            """
+            import os, sys, importlib.metadata as _md
+            from ._db_path import resolve_db_path
+
+            deps: dict = {}
+            for name in ("fastmcp", "graphqlite", "tiktoken"):
+                try:
+                    deps[name] = _md.version(name)
+                except _md.PackageNotFoundError:
+                    deps[name] = "missing"
+
+            db_path = resolve_db_path(None)
+            db_exists = os.path.exists(db_path)
+            try:
+                parent = os.path.dirname(db_path) or "."
+                db_writable = (
+                    os.access(parent, os.W_OK) if os.path.isdir(parent)
+                    else (os.access(os.path.dirname(parent) or ".", os.W_OK))
+                )
+            except OSError:
+                db_writable = False
+
+            jules_status = "set" if os.environ.get("JULES_API_KEY") else "missing"
+            project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
+
+            next_steps: list = []
+            if deps.get("graphqlite") == "missing":
+                next_steps.append(
+                    "graphqlite missing — install the plugin venv: "
+                    "`pip install -e .[dev]` from the agency repo "
+                    "(F5: system python3 silent-fail)"
+                )
+            if deps.get("fastmcp") == "missing":
+                next_steps.append(
+                    "fastmcp missing — `pip install 'fastmcp[code-mode]>=3.3.0'`"
+                )
+            if not db_writable:
+                next_steps.append(
+                    f"DB path {db_path!r} parent not writable — "
+                    f"call `agency_install` to scaffold .agency/ or fix perms"
+                )
+            if jules_status == "missing":
+                next_steps.append(
+                    "JULES_API_KEY missing — set `user_config.jules_api_key` "
+                    "in the plugin's Claude Code config, then RELOAD the "
+                    "plugin (the server reads the value at start time only). "
+                    "For Jules / no-MCP: `export JULES_API_KEY=...` before "
+                    "launching."
+                )
+
+            return {
+                "ok": len(next_steps) == 0,
+                "python_version": ".".join(str(v) for v in sys.version_info[:3]),
+                "deps": deps,
+                "db": {"path": db_path, "exists": db_exists, "writable": db_writable},
+                "env": {
+                    "JULES_API_KEY": jules_status,
+                    "CLAUDE_PROJECT_DIR": project_dir,
+                },
+                "next_steps": next_steps,
+            }
+
+        @mcp.tool
         def agency_welcome() -> dict:
             """One-shot onboarding payload — the canonical first call.
 
