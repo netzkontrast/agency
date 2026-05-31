@@ -27,6 +27,7 @@ import json
 import re
 
 from ..capability import CapabilityBase, verb
+from ..capability import SkillDoc as _SkillDoc
 from ..ontology import OntologyExtension
 from .. import templates
 
@@ -114,12 +115,12 @@ def lint_skill(name: str, description: str) -> dict:
     return {"ok": not v, "violations": v}
 
 
-def lint_skill_doc(cap_name: str, doc, verbs: dict) -> dict:
+def lint_skill_doc(cap_name: str, doc: "_SkillDoc", verbs: dict) -> dict:
     """Validate a SkillDoc against the Spec 031 §B contract.
 
     Returns {ok: bool, violations: [{rule, message}]}.
     """
-    v: list = []
+    v: list[dict] = []
     desc = (doc.description or "").strip()
     if not desc.lower().startswith("use when"):
         v.append({"rule": "description-trigger-first",

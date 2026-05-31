@@ -183,3 +183,30 @@ def test_lint_rejects_verb_briefs_with_unknown_verb():
     out = lint_skill_doc("reflect", doc, _verbs("note"))
     assert not out["ok"]
     assert any(v["rule"] == "verb-briefs-resolve" for v in out["violations"])
+
+
+def test_lint_rejects_workflow_summary_in_overview():
+    """Rule overview-no-workflow-summary fires when overview narrates steps."""
+    doc = SkillDoc(
+        description="Use when X happens.",
+        overview="First the system probes, then it commits.",
+        triggers=["a", "b"],
+        canonical_example="agency-reflect-note 'x' 'y'",
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note"))
+    assert not out["ok"]
+    assert any(v["rule"] == "overview-no-workflow-summary" for v in out["violations"])
+
+
+def test_lint_rejects_red_flag_without_symptom_counter_delimiter():
+    """Rule red-flags-format fires when a red_flag lacks '→' or ' - '."""
+    doc = SkillDoc(
+        description="Use when X happens.",
+        overview="x",
+        triggers=["a", "b"],
+        canonical_example="agency-reflect-note 'x' 'y'",
+        red_flags=["just a free-form thought without a delimiter"],
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note"))
+    assert not out["ok"]
+    assert any(v["rule"] == "red-flags-format" for v in out["violations"])
