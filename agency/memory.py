@@ -152,6 +152,59 @@ class Memory:
         required = [f.strip() for f in str(schema.get("required", "")).split(",") if f.strip()]
         return all(node.get(f) not in (None, "") for f in required)
 
+    def validate_schema_draft07(self, node_id: str, schema_id: str) -> bool:
+        """Validate a node against a draft-07 schema stored on a Schema node.
+
+        Spec 032 §C (panel F-3 resolution — two methods, not internal dispatch).
+        The Schema node MUST carry a `schema_json` field holding the JSON-encoded
+        draft-07 schema; if absent, raises RuntimeError (caller used the wrong
+        tool for the schema shape — should call `validate_schema` for simple
+        `{required: csv}` shapes).
+
+        Returns True iff the node's properties satisfy the draft-07 schema.
+        False on missing node/schema OR on validation failure (ValidationError
+        is caught + converted; the boolean IS the verdict).
+
+        Inputs:
+          - node_id: graph node id to validate
+          - schema_id: Schema node id (must carry schema_json field)
+        Returns: bool
+        Raises: RuntimeError if schema node lacks schema_json.
+        chain_next: terminal — the boolean is the verdict.
+        """
+        node = self.recall(node_id)
+        schema = self.recall(schema_id)
+        if not node or not schema:
+            return False
+        schema_json_str = schema.get("schema_json")
+        if not schema_json_str:
+            raise RuntimeError(
+                f"schema {schema_id!r} lacks `schema_json` field — call "
+                f"`validate_schema` instead (simple-shape schemas) OR add a "
+                f"`schema_json` field to the Schema node (draft-07 shape)"
+            )
+        import json
+        try:
+            from jsonschema import Draft7Validator, ValidationError
+        except ImportError as e:
+            raise RuntimeError(
+                "validate_schema_draft07 requires the jsonschema library "
+                "(pip install jsonschema) — install via `pip install -e .[novel]`"
+            ) from e
+        try:
+            schema_obj = json.loads(schema_json_str)
+            validator = Draft7Validator(schema_obj)
+            # Strip internal graph fields (id, vfrom, vto, labels) before
+            # validating — they're substrate, not user data.
+            user_props = {k: v for k, v in node.items()
+                          if k not in ("id", "vfrom", "vto", "labels")}
+            validator.validate(user_props)
+            return True
+        except ValidationError:
+            return False
+        except json.JSONDecodeError:
+            return False
+
     def project(self, label: str, budget: int, as_of: Optional[int] = None) -> list[dict]:
         """Ranked, budget-capped deltas — never raw history. Recency rank here."""
         rows = self.find(label, as_of=as_of)
