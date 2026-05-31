@@ -33,6 +33,12 @@ _CAPABILITY_SKILL_TEMPLATE = Template(
 _VERB_REFERENCE_TEMPLATE = Template(
     (_RENDER_DIR / "verb-reference.md").read_text()
 )
+_BASH_WRAPPER_TEMPLATE = Template(
+    (_RENDER_DIR / "bash-wrapper.sh").read_text()
+)
+
+# Engine-injected params: these are NOT user-facing args in the wrapper.
+_INJECTED_PARAMS = frozenset({"ctx", "client", "vcs", "memory", "caps"})
 
 
 def _classify_tier(verb_fn) -> str:
@@ -223,4 +229,84 @@ def emit_references(cap_name: str, verbs: dict) -> dict[str, str]:
             ),
         )
         out[f"skills/{cap_name}/references/{verb_name}.md"] = rendered
+    return out
+
+
+def _user_params(fn, inject_list: list) -> list[str]:
+    """Return the verb's user-facing parameter names (excluding engine injects).
+
+    Filters out:
+    - Names in the verb's own `inject` list (per the @verb decorator)
+    - The global engine-injected set (ctx, client, vcs, memory, caps)
+    - intent_id and agent_id (handled by the wrapper's --intent-id / env)
+    """
+    if fn is None:
+        return []
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return []
+    excluded = _INJECTED_PARAMS | set(inject_list or []) | {"intent_id", "agent_id"}
+    return [p.name for p in sig.parameters.values() if p.name not in excluded]
+
+
+def emit_bash_wrappers(cap_name: str, verbs: dict) -> dict[str, str]:
+    """Render per-verb bash wrappers (Spec 031 §D + Spec 032 §H).
+
+    For EVERY verb in the capability (Tier A and Tier B both), emit:
+      bin/agency-<cap_name>-<verb_name>
+
+    The wrapper is a bash script that:
+    - Sources $AGENCY_INTENT_ID from env OR accepts --intent-id <id>
+    - Accepts positional args mapping to the verb's signature kwargs
+    - Builds the kwargs JSON via Python (avoids shell-quoting injection — panel F-10)
+    - Pipes to `python -m agency.cli execute --code "..."`
+    - Errors with clear messages on missing intent-id OR missing args
+    - Supports `--` argument terminator (panel F-11)
+
+    Inputs:
+      - cap_name: capability name (becomes part of the wrapper filename)
+      - verbs: {verb_name: {role, fn, inject}}
+    Returns: {f"bin/agency-{cap_name}-{verb_name}": <bash content>} per verb.
+    chain_next: pass to install.write(); install.write() sets +x mode.
+    """
+    out: dict[str, str] = {}
+    for verb_name in sorted(verbs):
+        spec = verbs[verb_name]
+        fn = spec.get("fn")
+        params = _user_params(fn, spec.get("inject", []))
+
+        # Build the usage line + arg-count check + kwargs JSON pairs
+        if params:
+            usage = (f"agency-{cap_name}-{verb_name} [--intent-id ID] "
+                     + " ".join(f"<{p}>" for p in params))
+            arg_check = (
+                f'if [ "${{#args[@]}}" -lt {len(params)} ]; then\n'
+                f'  echo "error: expected {len(params)} arg(s) ({" ".join(params)}); '
+                f'got ${{#args[@]}}" >&2\n'
+                f'  exit 2\n'
+                f'fi'
+            )
+            # Build the Python kwargs-json line: "intent_id": sys.argv[1], "p1": sys.argv[2], ...
+            kwargs_pairs = ', '.join(
+                ['"intent_id": sys.argv[1]'] +
+                [f'"{p}": sys.argv[{i+2}]' for i, p in enumerate(params)]
+            )
+        else:
+            usage = f"agency-{cap_name}-{verb_name} [--intent-id ID]"
+            arg_check = ('# no positional args for this verb (only --intent-id required)')
+            kwargs_pairs = '"intent_id": sys.argv[1]'
+
+        brief = _first_sentence_brief(fn) if fn else "(no brief)"
+
+        rendered = _BASH_WRAPPER_TEMPLATE.substitute(
+            gen_version=str(GEN_VERSION),
+            cap_name=cap_name,
+            verb_name=verb_name,
+            brief=brief,
+            usage=usage,
+            arg_check=arg_check,
+            kwargs_pairs=kwargs_pairs,
+        )
+        out[f"bin/agency-{cap_name}-{verb_name}"] = rendered
     return out

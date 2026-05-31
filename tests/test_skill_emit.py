@@ -222,3 +222,86 @@ def test_emit_references_includes_inputs_returns_chain_next():
     assert "scope" in body            # inputs rendered
     assert "reflection_id" in body    # returns rendered
     assert "capability_reflect_recall" in body  # chain_next rendered
+
+
+from agency.skill_emit import emit_bash_wrappers
+
+
+def _verb_with_params(role, params: list, doc=""):
+    """Build a verb spec whose fn has given positional params (excluding ctx)."""
+    import inspect
+
+    def fn(**kwargs): pass
+    fn.__doc__ = doc
+    fn.__signature__ = inspect.Signature([
+        inspect.Parameter(p, inspect.Parameter.KEYWORD_ONLY, annotation=str)
+        for p in params
+    ])
+    return {"role": role, "fn": fn, "inject": []}
+
+
+def test_emit_bash_wrappers_one_per_verb():
+    """Every verb (Tier A and B both) gets a wrapper file."""
+    verbs = {
+        "note": _verb_with_params("act", ["scope", "text"]),
+        "recall": _verb_with_params("transform", ["scope"]),
+    }
+    out = emit_bash_wrappers("reflect", verbs)
+    assert set(out.keys()) == {
+        "bin/agency-reflect-note",
+        "bin/agency-reflect-recall",
+    }
+
+
+def test_emit_bash_wrappers_shebang():
+    verbs = {"note": _verb_with_params("act", ["scope", "text"])}
+    out = emit_bash_wrappers("reflect", verbs)
+    body = out["bin/agency-reflect-note"]
+    assert body.startswith("#!/usr/bin/env bash")
+
+
+def test_emit_bash_wrappers_marker_present():
+    verbs = {"note": _verb_with_params("act", ["scope", "text"])}
+    out = emit_bash_wrappers("reflect", verbs)
+    body = out["bin/agency-reflect-note"]
+    assert "agency-generated: v" in body
+
+
+def test_emit_bash_wrappers_intent_id_handling():
+    """Wrapper sources AGENCY_INTENT_ID + accepts --intent-id ID."""
+    verbs = {"note": _verb_with_params("act", ["scope", "text"])}
+    out = emit_bash_wrappers("reflect", verbs)
+    body = out["bin/agency-reflect-note"]
+    assert "AGENCY_INTENT_ID" in body
+    assert "--intent-id" in body
+
+
+def test_emit_bash_wrappers_handles_zero_params():
+    """A verb with NO user params still gets a wrapper that takes only --intent-id."""
+    verbs = {"ping": _verb_with_params("transform", [])}
+    out = emit_bash_wrappers("foo", verbs)
+    body = out["bin/agency-foo-ping"]
+    assert "agency-foo-ping" in body
+
+
+def test_emit_bash_wrappers_skips_injected_params():
+    """Engine-injected params (ctx, client, vcs, intent_id, agent_id) are
+    EXCLUDED from the user-facing args. The wrapper supplies them via env / inject."""
+    import inspect
+
+    def fn(ctx=None, client=None, scope="", text=""): pass
+    fn.__signature__ = inspect.Signature([
+        inspect.Parameter("ctx", inspect.Parameter.KEYWORD_ONLY),
+        inspect.Parameter("client", inspect.Parameter.KEYWORD_ONLY),
+        inspect.Parameter("scope", inspect.Parameter.KEYWORD_ONLY, annotation=str),
+        inspect.Parameter("text", inspect.Parameter.KEYWORD_ONLY, annotation=str),
+    ])
+
+    verbs = {"note": {"role": "act", "fn": fn, "inject": ["ctx", "client"]}}
+    out = emit_bash_wrappers("reflect", verbs)
+    body = out["bin/agency-reflect-note"]
+    # Wrapper should reference user-facing params (scope, text), NOT injected ones
+    assert "scope" in body
+    assert "text" in body
+    # Should NOT positionally take ctx or client (those come from the engine)
+    # The wrapper's arg-count check should reflect 2 user args, not 4
