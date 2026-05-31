@@ -333,3 +333,31 @@ skills/help/SKILL.md                          # regen via install.py
   returns. Track as Spec 031.
 - **F5 (system `python3` silent fail).** Documentation fix, not a
   plugin change — covered by an AGENTS.md amendment.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Shipped
+
+### Done
+- **§A ✓** — `intent_bootstrap` substrate tool in `agency/engine.py:217`; mints + confirms an Intent, returns `{intent_id, status, next}`, rejects empty required fields, records no Invocation node.
+- **§A ✓** — `agency_install` substrate tool in `agency/engine.py:248`; wraps scaffold_db + writes CLAUDE.md snippet with idempotent marker pair (`<!-- agency:onboarding:start/end -->`); `target` defaults via `CLAUDE_PROJECT_DIR` → cwd.
+- **§A ✓** — `agency_welcome` substrate tool in `agency/engine.py:346`; returns capabilities list, db_path, bootstrap_example, install_example, next steps; pure introspection (no graph writes); token budget ≤1 KB verified.
+- **§B ✓** — SERVES-guard error in `capability.py:220–221` names `intent_bootstrap` and bash side-pipe.
+- **§B ✗** — Empty-graph `search` preamble (`_bootstrap_hint`) NOT implemented and `tests/test_search_empty_graph_hint.py` does not exist; this was deliberately superseded by Spec 030's stateful `agency_welcome` (030 OQ-2: "Considered; rejected — stateful welcome subsumes the use case").
+- **§C ✓** — `reflect.note` and `reflect.batch_note` docstrings in `agency/capabilities/reflect.py:30,44` list `Allowed scopes:` inline, sourced from `REFLECT_SCOPES`.
+- **§D ✓** — `skills/help/SKILL.md` regenerated; names `intent_bootstrap`, `agency_install`, `agency_welcome` as MCP first-call surface (verified by `tests/test_install_mcp_skill.py`).
+- **§E ✓** — `Intent.capture_and_confirm` shared helper; CLI and MCP paths both call it; isomorphism test `test_intent_bootstrap_mcp_equals_bash_cli` passing.
+
+### Still to implement
+- Nothing — fully shipped (§B empty-graph preamble was deliberately dropped in favour of 030 stateful welcome).
+
+### Refinement needed (given later specs)
+- Spec 030 made `agency_welcome` stateful (`fresh`/`in_progress`); the §A spec description of `agency_welcome` is now slightly stale (does not mention the `state` field or `last_intent`). The implementation is correct; only the spec text lags.
+- The substrate-tools naming note (OQ-1: add "Substrate tools" section to CORE.md) is still a tracked follow-up, non-blocking.
+
+### Evidence
+- code: `agency/engine.py:209–400` (all four substrate tools); `agency/capability.py:220–221` (SERVES guard); `agency/capabilities/reflect.py:30,44` (scope enum); `agency/install.py` (CLAUDE.md snippet helpers)
+- tests: `tests/test_mcp_bootstrap.py` (4 passing); `tests/test_welcome.py` (4 passing); `tests/test_install_mcp_skill.py` (4 passing); `tests/test_serves_guard_message.py` (1 passing); `tests/test_reflect_scope_enum_in_doc.py` (2 passing); `tests/test_search_empty_graph_hint.py` — absent by design
+- commits/notes: `4cda286` (intent_bootstrap), `22952fe` (agency_install), `5f6358f` (agency_welcome), `9acb7f4` (SERVES guard), `897542e` (reflect scope enum); all 333 tests passing

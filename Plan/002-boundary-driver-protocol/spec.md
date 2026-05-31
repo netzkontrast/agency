@@ -510,3 +510,36 @@ code and `Driver`s remain dumb I/O edges with no `CapabilityContext`/memory acce
 - `vendor/the-agency-system/Plan/decisions/0004-five-handler-domains.md` @
   `0a6a9e71f6c26bc120a8fc1db02f8990b7916f22` — a fixed taxonomy of domains, each a set
   of typed named handlers (one registration table over many domains, not one `dispatch`).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- Nothing from this spec is implemented. `agency/capability.py` has no `Boundary`, `Driver`, `DriverRegistry`, or `DriverMissing` classes; `CapabilityContext` has no `drivers` field or `get_driver()` method.
+- The existing injector pattern from before this spec remains: `Registry.injectors: dict` (`capability.py:139`), populated by `Engine.__init__` with `"client"` and `"vcs"` lambdas (`engine.py:105-106`). The spec's target `DriverRegistry` replaces this, but the old pattern is unchanged.
+- `JulesCapability._backend()` (`jules.py:155-157`) still reads `self.ctx.client` (the pre-spec pattern), not `ctx.get_driver("jules")`.
+- `JulesBackend` and `VCSBackend` are NOT declared as `Driver` Protocols.
+- No `FakeDriver` test or `DriverMissing` / `NOT_FOUND` test exists.
+
+### Still to implement
+- `Boundary` and `Driver` marker Protocols in `agency/capability.py`.
+- `DriverRegistry` with `register`, `get`, `has`, `names` in `agency/capability.py`.
+- `DriverMissing(LookupError)` typed exception.
+- `CapabilityContext.drivers: DriverRegistry` field + `get_driver()` convenience.
+- `Registry.drivers` slot + injection in `Registry.invoke`.
+- `Engine.__init__` `drivers=` kwarg; register `"jules"` and `"vcs"` via registry; back-compat `jules_client=`/`vcs_backend=` shims.
+- `JulesCapability._backend()` → `_driver()` via `ctx.get_driver("jules")`.
+- `JulesBackend`/`VCSBackend` declared as `Driver` marker base.
+- Tests: `FakeDriver`, `DriverMissing`, registry-backed injection for existing Jules/VCS test seams.
+
+### Refinement needed (given later specs)
+- Plan/000-overview.md:54 lists Spec 002 in the "Wave-1 backlog" with no revival plan. The active wave-3 specs (012-022) depend on the existing `injectors` pattern, not the `DriverRegistry`. Implementing 002 now risks breaking many shipped tests without a clear migration story. Revisit only if a new domain driver (e.g. audio, DB) makes the registry valuable.
+- Spec 016 (`capability-authoring-doctrine`) — when the folder-per-capability subpackage form ships, the driver registration point may shift from `Engine.__init__` to capability `__init_subclass__` hooks; coordinate before implementing 002.
+
+### Evidence
+- code: `agency/capability.py:139` (old `injectors`), `agency/engine.py:87-106` (old kwargs pattern), `agency/capabilities/jules.py:155-157` (`_backend` via `ctx.client`)
+- tests: none covering DriverRegistry
+- commits/notes: frontmatter `status: draft`; Plan/000-overview.md:54 places it in the Wave-1 backlog with no active work.

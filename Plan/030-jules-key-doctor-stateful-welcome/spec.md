@@ -139,3 +139,30 @@ tests/test_welcome_state.py               # NEW (fresh / in_progress branches)
 
 - KP Fehlerbericht F2 / F5 — `Plan/AGENCY-PLUGIN-FEHLERBERICHT.md`.
 - Spec 029 §B (deferred empty-graph hint) — `Plan/029-mcp-bootstrap-and-self-explain/spec.md`.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Shipped
+
+### Done
+- **§A ✓** — `_jules_api.py:32–47` RuntimeError message names `user_config.jules_api_key`, "reload the plugin", `agency_doctor`, and the bash side-pipe; verified by `tests/test_jules_key_error.py::test_jules_key_error_names_user_config_and_doctor`.
+- **§B ✓** — `agency_doctor` substrate tool in `agency/engine.py:268`; returns `{ok, python_version, deps, db: {path, exists, writable}, env: {JULES_API_KEY, CLAUDE_PROJECT_DIR}, next_steps}`; JULES_API_KEY value never revealed (only "set"/"missing"); no `intent_id` required.
+- **§B ✓** — Security invariant verified by `tests/test_agency_doctor.py::test_doctor_does_not_leak_jules_key`.
+- **§C ✓** — `agency_welcome` in `agency/engine.py:371–391` is stateful: reads Intent count, sets `state: "fresh"|"in_progress"`, populates `last_intent` and adapts `next` list; no graph writes; token budget ≤1 KB maintained.
+- **§C ✓** — Verified by `tests/test_welcome_state.py` (4 tests: fresh state, in_progress state, no graph writes, token budget); all passing.
+- **§D ✓** — AGENTS.md line 120–126 adds the plugin-venv-mandatory note (Spec 030 §D / KP F5) and mentions `agency_doctor` as the dep-check tool.
+- **§D ✓** — `agency/install.py` / `skills/help/SKILL.md` updated to name `agency_doctor` in the MCP quickstart (commit `35a5004`).
+
+### Still to implement
+- Nothing — fully shipped.
+
+### Refinement needed (given later specs)
+- None. Spec 030 has no downstream dependents in the current plan. The OQ-2 "empty-graph search hint" was explicitly rejected (subsumed by stateful welcome) — no further action needed.
+- F3 (batch idempotency) and F5 "substitution-timing reload" remain explicitly out of scope for this and future specs per the non-goals section.
+
+### Evidence
+- code: `agency/capabilities/_jules_api.py:36–47`; `agency/engine.py:268–344` (agency_doctor), `agency/engine.py:371–400` (stateful agency_welcome); `AGENTS.md:120–126`
+- tests: `tests/test_agency_doctor.py` (4 passing); `tests/test_welcome_state.py` (4 passing); `tests/test_jules_key_error.py` (1 passing); all 333 tests passing
+- commits/notes: `c989953` (jules key error + doctor mention), `b11dcce` (agency_doctor), `6f3de12` (stateful welcome), `f23ecf3` (AGENTS.md F5 note), `35a5004` (install doc updates); frontmatter `status: draft` is stale — spec is fully shipped

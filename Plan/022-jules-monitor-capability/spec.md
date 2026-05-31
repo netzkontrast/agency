@@ -151,3 +151,24 @@ capabilities also feed.
 - User's directive ("we don't want to expose too many Monitors") — the
   hard constraint this spec respects by routing all Jules events
   through Spec 021's single engine channel.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- Nothing. No code for Spec 022 exists yet.
+
+### Still to implement
+- **Spec 021 (dependency) has not shipped.** `agency/_monitor.py` does not exist; `monitors/monitors.json` directory does not exist; `CapabilityContext.emit_monitor()` is not present in `agency/capability.py`; `Engine.monitor` is not wired in `agency/engine.py`. All of Spec 021's substrate is missing — Spec 022 is fully blocked.
+- Once 021 ships: `_jules_watch.Watcher._poll_loop` needs `MonitorEvent` emit per classified transition; `jules.dispatch`, `jules.recover`, `jules.verify` each need a `ctx.emit_monitor(...)` call; `tests/test_jules_monitor.py` needs to be created; `AGENCY_PROTOCOL.md` needs the monitor-stream section.
+
+### Refinement needed (given later specs)
+- None beyond the 021 dependency. Spec 022's design is well-scoped and self-consistent. Once 021 lands, implementation is straightforward (~5 LOC per emit site + one new test file).
+
+### Evidence
+- code: absent — no `agency/_monitor.py`, no `monitors/` directory, no `ctx.emit_monitor` in `agency/capability.py` or any capability
+- tests: none (`tests/test_jules_monitor.py` not found; `tests/test_engine_monitor.py` not found)
+- commits/notes: Plan/000-overview.md lists 022 as "In flight (drafted; awaiting design loop)" behind Spec 021; `status: draft` in frontmatter is accurate but understates the blocking: the dependency is entirely unimplemented.

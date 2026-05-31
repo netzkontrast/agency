@@ -447,3 +447,28 @@ All citations re-pinned against branch `claude/extract-agency-plugin-o4JRc`
   an allow-list reimplementation (`pydantic_monty/os_access.py:194-197`,
   `:925-929`); FastMCP's `MontySandboxProvider.run` passes no `os=`, so the vector
   is unreachable — premise refuted, severity downgraded to Low/Info.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Partially implemented
+
+### Done
+- **(#3) `remote_exists` on VCSBackend + GitClient + `jules.verify`:** `_vcs.py:24,60-73` adds `remote_exists(branch, remote) -> dict` backed by `git ls-remote --heads`; `VCSBackend` Protocol declares it. `jules.verify` (`jules.py:269-287`) injects `vcs`, derives remote check from it, removes the caller-supplied bool, and fails closed. Tested at `tests/test_agency.py:484-508` (`test_completed_not_done`).
+- **(#1 partial) Clock seed scans edges:** `memory.py:54-61` adds the edge scan (`MATCH ()-[r]->() RETURN r`) to prevent stale ticks when the last write before a reopen is an edge. Tested at `tests/test_agency.py:1640-1654` (`test_logical_clock_survives_an_edge_as_last_write`).
+
+### Still to implement
+- **(#1) O(1) clock seed via server-side `max(vfrom)` aggregation:** `memory.py:39-62` still issues full `MATCH (n) RETURN n` + `MATCH ()-[r]->() RETURN r` materialization into Python (O(N+E)). The spec requires two server-side `max(vfrom) AS mx` aggregation queries. Not done. The test at line 1640 verifies correctness of the seed value but does NOT monkeypatch the bare `MATCH (n) RETURN n` to prove the full scan is gone (the spec's behavioral requirement).
+- **(#2) Pagination exhaustion guard:** `_jules_api.py:82-99` still uses `max_pages=10` with `while pages < max_pages`. No `seen_tokens` repeated-token loop guard; `_resolve_github_source` (`_jules_api.py:112`) still passes the default `max_pages=10` ceiling, not an uncapped walk. The 12-page source-walk test does not exist.
+- **(#4) `capture_api_key` + RED-regression test:** `capture_api_key()` and `_CAPTURED_KEY` are absent from `_jules_api.py` and `engine.build_mcp`. No sandbox env-leak RED-regression test exists.
+- **(#1/#2/#4) `tests/test_hardening.py`:** The spec's dedicated test file does not exist. The clock correctness test is in `test_agency.py` but lacks the monkeypatch behavioral guard.
+
+### Refinement needed (given later specs)
+- Spec 012 (`jules-complete-lifecycle-and-watcher`) extended `jules.verify` further (adding `verify_pr` action, remote parameter, recovery flow). The `verify` signature in the current code (`jules.py:269`) already includes these Spec 012 additions — the Spec 006 baseline is subsumed.
+- None of the remaining gaps (#1 O(1), #2 seen_tokens, #4 capture) are dependencies of any active wave-3 spec. They are correctness/security improvements that remain relevant regardless.
+
+### Evidence
+- code: `agency/memory.py:39-62` (O(N+E) scan still present); `agency/capabilities/_jules_api.py:82-99` (`max_pages=10` still default, no `seen_tokens`); `agency/capabilities/_vcs.py:60-73` (`remote_exists` shipped); `agency/capabilities/jules.py:269-287` (`verify` with vcs injection shipped)
+- tests: `tests/test_agency.py:484-508` (verify/remote), `tests/test_agency.py:1640-1654` (clock edge); `tests/test_hardening.py` — does not exist
+- commits/notes: frontmatter `status: draft`; Plan/000-overview.md:32 lists Spec 006 as **Shipped** ("Red-team fixes: tick, pagination, verify, env validation") — this is over-stated; #1 O(1), #2 seen_tokens, and #4 capture_api_key are not implemented.

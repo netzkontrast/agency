@@ -307,3 +307,41 @@ Also resolved by the refinement: **Q1** (cadence) and **Q2** (GitHub-MCP) below.
 - Doctrine: `the-agency-system/Plan/JULES_PROTOCOL.md`, `JULES-REVIEW-LOOP.md`; `_lessons-learned/02,08,10,11,12,15`.
 - MCP wake constraint: `https://modelcontextprotocol.io/specification` (notifications carry no model-visible payload); `https://gofastmcp.com` (lifespan + background-task pattern); R3 audit.
 - Canon: `CORE.md:9-18, 33-35, 38-45, 131-133`; `CAPABILITY-CLUSTERS.md:26-43` (no new primitive; middleware = engine).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Shipped
+
+### Done
+- All v1alpha lifecycle verbs present: `dispatch`, `status`, `list`, `activities`, `plan`, `approve_plan`, `message`, `stop`, `verify` — `agency/capabilities/jules.py:158–571`
+- Orbital verbs (spec "close R2 top-5"): `resolve_source`, `patch`, `patch_body`, `apply_patch`, `status_all`, `approve_awaiting`, `quota`, `alias`, `recover`, `watch` — all present in `jules.py`
+- `dispatch` completeness: `require_plan_approval=True` default (was `False`), `automation_mode`, `protocol_preset`, `alias` — `jules.py:159–215`
+- `verify` independence: derives `branch_on_remote` from `git ls-remote` via injected `vcs` boundary; caller-supplied bool dropped — `jules.py:270–287`
+- `status` returns full session shape from `_jules_api.jules_get` — `_jules_api.py:188–199`
+- Long-polling `watch(session, for_intent, timeout)` with 25-s cap + heartbeat noop — `jules.py:421–502`
+- FastMCP lifespan: `_make_lifespan()` starts `_jules_watch.start(engine)` and stops on shutdown — `engine.py:150–167`
+- `Watcher` class: state-aware adaptive cadence (10 s / 30 s / 300 s + ±2 s jitter + 600 s 429 backoff), `asyncio.to_thread` wrapping, per-intent queue (`maxsize=8`, drop-oldest), heartbeat every 20 s — `_jules_watch.py:196–444`
+- `_classify` classifier: full transition table including terminal-stickiness, `plan_unapproved` COMPLETED disambiguation, `last_agent_msg_id` re-emit — `_jules_watch.py:57–194`
+- Recovery flow: `recover` returns immediately with `status=probing`; poll loop owns probe-wait-recheck (3 × 5 min) then emits `recover_apply_plan` WatchEvent with plan — `_jules_watch.py:252–312`
+- `apply_patch` / `_jules_patch.build_recovery_plan`: unidiff parser + GitHub MCP op-list planner, multi-output chaining, rename handling — `_jules_patch.py`
+- Session registry as graph nodes: `dispatch` records `JulesSession` + `JulesAlias` nodes via `ctx.memory.record`; `ALIAS_OF` edge linked — `jules.py:195–208`
+- Ontology extension: `JulesSession`, `JulesAlias`, `JulesWatchEvent`, `JulesPatch` nodes + `OBSERVED_OF`/`RECOVERED_BY`/`ALIAS_OF` edges + `JulesState`/`WatchAction` enums — `jules.py:140–153`
+- API wrappers: `jules_resolve_source_public`, `jules_get_full`, `jules_status_all`, `jules_approve_awaiting`, `jules_quota`, `jules_patch_extract` — `_jules_api.py:327–412`
+- Tests: `test_jules_watch.py` (classify matrix, queue drop-oldest, cadence, recovery cycle), `test_jules_patch.py` (parse_unidiff, build_recovery_plan), `test_jules_watch_completed_is_idle.py`, `test_jules_watch_recover_apply_patch.py`, `test_jules_watch_recovery_signature.py`, `test_jules_watch_instructions_phase11.py` — 333 tests pass total
+
+### Still to implement
+- `JulesSession SERVES Intent` edge never written in `dispatch` — `jules.py:195–208` records the node but never calls `memory.link(sess_id, intent_id, "SERVES")`. The `watch` verb's graph traversal (`MATCH (js:JulesSession)-[:SERVES]->(i:Intent)`) always falls back to the calling intent, breaking cross-session resume from a fresh intent.
+- `JulesWatchEvent` nodes declared in ontology but never written to the graph by the poll loop. Transitions are emitted to the asyncio queue only; no durable provenance trail of past events survives an MCP restart.
+- Watched-session registry persistence across MCP restarts (OQ3): sessions lost on restart; graph re-seeding on lifespan start not implemented.
+- `status` does not return `require_plan_approval` field — the spec listed it in the "full session shape" but `_jules_api.jules_get` omits it (`_jules_api.py:188–199`).
+
+### Refinement needed (given later specs)
+- Spec 022 depends on `ctx.emit_monitor(...)` in `dispatch`/`recover`/`verify`/watcher, but Spec 021 (the monitor substrate) has not shipped. Spec 012 should add the `SERVES` edge and `JulesWatchEvent` persistence before Spec 022 layers the monitor on top, so the graph provenance matches the monitor stream.
+- Spec 028 (folder migration): jules is still in single-file-with-siblings form (6 files); meets the Hint #2 promotion threshold but activation gate not yet triggered.
+
+### Evidence
+- code: `agency/capabilities/jules.py`, `agency/capabilities/_jules_api.py`, `agency/capabilities/_jules_watch.py`, `agency/capabilities/_jules_patch.py`, `agency/engine.py:150–167`
+- tests: `tests/test_jules_watch.py`, `tests/test_jules_watch_completed_is_idle.py`, `tests/test_jules_watch_recover_apply_patch.py`, `tests/test_jules_watch_recovery_signature.py`, `tests/test_jules_watch_instructions_phase11.py`, `tests/test_jules_patch.py`
+- commits/notes: Plan/000-overview.md lists Spec 012 as SHIPPED; frontmatter `status: draft` is stale.

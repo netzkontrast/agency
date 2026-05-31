@@ -69,3 +69,25 @@ Until then: stub. The deferral has a home with the rationale visible.
 - `agency/capabilities/jules.py` + 5 `_jules_*.py` helpers — the
   current single-file-with-siblings layout that meets Hint #2's
   promotion threshold (≥3 siblings).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- `tests/test_subpackage_discovery.py` proves folder-form discovery works (empirical proof from Spec 016 Phase 3). The migration infrastructure is ready.
+- Current layout: `jules.py` + 5 `_jules_*.py` siblings (`_jules_api.py`, `_jules_patch.py`, `_jules_preambles.py`, `_jules_skills.py`, `_jules_watch.py`) + `_jules_reference.md` — 6 source files total (exceeds the spec's own "≥3 siblings" Hint #2 promotion threshold).
+
+### Still to implement
+- Everything: the 6-file → folder-form move has not started. No `agency/capabilities/jules/` directory exists. Import paths in 13+ test files are unrewritten. `__init__.py` re-exporting `JulesCapability` does not exist. `_wire_skill_tags` cross-capability binding has not been verified under new paths.
+- Activation gate not yet triggered: no 7th `_jules_*.py` sibling has been added, no capability authoring pass has flagged the layout as blocking, no maintainer decision recorded.
+
+### Refinement needed (given later specs)
+- None. This spec is intentionally deferred and self-contained. Its activation gate (7th helper, blocking authoring pass, or maintainer decision) remains valid. `status: stub` in frontmatter accurately reflects intent.
+
+### Evidence
+- code: `agency/capabilities/jules.py` (571 lines), `agency/capabilities/_jules_{api,patch,preambles,skills,watch}.py` — all still in flat sibling form; no `jules/` subdirectory
+- tests: `tests/test_subpackage_discovery.py` (folder-form readiness proof); 13 existing `test_jules_*.py` files would need import rewires on activation
+- commits/notes: `status: stub` is accurate. Frontmatter correctly describes a placeholder; no code divergence from the stub's stated intent.

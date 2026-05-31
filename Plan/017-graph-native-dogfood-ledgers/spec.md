@@ -174,3 +174,34 @@ runs on demand.
   (Spec 017's `dogfood.note` feeds Spec 014's `dogfood.parse_amendment`
   cleanly).
 - `docs/vision/GOALS.md` goal #7 — the canon this spec closes.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- Nothing. Neither `dogfood.note` nor `dogfood.render` exists in `agency/capabilities/dogfood.py`. The file has only the `collect` verb (lines 77-124).
+- `plan_slug` field is absent from `reflect.py`'s Reflection ontology.
+- `_jules_skills.py` has not been extended with a Phase 0 `note-observation` step.
+- `tests/test_dogfood_graph_native.py` does not exist.
+- The `collect` verb is not marked deprecated.
+
+### Still to implement
+- `dogfood.note(observation, plan_slug)` act verb — not present (`agency/capabilities/dogfood.py` has only `collect`).
+- `dogfood.render(plan_slug)` transform verb — not present.
+- `dogfood.collect` deprecation docstring.
+- `plan_slug` optional field on the Reflection ontology (`agency/capabilities/reflect.py`).
+- Phase 0 addition to `JULES_SELF_IMPROVEMENT_SKILL` in `agency/capabilities/_jules_skills.py`.
+- `install.py:145` canon-exception comment (the write-to-disk rationale).
+- `tests/test_dogfood_graph_native.py` end-to-end note→render test.
+
+### Refinement needed (given later specs)
+- Spec 014 (`dogfood.parse_amendment`) depends on Reflection nodes tagged with `plan_slug` (this spec's output). Both 014 and 017 are Not started; they must be sequenced together — implement 017 first.
+- Spec 020 is a listed dependency and is Partially implemented (substrate exists); that dependency is met well enough to unblock 017's implementation.
+
+### Evidence
+- code: `agency/capabilities/dogfood.py` (only `collect` verb; no `note` or `render`); `agency/capabilities/reflect.py` (no `plan_slug` field)
+- tests: `tests/test_dogfood_and_batch_note.py` (covers `collect` + `batch_note` only); `tests/test_dogfood_graph_native.py` absent
+- commits/notes: No commit referencing `dogfood.note`, `dogfood.render`, or `plan_slug`

@@ -532,3 +532,32 @@ open (and it is correctly out of scope for 003 — a Spec 004 decision).
   registers `{"name": "s", "kind": "x", "phases": []}` twice to test the
   duplicate-name collision; the BLOCKER is that `from_schema` must NOT reject the
   empty `phases` list, or these break before the collision raise is reached.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- Nothing from this spec is implemented. `agency/skill.py` has no `SkillSchemaError`, `PhaseInvoke`, `Phase`, or `Skill` classes. `SkillRun.__init__` still takes `schema: dict` and directly indexes `schema["phases"]` (`skill.py:25,29`). `SkillRun.current()` returns a hand-assembled dict by raw-indexing phase dicts (`skill.py:40-46`). No registration-time validation exists in `Engine.__init__`.
+
+### Still to implement
+- `SkillSchemaError(ValueError)` typed error in `agency/skill.py`.
+- `@dataclass(frozen=True) PhaseInvoke(capability, verb)` with `from_dict`.
+- `@dataclass(frozen=True) Phase(index, name, produces, inputs, gate, invoke)` with `from_dict`, `is_gate()`, `is_invokable()`, `missing()`, `spec()`.
+- `@dataclass(frozen=True) Skill(name, kind, phases)` with `from_schema()` validation (contiguous-index check, invoke-single-produces guard, structural invoke validation, empty-phases-ok).
+- `SkillRun.__init__` accepting `Skill | dict`.
+- `SkillRun.current()` returning `phase.spec()` dict (field-identical output).
+- `SkillRun.submit()` delegating to `Phase.missing()`, `Phase.is_invokable()`, `Phase.is_gate()`.
+- `Engine.__init__` validates all registered skills via `Skill.from_schema` after the extend loop.
+- Tests: registration-time malformed-skill raise, contiguous-index guard, invoke-≠1-produces guard, empty-phases no-raise, role-tag-on-Invocation (not on Phase).
+
+### Refinement needed (given later specs)
+- Spec 004 (`template-schema-coverage`) references the snake_case `produces` slot vs kebab-case artefact-kind discrepancy (Open Q6 of Spec 003). This is unresolved and load-bearing for both specs. Coordinate before implementing either.
+- Plan/000-overview.md:56 places Spec 003 in the Wave-1 backlog; no active revival. Spec 016 (`capability-authoring-doctrine`) will define folder-per-capability form, which may affect where skill schemas live — review before implementing 003.
+
+### Evidence
+- code: `agency/skill.py:24-85` (SkillRun walks raw dicts, no typed Phase/Skill); `agency/ontology.py:84,114-117` (stores raw dicts, no shape check); `agency/engine.py:48-57` (extend loop, no Skill.from_schema call)
+- tests: none covering typed Phase/Skill objects or registration-time validation
+- commits/notes: frontmatter `status: draft`; Plan/000-overview.md:56 lists in Wave-1 backlog.

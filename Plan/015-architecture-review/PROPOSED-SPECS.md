@@ -148,3 +148,26 @@ None
 ## Self-Review
 
 This solidifies the existing engine unwrapping contract through documentation and policy instead of a destructive refactor, minimizing maintenance burden.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Shipped (as a milestone, not as code)
+
+### Done
+- Spec 015 was explicitly scoped as a Jules-led dogfood/architecture-review pass whose deliverable was documentation + three promoted proposals. That work is complete: `Plan/015-architecture-review/ARCHITECTURE-REVIEW.md`, `JULES-OBSERVATIONS.md`, and `PROPOSED-SPECS.md` (this file) all exist and contain the review output.
+- The three spec proposals embedded here (017, 018, 019) were promoted to standalone specs (`Plan/017-…/spec.md`, `Plan/018-…/spec.md`, `Plan/019-…/spec.md`). The header note at the top of this file records the promotion.
+- Spec 015 is listed as "Shipped" in `Plan/000-overview.md` ("Jules-led architecture review (dogfood pass). Produced JULES-OBSERVATIONS, ARCHITECTURE-REVIEW, and the three proposals promoted to specs 017-019.").
+
+### Still to implement
+- Nothing — the spec's own deliverable (review docs + promoted proposals) is fully shipped. Implementation of the identified weaknesses lives in the promoted specs (017, 018, 019) whose status is tracked separately.
+
+### Refinement needed (given later specs)
+- Spec 020 partially addresses W1/W2 at the substrate level (`.agency/session.db` committed). `dogfood.note`/`dogfood.render` (Spec 017) still needed to close W1/W2 at the capability level.
+- Weakness W4 (`vision-drift` on engine unwrapping) is the subject of Spec 019 — currently "In flight / draft", not yet implemented.
+
+### Evidence
+- code: `Plan/015-architecture-review/ARCHITECTURE-REVIEW.md`, `JULES-OBSERVATIONS.md`
+- tests: none (review-only spec; no code deliverable)
+- commits/notes: Spec 015 row in `Plan/000-overview.md` § Shipped

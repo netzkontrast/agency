@@ -347,3 +347,30 @@ the orchestrator confirms; ops apply via filesystem write OR a
   for the path).
 - `docs/vision/CORE.md` §47-62 (skills compose), §131-133
   (capability-owned ontology).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- Nothing. No verbs from this spec exist in `agency/capabilities/dogfood.py`.
+
+### Still to implement
+- `dogfood.parse_amendment(reflection_id)` verb — not present in `dogfood.py` (only `collect` exists at line 78).
+- `dogfood.classify(reflection_id)` verb — absent.
+- `dogfood.propose(reflection_id)` verb — absent.
+- `dogfood.cite_exists(cite)` verb — absent.
+- `tests/fixtures/dogfood_v2/` — directory does not exist (`tests/fixtures/` only contains `jules/`).
+- `jules-self-improvement` skill extension (phases 3–6) — `_jules_skills.py` not yet updated.
+- `DESIGN.md`, `REVIEW.md`, `IMPLEMENTATION-PLAN.md` — none present in `Plan/014-…/`.
+
+### Refinement needed (given later specs)
+- Spec 017 (`dogfood.note` + `dogfood.render`) is listed as a dependency of this spec; Spec 017 is also not started, so both specs must be sequenced together — `dogfood.note` feeds the Reflection nodes that `parse_amendment` processes.
+- Spec 020 is the other prerequisite (persistent `.agency/session.db`); Spec 020 is partially shipped, so the substrate dependency is met.
+
+### Evidence
+- code: `agency/capabilities/dogfood.py` (only `collect` verb at line 78; no amendment verbs)
+- tests: `tests/test_dogfood_and_batch_note.py` (covers `collect` + `batch_note` only; no amendment tests)
+- commits/notes: No commit touching `parse_amendment`, `classify`, `propose`, or `cite_exists`.

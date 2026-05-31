@@ -160,3 +160,34 @@ independently useful and reverts cleanly.**
 - `agency/skill.py:24-86` — `SkillRun` (the walker the new `walk` verb
   composes).
 - `docs/vision/GOALS.md` goal #1.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Partially implemented
+
+### Done
+
+Per-item checklist:
+
+- **Win 1 — `skill.walk` verb** ✗ — No dedicated `skill.walk(name, inputs)` verb was added to any capability. `SkillRun` in `agency/skill.py:24-108` implements the walker mechanics, and `tests/test_skill_walk_slices.py` tests phase rendering, but the high-level `skill.walk` verb (the single-call replacement for the 5× `SkillRun.submit` pattern) does not exist. The `authoring-capabilities` discipline walkthrough in `tests/test_develop_authoring.py:426-469` uses `SkillRun` directly, not a `walk` verb.
+- **Win 2 — capability-prefix elision** ✗ — `agency/engine.py:_wire` registers tools only as `capability_<cap>_<verb>` (e.g. `capability_jules_dispatch`); no short-form alias (e.g. `jules.dispatch`) is registered. No aliasing logic exists in `engine.py`.
+- **Win 3 — implicit `intent_id` via `AGENCY_INTENT` env** ✗ — No `AGENCY_INTENT` env var or `agency intent --set` subcommand. Every CLI/registry call still requires explicit `intent_id` in kwargs.
+- **Win 4 — compact `get_schema` rendering** ✗ — `get_schema` is FastMCP's built-in; no compact renderer was added. The spec's 5× compression (signature DSL + one-liner return + `chain_next:` hint) does not exist.
+- **Win 5 — YAML chain compiler (`agency exec --chain`)** ✗ — Not in `agency/cli.py`. No `--chain` flag. No `tests/test_chain_compiler.py`.
+- **Win 6 — `--fields key1,key2`** ✗ — Not in `agency/cli.py`. No `--fields` flag.
+- **Win 7 — Traceback wrapper for `ToolError`** ✓ — `agency/cli.py:103-104` catches all exceptions and emits `{"error": type(e).__name__, "message": str(e)}` — never a raw Python traceback. Ships as a side-effect of the CLI's error handling, not a named "Win 7" feature, but functionally identical.
+
+### Still to implement
+- Win 1 (`skill.walk` verb), Win 2 (tool-name aliasing), Win 3 (implicit `intent_id`), Win 4 (compact `get_schema`), Win 5 (YAML `--chain`), Win 6 (`--fields`) — all unstarted.
+- `tests/test_cli_token_efficiency.py` and `tests/test_chain_compiler.py` — do not exist.
+
+### Refinement needed (given later specs)
+- Spec 023 (adaptive disclosure) subsumes most of 018 per the spec's own Evidence section ("Plan/018-cli-token-efficiency-bundle — overlaps; this spec subsumes most of 018"). Win 4 (compact get_schema) and the broader token-efficiency goal are now owned by 023. 018's remaining unique items (Wins 1–3, 5–6) are still independent.
+- Win 1's resume-across-sessions contract (`skill_id` as the bridge) depends on Spec 020 (central graph DB), which did ship (`.agency/session.db` resolution is in `agency/cli.py:66-67`).
+
+### Evidence
+- code: `agency/cli.py:103-104` (Win 7 traceback wrapper), `agency/engine.py:111-148` (no alias registration), `agency/skill.py:24-108` (SkillRun — Win 1 mechanics exist but no `walk` verb)
+- tests: `tests/test_skill_walk_slices.py` (phase rendering, not the `walk` verb), no `test_chain_compiler.py`, no `test_cli_token_efficiency.py`
+- commits/notes: Frontmatter `status: draft` is accurate; no 018-specific implementation commits identified. Win 7 exists only as a general CLI design choice.

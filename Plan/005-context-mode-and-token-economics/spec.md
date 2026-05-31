@@ -473,3 +473,34 @@ from memory.
   pattern), Plan/111 (mtime/sha256 drift guard), Plan/112 (view ladder), Plan/120
   (deferred checkpoint depth); live context-mode (23 event categories, 5 KB threshold,
   ELv2) — patterns only.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- `ToolResult.archived_to` field is reserved in `agency/toolresult.py:46` and processed by `Registry.invoke` (`capability.py:263-264`) — the field Spec 001 defined and this spec depends on. This is the Spec 001 deliverable, not a Spec 005 deliverable.
+- `Memory.project(label, budget, as_of)` exists at `agency/memory.py:155` as a recency-ranked read-projection (the canon's home for ranked reads), which this spec would route through.
+- `reflect` capability has `search`/`recall` at `reflect.py:17-48` (existing, pre-spec).
+- Boot context-mode (`CodeMode()` in `engine.py:91-95`) is already shipped (pre-spec).
+
+### Still to implement
+- Output-overflow compaction guard in `Engine._wire`/`Registry.invoke` seam: no `byte_len(result.data) > THRESHOLD` check, no `ArchivedOutput` recording, no `archived_to` write from the engine side.
+- `ArchivedOutput` node kind and `ARCHIVED_FROM` edge in the core ontology (`agency/ontology.py`): absent.
+- `reflect.project(query, budget, kind, view)` read-back `transform` verb: absent from `agency/capabilities/reflect.py`.
+- `develop.REFERENCES` folded into searchable Memory corpus: absent — the 3 references remain hardcoded strings in `develop.py:86-111` returned by a `reference` verb.
+- `tests/test_output_compaction.py` and `tests/test_corpus_readback.py`: neither file exists.
+- Measured token trace (Done-When gate): not present.
+- Manifest step for `docs/**` corpus load: absent.
+
+### Refinement needed (given later specs)
+- Open Q-0 (Spec 001's Q-2: does envelope surface at `_wire`?) is resolved by Plan/000-overview.md:31 as Option C (internal unwrap) — the `next_suggested_tools` glue from the `reflect.project` read-back facet therefore cannot be wired through `_wire`. The spec's Part (C) needs redesign against the settled Option C contract.
+- Spec 018 (`cli-token-efficiency-bundle`) covers some of the same token-economy goals (compact get_schema, implicit intent_id) and should be coordinated to avoid overlap.
+- Plan/000-overview.md:57 places Spec 005 in the Wave-1 backlog. The compaction guard portion (A+B) is still valuable and depends only on Spec 001 (shipped); Parts C+D are more complex and depend on the settled Option C wire contract.
+
+### Evidence
+- code: `agency/toolresult.py:46` (`archived_to` field); `agency/memory.py:155` (`project`); `agency/capabilities/reflect.py:17-48`; `agency/engine.py:91-95` (CodeMode boot)
+- tests: none for compaction guard, corpus readback, or ArchivedOutput
+- commits/notes: frontmatter `status: draft`; Plan/000-overview.md:57 lists in Wave-1 backlog.
