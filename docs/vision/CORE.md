@@ -88,6 +88,8 @@ typed answer), `ctx.sample(...)` (ask the caller's LLM), or `ctx.report_progress
 "askuser" is therefore not a special case — it is one node in the chain. All of
 this is proven runnable in `agency/` (real `ctx.elicit` round-trip).
 
+See [SKILL-CONTRACT.md](SKILL-CONTRACT.md) for the five-obligation contract every generated SKILL.md must satisfy (Spec 031).
+
 ## Schemas & templates (the typed/generative layer)
 
 Both are ordinary nodes in **Memory**, forming a generate/validate pair:
