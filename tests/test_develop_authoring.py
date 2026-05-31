@@ -207,7 +207,7 @@ def test_lint_render_slice_first_sentence_cleaves_on_first_sentence_helper(tmp_p
     Phase 7 refinement). A two-sentence-in-one-line docstring must
     cleave correctly — the first sentence ≤120 chars."""
     from agency.capabilities.plugin import lint_capability
-    from agency.render import _first_sentence
+    from agency.disclosure import _first_sentence
     cap, _ = _load_capability_from_source(SCAFFOLDED_CLEAN, tmp_path, "fs")
     result = lint_capability(cap)
     # Clean scaffold should NOT flag render_slice
@@ -221,7 +221,7 @@ def test_lint_render_slice_legacy_body_drift_flags(tmp_path):
     """Codex R-finding #6: a markerless multi-paragraph docstring keeps
     paragraphs 2+ in `body`. parse_slices must NOT lose them at standard
     depth. Lint surfaces the legacy-body-drift case."""
-    from agency.render import parse_slices
+    from agency.disclosure import parse_slices
     src = '''"""one paragraph.\n\nanother paragraph that drifted."""'''
     parsed = parse_slices(src)
     # the parse must NOT drop the second paragraph silently

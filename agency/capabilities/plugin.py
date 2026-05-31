@@ -268,7 +268,7 @@ def _check_role_tag(cap, source_path):
 
 def _check_render_slice(cap):
     """Spec 023: brief is non-empty AND ≤120 chars; first sentence cleaves."""
-    from agency.render import parse_slices
+    from agency.disclosure import parse_slices
     out = []
     for verb_name, spec in cap.verbs.items():
         doc = (spec.get("fn").__doc__ or "")
@@ -334,7 +334,7 @@ def _check_token_budget(cap, max_per_verb=20):
     except ImportError:
         return []
     enc = tiktoken.encoding_for_model("gpt-4")
-    from agency.render import parse_slices
+    from agency.disclosure import parse_slices
     out = []
     for verb_name, spec in cap.verbs.items():
         brief = parse_slices(spec.get("fn").__doc__ or "")["brief"]

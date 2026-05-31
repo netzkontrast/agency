@@ -47,7 +47,7 @@ from .intent import Intent
 from .lifecycle import Lifecycle
 from .memory import Memory
 from .ontology import Ontology
-from .render import parse_slices
+from .disclosure import parse_slices
 
 
 _SURFACES = ("mcp", "bash")

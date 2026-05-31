@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from agency.render import render_verb, parse_slices
+from agency.disclosure import render_verb, parse_slices
 
 
 COMPLIANT_DOC = (
