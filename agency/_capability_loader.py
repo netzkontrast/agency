@@ -61,8 +61,12 @@ def _load_templates_from(folder: Path) -> dict[str, Template]:
         if path.suffix not in _TEMPLATE_EXTS:
             continue
         real = _safe_resolve(path, folder)
-        _check_kebab(real.stem, real)
-        out[real.stem] = Template(real.read_text())
+        # Path safety check uses realpath; dict key uses VISIBLE filename
+        # (path.stem, not real.stem) so two visible names symlinked to the
+        # same real file load as two distinct entries — the user-facing
+        # name is the canonical key.
+        _check_kebab(path.stem, path)
+        out[path.stem] = Template(real.read_text())
     if not out:
         raise ValueError(
             f"templates folder {folder!r} is empty (no *.md / *.tpl / *.sh "
@@ -85,14 +89,15 @@ def _load_schemas_from(folder: Path) -> dict[str, dict]:
         if path.suffix != ".json":
             continue
         real = _safe_resolve(path, folder)
-        _check_kebab(real.stem, real)
+        # Visible filename for the dict key (see _load_templates_from rationale).
+        _check_kebab(path.stem, path)
         try:
             content = json.loads(real.read_text())
         except json.JSONDecodeError as e:
             raise ValueError(
-                f"schema {real.stem!r} in {real!r} is invalid JSON: {e}"
+                f"schema {path.stem!r} in {path!r} is invalid JSON: {e}"
             ) from e
-        out[real.stem] = content
+        out[path.stem] = content
     if not out:
         raise ValueError(
             f"schemas folder {folder!r} is empty (no *.json files) — "
