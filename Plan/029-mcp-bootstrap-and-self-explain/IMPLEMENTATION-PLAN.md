@@ -160,7 +160,10 @@ def test_intent_bootstrap_registered_and_mints_intent():
 
 
 def test_intent_bootstrap_rejects_empty_required_fields():
-    """Empty required fields fail loud — same shape as the CLI."""
+    """Empty required fields fail loud — same shape as the CLI.
+
+    Spec 029 §A error contract (Wiegers/Nygard): ValueError with the
+    field name in the message; surfaces as is_error=true on the wire."""
     e = Engine(tempfile.mktemp(suffix=".db"))
     mcp = e.build_mcp(codemode=False)
     try:
@@ -169,8 +172,32 @@ def test_intent_bootstrap_rejects_empty_required_fields():
                 return await client.call_tool("intent_bootstrap", {
                     "purpose": "", "deliverable": "x", "acceptance": "y",
                 })
-        with pytest.raises(Exception):  # FastMCP raises an MCP error
+        with pytest.raises(Exception) as ei:
             asyncio.run(main())
+        assert "purpose" in str(ei.value).lower()
+    finally:
+        e.memory.close()
+
+
+def test_bootstrap_records_no_invocation():
+    """Spec 029 §A (Crispin): bootstrap matches CLI — no Invocation
+    node, no self-loop SERVES edge. Otherwise the bootstrap call would
+    appear as an action 'performed by' nothing in provenance, which is
+    misleading. Audit trail of 'who called bootstrap' lives in MCP
+    server logs, not the graph."""
+    e = Engine(tempfile.mktemp(suffix=".db"))
+    mcp = e.build_mcp(codemode=False)
+    try:
+        async def main():
+            async with Client(mcp) as client:
+                return _sc(await client.call_tool("intent_bootstrap", {
+                    "purpose": "ship", "deliverable": "X", "acceptance": "Y"}))
+        asyncio.run(main())
+        # Exactly one Intent, zero Invocations
+        intents = list(e.memory.find("Intent"))
+        invocations = list(e.memory.find("Invocation"))
+        assert len(intents) == 1
+        assert len(invocations) == 0
     finally:
         e.memory.close()
 
@@ -267,6 +294,13 @@ Open `/home/user/agency/agency/engine.py`. Find the `memory_graph_provenance` re
             Returns: ``{intent_id, status: "confirmed", next: <example>}``
             chain_next: pass ``intent_id`` to any ``capability_*_*`` verb.
             """
+            # Spec 029 §A error contract (Wiegers/Nygard): name the field
+            # in the message so the caller can fix the call without grep.
+            for field, value in (("purpose", purpose), ("deliverable", deliverable),
+                                 ("acceptance", acceptance)):
+                if not value or not value.strip():
+                    raise ValueError(
+                        f"intent_bootstrap: {field!r} must be non-empty")
             iid = engine.intent.capture_and_confirm(purpose, deliverable, acceptance)
             example = (
                 "await call_tool('capability_plugin_help', "
@@ -369,6 +403,24 @@ def test_welcome_capabilities_is_deterministic():
     assert list(caps.keys()) == sorted(caps.keys())
     for verbs in caps.values():
         assert list(verbs) == sorted(verbs)
+
+
+def test_welcome_works_on_fresh_target(tmp_path, monkeypatch):
+    """Spec 029 §A (Cockburn A1 actor): welcome is purely introspective
+    — it must not require the DB file to exist. resolve_db_path(None)
+    returns the WOULD-BE path on an empty target."""
+    monkeypatch.setenv("AGENCY_DB", str(tmp_path / "missing" / "session.db"))
+    e = Engine(tempfile.mktemp(suffix=".db"))   # the engine's own DB stays separate
+    mcp = e.build_mcp(codemode=False)
+    try:
+        async def main():
+            async with Client(mcp) as client:
+                return _sc(await client.call_tool("agency_welcome", {}))
+        out = asyncio.run(main())
+    finally:
+        e.memory.close()
+    # the welcome resolves to the would-be path; no error on a missing file
+    assert "session.db" in out["db_path"]
 
 
 def test_welcome_token_budget_under_1kb():
@@ -568,6 +620,34 @@ def test_agency_install_preserves_existing_claude_md(tmp_path):
     assert "My own notes." in body                       # user content preserved
     assert "<!-- agency:onboarding:start -->" in body    # marker present
     assert "agency_welcome" in body                      # snippet present
+
+
+def test_agency_install_non_writable_target_fails(tmp_path):
+    """Spec 029 Failure modes (Nygard): non-writable target surfaces
+    as an MCP tool error, not a silent partial state. We make the
+    target read-only and assert the call raises."""
+    import os, stat
+    # Chmod the directory read-only; on systems where the runner is
+    # root this still won't reject writes — skip in that case.
+    os.chmod(tmp_path, stat.S_IREAD | stat.S_IEXEC)
+    if os.access(tmp_path, os.W_OK):
+        os.chmod(tmp_path, stat.S_IRWXU)
+        import pytest
+        pytest.skip("filesystem still writable as root; skipping")
+    try:
+        e = Engine(tempfile.mktemp(suffix=".db"))
+        mcp = e.build_mcp(codemode=False)
+        try:
+            async def main():
+                async with Client(mcp) as client:
+                    return await client.call_tool("agency_install", {"target": str(tmp_path)})
+            import pytest
+            with pytest.raises(Exception):
+                asyncio.run(main())
+        finally:
+            e.memory.close()
+    finally:
+        os.chmod(tmp_path, stat.S_IRWXU)   # restore so pytest can clean up
 
 
 def test_agency_install_replaces_marker_block_on_rerun(tmp_path):

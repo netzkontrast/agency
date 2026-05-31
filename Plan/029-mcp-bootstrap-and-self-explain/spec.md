@@ -60,6 +60,18 @@ discovery call replaces three file reads, error messages teach the
 next call rather than dead-end, and the install verb makes Mode B
 (plugin installed in a target repo) safe to invoke from inside MCP.
 
+## Actors (Cockburn)
+
+The substrate tools serve three distinct caller states. Welcome behavior must be correct for each:
+
+- **A1 — Fresh client on a fresh target.** No `.agency/` dir, no `session.db`, no Intent.
+  Welcome MUST resolve `db_path` to the *would-be* path (per Spec 020 resolution
+  order); a missing DB file is not an error here.
+- **A2 — Fresh client on an installed target.** `.agency/` exists but the graph
+  is empty (no Intent yet). Welcome behaves as A1 but `db_path` exists.
+- **A3 — Returning client.** Intent(s) in the graph; agent is rediscovering tools.
+  Welcome is purely introspective — no graph writes regardless of state.
+
 ## Done When
 
 ### A. Engine-substrate MCP tools (`engine.py::build_mcp`)
@@ -78,8 +90,31 @@ the bootstrap pair; `agency_welcome` is pure introspection):
     exception class as `bin/agency intent`.
   - Records the Intent under the graph DB resolved by Spec 020
     (`AGENCY_DB` env → `./.agency/session.db`).
-  - Fails loud with a useful message if `purpose`/`deliverable`/
-    `acceptance` is empty (matches CLI behavior).
+  - **Error contract (Wiegers/Nygard).** On empty/missing required
+    field, raises `ValueError` with the field name in the message
+    (e.g. `"intent_bootstrap: 'purpose' must be non-empty"`). FastMCP
+    surfaces this as a tool result with `is_error=true` and the
+    message in `content[0].text` — verified by
+    `test_intent_bootstrap_rejects_empty_required_fields`.
+  - **No Invocation recorded (Crispin).** Bootstrap matches CLI
+    behavior — it bypasses `Registry.invoke`, so no `Invocation` node
+    is created and no self-loop SERVES edge appears. Asserted by
+    `test_bootstrap_records_no_invocation` (Intent count == 1,
+    Invocation count == 0 after a single call).
+  - **Evolution doctrine (Newman).** New params are added with
+    sensible defaults (`tags=None`, `parent_intent_id=None`, …); the
+    wire-name `intent_bootstrap` never changes. No versioned tools,
+    no `kwargs` dict. Matches the per-capability auto-wire convention.
+  - **Given/When/Then (Adzic):**
+    ```
+    Given: an Engine over an empty graph DB
+    When:  intent_bootstrap(purpose="X", deliverable="Y", acceptance="Z")
+    Then:  result.intent_id starts with "intent:"
+           result.status == "confirmed"
+           result.next contains "call_tool(" and the literal intent_id
+           memory.find("Intent") == [one row with status=confirmed]
+           memory.find("Invocation") == []
+    ```
 
 - [ ] **`agency_install(target=None) → dict`**
   - Wraps the existing `install.scaffold_db(root)` + writes a
@@ -105,6 +140,24 @@ the bootstrap pair; `agency_welcome` is pure introspection):
     never touched. Idempotent on re-run with the same content.
   - Fails loud on a non-writable target with a clear OSError-wrapped
     message naming the path.
+  - **Given/When/Then — fresh target (Adzic, A1 actor):**
+    ```
+    Given: an empty tmp_path directory
+    When:  agency_install(target=tmp_path)
+    Then:  tmp_path/.agency/.gitkeep exists
+           tmp_path/.agency/README.md exists
+           tmp_path/.gitattributes contains the Spec 020 binary block
+           tmp_path/CLAUDE.md exists and contains the marker pair
+           result.claude_md_updated is True
+    ```
+  - **Given/When/Then — populated target (Adzic, A3 actor):**
+    ```
+    Given: tmp_path with all of the above already present
+    When:  agency_install(target=tmp_path)
+    Then:  no file content changes
+           result.claude_md_updated is False
+           result.scaffolded list contains no new entries
+    ```
 
 - [ ] **`agency_welcome() → dict`**
   - One-shot onboarding payload. No `intent_id` required.
@@ -119,6 +172,11 @@ the bootstrap pair; `agency_welcome` is pure introspection):
       lives);
     - `next` — ordered list `["agency_install", "intent_bootstrap",
       "search"]` with one-line guidance per step.
+  - **A1/A2/A3 invariance (Cockburn).** Welcome is pure introspection;
+    it makes NO graph writes regardless of caller state. `db_path`
+    resolution must not require the DB file to exist (Spec 020
+    `resolve_db_path(None)` returns the *would-be* path on A1).
+    Verified by `test_welcome_works_on_fresh_target`.
   - Token budget: full payload ≤ 1 KB on a 20-capability registry
     (verified by `tests/test_welcome_token_budget.py`).
 
@@ -192,13 +250,16 @@ skills/help/SKILL.md                          # regen via install.py
 
 ## Open Questions
 
-- **OQ-1 — Surface-layer collision.** Should `agency_install` /
-  `agency_welcome` / `intent_bootstrap` follow `capability_*_*`
-  naming (currently auto-generated for every verb)? They are
-  engine-substrate, not capability verbs, so they should NOT (matches
-  `lifecycle_gate` / `memory_graph_provenance`). Resolution: KEEP
-  them under their plain names; document in CORE.md that substrate
-  tools live in a flat namespace.
+- **OQ-1 — Surface-layer naming convention (Fowler).** Should
+  `agency_install` / `agency_welcome` / `intent_bootstrap` follow
+  `capability_*_*` naming? They are engine-substrate, not capability
+  verbs, so NO — matches `lifecycle_gate` / `memory_graph_provenance`.
+  Fowler asked further: name them uniformly (`agency_*`) for the next
+  maintainer's sake. Resolution: KEEP `intent_bootstrap` as-is for
+  now (it reads naturally and the namespace prefix would not help an
+  agent searching for "intent"); add a one-paragraph
+  "Substrate tools" section to CORE.md alongside the next CORE-touch
+  spec. Tracked as a follow-up; non-blocking for this implementation.
 
 - **OQ-2 — CLAUDE.md write policy.** What if the target repo has a
   CLAUDE.md WITHOUT the agency marker? Resolution: append under the
@@ -230,6 +291,32 @@ skills/help/SKILL.md                          # regen via install.py
 - Spec 023 — adaptive disclosure; this spec extends the welcome
   payload's discovery surface to follow the same brief-slice budget
   per verb.
+
+## Failure modes & operational invariants (Nygard)
+
+- **Non-writable target.** `agency_install` on a target whose
+  filesystem rejects writes (read-only mount, missing perms): raises
+  the OS-level `PermissionError`/`OSError`. FastMCP surfaces it as a
+  tool result with `is_error=true` and the OS message; no partial
+  state is left behind (we create `.agency/` BEFORE the
+  `.gitattributes`/CLAUDE.md writes — the first failing step
+  short-circuits the rest). Covered by
+  `test_agency_install_non_writable_target_fails`.
+
+- **Parallel bootstrap calls.** Two `intent_bootstrap` calls in
+  parallel against the same DB are CORRECT behavior — graphqlite
+  serializes the writes, and two distinct Intent nodes appear. Intents
+  are not content-deduped by design (a retry IS a new intent in the
+  domain model). Agents that need idempotency must check
+  `memory.find('Intent', purpose=...)` before bootstrap. This is the
+  same hazard as F3 (Fehlerbericht) — explicitly out of scope here,
+  closed by the future Spec 031 idempotency-key work.
+
+- **DB locked.** If the DB file is held by another process, the
+  engine raises a graphqlite-level lock error on first write.
+  `agency_welcome` does NOT write — so it remains callable even on a
+  locked DB; the agent's recovery path is "call welcome, see db_path,
+  inspect the holder, retry."
 
 ## Non-goals
 
