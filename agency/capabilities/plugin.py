@@ -36,6 +36,17 @@ DEFAULT_TOOLS = "  - Read\n  - Write\n  - Edit"
 _NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 _FIRST_PERSON = re.compile(r"\b(I|I'll|I'm|my|me|we|we'll)\b", re.IGNORECASE)
 
+_WORKFLOW_SUMMARY_PATTERNS = (
+    re.compile(r"\bstep\s+\d", re.I),
+    re.compile(r"\bfirst\b.*?\bthen\b", re.I | re.S),
+    re.compile(r"\b\d+[.)]\s", re.M),
+)
+
+_TRIGGER_PROCEDURAL_VERBS = re.compile(
+    r"^\s*(call|create|run|step|then|first|generate|build|write|invoke)\b",
+    re.I,
+)
+
 
 def scaffold(name: str, version: str, description: str) -> dict:
     body = json.dumps(templates.manifest_obj(name, version, description), indent=2)
@@ -100,6 +111,67 @@ def lint_skill(name: str, description: str) -> dict:
         v.append("description exceeds the 1024-char spec limit")
     elif len(description or "") > 500:
         v.append("description should be under 500 chars")
+    return {"ok": not v, "violations": v}
+
+
+def lint_skill_doc(cap_name: str, doc, verbs: dict) -> dict:
+    """Validate a SkillDoc against the Spec 031 §B contract.
+
+    Returns {ok: bool, violations: [{rule, message}]}.
+    """
+    v: list = []
+    desc = (doc.description or "").strip()
+    if not desc.lower().startswith("use when"):
+        v.append({"rule": "description-trigger-first",
+                  "message": "description must start with 'Use when…'"})
+    for pat in _WORKFLOW_SUMMARY_PATTERNS:
+        if pat.search(desc):
+            v.append({"rule": "description-no-workflow-summary",
+                      "message": (f"description matches workflow-summary "
+                                  f"pattern {pat.pattern!r}; describe triggers, "
+                                  f"not steps")})
+            break
+    overview = (doc.overview or "").strip()
+    for pat in _WORKFLOW_SUMMARY_PATTERNS:
+        if pat.search(overview):
+            v.append({"rule": "overview-no-workflow-summary",
+                      "message": (f"overview matches workflow-summary pattern "
+                                  f"{pat.pattern!r}")})
+            break
+    triggers = list(doc.triggers or [])
+    for i, t in enumerate(triggers):
+        first_8 = " ".join(t.split()[:8])
+        if _TRIGGER_PROCEDURAL_VERBS.search(first_8):
+            v.append({"rule": "triggers-named-symptoms",
+                      "message": (f"trigger {i!r} starts with a procedural verb "
+                                  f"({first_8!r}); name the symptom, not the action")})
+    if not (2 <= len(triggers) <= 5):
+        v.append({"rule": "triggers-count",
+                  "message": f"triggers list has {len(triggers)} items; want 2-5"})
+    canonical_verbs = set(verbs)
+    if not any(f"capability_{cap_name}_{vb}" in (doc.canonical_example or "")
+               or f"agency-{cap_name}-{vb}" in (doc.canonical_example or "")
+               for vb in canonical_verbs):
+        v.append({"rule": "example-uses-real-verb",
+                  "message": (f"canonical_example does not reference any verb of "
+                              f"capability {cap_name!r} (have: "
+                              f"{sorted(canonical_verbs)!r})")})
+    if len(canonical_verbs) >= 3 and not doc.red_flags:
+        v.append({"rule": "red-flags-required",
+                  "message": (f"capability {cap_name!r} ships "
+                              f"{len(canonical_verbs)} verbs; red_flags MUST "
+                              f"have >=1 item")})
+    for rf in (doc.red_flags or []):
+        if "→" not in rf and " - " not in rf:
+            v.append({"rule": "red-flags-format",
+                      "message": (f"red_flag {rf[:40]!r}... missing "
+                                  f"'<symptom> → <counter>' delimiter (use ' → ' "
+                                  f"or ' - ')")})
+    for vb_name in (doc.verb_briefs or {}):
+        if vb_name not in canonical_verbs:
+            v.append({"rule": "verb-briefs-resolve",
+                      "message": (f"verb_briefs key {vb_name!r} is not a verb of "
+                                  f"capability {cap_name!r}")})
     return {"ok": not v, "violations": v}
 
 

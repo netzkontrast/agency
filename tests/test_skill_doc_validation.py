@@ -79,3 +79,107 @@ def test_bootstrap_validation_skipped_without_env_var(monkeypatch):
         assert "bad2" in e.registry.names()
     finally:
         e.memory.close()
+
+
+from agency.capability import SkillDoc
+from agency.capabilities.plugin import lint_skill_doc
+
+
+def _verbs(*names):
+    return {n: {"role": "transform", "fn": lambda: None, "inject": []} for n in names}
+
+
+def test_lint_passes_clean_skilldoc():
+    doc = SkillDoc(
+        description="Use when capturing a cross-session insight tagged by scope.",
+        overview="Reflect is the cross-session memory layer.",
+        triggers=["you learned something a later session shouldn't re-learn",
+                  "you want a doctrine observation alongside a code change"],
+        canonical_example="agency-reflect-note --intent-id $IID 'observation' 'X → Y'",
+        red_flags=["narrative form → re-note in <symptom> → <counter> shape"],
+        verb_briefs={"note": "record one"},
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note"))
+    assert out["ok"], out["violations"]
+
+
+def test_lint_rejects_description_without_use_when():
+    doc = SkillDoc(
+        description="Records a reflection node.",
+        overview="x",
+        triggers=["a", "b"],
+        canonical_example="agency-reflect-note 'x' 'y'",
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note"))
+    assert not out["ok"]
+    assert any(v["rule"] == "description-trigger-first" for v in out["violations"])
+
+
+def test_lint_rejects_workflow_summary_in_description():
+    doc = SkillDoc(
+        description="Use when you want to first call X, then Y, then Z.",
+        overview="x",
+        triggers=["a", "b"],
+        canonical_example="agency-reflect-note 'x' 'y'",
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note"))
+    assert not out["ok"]
+    assert any(v["rule"] == "description-no-workflow-summary" for v in out["violations"])
+
+
+def test_lint_rejects_triggers_with_procedural_verbs():
+    doc = SkillDoc(
+        description="Use when capturing insights.",
+        overview="x",
+        triggers=["call reflect.note", "create a reflection"],
+        canonical_example="agency-reflect-note 'x' 'y'",
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note"))
+    assert not out["ok"]
+    assert any(v["rule"] == "triggers-named-symptoms" for v in out["violations"])
+
+
+def test_lint_rejects_triggers_count_outside_2_5():
+    doc = SkillDoc(
+        description="Use when X.", overview="x",
+        triggers=["only-one"],
+        canonical_example="agency-reflect-note 'x' 'y'",
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note"))
+    assert not out["ok"]
+    assert any(v["rule"] == "triggers-count" for v in out["violations"])
+
+
+def test_lint_rejects_example_not_referencing_real_verb():
+    doc = SkillDoc(
+        description="Use when X.", overview="x",
+        triggers=["a", "b"],
+        canonical_example="agency-foo-bar 'x' 'y'",  # 'bar' isn't a verb of reflect
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note", "recall"))
+    assert not out["ok"]
+    assert any(v["rule"] == "example-uses-real-verb" for v in out["violations"])
+
+
+def test_lint_requires_red_flags_when_3plus_verbs():
+    doc = SkillDoc(
+        description="Use when X.", overview="x",
+        triggers=["a", "b"],
+        canonical_example="agency-reflect-note 'x' 'y'",
+        red_flags=[],
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note", "recall", "search"))
+    assert not out["ok"]
+    assert any(v["rule"] == "red-flags-required" for v in out["violations"])
+
+
+def test_lint_rejects_verb_briefs_with_unknown_verb():
+    doc = SkillDoc(
+        description="Use when X.", overview="x",
+        triggers=["a", "b"],
+        canonical_example="agency-reflect-note 'x' 'y'",
+        verb_briefs={"note": "record one", "phantom": "does not exist"},
+    )
+    out = lint_skill_doc("reflect", doc, _verbs("note"))
+    assert not out["ok"]
+    assert any(v["rule"] == "verb-briefs-resolve" for v in out["violations"])
