@@ -30,6 +30,9 @@ _RENDER_DIR = Path(__file__).parent / "render"
 _CAPABILITY_SKILL_TEMPLATE = Template(
     (_RENDER_DIR / "capability-skill.md").read_text()
 )
+_VERB_REFERENCE_TEMPLATE = Template(
+    (_RENDER_DIR / "verb-reference.md").read_text()
+)
 
 
 def _classify_tier(verb_fn) -> str:
@@ -131,3 +134,93 @@ def emit_skill(cap_name: str, doc, verbs: dict) -> dict[str, str]:
         rendered = rendered.rstrip() + "\n\n" + "\n\n".join(tier_b_anchors) + "\n"
 
     return {f"skills/{cap_name}/SKILL.md": rendered}
+
+
+def _render_inputs_table(inputs_text: str) -> str:
+    """Render the inputs block (parse_slices output) as a markdown table.
+
+    Input format: lines like `- name (type): description` OR `name (type)` OR
+    just `name`. Defensive against malformed entries.
+    """
+    if not inputs_text or not inputs_text.strip():
+        return "(no inputs)"
+    rows = ["| Param | Type | Description |", "|-------|------|-------------|"]
+    for raw_line in inputs_text.strip().splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        # Strip leading '- ' or '* '
+        if line.startswith(("- ", "* ")):
+            line = line[2:]
+        # Try: name (type): description
+        param = line
+        type_ = ""
+        desc = ""
+        if ":" in line:
+            head, _, desc = line.partition(":")
+            desc = desc.strip()
+            line = head.strip()
+            # `line` now is "name (type)" or "name"
+            if "(" in line and line.endswith(")"):
+                p, _, t = line.partition("(")
+                param = p.strip()
+                type_ = t.rstrip(")").strip()
+            else:
+                param = line
+        else:
+            # No colon — try "name (type)" form
+            if "(" in line and line.endswith(")"):
+                p, _, t = line.partition("(")
+                param = p.strip()
+                type_ = t.rstrip(")").strip()
+            else:
+                param = line
+        rows.append(f"| `{param}` | {type_} | {desc} |")
+    return "\n".join(rows) if len(rows) > 2 else "(no inputs)"
+
+
+def emit_references(cap_name: str, verbs: dict) -> dict[str, str]:
+    """Render per-verb reference files for Tier-A verbs of one capability.
+
+    For every Tier-A verb (parse_slices returns non-empty inputs/returns/
+    chain_next), emit:
+      skills/<cap_name>/references/<verb_name>.md
+
+    Each file content is rendered from agency/render/verb-reference.md template
+    populated with the verb's parsed docstring slices.
+
+    Tier-B verbs (missing markers) DO NOT produce a reference file — they
+    live as anchors inside SKILL.md (handled by emit_skill).
+
+    Inputs:
+      - cap_name: capability name (becomes the path prefix)
+      - verbs: {verb_name: {role, fn, inject}}
+    Returns: {path: content} dict; empty if no Tier-A verbs in the capability.
+    chain_next: pass to install.write() alongside the skill output.
+    """
+    from agency.disclosure import parse_slices
+
+    out: dict[str, str] = {}
+    for verb_name in sorted(verbs):
+        spec = verbs[verb_name]
+        fn = spec.get("fn")
+        if fn is None or _classify_tier(fn) != "A":
+            continue
+
+        doc = fn.__doc__ or ""
+        slices = parse_slices(doc)
+
+        rendered = _VERB_REFERENCE_TEMPLATE.substitute(
+            gen_version=str(GEN_VERSION),
+            verb_full_name=f"{cap_name}.{verb_name}",
+            brief=slices.get("brief", "").strip() or "(no brief)",
+            inputs_table=_render_inputs_table(slices.get("inputs", "")),
+            returns=slices.get("returns", "").strip() or "(none documented)",
+            chain_next=slices.get("chain_next", "").strip() or "(terminal)",
+            body=slices.get("body", "").strip() or "(no further detail)",
+            bash_example=(
+                f"agency-{cap_name}-{verb_name} --intent-id $IID …"
+            ),
+        )
+        out[f"skills/{cap_name}/references/{verb_name}.md"] = rendered
+    return out

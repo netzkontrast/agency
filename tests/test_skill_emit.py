@@ -164,3 +164,61 @@ def test_emit_skill_marker_present():
     out = emit_skill("foo", doc, verbs)
     body = out["skills/foo/SKILL.md"]
     assert body.startswith("<!-- agency-generated: v")
+
+
+from agency.skill_emit import emit_references
+
+
+def _verb(role, doc):
+    def fn(): pass
+    fn.__doc__ = doc
+    return {"role": role, "fn": fn, "inject": []}
+
+
+def test_emit_references_returns_empty_for_no_tier_a_verbs():
+    """A capability with only Tier-B verbs produces no reference files."""
+    verbs = {"recall": _verb("transform", "Return reflections (no markers).")}
+    out = emit_references("reflect", verbs)
+    assert out == {}
+
+
+def test_emit_references_produces_one_file_per_tier_a_verb():
+    """Each Tier-A verb gets exactly one references/<verb>.md file."""
+    verbs = {
+        "note": _verb("act", "Record a Reflection.\n\nInputs: scope (str): the scope tag\nReturns: {result: id}\nchain_next: capability_reflect_recall\n"),
+        "search": _verb("transform", "Search reflections.\n\nInputs: query (str): keyword\nReturns: {result: list}\nchain_next: terminal\n"),
+        "tier_b": _verb("transform", "No markers here."),
+    }
+    out = emit_references("reflect", verbs)
+    assert set(out.keys()) == {
+        "skills/reflect/references/note.md",
+        "skills/reflect/references/search.md",
+    }
+
+
+def test_emit_references_marker_present():
+    """Each reference file leads with the agency-generated marker."""
+    verbs = {"note": _verb("act",
+        "Record a Reflection.\n\nInputs: scope (str)\nReturns: dict\nchain_next: recall\n")}
+    out = emit_references("reflect", verbs)
+    body = out["skills/reflect/references/note.md"]
+    assert body.startswith("<!-- agency-generated: v")
+
+
+def test_emit_references_includes_verb_full_name_and_brief():
+    verbs = {"note": _verb("act",
+        "Record a scope-tagged Reflection.\n\nInputs: scope (str)\nReturns: {result: id}\nchain_next: capability_reflect_recall\n")}
+    out = emit_references("reflect", verbs)
+    body = out["skills/reflect/references/note.md"]
+    assert "reflect.note" in body
+    assert "Record a scope-tagged Reflection." in body
+
+
+def test_emit_references_includes_inputs_returns_chain_next():
+    verbs = {"note": _verb("act",
+        "Brief.\n\nInputs: scope (str): the scope tag\nReturns: {result: <reflection_id>}\nchain_next: capability_reflect_recall\n")}
+    out = emit_references("reflect", verbs)
+    body = out["skills/reflect/references/note.md"]
+    assert "scope" in body            # inputs rendered
+    assert "reflection_id" in body    # returns rendered
+    assert "capability_reflect_recall" in body  # chain_next rendered
