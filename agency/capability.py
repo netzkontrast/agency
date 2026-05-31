@@ -13,7 +13,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass, field
 from string import Template as _Template
-from typing import Any, Callable, Optional
+from typing import Any, Callable, ClassVar, Optional
 
 from .memory import Memory
 from .ontology import OntologyExtension
@@ -110,6 +110,35 @@ def _wrap_method(cls: type, mname: str, member: Callable, meta: dict) -> dict:
     return {"role": meta["role"], "fn": fn, "inject": ["ctx"] + meta["inject"]}
 
 
+@dataclass
+class SkillDoc:
+    """Rendering metadata for the per-capability SKILL.md emission (Spec 031 §13).
+
+    Single-responsibility: how this capability is documented to a fresh agent.
+    No phase-graphs (those live on WalkerSkills); no verb impls (those are
+    @verb methods on the capability class).
+    """
+    description: str
+    overview: str
+    triggers: list[str]
+    canonical_example: str
+    red_flags: list[str] = field(default_factory=list)
+    required_subskills: list[str] = field(default_factory=list)
+    verb_briefs: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class WalkerSkills:
+    """Phase-graph schemas this capability owns (Spec 031 §13).
+
+    Single-responsibility: what skill-walks this capability provides.
+    Schemas keep the existing dict shape ({name, kind, phases:[...]}).
+    Merges into OntologyExtension.skills at engine bootstrap; OntologyExtension
+    keeps the merge target unchanged for backwards compatibility.
+    """
+    schemas: dict[str, dict] = field(default_factory=dict)
+
+
 class CapabilityBase:
     """Optional class form: subclass, set `name`/`home`/`ontology`, decorate
     verb-methods with `@verb(...)`, and reach services via `self.ctx`. Compiled to
@@ -118,6 +147,11 @@ class CapabilityBase:
     name: str = ""
     home: str = "capability"
     ontology: OntologyExtension = OntologyExtension()
+    # Spec 031 §13 — rendering metadata + walker schemas.
+    # `skill_doc` is REQUIRED for any capability with >=1 verb (validated at
+    # engine bootstrap, Task 1.2); `walker_skills` is optional always.
+    skill_doc: ClassVar["SkillDoc | None"] = None
+    walker_skills: ClassVar["WalkerSkills | None"] = None
 
     def __init__(self, ctx: CapabilityContext):
         self.ctx = ctx
