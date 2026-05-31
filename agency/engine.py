@@ -205,4 +205,43 @@ class Engine:
             "Cross-concern provenance for an intent — one graph traversal."
             return mem.provenance(intent_id)
 
+        # Spec 029 §A — engine-substrate bootstrap tools. Substrate, not capability:
+        # they live outside the per-capability auto-wire because intent_bootstrap
+        # mints the FIRST Intent (no existing intent_id to SERVES against) and
+        # agency_welcome / agency_install are pure introspection / scaffold ops.
+        # Naming follows the existing substrate convention (lifecycle_gate /
+        # memory_graph_provenance) — flat names, no capability_ prefix.
+        engine = self
+
+        @mcp.tool
+        def intent_bootstrap(purpose: str, deliverable: str, acceptance: str) -> dict:
+            """Mint AND confirm an Intent — the canonical MCP bootstrap.
+
+            The ONLY substrate tool that does not require an existing
+            ``intent_id`` (every capability verb does — see the SERVES guard
+            in ``capability.py``). Returns ``{intent_id, status, next}``
+            where ``next`` is a copy-pasteable ``call_tool`` example for the
+            next call. Isomorphic with ``python -m agency.cli intent …``.
+
+            Inputs:
+              - ``purpose`` (str, required) — non-empty: the why
+              - ``deliverable`` (str, required) — non-empty: the what
+              - ``acceptance`` (str, required) — non-empty: how to verify
+            Returns: ``{intent_id, status: "confirmed", next: <example>}``
+            chain_next: pass ``intent_id`` to any ``capability_*_*`` verb.
+            """
+            # Spec 029 §A error contract (Wiegers/Nygard): name the field
+            # in the message so the caller can fix the call without grep.
+            for field, value in (("purpose", purpose), ("deliverable", deliverable),
+                                 ("acceptance", acceptance)):
+                if not value or not value.strip():
+                    raise ValueError(
+                        f"intent_bootstrap: {field!r} must be non-empty")
+            iid = engine.intent.capture_and_confirm(purpose, deliverable, acceptance)
+            example = (
+                "await call_tool('capability_plugin_help', "
+                f"{{'intent_id': '{iid}'}})"
+            )
+            return {"intent_id": iid, "status": "confirmed", "next": example}
+
         return mcp
