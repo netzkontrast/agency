@@ -31,9 +31,21 @@ class JulesAPIError(RuntimeError):
 def _api_key() -> str:
     key = os.environ.get("JULES_API_KEY", "")
     if not key:
+        # Spec 030 §A (F2): the previous "export it in the shell" advice
+        # misleads marketplace plugin users — the key is wired via
+        # ${user_config.jules_api_key} at MCP server start, not via the
+        # shell. The fix is to set the user_config value and reload the
+        # plugin (the server inherits a fresh env on relaunch).
         raise RuntimeError(
-            "JULES_API_KEY is not set. Export it in the shell that launched the "
-            "engine, then retry."
+            "JULES_API_KEY is not set. "
+            "If you installed the agency plugin via the Claude Code "
+            "marketplace, the key is read from `user_config.jules_api_key` "
+            "at MCP server start: set it in the plugin's user config, "
+            "then RELOAD the plugin (a running server inherits the value "
+            "from start time only). "
+            "Call `agency_doctor` to confirm the inheritance once reloaded. "
+            "For Jules / no-MCP hosts, run `JULES_API_KEY=... "
+            "python -m agency.cli execute ...` instead."
         )
     return key
 
