@@ -12,28 +12,39 @@ allowed-tools:
 
 ## Quick start — MCP (Claude Code)
 
-The plugin installs an MCP server exposing three tools:
-`mcp__plugin_agency_agency__search`, `…__get_schema`, `…__execute`.
-Inside `execute`, chain capability calls via `call_tool(...)` — only
-the return crosses back into your context.
+The plugin installs an MCP server exposing the code-mode contract
+(`search` · `get_schema` · `execute`) AND three engine-substrate
+onboarding tools (Spec 029):
+
+- `agency_welcome` — one-shot onboarding payload; returns the
+  bootstrap example + the live capability list. **Start here.**
+- `agency_install` — scaffold `.agency/` + a CLAUDE.md snippet in
+  the current target repo. Idempotent.
+- `intent_bootstrap` — mint AND confirm an Intent. The only verb
+  that does not require an existing `intent_id`.
+- `agency_doctor` — health check (Spec 030): python version, deps,
+  DB reachability, JULES_API_KEY presence (never the value).
+  Call when something silently fails.
+
+These onboarding tools and the code-mode trio share one MCP server
+(`mcp__plugin_agency_agency__execute` for the sandbox, `mcp__plugin_agency_agency__search` for discovery, `mcp__plugin_agency_agency__get_schema` before a call).
 
 ```python
-# 1. Discover a verb (token-cheap)
-await mcp__plugin_agency_agency__search(query="reflect note", limit=3)
+# 1. Onboard (one call; no intent_id needed)
+await call_tool('agency_welcome', {})
 
-# 2. Run it (sandboxed; intermediate results stay in-sandbox).
-#    `intent_id` must be a captured Intent. MCP has no intent.capture
-#    verb yet, so obtain one from the bash `intent` command in the
-#    fallback below and paste it here (replace the placeholder):
-await mcp__plugin_agency_agency__execute(code="""
-  intent_id = 'intent:...'  # from `bin/agency intent ...` (see below)
-  r = await call_tool('capability_plugin_help', {'intent_id': intent_id})
-  return r
-""")
+# 2. Scaffold .agency/ + CLAUDE.md in the target repo if missing
+await call_tool('agency_install', {})
+
+# 3. Mint the intent every capability verb SERVES against
+r = await call_tool('intent_bootstrap', {
+    'purpose': 'ship X',
+    'deliverable': 'Y working',
+    'acceptance': 'tests green',
+})
+# 4. Use it
+await call_tool('capability_plugin_help', {'intent_id': r['intent_id']})
 ```
-
-Tracking issue: add a `capability_intent_capture` verb so MCP-only
-sessions can self-bootstrap without the bash hop.
 
 ## Quick start — bash (Jules / no-MCP)
 

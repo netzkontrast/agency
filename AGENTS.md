@@ -117,6 +117,14 @@ a capability's `ontology.skills` and walked by `agency/skill.py` one phase at a 
   "realish" tests; assert real provenance / a real skill walk.
 - After adding/changing a capability, regenerate the self-hosted install:
   `python -m agency.install` (rewrites `.claude-plugin/plugin.json` + `skills/help` + `commands/`).
+- **The plugin venv is mandatory for direct engine invocations** (Spec 030 §D / KP Fehlerbericht F5).
+  Running `python -m agency.cli ...` with the system `python3` fails
+  silently with `ModuleNotFoundError: graphqlite` — the engine writes
+  nothing yet the surrounding output can look successful. ALWAYS
+  activate the plugin venv (`. .venv/bin/activate`) or invoke the
+  venv's interpreter directly. Call `agency_doctor` from MCP (or
+  `python -m agency.cli execute --code "import json; r = await call_tool('agency_doctor', {}); print(json.dumps(r))"`)
+  to confirm both deps and the resolved DB path before bootstrapping.
 - Develop on the feature branch; **PRs target `main`**; additive commits, never
   force-push or rewrite history.
 - Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`); one concern per commit.

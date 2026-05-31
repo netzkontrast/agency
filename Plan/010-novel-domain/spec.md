@@ -2,31 +2,45 @@
 spec_id: "010"
 slug: novel-domain
 status: draft
+last_updated: 2026-05-31
 owner: "@agency"
-depends_on: [001, 002, 003]
+depends_on: [001, 016]
 affects:
-  - examples/novel.py
-  - examples/novel/__init__.py
-  - examples/novel/_layout.py
-  - examples/novel/_dramatica.py
-  - examples/novel/_ncp.py
-  - examples/novel/_coherence.py
-  - examples/novel/data/dramatica_ontology.json
-  - examples/novel/data/ncp.schema.json
-  - examples/__init__.py
+  - agency/capabilities/novel/__init__.py        # re-exports NovelCapability (auto-discovered)
+  - agency/capabilities/novel/_main.py           # the CapabilityBase subclass + OntologyExtension
+  - agency/capabilities/novel/_layout.py         # 14-entry workspace layout + slug discipline
+  - agency/capabilities/novel/_dramatica.py      # lazy navigator over the bundled ontology
+  - agency/capabilities/novel/_ncp.py            # draft-07 jsonschema validator
+  - agency/capabilities/novel/_coherence.py      # decidable-subset checks + report merge
+  - agency/capabilities/novel/data/dramatica_ontology.json   # vendored 303-entry dataset
+  - agency/capabilities/novel/data/dramatica_ontology.json.sha
+  - agency/capabilities/novel/data/ncp.schema.json           # pinned draft-07 schema
+  - agency/capabilities/novel/data/ncp.schema.json.sha
   - docs/examples/author_a_novel.py
   - tests/test_novel_capability.py
   - tests/test_novel_coherence.py
   - tests/test_novel_skills.py
-  - requirements-examples.txt
+  - requirements-examples.txt                   # jsonschema (capability dep, not core)
 source-repos:
   - "https://github.com/netzkontrast/the-agency-system @ 0a6a9e71f6c26bc120a8fc1db02f8990b7916f22"
+  - "https://github.com/netzkontrast/kohaerenzprotokoll @ Legacy/ corpus (the MVP being re-architected)"
 estimated_jules_sessions: 2
 domain: novel
 wave: 2
 ---
 
 # Spec 010 — Novel Domain Capability
+
+## Update note (2026-05-31)
+
+This revision re-bases the spec on the post-Spec-016 substrate (folder-per-capability + `develop.scaffold_capability` + block-mode lint) and the Spec 029/030 onboarding surface, and **elevates the novel capability from `examples/` to `agency/capabilities/`** — it is the canonical user-facing application driving the Kohärenz-Protokoll campaign, not a third-party domain proof. The original design intent (re-architecture, not literal port; graph-canonical with `apply=True` disk export; decidable-subset honesty; 6-gate composition) is unchanged. The mechanical changes:
+
+- **Location:** `examples/novel/…` → `agency/capabilities/novel/…` (auto-discovered via folder-form `discover()`, Spec 016 Phase 3 — commit `8a5a45d`). The "Where it lives" Open Question resolution flips: **core, not examples**.
+- **`depends_on`:** `[001, 002, 003]` → `[001, 016]`. Spec 002 (Driver registry) is additive — the novel capability uses no external drivers (Dramatica + NCP are vendored static JSON, not boundaries). Spec 003 (typed Skill/Phase) is a validation-time refactor that keeps storing dicts (Open Q5 RESOLVED → store dict) — the `work-concept` skill is still authored as a dict literal exactly like `examples/music.py`'s `album-concept`. Spec 016 is the real new dependency: its `develop.scaffold_capability` produces the doctrine-compliant skeleton this spec MUST start from.
+- **Bootstrap discipline:** implementation MUST begin with `develop.scaffold_capability(name="novel", kind="heavy")` (kind heavy = vendored data + multiple sub-modules + JSON schema + skill walker). The resulting skeleton ships the `# agency-scaffold: v1` marker so `plugin.lint_capability("novel")` runs in **block mode** by construction.
+- **Onboarding surface:** a fresh novel-cap author dispatched into a clean repo onboards via `agency_welcome` → `agency_install` → `intent_bootstrap` → `develop.scaffold_capability(…)` (Spec 029/030 substrate tools, shipped in PR #14).
+- **Per-verb token budget:** every verb's docstring carries a ≤120-char brief slice (Spec 023 adaptive-disclosure gate); `lint_capability` enforces this in block mode.
+- **Source-repos:** added the kp `Legacy/` corpus — it carries the same MVP source SHA but is the user-facing repo for the campaign; the agency repo holds the design and the implementation.
 
 ## Why
 
@@ -71,10 +85,27 @@ can carry a **vendored reference dataset** (the Dramatica ontology) and a
 
 ## Done When
 
-- [ ] `examples/novel.py` defines a `NovelCapability(CapabilityBase)` with
-  `name="novel"`, `home="capability"`, and an `OntologyExtension` that merges
-  cleanly onto the core (`Engine(..., extra_capabilities=[NovelCapability.as_capability()])`
-  raises no ontology-conflict error).
+- [ ] `agency/capabilities/novel/__init__.py` re-exports a
+  `NovelCapability(CapabilityBase)` with `name="novel"`, `home="capability"`,
+  and an `OntologyExtension` that merges cleanly onto the core. **Auto-discovered**
+  via folder-form `discover()` (Spec 016 Phase 3 — commit `8a5a45d`): a fresh
+  `Engine(":memory:")` registers `capability_novel_*` verbs WITHOUT any
+  `extra_capabilities=[…]` host hook. The legacy
+  `Engine(..., extra_capabilities=[NovelCapability.as_capability()])` API still
+  works (additive — Spec 016 keeps the extra_capabilities seam) but is no longer
+  required.
+- [ ] **`plugin.lint_capability("novel")` returns `ok=True` in block mode**
+  (Spec 016 + 024). The scaffolded `agency/capabilities/novel/_main.py` carries
+  the `# agency-scaffold: v1` marker on its first non-blank line, flipping the
+  linter from `warn` to `block`. All five rule families (structural docstring
+  markers, role-tag/IO consistency, render-slice presence, consumer-contract
+  registration, token budget) MUST pass; any violation is a real error, not a
+  grandfathered warning.
+- [ ] **Every verb's docstring brief slice is ≤ 120 chars / ≤ 20 cl100k tokens**
+  (Spec 023 adaptive-disclosure gate). The brief is the first sentence parsed by
+  `agency/render.py::parse_slices`; it surfaces in `search` / `capability_plugin_help`
+  / FastMCP `tools/list`. Verified by the token-budget rule family inside
+  `lint_capability`.
 - [ ] The extension adds the node types `Work`, `Chapter`, `Scene`, `Character`,
   `Premise`, `Storyform`, `Coherence` with strict required-field schemas, the
   closed node enums for `Chapter.pov` and `Coherence.status` (the only two enums
@@ -132,17 +163,68 @@ can carry a **vendored reference dataset** (the Dramatica ontology) and a
 
 ## Design
 
-### Where it lives (core vs examples)
+### Where it lives — core, not examples (updated 2026-05-31)
 
-Per `agency/CLAUDE.md`: "Domain capabilities live OUT of the core as example
-extensions in `examples/`." The novel domain follows `examples/music.py` exactly —
-it ships under `examples/novel.py` (with a `examples/novel/` package for the
-vendored data + helper modules), loaded via the engine's `extra_capabilities`
-extension point. The vendored-dataset weight is not a reason to promote to the core:
-data is the capability's private concern (the engine's `Ontology.extend` only touches
-nodes/edges/enums/skills/schemas/templates, never data files). This placement is
-**settled for v1** (see **Open Questions**); revisit only if a second domain needs
-the same dataset.
+The original v1 resolution placed novel in `examples/`, parallel to `music.py`. This revision **flips that to `agency/capabilities/novel/`** (a folder-form core capability auto-discovered per Spec 016 Phase 3 — commit `8a5a45d`). Three reasons:
+
+1. **User-facing canonical.** The Kohärenz-Protokoll project (kp repo) IS the agency plugin's primary application. Novel is the substrate's reason-for-being in this org, not a third-party domain proof. Music remains in `examples/` (still the second-domain proof of `extra_capabilities`).
+2. **Auto-discovery.** Core caps register with no `extra_capabilities=[…]` host hook — a fresh `Engine(":memory:")` already exposes `capability_novel_*` verbs without any plugin-host glue. The kp repo (which installs the agency plugin via marketplace) gets the novel capability for free.
+3. **Folder form fits the weight.** Novel ships 4+ sub-modules + 2 vendored JSON datasets + 1 skill template — significantly heavier than `reflect.py` or `gate.py`. Spec 016 Phase 3 explicitly designed folder-form `discover()` for this case.
+
+The vendored-dataset placement is still the capability's private concern (`Ontology.extend` is unchanged — it touches no data files). `agency/CLAUDE.md`'s "domain capabilities live in `examples/`" line documents the music precedent and remains correct as guidance for *third-party* domain capabilities; novel is the explicit exception (canonical user-facing application).
+
+### Bootstrap via the engine (NEW — Spec 016 + 029/030)
+
+Implementation MUST begin by walking the doctrine, not by hand-authoring files. The first phase is `develop.scaffold_capability` (verb shipped by Spec 016, Phase 3):
+
+```python
+# 0. Onboard if fresh (Spec 029/030 substrate tools — no bash hop needed)
+await call_tool('agency_welcome', {})
+await call_tool('agency_install', {})           # idempotent
+r = await call_tool('intent_bootstrap', {
+    'purpose': 'novel capability v1',
+    'deliverable': 'agency/capabilities/novel/ + tests pass',
+    'acceptance': 'plugin.lint_capability("novel") ok=True in block mode',
+})
+iid = r['intent_id']
+
+# 1. Scaffold the skeleton — emits a CAPABILITY-AUTHORING.md-compliant tree
+#    that lints CLEAN in block mode by construction.
+await call_tool('capability_develop_scaffold_capability', {
+    'name': 'novel', 'kind': 'heavy', 'intent_id': iid,
+})
+# Output: agency/capabilities/novel/ with __init__.py + _main.py + the
+# `# agency-scaffold: v1` marker that flips lint_capability into block mode.
+```
+
+The skeleton is the **starting state** for the per-section TDD loops (`dramatica_lookup` first — see §"Implementation order", below). Hand-editing the scaffolded files is the next step; the scaffold itself is non-negotiable per Spec 024's discipline rule.
+
+### Per-verb token budget (NEW — Spec 023)
+
+Every verb's docstring carries a ≤120-character brief slice (the first sentence, parsed by `agency/render.py::parse_slices`). `plugin.lint_capability` checks this in block mode and fails if the brief exceeds the budget. The brief surfaces in:
+
+- `search` results (the discovery surface);
+- `capability_plugin_help` (the macroskill map);
+- the FastMCP `tools/list` response (the host-visible tool description).
+
+A verb whose first sentence is "Lazily-load the Dramatica ontology from `data/dramatica_ontology.json` and …" (87 chars) PASSES; one that exposes the full implementation rationale in the first sentence FAILS. Move detail into the body, the `Inputs:` / `Returns:` / `chain_next:` markers, or the in-line comments.
+
+### Implementation order — sequenced per kp § / agency loop
+
+The 7 implementation loops the post-update spec drives:
+
+| Loop | Lands | Verbs / data |
+|---|---|---|
+| 0 (this PR) | Spec update + scaffolded skeleton + vendored data + smoke tests | `agency/capabilities/novel/` exists, lints clean, ontology files present + `.sha` measured |
+| 1 | First `transform` | `dramatica_lookup` (the navigator port, parametric tests against ≈ 54 measured pairs) |
+| 2 | Second `transform` | `ncp_validate` (real `jsonschema.Draft7Validator`, draft-07) |
+| 3 | OntologyExtension + first `act`/`effect` | 7 nodes + 2 enums + 2 edges + 4 schemas declared; `scaffold` verb (graph-canonical, `apply=True` exports) |
+| 4 | Third `transform` | `coherence_check` (decidable subset only — Spec 010 §"The decidable coherence subset") |
+| 5 | First gate-composing `act` | `pre_drafting_gate` (composes 6 `gate.check` calls + `OVERRIDDEN_BY` audit edge for `force=True`) |
+| 6 | Conceptualizer + skill walker | `conceptualize` (act) + the `work-concept` skill (`foundation → premise → storyform → cast → structure → world → confirmation(hard)`); pre-drafting phase DELEGATES to `pre_drafting_gate` |
+| 7 | Runnable end-to-end | `docs/examples/author_a_novel.py` — scaffold → walk skill → validate NCP → coherence_check → pre_drafting_gate; prints the provenance subgraph |
+
+Each loop = one PR; each PR = TDD per task (RED → GREEN → REFACTOR → commit) per Spec 016 Phase 5 conftest fixtures (Phase 5 — commit `d76135a`).
 
 ### OntologyExtension — node types, enums, skills, schemas
 
@@ -271,18 +353,19 @@ shipped name + behaviour.)
 ### Dramatica + NCP libraries
 
 - **Dramatica**: bundle the ontology + the dynamic-pair index as data under
-  `examples/novel/data/dramatica_ontology.json` (vendored from the-agency-system
-  `reference/novel/dramatica/ontology.json` at the pinned SHA; record provenance —
-  including the file's real `entries` length — in a sibling `.sha` file since JSON
-  can't host comments). `_dramatica.py` is a lazy-loading navigator (`by_id`,
-  `by_class/type/variation/element`, `by_dynamic_pair`,
-  `check_dynamic_pair_reciprocity`). Reciprocal pairs are extracted from the bundled
-  `kind: dynamic-pair` entries (`pair_member_a`/`pair_member_b`) at test-collection
-  time and covered parametrically in `tests/test_novel_coherence.py` — never
-  hard-coded (see **Source fidelity §2**).
-- **NCP**: bundle the **draft-07** schema under `examples/novel/data/ncp.schema.json`
-  (with a `.sha`). `_ncp.py` ships `validate(doc)` using real `jsonschema`
-  (Draft7Validator). See **Open Questions** on the `jsonschema` dependency.
+  `agency/capabilities/novel/data/dramatica_ontology.json` (vendored from
+  the-agency-system `reference/novel/dramatica/ontology.json` at the pinned SHA;
+  record provenance — including the file's real `entries` length — in a sibling
+  `.sha` file since JSON can't host comments). `_dramatica.py` is a lazy-loading
+  navigator (`by_id`, `by_class/type/variation/element`, `by_dynamic_pair`,
+  `check_dynamic_pair_reciprocity`). Reciprocal pairs are extracted from the
+  bundled `kind: dynamic-pair` entries (`pair_member_a`/`pair_member_b`) at
+  test-collection time and covered parametrically in
+  `tests/test_novel_coherence.py` — never hard-coded (see **Source fidelity §2**).
+- **NCP**: bundle the **draft-07** schema under
+  `agency/capabilities/novel/data/ncp.schema.json` (with a `.sha`). `_ncp.py`
+  ships `validate(doc)` using real `jsonschema` (Draft7Validator). See **Open
+  Questions** on the `jsonschema` dependency.
 
 ### Source fidelity (cite: the-agency-system @ 0a6a9e71)
 
@@ -343,42 +426,57 @@ These corrections re-base the spec on the SHIPPED artefacts, MEASURED here:
 
 ## Files
 
-- **Create**:
-  - `examples/novel.py` — `NovelCapability` + the `OntologyExtension` (the public
-    extension; mirrors `examples/music.py` shape).
-  - `examples/novel/__init__.py` — re-exports `NovelCapability`.
-  - `examples/novel/_layout.py` — the 14-entry layout manifest + slug rules.
-  - `examples/novel/_dramatica.py` — the lazy navigator over the bundled ontology.
-  - `examples/novel/_ncp.py` — NCP `validate` (real `jsonschema`, draft-07).
-  - `examples/novel/_coherence.py` — the decidable-subset checks + the report merge.
-  - `examples/novel/data/dramatica_ontology.json` (+ `.sha`) — vendored 303-entry dataset.
-  - `examples/novel/data/ncp.schema.json` (+ `.sha`) — pinned draft-07 NCP schema.
+- **Scaffold first** via `develop.scaffold_capability(name="novel", kind="heavy")`. The
+  verb writes the folder skeleton + the `# agency-scaffold: v1` marker; hand-editing
+  starts AFTER the scaffold lands and lints clean.
+- **Create** (post-scaffold; folder under `agency/capabilities/novel/`):
+  - `__init__.py` — re-exports `NovelCapability` (auto-discovery target).
+  - `_main.py` — `NovelCapability(CapabilityBase)` + the `OntologyExtension` (the public
+    capability surface; mirrors `examples/music.py` shape but in folder form).
+  - `_layout.py` — the 14-entry layout manifest + slug rules.
+  - `_dramatica.py` — the lazy navigator over the bundled ontology.
+  - `_ncp.py` — NCP `validate` (real `jsonschema`, draft-07).
+  - `_coherence.py` — the decidable-subset checks + the report merge.
+  - `data/dramatica_ontology.json` (+ `.sha`) — vendored 303-entry dataset.
+  - `data/ncp.schema.json` (+ `.sha`) — pinned draft-07 NCP schema.
   - `docs/examples/author_a_novel.py` — the end-to-end runnable example.
-  - `requirements-examples.txt` — `jsonschema` (an example dependency; see Open Q3).
+  - `requirements-examples.txt` — `jsonschema` (a capability dep, not a core dep; see Open Q3).
   - `tests/test_novel_capability.py`, `tests/test_novel_coherence.py`,
-    `tests/test_novel_skills.py`.
-- **Modify**:
-  - `examples/__init__.py` — export `NovelCapability` alongside `MusicCapability`.
-- **Do not modify**: `agency/` core (engine, capability, ontology, memory, skill,
-  templates) — the domain must land purely through the extension contract. If it
-  cannot, that is a finding to escalate, not a core edit to slip in.
+    `tests/test_novel_skills.py` (using the Spec 016 Phase 5 `tests/conftest.py`
+    fixtures — `fresh_engine`, etc.).
+- **Do not modify**: `agency/{engine,capability,ontology,memory,skill,templates}.py`
+  — the capability must land purely through the discover()+OntologyExtension
+  contract. If it cannot, that is a finding to escalate, not a core edit to slip in.
 
 ## Open Questions / Needs Research
 
-1. **Core vs examples/.** *Settled for v1:* `examples/`, matching `music` and
-   CLAUDE.md. The vendored-data weight is the capability's private concern (the
-   engine's `Ontology.extend` has zero awareness of data files). Revisit only if a
-   second domain needs the same dataset.
-2. **Dramatica/NCP vendoring home.** *Settled:* `examples/novel/data/` with a `.sha`
-   sidecar (the source repo does exactly this). Data is purely the capability's
-   concern; the strict ontology-merge needs no awareness of it.
-3. **`jsonschema` dependency.** *Settled — add it as an EXAMPLE dependency.* The core
-   has zero hard third-party deps beyond `fastmcp`, but this is an out-of-tree
-   `examples/` capability, so core purity is irrelevant. The shipped validator uses
-   real `jsonschema` (`lib/ncp/validator.py`); hand-rolling a validator to dodge a
-   dep in an example would be wasted effort AND a fidelity regression. Add
-   `jsonschema` to `requirements-examples.txt` and validate against the **draft-07**
-   schema.
+1. **Core vs examples/.** *Re-settled 2026-05-31 → CORE.* This revision flips the
+   v1 resolution: novel ships under `agency/capabilities/novel/` (folder-form,
+   auto-discovered per Spec 016 Phase 3 — commit `8a5a45d`). Three reasons:
+   the Kohärenz-Protokoll repo IS the substrate's primary application (not a
+   third-party domain proof — that role stays with `music`), auto-discovery
+   removes a host-glue step in marketplace-installed plugin scenarios, and folder
+   form is the right shape for a capability with 4+ sub-modules + vendored data.
+   Music remains in `examples/` (still the extra_capabilities proof point).
+   See **Where it lives** for the full rationale.
+2. **Dramatica/NCP vendoring home.** *Re-settled 2026-05-31 →
+   `agency/capabilities/novel/data/`* with a `.sha` sidecar (the source repo does
+   exactly this). Data is purely the capability's concern; the strict
+   ontology-merge needs no awareness of it. Path updated to match the new core
+   home (was `examples/novel/data/`).
+3. **`jsonschema` dependency.** *Re-settled 2026-05-31 — add as a CAPABILITY
+   dependency.* With novel now in core, the question becomes: is `jsonschema` a
+   core-level hard dep alongside `fastmcp` + `graphqlite` + `httpx`, or a
+   capability-scoped optional dep? Resolution: **capability-scoped** — declared
+   as an `optional-dependencies` extra (`novel` or `[novel]`) in `pyproject.toml`
+   so `pip install -e ".[novel]"` opts in. The core engine never imports
+   `jsonschema`; `_ncp.py` does the lazy import inside `ncp_validate`. This keeps
+   core dep-purity intact while letting novel use the real Draft 7 validator
+   instead of hand-rolling one (which would be a fidelity regression per Source
+   fidelity §3). `requirements-examples.txt` stays as the music-capability seam
+   (still in `examples/`), and a new line `jsonschema` lands under the novel
+   `[novel]` extra OR a dedicated `requirements-novel.txt` — both pyproject and
+   requirements-* files are accepted seams in the agency repo.
 4. **v1 scope cut.** *Settled (see scope cut below).* v1 = scaffold + conceptualize +
    `work-concept` gated skill + `dramatica_lookup` + `ncp_validate` + the decidable
    `coherence_check` subset + `pre_drafting_gate` (with override audit).

@@ -205,4 +205,199 @@ class Engine:
             "Cross-concern provenance for an intent — one graph traversal."
             return mem.provenance(intent_id)
 
+        # Spec 029 §A — engine-substrate bootstrap tools. Substrate, not capability:
+        # they live outside the per-capability auto-wire because intent_bootstrap
+        # mints the FIRST Intent (no existing intent_id to SERVES against) and
+        # agency_welcome / agency_install are pure introspection / scaffold ops.
+        # Naming follows the existing substrate convention (lifecycle_gate /
+        # memory_graph_provenance) — flat names, no capability_ prefix.
+        engine = self
+
+        @mcp.tool
+        def intent_bootstrap(purpose: str, deliverable: str, acceptance: str) -> dict:
+            """Mint AND confirm an Intent — the canonical MCP bootstrap.
+
+            The ONLY substrate tool that does not require an existing
+            ``intent_id`` (every capability verb does — see the SERVES guard
+            in ``capability.py``). Returns ``{intent_id, status, next}``
+            where ``next`` is a copy-pasteable ``call_tool`` example for the
+            next call. Isomorphic with ``python -m agency.cli intent …``.
+
+            Inputs:
+              - ``purpose`` (str, required) — non-empty: the why
+              - ``deliverable`` (str, required) — non-empty: the what
+              - ``acceptance`` (str, required) — non-empty: how to verify
+            Returns: ``{intent_id, status: "confirmed", next: <example>}``
+            chain_next: pass ``intent_id`` to any ``capability_*_*`` verb.
+            """
+            # Spec 029 §A error contract (Wiegers/Nygard): name the field
+            # in the message so the caller can fix the call without grep.
+            for field, value in (("purpose", purpose), ("deliverable", deliverable),
+                                 ("acceptance", acceptance)):
+                if not value or not value.strip():
+                    raise ValueError(
+                        f"intent_bootstrap: {field!r} must be non-empty")
+            iid = engine.intent.capture_and_confirm(purpose, deliverable, acceptance)
+            example = (
+                "await call_tool('capability_plugin_help', "
+                f"{{'intent_id': '{iid}'}})"
+            )
+            return {"intent_id": iid, "status": "confirmed", "next": example}
+
+        @mcp.tool
+        def agency_install(target: str = "") -> dict:
+            """Scaffold .agency/ + a CLAUDE.md onboarding snippet in the target repo.
+
+            Closes the missing MCP install path: previously only available
+            via ``python -m agency.install --scaffold-db``. Idempotent —
+            re-running on a populated tree is a no-op for any file already
+            present. The CLAUDE.md snippet is bounded by explicit markers,
+            so user content outside the markers is never touched.
+
+            Inputs:
+              - ``target`` (str, optional) — default = ``CLAUDE_PROJECT_DIR``
+                env → cwd (mirrors the Spec 020 scaffold target).
+            Returns: ``{target, scaffolded, gitattributes_updated,
+                       claude_md_path, claude_md_updated, next}``.
+            chain_next: ``intent_bootstrap`` to mint the first Intent.
+            """
+            from .install import install_op
+            return install_op(target or None)
+
+        @mcp.tool
+        def agency_doctor() -> dict:
+            """Health-check substrate tool — diagnose silent-failure modes.
+
+            Reports python version, dep imports, DB reachability, and the
+            two env vars users hit problems with (JULES_API_KEY,
+            CLAUDE_PROJECT_DIR). The KEY VALUE is NEVER in the report —
+            only its presence/absence. ``next_steps`` carries
+            copy-pasteable fixes for any issue found.
+
+            Covers F2 (Jules-key inheritance) + F5 (system python3 vs
+            plugin venv) from the KP Fehlerbericht.
+
+            Inputs: none.
+            Returns: ``{ok, python_version, deps, db, env, next_steps}``.
+            chain_next: ``next_steps`` are literal calls/commands.
+            """
+            import os, sys, importlib.metadata as _md
+            from ._db_path import resolve_db_path
+
+            deps: dict = {}
+            for name in ("fastmcp", "graphqlite", "tiktoken"):
+                try:
+                    deps[name] = _md.version(name)
+                except _md.PackageNotFoundError:
+                    deps[name] = "missing"
+
+            db_path = resolve_db_path(None)
+            db_exists = os.path.exists(db_path)
+            try:
+                parent = os.path.dirname(db_path) or "."
+                db_writable = (
+                    os.access(parent, os.W_OK) if os.path.isdir(parent)
+                    else (os.access(os.path.dirname(parent) or ".", os.W_OK))
+                )
+            except OSError:
+                db_writable = False
+
+            jules_status = "set" if os.environ.get("JULES_API_KEY") else "missing"
+            project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
+
+            next_steps: list = []
+            if deps.get("graphqlite") == "missing":
+                next_steps.append(
+                    "graphqlite missing — install the plugin venv: "
+                    "`pip install -e .[dev]` from the agency repo "
+                    "(F5: system python3 silent-fail)"
+                )
+            if deps.get("fastmcp") == "missing":
+                next_steps.append(
+                    "fastmcp missing — `pip install 'fastmcp[code-mode]>=3.3.0'`"
+                )
+            if not db_writable:
+                next_steps.append(
+                    f"DB path {db_path!r} parent not writable — "
+                    f"call `agency_install` to scaffold .agency/ or fix perms"
+                )
+            if jules_status == "missing":
+                next_steps.append(
+                    "JULES_API_KEY missing — set `user_config.jules_api_key` "
+                    "in the plugin's Claude Code config, then RELOAD the "
+                    "plugin (the server reads the value at start time only). "
+                    "For Jules / no-MCP: `export JULES_API_KEY=...` before "
+                    "launching."
+                )
+
+            return {
+                "ok": len(next_steps) == 0,
+                "python_version": ".".join(str(v) for v in sys.version_info[:3]),
+                "deps": deps,
+                "db": {"path": db_path, "exists": db_exists, "writable": db_writable},
+                "env": {
+                    "JULES_API_KEY": jules_status,
+                    "CLAUDE_PROJECT_DIR": project_dir,
+                },
+                "next_steps": next_steps,
+            }
+
+        @mcp.tool
+        def agency_welcome() -> dict:
+            """One-shot onboarding payload — the canonical first call.
+
+            Replaces the "read three files to know how to start" tax on
+            fresh MCP clients. Returns the bootstrap example, the install
+            example, the live capability map, and the resolved graph DB
+            path. No ``intent_id`` required (pure introspection — no graph
+            writes regardless of caller state).
+
+            Inputs: none.
+            Returns: ``{bootstrap_example, install_example, capabilities,
+                       db_path, next: [step1, step2, step3]}``.
+            chain_next: call ``agency_install`` then ``intent_bootstrap``
+            then any ``capability_*_*`` verb with the minted id.
+            """
+            from ._db_path import resolve_db_path
+            # Spec 029 OQ-3: token budget bit. Names-only keeps the welcome
+            # payload under 1 KB regardless of how many verbs each capability
+            # carries; agents discover verbs by calling capability_plugin_help
+            # or search('<keyword>') with the intent_id from intent_bootstrap.
+            caps = sorted(engine.registry.names())
+            # Spec 030 §C — state-aware onboarding. The welcome doubles as a
+            # session-resumption tool: a fresh graph leads with bootstrap,
+            # a populated one leads with discovery + provenance.
+            intents = list(engine.memory.find("Intent"))
+            intents_count = len(intents)
+            last_intent = ""
+            if intents:
+                # newest first by valid-from (graphqlite's bi-temporal stamp)
+                last = max(intents, key=lambda r: r.get("vfrom", 0))
+                last_intent = last.get("id", "") or ""
+            state = "in_progress" if intents_count > 0 else "fresh"
+            if state == "fresh":
+                next_steps = [
+                    "agency_install — scaffold .agency/ if missing",
+                    "intent_bootstrap — mint the intent every verb SERVES",
+                ]
+            else:
+                next_steps = [
+                    f"search('<keyword>') — discover a capability_*_* verb",
+                    f"memory_graph_provenance('{last_intent}') — see what served the last intent",
+                ]
+            return {
+                "state": state,
+                "intents_count": intents_count,
+                "last_intent": last_intent,
+                "bootstrap_example": (
+                    "call_tool('intent_bootstrap', "
+                    "{'purpose': '<why>', 'deliverable': '<what>', "
+                    "'acceptance': '<verify>'})"
+                ),
+                "install_example": "call_tool('agency_install', {})",
+                "capabilities": caps,
+                "db_path": resolve_db_path(None),
+                "next": next_steps,
+            }
+
         return mcp

@@ -65,25 +65,36 @@ HELP_ALLOWED_TOOLS = (
 
 _MCP_QUICKSTART = (
     "## Quick start — MCP (Claude Code)\n\n"
-    "The plugin installs an MCP server exposing three tools:\n"
-    "`mcp__plugin_agency_agency__search`, `…__get_schema`, `…__execute`.\n"
-    "Inside `execute`, chain capability calls via `call_tool(...)` — only\n"
-    "the return crosses back into your context.\n\n"
+    "The plugin installs an MCP server exposing the code-mode contract\n"
+    "(`search` · `get_schema` · `execute`) AND three engine-substrate\n"
+    "onboarding tools (Spec 029):\n\n"
+    "- `agency_welcome` — one-shot onboarding payload; returns the\n"
+    "  bootstrap example + the live capability list. **Start here.**\n"
+    "- `agency_install` — scaffold `.agency/` + a CLAUDE.md snippet in\n"
+    "  the current target repo. Idempotent.\n"
+    "- `intent_bootstrap` — mint AND confirm an Intent. The only verb\n"
+    "  that does not require an existing `intent_id`.\n"
+    "- `agency_doctor` — health check (Spec 030): python version, deps,\n"
+    "  DB reachability, JULES_API_KEY presence (never the value).\n"
+    "  Call when something silently fails.\n\n"
+    "These onboarding tools and the code-mode trio share one MCP server\n"
+    "(`mcp__plugin_agency_agency__execute` for the sandbox, "
+    "`mcp__plugin_agency_agency__search` for discovery, "
+    "`mcp__plugin_agency_agency__get_schema` before a call).\n\n"
     "```python\n"
-    "# 1. Discover a verb (token-cheap)\n"
-    'await mcp__plugin_agency_agency__search(query="reflect note", limit=3)\n\n'
-    "# 2. Run it (sandboxed; intermediate results stay in-sandbox).\n"
-    "#    `intent_id` must be a captured Intent. MCP has no intent.capture\n"
-    "#    verb yet, so obtain one from the bash `intent` command in the\n"
-    "#    fallback below and paste it here (replace the placeholder):\n"
-    "await mcp__plugin_agency_agency__execute(code=\"\"\"\n"
-    "  intent_id = 'intent:...'  # from `bin/agency intent ...` (see below)\n"
-    "  r = await call_tool('capability_plugin_help', {'intent_id': intent_id})\n"
-    "  return r\n"
-    "\"\"\")\n"
+    "# 1. Onboard (one call; no intent_id needed)\n"
+    "await call_tool('agency_welcome', {})\n\n"
+    "# 2. Scaffold .agency/ + CLAUDE.md in the target repo if missing\n"
+    "await call_tool('agency_install', {})\n\n"
+    "# 3. Mint the intent every capability verb SERVES against\n"
+    "r = await call_tool('intent_bootstrap', {\n"
+    "    'purpose': 'ship X',\n"
+    "    'deliverable': 'Y working',\n"
+    "    'acceptance': 'tests green',\n"
+    "})\n"
+    "# 4. Use it\n"
+    "await call_tool('capability_plugin_help', {'intent_id': r['intent_id']})\n"
     "```\n\n"
-    "Tracking issue: add a `capability_intent_capture` verb so MCP-only\n"
-    "sessions can self-bootstrap without the bash hop.\n\n"
     "## Quick start — bash (Jules / no-MCP)\n\n"
     "The CLI resolves the graph DB itself (Spec 020: `AGENCY_DB` env, else\n"
     "`./.agency/session.db`) — do NOT pass `--db`, or the bash surface writes\n"
@@ -102,10 +113,13 @@ _MCP_QUICKSTART = (
 
 CMD_BODY = (
     _MCP_QUICKSTART
-    + "Use the plugin's `bin/agency` wrapper — it resolves the plugin venv\n"
-    "+ PYTHONPATH so the `agency` package is always importable. Bootstrap\n"
-    "an intent, then call the help verb with its id (no `--db` — the Spec\n"
-    "020 resolver picks `./.agency/session.db`, the same store MCP uses):\n\n"
+    + "## Slash-command bash fallback\n\n"
+    "If neither the MCP server nor the venv-aware launcher is reachable\n"
+    "from your shell, the plugin's `bin/agency` wrapper resolves the\n"
+    "plugin venv + PYTHONPATH so the `agency` package is always\n"
+    "importable. Bootstrap an intent, then call the help verb with its\n"
+    "id (no `--db` — the Spec 020 resolver picks `./.agency/session.db`,\n"
+    "the same store MCP uses):\n\n"
     "    AGENCY=\"${CLAUDE_PLUGIN_ROOT}/bin/agency\"\n"
     "    iid=$(\"$AGENCY\" intent --purpose help "
     "--deliverable map --acceptance ok | python3 -c "
@@ -329,6 +343,108 @@ def scaffold_db(root: str) -> dict:
     return {
         "written": scaffold_agency_dir(root),
         "gitattributes_updated": update_gitattributes(root),
+    }
+
+
+# ---- Spec 029 §A — CLAUDE.md onboarding snippet ----------------------------
+
+_CLAUDE_MD_MARKER_START = "<!-- agency:onboarding:start -->"
+_CLAUDE_MD_MARKER_END = "<!-- agency:onboarding:end -->"
+
+_CLAUDE_MD_SNIPPET = f"""\
+{_CLAUDE_MD_MARKER_START}
+## Agency plugin — onboarding (auto-generated, do not edit between markers)
+
+This repo carries an `.agency/` provenance graph (Spec 020). The
+agency plugin's MCP server exposes three onboarding tools alongside
+the code-mode contract:
+
+- `agency_welcome` — one-shot first call; returns the bootstrap +
+  install examples and the live capability list. **Start here.**
+- `agency_install` — scaffold `.agency/` + this snippet in any target
+  repo. Idempotent.
+- `intent_bootstrap` — mint AND confirm an Intent. Every capability
+  verb requires an `intent_id`; this is the only tool that doesn't
+  (it mints the first one).
+- `agency_doctor` — Spec 030 health check: report python version,
+  deps, DB reachability, and env-var status (`JULES_API_KEY`
+  presence — never the value). Call this when something silently
+  fails.
+
+Canonical first-call sequence (inside one `execute` block):
+
+```python
+# 1. Get onboarded (no intent_id required)
+await call_tool('agency_welcome', {{}})
+# 2. Scaffold .agency/ if missing (idempotent)
+await call_tool('agency_install', {{}})
+# 3. Mint the intent every capability verb SERVES against
+r = await call_tool('intent_bootstrap', {{
+    'purpose': 'why', 'deliverable': 'what', 'acceptance': 'verify',
+}})
+# 4. Use it
+await call_tool('capability_plugin_help', {{'intent_id': r['intent_id']}})
+```
+
+State lives in `.agency/session.db` (committed to git per Spec 020 —
+team learnings travel with the repo).
+{_CLAUDE_MD_MARKER_END}
+"""
+
+
+def write_claude_md_snippet(root: str) -> tuple[str, bool]:
+    """Write or refresh the onboarding snippet in <root>/CLAUDE.md.
+
+    Returns (path, updated). ``updated`` is True iff the file content
+    actually changed. Existing CLAUDE.md content OUTSIDE the markers is
+    never touched; the block between markers is REPLACED on every run
+    (so a re-install picks up updated guidance). If no CLAUDE.md exists,
+    one is created with just the snippet."""
+    path = os.path.join(root, "CLAUDE.md")
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write(_CLAUDE_MD_SNIPPET)
+        return path, True
+    with open(path) as f:
+        existing = f.read()
+    if _CLAUDE_MD_MARKER_START in existing and _CLAUDE_MD_MARKER_END in existing:
+        start = existing.index(_CLAUDE_MD_MARKER_START)
+        end = existing.index(_CLAUDE_MD_MARKER_END) + len(_CLAUDE_MD_MARKER_END)
+        # _CLAUDE_MD_SNIPPET ends with "\n"; preserve a single trailing newline
+        # at the spot the markers occupied so adjacent user content lines up.
+        new = existing[:start] + _CLAUDE_MD_SNIPPET.rstrip("\n") + existing[end:]
+    else:
+        sep = "" if existing.endswith("\n") else "\n"
+        new = existing + sep + "\n" + _CLAUDE_MD_SNIPPET
+    if new == existing:
+        return path, False
+    with open(path, "w") as f:
+        f.write(new)
+    return path, True
+
+
+def install_op(target: str | None = None) -> dict:
+    """The Spec 029 MCP-callable install operation.
+
+    Resolves the target (arg → CLAUDE_PROJECT_DIR → cwd), runs
+    ``scaffold_db`` (idempotent), writes the CLAUDE.md onboarding
+    snippet, and returns a structured summary that names the literal
+    paths for verification. Reuses ``_scaffold_target`` so the logic
+    matches the existing bash entry point."""
+    root = target or _scaffold_target(os.getcwd())
+    os.makedirs(root, exist_ok=True)
+    scaffold = scaffold_db(root)
+    claude_md_path, claude_md_updated = write_claude_md_snippet(root)
+    return {
+        "target": root,
+        "scaffolded": [str(p) for p in scaffold["written"]],
+        "gitattributes_updated": scaffold["gitattributes_updated"],
+        "claude_md_path": claude_md_path,
+        "claude_md_updated": claude_md_updated,
+        "next": (
+            "call_tool('intent_bootstrap', {'purpose': '...', "
+            "'deliverable': '...', 'acceptance': '...'})"
+        ),
     }
 
 

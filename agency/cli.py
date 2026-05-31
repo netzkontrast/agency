@@ -71,12 +71,14 @@ def main(argv: list[str] | None = None) -> int:
     _os.makedirs(_os.path.dirname(db_path) or ".", exist_ok=True)
 
     # `intent` is the one verb that bootstraps state without an existing intent,
-    # so a bash-only agent is fully self-sufficient.
+    # so a bash-only agent is fully self-sufficient. The MCP-side counterpart is
+    # the `intent_bootstrap` substrate tool (Spec 029); both surfaces call the
+    # same `Intent.capture_and_confirm` helper so they stay isomorphic.
     if args.cmd == "intent":
         engine = Engine(db_path)
         try:
-            iid = engine.intent.capture(args.purpose, args.deliverable, args.acceptance)
-            engine.intent.confirm(iid)
+            iid = engine.intent.capture_and_confirm(
+                args.purpose, args.deliverable, args.acceptance)
             out, rc = {"intent_id": iid}, 0           # one JSON document on every path
         except Exception as e:                        # bad input (e.g. empty required field)
             out, rc = {"error": type(e).__name__, "message": str(e)}, 1

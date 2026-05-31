@@ -30,3 +30,15 @@ class Intent:
         # the *what* changes while the *why* holds — one bi-temporal supersede,
         # so the prior version keeps its valid window (as-of reconstruction).
         return self.m.supersede(intent_id, changes)
+
+    def capture_and_confirm(self, purpose: str, deliverable: str, acceptance: str) -> str:
+        """Mint AND confirm an Intent in one step — the canonical bootstrap.
+
+        Shared by the bash CLI (``agency.cli`` ``intent`` subcommand) and the
+        MCP substrate tool (``intent_bootstrap`` in ``engine.build_mcp``), so
+        both surfaces produce identical Intent nodes for the same inputs
+        (Spec 029 §E isomorphism invariant).
+        """
+        iid = self.capture(purpose, deliverable, acceptance)
+        self.confirm(iid)
+        return iid

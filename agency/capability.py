@@ -212,7 +212,17 @@ class Registry:
         # `effect` verbs still mutate the world.
         intent_node = memory.g.get_node(intent_id)
         if intent_node is None or "Intent" not in (intent_node.get("labels") or []):
-            raise ValueError(f"intent_id {intent_id!r} is not an Intent node")
+            # Spec 029 §B (F6): the previous message dead-ended on a fresh
+            # MCP client — every verb needs an intent, no message named the
+            # bootstrap path. Now we point at the substrate tool that mints
+            # one AND keep the bash side-pipe acknowledged.
+            raise ValueError(
+                f"intent_id {intent_id!r} is not an Intent node. "
+                f"Mint one with the `intent_bootstrap` MCP substrate tool "
+                f"(purpose, deliverable, acceptance) or "
+                f"`python -m agency.cli intent ...` (bash side-pipe). "
+                f"Call `agency_welcome` for the full onboarding payload."
+            )
         # record the Invocation BEFORE calling, so a verb that raises still leaves a
         # SERVES invocation in provenance (a failed run must be auditable too).
         inv = memory.record("Invocation", {

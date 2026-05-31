@@ -25,7 +25,10 @@ class ReflectCapability(CapabilityBase):
 
     @verb(role="act")
     def note(self, scope: str, text: str) -> dict:
-        "Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent."
+        """Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent.
+
+        Allowed scopes: observation, project, reflection, technical, user, world.
+        """
         rid = self.ctx.record("Reflection", {"scope": scope, "text": text})
         self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
         self.ctx.link(rid, self.ctx.intent_id, "SERVES")     # so the note surfaces in provenance
@@ -36,7 +39,10 @@ class ReflectCapability(CapabilityBase):
         """Bulk version of ``note``: one Reflection node per text. Returns
         ``{ids, count}``. Closes the gap that made ``jules-self-improvement``
         only fold the first observation per walk — a real loop ingests N
-        observations from ``dogfood.collect`` in one Phase-2 invocation."""
+        observations from ``dogfood.collect`` in one Phase-2 invocation.
+
+        Allowed scopes: observation, project, reflection, technical, user, world.
+        """
         ids: list[str] = []
         for t in texts or []:
             if not t:
