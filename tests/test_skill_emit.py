@@ -305,3 +305,47 @@ def test_emit_bash_wrappers_skips_injected_params():
     assert "text" in body
     # Should NOT positionally take ctx or client (those come from the engine)
     # The wrapper's arg-count check should reflect 2 user args, not 4
+
+
+from agency.skill_emit import _capability_hash
+
+
+def test_capability_hash_stable_across_runs():
+    """Same capability shape → same hash."""
+    from agency.capability import Capability
+
+    def fn(scope: str = ""): pass
+    fn.__doc__ = "Test verb."
+    cap = Capability(name="x", home="capability",
+                     verbs={"note": {"role": "act", "fn": fn, "inject": []}})
+    h1 = _capability_hash(cap, rule_version=1)
+    h2 = _capability_hash(cap, rule_version=1)
+    assert h1 == h2
+    assert len(h1) == 64  # sha256 hex
+
+
+def test_capability_hash_changes_on_rule_version_bump():
+    from agency.capability import Capability
+
+    def fn(scope: str = ""): pass
+    cap = Capability(name="x", home="capability",
+                     verbs={"note": {"role": "act", "fn": fn, "inject": []}})
+    h1 = _capability_hash(cap, rule_version=1)
+    h2 = _capability_hash(cap, rule_version=2)
+    assert h1 != h2
+
+
+def test_capability_hash_changes_on_docstring_change():
+    from agency.capability import Capability
+
+    def fn1(scope: str = ""): pass
+    fn1.__doc__ = "Original."
+    cap1 = Capability(name="x", home="capability",
+                      verbs={"note": {"role": "act", "fn": fn1, "inject": []}})
+
+    def fn2(scope: str = ""): pass
+    fn2.__doc__ = "Changed."
+    cap2 = Capability(name="x", home="capability",
+                      verbs={"note": {"role": "act", "fn": fn2, "inject": []}})
+
+    assert _capability_hash(cap1, 1) != _capability_hash(cap2, 1)

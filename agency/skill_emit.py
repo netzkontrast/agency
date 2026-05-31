@@ -17,6 +17,7 @@ The capability hash (cache invalidation key) lands in Task 2.4 (cache.py).
 """
 from __future__ import annotations
 
+import hashlib
 import inspect
 from pathlib import Path
 from string import Template
@@ -310,3 +311,24 @@ def emit_bash_wrappers(cap_name: str, verbs: dict) -> dict[str, str]:
         )
         out[f"bin/agency-{cap_name}-{verb_name}"] = rendered
     return out
+
+
+def _capability_hash(cap, rule_version: int) -> str:
+    """sha256 of capability shape + rule_version. Stable across runs.
+
+    Hash inputs (in order):
+    - cap.name
+    - sorted verbs by name: (name, role, signature, docstring)
+    - rule_version (so a template/lint bump invalidates everything)
+    """
+    parts = [cap.name]
+    for verb_name in sorted(cap.verbs):
+        spec = cap.verbs[verb_name]
+        fn = spec.get("fn")
+        role = spec.get("role", "")
+        sig = str(inspect.signature(fn)) if fn else ""
+        doc = (fn.__doc__ or "") if fn else ""
+        parts.append(f"{verb_name}|{role}|{sig}|{doc}")
+    parts.append(f"rule_version={rule_version}")
+    blob = "\n".join(parts).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
