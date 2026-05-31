@@ -56,6 +56,29 @@ FIELD_ENUMS: dict[tuple[str, str], set] = {
 CORE_SKILLS: dict[str, dict] = {}
 
 
+def _schema_props(name: str, schema_value) -> dict:
+    """Convert a schemas dict entry to the Schema node props.
+
+    Two shapes supported (panel F-3 resolution — both coexist):
+    - Simple: ``list[str]`` → ``{name, required: csv}`` (powers ``validate_schema``)
+    - Draft-07: ``dict`` with ``$schema`` → ``{name, required: csv, schema_json: json}``
+      (powers ``validate_schema_draft07``)
+    """
+    import json as _json
+    if isinstance(schema_value, list):
+        return {"name": name, "required": ",".join(schema_value)}
+    if isinstance(schema_value, dict):
+        required = ",".join(schema_value.get("required", []))
+        return {
+            "name": name,
+            "required": required,
+            "schema_json": _json.dumps(schema_value),
+        }
+    raise TypeError(
+        f"schema {name!r} must be list[str] (simple) or dict (draft-07); "
+        f"got {type(schema_value).__name__}")
+
+
 @dataclass
 class OntologyExtension:
     """The contract by which a capability EXTENDS the ontology. All six fields are
@@ -143,3 +166,65 @@ class Ontology:
 
     def skill(self, name: str) -> dict:
         return self.skills[name]
+
+    # --- materialisation (Spec 032 §D / panel F-4) -------------------------
+    def materialise_schemas(self, memory) -> dict[str, str]:
+        """Record one Schema node per ontology.schemas entry (Spec 032 §D).
+
+        Idempotent on re-run; bi-temporal supersede when a schema's shape
+        changes (the ``required`` list grows/shrinks, OR simple↔draft-07 flip,
+        OR draft-07 nested form changes). Old versions preserved via
+        SUPERSEDED_BY edge — ``memory.recall(node_id)`` returns the latest.
+
+        Returns ``{name: node_id}`` for every materialised schema.
+        """
+        mapping: dict[str, str] = {}
+        for name, schema_value in self.schemas.items():
+            node_id = f"schema:{name}"
+            desired_props = _schema_props(name, schema_value)
+            existing = memory.recall(node_id)
+            if existing is None:
+                # Fresh record
+                memory.record("Schema", desired_props, node_id=node_id)
+                mapping[name] = node_id
+            else:
+                # Compare only the meaningful props (ignore graphqlite internals
+                # like id/vfrom/vto). A missing key on either side means a flip
+                # (simple↔draft-07) — that's exactly what we want to detect.
+                existing_meaningful = {k: existing.get(k)
+                                       for k in desired_props}
+                if existing_meaningful == desired_props:
+                    # No change — no-op (preserve idempotency)
+                    mapping[name] = node_id
+                else:
+                    # Shape change → bi-temporal supersede (panel F-4)
+                    new_id = memory.supersede(node_id, desired_props)
+                    mapping[name] = new_id
+        return mapping
+
+    def materialise_templates(self, memory) -> dict[str, str]:
+        """Record one Template node per ontology.templates entry (Spec 032 §D).
+
+        Same semantics as ``materialise_schemas``: idempotent on re-run, with
+        bi-temporal supersede on body change. Preserves old versions via
+        SUPERSEDED_BY edge.
+
+        Returns ``{name: node_id}`` for every materialised template.
+        """
+        mapping: dict[str, str] = {}
+        for name, body in self.templates.items():
+            node_id = f"template:{name}"
+            desired_props = {"name": name, "body": body}
+            existing = memory.recall(node_id)
+            if existing is None:
+                memory.record("Template", desired_props, node_id=node_id)
+                mapping[name] = node_id
+            else:
+                existing_meaningful = {k: existing.get(k)
+                                       for k in desired_props}
+                if existing_meaningful == desired_props:
+                    mapping[name] = node_id
+                else:
+                    new_id = memory.supersede(node_id, desired_props)
+                    mapping[name] = new_id
+        return mapping
