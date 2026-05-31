@@ -107,7 +107,9 @@ class Engine:
         #
         # Phase-1 transition: until Phase 4 migration lands skill_doc on every
         # shipped capability, validation is opt-in via AGENCY_SKILL_DOC_REQUIRED
-        # env. This shim is REMOVED in Phase 5 once migration is complete.
+        # env. This shim is REMOVED at the Phase 4 checkpoint (after Task 4.5)
+        # once migration is complete. Spec 032 unifies this with the broader
+        # AGENCY_BOOTSTRAP_LINT={strict,warn,off} env var (panel F-10).
         import os as _os
         if _os.environ.get("AGENCY_SKILL_DOC_REQUIRED", "").lower() == "true":
             for _cap_name in self.registry.names():

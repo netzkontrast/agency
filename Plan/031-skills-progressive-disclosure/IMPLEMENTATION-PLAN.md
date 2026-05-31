@@ -501,7 +501,21 @@ git commit -m "feat(plugin): lint_skill_doc — 9 rule families (Spec 031 §B)"
 
 ---
 
-### Task 1.4: Templates (CAPABILITY_SKILL_MD, VERB_REFERENCE_MD, BASH_WRAPPER_SH, HELP_INDEX_MD)
+### Task 1.4: ⚠️ DEFERRED to Spec 032 — Templates (CAPABILITY_SKILL_MD, VERB_REFERENCE_MD, BASH_WRAPPER_SH, HELP_INDEX_MD)
+
+**Status (2026-05-31):** This task is DEFERRED per the Spec 032 spec-panel coordination (panel finding F-1). Rather than landing Python `Template` constants here that Spec 032 immediately migrates to files in `agency/render/`, Spec 032 lands them as files from the start. The 4 templates this task would have added live as:
+- `agency/render/capability-skill.md`
+- `agency/render/verb-reference.md`
+- `agency/render/bash-wrapper.sh`
+- `agency/render/help-index.md`
+
+See `Plan/032-templates-schemas-oop-extensions/IMPLEMENTATION-PLAN.md` Task 1.2 for the file-based emission.
+
+The `RULE_VERSION: int = 1` constant referenced here ALSO defers to Spec 032 — it lives alongside the loader (`agency/_capability_loader.py`) since it participates in the capability hash for cache invalidation. Spec 032 ships it there.
+
+**Skip this task. Resume Spec 031 at Task 1.5.**
+
+### (Original Task 1.4 content — for historical reference)
 
 **Files:**
 - Modify: `agency/templates.py` (append after existing templates)
