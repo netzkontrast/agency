@@ -244,4 +244,42 @@ class Engine:
             )
             return {"intent_id": iid, "status": "confirmed", "next": example}
 
+        @mcp.tool
+        def agency_welcome() -> dict:
+            """One-shot onboarding payload — the canonical first call.
+
+            Replaces the "read three files to know how to start" tax on
+            fresh MCP clients. Returns the bootstrap example, the install
+            example, the live capability map, and the resolved graph DB
+            path. No ``intent_id`` required (pure introspection — no graph
+            writes regardless of caller state).
+
+            Inputs: none.
+            Returns: ``{bootstrap_example, install_example, capabilities,
+                       db_path, next: [step1, step2, step3]}``.
+            chain_next: call ``agency_install`` then ``intent_bootstrap``
+            then any ``capability_*_*`` verb with the minted id.
+            """
+            from ._db_path import resolve_db_path
+            # Spec 029 OQ-3: token budget bit. Names-only keeps the welcome
+            # payload under 1 KB regardless of how many verbs each capability
+            # carries; agents discover verbs by calling capability_plugin_help
+            # or search('<keyword>') with the intent_id from intent_bootstrap.
+            caps = sorted(engine.registry.names())
+            return {
+                "bootstrap_example": (
+                    "call_tool('intent_bootstrap', "
+                    "{'purpose': '<why>', 'deliverable': '<what>', "
+                    "'acceptance': '<verify>'})"
+                ),
+                "install_example": "call_tool('agency_install', {})",
+                "capabilities": caps,
+                "db_path": resolve_db_path(None),
+                "next": [
+                    "agency_install — scaffold .agency/ + CLAUDE.md if missing",
+                    "intent_bootstrap — mint the intent every verb SERVES",
+                    "search('<keyword>') — discover a capability_*_* verb",
+                ],
+            }
+
         return mcp

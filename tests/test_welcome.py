@@ -42,13 +42,15 @@ def test_welcome_payload_shape():
     assert isinstance(out, dict)
     assert "bootstrap_example" in out and "intent_bootstrap" in out["bootstrap_example"]
     assert "install_example" in out and "agency_install" in out["install_example"]
-    assert "capabilities" in out and isinstance(out["capabilities"], dict)
+    assert "capabilities" in out and isinstance(out["capabilities"], list)
     assert "db_path" in out
     assert "next" in out and isinstance(out["next"], list) and len(out["next"]) >= 3
 
 
 def test_welcome_capabilities_is_deterministic():
-    """Capabilities map iterates in stable order (matches plugin.help_map)."""
+    """Capability list iterates in stable (sorted) order. Per Spec 029
+    OQ-3 the welcome carries names only (verbs reachable via
+    capability_plugin_help / search) — token-budget bit."""
     e = Engine(tempfile.mktemp(suffix=".db"))
     mcp = e.build_mcp(codemode=False)
     try:
@@ -59,9 +61,11 @@ def test_welcome_capabilities_is_deterministic():
     finally:
         e.memory.close()
     caps = out["capabilities"]
-    assert list(caps.keys()) == sorted(caps.keys())
-    for verbs in caps.values():
-        assert list(verbs) == sorted(verbs)
+    assert isinstance(caps, list)
+    assert caps == sorted(caps)
+    # at least the core caps the engine loads at boot
+    for required in ("plugin", "reflect"):
+        assert required in caps
 
 
 def test_welcome_works_on_fresh_target(tmp_path, monkeypatch):

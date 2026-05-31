@@ -267,12 +267,16 @@ skills/help/SKILL.md                          # regen via install.py
   content. If the marker already exists, REPLACE the block between
   markers (so re-running picks up updated guidance).
 
-- **OQ-3 — Token budget for welcome.** [RESOLVED — YAGNI]. The
-  current 19-capability core does not approach 1 KB. Truncation is
-  deferred until the registry actually grows past the budget;
-  `tests/test_welcome.py` keeps the budget as a regression invariant
-  (currently ~ 600 B), and any future overrun is caught by the test
-  before users see it.
+- **OQ-3 — Token budget for welcome.** [RESOLVED — names only].
+  Initial draft returned `{capability: [verb, ...]}`, but the live
+  registry's Jules capability alone has 21 verbs and the full-map
+  payload landed at 1.2 KB. Resolution: welcome carries a SORTED
+  list of capability NAMES only (≈ 100 B for the list); verbs reach
+  the caller via `capability_plugin_help` (full map, ~ 600 B) or
+  `search('<keyword>')` (filtered, ~ 200 B). The agent pays the verb
+  cost only when it needs verbs — most first calls just need to know
+  what capabilities exist for the next `search`. Net token saving:
+  ≈ 800 B per first contact vs. full-map welcome.
 
 - **OQ-4 — Mode-B vs local-dev for agency_install.** Mode B
   (`CLAUDE_PROJECT_DIR` set) writes into the user's project. Local
