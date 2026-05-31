@@ -150,8 +150,8 @@ class CapabilityBase:
     # Spec 031 §13 — rendering metadata + walker schemas.
     # `skill_doc` is REQUIRED for any capability with >=1 verb (validated at
     # engine bootstrap, Task 1.2); `walker_skills` is optional always.
-    skill_doc: ClassVar["SkillDoc | None"] = None
-    walker_skills: ClassVar["WalkerSkills | None"] = None
+    skill_doc: ClassVar[Optional[SkillDoc]] = None
+    walker_skills: ClassVar[Optional[WalkerSkills]] = None
 
     def __init__(self, ctx: CapabilityContext):
         self.ctx = ctx
