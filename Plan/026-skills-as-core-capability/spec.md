@@ -280,3 +280,32 @@ hand-routing Jules between dispatch/watch/recover/review — the
 `intent.suggests_skill` projection routes based on intent.purpose +
 the verb's last result.** Measurable via the Jules workflow
 benchmark; ships only if it reduces orchestrator hardcoding by ≥50%.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- Nothing — no implementation commits found for Spec 026. `agency/capabilities/skills.py` does not exist; `agency/capabilities/intent.py` does not exist; `agency/ontology.py` has no `Matcher` schema; `agency/capability.py` has no DFS cycle-check for decider verbs.
+
+### Still to implement
+- **P0 ✗** — `agency/capabilities/skills.py` (registry + render + lint capability, ~150 LOC): `skills.find`, `skills.render`, `skills.lint` verbs; `Skill`/`Phase`/`Gate`/`Matcher` node types; `Matcher` JSON Schema pinned in `OntologyExtension.schemas`. This is the unblock gate for Spec 024 PR-C.
+- **P0 ✗** — `tests/test_jules_workflow_dispatch.py` baseline measurement (status-quo numbers) — the convergence gate has no baseline yet; further phases of both Spec 025 and 026 are blocked without it.
+- **P1 ✗** — `intent.suggests_skill(intent_id, ...)` verb on `agency/capabilities/intent.py` (new file).
+- **P1 ✗** — Three-mode `Matcher` dispatch (pattern / verb_code / llm_select) with failure semantics, budget_ms, cache, DFS cycle-check.
+- **P1 ✗** — Three real reference examples wired with `applies_when` matchers (`plugin.skill-creation`, `delegate.dispatch-decision`, Jules fanout/dispatch).
+- **P1 ✗** — Return-shape `next_skill` convention on engine (`engine._wire` preserving the field through to orchestrator).
+- **All tests** — `tests/test_skills_capability.py`, `tests/test_intent_suggests_skill.py`, `tests/test_jules_workflow_dispatch.py` do not exist.
+- Backward-compat audit: promotion of all 17 existing skills to graph `Skill` nodes not done.
+
+### Refinement needed (given later specs)
+- Spec 024 PR-C (three Matcher-mode scaffolds in `examples/`) is explicitly blocked on 026-P0. If 026 design changes, Spec 024 Open Q #5 must be resolved (archive or rewrite PR-C).
+- Spec 025 P2+ is gated on the convergence benchmark this spec must run first. The loop is blocked: 025 and 026 cannot advance independently.
+- `agency/capabilities/skills.py` will itself be a new capability — it should be authored under the Spec 024 discipline (dogfood test).
+
+### Evidence
+- code: `agency/capabilities/skills.py` — absent; `agency/capabilities/intent.py` — absent; `agency/ontology.py` — no Matcher schema
+- tests: `tests/test_skills_capability.py` — absent; `tests/test_intent_suggests_skill.py` — absent; `tests/test_jules_workflow_dispatch.py` — absent
+- commits/notes: Spec design commits only (`f272b80` v1 draft); no implementation commits found. IMPLEMENTATION-PLAN.md exists but no TDD cycle started.

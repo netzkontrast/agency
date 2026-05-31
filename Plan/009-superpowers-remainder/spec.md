@@ -324,3 +324,33 @@ this as the primary expected outcome, evidenced by the SHA — not via the false
   finishes), `tests/test_agency.py` (`test_every_dev_skill_walks_to_a_hard_gate`,
   `test_checklist_returns_steps…` — the invariants to preserve),
   `research/capability-specs/capability-catalogue.md` (per-skill status).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- The `develop` capability already ships 8 disciplines covering the bulk of the superpowers port (`agency/capabilities/develop.py:28-99`): `brainstorm`, `plan`, `tdd`, `debug`, `verify`, `spec-panel`, `review` (with `dispatch` bound to `delegate.fan_out`), `execute`. These are the prior-art baseline; 009 adds to them.
+- `develop.reference` exists and serves `REFERENCES` on demand (`develop.py:105-130`). Currently ships 3 entries: `testing-skills`, `skill-descriptions`, `best-practices`.
+- `skills/code-review/SKILL.md` exists but has the **confirmed drift**: it says `request → assess → resolve` while `develop.py:65-71` has `request → dispatch → resolve`. This is the drift 009 must reconcile FIRST — it has NOT been reconciled yet.
+
+### Still to implement
+- **Drift fix (blocking first step):** `skills/code-review/SKILL.md` line 17 still says `assess` — must be updated to `dispatch` to match `develop.py:67`.
+- `DEV_SKILLS["receive-review"]` (`read → understand → verify → triage → resolve(hard)`) not present in `develop.py:28-99`.
+- `skills/receiving-code-review/SKILL.md` — does not exist (no such directory under `skills/`).
+- `REFERENCES` additions: `persuasion-principles`, `anthropic-best-practices`, `testing-anti-patterns`, `root-cause-tracing`, `defense-in-depth`, `condition-based-waiting`, `receiving-review-rigor` — none present in `develop.py:105-130`.
+- `docs/vision/specs/superpowers-port.md` lines 63 and 69 still read `partial` and `planned` respectively — not flipped.
+- The per-skill SCRIPT audit (classification table + SHA evidence) not recorded in `superpowers-port.md`.
+- `tests/test_agency.py` invariant `test_every_dev_skill_walks_to_a_hard_gate` not yet widened to cover `execute` and the new `receive-review`.
+
+### Refinement needed (given later specs)
+- Spec 016 (`authoring-capabilities` skill added to `DEV_SKILLS` at `develop.py:86-98`) expanded the `DEV_SKILLS` set; the gate-walk test invariant noted in this spec must cover this new entry too (9 disciplines total after 009 lands, not 8+1).
+- Spec 024 (capability-authoring-discipline): additions to `develop.py` should follow the scaffold-first pattern with lint confirmation; `receive-review` is a discipline addition, not a new capability file, so `scaffold_capability` is not invoked — but the authoring-discipline review still applies.
+- Open Questions 3 and 4 (`persuasion-principles` reframing and `condition-based-waiting` example folding) remain open and must be resolved during the reference-sweep pass.
+
+### Evidence
+- code: `agency/capabilities/develop.py:28-99` (DEV_SKILLS — no `receive-review`); `develop.py:105-130` (REFERENCES — 3 entries only); `skills/code-review/SKILL.md:17` (confirmed `assess` drift); no `skills/receiving-code-review/` directory
+- tests: `tests/test_agency.py` (existing gate-walk invariant present but not yet widened)
+- commits/notes: `docs/vision/specs/superpowers-port.md:63` (`partial`), `:69` (`planned`) — both unflipped; `Plan/000-overview.md` classifies 009 as "Wave-1 backlog"

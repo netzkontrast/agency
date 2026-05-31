@@ -575,3 +575,36 @@ cross-intent call. **Q-6 is closed: the proposal is source-aligned.**
   Neutral clause `:90`; `archived_to` / >4 KB trim `:69,:79`) and
   `.../0011-repair-authority-tiers.md:17-48` (T1-T4 = document-change governance,
   NOT error tiers) @ `0a6a9e71f6c26bc120a8fc1db02f8990b7916f22`.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Partially implemented
+
+### Done
+- `ToolResult` and `TypedError` dataclasses exist in `agency/toolresult.py:24-47`; fields `ok`, `data`, `warnings`, `next_suggested_tools`, `error`, `artefacts_written`, `archived_to`, `trace_id` are all present.
+- `Registry.invoke` in `agency/capability.py:247-280` unwraps `ToolResult`: records `ok=False` as `outcome=failed`, stamps `error.code+message`, records `warnings`, propagates `archived_to`, converts `artefacts_written` to `Artefact` nodes + `PRODUCES` edges.
+- `ok=False` without `TypedError` (warnings-only) correctly marks invocation failed: `capability.py:256-257`; tested at `tests/test_agency.py:431-439` (`test_toolresult_ok_false_without_typed_error_marks_invocation_failed`).
+- `artefacts_written` → `PRODUCES` edges: `capability.py:273-275`; tested at `tests/test_agency.py:384-429` (`test_toolresult_artefacts_written_become_produces_edges`).
+- Basic round-trip + metadata recording tested at `tests/test_agency.py:346-382` (`test_toolresult_envelope_unwraps_to_data_and_records_metadata`).
+
+### Still to implement
+- `ToolResult` lives in `agency/toolresult.py`, NOT `agency/capability.py` as the spec mandates. The spec's placement and class-hierarchy match differs.
+- No `Codes` namespace class exists anywhere in the codebase (no `Codes.VALIDATION_FAILED`, etc.).
+- No `to_dict()` / `from_dict()` methods on `ToolResult` or `TypedError`; the spec requires a lossless round-trip contract. The dataclass is `frozen=True` with no serialisation methods.
+- No `ToolResult.success(...)` or `ToolResult.failure(...)` convenience constructors.
+- `trace_id` field exists on `ToolResult` but `Registry.invoke` does NOT stamp `error.trace_id = inv`; the Invocation-id threading is absent.
+- `next_cursor` field is absent from `ToolResult` (the spec requires it for paginating read verbs).
+- Wire shape test (bash↔MCP byte-identical isomorphism, Done-When item (g)) is not present; `_wire` still uses legacy unwrap path for ToolResult (Option C, not the spec's full-envelope-on-wire target).
+- Capability verb migration: only a few test-verbs demonstrate `ToolResult`; `jules.dispatch`, `gate.check`, `delegate.fan_out`, `branch.finish` are NOT migrated to `ToolResult` returns. `jules.py:214` still returns a raw dict with `artefact` key.
+- `TypedError.context: dict` field exists but is not in the spec; `trace_id: str = ""` (not `Optional[str]`), deviating from spec.
+
+### Refinement needed (given later specs)
+- Spec 005 (`context-mode-and-token-economics`) depends on `ToolResult.archived_to` being wired in the engine guard — field exists and is processed, but the compaction guard itself (Spec 005) is not yet implemented.
+- Spec 019 (`engine-output-shape-contract`) documents the engine unwrap as the settled contract (Option C), which supersedes the spec's original "full envelope on the wire" target (Open Q-2). The Option C resolution is now canon per Plan/000-overview.md:31.
+
+### Evidence
+- code: `agency/toolresult.py:1-47`, `agency/capability.py:247-280`
+- tests: `tests/test_agency.py:346-509` (ToolResult envelope, artefacts_written, ok=False)
+- commits/notes: Plan/000-overview.md:31 lists Spec 001 as Shipped with "Option C" note; frontmatter `status: done` matches.

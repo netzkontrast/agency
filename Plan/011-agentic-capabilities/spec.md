@@ -420,5 +420,33 @@ Scenario: A sub-threshold confidence predicate blocks the phase as a Gate
   `Plan/133-skill-subagent-pressure-tests` (the Scenario dataclass, the pure rubric,
   the RED/GREEN/REFACTOR cycle, anchors 133.1-133.3),
   `Plan/135-spec-test-anchor-traceability` (the anchor-citation convention used above).
-</content>
-</invoke>
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- The composable primitives this spec builds ON top of are all shipped: `agency/capabilities/gate.py` (`gate.check` records `Gate` only, rejects cross-intent lifecycles at `:23-27`), `agency/capabilities/delegate.py` (`fan_out`/`join`, quota at `:33-39`, children start `working` at `:48`), `agency/capabilities/subagent.py` (takes verdicts as inputs at `:24-25` — the LLM-out-of-the-verb pattern), `agency/capabilities/develop.py:86-94` (`REFERENCES["testing-skills"]` — the pressure-test doctrine).
+- `agency/capability.py:47-55` ships `MAX_DEPTH=16` depth guard (the structural check asserts against this, not a new guard).
+
+### Still to implement
+- `agency/_middleware/loop.py` — pure Jaccard-shingle `detect_loop` helper does not exist; no `_middleware/` directory exists under `agency/`.
+- `spec_validate` predicate module helper (RFC-2119 + Gherkin classification, feeds `gate.check`) — not present anywhere.
+- `confidence_check` predicate module helper (go-threshold ≥ 0.9, feeds `gate.check`) — not present.
+- Lifecycle structural `check` (no-orphaned-working-children assertion via `gate.check`) — not present.
+- `skills/agentic-pressure-test/SKILL.md` — directory does not exist under `skills/`.
+- `skills/orchestrator-discipline/SKILL.md` — directory does not exist under `skills/`.
+- `docs/examples/pressure_test_a_skill.py` — does not exist.
+- `tests/test_loop_middleware.py`, `tests/test_gate_predicates.py`, `tests/test_lifecycle_check_invariants.py`, `tests/test_pressure_skill.py` — none exist.
+
+### Refinement needed (given later specs)
+- Spec 016 (`authoring-capabilities` discipline in `DEV_SKILLS`) and Spec 024 apply to any new skill additions: `agentic-pressure-test` and `orchestrator-discipline` must pass `plugin.lint_skill`. The scaffold-first requirement does NOT apply to skill SKILL.md files (only to capability files); but lint remains mandatory.
+- The wet-path deferral (Open Q3) remains a known limitation: `delegate.fan_out` returns a raw verb `result` dict (`delegate.py:52-56`), not a scoreable transcript, so the pressure-test skill's live-dispatch path requires a future local-subagent LLM driver spec.
+- The `agency/_middleware/` package needs to be created (new directory + `__init__.py`) — this is a non-trivial filesystem change requiring the `affects:` list in the spec to account for the package init file, which is currently absent from the frontmatter.
+
+### Evidence
+- code: no `agency/_middleware/` directory; no `skills/agentic-pressure-test/` or `skills/orchestrator-discipline/`; `agency/capabilities/gate.py` (composable `gate.check`); `agency/capabilities/develop.py:86-94` (`REFERENCES["testing-skills"]` prior art)
+- tests: none for loop middleware, gate predicates, lifecycle checks, or pressure skill
+- commits/notes: `Plan/000-overview.md` classifies 011 as "Wave-1 backlog"; no implementation commit in `git log --oneline --all` for agentic/loop/pressure

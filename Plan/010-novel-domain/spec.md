@@ -540,3 +540,35 @@ and ships something true to the SHIPPED source rather than to its unbuilt specs.
   `Plan/012-dramatica-and-ncp-libs`, `Plan/013-novel-handlers-structural`,
   `Plan/014-novel-gates-and-revision`, `Plan/015-novel-skills-catalogue`,
   `Plan/021-novel-prompt-builder-family`.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- The spec itself was re-based on the post-Spec-016 substrate (commit `a7e9f83` "docs: Spec 010 re-base on post-Spec-016 substrate (novel → core)") — the spec document was updated but no implementation has shipped.
+- Spec 016 substrate tools that 010 depends on ARE shipped: `develop.scaffold_capability` (`develop.py:249`) and `plugin.lint_capability` (`plugin.py:279`) both exist and support block-mode linting. Spec 029/030 onboarding tools (`agency_welcome`, `agency_install`, `intent_bootstrap`) also exist.
+- `examples/music.py` (the structural template this spec follows) is fully functional as a reference.
+
+### Still to implement
+- `agency/capabilities/novel/` directory does not exist at all — no `__init__.py`, `_main.py`, `_layout.py`, `_dramatica.py`, `_ncp.py`, `_coherence.py`.
+- `agency/capabilities/novel/data/dramatica_ontology.json` and `ncp.schema.json` — vendored datasets not present.
+- All six v1 verbs: `scaffold`, `conceptualize`, `dramatica_lookup`, `ncp_validate`, `coherence_check`, `pre_drafting_gate`.
+- `NovelCapability` `OntologyExtension` with 7 node types (`Work`, `Chapter`, `Scene`, `Character`, `Premise`, `Storyform`, `Coherence`), 2 enums, 2 edges (`COHERES_WITH`, `OVERRIDDEN_BY`), 4 artefact schemas.
+- `work-concept` conceptualizer skill (7-phase gated).
+- `docs/examples/author_a_novel.py` — end-to-end runnable example.
+- `tests/test_novel_capability.py`, `tests/test_novel_coherence.py`, `tests/test_novel_skills.py`.
+- `requirements-examples.txt` / `[novel]` extra for `jsonschema` dep.
+
+### Refinement needed (given later specs)
+- The 2026-05-31 re-base already incorporated Spec 016 (scaffold-first, block-mode lint, `# agency-scaffold: v1` marker) and Spec 029/030 (onboarding surface). No further spec-level refinements are needed before implementation can start — the spec is current.
+- The "Where it lives" question is now definitively resolved to `agency/capabilities/novel/` (core, auto-discovered via folder-form `discover()`, Spec 016 Phase 3 commit `8a5a45d`). Music remains the `examples/` proof point.
+- Spec 020 (central `.agency/session.db`) is already shipped (`aa345ab`). The graph-canonical storage model the spec requires is therefore available.
+- Open Question 7 (which deferred coherence checks can be revived as genuinely-decidable transforms) remains open for v2 work.
+
+### Evidence
+- code: `ls agency/capabilities/` — no `novel/` directory; `agency/capabilities/develop.py:249` + `agency/capabilities/plugin.py:279` (Spec 016 substrate ready); `examples/music.py` (template reference)
+- tests: none for novel capability
+- commits/notes: `a7e9f83` (spec re-base only — doc update, no code); `Plan/000-overview.md` classifies 010 as "Wave-1 backlog"

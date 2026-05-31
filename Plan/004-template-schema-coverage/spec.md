@@ -456,3 +456,29 @@ half is production-wired.
 - `the-agency-system/Plan/131-manifest-coverage-lint/spec.md` — prior-art
   keyspace-parity lint + "no placeholder entries for unemitted things" doctrine
   (the acceptance model for the slots→artefacts follow-up, spec 005).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- `VALIDATES_AGAINST` edge type exists in the core ontology (`agency/ontology.py:43`); `Memory.validate_schema` is defined (`memory.py:144`); `Ontology.schemas` is populated by the plugin capability (`plugin.py:179` via `templates.REQUIRED`). These are pre-existing.
+- `REQUIRED` in `agency/templates.py:93-99` still covers exactly the 5 plugin-owned kinds — unchanged from the pre-spec state.
+
+### Still to implement
+- `JULES_SESSION` and `DELEGATION_REDUCTION` `string.Template` constants are absent from `agency/templates.py`.
+- `delegate.join` (`delegate.py:189`) records a `reduction` Artefact with only `{"kind": "reduction", "children": children}` — missing the required fields `parent_intent`, `summary`; no `schemas=` in `delegate`'s `OntologyExtension` (`delegate.py:57-62`).
+- `jules.dispatch` (`jules.py:214`) records `{"kind": "jules-session", "session": sid, "url": ...}` — field named `session`, not `session_id`; missing `state` and `history`; `JulesCapability.ontology` (`jules.py:140-153`) has no `schemas=` entry.
+- `Ontology.materialise_schemas(memory)` helper is absent — no `Schema` nodes are ever recorded in production; `validate_schema` has no `schema_id` to target.
+- Round-trip generate/validate tests per new kind are absent.
+
+### Refinement needed (given later specs)
+- The spec positions itself as "RUNG 1 toward verb-param schema-as-single-source" pointing at Spec 006 for the next rung. Spec 006 in this plan is `core-hardening` (unrelated). The verb-param schema rung likely maps to Spec 019 (`engine-output-shape-contract`) in the current plan — coordinate naming.
+- Plan/000-overview.md:57 lists Spec 004 in the Wave-1 backlog. No active work; depends on Spec 003 (`skill-phase-objects`) which is also not started.
+
+### Evidence
+- code: `agency/templates.py:93-99` (5 kinds, unchanged); `agency/capabilities/delegate.py:57-62,189`; `agency/capabilities/jules.py:140-153,214`; `agency/memory.py:144` (`validate_schema` defined but has no production callers)
+- tests: none for the new kinds or the materialiser
+- commits/notes: frontmatter `status: draft`; Plan/000-overview.md:57 lists in Wave-1 backlog.

@@ -96,3 +96,38 @@ The wave-3 specs (012-020) are the active push. Sequence:
 
 This file is the **index**, not the source of truth — `Plan/NNN-…/spec.md`
 files always win on conflict.
+
+---
+
+## Implementation Status Snapshot (2026-05-31)
+
+Consolidation pass: every spec was reviewed against the actual code/tests on
+branch `claude/plan-spec-review-74gHM` and given a verified verdict. Each
+`spec.md` now carries a **`## Followup — Implementation Status (2026-05-31)`**
+section with Done / Still-to-implement / Refinement-needed detail and
+`file:line` + test evidence. Suite at time of review: **333 passed, 1
+skipped**. This snapshot is the index; the per-spec Followup sections win on
+conflict.
+
+### Verdicts at a glance
+
+| Verdict | Specs |
+|---|---|
+| **Shipped** (5) | 012, 013, 015 *(milestone — review docs + promoted 017/018/019)*, 029, 030 |
+| **Partially implemented** (9) | 001, 006, 007, 016, 018, 020, 023, 024, 025 |
+| **Not started** (15) | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028 |
+
+### Frontmatter ↔ reality reconciliations (recommended flips — left unchanged here for owner sign-off)
+
+- **001** frontmatter `done` → **Partially implemented** (`Codes`, `to_dict/from_dict`, convenience ctors, full verb migration, isomorphism test all absent).
+- **006** overview row says *Shipped* → **Partially implemented** (fixes #1-O(1), #2 `seen_tokens`, #4 `capture_api_key` absent; `tests/test_hardening.py` missing). Spec's own `draft` is the honest value.
+- **016** frontmatter `complete` → **Partially implemented** (Hint #7 docstring sweep never done; Phase 5 fixture cleanup partial; Phase 6 → Spec 028).
+- **012 / 013** frontmatter `draft` → **Shipped** (overview already lists them shipped; flip frontmatter to match).
+- **029 / 030** frontmatter `draft` → **Shipped** (fully implemented + tested; not yet in the Shipped table above).
+
+### Critical-path blockers (what unblocks the most)
+
+1. **Spec 021** (engine-monitor-channel) is *not started* and hard-blocks **022**. Nothing of the monitor channel exists yet (`agency/_monitor.py`, `monitors.json`, `ctx.emit_monitor`).
+2. **Spec 002** (DriverRegistry) *not started* — hard-blocks **007**'s full music surface.
+3. **Docstring sweep (Hint #7)** is the shared open item across **016 / 019 / 023** — until existing verbs gain `Inputs:`/`Returns:`/`chain_next:` markers, all three stay formally open.
+4. **Spec 020** is one verb (`dogfood.export`) away from done; **014 + 017** (the self-improvement loop) remain *not started* and depend on 020 + 017's `dogfood.note/render`.

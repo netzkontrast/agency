@@ -393,3 +393,31 @@ open canon-shape question (raised by `VISION-REVIEW.md`).
   `docs/vision/CORE.md:139-144` (the cluster census; "grow the capability set by
   dropping files into `capabilities/`"). `agency/capabilities/transmute.py` does NOT
   exist yet — this spec BUILDS it (the cluster is specced-but-unbuilt).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- Nothing from this spec has shipped. `agency/capabilities/transmute.py` does not exist (`ls agency/capabilities/` confirms). No `skills/analyze/`, `skills/business-panel/`, or `skills/brainstorm-discovery/` directories exist under `skills/`. No `tests/test_transmute_capability.py` or `tests/test_transmute_skills.py`. No `docs/vision/specs/superclaude-analysts-port.md`.
+- The `develop` capability already ships `brainstorm` and `spec-panel` disciplines that 008 must NOT re-port (`agency/capabilities/develop.py:29-61`) — these are prior art, not deliverables of this spec.
+
+### Still to implement
+- `agency/capabilities/transmute.py` — the entire `transmute` capability (verbs: `analyze`, `troubleshoot`, `estimate`, `explain`, `lens`, `mode`; `Analysis` node + `dimension` enum in `OntologyExtension`; 18-persona lens table; mode enum ≤3).
+- `skills/analyze/SKILL.md`, `skills/business-panel/SKILL.md`, `skills/brainstorm-discovery/SKILL.md` — all three discipline skills.
+- `develop` `design` discipline added to `DEV_SKILLS` — not present in `agency/capabilities/develop.py:28-99`.
+- `docs/vision/specs/superclaude-analysts-port.md` — the coverage mapping doc.
+- `tests/test_transmute_capability.py`, `tests/test_transmute_skills.py`.
+
+### Refinement needed (given later specs)
+- Spec 016 (`capability-authoring-doctrine`) landed `develop.scaffold_capability` (`develop.py:249`) and `plugin.lint_capability` (`plugin.py:279`) in block mode. Implementation of 008 MUST begin with `develop.scaffold_capability(name="transmute", kind="light")` and the resulting `transmute.py` MUST carry the `# agency-scaffold: v1` marker so `plugin.lint_capability("transmute")` runs in block mode.
+- Spec 023 (adaptive-disclosure) requires every verb's docstring brief slice ≤ 120 chars; `lint_capability` enforces this in block mode. All six `transmute` verbs must satisfy the budget.
+- Spec 024 (capability-authoring-discipline) requires the scaffold-first workflow; the `authoring-capabilities` skill in `DEV_SKILLS` (`develop.py:86-98`) is the prescribed entry point.
+- The `Q0` open question (fold into `transmute` vs mint `analyze` as a distinct primitive) remains the key canon-shape decision and must be resolved in `CAPABILITY-CLUSTERS.md` before any code — the spec takes the fold path but notes the alternative explicitly.
+
+### Evidence
+- code: no `agency/capabilities/transmute.py`; `agency/capabilities/develop.py:29-61` (prior art `brainstorm`/`spec-panel` that must not be re-ported); `agency/capabilities/develop.py:249` + `agency/capabilities/plugin.py:279` (Spec 016 scaffold/lint substrate now available)
+- tests: none for transmute
+- commits/notes: `Plan/000-overview.md` classifies 008 as "Wave-1 backlog — revisit when canon needs new ground"; no implementation commit found in `git log --oneline --all`

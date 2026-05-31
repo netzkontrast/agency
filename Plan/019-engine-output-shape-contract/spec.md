@@ -146,3 +146,29 @@ contract bug.
   wire shape stays lean).
 - `Plan/016-capability-authoring-doctrine/spec.md` Hint #7
   (the docstring contract this spec proves out).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- The engine unwrap is correctly implemented at `agency/engine.py:123`: `out = result["result"] if isinstance(result, dict) and "result" in result else result`. The behavior this spec documents exists and is correct.
+- `plugin.lint_capability` (Spec 016 Phase 4) landed and includes a `_check_render_slice` rule (`agency/capabilities/plugin.py:197-216`) that indirectly enforces the "brief slice non-empty" contract, but does NOT enforce the specific "docstring must describe WIRE shape not internal-wrap shape" rule this spec requires.
+
+### Still to implement
+- **Defensive comment at `engine.py:123`** (spec says `:85` but line is now 123): no comment explaining why the unwrap exists, citing Spec 001 + Spec 019. The line reads bare with no doc rationale.
+- **Docstring sweep — wire-shape Returns:** across all 11 capabilities: `reflect`, `gate`, `delegate`, `jules`, `branch`, `workspace`, `subagent`, `dogfood`, `skill_generator` all have zero `Returns:` markers. Only `develop.py` and `plugin.py` have markers (on newly-added verbs only). The sweep specified in 019 §Done When has not been done.
+- **`plugin.lint_capability` rule: flag `Returns: {result: ...}` docstrings**: `_check_render_slice` in plugin.py checks brief length; it does NOT check whether `Returns:` describes the wire shape vs the internal wrap shape. The specific lint rule from 019 §Done When is absent.
+- **`tests/test_engine_unwrap_contract.py`**: does not exist.
+- **`docs/vision/CAPABILITY-AUTHORING.md` "Wire shape vs internal wrap" section**: not verified in the existing 550-line file; may or may not be present but the associated lint rule is absent.
+
+### Refinement needed (given later specs)
+- Spec 023 (adaptive disclosure) relies on Hint #7-compliant `Returns:` lines for the `parse_slices` cleave. The docstring sweep this spec requires is the same sweep 023 needs for its migration roster to reach zero non-compliant. These two specs share the same prerequisite work.
+- The lint rule is small (~10 LOC) and could be appended to `_check_structural` in `agency/capabilities/plugin.py:155-167` without architectural changes.
+
+### Evidence
+- code: `agency/engine.py:123` (unwrap exists, no comment), `agency/capabilities/plugin.py:155-216` (lint rules — structural + render-slice — but NO wire-shape-vs-internal-wrap rule)
+- tests: no `tests/test_engine_unwrap_contract.py`; no test asserting `lint_capability` flags a `Returns: {result: ...}` docstring
+- commits/notes: Frontmatter `status: draft` is accurate. 019 is effectively blocked on 016's docstring sweep landing first.

@@ -365,3 +365,31 @@ from Spec 026) is authored under this discipline → lint-clean by
 construction → no more Codex P2 round-trip cycle. Empirically
 falsifiable: count Codex P2 findings on the next capability merged
 under this discipline. Target: 0.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Partially implemented
+
+### Done
+- **PR-A ✓** — `plugin.lint_capability` ships in `agency/capabilities/plugin.py:279` with all five rule families (structural, render-slice, consumer-contract, token-budget, mode-dispatch); scaffold marker `_SCAFFOLD_MARKER_RE` at line 108; block vs warn dispatch at line 289–300.
+- **PR-A ✓** — `develop.scaffold_capability(name, kind)` ships in `agency/capabilities/develop.py:249`; three kinds (light/medium/heavy); `# agency-scaffold: v1` marker emitted; returns `{result, artefact}` shape.
+- **PR-A ✓** — `authoring-capabilities` discipline in `develop.py:86` (inside `DEV_SKILLS`), six phases, phase 2 and 4 bound to scaffold and lint verbs.
+- **PR-A ✓** — `skills/authoring-capabilities/SKILL.md` exists with correct frontmatter and ≤200-word body.
+- **PR-A ✓** — `tests/test_develop_authoring.py` covers lint rules, scaffold output, discipline walk, hard-gate phase 6 (24 tests, all passing).
+
+### Still to implement
+- **PR-B ✗** — `develop.doc(topic, *, depth)` verb not present in `develop.py`; `tests/test_develop_doc.py` does not exist. `develop.reference` handles short blobs but does not slice `CAPABILITY-AUTHORING.md` at T1/T2/T3.
+- **PR-C ✗** — Blocked on Spec 026-P0 (Matcher schema not yet shipped); `examples/notebook.py`, `examples/code_advisor.py`, `examples/research_routes.py` do not exist; `tests/test_develop_matcher_modes.py` does not exist.
+- **PR-D ✗** — `tests/test_authoring_pressure_scenarios.py` does not exist; subagent pressure scenarios (N=5, `@pytest.mark.slow`, RED/GREEN/REFACTOR) not implemented.
+- Self-improvement loop (Reflection SERVES `intent:c374ac3d` on every discipline walk) — not explicitly wired yet (phase 6 records a reflection but the intent anchor link is unverified in tests).
+
+### Refinement needed (given later specs)
+- Spec 026 (P0 Matcher schema) must ship before PR-C can unblock — if 026 fails the Jules-workflow benchmark gate, PR-C must be explicitly archived or redirected (per Open Q #5 in the spec).
+- Spec 026 `skills.py` is itself a new capability that should be authored under this discipline — a real dogfood test of PR-A completeness.
+
+### Evidence
+- code: `agency/capabilities/plugin.py:106–430`, `agency/capabilities/develop.py:28–350`, `skills/authoring-capabilities/SKILL.md`
+- tests: `tests/test_develop_authoring.py` (37 tests passing); `tests/test_develop_doc.py` — absent; `tests/test_develop_matcher_modes.py` — absent; `tests/test_authoring_pressure_scenarios.py` — absent
+- commits/notes: PR-A — commits `7abe681` (lint_capability), `42c7a15` (scaffold_capability + discipline), `2edf68f` (SKILL.md); PR-B/C/D — not yet started

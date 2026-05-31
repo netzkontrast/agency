@@ -178,3 +178,36 @@ Out of scope here. A separate intent under a separate spec dispatch.
 - `the-agency-system/Plan/JULES_PROTOCOL.md` + `_lessons-learned/02, 08,
   10, 12, 15` (the operational doctrine encoded into the watcher and the
   recovery flow).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Shipped
+
+### Done
+- Phase A (research): `RESEARCH-tools.md`, `RESEARCH-operational.md`, `RESEARCH-skills.md` all present in `Plan/013-jules-skills-and-capability-improvements/`
+- Phase B (design draft): `DESIGN.md` present (526 lines)
+- Phase C (spec-panel): `REVIEW.md` present (416 lines)
+- Phase D (refine): `DESIGN.md` updated per panel findings
+- Phase E (implementation plan): `IMPLEMENTATION-PLAN.md` present (177 lines)
+- Phase F (TDD execution): all six skills implemented in `agency/capabilities/_jules_skills.py`: `jules-protocol-preamble`, `jules-tool-discipline`, `jules-recovery-when-stuck`, `jules-pr-review-cycle`, `jules-fanout`, `jules-self-improvement` — `_jules_skills.py:199–206`
+- Capability deltas: `jules.lint_prompt` — `jules.py:363–381`; `jules.detect_mode` — `jules.py:384–401`; `jules.review_comment` — `jules.py:403–418`; `automation_mode` + `protocol_preset` in `dispatch` — `jules.py:159–215`
+- Mode A/B preamble: `_jules_preambles.assemble(...)` wired into `_jules_api.jules_create` — `_jules_api.py:163–184`
+- `AGENTS.md` committed at repo root; `AGENCY_PROTOCOL.md` updated with doctrine
+- INSTRUCTIONS table extended with Phase 11 literal-tool-name discipline (≤480 chars per action) — `_jules_watch.py:14–53`
+- Skill tests: `test_jules_skills_preamble.py`, `test_jules_skills_tool_discipline.py`, `test_jules_skills_recovery.py`, `test_jules_skills_pr_review.py`, `test_jules_skills_fanout.py`, `test_jules_skills_self_improvement.py`, `test_jules_lint_prompt.py`, `test_jules_preambles.py`, `test_jules_dispatch_phase4.py` — all passing
+
+### Still to implement
+- Nothing — fully shipped (Phase F TDD execution completed; all tests green).
+
+### Refinement needed (given later specs)
+- Spec 022 (jules monitor): depends on `INSTRUCTIONS` from Spec 013; the monitor's `message` field re-uses the watcher's instruction strings. Confirmed compatible — no blocking change needed in 013.
+- OQ1 (`AGENTS.md` committed): resolved — `AGENTS.md` is present at repo root.
+- OQ2 (`auto_create_pr` default): resolved in `DESIGN.md` — `AUTO_CREATE_PR` is not the default; opt-in via `automation_mode` arg.
+- OQ3 (`protocol_preset`): implemented as `dispatch(protocol_preset=...)` arg, resolved.
+
+### Evidence
+- code: `agency/capabilities/_jules_skills.py`, `agency/capabilities/_jules_preambles.py`, `agency/capabilities/jules.py:363–418`, `agency/capabilities/_jules_api.py:163–184`
+- tests: `tests/test_jules_skills_*.py` (6 files), `tests/test_jules_preambles.py`, `tests/test_jules_lint_prompt.py`, `tests/test_jules_dispatch_phase4.py`
+- commits/notes: Plan/000-overview.md lists Spec 013 as SHIPPED; frontmatter `status: draft` is stale.

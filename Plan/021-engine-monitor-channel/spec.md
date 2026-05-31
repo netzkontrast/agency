@@ -178,3 +178,31 @@ channel with zero monitors.json change.
   that Spec 022 wires into this channel.
 - `Plan/020-central-graph-db/spec.md` — `.agency/` convention this
   spec extends with `monitor.log`.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- `agency/capability.py:47` already has `engine: Any = None` on `CapabilityContext` (the field the spec says `emit_monitor` hangs off of). This is pre-existing infrastructure from Spec 016, not a Spec 021 addition.
+- Nothing else from this spec is implemented.
+
+### Still to implement
+- `agency/_monitor.py` — `MonitorEvent` dataclass + `MonitorEmitter` class — file does not exist.
+- `Engine.monitor` attribute in `agency/engine.py` — not present.
+- `CapabilityContext.emit_monitor(...)` helper in `agency/capability.py` — not present.
+- `agency/install.py` `generate()` producing `monitors/monitors.json` — no monitor output in install; `monitors/` directory does not exist.
+- `monitors/monitors.json` — file does not exist anywhere in the repo.
+- `tests/test_engine_monitor.py` — does not exist.
+- `.agency/monitor.log*` gitignore entry via scaffold — not present.
+
+### Refinement needed (given later specs)
+- Spec 022 (`jules-monitor-capability`) is the first consumer of this channel and is blocked entirely until 021 ships.
+- Spec 020's `.agency/` scaffold should be extended (minor add to `scaffold_agency_dir`) to write `.agency/monitor.log*` into `.gitignore` when 021 is implemented — coordinate with `agency/install.py`.
+
+### Evidence
+- code: `agency/_monitor.py` absent; `agency/capability.py:47` has `engine` field only; `agency/engine.py` has no `monitor` attribute; `monitors/` directory absent
+- tests: `tests/test_engine_monitor.py` absent
+- commits/notes: No commit referencing `MonitorEvent`, `MonitorEmitter`, `emit_monitor`, or `monitors.json`

@@ -526,3 +526,32 @@ the load-bearing proof of the example and should be foregrounded in the tests.
 zero are unmodelable. 14 rows are flagged **[SHIP]** (the representative slice);
 5 are **DROP** (obsolete or shadow a core capability — Open Q #5); the remaining
 70 are **port-on-demand** (the pattern is proven, the verb is mechanical to add).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Partially implemented (kept as example — single verb only)
+
+### Done
+- `examples/music.py` exists with `MusicCapability(CapabilityBase)`, the `conceptualize` act verb, `ALBUM_CONCEPT_SKILL` (7-phase hard-gated skill), `ALBUM_TYPES` enum, and `music_ontology` (`OntologyExtension`). `examples/music.py:5,22,46,58,65`
+- The `extra_capabilities` loading path works: `Engine(..., extra_capabilities=[MusicCapability.as_capability()])` registers the capability and merges the ontology. Confirmed by `tests/test_agency.py:1116-1153`.
+- The `album-concept` skill walks to a hard gate (Phase 7 `elicit`). `tests/test_agency.py:1116`.
+- The `Album` node type and closed `type` enum reject unknown values (polka test). `tests/test_agency.py:1150`.
+
+### Still to implement
+- `examples/music_drivers.py` — the five `Boundary`/`Driver` protocols (`StateDriver`, `TextDriver`, `AudioDriver`, `DBDriver`, `CloudDriver`) do not exist; no file at that path.
+- `examples/test_music_capability.py` — does not exist; no dedicated music-capability test file.
+- All 13 additional representative verbs (cluster 2-8): `create_album`, `find_album`, `get_album_progress`, `count_syllables`, `master_album`, `transcribe_audio`, `db_create_tweet`, `verify_streaming_urls`, `run_pre_generation_gates`, etc. — none implemented.
+- The expanded `OntologyExtension` (Track/Tweet/Idea/SheetMusic nodes, closed enums, `pre-generation` and `release-qa` gated skill phase-graphs, artefact schemas for `promo-copy`/`mastering-report`/`lyric-report`).
+- Hard blocker: Spec 002 (`DriverRegistry`) is still `status: draft` and never shipped (`agency/capabilities/` has no registry mechanism beyond `extra_capabilities`). Per the spec's own Done-When #1, 007 is BLOCKED on 002 for any driver-backed verb.
+
+### Refinement needed (given later specs)
+- Spec 016 (`capability-authoring-doctrine`) introduced `develop.scaffold_capability` and `plugin.lint_capability` in block mode (`develop.py:249`, `plugin.py:279`). Any implementation of 007 should use the scaffold-first workflow and carry `# agency-scaffold: v1` markers.
+- Spec 020 (central `.agency/session.db`) changes where the graph is stored; the `StateDriver` storage-model question (Open Q #6 — filesystem vs graph) is now more squarely resolved in favor of graph-canonical with `apply=True` export (the pattern Spec 010 adopted).
+- The overview (`Plan/000-overview.md`) classifies 007 as "Wave-1 backlog — revisit when canon needs new ground," not in-flight. No active push is planned.
+
+### Evidence
+- code: `examples/music.py` (single verb + skill + ontology); no `examples/music_drivers.py` or `examples/test_music_capability.py`
+- tests: `tests/test_agency.py:1116-1153` (music capability smoke test — conceptualize + album-concept skill walk + type enum rejection)
+- commits/notes: `5a4263b` "move the music domain demo out of core into examples/" (the original extraction); Spec 002 (`Plan/002-boundary-driver-protocol/spec.md`) remains `status: draft`, confirming the driver injection blocker is unresolved.

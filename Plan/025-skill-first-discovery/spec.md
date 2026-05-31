@@ -199,3 +199,33 @@ first-phase walk ≤ 300 tiktoken tokens vs the ~520 boilerplate baseline in Spe
 018); (2) it works identically via MCP code-mode and the bash CLI; (3) #8 is
 closed (search=brief, get_schema reveals what each tier needs). Miss any → back
 to **Design (improve)** with a REVISION-N gap analysis.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Partially implemented
+
+### Done
+- **P1 ✓** — Verb→skill tag wiring: `agency/capability.py:154–156` calls `_wire_skill_tags`; verbs bound by skill phase `invoke` fields receive `skill:<name>` tags; `skill:` prefix stripped at registration if hand-authored (line 144–145).
+- **P1 ✓** — `render_phase` function ships in `agency/render.py:238–` (T1/T2/T3 slices for phases; verb-bound phases delegate to `render_verb`).
+- **P1 ✓** — `skill:` tag namespace reserved: `capability.py:144` strips hand-authored `skill:*` tags; asserted by `tests/test_skill_first_discovery.py::test_skill_prefix_is_reserved`.
+- **P1 ✓** — `tests/test_skill_first_discovery.py` (4 tests: tag wiring, multi-tag, untagged verb, reserved prefix) — all passing.
+- **P1 ✓** — `tests/test_skill_walk_slices.py` (7 tests: T1/T2/T3 renders, hard-gate question, verb-bound delegation, snippet shape, missing cue fallback) — all passing.
+
+### Still to implement
+- **P2+ ✗** — Skill-first search ranking: no custom `Search` prepending synthetic skill entries in `engine.py`; `search("dispatch jules")` does not surface skill entries above matching verbs.
+- **P2+ ✗** — `get_schema(skill)` dispatch: `get_schema` does not distinguish skill-name targets from verb-name targets; no collapsed phase-map return.
+- **P2+ ✗** — `develop.skill_walk(name, inputs)` and `develop.skill_step(...)` verbs: absent from `develop.py`.
+- **P2+ ✗** — Engine token-cost cache: skill dump-vs-step threshold (`AGENCY_SKILL_DUMP_TOKENS`, measured once at registration) not implemented.
+- **P2+ ✗** — Isomorphism extension: `tests/test_search_isomorphism.py` has not been extended to assert skill-first discovery works identically over MCP + CLI.
+- **#8 resolution** (chain_next in skill phase-map AND verb deep slice) — partial: `render_phase` exists but the get_schema dispatch integration is absent.
+
+### Refinement needed (given later specs)
+- Spec 026 convergence gate (Jules workflow benchmark) explicitly gates further phases of Spec 025: "neither ships further phases until the benchmark fires." P2+ implementation depends on the benchmark result.
+- If 026's `intent.suggests_skill` wins the benchmark, Spec 025 P2 (skill_walk verb) may be superseded or merged into a Spec 027 per the convergence decision rule in Spec 026 §convergence.
+
+### Evidence
+- code: `agency/capability.py:144–156` (_wire_skill_tags); `agency/render.py:238` (render_phase); `agency/engine.py` — no skill-first search or get_schema dispatch found
+- tests: `tests/test_skill_first_discovery.py` (4 passing); `tests/test_skill_walk_slices.py` (7 passing); P2 tests — none exist
+- commits/notes: P1 shipped via `660d7f5` + `19058fe` + `3f1e451`; P2+ not started; spec frontmatter note "025-P1 shipped (19058fe)" in Spec 024's depends_on is accurate

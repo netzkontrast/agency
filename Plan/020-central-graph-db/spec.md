@@ -155,3 +155,32 @@ shareable; cross-session memory becomes a team asset.
 - `AGENCY_PROTOCOL.md` §8 (bi-temporal record; assumes DB persists).
 - `agency/memory.py:_intent_chain` — the cross-amendment walker that
   proves cross-session continuity is already designed-for in the graph.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Partially implemented
+
+### Done
+- **DB path resolution order** fully implemented in `agency/_db_path.py` (`resolve_db_path()`): explicit → `AGENCY_DB` env → `./.agency/session.db` (if dir exists) → `~/.agency.db`. Wired into `agency/__main__.py:22` and `agency/cli.py:67`.
+- **`agency/install.py` scaffold** complete: `scaffold_agency_dir()` (line 302) creates `.agency/`, `.gitkeep`, `README.md`; `update_gitattributes()` (line 322) appends the binary marker; `scaffold_db()` (line 341) ties both together. `--scaffold-db` flag wired at line 478.
+- **`bin/agency-install`** calls `python -m agency.install --scaffold-db "$ROOT"` (line 49).
+- **`.gitattributes`** present at repo root with the required binary marker (`agency/session.db binary` + `diff=sqlite`), written by install and committed.
+- **`.agency/session.db` committed** to the repo (tracked via `git ls-files`; commits `aa345ab` + `ae0b9ba`).
+- **Tests shipped**: `tests/test_db_path_resolution.py` (10 assertions covering all four resolution levels + scaffold idempotency) and `tests/test_install_db_path.py` (MCP/CLI DB convergence assertion).
+- **MCP/CLI convergence fix**: `_mcp_config()` emits `AGENCY_DB: ${CLAUDE_PROJECT_DIR}/.agency/session.db` so both surfaces write one graph (reflection:9cd97a38).
+
+### Still to implement
+- **`dogfood.export(path)` verb** — the JSON-dump fallback for merge-conflict recovery (spec's "Files → Create" item). Not present in `agency/capabilities/dogfood.py`.
+- **`.agency/.gitkeep`** — not present in the live `.agency/` dir (only `README.md` and `session.db` appear under `git ls-files .agency/`). The scaffold creates it on fresh installs but the repo's own `.agency/` was set up before the scaffold wrote `.gitkeep`.
+- **Merge-conflict documented recovery path** — the `dogfood.export` + replay doc is blocked on the export verb above.
+
+### Refinement needed (given later specs)
+- Spec 021 extends the `.agency/` convention with `monitor.log`; it should add `.agency/monitor.log*` to `.gitignore` via the scaffold (minor addition to `scaffold_agency_dir`).
+- Spec 017 (`dogfood.note`/`dogfood.render`) relies on 020's persistent DB being present — the substrate dependency is met.
+
+### Evidence
+- code: `agency/_db_path.py` (full resolution logic); `agency/install.py:302,322,341,478`; `agency/__main__.py:22`; `agency/cli.py:67`; `.gitattributes`
+- tests: `tests/test_db_path_resolution.py`, `tests/test_install_db_path.py`
+- commits/notes: `aa345ab` ("track .agency/*.db — Spec 020 doctrine"), `ae0b9ba` ("refresh dogfood .agency/session.db")

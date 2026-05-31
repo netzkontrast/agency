@@ -435,3 +435,36 @@ Adding a new capability?
   surfaces them; the doctrine-correction triplet
   (`reflection:32e3bce4` / `766d9f69` / `05dd76de`) and the Spec 014
   hint set (10 nodes from `dogfood.collect` walk).
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Partially implemented
+
+### Done
+- `docs/vision/CAPABILITY-AUTHORING.md` created (550 lines); doctrine page exists. (`docs/vision/CAPABILITY-AUTHORING.md`)
+- `docs/vision/CORE.md` updated with `CapabilityContext` paragraph and pointer to CAPABILITY-AUTHORING.md (`CORE.md:51-69`).
+- `agency/capabilities/__init__.py` `discover()` handles folder-form subpackages via `pkgutil.iter_modules` + `importlib` (transparent by construction). (`agency/capabilities/__init__.py:20-34`)
+- `tests/test_subpackage_discovery.py` — RED→GREEN tests confirming folder-form discovery + engine round-trip. (`tests/test_subpackage_discovery.py:79-109`)
+- `plugin.lint_capability` verb landed in Plan/024 PR-A; five rule families: structural (Hint #7 markers), role-tag (Hint #3 network-import check), render-slice (Spec 023 brief ≤120 chars), consumer-contract (engine round-trip), token-budget. Block/warn mode dispatch via `# agency-scaffold:` marker. (`agency/capabilities/plugin.py:279-302`)
+- `tests/conftest.py` with four shared fixtures: `engine`, `memory_engine`, `iid`, `make_engine`. (`tests/conftest.py:29-113`)
+- `develop.scaffold_capability` verb added (Plan/024 PR-A); emits light/medium/heavy skeletons that lint clean in block mode by construction. (`agency/capabilities/develop.py:249-296`)
+- `develop.record_authoring_outcome` verb + `authoring-capabilities` discipline (6-phase skill with hard gate at phase 6). (`agency/capabilities/develop.py:86-98, 329-351`)
+- `tests/test_develop_authoring.py` — full authoring discipline walk + lint + scaffold tests.
+
+### Still to implement
+- **Jules folder migration** (Phase 6): `jules.py` (571 LOC) + 6 `_jules_*.py` siblings still in flat file form; not moved to `agency/capabilities/jules/`. Deferred to Spec 028.
+- **Plugin folder migration** (Phase 7): Dropped per frontmatter `drops:` — plugin.py has zero sibling helpers; templates.py is a shared module. Correct decision per doctrine.
+- **Duplicate fixture cleanup**: conftest.py landed but 34 `Engine(tempfile.mktemp(...))` call-sites still exist (e.g. `tests/test_install_verb.py`, `tests/test_delegate_dispatch_decision.py`, `tests/test_engine_lifespan.py`). Partial migration only.
+- **Spec 019 docstring sweep** (Hint #7 on all verbs): `reflect`, `gate`, `delegate`, `jules` have zero `Inputs:` / `Returns:` / `chain_next:` markers. Only `develop.py` (15 occurrences) and `plugin.py` (4 occurrences) carry markers. Sweep not done.
+
+### Refinement needed (given later specs)
+- Spec 019 (output-shape contract) depends on the Hint #7 docstring sweep being complete; that sweep is a 016 deliverable still open.
+- Spec 023 (adaptive disclosure) paired ship order requires lint + docstring migration; lint landed, but the docstring migration roster gating 023 GREEN is not done.
+- Spec 028 (jules-folder-migration) — the explicit Phase 6 deferral target; not yet a plan entry in Plan/000.
+
+### Evidence
+- code: `agency/capabilities/__init__.py`, `agency/capabilities/plugin.py:279-430`, `agency/capabilities/develop.py:86-351`, `docs/vision/CAPABILITY-AUTHORING.md`, `docs/vision/CORE.md:51-69`
+- tests: `tests/test_subpackage_discovery.py`, `tests/test_develop_authoring.py`, `tests/conftest.py`
+- commits/notes: frontmatter lists f5f7575 (Phase 1), 7e3de29 (Phase 2), 8a5a45d (Phase 3), d76135a (Phase 5), e9a529d (Phase 5 hardening), Plan/024 PR-A (Phase 4). Phase 6 deferred → 028; Phase 7 dropped. 34 legacy `tempfile.mktemp` fixtures remain (partial Phase 5). Frontmatter `status: complete` is overstated given open sweep + partial fixture migration.
