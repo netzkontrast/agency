@@ -332,6 +332,104 @@ def scaffold_db(root: str) -> dict:
     }
 
 
+# ---- Spec 029 §A — CLAUDE.md onboarding snippet ----------------------------
+
+_CLAUDE_MD_MARKER_START = "<!-- agency:onboarding:start -->"
+_CLAUDE_MD_MARKER_END = "<!-- agency:onboarding:end -->"
+
+_CLAUDE_MD_SNIPPET = f"""\
+{_CLAUDE_MD_MARKER_START}
+## Agency plugin — onboarding (auto-generated, do not edit between markers)
+
+This repo carries an `.agency/` provenance graph (Spec 020). The
+agency plugin's MCP server exposes three onboarding tools alongside
+the code-mode contract:
+
+- `agency_welcome` — one-shot first call; returns the bootstrap +
+  install examples and the live capability list. **Start here.**
+- `agency_install` — scaffold `.agency/` + this snippet in any target
+  repo. Idempotent.
+- `intent_bootstrap` — mint AND confirm an Intent. Every capability
+  verb requires an `intent_id`; this is the only tool that doesn't
+  (it mints the first one).
+
+Canonical first-call sequence (inside one `execute` block):
+
+```python
+# 1. Get onboarded (no intent_id required)
+await call_tool('agency_welcome', {{}})
+# 2. Scaffold .agency/ if missing (idempotent)
+await call_tool('agency_install', {{}})
+# 3. Mint the intent every capability verb SERVES against
+r = await call_tool('intent_bootstrap', {{
+    'purpose': 'why', 'deliverable': 'what', 'acceptance': 'verify',
+}})
+# 4. Use it
+await call_tool('capability_plugin_help', {{'intent_id': r['intent_id']}})
+```
+
+State lives in `.agency/session.db` (committed to git per Spec 020 —
+team learnings travel with the repo).
+{_CLAUDE_MD_MARKER_END}
+"""
+
+
+def write_claude_md_snippet(root: str) -> tuple[str, bool]:
+    """Write or refresh the onboarding snippet in <root>/CLAUDE.md.
+
+    Returns (path, updated). ``updated`` is True iff the file content
+    actually changed. Existing CLAUDE.md content OUTSIDE the markers is
+    never touched; the block between markers is REPLACED on every run
+    (so a re-install picks up updated guidance). If no CLAUDE.md exists,
+    one is created with just the snippet."""
+    path = os.path.join(root, "CLAUDE.md")
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write(_CLAUDE_MD_SNIPPET)
+        return path, True
+    with open(path) as f:
+        existing = f.read()
+    if _CLAUDE_MD_MARKER_START in existing and _CLAUDE_MD_MARKER_END in existing:
+        start = existing.index(_CLAUDE_MD_MARKER_START)
+        end = existing.index(_CLAUDE_MD_MARKER_END) + len(_CLAUDE_MD_MARKER_END)
+        # _CLAUDE_MD_SNIPPET ends with "\n"; preserve a single trailing newline
+        # at the spot the markers occupied so adjacent user content lines up.
+        new = existing[:start] + _CLAUDE_MD_SNIPPET.rstrip("\n") + existing[end:]
+    else:
+        sep = "" if existing.endswith("\n") else "\n"
+        new = existing + sep + "\n" + _CLAUDE_MD_SNIPPET
+    if new == existing:
+        return path, False
+    with open(path, "w") as f:
+        f.write(new)
+    return path, True
+
+
+def install_op(target: str | None = None) -> dict:
+    """The Spec 029 MCP-callable install operation.
+
+    Resolves the target (arg → CLAUDE_PROJECT_DIR → cwd), runs
+    ``scaffold_db`` (idempotent), writes the CLAUDE.md onboarding
+    snippet, and returns a structured summary that names the literal
+    paths for verification. Reuses ``_scaffold_target`` so the logic
+    matches the existing bash entry point."""
+    root = target or _scaffold_target(os.getcwd())
+    os.makedirs(root, exist_ok=True)
+    scaffold = scaffold_db(root)
+    claude_md_path, claude_md_updated = write_claude_md_snippet(root)
+    return {
+        "target": root,
+        "scaffolded": [str(p) for p in scaffold["written"]],
+        "gitattributes_updated": scaffold["gitattributes_updated"],
+        "claude_md_path": claude_md_path,
+        "claude_md_updated": claude_md_updated,
+        "next": (
+            "call_tool('intent_bootstrap', {'purpose': '...', "
+            "'deliverable': '...', 'acceptance': '...'})"
+        ),
+    }
+
+
 def _scaffold_target(install_root: str) -> str:
     """Where the Spec 020 ``.agency/`` provenance scaffold must land.
 

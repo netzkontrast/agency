@@ -245,6 +245,26 @@ class Engine:
             return {"intent_id": iid, "status": "confirmed", "next": example}
 
         @mcp.tool
+        def agency_install(target: str = "") -> dict:
+            """Scaffold .agency/ + a CLAUDE.md onboarding snippet in the target repo.
+
+            Closes the missing MCP install path: previously only available
+            via ``python -m agency.install --scaffold-db``. Idempotent —
+            re-running on a populated tree is a no-op for any file already
+            present. The CLAUDE.md snippet is bounded by explicit markers,
+            so user content outside the markers is never touched.
+
+            Inputs:
+              - ``target`` (str, optional) — default = ``CLAUDE_PROJECT_DIR``
+                env → cwd (mirrors the Spec 020 scaffold target).
+            Returns: ``{target, scaffolded, gitattributes_updated,
+                       claude_md_path, claude_md_updated, next}``.
+            chain_next: ``intent_bootstrap`` to mint the first Intent.
+            """
+            from .install import install_op
+            return install_op(target or None)
+
+        @mcp.tool
         def agency_welcome() -> dict:
             """One-shot onboarding payload — the canonical first call.
 
