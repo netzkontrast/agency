@@ -1,11 +1,8 @@
 __pycache__/
 *.pyc
 *.db
+!.agency/*.db
 .venv/
 .pytest_cache/
 .claude/
-# Spec 020: the .agency/ dir is a committed provenance scaffold
-# (README.md / .gitkeep / .gitattributes are tracked). Ignore only the
-# sqlite DB binaries inside it, not the directory itself.
-.agency/*.db
 *.bak
