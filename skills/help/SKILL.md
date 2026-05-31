@@ -22,6 +22,9 @@ onboarding tools (Spec 029):
   the current target repo. Idempotent.
 - `intent_bootstrap` — mint AND confirm an Intent. The only verb
   that does not require an existing `intent_id`.
+- `agency_doctor` — health check (Spec 030): python version, deps,
+  DB reachability, JULES_API_KEY presence (never the value).
+  Call when something silently fails.
 
 These onboarding tools and the code-mode trio share one MCP server
 (`mcp__plugin_agency_agency__execute` for the sandbox, `mcp__plugin_agency_agency__search` for discovery, `mcp__plugin_agency_agency__get_schema` before a call).

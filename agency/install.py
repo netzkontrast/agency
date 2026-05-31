@@ -73,7 +73,10 @@ _MCP_QUICKSTART = (
     "- `agency_install` — scaffold `.agency/` + a CLAUDE.md snippet in\n"
     "  the current target repo. Idempotent.\n"
     "- `intent_bootstrap` — mint AND confirm an Intent. The only verb\n"
-    "  that does not require an existing `intent_id`.\n\n"
+    "  that does not require an existing `intent_id`.\n"
+    "- `agency_doctor` — health check (Spec 030): python version, deps,\n"
+    "  DB reachability, JULES_API_KEY presence (never the value).\n"
+    "  Call when something silently fails.\n\n"
     "These onboarding tools and the code-mode trio share one MCP server\n"
     "(`mcp__plugin_agency_agency__execute` for the sandbox, "
     "`mcp__plugin_agency_agency__search` for discovery, "
@@ -363,6 +366,10 @@ the code-mode contract:
 - `intent_bootstrap` — mint AND confirm an Intent. Every capability
   verb requires an `intent_id`; this is the only tool that doesn't
   (it mints the first one).
+- `agency_doctor` — Spec 030 health check: report python version,
+  deps, DB reachability, and env-var status (`JULES_API_KEY`
+  presence — never the value). Call this when something silently
+  fails.
 
 Canonical first-call sequence (inside one `execute` block):
 
