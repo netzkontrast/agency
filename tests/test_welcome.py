@@ -44,7 +44,10 @@ def test_welcome_payload_shape():
     assert "install_example" in out and "agency_install" in out["install_example"]
     assert "capabilities" in out and isinstance(out["capabilities"], list)
     assert "db_path" in out
-    assert "next" in out and isinstance(out["next"], list) and len(out["next"]) >= 3
+    # Spec 030 §C — `next` is now state-aware (2 steps per branch; the
+    # third "search" step moved into the in_progress branch).
+    assert "next" in out and isinstance(out["next"], list) and len(out["next"]) >= 2
+    assert "state" in out
 
 
 def test_welcome_capabilities_is_deterministic():

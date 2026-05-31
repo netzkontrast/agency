@@ -364,7 +364,31 @@ class Engine:
             # carries; agents discover verbs by calling capability_plugin_help
             # or search('<keyword>') with the intent_id from intent_bootstrap.
             caps = sorted(engine.registry.names())
+            # Spec 030 §C — state-aware onboarding. The welcome doubles as a
+            # session-resumption tool: a fresh graph leads with bootstrap,
+            # a populated one leads with discovery + provenance.
+            intents = list(engine.memory.find("Intent"))
+            intents_count = len(intents)
+            last_intent = ""
+            if intents:
+                # newest first by valid-from (graphqlite's bi-temporal stamp)
+                last = max(intents, key=lambda r: r.get("vfrom", 0))
+                last_intent = last.get("id", "") or ""
+            state = "in_progress" if intents_count > 0 else "fresh"
+            if state == "fresh":
+                next_steps = [
+                    "agency_install — scaffold .agency/ if missing",
+                    "intent_bootstrap — mint the intent every verb SERVES",
+                ]
+            else:
+                next_steps = [
+                    f"search('<keyword>') — discover a capability_*_* verb",
+                    f"memory_graph_provenance('{last_intent}') — see what served the last intent",
+                ]
             return {
+                "state": state,
+                "intents_count": intents_count,
+                "last_intent": last_intent,
                 "bootstrap_example": (
                     "call_tool('intent_bootstrap', "
                     "{'purpose': '<why>', 'deliverable': '<what>', "
@@ -373,11 +397,7 @@ class Engine:
                 "install_example": "call_tool('agency_install', {})",
                 "capabilities": caps,
                 "db_path": resolve_db_path(None),
-                "next": [
-                    "agency_install — scaffold .agency/ + CLAUDE.md if missing",
-                    "intent_bootstrap — mint the intent every verb SERVES",
-                    "search('<keyword>') — discover a capability_*_* verb",
-                ],
+                "next": next_steps,
             }
 
         return mcp
