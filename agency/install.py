@@ -221,12 +221,20 @@ def generate(engine: Engine) -> dict[str, str]:
     PREPENDED to the auto-discovered capability map from `plugin.help_map`.
     Two surfaces in one skill so MCP-equipped (Claude Code) and bash-only
     (Jules) harnesses both find their idiomatic call shape — the canon's
-    isomorphism guarantee landing in the install artefacts."""
+    isomorphism guarantee landing in the install artefacts.
+
+    Spec 031 Phase 2 / Spec 032 §G — per-capability emit pipeline.
+    For every registered capability that declares a ``skill_doc``, the
+    per-capability emit pipeline (``skill_emit.emit_skill`` /
+    ``emit_references`` / ``emit_bash_wrappers``) layers ITS files on
+    top of the 5 legacy fixed files. Caps without ``skill_doc`` are
+    skipped (Phase 4 will migrate them); the legacy ``skills/help``
+    surface remains the discovery shortcut until that flip."""
     reg = engine.registry
     caps = {n: list(reg.get(n).verbs) for n in reg.names()}
     help_doc = help_map(caps)["result"]["doc"]
     skill_body = _MCP_QUICKSTART + "\n" + help_doc
-    return {
+    files: dict[str, str] = {
         ".claude-plugin/plugin.json":      json.dumps(_manifest(), indent=2),
         ".claude-plugin/marketplace.json": json.dumps(_marketplace(), indent=2),
         ".mcp.json":                       json.dumps(_mcp_config(), indent=2),
@@ -236,22 +244,109 @@ def generate(engine: Engine) -> dict[str, str]:
         )["result"],
         "commands/help.md":                author_command("help", CMD_DESC, CMD_BODY)["result"],
     }
+    # Spec 031 §F / Spec 032 §G — per-capability emit pipeline.
+    # NOTE on cache: cache.peek operates on the filesystem, but generate()
+    # doesn't have a root yet (write() does). Task 2.5 design: cache check
+    # happens in write(), not generate(). For generate(), always emit fresh.
+    from .skill_emit import (
+        emit_skill, emit_references, emit_bash_wrappers,
+        _capability_hash, GEN_VERSION,
+    )
+    from . import cache as _cache  # noqa: F401 — reserved for future write()-side cache check
+    for cap_name in reg.names():
+        cap = reg.get(cap_name)
+        if getattr(cap, "skill_doc", None) is None:
+            continue  # cap lacks skill_doc → can't render SKILL.md (Phase 4 will fix)
+        _hash = _capability_hash(cap, GEN_VERSION)  # reserved for write()-side cache.peek
+        files.update(emit_skill(cap_name, cap.skill_doc, cap.verbs))
+        files.update(emit_references(cap_name, cap.verbs))
+        files.update(emit_bash_wrappers(cap_name, cap.verbs))
+    return files
 
 
 def write(root: str) -> list[str]:
+    """Generate + write the install files under ``root``. Returns the list of
+    absolute paths that were written.
+
+    Spec 032 §8a: bash wrappers under ``bin/`` get ``chmod 0o755`` to mark
+    them executable. On read-only mounts (Windows network shares, locked
+    container layers) the chmod call raises ``OSError``; we surface a
+    single warning per file to stderr and continue — the file content is
+    still on disk, the user can re-run ``chmod +x`` themselves."""
     engine = Engine(":memory:")
     try:
         files = generate(engine)
     finally:
         engine.memory.close()
-    written = []
+    written: list[str] = []
+    chmod_warnings: list[str] = []
     for rel, content in files.items():
         path = os.path.join(root, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
             f.write(content)
+        # Spec 032 §8a — chmod +x for bash wrappers; graceful degrade on RO mount.
+        if rel.startswith("bin/"):
+            try:
+                os.chmod(path, 0o755)
+            except OSError as e:
+                chmod_warnings.append(
+                    f"chmod +x failed for {path!r} ({e}); "
+                    f"users must `chmod +x` manually"
+                )
         written.append(path)
+    if chmod_warnings:
+        for w in chmod_warnings:
+            print(f"WARNING: {w}", file=sys.stderr)
     return written
+
+
+def main(argv: list | None = None) -> int:
+    """CLI entrypoint: regenerate the Claude Code plugin install files.
+
+    Reusable from tests: pass an explicit ``argv`` list to bypass
+    ``sys.argv`` parsing. Returns the process exit code (0 on success).
+
+    Spec 031 Task 2.5 — adds ``--dry-run`` which builds the file map via
+    ``generate()`` (running PRE-emit lint as a side effect) and prints the
+    paths that WOULD be written + an ``OK`` status. Touches nothing on
+    disk. Lint failures raise ``ValueError`` from ``emit_skill``, which
+    propagates out as a non-zero exit (uncaught, by design)."""
+    parser = argparse.ArgumentParser(
+        prog="python -m agency.install",
+        description="Regenerate the Claude Code plugin install files.",
+    )
+    parser.add_argument("root", nargs="?", default=None,
+                        help="install root (default: this repo's root)")
+    parser.add_argument("--scaffold-db", action="store_true",
+                        help="also create .agency/ + .gitattributes binary marker (Spec 020)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Print the would-write paths + per-file lint result; "
+                             "touch nothing on disk. Exit 0 iff all lints pass.")
+    ns = parser.parse_args(argv)
+    target = ns.root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if ns.dry_run:
+        # generate() runs the PRE-emit lint via emit_skill; a lint failure
+        # raises ValueError before any path is reported (good — no false OK).
+        engine = Engine(":memory:")
+        try:
+            files = generate(engine)
+        finally:
+            engine.memory.close()
+        for rel in files:
+            print(f"{os.path.join(target, rel)} OK")
+        return 0
+    for p in write(target):
+        print(p)
+    if ns.scaffold_db:
+        # The DB lives in the PROJECT, not the plugin root — scaffold there.
+        scaffold_root = _scaffold_target(target)
+        result = scaffold_db(scaffold_root)
+        for p in result["written"]:
+            print(p)
+        if result["gitattributes_updated"]:
+            print(os.path.join(scaffold_root, ".gitattributes"))
+    return 0
 
 
 _AGENCY_README = """# .agency/ — central graph DB
@@ -471,21 +566,4 @@ def _scaffold_target(install_root: str) -> str:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog="python -m agency.install",
-                                     description="Regenerate the Claude Code plugin install files.")
-    parser.add_argument("root", nargs="?", default=None,
-                        help="install root (default: this repo's root)")
-    parser.add_argument("--scaffold-db", action="store_true",
-                        help="also create .agency/ + .gitattributes binary marker (Spec 020)")
-    ns = parser.parse_args()
-    target = ns.root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for p in write(target):
-        print(p)
-    if ns.scaffold_db:
-        # The DB lives in the PROJECT, not the plugin root — scaffold there.
-        scaffold_root = _scaffold_target(target)
-        result = scaffold_db(scaffold_root)
-        for p in result["written"]:
-            print(p)
-        if result["gitattributes_updated"]:
-            print(os.path.join(scaffold_root, ".gitattributes"))
+    sys.exit(main())

@@ -15,7 +15,7 @@ import ast
 
 import pytest
 
-from agency.render import render_phase, render_verb
+from agency.disclosure import render_phase, render_verb
 from agency.engine import Engine
 
 

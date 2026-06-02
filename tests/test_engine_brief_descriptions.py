@@ -13,7 +13,7 @@ original __doc__ through fastmcp's parameter schema rendering).
 from __future__ import annotations
 
 from agency.engine import Engine
-from agency.render import parse_slices
+from agency.disclosure import parse_slices
 
 
 async def test_registered_tool_description_is_brief_slice():
