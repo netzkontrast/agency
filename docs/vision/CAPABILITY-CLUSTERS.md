@@ -41,3 +41,35 @@ net-new primitive, `delegate`, is built and proven (fan-out under a quota + join
 recorded as a connected provenance subgraph) — the same falsification bar every
 shipped capability met. The residual 0.1: `research`'s composition is unproven
 until built.
+
+## SC + Superpowers cluster overlay (2026-06-02 audit)
+
+The cluster map above is the CORE-concept-grounded view (per-Capability + per
+role-tag). A second, SDLC+meta-discipline-grounded view came out of the PR #17
+audit conversation (deep dive on SuperClaude's 33 commands + Superpowers' 14
+skills). That overlay groups the wider ecosystem's surface into **13 clusters**
+and maps each onto the agency surface — see
+[`Plan/047-cluster-integration/spec.md`](../../Plan/047-cluster-integration/spec.md)
+for the per-cluster integration plan.
+
+| # | Cluster | Implementing specs in agency | This-doc primitive |
+|---|---|---|---|
+| C01 | Discovery / Brainstorm | 029, 030, 046 §F-B | (agency:brainstorming skill) |
+| C02 | Planning / Specs | (skills) + 046 §F-D | (agency:writing-plans skill) |
+| C03 | Implementation Disciplines | 040, 041 | `delegate` + `subagent` |
+| C04 | Quality / Review / Verify | 041, 042, 046 §F-A | `craft` (acts on findings) + `gate` |
+| C05 | Debug / Troubleshoot | 030, 041 | (agency:systematic-debugging skill) |
+| C06 | Cleanup / Refactor | 042 (mode of `analyze`) | `commit-effect` (writes) |
+| C07 | Documentation / Knowledge | 017, 043, 046 §F-F | `transmute` (renders) |
+| C08 | Session Lifecycle / Memory | 020, 030, 045 | `reflect` (extended) |
+| C09 | Git / VCS | 046 §F-C | `branch` + `workspace` + `commit-effect` |
+| C10 | Research | 044 | **`research`** (the composition; now planned) |
+| C11 | Orchestration / Subagents | 040 (heuristic) + 041, 044, 046 (consumers) | **`delegate`** (universal arbiter) |
+| C12 | Meta / Help / Dispatch | 043 §catalogue scope | `navigate` (read-projections) + plugin.help |
+| C13 | Plugin / MCP Authoring | 031, 032 (main) + 039, 046 §F-A/F-F | `plugin` (extended) |
+
+The two views are **complementary**, not redundant. The CORE view answers "what
+new primitive does this need?"; the cluster view answers "where does this verb /
+skill / substrate tool land in the SDLC and how does it compose with the rest?".
+Spec 047's per-cluster integration patterns are how the cluster view stays
+coherent as new specs land.

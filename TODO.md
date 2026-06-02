@@ -19,11 +19,11 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 5 | 012, 013, 015, 029, 030 |
+| **Shipped** | 6 | 012, 013, 015, 029, 030, 047 |
 | **Partially implemented** | 11 | 001, 006, 007, 016, 018, 020, 023, 024, 025, 031, 032 |
 | **Not started** | 24 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 039, 040, 041, 042, 043, 044, 045, 046 + (010 deferred-v2 axes) |
 
-Total active specs: **40** (counting 000-overview).
+Total active specs: **41** (counting 000-overview).
 
 ## Status table
 
@@ -68,6 +68,7 @@ Total active specs: **40** (counting 000-overview).
 | 044 | research-capability | Not started | lead+specialists+verifier composition + 5 Novel-Gemini prompts | Designed in this branch (prompts already in `research/novel-prompts/`) |
 | 045 | reflect-semantic-recall | Not started | TF-IDF + optional vector embedder; `reflect.recall_semantic` | Designed in this branch; complements episodic-memory |
 | 046 | micro-extensions-bundle | Not started | Code-review split + visual-companion + smart-commit + estimate + token-efficiency + doc-autosync | Designed in this branch |
+| **047** | cluster-integration | **Shipped** | Master plan: 13-cluster integration map (Discovery/Plan/Impl/Quality/Debug/Cleanup/Doc/Memory/Git/Research/Orch/Meta/Plugin) | The deliverable IS the plan — no code; promotes individual cluster plans to standalone specs when criteria hit (cluster-section > 150 LOC OR ≥ 3 cross-cluster decisions) |
 
 ## Suggested implementation order (next 5)
 

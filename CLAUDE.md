@@ -47,6 +47,18 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    `## Followup — Implementation Status (…)` section. No drift between
    the two; `TODO.md` rolls up, the Followup section grounds.
 
+5. **Check cluster coherence before adding a verb / skill.** Spec 047
+   (cluster-integration master) maps the 13 SDLC+meta clusters onto the
+   agency surface. Every new verb / skill / substrate tool lands in one
+   of those clusters. Before adding, find the cluster's section in
+   `Plan/047-cluster-integration/spec.md` and check the integration
+   pattern + coherence interactions — does your addition extend the
+   pattern, or break it? When the cluster's integration plan grows past
+   ~150 lines OR you trigger ≥ 3 named cross-cluster decisions, promote
+   it to a standalone spec (Spec-015→017/018/019 precedent). The master
+   is the source of truth UNTIL promotion; the promoted spec wins
+   thereafter.
+
 ## Surface (discoverable; don't memorize)
 
 Capabilities self-register from `agency/capabilities/`. Skills live on
