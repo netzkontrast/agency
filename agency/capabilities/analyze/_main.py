@@ -19,10 +19,11 @@ import time
 from agency.capability import CapabilityBase, verb
 from agency.ontology import OntologyExtension
 
-from . import _architecture, _findings, _performance, _quality, _security
+from . import (_architecture, _findings, _paths, _performance, _quality,
+                _security)
 
 
-_AXES = ("quality", "security", "performance", "architecture")
+_AXES = ("quality", "security", "performance", "architecture", "paths")
 
 
 def _phase(idx: int, name: str, produces: list[str], gate: str = "") -> dict:
@@ -61,6 +62,8 @@ class AnalyzeCapability(CapabilityBase):
         },
         enums={
             ("Finding", "severity"): {"info", "warn", "fail"},
+            # Spec 048: 'paths' joins the axis set as a graph-walking
+            # analyzer; the others are file-tree walkers.
             ("Analysis", "axis"): set(_AXES),
         },
         edges={"HAS_FINDING", "IMPROVES", "CLEANS"},
@@ -128,6 +131,22 @@ class AnalyzeCapability(CapabilityBase):
         return {"findings": findings,
                 "counts": _findings.count_by_severity(findings)}
 
+    @verb(role="transform")
+    def paths(self, root_intent_id: str = "",
+              max_paths: int = 10) -> dict:
+        """Spec 048 intent-path analysis: long chains + verb sequences.
+
+        Inputs: root_intent_id (str — empty = all user-owned roots),
+                max_paths (int — cap when scanning all roots).
+        Returns: ``{findings: [...], counts: {info, warn, fail}}``.
+        chain_next: read findings to identify composite-verb candidates.
+        """
+        findings = _paths.scan(self.ctx.memory,
+                                root_intent_id=root_intent_id,
+                                max_paths=max_paths)
+        return {"findings": findings,
+                "counts": _findings.count_by_severity(findings)}
+
     # ---------------------------------------------------------------
     # Two act verbs — compose + record provenance.
     # ---------------------------------------------------------------
@@ -154,13 +173,18 @@ class AnalyzeCapability(CapabilityBase):
         self.ctx.link(analysis_id, self.ctx.intent_id, "SERVES")
         totals: dict[str, dict[str, int]] = {}
         for axis in chosen:
-            scanner = {
-                "quality": _quality.scan,
-                "security": _security.scan,
-                "performance": _performance.scan,
-                "architecture": _architecture.scan,
-            }[axis]
-            findings = scanner(path)
+            if axis == "paths":
+                # paths takes (memory, root_intent_id) — operate over the
+                # graph, not a filesystem path. v1: scan all user roots.
+                findings = _paths.scan(self.ctx.memory)
+            else:
+                scanner = {
+                    "quality": _quality.scan,
+                    "security": _security.scan,
+                    "performance": _performance.scan,
+                    "architecture": _architecture.scan,
+                }[axis]
+                findings = scanner(path)
             totals[axis] = _findings.count_by_severity(findings)
             for fnd in findings:
                 fid = self.ctx.record("Finding", dict(fnd))

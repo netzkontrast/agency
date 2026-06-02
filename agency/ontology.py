@@ -16,7 +16,11 @@ from dataclasses import dataclass, field
 
 # --- the CORE: base node types (label -> strict required fields) ------------
 NODE_SCHEMAS: dict[str, list[str]] = {
-    "Intent":     ["purpose", "deliverable", "acceptance", "status"],
+    # Spec 048: `owner` (closed enum below) tracks who minted the Intent
+    # (REQUIRED — every intent has an owner). `parent_intent_id` is
+    # OPTIONAL — '' (and missing) both signal a root intent that
+    # originated from a user prompt.
+    "Intent":     ["purpose", "deliverable", "acceptance", "status", "owner"],
     "Invocation": ["capability", "verb", "role"],
     "Lifecycle":  ["state", "phase"],
     "Agent":      ["runtime"],
@@ -36,18 +40,29 @@ LIFECYCLE_STATES = {                                # A2A-aligned task states
     "submitted", "working", "input-required", "auth-required",
     "completed", "failed", "canceled",
 }
+# Spec 048 — Intent owner closed enum.
+#   user     — originated from a user prompt (the default for top-level)
+#   agent    — the running agent minted this sub-intent to scope its work
+#   subagent — a dispatched local subagent minted this
+#   jules    — a remote Jules session minted this and reported back
+#   system   — engine-internal (install/doctor/scaffold substrate)
+INTENT_OWNERS = {"user", "agent", "subagent", "jules", "system"}
 
 # --- core edge types (enumerated; link() rejects anything else) -------------
 EDGE_TYPES = {
     "SERVES", "PERFORMED_BY", "PRODUCES", "PASSED", "BLOCKED_ON",
     "DERIVED_FROM", "VALIDATES_AGAINST", "SUPERSEDED_BY",
     "DISPATCHED_TO", "DRIVES", "PRECEDES", "NEXT", "HAS_PHASE",
+    # Spec 048 — sub-intent chains back to its originating parent.
+    "PARENT_INTENT",
 }
 
 # closed-enum constraints on specific (label, field) pairs — ENFORCED
 FIELD_ENUMS: dict[tuple[str, str], set] = {
     ("Invocation", "role"): ROLES,
     ("Lifecycle", "state"): LIFECYCLE_STATES,
+    # Spec 048 — Intent owner closed enum.
+    ("Intent", "owner"): INTENT_OWNERS,
 }
 
 # The core ships NO domain skills — skills are owned by the capabilities that

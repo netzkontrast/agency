@@ -101,6 +101,12 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
         "MATCH (a:Artefact)-[:SERVES]->(it:Intent) WHERE it.id = $id "
         "RETURN a",
         {"id": intent_id})]
+    # Spec 048 — sub-intents under this one (PARENT_INTENT downward
+    # walk; capped at 2 levels for the default provenance render).
+    sub_rows = [r["c"]["properties"] for r in memory.g.query(
+        "MATCH (c:Intent)-[:PARENT_INTENT]->(p:Intent) "
+        "WHERE p.id = $id RETURN c",
+        {"id": intent_id})]
     parts.append(h2("Artefacts"))
     if art_rows:
         parts.append(table(
@@ -110,7 +116,18 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
         ))
     else:
         parts.append("\n_no artefacts recorded_\n")
-    return "".join(parts), len(inv_rows) + len(art_rows)
+    # Spec 048 — Sub-intents H2 section (PARENT_INTENT downward).
+    parts.append(h2("Sub-intents"))
+    if sub_rows:
+        parts.append(table(
+            ["intent_id", "owner", "purpose"],
+            [[r.get("id", "?"), r.get("owner", "?"),
+              r.get("purpose", "")[:60]] for r in sub_rows],
+        ))
+    else:
+        parts.append("\n_no sub-intents recorded_\n")
+    return ("".join(parts),
+             len(inv_rows) + len(art_rows) + len(sub_rows))
 
 
 def render_capability_catalogue(registry) -> tuple[str, int]:

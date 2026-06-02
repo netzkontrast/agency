@@ -257,35 +257,60 @@ class Engine:
         engine = self
 
         @mcp.tool
-        def intent_bootstrap(purpose: str, deliverable: str, acceptance: str) -> dict:
+        def intent_bootstrap(purpose: str, deliverable: str, acceptance: str,
+                             parent_intent_id: str = "",
+                             owner: str = "") -> dict:
             """Mint AND confirm an Intent — the canonical MCP bootstrap.
 
             The ONLY substrate tool that does not require an existing
             ``intent_id`` (every capability verb does — see the SERVES guard
-            in ``capability.py``). Returns ``{intent_id, status, next}``
-            where ``next`` is a copy-pasteable ``call_tool`` example for the
-            next call. Isomorphic with ``python -m agency.cli intent …``.
+            in ``capability.py``). Returns ``{intent_id, status, owner,
+            parent_intent_id, next}``. Isomorphic with ``python -m
+            agency.cli intent …``.
+
+            Spec 048 — Intent chaining + owners:
+              - ``parent_intent_id`` (optional) — link this intent back to
+                an existing parent via PARENT_INTENT, so a complete session
+                traces to the root user-prompt intent.
+              - ``owner`` (optional) — closed enum: user / agent / subagent
+                / jules / system. Default-by-presence: 'user' when no
+                parent; 'agent' when a parent is supplied.
 
             Inputs:
               - ``purpose`` (str, required) — non-empty: the why
               - ``deliverable`` (str, required) — non-empty: the what
               - ``acceptance`` (str, required) — non-empty: how to verify
-            Returns: ``{intent_id, status: "confirmed", next: <example>}``
+              - ``parent_intent_id`` (str, optional) — Spec 048 chain anchor
+              - ``owner`` (str, optional) — Spec 048 owner enum override
+            Returns: ``{intent_id, status: "confirmed", owner,
+            parent_intent_id, next: <example>}``
             chain_next: pass ``intent_id`` to any ``capability_*_*`` verb.
             """
             # Spec 029 §A error contract (Wiegers/Nygard): name the field
             # in the message so the caller can fix the call without grep.
-            for field, value in (("purpose", purpose), ("deliverable", deliverable),
-                                 ("acceptance", acceptance)):
+            for field, value in (("purpose", purpose),
+                                  ("deliverable", deliverable),
+                                  ("acceptance", acceptance)):
                 if not value or not value.strip():
                     raise ValueError(
                         f"intent_bootstrap: {field!r} must be non-empty")
-            iid = engine.intent.capture_and_confirm(purpose, deliverable, acceptance)
+            iid = engine.intent.capture_and_confirm(
+                purpose, deliverable, acceptance,
+                parent_intent_id=parent_intent_id, owner=owner)
+            # Read back the resolved owner (default-by-presence may have
+            # applied) so the caller sees the truth, not their hint.
+            resolved = engine.memory.recall(iid) or {}
             example = (
                 "await call_tool('capability_plugin_help', "
                 f"{{'intent_id': '{iid}'}})"
             )
-            return {"intent_id": iid, "status": "confirmed", "next": example}
+            return {
+                "intent_id": iid,
+                "status": "confirmed",
+                "owner": resolved.get("owner", "user"),
+                "parent_intent_id": resolved.get("parent_intent_id", ""),
+                "next": example,
+            }
 
         @mcp.tool
         def agency_install(target: str = "") -> dict:

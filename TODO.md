@@ -19,9 +19,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 11 | 012, 013, 015, 029, 030, 039, 040, 042, 043, 045, 047 |
+| **Shipped** | 12 | 012, 013, 015, 029, 030, 039, 040, 042, 043, 045, 047, 048 |
 | **Partially implemented** | 11 | 001, 006, 007, 016, 018, 020, 023, 024, 025, 031, 032 |
-| **Not started** | 19 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 041, 044, 046 + (010 deferred-v2 axes) |
+| **Not started** | 18 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 041, 044, 046 + (010 deferred-v2 axes) |
 
 Total active specs: **41** (counting 000-overview).
 
@@ -69,6 +69,7 @@ Total active specs: **41** (counting 000-overview).
 | 045 | reflect-semantic-recall | **Shipped** | TF-IDF + optional BGE embedder; `reflect.recall_semantic` verb; agency_doctor surfaces backend + fallback | 19 spec tests + 469 full-suite green; 4 code-review passes (F4 zip-sort cleanup, F9 doctor fallback messaging differentiated by failure mode, F13 k<=0 guard, DRY KNOWN_EMBEDDERS) |
 | 046 | micro-extensions-bundle | Not started | Code-review split + visual-companion + smart-commit + estimate + token-efficiency + doc-autosync | Designed in this branch |
 | **047** | cluster-integration | **Shipped** | Master plan: 13-cluster integration map (Discovery/Plan/Impl/Quality/Debug/Cleanup/Doc/Memory/Git/Research/Orch/Meta/Plugin) | The deliverable IS the plan — no code; promotes individual cluster plans to standalone specs when criteria hit (cluster-section > 150 LOC OR ≥ 3 cross-cluster decisions) |
+| **048** | intent-chain-and-owners | **Shipped** | PARENT_INTENT edge + closed owner enum {user/agent/subagent/jules/system} + analyze.paths axis (IP001/IP002/IP003) + render(provenance) sub-intents | User-requested for session traceability + capability-opportunity detection. 25 spec tests green; dogfooded via wire (5-deep chain → IP001 fires); 2 minor regression-test updates for the new axis enum |
 
 ## Suggested implementation order (next 5)
 

@@ -65,10 +65,11 @@ def test_ontology_declares_finding_severity_enum(engine):
 
 
 def test_ontology_declares_analysis_axis_enum(engine):
+    """Spec 048 added 'paths' to the axis enum (graph-walking axis)."""
     enums = engine.ontology.enums
     assert ("Analysis", "axis") in enums
     assert enums[("Analysis", "axis")] == {
-        "quality", "security", "performance", "architecture"}
+        "quality", "security", "performance", "architecture", "paths"}
 
 
 def test_code_analysis_skill_registered(engine):
@@ -105,14 +106,14 @@ def test_run_records_finding_nodes(engine, iid, tmp_path):
     assert len([f for f in findings if f["rule"] == "Q001"]) >= 2
 
 
-def test_run_default_axes_runs_all_four(engine, iid, tmp_path):
+def test_run_default_axes_runs_all_five(engine, iid, tmp_path):
+    """Spec 048 added 'paths' to the default axis set — the 5-axis run."""
     _write(str(tmp_path), "x.py", "x = 1\n")
     res = _call(engine, iid, "run", path=str(tmp_path))
-    # The Analysis node carries the axes list — all four ran.
     nodes = engine.memory.find("Analysis")
     a = next(n for n in nodes if n["id"] == res["analysis_id"])
     assert set(res["totals"].keys()) == {
-        "quality", "security", "performance", "architecture"}
+        "quality", "security", "performance", "architecture", "paths"}
 
 
 def test_run_summary_payload_is_small(engine, iid, tmp_path):

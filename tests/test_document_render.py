@@ -141,6 +141,18 @@ def test_render_provenance_no_intent_id(engine, iid):
     assert "# Intent (none) provenance" in r["content"]
 
 
+def test_render_provenance_includes_sub_intents(engine, iid):
+    """Spec 048 — provenance render walks PARENT_INTENT downward and
+    lists immediate sub-intents under the new 'Sub-intents' H2."""
+    # Mint a child under iid (the root the test uses).
+    child = engine.intent.capture_and_confirm(
+        "child", "x", "x", parent_intent_id=iid)
+    r = _call(engine, iid, scope="provenance", for_intent_id=iid)
+    assert "## Sub-intents" in r["content"]
+    assert child in r["content"]
+    assert "agent" in r["content"]    # default owner for children
+
+
 # ---------------------------------------------------------------------------
 # capability-catalogue scope
 # ---------------------------------------------------------------------------

@@ -1647,8 +1647,8 @@ def test_logical_clock_survives_an_edge_as_last_write():
     from agency.memory import Memory
     path = tempfile.mktemp(suffix=".db")
     m = Memory(path, ont=ontology.Ontology.core())
-    i1 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft"})
-    i2 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft"})
+    i1 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft", "owner": "user"})
+    i2 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft", "owner": "user"})
     m.link(i1, i2, "SUPERSEDED_BY")                               # the edge is the LAST write
     last = m._tick
     m.close()
