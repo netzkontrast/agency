@@ -42,12 +42,17 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    Two disqualifiers run BEFORE positive scoring. Otherwise: any positive
    signal → dispatch (driver picked by the matrix); none → inline.
 
-4. **Keep `TODO.md` current.** `TODO.md` in the repo root is the **binding
-   spec status index** — verdict per spec (Shipped / Partial / Not started),
-   one-line summary, blocker / next step. Update it **in the same commit**
-   that:
-   - ships a spec (status flip → Shipped),
-   - makes meaningful progress on one (Not started → Partial),
+4. **Keep `TODO.md` current — MANDATORY in every spec-touching commit.**
+   `TODO.md` in the repo root is the **binding spec status index** —
+   verdict per spec (Shipped / Partial / Not started), one-line summary,
+   blocker / next step. **No spec-touching commit ships without updating
+   the corresponding row** — this is a HARD rule, not a soft preference.
+   Failure to update IS a doctrine violation that future audits will
+   flag. The same commit MUST update `TODO.md` when it:
+   - ships a spec (status flip → Shipped — also flip Verdict-counts
+     at top + add the new row entry to "Suggested next 5" if applicable),
+   - makes meaningful progress on one (Not started → Partial; note WHAT
+     is now done + WHAT remains in the "Blocker / Next step" column),
    - opens a new spec (add row),
    - closes / supersedes / cancels one (note in row),
    - renumbers (rare; only after a naming collision on merge).

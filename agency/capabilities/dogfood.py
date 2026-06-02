@@ -22,10 +22,15 @@ plan_slug as an optional property — backward-compatible).
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+import time
 
 from ..capability import CapabilityBase, verb
+
+
+_EXPORT_VERSION = 1   # bump on shape changes
 
 
 # Match the bolded observation/lesson headers we use in DOGFOOD-NOTES.md.
@@ -171,6 +176,107 @@ class DogfoodCapability(CapabilityBase):
         return {"content": content, "count": rendered_count,
                 "omitted": omitted, "tokens": _count_tokens(content),
                 "plan_slug": plan_slug}
+
+    # -----------------------------------------------------------------
+    # Spec 020 — JSON export (merge-conflict recovery fallback).
+    # -----------------------------------------------------------------
+
+    @verb(role="transform")
+    def export(self, path: str = "") -> dict:
+        """Dump the provenance store to a portable JSON file.
+
+        Inputs: path (str — destination; empty → ``.agency/export-<ns>.json``
+                  with a nanosecond-precision timestamp to avoid path
+                  collisions between exports in the same second).
+        Returns: ``{path, nodes, edges, bytes}``.
+
+        Snapshot semantics: this export captures the FULL bi-temporal
+        history (all nodes regardless of vto), not just the
+        current-as-of-now snapshot. Replay against a fresh DB
+        therefore reconstructs the entire append-only timeline —
+        which is the right behaviour for merge-conflict recovery.
+
+        Use case: merge-conflict recovery (Spec 020 line 69-73). When
+        two branches both write to ``.agency/session.db`` and merge,
+        the binary conflict can't be resolved. Recovery: export each
+        branch's graph to JSON, then replay both JSONs against a fresh
+        DB on the merged branch. The export is portable + diff-able
+        (JSON is indent=2 + sort_keys=True).
+
+        v1 scope: this verb ONLY emits the export. A matching
+        ``dogfood.import`` verb that replays the JSON (preserving
+        original node ids + vfrom/vto windows) is a v2 follow-up.
+
+        chain_next: caller can rsync, commit, or replay the JSON.
+        """
+        graph_path = path or self._default_export_path()
+        os.makedirs(os.path.dirname(graph_path) or ".", exist_ok=True)
+        nodes = self._collect_all_nodes()
+        edges = self._collect_all_edges()
+        payload = {
+            "version": _EXPORT_VERSION,
+            "generated_at": int(time.time()),
+            "nodes": nodes,
+            "edges": edges,
+        }
+        with open(graph_path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2, sort_keys=True)
+        return {
+            "path": graph_path,
+            "nodes": len(nodes),
+            "edges": len(edges),
+            "bytes": os.path.getsize(graph_path),
+        }
+
+    def _default_export_path(self) -> str:
+        """``.agency/export-<unix-ns>.json`` in the CWD; mirrors the
+        Spec 020 ``.agency/`` convention.
+
+        Uses nanosecond precision (review F6) so two exports in the
+        same second don't clobber each other. Returned absolute so
+        the caller doesn't need to track CWD."""
+        ns = time.time_ns()
+        return os.path.abspath(
+            os.path.join(".agency", f"export-{ns}.json"))
+
+    def _collect_all_nodes(self) -> list[dict]:
+        """Every node in the graph — FULL bi-temporal history (per F1
+        review finding + the merge-recovery use case). The MATCH (n)
+        pattern returns superseded nodes alongside current ones, which
+        is exactly what replay needs to reconstruct the timeline."""
+        rows = self.ctx.memory.g.query("MATCH (n) RETURN n")
+        out: list[dict] = []
+        for r in rows:
+            n = r["n"]
+            props = n.get("properties", {})
+            label = n.get("label") or n.get("labels", [""])[0] \
+                if isinstance(n.get("labels"), list) else n.get("label", "")
+            out.append({
+                "id": props.get("id", ""),
+                "label": label,
+                "properties": {k: v for k, v in props.items() if k != "id"},
+            })
+        return out
+
+    def _collect_all_edges(self) -> list[dict]:
+        """Every edge in the graph with type + endpoints + properties."""
+        rows = self.ctx.memory.g.query("MATCH (a)-[e]->(b) RETURN a, e, b")
+        out: list[dict] = []
+        for r in rows:
+            edge = r["e"]
+            props = edge.get("properties", {}) if isinstance(edge, dict) else {}
+            edge_type = (
+                edge.get("type") or edge.get("rel_type")
+                or (edge.get("relationship") if isinstance(edge, dict) else "")
+                or ""
+            )
+            out.append({
+                "from": r["a"].get("properties", {}).get("id", ""),
+                "to": r["b"].get("properties", {}).get("id", ""),
+                "type": edge_type,
+                "properties": props,
+            })
+        return out
 
     # -----------------------------------------------------------------
     # Spec 017 — collect kept for backward-compat (Spec 014 pipeline).

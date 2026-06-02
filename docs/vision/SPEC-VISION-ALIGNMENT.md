@@ -15,7 +15,7 @@
 | # | Goal | Status |
 |---|---|---|
 | **1** | Token-efficient agentic loops | ✅ strong (040, 043, partial 023) |
-| **2** | Provenance as a free byproduct | ✅ strong (020, extended by 048) |
+| **2** | Provenance as a free byproduct | ✅ strong (020 fully shipped 2026-06-03, extended by 048) |
 | **3** | Agent-uniform lifecycle | ⚠️ partial (010 hard-gate works; 022 not started) |
 | **4** | Open set of capabilities | ✅ strong (016 + folder-form Specs 042/043/044) |
 | **5** | Code-mode IS the contract | ✅ strong (029 + 039 E2E verifies) |
@@ -39,7 +39,7 @@
 | 017 graph-native-dogfood-ledgers | Not started | **7** | **🔴 critical Goal-7 gap** |
 | 018 cli-token-efficiency | Partial | 1 | thin |
 | 019 engine-result-envelope | Not started | 1 | small |
-| 020 central-graph-db | Partial | 2, 7 | one verb away from done |
+| 020 central-graph-db | **Shipped** | 2, 7 | strong — `dogfood.export` added 2026-06-03 |
 | 021 engine-monitor-channel | Not started | 3, 6 | hard-blocks 011 + 022 |
 | 022 jules-monitor-capability | Not started | 3, 8 | depends on 021 |
 | 023 adaptive-disclosure | Partial | 1 | docstring sweep |
@@ -98,13 +98,17 @@ Spec 017 will close it.
 
 Order to maximize Goal coverage:
 
-1. **Spec 020 finish** (one verb — `dogfood.export`). ✅ small. Unblocks
-   17 directly. Goal 2/7.
-2. **Spec 017** (graph-native dogfood ledgers). 🔴 critical Goal-7 gap.
-   Closes the write-side of the graph-as-store doctrine. ~150 LOC.
-3. **Spec 014** (observation-to-amendment). 🔴 critical Goal-6 gap.
-   Composes Spec 017 (Reflections) + Spec 045 (semantic recall) into
-   the doctrine-evolution path. ~200 LOC.
+1. ~~Spec 020 finish~~ ✅ shipped 2026-06-03
+2. ~~Spec 017~~ ✅ shipped 2026-06-03
+3. **Spec 052** (research.web + httpx). User-facing — closes Spec 044
+   v1 scope-cut (web specialist no-driver). DuckDuckGo default + the
+   third verifier check (web-reachability). ~3h, ~150 LOC.
+4. **Spec 014** (observation-to-amendment). 🔴 critical Goal-6 gap.
+   Now composable on the substrate just shipped: Spec 017
+   (dogfood.note) + Spec 045 (recall_semantic) + Spec 048 (intent
+   owner). ~200 LOC.
+5. **Spec 021** (engine-monitor-channel). Hard-blocks 011 + 022.
+   Goal 3 partial-closure.
 
 After those three, Vision is fully covered except Goal 3 marginal
 gaps (Spec 011 + 022, both depend on Spec 021).

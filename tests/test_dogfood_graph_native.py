@@ -154,9 +154,11 @@ def test_collect_docstring_marks_deprecated(engine):
     assert "dogfood.note" in doc
 
 
-def test_dogfood_has_three_verbs(engine):
+def test_dogfood_has_four_verbs(engine):
+    """Spec 020 added `export`; Spec 017 added `note` + `render`;
+    collect was pre-existing. Four verbs total."""
     cap = engine.registry.get("dogfood")
-    assert {"note", "render", "collect"} == set(cap.verbs)
+    assert {"note", "render", "collect", "export"} == set(cap.verbs)
 
 
 def test_render_respects_max_tokens(engine, iid):

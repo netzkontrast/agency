@@ -1,0 +1,2230 @@
+{
+  "edges": [
+    {
+      "from": "reflection:d977e936",
+      "properties": {
+        "vfrom": 3
+      },
+      "to": "intent:47f584d9",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:d977e936",
+      "properties": {
+        "vfrom": 4
+      },
+      "to": "intent:47f584d9",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:900844d6",
+      "properties": {
+        "vfrom": 6
+      },
+      "to": "intent:47f584d9",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:900844d6",
+      "properties": {
+        "vfrom": 7
+      },
+      "to": "intent:47f584d9",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:e05356bb",
+      "properties": {
+        "vfrom": 9
+      },
+      "to": "intent:47f584d9",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:e05356bb",
+      "properties": {
+        "vfrom": 10
+      },
+      "to": "intent:47f584d9",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:73c3311c",
+      "properties": {
+        "vfrom": 12
+      },
+      "to": "intent:47f584d9",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:73c3311c",
+      "properties": {
+        "vfrom": 13
+      },
+      "to": "intent:47f584d9",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:e65b4ca8",
+      "properties": {
+        "vfrom": 15
+      },
+      "to": "intent:47f584d9",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:e65b4ca8",
+      "properties": {
+        "vfrom": 16
+      },
+      "to": "intent:47f584d9",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:ef30a6ce",
+      "properties": {
+        "vfrom": 18
+      },
+      "to": "intent:47f584d9",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:ef30a6ce",
+      "properties": {
+        "vfrom": 19
+      },
+      "to": "intent:47f584d9",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:029a1cbc",
+      "properties": {
+        "vfrom": 22
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:029a1cbc",
+      "properties": {
+        "vfrom": 23
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:09b994e5",
+      "properties": {
+        "vfrom": 25
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:09b994e5",
+      "properties": {
+        "vfrom": 26
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:7390a1a9",
+      "properties": {
+        "vfrom": 28
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:7390a1a9",
+      "properties": {
+        "vfrom": 29
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:1093b09e",
+      "properties": {
+        "vfrom": 31
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:1093b09e",
+      "properties": {
+        "vfrom": 32
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:5fe8cd2a",
+      "properties": {
+        "vfrom": 34
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:5fe8cd2a",
+      "properties": {
+        "vfrom": 35
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:b08b5132",
+      "properties": {
+        "vfrom": 37
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:b08b5132",
+      "properties": {
+        "vfrom": 38
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:5609ec09",
+      "properties": {
+        "vfrom": 40
+      },
+      "to": "intent:d5e7ebcd",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:e0eed1f4",
+      "properties": {
+        "vfrom": 43
+      },
+      "to": "intent:f105ec34",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:e0eed1f4",
+      "properties": {
+        "vfrom": 44
+      },
+      "to": "intent:f105ec34",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:0c79aeeb",
+      "properties": {
+        "vfrom": 46
+      },
+      "to": "intent:f105ec34",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:0c79aeeb",
+      "properties": {
+        "vfrom": 47
+      },
+      "to": "intent:f105ec34",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:20ca858b",
+      "properties": {
+        "vfrom": 49
+      },
+      "to": "intent:f105ec34",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:20ca858b",
+      "properties": {
+        "vfrom": 50
+      },
+      "to": "intent:f105ec34",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:8f5bd4ec",
+      "properties": {
+        "vfrom": 52
+      },
+      "to": "intent:f105ec34",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:8f5bd4ec",
+      "properties": {
+        "vfrom": 53
+      },
+      "to": "intent:f105ec34",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:253d21a4",
+      "properties": {
+        "vfrom": 55
+      },
+      "to": "intent:f105ec34",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:253d21a4",
+      "properties": {
+        "vfrom": 56
+      },
+      "to": "intent:f105ec34",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:d535e158",
+      "properties": {
+        "vfrom": 58
+      },
+      "to": "intent:f105ec34",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:d535e158",
+      "properties": {
+        "vfrom": 59
+      },
+      "to": "intent:f105ec34",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:74f9401c",
+      "properties": {
+        "vfrom": 62
+      },
+      "to": "intent:beb67a9a",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:0b998ec2",
+      "properties": {
+        "vfrom": 64
+      },
+      "to": "intent:beb67a9a",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:27ac4097",
+      "properties": {
+        "vfrom": 67
+      },
+      "to": "intent:b8773efd",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:3bc8fee9",
+      "properties": {
+        "vfrom": 69
+      },
+      "to": "intent:b8773efd",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:93eacdf4",
+      "properties": {
+        "vfrom": 71
+      },
+      "to": "intent:b8773efd",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:3067abdc",
+      "properties": {
+        "vfrom": 73
+      },
+      "to": "intent:b8773efd",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:7f0a605e",
+      "properties": {
+        "vfrom": 75
+      },
+      "to": "intent:b8773efd",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:37dea4dd",
+      "properties": {
+        "vfrom": 78
+      },
+      "to": "intent:eaada22c",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:9da1aca3",
+      "properties": {
+        "vfrom": 82
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "SERVES"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 86
+      },
+      "to": "finding:d090e583",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 89
+      },
+      "to": "finding:db6ab448",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 92
+      },
+      "to": "finding:fcb0fdc2",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 95
+      },
+      "to": "finding:4254f42e",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 98
+      },
+      "to": "finding:d5567e7e",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 101
+      },
+      "to": "finding:5f5ad42a",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 104
+      },
+      "to": "finding:b36c2286",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 107
+      },
+      "to": "finding:c25876c0",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 110
+      },
+      "to": "finding:53cd9763",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:769bc317",
+      "properties": {
+        "vfrom": 84
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "SERVES"
+    },
+    {
+      "from": "finding:d090e583",
+      "properties": {
+        "vfrom": 87
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:db6ab448",
+      "properties": {
+        "vfrom": 90
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:fcb0fdc2",
+      "properties": {
+        "vfrom": 93
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:4254f42e",
+      "properties": {
+        "vfrom": 96
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:d5567e7e",
+      "properties": {
+        "vfrom": 99
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:5f5ad42a",
+      "properties": {
+        "vfrom": 102
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:b36c2286",
+      "properties": {
+        "vfrom": 105
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:c25876c0",
+      "properties": {
+        "vfrom": 108
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:53cd9763",
+      "properties": {
+        "vfrom": 111
+      },
+      "to": "intent:f7c8dfdf",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "invocation:8ccef085",
+      "properties": {
+        "vfrom": 114
+      },
+      "to": "intent:a942c316",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:1f5fab1f",
+      "properties": {
+        "vfrom": 117
+      },
+      "to": "intent:a2381211",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:4d7eba96",
+      "properties": {
+        "vfrom": 120
+      },
+      "to": "intent:6a0affd2",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:76f4468a",
+      "properties": {
+        "vfrom": 123
+      },
+      "to": "intent:b9ed3357",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:5cbebd55",
+      "properties": {
+        "vfrom": 126
+      },
+      "to": "intent:ddc4924a",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:b45d8558",
+      "properties": {
+        "vfrom": 129
+      },
+      "to": "intent:1003ad19",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:5b76afc0",
+      "properties": {
+        "vfrom": 132
+      },
+      "to": "intent:48a9d184",
+      "type": "SERVES"
+    },
+    {
+      "from": "analysis:eeb112db",
+      "properties": {
+        "vfrom": 136
+      },
+      "to": "finding:4f7a9b83",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:eeb112db",
+      "properties": {
+        "vfrom": 139
+      },
+      "to": "finding:16c80e62",
+      "type": "HAS_FINDING"
+    },
+    {
+      "from": "analysis:eeb112db",
+      "properties": {
+        "vfrom": 134
+      },
+      "to": "intent:48a9d184",
+      "type": "SERVES"
+    },
+    {
+      "from": "finding:4f7a9b83",
+      "properties": {
+        "vfrom": 137
+      },
+      "to": "intent:48a9d184",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "finding:16c80e62",
+      "properties": {
+        "vfrom": 140
+      },
+      "to": "intent:48a9d184",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "invocation:ddd6f342",
+      "properties": {
+        "vfrom": 143
+      },
+      "to": "intent:e43dd945",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:d4f3f94d",
+      "properties": {
+        "vfrom": 146
+      },
+      "to": "intent:0726aadb",
+      "type": "SERVES"
+    },
+    {
+      "from": "analysis:4cf36023",
+      "properties": {
+        "vfrom": 148
+      },
+      "to": "intent:0726aadb",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:21cf7764",
+      "properties": {
+        "vfrom": 151
+      },
+      "to": "intent:57dee21f",
+      "type": "SERVES"
+    },
+    {
+      "from": "analysis:55da3909",
+      "properties": {
+        "vfrom": 153
+      },
+      "to": "intent:57dee21f",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:75d13bb4",
+      "properties": {
+        "vfrom": 156
+      },
+      "to": "intent:039aad67",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:fd83e547",
+      "properties": {
+        "vfrom": 159
+      },
+      "to": "intent:d5e078a1",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:fcf54843",
+      "properties": {
+        "vfrom": 162
+      },
+      "to": "intent:10d1d0ca",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:7ecde918",
+      "properties": {
+        "vfrom": 164
+      },
+      "to": "intent:10d1d0ca",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:aacaf5d5",
+      "properties": {
+        "vfrom": 167
+      },
+      "to": "intent:229f013c",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:2b8c77c9",
+      "properties": {
+        "vfrom": 169
+      },
+      "to": "intent:229f013c",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:38a653c2",
+      "properties": {
+        "vfrom": 172
+      },
+      "to": "intent:3e68897e",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:f7e00125",
+      "properties": {
+        "vfrom": 174
+      },
+      "to": "intent:3e68897e",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:8f740a74",
+      "properties": {
+        "vfrom": 177
+      },
+      "to": "intent:ce98693f",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:e40603e8",
+      "properties": {
+        "vfrom": 179
+      },
+      "to": "intent:ce98693f",
+      "type": "SERVES"
+    },
+    {
+      "from": "intent:75e41e82",
+      "properties": {
+        "vfrom": 182
+      },
+      "to": "intent:bfaee32b",
+      "type": "PARENT_INTENT"
+    },
+    {
+      "from": "intent:18e220fd",
+      "properties": {
+        "vfrom": 184
+      },
+      "to": "intent:75e41e82",
+      "type": "PARENT_INTENT"
+    },
+    {
+      "from": "intent:7bb0dbcf",
+      "properties": {
+        "vfrom": 186
+      },
+      "to": "intent:18e220fd",
+      "type": "PARENT_INTENT"
+    },
+    {
+      "from": "intent:aab1fca5",
+      "properties": {
+        "vfrom": 188
+      },
+      "to": "intent:7bb0dbcf",
+      "type": "PARENT_INTENT"
+    },
+    {
+      "from": "intent:ee8c66d2",
+      "properties": {
+        "vfrom": 190
+      },
+      "to": "intent:aab1fca5",
+      "type": "PARENT_INTENT"
+    },
+    {
+      "from": "invocation:d4e0ffdf",
+      "properties": {
+        "vfrom": 192
+      },
+      "to": "intent:bfaee32b",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:449189d7",
+      "properties": {
+        "vfrom": 195
+      },
+      "to": "intent:a6a4166b",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:65aed5c6",
+      "properties": {
+        "vfrom": 198
+      },
+      "to": "intent:bc19e29b",
+      "type": "SERVES"
+    },
+    {
+      "from": "research:8b8cb53a",
+      "properties": {
+        "vfrom": 204
+      },
+      "to": "citation:f50a0603",
+      "type": "CITES"
+    },
+    {
+      "from": "research:8b8cb53a",
+      "properties": {
+        "vfrom": 206
+      },
+      "to": "citation:624d9b06",
+      "type": "CITES"
+    },
+    {
+      "from": "research:8b8cb53a",
+      "properties": {
+        "vfrom": 200
+      },
+      "to": "intent:bc19e29b",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:ebacfec5",
+      "properties": {
+        "vfrom": 202
+      },
+      "to": "intent:bc19e29b",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:1720f1b4",
+      "properties": {
+        "vfrom": 208
+      },
+      "to": "intent:bc19e29b",
+      "type": "SERVES"
+    },
+    {
+      "from": "verification:64664ab0",
+      "properties": {
+        "vfrom": 210
+      },
+      "to": "research:8b8cb53a",
+      "type": "VERIFIES"
+    },
+    {
+      "from": "invocation:4177f03f",
+      "properties": {
+        "vfrom": 213
+      },
+      "to": "intent:f7b7e94a",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:726a5245",
+      "properties": {
+        "vfrom": 215
+      },
+      "to": "intent:f7b7e94a",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:726a5245",
+      "properties": {
+        "vfrom": 216
+      },
+      "to": "intent:f7b7e94a",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:b85a83e1",
+      "properties": {
+        "vfrom": 218
+      },
+      "to": "intent:f7b7e94a",
+      "type": "SERVES"
+    },
+    {
+      "from": "reflection:a0f2ca10",
+      "properties": {
+        "vfrom": 220
+      },
+      "to": "intent:f7b7e94a",
+      "type": "OBSERVED_DURING"
+    },
+    {
+      "from": "reflection:a0f2ca10",
+      "properties": {
+        "vfrom": 221
+      },
+      "to": "intent:f7b7e94a",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:8643fd1b",
+      "properties": {
+        "vfrom": 223
+      },
+      "to": "intent:f7b7e94a",
+      "type": "SERVES"
+    },
+    {
+      "from": "invocation:721ca907",
+      "properties": {
+        "vfrom": 226
+      },
+      "to": "intent:4272903e",
+      "type": "SERVES"
+    }
+  ],
+  "generated_at": 1780444280,
+  "nodes": [
+    {
+      "id": "intent:47f584d9",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "all RED tests green, 324 passing, F1/F4/F6 closed",
+        "deliverable": "intent_bootstrap + agency_install + agency_welcome substrate tools",
+        "purpose": "Spec 029 u2014 MCP bootstrap + self-explain",
+        "status": "confirmed",
+        "vfrom": 1,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:d977e936",
+      "label": "Reflection",
+      "properties": {
+        "scope": "reflection",
+        "text": "Spec 029 RED-GREEN cycle complete: 4 new tests for intent_bootstrap (incl. isomorphism MCP==CLI), 4 for agency_welcome (incl. token-budget invariant 1KB), 5 for agency_install (incl. CLAUDE.md marker idempotency), 1 for SERVES-guard message, 2 for reflect-scope enum disclosure. 324 passed, 1 skipped (non-writable target test skips as root).",
+        "vfrom": 2,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:900844d6",
+      "label": "Reflection",
+      "properties": {
+        "scope": "reflection",
+        "text": "OQ-3 (welcome token budget) hit during impl: full {capability: [verb,...]} payload landed at 1.2 KB on the live registry (Jules alone has 21 verbs). Resolved by switching to names-only list + agents fetch verbs via capability_plugin_help on demand. Net token saving ~800 B per first contact vs. full-map welcome.",
+        "vfrom": 5,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:e05356bb",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "Spec-panel discussion mode caught 6 gaps the in-skill review missed: error-contract pinning (Wiegers/Nygard), no-Invocation invariant for bootstrap (Crispin), additive-params evolution doctrine (Newman), A1/A2/A3 actor enumeration (Cockburn), Given/When/Then examples for install (Adzic), failure-modes section (Nygard). Multi-expert pass was net-positive.",
+        "vfrom": 8,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:73c3311c",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "F2 (JULES_API_KEY stale-cache) and F3 (effect-verb idempotency) deferred \u2014 orthogonal touch points (Jules client init vs. sandbox transaction model). Tracked as future Spec 030/031.",
+        "vfrom": 11,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:e65b4ca8",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "Plugin-development capability gap noticed during impl: lint_capability runs in warn mode for legacy capabilities (no agency-scaffold marker), so the engine.py substrate tool additions are NOT linted. Substrate tools are not capabilities \u2014 they have no source file with a scaffold marker. Acceptable but worth tracking.",
+        "vfrom": 14,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:ef30a6ce",
+      "label": "Reflection",
+      "properties": {
+        "scope": "technical",
+        "text": "The CLAUDE.md marker writer keeps user content outside markers intact (test_agency_install_preserves_existing_claude_md) and replaces between markers on re-run (test_agency_install_replaces_marker_block_on_rerun). The contract: agent owns content between markers, user owns everything outside, never modify outside markers \u2014 Janet Gregory three-amigos artifact.",
+        "vfrom": 17,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:d5e7ebcd",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "333 tests passing, no leaks",
+        "deliverable": "F2 error msg, agency_doctor, state-aware welcome, F5 docs",
+        "purpose": "Spec 030 - JULES key + doctor + stateful welcome",
+        "status": "confirmed",
+        "vfrom": 20,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:029a1cbc",
+      "label": "Reflection",
+      "properties": {
+        "scope": "reflection",
+        "text": "Spec 030 RED-GREEN complete: F2 error message rewrite + agency_doctor substrate tool + stateful agency_welcome + AGENTS.md F5 doc fix. 333 passing (was 324 after Spec 029).",
+        "vfrom": 21,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:09b994e5",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "agency_doctor security invariant: JULES_API_KEY VALUE never in report - test_doctor_does_not_leak_jules_key proves it via leak-canary string. Doctor returns set/missing only.",
+        "vfrom": 24,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:7390a1a9",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "Stateful welcome subsumes empty-graph search hint via canonical onboarding tool. Welcome on fresh graph -> next leads with install + bootstrap; on populated -> next leads with search + provenance, surfaces last_intent. Resumption-aware first-call.",
+        "vfrom": 27,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:1093b09e",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "F2 root cause was substitution timing, not lazy reading: _api_key() does read os.environ each call (lazy), but the user_config substitution happens at MCP server START - the inherited env is fixed for that process. Fix is documentation, not code. New error message names user_config + reload path.",
+        "vfrom": 30,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:5fe8cd2a",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "Loop 2 ran without invoking sc:sc-spec-panel - Loop 1 established the pattern and the spec was small enough that the in-skill self-review caught the gaps (OQ-1 DB-write side effect, OQ-2 wrapping FastMCP search). Saved tokens of expert dialogue without sacrificing rigor.",
+        "vfrom": 33,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:b08b5132",
+      "label": "Reflection",
+      "properties": {
+        "scope": "technical",
+        "text": "engine.build_mcp now hosts 5 substrate tools: lifecycle_gate, memory_graph_provenance, intent_bootstrap (Spec 029), agency_install (Spec 029), agency_welcome (Spec 029, made stateful in 030), agency_doctor (Spec 030). All flat-named; per Fowler this is the threshold for naming convention - track CORE.md update.",
+        "vfrom": 36,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:5609ec09",
+      "label": "Invocation",
+      "properties": {
+        "capability": "plugin",
+        "role": "transform",
+        "verb": "help",
+        "vfrom": 39,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:f105ec34",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "spec.md updated, depends_on flipped, file paths re-routed, lint+budget invariants added",
+        "deliverable": "agency/capabilities/novel/ folder-form + scaffold-first discipline + Spec 023 token budget",
+        "purpose": "Spec 010 re-base on post-Spec-016 substrate",
+        "status": "confirmed",
+        "vfrom": 41,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:e0eed1f4",
+      "label": "Reflection",
+      "properties": {
+        "scope": "reflection",
+        "text": "Spec 010 updated 2026-05-31: elevated novel from examples/ to agency/capabilities/novel/ (folder-form, auto-discovered per Spec 016 Phase 3 commit 8a5a45d). KP repo is canonical user-facing application, not third-party domain proof.",
+        "vfrom": 42,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:0c79aeeb",
+      "label": "Reflection",
+      "properties": {
+        "scope": "reflection",
+        "text": "depends_on flipped from [001, 002, 003] to [001, 016]. Spec 002 (Driver registry) additive - novel uses no external drivers (Dramatica + NCP are vendored static JSON). Spec 003 (typed Skill/Phase) refactor that keeps storing dicts - work-concept skill authoring unchanged.",
+        "vfrom": 45,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:20ca858b",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "develop.scaffold_capability(name=novel, kind=heavy) is the canonical bootstrap. The agency-scaffold v1 marker flips lint_capability to block mode by construction. Hand-editing starts AFTER scaffold lints clean - non-negotiable per Spec 024.",
+        "vfrom": 48,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:8f5bd4ec",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "Per-verb docstring brief must be <=120 chars / <=20 cl100k tokens (Spec 023 adaptive-disclosure gate). lint_capability enforces in block mode. Brief surfaces in search + capability_plugin_help + FastMCP tools/list.",
+        "vfrom": 51,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:253d21a4",
+      "label": "Reflection",
+      "properties": {
+        "scope": "technical",
+        "text": "jsonschema dep moves from requirements-examples.txt to a [novel] optional-dependencies extra in pyproject.toml. Core engine never imports jsonschema; _ncp.py does lazy import inside ncp_validate. Core dep-purity intact.",
+        "vfrom": 54,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:d535e158",
+      "label": "Reflection",
+      "properties": {
+        "scope": "observation",
+        "text": "Implementation order remains 7 loops post-PR-0 (scaffold + data): dramatica_lookup, ncp_validate, OntologyExtension + scaffold (act/effect), coherence_check, pre_drafting_gate, conceptualize + work-concept skill, end-to-end docs/examples/author_a_novel.py. Each loop = one PR per Spec 016 Phase 5 conftest fixtures discipline.",
+        "vfrom": 57,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:beb67a9a",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "every draft cites real paths/APIs/behavior",
+        "deliverable": "updated spec files matching shipped reality",
+        "purpose": "Re-base all draft specs onto current code",
+        "status": "confirmed",
+        "vfrom": 60,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:74f9401c",
+      "label": "Invocation",
+      "properties": {
+        "capability": "jules",
+        "role": "transform",
+        "verb": "quota",
+        "vfrom": 61,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:0b998ec2",
+      "label": "Invocation",
+      "properties": {
+        "capability": "jules",
+        "role": "transform",
+        "verb": "list",
+        "vfrom": 63,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:b8773efd",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "each scenario reports the expected driver + signals",
+        "deliverable": "5 scenarios return well-formed 6-field payload",
+        "purpose": "smoke-test Spec 040 dispatch_decision on the wire",
+        "status": "confirmed",
+        "vfrom": 65,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:27ac4097",
+      "label": "Invocation",
+      "properties": {
+        "capability": "delegate",
+        "role": "transform",
+        "verb": "dispatch_decision",
+        "vfrom": 66,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:3bc8fee9",
+      "label": "Invocation",
+      "properties": {
+        "capability": "delegate",
+        "role": "transform",
+        "verb": "dispatch_decision",
+        "vfrom": 68,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:93eacdf4",
+      "label": "Invocation",
+      "properties": {
+        "capability": "delegate",
+        "role": "transform",
+        "verb": "dispatch_decision",
+        "vfrom": 70,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:3067abdc",
+      "label": "Invocation",
+      "properties": {
+        "capability": "delegate",
+        "role": "transform",
+        "verb": "dispatch_decision",
+        "vfrom": 72,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:7f0a605e",
+      "label": "Invocation",
+      "properties": {
+        "capability": "delegate",
+        "role": "transform",
+        "verb": "dispatch_decision",
+        "vfrom": 74,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:eaada22c",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "signals_fired non-empty for dispatch case",
+        "deliverable": "6-field payload returned",
+        "purpose": "mcp wire smoke for Spec 040",
+        "status": "confirmed",
+        "vfrom": 76,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:37dea4dd",
+      "label": "Invocation",
+      "properties": {
+        "capability": "delegate",
+        "role": "transform",
+        "verb": "dispatch_decision",
+        "vfrom": 77,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:7337e7cb",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "self-review yields no fail findings",
+        "deliverable": "findings list (json)",
+        "purpose": "self-analyze the analyze capability",
+        "status": "confirmed",
+        "vfrom": 79,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:f7c8dfdf",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "wire accepts list[str] axes",
+        "deliverable": "totals per axis",
+        "purpose": "self-analyze the analyze capability (round 2)",
+        "status": "confirmed",
+        "vfrom": 80,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:9da1aca3",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "act",
+        "verb": "run",
+        "vfrom": 81,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "analysis:769bc317",
+      "label": "Analysis",
+      "properties": {
+        "axes": "quality,security,performance,architecture",
+        "path": "agency/capabilities/analyze",
+        "started_at": 1780437103,
+        "vfrom": 83,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:d090e583",
+      "label": "Finding",
+      "properties": {
+        "evidence": "from __future__ import annotations",
+        "file": "agency/capabilities/analyze/_performance.py",
+        "line": 13,
+        "message": "unused import: 'annotations'",
+        "rule": "Q001",
+        "severity": "warn",
+        "vfrom": 85,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:db6ab448",
+      "label": "Finding",
+      "properties": {
+        "evidence": "from _main import AnalyzeCapability",
+        "file": "agency/capabilities/analyze/__init__.py",
+        "line": 8,
+        "message": "unused import: 'AnalyzeCapability'",
+        "rule": "Q001",
+        "severity": "warn",
+        "vfrom": 88,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:fcb0fdc2",
+      "label": "Finding",
+      "properties": {
+        "evidence": "from __future__ import annotations",
+        "file": "agency/capabilities/analyze/_walk.py",
+        "line": 8,
+        "message": "unused import: 'annotations'",
+        "rule": "Q001",
+        "severity": "warn",
+        "vfrom": 91,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:4254f42e",
+      "label": "Finding",
+      "properties": {
+        "evidence": "from __future__ import annotations",
+        "file": "agency/capabilities/analyze/_quality.py",
+        "line": 12,
+        "message": "unused import: 'annotations'",
+        "rule": "Q001",
+        "severity": "warn",
+        "vfrom": 94,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:d5567e7e",
+      "label": "Finding",
+      "properties": {
+        "evidence": "from __future__ import annotations",
+        "file": "agency/capabilities/analyze/_findings.py",
+        "line": 7,
+        "message": "unused import: 'annotations'",
+        "rule": "Q001",
+        "severity": "warn",
+        "vfrom": 97,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:5f5ad42a",
+      "label": "Finding",
+      "properties": {
+        "evidence": "from __future__ import annotations",
+        "file": "agency/capabilities/analyze/_security.py",
+        "line": 15,
+        "message": "unused import: 'annotations'",
+        "rule": "Q001",
+        "severity": "warn",
+        "vfrom": 100,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:b36c2286",
+      "label": "Finding",
+      "properties": {
+        "evidence": "from __future__ import annotations",
+        "file": "agency/capabilities/analyze/_architecture.py",
+        "line": 13,
+        "message": "unused import: 'annotations'",
+        "rule": "Q001",
+        "severity": "warn",
+        "vfrom": 103,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:c25876c0",
+      "label": "Finding",
+      "properties": {
+        "evidence": "from __future__ import annotations",
+        "file": "agency/capabilities/analyze/_main.py",
+        "line": 15,
+        "message": "unused import: 'annotations'",
+        "rule": "Q001",
+        "severity": "warn",
+        "vfrom": 106,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:53cd9763",
+      "label": "Finding",
+      "properties": {
+        "evidence": "counts[s] += 1",
+        "file": "agency/capabilities/analyze/_findings.py",
+        "line": 49,
+        "message": "`+=` in loop \u2014 use ''.join() / list.append() for O(n)",
+        "rule": "P002",
+        "severity": "info",
+        "vfrom": 109,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:a942c316",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "real issues distinguished from noise",
+        "deliverable": "rule + message + file/line per finding",
+        "purpose": "list quality findings on self",
+        "status": "confirmed",
+        "vfrom": 112,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:8ccef085",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 113,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:a2381211",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "false positives gone",
+        "deliverable": "0 quality findings on clean code",
+        "purpose": "self-quality round 3",
+        "status": "confirmed",
+        "vfrom": 115,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:1f5fab1f",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 116,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:6a0affd2",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "scaffold marker + ontology + verb-doctrine all clean",
+        "deliverable": "ok=True",
+        "purpose": "lint analyze in block mode",
+        "status": "confirmed",
+        "vfrom": 118,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:4d7eba96",
+      "label": "Invocation",
+      "properties": {
+        "capability": "plugin",
+        "role": "transform",
+        "verb": "lint_capability",
+        "vfrom": 119,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:b9ed3357",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "purpose": "x",
+        "status": "confirmed",
+        "vfrom": 121,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:76f4468a",
+      "label": "Invocation",
+      "properties": {
+        "capability": "plugin",
+        "role": "transform",
+        "verb": "lint_capability",
+        "vfrom": 122,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:ddc4924a",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "purpose": "x",
+        "status": "confirmed",
+        "vfrom": 124,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:5cbebd55",
+      "label": "Invocation",
+      "properties": {
+        "capability": "plugin",
+        "role": "transform",
+        "verb": "lint_capability",
+        "vfrom": 125,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:1003ad19",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "purpose": "x",
+        "status": "confirmed",
+        "vfrom": 127,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:b45d8558",
+      "label": "Invocation",
+      "properties": {
+        "capability": "plugin",
+        "role": "transform",
+        "verb": "lint_capability",
+        "vfrom": 128,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:48a9d184",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "clean",
+        "deliverable": "0 finding",
+        "purpose": "self-analyze document",
+        "status": "confirmed",
+        "vfrom": 130,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:5b76afc0",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "act",
+        "verb": "run",
+        "vfrom": 131,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "analysis:eeb112db",
+      "label": "Analysis",
+      "properties": {
+        "axes": "quality,security,performance,architecture",
+        "path": "agency/capabilities/document",
+        "started_at": 1780438417,
+        "vfrom": 133,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:4f7a9b83",
+      "label": "Finding",
+      "properties": {
+        "evidence": "total_verbs += 1",
+        "file": "agency/capabilities/document/_render.py",
+        "line": 137,
+        "message": "`+=` in loop \u2014 use ''.join() / list.append() for O(n)",
+        "rule": "P002",
+        "severity": "info",
+        "vfrom": 135,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "finding:16c80e62",
+      "label": "Finding",
+      "properties": {
+        "evidence": "total_verbs += 1",
+        "file": "agency/capabilities/document/_render.py",
+        "line": 137,
+        "message": "`+=` in loop \u2014 use ''.join() / list.append() for O(n)",
+        "rule": "P002",
+        "severity": "info",
+        "vfrom": 138,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:e43dd945",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "purpose": "x",
+        "status": "confirmed",
+        "vfrom": 141,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:ddd6f342",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "performance",
+        "vfrom": 142,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:0726aadb",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "purpose": "self round 3",
+        "status": "confirmed",
+        "vfrom": 144,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:d4f3f94d",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "act",
+        "verb": "run",
+        "vfrom": 145,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "analysis:4cf36023",
+      "label": "Analysis",
+      "properties": {
+        "axes": "quality,security,performance,architecture",
+        "path": "agency/capabilities/document",
+        "started_at": 1780438612,
+        "vfrom": 147,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:57dee21f",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "0 quality fails",
+        "deliverable": "totals",
+        "purpose": "self-analyze Spec 039",
+        "status": "confirmed",
+        "vfrom": 149,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:21cf7764",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "act",
+        "verb": "run",
+        "vfrom": 150,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "analysis:55da3909",
+      "label": "Analysis",
+      "properties": {
+        "axes": "quality,security,performance",
+        "path": "agency/__main__.py",
+        "started_at": 1780440208,
+        "vfrom": 152,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:039aad67",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "no new findings",
+        "deliverable": "totals",
+        "purpose": "self-quality on engine.py change",
+        "status": "confirmed",
+        "vfrom": 154,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:75d13bb4",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 155,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:d5e078a1",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "0 fail",
+        "purpose": "self-quality on new modules",
+        "status": "confirmed",
+        "vfrom": 157,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:fd83e547",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 158,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:10d1d0ca",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "0 fail",
+        "purpose": "self-quality tests",
+        "status": "confirmed",
+        "vfrom": 160,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:fcf54843",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 161,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:7ecde918",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 163,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:229f013c",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "purpose": "see findings",
+        "status": "confirmed",
+        "vfrom": 165,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:aacaf5d5",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 166,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:2b8c77c9",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 168,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:3e68897e",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "0 findings",
+        "purpose": "verify clean",
+        "status": "confirmed",
+        "vfrom": 170,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:38a653c2",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 171,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:f7e00125",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 173,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:ce98693f",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "0 findings",
+        "owner": "user",
+        "parent_intent_id": "",
+        "purpose": "self-quality Spec 048",
+        "status": "confirmed",
+        "vfrom": 175,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:8f740a74",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 176,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:e40603e8",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "quality",
+        "vfrom": 178,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:bfaee32b",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "owner": "user",
+        "parent_intent_id": "",
+        "purpose": "Spec 048 dogfood",
+        "status": "confirmed",
+        "vfrom": 180,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:75e41e82",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "owner": "agent",
+        "parent_intent_id": "intent:bfaee32b",
+        "purpose": "c1",
+        "status": "confirmed",
+        "vfrom": 181,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:18e220fd",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "owner": "agent",
+        "parent_intent_id": "intent:75e41e82",
+        "purpose": "c2",
+        "status": "confirmed",
+        "vfrom": 183,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:7bb0dbcf",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "owner": "agent",
+        "parent_intent_id": "intent:18e220fd",
+        "purpose": "c3",
+        "status": "confirmed",
+        "vfrom": 185,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:aab1fca5",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "owner": "agent",
+        "parent_intent_id": "intent:7bb0dbcf",
+        "purpose": "c4",
+        "status": "confirmed",
+        "vfrom": 187,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:ee8c66d2",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "owner": "agent",
+        "parent_intent_id": "intent:aab1fca5",
+        "purpose": "c5",
+        "status": "confirmed",
+        "vfrom": 189,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:d4e0ffdf",
+      "label": "Invocation",
+      "properties": {
+        "capability": "analyze",
+        "role": "transform",
+        "verb": "paths",
+        "vfrom": 191,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:a6a4166b",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "x",
+        "owner": "user",
+        "parent_intent_id": "",
+        "purpose": "x",
+        "status": "confirmed",
+        "vfrom": 193,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:449189d7",
+      "label": "Invocation",
+      "properties": {
+        "capability": "plugin",
+        "role": "transform",
+        "verb": "lint_capability",
+        "vfrom": 194,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:bc19e29b",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "cited report",
+        "owner": "user",
+        "parent_intent_id": "",
+        "purpose": "dogfood research",
+        "status": "confirmed",
+        "vfrom": 196,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:65aed5c6",
+      "label": "Invocation",
+      "properties": {
+        "capability": "research",
+        "role": "act",
+        "verb": "lead",
+        "vfrom": 197,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "research:8b8cb53a",
+      "label": "Research",
+      "properties": {
+        "depth": "standard",
+        "question": "how does analyze.paths surface intent-shape findings?",
+        "started_at": 1780442004,
+        "status": "planning",
+        "vfrom": 199,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:ebacfec5",
+      "label": "Invocation",
+      "properties": {
+        "capability": "research",
+        "role": "act",
+        "verb": "specialist",
+        "vfrom": 201,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "citation:f50a0603",
+      "label": "Citation",
+      "properties": {
+        "claim_supported": "analyze.paths",
+        "confidence": 1,
+        "evidence_text": "\"\"\"Spec 048 \u2014 analyze.paths axis.",
+        "research_id": "research:8b8cb53a",
+        "source_kind": "codebase",
+        "source_url_or_path": "agency/capabilities/analyze/_paths.py:1",
+        "vfrom": 203,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "citation:624d9b06",
+      "label": "Citation",
+      "properties": {
+        "claim_supported": "analyze.paths",
+        "confidence": 1,
+        "evidence_text": "\"\"\"Spec 048 analyze.paths scan.",
+        "research_id": "research:8b8cb53a",
+        "source_kind": "codebase",
+        "source_url_or_path": "agency/capabilities/analyze/_paths.py:103",
+        "vfrom": 205,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:1720f1b4",
+      "label": "Invocation",
+      "properties": {
+        "capability": "research",
+        "role": "act",
+        "verb": "verify",
+        "vfrom": 207,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "verification:64664ab0",
+      "label": "Verification",
+      "properties": {
+        "research_id": "research:8b8cb53a",
+        "started_at": 1780442004,
+        "status": "pass",
+        "vfrom": 209,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:f7b7e94a",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "render markdown",
+        "owner": "user",
+        "parent_intent_id": "",
+        "purpose": "dogfood Spec 017 wire",
+        "status": "confirmed",
+        "vfrom": 211,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:4177f03f",
+      "label": "Invocation",
+      "properties": {
+        "capability": "dogfood",
+        "role": "act",
+        "verb": "note",
+        "vfrom": 212,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:726a5245",
+      "label": "Reflection",
+      "properties": {
+        "plan_slug": "017-graph-native-dogfood-ledgers",
+        "scope": "observation",
+        "text": "Spec 017 closes Goal 7 write-side gap",
+        "vfrom": 214,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:b85a83e1",
+      "label": "Invocation",
+      "properties": {
+        "capability": "dogfood",
+        "role": "act",
+        "verb": "note",
+        "vfrom": 217,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "reflection:a0f2ca10",
+      "label": "Reflection",
+      "properties": {
+        "plan_slug": "017-graph-native-dogfood-ledgers",
+        "scope": "observation",
+        "text": "render uses parametrized scope filter per sc:sc-analyze F1",
+        "vfrom": 219,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:8643fd1b",
+      "label": "Invocation",
+      "properties": {
+        "capability": "dogfood",
+        "role": "transform",
+        "verb": "render",
+        "vfrom": 222,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "intent:4272903e",
+      "label": "Intent",
+      "properties": {
+        "acceptance": "x",
+        "deliverable": "json export",
+        "owner": "user",
+        "parent_intent_id": "",
+        "purpose": "Spec 020 export dogfood",
+        "status": "confirmed",
+        "vfrom": 224,
+        "vto": 1000000000000
+      }
+    },
+    {
+      "id": "invocation:721ca907",
+      "label": "Invocation",
+      "properties": {
+        "capability": "dogfood",
+        "role": "transform",
+        "verb": "export",
+        "vfrom": 225,
+        "vto": 1000000000000
+      }
+    }
+  ],
+  "version": 1
+}

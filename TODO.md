@@ -19,8 +19,8 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 15 | 012, 013, 015, 017, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050 |
-| **Partially implemented** | 11 | 001, 006, 007, 016, 018, 020, 023, 024, 025, 031, 032 |
+| **Shipped** | 16 | 012, 013, 015, 017, 020, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050 |
+| **Partially implemented** | 10 | 001, 006, 007, 016, 018, 023, 024, 025, 031, 032 |
 | **Not started** | 19 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 019, 021, 022, 026, 028, 041, 046, 049, 051, 052 + (010 deferred-v2 axes) |
 
 Total active specs: **41** (counting 000-overview).
@@ -48,7 +48,7 @@ Total active specs: **41** (counting 000-overview).
 | 017 | graph-native-dogfood-ledgers | **Shipped** | dogfood.note (act) + dogfood.render (transform) close Goal 7 write-side gap; collect deprecated for ongoing use | 10 spec tests green; backward-compat preserved (plan_slug optional, collect still works); follow-up: jules-self-improvement Phase 0 + install.py canon-comment + CLAUDE.md rule #2 cross-ref |
 | 018 | cli-token-efficiency-bundle | Partial | 5 token wins + Jules's `--fields` + traceback wrapper | Depends on 016 lint scaffold + 020 |
 | 019 | engine-output-shape-contract | Not started | Document unwrap-as-contract; lint enforces docstring | Depends on 016 lint extensibility |
-| 020 | central-graph-db | Partial | `.agency/session.db` as per-project default | One verb (`dogfood.export`) away from done |
+| 020 | central-graph-db | **Shipped** | `.agency/session.db` per-project default + DB path resolution + `.agency/` scaffold + `dogfood.export` JSON dump for merge-conflict recovery | 10 export tests green; live wire dogfood emitted 55KB / 112 nodes / 114 edges. v2 follow-up: `dogfood.import` (replay JSON into fresh DB preserving original ids + vfrom/vto windows) |
 | 021 | engine-monitor-channel | Not started | Engine-level Monitor channel (1 monitors.json) | **Hard-blocks 022 and 011** |
 | 022 | jules-monitor-capability | Not started | First use of 021 for Jules watcher transitions | Depends on 021 |
 | 023 | adaptive-disclosure | Partial | Token-budget gate + brief slices | Docstring sweep shared open item with 016/019 |

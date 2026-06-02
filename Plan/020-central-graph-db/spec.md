@@ -1,7 +1,8 @@
 ---
 spec_id: "020"
 slug: central-graph-db
-status: draft
+status: complete
+last_updated: 2026-06-03
 owner: "@agency"
 depends_on: []
 affects:
@@ -156,7 +157,60 @@ shareable; cross-session memory becomes a team asset.
 - `agency/memory.py:_intent_chain` — the cross-amendment walker that
   proves cross-session continuity is already designed-for in the graph.
 
-## Followup — Implementation Status (2026-05-31)
+## Followup — Implementation Status (2026-06-03)
+
+**Verdict:** Shipped — DB path resolution, .agency/ scaffold, .gitattributes
+binary marker, MCP/CLI convergence, AND `dogfood.export` JSON dump all
+live. 10 spec tests for export green; live wire dogfood emitted a
+55KB / 112-node / 114-edge JSON from the agency repo's own DB.
+
+### Done (this finish-pass)
+- `dogfood.export(path)` transform verb — Spec 020 line 69-73 fallback
+  for merge-conflict recovery.
+  - Default path: `.agency/export-<unix-ns>.json` (ns-precision avoids
+    collision when called back-to-back; sc:sc-analyze F6 review fix).
+  - Full bi-temporal history capture: MATCH (n) RETURN n returns
+    superseded nodes alongside current ones — correct for replay
+    (sc:sc-analyze F1 review fix; updated docstring to match).
+  - JSON shape: `{version=1, generated_at, nodes:[{id,label,properties}],
+    edges:[{from,to,type,properties}]}`. indent=2 + sort_keys=True for
+    diffability. Triple-fallback edge-type extraction handles graphqlite
+    variant keys (type/rel_type/relationship).
+- Returns `{path, nodes, edges, bytes}` — caller sees the file location
+  + the metrics needed for sanity-check or commit decision.
+- v1 ships EXPORT only; matching `dogfood.import` (replay JSON into
+  fresh DB preserving original ids + vfrom/vto windows) is v2 follow-up
+  per docstring note.
+
+### Tests (tests/test_dogfood_export.py — 10 tests)
+- export verb registered as dogfood capability verb
+- payload shape: {path, nodes, edges, bytes}
+- file is well-formed JSON with {version, nodes, edges} keys
+- Reflection nodes captured with plan_slug property (round-trip)
+- Intent nodes captured with Spec 048 owner + parent_intent_id
+- edges captured with type (OBSERVED_DURING + SERVES)
+- default path defaults to .agency/export-<ns>.json (abspath)
+- transform purity (no graph writes)
+- sc:sc-analyze F6 regression: ns-precision path avoids collision
+  between back-to-back calls
+- empty-graph export still produces valid JSON with bootstrap intent
+
+### sc:sc-analyze review applied (3 actionable findings)
+- F1 (warn) — docstring claimed "current snapshot only" but query had
+  no vto filter. Switched to FULL history with documented rationale
+  for merge-recovery.
+- F3 (warn) — recovery story coherence: documented v2 import-verb
+  follow-up in the docstring.
+- F6 (warn) — collision risk on time.time(): switched to time.time_ns
+  + regression test.
+
+### Cluster-coherence (Spec 047)
+- C08 (Memory) — closes the partial substrate work; bi-temporal
+  graph now durably exportable.
+- C09 (Git) — JSON exports are diff-friendly + commit-friendly when
+  the binary DB conflict path needs human resolution.
+
+## Followup — Original Implementation Status (2026-05-31)
 
 > Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
 
