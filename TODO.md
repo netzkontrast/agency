@@ -19,9 +19,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 10 | 012, 013, 015, 029, 030, 040, 042, 043, 045, 047 |
+| **Shipped** | 11 | 012, 013, 015, 029, 030, 039, 040, 042, 043, 045, 047 |
 | **Partially implemented** | 11 | 001, 006, 007, 016, 018, 020, 023, 024, 025, 031, 032 |
-| **Not started** | 20 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 039, 041, 044, 046 + (010 deferred-v2 axes) |
+| **Not started** | 19 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 041, 044, 046 + (010 deferred-v2 axes) |
 
 Total active specs: **41** (counting 000-overview).
 
@@ -60,7 +60,7 @@ Total active specs: **41** (counting 000-overview).
 | 030 | jules-key-doctor-stateful-welcome | **Shipped** | `agency_doctor` + stateful welcome + JULES_API_KEY clarity | (flip frontmatter) |
 | **031** | skills-progressive-disclosure | Partial | Per-spec skill rendering — `emit_skill`, references, bash wrappers | Active work on main (multiple recent commits) |
 | **032** | templates-schemas-oop-extensions | Partial | Materialised schemas + draft-07 validation + OOP extension dataclasses | Active work on main; capability_loader, path-safety landed |
-| 039 | distribution-and-e2e-hardening | Not started | pipx + E2E MCP tests + incorporate 017/018/019 | Designed in this branch; ready to implement |
+| 039 | distribution-and-e2e-hardening | **Shipped** | pipx + three console-scripts + discovery shims + E2E MCP tests + install-collision guard | v1 ships Distribution + E2E core; 17/18/19 incorporation scope-cut to follow-up PRs. 543 + 4 E2E tests green; agency_doctor reports install_method; install-collision detection; shim exit-127 discipline tested |
 | 040 | subagent-decision-heuristics | **Shipped** | 11-signal dispatch heuristic + cache/Jules budget model + dispatch-decision skill folder | 36 tests green (25 new extended + 11 updated original); `delegate.dispatch_decision` extended; skills/dispatch-decision/ + 4 references; CLAUDE.md Rule #3 updated |
 | 041 | implementation-discipline-skills | Not started | Port 3 Superpowers skills + 2 deepenings | Designed in this branch |
 | 042 | analyze-capability | **Shipped** | 4-axis decidable analysis (quality/security/performance/architecture) + run/improve/cleanup acts; code-analysis skill | 33 spec tests + 502 full-suite green; 4 code-review passes + 2 dogfood-driven false-positive fixes (`from __future__` + `__all__`); lint_capability ok=True block mode; engine dedupe bug fixed alongside |

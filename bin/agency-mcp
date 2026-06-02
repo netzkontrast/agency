@@ -1,30 +1,74 @@
 #!/usr/bin/env bash
-# agency-mcp — start the Agency MCP server (stdio).
-# Called by Claude Code from .mcp.json. On first run, if no .venv exists,
-# auto-bootstraps it via bin/agency-install (idempotent), then picks the plugin's
-# .venv python and execs `python -m agency`, which builds the FastMCP engine and
-# run()s it on stdio.
+# agency-mcp — Discovery shim (Spec 039).
+#
+# Resolves the real `agency-mcp` console-script via three paths, in
+# order of preference, then execs it. Heavy lifting (venv bootstrap,
+# pip install -e .) lives in bin/agency-install.
+#
+#   1. PATH    — agency-mcp on PATH (pipx install). Most reliable;
+#                no plugin-tree assumptions, no venv bootstrap.
+#   2. .venv   — ${CLAUDE_PLUGIN_ROOT}/.venv/bin/agency-mcp
+#                (marketplace install after agency-install bootstrap).
+#   3. install — first-run path: bootstrap .venv via bin/agency-install,
+#                then re-resolve through .venv.
+#
+# Failure mode is explicit (Spec 039 §"Subprocess lifecycle discipline"):
+# if all three fail, exit 127 with a diagnostic naming each attempted
+# path. No silent hang, no infinite re-bootstrap.
 set -euo pipefail
 
-# CLAUDE_PLUGIN_ROOT is provided by the harness; default to this script's parent dir.
 ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || \
+        python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' \
+                "${BASH_SOURCE[0]}")"
 
-# First-run bootstrap: without this a marketplace install has no fastmcp/graphqlite/httpx
-# in system python and the server would crash before exposing any tools.
-if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
-  echo "agency: first run — bootstrapping .venv via bin/agency-install …" >&2
-  CLAUDE_PLUGIN_ROOT="$ROOT" "$ROOT/bin/agency-install" >&2
+# 1. PATH (pipx install). Skip our own shim to avoid an exec-loop if a
+# user puts this directory on PATH.
+if command -v agency-mcp >/dev/null 2>&1; then
+  CANDIDATE="$(command -v agency-mcp)"
+  CANDIDATE_REAL="$(readlink -f "$CANDIDATE" 2>/dev/null || \
+                    python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' \
+                            "$CANDIDATE")"
+  if [[ "$CANDIDATE_REAL" != "$SELF" ]]; then
+    exec "$CANDIDATE" "$@"
+  fi
 fi
 
+# 2. Plugin-local venv (marketplace post-bootstrap).
+if [[ -x "$ROOT/.venv/bin/agency-mcp" ]]; then
+  exec "$ROOT/.venv/bin/agency-mcp" "$@"
+fi
+
+# 2b. Legacy path: plugin-local venv has `python` but no agency-mcp
+# console-script (older install of the package). Fall back to `python -m
+# agency` which always works as long as the package is importable.
 if [[ -x "$ROOT/.venv/bin/python" ]]; then
-  PY="$ROOT/.venv/bin/python"
-elif command -v python3 >/dev/null 2>&1; then
-  PY="$(command -v python3)"
-else
-  PY="$(command -v python)"
+  exec "$ROOT/.venv/bin/python" -m agency "$@"
 fi
 
-# PREPEND, not append: a user project cwd containing its own `agency/` package
-# would otherwise shadow the plugin's. Codex review d5758b2 / bin/agency-mcp:28.
-export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
-exec "$PY" -m agency
+# 3. First-run bootstrap: create .venv, install package, re-resolve.
+echo "agency-mcp: first run — bootstrapping .venv via bin/agency-install …" >&2
+if ! CLAUDE_PLUGIN_ROOT="$ROOT" "$ROOT/bin/agency-install" >&2; then
+  cat >&2 <<EOF
+agency-mcp: bootstrap failed. Tried:
+  - PATH        agency-mcp (not found)
+  - ${ROOT}/.venv/bin/agency-mcp (not present)
+  - ${ROOT}/.venv/bin/python (not present)
+  - ${ROOT}/bin/agency-install (failed)
+Fix:
+  pip install -e ${ROOT}   (developer)
+  pipx install ${ROOT}     (user)
+EOF
+  exit 127
+fi
+
+# Re-resolve after bootstrap.
+if [[ -x "$ROOT/.venv/bin/agency-mcp" ]]; then
+  exec "$ROOT/.venv/bin/agency-mcp" "$@"
+fi
+if [[ -x "$ROOT/.venv/bin/python" ]]; then
+  exec "$ROOT/.venv/bin/python" -m agency "$@"
+fi
+
+echo "agency-mcp: bootstrap reported success but resolved no binary" >&2
+exit 127

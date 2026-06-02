@@ -1,26 +1,66 @@
 #!/usr/bin/env bash
-# agency — CLI wrapper. Mirrors bin/agency-mcp's python detection so the agency
-# package is importable regardless of the user's project interpreter. Used by
-# generated slash commands (/agency:help) to invoke `python -m agency.cli` via
-# the plugin venv + PYTHONPATH, not the user's project python.
+# agency — CLI discovery shim (Spec 039).
+#
+# Mirror of bin/agency-mcp, but for the `agency` console-script (the
+# CLI surface — `agency search ...`, `agency execute --code ...`).
+# Used by generated slash commands (/agency:help) and by Jules.
+#
+# Resolution order: PATH > .venv > bootstrap-then-.venv. Same failure
+# discipline (Spec 039 §"Subprocess lifecycle discipline").
 set -euo pipefail
 
 ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || \
+        python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' \
+                "${BASH_SOURCE[0]}")"
 
-if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
-  echo "agency: first run — bootstrapping .venv via bin/agency-install …" >&2
-  CLAUDE_PLUGIN_ROOT="$ROOT" "$ROOT/bin/agency-install" >&2
+# 1. PATH (pipx install).
+if command -v agency >/dev/null 2>&1; then
+  CANDIDATE="$(command -v agency)"
+  CANDIDATE_REAL="$(readlink -f "$CANDIDATE" 2>/dev/null || \
+                    python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' \
+                            "$CANDIDATE")"
+  if [[ "$CANDIDATE_REAL" != "$SELF" ]]; then
+    exec "$CANDIDATE" "$@"
+  fi
 fi
 
+# 2. Plugin-local venv.
+if [[ -x "$ROOT/.venv/bin/agency" ]]; then
+  exec "$ROOT/.venv/bin/agency" "$@"
+fi
+
+# 2b. Legacy: venv has python but no agency console-script.
 if [[ -x "$ROOT/.venv/bin/python" ]]; then
-  PY="$ROOT/.venv/bin/python"
-elif command -v python3 >/dev/null 2>&1; then
-  PY="$(command -v python3)"
-else
-  PY="$(command -v python)"
+  # PREPEND PYTHONPATH so a user-project cwd with its own agency/
+  # package doesn't shadow the plugin's.
+  export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+  exec "$ROOT/.venv/bin/python" -m agency.cli "$@"
 fi
 
-# PREPEND, not append: a user project cwd containing its own `agency/` package
-# would otherwise shadow the plugin's. Codex review d5758b2 / bin/agency-mcp:28.
-export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
-exec "$PY" -m agency.cli "$@"
+# 3. First-run bootstrap.
+echo "agency: first run — bootstrapping .venv via bin/agency-install …" >&2
+if ! CLAUDE_PLUGIN_ROOT="$ROOT" "$ROOT/bin/agency-install" >&2; then
+  cat >&2 <<EOF
+agency: bootstrap failed. Tried:
+  - PATH        agency (not found)
+  - ${ROOT}/.venv/bin/agency (not present)
+  - ${ROOT}/.venv/bin/python (not present)
+  - ${ROOT}/bin/agency-install (failed)
+Fix:
+  pip install -e ${ROOT}   (developer)
+  pipx install ${ROOT}     (user)
+EOF
+  exit 127
+fi
+
+if [[ -x "$ROOT/.venv/bin/agency" ]]; then
+  exec "$ROOT/.venv/bin/agency" "$@"
+fi
+if [[ -x "$ROOT/.venv/bin/python" ]]; then
+  export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+  exec "$ROOT/.venv/bin/python" -m agency.cli "$@"
+fi
+
+echo "agency: bootstrap reported success but resolved no binary" >&2
+exit 127

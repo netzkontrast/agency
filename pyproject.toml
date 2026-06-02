@@ -40,7 +40,15 @@ recall = [
 ]
 
 [project.scripts]
-agency = "agency.__main__:main"
+# Spec 039 distribution surface — three entry points, one per consumer pattern:
+#   `agency`        — CLI for bash callers (search/get-schema/execute over argv)
+#   `agency-mcp`    — MCP server entry (stdio JSON-RPC; what .mcp.json launches)
+#   `agency-doctor` — bare-CLI health check (one-shot diagnostic; exit 0/1 for
+#                     scripting; same payload shape as the `agency_doctor`
+#                     substrate tool)
+agency        = "agency.cli:main"
+agency-mcp    = "agency.__main__:main"
+agency-doctor = "agency.__main__:doctor_main"
 
 [build-system]
 requires = ["hatchling"]
@@ -53,6 +61,12 @@ packages = ["agency"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"
+markers = [
+    # Spec 039 §"End-to-end tests": slow tag for real-subprocess JSON-RPC
+    # roundtrip + pipx-install smoke. Run with `pytest -q -m e2e`. Skipped
+    # in the default suite to keep CI per-push fast; required on tag builds.
+    "e2e: marks tests that spawn an MCP-server subprocess (slow, requires the agency-mcp binary resolvable via PATH | .venv | bin/)",
+]
 filterwarnings = [
     # Third-party noise: opentelemetry-api 1.42 calls
     # `entry_points()` with no args (legacy SelectableGroups path) then

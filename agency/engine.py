@@ -372,6 +372,35 @@ class Engine:
                     "For Jules / no-MCP: `export JULES_API_KEY=...` before "
                     "launching."
                 )
+            # Spec 039 §"Distribution" line 101-102: report the resolved
+            # entrypoint so users can confirm pipx vs marketplace install.
+            # Surface degraded install methods in next_steps[].
+            import shutil
+            agency_mcp_on_path = shutil.which("agency-mcp")
+            agency_on_path = shutil.which("agency")
+            install_method = "unknown"
+            plugin_root_env = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+            if agency_mcp_on_path:
+                # If PATH agency-mcp is the plugin-tree shim, that means the
+                # console-script ISN'T installed system-wide — the shim
+                # would self-bootstrap. Distinguish.
+                if plugin_root_env and agency_mcp_on_path.startswith(
+                        plugin_root_env):
+                    install_method = "marketplace-shim"
+                else:
+                    install_method = "pipx-or-pip-on-path"
+            elif plugin_root_env and os.path.exists(
+                    os.path.join(plugin_root_env, ".venv", "bin",
+                                 "agency-mcp")):
+                install_method = "marketplace-venv"
+            else:
+                install_method = "degraded"
+                next_steps.append(
+                    "agency-mcp not on PATH and no plugin-venv detected — "
+                    "`pip install -e .` from the agency repo OR `pipx "
+                    "install git+https://github.com/netzkontrast/agency`."
+                )
+
             # Spec 045 §"agency_doctor reports embedder": surface a silent
             # fallback. Differentiate the two failure modes — known backend
             # with missing dep (actionable: install) vs. unknown backend
@@ -407,6 +436,13 @@ class Engine:
                 # can confirm whether AGENCY_EMBEDDER took effect, or
                 # whether the BGE fallback to TF-IDF happened silently).
                 "embedder": self.embedder.name,
+                # Spec 039 §"Distribution" line 101-102: which install
+                # method is the running server using? Helps users debug
+                # pipx-vs-marketplace mismatches and the install-
+                # collision guard (line 86-91 — silent shadow detection).
+                "install_method": install_method,
+                "agency_mcp_path": agency_mcp_on_path or "",
+                "agency_path": agency_on_path or "",
                 "next_steps": next_steps,
             }
 

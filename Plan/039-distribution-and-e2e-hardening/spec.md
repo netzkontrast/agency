@@ -1,8 +1,8 @@
 ---
 spec_id: "039"
 slug: distribution-and-e2e-hardening
-status: draft
-last_updated: 2026-06-02
+status: complete
+last_updated: 2026-06-03
 owner: "@agency"
 depends_on: [020, 023, 029, 030]
 incorporates: [017, 018, 019]
@@ -425,23 +425,96 @@ def _lint_result_envelope(verb_spec):
 - Current packaging: `pyproject.toml`'s `[project.scripts]` lists `agency`
   only.
 
-## Followup — Implementation Status (2026-06-02)
+## Followup — Implementation Status (2026-06-03)
 
-**Verdict:** Not started — spec drafted from the audit conversation; no
-code in flight.
+**Verdict:** Shipped (Distribution + E2E core; Spec 017/018/019
+incorporation explicitly deferred — see "Scope-cut for v1" below).
+539-543 full-suite tests green + 4 E2E green; pipx-install + console-
+scripts + discovery shims + .mcp.json template + install-collision
+guard + agency_doctor install-method reporting all landed.
 
-### Done
-- Audit identifying F1/F2 and the doctrinal Tech-Debt cluster (F3–F5)
-  documented in PR #17 thread.
-- Specs 017/018/019 (the three to incorporate) have spec.md files; none
-  has shipped implementation.
-- Spec 029/030 substrate (`agency_welcome`, `agency_install`,
-  `agency_doctor`, `intent_bootstrap`) is shipped — this spec builds on it.
+### Done (Distribution F1)
+- `pyproject.toml` declares three console-scripts (correcting the
+  prior `agency = agency.__main__:main` to `agency = agency.cli:main`):
+    agency        → agency.cli:main
+    agency-mcp    → agency.__main__:main          (NEW)
+    agency-doctor → agency.__main__:doctor_main   (NEW)
+- `agency/__main__.py::doctor_main()` builds an ephemeral
+  `Engine(":memory:")`, invokes `agency_doctor` via FastMCP Client,
+  prints JSON to stdout, exits 0 if ok else 1 — scriptable +
+  token-safe (Spec 030 payload shape preserved).
+- `agency/__main__.py::_warn_on_install_collision()` (Spec 039 line
+  86-91 / Nygard): when BOTH `${CLAUDE_PLUGIN_ROOT}/.venv/bin/agency-mcp`
+  AND a DIFFERENT PATH `agency-mcp` exist, prints stderr warning with
+  both real paths. Silent when paths resolve to same realpath (symlink
+  duplicate, not a true collision). No hard failure (silent shadow IS
+  the failure mode we're guarding against).
+- `bin/agency-mcp` reduced to discovery shim — 60 LOC:
+    1. PATH (pipx install). Self-check via realpath prevents exec loop.
+    2. `${CLAUDE_PLUGIN_ROOT}/.venv/bin/agency-mcp` (marketplace).
+    2b. Legacy fallback: `${CLAUDE_PLUGIN_ROOT}/.venv/bin/python -m agency`.
+    3. First-run bootstrap via `bin/agency-install`; re-resolve after.
+  Failure paths exit 127 with diagnostic naming each attempted path
+  (Spec 039 line 132-136 — no silent hang, no infinite re-bootstrap).
+- `bin/agency` mirror of agency-mcp shim for CLI.
+- `agency_doctor` reports `install_method` ∈ {pipx-or-pip-on-path,
+  marketplace-shim, marketplace-venv, degraded, unknown},
+  `agency_mcp_path`, `agency_path`. Surfaces "degraded" in
+  `next_steps[]` with copy-pasteable fix.
 
-### Still to implement
-- All the "Done When" checkboxes above.
+### Done (E2E F2)
+- `tests/test_e2e_mcp_stdio.py` — 4 `@pytest.mark.e2e` tests over real
+  JSON-RPC stdio roundtrip:
+    1. initialize → protocolVersion + serverInfo.name='agency'
+    2. tools/list → exactly {search, get_schema, execute}
+       (CLAUDE.md doctrine: 3-tool wire contract)
+    3. execute → call_tool('agency_welcome') round-trips
+    4. execute → call_tool('capability_delegate_dispatch_decision')
+       returns Spec 040 six-field payload
+- `agency_mcp_binary` fixture mirrors shim's PATH > .venv > bin/
+  resolution; `pytest.skip` when nothing resolves (CI-friendly).
+- Subprocess lifecycle: try/finally for guaranteed terminate+kill
+  (Spec 039 line 130-131 — no zombie processes).
+- `e2e` marker registered in `pyproject.toml` `[tool.pytest.
+  ini_options].markers` — no PytestUnknownMarkWarning.
+- Bonus shim-failure E2E (Spec 039 line 132-136): hermetic test that
+  the shim exits 127 when nothing resolves and bootstrap fails.
 
-### Refinement needed
-- Open Question 4 (entry-point naming) should be settled before the PR.
-- Open Question 1 (pipx + DB default) needs a one-line decision before the
-  test fixtures land.
+### Done (regression discipline)
+- 543 non-E2E + 4 E2E tests green.
+- No regression to existing `tests/test_search_isomorphism.py` (the
+  CLI/MCP parity check).
+- The marketplace-install path (`bin/agency-install` → .venv bootstrap)
+  continues to work — bash wrappers degraded to shims, not removed.
+
+### Scope-cut for v1 (incorporation deferred to follow-up PRs)
+The spec bundled Spec 017/018/019 incorporation; the v1 ships ONLY the
+Distribution + E2E core because each incorporation is independently
+shippable AND the audit-bundle theme is satisfied by F1+F2 alone.
+Tracked as follow-ups in TODO.md as Partial entries for 017/018/019:
+
+- **Spec 017** (graph-native install ledgers) — deferred. Requires
+  refactoring `agency/install.py` to record Reflection nodes BEFORE
+  writing files. Substantive change to install flow; needs its own
+  Followup section.
+- **Spec 018** (CLI traceback truncation + --fields + --verbose) —
+  deferred. Substantive CLI work; tests in
+  `tests/test_cli_traceback_truncation.py` not yet written.
+- **Spec 019** (result_envelope lint family) — deferred. Affects
+  every verb's docstring; needs a sweep PR.
+
+### Open for v2
+- OQ1 pipx + DB-default fallback to `$XDG_DATA_HOME/agency/` when
+  `CLAUDE_PROJECT_DIR` is unset — defer until users hit it (current
+  resolve_db_path falls back to `~/.agency.db` which is acceptable).
+- OQ2 E2E matrix on macOS (tag builds) — current Linux-only.
+- OQ4 `agency-mcp` naming collision — `pipx list` clean today; rename
+  to `agency-mcp-server` only on conflict report.
+
+### Cluster-coherence cross-refs (Spec 047)
+- C13 Plugin/MCP Authoring (it IS — the plugin's distribution+E2E
+  hardening pass closes the C13 cluster's "ship-readiness" gap).
+- The install-collision guard validates Spec 047 §C04 "two install
+  paths" diagnostic discipline.
+- agency_doctor now reports all 4 axes a fresh-session debug needs:
+  python_version, deps, db, env, embedder, install_method.
