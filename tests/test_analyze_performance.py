@@ -33,6 +33,21 @@ def test_nested_loop_on_growing_list_flagged(tmp_path):
     assert nested[0]["severity"] == "warn"
 
 
+def test_int_counter_not_flagged(tmp_path):
+    """Dogfood finding: `total += 1` in a loop is NOT the string-concat
+    antipattern; P002 must look at the target's initialisation type."""
+    body = (
+        "def count(items):\n"
+        "    total = 0\n"
+        "    for x in items:\n"
+        "        total += 1\n"
+        "    return total\n"
+    )
+    _write(str(tmp_path), "c.py", body)
+    findings = _performance.scan(str(tmp_path))
+    assert not [f for f in findings if f["rule"] == "P002"]
+
+
 def test_string_concat_in_loop_flagged(tmp_path):
     body = (
         "def build(items):\n"

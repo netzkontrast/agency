@@ -1,7 +1,7 @@
 ---
 spec_id: "043"
 slug: document-capability
-status: draft
+status: complete
 last_updated: 2026-06-02
 owner: "@agency"
 depends_on: [016, 017, 020, 023, 040, 042]
@@ -348,25 +348,85 @@ else is wasted budget. Per Spec 040 S1:tokens, dispatch wins.
 
 ## Followup — Implementation Status (2026-06-02)
 
-**Verdict:** Not started — spec drafted; agency has no rendering
-capability.
+**Verdict:** Shipped — 3 verbs live (render transform + explain act +
+index_repo act), 4 render scopes wired, 3 explain depth tiers,
+repo-briefing skill folder, `document.index_repo` self-test produces
+briefing < 3000 cl100k tokens on the agency repo, 532 full-suite tests
+green after 3 code-review passes + 2 dogfood-driven fixes (intent-
+filter edge bug + P002 int-counter false-positive in analyze).
 
 ### Done
-- Substrate: `agency/render.py::parse_slices` + Spec 023 brief slices
-  already populate every module — `index_repo` and `explain` only need
-  to read them.
-- The `_jules_reference.md` pattern (a markdown file colocated with the
-  jules capability) shows how the capability already structures rich
-  documentation; this spec generalises that.
+- Folder-form capability `agency/capabilities/document/`:
+  - `_main.py` — `DocumentCapability` class; scaffold marker line 1;
+    ontology with 1 node (RepoIndex), 1 edge (INDEXES), 2 schemas
+    (repo-index, explanation), 1 skill (repo-briefing).
+  - `_templates.py` — markdown builders (h1/h2/fenced/table/truncate).
+  - `_render.py` — 4 scope renderers (install-artefacts, reflections,
+    provenance, capability-catalogue). All scopes graph-backed; intent
+    filters traverse OBSERVED_DURING / SERVES edges (fixed in
+    code-review pass 2 — original property-based filter never matched).
+  - `_explain.py` — composition not generation: signature + brief +
+    docstring + module surface listing. NO LLM. Depth budgets enforced
+    (200/600/2500 cl100k tokens for brief/standard/deep).
+  - `_index_repo.py` — 6-section deterministic briefing (Substrate /
+    Macro-structure / Entry points / Notable patterns / Recent
+    activity). Brief-slice synthesis from module docstrings. Two-stage
+    truncation (mid-loop at 0.92× budget + post-render tail trim with
+    `_… (content omitted to fit token budget)_` marker).
+- `render(scope, for_intent_id, format)` transform — 4 scopes; pure;
+  `for_intent_id` rather than `intent_id` to avoid colliding with
+  substrate's intent injection.
+- `explain(target, depth)` act — resolves file path | module | symbol;
+  emits Reflection with kind=explanation.
+- `index_repo(path, apply, max_tokens=3000)` act — records RepoIndex
+  node {path, content_sha (sha256-16), token_count, generated_at};
+  `apply=True` writes `${path}/PROJECT_INDEX.md`.
+- 4-phase `repo-briefing` Lifecycle skill (scope → scan → render →
+  publish(hard)) on `DocumentCapability.ontology.skills`.
+- `skills/repo-briefing/SKILL.md` + `references/template-shapes.md`.
+- Tests: `test_document_render.py` (11) — 4 scopes, intent-scoped
+  filter regression, truncation, error handling, purity. Includes
+  Pass-2 regression for edge-based intent filter.
+  `test_document_explain.py` (10) — 3 depths, 4 target shapes,
+  Reflection emission. `test_document_index_repo.py` (8) — self-test
+  on the agency repo (< 3000 tokens, all 4 top-level capabilities
+  named), substrate/macro/entry/pattern sections, RepoIndex node
+  recording, apply=False vs True, max_tokens truncation, files_scanned.
+- Token budget: search default at 200 tokens stayed under limit after
+  trimming `document.render`'s brief slice from "Project a slice of
+  the graph into markdown — deterministic, no LLM." (16 tokens) to
+  "Project graph state to markdown; deterministic." (~9 tokens).
+- `plugin.lint_capability("document")` returns ok=True in block mode.
 
-### Still to implement
-- Folder + 5 modules.
-- Three verbs (render transform, explain act, index_repo act).
-- The walker template + SKILL.md + reference.
-- Three test files.
-- agency.install switch (after both 017 and 035 ship).
+### Code-review loop (agency:code-review skill)
+- Pass 1 — surfaced F1/F2/F7 (the intent_id filter doesn't actually
+  filter — Reflection / Invocation / Artefact nodes don't carry
+  intent_id as property; provenance lives on OBSERVED_DURING / SERVES
+  edges). Fixed all three by switching to `memory.g.query`-based edge
+  traversal. Added regression test `test_render_reflections_intent_
+  scoped_filter`.
+- Pass 2 (meta-dogfood) — ran `analyze.run` on the capability itself;
+  surfaced 2 P002 (string-concat) hits on `total_verbs += 1` (int
+  counter, not string-concat). The bug was IN `analyze._performance`
+  not in `document`. Tightened P002 to only flag `+=` on names typed
+  to a string literal (`name = ""`) or annotated `: str`. Added
+  regression test in `test_analyze_performance.py`.
+- Pass 3 — self-analyze clean: 0 findings across all 4 axes on the
+  document capability.
 
-### Refinement needed
-- Open Question 2 (PROJECT_INDEX.md location) needs a one-line policy
-  call before v1.
-- Open Question 1 (bi-temporal projection) defers to v2 cleanly.
+### Open for v2 (per spec §Open Questions)
+- OQ1 bi-temporal `since: timestamp` query for render.
+- OQ2 PROJECT_INDEX.md location — v1 writes to `${path}/PROJECT_INDEX.md`
+  (repo root); v2 may switch to `.agency/PROJECT_INDEX.md` + a thin
+  pointer in `docs/`.
+- OQ3 `explain` LLM optionality via `[document-llm]` extra — v1 says no.
+- OQ4 content_sha caching for repeat `index_repo` runs.
+
+### Cluster-coherence cross-refs (Spec 047)
+- C07 Documentation (it IS).
+- C04 Quality (Spec 047 §C04 "analysis" render scope is now declarable
+  via the same render-then-write pattern).
+- C12 Meta/Help/Dispatch (capability-catalogue render replaces the
+  in-engine catalogue rendering once Spec 017 lands).
+- C13 Plugin (closes Spec 017 §"Open Question 1": agency.install
+  switches to render-then-write after both ship).

@@ -62,7 +62,25 @@ def _check_nested_loops(path: str, src: str, tree: ast.AST) -> list[Finding]:
 
 
 def _check_string_concat(path: str, src: str, tree: ast.AST) -> list[Finding]:
-    """P002 — `x += y` inside a `for` body."""
+    """P002 — `x += y` inside a `for` body, where x was initialised as a
+    string literal. Skip int counters (e.g. ``total += 1``) — those
+    aren't the antipattern the rule targets."""
+    # Find every name assigned to "" at module scope OR inside a function
+    # body BEFORE the loop. Conservative: only treat a name as "string-
+    # typed for the purposes of this rule" when we see ``name = "..."``
+    # OR ``name: str = "..."`` upstream.
+    string_typed_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        string_typed_names.add(target.id)
+        elif isinstance(node, ast.AnnAssign):
+            if (isinstance(node.annotation, ast.Name)
+                    and node.annotation.id == "str"
+                    and isinstance(node.target, ast.Name)):
+                string_typed_names.add(node.target.id)
     out: list[Finding] = []
     lines = src.splitlines()
     for loop in ast.walk(tree):
@@ -71,14 +89,17 @@ def _check_string_concat(path: str, src: str, tree: ast.AST) -> list[Finding]:
         for stmt in ast.walk(loop):
             if stmt is loop:
                 continue
-            if isinstance(stmt, ast.AugAssign) and isinstance(stmt.op, ast.Add):
+            if (isinstance(stmt, ast.AugAssign)
+                    and isinstance(stmt.op, ast.Add)
+                    and isinstance(stmt.target, ast.Name)
+                    and stmt.target.id in string_typed_names):
                 evidence = (lines[stmt.lineno - 1].strip()
                             if 0 <= stmt.lineno - 1 < len(lines)
                             else "+= in loop")
                 out.append(make_finding(
                     rule="P002", severity=SEVERITY["P002"],
                     file=path, line=stmt.lineno,
-                    message="`+=` in loop — use ''.join() / list.append() for O(n)",
+                    message="`+=` on a string in loop — use ''.join() / list.append() for O(n)",
                     evidence=evidence,
                 ))
                 break

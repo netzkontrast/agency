@@ -19,9 +19,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 9 | 012, 013, 015, 029, 030, 040, 042, 045, 047 |
+| **Shipped** | 10 | 012, 013, 015, 029, 030, 040, 042, 043, 045, 047 |
 | **Partially implemented** | 11 | 001, 006, 007, 016, 018, 020, 023, 024, 025, 031, 032 |
-| **Not started** | 21 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 039, 041, 043, 044, 046 + (010 deferred-v2 axes) |
+| **Not started** | 20 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 039, 041, 044, 046 + (010 deferred-v2 axes) |
 
 Total active specs: **41** (counting 000-overview).
 
@@ -64,7 +64,7 @@ Total active specs: **41** (counting 000-overview).
 | 040 | subagent-decision-heuristics | **Shipped** | 11-signal dispatch heuristic + cache/Jules budget model + dispatch-decision skill folder | 36 tests green (25 new extended + 11 updated original); `delegate.dispatch_decision` extended; skills/dispatch-decision/ + 4 references; CLAUDE.md Rule #3 updated |
 | 041 | implementation-discipline-skills | Not started | Port 3 Superpowers skills + 2 deepenings | Designed in this branch |
 | 042 | analyze-capability | **Shipped** | 4-axis decidable analysis (quality/security/performance/architecture) + run/improve/cleanup acts; code-analysis skill | 33 spec tests + 502 full-suite green; 4 code-review passes + 2 dogfood-driven false-positive fixes (`from __future__` + `__all__`); lint_capability ok=True block mode; engine dedupe bug fixed alongside |
-| 043 | document-capability | Not started | render/explain/index_repo + 94%-reduction pattern | Designed in this branch; closes 017's render-side |
+| 043 | document-capability | **Shipped** | render (4 scopes graph→md) + explain (3 depths, composition not generation) + index_repo (94% reduction; self-test < 3K tokens on agency repo) + repo-briefing skill | 29 spec tests + 532 full-suite green; 3 code-review passes incl. dogfood-driven fix (P002 false-positive on int counter caught by meta-dogfood); lint_capability ok=True block mode; intent-filter edge-traversal bug caught + regression test added |
 | 044 | research-capability | Not started | lead+specialists+verifier composition + 5 Novel-Gemini prompts | Designed in this branch (prompts already in `research/novel-prompts/`) |
 | 045 | reflect-semantic-recall | **Shipped** | TF-IDF + optional BGE embedder; `reflect.recall_semantic` verb; agency_doctor surfaces backend + fallback | 19 spec tests + 469 full-suite green; 4 code-review passes (F4 zip-sort cleanup, F9 doctor fallback messaging differentiated by failure mode, F13 k<=0 guard, DRY KNOWN_EMBEDDERS) |
 | 046 | micro-extensions-bundle | Not started | Code-review split + visual-companion + smart-commit + estimate + token-efficiency + doc-autosync | Designed in this branch |
