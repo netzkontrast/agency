@@ -169,11 +169,26 @@ Truncating `text` to 200 chars in the result is a Spec-023 token-budget
 discipline — the caller can `recall_semantic` for the IDs then `recall`
 or `search` for full text.
 
-### What this is NOT
+### What this is NOT (and the complementary `episodic-memory` adoption)
 
-- Not a replacement for `episodic-memory:remembering-conversations` — that
-  skill ALSO searches the Claude Code transcript history; agency only
-  searches its own Reflection nodes.
+This spec is **not** a replacement for the Superpowers `episodic-memory`
+plugin's `remembering-conversations` discipline. The two cover different
+corpora and ship as complements:
+
+| Surface | Corpus | Shape | Owner |
+|---|---|---|---|
+| `reflect.recall_semantic` (this spec) | agency `Reflection` nodes | transform verb in agency | THIS spec |
+| `episodic-memory:search` / `read` | Claude Code conversation transcripts | external MCP server (TypeScript) | Superpowers ecosystem |
+
+The right integration is **adopt episodic-memory via the future MCP-
+client driver** (Spec 032 §"Open Question 3"). Reimplementing the
+transcript-search corpus inside agency would duplicate well-tested
+upstream work; reimplementing the Reflection-node corpus inside
+episodic-memory would lose the bi-temporal graph semantics. Two corpora,
+two surfaces — both available, the agent picks per question.
+
+This spec is also:
+
 - Not RAG — agency doesn't ship a retrieval-augmented-generation loop;
   this is plain top-k semantic ranking.
 - Not persistent — the index is built per-call. Persistence is a v2

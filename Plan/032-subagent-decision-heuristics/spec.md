@@ -233,7 +233,13 @@ trust the heuristic.
    cutoff different. v1 says one cutoff (5000); refine later.
 3. **MCP-client driver (`s8_driver_hint="mcp"`)** is named here but
    doesn't exist yet (audit-finding F6, separate spec). Document the
-   placeholder; don't ship the driver in this spec.
+   placeholder; don't ship the driver in this spec. **First concrete
+   adoptee when the driver ships:** the Superpowers `episodic-memory`
+   MCP server (TypeScript, exposes `search` + `read` over Claude Code
+   transcript corpus). It IS the production-grade complement to
+   `reflect.recall_semantic` (Spec 037) — same shape (semantic search),
+   different corpus (CC transcripts vs. agency Reflections). Adopting
+   it via the driver is the lean call; reimplementing it isn't.
 4. **Should the heuristic auto-fire from inside `delegate.dispatch`?**
    Today the orchestrator calls `dispatch_decision` then `dispatch`. We
    could fold the gate in. v1 keeps them separate — explicit > clever.

@@ -324,12 +324,33 @@ Spec 010 Loop 1+ implementation.
    verification result write back to the Citation node (mutating)?
    Cleaner: emit a separate `VerifiedCitation` projection node.
 
+### Compatibility with SC's "STOP AFTER" doctrine
+
+SC ships six commands with explicit "STOP AFTER" output-only boundaries:
+`brainstorm` (stop after requirements), `research` (stop after report),
+`workflow` (stop after plan), `estimate` (stop after estimation),
+`spawn` (stop after decomposition), `troubleshoot` (diagnosis-first).
+Agency's analogue is the **hard-gate Lifecycle phase** — same
+structural intent (don't slide from analysis to action without
+explicit user confirmation), different mechanism.
+
+`research.publish` is the hard gate at the end of the `deep-research`
+walker; the rendered report exists but isn't written / acted on until
+the gate confirms. This is the doctrine-equivalent of SC's "STOP AFTER
+RESEARCH REPORT" — implemented via the engine's gate primitive rather
+than via prompt-text discipline.
+
 ## Evidence
 
 - `EXTENSION-PLAN.md` row: `research` is the named target with
   composition `delegate → craft → gate`.
-- `sc-research` summary (PR #17 subagent report): "parallel search
-  orchestration, multi-hop reasoning, cited evidence collection".
+- `sc-research` summary (PR #17 subagent reports — both shallow and
+  deep): SC commands the trio `tavily` (web search), `sequential`
+  (multi-hop reasoning), `playwright` (browser), `serena` (cross-
+  session memory), composed under `MODE_DeepResearch.md` doctrine.
+  Agency-native composition omits the persona-injection layer (the
+  agent walking the skill provides the judgement; agency doesn't
+  inject personas in prompts).
 - `deep-research` skill (Superpowers ecosystem; system-reminder listing).
 - Spec 010 § "Open Question 7" and "Source fidelity §3" — the open
   Novel research questions this spec's task-F prompts target.
