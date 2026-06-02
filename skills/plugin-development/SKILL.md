@@ -145,16 +145,14 @@ Full lifecycle in [`references/release-and-distribution.md`](references/release-
 
 | File | When to read it |
 |---|---|
-| [`references/plugin-structure.md`](references/plugin-structure.md) | Generic Claude Code plugin contract — manifest fields, marketplace shapes, component formats |
-| [`references/common-patterns.md`](references/common-patterns.md) | Which plugin pattern fits your goal (simple-skill, MCP+skill, command-collection, hooks, full-featured) |
-| [`references/polyglot-hooks.md`](references/polyglot-hooks.md) | Cross-platform hook scripts (Windows/macOS/Linux) — the polyglot `.cmd` wrapper |
-| [`references/troubleshooting.md`](references/troubleshooting.md) | Generic plugin failures (not loading, skill not triggering, MCP server won't start) |
-| [`references/agency-patterns.md`](references/agency-patterns.md) | Agency-engine-specific patterns — capability, skill-walker, driver, substrate tool |
-| [`references/agency-troubleshooting.md`](references/agency-troubleshooting.md) | Agency-specific failures — venv bootstrap, SERVES-guard, ontology-merge, ${user_config} not populated |
+| [`references/plugin-structure.md`](references/plugin-structure.md) | How agency uses the Claude Code plugin contract — the actual layout, regenerated files, `.mcp.json` pattern, manifest with `userConfig` |
+| [`references/common-patterns.md`](references/common-patterns.md) | The patterns agency composes (MCP+skill, bundled resources, auto-generated commands, domain extension via `examples/`) and the one it deliberately doesn't ship |
+| [`references/polyglot-hooks.md`](references/polyglot-hooks.md) | Cross-platform hook pattern (Windows/macOS/Linux). Agency ships no hooks today; this is forward-looking |
+| [`references/troubleshooting.md`](references/troubleshooting.md) | Agency failure modes — venv bootstrap, MCP-server startup, SERVES-guard, ontology-merge, `${user_config}` reload, slash-command staleness |
+| [`references/agency-patterns.md`](references/agency-patterns.md) | Engine-internal patterns — capability, skill-walker, boundary driver, substrate tool |
 | [`references/release-and-distribution.md`](references/release-and-distribution.md) | The agency release loop, `agency.install` regen contract, distribution paths |
 | [`references/related-skills.md`](references/related-skills.md) | Decision matrix: which skill to use for which task |
 
-The generic references are ports of the canonical Superpowers
-`developing-claude-code-plugins` skill (the upstream truth for the Claude
-Code plugin contract). The agency-prefixed references add the engine-specific
-lens that doesn't exist upstream.
+All references are agency-adapted. For a *generic* Claude Code plugin not
+based on the agency engine, use the Superpowers
+`developing-claude-code-plugins` skill — that's the upstream canon.
