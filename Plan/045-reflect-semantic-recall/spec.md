@@ -1,5 +1,5 @@
 ---
-spec_id: "037"
+spec_id: "045"
 slug: reflect-semantic-recall
 status: draft
 last_updated: 2026-06-02
@@ -14,10 +14,10 @@ affects:
 estimated_jules_sessions: 1
 domain: meta
 wave: 2
-informs: [034, 035]
+informs: [042, 043]
 ---
 
-# Spec 037 — Semantic Recall on `reflect`
+# Spec 045 — Semantic Recall on `reflect`
 
 ## Why
 
@@ -124,7 +124,7 @@ class BgeEmbedder:
     def score(self, query, indexed): ...
 
 def resolve_embedder() -> Embedder:
-    """Spec 037 §"Embedder resolution": env > optional-dep > tfidf."""
+    """Spec 045 §"Embedder resolution": env > optional-dep > tfidf."""
     target = os.environ.get("AGENCY_EMBEDDER", "tfidf").strip()
     if target == "tfidf":
         return TfidfEmbedder()
@@ -181,7 +181,7 @@ corpora and ship as complements:
 | `episodic-memory:search` / `read` | Claude Code conversation transcripts | external MCP server (TypeScript) | Superpowers ecosystem |
 
 The right integration is **adopt episodic-memory via the future MCP-
-client driver** (Spec 032 §"Open Question 3"). Reimplementing the
+client driver** (Spec 040 §"Open Question 3"). Reimplementing the
 transcript-search corpus inside agency would duplicate well-tested
 upstream work; reimplementing the Reflection-node corpus inside
 episodic-memory would lose the bi-temporal graph semantics. Two corpora,

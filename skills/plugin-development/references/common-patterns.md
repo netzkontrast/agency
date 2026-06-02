@@ -179,7 +179,7 @@ client that talks to *other* MCP servers (stdio or HTTP). Today the
 `delegate` capability fans out to local subagents and to Jules; an MCP
 client would let it fan out to any installed MCP server in the host.
 
-That's tracked as a follow-up to Spec 031 (architecture-review finding
+That's tracked as a follow-up to Spec 039 (architecture-review finding
 F6 in this branch's audit conversation). Until shipped: don't reach
 across MCP servers from inside agency.
 

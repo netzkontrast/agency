@@ -1,10 +1,10 @@
 ---
-spec_id: "036"
+spec_id: "044"
 slug: research-capability
 status: draft
 last_updated: 2026-06-02
 owner: "@agency"
-depends_on: [011, 016, 020, 023, 032, 035, 037]
+depends_on: [011, 016, 020, 023, 040, 043, 045]
 affects:
   - agency/capabilities/research/__init__.py            # NEW heavy capability
   - agency/capabilities/research/_main.py
@@ -23,7 +23,7 @@ wave: 2
 unblocks: [novel_research_prompts_F]
 ---
 
-# Spec 036 — `research` Capability (Lead + Specialists + Verifier)
+# Spec 044 — `research` Capability (Lead + Specialists + Verifier)
 
 ## Why
 
@@ -88,7 +88,7 @@ and emits a structured cited report Gemini's deep-research can consume
   - `standard` — 2 specialists (`web` + `codebase` or `prior-
     reflections`), 1 verification pass, ≤ 2000 tokens.
   - `deep` — 3+ specialists, 2 verification passes, ≤ 5000 tokens.
-- [ ] The planning decision uses `delegate.dispatch_decision` (Spec 032)
+- [ ] The planning decision uses `delegate.dispatch_decision` (Spec 040)
   to confirm fan-out makes sense (S4:parallel ≥ 3 for `deep`, etc.).
 - [ ] Does NOT itself run the specialists — returns the plan; the skill
   walker triggers fan-out at the next phase.
@@ -102,7 +102,7 @@ and emits a structured cited report Gemini's deep-research can consume
   - `web` — uses the `web_search` driver (new boundary, below).
   - `codebase` — agency-internal grep + AST walk over the repo.
   - `prior-reflections` — calls
-    `reflect.recall_semantic(query, k=10)` (Spec 037 dependency).
+    `reflect.recall_semantic(query, k=10)` (Spec 045 dependency).
   - `doc-corpus` — searches files under `docs/` for keyword matches
     + a Spec-037-style semantic rank.
 - [ ] Records ≥ 1 Citation node per sub-search:
@@ -122,7 +122,7 @@ and emits a structured cited report Gemini's deep-research can consume
   - `reachability` — for each `web` Citation, HEAD the URL (cached
     per-session); fail if non-2xx.
   - `evidence-supports-claim` — for each Citation, verify the
-    `evidence_text` substring or semantic match (Spec 037) is ≥ 0.5
+    `evidence_text` substring or semantic match (Spec 045) is ≥ 0.5
     cosine OR substring-match of the linked `claim_supported`.
     Below threshold = fail with `score`.
   - `contradiction-cluster` — group Citations by claim; if two claims
@@ -164,7 +164,7 @@ and emits a structured cited report Gemini's deep-research can consume
   - `verify` — calls `research.verify`. Hard-blocks on `status: "fail"`
     unless overridden.
   - `render` — calls `document.render(scope="research-report",
-    research_id=...)` (Spec 035 dependency).
+    research_id=...)` (Spec 043 dependency).
   - `publish` — hard gate; on confirm, optionally writes the rendered
     report to disk via `apply=True` semantics.
 
@@ -249,8 +249,8 @@ synthesis happens, with the verified graph as input. The capability
 Total orchestrator-context cost: ≤ 5000 tokens for `deep`. The same
 research run in a naive single-prompt LLM would consume 20K+ tokens of
 context. The savings come from **subagent dispatch at fan-out**
-(Spec 032) + **graph storage of raw evidence** (Spec 020) + **rendered
-projection** (Spec 035).
+(Spec 040) + **graph storage of raw evidence** (Spec 020) + **rendered
+projection** (Spec 043).
 
 ### The Novel-research prompts (task F)
 
@@ -306,7 +306,7 @@ Spec 010 Loop 1+ implementation.
 
 ## Open Questions
 
-1. **Web-search driver default.** Until Spec 032's F6 (HTTP MCP-client
+1. **Web-search driver default.** Until Spec 040's F6 (HTTP MCP-client
    driver) ships, "web" specialists need a backend. v1 lazy-imports a
    `WebSearch` host tool if available; otherwise fails loud
    (`agency_doctor` flags the missing capability). Acceptable v1.
@@ -355,9 +355,9 @@ than via prompt-text discipline.
 - Spec 010 § "Open Question 7" and "Source fidelity §3" — the open
   Novel research questions this spec's task-F prompts target.
 - Spec 020 — bi-temporal graph for durable Citation storage.
-- Spec 032 — dispatch decisions on fan-out.
-- Spec 035 — render the cited report.
-- Spec 037 — semantic recall powers `prior-reflections` specialist + the
+- Spec 040 — dispatch decisions on fan-out.
+- Spec 043 — render the cited report.
+- Spec 045 — semantic recall powers `prior-reflections` specialist + the
   contradiction-cluster heuristic.
 
 ## Followup — Implementation Status (2026-06-02)
@@ -367,7 +367,7 @@ today.
 
 ### Done
 - The dispatch substrate (`delegate` cap), the gate substrate (`gate`
-  cap), and the render substrate (Spec 035 when it lands) are all
+  cap), and the render substrate (Spec 043 when it lands) are all
   available; this spec composes them, doesn't build them.
 - Task F (Novel-research prompts) is fully specified in this spec; the
   five prompt files can be written and used standalone before the

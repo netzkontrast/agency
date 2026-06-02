@@ -58,7 +58,7 @@ the server failed to spawn.
    `bin/agency-install`, which creates `${CLAUDE_PLUGIN_ROOT}/.venv` and
    `pip install -e .`. On a read-only mount or immutable image this fails
    silently. Fix: manually create the venv outside the plugin tree, or
-   wait for Spec 031 (pipx install path).
+   wait for Spec 039 (pipx install path).
 2. **System `python3` is missing or <3.11.** `bin/agency-install` exits
    early; the wrapper falls back to `python3` on PATH, which won't have
    `fastmcp` / `graphqlite`. `agency_doctor` reports

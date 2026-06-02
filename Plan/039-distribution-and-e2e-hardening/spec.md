@@ -1,5 +1,5 @@
 ---
-spec_id: "031"
+spec_id: "039"
 slug: distribution-and-e2e-hardening
 status: draft
 last_updated: 2026-06-02
@@ -28,7 +28,7 @@ domain: meta
 wave: 2
 ---
 
-# Spec 031 — Distribution & E2E Hardening
+# Spec 039 — Distribution & E2E Hardening
 
 ## Why
 
@@ -69,14 +69,20 @@ hardening.
   agency-mcp  = "agency.__main__:main"       # NEW — the MCP server entry
   agency-doctor = "agency.__main__:doctor_main"  # NEW — bare-CLI doctor
   ```
+  `doctor_main()` is a new entrypoint that:
+  (a) builds an `Engine(":memory:")`, calls the `agency_doctor` substrate tool,
+  (b) prints the JSON payload to stdout (token-safe, scriptable — same shape
+      as `python -m agency.cli execute --code ...`),
+  (c) returns exit code `0` if `ok=True`, `1` otherwise.
 - [ ] `pipx install git+https://github.com/netzkontrast/agency@main` works:
   - `agency-mcp` lands on PATH.
   - `agency-mcp` started without args binds to stdio and serves the
     FastMCP `search`/`get_schema`/`execute` surface.
   - No `${CLAUDE_PLUGIN_ROOT}/.venv` is created during pipx install
     (pipx manages its own venv).
-- [ ] `pipx install -e /path/to/agency` (editable, from local checkout)
-  works with the same guarantees.
+- [ ] `pipx install --editable /path/to/agency` (editable, from local
+  checkout — note: `--editable`, NOT `-e`, since pipx 1.4) works with the
+  same guarantees.
 - [ ] `.mcp.json` template updated: if `agency-mcp` is on PATH, use it
   directly; otherwise fall back to `${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp`
   (the marketplace-install path stays working).
@@ -109,6 +115,19 @@ hardening.
 - [ ] Both E2E tests are marked `@pytest.mark.e2e` (slow tag), runnable
   selectively (`pytest -q -m e2e`). CI runs them on a single platform
   (Linux) per push; full matrix on tags.
+- [ ] The marker `e2e` is registered in `pyproject.toml`'s
+  `[tool.pytest.ini_options].markers` to avoid pytest's
+  `PytestUnknownMarkWarning`.
+- [ ] Subprocess lifecycle discipline (Nygard — production resilience):
+  - Every spawned `agency-mcp` subprocess has a hard timeout (default 10s
+    per JSON-RPC roundtrip, 60s for the full test).
+  - The fixture uses a try/finally to guarantee `proc.terminate()` and
+    `proc.wait(timeout=5)` even on test failure (no zombie processes).
+  - Discovery shim failure modes are explicit: if NEITHER `agency-mcp`
+    on PATH NOR `${CLAUDE_PLUGIN_ROOT}/.venv/bin/agency-mcp` NOR
+    `bin/agency-install` bootstrap succeeds, the shim exits 127 with a
+    diagnostic message naming each attempted path (no silent hang, no
+    infinite re-bootstrap).
 
 ### Spec 017 incorporated — graph-native install ledgers
 
@@ -345,12 +364,20 @@ def _lint_result_envelope(verb_spec):
   - `tests/test_engine_result_envelope.py` (Spec 019 lint).
   - `tests/test_cli_traceback_truncation.py` (Spec 018).
   - `tests/test_install_graph_native.py` (Spec 017).
-  - `tests/conftest.py` — `agency_mcp_binary` fixture (resolution logic).
-- **Do not modify:**
+  - `tests/conftest.py` — `agency_mcp_binary` fixture (resolution logic
+    mirrors the discovery shim — see §"Design"). Adds the `e2e` marker
+    registration via `pytest_configure`.
+- **Do not modify** (Fowler — keep blast radius small):
   - `agency/{engine,capability,ontology,memory,intent,lifecycle}.py`'s
     auto-discovery contract.
   - The SERVES guard.
   - The four substrate tools.
+  - The bi-temporal graph schema (Spec 020) — `.agency/session.db`
+    format stays compatible.
+  - `agency/capabilities/jules.py` and the `_jules_*` private modules
+    — Jules behaviour is out of scope for this hygiene pass.
+  - The skill folder layout (`skills/*/SKILL.md`) except where Spec
+    033 / 038 already plan changes (no overlap with this spec).
 
 ## Open Questions / Needs Research
 

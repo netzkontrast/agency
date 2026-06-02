@@ -1,5 +1,5 @@
 ---
-spec_id: "032"
+spec_id: "040"
 slug: subagent-decision-heuristics
 status: draft
 last_updated: 2026-06-02
@@ -17,10 +17,10 @@ affects:
 estimated_jules_sessions: 1
 domain: meta
 wave: 2
-foundation_for: [033, 034, 035, 036]
+foundation_for: [041, 042, 043, 044]
 ---
 
-# Spec 032 — Subagent-Decision Heuristics (Token-Aware Dispatch)
+# Spec 040 — Subagent-Decision Heuristics (Token-Aware Dispatch)
 
 ## Why
 
@@ -207,7 +207,7 @@ The decision is two-step: **(a) inline vs. dispatch**, then if dispatch,
 | Multi-step implementation with mutation, interactive | `inline` | Mutations need provenance + the user is waiting |
 | Multi-step implementation with mutation, async-OK + ≥ 45min | `jules` | Offloads heavy compute; PR is the deliverable |
 | Large research with 3+ parallel branches | `local` subagents (fan-out) | Concurrent context isolation |
-| Whole-repo briefing (index_repo) at cold-cache session start | `local` subagent | Spec 032 S1:tokens dominates; cache is cold anyway |
+| Whole-repo briefing (index_repo) at cold-cache session start | `local` subagent | Spec 040 S1:tokens dominates; cache is cold anyway |
 | Whole-repo briefing at end of a long session | `inline` | S10 fires — most of the repo is already in parent cache |
 | Cross-MCP-server tool call (future) | `mcp` | When the HTTP-MCP-client driver ships (audit F6) |
 | Single-file edit, known location | `inline` | No dispatch overhead earned |
@@ -231,7 +231,7 @@ def dispatch_decision(
     s1_tokens=0, s2_files=0, s3_explore=False, s4_parallel=1, s5_dur_min=0,
     # role/safety signals
     s6_mutates=False, s7_read_only=True, s8_driver_hint="",
-    # cost-model signals (NEW — Spec 032 §"eleven signals")
+    # cost-model signals (NEW — Spec 040 §"eleven signals")
     s9_context_overlap=0.0, s10_cache_warmth=0.0, s11_local_budget_relevant=True,
 ):
     signals = []
@@ -318,17 +318,17 @@ Each of the next four specs will, in its skill walker, **call
 `dispatch_decision` at the appropriate phase**, now with the cache-aware
 signals:
 
-- **Spec 034 `analyze.run`** — phase 2 dispatches `analyze_architecture`
+- **Spec 042 `analyze.run`** — phase 2 dispatches `analyze_architecture`
   for repos with >10 packages (S2:files + S1:tokens fire) BUT inlines
   when the architecture files are already in context (S9 high).
-- **Spec 035 `document.index_repo`** — dispatches at cold-cache session
+- **Spec 043 `document.index_repo`** — dispatches at cold-cache session
   start (S1:tokens dominates), inlines at end of long session (S10 fires
   — most of the repo is cached anyway).
-- **Spec 036 `research.lead_research`** — fans out specialists
+- **Spec 044 `research.lead_research`** — fans out specialists
   (S4:parallel ≥3 + S7:read_only). For "do this research while I make
   coffee" pattern, sets `local_budget_relevant=False` → Jules driver,
   freeing the local context entirely.
-- **Spec 037 `reflect.recall_semantic`** — NEVER dispatches (pure graph
+- **Spec 045 `reflect.recall_semantic`** — NEVER dispatches (pure graph
   read, return is small, S1:tokens fails; S9 typically high — caller
   already in the project context).
 
@@ -364,7 +364,7 @@ trust the heuristic — including the cache and budget-model signals.
    adoptee when the driver ships:** the Superpowers `episodic-memory`
    MCP server (TypeScript, exposes `search` + `read` over Claude Code
    transcript corpus). It IS the production-grade complement to
-   `reflect.recall_semantic` (Spec 037) — same shape (semantic search),
+   `reflect.recall_semantic` (Spec 045) — same shape (semantic search),
    different corpus (CC transcripts vs. agency Reflections). Adopting
    it via the driver is the lean call; reimplementing it isn't.
 4. **Should the heuristic auto-fire from inside `delegate.dispatch`?**

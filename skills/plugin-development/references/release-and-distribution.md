@@ -78,7 +78,7 @@ The marketplace lives in this repo itself
 (`.claude-plugin/marketplace.json` — note: NOT in `marketplace.json` at
 root). `agency.install` regenerates it from the live engine.
 
-### Path B — `pipx install` from repo checkout (Spec 031, not yet shipped)
+### Path B — `pipx install` from repo checkout (Spec 039, not yet shipped)
 
 Forward-pointer for the in-flight hygiene work:
 ```
@@ -93,7 +93,7 @@ This requires:
 - The MCP `.mcp.json` to use the resolved `agency-mcp` binary (or a discovery
   shim) instead of `${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp`.
 
-Tracked in Spec 031 — see [`docs/superpowers/specs/`](../../../docs/superpowers/specs/) once written.
+Tracked in Spec 039 — see [`docs/superpowers/specs/`](../../../docs/superpowers/specs/) once written.
 
 ### Path C — `pip install -e .` (developer install)
 

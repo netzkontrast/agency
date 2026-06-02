@@ -1,10 +1,10 @@
 ---
-spec_id: "033"
+spec_id: "041"
 slug: implementation-discipline-skills
 status: draft
 last_updated: 2026-06-02
 owner: "@agency"
-depends_on: [011, 012, 023, 032]
+depends_on: [011, 012, 023, 040]
 affects:
   - skills/executing-plans/SKILL.md                              # NEW skill
   - skills/subagent-driven-development/SKILL.md                  # NEW skill
@@ -24,7 +24,7 @@ ports_from: [superpowers]
 depends_on_spec_032_for: dispatch_decision-callouts
 ---
 
-# Spec 033 — Implementation-Discipline Skills (Superpowers Ports)
+# Spec 041 — Implementation-Discipline Skills (Superpowers Ports)
 
 ## Why
 
@@ -53,7 +53,7 @@ with Superpowers material:
 
 This spec ports all three new skills + the two deepening extensions,
 **agency-flavored throughout** — every reference to a generic subagent
-mechanism becomes a reference to `delegate.dispatch` (Spec 032), every
+mechanism becomes a reference to `delegate.dispatch` (Spec 040), every
 "git workspace" call lands on `workspace.baseline`, every claim about
 parallelism cites the Spec-032 S4:parallel signal.
 
@@ -70,7 +70,7 @@ parallelism cites the Spec-032 S4:parallel signal.
   `branch` capability) — does NOT duplicate the finish flow.
 - [ ] Soft-gate at checkpoint: blocks if `verification-before-completion`
   signals fail.
-- [ ] Cites Spec 032 — describes when to switch from `executing-plans`
+- [ ] Cites Spec 040 — describes when to switch from `executing-plans`
   to `subagent-driven-development` based on dispatch_decision signals.
 
 ### New skill: `subagent-driven-development`
@@ -107,7 +107,7 @@ parallelism cites the Spec-032 S4:parallel signal.
   → REVIEW-EACH-SUMMARY → INTEGRATE.
 - [ ] Soft gates: verify domain-independence before dispatch (no
   shared state, no sequential dependencies).
-- [ ] Cites Spec 032's S4:parallel signal: "≥ 3 sibling tasks ⇒
+- [ ] Cites Spec 040's S4:parallel signal: "≥ 3 sibling tasks ⇒
   amortise dispatch overhead". Explicitly says: for 1–2 tasks,
   inline; for 3+, dispatch.
 - [ ] Cross-reference to agency's `delegate.dispatch` — the engine
@@ -145,7 +145,7 @@ The deep-dive matrix (PR #17 second-round subagent report) shows
 9 of 14 Superpowers skills have agency equivalents (brainstorming,
 writing-plans, TDD, systematic-debugging, verification-before-
 completion, requesting-/receiving-code-review (split agency code-
-review→2 in Spec 038), writing-skills, using-superpowers, using-git-
+review→2 in Spec 046), writing-skills, using-superpowers, using-git-
 worktrees). Of those 9, **none of the agency versions is meaningfully
 shallower** — porting would be busywork.
 
@@ -165,17 +165,17 @@ miss the agency-native dispatch shape. Each template is rewritten to:
    capability_*_* verb you call MUST pass this; substrate tools
    (agency_welcome, agency_install, agency_doctor) don't need it.
    ```
-2. Reference `delegate.dispatch_decision` (Spec 032) for the
+2. Reference `delegate.dispatch_decision` (Spec 040) for the
    sub-decision "should I further-dispatch this task?".
 3. End with a structured return shape (the reviewer reads
    `summary`, `evidence`, `next_step` — not free prose).
 4. NEVER instruct the implementer to call an LLM directly — the
    implementer uses agency verbs only (which themselves may dispatch
-   per Spec 032's heuristic).
+   per Spec 040's heuristic).
 
 ### `executing-plans` vs. `subagent-driven-development` — when to pick which
 
-The choice maps directly onto Spec 032's signals:
+The choice maps directly onto Spec 040's signals:
 
 | Signal | executing-plans | subagent-driven-development |
 |---|---|---|
@@ -209,7 +209,7 @@ Two patterns Superpowers proved work:
 1. **scripts/** — shell helpers a skill body can invoke when needed
    (e.g. `find-polluter.sh`). Agency had no script-carrying skills;
    this spec adds two (one in this spec, the visual-companion in
-   Spec 038).
+   Spec 046).
 2. **references/** — depth-on-demand markdown (e.g.
    `testing-anti-patterns.md`). Agency already uses this in
    `plugin-development/references/`; extending TDD and debugging
@@ -241,8 +241,8 @@ Two patterns Superpowers proved work:
    markdown (human-readable) or JSON (machine-parseable)? Lean
    markdown — they're read by the orchestrator AND by humans during
    review.
-2. **Cross-spec dependency timing.** Spec 033's `code-reviewer-prompt.md`
-   references `analyze.run` (Spec 034). If 034 ships later, the prompt
+2. **Cross-spec dependency timing.** Spec 041's `code-reviewer-prompt.md`
+   references `analyze.run` (Spec 042). If 034 ships later, the prompt
    has a "when 034 lands" marker. Acceptable interim solution; the
    prompt today calls `develop.review` or `code-review` skill instead.
 3. **Should `dispatching-parallel-agents` be folded into `delegate`?**
@@ -272,7 +272,7 @@ Two patterns Superpowers proved work:
   existing systematic-debugging SKILL.md body).
 - Superpowers `test-driven-development/references/testing-anti-
   patterns.md` — the mocking-pitfalls + Red Flags table.
-- Spec 032 — every cross-reference to "should I dispatch?" decisions
+- Spec 040 — every cross-reference to "should I dispatch?" decisions
   flows back to the 8-signal heuristic.
 
 ## Followup — Implementation Status (2026-06-02)
@@ -281,7 +281,7 @@ Two patterns Superpowers proved work:
 remain unchanged.
 
 ### Done
-- The dispatch substrate (`delegate.dispatch_decision` from Spec 032
+- The dispatch substrate (`delegate.dispatch_decision` from Spec 040
   when it lands) is the heuristic these skills cite.
 - The two skills being EXTENDED (`systematic-debugging`,
   `test-driven-development`) already ship with sound phase structures

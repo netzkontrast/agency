@@ -1,11 +1,11 @@
 ---
-spec_id: "038"
+spec_id: "046"
 slug: micro-extensions-bundle
 status: draft
 last_updated: 2026-06-02
 owner: "@agency"
-depends_on: [023, 032, 033]
-informs: [034, 035]
+depends_on: [023, 040, 041]
+informs: [042, 043]
 affects:
   - skills/code-review/                              # split into 2: requesting-code-review + receiving-code-review
   - skills/requesting-code-review/SKILL.md           # NEW (former code-review)
@@ -31,7 +31,7 @@ bundles:
   - "F-F: plugin-development upstream-doc autosync (working-with-claude-code update_docs.js pattern)"
 ---
 
-# Spec 038 — Mikro-Extensions Bundle
+# Spec 046 — Mikro-Extensions Bundle
 
 ## Why
 
@@ -39,7 +39,7 @@ Six small extensions surfaced from the deep-dive analysis (PR #17
 thread, second-round subagent reports). None of them deserves its own
 spec — each is a 1-day change — but bundling them lets one PR carry
 the "polish" pass that complements the bigger capabilities
-(`analyze` Spec 034, `document` Spec 035, `research` Spec 036).
+(`analyze` Spec 042, `document` Spec 043, `research` Spec 044).
 
 The six extensions are:
 
@@ -62,8 +62,8 @@ Total: ~640 LOC across 6 small pieces. The bundling reduces PR cost.
 - [ ] `skills/requesting-code-review/SKILL.md` exists with:
   - "Use when…" trigger about delegating review to a subagent or peer.
   - Discipline: get-shas → dispatch-reviewer-prompt → receive-feedback → triage.
-  - References `delegate.dispatch_decision` (Spec 032) for the
-    dispatch decision and `analyze.run` (Spec 034) for the automated
+  - References `delegate.dispatch_decision` (Spec 040) for the
+    dispatch decision and `analyze.run` (Spec 042) for the automated
     review path.
 - [ ] `skills/receiving-code-review/SKILL.md` exists with:
   - "Use when…" trigger about EVALUATING feedback before implementing.
@@ -147,8 +147,8 @@ Total: ~640 LOC across 6 small pieces. The bundling reduces PR cost.
   retrieval".
 - [ ] Cross-references:
   - Spec 023 (adaptive disclosure) as the substrate.
-  - Spec 032 (S1:tokens dispatch signal).
-  - Spec 035 (`document.render` for projecting state into compact
+  - Spec 040 (S1:tokens dispatch signal).
+  - Spec 043 (`document.render` for projecting state into compact
     markdown).
   - `agency/render.py::parse_slices` for the brief-slice extractor.
 - [ ] The discipline summary:
@@ -159,7 +159,7 @@ Total: ~640 LOC across 6 small pieces. The bundling reduces PR cost.
   4. Truncate explicitly: when exceeding budget, return a marker
      (`truncated: true`, `omitted_count: N`) rather than silently
      cutting.
-  5. Subagent for big returns: Spec 032 S1:tokens ≥ 5000 ⇒ dispatch.
+  5. Subagent for big returns: Spec 040 S1:tokens ≥ 5000 ⇒ dispatch.
 - [ ] No new substrate — pure discipline doc.
 
 ### F-F — plugin-development upstream-doc autosync
@@ -219,7 +219,7 @@ SC's `sc-estimate` invokes architect + performance + pm personas. The
 result is opinionated prose. Agency replaces this with a **decidable
 rule table** producing a structured payload. The user can argue with
 the rule (and patch it) but can't argue with persona-prose. This is
-the same agency-vs-SC pattern that informs `analyze` (Spec 034).
+the same agency-vs-SC pattern that informs `analyze` (Spec 042).
 
 ### F-E: token-efficiency as a meta-discipline
 
@@ -293,7 +293,7 @@ same pattern (no SessionStart hook). Three reasons:
   codifies for agency.
 - Superpowers `working-with-claude-code/scripts/update_docs.js` —
   the autosync pattern this spec ports.
-- Spec 023, 032, 035 — the substrates these extensions sit on.
+- Spec 023, 040, 035 — the substrates these extensions sit on.
 
 ## Followup — Implementation Status (2026-06-02)
 
@@ -301,7 +301,7 @@ same pattern (no SessionStart hook). Three reasons:
 independent enough to ship as one PR but each can be split if needed.
 
 ### Done
-- The substrates (Spec 023 adaptive disclosure, Spec 032 dispatch
+- The substrates (Spec 023 adaptive disclosure, Spec 040 dispatch
   decision, branch/develop capabilities for F-C/F-D) all exist.
 - The Superpowers ports are minimal: F-A is a content split, F-B is a
   scripts dir, F-F is a Python rewrite of an existing JS.

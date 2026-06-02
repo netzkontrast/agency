@@ -1,10 +1,10 @@
 ---
-spec_id: "035"
+spec_id: "043"
 slug: document-capability
 status: draft
 last_updated: 2026-06-02
 owner: "@agency"
-depends_on: [016, 017, 020, 023, 032, 034]
+depends_on: [016, 017, 020, 023, 040, 042]
 affects:
   - agency/capabilities/document/__init__.py            # NEW heavy capability
   - agency/capabilities/document/_main.py
@@ -21,10 +21,10 @@ estimated_jules_sessions: 2
 domain: meta
 wave: 2
 closes_doctrine_gap_for: [017]
-informs: [036]
+informs: [044]
 ---
 
-# Spec 035 — `document` Capability (Graph-Native Rendering & Briefing)
+# Spec 043 — `document` Capability (Graph-Native Rendering & Briefing)
 
 ## Why
 
@@ -109,7 +109,7 @@ structured state** into a token-economical view.
   - `standard` — 1 paragraph + signature (≤ 600 tokens) — what + how + when.
   - `deep` — full educational walkthrough (≤ 2500 tokens) — what + how +
     when + why this design + alternatives + caveats. **Subagent-
-    dispatchable** at the `deep` level (Spec 032 S1:tokens signal fires).
+    dispatchable** at the `deep` level (Spec 040 S1:tokens signal fires).
 - [ ] The verb itself does NOT call an LLM — it composes deterministic
   features (signature, docstring brief-slice, ast-derived call-sites,
   Reflection nodes via `reflect.recall_semantic`) and emits a structured
@@ -156,7 +156,7 @@ structured state** into a token-economical view.
   `... (N modules omitted)` marker rather than exceeding budget).
 - [ ] Self-test: on the agency repo, `document.index_repo()` produces a
   briefing under 3000 cl100k tokens.
-- [ ] **Dispatch via delegate.dispatch_decision** (Spec 032) — the verb
+- [ ] **Dispatch via delegate.dispatch_decision** (Spec 040) — the verb
   ALWAYS hits the S1:tokens signal because the raw scan is ~50K tokens
   and the return is ~3K. The implementation runs the scan in a subagent
   by construction (the orchestrator never sees the raw scan).
@@ -170,7 +170,7 @@ structured state** into a token-economical view.
   scope → scan → render → publish(hard)
   ```
   `scope` picks the path + max-tokens; `scan` calls `index_repo` (subagent
-  dispatch via Spec 032); `render` returns the markdown; `publish`
+  dispatch via Spec 040); `render` returns the markdown; `publish`
   optionally writes the file (`apply=True`).
 
 ### Ontology fragment
@@ -256,7 +256,7 @@ The 58K → 3K reduction comes from three things:
    `(<count>) <synthesis>`, not 30 file paths.
 3. **Subagent dispatch** — the orchestrator never loads the raw scan.
    The scan happens in a subagent; only the rendered briefing crosses
-   back (Spec 032 S1:tokens signal).
+   back (Spec 040 S1:tokens signal).
 
 This is the literal generalisation of sc-index-repo. Agency's version
 **adds** the graph-recording so the briefing is durable across sessions
@@ -282,7 +282,7 @@ One source of rendering logic; `install` becomes a thin orchestrator.
 inline. `deep` walks the AST, pulls callers, semantically searches
 Reflections — easily 5–15K tokens of intermediate context. The
 orchestrator only needs the final ≤ 2500-token explanation; everything
-else is wasted budget. Per Spec 032 S1:tokens, dispatch wins.
+else is wasted budget. Per Spec 040 S1:tokens, dispatch wins.
 
 ## Files
 
@@ -334,7 +334,7 @@ else is wasted budget. Per Spec 032 S1:tokens, dispatch wins.
   agency-graph).
 - Spec 023 (adaptive disclosure) — brief slices ARE the input to
   index_repo and explain.
-- Spec 037 (reflect.recall_semantic) — `explain` calls it for the "see
+- Spec 045 (reflect.recall_semantic) — `explain` calls it for the "see
   also" section.
 
 ## Followup — Implementation Status (2026-06-02)

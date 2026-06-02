@@ -1,10 +1,10 @@
 ---
-spec_id: "034"
+spec_id: "042"
 slug: analyze-capability
 status: draft
 last_updated: 2026-06-02
 owner: "@agency"
-depends_on: [016, 020, 023, 032]
+depends_on: [016, 020, 023, 040]
 affects:
   - agency/capabilities/analyze/__init__.py            # NEW folder-form capability (heavy)
   - agency/capabilities/analyze/_main.py
@@ -24,10 +24,10 @@ affects:
 estimated_jules_sessions: 3
 domain: meta
 wave: 2
-unblocks: [035, 038]
+unblocks: [043, 046]
 ---
 
-# Spec 034 — `analyze` Capability (Multi-Axis Decidable Analysis)
+# Spec 042 — `analyze` Capability (Multi-Axis Decidable Analysis)
 
 ## Why
 
@@ -121,7 +121,7 @@ appropriate subset of transforms and composes them differently.
   `scope` decides path + language; `axes` chooses which transforms to
   run; `run` calls `analyze.run`; `review` surfaces the findings; `apply`
   is a hard gate before `improve` / `cleanup` writes.
-- [ ] The walker calls `delegate.dispatch_decision` (Spec 032) at the
+- [ ] The walker calls `delegate.dispatch_decision` (Spec 040) at the
   `axes` phase: if `analyze_architecture` fires on a tree > 10 packages,
   dispatch S1:tokens + S2:files signals → subagent.
 
@@ -269,7 +269,7 @@ prefix (`U*` = unused, `S*` = security, …).
 - Spec 016 (folder-form capability + scaffold + block-mode lint) — the
   authoring substrate.
 - Spec 023 (adaptive disclosure) — token-budget discipline on findings.
-- Spec 032 (subagent decision heuristics) — analyze.architecture's
+- Spec 040 (subagent decision heuristics) — analyze.architecture's
   dispatch trigger.
 - CLAUDE.md Rule #1 (dogfood the engine) + Rule #2 (graph is the store)
   — Findings recorded as graph nodes, not as `lint-report.json` files.

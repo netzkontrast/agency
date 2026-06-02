@@ -90,3 +90,20 @@ can inform any downstream synthesis — authoring tool design, agentic
 workflow architecture, AI co-writing prompts, educational material, or
 your own writing practice. The prompts deliberately do NOT mandate a
 specific consumer; they produce knowledge.
+
+## Companion: internal spec-implementation research
+
+Five complementary briefs live under
+[`internal-spec-research/`](internal-spec-research/) (S1–S5). Those are
+**agency-internal** — narrow implementation questions for the Novel-
+Capability spec (Plan/010), with explicit agency-spec references. They're
+intended to be run by **a Deep-Research subagent with access to the
+agency repo**, not Gemini cold (Gemini can't see the specs).
+
+The two sets complement each other:
+
+- **F1–F5 (this dir)** — broad Domain SOTA for Gemini; durable knowledge.
+- **S1–S5 (subfolder)** — narrow spec-implementation decisions for the
+  agency Novel-Capability surface; tightly coupled to Spec 010.
+
+See `internal-spec-research/README.md` for details.
