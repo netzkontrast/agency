@@ -47,7 +47,7 @@ from .intent import Intent
 from .lifecycle import Lifecycle
 from .memory import Memory
 from .ontology import Ontology
-from .render import parse_slices
+from .disclosure import parse_slices
 
 
 _SURFACES = ("mcp", "bash")
@@ -100,6 +100,29 @@ class Engine:
             self.ontology.extend(cap.ontology, cap.name)
         # the Registry needs the effective ontology to build a CapabilityContext
         self.registry.ontology = self.ontology
+        # Spec 031 §A — bootstrap-time skill_doc validation.
+        # Any capability that declares verbs MUST declare a skill_doc; otherwise
+        # the per-capability skill emit pipeline (Spec 031 Phase 2) cannot render
+        # a SKILL.md for it. Fail loud at engine startup, not at install time.
+        #
+        # Phase-1 transition: until Phase 4 migration lands skill_doc on every
+        # shipped capability, validation is opt-in via AGENCY_SKILL_DOC_REQUIRED
+        # env. This shim is REMOVED at the Phase 4 checkpoint (after Task 4.5)
+        # once migration is complete. Spec 032 unifies this with the broader
+        # AGENCY_BOOTSTRAP_LINT={strict,warn,off} env var (panel F-10).
+        import os as _os
+        if _os.environ.get("AGENCY_SKILL_DOC_REQUIRED", "").lower() == "true":
+            for _cap_name in self.registry.names():
+                _cap = self.registry.get(_cap_name)
+                if _cap.verbs and getattr(_cap, "skill_doc", None) is None:
+                    raise ValueError(
+                        f"capability {_cap_name!r} declares verbs but no skill_doc — "
+                        f"add `skill_doc = SkillDoc(description='Use when …', "
+                        f"overview='…', triggers=[…], canonical_example='…')` to "
+                        f"the capability class per Spec 031 §A. See "
+                        f"agency/capabilities/reflect.py for the reference shape "
+                        f"(once Task 4.1 lands)."
+                    )
         # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
         # injected per-call by the Registry itself, and the registry is on ctx.
         self.registry.injectors = {"client": lambda: self.jules_client,

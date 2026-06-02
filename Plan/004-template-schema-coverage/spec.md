@@ -1,7 +1,9 @@
 ---
 spec_id: "004"
 slug: "template-schema-coverage"
-status: draft
+status: superseded
+superseded_by: "032"
+last_updated: 2026-05-31
 owner: "@agency"
 depends_on: ["003"]
 affects:
@@ -25,6 +27,8 @@ wave: 1
 > until Q1 is answered" gate is removed because the audit *is* the answer.
 
 # Spec 004 — Wire the Generate/Validate Loop End-to-End for Two Recorded Artefact Kinds
+
+> **SUPERSEDED by Spec 032 (2026-05-31).** The materialiser core ("registry without enforcement" gap) is preserved in `Plan/032-templates-schemas-oop-extensions/spec.md` §D — Spec 032 generalizes it: schemas + templates become file-based OOP capability extensions (`ArtefactSchemas` / `RenderTemplates` dataclasses on `CapabilityBase`), and the materialiser uses bi-temporal supersede on shape change rather than destructive upsert (panel F-4). Spec 004's 2 specific artefact kinds (`jules-session`, `reduction`) migrate as part of Spec 032 Tasks 4.2 + 4.3. **Do not implement this spec directly — work from Spec 032.**
 
 *(RUNG 1 toward verb-param schema-as-single-source — see "Where this sits" below.)*
 

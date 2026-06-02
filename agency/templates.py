@@ -10,8 +10,20 @@ that contain `{}`); the JSON plugin manifest is generated structurally
 """
 from __future__ import annotations
 
+from pathlib import Path as _Path
 from string import Template
 from urllib.parse import urlparse
+
+_RENDER_DIR = _Path(__file__).parent / "render"
+
+
+def _load_render_template(name: str) -> Template:
+    """Load a template body from agency/render/<name> as a string.Template.
+
+    Spec 032 §H — engine-owned templates live as files in agency/render/.
+    """
+    path = _RENDER_DIR / name
+    return Template(path.read_text())
 
 
 def _yaml_scalar(s: str) -> str:
@@ -44,49 +56,20 @@ def _github_repo(source: str) -> str | None:
     path = u.path.strip("/")
     return (path[:-4] if path.endswith(".git") else path) or None
 
-# A Claude Code SKILL.md — frontmatter + body. This is what the *skill creator*
-# emits; it is the unit a plugin ships.
-SKILL_MD = Template(
-    "---\n"
-    "name: $name\n"
-    "description: $description\n"
-    "allowed-tools:\n"
-    "$allowed_tools\n"
-    "---\n"
-    "\n"
-    "# $title\n"
-    "\n"
-    "$body\n"
-)
-
-# A Claude Code slash command — frontmatter (description) + the prompt body.
-COMMAND_MD = Template(
-    "---\n"
-    "description: $description\n"
-    "---\n"
-    "\n"
-    "$body\n"
-)
-
-# The prestructured *step document*: one chain step's result as a living doc
-# (inputs it consumed, the output it produced, notes), generalized to any chain step.
-STEP_DOC = Template(
-    "---\n"
-    "step: $step\n"
-    "status: $status\n"
-    "---\n"
-    "\n"
-    "# $step\n"
-    "\n"
-    "## Inputs\n"
-    "$inputs\n"
-    "\n"
-    "## Output\n"
-    "$output\n"
-    "\n"
-    "## Notes\n"
-    "$notes\n"
-)
+# Backwards-compat re-exports: bodies live in agency/render/ as files
+# (Spec 032 §H). Loaded on import so module-level
+# `from agency.templates import SKILL_MD` keeps working.
+#
+# - SKILL_MD: a Claude Code SKILL.md — frontmatter + body. This is what the
+#   *skill creator* emits; it is the unit a plugin ships.
+# - COMMAND_MD: a Claude Code slash command — frontmatter (description) +
+#   the prompt body.
+# - STEP_DOC: the prestructured *step document*: one chain step's result as
+#   a living doc (inputs it consumed, the output it produced, notes),
+#   generalized to any chain step.
+SKILL_MD = _load_render_template("skill-md.tpl")
+COMMAND_MD = _load_render_template("command-md.tpl")
+STEP_DOC = _load_render_template("step-doc.md")
 
 # Strict required-field schema per template kind (the validate side of the
 # generate/validate pair). Recorded as a Schema node powers `validate_schema`.
