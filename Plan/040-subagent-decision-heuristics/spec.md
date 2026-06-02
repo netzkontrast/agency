@@ -1,7 +1,7 @@
 ---
 spec_id: "040"
 slug: subagent-decision-heuristics
-status: draft
+status: complete
 last_updated: 2026-06-02
 owner: "@agency"
 depends_on: [011, 012]
@@ -444,21 +444,48 @@ trust the heuristic — including the cache and budget-model signals.
 
 ## Followup — Implementation Status (2026-06-02)
 
-**Verdict:** Not started — spec drafted; the current dispatch heuristic
-ships the four-signal version.
+**Verdict:** Shipped — `delegate.dispatch_decision` extended; the
+dispatch-decision skill folder created; CLAUDE.md Rule #3 updated;
+36 tests green (25 new extended + 11 updated original).
 
 ### Done
-- The 4-signal heuristic + 4-phase Lifecycle skill ship today
-  (`agency/capabilities/delegate.py`, since `delegate` cap landed).
+- All seven new signal extensions (S1, S6, S7, S8, S9, S10, S11) added
+  to `delegate.dispatch_decision` with their defaults
+  (`agency/capabilities/delegate.py:140-187`).
+- Disqualifier 1 (S6 mutates + no provenance) and Disqualifier 2a/2b
+  (S9 overlap + S10 cache) implemented (`delegate.py:202-227`).
+- Driver selection logic with cost-model awareness
+  (`delegate.py:247-260`).
+- Estimator helpers `_estimate_local_tokens` / `_estimate_total_work_tokens`
+  with pinned v1 constants (`delegate.py:67-100`).
+- 5-phase `_DISPATCH_DECISION_SKILL` Lifecycle template — the
+  new `estimate-tokens-and-cache` Phase 1 captures the seven new signals,
+  Phase 4 hard-gates (`delegate.py:34-65`).
+- `skills/dispatch-decision/SKILL.md` + 4 references (`heuristics.md`,
+  `driver-matrix.md`, `anti-patterns.md`, `cache-and-budget-model.md`).
+- Six-field payload: `recommendation`, `driver`, `rationale`,
+  `token_cost_estimate`, `local_budget_token_estimate`, `signals_fired`.
+- CLAUDE.md Rule #3 updated to reference the 11 signals + skill folder.
+- Tests:
+  - `tests/test_dispatch_decision_extended.py` — 25 tests (payload
+    shape + 11 per-signal swings + 5 end-to-end scenarios
+    `inline-text-task`, `fan-out-research`, `single-big-analysis`,
+    `cache-warm-inline-wins`, `jules-outside-budget-wins` + skill
+    registration + skill phase produces).
+  - `tests/test_delegate_dispatch_decision.py` — 11 tests updated to
+    the new payload shape (`triggers` → `signals_fired`; 5-phase
+    skill check).
 
 ### Still to implement
-- All eight signal extensions.
-- The `skills/dispatch-decision/` folder + 3 references.
-- The 5th `estimate-tokens` phase in the Lifecycle template.
-- Tests covering signal independence + 3 end-to-end scenarios.
-- CLAUDE.md doctrine update.
+- Open Q3's MCP-client driver — deferred to its own spec (audit F6).
+  v1 documents the slot; `driver_hint="mcp"` resolves to `local` for
+  now (unknown-driver conflict-check).
 
 ### Refinement needed
-- Open Question 1 (Jules dispatch cost measurement) is a one-hour timing
-  experiment; do it before pinning the rationale.
-- Open Question 3 (mcp driver) defers to the future HTTP-MCP-client spec.
+- Open Question 1 (envelope-cost measurement) — pin `~700` (local) and
+  `~500` (Jules) via a one-hour timing experiment.
+- Open Question 6 (engine-read cache_warmth) — v2 may read Anthropic
+  API `usage.cache_*` fields automatically; v1 is caller-provided.
+- Open Question 8 (precise "local_budget" semantics) — documented in
+  `cache-and-budget-model.md` §"What local budget means precisely"
+  but a CORE.md-level pinning would help.

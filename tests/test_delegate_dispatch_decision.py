@@ -44,46 +44,47 @@ def _call(engine, iid, verb, **kw):
 # ---------------------------------------------------------------------------
 
 
-def test_inline_when_no_triggers_fire(engine, iid):
+def test_inline_when_no_signals_fire(engine, iid):
     res = _call(engine, iid, "dispatch_decision",
                 file_count=2, exploration_needed=False,
                 parallelism=1, est_duration_min=3)
     assert res["recommendation"] == "inline"
-    assert res["triggers"] == []
+    assert res["signals_fired"] == []
     assert "~700 tokens" in res["rationale"]
 
 
 def test_dispatch_when_file_count_threshold(engine, iid):
     res = _call(engine, iid, "dispatch_decision", file_count=4)
     assert res["recommendation"] == "dispatch"
-    assert "file_count>=4" in res["triggers"]
+    assert any(s.startswith("S2:files") for s in res["signals_fired"])
 
 
 def test_dispatch_when_exploration_needed(engine, iid):
     res = _call(engine, iid, "dispatch_decision", exploration_needed=True)
     assert res["recommendation"] == "dispatch"
-    assert "exploration_needed" in res["triggers"]
+    assert any(s.startswith("S3:explore") for s in res["signals_fired"])
 
 
 def test_dispatch_when_parallelism_threshold(engine, iid):
     res = _call(engine, iid, "dispatch_decision", parallelism=3)
     assert res["recommendation"] == "dispatch"
-    assert "parallelism>=3" in res["triggers"]
+    assert any(s.startswith("S4:parallel") for s in res["signals_fired"])
 
 
 def test_dispatch_when_long_running(engine, iid):
     res = _call(engine, iid, "dispatch_decision", est_duration_min=15)
     assert res["recommendation"] == "dispatch"
-    assert "est_duration_min>=15" in res["triggers"]
+    assert any(s.startswith("S5:duration") for s in res["signals_fired"])
 
 
-def test_multiple_triggers_reported(engine, iid):
+def test_multiple_signals_reported(engine, iid):
     res = _call(engine, iid, "dispatch_decision",
                 file_count=5, parallelism=4, est_duration_min=30)
     assert res["recommendation"] == "dispatch"
-    assert set(res["triggers"]) == {
-        "file_count>=4", "parallelism>=3", "est_duration_min>=15",
-    }
+    fired = set(res["signals_fired"])
+    assert any(s.startswith("S2:files") for s in fired)
+    assert any(s.startswith("S4:parallel") for s in fired)
+    assert any(s.startswith("S5:duration") for s in fired)
 
 
 # ---------------------------------------------------------------------------
@@ -125,8 +126,14 @@ def test_skill_registered_on_delegate_ontology(engine):
     assert "dispatch-decision" in skills
     sk = skills["dispatch-decision"]
     phase_names = [p["name"] for p in sk["phases"]]
+    # Spec 040 extension: phase 0 captures the new return-token-budget + cache
+    # + role signals; the original 4 phases re-index to 2..5.
     assert phase_names == [
-        "estimate-shape", "apply-heuristic", "assemble-bash-hints", "decide",
+        "estimate-tokens-and-cache",
+        "estimate-shape",
+        "apply-heuristic",
+        "assemble-bash-hints",
+        "decide",
     ]
 
 

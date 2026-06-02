@@ -19,9 +19,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 6 | 012, 013, 015, 029, 030, 047 |
+| **Shipped** | 7 | 012, 013, 015, 029, 030, 040, 047 |
 | **Partially implemented** | 11 | 001, 006, 007, 016, 018, 020, 023, 024, 025, 031, 032 |
-| **Not started** | 24 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 039, 040, 041, 042, 043, 044, 045, 046 + (010 deferred-v2 axes) |
+| **Not started** | 23 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 039, 041, 042, 043, 044, 045, 046 + (010 deferred-v2 axes) |
 
 Total active specs: **41** (counting 000-overview).
 
@@ -61,7 +61,7 @@ Total active specs: **41** (counting 000-overview).
 | **031** | skills-progressive-disclosure | Partial | Per-spec skill rendering — `emit_skill`, references, bash wrappers | Active work on main (multiple recent commits) |
 | **032** | templates-schemas-oop-extensions | Partial | Materialised schemas + draft-07 validation + OOP extension dataclasses | Active work on main; capability_loader, path-safety landed |
 | 039 | distribution-and-e2e-hardening | Not started | pipx + E2E MCP tests + incorporate 017/018/019 | Designed in this branch; ready to implement |
-| 040 | subagent-decision-heuristics | Not started | 11-signal dispatch heuristic + cache/Jules budget model | Designed in this branch; informs 041–046 |
+| 040 | subagent-decision-heuristics | **Shipped** | 11-signal dispatch heuristic + cache/Jules budget model + dispatch-decision skill folder | 36 tests green (25 new extended + 11 updated original); `delegate.dispatch_decision` extended; skills/dispatch-decision/ + 4 references; CLAUDE.md Rule #3 updated |
 | 041 | implementation-discipline-skills | Not started | Port 3 Superpowers skills + 2 deepenings | Designed in this branch |
 | 042 | analyze-capability | Not started | 4-axis decidable analysis + improve/cleanup | Designed in this branch; subsumes Spec 008 |
 | 043 | document-capability | Not started | render/explain/index_repo + 94%-reduction pattern | Designed in this branch; closes 017's render-side |

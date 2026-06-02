@@ -26,10 +26,21 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    Exceptions: canon/doctrine docs (CORE / AGENTS / AGENCY_PROTOCOL) serve
    external readers and stay as files.
 
-3. **Decide before dispatching.** Walk `delegate.dispatch-decision` (skill)
-   before dispatching to Jules. Dispatch only when context-heavy (≥ 4
-   unfamiliar files / repeated exploration / ≥ 3 parallel siblings / ≥ 15 min
-   wall-clock). Otherwise inline.
+3. **Decide before dispatching.** Walk the `dispatch-decision` skill
+   (`skills/dispatch-decision/` + `delegate.ontology.skills`) before any
+   subagent / Jules / future-MCP-client dispatch. The heuristic is the
+   **eleven-signal** rule (Spec 040 §"eleven signals") with **two budget
+   models** (local vs. Jules):
+   - Work-shape signals: S1 (return tokens ≥ 5000), S2 (≥ 4 unfamiliar
+     files), S3 (repeated exploration), S4 (≥ 3 parallel siblings),
+     S5 (≥ 15 min wall-clock).
+   - Role/safety: S6 (mutates — disqualifier without provenance),
+     S7 (read-only amplifies), S8 (driver_hint as tie-breaker).
+   - Cost-model: S9 (context_overlap ≥ 0.7 → re-load tax), S10
+     (cache_warmth ≥ 0.6 → 10% cost), S11 (`local_budget_relevant=False`
+     → Jules path; relaxes S1/S9/S10).
+   Two disqualifiers run BEFORE positive scoring. Otherwise: any positive
+   signal → dispatch (driver picked by the matrix); none → inline.
 
 4. **Keep `TODO.md` current.** `TODO.md` in the repo root is the **binding
    spec status index** — verdict per spec (Shipped / Partial / Not started),

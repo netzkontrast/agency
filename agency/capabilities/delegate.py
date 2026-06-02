@@ -29,26 +29,129 @@ def _phase(idx: int, name: str, produces: list[str], gate: str = "") -> dict:
 # about Jules's behaviour lives in AGENCY_PROTOCOL.md; this skill is about
 # the orchestrator's decision, so it lives here on `delegate` (the capability
 # that owns the dispatch abstraction) — not on the protocol doc.
+#
+# Spec 040 extension: the 5-phase walk surfaces the eleven signals + two
+# budget models. Phase 0 captures the new return-token-budget + cache + role
+# signals (S1, S6, S7, S8, S9, S10, S11); the human-readable discipline lives
+# in skills/dispatch-decision/SKILL.md + references/.
 _DISPATCH_DECISION_SKILL = {
     "name": "dispatch-decision",
     "kind": "discipline",
     "phases": [
-        _phase(1, "estimate-shape", [
-            "file_count",          # int — files the orchestrator has NOT seen
-            "exploration_needed",  # bool — repeated grep/find through unfamiliar subtree
-            "parallelism",         # int — sibling tasks that would dispatch together
-            "est_duration_min",    # int — wall-clock when done inline
+        _phase(1, "estimate-tokens-and-cache", [
+            "expected_return_tokens",  # int — subagent return-payload tokens (Spec 040 S1)
+            "mutates",                 # bool — task writes graph/disk/external state (S6)
+            "read_only",               # bool — orthogonal to mutates (S7)
+            "driver_hint",             # str — caller preference: inline|local|jules|mcp (S8)
+            "context_overlap",         # float 0..1 — parent already-loaded fraction (S9)
+            "cache_warmth",            # float 0..1 — prompt-cache hit ratio (S10)
+            "local_budget_relevant",   # bool — does this dispatch consume local budget (S11)
         ]),
-        _phase(2, "apply-heuristic", [
+        _phase(2, "estimate-shape", [
+            "file_count",          # int — files the orchestrator has NOT seen (S2)
+            "exploration_needed",  # bool — repeated grep/find through unfamiliar subtree (S3)
+            "parallelism",         # int — sibling tasks that would dispatch together (S4)
+            "est_duration_min",    # int — wall-clock when done inline (S5)
+        ]),
+        _phase(3, "apply-heuristic", [
             "recommendation",      # "inline" | "dispatch"
+            "driver",              # "inline" | "local" | "jules" | "mcp"
             "rationale",           # one-paragraph why
+            "signals_fired",       # list[str] — which of the 11 swung the decision
         ]),
-        _phase(3, "assemble-bash-hints", [
+        _phase(4, "assemble-bash-hints", [
             "bash_hints",          # list[str] — grep/sed/find cmds; empty when inline
         ]),
-        _phase(4, "decide", ["decision"], gate="hard"),  # "inline" | "dispatch"
+        _phase(5, "decide", ["decision"], gate="hard"),  # "inline" | "dispatch"
     ],
 }
+
+
+# ---------------------------------------------------------------------------
+# Estimator helpers (Spec 040 §"Decision algorithm" line 322–325).
+# Deterministic — pinned constants documented in the skill's
+# cache-and-budget-model.md reference.
+# ---------------------------------------------------------------------------
+
+_LOCAL_SUBAGENT_ENVELOPE = 700        # Open Q1: pin via measurement; v1 estimate
+_JULES_ENVELOPE = 500                 # bigger payload than local; less framing
+_JULES_RETURN_SUMMARY = 500           # PR/diff summary back to parent
+_CACHED_INPUT_RATIO = 0.10            # Anthropic 5-min cache: 10% of fresh (Spec 040 §"prompt-cache signal")
+_SUBAGENT_RETURN_CAP = 2000           # Subagent summary cap before parent sees it
+_MCP_PLACEHOLDER_COST = 1000          # F6 driver doesn't ship yet
+
+
+def _estimate_local_tokens(s1_tokens: int, s9_overlap: float,
+                           s10_warmth: float, driver: str) -> int:
+    """Tokens that come out of the LOCAL interactive agent's budget."""
+    if driver == "inline":
+        # Overlap means parent already paid for that fraction; cache_warmth
+        # discounts the rest at 10% per Anthropic prompt-cache pricing.
+        effective = max(0.0, s1_tokens * (1.0 - s9_overlap))
+        fresh = effective * (1.0 - s10_warmth)
+        cached = effective * s10_warmth * _CACHED_INPUT_RATIO
+        return int(fresh + cached)
+    if driver == "local":
+        # Subagent dispatch: envelope + bounded return summary; cold cache.
+        return _LOCAL_SUBAGENT_ENVELOPE + min(s1_tokens, _SUBAGENT_RETURN_CAP)
+    if driver == "jules":
+        # Jules runs OUTSIDE the local budget; only the framing crosses back.
+        return 0
+    return _MCP_PLACEHOLDER_COST
+
+
+def _estimate_total_work_tokens(s1_tokens: int, s5_dur_min: int, driver: str) -> int:
+    """Total tokens spent across all parties (local + remote)."""
+    if driver == "inline":
+        return max(s1_tokens, 0)
+    if driver == "local":
+        return _LOCAL_SUBAGENT_ENVELOPE + max(s1_tokens, 0) + 200
+    if driver == "jules":
+        # Jules's full work is roughly proportional to duration; ~1k tok/min
+        # as a coarse v1 estimate (Open Q1 — measure and pin).
+        return _JULES_ENVELOPE + max(s1_tokens, s5_dur_min * 1000) + _JULES_RETURN_SUMMARY
+    return 2 * _MCP_PLACEHOLDER_COST
+
+
+def _is_effect_with_provenance(driver_hint: str) -> bool:
+    """v1 stub. The S6 disqualifier needs to know whether the dispatched verb
+    is an ``effect``-tagged verb that records ``PRODUCES``d artefacts. The
+    dispatch_decision call site doesn't carry the verb's role tag today;
+    until a future enhancement passes it through, the safer default is
+    False — mutating tasks always stay inline. Spec 040 Open Q (implicit)."""
+    return False
+
+
+def _conflicts_with(driver_hint: str, signals: list[str]) -> bool:
+    """Does the caller's driver_hint disagree with the fired signals?"""
+    if not driver_hint:
+        return False
+    if driver_hint == "inline":
+        # Caller hinted inline but our heuristic wants to dispatch → conflict.
+        return True
+    if driver_hint in ("local", "jules", "mcp"):
+        # Caller hinted dispatch and we agree (signals fired); no conflict.
+        return False
+    return True   # unknown hint string → conflict (ignore the hint)
+
+
+def _interactive_required(driver_hint: str = "") -> bool:
+    """v1 stub. True means the user is waiting; false means async-OK and Jules
+    can pick up long-runners. The driver_hint of `inline` is treated as a
+    user-waiting signal; otherwise async is acceptable. Spec 040 Open Q
+    (implicit — needs a future caller-provided ``interactive: bool`` param)."""
+    return driver_hint == "inline"
+
+
+def _compose_rationale(signals: list[str], driver: str) -> str:
+    if driver == "inline":
+        return ("clear in-context task; dispatch overhead "
+                f"(~{_LOCAL_SUBAGENT_ENVELOPE} tokens preamble + review-cycle) "
+                "exceeds inline cost.")
+    if not signals:
+        return f"dispatching to {driver} on caller request."
+    return (f"dispatching to {driver} — signals fired: {', '.join(signals)}; "
+            "subagent context-isolation + token amortisation justify the envelope.")
 
 
 class DelegateCapability(CapabilityBase):
@@ -61,51 +164,154 @@ class DelegateCapability(CapabilityBase):
     )
 
     @verb(role="transform")
-    def dispatch_decision(self, file_count: int = 0, exploration_needed: bool = False,
-                          parallelism: int = 1, est_duration_min: int = 0) -> dict:
+    def dispatch_decision(
+        self,
+        # Existing four signals (Spec 040 S2-S5).
+        file_count: int = 0,
+        exploration_needed: bool = False,
+        parallelism: int = 1,
+        est_duration_min: int = 0,
+        # New seven signals (Spec 040 §"eleven signals").
+        expected_return_tokens: int = 0,         # S1 — subagent return-payload size
+        mutates: bool = False,                   # S6 — disqualifier without provenance
+        read_only: bool = True,                  # S7 — amplifies positive signals
+        driver_hint: str = "",                   # S8 — caller preference (tie-breaker)
+        context_overlap: float = 0.0,            # S9 — fraction already in parent context
+        cache_warmth: float = 0.0,               # S10 — fraction prompt-cached at parent
+        local_budget_relevant: bool = True,      # S11 — Jules sidesteps local budget
+    ) -> dict:
         """Apply the dispatch-vs-inline heuristic and return a recommendation.
 
         Decision logic (pure; no provenance writes — the heuristic itself is
-        a transform, and the `dispatch-decision` skill walk records the
+        a transform, and the ``dispatch-decision`` skill walk records the
         provenance via Phase.invoke bindings if the caller chooses to walk it).
 
-        Dispatch wins when ANY of:
-        - file_count >= 4 (context the orchestrator has not yet loaded);
-        - exploration_needed (repeated grep/find through unfamiliar subtree);
-        - parallelism >= 3 (fan-out amortises the per-dispatch boilerplate);
-        - est_duration_min >= 15 AND the orchestrator has higher-leverage
-          work waiting.
+        See ``skills/dispatch-decision/references/heuristics.md`` for the full
+        eleven-signal rule table + the two budget models (local vs. Jules).
 
-        Otherwise: inline. Dispatch costs ~700 tokens of preamble + the
-        review-cycle wake budget; that overhead only pays off on the
-        context-heavy / parallel / long-running shape.
+        Inputs:
+            file_count: files the orchestrator has not yet loaded (S2).
+            exploration_needed: repeated grep/find through unfamiliar subtree (S3).
+            parallelism: sibling tasks that would dispatch together (S4).
+            est_duration_min: wall-clock for inline execution (S5).
+            expected_return_tokens: subagent return-payload estimate (S1).
+            mutates: task writes graph/disk/external state (S6 — disqualifier).
+            read_only: orthogonal to ``mutates``; amplifies dispatch (S7).
+            driver_hint: caller preference inline|local|jules|mcp (S8, tie-breaker).
+            context_overlap: 0..1 fraction parent already loaded (S9).
+            cache_warmth: 0..1 fraction prompt-cached at parent (S10).
+            local_budget_relevant: when False (Jules path) relaxes S1/S9/S10 (S11).
 
-        Returns ``{recommendation, rationale, triggers}`` where ``triggers``
-        is the subset of criteria that fired.
+        Returns ``{recommendation, driver, rationale, token_cost_estimate,
+        local_budget_token_estimate, signals_fired}`` — the six-field payload
+        documented in Spec 040 §"Done When". ``signals_fired`` reports which
+        of the 11 swung the decision (including disqualifiers).
         """
-        triggers: list[str] = []
-        if file_count >= 4:
-            triggers.append("file_count>=4")
-        if exploration_needed:
-            triggers.append("exploration_needed")
-        if parallelism >= 3:
-            triggers.append("parallelism>=3")
-        if est_duration_min >= 15:
-            triggers.append("est_duration_min>=15")
+        signals: list[str] = []
 
-        if triggers:
-            rec = "dispatch"
-            rationale = (
-                f"context-heavy / parallel / long-running shape "
-                f"(triggers: {', '.join(triggers)}); dispatch overhead amortises."
+        # ----- Disqualifier 1: mutating + not-effect-with-provenance → inline.
+        if mutates and not _is_effect_with_provenance(driver_hint):
+            return self._inline(
+                rationale=("mutating task without effect-with-provenance discipline; "
+                           "inline keeps the provenance edge intact."),
+                signals=["S6:mutates"],
+                s1_tokens=expected_return_tokens,
+                s9_overlap=context_overlap,
+                s10_warmth=cache_warmth,
             )
+
+        # ----- Disqualifier 2: local-budget penalties (S9 / S10).
+        # Only fires when the LOCAL budget matters — Jules sidesteps both.
+        if local_budget_relevant:
+            if context_overlap >= 0.7 and expected_return_tokens < 5000:
+                return self._inline(
+                    rationale=("parent context already holds the working set "
+                               "(overlap ≥ 0.7) and return payload is small; "
+                               "subagent would re-load cold."),
+                    signals=["S9:overlap-high"],
+                    s1_tokens=expected_return_tokens,
+                    s9_overlap=context_overlap,
+                    s10_warmth=cache_warmth,
+                )
+            if cache_warmth >= 0.6 and est_duration_min < 30:
+                return self._inline(
+                    rationale=("parent prompt-cache is hot (cached input ≈ 10% cost) "
+                               "and inline duration is short; cache amortises faster "
+                               "than dispatch envelope pays back."),
+                    signals=["S10:cache-hot"],
+                    s1_tokens=expected_return_tokens,
+                    s9_overlap=context_overlap,
+                    s10_warmth=cache_warmth,
+                )
+
+        # ----- Positive signals.
+        if expected_return_tokens >= 5000 and local_budget_relevant:
+            signals.append("S1:tokens")
+        if file_count >= 4 and context_overlap < 0.5:
+            signals.append("S2:files")
+        if exploration_needed:
+            signals.append("S3:explore")
+        if parallelism >= 3:
+            signals.append("S4:parallel")
+        if est_duration_min >= 15:
+            signals.append("S5:duration")
+        if read_only and signals:
+            signals.append("S7:read_only_amplifies")
+        # Jules-specific positive: heavy task that doesn't touch local budget.
+        if not local_budget_relevant and (expected_return_tokens >= 2000
+                                          or est_duration_min >= 30):
+            signals.append("S11:jules-budget-free")
+
+        if not signals:
+            return self._inline(
+                rationale=("no positive signals; dispatch overhead "
+                           f"(~{_LOCAL_SUBAGENT_ENVELOPE} tokens preamble + "
+                           "review-cycle) exceeds inline cost."),
+                signals=[],
+                s1_tokens=expected_return_tokens,
+                s9_overlap=context_overlap,
+                s10_warmth=cache_warmth,
+            )
+
+        # ----- Driver selection (cost-model aware).
+        if not local_budget_relevant:
+            driver = "jules"                       # caller opted out of local budget
+        elif parallelism >= 3:
+            driver = "local"                       # fan-out, isolated contexts
+        elif est_duration_min >= 45 and not _interactive_required(driver_hint):
+            driver = "jules"                       # heavy + async-OK → offload
+        elif driver_hint and not _conflicts_with(driver_hint, signals):
+            driver = driver_hint
+            if driver_hint and not any(s.startswith("S8") for s in signals):
+                signals.append(f"S8:driver_hint={driver_hint}")
         else:
-            rec = "inline"
-            rationale = (
-                "clear in-context task; dispatch overhead (~700 tokens preamble "
-                "+ review-cycle) exceeds inline cost."
-            )
-        return {"recommendation": rec, "rationale": rationale, "triggers": triggers}
+            driver = "local"
+
+        local_cost = _estimate_local_tokens(
+            expected_return_tokens, context_overlap, cache_warmth, driver)
+        total_cost = _estimate_total_work_tokens(
+            expected_return_tokens, est_duration_min, driver)
+
+        return {
+            "recommendation": "dispatch",
+            "driver": driver,
+            "rationale": _compose_rationale(signals, driver),
+            "token_cost_estimate": total_cost,
+            "local_budget_token_estimate": local_cost,
+            "signals_fired": signals,
+        }
+
+    def _inline(self, rationale: str, signals: list[str],
+                s1_tokens: int, s9_overlap: float, s10_warmth: float) -> dict:
+        local = _estimate_local_tokens(s1_tokens, s9_overlap, s10_warmth, "inline")
+        return {
+            "recommendation": "inline",
+            "driver": "inline",
+            "rationale": rationale,
+            "token_cost_estimate": local,
+            "local_budget_token_estimate": local,
+            "signals_fired": signals,
+        }
 
     @verb(role="transform")
     def dispatch_bash_hints(self, paths: str = "", symbols: str = "") -> dict:
