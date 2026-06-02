@@ -77,16 +77,15 @@ recent Reflections, classifies them (observation / proposal / refinement),
 and emits a structured JSON-ops payload the human can apply to a spec.
 Per Spec 014, this is the substrate that makes the dogfood loop genuine.
 
-### 🔴 Goal 7 — Graph is the store, files render
+### ~~🔴 Goal 7 — Graph is the store, files render~~ ✅ closed 2026-06-03
 
-**Currently missing:** the **write-side fix**. Today `agency/install.py`
-writes files DIRECTLY. Spec 017 documented the fix: record a Reflection
-node for each generated artefact, then render the file. Spec 043 shipped
-the render side. **Spec 017 still NOT started.**
-
-**Concrete deliverable:** `agency/install.py` refactor to record-then-
-render. ~50 LOC change + tests. The doctrine-violation Jules's
-Spec 015 review identified is finally closed.
+**Status:** Spec 017 shipped. `dogfood.note` writes Reflections
+directly; `dogfood.render` projects on demand. `dogfood.collect`
+deprecated for ongoing use (kept for backward compat + Spec 014
+pipeline). The write-side of Goal 7 is now matched by Spec 043's
+render-side. `agency/install.py` write-to-disk pattern stays
+documented as the "rendered-view for external readers" exception
+per CLAUDE.md rule #2.
 
 ### ⚠️ Goal 1 + 6 — `dogfood.collect` is anti-pattern
 

@@ -1,15 +1,24 @@
-"""dogfood — read observations from the agency's own DOGFOOD-NOTES.md ledger.
+"""dogfood — graph-native observation ledgers (Spec 017).
 
-A small capability that closes the self-improvement loop: walks a plan
-tree (default ``Plan``) for ``DOGFOOD-NOTES.md`` files, parses each for
-``**Observation N — TITLE**`` and ``**Dogfood lesson N — TITLE**``
-markdown patterns, and returns the observations as data the orchestrator
-can fold back into specs or persist via ``reflect.batch_note``.
+Spec 017 closes the **graph-vs-file inversion** documented in Spec 015
+weaknesses W1 + W2: today the orchestrator writes
+``Plan/<slug>/DOGFOOD-NOTES.md`` then `dogfood.collect` re-parses it
+into Reflection nodes. That's "markdown as primary store" — exactly
+the anti-pattern Vision/GOALS.md goal #7 names.
 
-The capability owns no ontology fragment of its own — observations are
-recorded into the graph by ``reflect``, not here. This keeps the
-``dogfood`` capability scoped to "read the markdown ledger" (an effect
-on the filesystem, not the graph).
+The corrected flow:
+  - `dogfood.note(observation, plan_slug)` writes a Reflection
+    DIRECTLY to the graph (scope='observation', plan_slug=...).
+  - `dogfood.render(plan_slug)` projects matching Reflection nodes
+    into the DOGFOOD-NOTES.md markdown format — on demand, when
+    humans need it.
+  - `dogfood.collect` stays for backward compatibility (Spec 014's
+    observation→amendment pipeline) but the docstring marks it
+    deprecated; new code uses `note`+`render`.
+
+The capability owns NO ontology fragment of its own. Observations are
+recorded into the graph by `reflect`'s Reflection node (Spec 045 adds
+plan_slug as an optional property — backward-compatible).
 """
 from __future__ import annotations
 
@@ -31,6 +40,19 @@ _HEADER_RE = re.compile(
     r"\*\*(Observation|Dogfood lesson)\s+(\d+)([^*]*)\*\*",
     re.IGNORECASE,
 )
+
+
+def _count_tokens(text: str) -> int:
+    """cl100k tokens via tiktoken; char//4 proxy when tiktoken absent.
+
+    Same shape as Spec 043's _index_repo._count_tokens — token-budget
+    discipline matches the document.* family.
+    """
+    try:
+        import tiktoken
+        return len(tiktoken.get_encoding("cl100k_base").encode(text))
+    except (ImportError, KeyError):
+        return max(1, len(text) // 4)
 
 
 def _clean_title(raw: str) -> str:
@@ -74,11 +96,98 @@ class DogfoodCapability(CapabilityBase):
     name = "dogfood"
     home = "memory"
 
+    # -----------------------------------------------------------------
+    # Spec 017 — graph-native authoring path.
+    # -----------------------------------------------------------------
+
+    @verb(role="act")
+    def note(self, observation: str, plan_slug: str) -> dict:
+        """Record an observation Reflection tagged with plan_slug.
+
+        Inputs: observation (str — the body text), plan_slug (str — the
+        Plan/NNN-slug directory name; used to scope render() queries).
+        Returns: ``{reflection_id, plan_slug}``.
+        chain_next: ``dogfood.render(plan_slug)`` when humans need the
+                    DOGFOOD-NOTES.md projection.
+        """
+        rid = self.ctx.record("Reflection", {
+            "scope": "observation",
+            "text": observation,
+            "plan_slug": plan_slug,
+        })
+        self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+        self.ctx.link(rid, self.ctx.intent_id, "SERVES")
+        return {"reflection_id": rid, "plan_slug": plan_slug}
+
+    @verb(role="transform")
+    def render(self, plan_slug: str, max_tokens: int = 5000) -> dict:
+        """Project plan_slug observations into DOGFOOD-NOTES.md.
+
+        Inputs: plan_slug (str — same shape as note's tag),
+                max_tokens (int — wire-payload cap; default 5000 cl100k;
+                            additional observations get omitted with a
+                            "_… (N more omitted)_" marker).
+        Returns: ``{content, count, omitted, plan_slug, tokens}``. Empty
+        plan returns clean markdown with "(none yet)" — never raises.
+        Only Reflections with BOTH ``plan_slug == <slug>`` AND
+        ``scope == 'observation'`` are surfaced (matches dogfood.note's
+        write shape). Other-scope reflections + reflections without
+        plan_slug are deliberately excluded.
+        chain_next: caller writes ``Plan/<slug>/DOGFOOD-NOTES.md`` IF
+                    a file projection is wanted (graph stays canonical).
+        """
+        # Query observation-scoped reflections matching plan_slug.
+        # Both literals parametrized for parametrize-once-injection-
+        # always-safe discipline (sc:sc-analyze F1 review finding).
+        rows = self.ctx.memory.g.query(
+            "MATCH (r:Reflection) WHERE r.plan_slug = $slug "
+            "AND r.scope = $scope RETURN r",
+            {"slug": plan_slug, "scope": "observation"})
+        notes = [r["r"]["properties"] for r in rows]
+        notes.sort(key=lambda r: r.get("vfrom", 0))
+        parts = [f"# DOGFOOD-NOTES — {plan_slug}\n"]
+        if not notes:
+            parts.append("\n(none yet)\n")
+            return {"content": "".join(parts), "count": 0,
+                    "omitted": 0, "tokens": _count_tokens("".join(parts)),
+                    "plan_slug": plan_slug}
+        # Render with mid-loop budget check (sc:sc-analyze F3 review finding).
+        rendered_count = 0
+        for i, n in enumerate(notes, 1):
+            chunk = (
+                f"\n**Observation {i} — graph-native**\n\n"
+                f"{n.get('text', '')}\n"
+            )
+            parts.append(chunk)
+            rendered_count = i
+            if _count_tokens("".join(parts)) > max_tokens * 0.92:
+                break
+        omitted = max(0, len(notes) - rendered_count)
+        if omitted:
+            parts.append(
+                f"\n_… ({omitted} more observations omitted to fit "
+                f"max_tokens={max_tokens})_\n")
+        content = "".join(parts)
+        return {"content": content, "count": rendered_count,
+                "omitted": omitted, "tokens": _count_tokens(content),
+                "plan_slug": plan_slug}
+
+    # -----------------------------------------------------------------
+    # Spec 017 — collect kept for backward-compat (Spec 014 pipeline).
+    # -----------------------------------------------------------------
+
     @verb(role="transform")
     def collect(self, plan_dir: str = "Plan") -> dict:
         """Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files; extract observations.
 
-        Returns ``{observations, texts, count, plans}``:
+        Deprecated for ongoing use — prefer ``dogfood.note`` (graph-
+        native authoring) + ``dogfood.render`` (markdown projection
+        on demand). This verb stays for backward-compatibility with
+        Spec 014's observation→spec-amendment pipeline AND for
+        one-shot migrations of existing DOGFOOD-NOTES.md files into
+        the graph (call this then ``reflect.batch_note`` to seed).
+
+        Returns ``{observations, texts, count, plans, warnings}``:
         - ``observations`` — list of ``{plan, kind, index, title, text}``.
         - ``texts`` — flat list of just the observation bodies (handy for
           chaining into ``reflect.batch_note`` which takes a text list).
