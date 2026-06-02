@@ -43,7 +43,14 @@ _SUBPROCESS_TIMEOUT = 30.0
 
 def scan(root: str) -> list[Finding]:
     """Run ruff over ``root``; return Findings. Empty list if ruff
-    is not installed or the subprocess fails."""
+    is not installed or the subprocess fails.
+
+    Note: invoked with ``--isolated`` so the caller's ``pyproject.toml``
+    ruff config is DELIBERATELY ignored — Spec 042 demands findings be
+    deterministic across paths. The fixed rule set is `E,F,W` with
+    ``--line-length=100``. Users who want to customize ruff should
+    run it standalone outside the analyze capability.
+    """
     if shutil.which("ruff") is None:
         return []
     try:

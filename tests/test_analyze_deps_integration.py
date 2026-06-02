@@ -137,3 +137,45 @@ def test_quality_scan_silent_external_fallback(tmp_path):
     assert any(f["rule"] == "Q001" for f in findings)
     # No ruff codes.
     assert not any(f["rule"].startswith(("E", "F", "W")) for f in findings)
+
+
+def test_agency_doctor_reports_analyze_extras():
+    """Spec 050 §"agency_doctor reporting": doctor payload's
+    analyze_extras field reports per-tool {version|missing|on-path}
+    for ruff + bandit + radon so users see which extras are live."""
+    import asyncio
+    import json as _json
+    import tempfile as _tf
+    from fastmcp import Client
+    from agency.engine import Engine
+
+    def _sc(result):
+        sc = result.structured_content
+        if isinstance(sc, dict):
+            return sc.get("result", sc)
+        if sc is not None:
+            return sc
+        if result.content:
+            try:
+                return _json.loads(result.content[0].text)
+            except (ValueError, TypeError):
+                return result.content[0].text
+        return None
+
+    e = Engine(_tf.mktemp(suffix=".db"))
+    mcp = e.build_mcp(codemode=False)
+    try:
+        async def go():
+            async with Client(mcp) as c:
+                return _sc(await c.call_tool("agency_doctor", {}))
+        out = asyncio.run(go())
+    finally:
+        e.memory.close()
+    assert "analyze_extras" in out
+    assert set(out["analyze_extras"]) == {"ruff", "bandit", "radon"}
+    # Each value is either a version string OR "missing"/"on-path".
+    for tool, status in out["analyze_extras"].items():
+        assert isinstance(status, str)
+        assert status == "missing" or status == "on-path" or \
+            any(c.isdigit() for c in status), \
+            f"{tool!r} status {status!r} unexpected"
