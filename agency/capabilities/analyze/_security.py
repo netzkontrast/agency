@@ -206,6 +206,7 @@ def _check_shell_true(path: str, src: str, tree: ast.AST) -> list[Finding]:
 
 
 def scan(root: str) -> list[Finding]:
+    """Spec 050 — internal S001-S004 + bandit when available."""
     findings: list[Finding] = []
     for path in _python_files(root):
         src = _read(path)
@@ -219,4 +220,7 @@ def scan(root: str) -> list[Finding]:
         findings.extend(_check_eval(path, src, tree))
         findings.extend(_check_pickle(path, src, tree))
         findings.extend(_check_shell_true(path, src, tree))
+    # Spec 050 — bandit composition.
+    from . import _bandit
+    findings.extend(_bandit.scan(root))
     return findings

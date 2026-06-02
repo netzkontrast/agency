@@ -38,6 +38,19 @@ dev = [
 recall = [
     "sentence-transformers>=2.0",
 ]
+# Spec 050 — optional industrial Python static-analysis tools used by
+# the analyze capability. When installed, _ruff.py / _bandit.py /
+# _radon.py wrappers compose ruff (700+ lint rules), bandit (CWE
+# security), and radon (cyclomatic complexity) findings ALONGSIDE the
+# agency-native Q*/S*/P*/A* rules. Without this extra, the analyze
+# capability still ships Spec 042 v1 findings (Q001-Q004, S001-S004,
+# P001-P003, A001-A003); each wrapper degrades silently when its tool
+# is missing. agency_doctor reports the live extras.
+analyze = [
+    "ruff>=0.6",
+    "bandit>=1.7",
+    "radon>=6",
+]
 
 [project.scripts]
 # Spec 039 distribution surface — three entry points, one per consumer pattern:

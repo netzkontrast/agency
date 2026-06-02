@@ -170,7 +170,15 @@ def _check_long_file(path: str, src: str) -> list[Finding]:
 
 
 def scan(root: str) -> list[Finding]:
-    """Walk ``root`` for .py files; return all Q-axis findings."""
+    """Walk ``root`` for .py files; return all Q-axis findings.
+
+    When the optional ``[analyze]`` extra is installed (Spec 050),
+    appends ruff lint findings AND radon cyclomatic complexity +
+    maintainability findings to the internal Q001-Q004 set. Each
+    external wrapper degrades silently when its tool is missing;
+    the internal rules ALWAYS fire so the zero-dep path keeps
+    working.
+    """
     findings: list[Finding] = []
     for path in _python_files(root):
         src = _read(path)
@@ -184,4 +192,9 @@ def scan(root: str) -> list[Finding]:
             continue   # syntax errors aren't quality findings (Pylint/ruff handle)
         findings.extend(_check_unused_imports(path, src, tree))
         findings.extend(_check_long_functions(path, src, tree))
+    # Spec 050 — external tools (silent fallback when missing).
+    from . import _radon, _ruff
+    findings.extend(_ruff.scan(root))
+    findings.extend(_radon.cyclomatic(root))
+    findings.extend(_radon.maintainability(root))
     return findings

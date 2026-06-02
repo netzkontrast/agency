@@ -453,6 +453,20 @@ class Engine:
                         f"Valid values: {valid}."
                     )
 
+            # Spec 050 — report which `[analyze]` extras are
+            # installed. Each wrapper degrades silently, but users
+            # benefit from knowing whether ruff/bandit/radon are
+            # active.
+            analyze_extras: dict[str, str] = {}
+            for tool in ("ruff", "bandit", "radon"):
+                if shutil.which(tool):
+                    try:
+                        analyze_extras[tool] = _md.version(tool)
+                    except _md.PackageNotFoundError:
+                        analyze_extras[tool] = "on-path"
+                else:
+                    analyze_extras[tool] = "missing"
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -466,6 +480,8 @@ class Engine:
                 # can confirm whether AGENCY_EMBEDDER took effect, or
                 # whether the BGE fallback to TF-IDF happened silently).
                 "embedder": self.embedder.name,
+                # Spec 050 — which optional [analyze] tools are active.
+                "analyze_extras": analyze_extras,
                 # Spec 039 §"Distribution" line 101-102: which install
                 # method is the running server using? Helps users debug
                 # pipx-vs-marketplace mismatches and the install-

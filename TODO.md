@@ -19,9 +19,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 13 | 012, 013, 015, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048 |
+| **Shipped** | 14 | 012, 013, 015, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050 |
 | **Partially implemented** | 11 | 001, 006, 007, 016, 018, 020, 023, 024, 025, 031, 032 |
-| **Not started** | 18 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 041, 046, 049 + (010 deferred-v2 axes) |
+| **Not started** | 20 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 041, 046, 049, 051, 052 + (010 deferred-v2 axes) |
 
 Total active specs: **41** (counting 000-overview).
 
@@ -67,6 +67,9 @@ Total active specs: **41** (counting 000-overview).
 | 043 | document-capability | **Shipped** | render (4 scopes graph→md) + explain (3 depths, composition not generation) + index_repo (94% reduction; self-test < 3K tokens on agency repo) + repo-briefing skill | 29 spec tests + 532 full-suite green; 3 code-review passes incl. dogfood-driven fix (P002 false-positive on int counter caught by meta-dogfood); lint_capability ok=True block mode; intent-filter edge-traversal bug caught + regression test added |
 | 044 | research-capability | **Shipped** | lead+specialist+verify verbs; 3 specialist roles (codebase/prior-reflections/doc-corpus); 2 verifier checks (evidence-supports-claim + contradiction-cluster); web boundary slot reserved | 23 spec tests green; dogfooded via wire (composes 040+045+048); web specialist defers to v2 (no default driver); v2 followups: document.render(scope='research-report') + web-reachability check |
 | **049** | naming-and-token-economy | Not started | Audit + proposal spec for renaming substrate tools + capability verbs to reduce token-cost of every discovery call | Drafted from user audit 2026-06-03; pairs with future Spec 050 implementation PR; lands ONLY the audit + per-name verdict (KEEP / ALIAS-AND-RENAME / RENAME-HARD), not the renames themselves |
+| **050** | analyze-deps-integration | **Shipped** | `[analyze]` extra wires ruff + bandit + radon into analyze axes (compose, don't replace) | 9 spec tests green; live dogfood (this repo) activates 700+ ruff rules, bandit B-series, radon CC+MI; silent fallback when deps missing; agency_doctor reports analyze_extras |
+| **051** | analyze-architecture-networkx | Not started | networkx-driven A001 cycle refactor + A004 fan-out / A005 fan-in / A006 god-module metrics | Drafted from deps-extension push; warm-recommend dep |
+| **052** | research-web-httpx | Not started | DuckDuckGo default WebSearchClient + web-reachability check on verify | Drafted; closes Spec 044 v1 scope-cut (web specialist no-driver); httpx already runtime dep |
 | 045 | reflect-semantic-recall | **Shipped** | TF-IDF + optional BGE embedder; `reflect.recall_semantic` verb; agency_doctor surfaces backend + fallback | 19 spec tests + 469 full-suite green; 4 code-review passes (F4 zip-sort cleanup, F9 doctor fallback messaging differentiated by failure mode, F13 k<=0 guard, DRY KNOWN_EMBEDDERS) |
 | 046 | micro-extensions-bundle | Not started | Code-review split + visual-companion + smart-commit + estimate + token-efficiency + doc-autosync | Designed in this branch |
 | **047** | cluster-integration | **Shipped** | Master plan: 13-cluster integration map (Discovery/Plan/Impl/Quality/Debug/Cleanup/Doc/Memory/Git/Research/Orch/Meta/Plugin) | The deliverable IS the plan — no code; promotes individual cluster plans to standalone specs when criteria hit (cluster-section > 150 LOC OR ≥ 3 cross-cluster decisions) |
