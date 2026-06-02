@@ -19,9 +19,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 7 | 012, 013, 015, 029, 030, 040, 047 |
+| **Shipped** | 8 | 012, 013, 015, 029, 030, 040, 045, 047 |
 | **Partially implemented** | 11 | 001, 006, 007, 016, 018, 020, 023, 024, 025, 031, 032 |
-| **Not started** | 23 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 039, 041, 042, 043, 044, 045, 046 + (010 deferred-v2 axes) |
+| **Not started** | 22 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 017, 019, 021, 022, 026, 028, 039, 041, 042, 043, 044, 046 + (010 deferred-v2 axes) |
 
 Total active specs: **41** (counting 000-overview).
 
@@ -66,7 +66,7 @@ Total active specs: **41** (counting 000-overview).
 | 042 | analyze-capability | Not started | 4-axis decidable analysis + improve/cleanup | Designed in this branch; subsumes Spec 008 |
 | 043 | document-capability | Not started | render/explain/index_repo + 94%-reduction pattern | Designed in this branch; closes 017's render-side |
 | 044 | research-capability | Not started | lead+specialists+verifier composition + 5 Novel-Gemini prompts | Designed in this branch (prompts already in `research/novel-prompts/`) |
-| 045 | reflect-semantic-recall | Not started | TF-IDF + optional vector embedder; `reflect.recall_semantic` | Designed in this branch; complements episodic-memory |
+| 045 | reflect-semantic-recall | **Shipped** | TF-IDF + optional BGE embedder; `reflect.recall_semantic` verb; agency_doctor surfaces backend + fallback | 19 spec tests + 469 full-suite green; 4 code-review passes (F4 zip-sort cleanup, F9 doctor fallback messaging differentiated by failure mode, F13 k<=0 guard, DRY KNOWN_EMBEDDERS) |
 | 046 | micro-extensions-bundle | Not started | Code-review split + visual-companion + smart-commit + estimate + token-efficiency + doc-autosync | Designed in this branch |
 | **047** | cluster-integration | **Shipped** | Master plan: 13-cluster integration map (Discovery/Plan/Impl/Quality/Debug/Cleanup/Doc/Memory/Git/Research/Orch/Meta/Plugin) | The deliverable IS the plan — no code; promotes individual cluster plans to standalone specs when criteria hit (cluster-section > 150 LOC OR ≥ 3 cross-cluster decisions) |
 

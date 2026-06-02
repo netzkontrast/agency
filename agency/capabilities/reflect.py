@@ -68,3 +68,39 @@ class ReflectCapability(CapabilityBase):
         out = [{"scope": r["scope"], "text": r["text"]}
                for r in self.ctx.find("Reflection") if q in r["text"].lower()]
         return {"result": out}
+
+    @verb(role="transform", inject=["embedder"])
+    def recall_semantic(self, embedder, query: str, k: int = 5,
+                        scope: str = "") -> dict:
+        """Semantic top-k recall over Reflection nodes; backend-injectable.
+
+        Inputs:
+            query: free-text query; empty → empty results.
+            k: max results returned (sorted by score desc).
+            scope: optional scope filter applied AFTER ranking.
+
+        Returns: ``{results: [{id, score, scope, text, vfrom}],
+        embedder: str}``. ``text`` is truncated to 200 chars (Spec 023
+        token-budget discipline; call ``recall``/``search`` for full
+        text). ``embedder`` names the live backend so the caller can
+        confirm which backend ran.
+        """
+        rows = list(self.ctx.find("Reflection"))
+        if not rows or not (query or "").strip() or k <= 0:
+            return {"results": [], "embedder": embedder.name}
+        corpus = [r["text"] for r in rows]
+        indexed = embedder.index(corpus)
+        scores = embedder.score(query, indexed)
+        # Sort by score desc without copying each row dict; the row stays
+        # by reference and is only projected at result-shaping time.
+        paired = sorted(zip(scores, rows), key=lambda p: p[0], reverse=True)
+        if scope:
+            paired = [(s, r) for s, r in paired if r.get("scope") == scope]
+        out = [{
+            "id": r["id"],
+            "score": round(float(s), 4),
+            "scope": r["scope"],
+            "text": r["text"][:200],
+            "vfrom": r["vfrom"],
+        } for s, r in paired[:k]]
+        return {"results": out, "embedder": embedder.name}

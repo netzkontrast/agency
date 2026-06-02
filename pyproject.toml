@@ -26,6 +26,18 @@ dev = [
     # CI validates the real budget; the test skips if it's somehow absent.
     "tiktoken>=0.7.0",
 ]
+# Spec 045 — optional sentence-transformers BGE backend for the
+# semantic-recall verb. Default is the zero-dep pure-Python TF-IDF
+# embedder; opt in to BGE via:
+#   pip install -e .[recall]
+#   AGENCY_EMBEDDER=bge-small-en
+# The model (~80MB) downloads on first encode. If the dep is missing
+# when AGENCY_EMBEDDER selects BGE, resolve_embedder() falls back to
+# TF-IDF silently — agency_doctor reports the live backend so the
+# fallback stays visible.
+recall = [
+    "sentence-transformers>=2.0",
+]
 
 [project.scripts]
 agency = "agency.__main__:main"

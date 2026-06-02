@@ -161,7 +161,9 @@ Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:
   capability contributes its own node types / skills / template-schemas
   (`Capability.ontology`), merged strictly onto the core and enforced in Memory;
 - the **`reflect` capability** — durable, scope-tagged cross-session memory
-  (`note`/`recall`/`search` over `Reflection` nodes the capability owns).
+  (`note`/`batch_note`/`recall`/`recall_semantic`/`search` over `Reflection`
+  nodes the capability owns; Spec 045 added the semantic-recall verb with a
+  pluggable TF-IDF/BGE embedder boundary).
 
 The whole capability landscape of every installed plugin was surveyed, clustered,
 and spec-paneled — see `CAPABILITY-CLUSTERS.md`. Verdict: the four concepts + the

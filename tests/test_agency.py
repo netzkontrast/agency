@@ -1244,12 +1244,15 @@ def test_cli_emits_json_on_error():
 
 def test_reflect_is_the_class_form():
     """The reference migration: `reflect` is authored as a CapabilityBase subclass,
-    yet registers + behaves identically (verbs note/recall/search)."""
+    yet registers + behaves identically (verbs note/batch_note/recall/
+    recall_semantic/search). Spec 045 extended the four-verb surface to five."""
     from agency.capability import CapabilityBase
     from agency.capabilities.reflect import ReflectCapability
     assert issubclass(ReflectCapability, CapabilityBase)
     e = fresh()
-    assert set(e.registry.get("reflect").verbs) == {"note", "batch_note", "recall", "search"}
+    assert set(e.registry.get("reflect").verbs) == {
+        "note", "batch_note", "recall", "recall_semantic", "search",
+    }
     e.memory.close()
 
 

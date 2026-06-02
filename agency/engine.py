@@ -85,10 +85,18 @@ def resolve_surface(arg: str | None = None) -> str:
 
 class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
+                 embedder=None,
                  extra_capabilities=None, surface: str | None = None):
         self.surface = resolve_surface(surface)
         self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
         self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
+        # Spec 045 — semantic-recall backend. Default is TF-IDF (zero-dep);
+        # AGENCY_EMBEDDER=bge-small-en + [recall] extra activates BGE.
+        # Tests inject a stub. `agency_doctor` reports `embedder.name`.
+        if embedder is None:
+            from .capabilities._embed import resolve_embedder
+            embedder = resolve_embedder()
+        self.embedder = embedder
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it
@@ -126,7 +134,8 @@ class Engine:
         # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
         # injected per-call by the Registry itself, and the registry is on ctx.
         self.registry.injectors = {"client": lambda: self.jules_client,
-                                   "vcs": lambda: self.vcs_backend}
+                                   "vcs": lambda: self.vcs_backend,
+                                   "embedder": lambda: self.embedder}
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)
@@ -352,6 +361,27 @@ class Engine:
                     "For Jules / no-MCP: `export JULES_API_KEY=...` before "
                     "launching."
                 )
+            # Spec 045 §"agency_doctor reports embedder": surface a silent
+            # fallback. Differentiate the two failure modes — known backend
+            # with missing dep (actionable: install) vs. unknown backend
+            # name (actionable: fix the env var). Single source of truth
+            # for the known set lives in _embed.KNOWN_EMBEDDERS.
+            requested_emb = os.environ.get("AGENCY_EMBEDDER", "").strip()
+            if requested_emb and requested_emb != self.embedder.name:
+                from .capabilities._embed import KNOWN_EMBEDDERS
+                if requested_emb == "bge-small-en":
+                    next_steps.append(
+                        "AGENCY_EMBEDDER='bge-small-en' requested but "
+                        "sentence-transformers is not installed — "
+                        "`pip install -e .[recall]` to enable."
+                    )
+                elif requested_emb not in KNOWN_EMBEDDERS:
+                    valid = ", ".join(repr(b) for b in sorted(KNOWN_EMBEDDERS))
+                    next_steps.append(
+                        f"AGENCY_EMBEDDER={requested_emb!r} is not a known "
+                        f"backend; resolved to {self.embedder.name!r}. "
+                        f"Valid values: {valid}."
+                    )
 
             return {
                 "ok": len(next_steps) == 0,
@@ -362,6 +392,10 @@ class Engine:
                     "JULES_API_KEY": jules_status,
                     "CLAUDE_PROJECT_DIR": project_dir,
                 },
+                # Spec 045 — the live semantic-recall backend (so users
+                # can confirm whether AGENCY_EMBEDDER took effect, or
+                # whether the BGE fallback to TF-IDF happened silently).
+                "embedder": self.embedder.name,
                 "next_steps": next_steps,
             }
 

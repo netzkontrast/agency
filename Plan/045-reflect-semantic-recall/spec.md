@@ -1,7 +1,7 @@
 ---
 spec_id: "045"
 slug: reflect-semantic-recall
-status: draft
+status: complete
 last_updated: 2026-06-02
 owner: "@agency"
 depends_on: [020, 023]
@@ -265,24 +265,51 @@ This spec is also:
 
 ## Followup — Implementation Status (2026-06-02)
 
-**Verdict:** Not started — spec drafted; existing `recall`/`search`
-remain the only retrieval surface.
+**Verdict:** Shipped — verb live, embedder boundary wired, TF-IDF +
+BGE backends present, agency_doctor surfaces the live backend +
+fallback diagnostics. 19/19 spec tests + 469 full-suite tests green
+after four code-review passes.
 
 ### Done
-- The substrate (`Reflection` node, scope enum, OBSERVED_DURING edge,
-  bi-temporal graph) ships today; this spec only adds a transform verb
-  + a boundary client.
+- `agency/capabilities/_embed.py` — Embedder Protocol + TfidfEmbedder
+  (pure-Python TF-IDF with the spec-pinned parameters: tokeniser regex,
+  50-word stoplist, smoothed IDF, L2-norm, cosine) + BgeEmbedder
+  (lazy sentence-transformers BGE-small-en-v1.5) + `resolve_embedder()`
+  + `KNOWN_EMBEDDERS` frozenset (single source of truth for diagnostics).
+- `agency/capabilities/reflect.py:74-106` — `recall_semantic(query, k=5,
+  scope="")` verb with `@verb(role="transform", inject=["embedder"])`.
+  Returns `{results, embedder}` with truncated text per Spec 023.
+- `agency/engine.py:87-99` — `embedder=` kwarg + resolution; injector
+  slot wired on `self.registry.injectors["embedder"]`.
+- `agency/engine.py:356-380` — `agency_doctor` reports `embedder.name`
+  + differentiated next-steps for known-backend-missing-dep vs.
+  unknown-typo cases.
+- `pyproject.toml:30-39` — `[project.optional-dependencies.recall]`
+  with `sentence-transformers>=2.0` + activation docs.
+- `docs/vision/CORE.md:163-166` — five-verb reflect surface.
+- `tests/test_reflect_recall_semantic.py` — 19 tests covering payload
+  shape, ranking, k-param, text truncation, TF-IDF paraphrase match,
+  empty-corpus / empty-query, scope-post-filter, injected stub honoured,
+  engine default/kwarg, agency_doctor backend field + BGE-fallback
+  surfacing + unknown-target-typo surfacing, resolve defaults + unknown
+  fallback, k<=0 edge case (review-driven).
+- Code-review loop applied 4 passes via `agency:code-review` skill:
+  pass 1 surfaced F4 (zip-sort cleanup), F9 (doctor fallback messaging),
+  F13 (k<=0 guard); pass 2 refined F9 to differentiate missing-dep vs.
+  unknown-typo; pass 3 caught DRY violation, pulled KNOWN_EMBEDDERS
+  into single source of truth; pass 4 clean.
 
-### Still to implement
-- `_embed.py` module + the two backends.
-- Engine kwarg + injector slot.
-- The verb itself + tests.
-- pyproject `[recall]` extra.
-- `agency_doctor` payload field.
-- CORE.md update.
+### Open for v2 (per spec §Open Questions)
+- OQ1 incremental Reflection-vector index for >10K corpora.
+- OQ2 persistent embedding cache (keyed by Reflection id + embedder
+  name).
+- OQ3 cross-Intent default — policy decision: v1 ships global recall
+  (current); v2 may add `all_intents=False` default + cross-Intent
+  opt-in.
+- OQ4 embedder name as enum — trivial; revisit if 4+ backends ship.
 
-### Refinement needed
-- Open Question 1 (incremental index) blocks scaling but not v1
-  shipping. Mark as v2.
-- Open Question 3 (cross-Intent default) is small but needs a one-line
-  policy call before v1.
+### Future MCP-client driver adoption (Spec 040 Open Q3)
+The Superpowers `episodic-memory` MCP server (Claude Code transcript
+corpus) is the production-grade complement to this spec's
+Reflection-corpus recall. Adoption awaits the HTTP-MCP-client driver
+(audit F6, separate spec).
