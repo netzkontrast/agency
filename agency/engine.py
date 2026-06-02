@@ -85,7 +85,7 @@ def resolve_surface(arg: str | None = None) -> str:
 
 class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
-                 embedder=None,
+                 embedder=None, web_search=None,
                  extra_capabilities=None, surface: str | None = None):
         self.surface = resolve_surface(surface)
         self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
@@ -97,6 +97,11 @@ class Engine:
             from .capabilities._embed import resolve_embedder
             embedder = resolve_embedder()
         self.embedder = embedder
+        # Spec 044 — web-search boundary. v1 default is None (the `web`
+        # specialist returns an error-finding when called without an
+        # injected backend). Tests stub. A future Spec wraps the host's
+        # MCP `WebSearch` tool here.
+        self.web_search = web_search
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it

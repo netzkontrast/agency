@@ -1,8 +1,8 @@
 ---
 spec_id: "044"
 slug: research-capability
-status: draft
-last_updated: 2026-06-02
+status: complete
+last_updated: 2026-06-03
 owner: "@agency"
 depends_on: [011, 016, 020, 023, 040, 043, 045]
 affects:
@@ -377,7 +377,80 @@ than via prompt-text discipline.
 - Spec 045 — semantic recall powers `prior-reflections` specialist + the
   contradiction-cluster heuristic.
 
-## Followup — Implementation Status (2026-06-02)
+## Followup — Implementation Status (2026-06-03)
+
+**Verdict:** Shipped (v1 core — 3 verbs + 3 specialist roles + 2
+verifier checks + 4-phase walker; web specialist defers to v2). 23
+spec tests green; dogfood-validated via wire (composes Spec 040
+dispatch_decision + Spec 045 reflect.recall_semantic + Spec 048
+intent-chain) — a real research session emitted Citations and the
+verifier returned `ok=True`.
+
+### Done
+- Folder-form capability `agency/capabilities/research/`:
+  - `_main.py` — ResearchCapability class; scaffold marker; ontology
+    with 4 nodes (Research/Citation/ResearchClaim/Verification),
+    3 enums (Research.status, Citation.source_kind,
+    Verification.status), 4 edges (CITES/SUPPORTS/CONTRADICTS/
+    VERIFIES), 1 schema (research-report), 1 skill (deep-research).
+  - `_lead.py` — depth-driven specialist planning (brief→1,
+    standard→2, deep→4); URL-in-question heuristic adds web.
+  - `_specialist.py` — 4 specialist runners:
+      codebase         → grep + file walk; confidence 1.0
+      prior-reflections → reflect.recall_semantic; confidence = score
+      doc-corpus       → walk docs/; substring=1.0, semantic=score
+      web              → injected WebSearchClient; v1 returns
+                          "no driver" message (NOT exception) when
+                          web_search is None
+  - `_verify.py` — 2 decidable checks:
+      evidence-supports-claim → substring (≥50% token overlap) OR
+                                 semantic cosine ≥0.5
+      contradiction-cluster   → polarity-flipped claim_supported +
+                                 high topic similarity (≥0.3) → warn
+  - `_findings.py` — substring_supports + semantic_score helpers.
+  - `_web.py` — WebSearchClient Protocol (boundary, no default driver).
+- Three verbs (lead/specialist/verify) registered + lint clean
+  block-mode.
+- Engine extension: `web_search` injector slot
+  (`agency/engine.py:__init__` adds `web_search=None` kwarg).
+- Skill walker (4 phases — plan/fan-out/verify/publish[hard]) on
+  `ResearchCapability.ontology.skills["deep-research"]`. Scope +
+  render phases land in v2 with `document.render(scope='research-
+  report')`.
+- `skills/deep-research/SKILL.md` + 2 references
+  (specialist-roles.md + verification-rules.md).
+- 23 tests across `test_research_capability.py` (16) and
+  `test_research_verify.py` (7).
+
+### Scope-cut for v1
+- **Web specialist** — protocol shipped; default backend NONE. v2
+  wraps the host's MCP `WebSearch` tool.
+- **Render phase** — walker has 4 phases (no scope/render). v2 adds
+  `document.render(scope='research-report')` for the render step.
+- **Web reachability check** — verifier ships 2 of 3 spec'd checks;
+  reachability defers until the web specialist driver lands.
+- **Novel-research prompts (audit task F)** — the 5 prompts ALREADY
+  shipped under `research/novel-prompts/` (S1-S5 + F1-F5). Spec 044
+  validates the SHAPE — the prompts are valid `research.lead` inputs
+  once a Gemini wrapper lands.
+
+### Code-review loop (agency:code-review skill — applied informally)
+- Pass 1 — contradiction-cluster logic was INVERTED (flagged low-
+  similarity pairs instead of high-similarity-with-polarity-flip).
+  Fixed via test_verify_flags_contradiction_cluster.
+- Pass 2 — dogfooded the wire: lead → specialist(codebase) → verify
+  on a real Spec 048 question; 2 citations recorded; verifier ok.
+
+### Cluster-coherence cross-refs (Spec 047)
+- C10 Research (it IS — the canonical lead+specialists+verifier
+  composition Spec 047 §C10 specified).
+- C04 Quality (verifier reuses similar adversarial discipline).
+- C08 Memory (prior-reflections specialist directly composes Spec
+  045's recall_semantic).
+- C11 Orchestration (research.lead's plan honors Spec 040's
+  dispatch_decision; deep depth fires S4:parallel ≥3).
+
+## Followup — Original Implementation Status (2026-06-02)
 
 **Verdict:** Not started — spec drafted; agency has no research surface
 today.

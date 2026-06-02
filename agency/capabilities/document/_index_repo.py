@@ -169,6 +169,34 @@ def render(root: str, memory, intent_id: str = "",
     parts.append("\n## Substrate\n")
     for k, v in substrate.items():
         parts.append(f"- {k}: {v}\n")
+    # Render the SHORT, FIXED-SIZE sections (Entry points + Notable
+    # patterns + Recent activity) BEFORE the variable-size Macro-
+    # structure so the budget-truncation in Macro-structure doesn't
+    # clobber them when the repo grows. Spec 043 line 145 schema
+    # ordering kept (## Substrate → ## Macro-structure → ## Entry points
+    # → ## Notable patterns → ## Recent activity) — only the RENDER
+    # ORDER changes so short sections always make it into the budget.
+    short_sections: list[str] = []
+    short_sections.append("\n## Entry points\n")
+    if entries:
+        for e in entries:
+            short_sections.append(f"- `{e}`\n")
+    else:
+        short_sections.append("- _none declared in pyproject.toml_\n")
+    short_sections.append("\n## Notable patterns\n")
+    if patterns:
+        for p in patterns:
+            short_sections.append(f"- {p}\n")
+    else:
+        short_sections.append("- _no agency-specific markers detected_\n")
+    short_sections.append("\n## Recent activity\n")
+    if reflections:
+        for r in reflections:
+            text = r.get("text", "")[:120]
+            short_sections.append(f"- `{r.get('scope', '?')}` · {text}\n")
+    else:
+        short_sections.append("- _no recent reflections recorded_\n")
+    parts.extend(short_sections)
     parts.append("\n## Macro-structure\n")
     omitted = 0
     for dir_rel in sorted(briefs_by_dir):
@@ -186,25 +214,6 @@ def render(root: str, memory, intent_id: str = "",
                           if d > dir_rel)
             parts.append(f"\n_... ({omitted} modules omitted to fit token budget)_\n")
             break
-    parts.append("\n## Entry points\n")
-    if entries:
-        for e in entries:
-            parts.append(f"- `{e}`\n")
-    else:
-        parts.append("- _none declared in pyproject.toml_\n")
-    parts.append("\n## Notable patterns\n")
-    if patterns:
-        for p in patterns:
-            parts.append(f"- {p}\n")
-    else:
-        parts.append("- _no agency-specific markers detected_\n")
-    parts.append("\n## Recent activity\n")
-    if reflections:
-        for r in reflections:
-            text = r.get("text", "")[:120]
-            parts.append(f"- `{r.get('scope', '?')}` · {text}\n")
-    else:
-        parts.append("- _no recent reflections recorded_\n")
     text = "".join(parts)
     # Hard cap: if the full briefing still exceeds budget after the
     # mid-loop truncation (because Substrate / Entry-points / Recent
