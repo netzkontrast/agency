@@ -31,6 +31,22 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    unfamiliar files / repeated exploration / ≥ 3 parallel siblings / ≥ 15 min
    wall-clock). Otherwise inline.
 
+4. **Keep `TODO.md` current.** `TODO.md` in the repo root is the **binding
+   spec status index** — verdict per spec (Shipped / Partial / Not started),
+   one-line summary, blocker / next step. Update it **in the same commit**
+   that:
+   - ships a spec (status flip → Shipped),
+   - makes meaningful progress on one (Not started → Partial),
+   - opens a new spec (add row),
+   - closes / supersedes / cancels one (note in row),
+   - renumbers (rare; only after a naming collision on merge).
+
+   `TODO.md` ONLY carries the cross-spec roll-up — verdict + one-line +
+   pointer. Per-spec deep state (test counts, file:line evidence, verbatim
+   Done / Still / Refinement) lives in each `Plan/NNN-…/spec.md`'s
+   `## Followup — Implementation Status (…)` section. No drift between
+   the two; `TODO.md` rolls up, the Followup section grounds.
+
 ## Surface (discoverable; don't memorize)
 
 Capabilities self-register from `agency/capabilities/`. Skills live on
