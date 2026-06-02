@@ -1,0 +1,144 @@
+"""Spec 042 — analyze.performance axis (AST-based decidable checks).
+
+Rules shipped (v1):
+  P001 — nested-loop on the same iterable (warn). Decidable O(n²)
+         hint: `for x in items: for y in items: ...`.
+  P002 — string += in a loop (info). The classic O(n²) string-concat
+         antipattern; '.join()' is the fix.
+  P003 — unbounded `while True` with no break / sleep / return (warn).
+
+NO profiling-based judgements ("this loop is slow" without O(n²) proof
+→ deferred; profiling is the answer, not lint).
+"""
+from __future__ import annotations
+
+import ast
+
+from ._findings import Finding, make_finding
+from ._walk import python_files as _python_files, read_text as _read
+
+
+SEVERITY: dict[str, str] = {
+    "P001": "warn",
+    "P002": "info",
+    "P003": "warn",
+}
+
+
+def _iter_target_name(node: ast.For) -> str | None:
+    """The variable name of a `for x in iterable:` loop's iterable, if
+    it is a simple Name."""
+    if isinstance(node.iter, ast.Name):
+        return node.iter.id
+    return None
+
+
+def _check_nested_loops(path: str, src: str, tree: ast.AST) -> list[Finding]:
+    """P001 — outer/inner loop both iterate over the SAME name."""
+    out: list[Finding] = []
+    lines = src.splitlines()
+    for outer in ast.walk(tree):
+        if not isinstance(outer, ast.For):
+            continue
+        outer_iter = _iter_target_name(outer)
+        if outer_iter is None:
+            continue
+        for inner in ast.walk(outer):
+            if inner is outer or not isinstance(inner, ast.For):
+                continue
+            inner_iter = _iter_target_name(inner)
+            if inner_iter == outer_iter:
+                evidence = (lines[inner.lineno - 1].strip()
+                            if 0 <= inner.lineno - 1 < len(lines)
+                            else "nested for")
+                out.append(make_finding(
+                    rule="P001", severity=SEVERITY["P001"],
+                    file=path, line=inner.lineno,
+                    message=f"nested loop on {outer_iter!r} — O(n²) in collection size",
+                    evidence=evidence,
+                ))
+                break   # one finding per outer loop
+    return out
+
+
+def _check_string_concat(path: str, src: str, tree: ast.AST) -> list[Finding]:
+    """P002 — `x += y` inside a `for` body."""
+    out: list[Finding] = []
+    lines = src.splitlines()
+    for loop in ast.walk(tree):
+        if not isinstance(loop, ast.For):
+            continue
+        for stmt in ast.walk(loop):
+            if stmt is loop:
+                continue
+            if isinstance(stmt, ast.AugAssign) and isinstance(stmt.op, ast.Add):
+                evidence = (lines[stmt.lineno - 1].strip()
+                            if 0 <= stmt.lineno - 1 < len(lines)
+                            else "+= in loop")
+                out.append(make_finding(
+                    rule="P002", severity=SEVERITY["P002"],
+                    file=path, line=stmt.lineno,
+                    message="`+=` in loop — use ''.join() / list.append() for O(n)",
+                    evidence=evidence,
+                ))
+                break
+    return out
+
+
+def _check_unbounded_while(path: str, src: str, tree: ast.AST) -> list[Finding]:
+    """P003 — `while True:` with no break / return / sleep / raise in body."""
+    out: list[Finding] = []
+    lines = src.splitlines()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.While):
+            continue
+        # Detect `while True:`. Python 3.8+ unifies bool literals
+        # under ast.Constant; we don't support older runtimes.
+        test = node.test
+        if not (isinstance(test, ast.Constant) and test.value is True):
+            continue
+        # Check body for any break / return / raise / sleep / yield.
+        has_exit = False
+        for inner in ast.walk(node):
+            if inner is node:
+                continue
+            if isinstance(inner, (ast.Break, ast.Return, ast.Raise, ast.Yield)):
+                has_exit = True
+                break
+            if isinstance(inner, ast.Call):
+                # time.sleep(...) → also a yield to the OS scheduler.
+                func = inner.func
+                fn_name = None
+                if isinstance(func, ast.Name):
+                    fn_name = func.id
+                elif isinstance(func, ast.Attribute):
+                    fn_name = func.attr
+                if fn_name == "sleep":
+                    has_exit = True
+                    break
+        if not has_exit:
+            evidence = (lines[node.lineno - 1].strip()
+                        if 0 <= node.lineno - 1 < len(lines) else "while True:")
+            out.append(make_finding(
+                rule="P003", severity=SEVERITY["P003"],
+                file=path, line=node.lineno,
+                message="`while True:` with no break / return / sleep",
+                evidence=evidence,
+            ))
+    return out
+
+
+def scan(root: str) -> list[Finding]:
+    findings: list[Finding] = []
+    for path in _python_files(root):
+        src = _read(path)
+        if src is None:
+            continue
+        try:
+            tree = ast.parse(src, filename=path)
+        except SyntaxError:
+            continue
+        findings.extend(_check_nested_loops(path, src, tree))
+        findings.extend(_check_string_concat(path, src, tree))
+        findings.extend(_check_unbounded_while(path, src, tree))
+    return findings

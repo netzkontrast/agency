@@ -1,7 +1,7 @@
 ---
 spec_id: "042"
 slug: analyze-capability
-status: draft
+status: complete
 last_updated: 2026-06-02
 owner: "@agency"
 depends_on: [016, 020, 023, 040]
@@ -297,26 +297,77 @@ prefix (`U*` = unused, `S*` = security, …).
 
 ## Followup — Implementation Status (2026-06-02)
 
-**Verdict:** Not started — spec drafted; agency has no analysis surface
-today.
+**Verdict:** Shipped — 7 verbs live, 4 axes + 2 acts wired,
+code-analysis skill folder shipped, lint_capability("analyze")
+returns ok=True in block mode, 502 full-suite tests green after
+4 code-review passes + 2 dogfood-driven false-positive fixes.
 
 ### Done
-- The folder-form scaffold substrate (Spec 016 Phase 3 +
-  `develop.scaffold_capability`) is ready.
-- The hard-gate Lifecycle pattern (`examples/music.py::album-concept`,
-  Spec 010 §"Skills") is the structural template the `code-analysis`
-  skill follows.
+- Folder-form capability `agency/capabilities/analyze/`:
+  - `_main.py` — `AnalyzeCapability` class (scaffold marker on
+    line 1; ontology with 2 nodes, 2 enums, 3 edges, 1 schema, 1 skill;
+    7 verbs).
+  - `_findings.py` — Finding TypedDict + `make_finding()` with severity
+    validation + Spec 023 truncation + `count_by_severity()` helper.
+  - `_walk.py` — shared `python_files()` + `read_text()` (DRY across
+    axes; extracted in code-review pass).
+  - `_quality.py` — Q001 unused-import (AST + __all__ + __future__
+    handling), Q002 long-line, Q003 long-function, Q004 long-file.
+  - `_security.py` — S001 eval/exec, S002 hardcoded credential
+    (regex + value-never-leaks), S003 pickle.load, S004 subprocess
+    shell=True (restricted to subprocess family — code-review F12 fix).
+  - `_performance.py` — P001 nested O(n²), P002 += in loop, P003
+    unbounded while True (with break/return/sleep escape detection).
+  - `_architecture.py` — A001 circular import (Tarjan SCC), A002
+    large file (>600 LOC), A003 medium file (>400 LOC).
+- 4 transform verbs (`quality`, `security`, `performance`, `architecture`)
+  + 2 act verbs (`run` records Analysis + Finding nodes;
+  `improve` drafts improvement-plan Reflection; `cleanup` focused
+  dead-code mode).
+- 5-phase `code-analysis` Lifecycle skill on
+  `AnalyzeCapability.ontology.skills` (scope → axes → run → review →
+  apply(hard)).
+- `skills/code-analysis/SKILL.md` + `references/finding-shape.md` +
+  `references/improve-vs-cleanup.md`.
+- Engine dedupe fix in `engine.py` (discover() + extra_capabilities
+  with same name now first-wins; surfaced by lint_capability's
+  consumer-contract check when the cap is BOTH auto-discovered AND
+  passed as extra — first scaffold-marked cap so first to hit).
+- Tests: `test_analyze_quality.py` (8), `test_analyze_security.py` (6),
+  `test_analyze_performance.py` (4), `test_analyze_architecture.py` (4),
+  `test_analyze_capability.py` (10) — total 33 spec tests; 502 full
+  suite passes; lint_capability("analyze") ok=True block mode.
 
-### Still to implement
-- The folder + 4 axis modules + main + findings.
-- Four transform verbs + two act verbs.
-- The skill walker template + SKILL.md + references.
-- The OntologyExtension fragment (2 nodes, 2 enums, 2 edges, 1 schema, 1
-  skill).
-- Five test files.
+### Code-review loop (agency:code-review skill)
+- Pass 1 — surfaced F1 (DRY: _python_files+_read 4×) → extracted
+  `_walk.py`; F12 (shell=True false positives) → restricted to
+  subprocess family + added test.
+- Pass 2 — found unused `os` import in `_security.py` after refactor
+  (irony: my own Q001 rule would have caught this); dead
+  `_FINDING_KEYS` in `_findings.py`; redundant `hasattr(ast,
+  "NameConstant")` ternary in `_performance.py` — all cleaned up.
+- Pass 3 (meta-dogfood) — ran `analyze.quality` on the capability
+  itself. Found 8 false-positive Q001 findings:
+  7× `from __future__ import annotations` (compile-time directive,
+  not a name binding) + 1× `from ._main import AnalyzeCapability`
+  in `__init__.py` (re-export via __all__). Fixed both with
+  `_imported_names()` skipping __future__ + `_exported_names()`
+  reading `__all__` literal. Added two regression tests.
+- Pass 4 — `lint_capability("analyze")` ok=True; one final brief-budget
+  fix on `performance` verb docstring (21 → 19 cl100k tokens).
 
-### Refinement needed
-- Open Question 1 (multi-language) is small but needs a one-line policy
-  call before v2 work.
-- Open Question 4 (relationship to `develop.review`) deserves a
-  paragraph in `develop.py` once both surfaces ship.
+### Open for v2 (per spec §Open Questions)
+- OQ1 multi-language coverage (currently Python-only via `lang="py"`).
+- OQ2 caching analysis results (re-run-on-stale-source vs.
+  trust-analysis_id).
+- OQ3 apply path (`gate.check` per cluster) — v1 ships planning-only.
+- OQ4 relationship to `develop.review` — needs a one-paragraph
+  doctrine pass in `develop.py` docstring.
+
+### Cluster-coherence cross-refs (Spec 047)
+- C04 Quality (it IS).
+- C03 Implementation (Spec 041 code-reviewer-prompt reuses Finding shape).
+- C06 Cleanup (cleanup verb is the dead-code mode of analyze).
+- C13 Plugin (lint_capability's consumer-contract check uncovered the
+  engine dedupe bug; Spec 047 §C04 Risk 1 — one Finding shape across
+  surfaces — verified live).

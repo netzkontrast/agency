@@ -66,6 +66,7 @@ python -m agency.cli execute --code \
 
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
+- **analyze** — architecture, cleanup, improve, performance, quality, run, security
 - **branch** — assess, finish
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
 - **develop** — checklist, record_authoring_outcome, reference, scaffold_capability

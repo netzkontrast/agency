@@ -103,7 +103,18 @@ class Engine:
         # discovered core capabilities, plus any external ones the host supplies —
         # the extension point: an out-of-tree capability registers + extends exactly
         # like a core one (no need to live in the capabilities package).
+        # Dedupe by capability name — discover() may already have
+        # found a cap that the host also passes as `extra_capabilities`
+        # (e.g. plugin.lint_capability re-registers the cap for
+        # consumer-contract validation in an in-memory engine; without
+        # dedupe the ontology.extend collides on skill/schema names).
+        # First-wins: discover()'d caps take precedence over re-supplied
+        # extras with the same name.
+        seen_names: set[str] = set()
         for cap in list(discover()) + list(extra_capabilities or []):
+            if cap.name in seen_names:
+                continue
+            seen_names.add(cap.name)
             self.registry.register(cap)
             self.ontology.extend(cap.ontology, cap.name)
         # the Registry needs the effective ontology to build a CapabilityContext
