@@ -83,6 +83,12 @@ hardening.
 - [ ] `pipx install --editable /path/to/agency` (editable, from local
   checkout — note: `--editable`, NOT `-e`, since pipx 1.4) works with the
   same guarantees.
+- [ ] **Install-collision guard** (Nygard — production resilience):
+  the `agency-mcp` entrypoint logs a warning on startup if BOTH
+  `${CLAUDE_PLUGIN_ROOT}/.venv/bin/agency-mcp` AND a different `agency-mcp`
+  on PATH exist (the user installed via both pipx AND marketplace). The
+  warning names both paths and indicates which one is winning; no hard
+  failure (silent shadow is the failure mode we're guarding against).
 - [ ] `.mcp.json` template updated: if `agency-mcp` is on PATH, use it
   directly; otherwise fall back to `${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp`
   (the marketplace-install path stays working).

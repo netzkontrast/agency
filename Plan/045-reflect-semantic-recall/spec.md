@@ -62,6 +62,27 @@ learned about X" inside a walker phase.
   implementation in `_embed.py`) — works on the corpus + the query, no
   external deps. Indexes per-call (no persistence in v1); corpus < 10K
   Reflections completes in < 50ms.
+- [ ] **TF-IDF backend parameters** (Wiegers — every default is named,
+  not implicit):
+  - Tokeniser: `re.findall(r"[a-zA-Z][a-zA-Z0-9]+", text.lower())` —
+    lowercase, alphanumeric runs starting with a letter, ≥ 2 chars.
+  - Stop words: a fixed ~50-word English list (`the`, `a`, `is`, `of`,
+    `to`, `and`, `in`, `that`, `it`, `for`, `on`, `with`, `as`, `at`,
+    `by`, `this`, `but`, `be`, `are`, `or`, `from`, `was`, `if`,
+    `not`, `you`, `we`, `they`, `i`, `an`, `have`, `has`, `had`,
+    `do`, `does`, `did`, `can`, `will`, `would`, `should`, `could`,
+    `there`, `here`, `their`, `our`, `its`, `his`, `her`, `my`,
+    `your`) — defined in `_embed.py` as a module-level frozenset.
+  - N-grams: unigrams only (v1). Bigrams considered for v2 if the
+    unigram ranking proves too noisy.
+  - IDF formula: `idf(t) = log((1 + N) / (1 + df(t))) + 1`
+    (smoothed; matches scikit-learn default).
+  - Norm: L2 normalisation of the TF-IDF vectors.
+  - Similarity: cosine.
+  - Min document frequency: 1 (no rare-term filtering — agency
+    Reflections are short; rare terms matter).
+  All params are constants in `_embed.py`; changing them is a Spec
+  amendment, not a runtime configuration.
 - [ ] Optional **vector backend** behind `pip install -e ".[recall]"`
   (adds `sentence-transformers` + a small model). Activated by
   `AGENCY_EMBEDDER=bge-small-en` env var; falls back to TF-IDF silently

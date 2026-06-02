@@ -89,6 +89,27 @@ appropriate subset of transforms and composes them differently.
 - [ ] Every finding carries `{rule: str, severity: "info"|"warn"|"fail",
   file: str, line: int, message: str, evidence: str}`. Severity enum is
   declared on `AnalyzeCapability.ontology.enums[("Finding", "severity")]`.
+- [ ] **Severity-assignment rule per axis** (Wiegers — requirements
+  clarity; no ambiguity on what severity a rule emits):
+  - **quality**: `fail` = breaks the build / static-analysis blocker
+    (unused import that triggers `-Werror`, cyclomatic > 20). `warn` =
+    code-smell that doesn't block (cyclomatic 13–20, long line, function
+    > 80 LOC). `info` = style preference (function > 60 LOC, dense
+    one-liner).
+  - **security**: `fail` = exploitable today (hardcoded credential,
+    `eval(<user_input>)`, SQL string-format with user data). `warn` =
+    exploit-conditional-on-context (`shell=True` with constant input,
+    `pickle.load(<file>)` where file might be user-controlled). `info` =
+    pattern-of-concern that needs human review (`subprocess` with shell
+    substitution).
+  - **performance**: `fail` = O(n²) loop on a collection > 1000 items
+    documented in surrounding code. `warn` = O(n²) on collection of
+    unknown size. `info` = `+=` string-concat in a loop of unknown bound.
+  - **architecture**: `fail` = circular import. `warn` = file > 600 LOC,
+    package fan-in > 8. `info` = file > 400 LOC.
+  Severity assignments are **fixed per rule ID**; users cannot
+  reconfigure via flags in v1 (Spec 023 doctrine: severities are
+  contract-level, not preference-level).
 
 ### Two `act` verbs (compose + record)
 

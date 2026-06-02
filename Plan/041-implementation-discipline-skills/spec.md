@@ -99,6 +99,24 @@ parallelism cites the Spec-032 S4:parallel signal.
 - [ ] Each prompt template is agency-flavoured: references
   `mcp__plugin_agency_agency__*` tools, `intent_id` semantics, the
   graph-vs-file doctrine.
+- [ ] **Return-shape contract per template** (Wiegers — requirements
+  clarity). Each prompt instructs the subagent to return a structured
+  payload, not free prose. Shapes:
+  - `implementer` returns
+    `{intent_id, files_touched: [...], tests_added: [...], summary: str,
+      next_step: "ready-for-spec-review"|"blocked"|"needs-clarification",
+      blocked_reason?: str}`.
+  - `spec-reviewer` returns
+    `{verdict: "matches-spec"|"deviates"|"clarification-needed",
+      findings: [{kind, file?, line?, evidence, severity}], summary: str,
+      next_step: "ready-for-code-review"|"return-to-implementer"}`.
+  - `code-reviewer` returns
+    `{verdict: "approve"|"request-changes"|"reject",
+      findings: [{rule, severity, file, line, message, evidence}] —
+      reuses the Spec 042 Finding shape, summary: str,
+      next_step: "merge-ready"|"return-to-implementer"}`.
+  The orchestrator reads these structured fields; the `summary` is for
+  the user, the `findings`/`next_step` drive the loop.
 
 ### New skill: `dispatching-parallel-agents`
 

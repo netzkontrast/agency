@@ -108,6 +108,23 @@ and emits a structured cited report Gemini's deep-research can consume
 - [ ] Records ≥ 1 Citation node per sub-search:
   `{source_kind: str, source_url_or_path: str, evidence_text: str,
   evidence_offset: int, confidence: float, claim_supported: str}`.
+- [ ] **`confidence` computation rule** (Wiegers — every floating-point
+  field has a defined origin):
+  - `web` specialist: `confidence = 0.9` if cited URL resolves at
+    record-time AND `evidence_text` is a verbatim substring of the
+    fetched page; `0.5` if URL resolves but text is paraphrased;
+    `0.2` if URL unreachable at record-time (kept for later verifier
+    check). NO LLM judgement.
+  - `codebase` specialist: `confidence = 1.0` (deterministic — the
+    file path + offset are addressed in the repo at a specific SHA).
+  - `prior-reflections` specialist: `confidence = score` returned by
+    `reflect.recall_semantic` (cosine or TF-IDF similarity, 0..1).
+  - `doc-corpus` specialist: same as `prior-reflections` (Spec 045
+    semantic ranker).
+  No specialist may invent confidence; each `source_kind` has exactly
+  ONE rule. The verifier's `evidence-supports-claim` check (below) is
+  the second pass — confidence is the recording-time signal, the
+  verifier is the verification-time signal. They are independent.
 - [ ] Citations linked: `Research --CITES--> Citation`, also
   `Citation --SUPPORTS--> ResearchClaim` (a transient claim node
   produced during synthesis; see Verify, below).

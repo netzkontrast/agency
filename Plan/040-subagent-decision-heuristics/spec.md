@@ -122,6 +122,34 @@ single signal (per CLAUDE.md adaptive-disclosure doctrine).
 
 ## Design
 
+### At-a-glance (Doumont — structure-clarity)
+
+```
+                  Dispatch winners                Inline winners
+                  ─────────────────               ──────────────
+work shape:       S1 ≥ 5000 tokens                S1 < 5000
+                  S2 ≥ 4 unfamiliar files         S2 ≤ 3 known
+                  S3 repeated exploration         S3 known paths
+                  S4 ≥ 3 sibling tasks            S4 1–2
+                  S5 ≥ 15 min wall-clock          S5 < 15
+role/safety:      S6 NOT mutating                 S6 mutating (no provenance)
+                  S7 read-only                    S7 writes
+hint:             S8 matches signals              S8 conflicts
+cost model:       S9 ≤ 0.3 overlap                S9 ≥ 0.7 (re-load tax)
+                  S10 ≤ 0.3 cache cold            S10 ≥ 0.6 cache hot (10% cost)
+budget:           S11 False (Jules)               (S11 True relaxes nothing)
+                  ↓                                ↓
+              local OR jules                    inline
+              (driver picked by §"Driver-choice matrix")
+```
+
+Two disqualifier rules ALWAYS fire before scoring:
+1. `mutates=True` AND not-effect-with-provenance → inline.
+2. (only when `local_budget_relevant=True`) high overlap + low return
+   OR hot cache + short duration → inline.
+
+Then sum positive signals; ≥ 1 → dispatch (pick driver); 0 → inline.
+
 ### The eleven signals
 
 | # | Signal | Type | Dispatch when | Inline when |
