@@ -22,7 +22,11 @@ def substring_supports(claim: str, evidence: str) -> bool:
     if not claim_toks:
         return True   # empty claim is vacuously supported
     overlap = claim_toks & ev_toks
-    return len(overlap) >= max(1, len(claim_toks) // 2)
+    # Ceiling division so a 3-token claim requires 2 shared (≥ 67%),
+    # not 1 (≈ 33%). Floor would let weakly related evidence pass and
+    # the semantic-score fallback never gets a chance to reject it.
+    required = max(1, -(-len(claim_toks) // 2))
+    return len(overlap) >= required
 
 
 def semantic_score(query: str, text: str, embedder) -> float:

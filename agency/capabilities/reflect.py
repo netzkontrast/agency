@@ -110,6 +110,12 @@ class ReflectCapability(CapabilityBase):
         # Sort by score desc without copying each row dict; the row stays
         # by reference and is only projected at result-shaping time.
         paired = sorted(zip(scores, rows), key=lambda p: p[0], reverse=True)
+        # Drop non-positive scores — TF-IDF on an out-of-vocab query
+        # returns 0.0 for every row, and slicing the top-k would
+        # surface arbitrary Reflections as "matches" (Reviewer
+        # finding: research.specialist then records zero-confidence
+        # citations against unrelated memories).
+        paired = [(s, r) for s, r in paired if float(s) > 0.0]
         if scope:
             paired = [(s, r) for s, r in paired if r.get("scope") == scope]
         out = [{

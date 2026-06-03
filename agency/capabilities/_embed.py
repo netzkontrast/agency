@@ -198,7 +198,13 @@ def resolve_embedder() -> Embedder:
     if target == "bge-small-en":
         try:
             return BgeEmbedder()
-        except ImportError:
+        except Exception:    # noqa: BLE001 — any model-load failure
+            # ImportError covers missing sentence-transformers; broader
+            # Exception catches model-not-cached / network errors /
+            # HuggingFace 4xx in offline or restricted environments so
+            # opt-in to the optional backend never crashes engine
+            # startup or agency-doctor. The TF-IDF fallback is the
+            # documented degradation path.
             return TfidfEmbedder()
     # Unknown target → safe default.
     return TfidfEmbedder()

@@ -23,6 +23,18 @@ _DEFAULT_SEARCH_ROOT = "agency"
 _DEFAULT_DOCS_ROOT = "docs"
 
 
+def _validate_query(query: str) -> dict | None:
+    """Reject empty / whitespace-only queries. Without this guard the
+    codebase substring matcher's ``"" in line`` is True for every line
+    (records arbitrary citations with an empty ``claim_supported``)
+    and the doc-corpus substring path has the same hole."""
+    if not (query or "").strip():
+        return {"citations": 0,
+                "summary": "query required (empty / whitespace-only "
+                           "would match every line)"}
+    return None
+
+
 def _validate_research_id(memory, research_id: str) -> dict | None:
     """Return an error envelope if ``research_id`` doesn't resolve to a
     ``Research`` node, else ``None``. Checks BOTH existence AND label so
@@ -51,7 +63,7 @@ def run_codebase(memory, ctx, research_id: str, query: str,
                  search_root: str = _DEFAULT_SEARCH_ROOT,
                  max_hits: int = 5) -> dict:
     """Grep search_root for `query`; record one Citation per hit."""
-    err = _validate_research_id(memory, research_id)
+    err = _validate_research_id(memory, research_id) or _validate_query(query)
     if err is not None:
         return err
     if not os.path.isdir(search_root):
@@ -93,7 +105,7 @@ def run_codebase(memory, ctx, research_id: str, query: str,
 def run_prior_reflections(memory, ctx, research_id: str, query: str,
                            k: int = 5) -> dict:
     """Call reflect.recall_semantic; record top-k as Citation nodes."""
-    err = _validate_research_id(memory, research_id)
+    err = _validate_research_id(memory, research_id) or _validate_query(query)
     if err is not None:
         return err
     # Invoke via registry so the embedder injector is honoured.
@@ -123,7 +135,7 @@ def run_doc_corpus(memory, ctx, research_id: str, query: str,
     Confidence rule: substring match → 1.0; semantic match only → the
     cosine score.
     """
-    err = _validate_research_id(memory, research_id)
+    err = _validate_research_id(memory, research_id) or _validate_query(query)
     if err is not None:
         return err
     if not os.path.isdir(docs_root):

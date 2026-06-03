@@ -223,9 +223,12 @@ def render_research_report(memory, research_id: str) -> tuple[str, int]:
             )
     else:
         parts.append("\n_no citations recorded yet._\n")
-    # Verification (if present)
+    # Verification (if present) — edge points Verification -> Research
+    # (`research.verify` records `link(vid, research_id, "VERIFIES")`),
+    # so the query must MATCH the actual direction or the renderer
+    # silently treats verified research as unverified.
     ver_rows = memory.g.query(
-        "MATCH (r:Research)-[:VERIFIES]->(v:Verification) "
+        "MATCH (v:Verification)-[:VERIFIES]->(r:Research) "
         "WHERE r.id = $rid RETURN v",
         {"rid": research_id})
     if ver_rows:
