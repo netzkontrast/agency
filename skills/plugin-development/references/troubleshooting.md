@@ -54,15 +54,16 @@ the server failed to spawn.
 
 ### Likely causes (ranked)
 
-1. **`.venv` not bootstrapped.** First-run path: `bin/agency-mcp` calls
-   `bin/agency-install`, which creates `${CLAUDE_PLUGIN_ROOT}/.venv` and
-   `pip install -e .`. On a read-only mount or immutable image this fails
-   silently. Fix: manually create the venv outside the plugin tree, or
-   wait for Spec 039 (pipx install path).
-2. **System `python3` is missing or <3.11.** `bin/agency-install` exits
-   early; the wrapper falls back to `python3` on PATH, which won't have
-   `fastmcp` / `graphqlite`. `agency_doctor` reports
-   `deps.graphqlite=missing` → fix per the `next_steps`.
+1. **`agency-mcp` not on PATH.** Spec 055 collapsed install to pipx
+   only — `bin/agency-mcp` is a thin shim that exits 127 with a hint
+   when the pipx-installed console-script isn't resolvable. Fix:
+   `pipx install git+https://github.com/netzkontrast/agency@main` (or
+   `pipx install --editable /path/to/agency` for a local checkout).
+2. **System `python3` is missing or <3.11.** pipx itself uses
+   `python3` to build the venv. `agency_doctor` reports
+   `deps.graphqlite=missing` when the venv didn't build → fix by
+   reinstalling pipx against a 3.11+ interpreter
+   (`python3.11 -m pip install --user pipx`).
 3. **`PYTHONPATH` shadowed by the user project.** A user-project cwd
    containing its own `agency/` package shadowed the plugin's. Mitigation:
    `bin/agency-mcp:28` PREpends, not appends. If you still see this,

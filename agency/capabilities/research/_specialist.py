@@ -25,17 +25,25 @@ _DEFAULT_DOCS_ROOT = "docs"
 
 def _validate_research_id(memory, research_id: str) -> dict | None:
     """Return an error envelope if ``research_id`` doesn't resolve to a
-    ``Research`` node, else ``None``. Without this guard ``Memory.link``
-    silently accepts citations under a typo'd or stale id and the
-    citations vanish from any later verify / provenance walk."""
+    ``Research`` node, else ``None``. Checks BOTH existence AND label so
+    a caller passing an intent id / citation id by mistake doesn't
+    silently anchor citations at a non-Research endpoint (where
+    ``research.verify``'s ``MATCH (r:Research)-[:CITES]->…`` query
+    can't find them)."""
     if not research_id:
         return {"citations": 0,
                 "summary": "research_id required (call research.lead first)"}
-    node = memory.recall(research_id)
+    node = memory.g.get_node(research_id)
     if node is None:
         return {"citations": 0,
                 "summary": f"unknown research_id {research_id!r} "
                            f"(call research.lead to mint one)"}
+    labels = node.get("labels") or []
+    if "Research" not in labels:
+        return {"citations": 0,
+                "summary": f"research_id {research_id!r} resolves to "
+                           f"{labels!r}, not a Research node "
+                           f"(call research.lead to mint a real one)"}
     return None
 
 

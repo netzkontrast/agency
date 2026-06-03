@@ -33,11 +33,10 @@ agency/
 │   ├── help/                          # REGENERATED slash-command help
 │   └── …
 ├── commands/                          # REGENERATED slash-commands (replaces host default)
-│   └── agency-*.md
-├── bin/
-│   ├── agency-mcp                     # MCP entrypoint (bash wrapper, .venv + .py)
-│   ├── agency                         # CLI wrapper
-│   └── agency-install                 # venv bootstrap + agency.install regen
+│   └── help.md                        # one file — the canonical generator output
+├── bin/                                # thin PATH routers (Spec 055 — pipx-only)
+│   ├── agency-mcp                     # MCP entrypoint shim → pipx-installed agency-mcp
+│   └── agency                          # CLI shim → pipx-installed agency console-script
 ├── docs/                              # canon + roadmap + specs
 ├── Plan/                              # per-spec folders (000-029…)
 ├── tests/                             # python -m pytest -q
@@ -304,8 +303,8 @@ When to invoke this specialized agent.
 Scripts must be executable AND committed as executable:
 
 ```bash
-chmod +x bin/agency-mcp bin/agency bin/agency-install
-git update-index --chmod=+x bin/agency-mcp bin/agency bin/agency-install
+chmod +x bin/agency-mcp bin/agency
+git update-index --chmod=+x bin/agency-mcp bin/agency
 ```
 
 The second line matters — `chmod` alone reverts on `git stash`/`checkout`.

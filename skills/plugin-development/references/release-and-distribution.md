@@ -106,8 +106,9 @@ pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-This is what `bin/agency-install` runs on first MCP-server launch, scoped to
-the plugin tree's `.venv`.
+Spec 055 made pipx the canonical install. For one-shot user install:
+`pipx install git+https://github.com/netzkontrast/agency@main`. The
+local-dev `pip install -e ".[dev]"` flow above stays the contributor path.
 
 ## Pre-release checklist
 
@@ -116,7 +117,7 @@ Before tagging:
 - [ ] `python -m pytest -q` is green.
 - [ ] `python -m agency.cli execute --code 'return await call_tool("capability_plugin_lint_capability", {"name": "<cap>"})'` is `ok=True` for every changed capability.
 - [ ] `python -m agency.install` produced no diff (or the diff is the one you intend to ship).
-- [ ] `agency_doctor` is `ok=True` on a fresh venv (`rm -rf .venv && bin/agency-install`).
+- [ ] `agency_doctor` is `ok=True` on a fresh pipx install (`pipx uninstall agency; pipx install --editable .`).
 - [ ] `tests/test_search_isomorphism.py` passes — MCP/CLI parity is unbroken.
 - [ ] Spec or PR body references which spec the change implements (Spec 016, 023, 029, …).
 

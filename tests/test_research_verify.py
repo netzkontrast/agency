@@ -124,8 +124,16 @@ def test_verify_links_verifies_research(engine, iid):
     assert len(rows) >= 1
 
 
-def test_verify_empty_research_returns_pass(engine, iid):
-    """No citations → vacuously pass; ok=True with empty checks."""
+def test_verify_empty_research_fails(engine, iid):
+    """No citations → fail. Per PR #17 review: a Research that no
+    specialist phase ever cited cannot be certified — the deep-research
+    flow must refuse to publish a citation-free result. Replaces the
+    earlier vacuous-pass shape from before the review fix."""
     rid = _seed_research(engine, iid)
     r = _call(engine, iid, "verify", research_id=rid)
-    assert r["ok"]
+    assert not r["ok"], (
+        "empty Research must not pass verify; "
+        f"got checks={r['checks']}")
+    evidence_check = r["checks"]["evidence-supports-claim"]
+    assert evidence_check["status"] == "fail"
+    assert evidence_check["n_checked"] == 0

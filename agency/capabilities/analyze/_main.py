@@ -271,16 +271,29 @@ class AnalyzeCapability(CapabilityBase):
         if axes:
             allow = set(axes)
             # Filter by rule prefix → axis. Spec 048 added a `paths` axis
-            # whose findings use the `IP` two-letter prefix; check the
-            # two-letter prefix first, then fall back to the single
-            # letter for Q/S/P/A.
+            # whose findings use the `IP` two-letter prefix; Spec 050
+            # added external-analyzer wrappers whose findings use the
+            # source tool's own prefixes (ruff: E/F/W/I/C/N/UP/…;
+            # bandit: B). Check the two-letter prefix first, then fall
+            # back to the single letter.
             two_letter_to_axis = {"IP": "paths"}
+            # ruff codes — most map to quality; pyupgrade (UP) and
+            # imports (I) also fit quality (style + maintainability).
+            ruff_prefixes = {"E", "F", "W", "I", "C", "N", "UP", "D",
+                             "PL", "PT", "RUF", "SIM", "RET", "TRY"}
             one_letter_to_axis = {"Q": "quality", "S": "security",
-                                  "P": "performance", "A": "architecture"}
+                                  "P": "performance", "A": "architecture",
+                                  "B": "security"}     # bandit B-codes
 
             def _rule_axis(rule: str) -> str:
                 if rule[:2] in two_letter_to_axis:
                     return two_letter_to_axis[rule[:2]]
+                # ruff codes can be 1-3 letters (E, UP, RUF, etc.); check
+                # the longest prefix in the ruff set first so RUF doesn't
+                # collapse to R.
+                for n in (3, 2, 1):
+                    if rule[:n] in ruff_prefixes:
+                        return "quality"
                 return one_letter_to_axis.get(rule[:1], "")
 
             out = [f for f in out if _rule_axis(f["rule"]) in allow]

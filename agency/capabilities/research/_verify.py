@@ -26,8 +26,18 @@ def _citations_for_research(memory, research_id: str) -> list[dict]:
 
 def check_evidence_supports_claim(memory, research_id: str,
                                    embedder=None) -> dict:
-    """Each Citation's evidence_text must support its claim_supported."""
+    """Each Citation's evidence_text must support its claim_supported.
+
+    Zero-citation case: a Research with no citations cannot be
+    "supported by evidence" — return ``fail`` so a skipped specialist
+    fan-out doesn't certify a citation-free result. The deep-research
+    flow relies on this gate to refuse publishing an empty Research."""
     citations = _citations_for_research(memory, research_id)
+    if not citations:
+        return {"status": "fail",
+                "items": [{"reason": "no citations recorded — call "
+                                       "research.specialist first"}],
+                "n_checked": 0}
     failing: list[dict] = []
     for c in citations:
         claim = c.get("claim_supported", "")
