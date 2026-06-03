@@ -400,3 +400,97 @@ context per Spec 016 Hint #5.)
   engine's `agency/render/` — discovery via the loader is the registry.
 - Auto-stripping `<!-- AGENT: -->` blocks at the rendering boundary
   (Open Q-2 punts this to v2 if needed).
+
+## Followup — Phases 1+2+3+4+6 shipped (2026-06-03)
+
+**Verdict:** Mostly shipped. Phase 5 (verb migration to
+`ctx.template()`) remains as opt-in iteration work; Phase 7 (review
+loop) closed for this wave.
+
+### Done
+
+**Phase 1 — Bootstrap wire-up (the keystone)**
+- `Engine.__init__` calls `load_capability_folders` for every cap;
+  collisions between OntologyExtension dict + file form raise loudly.
+- `CapabilityContext.template(name)` substrate accessor.
+- `Capability.as_capability()` deepcopies the class-level ontology —
+  load-bearing fix (the class-level default `CapabilityBase.ontology
+  = OntologyExtension()` was shared across all subclasses; bootstrap
+  mutations leaked between caps).
+- `Ontology.materialise_templates` coerces `string.Template → str`
+  for the graph property (loader returns Template objects).
+
+**Phase 2 — Agent-instruction doctrine**
+- `docs/vision/CAPABILITY-AUTHORING.md` §"Templates instruct agents
+  (Spec 060 — the Bitwize pattern)" between Spec 019 and Spec 016
+  Hint #8 sections.
+- Documents frontmatter / `$variable` / `<!-- AGENT: -->` /
+  `<!-- BEGIN IF / END IF -->` / chain-next-tail conventions with a
+  human-view vs agent-view example.
+
+**Phase 3 — Per-capability roster (10 folder migrations + 13 files)**
+- Folder migrations: dogfood, reflect, gate, branch, workspace,
+  subagent, skill_generator, delegate, develop, plugin, jules
+  (jules absorbs Spec 028).
+- Templates shipped (7): dogfood-notes.md, reflection-note.md,
+  checklist.md, preamble-mode-a.md, preamble-mode-b.md,
+  research-report.md, explanation.md, analysis-summary.md,
+  improvement-plan.md.
+- Schemas shipped (15): reflection.json, gate-outcome.json,
+  branch-outcome.json, workspace.json, baseline.json,
+  subagent-review.json, delegation.json, reduction.json,
+  plugin-manifest.json, skill-md.json, command-md.json,
+  marketplace-entry.json, step-doc.json, jules-session.json,
+  jules-patch.json, jules-watch-event.json, citation.json,
+  verification.json, explanation.json.
+- `sys.modules` aliases at `agency/capabilities/__init__.py`
+  preserve legacy `agency.capabilities._jules_*` import paths +
+  make `monkeypatch.setattr` reach the canonical modules.
+
+**Phase 4 — Lint rule**
+- `plugin._check_template_folder` (seventh rule under Spec 016
+  scaffold). 5 tests cover good-cap pass, missing folder, non-kebab
+  stem, missing AGENT block, silent-on-no-templates back-compat.
+
+**Phase 5 — Verb migration (partial; opt-in completion)**
+- `dogfood.render` flipped to `ctx.template('dogfood-notes')` —
+  proves the pattern.
+- Remaining migrations (jules preambles assembly, document.explain,
+  analyze.run/improve report rendering) deferred as opt-in iteration
+  work: templates are discoverable + materialised; verbs flip when
+  iteration pressure justifies the change.
+
+**Phase 6 — Tests**
+- `tests/test_template_bootstrap_wireup.py` (4 tests).
+- `tests/test_template_folder_lint.py` (5 tests).
+
+**Phase 7 — Review loop**
+- 7 review-comment fix rounds processed: 35+ correctness fixes
+  spanning analyze (rule-axis registry, performance scope-tracking,
+  loop-shape coverage, sleep statement detection, while-True nested
+  exits, S001 compile, S003/S004 alias tracking, lang honoring,
+  paths IP-mapping, MI rank monotonicity, dict-shape schemas),
+  research (label-check guards, query validation, empty-citation
+  fail, doc-corpus snippet anchoring, k forwarding, verify chain
+  edge direction), document (provenance SUPERSEDED_BY walk,
+  artefact invocation union, OBSERVED_DURING parity on explain,
+  research-report renderer), reflect (zero-score filter), delegate
+  (shlex.quote injection guard), intent (parent_intent_id label
+  check), and several substrate clean-ups (E2E timeout, BGE
+  fallback breadth, dogfood oversize trim, bin shim PATH iteration,
+  dogfood.export role tag). All round-7 P2 findings resolved.
+
+### Live measurements
+- `pytest --tb=no -m "not e2e"`: **663 passed + 1 skipped + 4 deselected** in 256s.
+- `scripts/check-drift`: **NO DRIFT DETECTED**.
+- `plugin.lint_capability` over the live registry: only minor
+  `token_budget` warnings (briefs slightly over 20 cl100k tokens) —
+  not blocking.
+
+### Cluster-coherence (Spec 047)
+- C08 (Memory) — Schema + Template node materialisation closes the
+  generate/validate loop CORE.md:66 promised.
+- C12 (Capability Authoring) — agent-instruction doctrine + lint
+  rule extend the Spec 016 scaffold; 7 rule families now.
+- C13 (Plugin/MCP Authoring) — the per-cap `templates/` + `schemas/`
+  folder pattern is the standardised artefact-contract surface.
