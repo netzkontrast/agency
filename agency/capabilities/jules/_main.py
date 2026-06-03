@@ -648,7 +648,7 @@ class JulesCapability(CapabilityBase):
         Falls back to ``sourceContext.source`` for owner/repo when omitted.
         """
         from .api import jules_get_full
-        from . import _jules_patch
+        from . import patch as _jules_patch
         sess = jules_get_full(session)
         outputs = sess.get("outputs", [])
         if not owner or not repo:
