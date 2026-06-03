@@ -63,6 +63,23 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    `## Followup — Implementation Status (…)` section. No drift between
    the two; `TODO.md` rolls up, the Followup section grounds.
 
+7. **Regression testing lives in CI, not locally.** Per Spec 053 + user
+   directive (2026-06-03):
+   - Locally, run **only** focused slices (`scripts/test-cap <marker>`,
+     `scripts/test-changed`) — typically < 30 seconds. Full-suite
+     wall-clock is too expensive in a tight TDD loop.
+   - The **full regression** (`pytest -n auto -m "not e2e"` + E2E on
+     tag) runs in GitHub Actions on every PR + push to `main`. The
+     workflow is `.github/workflows/test.yml`.
+   - When pushing a feature branch, **always subscribe to PR activity**
+     via `subscribe_pr_activity` so CI failures and review comments
+     arrive as session notifications (no polling, no manual recheck).
+     The subscription is the default, not opt-in.
+   - If CI is red, the watching session investigates + fixes
+     autonomously (per the GitHub Integration §"PR Activity Events"
+     handling rules above). Push fixes; let CI re-run; reply only
+     when the loop converges or a question genuinely needs the user.
+
 6. **Address drift before committing.** Spec 054 ships TWO guardrails
    for keeping the open-set substrate (capabilities, skills, ontology
    enums, extras) in sync across the ~9 places code/docs depend on
