@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "agency": {
-      "command": "agency",
+      "command": "agency-mcp",
       "args": [],
       "env": {
         "AGENCY_DB": "${CLAUDE_PROJECT_DIR}/.agency/session.db",
