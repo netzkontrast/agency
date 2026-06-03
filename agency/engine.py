@@ -119,10 +119,33 @@ class Engine:
         # First-wins: discover()'d caps take precedence over re-supplied
         # extras with the same name.
         seen_names: set[str] = set()
+        from ._capability_loader import load_capability_folders
         for cap in list(discover()) + list(extra_capabilities or []):
             if cap.name in seen_names:
                 continue
             seen_names.add(cap.name)
+            # Spec 060 Phase 1: merge file-discovered templates +
+            # schemas INTO cap.ontology BEFORE the engine ontology
+            # extends. Each entry is additive; a collision between an
+            # OntologyExtension dict entry and a same-named file is
+            # a doctrinal violation (force clean migrations).
+            file_templates, file_schemas = load_capability_folders(cap)
+            for tname, body in file_templates.items():
+                if tname in cap.ontology.templates:
+                    raise ValueError(
+                        f"template {tname!r} declared both in "
+                        f"{cap.name}'s OntologyExtension and as a file "
+                        f"under {cap.name}/templates/{tname}.* — "
+                        f"pick one source")
+                cap.ontology.templates[tname] = body
+            for sname, schema in file_schemas.items():
+                if sname in cap.ontology.schemas:
+                    raise ValueError(
+                        f"schema {sname!r} declared both in "
+                        f"{cap.name}'s OntologyExtension and as a file "
+                        f"under {cap.name}/schemas/{sname}.json — "
+                        f"pick one source")
+                cap.ontology.schemas[sname] = schema
             self.registry.register(cap)
             self.ontology.extend(cap.ontology, cap.name)
         # the Registry needs the effective ontology to build a CapabilityContext

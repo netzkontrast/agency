@@ -28,6 +28,13 @@ class Capability:
     # the capability's OWN ontology fragment (node types, edges, enums, skills,
     # template-schemas) — merged onto the core by the engine. Empty = core only.
     ontology: OntologyExtension = field(default_factory=OntologyExtension)
+    # Spec 060 — file-based template/schema declarations. The engine's
+    # bootstrap (engine.py) reads these to call `load_capability_folders`
+    # and merges the discovered entries into `ontology`. `None` means
+    # the capability ships no file-based extension (the default —
+    # back-compat with caps that pre-date Spec 032/060).
+    render_templates: Optional["RenderTemplates"] = None
+    artefact_schemas: Optional["ArtefactSchemas"] = None
 
     def role(self, verb: str) -> str:
         return self.verbs[verb]["role"]
@@ -82,6 +89,29 @@ class CapabilityContext:
 
     def find(self, label: str, as_of: Optional[int] = None):
         return self.memory.find(label, as_of=as_of)
+
+    def template(self, name: str) -> "Template":
+        """Spec 060 — load a template by stem from the engine's merged
+        ontology. Engine bootstrap discovers per-capability `templates/`
+        folders + merges them with declared `OntologyExtension.templates`
+        entries; this accessor is the read side.
+
+        Inputs: name (str — the template's kebab-case file stem).
+        Returns: `string.Template` body; the agent applies `.substitute(
+                 **fields)` for rendering, OR reads `.template` directly
+                 for the verbatim body incl. `<!-- AGENT: -->` blocks
+                 (Spec 060 agent-instruction doctrine).
+        Raises: KeyError when no template with that name is registered.
+        chain_next: caller renders OR forwards the body to a verb that
+                    persists the resulting Artefact.
+        """
+        templates = getattr(self.ontology, "templates", {}) or {}
+        if name not in templates:
+            raise KeyError(
+                f"template {name!r} not registered in ontology — "
+                f"declare it via OntologyExtension.templates or ship "
+                f"a file at <cap>/templates/{name}.md (Spec 060)")
+        return templates[name]
 
 
 def verb(role: str, inject: Optional[list] = None,
@@ -237,7 +267,10 @@ class CapabilityBase:
                 continue
             public = meta.get("name") or mname
             verbs[public] = _wrap_method(cls, mname, member, meta)
-        return Capability(name=cls.name, home=cls.home, verbs=verbs, ontology=cls.ontology)
+        return Capability(
+            name=cls.name, home=cls.home, verbs=verbs, ontology=cls.ontology,
+            render_templates=cls.render_templates,
+            artefact_schemas=cls.artefact_schemas)
 
 
 class Registry:

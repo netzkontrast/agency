@@ -363,6 +363,142 @@ When a verb returns a `ToolResult`:
 
 ---
 
+## Templates instruct agents (Spec 060 — the Bitwize pattern)
+
+A capability's `templates/` folder ships markdown skeletons that
+verbs fill in. Today's pattern is "string.Template body + `$variable`
+substitutions" — load-and-render. Spec 060 lifts the template into a
+**dual-purpose artefact**: it renders the human-facing output AND
+carries inline instructions for the agent reading the template, so
+the agent knows what to do BEFORE/DURING/AFTER rendering.
+
+The convention has four parts.
+
+### 1. Frontmatter (when fields are structured)
+
+YAML frontmatter at the top declares structured fields the verb
+substitutes from provenance state. Same shape as Claude Code skills:
+
+```markdown
+---
+title: "$title"
+status: "$status"
+intent_id: "$intent_id"
+---
+```
+
+### 2. Body with `$variable` substitutions
+
+The verb calls `tpl.substitute(title=..., status=..., ...)` —
+`string.Template` is brace-safe for bodies that contain `{}`.
+Identifiers follow Python identifier rules.
+
+### 3. Inline `<!-- AGENT: ... -->` instruction blocks
+
+HTML comments invisible to humans reading the rendered markdown,
+visible to agents reading the template body. Tell the agent what
+to do at the relevant decision point:
+
+```markdown
+## Citations
+
+$citations_table
+
+<!-- AGENT: VERIFY each citation URL resolves. Flag broken URLs in
+the YAML frontmatter under `verification.broken`. -->
+```
+
+The instructions are imperative ("VERIFY", "REPLACE", "EMIT") and
+name the exact downstream action.
+
+### 4. Conditional sections (`<!-- BEGIN IF / END IF -->`)
+
+Sections the agent emits ONLY when a flag is truthy. The engine
+doesn't preprocess these (v1 — Spec 060 OQ-4); the agent's logic
+walks the markers like any HTML comment:
+
+```markdown
+<!-- BEGIN IF has_verification -->
+## Verification
+
+$verification_block
+<!-- END IF -->
+```
+
+### 5. Chain-next instruction at the tail
+
+Pairs with Hint #7's verb-level `chain_next:` docstring marker but
+at template scope — what to do AFTER the template renders:
+
+```markdown
+<!-- AGENT: After rendering, persist the output via
+document.render(scope='research-report', for_intent_id=...) and
+link the written Artefact PRODUCES the calling Invocation. -->
+```
+
+### Example: human-view vs agent-view
+
+The SAME template, rendered with `tpl.substitute(...)`:
+
+```markdown
+# Research Report: How does X work?
+
+## Citations
+
+| Source | Confidence |
+|---|---|
+| github.com/x/y | 0.92 |
+```
+
+…vs agents reading the template body via `ctx.template(name)`:
+
+```markdown
+# Research Report: $question
+
+<!-- AGENT: This template renders a $artefact_kind. Fill the
+frontmatter from the Research node's provenance. -->
+
+## Citations
+
+$citations_table
+
+<!-- AGENT: VERIFY each citation URL resolves. Flag broken ones. -->
+
+<!-- BEGIN IF has_verification -->
+## Verification
+
+$verification_block
+<!-- END IF -->
+```
+
+Renderers strip the `<!-- AGENT: -->` blocks for human-facing output;
+agents reading via `ctx.template(name).template` see the body
+verbatim and act on the instructions.
+
+### Where templates live
+
+| Scope | Path | Owner | When |
+|---|---|---|---|
+| Engine | `agency/render/*.md` | engine | Cross-capability shapes (skill MD, command MD, capability skill) |
+| Capability | `agency/capabilities/<cap>/templates/*.md` | the cap | The cap's artefact shapes (research-report, dogfood-notes, …) |
+
+Discovery is automatic — `_capability_loader.load_capability_folders`
+finds them at engine bootstrap via the `render_templates =
+RenderTemplates(folder=Path(__file__).parent / "templates")` declaration
+on the capability class. The merged set lives in `engine.ontology.
+templates` and is materialised as `Template` nodes in the graph.
+
+### Lint guard (Spec 060 §Phase 4)
+
+`plugin._check_template_folder` fires when:
+- A cap declares `render_templates` but the folder doesn't exist.
+- A template filename isn't kebab-case.
+- A template's content lacks any `<!-- AGENT: ... -->` block (the
+  doctrine bar — templates without agent instructions are pure
+  rendering, which belongs in `agency/render/` engine-scope).
+
+---
+
 ## Universal `input-required` convention (Spec 016 Hint #8)
 
 Verbs that can block on human/agent input return:

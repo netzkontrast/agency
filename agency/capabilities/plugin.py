@@ -25,6 +25,10 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
+
+# Spec 060 — kebab-case rule (mirrors _capability_loader._KEBAB_RE).
+_KEBAB_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 from ..capability import CapabilityBase, verb
 from ..capability import SkillDoc as _SkillDoc
@@ -400,6 +404,68 @@ def _check_wire_shape(cap):
     return out
 
 
+_AGENT_INSTRUCTION_RE = re.compile(r"<!--\s*AGENT\s*:", re.IGNORECASE)
+
+
+def _check_template_folder(cap):
+    """Spec 060 — templates must instruct agents.
+
+    When a capability declares `render_templates = RenderTemplates(
+    folder=...)`, three invariants apply:
+      1. The folder must exist on disk.
+      2. Filename stems must be kebab-case (already enforced by the
+         loader; this rule pre-flags it at lint time).
+      3. Every template file's body must carry at least one
+         ``<!-- AGENT: ... -->`` instruction block — the doctrine bar
+         that separates per-cap templates (with agent instructions)
+         from engine-owned templates in `agency/render/` (pure
+         rendering).
+
+    Returns lint findings (kind='template_folder'). Empty when the cap
+    has no `render_templates` declaration (the default — back-compat).
+    """
+    rt = getattr(cap, "render_templates", None)
+    if rt is None:
+        return []
+    out = []
+    folder = Path(rt.folder)
+    if not folder.is_dir():
+        out.append({
+            "kind": "template_folder",
+            "verb": "<capability>",
+            "msg": f"render_templates folder does not exist: {folder}",
+            "fix": "create the folder and add at least one template "
+                   "with an `<!-- AGENT: ... -->` block",
+        })
+        return out
+    for entry in sorted(folder.iterdir()):
+        if not entry.is_file():
+            continue
+        stem = entry.stem
+        if not _KEBAB_RE.match(stem):
+            out.append({
+                "kind": "template_folder",
+                "verb": entry.name,
+                "msg": f"template filename stem must be kebab-case: {entry.name}",
+                "fix": f"rename {entry.name} so the stem matches "
+                       f"^[a-z0-9]+(-[a-z0-9]+)*$",
+            })
+        try:
+            body = entry.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if not _AGENT_INSTRUCTION_RE.search(body):
+            out.append({
+                "kind": "template_folder",
+                "verb": entry.name,
+                "msg": f"template {entry.name} has no `<!-- AGENT: ... -->` "
+                       f"instruction block (Spec 060 doctrine)",
+                "fix": "add at least one `<!-- AGENT: <imperative> -->` "
+                       "block instructing the reader what to do",
+            })
+    return out
+
+
 def _check_token_budget(cap, max_per_verb=20):
     """Spec 023 budget adapted: brief slice ≤ max_per_verb cl100k tokens
     per verb. Skips silently if tiktoken missing (non-dev install)."""
@@ -440,6 +506,7 @@ def lint_capability(cap) -> dict:
         + _check_consumer_contract(cap)
         + _check_token_budget(cap)
         + _check_wire_shape(cap)
+        + _check_template_folder(cap)
     )
     if mode == "block":
         return {"ok": not all_findings, "violations": all_findings,
