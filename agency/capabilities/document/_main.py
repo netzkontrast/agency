@@ -33,6 +33,7 @@ _REPO_BRIEFING_SKILL = {
 
 _SUPPORTED_SCOPES = frozenset({
     "install-artefacts", "reflections", "provenance", "capability-catalogue",
+    "research-report",
 })
 
 
@@ -82,8 +83,10 @@ class DocumentCapability(CapabilityBase):
             content, node_count = _render.render_reflections(memory, for_intent_id)
         elif scope == "provenance":
             content, node_count = _render.render_provenance(memory, for_intent_id)
-        else:  # capability-catalogue
+        elif scope == "capability-catalogue":
             content, node_count = _render.render_capability_catalogue(self.ctx.registry)
+        else:  # research-report — Spec 044 §"Render"
+            content, node_count = _render.render_research_report(memory, for_intent_id)
         return {
             "content": content,
             "tokens": _explain._count_tokens(content),

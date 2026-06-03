@@ -54,51 +54,56 @@ def _imports(tree: ast.AST, current_module: str,
       - ``from . import X``     → siblings of current_module
       - ``from .pkg import X``  → pkg + each alias as a submodule
       - ``from .. import X``    → walks up one package level
+
     Absolute imports inside the scanned tree (e.g. ``from agency.foo
-    import bar`` when ``root_pkg='agency'``) are also captured —
-    important for codebases that use absolute intra-package imports.
-    Pure-external absolutes (``import os``) fall through and are
-    filtered out by the SCC walker when the module isn't in the graph.
+    import bar``) are emitted in BOTH forms — unstripped (``agency.foo``,
+    matching graph keys when the scan root is the package's parent) AND
+    stripped (``foo``, matching keys when the scan root is the package
+    itself). The SCC walker filters edges to in-graph modules so
+    emitting both candidates is cheap and correct across both layouts.
+    Pure-external absolutes (``import os``) fall through and are filtered
+    out by the walker.
     """
     out: set[str] = set()
     pkg_parts = current_module.split(".") if current_module else []
     # The package containing this module = drop the trailing module name.
     parent_pkg = pkg_parts[:-1]
+
+    def _emit_absolute(mod: str, alias_names: list[str]) -> None:
+        if not mod:
+            return
+        out.add(mod)
+        for n in alias_names:
+            if n != "*":
+                out.add(f"{mod}.{n}")
+        # Also emit stripped variants (for the case where the scan root
+        # IS the package — e.g. root='agency' makes graph keys 'foo'
+        # rather than 'agency.foo').
+        if root_pkg and mod.startswith(root_pkg + "."):
+            stripped = mod[len(root_pkg) + 1:]
+            out.add(stripped)
+            for n in alias_names:
+                if n != "*":
+                    out.add(f"{stripped}.{n}")
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            # `import pkg.sub` → record the dotted name (filtered by SCC
-            # walker when not in mod_to_path).
+            # `import pkg.sub` → emit both unstripped + stripped (when
+            # root_pkg-prefixed) so the walker matches against either
+            # graph-key naming scheme.
             for alias in node.names:
                 name = alias.name
-                if root_pkg and name == root_pkg:
-                    continue        # importing the package alone doesn't form a cycle
+                out.add(name)
                 if root_pkg and name.startswith(root_pkg + "."):
                     out.add(name[len(root_pkg) + 1:])
-                else:
-                    out.add(name)
             continue
         if not isinstance(node, ast.ImportFrom):
             continue
         level = node.level or 0
         if level == 0:
-            # Absolute import. If the module is inside the scanned tree
-            # (matches root_pkg), strip the package prefix so it lines up
-            # with the relative-import naming used elsewhere.
+            # Absolute import — emit both unstripped + stripped variants.
             mod = node.module or ""
-            if not mod:
-                continue
-            in_tree = root_pkg and (mod == root_pkg or mod.startswith(root_pkg + "."))
-            if in_tree:
-                stripped = "" if mod == root_pkg else mod[len(root_pkg) + 1:]
-                if stripped:
-                    out.add(stripped)
-                for alias in node.names:
-                    if alias.name != "*":
-                        suffix = (stripped + "." + alias.name) if stripped else alias.name
-                        out.add(suffix)
-            else:
-                # External absolute import — not part of the cycle graph.
-                out.add(mod)
+            _emit_absolute(mod, [a.name for a in node.names])
             continue
         # `level - 1` levels above parent_pkg gives the base for the
         # relative reference. `from . import X` (level=1) means siblings

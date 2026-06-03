@@ -172,3 +172,69 @@ def render_capability_catalogue(registry) -> tuple[str, int]:
     parts.append(italic_footer(
         f"{len(cap_names)} capabilities · {total_verbs} verbs"))
     return "".join(parts), len(cap_names)
+
+
+def render_research_report(memory, research_id: str) -> tuple[str, int]:
+    """``research-report`` scope — render a Research record + its
+    citations as the deep-research publication artefact.
+
+    Schema: H1 "Research: <question>" with the Research node's metadata
+    (status, verdict, ok), H2 "Citations" with one bullet per Citation
+    (source kind, source URL/path, evidence snippet, confidence), and
+    H2 "Verification" reporting check statuses if a Verification node
+    is linked.
+
+    Spec 044 §"Render" — this is the documented publish path for the
+    deep-research flow. Empty ``research_id`` returns a friendly error
+    block (never raises).
+    """
+    if not research_id:
+        return (h1("Research report") +
+                "\n_no research_id supplied — call "
+                "`research.lead` then pass its id here._\n"), 0
+    rows = memory.g.query(
+        "MATCH (r:Research) WHERE r.id = $rid RETURN r",
+        {"rid": research_id})
+    if not rows:
+        return (h1("Research report") +
+                f"\n_no Research record found for `{research_id}`._\n"), 0
+    r = rows[0]["r"]["properties"]
+    parts = [h1(f"Research: {r.get('question', '(no question)')}")]
+    meta = (f"_status: {r.get('status', '?')}_ · "
+            f"_verdict: {r.get('verdict', '?')}_ · "
+            f"_ok: {r.get('ok', '?')}_\n\n")
+    parts.append(meta)
+    # Citations
+    cit_rows = memory.g.query(
+        "MATCH (r:Research)-[:CITES]->(c:Citation) "
+        "WHERE r.id = $rid RETURN c",
+        {"rid": research_id})
+    citations = [row["c"]["properties"] for row in cit_rows]
+    parts.append(h2("Citations"))
+    if citations:
+        for c in citations:
+            kind = c.get("source_kind", "?")
+            src = c.get("source_url_or_path", "")
+            ev = truncate(c.get("evidence_text", ""), 160)
+            conf = c.get("confidence", "?")
+            parts.append(
+                f"- **{kind}** `{src}` (conf={conf})\n"
+                f"  > {ev}\n"
+            )
+    else:
+        parts.append("\n_no citations recorded yet._\n")
+    # Verification (if present)
+    ver_rows = memory.g.query(
+        "MATCH (r:Research)-[:VERIFIES]->(v:Verification) "
+        "WHERE r.id = $rid RETURN v",
+        {"rid": research_id})
+    if ver_rows:
+        parts.append(h2("Verification"))
+        for row in ver_rows:
+            v = row["v"]["properties"]
+            parts.append(
+                f"- **{v.get('check', '?')}**: "
+                f"`{v.get('status', '?')}` "
+                f"(n_checked={v.get('n_checked', '?')})\n")
+    parts.append(italic_footer(f"research_id: {research_id}"))
+    return "".join(parts), 1 + len(citations) + len(ver_rows)
