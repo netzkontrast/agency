@@ -1,7 +1,7 @@
 ---
 spec_id: "052"
 slug: research-web-httpx
-status: draft
+status: complete
 last_updated: 2026-06-03
 owner: "@agency"
 depends_on: [044]
@@ -150,5 +150,57 @@ already pinned 0.2 as the "URL unreachable" tier.
 
 ## Followup — Implementation Status (2026-06-03)
 
-**Verdict:** Not started — drafted from deps-extension push +
-Spec 044 v1 scope-cut.
+**Verdict:** Shipped — DuckDuckGoClient as the zero-config default
+WebSearchClient + web-reachability check on verify. Spec 044 v1
+scope-cut (web specialist no-driver) is closed; Spec 044's third
+verifier check (web-reachability) is now live. 13 spec tests green;
+live wire dogfood confirms `research.verify` reports all THREE
+checks.
+
+### Done
+- `agency/capabilities/research/_web.py::DuckDuckGoClient`
+  (name='duckduckgo'). httpx.Client GET to api.duckduckgo.com/?q=...&
+  format=json&no_html=1&skip_disambig=1; parses AbstractText +
+  RelatedTopics; returns up to k `{url, title, text}` dicts.
+  Network failures degrade to empty list (no exception crosses the
+  boundary).
+- `resolve_web_search()` — Spec 045-pattern env resolution
+  (AGENCY_WEB_BACKEND, default 'duckduckgo'; unknown name → silent
+  fallback to DuckDuckGo). KNOWN_BACKENDS frozenset for diagnostic
+  reporting.
+- `agency/engine.py::Engine.__init__` defaults `web_search=
+  resolve_web_search()` when not explicitly passed. Tests stub via
+  `Engine(web_search=...)`.
+- `agency/capabilities/research/_verify.py::check_web_reachability`
+  — HEAD each web Citation's URL with 3s timeout, follow_redirects=True;
+  pass on 2xx/3xx, fail on 4xx/5xx/timeout/network-error. Vacuous
+  pass when no web Citations exist. httpx ImportError → skipped with
+  note (graceful degrade).
+- `run_all()` now returns three checks: evidence-supports-claim +
+  contradiction-cluster + web-reachability.
+
+### Tests (tests/test_research_web.py — 13)
+- DuckDuckGoClient: parses RelatedTopics + AbstractText (mocked
+  httpx response); empty list on failure; k-limit honoured.
+- resolve_web_search: defaults to DuckDuckGo; explicit 'duckduckgo'
+  honoured; unknown backend falls back silently.
+- Engine default: web_search=duckduckgo when no kwarg; kwarg
+  overrides.
+- Reachability check: 2xx → pass; 4xx → fail; network error → fail;
+  no web Citations → vacuous pass.
+- Verify payload now reports all 3 checks (regression-pinned).
+
+### Scope-cut for v1 / v2 follow-ups
+- v1 ONLY ships DuckDuckGo. SerpAPI / Tavily backends slot in next
+  to DuckDuckGoClient (KNOWN_BACKENDS already opens the path).
+- v1 reachability check doesn't DEMOTE Citation.confidence (Spec 052
+  line 105-109 OQ). Deferred — needs Memory.supersede pattern review.
+- v1 doesn't pin reachability results to the Verification node as
+  separate properties; the report payload carries them.
+
+### Cluster-coherence (Spec 047)
+- C10 Research (closes v1 scope-cut).
+- C04 Quality (the third decidable verifier check).
+- The DuckDuckGo boundary mirrors Spec 045 BGE embedder boundary —
+  same pattern across two axes validates the agency-canonical
+  optional-dep handling.

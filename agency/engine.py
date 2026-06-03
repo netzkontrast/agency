@@ -97,10 +97,13 @@ class Engine:
             from .capabilities._embed import resolve_embedder
             embedder = resolve_embedder()
         self.embedder = embedder
-        # Spec 044 — web-search boundary. v1 default is None (the `web`
-        # specialist returns an error-finding when called without an
-        # injected backend). Tests stub. A future Spec wraps the host's
-        # MCP `WebSearch` tool here.
+        # Spec 044 + Spec 052 — web-search boundary. v1 default is the
+        # DuckDuckGo zero-config client (resolve_web_search()); env
+        # AGENCY_WEB_BACKEND can pick alternatives. Tests stub via
+        # Engine(web_search=...).
+        if web_search is None:
+            from .capabilities.research._web import resolve_web_search
+            web_search = resolve_web_search()
         self.web_search = web_search
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state

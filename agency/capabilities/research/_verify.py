@@ -91,17 +91,57 @@ def check_contradiction_cluster(memory, research_id: str,
     return {"status": "pass", "items": []}
 
 
+_REACHABILITY_TIMEOUT = 3.0   # Spec 052 §"web-reachability check"
+
+
+def check_web_reachability(memory, research_id: str) -> dict:
+    """Spec 052 — HEAD each web Citation's URL; pass on 2xx/3xx, fail
+    on 4xx/5xx/timeout/network-error. Vacuous pass when no web
+    Citations exist (the check is web-only)."""
+    citations = _citations_for_research(memory, research_id)
+    web = [c for c in citations if c.get("source_kind") == "web"]
+    if not web:
+        return {"status": "pass", "items": []}
+    failing: list[dict] = []
+    try:
+        import httpx
+    except ImportError:
+        return {"status": "pass", "items": [],
+                "note": "httpx unavailable; reachability check skipped"}
+    with httpx.Client(timeout=_REACHABILITY_TIMEOUT, follow_redirects=True) as client:
+        for c in web:
+            url = c.get("source_url_or_path", "") or ""
+            if not url:
+                failing.append({"citation_id": c.get("id"),
+                                  "url": "", "reason": "empty-url"})
+                continue
+            try:
+                resp = client.head(url)
+                if not (200 <= resp.status_code < 400):
+                    failing.append({"citation_id": c.get("id"),
+                                      "url": url,
+                                      "status_code": resp.status_code})
+            except Exception as exc:
+                failing.append({"citation_id": c.get("id"),
+                                  "url": url, "error": str(exc)[:80]})
+    if failing:
+        return {"status": "fail", "items": failing,
+                "n_checked": len(web)}
+    return {"status": "pass", "items": [], "n_checked": len(web)}
+
+
 def run_all(memory, research_id: str, embedder=None) -> dict:
     """Run the v1 verifier checks; combine into the canonical payload.
 
-    Returns ``{ok, checks: {evidence-supports-claim, contradiction-cluster}}``.
-    ``ok`` is False if ANY check has status='fail'.
+    Returns ``{ok, checks: {evidence-supports-claim, contradiction-cluster,
+    web-reachability}}``. ``ok`` is False if ANY check has status='fail'.
     """
     checks = {
         "evidence-supports-claim": check_evidence_supports_claim(
             memory, research_id, embedder),
         "contradiction-cluster": check_contradiction_cluster(
             memory, research_id, embedder),
+        "web-reachability": check_web_reachability(memory, research_id),
     }
     ok = all(c["status"] != "fail" for c in checks.values())
     return {"ok": ok, "checks": checks}
