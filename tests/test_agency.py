@@ -206,10 +206,6 @@ def test_jules_api_phase2_endpoint_wrappers():
     Each function's HTTP shape is mocked via `_request`."""
     import datetime as _dt
     from unittest.mock import patch as _patch
-    # Spec 060: canonical module is `agency.capabilities.jules.api`;
-    # `agency.capabilities._jules_api` is a back-compat shim. Patch
-    # against the canonical so the `_request` rebind reaches the
-    # internal callers (jules_get_full / jules_status_all / …).
     from agency.capabilities.jules import api as J
 
     # jules_get_full returns the raw response (not the trimmed shape).
@@ -1452,7 +1448,7 @@ def test_branch_assesses_and_finishes():
     `assess` (transform) reads the branch state and recommends an action; `finish`
     (effect) executes the chosen action and records the outcome as provenance. The
     VCS boundary is injected — no real git runs."""
-    from agency.capabilities.branch import _recommend
+    from agency.capabilities.branch._main import _recommend
     # the recommendation is judgment-as-code over the branch state
     assert _recommend({"dirty": True, "ahead": 3}) == "keep"        # uncommitted -> not yet
     assert _recommend({"dirty": False, "ahead": 0}) == "discard"    # nothing to land

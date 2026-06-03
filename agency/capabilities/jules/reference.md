@@ -154,7 +154,7 @@ Base `https://jules.googleapis.com/v1alpha`, header `x-goog-api-key`. Three hier
 **Critical: `COMPLETED` is NOT a single terminal state.** The same value
 overloads four distinct situations distinguishable only via the activity
 stream — see `AGENCY_PROTOCOL.md §1` for the routing rules. The watcher's
-`_classify` (`agency/capabilities/_jules_watch.py`) discriminates them via
+`_classify` (`agency/capabilities/jules/watch.py`) discriminates them via
 `plan_unapproved` + `branch_on_remote` + `patch_summary`. From a one-shot
 orchestrator (no long-lived watcher), call `jules.activities(sid)` after
 any COMPLETED read to determine which case actually applies.

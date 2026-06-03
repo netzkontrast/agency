@@ -1,5 +1,5 @@
 import pytest
-from agency.capabilities._jules_patch import parse_unidiff, build_recovery_plan
+from agency.capabilities.jules.patch import parse_unidiff, build_recovery_plan
 
 def test_parse_add_only():
     with open("tests/fixtures/jules/add_only.patch") as f:

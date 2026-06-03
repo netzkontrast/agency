@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from agency.capabilities._jules_watch import INSTRUCTIONS, _classify, Watcher
+from agency.capabilities.jules.watch import INSTRUCTIONS, _classify, Watcher
 
 def test_instructions_complete():
     assert len(INSTRUCTIONS) == 9

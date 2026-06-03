@@ -10,7 +10,7 @@ import tempfile
 
 import pytest
 
-from agency.capabilities import _jules_watch
+from agency.capabilities.jules import watch as _jules_watch
 from agency.engine import Engine
 
 
@@ -156,7 +156,8 @@ def test_apply_patch_returns_planner_output(engine, iid, monkeypatch):
     """The verb is a pure planner — returns ordered {tool, args} ops for the
     agent to execute via GitHub MCP. Spec 012 REVIEW must-fix #1: the verb
     does NOT execute cross-MCP ops itself."""
-    from agency.capabilities import _jules_api, _jules_patch
+    from agency.capabilities.jules import api as _jules_api
+    from agency.capabilities.jules import patch as _jules_patch
 
     fake_session = {
         "id": "s-apply",
@@ -187,7 +188,7 @@ def test_apply_patch_returns_planner_output(engine, iid, monkeypatch):
 
 def test_apply_patch_respects_explicit_owner_repo(engine, iid, monkeypatch):
     """When the caller plumbs owner/repo, the parser fallback is skipped."""
-    from agency.capabilities import _jules_api
+    from agency.capabilities.jules import api as _jules_api
 
     monkeypatch.setattr(_jules_api, "jules_get_full", lambda sid: {
         "id": "s-explicit", "outputs": [],

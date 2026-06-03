@@ -170,8 +170,7 @@ class Engine:
                         f"add `skill_doc = SkillDoc(description='Use when …', "
                         f"overview='…', triggers=[…], canonical_example='…')` to "
                         f"the capability class per Spec 031 §A. See "
-                        f"agency/capabilities/reflect.py for the reference shape "
-                        f"(once Task 4.1 lands)."
+                        f"agency/capabilities/reflect/_main.py for the reference shape."
                     )
         # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
         # injected per-call by the Registry itself, and the registry is on ctx.
@@ -236,13 +235,13 @@ class Engine:
         """Build the FastMCP lifespan that starts the Jules watcher on enter
         and stops it cleanly on exit. Closes over `self` so the lifespan
         callable (which receives the FastMCP server, not the engine) can
-        reach engine state. Idempotent — `_jules_watch.start` only attaches
+        reach engine state. Idempotent — `jules.watch.start` only attaches
         a watcher if one isn't already present."""
         engine = self
 
         @asynccontextmanager
         async def lifespan(server):
-            from agency.capabilities import _jules_watch
+            from agency.capabilities.jules import watch as _jules_watch
             _jules_watch.start(engine)              # attaches engine._jules_watcher + starts poll loop
             try:
                 yield {}                             # lifespan state available via Context
