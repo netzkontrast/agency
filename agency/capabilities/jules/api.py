@@ -164,7 +164,7 @@ def jules_create(prompt: str, source: str, starting_branch: str,
     # a preset is named. Empty preset_name = no prepend (caller assembled
     # their own prompt).
     if protocol_preset:
-        from . import _jules_preambles
+        from . import preambles as _jules_preambles
         prompt = _jules_preambles.assemble(
             source=source, starting_branch=starting_branch,
             prompt=prompt, preset_name=protocol_preset,
