@@ -23,10 +23,29 @@ _DEFAULT_SEARCH_ROOT = "agency"
 _DEFAULT_DOCS_ROOT = "docs"
 
 
+def _validate_research_id(memory, research_id: str) -> dict | None:
+    """Return an error envelope if ``research_id`` doesn't resolve to a
+    ``Research`` node, else ``None``. Without this guard ``Memory.link``
+    silently accepts citations under a typo'd or stale id and the
+    citations vanish from any later verify / provenance walk."""
+    if not research_id:
+        return {"citations": 0,
+                "summary": "research_id required (call research.lead first)"}
+    node = memory.recall(research_id)
+    if node is None:
+        return {"citations": 0,
+                "summary": f"unknown research_id {research_id!r} "
+                           f"(call research.lead to mint one)"}
+    return None
+
+
 def run_codebase(memory, ctx, research_id: str, query: str,
                  search_root: str = _DEFAULT_SEARCH_ROOT,
                  max_hits: int = 5) -> dict:
     """Grep search_root for `query`; record one Citation per hit."""
+    err = _validate_research_id(memory, research_id)
+    if err is not None:
+        return err
     if not os.path.isdir(search_root):
         return {"citations": 0, "summary": f"no such root {search_root!r}"}
     hits = []
@@ -66,6 +85,9 @@ def run_codebase(memory, ctx, research_id: str, query: str,
 def run_prior_reflections(memory, ctx, research_id: str, query: str,
                            k: int = 5) -> dict:
     """Call reflect.recall_semantic; record top-k as Citation nodes."""
+    err = _validate_research_id(memory, research_id)
+    if err is not None:
+        return err
     # Invoke via registry so the embedder injector is honoured.
     res, _inv = ctx.registry.invoke(
         memory, ctx.intent_id, "reflect", "recall_semantic",
@@ -93,6 +115,9 @@ def run_doc_corpus(memory, ctx, research_id: str, query: str,
     Confidence rule: substring match → 1.0; semantic match only → the
     cosine score.
     """
+    err = _validate_research_id(memory, research_id)
+    if err is not None:
+        return err
     if not os.path.isdir(docs_root):
         return {"citations": 0, "summary": f"no such docs root {docs_root!r}"}
     hits: list[tuple[str, int, str, float]] = []
@@ -150,6 +175,9 @@ def run_web(memory, ctx, research_id: str, query: str,
     v1 returns an error if no web_search is injected. v2 may add a
     thin wrapper around the host's `WebSearch` MCP tool.
     """
+    err = _validate_research_id(memory, research_id)
+    if err is not None:
+        return err
     if web_search is None:
         return {
             "citations": 0,

@@ -117,14 +117,14 @@ class ResearchCapability(CapabilityBase):
         if role == "codebase":
             return _specialist.run_codebase(
                 self.ctx.memory, self.ctx, research_id, query,
-                search_root=search_root)
+                search_root=search_root, max_hits=k)
         if role == "prior-reflections":
             return _specialist.run_prior_reflections(
                 self.ctx.memory, self.ctx, research_id, query, k=k)
         if role == "doc-corpus":
             return _specialist.run_doc_corpus(
                 self.ctx.memory, self.ctx, research_id, query,
-                docs_root=docs_root)
+                docs_root=docs_root, max_hits=k)
         if role == "web":
             web = getattr(self.ctx.registry.engine, "web_search", None) \
                 if self.ctx.registry.engine else None

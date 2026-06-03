@@ -33,8 +33,8 @@ ls -la .claude-plugin/        # plugin.json + marketplace.json only
 ls -la skills/                # skills at plugin root
 ls -la commands/              # commands at plugin root
 
-# 3. hunt hardcoded paths
-grep -rE "/Users/|/home/[a-z]+/" .claude-plugin/ .mcp.json hooks/ 2>/dev/null
+# 3. hunt hardcoded paths (use rg per repo AGENTS.md rule, not recursive grep)
+rg -e "/Users/|/home/[a-z]+/" .claude-plugin/ .mcp.json hooks/ 2>/dev/null
 
 # 4. restart Claude Code
 ```

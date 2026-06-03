@@ -16,6 +16,7 @@ try/finally for guaranteed termination (no zombie processes).
 """
 import json
 import os
+import select
 import shutil
 import subprocess
 import time
@@ -60,18 +61,35 @@ def _send(p: subprocess.Popen, msg: dict) -> None:
 
 
 def _recv(p: subprocess.Popen, timeout: float = _TIMEOUT_RECV) -> dict:
-    """Read one newline-delimited JSON-RPC response."""
+    """Read one newline-delimited JSON-RPC response.
+
+    Uses select() to poll stdout so a hung server (no newline ever
+    written) reliably times out at ``timeout`` seconds — a blocking
+    ``readline()`` would otherwise sit forever and survive the
+    surrounding deadline loop.
+    """
     deadline = time.time() + timeout
-    while time.time() < deadline:
+    fd = p.stdout.fileno()
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            raise TimeoutError(f"no response within {timeout}s")
+        ready, _, _ = select.select([fd], [], [], remaining)
+        if not ready:
+            raise TimeoutError(f"no response within {timeout}s")
         line = p.stdout.readline()
         if not line:
-            time.sleep(0.05)
+            # EOF — the server exited. Give it a tiny grace window
+            # before declaring no response, in case more bytes arrive.
+            if p.poll() is not None:
+                raise TimeoutError(
+                    f"server exited (rc={p.returncode}) without response")
+            time.sleep(0.01)
             continue
         try:
             return json.loads(line.decode())
         except json.JSONDecodeError:
             continue
-    raise TimeoutError(f"no response within {timeout}s")
 
 
 @pytest.fixture()

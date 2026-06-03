@@ -156,7 +156,16 @@ class Ontology:
         for name, req in ext.schemas.items():
             if name in self.schemas:
                 raise ValueError(f"{owner!r}: schema {name!r} already defined")
-            self.schemas[name] = list(req)
+            # Preserve dict-shaped (draft-07) schemas verbatim; the
+            # ``_schema_props`` materializer dispatches on shape. Only
+            # cast list-shaped (simple) schemas to a fresh list. A bare
+            # cast `list(dict)` here would silently collapse the draft-07
+            # schema to its top-level keys (`['name', 'required']`),
+            # corrupting validation downstream.
+            if isinstance(req, dict):
+                self.schemas[name] = dict(req)
+            else:
+                self.schemas[name] = list(req)
         for name, body in ext.templates.items():
             if name in self.templates:
                 raise ValueError(f"{owner!r}: template {name!r} already defined")

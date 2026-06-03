@@ -114,6 +114,11 @@ class DocumentCapability(CapabilityBase):
             "text": out["content"],
         })
         self.ctx.link(rid, self.ctx.intent_id, "SERVES")
+        # Parity with reflect.note: also link OBSERVED_DURING so the
+        # explanation surfaces in intent-scoped reflection views
+        # (document.render(scope='reflections', for_intent_id=...) +
+        # document.index_repo's recent-activity filter).
+        self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
         return {
             "reflection_id": rid,
             "content": out["content"],

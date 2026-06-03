@@ -270,10 +270,18 @@ class AnalyzeCapability(CapabilityBase):
         out = [r["f"]["properties"] for r in rows]
         if axes:
             allow = set(axes)
-            # Filter by rule prefix → axis: Q*→quality, S*→security,
-            # P*→performance, A*→architecture.
-            prefix_to_axis = {"Q": "quality", "S": "security",
-                              "P": "performance", "A": "architecture"}
-            out = [f for f in out
-                   if prefix_to_axis.get(f["rule"][:1], "") in allow]
+            # Filter by rule prefix → axis. Spec 048 added a `paths` axis
+            # whose findings use the `IP` two-letter prefix; check the
+            # two-letter prefix first, then fall back to the single
+            # letter for Q/S/P/A.
+            two_letter_to_axis = {"IP": "paths"}
+            one_letter_to_axis = {"Q": "quality", "S": "security",
+                                  "P": "performance", "A": "architecture"}
+
+            def _rule_axis(rule: str) -> str:
+                if rule[:2] in two_letter_to_axis:
+                    return two_letter_to_axis[rule[:2]]
+                return one_letter_to_axis.get(rule[:1], "")
+
+            out = [f for f in out if _rule_axis(f["rule"]) in allow]
         return out

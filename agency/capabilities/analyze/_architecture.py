@@ -46,26 +46,60 @@ def _module_name(root: str, path: str) -> str:
     return ".".join(parts)
 
 
-def _imports(tree: ast.AST, current_module: str) -> set[str]:
+def _imports(tree: ast.AST, current_module: str,
+             root_pkg: str = "") -> set[str]:
     """Return the set of intra-tree module names this file imports.
 
     Resolves relative imports against ``current_module``:
       - ``from . import X``     → siblings of current_module
       - ``from .pkg import X``  → pkg + each alias as a submodule
       - ``from .. import X``    → walks up one package level
-    Absolute imports (``import os``, ``from json import …``) are
-    ignored — only intra-tree relations matter for cycle detection.
+    Absolute imports inside the scanned tree (e.g. ``from agency.foo
+    import bar`` when ``root_pkg='agency'``) are also captured —
+    important for codebases that use absolute intra-package imports.
+    Pure-external absolutes (``import os``) fall through and are
+    filtered out by the SCC walker when the module isn't in the graph.
     """
     out: set[str] = set()
     pkg_parts = current_module.split(".") if current_module else []
     # The package containing this module = drop the trailing module name.
     parent_pkg = pkg_parts[:-1]
     for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            # `import pkg.sub` → record the dotted name (filtered by SCC
+            # walker when not in mod_to_path).
+            for alias in node.names:
+                name = alias.name
+                if root_pkg and name == root_pkg:
+                    continue        # importing the package alone doesn't form a cycle
+                if root_pkg and name.startswith(root_pkg + "."):
+                    out.add(name[len(root_pkg) + 1:])
+                else:
+                    out.add(name)
+            continue
         if not isinstance(node, ast.ImportFrom):
             continue
         level = node.level or 0
         if level == 0:
-            continue       # absolute import; not part of the cycle graph
+            # Absolute import. If the module is inside the scanned tree
+            # (matches root_pkg), strip the package prefix so it lines up
+            # with the relative-import naming used elsewhere.
+            mod = node.module or ""
+            if not mod:
+                continue
+            in_tree = root_pkg and (mod == root_pkg or mod.startswith(root_pkg + "."))
+            if in_tree:
+                stripped = "" if mod == root_pkg else mod[len(root_pkg) + 1:]
+                if stripped:
+                    out.add(stripped)
+                for alias in node.names:
+                    if alias.name != "*":
+                        suffix = (stripped + "." + alias.name) if stripped else alias.name
+                        out.add(suffix)
+            else:
+                # External absolute import — not part of the cycle graph.
+                out.add(mod)
+            continue
         # `level - 1` levels above parent_pkg gives the base for the
         # relative reference. `from . import X` (level=1) means siblings
         # of current_module → base = parent_pkg itself.
@@ -95,6 +129,10 @@ def _build_graph(root: str) -> tuple[dict[str, set[str]], dict[str, str]]:
     """Return (graph: module → imports, mod_to_path: module → file)."""
     graph: dict[str, set[str]] = {}
     mod_to_path: dict[str, str] = {}
+    # The root package name lets _imports resolve absolute intra-tree
+    # imports (e.g. `from agency.foo import bar`) against the same dotted
+    # naming the SCC walker uses.
+    root_pkg = os.path.basename(os.path.abspath(root.rstrip(os.sep)))
     for path in _python_files(root):
         src = _read(path)
         if src is None:
@@ -105,7 +143,7 @@ def _build_graph(root: str) -> tuple[dict[str, set[str]], dict[str, str]]:
             continue
         mod = _module_name(root, path)
         mod_to_path[mod] = path
-        graph[mod] = _imports(tree, mod)
+        graph[mod] = _imports(tree, mod, root_pkg=root_pkg)
     return graph, mod_to_path
 
 

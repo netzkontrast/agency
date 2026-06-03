@@ -165,23 +165,54 @@ _SHELL_TRUE_TARGETS = frozenset({
 })
 
 
+def _scan_subprocess_aliases(tree: ast.AST) -> tuple[set[str], set[str]]:
+    """Walk the module's imports to learn:
+       - module aliases that name `subprocess` (``import subprocess as sp``
+         → ``{'subprocess', 'sp'}``);
+       - names from-imported FROM subprocess (``from subprocess import run
+         as sprun`` → ``{'sprun'}``).
+    Used by ``_check_shell_true`` so `obj.run(shell=True)` on an
+    unrelated `obj` doesn't false-fire."""
+    module_aliases: set[str] = set()
+    from_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "subprocess":
+                    module_aliases.add(alias.asname or "subprocess")
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "subprocess":
+                for alias in node.names:
+                    if alias.name == "*":
+                        # `from subprocess import *` — every family name
+                        # is in scope as a bare call.
+                        from_names.update(_SHELL_TRUE_TARGETS)
+                    elif alias.name in _SHELL_TRUE_TARGETS:
+                        from_names.add(alias.asname or alias.name)
+    return module_aliases, from_names
+
+
 def _check_shell_true(path: str, src: str, tree: ast.AST) -> list[Finding]:
-    """Detect `subprocess.<run|call|Popen|...>(..., shell=True)`. Restrict
-    to subprocess-family calls so `dict(shell=True)` etc. don't fire."""
+    """Detect `subprocess.<run|call|Popen|...>(..., shell=True)`.
+
+    Receiver-aware: ``obj.run(shell=True)`` only fires when ``obj`` is a
+    known subprocess module alias; bare ``run(shell=True)`` only fires
+    when ``run`` was from-imported from ``subprocess``. Prevents false
+    positives on unrelated ``run`` / ``call`` / ``Popen`` symbols."""
     out: list[Finding] = []
     lines = src.splitlines()
+    module_aliases, from_names = _scan_subprocess_aliases(tree)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        # Match subprocess.* method call OR a from-imported name like
-        # `run`/`Popen` (`from subprocess import run`). For the bare
-        # name path we still check the function name belongs to the
-        # subprocess family to avoid `mymod.run(shell=True)` firing.
         target = None
         if isinstance(func, ast.Attribute) and func.attr in _SHELL_TRUE_TARGETS:
-            target = func.attr
-        elif isinstance(func, ast.Name) and func.id in _SHELL_TRUE_TARGETS:
+            # `subprocess.run(...)` — receiver must be a known alias.
+            recv = func.value
+            if isinstance(recv, ast.Name) and recv.id in module_aliases:
+                target = func.attr
+        elif isinstance(func, ast.Name) and func.id in from_names:
             target = func.id
         if target is None:
             continue

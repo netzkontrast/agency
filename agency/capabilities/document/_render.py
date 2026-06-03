@@ -96,11 +96,28 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
         ))
     else:
         parts.append("\n_no invocations recorded_\n")
-    # Artefacts (Spec 020 §"reduction") — SERVES edge to the intent.
-    art_rows = [r["a"]["properties"] for r in memory.g.query(
+    # Artefacts: union of (a) Artefact -SERVES-> Intent (the explicit
+    # delegation/reduction path used by Spec 020) and (b) Artefact
+    # PRODUCED by an Invocation that SERVES the intent (the standard
+    # registry path used by every effect verb). Memory.provenance()
+    # already merges these two — mirror it here so the markdown shows
+    # both kinds of artefact.
+    art_direct = [r["a"]["properties"] for r in memory.g.query(
         "MATCH (a:Artefact)-[:SERVES]->(it:Intent) WHERE it.id = $id "
         "RETURN a",
         {"id": intent_id})]
+    art_via_inv = [r["a"]["properties"] for r in memory.g.query(
+        "MATCH (it:Intent)<-[:SERVES]-(inv:Invocation)-[:PRODUCES]->(a:Artefact) "
+        "WHERE it.id = $id RETURN a",
+        {"id": intent_id})]
+    seen_ids: set[str] = set()
+    art_rows: list[dict] = []
+    for r in art_direct + art_via_inv:
+        rid = r.get("id") or id(r)
+        if rid in seen_ids:
+            continue
+        seen_ids.add(rid)
+        art_rows.append(r)
     # Spec 048 — sub-intents under this one (PARENT_INTENT downward
     # walk; capped at 2 levels for the default provenance render).
     sub_rows = [r["c"]["properties"] for r in memory.g.query(
