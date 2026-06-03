@@ -15,15 +15,20 @@ SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || \
         python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' \
                 "${BASH_SOURCE[0]}")"
 
-if command -v agency-mcp >/dev/null 2>&1; then
-  CANDIDATE="$(command -v agency-mcp)"
+# PR review (round 7): iterate ALL PATH matches via `type -ap`; exec
+# the first non-self candidate. `command -v` returns only the first
+# match — if plugin bin/ precedes pipx bin/ on PATH, the shim self-
+# resolves and the fallthrough trips exit 127 even when a valid pipx
+# `agency-mcp` exists later in PATH.
+while IFS= read -r CANDIDATE; do
+  [[ -z "$CANDIDATE" ]] && continue
   CANDIDATE_REAL="$(readlink -f "$CANDIDATE" 2>/dev/null || \
                     python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' \
                             "$CANDIDATE")"
   if [[ "$CANDIDATE_REAL" != "$SELF" ]]; then
     exec "$CANDIDATE" "$@"
   fi
-fi
+done < <(type -ap agency-mcp 2>/dev/null)
 
 cat >&2 <<'EOF'
 agency-mcp: `agency-mcp` not found on PATH.

@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SubagentReview",
+  "description": "Two-stage gated review outcome from subagent.develop (spec-review + quality-review). `done=True` iff BOTH gates passed.",
+  "type": "object",
+  "required": ["child", "done", "spec_passed", "quality_passed"],
+  "properties": {
+    "child": {"type": "string", "description": "Child Lifecycle node id."},
+    "done": {"type": "boolean", "description": "True iff spec_passed AND quality_passed."},
+    "spec_passed": {"type": "boolean"},
+    "quality_passed": {"type": "boolean"},
+    "spec_evidence": {"type": "string"},
+    "quality_evidence": {"type": "string"}
+  }
+}

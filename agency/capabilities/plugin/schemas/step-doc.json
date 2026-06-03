@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StepDoc",
+  "description": "Step-doc markdown block (audit trail entry) — minimal required fields.",
+  "type": "object",
+  "required": ["step", "output"],
+  "properties": {
+    "step": {"type": "string"},
+    "output": {"type": "string"},
+    "status": {"type": "string", "enum": ["done", "partial", "skip"]},
+    "inputs": {"type": "string"},
+    "notes": {"type": "string"}
+  }
+}

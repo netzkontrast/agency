@@ -206,7 +206,11 @@ def test_jules_api_phase2_endpoint_wrappers():
     Each function's HTTP shape is mocked via `_request`."""
     import datetime as _dt
     from unittest.mock import patch as _patch
-    from agency.capabilities import _jules_api as J
+    # Spec 060: canonical module is `agency.capabilities.jules.api`;
+    # `agency.capabilities._jules_api` is a back-compat shim. Patch
+    # against the canonical so the `_request` rebind reaches the
+    # internal callers (jules_get_full / jules_status_all / …).
+    from agency.capabilities.jules import api as J
 
     # jules_get_full returns the raw response (not the trimmed shape).
     raw = {"id": "s1", "state": "COMPLETED", "outputs": [{"changeSet": {"gitPatch": {
@@ -820,8 +824,13 @@ def test_plugin_capability_generates_valid_artefacts():
 
     # the artefact is provenance and validates against a strict Schema
     art_id = next(a["id"] for a in mem.provenance(iid)["artefacts"] if a["kind"] == "plugin-manifest")
+    # Spec 060: schemas migrated to draft-07 dict form; the canonical
+    # required-list lives at schema['required'] (list of strings).
+    cap_schema = e.ontology.schemas["plugin-manifest"]
+    required_csv = (",".join(cap_schema["required"]) if isinstance(cap_schema, dict)
+                    else ",".join(cap_schema))
     schema = mem.record("Schema", {"name": "plugin-manifest",                # schema OWNED by the capability
-                                   "required": ",".join(e.ontology.schemas["plugin-manifest"])})
+                                   "required": required_csv})
     assert mem.validate_schema(art_id, schema) is True
     # the schema bites: a manifest missing `version` fails
     bad = mem.record("Artefact", {"kind": "plugin-manifest", "name": "x"})

@@ -30,10 +30,10 @@ from pathlib import Path
 # Spec 060 — kebab-case rule (mirrors _capability_loader._KEBAB_RE).
 _KEBAB_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
-from ..capability import CapabilityBase, verb
-from ..capability import SkillDoc as _SkillDoc
-from ..ontology import OntologyExtension
-from .. import templates
+from ...capability import ArtefactSchemas, CapabilityBase, verb
+from ...capability import SkillDoc as _SkillDoc
+from ...ontology import OntologyExtension
+from ... import templates
 
 DEFAULT_TOOLS = "  - Read\n  - Write\n  - Edit"
 # kebab-case per the Agent Skills spec: lowercase letters/numbers/hyphens, no
@@ -596,12 +596,17 @@ plugin_ontology = OntologyExtension(
         "Command": ["name", "description"],              # a slash command
     },
     skills={"skill-creation": SKILL_CREATION_SKILL, "plugin-dev": PLUGIN_DEV_SKILL},
-    schemas=dict(templates.REQUIRED),                    # the strict artefact schemas this capability generates
+    # Spec 060 — schemas migrated from `templates.REQUIRED` Python dict
+    # to file-based `plugin/schemas/*.json` declarations. The engine's
+    # `load_capability_folders` discovers them at bootstrap and merges
+    # them into this OntologyExtension's `schemas` dict before
+    # `Ontology.extend` runs.
 )
 
 class PluginCapability(CapabilityBase):
     name = "plugin"
     home = "capability"
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = plugin_ontology
 
     # the act verbs are pure template renders (module functions above); the class

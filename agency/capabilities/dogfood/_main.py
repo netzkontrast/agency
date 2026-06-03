@@ -173,12 +173,31 @@ class DogfoodCapability(CapabilityBase):
                 f"\n**Observation {i} — graph-native**\n\n"
                 f"{n.get('text', '')}\n"
             )
+            # PR review (round 7): probe BEFORE committing the chunk so
+            # an oversize single observation can't push the rendered
+            # payload past the cap. Trim the chunk if the probe overshoots
+            # and stop iteration (the budget marker is appended later).
+            probe = tpl.substitute(
+                plan_slug=plan_slug,
+                body="".join(body_parts) + chunk,
+            )
+            if _count_tokens(probe) > max_tokens * 0.92:
+                # Compute remaining headroom and truncate this chunk to fit.
+                current = tpl.substitute(
+                    plan_slug=plan_slug, body="".join(body_parts))
+                headroom_tokens = max(0, int(max_tokens * 0.92) - _count_tokens(current))
+                # Token-budget proxy: ~4 chars per token (mirrors _count_tokens
+                # fallback). Trim chunk to that char budget.
+                char_cap = max(0, headroom_tokens * 4)
+                if char_cap > 0 and rendered_count == 0:
+                    # Always render at least a truncated form of the FIRST
+                    # observation (so callers get SOMETHING back).
+                    truncated = chunk[:char_cap] + "\n_…(truncated)_\n"
+                    body_parts.append(truncated)
+                    rendered_count = i
+                break
             body_parts.append(chunk)
             rendered_count = i
-            # Probe the full template render under the cap each iteration.
-            probe = tpl.substitute(plan_slug=plan_slug, body="".join(body_parts))
-            if _count_tokens(probe) > max_tokens * 0.92:
-                break
         omitted = max(0, len(notes) - rendered_count)
         if omitted:
             body_parts.append(
@@ -195,7 +214,7 @@ class DogfoodCapability(CapabilityBase):
     # Spec 020 — JSON export (merge-conflict recovery fallback).
     # -----------------------------------------------------------------
 
-    @verb(role="transform")
+    @verb(role="effect")
     def export(self, path: str = "") -> dict:
         """Dump the provenance store to a portable JSON file.
 

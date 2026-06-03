@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import time
 
-from agency.capability import CapabilityBase, verb
+from agency.capability import (
+    CapabilityBase, RenderTemplates, verb,
+)
 from agency.ontology import OntologyExtension
 
 from . import (_architecture, _findings, _paths, _performance, _quality,
@@ -55,6 +57,7 @@ _IMPROVEMENT_PLAN_SCHEMA = {
 class AnalyzeCapability(CapabilityBase):
     name = "analyze"
     home = "capability"
+    render_templates = RenderTemplates.from_module(__file__)
     ontology = OntologyExtension(
         nodes={
             "Analysis": ["path", "axes", "started_at"],

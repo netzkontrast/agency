@@ -19,9 +19,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
-from ._vcs import GitClient
+from ...capability import ArtefactSchemas, CapabilityBase, RenderTemplates, verb
+from ...ontology import OntologyExtension
+from .._vcs import GitClient
 
 
 # Closed enums — single source of truth for the watcher (spec 012). The state
@@ -69,7 +69,7 @@ class JulesClient:
                title: str = "", require_plan_approval: bool = True,
                automation_mode: str = "",
                protocol_preset: str = "") -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_create(
             prompt=prompt, source=source, starting_branch=starting_branch,
             title=title, require_plan_approval=require_plan_approval,
@@ -77,65 +77,67 @@ class JulesClient:
             protocol_preset=protocol_preset)
 
     def get(self, session: str) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_get(session)
 
     def list(self, page_size: int, page_token: str) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_list(page_size=page_size, page_token=page_token)
 
     def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "") -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_activities(session, page_size=page_size,
                                            only_kinds=only_kinds, page_token=page_token)
 
     def plan(self, session: str, max_pages: int) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_plan(session, max_pages=max_pages)
 
     def approve_plan(self, session: str) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_approve_plan(session)
 
     def message(self, session: str, prompt: str) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_message(session, prompt)
 
     # Spec 012 Phase 2/3 — orbital surface.
     def resolve_source(self, owner: str, repo: str) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_resolve_source_public(owner, repo)
 
     def get_full(self, session: str) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_get_full(session)
 
     def status_all(self, page_size: int, max_pages: int) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_status_all(page_size=page_size, max_pages=max_pages)
 
     def approve_awaiting(self, limit: int) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_approve_awaiting(limit=limit)
 
     def quota(self, daily_limit: int) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_quota(daily_limit=daily_limit)
 
     def patch(self, session: str) -> dict:
-        from . import _jules_api
+        from . import api as _jules_api
         return _jules_api.jules_patch_extract(session)
 
 
 class JulesCapability(CapabilityBase):
     name = "jules"
     home = "lifecycle"
+    render_templates = RenderTemplates.from_module(__file__)
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     # Spec-012 ontology extension: typed nodes for the session registry, alias
     # table, watcher event stream, and patch artefact (the silent-fail recovery
     # input). Merged strictly onto the core per CORE.md:131-133 — never leaks
     # into the core ontology. Extras allowed (the ontology validates required
     # + enums only; richer fields like `title`, `branch`, `url` ride along).
-    from ._jules_skills import JULES_SKILLS as _JULES_SKILLS
+    from .skills import JULES_SKILLS as _JULES_SKILLS
 
     ontology = OntologyExtension(
         nodes={
@@ -463,7 +465,7 @@ class JulesCapability(CapabilityBase):
         effects. Consumed by the ``jules-protocol-preamble`` skill Phase 3
         (``name-canonical-tools``).
         """
-        from ._jules_preambles import lint_must_name
+        from .preambles import lint_must_name
         names = [s.strip() for s in must_name.split(",") if s.strip()] if must_name else None
         return lint_must_name(text, must_name=names)
 
@@ -479,7 +481,7 @@ class JulesCapability(CapabilityBase):
         itself); Mode B for any other source. Bound by Phase 1 of the
         ``jules-protocol-preamble`` skill.
         """
-        from ._jules_preambles import DISPATCH_SELF_SOURCE
+        from .preambles import DISPATCH_SELF_SOURCE
         if source == DISPATCH_SELF_SOURCE:
             return {"mode": "dogfood", "self_source": DISPATCH_SELF_SOURCE,
                     "reason": "source matches DISPATCH_SELF_SOURCE; AGENTS.md inherited via lexical scoping"}
@@ -499,7 +501,7 @@ class JulesCapability(CapabilityBase):
         The tail instructs Jules to ``reply_to_pr_comments(...)`` after
         pushing (AGENCY_PROTOCOL.md §9). Idempotent.
         """
-        from ._jules_preambles import REVIEW_COMMENT_TAIL, review_comment as _rc
+        from .preambles import REVIEW_COMMENT_TAIL, review_comment as _rc
         already = REVIEW_COMMENT_TAIL.strip() in body
         return {"text": _rc(body), "tail_appended": not already}
 
@@ -565,7 +567,7 @@ class JulesCapability(CapabilityBase):
             if not iid:
                 iid = self.ctx.intent_id   # fall back to the calling intent
 
-        from ._jules_watch import INSTRUCTIONS
+        from .watch import INSTRUCTIONS
         engine = self.ctx.engine
         watcher = getattr(engine, "_jules_watcher", None) if engine else None
         if watcher is None:
@@ -645,7 +647,7 @@ class JulesCapability(CapabilityBase):
 
         Falls back to ``sourceContext.source`` for owner/repo when omitted.
         """
-        from ._jules_api import jules_get_full
+        from .api import jules_get_full
         from . import _jules_patch
         sess = jules_get_full(session)
         outputs = sess.get("outputs", [])

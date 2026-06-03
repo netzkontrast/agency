@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workspace",
+  "description": "Isolated git worktree workspace.",
+  "type": "object",
+  "required": ["path", "branch", "base"],
+  "properties": {
+    "path": {"type": "string"},
+    "branch": {"type": "string"},
+    "base": {"type": "string"}
+  }
+}

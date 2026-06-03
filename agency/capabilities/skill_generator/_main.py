@@ -8,7 +8,7 @@ recorded as an Invocation that SERVES the intent).
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
+from ...capability import CapabilityBase, verb
 
 
 class SkillGeneratorCapability(CapabilityBase):

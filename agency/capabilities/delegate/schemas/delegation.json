@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Delegation",
+  "description": "Record of a delegate.fan_out — captures the driver, verb, item count, and quota.",
+  "type": "object",
+  "required": ["driver", "driver_verb", "count", "quota"],
+  "properties": {
+    "driver": {"type": "string", "description": "Capability name."},
+    "driver_verb": {"type": "string"},
+    "count": {"type": "integer", "minimum": 0, "description": "Items admitted (capped at quota)."},
+    "quota": {"type": "integer", "minimum": 0}
+  }
+}

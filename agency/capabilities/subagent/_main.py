@@ -12,12 +12,13 @@ local capability/verb (the local-subagent driver) or `jules` (remote).
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 
 
 class SubagentCapability(CapabilityBase):
     name = "subagent"
     home = "lifecycle"
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
 
     @verb(role="effect")
     def develop(self, driver: str, driver_verb: str, item: dict,

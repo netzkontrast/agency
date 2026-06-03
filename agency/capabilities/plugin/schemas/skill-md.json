@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SkillMd",
+  "description": "Required fields a SKILL.md author_skill output must carry.",
+  "type": "object",
+  "required": ["name", "description", "body"],
+  "properties": {
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "body": {"type": "string"}
+  }
+}

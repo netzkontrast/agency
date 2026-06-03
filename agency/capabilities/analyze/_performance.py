@@ -161,8 +161,17 @@ def _check_unbounded_while(path: str, src: str, tree: ast.AST) -> list[Finding]:
                     return True   # ditto
                 if isinstance(n, ast.Yield):
                     return True
+                # A bare ``sleep(...)`` at this scope is wrapped in
+                # ast.Expr (statement) not ast.Call (expression node).
+                # Inspect Expr.value to catch the common ``time.sleep(1)``
+                # backoff pattern (PR review round 7 r3343808276).
+                call_node = None
                 if isinstance(n, ast.Call):
-                    func = n.func
+                    call_node = n
+                elif isinstance(n, ast.Expr) and isinstance(n.value, ast.Call):
+                    call_node = n.value
+                if call_node is not None:
+                    func = call_node.func
                     fn_name = (func.id if isinstance(func, ast.Name)
                                else (func.attr if isinstance(func, ast.Attribute) else None))
                     if fn_name == "sleep":

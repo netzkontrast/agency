@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Verification",
+  "description": "research.verify outcome — rolled-up status + per-check breakdown.",
+  "type": "object",
+  "required": ["research_id", "status"],
+  "properties": {
+    "research_id": {"type": "string"},
+    "status": {"type": "string", "enum": ["pass", "warn", "fail"]},
+    "started_at": {"type": "integer"},
+    "checks": {"type": "string", "description": "Comma-joined `<check-name>:<status>` summary."}
+  }
+}

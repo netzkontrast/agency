@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MarketplaceEntry",
+  "description": "Marketplace.json entry shape for a single plugin.",
+  "type": "object",
+  "required": ["name", "version", "description", "source"],
+  "properties": {
+    "name": {"type": "string"},
+    "version": {"type": "string"},
+    "description": {"type": "string"},
+    "source": {"type": "string", "description": "git URL or local path."}
+  }
+}

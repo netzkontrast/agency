@@ -8,8 +8,10 @@ demonstrates that adding a capability is adding a file. The functional
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
+from ...capability import (
+    ArtefactSchemas, CapabilityBase, RenderTemplates, verb,
+)
+from ...ontology import OntologyExtension
 
 REFLECT_SCOPES = {"observation", "reflection", "project", "technical", "user", "world"}
 
@@ -17,6 +19,8 @@ REFLECT_SCOPES = {"observation", "reflection", "project", "technical", "user", "
 class ReflectCapability(CapabilityBase):
     name = "reflect"
     home = "memory"
+    render_templates = RenderTemplates.from_module(__file__)
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"Reflection": ["scope", "text"]},
         enums={("Reflection", "scope"): REFLECT_SCOPES},

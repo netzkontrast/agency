@@ -74,7 +74,12 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
     """
     if not intent_id:
         return h1("Intent (none) provenance") + "\n_no intent id provided_\n", 0
-    intents = [i for i in memory.find("Intent") if i.get("id") == intent_id]
+    # PR review (round 7): walk the SUPERSEDED_BY chain so an amended
+    # intent's provenance fragments don't disappear. Mirrors
+    # Memory.provenance() which already does the right thing for the
+    # programmatic surface; the markdown render had drifted.
+    chain = list(memory._intent_chain(intent_id))
+    intents = [i for i in memory.find("Intent") if i.get("id") in chain]
     acceptance = intents[0].get("acceptance", "<unknown>") if intents else "<unknown>"
     parts = [h1(f"Intent {intent_id} provenance")]
     parts.append(h2("Acceptance"))
@@ -82,9 +87,9 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
     # Invocations table — provenance lives on SERVES edges from
     # Invocation → Intent. Use the graph query, not a property filter.
     inv_rows = [r["i"]["properties"] for r in memory.g.query(
-        "MATCH (i:Invocation)-[:SERVES]->(it:Intent) WHERE it.id = $id "
+        "MATCH (i:Invocation)-[:SERVES]->(it:Intent) WHERE it.id IN $ids "
         "RETURN i",
-        {"id": intent_id})]
+        {"ids": chain})]
     inv_rows.sort(key=lambda r: r.get("vfrom", 0))
     parts.append(h2("Invocations"))
     if inv_rows:
@@ -103,13 +108,13 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
     # already merges these two — mirror it here so the markdown shows
     # both kinds of artefact.
     art_direct = [r["a"]["properties"] for r in memory.g.query(
-        "MATCH (a:Artefact)-[:SERVES]->(it:Intent) WHERE it.id = $id "
+        "MATCH (a:Artefact)-[:SERVES]->(it:Intent) WHERE it.id IN $ids "
         "RETURN a",
-        {"id": intent_id})]
+        {"ids": chain})]
     art_via_inv = [r["a"]["properties"] for r in memory.g.query(
         "MATCH (it:Intent)<-[:SERVES]-(inv:Invocation)-[:PRODUCES]->(a:Artefact) "
-        "WHERE it.id = $id RETURN a",
-        {"id": intent_id})]
+        "WHERE it.id IN $ids RETURN a",
+        {"ids": chain})]
     seen_ids: set[str] = set()
     art_rows: list[dict] = []
     for r in art_direct + art_via_inv:
@@ -120,10 +125,12 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
         art_rows.append(r)
     # Spec 048 — sub-intents under this one (PARENT_INTENT downward
     # walk; capped at 2 levels for the default provenance render).
+    # Walk the chain (PR review round 7) so amended intents' sub-tree
+    # is fully visible.
     sub_rows = [r["c"]["properties"] for r in memory.g.query(
         "MATCH (c:Intent)-[:PARENT_INTENT]->(p:Intent) "
-        "WHERE p.id = $id RETURN c",
-        {"id": intent_id})]
+        "WHERE p.id IN $ids RETURN c",
+        {"ids": chain})]
     parts.append(h2("Artefacts"))
     if art_rows:
         parts.append(table(

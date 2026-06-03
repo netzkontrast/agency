@@ -8,14 +8,15 @@ baseline later work is measured against. Both record provenance; the VCS boundar
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
-from ._vcs import GitClient
+from ...capability import ArtefactSchemas, CapabilityBase, verb
+from ...ontology import OntologyExtension
+from .._vcs import GitClient
 
 
 class WorkspaceCapability(CapabilityBase):
     name = "workspace"
     home = "lifecycle"
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"Workspace": ["path", "branch", "base"],
                "Baseline": ["command", "passed"]},

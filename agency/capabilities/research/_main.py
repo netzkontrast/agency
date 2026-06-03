@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import time
 
-from agency.capability import CapabilityBase, verb
+from agency.capability import (
+    ArtefactSchemas, CapabilityBase, RenderTemplates, verb,
+)
 from agency.ontology import OntologyExtension
 
 from . import _lead, _specialist, _verify
@@ -51,6 +53,8 @@ _DEEP_RESEARCH_SKILL = {
 class ResearchCapability(CapabilityBase):
     name = "research"
     home = "capability"
+    render_templates = RenderTemplates.from_module(__file__)
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={
             "Research": ["question", "depth", "started_at", "status"],

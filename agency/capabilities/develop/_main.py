@@ -14,8 +14,8 @@ SKILL.md files live in `skills/`.
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
+from ...capability import RenderTemplates, CapabilityBase, verb
+from ...ontology import OntologyExtension
 
 
 def _phase(index, name, produces, gate=None):
@@ -299,6 +299,7 @@ def scaffold_capability(name: str, kind: str = "light", base_dir=None) -> dict:
 class DevelopCapability(CapabilityBase):
     name = "develop"
     home = "lifecycle"
+    render_templates = RenderTemplates.from_module(__file__)
     ontology = develop_ontology
 
     @verb(role="transform")

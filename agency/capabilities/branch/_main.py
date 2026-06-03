@@ -8,9 +8,9 @@ executes the chosen action and records the outcome as provenance. The VCS bounda
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
-from ._vcs import GitClient
+from ...capability import ArtefactSchemas, CapabilityBase, verb
+from ...ontology import OntologyExtension
+from .._vcs import GitClient
 
 _ACTIONS = {"merge", "pr", "keep", "discard"}
 
@@ -27,6 +27,7 @@ def _recommend(state: dict) -> str:
 class BranchCapability(CapabilityBase):
     name = "branch"
     home = "lifecycle"
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(nodes={"BranchOutcome": ["branch", "action", "ok"]})
 
     @verb(role="transform", inject=["vcs"])

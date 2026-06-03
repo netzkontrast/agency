@@ -13,7 +13,9 @@ from __future__ import annotations
 import os
 import time
 
-from agency.capability import CapabilityBase, verb
+from agency.capability import (
+    ArtefactSchemas, CapabilityBase, RenderTemplates, verb,
+)
 from agency.ontology import OntologyExtension
 
 from . import _explain, _index_repo, _render
@@ -40,16 +42,19 @@ _SUPPORTED_SCOPES = frozenset({
 class DocumentCapability(CapabilityBase):
     name = "document"
     home = "memory"
+    render_templates = RenderTemplates.from_module(__file__)
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={
             "RepoIndex": ["path", "content_sha", "token_count", "generated_at"],
         },
         edges={"INDEXES"},
+        # Spec 060: `explanation` schema migrated to
+        # `document/schemas/explanation.json`. `repo-index` stays as
+        # a dict declaration because no file-form exists yet.
         schemas={
             "repo-index": {"name": "repo-index",
                            "required": ["path", "content_sha", "token_count"]},
-            "explanation": {"name": "explanation",
-                            "required": ["target", "depth", "content"]},
         },
         skills={"repo-briefing": _REPO_BRIEFING_SKILL},
     )

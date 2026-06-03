@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Baseline",
+  "description": "Test command result recorded against a Workspace at start-of-work.",
+  "type": "object",
+  "required": ["command", "passed"],
+  "properties": {
+    "command": {"type": "string"},
+    "passed": {"type": "boolean"},
+    "output": {"type": "string"}
+  }
+}

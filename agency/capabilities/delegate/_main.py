@@ -13,8 +13,8 @@ whole delegation is a connected provenance subgraph.
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
+from ...capability import ArtefactSchemas, CapabilityBase, verb
+from ...ontology import OntologyExtension
 
 
 def _phase(idx: int, name: str, produces: list[str], gate: str = "") -> dict:
@@ -157,6 +157,7 @@ def _compose_rationale(signals: list[str], driver: str) -> str:
 class DelegateCapability(CapabilityBase):
     name = "delegate"
     home = "lifecycle"
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"Delegation": ["driver", "driver_verb", "count", "quota"]},
         edges={"DELEGATES_TO", "REDUCES_INTO"},

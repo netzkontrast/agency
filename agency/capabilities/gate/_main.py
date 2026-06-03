@@ -10,12 +10,13 @@ quality-review) and a verified `delegate.join` compose with.
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 
 
 class GateCapability(CapabilityBase):
     name = "gate"
     home = "lifecycle"   # uses the core Gate node + PASSED/BLOCKED_ON edges — no extension needed
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
 
     @verb(role="act")
     def check(self, lifecycle_id: str, name: str, passed: bool, evidence: str = "") -> dict:
