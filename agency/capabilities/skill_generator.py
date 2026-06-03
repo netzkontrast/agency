@@ -17,7 +17,14 @@ class SkillGeneratorCapability(CapabilityBase):
 
     @verb(role="act")
     def generate(self, name: str, description: str, body: str) -> dict:
-        "Author a SKILL.md and lint it against the CSO rules; flag if not deploy-ready."
+        """Author a SKILL.md and lint it against the CSO rules; flag if not deploy-ready.
+
+        Inputs: name (skill slug), description (str — the trigger phrase),
+                body (str — the SKILL.md content).
+        Returns: ``{result: {name, skill_md, ok, violations}}``.
+        chain_next: caller writes ``skills/<name>/SKILL.md`` if ``ok=True``;
+                    otherwise iterates on ``violations``.
+        """
         skill_md = self.ctx.call("plugin", "author_skill",
                                  name=name, description=description, body=body)["result"]
         lint = self.ctx.call("plugin", "lint_skill", name=name, description=description)

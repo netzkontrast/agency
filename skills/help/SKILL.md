@@ -71,7 +71,7 @@ python -m agency.cli execute --code \
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
 - **develop** — checklist, record_authoring_outcome, reference, scaffold_capability
 - **document** — explain, index_repo, render
-- **dogfood** — collect, export, note, render
+- **dogfood** — collect, export, import, note, render
 - **gate** — check
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch
 - **plugin** — author_command, author_skill, help, lint_capability, lint_skill, marketplace_entry, scaffold, step_doc

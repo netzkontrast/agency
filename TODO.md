@@ -44,14 +44,14 @@ Total active specs: **41** (counting 000-overview).
 | 013 | jules-skills-and-capability-improvements | **Shipped** | 6 Jules skills + AGENCY_PROTOCOL + lint + flag matrix | (flip frontmatter) |
 | 014 | observation-to-spec-amendment | Not started | Reflection → spec-amendment loop | Depends on 017 + 020 |
 | 015 | architecture-review | **Shipped** | Architecture review docs + 017/018/019 promoted | (milestone; review-only spec) |
-| 016 | capability-authoring-doctrine | Partial | 11 authoring hints + folder-form discover | Hint #7 docstring sweep never done; Phase 5 cleanup partial; Phase 6 → 028 |
+| 016 | capability-authoring-doctrine | **Shipped** | 11 authoring hints + folder-form discover + Hint #7 docstring sweep complete (49 verbs all carry Inputs:/Returns:/chain_next:) | Phase 5 fixture cleanup partial; Phase 6 → 028 |
 | 017 | graph-native-dogfood-ledgers | **Shipped** | dogfood.note (act) + dogfood.render (transform) close Goal 7 write-side gap; collect deprecated for ongoing use | 10 spec tests green; backward-compat preserved (plan_slug optional, collect still works); follow-up: jules-self-improvement Phase 0 + install.py canon-comment + CLAUDE.md rule #2 cross-ref |
 | 018 | cli-token-efficiency-bundle | Partial | 5 token wins + Jules's `--fields` + traceback wrapper | Depends on 016 lint scaffold + 020 |
 | 019 | engine-output-shape-contract | Not started | Document unwrap-as-contract; lint enforces docstring | Depends on 016 lint extensibility |
-| 020 | central-graph-db | **Shipped** | `.agency/session.db` per-project default + DB path resolution + `.agency/` scaffold + `dogfood.export` JSON dump for merge-conflict recovery | 10 export tests green; live wire dogfood emitted 55KB / 112 nodes / 114 edges. v2 follow-up: `dogfood.import` (replay JSON into fresh DB preserving original ids + vfrom/vto windows) |
+| 020 | central-graph-db | **Shipped** | v2: `.agency/session.db` + DB path resolution + `.agency/` scaffold + `dogfood.export` + `dogfood.import` (JSON round-trip preserving ids + vfrom/vto windows) — closes merge-conflict recovery loop | 10 export tests + 10 import tests green; round-trip verified |
 | 021 | engine-monitor-channel | Not started | Engine-level Monitor channel (1 monitors.json) | **Hard-blocks 022 and 011** |
 | 022 | jules-monitor-capability | Not started | First use of 021 for Jules watcher transitions | Depends on 021 |
-| 023 | adaptive-disclosure | Partial | Token-budget gate + brief slices | Docstring sweep shared open item with 016/019 |
+| 023 | adaptive-disclosure | **Shipped** | Token-budget gate + brief slices + substrate-tool brief-slicing parity + Hint #7 docstring migration roster 0 non-compliant | Phase 3 structured `search` delta-shape + Phase 4 intent-slice filter remain deferred to v2 |
 | 024 | capability-authoring-discipline | Partial | Block-mode lint when `# agency-scaffold: v1` marker present | Sweep of existing capabilities for marker addition |
 | 025 | skill-first-discovery | Partial | Skill-search ranks above tool-search | Refinement needed per consolidation pass |
 | 026 | skills-as-core-capability | Not started | Skill surface as a first-class capability | Depends on 016 cleanup |

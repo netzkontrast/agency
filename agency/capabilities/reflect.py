@@ -27,7 +27,11 @@ class ReflectCapability(CapabilityBase):
     def note(self, scope: str, text: str) -> dict:
         """Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent.
 
-        Allowed scopes: observation, project, reflection, technical, user, world.
+        Inputs: scope (one of observation/project/reflection/technical/user/world),
+                text (str — the insight body).
+        Returns: ``{result: <reflection_id>}``.
+        chain_next: ``reflect.recall(scope=)`` or ``reflect.search(query=)``
+                    to surface what was written.
         """
         rid = self.ctx.record("Reflection", {"scope": scope, "text": text})
         self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
@@ -36,12 +40,16 @@ class ReflectCapability(CapabilityBase):
 
     @verb(role="act")
     def batch_note(self, scope: str, texts: list) -> dict:
-        """Bulk version of ``note``: one Reflection node per text. Returns
-        ``{ids, count}``. Closes the gap that made ``jules-self-improvement``
-        only fold the first observation per walk — a real loop ingests N
-        observations from ``dogfood.collect`` in one Phase-2 invocation.
+        """Bulk version of ``note``: one Reflection node per text.
 
-        Allowed scopes: observation, project, reflection, technical, user, world.
+        Inputs: scope (one of observation/project/reflection/technical/user/world),
+                texts (list[str] — one Reflection per non-empty entry).
+        Returns: ``{ids, count}``.
+        chain_next: ``reflect.recall(scope=)`` for surfacing the batch.
+
+        Closes the gap that made ``jules-self-improvement`` only fold the
+        first observation per walk — a real loop ingests N observations
+        from ``dogfood.collect`` in one Phase-2 invocation.
         """
         ids: list[str] = []
         for t in texts or []:
@@ -55,7 +63,12 @@ class ReflectCapability(CapabilityBase):
 
     @verb(role="transform")
     def recall(self, scope: str = "") -> dict:
-        "Retrieve reflections, newest first, optionally filtered by scope."
+        """Retrieve reflections, newest first, optionally filtered by scope.
+
+        Inputs: scope (str — optional filter; empty returns all).
+        Returns: ``{result: [{scope, text}, …]}`` newest-first.
+        chain_next: terminal — caller renders/aggregates the list.
+        """
         rows = sorted(self.ctx.find("Reflection"), key=lambda p: p["vfrom"], reverse=True)
         out = [{"scope": r["scope"], "text": r["text"]}
                for r in rows if not scope or r.get("scope") == scope]
@@ -63,7 +76,13 @@ class ReflectCapability(CapabilityBase):
 
     @verb(role="transform")
     def search(self, query: str) -> dict:
-        "Keyword search over reflection text (deterministic substring match)."
+        """Keyword search over reflection text (deterministic substring match).
+
+        Inputs: query (str — case-insensitive substring).
+        Returns: ``{result: [{scope, text}, …]}``.
+        chain_next: ``reflect.recall_semantic`` for semantic ranking when
+                    a stronger backend is wired.
+        """
         q = (query or "").lower()
         out = [{"scope": r["scope"], "text": r["text"]}
                for r in self.ctx.find("Reflection") if q in r["text"].lower()]
@@ -74,16 +93,13 @@ class ReflectCapability(CapabilityBase):
                         scope: str = "") -> dict:
         """Semantic top-k recall over Reflection nodes; backend-injectable.
 
-        Inputs:
-            query: free-text query; empty → empty results.
-            k: max results returned (sorted by score desc).
-            scope: optional scope filter applied AFTER ranking.
-
-        Returns: ``{results: [{id, score, scope, text, vfrom}],
-        embedder: str}``. ``text`` is truncated to 200 chars (Spec 023
-        token-budget discipline; call ``recall``/``search`` for full
-        text). ``embedder`` names the live backend so the caller can
-        confirm which backend ran.
+        Inputs: query (str — free text; empty → empty results),
+                k (int — max results), scope (str — optional post-rank filter).
+        Returns: ``{results: [{id, score, scope, text, vfrom}], embedder}``.
+                 ``text`` truncated to 200 chars (Spec 023 budget); call
+                 ``recall``/``search`` for full text. ``embedder`` names the
+                 live backend so callers confirm which ran.
+        chain_next: ``reflect.recall(scope=)`` for full text on a top match.
         """
         rows = list(self.ctx.find("Reflection"))
         if not rows or not (query or "").strip() or k <= 0:

@@ -24,7 +24,14 @@ class WorkspaceCapability(CapabilityBase):
 
     @verb(role="effect", inject=["vcs"])
     def isolate(self, vcs, branch: str, base: str = "main") -> dict:
-        "Create an isolated git worktree on a fresh branch off `base`; record the Workspace."
+        """Create an isolated git worktree on a fresh branch off `base`; record the Workspace.
+
+        Inputs: branch (str — new branch name), base (str — default 'main').
+        Returns: ``{result: {workspace, path, branch, base}}`` on success;
+                 ``{result: {error, branch, detail}}`` on failure.
+        chain_next: ``workspace.baseline(workspace=, command=)`` to record
+                    the starting GREEN state.
+        """
         wt = (vcs or GitClient()).worktree(branch=branch, base=base)
         if not wt.get("ok", True):                             # don't record a phantom worktree
             return {"result": {"error": "worktree creation failed", "branch": branch,
@@ -35,7 +42,13 @@ class WorkspaceCapability(CapabilityBase):
 
     @verb(role="effect", inject=["vcs"])
     def baseline(self, vcs, workspace: str, command: str) -> dict:
-        "Run the baseline test command in the workspace and record the green/red result."
+        """Run the baseline test command in the workspace and record the green/red result.
+
+        Inputs: workspace (Workspace node id), command (str — shell test cmd).
+        Returns: ``{result: {workspace, passed, output}}``.
+        chain_next: caller proceeds with the work; later runs compare against
+                    this Baseline via ``BASELINED`` provenance.
+        """
         ws = self.ctx.recall(workspace)
         if not ws or not ws.get("path"):                       # don't silently run in the process cwd
             return {"result": {"error": "unknown workspace (run workspace.isolate first)",

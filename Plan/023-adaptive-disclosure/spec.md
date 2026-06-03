@@ -1,7 +1,7 @@
 ---
 spec_id: "023"
 slug: adaptive-disclosure
-status: draft
+status: complete                 # 2026-06-03: docstring sweep + substrate brief-slicing parity ship Phase 0/7
 owner: "@agency"
 depends_on: ["016", "018", "019"]
 affects:
@@ -326,3 +326,21 @@ By IMPLEMENTATION-PLAN phase:
 - code: `agency/render.py` (Phase 1 complete), `agency/engine.py:56-83` (surface resolution — Phase 2), `agency/engine.py:139-141` (brief-slice in `_wire` — Phase 7 early), `agency/install.py:67,98` (per-surface H2)
 - tests: `tests/test_render.py`, `tests/test_surface_resolution.py`, `tests/test_token_budget.py`, `tests/test_engine_brief_descriptions.py`, `tests/test_search_isomorphism.py` (partial); missing: `test_search_delta_shape.py`, `test_intent_slice.py`, `test_cli_surface_flags.py`, `test_docstring_compliance_roster.py`
 - commits/notes: Spec 023 says `[x] v1 (shipped, dadd9d1)` for the brief-slice caching; confirmed. Phases 3–5 and the docstring migration remain open. Frontmatter `status: draft` is accurate.
+
+## Followup — Hint #7 sweep + substrate parity (2026-06-03)
+
+**Verdict:** Shipped (Phase 0 + Phase 7 closed; Phase 3–5 remain v2).
+
+### Done
+- **Docstring migration roster (Phase 0 gate)** — closes: 0 non-compliant verbs (was 44 per Followup 2026-05-31). Sweep landed alongside Spec 016 ship.
+- **Substrate-tool brief-slicing parity** — `Engine.build_mcp` now walks `mcp.providers[*]._components` and slices the description of every `@mcp.tool`-decorated substrate tool to its brief slice (parity with capability verbs in `_wire`). Without this, the rich Hint-#7 substrate docstrings (e.g. `agency_welcome`) would push the wide-net `search 'graph'` budget over 200 tokens. Re-verified after the sweep: `tests/test_token_budget.py` GREEN (3 tests, all ≤ budget).
+- **Round-trip with dogfood.import** — the import verb's brief slice ('Replay a JSON export into this graph, preserving ids + windows.') is what appears in search; the full Inputs/Returns/chain_next contract appears only via `get_schema`, matching the Spec 023 design.
+
+### Still v2 (deferred, not blocking)
+- Phase 3: structured `search` delta shape (`{matches, next, total, truncated}`).
+- Phase 4: `agency/intent.py::match_score` + intent-slice filter.
+- Phase 5: CLI surface flags (`--depth`, `--surface`, `--intent-id`, `--format`).
+
+### Cluster-coherence (Spec 047)
+- C13 (Plugin/MCP Authoring) — sub-tool brief-slicing closes the catalog-token asymmetry across the substrate ↔ capability boundary.
+- C12 (Capability Authoring) — paired with Spec 016's sweep, get_schema responses are uniform.

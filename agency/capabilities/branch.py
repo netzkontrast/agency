@@ -31,13 +31,23 @@ class BranchCapability(CapabilityBase):
 
     @verb(role="transform", inject=["vcs"])
     def assess(self, vcs, branch: str, base: str = "main") -> dict:
-        "Read the branch state (ahead/behind/dirty) and recommend merge/pr/keep/discard."
+        """Read the branch state (ahead/behind/dirty) and recommend merge/pr/keep/discard.
+
+        Inputs: branch (str), base (str — defaults to 'main').
+        Returns: ``{result: {ahead, behind, dirty, recommended}}``.
+        chain_next: ``branch.finish(branch=, action=result.recommended)``.
+        """
         state = (vcs or GitClient()).state(branch=branch, base=base)
         return {"result": {**state, "recommended": _recommend(state)}}
 
     @verb(role="effect", inject=["vcs"])
     def finish(self, vcs, branch: str, action: str, base: str = "main") -> dict:
-        "Finish the branch by the chosen action (merge/pr/keep/discard); record the outcome."
+        """Finish the branch by the chosen action (merge/pr/keep/discard); record the outcome.
+
+        Inputs: branch (str), action (one of merge/pr/keep/discard), base (str).
+        Returns: ``{result: {outcome, branch, action, ok, detail}}``.
+        chain_next: terminal — outcome node carries the audit trail.
+        """
         if action not in _ACTIONS:
             return {"result": {"error": f"unknown action {action!r}", "actions": sorted(_ACTIONS)}}
         res = (vcs or GitClient()).finish(branch=branch, action=action, base=base)

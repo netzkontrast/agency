@@ -576,4 +576,24 @@ class Engine:
                 "next": next_steps,
             }
 
+        # Spec 023 Phase 3 (substrate parity): the @mcp.tool-decorated
+        # substrate tools above carry their full docstrings into FastMCP's
+        # catalog by default. _wire() already tightens capability verbs to
+        # the brief slice; mirror the same treatment for substrate tools so
+        # search results stay token-bounded regardless of how rich a
+        # Hint-#7 docstring grows.
+        for provider in getattr(mcp, "providers", ()):
+            for key, tool in getattr(provider, "_components", {}).items():
+                if not key.startswith("tool:"):
+                    continue
+                name = getattr(tool, "name", "") or ""
+                if name.startswith("capability_"):
+                    continue   # already tightened in _wire
+                raw = (getattr(tool, "description", "") or "").strip()
+                if not raw:
+                    continue
+                brief = parse_slices(raw)["brief"]
+                if brief and brief != raw:
+                    tool.description = brief
+
         return mcp

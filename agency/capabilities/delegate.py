@@ -182,30 +182,21 @@ class DelegateCapability(CapabilityBase):
     ) -> dict:
         """Apply the dispatch-vs-inline heuristic and return a recommendation.
 
-        Decision logic (pure; no provenance writes — the heuristic itself is
-        a transform, and the ``dispatch-decision`` skill walk records the
-        provenance via Phase.invoke bindings if the caller chooses to walk it).
+        Inputs: file_count (S2), exploration_needed (S3), parallelism (S4),
+                est_duration_min (S5), expected_return_tokens (S1),
+                mutates (S6 disqualifier), read_only (S7), driver_hint (S8),
+                context_overlap (S9), cache_warmth (S10),
+                local_budget_relevant (S11).
+        Returns: ``{recommendation, driver, rationale, token_cost_estimate,
+                 local_budget_token_estimate, signals_fired}`` — the six-field
+                 payload documented in Spec 040 §"Done When". ``signals_fired``
+                 reports which of the 11 swung the decision (incl. disqualifiers).
+        chain_next: when ``recommendation == 'dispatch'``, call ``delegate.fan_out``
+                    (driver=, driver_verb=, items=, quota=); when ``inline``,
+                    execute in-process.
 
         See ``skills/dispatch-decision/references/heuristics.md`` for the full
         eleven-signal rule table + the two budget models (local vs. Jules).
-
-        Inputs:
-            file_count: files the orchestrator has not yet loaded (S2).
-            exploration_needed: repeated grep/find through unfamiliar subtree (S3).
-            parallelism: sibling tasks that would dispatch together (S4).
-            est_duration_min: wall-clock for inline execution (S5).
-            expected_return_tokens: subagent return-payload estimate (S1).
-            mutates: task writes graph/disk/external state (S6 — disqualifier).
-            read_only: orthogonal to ``mutates``; amplifies dispatch (S7).
-            driver_hint: caller preference inline|local|jules|mcp (S8, tie-breaker).
-            context_overlap: 0..1 fraction parent already loaded (S9).
-            cache_warmth: 0..1 fraction prompt-cached at parent (S10).
-            local_budget_relevant: when False (Jules path) relaxes S1/S9/S10 (S11).
-
-        Returns ``{recommendation, driver, rationale, token_cost_estimate,
-        local_budget_token_estimate, signals_fired}`` — the six-field payload
-        documented in Spec 040 §"Done When". ``signals_fired`` reports which
-        of the 11 swung the decision (including disqualifiers).
         """
         signals: list[str] = []
 
@@ -317,14 +308,15 @@ class DelegateCapability(CapabilityBase):
     def dispatch_bash_hints(self, paths: str = "", symbols: str = "") -> dict:
         """Compose the bash-hint context block for a dispatch prompt.
 
+        Inputs: paths (comma-separated dirs/globs), symbols (comma-separated
+                grep terms). Both empty → empty hints.
+        Returns: ``{hints: [str], block: str}`` where ``block`` is the
+                 ready-to-paste markdown.
+        chain_next: paste ``block`` into the dispatched agent's prompt.
+
         When the orchestrator decides to dispatch (per ``dispatch_decision``),
         hand the agent the exact bash commands that surface the right files
-        — cheap on orchestrator tokens (no file contents quoted), fast for
-        the agent (no flailing).
-
-        ``paths`` and ``symbols`` are comma-separated. Empty → empty hints.
-        Returns ``{hints: [str], block: str}`` where ``block`` is the
-        ready-to-paste markdown.
+        — cheap on orchestrator tokens, fast for the agent.
         """
         ps = [s.strip() for s in paths.split(",") if s.strip()] if paths else []
         ss = [s.strip() for s in symbols.split(",") if s.strip()] if symbols else []
@@ -345,8 +337,15 @@ class DelegateCapability(CapabilityBase):
     @verb(role="effect")
     def fan_out(self, driver: str, driver_verb: str, items: list, quota: int = 8) -> dict:
         """Open one child Lifecycle per item (capped at `quota`), dispatch the driver
-        for each, and record a Delegation that DELEGATES_TO every child. Children
-        start `working` (dispatched ≠ done)."""
+        for each, and record a Delegation that DELEGATES_TO every child.
+
+        Inputs: driver (capability name), driver_verb (str), items (list[dict] —
+                each dict unpacked as driver kwargs), quota (int — admission cap).
+        Returns: ``{result: {delegation, dispatched, skipped, children: [{lifecycle, result}]}}``.
+        chain_next: ``delegate.join(delegation=)`` after children complete.
+
+        Children start ``working`` (dispatched ≠ done).
+        """
         if quota < 0:                                          # negative slicing would over-admit
             return {"result": {"error": "quota must be >= 0", "quota": quota}}
         nonmap = [it for it in items if not isinstance(it, dict)]
@@ -374,10 +373,17 @@ class DelegateCapability(CapabilityBase):
 
     @verb(role="act")
     def join(self, delegation: str) -> dict:
-        """Reduce a delegation over its children's Lifecycle state (dispatched ≠
-        done): tally states, record a REDUCES_INTO reduction. `done` only when every
-        child Lifecycle is `completed`. Writes a reduction, so it is an `act`, not a
-        pure read."""
+        """Reduce a delegation over its children's Lifecycle state.
+
+        Inputs: delegation (Delegation node id from ``fan_out``).
+        Returns: ``{result: {children, states, done, reduction}}`` where
+                 ``done=True`` iff every child Lifecycle is ``completed``.
+        chain_next: when ``done=False``, walk the child lifecycles and
+                    address ``input-required`` pauses; re-call ``join``.
+
+        Writes a REDUCES_INTO reduction (so it is an ``act``, not a pure
+        read).
+        """
         if not self.ctx.memory.g.query(                        # no cross-intent reductions
                 "MATCH (d:Delegation)-[:SERVES]->(i:Intent) WHERE d.id = $d AND i.id = $i RETURN i",
                 {"d": delegation, "i": self.ctx.intent_id}):

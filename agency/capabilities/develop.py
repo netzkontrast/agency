@@ -303,11 +303,23 @@ class DevelopCapability(CapabilityBase):
 
     @verb(role="transform")
     def checklist(self, discipline: str) -> dict:
+        """Project a discipline (skill walk) into a step-by-step checklist.
+
+        Inputs: discipline (str — registered skill name).
+        Returns: ``{result: [{step, gate}, …]}`` ordered by phase index.
+        chain_next: walk the steps via the relevant capability verbs.
+        """
         return checklist(discipline)
 
     @verb(role="transform")
     def reference(self, topic: str) -> dict:
-        "Fetch a discipline's heavy how-to on demand (T3): testing-skills, skill-descriptions, best-practices."
+        """Fetch a discipline's heavy how-to on demand (T3 disclosure).
+
+        Inputs: topic (one of testing-skills | skill-descriptions | best-practices | …).
+        Returns: ``{result: {topic, doc}}`` on hit; ``{result: {error, available}}``
+                 on miss.
+        chain_next: terminal — caller reads the doc.
+        """
         doc = REFERENCES.get(topic)
         if doc is None:
             return {"result": {"error": f"unknown reference {topic!r}", "available": sorted(REFERENCES)}}

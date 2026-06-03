@@ -467,36 +467,85 @@ class PluginCapability(CapabilityBase):
     # methods are thin verb wrappers so the capability is authored in the class form.
     @verb(role="act")
     def scaffold(self, name: str, version: str, description: str) -> dict:
+        """Render the plugin scaffold (plugin.json + .mcp.json).
+
+        Inputs: name (plugin slug), version (semver), description (str).
+        Returns: ``{result: {plugin_json, mcp_json}}``.
+        chain_next: write the rendered files; commit; install.
+        """
         return scaffold(name, version, description)
 
     @verb(role="act")
     def author_skill(self, name: str, description: str, body: str) -> dict:
+        """Render a CSO-compliant SKILL.md.
+
+        Inputs: name (skill slug), description (trigger phrase), body (markdown).
+        Returns: ``{result: <skill_md_str>}``.
+        chain_next: ``plugin.lint_skill(name=, description=)`` then write.
+        """
         return author_skill(name, description, body)
 
     @verb(role="act")
     def author_command(self, name: str, description: str, body: str) -> dict:
+        """Render a slash-command markdown stub.
+
+        Inputs: name (command name), description (str), body (markdown).
+        Returns: ``{result: <command_md_str>}``.
+        chain_next: write to ``commands/<name>.md``.
+        """
         return author_command(name, description, body)
 
     @verb(role="act")
     def marketplace_entry(self, name: str, version: str, description: str, source: str) -> dict:
+        """Render a marketplace.json entry.
+
+        Inputs: name (plugin slug), version (semver), description (str),
+                source (git URL or local path).
+        Returns: ``{result: <entry_dict>}``.
+        chain_next: merge into ``.claude-plugin/marketplace.json``.
+        """
         return marketplace_entry(name, version, description, source)
 
     @verb(role="act")
     def step_doc(self, step: str, output: str, status: str = "done",
                  inputs: str = "", notes: str = "") -> dict:
+        """Render a step-doc markdown block (audit trail entry).
+
+        Inputs: step (title), output (deliverable), status (done|partial|skip),
+                inputs (str, optional), notes (str, optional).
+        Returns: ``{result: <markdown_str>}``.
+        chain_next: append to the working step-doc file.
+        """
         return step_doc(step, output, status, inputs, notes)
 
     @verb(role="transform")
     def lint_skill(self, name: str, description: str) -> dict:
+        """Lint a skill description against the CSO + length rules.
+
+        Inputs: name (slug), description (the SKILL.md description field).
+        Returns: ``{ok, violations}``.
+        chain_next: fix violations + re-lint OR write the skill if ``ok=True``.
+        """
         return lint_skill(name, description)
 
     @verb(role="transform")
     def lint_capability(self, name: str) -> dict:
+        """Lint a capability against Hint #7 structural + role-tag + render-slice rules.
+
+        Inputs: name (capability name registered in ``ctx.registry``).
+        Returns: ``{ok, violations, warnings, skipped, mode}``.
+        chain_next: fix violations + re-lint; ``mode=block`` is fatal.
+        """
         cap = self.ctx.registry.get(name)
         return lint_capability(cap)
 
     @verb(role="transform")
     def help(self) -> dict:
-        "Map the engine's capabilities (macroskills) to their verbs — via ctx.registry."
+        """Map the engine's capabilities (macroskills) to their verbs — via ctx.registry.
+
+        Inputs: none.
+        Returns: ``{result: {<cap>: [<verb>, …]}}``.
+        chain_next: ``search('<keyword>')`` or ``get_schema(name=)`` for details.
+        """
         caps = {n: list(self.ctx.registry.get(n).verbs) for n in self.ctx.registry.names()}
         return help_map(caps)

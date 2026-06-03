@@ -163,6 +163,13 @@ class JulesCapability(CapabilityBase):
                  protocol_preset: str = "") -> dict:
         """Spawn a remote Jules session (external effect). Returns id/url/state.
 
+        Inputs: source (owner/repo), starting_branch, prompt, title (optional),
+                require_plan_approval (bool, default True), alias (optional),
+                automation_mode ('' | AUTO_CREATE_PR), protocol_preset (e.g. 'agency-default').
+        Returns: ``{status, session, url, alias, artefact: {kind, session, url}}``.
+        chain_next: ``jules.status(session=)`` then ``jules.approve_plan(session=)``
+                    when state hits AWAITING_PLAN_APPROVAL.
+
         Param completeness: the default `require_plan_approval=True` is the
         recommended doctrine shape the watcher's `review_and_approve_plan`
         WatchEvent is built for. Spec 013 Phase 4 adds:
@@ -216,48 +223,85 @@ class JulesCapability(CapabilityBase):
 
     @verb(role="transform")
     def status(self, session: str) -> dict:
-        """Read a session's full state from the backend — the trimmed `{state,
-        url}` shape was dropping 5 fields the watcher + recovery flow need
-        (R2 audit fix; spec 012 Phase 5)."""
+        """Read a session's full state from the backend.
+
+        Inputs: session (sid).
+        Returns: the backend's full state dict (state, url, plan, outputs, …).
+        chain_next: ``jules.verify(state=, branch=)`` to confirm push.
+
+        The trimmed `{state, url}` shape was dropping 5 fields the watcher +
+        recovery flow need (R2 audit fix; spec 012 Phase 5).
+        """
         return self._backend().get(session)
 
     @verb(role="transform")
     def list(self, page_size: int = 20, page_token: str = "") -> dict:
-        "Enumerate sessions (trimmed to id/state/title/url; one page — walk via token)."
+        """Enumerate sessions (trimmed to id/state/title/url; one page — walk via token).
+
+        Inputs: page_size (int), page_token (str — empty = first page).
+        Returns: ``{sessions: [{id, state, title, url}], next_page_token}``.
+        chain_next: re-call with returned ``next_page_token`` to walk older pages.
+        """
         return self._backend().list(page_size, page_token)
 
     @verb(role="transform")
     def activities(self, session: str, page_size: int = 10, only_kinds: str = "",
                    page_token: str = "") -> dict:
         """A session's activity stream, trimmed to summaries (the costliest Jules read).
-        `page_token` walks older pages — without it, older `agentMessaged` /
-        failure details become unreachable through `jules.activities` (Codex
-        review ccb8f03 / jules.py:139)."""
+
+        Inputs: session (sid), page_size (int), only_kinds (comma-separated kinds),
+                page_token (str — empty for newest page).
+        Returns: ``{activities: [{kind, summary, ts}], next_page_token}``.
+        chain_next: walk pages via ``next_page_token``; ``jules.plan`` /
+                    ``jules.patch`` for typed slices.
+
+        Without ``page_token`` older `agentMessaged` / failure details become
+        unreachable (Codex review ccb8f03 / jules.py:139).
+        """
         return self._backend().activities(session, page_size, only_kinds, page_token)
 
     @verb(role="transform")
     def plan(self, session: str, max_pages: int = 5) -> dict:
-        "The latest generated plan — show it before approve_plan (no PR exists yet)."
+        """The latest generated plan — show it before approve_plan (no PR exists yet).
+
+        Inputs: session (sid), max_pages (int — walk back this many pages).
+        Returns: ``{plan: <markdown>, generated_at}`` or ``{error}`` if not found.
+        chain_next: review then ``jules.approve_plan(session=)``.
+        """
         return self._backend().plan(session, max_pages)
 
     @verb(role="effect")
     def approve_plan(self, session: str) -> dict:
-        "Approve a plan in AWAITING_PLAN_APPROVAL — the one state that times out; do it promptly."
+        """Approve a plan in AWAITING_PLAN_APPROVAL — the one state that times out.
+
+        Inputs: session (sid).
+        Returns: backend response (typically ``{state: WORKING}`` after).
+        chain_next: poll ``jules.status(session=)`` until COMPLETED / FAILED.
+        """
         return self._backend().approve_plan(session)
 
     @verb(role="effect")
     def message(self, session: str, prompt: str) -> dict:
-        """Send a message into a session (feedback / plan-revision / nudge a COMPLETED
-        session to push). Input only, NOT a control plane: resumption is racy — poll
-        status after; never use it to revive a FAILED session or to cancel one."""
+        """Send a message into a session (feedback / plan-revision / nudge to push).
+
+        Inputs: session (sid), prompt (str — the message body).
+        Returns: backend response (typically ``{ok}`` on accept).
+        chain_next: poll ``jules.status(session=)`` — resumption is racy.
+
+        Input only, NOT a control plane. Never use to revive a FAILED session
+        or to cancel one.
+        """
         return self._backend().message(session, prompt)
 
     @verb(role="transform")
     def stop(self, session: str) -> dict:
-        """UNSUPPORTED by design: the Jules v1alpha API exposes no cancel/delete/stop —
-        only create/get/list/activities/approvePlan/sendMessage. Returns an explanatory
-        notice instead of faking it; to intervene, `message` the agent to stand down, or
-        wait for a terminal state (COMPLETED/FAILED)."""
+        """UNSUPPORTED by design: the Jules v1alpha API exposes no cancel/delete/stop.
+
+        Inputs: session (sid).
+        Returns: ``{error: 'unsupported', session, message}``.
+        chain_next: ``jules.message(session=, prompt='please stop')`` or wait
+                    for terminal state (COMPLETED / FAILED).
+        """
         return {
             "error": "unsupported",
             "session": session,
@@ -268,12 +312,17 @@ class JulesCapability(CapabilityBase):
 
     @verb(role="transform", inject=["vcs"])
     def verify(self, vcs, state: str, branch: str, remote: str = "origin") -> dict:
-        """COMPLETED != done. Derives `branch_on_remote` INDEPENDENTLY from
-        origin via the injected `vcs` boundary (`git ls-remote`), dropping the
-        caller-supplied bool the original draft trusted (spec 006 F3 / spec
-        012 Phase 5). Fail-closed: if the lookup itself errors (network/auth/
-        unknown remote), `done=False`; the silent-fail guard must never assume
-        truth it cannot prove."""
+        """COMPLETED != done — verifies the branch landed on origin.
+
+        Inputs: state (caller-reported session state), branch (str),
+                remote (str, default 'origin').
+        Returns: ``{done, state, branch_on_remote, sha, error?}``.
+        chain_next: when ``done=True``, open a PR; otherwise ``jules.recover``.
+
+        Derives ``branch_on_remote`` INDEPENDENTLY via the injected ``vcs``
+        boundary (``git ls-remote``). Fail-closed: any lookup error →
+        ``done=False`` (Spec 006 F3 / Spec 012 Phase 5).
+        """
         if not branch:
             return {"done": False, "state": state, "branch_on_remote": False,
                     "error": "branch is required"}
@@ -290,45 +339,83 @@ class JulesCapability(CapabilityBase):
 
     @verb(role="transform")
     def resolve_source(self, owner: str, repo: str) -> dict:
-        """Resolve `owner/repo` to the opaque `sources/<id>` the API expects
-        (the composition is undocumented; must list-and-match). Read-only."""
+        """Resolve `owner/repo` to the opaque `sources/<id>` the API expects.
+
+        Inputs: owner (str), repo (str).
+        Returns: ``{source_id, owner, repo}`` or ``{error}`` on miss.
+        chain_next: pass ``source_id`` (or ``owner/repo``) to ``jules.dispatch``.
+
+        The composition is undocumented; must list-and-match. Read-only.
+        """
         return self._backend().resolve_source(owner, repo)
 
     @verb(role="transform")
     def status_all(self, page_size: int = 100, max_pages: int = 20) -> dict:
-        """Paginated, grouped-by-state listing of every session on the
-        account. Returns `{by_state, totals, total, truncated}`. Operational
-        hygiene (lesson-15 §3); the watcher uses it to seed the registry."""
+        """Paginated, grouped-by-state listing of every session on the account.
+
+        Inputs: page_size (int), max_pages (int).
+        Returns: ``{by_state, totals, total, truncated}``.
+        chain_next: ``jules.approve_awaiting`` for AWAITING_PLAN_APPROVAL group.
+
+        Operational hygiene (lesson-15 §3); the watcher uses it to seed the
+        registry.
+        """
         return self._backend().status_all(page_size, max_pages)
 
     @verb(role="effect")
     def approve_awaiting(self, limit: int = 0) -> dict:
-        """Bulk-approve every session in `AWAITING_PLAN_APPROVAL` (up to
-        `limit`, 0 = all). Returns `{approved, skipped}`. The one state with a
-        timeout/discard window; don't let it sit (lesson-15 §6)."""
+        """Bulk-approve every session in AWAITING_PLAN_APPROVAL (up to `limit`).
+
+        Inputs: limit (int — cap; 0 = all).
+        Returns: ``{approved, skipped}``.
+        chain_next: poll ``jules.status_all`` until all approved sessions
+                    transition to WORKING / COMPLETED.
+
+        The one state with a timeout/discard window; don't let it sit
+        (lesson-15 §6).
+        """
         return self._backend().approve_awaiting(limit)
 
     @verb(role="transform")
     def quota(self, daily_limit: int = 0) -> dict:
-        """Count sessions created today (UTC). `daily_limit` is a caller-
-        supplied budget (the API has no quota surface); returns `headroom`
-        when supplied. Operational hygiene (lesson-15 §6)."""
+        """Count sessions created today (UTC).
+
+        Inputs: daily_limit (int — caller-supplied budget; 0 = no headroom calc).
+        Returns: ``{used, daily_limit, headroom}`` (headroom only when
+                 ``daily_limit > 0``).
+        chain_next: gate further ``jules.dispatch`` calls on ``headroom > 0``.
+
+        The API has no quota surface; this is operational hygiene
+        (lesson-15 §6).
+        """
         return self._backend().quota(daily_limit)
 
     @verb(role="transform")
     def patch(self, session: str) -> dict:
-        """Per-output stats (`files`, `lines`, `bytes`) from the session's
-        `outputs[*].changeSet.gitPatch.unidiffPatch` — NO body. Used by the
-        watcher to classify silent-fail variants (empty patch vs missing
-        push). Body retrieval is the explicit `patch_body` verb."""
+        """Per-output stats (``files``, ``lines``, ``bytes``) from the session's outputs — NO body.
+
+        Inputs: session (sid).
+        Returns: ``{outputs: [{index, files, lines, bytes}]}``.
+        chain_next: ``jules.patch_body(session=, output_index=)`` for the
+                    actual unidiff bytes; ``jules.apply_patch`` for recovery.
+
+        Used by the watcher to classify silent-fail variants (empty patch vs
+        missing push). Body retrieval is the explicit ``patch_body`` verb.
+        """
         return self._backend().patch(session)
 
     @verb(role="transform")
     def patch_body(self, session: str, output_index: int = 0, max_bytes: int = 4096) -> dict:
-        """Explicit, capped unidiff retrieval for one of the session's outputs
-        — default cap 4 KB so a careless call can't blow the agent's context.
-        Returns `{unidiff, truncated, original_bytes}`. The recovery flow's
-        `apply_patch` is the only common caller (spec 012)."""
+        """Explicit, capped unidiff retrieval for one of the session's outputs.
+
+        Inputs: session (sid), output_index (int, default 0),
+                max_bytes (int — default 4096; capped slice).
+        Returns: ``{unidiff, truncated, original_bytes}`` or ``{error}`` on
+                 out-of-range index.
+        chain_next: ``jules.apply_patch(session=)`` for the recovery plan.
+
+        Default cap 4 KB so a careless call can't blow the agent's context.
+        """
         outs = (self._backend().get_full(session).get("outputs") or [])
         if output_index < 0 or output_index >= len(outs):
             return {"error": f"output_index {output_index} out of range (0..{len(outs)-1})"}
@@ -340,11 +427,15 @@ class JulesCapability(CapabilityBase):
 
     @verb(role="act")
     def alias(self, name: str, session: str = "") -> dict:
-        """Read or upsert a stable alias for a Jules sid. Stored as a
-        `JulesAlias` node in the bi-temporal graph (no parallel sessions.json
-        per the canon CORE.md:38-45). With `session=""` looks up; with a
-        non-empty `session`, upserts both the alias and a stub `JulesSession`
-        node (the watcher fills in fields later) and links `ALIAS_OF`."""
+        """Read or upsert a stable alias for a Jules sid.
+
+        Inputs: name (alias slug), session (sid — empty = look up).
+        Returns: ``{name, session}`` on hit; ``{error}`` on lookup miss.
+        chain_next: ``jules.status(session=)`` once resolved.
+
+        Stored as a ``JulesAlias`` node in the bi-temporal graph (no
+        parallel sessions.json per the canon CORE.md:38-45).
+        """
         mem = self.ctx.memory
         alias_id = f"jules-alias:{name}"
         if not session:
@@ -363,18 +454,14 @@ class JulesCapability(CapabilityBase):
     def lint_prompt(self, text: str, must_name: str = "") -> dict:
         """Lint a dispatch prompt against the canonical must-name tool list.
 
-        Returns ``{ok: bool, missing: [str], extras: [str]}``. Symmetric with
-        ``plugin.lint_skill``: a pure predicate, no side effects, no memory
-        writes. Consumed by the ``jules-protocol-preamble`` skill (Phase 3
-        ``name-canonical-tools``) and reusable by ``jules-pr-review-cycle``
-        for outbound replies.
+        Inputs: text (the dispatch prompt body), must_name (comma-separated
+                override; empty falls back to the canonical list).
+        Returns: ``{ok, missing, extras}``.
+        chain_next: edit the prompt to add ``missing`` names; re-lint.
 
-        ``must_name`` is a comma-separated override; empty string falls back
-        to the full canon from ``_jules_preambles._MUST_NAME_TOOLS``
-        (``pre_commit_instructions``, ``submit``, ``request_user_input``,
-        ``replace_with_git_merge_diff``, ``request_code_review``). String
-        instead of ``list[str]`` so the verb auto-wires cleanly through MCP
-        / bash CLI without nested-type schema gymnastics.
+        Symmetric with ``plugin.lint_skill``: a pure predicate, no side
+        effects. Consumed by the ``jules-protocol-preamble`` skill Phase 3
+        (``name-canonical-tools``).
         """
         from ._jules_preambles import lint_must_name
         names = [s.strip() for s in must_name.split(",") if s.strip()] if must_name else None
@@ -382,14 +469,14 @@ class JulesCapability(CapabilityBase):
 
     @verb(role="transform")
     def detect_mode(self, source: str) -> dict:
-        """Mode A (dogfood) vs Mode B (delegate) — pure decision based on the
-        dispatch ``source``. Mode A when ``source == DISPATCH_SELF_SOURCE``
-        (the agency repo itself, default ``netzkontrast/agency``); Mode B
-        for any other source. Mode A relies on Jules's lexical scoping to
-        inherit ``AGENTS.md`` + ``AGENCY_PROTOCOL.md`` from the cloned
-        agency repo; Mode B prepends an explicit READ-ONLY clone block.
+        """Mode A (dogfood) vs Mode B (delegate) — pure decision on dispatch source.
 
-        Returns ``{mode, self_source, reason}``. Bound by Phase 1 of the
+        Inputs: source (str — owner/repo of the dispatch target).
+        Returns: ``{mode: dogfood|delegate, self_source, reason}``.
+        chain_next: pass ``mode`` to ``_jules_preambles.assemble(...)``.
+
+        Mode A when ``source == DISPATCH_SELF_SOURCE`` (the agency repo
+        itself); Mode B for any other source. Bound by Phase 1 of the
         ``jules-protocol-preamble`` skill.
         """
         from ._jules_preambles import DISPATCH_SELF_SOURCE
@@ -401,17 +488,16 @@ class JulesCapability(CapabilityBase):
 
     @verb(role="transform")
     def review_comment(self, body: str) -> dict:
-        """Compose an @jules-style PR review-comment body with the mandatory
-        review-cycle handshake tail (AGENCY_PROTOCOL.md §9).
+        """Compose an @jules PR review-comment with the mandatory handshake tail.
 
-        The tail instructs Jules to `reply_to_pr_comments(...)` after
-        pushing — without it, this session is blind to Jules's push until
-        the next poll. Idempotent: re-applying does not duplicate the tail.
+        Inputs: body (str — your review comment).
+        Returns: ``{text, tail_appended}``. ``text`` is what the caller passes
+                 to GitHub MCP ``add_issue_comment``; ``tail_appended=False``
+                 means the body already carried a compliant tail.
+        chain_next: post ``text`` via the GitHub MCP comment tool.
 
-        Returns ``{text: str, tail_appended: bool}``. The text is what the
-        caller should pass to GitHub MCP `add_issue_comment` /
-        `add_comment_to_pending_review`. The boolean is informational
-        (false if the body already carried a compliant tail).
+        The tail instructs Jules to ``reply_to_pr_comments(...)`` after
+        pushing (AGENCY_PROTOCOL.md §9). Idempotent.
         """
         from ._jules_preambles import REVIEW_COMMENT_TAIL, review_comment as _rc
         already = REVIEW_COMMENT_TAIL.strip() in body
@@ -420,6 +506,14 @@ class JulesCapability(CapabilityBase):
     @verb(role="transform")
     def watch(self, session: str = "", for_intent: str = "", timeout: int = 30) -> dict:
         """Await the next `WatchEvent` for a session or intent.
+
+        Inputs: session (sid — looks up the watching intent), for_intent (intent_id —
+                explicit override), timeout (int — seconds, capped at 25).
+        Returns: ``{action, session, state, instruction, evidence, _for_intent}``
+                 on a real event; ``{action: 'noop', instruction: 'Working.',
+                 evidence: {}, _for_intent}`` on heartbeat.
+        chain_next: dispatch action-specific verb (e.g. ``jules.approve_plan``,
+                    ``jules.recover``, ``jules.verify``).
 
         Caller supplies EITHER ``session`` (sid; resolves the watching intent
         via the `JulesSession SERVES Intent` edge) OR ``for_intent`` directly.
@@ -506,15 +600,17 @@ class JulesCapability(CapabilityBase):
                 branch: str = "", base: str = "main") -> dict:
         """Promote a session to the watcher's recovery-in-flight tracker.
 
-        Returns ``{status: "probing", session, attempts_planned: 3}`` IMMEDIATELY
-        — the probe-wait-recheck cycle (~5 min × 3 attempts per AGENCY_PROTOCOL
-        §5) lives in the watcher's poll loop. The outcome arrives later as a
-        ``verify_pr`` or ``recover_apply_plan`` `WatchEvent`.
+        Inputs: session (sid), owner/repo/branch (optional plumb-throughs),
+                base (str — default 'main').
+        Returns: ``{status: 'probing', session, attempts_planned: 3}`` IMMEDIATELY;
+                 outcome arrives later as a ``verify_pr`` / ``recover_apply_plan``
+                 WatchEvent on the per-intent queue.
+        chain_next: ``jules.watch(session=)`` to await the recovery outcome.
 
-        ``owner``/``repo``/``branch``/``base`` are optional plumbed-through
-        fields the recovery path uses for ``build_recovery_plan(...)``. If
-        omitted, the watcher's recovery loop falls back to deriving them from
-        the session's `sourceContext.source` at probe-exhaustion time.
+        The probe-wait-recheck cycle (~5 min × 3 attempts per
+        AGENCY_PROTOCOL §5) lives in the watcher's poll loop. Missing
+        owner/repo/branch are derived from ``sourceContext.source`` at
+        probe-exhaustion time.
         """
         import time as _time
         engine = self.ctx.engine
@@ -538,17 +634,16 @@ class JulesCapability(CapabilityBase):
     @verb(role="transform")
     def apply_patch(self, session: str, branch: str = "", base: str = "main",
                     owner: str = "", repo: str = "") -> dict:
-        """Compute a recovery plan for a session's patch (verb mirror of the
-        watcher's `recover_apply_plan` `WatchEvent`).
+        """Compute a recovery plan for a session's patch (verb mirror of `recover_apply_plan`).
 
-        Returns the planner output verbatim — an ordered list of
-        ``{tool, args}`` ops the agent executes via GitHub MCP. The verb does
-        NOT execute the ops itself (that would couple us to the GitHub MCP
-        boundary inside the verb; per spec 012 REVIEW must-fix #1 the agent
-        owns execution, the verb owns planning).
+        Inputs: session (sid), branch (optional — defaults ``recover-<session>``),
+                base (str — default 'main'), owner/repo (optional).
+        Returns: ordered list of ``{tool, args}`` ops the agent executes via
+                 GitHub MCP. NOT executed by this verb (planning vs. execution
+                 boundary; Spec 012 REVIEW must-fix #1).
+        chain_next: caller executes the ops via GitHub MCP in order.
 
-        Falls back to ``sourceContext.source`` for owner/repo and to
-        ``f"recover-{session}"`` for branch when args are omitted.
+        Falls back to ``sourceContext.source`` for owner/repo when omitted.
         """
         from ._jules_api import jules_get_full
         from . import _jules_patch

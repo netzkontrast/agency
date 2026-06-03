@@ -28,6 +28,7 @@ import re
 import time
 
 from ..capability import CapabilityBase, verb
+from ..memory import OPEN
 
 
 _EXPORT_VERSION = 1   # bump on shape changes
@@ -258,6 +259,91 @@ class DogfoodCapability(CapabilityBase):
             })
         return out
 
+    # -----------------------------------------------------------------
+    # Spec 020 v2 — JSON replay (the matching reverse of export).
+    # -----------------------------------------------------------------
+
+    @verb(role="effect", name="import")
+    def import_(self, path: str) -> dict:
+        """Replay a JSON export into this graph, preserving ids + windows.
+
+        Inputs: path (str — JSON file written by ``dogfood.export``).
+        Returns: ``{imported_nodes, imported_edges, version}``.
+        Raises: FileNotFoundError on missing path; ValueError on
+        unsupported export version.
+
+        Closes Spec 020's merge-conflict recovery loop: each branch's
+        DB is exported, the binary conflict is discarded, and both
+        JSONs replay into a fresh DB on the merged branch.
+
+        Preservation discipline: nodes land at their original ids with
+        the original ``vfrom``/``vto`` window — bypassing ``record()``'s
+        clock tick so bi-temporal history is exact. After replay, the
+        memory's logical clock advances past every imported tick so new
+        writes cannot collide with imported windows.
+
+        chain_next: terminal — caller can verify with
+                    ``MATCH (n) RETURN count(n)`` or ``reflect.search``.
+        """
+        if not os.path.isfile(path):
+            raise FileNotFoundError(path)
+        with open(path, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        version = payload.get("version")
+        if version != _EXPORT_VERSION:
+            raise ValueError(
+                f"unsupported export version {version!r}; "
+                f"this build reads version {_EXPORT_VERSION}")
+
+        nodes = payload.get("nodes", [])
+        edges = payload.get("edges", [])
+
+        max_tick = 0
+        existing = {
+            r["n"].get("properties", {}).get("id")
+            for r in self.ctx.memory.g.query("MATCH (n) RETURN n")
+        }
+        for n in nodes:
+            nid = n.get("id")
+            if not nid or nid in existing:
+                continue
+            label = n.get("label") or "Entity"
+            props = dict(n.get("properties", {}))
+            # Direct upsert — bypass record()'s clock tick + ontology
+            # gate so the original vfrom/vto window survives intact.
+            self.ctx.memory.g.upsert_node(nid, props, label=label)
+            for k in ("vfrom", "vto"):
+                v = props.get(k)
+                if isinstance(v, int) and v != OPEN and v > max_tick:
+                    max_tick = v
+
+        imported_edges = 0
+        for e in edges:
+            src, dst = e.get("from"), e.get("to")
+            rel = e.get("type") or "RELATED"
+            if not src or not dst:
+                continue
+            self.ctx.memory.g.upsert_edge(
+                src, dst, dict(e.get("properties") or {}), rel_type=rel)
+            v = e.get("properties", {}).get("vfrom")
+            if isinstance(v, int) and v != OPEN and v > max_tick:
+                max_tick = v
+            imported_edges += 1
+
+        # Advance the logical clock past every imported tick so a
+        # subsequent record()/link() can't reuse a stale vfrom.
+        with self.ctx.memory._lock:
+            if max_tick >= self.ctx.memory._tick:
+                self.ctx.memory._tick = max_tick
+
+        return {
+            "imported_nodes": sum(
+                1 for n in nodes
+                if n.get("id") and n["id"] not in existing),
+            "imported_edges": imported_edges,
+            "version": version,
+        }
+
     def _collect_all_edges(self) -> list[dict]:
         """Every edge in the graph with type + endpoints + properties."""
         rows = self.ctx.memory.g.query("MATCH (a)-[e]->(b) RETURN a, e, b")
@@ -286,24 +372,16 @@ class DogfoodCapability(CapabilityBase):
     def collect(self, plan_dir: str = "Plan") -> dict:
         """Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files; extract observations.
 
+        Inputs: plan_dir (str — root dir of plans; default ``Plan``).
+        Returns: ``{observations: [{plan, kind, index, title, text}],
+                 texts: [str], count, plans: [str], warnings: [str]}``.
+        chain_next: ``reflect.batch_note(scope='observation', texts=)`` to
+                    seed the graph from one-shot migration of legacy files.
+
         Deprecated for ongoing use — prefer ``dogfood.note`` (graph-
-        native authoring) + ``dogfood.render`` (markdown projection
-        on demand). This verb stays for backward-compatibility with
-        Spec 014's observation→spec-amendment pipeline AND for
-        one-shot migrations of existing DOGFOOD-NOTES.md files into
-        the graph (call this then ``reflect.batch_note`` to seed).
-
-        Returns ``{observations, texts, count, plans, warnings}``:
-        - ``observations`` — list of ``{plan, kind, index, title, text}``.
-        - ``texts`` — flat list of just the observation bodies (handy for
-          chaining into ``reflect.batch_note`` which takes a text list).
-        - ``count`` — total observations across all plans.
-        - ``plans`` — list of plan-directory names scanned.
-
-        Errors (missing dir, unreadable file) are tolerated and reported
-        in a ``warnings`` list rather than raising — this verb is meant to
-        feed self-improvement workflows that should degrade gracefully
-        when a plan has no DOGFOOD-NOTES.md yet.
+        native authoring) + ``dogfood.render`` (markdown projection on
+        demand). Errors (missing dir, unreadable file) degrade into
+        the ``warnings`` list rather than raising.
         """
         observations: list[dict] = []
         plans: list[str] = []

@@ -84,11 +84,14 @@ class CapabilityContext:
         return self.memory.find(label, as_of=as_of)
 
 
-def verb(role: str, inject: Optional[list] = None) -> Callable:
+def verb(role: str, inject: Optional[list] = None,
+         name: Optional[str] = None) -> Callable:
     """Mark a CapabilityBase method as a verb (its role, + any extra injects beyond
-    the always-injected `ctx`)."""
+    the always-injected `ctx`). `name` lets a verb register under a different
+    public name than its Python method (e.g. `import_` → `import` when the
+    natural verb name collides with a Python keyword)."""
     def deco(fn: Callable) -> Callable:
-        fn._verb = {"role": role, "inject": list(inject or [])}
+        fn._verb = {"role": role, "inject": list(inject or []), "name": name}
         return fn
     return deco
 
@@ -227,9 +230,13 @@ class CapabilityBase:
 
     @classmethod
     def as_capability(cls) -> Capability:
-        verbs = {mname: _wrap_method(cls, mname, member, getattr(member, "_verb"))
-                 for mname, member in inspect.getmembers(cls, predicate=callable)
-                 if getattr(member, "_verb", None)}
+        verbs = {}
+        for mname, member in inspect.getmembers(cls, predicate=callable):
+            meta = getattr(member, "_verb", None)
+            if not meta:
+                continue
+            public = meta.get("name") or mname
+            verbs[public] = _wrap_method(cls, mname, member, meta)
         return Capability(name=cls.name, home=cls.home, verbs=verbs, ontology=cls.ontology)
 
 

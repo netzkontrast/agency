@@ -3,6 +3,7 @@ spec_id: "020"
 slug: central-graph-db
 status: complete
 last_updated: 2026-06-03
+version: 2
 owner: "@agency"
 depends_on: []
 affects:
@@ -209,6 +210,47 @@ live. 10 spec tests for export green; live wire dogfood emitted a
   graph now durably exportable.
 - C09 (Git) — JSON exports are diff-friendly + commit-friendly when
   the binary DB conflict path needs human resolution.
+
+## Followup — v2 dogfood.import (2026-06-03)
+
+**Verdict:** Shipped.
+
+### Done
+- `dogfood.import(path)` verb added (role=effect; the import bites
+  the filesystem then mutates the graph).
+- Direct `g.upsert_node` / `g.upsert_edge` calls — bypass `record()`
+  to preserve the original `vfrom` / `vto` window verbatim.
+- Logical-clock advance after import (memory._tick = max(imported
+  vfrom/vto)) so subsequent writes don't reuse stale ticks and
+  overlap an imported node's window.
+- `@verb(name=...)` decorator extension to register `import_`-the-
+  Python-method as `import`-the-verb (Python-keyword collision; one
+  decorator-level change in `agency/capability.py`).
+- Substrate-tool brief-slicing parity in `Engine.build_mcp` —
+  walks `mcp.providers[*]._components`, slices any tool's
+  description that isn't already a brief.
+- Closes merge-conflict recovery loop: branch A exports → branch B
+  imports → continues; OR branches both export, merge JSONs replay
+  into fresh DB.
+
+### Tests (tests/test_dogfood_import.py — 10 tests)
+- verb registration
+- payload shape (imported_nodes / imported_edges / version)
+- rejects unsupported version
+- raises FileNotFoundError on missing path
+- preserves node ids
+- preserves Reflection properties
+- preserves vfrom/vto window
+- recreates edges (SERVES / OBSERVED_DURING)
+- round-trip: export → fresh DB → import → re-export → original ids
+  are subset of re-exported ids
+- clock advances past max(vfrom, vto)
+
+### Cluster-coherence (Spec 047)
+- C08 (Memory) — closes the symmetric write side of the export.
+- C13 (Plugin/MCP Authoring) — substrate brief-slicing parity
+  closes the search-budget asymmetry between `@mcp.tool`-decorated
+  substrate verbs and capability verbs.
 
 ## Followup — Original Implementation Status (2026-05-31)
 
