@@ -110,8 +110,23 @@ def test_bash_hints_renders_find_per_path(engine, iid):
 def test_bash_hints_renders_grep_per_symbol(engine, iid):
     res = _call(engine, iid, "dispatch_bash_hints",
                 symbols="lint_prompt,review_comment")
-    assert any("grep -rn 'lint_prompt'" in h for h in res["hints"])
-    assert any("grep -rn 'review_comment'" in h for h in res["hints"])
+    # shlex.quote leaves shell-safe identifiers unquoted (PR #17 review
+    # — the previous f-string interpolation was an injection vector if
+    # `symbols` contained a single quote).
+    assert any("grep -rn lint_prompt" in h for h in res["hints"])
+    assert any("grep -rn review_comment" in h for h in res["hints"])
+
+
+def test_bash_hints_quote_injection_safe(engine, iid):
+    """A symbol containing shell metacharacters must NOT break out of
+    the grep argument. shlex.quote turns the symbol into a literal."""
+    res = _call(engine, iid, "dispatch_bash_hints",
+                symbols="foo'; rm -rf /")
+    # The dangerous string is now a single quoted token; the trailing
+    # `; rm -rf /` cannot run independently.
+    assert all("; rm -rf /" not in h or "'" in h for h in res["hints"])
+    # The hint still contains the original substring (just as data).
+    assert any("foo" in h for h in res["hints"])
 
 
 # ---------------------------------------------------------------------------

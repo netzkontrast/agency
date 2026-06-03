@@ -98,9 +98,18 @@ def maintainability(root: str) -> list[Finding]:
         rank = info.get("rank", "A")
         if mi >= _MI_LOW_THRESHOLD:
             continue
+        # Below-threshold MI is the Q006 signal — every rank in this
+        # branch is a maintainability concern. C (the lowest rank
+        # radon emits) escalates to fail; A/B/below-threshold stay at
+        # warn. The previous mapping demoted A/C to info, which
+        # under-counted the very findings Q006 is meant to surface.
+        if rank == "C":
+            sev = "fail"
+        else:
+            sev = "warn"
         out.append(make_finding(
             rule="Q006",
-            severity="warn" if rank == "B" else "info",
+            severity=sev,
             file=filename, line=1,
             message=f"maintainability index {mi:.1f} (rank {rank}) — "
                     "split or refactor",

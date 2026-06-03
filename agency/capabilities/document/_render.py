@@ -235,9 +235,16 @@ def render_research_report(memory, research_id: str) -> tuple[str, int]:
         parts.append(h2("Verification"))
         for row in ver_rows:
             v = row["v"]["properties"]
+            # The Verification node carries rolled-up `status` + a
+            # comma-joined per-check summary (e.g. "evidence-supports-
+            # claim:pass,contradiction-cluster:warn"). Render the
+            # roll-up plus each individual check row.
+            parts.append(f"- **status**: `{v.get('status', '?')}`\n")
+            checks_str = v.get("checks", "") or ""
+            for item in (s for s in checks_str.split(",") if s):
+                name, _, st = item.partition(":")
+                parts.append(f"  - {name}: `{st or '?'}`\n")
             parts.append(
-                f"- **{v.get('check', '?')}**: "
-                f"`{v.get('status', '?')}` "
-                f"(n_checked={v.get('n_checked', '?')})\n")
+                f"  - started_at: {v.get('started_at', '?')}\n")
     parts.append(italic_footer(f"research_id: {research_id}"))
     return "".join(parts), 1 + len(citations) + len(ver_rows)

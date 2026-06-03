@@ -135,22 +135,60 @@ def _redact_line(src: str, match: re.Match[str], line: int) -> str:
 # ---------------------------------------------------------------------------
 
 
+_PICKLE_LOAD_FAMILY = frozenset({"load", "loads"})
+
+
+def _scan_pickle_aliases(tree: ast.AST) -> tuple[set[str], set[str]]:
+    """Mirror of ``_scan_subprocess_aliases`` — collect module aliases
+    that name ``pickle`` (``import pickle as p`` → ``{'pickle', 'p'}``)
+    and names from-imported FROM pickle (``from pickle import load as
+    pload`` → ``{'pload'}``). Lets S003 catch aliased usage."""
+    module_aliases: set[str] = set()
+    from_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "pickle":
+                    module_aliases.add(alias.asname or "pickle")
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "pickle":
+                for alias in node.names:
+                    if alias.name == "*":
+                        from_names.update(_PICKLE_LOAD_FAMILY)
+                    elif alias.name in _PICKLE_LOAD_FAMILY:
+                        from_names.add(alias.asname or alias.name)
+    return module_aliases, from_names
+
+
 def _check_pickle(path: str, src: str, tree: ast.AST) -> list[Finding]:
+    """Receiver-aware: catches ``pickle.load(...)``, ``p.load(...)``
+    after ``import pickle as p``, and ``pload(...)`` after
+    ``from pickle import load as pload``. Same alias-tracking pattern
+    as S004 (subprocess shell=True)."""
     out: list[Finding] = []
     lines = src.splitlines()
+    module_aliases, from_names = _scan_pickle_aliases(tree)
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-            attr = node.func
-            if (attr.attr == "load" and isinstance(attr.value, ast.Name)
-                    and attr.value.id == "pickle"):
-                evidence = (lines[node.lineno - 1].strip()
-                            if 0 <= node.lineno - 1 < len(lines) else "pickle.load")
-                out.append(make_finding(
-                    rule="S003", severity=SEVERITY["S003"],
-                    file=path, line=node.lineno,
-                    message="pickle.load — arbitrary code execution if input is untrusted",
-                    evidence=evidence,
-                ))
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        attr = None
+        if isinstance(func, ast.Attribute) and func.attr in _PICKLE_LOAD_FAMILY:
+            recv = func.value
+            if isinstance(recv, ast.Name) and recv.id in module_aliases:
+                attr = func.attr
+        elif isinstance(func, ast.Name) and func.id in from_names:
+            attr = func.id
+        if attr is None:
+            continue
+        evidence = (lines[node.lineno - 1].strip()
+                    if 0 <= node.lineno - 1 < len(lines) else f"pickle.{attr}")
+        out.append(make_finding(
+            rule="S003", severity=SEVERITY["S003"],
+            file=path, line=node.lineno,
+            message=f"pickle.{attr} — arbitrary code execution if input is untrusted",
+            evidence=evidence,
+        ))
     return out
 
 

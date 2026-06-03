@@ -318,13 +318,19 @@ class DelegateCapability(CapabilityBase):
         hand the agent the exact bash commands that surface the right files
         — cheap on orchestrator tokens, fast for the agent.
         """
+        import shlex
         ps = [s.strip() for s in paths.split(",") if s.strip()] if paths else []
         ss = [s.strip() for s in symbols.split(",") if s.strip()] if symbols else []
         hints: list[str] = []
+        # shlex.quote so a path containing a space / a symbol containing
+        # a single quote remains DATA — the dispatched agent runs these
+        # hints, so unquoted interpolation is a real injection vector.
         for p in ps:
-            hints.append(f"find {p} -type f | head -50")
+            hints.append(f"find {shlex.quote(p)} -type f | head -50")
         for s in ss:
-            hints.append(f"grep -rn '{s}' agency/ tests/ 2>/dev/null | head -30")
+            hints.append(
+                f"grep -rn {shlex.quote(s)} agency/ tests/ "
+                f"2>/dev/null | head -30")
         if not hints:
             return {"hints": [], "block": ""}
         body = "\n".join(hints)

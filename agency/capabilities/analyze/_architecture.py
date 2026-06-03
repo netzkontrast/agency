@@ -47,7 +47,7 @@ def _module_name(root: str, path: str) -> str:
 
 
 def _imports(tree: ast.AST, current_module: str,
-             root_pkg: str = "") -> set[str]:
+             root_pkg: str = "", is_init: bool = False) -> set[str]:
     """Return the set of intra-tree module names this file imports.
 
     Resolves relative imports against ``current_module``:
@@ -67,7 +67,11 @@ def _imports(tree: ast.AST, current_module: str,
     out: set[str] = set()
     pkg_parts = current_module.split(".") if current_module else []
     # The package containing this module = drop the trailing module name.
-    parent_pkg = pkg_parts[:-1]
+    # Exception: for ``pkg/__init__.py`` (`current_module='pkg'`), the
+    # PACKAGE IS the current module, so `from . import x` resolves to
+    # `pkg.x`, not `x`. Drop the trailing segment only for non-__init__
+    # files.
+    parent_pkg = pkg_parts if is_init else pkg_parts[:-1]
 
     def _emit_absolute(mod: str, alias_names: list[str]) -> None:
         if not mod:
@@ -148,7 +152,8 @@ def _build_graph(root: str) -> tuple[dict[str, set[str]], dict[str, str]]:
             continue
         mod = _module_name(root, path)
         mod_to_path[mod] = path
-        graph[mod] = _imports(tree, mod, root_pkg=root_pkg)
+        is_init = os.path.basename(path) == "__init__.py"
+        graph[mod] = _imports(tree, mod, root_pkg=root_pkg, is_init=is_init)
     return graph, mod_to_path
 
 

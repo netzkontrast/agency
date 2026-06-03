@@ -61,48 +61,74 @@ def _check_nested_loops(path: str, src: str, tree: ast.AST) -> list[Finding]:
     return out
 
 
-def _check_string_concat(path: str, src: str, tree: ast.AST) -> list[Finding]:
-    """P002 — `x += y` inside a `for` body, where x was initialised as a
-    string literal. Skip int counters (e.g. ``total += 1``) — those
-    aren't the antipattern the rule targets."""
-    # Find every name assigned to "" at module scope OR inside a function
-    # body BEFORE the loop. Conservative: only treat a name as "string-
-    # typed for the purposes of this rule" when we see ``name = "..."``
-    # OR ``name: str = "..."`` upstream.
-    string_typed_names: set[str] = set()
-    for node in ast.walk(tree):
+def _string_typed_names_in_scope(body) -> set[str]:
+    """Walk a function body / module body for `name = "..."` /
+    `name: str = "..."` assignments and return the set of locally
+    string-typed names. Only direct children (not nested function/class
+    bodies) so a sibling function's `s = ''` doesn't pollute this
+    scope's view."""
+    names: set[str] = set()
+    for node in body:
         if isinstance(node, ast.Assign):
-            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            if (isinstance(node.value, ast.Constant)
+                    and isinstance(node.value.value, str)):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        string_typed_names.add(target.id)
+                        names.add(target.id)
         elif isinstance(node, ast.AnnAssign):
             if (isinstance(node.annotation, ast.Name)
                     and node.annotation.id == "str"
                     and isinstance(node.target, ast.Name)):
-                string_typed_names.add(node.target.id)
+                names.add(node.target.id)
+    return names
+
+
+def _check_string_concat(path: str, src: str, tree: ast.AST) -> list[Finding]:
+    """P002 — `x += y` inside a `for` body, where x was initialised as a
+    string literal IN THE SAME SCOPE.
+
+    Scope-aware: a string `s = ""` in function A does NOT taint an
+    integer `s = 0; s += 1` in unrelated function B. Module-level
+    string assignments still apply to loops at module level. Skip int
+    counters (e.g. ``total += 1``) — those aren't the antipattern the
+    rule targets.
+    """
     out: list[Finding] = []
     lines = src.splitlines()
-    for loop in ast.walk(tree):
-        if not isinstance(loop, ast.For):
-            continue
-        for stmt in ast.walk(loop):
-            if stmt is loop:
-                continue
-            if (isinstance(stmt, ast.AugAssign)
-                    and isinstance(stmt.op, ast.Add)
-                    and isinstance(stmt.target, ast.Name)
-                    and stmt.target.id in string_typed_names):
-                evidence = (lines[stmt.lineno - 1].strip()
-                            if 0 <= stmt.lineno - 1 < len(lines)
-                            else "+= in loop")
-                out.append(make_finding(
-                    rule="P002", severity=SEVERITY["P002"],
-                    file=path, line=stmt.lineno,
-                    message="`+=` on a string in loop — use ''.join() / list.append() for O(n)",
-                    evidence=evidence,
-                ))
-                break
+
+    def _scan_body(body, string_names: set[str]) -> None:
+        # Recursively walk this body's loops + nested function defs;
+        # nested defs get their own scope-local string-name set.
+        for node in body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                inner = _string_typed_names_in_scope(node.body)
+                _scan_body(node.body, inner)
+            elif isinstance(node, ast.ClassDef):
+                _scan_body(node.body, _string_typed_names_in_scope(node.body))
+            elif isinstance(node, ast.For):
+                for stmt in ast.walk(node):
+                    if stmt is node:
+                        continue
+                    if (isinstance(stmt, ast.AugAssign)
+                            and isinstance(stmt.op, ast.Add)
+                            and isinstance(stmt.target, ast.Name)
+                            and stmt.target.id in string_names):
+                        evidence = (lines[stmt.lineno - 1].strip()
+                                    if 0 <= stmt.lineno - 1 < len(lines)
+                                    else "+= in loop")
+                        out.append(make_finding(
+                            rule="P002", severity=SEVERITY["P002"],
+                            file=path, line=stmt.lineno,
+                            message="`+=` on a string in loop — use "
+                                    "''.join() / list.append() for O(n)",
+                            evidence=evidence,
+                        ))
+                        break
+            elif hasattr(node, "body") and isinstance(getattr(node, "body", None), list):
+                # if/while/try/with — same scope; reuse the string_names set.
+                _scan_body(node.body, string_names)
+
+    _scan_body(tree.body, _string_typed_names_in_scope(tree.body))
     return out
 
 

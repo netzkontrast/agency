@@ -143,19 +143,40 @@ class ResearchCapability(CapabilityBase):
         chain_next: walker's publish phase on ok=True; rerun
                     specialists on ok=False.
         """
+        # Reject stale / typo'd research_ids before writing the
+        # Verification — Memory.link doesn't validate endpoints, so
+        # without this guard we'd record an orphan Verification linked
+        # to a non-Research id (PR review r3343808276 pattern).
+        res_node = self.ctx.memory.g.get_node(research_id)
+        if res_node is None or "Research" not in (res_node.get("labels") or []):
+            return {"ok": False, "checks": {},
+                    "error": f"unknown research_id {research_id!r}"}
+
         embedder = getattr(self.ctx.registry.engine, "embedder", None) \
             if self.ctx.registry.engine else None
         result = _verify.run_all(self.ctx.memory, research_id, embedder=embedder)
-        # Record a Verification node with rolled-up status.
+        # Record a Verification node with rolled-up status + per-check
+        # breakdown so document.render(scope='research-report') can show
+        # what passed / what failed (round-4 review: the node previously
+        # held only research_id/status/started_at, so the renderer
+        # printed `?` for every per-check field).
         status = "pass"
         if not result["ok"]:
             status = "fail"
         elif any(c["status"] == "warn" for c in result["checks"].values()):
             status = "warn"
+        # Persist a compact per-check summary (the engine's ontology
+        # validator only checks declared required-fields; extra fields
+        # ride along untouched).
+        check_summary = ",".join(
+            f"{name}:{c.get('status', '?')}"
+            for name, c in result["checks"].items()
+        )
         vid = self.ctx.record("Verification", {
             "research_id": research_id,
             "status": status,
             "started_at": int(time.time()),
+            "checks": check_summary,
         })
         self.ctx.link(vid, research_id, "VERIFIES")
         result["verification_id"] = vid
