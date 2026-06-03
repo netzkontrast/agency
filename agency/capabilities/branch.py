@@ -34,8 +34,8 @@ class BranchCapability(CapabilityBase):
         """Read the branch state (ahead/behind/dirty) and recommend merge/pr/keep/discard.
 
         Inputs: branch (str), base (str — defaults to 'main').
-        Returns: ``{result: {ahead, behind, dirty, recommended}}``.
-        chain_next: ``branch.finish(branch=, action=result.recommended)``.
+        Returns: ``{ahead, behind, dirty, recommended}`` (wire shape).
+        chain_next: ``branch.finish(branch=, action=recommended)``.
         """
         state = (vcs or GitClient()).state(branch=branch, base=base)
         return {"result": {**state, "recommended": _recommend(state)}}
@@ -45,7 +45,8 @@ class BranchCapability(CapabilityBase):
         """Finish the branch by the chosen action (merge/pr/keep/discard); record the outcome.
 
         Inputs: branch (str), action (one of merge/pr/keep/discard), base (str).
-        Returns: ``{result: {outcome, branch, action, ok, detail}}``.
+        Returns: ``{outcome, branch, action, ok, detail}`` (wire shape);
+                 ``{error, actions}`` on unknown action.
         chain_next: terminal — outcome node carries the audit trail.
         """
         if action not in _ACTIONS:

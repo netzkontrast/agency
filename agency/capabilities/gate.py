@@ -25,8 +25,8 @@ class GateCapability(CapabilityBase):
         Inputs: lifecycle_id (str — the Lifecycle to gate),
                 name (str — gate name), passed (bool — outcome),
                 evidence (str — optional rationale).
-        Returns: ``{result: {passed, gate}}`` on success; on a wrong-intent
-        guard fail, ``{result: {error, lifecycle_id}}``.
+        Returns: ``{passed, gate}`` (wire shape); on a wrong-intent
+        guard fail, ``{error, lifecycle_id}``.
         chain_next: a failed gate flips the Lifecycle to ``input-required``;
                     caller resumes by re-invoking the parent verb with
                     ``confirmed=True`` (Hint #8).

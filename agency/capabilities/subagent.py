@@ -28,7 +28,7 @@ class SubagentCapability(CapabilityBase):
         Inputs: driver (capability name), driver_verb (str), item (dict
                 — task payload), spec_passed (bool), quality_passed (bool),
                 spec_evidence/quality_evidence (str, optional).
-        Returns: ``{result: {child, done, spec, quality}}``.
+        Returns: ``{child, done, spec, quality}`` (wire shape).
         chain_next: terminal — ``done=True`` flips the child Lifecycle to
                     ``completed``; ``done=False`` leaves it ``input-required``.
         """

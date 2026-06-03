@@ -27,8 +27,8 @@ class WorkspaceCapability(CapabilityBase):
         """Create an isolated git worktree on a fresh branch off `base`; record the Workspace.
 
         Inputs: branch (str — new branch name), base (str — default 'main').
-        Returns: ``{result: {workspace, path, branch, base}}`` on success;
-                 ``{result: {error, branch, detail}}`` on failure.
+        Returns: ``{workspace, path, branch, base}`` on success;
+                 ``{error, branch, detail}`` on failure (wire shape).
         chain_next: ``workspace.baseline(workspace=, command=)`` to record
                     the starting GREEN state.
         """
@@ -45,7 +45,8 @@ class WorkspaceCapability(CapabilityBase):
         """Run the baseline test command in the workspace and record the green/red result.
 
         Inputs: workspace (Workspace node id), command (str — shell test cmd).
-        Returns: ``{result: {workspace, passed, output}}``.
+        Returns: ``{workspace, passed, output}`` (wire shape);
+                 ``{error, workspace}`` on unknown workspace.
         chain_next: caller proceeds with the work; later runs compare against
                     this Baseline via ``BASELINED`` provenance.
         """

@@ -341,7 +341,8 @@ class DelegateCapability(CapabilityBase):
 
         Inputs: driver (capability name), driver_verb (str), items (list[dict] —
                 each dict unpacked as driver kwargs), quota (int — admission cap).
-        Returns: ``{result: {delegation, dispatched, skipped, children: [{lifecycle, result}]}}``.
+        Returns: ``{delegation, dispatched, skipped, children: [{lifecycle, result}]}``
+                 (wire shape); ``{error, quota|offending}`` on validation fail.
         chain_next: ``delegate.join(delegation=)`` after children complete.
 
         Children start ``working`` (dispatched ≠ done).
@@ -376,8 +377,9 @@ class DelegateCapability(CapabilityBase):
         """Reduce a delegation over its children's Lifecycle state.
 
         Inputs: delegation (Delegation node id from ``fan_out``).
-        Returns: ``{result: {children, states, done, reduction}}`` where
-                 ``done=True`` iff every child Lifecycle is ``completed``.
+        Returns: ``{children, states, done, reduction}`` (wire shape);
+                 ``done=True`` iff every child Lifecycle is ``completed``;
+                 ``{error, delegation}`` on cross-intent rejection.
         chain_next: when ``done=False``, walk the child lifecycles and
                     address ``input-required`` pauses; re-call ``join``.
 

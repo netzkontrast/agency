@@ -21,7 +21,7 @@ class SkillGeneratorCapability(CapabilityBase):
 
         Inputs: name (skill slug), description (str — the trigger phrase),
                 body (str — the SKILL.md content).
-        Returns: ``{result: {name, skill_md, ok, violations}}``.
+        Returns: ``{name, skill_md, ok, violations}`` (wire shape).
         chain_next: caller writes ``skills/<name>/SKILL.md`` if ``ok=True``;
                     otherwise iterates on ``violations``.
         """

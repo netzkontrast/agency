@@ -316,8 +316,8 @@ class DevelopCapability(CapabilityBase):
         """Fetch a discipline's heavy how-to on demand (T3 disclosure).
 
         Inputs: topic (one of testing-skills | skill-descriptions | best-practices | …).
-        Returns: ``{result: {topic, doc}}`` on hit; ``{result: {error, available}}``
-                 on miss.
+        Returns: ``{topic, doc}`` on hit; ``{error, available}`` on miss
+                 (both at the wire — engine strips the internal envelope).
         chain_next: terminal — caller reads the doc.
         """
         doc = REFERENCES.get(topic)

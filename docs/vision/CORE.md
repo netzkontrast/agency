@@ -21,6 +21,11 @@ first-class participant; proven in `agency/` (`AGENTS.md` + a bash↔MCP isomorp
 test). Cross-cutting guards (quality-score, loop-detection, compaction,
 `Slot`/quota) are engine middleware, **not** concepts.
 
+Verbs may wrap their delta as `{result: <delta>}` for engine-side ok-path
+detection; the wire shape strips the wrap when `<delta>` is a dict (Spec
+019). Docstrings describe the wire shape — see CAPABILITY-AUTHORING.md
+§"Wire shape vs internal wrap".
+
 **1. Intent** *(human-owned).* A supersedable node carrying **purpose +
 acceptance**, with the **deliverable as an attribute** (why/what merged).
 `capture → confirm`, revised via `supersede`. **Everything edges back to it via

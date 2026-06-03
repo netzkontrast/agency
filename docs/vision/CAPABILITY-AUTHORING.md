@@ -236,6 +236,52 @@ sandbox boundary. Inside the sandbox is free; across is expensive.
 
 ---
 
+## Wire shape vs internal wrap (Spec 019)
+
+The engine's `_wire` impl (`agency/engine.py`) strips a `{"result":
+<inner>}` envelope IFF `<inner>` is itself a dict. The motivation: verbs
+return `{"result": <delta>}` internally so the engine can detect ok-path
+vs error-path uniformly (Spec 001 envelope discipline); the wire shape
+that crosses to the code-mode caller is the bare `<delta>` (the lean
+code-mode contract per CORE.md + GOALS.md goal #5).
+
+The corollary the docstring sweep must observe:
+
+```python
+# ❌ Don't document the internal envelope:
+@verb(role="transform")
+def assess(self, branch: str) -> dict:
+    """...
+    Returns: {result: {ahead, behind, dirty, recommended}}.  # leaks the wrap
+    """
+    return {"result": {"ahead": 0, "behind": 0, "dirty": False, "recommended": "discard"}}
+
+# ✅ Document the WIRE shape (what the caller actually receives):
+@verb(role="transform")
+def assess(self, branch: str) -> dict:
+    """...
+    Returns: {ahead, behind, dirty, recommended}.   # the wire shape
+    """
+    return {"result": {"ahead": 0, "behind": 0, "dirty": False, "recommended": "discard"}}
+```
+
+Scalar wraps are the exception. The engine re-wraps non-dict returns
+into `{"result": <scalar>}` because MCP tool responses must be JSON
+objects. So `reflect.note` returning `{"result": "reflection:abc"}`
+internally produces the SAME shape on the wire — its docstring
+correctly says `Returns: {result: <reflection_id>}`.
+
+`plugin.lint_capability` enforces this via the `wire_shape` rule:
+verbs whose source returns `{"result": {dict_literal}}` are flagged
+when their docstring's `Returns:` line includes the `result` envelope.
+Rich-dict verbs (no envelope, like `jules.dispatch`) are unaffected.
+
+**Rule of thumb:** describe what `await call_tool('capability_<x>_<y>',
+{...})` returns at the wire, not what your verb's `return` statement
+holds.
+
+---
+
 ## Universal `input-required` convention (Spec 016 Hint #8)
 
 Verbs that can block on human/agent input return:

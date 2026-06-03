@@ -171,6 +171,17 @@ class Engine:
             intent_id = kwargs.pop("intent_id")
             agent_id = kwargs.pop("agent_id", "") or None
             result, _ = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
+            # Spec 001 + Spec 019 — wire-shape contract.
+            # Internal verbs return either a bare rich dict (e.g.
+            # ``{status, session, url}``) OR ``{"result": <delta>}`` for
+            # ok-path detection at the engine boundary. The wire shape
+            # crossing to the code-mode caller strips that envelope IFF
+            # the inner value is itself a dict (the lean code-mode
+            # contract per CORE.md "search · get_schema · execute" +
+            # GOALS.md goal #5). Scalar inner values get re-wrapped
+            # because MCP tool returns must be JSON objects.
+            # `plugin.lint_capability` enforces docstrings describe the
+            # wire shape, not the internal envelope.
             out = result["result"] if isinstance(result, dict) and "result" in result else result
             return out if isinstance(out, dict) else {"result": out}
 

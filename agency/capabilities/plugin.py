@@ -327,6 +327,79 @@ async def _tool_names(mcp):
     return {t.name for t in tools}
 
 
+def _verb_wraps_dict(member) -> bool:
+    """Spec 019 heuristic: walk a verb's source for ``return {"result":
+    <expr>}`` where ``<expr>`` is a dict-literal / dict-comp. That's
+    the dict-on-dict wrap pattern where the engine unwraps the
+    ``result`` key at the wire — so the docstring's ``Returns:`` line
+    must describe the INNER shape, not the wrapped envelope.
+
+    Returns False for verbs that don't wrap at all (return rich dicts
+    directly like ``jules.dispatch``) and for verbs that wrap a scalar
+    (the engine re-wraps non-dict outputs into ``{result: <scalar>}``
+    so the wire shape IS ``{result: <scalar>}`` — docstring is correct
+    to say so)."""
+    import ast
+    import inspect
+    try:
+        src = inspect.getsource(member)
+    except (OSError, TypeError):
+        return False
+    # Dedent so the indented method src parses standalone.
+    src = inspect.cleandoc("\n" + src)
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Return) or node.value is None:
+            continue
+        v = node.value
+        if not isinstance(v, ast.Dict):
+            continue
+        # exactly one key, and it's the literal "result"
+        if len(v.keys) != 1:
+            continue
+        k = v.keys[0]
+        if not (isinstance(k, ast.Constant) and k.value == "result"):
+            continue
+        # the value behind result must itself be a dict literal/comp
+        inner = v.values[0]
+        if isinstance(inner, (ast.Dict, ast.DictComp)):
+            return True
+    return False
+
+
+_WIRE_LEAK_RE = re.compile(r"Returns:\s*[`*~]*\s*\{\s*result\s*:", re.IGNORECASE)
+
+
+def _check_wire_shape(cap):
+    """Spec 019 §"Done When" — flag docstrings that describe the INTERNAL
+    wrap on dict-wrapping verbs. ``Returns: {result: {…}}`` on a verb
+    whose actual return is ``{"result": {…}}`` documents the envelope
+    that the engine strips at the wire. Doc should describe the WIRE
+    shape (the inner dict)."""
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        fn = spec.get("fn")
+        member = getattr(fn, "__capability_method__", None)
+        if member is None:
+            continue
+        if not _verb_wraps_dict(member):
+            continue
+        doc = (fn.__doc__ or "")
+        if _WIRE_LEAK_RE.search(doc):
+            out.append({
+                "verb": verb_name, "kind": "wire_shape",
+                "msg": ("docstring `Returns:` describes the internal "
+                        "`{result: {...}}` wrap; engine strips it at the "
+                        "wire. Describe the inner dict shape only."),
+                "fix": "rewrite the `Returns:` line to name the inner "
+                       "dict's top-level keys (no `result` envelope).",
+            })
+    return out
+
+
 def _check_token_budget(cap, max_per_verb=20):
     """Spec 023 budget adapted: brief slice ≤ max_per_verb cl100k tokens
     per verb. Skips silently if tiktoken missing (non-dev install)."""
@@ -366,6 +439,7 @@ def lint_capability(cap) -> dict:
         + _check_render_slice(cap)
         + _check_consumer_contract(cap)
         + _check_token_budget(cap)
+        + _check_wire_shape(cap)
     )
     if mode == "block":
         return {"ok": not all_findings, "violations": all_findings,
