@@ -267,8 +267,16 @@ class CapabilityBase:
                 continue
             public = meta.get("name") or mname
             verbs[public] = _wrap_method(cls, mname, member, meta)
+        # Spec 060 fix: deepcopy the ontology so capability instances
+        # don't share dict references via the class-level default
+        # `CapabilityBase.ontology = OntologyExtension()`. Bootstrap
+        # mutations (file-loaded templates/schemas merging into
+        # cap.ontology.{templates,schemas}) would otherwise leak across
+        # caps that inherit the same default instance.
+        import copy as _copy
         return Capability(
-            name=cls.name, home=cls.home, verbs=verbs, ontology=cls.ontology,
+            name=cls.name, home=cls.home, verbs=verbs,
+            ontology=_copy.deepcopy(cls.ontology),
             render_templates=cls.render_templates,
             artefact_schemas=cls.artefact_schemas)
 

@@ -177,6 +177,12 @@ class AnalyzeCapability(CapabilityBase):
                 # paths takes (memory, root_intent_id) — operate over the
                 # graph, not a filesystem path. v1: scan all user roots.
                 findings = _paths.scan(self.ctx.memory)
+            elif lang != "py" and axis in {"quality", "security", "performance", "architecture"}:
+                # File-based axes only support Python today; honor the
+                # caller's lang hint here so non-Python scans don't
+                # silently record Python-Finding nodes (PR review
+                # r3343808295 follow-up).
+                findings = []
             else:
                 scanner = {
                     "quality": _quality.scan,

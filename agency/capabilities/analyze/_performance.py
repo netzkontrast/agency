@@ -105,7 +105,9 @@ def _check_string_concat(path: str, src: str, tree: ast.AST) -> list[Finding]:
                 _scan_body(node.body, inner)
             elif isinstance(node, ast.ClassDef):
                 _scan_body(node.body, _string_typed_names_in_scope(node.body))
-            elif isinstance(node, ast.For):
+            elif isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+                # P002 fires on any loop shape — `for`/`async for`/`while`.
+                # The O(n) string-concat antipattern is identical regardless.
                 for stmt in ast.walk(node):
                     if stmt is node:
                         continue
@@ -144,25 +146,64 @@ def _check_unbounded_while(path: str, src: str, tree: ast.AST) -> list[Finding]:
         test = node.test
         if not (isinstance(test, ast.Constant) and test.value is True):
             continue
-        # Check body for any break / return / raise / sleep / yield.
-        has_exit = False
-        for inner in ast.walk(node):
-            if inner is node:
-                continue
-            if isinstance(inner, (ast.Break, ast.Return, ast.Raise, ast.Yield)):
-                has_exit = True
-                break
-            if isinstance(inner, ast.Call):
-                # time.sleep(...) → also a yield to the OS scheduler.
-                func = inner.func
-                fn_name = None
-                if isinstance(func, ast.Name):
-                    fn_name = func.id
-                elif isinstance(func, ast.Attribute):
-                    fn_name = func.attr
-                if fn_name == "sleep":
-                    has_exit = True
-                    break
+        # Check body for any break / return / raise / sleep / yield —
+        # but ONLY at this `while`'s lexical scope, not nested inside an
+        # inner loop or function (PR review: `while True: for x in xs:
+        # break` — the `break` exits the inner `for`, not the outer
+        # `while`).
+        def _scope_exits(stmts) -> bool:
+            for n in stmts:
+                if isinstance(n, ast.Break):
+                    return True   # `break` here DOES terminate this while
+                if isinstance(n, ast.Return):
+                    return True   # return walks the call stack out
+                if isinstance(n, ast.Raise):
+                    return True   # ditto
+                if isinstance(n, ast.Yield):
+                    return True
+                if isinstance(n, ast.Call):
+                    func = n.func
+                    fn_name = (func.id if isinstance(func, ast.Name)
+                               else (func.attr if isinstance(func, ast.Attribute) else None))
+                    if fn_name == "sleep":
+                        return True
+                # Nested loops + nested function defs CANNOT terminate
+                # the outer `while` — skip into their bodies for `Return`/
+                # `Raise` (which DO walk out) but ignore `Break`s.
+                if isinstance(n, (ast.For, ast.AsyncFor, ast.While)):
+                    # Look only for Return / Raise / Yield / sleep inside
+                    # nested loops — Break inside the nested loop is not
+                    # an outer-while exit.
+                    for inner in ast.walk(n):
+                        if isinstance(inner, (ast.Return, ast.Raise, ast.Yield)):
+                            return True
+                        if isinstance(inner, ast.Call):
+                            func = inner.func
+                            fn_name = (func.id if isinstance(func, ast.Name)
+                                       else (func.attr if isinstance(func, ast.Attribute) else None))
+                            if fn_name == "sleep":
+                                return True
+                elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    # Nested function defs cannot exit the enclosing
+                    # `while` — skip them entirely.
+                    continue
+                # if / try / with — recurse into their direct bodies.
+                elif hasattr(n, "body") and isinstance(getattr(n, "body", None), list):
+                    if _scope_exits(n.body):
+                        return True
+                # if/try also has orelse, finalbody, handlers.
+                for branch_attr in ("orelse", "finalbody"):
+                    branch = getattr(n, branch_attr, None)
+                    if isinstance(branch, list) and _scope_exits(branch):
+                        return True
+                handlers = getattr(n, "handlers", None)
+                if handlers:
+                    for h in handlers:
+                        if _scope_exits(h.body):
+                            return True
+            return False
+
+        has_exit = _scope_exits(node.body)
         if not has_exit:
             evidence = (lines[node.lineno - 1].strip()
                         if 0 <= node.lineno - 1 < len(lines) else "while True:")

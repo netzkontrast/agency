@@ -27,8 +27,8 @@ import os
 import re
 import time
 
-from ..capability import CapabilityBase, verb
-from ..memory import OPEN
+from ...capability import CapabilityBase, RenderTemplates, verb
+from ...memory import OPEN
 
 
 _EXPORT_VERSION = 1   # bump on shape changes
@@ -101,6 +101,7 @@ def _parse_observations(text: str) -> list[dict]:
 class DogfoodCapability(CapabilityBase):
     name = "dogfood"
     home = "memory"
+    render_templates = RenderTemplates.from_module(__file__)
 
     # -----------------------------------------------------------------
     # Spec 017 — graph-native authoring path.
@@ -151,29 +152,41 @@ class DogfoodCapability(CapabilityBase):
             {"slug": plan_slug, "scope": "observation"})
         notes = [r["r"]["properties"] for r in rows]
         notes.sort(key=lambda r: r.get("vfrom", 0))
-        parts = [f"# DOGFOOD-NOTES — {plan_slug}\n"]
+        # Spec 060 — render via `ctx.template('dogfood-notes')` so the
+        # markdown shape lives as a file and iterating it is a markdown
+        # commit, not a Python edit. Strip the `<!-- AGENT: -->` blocks
+        # from the human-facing output (Spec 060 §Renderers strip blocks
+        # for human-facing output).
+        import re as _re
+        tpl = self.ctx.template("dogfood-notes")
         if not notes:
-            parts.append("\n(none yet)\n")
-            return {"content": "".join(parts), "count": 0,
-                    "omitted": 0, "tokens": _count_tokens("".join(parts)),
+            content = tpl.substitute(plan_slug=plan_slug, body="\n(none yet)\n")
+            content = _re.sub(r"<!--.*?-->", "", content, flags=_re.DOTALL).strip()
+            return {"content": content + "\n", "count": 0,
+                    "omitted": 0, "tokens": _count_tokens(content),
                     "plan_slug": plan_slug}
-        # Render with mid-loop budget check (sc:sc-analyze F3 review finding).
+        # Build the body string with mid-loop budget check.
+        body_parts: list[str] = []
         rendered_count = 0
         for i, n in enumerate(notes, 1):
             chunk = (
                 f"\n**Observation {i} — graph-native**\n\n"
                 f"{n.get('text', '')}\n"
             )
-            parts.append(chunk)
+            body_parts.append(chunk)
             rendered_count = i
-            if _count_tokens("".join(parts)) > max_tokens * 0.92:
+            # Probe the full template render under the cap each iteration.
+            probe = tpl.substitute(plan_slug=plan_slug, body="".join(body_parts))
+            if _count_tokens(probe) > max_tokens * 0.92:
                 break
         omitted = max(0, len(notes) - rendered_count)
         if omitted:
-            parts.append(
+            body_parts.append(
                 f"\n_… ({omitted} more observations omitted to fit "
                 f"max_tokens={max_tokens})_\n")
-        content = "".join(parts)
+        content = tpl.substitute(plan_slug=plan_slug, body="".join(body_parts))
+        # Strip AGENT instruction blocks for the human-view output.
+        content = _re.sub(r"<!--.*?-->", "", content, flags=_re.DOTALL).strip() + "\n"
         return {"content": content, "count": rendered_count,
                 "omitted": omitted, "tokens": _count_tokens(content),
                 "plan_slug": plan_slug}

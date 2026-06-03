@@ -238,7 +238,12 @@ class Ontology:
         mapping: dict[str, str] = {}
         for name, body in self.templates.items():
             node_id = f"template:{name}"
-            desired_props = {"name": name, "body": body}
+            # Spec 060: bodies arriving from the file loader are
+            # `string.Template` objects; pre-existing dict declarations
+            # are bare strings. Coerce to str for the graph property
+            # (sqlite can't serialise a Template; it expects scalar).
+            body_str = body.template if hasattr(body, "template") else str(body)
+            desired_props = {"name": name, "body": body_str}
             existing = memory.recall(node_id)
             if existing is None:
                 memory.record("Template", desired_props, node_id=node_id)

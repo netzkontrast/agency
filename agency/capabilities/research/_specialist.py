@@ -167,11 +167,41 @@ def run_doc_corpus(memory, ctx, research_id: str, query: str,
             if len(hits) >= max_hits:
                 break
             # Semantic backup if no substring hits and embedder present.
+            # Anchor the snippet at the highest-scoring 200-char window
+            # over the file (sliding window step=100) so the recorded
+            # citation actually contains evidence the verifier can match
+            # — not the file prefix (which the verifier rejects when the
+            # supporting text lives deeper in the doc).
             if not any(h[0] == fp for h in hits) and embedder is not None:
-                score = semantic_score(query, content[:2000], embedder)
-                if score >= 0.3:
-                    snippet = content[:200].strip()
-                    hits.append((fp, 1, snippet, float(score)))
+                best_score = 0.0
+                best_line = 1
+                best_snippet = ""
+                # Index by line so the citation carries the right line:col.
+                lines_with_offsets = []
+                pos = 0
+                for line_idx, raw_line in enumerate(content.splitlines(True), 1):
+                    lines_with_offsets.append((line_idx, pos))
+                    pos += len(raw_line)
+                # Slide 200-char windows with step 100.
+                window = 200
+                step = 100
+                for start in range(0, max(1, len(content) - window + 1), step):
+                    chunk = content[start:start + window]
+                    if not chunk.strip():
+                        continue
+                    score = semantic_score(query, chunk, embedder)
+                    if score > best_score:
+                        best_score = score
+                        # Find the line containing this offset.
+                        line_no = 1
+                        for ln, off in lines_with_offsets:
+                            if off > start:
+                                break
+                            line_no = ln
+                        best_line = line_no
+                        best_snippet = chunk.strip()
+                if best_score >= 0.3:
+                    hits.append((fp, best_line, best_snippet, float(best_score)))
         if len(hits) >= max_hits:
             break
     for path, line, evidence, score in hits:
@@ -195,7 +225,7 @@ def run_web(memory, ctx, research_id: str, query: str,
     v1 returns an error if no web_search is injected. v2 may add a
     thin wrapper around the host's `WebSearch` MCP tool.
     """
-    err = _validate_research_id(memory, research_id)
+    err = _validate_research_id(memory, research_id) or _validate_query(query)
     if err is not None:
         return err
     if web_search is None:

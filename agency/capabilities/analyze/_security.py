@@ -73,7 +73,7 @@ def _check_eval(path: str, src: str, tree: ast.AST) -> list[Finding]:
             name = None
             if isinstance(func, ast.Name):
                 name = func.id
-            if name in {"eval", "exec"}:
+            if name in {"eval", "exec", "compile"}:
                 evidence = (lines[node.lineno - 1].strip()
                             if 0 <= node.lineno - 1 < len(lines) else name)
                 out.append(make_finding(
