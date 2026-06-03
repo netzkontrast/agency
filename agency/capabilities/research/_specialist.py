@@ -185,7 +185,18 @@ def run_doc_corpus(memory, ctx, research_id: str, query: str,
                 # Slide 200-char windows with step 100.
                 window = 200
                 step = 100
-                for start in range(0, max(1, len(content) - window + 1), step):
+                starts = list(range(0, max(1, len(content) - window + 1), step))
+                # Spec 060 round 9 — sliding-window loop skipped the EOF
+                # tail when (len - window) wasn't a step multiple. Add an
+                # explicit final-window start so a relevant terms in the
+                # last chars of a doc still get scored.
+                if len(content) > window:
+                    tail_start = len(content) - window
+                    if tail_start not in starts:
+                        starts.append(tail_start)
+                elif content and 0 not in starts:
+                    starts.append(0)
+                for start in starts:
                     chunk = content[start:start + window]
                     if not chunk.strip():
                         continue

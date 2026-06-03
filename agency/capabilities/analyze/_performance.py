@@ -37,14 +37,29 @@ def _check_nested_loops(path: str, src: str, tree: ast.AST) -> list[Finding]:
     """P001 — outer/inner loop both iterate over the SAME name."""
     out: list[Finding] = []
     lines = src.splitlines()
+
+    def _scoped_for_loops(node):
+        """Yield every ast.For inside `node`'s body but stop descending
+        into nested function/class scopes — those aren't runtime-nested
+        loops, they're definitions (PR review round 9 r3...). Without
+        this guard, a `for x in items: def helper(): for y in items: ...`
+        triggers a false P001."""
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                   ast.ClassDef, ast.Lambda)):
+                continue
+            if isinstance(child, ast.For):
+                yield child
+            yield from _scoped_for_loops(child)
+
     for outer in ast.walk(tree):
         if not isinstance(outer, ast.For):
             continue
         outer_iter = _iter_target_name(outer)
         if outer_iter is None:
             continue
-        for inner in ast.walk(outer):
-            if inner is outer or not isinstance(inner, ast.For):
+        for inner in _scoped_for_loops(outer):
+            if inner is outer:
                 continue
             inner_iter = _iter_target_name(inner)
             if inner_iter == outer_iter:

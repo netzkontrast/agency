@@ -76,7 +76,14 @@ class CapabilityContext:
         return self.spawn(cap, verb, **args)[0]
 
     def render(self, template: str, **vars: Any) -> str:
-        return _Template(self.ontology.templates[template]).substitute(**vars)
+        # Spec 060 round 9 — `ontology.templates` carries BOTH bare strings
+        # (dict-form declarations) and `string.Template` instances (file-
+        # form loader output). `_Template(string)` works for the string
+        # case but `_Template(Template)` TypeErrors. Detect both shapes.
+        tpl = self.ontology.templates[template]
+        if isinstance(tpl, _Template):
+            return tpl.substitute(**vars)
+        return _Template(tpl).substitute(**vars)
 
     def schema(self, name: str) -> list:
         return list(self.ontology.schemas.get(name, []))

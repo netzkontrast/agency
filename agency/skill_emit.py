@@ -52,8 +52,20 @@ def _ann_repr(annotation) -> str:
     because runtime coercion only needs the top-level container.
     Anything else (missing annotation, callable, Union, …) → ``str`` (the
     raw argv string is safe — verbs decide how to handle).
+
+    Spec 060 round 9 — when the verb's module uses ``from __future__
+    import annotations``, inspect.signature returns the annotation as a
+    string (`'int'`, `'list[str]'`, …) instead of the type object. Match
+    those string forms before falling through to the runtime-type path.
     """
     if annotation is inspect.Parameter.empty:
+        return "str"
+    # Postponed-annotation string form: peel the typing-parametrised
+    # decoration and match on the bare head.
+    if isinstance(annotation, str):
+        head = annotation.split("[", 1)[0].strip()
+        if head in ("int", "bool", "float", "str", "list", "dict"):
+            return head
         return "str"
     # Strip the typing module's parametrised form: list[str] → list.
     origin = getattr(annotation, "__origin__", None)

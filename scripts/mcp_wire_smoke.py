@@ -32,10 +32,14 @@ def _recv(p, timeout=10):
 
 def main():
     env = os.environ.copy(); env["PYTHONUNBUFFERED"] = "1"
+    # Spec 060 round 9 — derive cwd from the script location so the smoke
+    # script runs in CI / review containers / any local clone, not just
+    # the legacy /home/user/agency hard-code.
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     p = subprocess.Popen(
         [sys.executable, "-m", "agency"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        env=env, cwd="/home/user/agency")
+        env=env, cwd=repo_root)
     try:
         # 1. initialize
         _send(p, {"jsonrpc": "2.0", "id": 1, "method": "initialize",

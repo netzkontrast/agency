@@ -102,6 +102,14 @@ markers = [
     "distribution: tests targeting Spec 039 distribution surface",
     "install: tests targeting agency.install",
     "substrate: tests targeting agency_welcome / agency_doctor substrate tools",
+    # Spec 060 round 9 — folder-form-cap markers.
+    "develop: tests targeting the develop capability",
+    "gate: tests targeting the gate capability",
+    "branch: tests targeting the branch capability",
+    "workspace: tests targeting the workspace capability",
+    "subagent: tests targeting the subagent capability",
+    "skill_generator: tests targeting the skill_generator capability",
+    "plugin: tests targeting the plugin capability",
 ]
 filterwarnings = [
     # Third-party noise: opentelemetry-api 1.42 calls

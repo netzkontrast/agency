@@ -133,7 +133,7 @@ class DocumentCapability(CapabilityBase):
             "tokens": out["tokens"],
         }
 
-    @verb(role="act")
+    @verb(role="effect")
     def index_repo(self, path: str = ".", apply: bool = False,
                    max_tokens: int = 3000) -> dict:
         """94%-reduction repo briefing — deterministic; ≤ max_tokens.

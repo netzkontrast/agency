@@ -7,10 +7,10 @@ depends_on: ["012"]
 affects:
   - agency/capabilities/jules.py
   - agency/capabilities/_jules_api.py
-  - agency/capabilities/_jules_reference.md
+  - agency/capabilities/jules/reference.md
   - skills/   # one new sub-dir per ported Jules skill (named in Phase B)
 source-repos:
-  - "agency/capabilities/_jules_reference.md (in-tree authoritative reference)"
+  - "agency/capabilities/jules/reference.md (in-tree authoritative reference)"
   - "https://github.com/netzkontrast/the-agency-system @ Master (operational lessons)"
 estimated_jules_sessions: 0   # design only — implementation comes after Phase E
 domain: capability
@@ -30,7 +30,7 @@ how `replace_with_git_merge_diff` avoids JSON-escape failures, what
 `AGENTS.md` scoping implies for the agency repo, etc.
 
 A user-supplied research synthesis (now stored at
-`agency/capabilities/_jules_reference.md`) makes this knowledge explicit.
+`agency/capabilities/jules/reference.md`) makes this knowledge explicit.
 Per the canon **a skill IS a capability** (CORE.md:47-62 — skills are
 Lifecycle templates of atomic Capability steps); the right shape for
 porting that knowledge is therefore **a set of intersecting skills on the
@@ -87,7 +87,7 @@ Three subagents, each ≤500-word synthesis, all read-only:
 
 | # | Subagent | Source | Output (`Plan/013-…/`) |
 |---|---|---|---|
-| A1 | **Tool-discipline mining** | `agency/capabilities/_jules_reference.md` §3a–§3f | `RESEARCH-tools.md` — every Standard + Special tool, when to use it, the dispatch-prompt phrasings that name it. Esp. `submit`, `pre_commit_instructions`, `request_user_input`, `replace_with_git_merge_diff`, `request_code_review`. |
+| A1 | **Tool-discipline mining** | `agency/capabilities/jules/reference.md` §3a–§3f | `RESEARCH-tools.md` — every Standard + Special tool, when to use it, the dispatch-prompt phrasings that name it. Esp. `submit`, `pre_commit_instructions`, `request_user_input`, `replace_with_git_merge_diff`, `request_code_review`. |
 | A2 | **Operational lessons mining** | `_jules_reference.md` §2 + §6 + DOGFOOD-NOTES.md + the-agency-system `_lessons-learned/` | `RESEARCH-operational.md` — environment snapshots, AGENTS.md scoping, MCP allow-list (Jules→external, not us→Jules), automation modes, the canonical silent-fail variants and which Jules tool resolves each. |
 | A3 | **Skill-shape mining** | `_jules_reference.md` §7 + `CORE.md:47-62` (skills-as-Lifecycle-templates) + `examples/music.py:album-concept` (the existing gated-skill exemplar) | `RESEARCH-skills.md` — the *shape* a Jules skill should take (atomic gated phases, what each phase verifies via `read_file`/`list_files`, where `request_plan_review` belongs); how skills intersect (one skill's gate is another's entry). |
 
@@ -167,7 +167,7 @@ Out of scope here. A separate intent under a separate spec dispatch.
 
 ## Evidence
 
-- `agency/capabilities/_jules_reference.md` — the user-supplied research
+- `agency/capabilities/jules/reference.md` — the user-supplied research
   synthesis stored beside the capability (§1–§7).
 - `Plan/012-jules-complete-lifecycle-and-watcher/spec.md` + `REVIEW.md` +
   `DOGFOOD-NOTES.md` — the operational input + the live silent-fail
