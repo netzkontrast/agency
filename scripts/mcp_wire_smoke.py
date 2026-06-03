@@ -7,8 +7,10 @@
 """
 import json
 import os
+import select
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -18,16 +20,28 @@ def _send(p, msg):
 
 
 def _recv(p, timeout=10):
+    """Spec 060 round 10 — select() so a hung subprocess actually trips
+    the timeout instead of blocking forever inside readline. EOF also
+    fails fast when the server exits without writing."""
     deadline = time.time() + timeout
-    while time.time() < deadline:
+    fd = p.stdout.fileno()
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            raise TimeoutError(f"no response within {timeout}s")
+        ready, _, _ = select.select([fd], [], [], remaining)
+        if not ready:
+            raise TimeoutError(f"no response within {timeout}s")
         chunk = p.stdout.readline()
         if not chunk:
-            time.sleep(0.05); continue
+            if p.poll() is not None:
+                raise TimeoutError(
+                    f"server exited (rc={p.returncode}) without response")
+            time.sleep(0.01); continue
         try:
             return json.loads(chunk.decode())
         except json.JSONDecodeError:
             continue
-    raise TimeoutError(f"no response within {timeout}s")
 
 
 def main():
@@ -36,6 +50,13 @@ def main():
     # script runs in CI / review containers / any local clone, not just
     # the legacy /home/user/agency hard-code.
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Spec 060 round 10 — point AGENCY_DB at a throwaway temp file so the
+    # smoke step that records an Intent/Invocation doesn't dirty the
+    # tracked `.agency/session.db` binary in the worktree.
+    smoke_db = tempfile.NamedTemporaryFile(
+        prefix="agency-smoke-", suffix=".db", delete=False)
+    smoke_db.close()
+    env["AGENCY_DB"] = smoke_db.name
     p = subprocess.Popen(
         [sys.executable, "-m", "agency"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -92,6 +113,9 @@ def main():
     finally:
         try: p.terminate(); p.wait(timeout=3)
         except Exception: p.kill()
+        # Clean up the throwaway DB.
+        try: os.unlink(smoke_db.name)
+        except OSError: pass
 
 
 main()

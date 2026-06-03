@@ -11,4 +11,7 @@ from ._main import (  # noqa: F401
     lint_capability,
     lint_skill,
     lint_skill_doc,
+    marketplace_entry,
+    scaffold,
+    step_doc,
 )
