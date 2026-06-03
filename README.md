@@ -33,11 +33,38 @@ single-plugin marketplace. The plugin ships:
 .claude-plugin/plugin.json        # install descriptor (+ userConfig.jules_api_key, sensitive)
 .claude-plugin/marketplace.json   # single-plugin marketplace catalogue
 .mcp.json                         # declares the Agency MCP server (stdio, via bin/agency-mcp)
-bin/agency-mcp                    # stdio launcher (picks .venv if present, else system python)
-bin/agency-install                # idempotent setup
+bin/agency-mcp                    # thin PATH router to the pipx-installed `agency-mcp`
+bin/agency                        # thin PATH router to the pipx-installed `agency`
 skills/help/SKILL.md              # the /agency:help macroskill (live capability map)
 commands/help.md                  # the /agency:help slash command
 ```
+
+> **One canonical install path: pipx** (Spec 055 doctrine, 2026-06-03).
+> The legacy `.venv` bootstrap (`bin/agency-install`) has been removed;
+> `bin/agency-mcp` and `bin/agency` are thin PATH routers to the
+> pipx-installed console-scripts. Marketplace install still works — the
+> shim routes to the pipx binary.
+
+### Pipx install (canonical)
+
+```bash
+pipx install git+https://github.com/netzkontrast/agency@main
+# …or for a local checkout:
+pipx install --editable /path/to/agency
+
+# Verify:
+agency-doctor          # JSON health report; exit 0 if ok, 1 if degraded
+agency-mcp             # MCP server on stdio (bind via .mcp.json)
+agency search "any-keyword"  # bash CLI
+```
+
+The plugin ships three console-scripts (`agency-mcp`, `agency`,
+`agency-doctor`) registered in `pyproject.toml`. After `pipx install`,
+all three land on PATH; `.mcp.json` references `${CLAUDE_PLUGIN_ROOT}/
+bin/agency-mcp` which `exec`s the PATH-resolved `agency-mcp`.
+
+If `agency-mcp` isn't on PATH, the shim exits 127 with the install
+hint — no auto-bootstrap, no `.venv` surprises.
 
 ### From the GitHub marketplace
 
@@ -48,35 +75,14 @@ In Claude Code:
 /plugin install agency@agency
 ```
 
+This sets up the plugin tree under `${CLAUDE_PLUGIN_ROOT}`. **You then
+run `pipx install <plugin-root>`** to get `agency-mcp` on PATH so the
+marketplace `.mcp.json` shim can route to it.
+
 Claude Code prompts for your **Jules API key** (optional — only needed
 for the `jules` remote-async-agent capability; stored in your system
 keychain). On the next session the engine starts automatically as an
 MCP server, and `/agency:help` lists the live capability set.
-
-### Pipx install (Spec 039)
-
-The plugin ships three console-scripts (`agency-mcp`, `agency`,
-`agency-doctor`). pipx is the cleanest user install — fully isolated
-venv, no marketplace bootstrap needed:
-
-```bash
-pipx install git+https://github.com/netzkontrast/agency@main
-# or, from a local checkout:
-pipx install --editable /path/to/agency
-
-# Verify
-agency-doctor          # JSON health report (exit 0 if ok, 1 if degraded)
-agency-mcp             # MCP server on stdio (bind via .mcp.json)
-agency search "any-keyword"  # bash CLI
-```
-
-When `agency-mcp` is on PATH, `.mcp.json` invokes it directly; the
-marketplace shim falls back to `${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp`
-(which itself prefers PATH if available — Spec 039 discovery shim).
-
-The install-collision guard warns on stderr if BOTH a pipx-installed
-`agency-mcp` AND a marketplace-`.venv` variant resolve at the same time
-— silent shadow is the failure mode it prevents.
 
 ### Local-dev install (contributors)
 

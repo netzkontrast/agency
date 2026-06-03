@@ -18,12 +18,12 @@ Usage::
     python -m agency.install <root>                # write under <root> instead
                                                    # of the package's repo root
 
-The bash wrapper ``bin/agency-install`` calls ``python -m agency.install
---scaffold-db $1`` on fresh installs. ``$1`` is the plugin install root
-(= CLAUDE_PLUGIN_ROOT under marketplace install) and receives the
-regenerated manifest / .mcp.json / help skill. The Spec 020 ``.agency/``
-scaffold, by contrast, lands in the user's PROJECT (CLAUDE_PROJECT_DIR
-when set, else $1 during local dev) because that is where the runtime DB
+Per Spec 055 (pipx-only doctrine, 2026-06-03), the legacy
+``bin/agency-install`` bash wrapper was removed; install happens via
+``pipx install agency`` and this module is called manually when a
+maintainer regenerates the plugin manifest. The Spec 020 ``.agency/``
+scaffold lands in the user's PROJECT (CLAUDE_PROJECT_DIR when set,
+else the call-site root) because that is where the runtime DB
 resolves — see ``_scaffold_target``.
 """
 from __future__ import annotations

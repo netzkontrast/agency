@@ -1,20 +1,14 @@
 #!/usr/bin/env bash
-# agency — CLI discovery shim (Spec 039).
+# agency — thin router to the pipx-installed CLI console-script.
 #
-# Mirror of bin/agency-mcp, but for the `agency` console-script (the
-# CLI surface — `agency search ...`, `agency execute --code ...`).
-# Used by generated slash commands (/agency:help) and by Jules.
-#
-# Resolution order: PATH > .venv > bootstrap-then-.venv. Same failure
-# discipline (Spec 039 §"Subprocess lifecycle discipline").
+# Spec 055 doctrine (pipx-only, 2026-06-03): mirrors bin/agency-mcp
+# for the `agency` CLI surface. PATH discovery only; no bootstrap.
 set -euo pipefail
 
-ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || \
         python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' \
                 "${BASH_SOURCE[0]}")"
 
-# 1. PATH (pipx install).
 if command -v agency >/dev/null 2>&1; then
   CANDIDATE="$(command -v agency)"
   CANDIDATE_REAL="$(readlink -f "$CANDIDATE" 2>/dev/null || \
@@ -25,42 +19,18 @@ if command -v agency >/dev/null 2>&1; then
   fi
 fi
 
-# 2. Plugin-local venv.
-if [[ -x "$ROOT/.venv/bin/agency" ]]; then
-  exec "$ROOT/.venv/bin/agency" "$@"
-fi
+cat >&2 <<'EOF'
+agency: `agency` CLI not found on PATH.
 
-# 2b. Legacy: venv has python but no agency console-script.
-if [[ -x "$ROOT/.venv/bin/python" ]]; then
-  # PREPEND PYTHONPATH so a user-project cwd with its own agency/
-  # package doesn't shadow the plugin's.
-  export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
-  exec "$ROOT/.venv/bin/python" -m agency.cli "$@"
-fi
+The canonical install is pipx:
 
-# 3. First-run bootstrap.
-echo "agency: first run — bootstrapping .venv via bin/agency-install …" >&2
-if ! CLAUDE_PLUGIN_ROOT="$ROOT" "$ROOT/bin/agency-install" >&2; then
-  cat >&2 <<EOF
-agency: bootstrap failed. Tried:
-  - PATH        agency (not found)
-  - ${ROOT}/.venv/bin/agency (not present)
-  - ${ROOT}/.venv/bin/python (not present)
-  - ${ROOT}/bin/agency-install (failed)
-Fix:
-  pip install -e ${ROOT}   (developer)
-  pipx install ${ROOT}     (user)
+    pipx install git+https://github.com/netzkontrast/agency@main
+
+Verify with:
+
+    agency-doctor   # JSON health report
+    agency search foo
+
+The legacy `.venv` bootstrap path was removed (Spec 055 doctrine).
 EOF
-  exit 127
-fi
-
-if [[ -x "$ROOT/.venv/bin/agency" ]]; then
-  exec "$ROOT/.venv/bin/agency" "$@"
-fi
-if [[ -x "$ROOT/.venv/bin/python" ]]; then
-  export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
-  exec "$ROOT/.venv/bin/python" -m agency.cli "$@"
-fi
-
-echo "agency: bootstrap reported success but resolved no binary" >&2
 exit 127

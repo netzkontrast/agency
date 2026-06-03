@@ -40,43 +40,15 @@ def main() -> None:
 
 
 def _warn_on_install_collision() -> None:
-    """Spec 039 §"Install-collision guard" line 86-91.
+    """Spec 055 (pipx-only) collision guard — vestigial.
 
-    If BOTH a plugin-local venv agency-mcp AND a different PATH
-    agency-mcp exist, the user installed via both pipx AND marketplace.
-    Warn on stderr (where MCP clients route logs); proceed regardless
-    — silent shadow is the failure mode we're guarding against.
+    The legacy ``.venv`` bootstrap path was removed. There is no
+    longer a marketplace-bootstrap vs pipx collision to guard
+    against — pipx is the only install path; the bin/agency-mcp
+    shim is a thin PATH router. This stub is kept so callers'
+    error paths and tests don't break; future cleanup can drop it.
     """
-    import shutil
-
-    path_mcp = shutil.which("agency-mcp")
-    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
-    if not plugin_root:
-        return
-    venv_mcp = os.path.join(plugin_root, ".venv", "bin", "agency-mcp")
-    if not (os.path.isfile(venv_mcp) and os.access(venv_mcp, os.X_OK)):
-        return
-    if not path_mcp:
-        return
-    # Compare real paths to handle symlinks.
-    try:
-        path_real = os.path.realpath(path_mcp)
-        venv_real = os.path.realpath(venv_mcp)
-    except OSError:
-        return
-    if path_real == venv_real:
-        return    # same binary via two routes — fine
-    # Detect: who's running US? sys.argv[0] is the entry actually
-    # invoked. Compare against both candidates.
-    running = os.path.realpath(sys.argv[0]) if sys.argv and sys.argv[0] else ""
-    winner = path_real if running == path_real else (
-        venv_real if running == venv_real else running)
-    print(
-        f"agency-mcp: detected two install paths "
-        f"(pipx/PATH={path_real}, marketplace-venv={venv_real}); "
-        f"using {winner}. Remove the other to suppress this warning.",
-        file=sys.stderr,
-    )
+    return
 
 
 def doctor_main(argv: list[str] | None = None) -> int:
