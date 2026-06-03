@@ -83,7 +83,14 @@ def _imports(tree: ast.AST, current_module: str,
         # Also emit stripped variants (for the case where the scan root
         # IS the package — e.g. root='agency' makes graph keys 'foo'
         # rather than 'agency.foo').
-        if root_pkg and mod.startswith(root_pkg + "."):
+        if root_pkg and mod == root_pkg:
+            # PR review round 8 (r_root_pkg_absolute): `from agency
+            # import foo` resolves the aliases (`foo`) themselves as
+            # in-tree submodules when the scan root IS the package.
+            for n in alias_names:
+                if n != "*":
+                    out.add(n)
+        elif root_pkg and mod.startswith(root_pkg + "."):
             stripped = mod[len(root_pkg) + 1:]
             out.add(stripped)
             for n in alias_names:

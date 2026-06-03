@@ -35,6 +35,12 @@ class Capability:
     # back-compat with caps that pre-date Spec 032/060).
     render_templates: Optional["RenderTemplates"] = None
     artefact_schemas: Optional["ArtefactSchemas"] = None
+    # PR review round 8 (r_skilldoc_through_as_capability) — class-form
+    # caps declare `skill_doc` + `walker_skills` as class attributes;
+    # `as_capability` must carry them onto the returned dataclass so
+    # `install.generate()` finds them. None = no skill doc declared.
+    skill_doc: Optional["SkillDoc"] = None
+    walker_skills: Optional["WalkerSkills"] = None
 
     def role(self, verb: str) -> str:
         return self.verbs[verb]["role"]
@@ -278,7 +284,13 @@ class CapabilityBase:
             name=cls.name, home=cls.home, verbs=verbs,
             ontology=_copy.deepcopy(cls.ontology),
             render_templates=cls.render_templates,
-            artefact_schemas=cls.artefact_schemas)
+            artefact_schemas=cls.artefact_schemas,
+            # PR review round 8 — preserve class-form authoring metadata
+            # so install.generate() finds the SKILL.md spec and
+            # walker_skills configuration even after class→dataclass
+            # conversion.
+            skill_doc=getattr(cls, "skill_doc", None),
+            walker_skills=getattr(cls, "walker_skills", None))
 
 
 class Registry:

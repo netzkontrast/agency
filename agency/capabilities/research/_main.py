@@ -183,5 +183,19 @@ class ResearchCapability(CapabilityBase):
             "checks": check_summary,
         })
         self.ctx.link(vid, research_id, "VERIFIES")
+        # PR review round 8 (r_research_status): roll the verdict back
+        # onto the Research node so downstream workflows that filter for
+        # `ready`/`blocked` see the verification outcome, not the stale
+        # `planning` status that `lead` wrote. The status enum
+        # (_RESEARCH_STATUSES) carries: planning, in-progress, ready,
+        # blocked. Map pass→ready, warn→ready (advisory), fail→blocked.
+        new_status = "ready" if status in ("pass", "warn") else "blocked"
+        try:
+            self.ctx.memory.update(research_id, {"status": new_status})
+        except (KeyError, ValueError):
+            # The Research node was already superseded mid-verify, or
+            # the ontology rejected the update — neither is fatal here;
+            # the Verification node still captures the verdict.
+            pass
         result["verification_id"] = vid
         return result

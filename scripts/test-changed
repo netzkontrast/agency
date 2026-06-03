@@ -42,12 +42,22 @@ while IFS= read -r path; do
   case "$path" in
     agency/capabilities/analyze/*|tests/test_analyze_*) add analyze ;;
     agency/capabilities/research/*|tests/test_research_*) add research ;;
-    agency/capabilities/dogfood.py|tests/test_dogfood_*) add dogfood ;;
+    # Spec 060 round 8 — match BOTH single-file (legacy) and folder-form
+    # (post-migration) capability paths so a diff that touches a migrated
+    # folder still picks up the right marker.
+    agency/capabilities/dogfood.py|agency/capabilities/dogfood/*|tests/test_dogfood_*) add dogfood ;;
     agency/capabilities/document/*|tests/test_document_*) add document ;;
-    agency/capabilities/reflect.py|tests/test_reflect_*) add reflect ;;
-    agency/capabilities/delegate.py|tests/test_delegate_*|tests/test_dispatch_*) add delegate ;;
+    agency/capabilities/reflect.py|agency/capabilities/reflect/*|tests/test_reflect_*) add reflect ;;
+    agency/capabilities/delegate.py|agency/capabilities/delegate/*|tests/test_delegate_*|tests/test_dispatch_*) add delegate ;;
     agency/intent.py|tests/test_intent_*) add intent ;;
-    agency/capabilities/jules.py|agency/capabilities/_jules_*|tests/test_jules_*) add jules ;;
+    agency/capabilities/jules.py|agency/capabilities/jules/*|agency/capabilities/_jules_*|tests/test_jules_*) add jules ;;
+    agency/capabilities/gate.py|agency/capabilities/gate/*|tests/test_gate_*) add gate ;;
+    agency/capabilities/branch.py|agency/capabilities/branch/*|tests/test_branch_*) add branch ;;
+    agency/capabilities/workspace.py|agency/capabilities/workspace/*|tests/test_workspace_*) add workspace ;;
+    agency/capabilities/subagent.py|agency/capabilities/subagent/*|tests/test_subagent_*) add subagent ;;
+    agency/capabilities/skill_generator.py|agency/capabilities/skill_generator/*|tests/test_skill_generator_*) add skill_generator ;;
+    agency/capabilities/plugin.py|agency/capabilities/plugin/*|tests/test_plugin_*) add plugin ;;
+    agency/capabilities/develop.py|agency/capabilities/develop/*|tests/test_develop_*) add develop ;;
     bin/agency*|pyproject.toml|tests/test_distribution*) add distribution ;;
     agency/install.py|tests/test_install_*) add install ;;
     agency/__main__.py|tests/test_welcome*|tests/test_agency_doctor*) add substrate ;;
