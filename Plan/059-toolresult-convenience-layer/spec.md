@@ -1,7 +1,7 @@
 ---
 spec_id: "059"
 slug: toolresult-convenience-layer
-status: draft
+status: complete   # 2026-06-03: Codes + .success/.failure + trace_id stamp + next_cursor + doctrine
 last_updated: 2026-06-03
 owner: "@agency"
 depends_on: ["001", "019"]
@@ -215,3 +215,59 @@ shape per Spec 019.
   this spec.
 - CLAUDE.md Rule #4 (TODO.md sync) — this spec's draft row already
   landed in TODO.md alongside the supersede marker on Spec 001.
+
+## Followup — Shipped (2026-06-03)
+
+**Verdict:** Shipped.
+
+### Done
+- **`Codes` namespace** landed in `agency/toolresult.py` with the 8
+  canonical constants: VALIDATION_FAILED, DEPENDENCY_MISSING,
+  GATE_FAILED, NOT_FOUND, UNSUPPORTED, BOUNDARY_ERROR, INTERNAL,
+  UNSPECIFIED. Non-binding (`code` accepts any string per Spec 001's
+  free-string discipline).
+- **`ToolResult.success(...)`** keyword-only constructor — sets
+  `ok=True`, defaults the list fields to fresh empties, accepts
+  `data` / `warnings` / `next_suggested_tools` / `artefacts_written`
+  / `archived_to` / `next_cursor`.
+- **`ToolResult.failure(code, message, ...)`** keyword-only constructor
+  — sets `ok=False`, builds the attached `TypedError` inline. The
+  optional `trace_id` kwarg lets callers pre-stamp; otherwise
+  `Registry.invoke` fills it.
+- **`Registry.invoke` stamps `error.trace_id = inv`** via
+  `dataclasses.replace` when the returned `ToolResult.error` carries an
+  empty `trace_id`. Honors `frozen=True` on both dataclasses by
+  rebuilding rather than mutating. The caller's explicit `trace_id`
+  wins (the stamp only fills the empty case).
+- **`next_cursor: Optional[str] = None`** opt-in field added to the
+  `ToolResult` dataclass — paginated read verbs use it.
+- **CAPABILITY-AUTHORING.md §"When to use `ToolResult` vs plain dict"**
+  — new section between Spec 019 (§"Wire shape vs internal wrap") and
+  Spec 016 Hint #8 (§"Universal input-required convention"). Pairs the
+  decision rule ("≥ 2 of: typed failure modes / warnings / archived_to /
+  artefacts_written → ToolResult; otherwise plain dict") with examples
+  from `jules.dispatch` (ToolResult) and `branch.assess` (plain dict).
+
+### Tests (tests/test_toolresult_convenience.py — 6 tests)
+- `Codes.UNSUPPORTED == "unsupported"` + 7 sibling string-constant locks.
+- `ToolResult.success(data={...}, warnings=[...])` returns `ok=True`
+  with correct field values.
+- `ToolResult.success(data=[...], next_cursor="abc")` round-trips the
+  opt-in pagination field.
+- `ToolResult.failure(Codes.UNSUPPORTED, "nope")` returns `ok=False`
+  with the right `TypedError` shape.
+- `Registry.invoke` stamps `error.trace_id` on a returned failure
+  without trace_id (Invocation outcome=failed reads the typed error).
+- `Registry.invoke` preserves a caller-supplied `trace_id` verbatim
+  (the stamp only fills the empty case).
+
+### Live measurements
+- `pytest -q tests/test_toolresult_convenience.py`: 6/6 green in 0.62s.
+
+### Cluster-coherence (Spec 047)
+- C12 (Capability Authoring) — completes the carry-over from Spec 001
+  so the "when to use ToolResult" decision tree is now documented
+  doctrine alongside Spec 016/019/023 lint rules.
+- C13 (Plugin/MCP Authoring) — `Registry.invoke`'s trace_id stamp
+  closes the audit-trail gap from Spec 001's Q-7 frozen-dataclass
+  trade-off; failures are now provenance-joinable in one hop.

@@ -282,6 +282,87 @@ holds.
 
 ---
 
+## When to use `ToolResult` vs plain dict (Spec 059)
+
+The engine accepts BOTH plain dicts (default; Spec 019 wire-shape
+contract) and the typed `ToolResult` envelope (Spec 001 Option C,
+internal — `Registry.invoke` unwraps `.data`). They're not interchangeable
+mood-music; one or the other is right for a given verb.
+
+**Default: plain dict + Spec 019 wire-shape contract.** A verb that
+returns success on the happy path and a stringly-typed error on a
+failure path doesn't need the envelope; describe the wire shape per
+Hint #7 and the engine + lint rules handle the rest.
+
+**Use `ToolResult` when the verb has ≥ 2 of:**
+
+- **Typed failure modes** that need a structured `code`, not just
+  `{"error": "..."}`. `Codes.UNSUPPORTED`, `Codes.VALIDATION_FAILED`,
+  etc. are non-binding sugar; `code` accepts any string.
+- **Warnings** that should appear on the Invocation node (the engine
+  reads `result.warnings` and stores them as Invocation metadata —
+  surfaces in provenance queries).
+- **`archived_to`** — the verb's primary return is > 4 KB and Spec 005's
+  context-mode middleware archives the body, replacing it with a pointer.
+- **`artefacts_written`** — the verb writes one or more files that need
+  `PRODUCES` edges. The engine derives them automatically from the list.
+
+### Example: `ToolResult` is the right shape
+
+```python
+@verb(role="effect")
+def dispatch(self, source: str, ...) -> ToolResult:
+    """Spawn a remote Jules session.
+
+    Inputs: source (str — owner/repo), ...
+    Returns: <{status, session, url, alias}> on success; on a backend
+             error, <None> with the Invocation's outcome=failed and
+             error=boundary_error: <msg>.
+    chain_next: ``jules.status(session=)`` once dispatched.
+    """
+    s = self._backend().create(...)
+    if not s.get("id"):
+        return ToolResult.failure(
+            Codes.BOUNDARY_ERROR,
+            "Jules backend returned no session id")
+    return ToolResult.success(
+        data={"status": s["state"], "session": s["id"],
+              "url": s["url"], "alias": ""},
+        artefacts_written=[f"jules-session:{s['id']}"])
+```
+
+### Example: plain dict is the right shape
+
+```python
+@verb(role="transform")
+def assess(self, branch: str) -> dict:
+    """Read the branch state and recommend merge/pr/keep/discard.
+
+    Inputs: branch (str).
+    Returns: ``{ahead, behind, dirty, recommended}`` (wire shape).
+    chain_next: ``branch.finish(branch=, action=recommended)``.
+    """
+    return {"result": {"ahead": 0, "behind": 0,
+                        "dirty": False, "recommended": "discard"}}
+```
+
+`branch.assess` has one failure mode (uncommitted-work — recorded
+inside `recommended="keep"`), no warnings, no archived body, no
+artefacts. Plain dict + wire-shape doctrine is the right fit.
+
+### `Registry.invoke` does this automatically
+
+When a verb returns a `ToolResult`:
+
+- `warnings` → Invocation node's `warnings` field.
+- `archived_to` → Invocation node's `archived_to` field.
+- `artefacts_written` → one `Artefact` node per path + `PRODUCES` edge.
+- `error.trace_id` → stamped to the Invocation id (Spec 059) so
+  `failure.trace_id` joins to provenance in one hop.
+- `.data` → unwrapped; the wire shape stays the lean code-mode contract.
+
+---
+
 ## Universal `input-required` convention (Spec 016 Hint #8)
 
 Verbs that can block on human/agent input return:

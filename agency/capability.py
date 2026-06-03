@@ -362,6 +362,16 @@ class Registry:
         # them (esp. spec 005's context-mode middleware which writes archived_to).
         from .toolresult import ToolResult
         if isinstance(result, ToolResult):
+            # Spec 059: stamp error.trace_id = inv when the verb didn't
+            # supply one. Both ToolResult and TypedError are frozen, so
+            # the stamp is `dataclasses.replace` (rebuild, not mutate).
+            # The caller's explicit trace_id wins — we only fill the
+            # empty case.
+            if (result.error is not None
+                    and not result.error.trace_id):
+                from dataclasses import replace
+                new_error = replace(result.error, trace_id=inv)
+                result = replace(result, error=new_error)
             updates: dict = {}
             if not result.ok:                                    # ok=False alone marks the run failed
                 updates["outcome"] = "failed"                   # (Codex review d5758b2 / capability.py:188)
