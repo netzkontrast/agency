@@ -19,7 +19,7 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 18 | 012, 013, 015, 017, 020, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053 |
+| **Shipped** | 19 | 012, 013, 015, 017, 020, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054 |
 | **Partially implemented** | 10 | 001, 006, 007, 016, 018, 023, 024, 025, 031, 032 |
 | **Not started** | 18 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 019, 021, 022, 026, 028, 041, 046, 049, 051 + (010 deferred-v2 axes) |
 
@@ -71,6 +71,7 @@ Total active specs: **41** (counting 000-overview).
 | **051** | analyze-architecture-networkx | Not started | networkx-driven A001 cycle refactor + A004 fan-out / A005 fan-in / A006 god-module metrics | Drafted from deps-extension push; warm-recommend dep |
 | **052** | research-web-httpx | **Shipped** | DuckDuckGoClient zero-config default + AGENCY_WEB_BACKEND env resolution + web-reachability check (3rd verifier check) | 13 spec tests green; live wire confirms 3-check verify payload; closes Spec 044 v1 scope-cut |
 | **053** | test-suite-organization-ci | **Shipped** | conftest auto-markers + pytest-xdist + slicing scripts (test-cap, test-changed) + CI workflow upgrade | analyze 6.6s, research 12.2s, dogfood 17.8s; full parallel 2:43 vs 4:13 sequential (35% speedup); CI: `pytest -n auto -m "not e2e"` + E2E on tag |
+| **054** | drift-management | **Shipped** | AGENCY-DRIFT code tags + scripts/check-drift + agency_doctor.drift field + CLAUDE.md Rule #6 + README install rewrite | 8 canonical tag sites seeded; live `scripts/check-drift` reports NO DRIFT on this branch; v1 ships tag-convention guard layer, install dry-run drift, capability-test-gap report |
 | 045 | reflect-semantic-recall | **Shipped** | TF-IDF + optional BGE embedder; `reflect.recall_semantic` verb; agency_doctor surfaces backend + fallback | 19 spec tests + 469 full-suite green; 4 code-review passes (F4 zip-sort cleanup, F9 doctor fallback messaging differentiated by failure mode, F13 k<=0 guard, DRY KNOWN_EMBEDDERS) |
 | 046 | micro-extensions-bundle | Not started | Code-review split + visual-companion + smart-commit + estimate + token-efficiency + doc-autosync | Designed in this branch |
 | **047** | cluster-integration | **Shipped** | Master plan: 13-cluster integration map (Discovery/Plan/Impl/Quality/Debug/Cleanup/Doc/Memory/Git/Research/Orch/Meta/Plugin) | The deliverable IS the plan — no code; promotes individual cluster plans to standalone specs when criteria hit (cluster-section > 150 LOC OR ≥ 3 cross-cluster decisions) |

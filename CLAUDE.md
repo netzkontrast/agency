@@ -63,6 +63,20 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    `## Followup — Implementation Status (…)` section. No drift between
    the two; `TODO.md` rolls up, the Followup section grounds.
 
+6. **Address drift before committing.** Spec 054 ships TWO guardrails
+   for keeping the open-set substrate (capabilities, skills, ontology
+   enums, extras) in sync across the ~9 places code/docs depend on
+   the set:
+   - **Inline tags.** `# AGENCY-DRIFT: <topic>` at every site where
+     code reads a set/list that changes with the capability surface.
+     `grep -rn AGENCY-DRIFT agency/ tests/ scripts/` lists them all.
+   - **Drift detection script.** `scripts/check-drift` (called by CI on
+     every PR) runs install dry-run, capability-test-gap check, and
+     tag inventory. Exit 0 = clean; 1 = drift detected.
+   When adding a new capability / extra / substrate tool, run
+   `scripts/check-drift` BEFORE commit. Failure to do so is a doctrine
+   violation; future audits flag it.
+
 5. **Check cluster coherence before adding a verb / skill.** Spec 047
    (cluster-integration master) maps the 13 SDLC+meta clusters onto the
    agency surface. Every new verb / skill / substrate tool lands in one

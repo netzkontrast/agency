@@ -36,6 +36,9 @@ from agency.engine import Engine
 
 # Pattern → marker. First match wins; tests that match no pattern get NO
 # auto-marker (still run in default suite, just not selectable via -m).
+# AGENCY-DRIFT: test-marker-patterns — update when a new capability adds
+#   a tests/test_<name>_*.py file convention; mirror in pyproject's
+#   [tool.pytest.ini_options].markers and scripts/test-changed mapping.
 _AUTO_MARKER_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"test_e2e_"),         "e2e"),
     (re.compile(r"test_analyze_"),     "analyze"),

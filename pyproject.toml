@@ -15,6 +15,11 @@ dependencies = [
     "httpx",
 ]
 
+# AGENCY-DRIFT: deps-extras — adding/removing an extra here means:
+#   (1) update CI workflow .github/workflows/test.yml install line
+#   (2) update agency_doctor.* report if the extra has runtime indicators
+#   (3) update CLAUDE.md Dev section if user-facing
+#   (4) add a Spec for the new extra under Plan/
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.0",

@@ -217,6 +217,33 @@ class Engine:
 
         return lifespan
 
+    def _drift_signals(self) -> dict:
+        """Spec 054 — drift indicators surfaced via agency_doctor.
+
+        Cheap checks only (file-existence lookups; no subprocesses).
+        Heavy checks (install regen diff) live in scripts/check-drift.
+        """
+        import os
+        # AGENCY-DRIFT: capability-list — capabilities without a
+        # tests/test_<name>_*.py file convention; Spec 053 markers
+        # depend on the file-naming convention.
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        tests_dir = os.path.join(repo_root, "tests")
+        missing_tests: list[str] = []
+        if os.path.isdir(tests_dir):
+            test_files = set(os.listdir(tests_dir))
+            for cap_name in self.registry.names():
+                if cap_name.startswith("_"):
+                    continue
+                if not any(f.startswith(f"test_{cap_name}_") or
+                            f == f"test_{cap_name}.py"
+                            for f in test_files):
+                    missing_tests.append(cap_name)
+        return {
+            "capabilities_without_tests": sorted(missing_tests),
+            "capability_count": len(list(self.registry.names())),
+        }
+
     def build_mcp(self, codemode: bool = True) -> FastMCP:
         if codemode and not HAVE_CODEMODE:                  # fail loud, not a silent raw-tool fallback
             raise RuntimeError("code-mode requested but unavailable; install fastmcp[code-mode]")
@@ -460,6 +487,9 @@ class Engine:
             # installed. Each wrapper degrades silently, but users
             # benefit from knowing whether ruff/bandit/radon are
             # active.
+            # AGENCY-DRIFT: analyze-extras-list — keep this tuple
+            #   synced with pyproject [analyze] extras AND the
+            #   wrapper modules in agency/capabilities/analyze/.
             analyze_extras: dict[str, str] = {}
             for tool in ("ruff", "bandit", "radon"):
                 if shutil.which(tool):
@@ -485,6 +515,12 @@ class Engine:
                 "embedder": self.embedder.name,
                 # Spec 050 — which optional [analyze] tools are active.
                 "analyze_extras": analyze_extras,
+                # Spec 054 — drift indicators. v1 ships the
+                # capabilities_without_tests check (cheap; just file
+                # lookup); install-regen-drift defers to the
+                # scripts/check-drift script (would require a heavy
+                # subprocess otherwise).
+                "drift": self._drift_signals(),
                 # Spec 039 §"Distribution" line 101-102: which install
                 # method is the running server using? Helps users debug
                 # pipx-vs-marketplace mismatches and the install-
