@@ -1,8 +1,9 @@
 ---
 spec_id: "032"
 slug: templates-schemas-oop-extensions
-status: draft
-last_updated: 2026-05-31
+status: superseded
+superseded_by: "060"
+last_updated: 2026-06-03
 owner: "@agency"
 depends_on: [001, 016, 031]
 supersedes: ["004"]    # Spec 004's materialiser rolled into this spec per panel resolution
@@ -447,3 +448,57 @@ Expected: zero matches.
 - **Touching the engine MCP wire surface.** No new `search`/`get_schema`/`execute` behavior changes.
 - **`Linter` Protocol abstraction.** Deferred (OQ-6).
 - **`DERIVED_FROM` provenance edge wiring.** Deferred (OQ-7).
+
+## Followup — Superseded by Spec 060 (2026-06-03)
+
+**Verdict:** ~70% shipped (the substrate). Remaining ~30% (bootstrap
+wire-up, per-capability migrations, agent-instruction doctrine, lint
+rule) carries over to **Spec 060 — Templates & Schemas: Bootstrap,
+Migration, Agent-Instruction Doctrine**.
+
+This Followup is the supersede marker. Spec 032's text stays verbatim
+faithful to its original design moment; the doctrinal evolution lives
+in the graph-of-specs as a supersede edge (GOALS.md #7 pattern, same
+shape as Spec 001 → Spec 019 supersede).
+
+### What Spec 032 SHIPPED (preserved in 060 as foundation)
+- `agency/capability.py:147-225` — `TemplateDoc`, `SchemaDoc`,
+  `RenderTemplates`, `ArtefactSchemas` dataclasses + ClassVars on
+  `CapabilityBase`.
+- `agency/_capability_loader.py` — `load_capability_folders` +
+  path-safe resolution (`_safe_resolve` rejects `..` + symlink
+  escapes). Kebab-case filename rule. Extension whitelist.
+- `agency/ontology.py:195/229` — `materialise_schemas` +
+  `materialise_templates` with bi-temporal supersede on shape change.
+- `agency/memory.py::validate_schema_draft07` — jsonschema-based
+  validation alongside the simple `validate_schema`.
+- `agency/render/` folder populated with 7 engine-owned templates
+  (Spec 031 contribution, used by `skill_emit.py`).
+- `agency/templates.py` reduced to 109 LOC — bodies load from
+  `agency/render/`; only `REQUIRED` + helpers remain.
+- Backwards-compat resolution table (F-2).
+
+### What CARRIES OVER to Spec 060
+- **Bootstrap wire-up** — `Engine.__init__` calls
+  `load_capability_folders` for every cap (today: the loader is
+  imported only by tests; production never invokes it).
+- **Per-capability folder migration roster** — `dogfood`, `reflect`,
+  `delegate`, `branch`, `workspace`, `gate`, `subagent`,
+  `skill_generator`, `develop`, `plugin`, `jules` (absorbs Spec 028).
+- **Per-capability template + schema files** — none exist today; 060
+  ships the full roster (15+ files across 10+ caps).
+- **Agent-instruction doctrine** — new convention adapted from
+  Bitwize-music plugin: `<!-- AGENT: ... -->` HTML-comment
+  instructions, `<!-- BEGIN IF / END IF -->` conditional sections,
+  chain-next instruction-block at template tail.
+- **`plugin._check_template_folder` lint rule** — folder existence,
+  kebab-case, instruction-block presence. Seventh rule under the
+  Spec 016 scaffold.
+- **Verb migration to `ctx.template(name)`** — flip every
+  Python-string-concat rendering site to file-based.
+
+### Spec 028 absorbed into 060
+Spec 028 (jules-folder-migration) folds into 060's heavy-migration
+wave. `jules/` becomes `agency/capabilities/jules/{_main.py, api.py,
+watch.py, patch.py, preambles.py, skills.py, reference.md,
+templates/, schemas/}`.
