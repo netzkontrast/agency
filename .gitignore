@@ -1,7 +1,6 @@
 __pycache__/
 *.pyc
 *.db
-!.agency/*.db
 .venv/
 .pytest_cache/
 .claude/

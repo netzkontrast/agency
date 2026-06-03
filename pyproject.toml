@@ -29,6 +29,7 @@ dev = [
 
 [project.scripts]
 agency = "agency.__main__:main"
+agency-mcp = "agency.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
