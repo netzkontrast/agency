@@ -25,6 +25,10 @@ dev = [
     # (a 521-char search rendered 130 by proxy vs 112 by tiktoken). Pin it so
     # CI validates the real budget; the test skips if it's somehow absent.
     "tiktoken>=0.7.0",
+    # Spec 053 — parallel test execution. `pytest -n auto` shards the
+    # suite across CPU cores; on a 4-core machine the 4-min suite drops
+    # to ~1 min. Each test uses tmp_path-scoped DBs so no shared state.
+    "pytest-xdist>=3.5",
 ]
 # Spec 045 — optional sentence-transformers BGE backend for the
 # semantic-recall verb. Default is the zero-dep pure-Python TF-IDF
@@ -79,6 +83,20 @@ markers = [
     # roundtrip + pipx-install smoke. Run with `pytest -q -m e2e`. Skipped
     # in the default suite to keep CI per-push fast; required on tag builds.
     "e2e: marks tests that spawn an MCP-server subprocess (slow, requires the agency-mcp binary resolvable via PATH | .venv | bin/)",
+    # Spec 053 — capability/spec markers. Auto-applied by tests/conftest.py
+    # based on the test file path; lets `pytest -m research` pick up tests
+    # in tests/test_research_*.py without per-test maintenance.
+    "analyze: tests targeting the analyze capability",
+    "research: tests targeting the research capability",
+    "dogfood: tests targeting the dogfood capability",
+    "document: tests targeting the document capability",
+    "reflect: tests targeting the reflect capability",
+    "delegate: tests targeting the delegate capability (incl. dispatch_decision)",
+    "intent: tests targeting Intent + intent_bootstrap + chaining (Spec 048)",
+    "jules: tests targeting the jules capability",
+    "distribution: tests targeting Spec 039 distribution surface",
+    "install: tests targeting agency.install",
+    "substrate: tests targeting agency_welcome / agency_doctor substrate tools",
 ]
 filterwarnings = [
     # Third-party noise: opentelemetry-api 1.42 calls

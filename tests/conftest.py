@@ -21,9 +21,53 @@ fresh() factory called ~60× with custom backends) continue to own
 their setup — these conftest fixtures are opt-in, not mandatory."""
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from agency.engine import Engine
+
+
+# ---------------------------------------------------------------------------
+# Spec 053 — auto-mark tests by file path so `pytest -m <capname>` works
+# without per-test maintenance.
+# ---------------------------------------------------------------------------
+
+
+# Pattern → marker. First match wins; tests that match no pattern get NO
+# auto-marker (still run in default suite, just not selectable via -m).
+_AUTO_MARKER_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"test_e2e_"),         "e2e"),
+    (re.compile(r"test_analyze_"),     "analyze"),
+    (re.compile(r"test_research_"),    "research"),
+    (re.compile(r"test_dogfood_"),     "dogfood"),
+    (re.compile(r"test_document_"),    "document"),
+    (re.compile(r"test_reflect_"),     "reflect"),
+    (re.compile(r"test_delegate_"),    "delegate"),
+    (re.compile(r"test_dispatch_"),    "delegate"),
+    (re.compile(r"test_intent_"),      "intent"),
+    (re.compile(r"test_jules_"),       "jules"),
+    (re.compile(r"test_distribution"), "distribution"),
+    (re.compile(r"test_install_"),     "install"),
+    (re.compile(r"test_welcome"),      "substrate"),
+    (re.compile(r"test_agency_doctor"), "substrate"),
+]
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-apply markers based on the test file basename.
+
+    Lets `pytest -m research` pick up tests in `tests/test_research_*.py`
+    without any per-test annotation. No-op for files that don't match
+    any pattern.
+    """
+    for item in items:
+        # item.fspath.basename is `test_research_capability.py` etc.
+        basename = getattr(item.fspath, "basename", "") or ""
+        for pat, marker in _AUTO_MARKER_PATTERNS:
+            if pat.search(basename):
+                item.add_marker(getattr(pytest.mark, marker))
+                break
 
 
 @pytest.fixture

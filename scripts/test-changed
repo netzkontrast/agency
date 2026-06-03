@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# scripts/test-changed — run only the tests whose markers cover the
+# capabilities touched since the branch's merge-base with main.
+#
+# Maps changed paths to capability markers via these rules:
+#   agency/capabilities/<cap>/   → <cap>
+#   agency/capabilities/<cap>.py → <cap>
+#   agency/install.py            → install
+#   agency/engine.py             → all (full suite)
+#   tests/test_<x>_*.py          → match the auto-marker pattern
+#
+# Falls back to the full non-E2E suite when no clear mapping is
+# derivable. Excludes E2E tests by default; pass --with-e2e to include.
+set -euo pipefail
+
+WITH_E2E=0
+if [[ "${1:-}" == "--with-e2e" ]]; then
+  WITH_E2E=1
+  shift
+fi
+
+MERGE_BASE="$(git merge-base HEAD origin/main 2>/dev/null \
+              || git merge-base HEAD main 2>/dev/null \
+              || git rev-parse HEAD~5)"
+CHANGED="$(git diff --name-only "$MERGE_BASE"...HEAD)"
+
+if [[ -z "$CHANGED" ]]; then
+  echo "test-changed: no changes since $MERGE_BASE; running full suite" >&2
+  exec python -m pytest -q -n auto -m "not e2e"
+fi
+
+MARKERS=()
+add() {
+  local m="$1"
+  if [[ ! " ${MARKERS[*]} " =~ " $m " ]]; then
+    MARKERS+=("$m")
+  fi
+}
+
+while IFS= read -r path; do
+  [[ -z "$path" ]] && continue
+  case "$path" in
+    agency/capabilities/analyze/*|tests/test_analyze_*) add analyze ;;
+    agency/capabilities/research/*|tests/test_research_*) add research ;;
+    agency/capabilities/dogfood.py|tests/test_dogfood_*) add dogfood ;;
+    agency/capabilities/document/*|tests/test_document_*) add document ;;
+    agency/capabilities/reflect.py|tests/test_reflect_*) add reflect ;;
+    agency/capabilities/delegate.py|tests/test_delegate_*|tests/test_dispatch_*) add delegate ;;
+    agency/intent.py|tests/test_intent_*) add intent ;;
+    agency/capabilities/jules.py|agency/capabilities/_jules_*|tests/test_jules_*) add jules ;;
+    bin/agency*|pyproject.toml|tests/test_distribution*) add distribution ;;
+    agency/install.py|tests/test_install_*) add install ;;
+    agency/__main__.py|tests/test_welcome*|tests/test_agency_doctor*) add substrate ;;
+    agency/engine.py|agency/capability.py|agency/memory.py|agency/ontology.py)
+      # core change: must run everything
+      echo "test-changed: core file $path changed → running full suite" >&2
+      exec python -m pytest -q -n auto -m "not e2e"
+      ;;
+  esac
+done <<< "$CHANGED"
+
+if [[ ${#MARKERS[@]} -eq 0 ]]; then
+  echo "test-changed: no capability-mapping derivable; running full suite" >&2
+  exec python -m pytest -q -n auto -m "not e2e"
+fi
+
+EXPR="$(IFS=' or '; echo "${MARKERS[*]}")"
+EXPR="${EXPR// or /}"
+EXPR="$(printf '%s\n' "${MARKERS[@]}" | paste -sd '|' - | sed 's/|/ or /g')"
+if [[ "$WITH_E2E" -eq 0 ]]; then
+  EXPR="($EXPR) and not e2e"
+fi
+echo "test-changed: pytest -m \"$EXPR\"" >&2
+exec python -m pytest -q -n auto -m "$EXPR"

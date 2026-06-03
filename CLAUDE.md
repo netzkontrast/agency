@@ -91,9 +91,23 @@ minimal.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-python -m pytest -q          # 228 passing
+python -m pytest -q          # full default suite (slow — ~4 min sequential)
+python -m pytest -q -n auto  # parallel via pytest-xdist (Spec 053; ~1 min on 4 cores)
 python -m agency.install     # regen the plugin install when capabilities change
 ```
+
+Spec 053 — fast local feedback:
+```bash
+scripts/test-cap analyze      # ~6s; tests/test_analyze_*.py only
+scripts/test-cap research     # ~12s; tests/test_research_*.py only
+scripts/test-cap "analyze or research"   # multi-marker via pytest expression
+scripts/test-changed          # git-diff-driven: runs only the capabilities touched
+```
+
+CI (`.github/workflows/test.yml`):
+- Push to main + every PR run `pytest -n auto -m "not e2e"`.
+- Tagged builds (`v*`) ALSO run the E2E suite.
+- Self-hosted install drift check still gates merge.
 
 **Always activate the venv** (`. .venv/bin/activate`) before invoking
 `python -m agency.cli` or `python -m pytest`. The bare `pytest` command
