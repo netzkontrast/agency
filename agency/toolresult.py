@@ -14,11 +14,31 @@ unless the agent's `execute()` block returns the whole structure.
 
 Verbs that don't need the envelope keep returning plain dicts — the envelope
 is opt-in.
+
+Spec 059 adds the convenience layer: ``Codes`` sugar, ``.success(...)`` /
+``.failure(...)`` keyword-only constructors, and the ``next_cursor`` opt-in
+pagination field. Registry.invoke stamps ``error.trace_id`` via
+``dataclasses.replace`` since the dataclass is frozen.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Optional
+
+
+class Codes:
+    """Non-binding string-constant sugar for common failure codes
+    (Spec 059). ``TypedError.code`` accepts ANY string by Spec 001's
+    free-string discipline; these constants only exist so call sites
+    DRY their failure paths."""
+    VALIDATION_FAILED = "validation_failed"
+    DEPENDENCY_MISSING = "dependency_missing"
+    GATE_FAILED = "gate_failed"
+    NOT_FOUND = "not_found"
+    UNSUPPORTED = "unsupported"
+    BOUNDARY_ERROR = "boundary_error"
+    INTERNAL = "internal"
+    UNSPECIFIED = "unspecified"   # ok=False with no structured error
 
 
 @dataclass(frozen=True)
@@ -45,3 +65,35 @@ class ToolResult:
     artefacts_written: list = field(default_factory=list)
     archived_to: str = ""                     # reserved for spec 005 context-mode middleware
     trace_id: str = ""
+    next_cursor: Optional[str] = None         # Spec 059 — opt-in pagination for paged read verbs
+
+    @classmethod
+    def success(cls, *, data: Any = None,
+                warnings: Optional[list] = None,
+                next_suggested_tools: Optional[list] = None,
+                artefacts_written: Optional[list] = None,
+                archived_to: str = "",
+                next_cursor: Optional[str] = None) -> "ToolResult":
+        """Spec 059 — convenience ctor for the success path. All kwargs
+        are keyword-only to keep call sites self-documenting."""
+        return cls(
+            data=data, ok=True,
+            warnings=list(warnings or []),
+            next_suggested_tools=list(next_suggested_tools or []),
+            artefacts_written=list(artefacts_written or []),
+            archived_to=archived_to,
+            next_cursor=next_cursor,
+        )
+
+    @classmethod
+    def failure(cls, code: str, message: str, *,
+                warnings: Optional[list] = None,
+                trace_id: str = "") -> "ToolResult":
+        """Spec 059 — convenience ctor for the failure path. Builds the
+        attached ``TypedError`` in-place. ``trace_id`` is left as-is when
+        supplied; otherwise ``Registry.invoke`` stamps it post-call."""
+        return cls(
+            data=None, ok=False,
+            warnings=list(warnings or []),
+            error=TypedError(code=code, message=message, trace_id=trace_id),
+        )

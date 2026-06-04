@@ -8,7 +8,7 @@ tool names so a future "tighten the prose" pass can't accidentally drop them.
 
 Token budget: each template ≤ 480 chars (~120 tokens).
 """
-from agency.capabilities._jules_watch import INSTRUCTIONS
+from agency.capabilities.jules.watch import INSTRUCTIONS
 
 
 MAX_CHARS = 480

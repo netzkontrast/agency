@@ -21,9 +21,66 @@ fresh() factory called ~60× with custom backends) continue to own
 their setup — these conftest fixtures are opt-in, not mandatory."""
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from agency.engine import Engine
+
+
+# ---------------------------------------------------------------------------
+# Spec 053 — auto-mark tests by file path so `pytest -m <capname>` works
+# without per-test maintenance.
+# ---------------------------------------------------------------------------
+
+
+# Pattern → marker. First match wins; tests that match no pattern get NO
+# auto-marker (still run in default suite, just not selectable via -m).
+# AGENCY-DRIFT: test-marker-patterns — update when a new capability adds
+#   a tests/test_<name>_*.py file convention; mirror in pyproject's
+#   [tool.pytest.ini_options].markers and scripts/test-changed mapping.
+_AUTO_MARKER_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"test_e2e_"),         "e2e"),
+    (re.compile(r"test_analyze_"),     "analyze"),
+    (re.compile(r"test_research_"),    "research"),
+    (re.compile(r"test_dogfood_"),     "dogfood"),
+    (re.compile(r"test_document_"),    "document"),
+    (re.compile(r"test_reflect_"),     "reflect"),
+    (re.compile(r"test_delegate_"),    "delegate"),
+    (re.compile(r"test_dispatch_"),    "delegate"),
+    (re.compile(r"test_intent_"),      "intent"),
+    (re.compile(r"test_jules_"),       "jules"),
+    (re.compile(r"test_distribution"), "distribution"),
+    (re.compile(r"test_install_"),     "install"),
+    # Spec 060 round 9 — folder-form caps that scripts/test-changed
+    # selects but conftest's marker map missed: tests for these caps
+    # were deselected when `-m` expressions filtered to the cap name.
+    (re.compile(r"test_develop_"),         "develop"),
+    (re.compile(r"test_gate_"),            "gate"),
+    (re.compile(r"test_branch_"),          "branch"),
+    (re.compile(r"test_workspace_"),       "workspace"),
+    (re.compile(r"test_subagent_"),        "subagent"),
+    (re.compile(r"test_skill_generator_"), "skill_generator"),
+    (re.compile(r"test_plugin_"),          "plugin"),
+    (re.compile(r"test_welcome"),      "substrate"),
+    (re.compile(r"test_agency_doctor"), "substrate"),
+]
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-apply markers based on the test file basename.
+
+    Lets `pytest -m research` pick up tests in `tests/test_research_*.py`
+    without any per-test annotation. No-op for files that don't match
+    any pattern.
+    """
+    for item in items:
+        # item.fspath.basename is `test_research_capability.py` etc.
+        basename = getattr(item.fspath, "basename", "") or ""
+        for pat, marker in _AUTO_MARKER_PATTERNS:
+            if pat.search(basename):
+                item.add_marker(getattr(pytest.mark, marker))
+                break
 
 
 @pytest.fixture

@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Reduction",
+  "description": "delegate.join Artefact — the reduced child-Lifecycle state count.",
+  "type": "object",
+  "required": ["kind", "children"],
+  "properties": {
+    "kind": {"type": "string", "const": "reduction"},
+    "children": {"type": "integer", "minimum": 0}
+  }
+}

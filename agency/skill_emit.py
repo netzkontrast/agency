@@ -42,6 +42,42 @@ _BASH_WRAPPER_TEMPLATE = Template(
 _INJECTED_PARAMS = frozenset({"ctx", "client", "vcs", "memory", "caps"})
 
 
+def _ann_repr(annotation) -> str:
+    """Render an inspect.Parameter annotation as a Python expression the
+    bash wrapper's embedded code can evaluate at call time.
+
+    `int`, `bool`, `float`, `str` → bare class name (assumes the wrapper
+    imports them — `__builtins__` always has these). Container types
+    (`list`, `dict`, `list[str]`, `dict[str, int]`) → ``list`` / ``dict``
+    because runtime coercion only needs the top-level container.
+    Anything else (missing annotation, callable, Union, …) → ``str`` (the
+    raw argv string is safe — verbs decide how to handle).
+
+    Spec 060 round 9 — when the verb's module uses ``from __future__
+    import annotations``, inspect.signature returns the annotation as a
+    string (`'int'`, `'list[str]'`, …) instead of the type object. Match
+    those string forms before falling through to the runtime-type path.
+    """
+    if annotation is inspect.Parameter.empty:
+        return "str"
+    # Postponed-annotation string form: peel the typing-parametrised
+    # decoration and match on the bare head.
+    if isinstance(annotation, str):
+        head = annotation.split("[", 1)[0].strip()
+        if head in ("int", "bool", "float", "str", "list", "dict"):
+            return head
+        return "str"
+    # Strip the typing module's parametrised form: list[str] → list.
+    origin = getattr(annotation, "__origin__", None)
+    if origin is list:
+        return "list"
+    if origin is dict:
+        return "dict"
+    if annotation in (int, bool, float, str, list, dict):
+        return annotation.__name__
+    return "str"
+
+
 def _classify_tier(verb_fn) -> str:
     """Tier A iff all three Spec 016 structural markers present + non-empty
     (terminal chain_next counts as A per §5 Gherkin). Else Tier B."""
@@ -241,6 +277,14 @@ def _user_params(fn, inject_list: list) -> list[str]:
     - The global engine-injected set (ctx, client, vcs, memory, caps)
     - intent_id and agent_id (handled by the wrapper's --intent-id / env)
     """
+    return [name for name, _ann in _user_params_with_annotations(fn, inject_list)]
+
+
+def _user_params_with_annotations(fn, inject_list: list) -> list[tuple[str, object]]:
+    """Spec 060 review (round 8): for typed argv coercion in the bash
+    wrapper, callers need the parameter's annotation alongside its name.
+    Returns ``[(name, annotation), …]``; annotation is ``inspect.Parameter.
+    empty`` when the verb didn't declare one."""
     if fn is None:
         return []
     try:
@@ -248,7 +292,9 @@ def _user_params(fn, inject_list: list) -> list[str]:
     except (TypeError, ValueError):
         return []
     excluded = _INJECTED_PARAMS | set(inject_list or []) | {"intent_id", "agent_id"}
-    return [p.name for p in sig.parameters.values() if p.name not in excluded]
+    return [(p.name, p.annotation)
+            for p in sig.parameters.values()
+            if p.name not in excluded]
 
 
 def emit_bash_wrappers(cap_name: str, verbs: dict) -> dict[str, str]:
@@ -275,7 +321,9 @@ def emit_bash_wrappers(cap_name: str, verbs: dict) -> dict[str, str]:
     for verb_name in sorted(verbs):
         spec = verbs[verb_name]
         fn = spec.get("fn")
-        params = _user_params(fn, spec.get("inject", []))
+        params_with_annotations = _user_params_with_annotations(
+            fn, spec.get("inject", []))
+        params = [name for name, _ann in params_with_annotations]
 
         # Build the usage line + arg-count check + kwargs JSON pairs
         if params:
@@ -288,10 +336,19 @@ def emit_bash_wrappers(cap_name: str, verbs: dict) -> dict[str, str]:
                 f'  exit 2\n'
                 f'fi'
             )
-            # Build the Python kwargs-json line: "intent_id": sys.argv[1], "p1": sys.argv[2], ...
+            # PR review round 8 (r_skill_emit_typed): coerce argv strings
+            # to the verb's declared annotation. Without this, `analyze.run
+            # axes=quality,security` arrives as the string "quality,security"
+            # and `list(axes)` splits it into characters; `dogfood.render
+            # max_tokens=2000` arrives as "2000" and numeric arithmetic
+            # fails. The coercion is JSON-first-then-fallback: try
+            # `json.loads(raw)`; on success, accept the result iff it
+            # matches the annotation's runtime type; on failure, fall back
+            # to the raw string (str-annotated params stay verbatim).
             kwargs_pairs = ', '.join(
                 ['"intent_id": sys.argv[1]'] +
-                [f'"{p}": sys.argv[{i+2}]' for i, p in enumerate(params)]
+                [f'"{p}": _coerce(sys.argv[{i+2}], {_ann_repr(ann)})'
+                 for i, (p, ann) in enumerate(params_with_annotations)]
             )
         else:
             usage = f"agency-{cap_name}-{verb_name} [--intent-id ID]"

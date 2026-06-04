@@ -46,10 +46,24 @@ The committed install includes `.claude-plugin/plugin.json` (manifest +
 Claude Code prompts for your Jules API key (optional — only the `jules`
 capability needs it; stored in your system keychain).
 
-**Local-dev install:**
+**Pipx install (canonical, Spec 055):**
 
 ```bash
-./bin/agency-install        # creates .venv and installs requirements.txt
+pipx install git+https://github.com/netzkontrast/agency@main
+# …or for a local checkout:
+pipx install --editable /path/to/agency
+```
+
+After install, three console-scripts land on PATH: `agency-mcp`
+(MCP server), `agency` (CLI), `agency-doctor` (health check).
+
+**Local-dev install (contributors):**
+
+```bash
+git clone https://github.com/netzkontrast/agency.git
+cd agency
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev,analyze,recall]"
 claude --plugin-dir .       # point Claude Code at this directory
 ```
 

@@ -15,6 +15,11 @@ dependencies = [
     "httpx",
 ]
 
+# AGENCY-DRIFT: deps-extras — adding/removing an extra here means:
+#   (1) update CI workflow .github/workflows/test.yml install line
+#   (2) update agency_doctor.* report if the extra has runtime indicators
+#   (3) update CLAUDE.md Dev section if user-facing
+#   (4) add a Spec for the new extra under Plan/
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.0",
@@ -25,11 +30,47 @@ dev = [
     # (a 521-char search rendered 130 by proxy vs 112 by tiktoken). Pin it so
     # CI validates the real budget; the test skips if it's somehow absent.
     "tiktoken>=0.7.0",
+    # Spec 053 — parallel test execution. `pytest -n auto` shards the
+    # suite across CPU cores; on a 4-core machine the 4-min suite drops
+    # to ~1 min. Each test uses tmp_path-scoped DBs so no shared state.
+    "pytest-xdist>=3.5",
+]
+# Spec 045 — optional sentence-transformers BGE backend for the
+# semantic-recall verb. Default is the zero-dep pure-Python TF-IDF
+# embedder; opt in to BGE via:
+#   pip install -e .[recall]
+#   AGENCY_EMBEDDER=bge-small-en
+# The model (~80MB) downloads on first encode. If the dep is missing
+# when AGENCY_EMBEDDER selects BGE, resolve_embedder() falls back to
+# TF-IDF silently — agency_doctor reports the live backend so the
+# fallback stays visible.
+recall = [
+    "sentence-transformers>=2.0",
+]
+# Spec 050 — optional industrial Python static-analysis tools used by
+# the analyze capability. When installed, _ruff.py / _bandit.py /
+# _radon.py wrappers compose ruff (700+ lint rules), bandit (CWE
+# security), and radon (cyclomatic complexity) findings ALONGSIDE the
+# agency-native Q*/S*/P*/A* rules. Without this extra, the analyze
+# capability still ships Spec 042 v1 findings (Q001-Q004, S001-S004,
+# P001-P003, A001-A003); each wrapper degrades silently when its tool
+# is missing. agency_doctor reports the live extras.
+analyze = [
+    "ruff>=0.6",
+    "bandit>=1.7",
+    "radon>=6",
 ]
 
 [project.scripts]
-agency = "agency.__main__:main"
-agency-mcp = "agency.__main__:main"
+# Spec 039 distribution surface — three entry points, one per consumer pattern:
+#   `agency`        — CLI for bash callers (search/get-schema/execute over argv)
+#   `agency-mcp`    — MCP server entry (stdio JSON-RPC; what .mcp.json launches)
+#   `agency-doctor` — bare-CLI health check (one-shot diagnostic; exit 0/1 for
+#                     scripting; same payload shape as the `agency_doctor`
+#                     substrate tool)
+agency        = "agency.cli:main"
+agency-mcp    = "agency.__main__:main"
+agency-doctor = "agency.__main__:doctor_main"
 
 [build-system]
 requires = ["hatchling"]
@@ -42,6 +83,34 @@ packages = ["agency"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"
+markers = [
+    # Spec 039 §"End-to-end tests": slow tag for real-subprocess JSON-RPC
+    # roundtrip + pipx-install smoke. Run with `pytest -q -m e2e`. Skipped
+    # in the default suite to keep CI per-push fast; required on tag builds.
+    "e2e: marks tests that spawn an MCP-server subprocess (slow, requires the agency-mcp binary resolvable via PATH | .venv | bin/)",
+    # Spec 053 — capability/spec markers. Auto-applied by tests/conftest.py
+    # based on the test file path; lets `pytest -m research` pick up tests
+    # in tests/test_research_*.py without per-test maintenance.
+    "analyze: tests targeting the analyze capability",
+    "research: tests targeting the research capability",
+    "dogfood: tests targeting the dogfood capability",
+    "document: tests targeting the document capability",
+    "reflect: tests targeting the reflect capability",
+    "delegate: tests targeting the delegate capability (incl. dispatch_decision)",
+    "intent: tests targeting Intent + intent_bootstrap + chaining (Spec 048)",
+    "jules: tests targeting the jules capability",
+    "distribution: tests targeting Spec 039 distribution surface",
+    "install: tests targeting agency.install",
+    "substrate: tests targeting agency_welcome / agency_doctor substrate tools",
+    # Spec 060 round 9 — folder-form-cap markers.
+    "develop: tests targeting the develop capability",
+    "gate: tests targeting the gate capability",
+    "branch: tests targeting the branch capability",
+    "workspace: tests targeting the workspace capability",
+    "subagent: tests targeting the subagent capability",
+    "skill_generator: tests targeting the skill_generator capability",
+    "plugin: tests targeting the plugin capability",
+]
 filterwarnings = [
     # Third-party noise: opentelemetry-api 1.42 calls
     # `entry_points()` with no args (legacy SelectableGroups path) then

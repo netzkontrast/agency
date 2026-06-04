@@ -66,14 +66,17 @@ python -m agency.cli execute --code \
 
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
+- **analyze** — architecture, cleanup, improve, paths, performance, quality, run, security
 - **branch** — assess, finish
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
 - **develop** — checklist, record_authoring_outcome, reference, scaffold_capability
-- **dogfood** — collect
+- **document** — explain, index_repo, render
+- **dogfood** — collect, export, import, note, render
 - **gate** — check
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch
 - **plugin** — author_command, author_skill, help, lint_capability, lint_skill, marketplace_entry, scaffold, step_doc
-- **reflect** — batch_note, note, recall, search
+- **reflect** — batch_note, note, recall, recall_semantic, search
+- **research** — lead, specialist, verify
 - **skill_generator** — generate
 - **subagent** — develop
 - **workspace** — baseline, isolate

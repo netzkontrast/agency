@@ -3,6 +3,7 @@ name: test
 on:
   push:
     branches: [main]
+    tags: ['v*']
   # Run on EVERY pull request, regardless of target branch. PRs against the
   # active feature branch (e.g. claude/*) should still get CI coverage —
   # they're the path most changes take before reaching main. The earlier
@@ -28,13 +29,24 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      - name: Install agency in editable mode with dev deps
+      - name: Install agency with dev + analyze extras
+        # Spec 053 §"CI workflow shape" — analyze extras (ruff/bandit/
+        # radon) land alongside core so Spec 050's composed findings
+        # path is exercised in CI, matching the local dev experience.
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,analyze]"
 
-      - name: Run pytest
-        run: pytest -q
+      - name: Run non-E2E suite (parallel)
+        # Spec 053 §"Parallel execution" — pytest-xdist shards across
+        # CPU cores. Non-E2E filter excludes the JSON-RPC stdio + pipx
+        # tests (Spec 039 marker) which run only on tagged builds.
+        run: pytest -q -n auto -m "not e2e"
+
+      - name: Run E2E suite (tagged builds only)
+        # Spec 039 §"E2E test platform coverage" — Linux on tag.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: pytest -q -m "e2e"
 
       - name: Verify self-hosted install is up to date
         run: |

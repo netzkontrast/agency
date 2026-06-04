@@ -236,6 +236,269 @@ sandbox boundary. Inside the sandbox is free; across is expensive.
 
 ---
 
+## Wire shape vs internal wrap (Spec 019)
+
+The engine's `_wire` impl (`agency/engine.py`) strips a `{"result":
+<inner>}` envelope IFF `<inner>` is itself a dict. The motivation: verbs
+return `{"result": <delta>}` internally so the engine can detect ok-path
+vs error-path uniformly (Spec 001 envelope discipline); the wire shape
+that crosses to the code-mode caller is the bare `<delta>` (the lean
+code-mode contract per CORE.md + GOALS.md goal #5).
+
+The corollary the docstring sweep must observe:
+
+```python
+# ❌ Don't document the internal envelope:
+@verb(role="transform")
+def assess(self, branch: str) -> dict:
+    """...
+    Returns: {result: {ahead, behind, dirty, recommended}}.  # leaks the wrap
+    """
+    return {"result": {"ahead": 0, "behind": 0, "dirty": False, "recommended": "discard"}}
+
+# ✅ Document the WIRE shape (what the caller actually receives):
+@verb(role="transform")
+def assess(self, branch: str) -> dict:
+    """...
+    Returns: {ahead, behind, dirty, recommended}.   # the wire shape
+    """
+    return {"result": {"ahead": 0, "behind": 0, "dirty": False, "recommended": "discard"}}
+```
+
+Scalar wraps are the exception. The engine re-wraps non-dict returns
+into `{"result": <scalar>}` because MCP tool responses must be JSON
+objects. So `reflect.note` returning `{"result": "reflection:abc"}`
+internally produces the SAME shape on the wire — its docstring
+correctly says `Returns: {result: <reflection_id>}`.
+
+`plugin.lint_capability` enforces this via the `wire_shape` rule:
+verbs whose source returns `{"result": {dict_literal}}` are flagged
+when their docstring's `Returns:` line includes the `result` envelope.
+Rich-dict verbs (no envelope, like `jules.dispatch`) are unaffected.
+
+**Rule of thumb:** describe what `await call_tool('capability_<x>_<y>',
+{...})` returns at the wire, not what your verb's `return` statement
+holds.
+
+---
+
+## When to use `ToolResult` vs plain dict (Spec 059)
+
+The engine accepts BOTH plain dicts (default; Spec 019 wire-shape
+contract) and the typed `ToolResult` envelope (Spec 001 Option C,
+internal — `Registry.invoke` unwraps `.data`). They're not interchangeable
+mood-music; one or the other is right for a given verb.
+
+**Default: plain dict + Spec 019 wire-shape contract.** A verb that
+returns success on the happy path and a stringly-typed error on a
+failure path doesn't need the envelope; describe the wire shape per
+Hint #7 and the engine + lint rules handle the rest.
+
+**Use `ToolResult` when the verb has ≥ 2 of:**
+
+- **Typed failure modes** that need a structured `code`, not just
+  `{"error": "..."}`. `Codes.UNSUPPORTED`, `Codes.VALIDATION_FAILED`,
+  etc. are non-binding sugar; `code` accepts any string.
+- **Warnings** that should appear on the Invocation node (the engine
+  reads `result.warnings` and stores them as Invocation metadata —
+  surfaces in provenance queries).
+- **`archived_to`** — the verb's primary return is > 4 KB and Spec 005's
+  context-mode middleware archives the body, replacing it with a pointer.
+- **`artefacts_written`** — the verb writes one or more files that need
+  `PRODUCES` edges. The engine derives them automatically from the list.
+
+### Example: `ToolResult` is the right shape
+
+```python
+@verb(role="effect")
+def dispatch(self, source: str, ...) -> ToolResult:
+    """Spawn a remote Jules session.
+
+    Inputs: source (str — owner/repo), ...
+    Returns: <{status, session, url, alias}> on success; on a backend
+             error, <None> with the Invocation's outcome=failed and
+             error=boundary_error: <msg>.
+    chain_next: ``jules.status(session=)`` once dispatched.
+    """
+    s = self._backend().create(...)
+    if not s.get("id"):
+        return ToolResult.failure(
+            Codes.BOUNDARY_ERROR,
+            "Jules backend returned no session id")
+    return ToolResult.success(
+        data={"status": s["state"], "session": s["id"],
+              "url": s["url"], "alias": ""},
+        artefacts_written=[f"jules-session:{s['id']}"])
+```
+
+### Example: plain dict is the right shape
+
+```python
+@verb(role="transform")
+def assess(self, branch: str) -> dict:
+    """Read the branch state and recommend merge/pr/keep/discard.
+
+    Inputs: branch (str).
+    Returns: ``{ahead, behind, dirty, recommended}`` (wire shape).
+    chain_next: ``branch.finish(branch=, action=recommended)``.
+    """
+    return {"result": {"ahead": 0, "behind": 0,
+                        "dirty": False, "recommended": "discard"}}
+```
+
+`branch.assess` has one failure mode (uncommitted-work — recorded
+inside `recommended="keep"`), no warnings, no archived body, no
+artefacts. Plain dict + wire-shape doctrine is the right fit.
+
+### `Registry.invoke` does this automatically
+
+When a verb returns a `ToolResult`:
+
+- `warnings` → Invocation node's `warnings` field.
+- `archived_to` → Invocation node's `archived_to` field.
+- `artefacts_written` → one `Artefact` node per path + `PRODUCES` edge.
+- `error.trace_id` → stamped to the Invocation id (Spec 059) so
+  `failure.trace_id` joins to provenance in one hop.
+- `.data` → unwrapped; the wire shape stays the lean code-mode contract.
+
+---
+
+## Templates instruct agents (Spec 060 — the Bitwize pattern)
+
+A capability's `templates/` folder ships markdown skeletons that
+verbs fill in. Today's pattern is "string.Template body + `$variable`
+substitutions" — load-and-render. Spec 060 lifts the template into a
+**dual-purpose artefact**: it renders the human-facing output AND
+carries inline instructions for the agent reading the template, so
+the agent knows what to do BEFORE/DURING/AFTER rendering.
+
+The convention has four parts.
+
+### 1. Frontmatter (when fields are structured)
+
+YAML frontmatter at the top declares structured fields the verb
+substitutes from provenance state. Same shape as Claude Code skills:
+
+```markdown
+---
+title: "$title"
+status: "$status"
+intent_id: "$intent_id"
+---
+```
+
+### 2. Body with `$variable` substitutions
+
+The verb calls `tpl.substitute(title=..., status=..., ...)` —
+`string.Template` is brace-safe for bodies that contain `{}`.
+Identifiers follow Python identifier rules.
+
+### 3. Inline `<!-- AGENT: ... -->` instruction blocks
+
+HTML comments invisible to humans reading the rendered markdown,
+visible to agents reading the template body. Tell the agent what
+to do at the relevant decision point:
+
+```markdown
+## Citations
+
+$citations_table
+
+<!-- AGENT: VERIFY each citation URL resolves. Flag broken URLs in
+the YAML frontmatter under `verification.broken`. -->
+```
+
+The instructions are imperative ("VERIFY", "REPLACE", "EMIT") and
+name the exact downstream action.
+
+### 4. Conditional sections (`<!-- BEGIN IF / END IF -->`)
+
+Sections the agent emits ONLY when a flag is truthy. The engine
+doesn't preprocess these (v1 — Spec 060 OQ-4); the agent's logic
+walks the markers like any HTML comment:
+
+```markdown
+<!-- BEGIN IF has_verification -->
+## Verification
+
+$verification_block
+<!-- END IF -->
+```
+
+### 5. Chain-next instruction at the tail
+
+Pairs with Hint #7's verb-level `chain_next:` docstring marker but
+at template scope — what to do AFTER the template renders:
+
+```markdown
+<!-- AGENT: After rendering, persist the output via
+document.render(scope='research-report', for_intent_id=...) and
+link the written Artefact PRODUCES the calling Invocation. -->
+```
+
+### Example: human-view vs agent-view
+
+The SAME template, rendered with `tpl.substitute(...)`:
+
+```markdown
+# Research Report: How does X work?
+
+## Citations
+
+| Source | Confidence |
+|---|---|
+| github.com/x/y | 0.92 |
+```
+
+…vs agents reading the template body via `ctx.template(name)`:
+
+```markdown
+# Research Report: $question
+
+<!-- AGENT: This template renders a $artefact_kind. Fill the
+frontmatter from the Research node's provenance. -->
+
+## Citations
+
+$citations_table
+
+<!-- AGENT: VERIFY each citation URL resolves. Flag broken ones. -->
+
+<!-- BEGIN IF has_verification -->
+## Verification
+
+$verification_block
+<!-- END IF -->
+```
+
+Renderers strip the `<!-- AGENT: -->` blocks for human-facing output;
+agents reading via `ctx.template(name).template` see the body
+verbatim and act on the instructions.
+
+### Where templates live
+
+| Scope | Path | Owner | When |
+|---|---|---|---|
+| Engine | `agency/render/*.md` | engine | Cross-capability shapes (skill MD, command MD, capability skill) |
+| Capability | `agency/capabilities/<cap>/templates/*.md` | the cap | The cap's artefact shapes (research-report, dogfood-notes, …) |
+
+Discovery is automatic — `_capability_loader.load_capability_folders`
+finds them at engine bootstrap via the `render_templates =
+RenderTemplates(folder=Path(__file__).parent / "templates")` declaration
+on the capability class. The merged set lives in `engine.ontology.
+templates` and is materialised as `Template` nodes in the graph.
+
+### Lint guard (Spec 060 §Phase 4)
+
+`plugin._check_template_folder` fires when:
+- A cap declares `render_templates` but the folder doesn't exist.
+- A template filename isn't kebab-case.
+- A template's content lacks any `<!-- AGENT: ... -->` block (the
+  doctrine bar — templates without agent instructions are pure
+  rendering, which belongs in `agency/render/` engine-scope).
+
+---
+
 ## Universal `input-required` convention (Spec 016 Hint #8)
 
 Verbs that can block on human/agent input return:

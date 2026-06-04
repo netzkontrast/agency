@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GateOutcome",
+  "description": "The wire shape gate.check returns (the unwrapped dict, Spec 019 wire-shape contract). The `Gate` node itself is core ontology; this schema validates the wire payload.",
+  "type": "object",
+  "required": ["passed", "gate"],
+  "properties": {
+    "passed": {"type": "boolean"},
+    "gate": {"type": "string", "description": "Gate node id."}
+  }
+}

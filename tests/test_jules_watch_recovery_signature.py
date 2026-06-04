@@ -16,8 +16,8 @@ from unittest.mock import patch as mock_patch
 
 import pytest
 
-from agency.capabilities import _jules_watch
-from agency.capabilities._jules_watch import Watcher
+from agency.capabilities.jules import watch as _jules_watch
+from agency.capabilities.jules.watch import Watcher
 
 
 @pytest.mark.asyncio
@@ -84,7 +84,7 @@ async def test_recovery_path_calls_build_recovery_plan_with_full_signature(monke
     # imported _jules_patch into sys.modules, so a sys.modules swap is
     # insufficient — the lazy `from … import _jules_patch` resolves to the
     # already-bound attribute on the parent package).
-    from agency.capabilities import _jules_patch as real_jp
+    from agency.capabilities.jules import patch as real_jp
     monkeypatch.setattr(real_jp, "build_recovery_plan", fake_build_recovery_plan)
 
     # Drive the loop once via direct invocation; _poll_loop's sleep_func
@@ -151,7 +151,7 @@ async def test_recovery_path_parses_owner_repo_from_source_when_not_preplumbed(m
         captured.update(owner=owner, repo=repo, branch=branch, base=base)
         return {}
 
-    from agency.capabilities import _jules_patch as real_jp
+    from agency.capabilities.jules import patch as real_jp
     monkeypatch.setattr(real_jp, "build_recovery_plan", fake_build_recovery_plan)
 
     try:

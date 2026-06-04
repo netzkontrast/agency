@@ -1,7 +1,7 @@
 ---
 spec_id: "019"
 slug: engine-output-shape-contract
-status: draft
+status: complete   # 2026-06-03: defensive comment + wire_shape lint + sweep + tests + docs
 owner: "@agency"
 depends_on: ["016"]
 affects:
@@ -172,3 +172,29 @@ contract bug.
 - code: `agency/engine.py:123` (unwrap exists, no comment), `agency/capabilities/plugin.py:155-216` (lint rules — structural + render-slice — but NO wire-shape-vs-internal-wrap rule)
 - tests: no `tests/test_engine_unwrap_contract.py`; no test asserting `lint_capability` flags a `Returns: {result: ...}` docstring
 - commits/notes: Frontmatter `status: draft` is accurate. 019 is effectively blocked on 016's docstring sweep landing first.
+
+## Followup — Shipped (2026-06-03)
+
+**Verdict:** Shipped.
+
+### Done
+- **Defensive comment at `agency/engine.py:174`** — multi-line block citing Spec 001 + Spec 019 + CORE.md + GOALS.md goal #5; explains the dict-unwrap vs scalar-rewrap rule.
+- **`plugin._check_wire_shape` lint rule** — AST-walks the verb source for `return {"result": {dict_literal}}` patterns and flags docstrings whose `Returns:` line includes `{result: ...`. Rich-dict verbs (no envelope, e.g. `jules.dispatch`) and scalar-wraps (`reflect.note`) correctly pass.
+- **`_verb_wraps_dict` helper** — pure introspection; uses `inspect.getsource` + `ast.parse` + `inspect.cleandoc` to handle indented method sources.
+- **Docstring sweep (10 verbs)**: `branch.assess`, `branch.finish`, `delegate.fan_out`, `delegate.join`, `develop.reference`, `gate.check`, `skill_generator.generate`, `subagent.develop`, `workspace.baseline`, `workspace.isolate`. All now describe the wire shape (e.g. `{ahead, behind, dirty, recommended}` instead of `{result: {ahead, …}}`).
+- **`tests/test_engine_unwrap_contract.py`** — 5 tests:
+  - `test_dict_wrap_unwraps_at_wire` — registry.invoke sees the wrap; call_tool sees the unwrapped dict (with re-wrap when the inner is a list).
+  - `test_scalar_wrap_rewraps_at_wire` — non-dict inner → re-wrapped at the wire.
+  - `test_rich_dict_passes_through` — no `result` key → identical wire shape.
+  - `test_lint_passes_when_docstring_matches_wire_shape` — _GoodCap fixture (rich + scalar-wrap variants).
+  - `test_lint_flags_leaky_returns_docstring` — _BadCap fixture trips the rule.
+- **`docs/vision/CAPABILITY-AUTHORING.md` §"Wire shape vs internal wrap"** — new section between Hint #6 (deltas-not-dumps) and Hint #8 (input-required convention); ❌/✅ side-by-side example.
+- **`docs/vision/CORE.md` Engine paragraph addendum** — one line citing Spec 019 + the cross-link to CAPABILITY-AUTHORING.md.
+
+### Live measurements
+- `python -c '… lint_capability …'` over the live registry: **0 wire_shape leaks** remaining (was 10 pre-sweep).
+- `pytest -q tests/test_engine_unwrap_contract.py`: 5/5 green in 1.83s.
+
+### Cluster-coherence (Spec 047)
+- C12 (Capability Authoring) — the wire-shape rule is one more lint rule on the doctrine page; the lint scaffold from Spec 016 now carries 6 rule families (structural, role_tag, render_slice, consumer_contract, token_budget, wire_shape).
+- C13 (Plugin/MCP Authoring) — pairs with Spec 023's brief-slice doctrine: the brief slice + the wire-shape `Returns:` line together describe the catalog and the post-call shape an agent actually consumes.

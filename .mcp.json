@@ -1,9 +1,10 @@
 {
   "mcpServers": {
     "agency": {
-      "command": "agency-mcp",
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp",
       "args": [],
       "env": {
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}",
         "AGENCY_DB": "${CLAUDE_PROJECT_DIR}/.agency/session.db",
         "JULES_API_KEY": "${user_config.jules_api_key}"
       }

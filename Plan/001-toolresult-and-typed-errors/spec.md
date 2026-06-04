@@ -608,3 +608,73 @@ cross-intent call. **Q-6 is closed: the proposal is source-aligned.**
 - code: `agency/toolresult.py:1-47`, `agency/capability.py:247-280`
 - tests: `tests/test_agency.py:346-509` (ToolResult envelope, artefacts_written, ok=False)
 - commits/notes: Plan/000-overview.md:31 lists Spec 001 as Shipped with "Option C" note; frontmatter `status: done` matches.
+
+## Followup — Superseded by Spec 019 + carry-over to Spec 059 (2026-06-03)
+
+**Verdict:** The wire-contract territory of this spec (Open Q-2 — "full
+envelope on the wire") is **superseded by Spec 019** (engine output-shape
+contract). The remaining useful deliverables (Codes namespace, convenience
+constructors, trace_id stamping, "when to use ToolResult vs plain dict"
+doctrine) carry over to **Spec 059** (ToolResult convenience layer).
+
+This Followup is the supersede marker — Spec 001's text stays verbatim
+faithful to its original Q-2 design moment; the doctrinal evolution lives
+in the graph-of-specs as a supersede edge (mirrors how the engine treats
+bi-temporal Intents per GOALS.md goal #7 "graph is the store; files are a
+rendered view").
+
+### What Spec 019 supersedes from Spec 001
+
+- **Q-2: "Full envelope on the in-sandbox `call_tool` return"** — shipped
+  resolution is **Option C**: the envelope is INTERNAL, `Registry.invoke`
+  unwraps `.data`, `_wire` sees plain dicts. Spec 019's `wire_shape` lint
+  rule + the docstring sweep of 10 dict-wrapping verbs codify the same
+  pattern for plain-dict verbs that never adopted `ToolResult`.
+- **The "all 12 verbs migrate to `ToolResult`" deliverable** — Spec 019's
+  doctrine settles that plain dicts are first-class on the wire; `ToolResult`
+  is opt-in for verbs that need typed errors / warnings / archived_to /
+  artefacts_written. The all-verbs sweep is no longer a goal.
+- **Lossless `to_dict()`/`from_dict()` + bash↔MCP byte-identical envelope
+  isomorphism test** — irrelevant once the envelope never crosses the wire.
+  `tests/test_search_isomorphism.py` tests isomorphism on the unwrapped
+  `.data`, which IS the wire shape.
+- **`affects: agency/capability.py`** — corrected by reality: dataclass
+  lives in `agency/toolresult.py` (kept separate so the toolresult module
+  doesn't depend on the heavier capability machinery).
+
+### What carries over to Spec 059
+
+- **`Codes` namespace** (string-constant sugar) — never landed; still useful
+  as call-site DRY for `ToolResult.failure(Codes.UNSUPPORTED, ...)`.
+- **`ToolResult.success(...)` / `ToolResult.failure(...)` convenience
+  constructors** — make the verb-side migration site cleaner; not blocking
+  but high value/cost ratio.
+- **`Registry.invoke` stamps `error.trace_id = inv`** — currently NOT done;
+  per Q-7, `frozen=True` means we use `dataclasses.replace(error, trace_id=
+  inv)` rather than mutating in place.
+- **`next_cursor` as opt-in field on `ToolResult`** — for verbs that paginate.
+  Lands in 059 as a small additive change.
+- **"When to use ToolResult vs plain dict" doctrine in
+  CAPABILITY-AUTHORING.md** — pairs with Spec 016 Hint #7's docstring
+  contract: a verb whose error/warning surface is non-trivial uses
+  `ToolResult`; everything else stays plain dict. The decision tree lives
+  on the doctrine page.
+
+### What Spec 001 KEEPS (still canon)
+
+- `ToolResult` + `TypedError` dataclasses (shipped, `agency/toolresult.py`).
+- `Registry.invoke` unwraps `ToolResult` to `.data` + records `warnings`,
+  `archived_to`, and `artefacts_written` → `PRODUCES` (shipped).
+- The decision that `code` is a **free string** (not a closed enum).
+- The "scope guard": ToolResult is a substrate serialization detail, NOT
+  a fifth concept (the four concepts in CORE.md remain canon).
+- The "two boundaries" reading of CORE.md:11-13 — the envelope lives on
+  the in-sandbox `call_tool` boundary only; context-boundary is
+  unaffected.
+
+### Frontmatter status
+
+`status: done` accurately reflects that the load-bearing work (the
+dataclass + the Invocation-side metadata threading) shipped. The
+"Partial" label in TODO.md is updated to "Shipped (carry-over → 059)"
+to remove ambiguity.

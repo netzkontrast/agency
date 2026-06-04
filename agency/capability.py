@@ -28,6 +28,19 @@ class Capability:
     # the capability's OWN ontology fragment (node types, edges, enums, skills,
     # template-schemas) — merged onto the core by the engine. Empty = core only.
     ontology: OntologyExtension = field(default_factory=OntologyExtension)
+    # Spec 060 — file-based template/schema declarations. The engine's
+    # bootstrap (engine.py) reads these to call `load_capability_folders`
+    # and merges the discovered entries into `ontology`. `None` means
+    # the capability ships no file-based extension (the default —
+    # back-compat with caps that pre-date Spec 032/060).
+    render_templates: Optional["RenderTemplates"] = None
+    artefact_schemas: Optional["ArtefactSchemas"] = None
+    # PR review round 8 (r_skilldoc_through_as_capability) — class-form
+    # caps declare `skill_doc` + `walker_skills` as class attributes;
+    # `as_capability` must carry them onto the returned dataclass so
+    # `install.generate()` finds them. None = no skill doc declared.
+    skill_doc: Optional["SkillDoc"] = None
+    walker_skills: Optional["WalkerSkills"] = None
 
     def role(self, verb: str) -> str:
         return self.verbs[verb]["role"]
@@ -63,7 +76,14 @@ class CapabilityContext:
         return self.spawn(cap, verb, **args)[0]
 
     def render(self, template: str, **vars: Any) -> str:
-        return _Template(self.ontology.templates[template]).substitute(**vars)
+        # Spec 060 round 9 — `ontology.templates` carries BOTH bare strings
+        # (dict-form declarations) and `string.Template` instances (file-
+        # form loader output). `_Template(string)` works for the string
+        # case but `_Template(Template)` TypeErrors. Detect both shapes.
+        tpl = self.ontology.templates[template]
+        if isinstance(tpl, _Template):
+            return tpl.substitute(**vars)
+        return _Template(tpl).substitute(**vars)
 
     def schema(self, name: str) -> list:
         return list(self.ontology.schemas.get(name, []))
@@ -83,12 +103,38 @@ class CapabilityContext:
     def find(self, label: str, as_of: Optional[int] = None):
         return self.memory.find(label, as_of=as_of)
 
+    def template(self, name: str) -> "Template":
+        """Spec 060 — load a template by stem from the engine's merged
+        ontology. Engine bootstrap discovers per-capability `templates/`
+        folders + merges them with declared `OntologyExtension.templates`
+        entries; this accessor is the read side.
 
-def verb(role: str, inject: Optional[list] = None) -> Callable:
+        Inputs: name (str — the template's kebab-case file stem).
+        Returns: `string.Template` body; the agent applies `.substitute(
+                 **fields)` for rendering, OR reads `.template` directly
+                 for the verbatim body incl. `<!-- AGENT: -->` blocks
+                 (Spec 060 agent-instruction doctrine).
+        Raises: KeyError when no template with that name is registered.
+        chain_next: caller renders OR forwards the body to a verb that
+                    persists the resulting Artefact.
+        """
+        templates = getattr(self.ontology, "templates", {}) or {}
+        if name not in templates:
+            raise KeyError(
+                f"template {name!r} not registered in ontology — "
+                f"declare it via OntologyExtension.templates or ship "
+                f"a file at <cap>/templates/{name}.md (Spec 060)")
+        return templates[name]
+
+
+def verb(role: str, inject: Optional[list] = None,
+         name: Optional[str] = None) -> Callable:
     """Mark a CapabilityBase method as a verb (its role, + any extra injects beyond
-    the always-injected `ctx`)."""
+    the always-injected `ctx`). `name` lets a verb register under a different
+    public name than its Python method (e.g. `import_` → `import` when the
+    natural verb name collides with a Python keyword)."""
     def deco(fn: Callable) -> Callable:
-        fn._verb = {"role": role, "inject": list(inject or [])}
+        fn._verb = {"role": role, "inject": list(inject or []), "name": name}
         return fn
     return deco
 
@@ -227,10 +273,31 @@ class CapabilityBase:
 
     @classmethod
     def as_capability(cls) -> Capability:
-        verbs = {mname: _wrap_method(cls, mname, member, getattr(member, "_verb"))
-                 for mname, member in inspect.getmembers(cls, predicate=callable)
-                 if getattr(member, "_verb", None)}
-        return Capability(name=cls.name, home=cls.home, verbs=verbs, ontology=cls.ontology)
+        verbs = {}
+        for mname, member in inspect.getmembers(cls, predicate=callable):
+            meta = getattr(member, "_verb", None)
+            if not meta:
+                continue
+            public = meta.get("name") or mname
+            verbs[public] = _wrap_method(cls, mname, member, meta)
+        # Spec 060 fix: deepcopy the ontology so capability instances
+        # don't share dict references via the class-level default
+        # `CapabilityBase.ontology = OntologyExtension()`. Bootstrap
+        # mutations (file-loaded templates/schemas merging into
+        # cap.ontology.{templates,schemas}) would otherwise leak across
+        # caps that inherit the same default instance.
+        import copy as _copy
+        return Capability(
+            name=cls.name, home=cls.home, verbs=verbs,
+            ontology=_copy.deepcopy(cls.ontology),
+            render_templates=cls.render_templates,
+            artefact_schemas=cls.artefact_schemas,
+            # PR review round 8 — preserve class-form authoring metadata
+            # so install.generate() finds the SKILL.md spec and
+            # walker_skills configuration even after class→dataclass
+            # conversion.
+            skill_doc=getattr(cls, "skill_doc", None),
+            walker_skills=getattr(cls, "walker_skills", None))
 
 
 class Registry:
@@ -355,6 +422,16 @@ class Registry:
         # them (esp. spec 005's context-mode middleware which writes archived_to).
         from .toolresult import ToolResult
         if isinstance(result, ToolResult):
+            # Spec 059: stamp error.trace_id = inv when the verb didn't
+            # supply one. Both ToolResult and TypedError are frozen, so
+            # the stamp is `dataclasses.replace` (rebuild, not mutate).
+            # The caller's explicit trace_id wins — we only fill the
+            # empty case.
+            if (result.error is not None
+                    and not result.error.trace_id):
+                from dataclasses import replace
+                new_error = replace(result.error, trace_id=inv)
+                result = replace(result, error=new_error)
             updates: dict = {}
             if not result.ok:                                    # ok=False alone marks the run failed
                 updates["outcome"] = "failed"                   # (Codex review d5758b2 / capability.py:188)

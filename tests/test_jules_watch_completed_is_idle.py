@@ -12,7 +12,7 @@ era — Jules sat COMPLETED + planGenerated; the classifier would have
 re-dispatched instead of approving). The fix adds a `plan_unapproved`
 flag the classifier checks FIRST.
 """
-from agency.capabilities._jules_watch import _classify, INSTRUCTIONS
+from agency.capabilities.jules.watch import _classify, INSTRUCTIONS
 
 
 def _prev(state="IN_PROGRESS"):

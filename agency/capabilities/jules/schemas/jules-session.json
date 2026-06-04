@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "JulesSession",
+  "description": "Remote Jules session — the bi-temporal node that captures id/url/state for the full v1alpha lifecycle.",
+  "type": "object",
+  "required": ["sid"],
+  "properties": {
+    "sid": {"type": "string", "description": "Jules session id."},
+    "url": {"type": "string"},
+    "title": {"type": "string"},
+    "branch": {"type": "string"},
+    "source": {"type": "string", "description": "owner/repo dispatched against."},
+    "state": {
+      "type": "string",
+      "enum": ["STATE_UNSPECIFIED", "QUEUED", "PLANNING", "AWAITING_PLAN_APPROVAL",
+               "IN_PROGRESS", "AWAITING_USER_FEEDBACK", "COMPLETED", "FAILED",
+               "PAUSED", "CANCELLED"]
+    }
+  }
+}

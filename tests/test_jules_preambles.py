@@ -14,7 +14,7 @@ Per Plan/013-…/IMPLEMENTATION-PLAN.md Phase 2:
 """
 import pytest
 
-from agency.capabilities._jules_preambles import (
+from agency.capabilities.jules.preambles import (
     AGENCY_CLONE_PATH,
     DISPATCH_PROTOCOL_SOURCE_URL,
     DISPATCH_SELF_SOURCE,

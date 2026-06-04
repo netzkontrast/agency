@@ -186,11 +186,11 @@ def test_phase4_set_scope_requires_all_three_outputs(engine, iid):
     run.submit({"text": CANONICAL_PROMPT, "must_name": ""})
     # Missing one of the three required fields -> raises.
     with pytest.raises(ValueError, match="missing required outputs"):
-        run.submit({"affects_paths": ["agency/capabilities/jules.py"],
+        run.submit({"affects_paths": ["agency/capabilities/jules/_main.py"],
                     "no_create_outside": True})
     # Full set advances.
     res = run.submit({
-        "affects_paths": ["agency/capabilities/jules.py"],
+        "affects_paths": ["agency/capabilities/jules/_main.py"],
         "no_create_outside": True,
         "agency_clone_ro_in_delegate": True,
     })
@@ -214,7 +214,7 @@ def test_phase5_dispatched_hard_gate_pauses_without_confirm(engine, iid):
     run.submit({"state": "COMPLETED", "branch": "feat/x", "remote": "origin"})
     run.submit({"text": CANONICAL_PROMPT, "must_name": ""})
     run.submit({
-        "affects_paths": ["agency/capabilities/jules.py"],
+        "affects_paths": ["agency/capabilities/jules/_main.py"],
         "no_create_outside": True,
         "agency_clone_ro_in_delegate": True,
     })
@@ -239,7 +239,7 @@ def test_phase5_dispatched_completes_on_confirm(engine, iid):
     run.submit({"state": "COMPLETED", "branch": "feat/x", "remote": "origin"})
     run.submit({"text": CANONICAL_PROMPT, "must_name": ""})
     run.submit({
-        "affects_paths": ["agency/capabilities/jules.py"],
+        "affects_paths": ["agency/capabilities/jules/_main.py"],
         "no_create_outside": True,
         "agency_clone_ro_in_delegate": True,
     })

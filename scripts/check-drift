@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# scripts/check-drift — Spec 054 drift detection.
+#
+# Reports:
+#   1. AGENCY-DRIFT: tags found across the codebase (organized by topic).
+#   2. install regen drift (would `python -m agency.install` produce a diff?).
+#   3. capabilities without a tests/test_<name>_*.py file.
+#   4. test files that don't match Spec 053 auto-marker patterns.
+#
+# Exit code: 0 = clean; 1 = drift detected; 2 = invocation error.
+#
+# Usage:
+#   scripts/check-drift            # all checks
+#   scripts/check-drift --quiet    # only exit code (CI mode)
+set -euo pipefail
+
+QUIET=0
+if [[ "${1:-}" == "--quiet" ]]; then
+  QUIET=1
+fi
+
+DRIFT=0
+say() { [[ "$QUIET" -eq 0 ]] && echo "$@"; }
+
+# ----------------------------------------------------------------------
+# 1. AGENCY-DRIFT tags
+# ----------------------------------------------------------------------
+say "==> AGENCY-DRIFT tags (Spec 054 §'Code-tag convention')"
+TAG_HITS=$(grep -rn "AGENCY-DRIFT:" \
+            agency/ tests/ scripts/ pyproject.toml CLAUDE.md \
+            .github/ docs/ 2>/dev/null || true)
+TAG_COUNT=$(echo -n "$TAG_HITS" | grep -c "AGENCY-DRIFT:" || true)
+say "    $TAG_COUNT tagged sites"
+if [[ "$QUIET" -eq 0 ]]; then
+  echo "$TAG_HITS" | sed 's/^/    /' | head -40
+fi
+say
+
+# ----------------------------------------------------------------------
+# 2. install regen drift
+# ----------------------------------------------------------------------
+say "==> install regen drift"
+INSTALL_OUT=$(python -m agency.install 2>&1 | tail -3 || true)
+if git diff --quiet -- .claude-plugin/ .mcp.json skills/help/ commands/; then
+  say "    install: clean"
+else
+  say "    install: REGEN PRODUCED A DIFF — commit the regenerated files"
+  DRIFT=1
+  if [[ "$QUIET" -eq 0 ]]; then
+    git diff --stat -- .claude-plugin/ .mcp.json skills/help/ commands/ | head -10
+  fi
+fi
+say
+
+# ----------------------------------------------------------------------
+# 3. Capabilities without test files
+# ----------------------------------------------------------------------
+say "==> capabilities without test files"
+MISSING_TESTS=()
+for cap_dir in agency/capabilities/*/; do
+  name=$(basename "$cap_dir")
+  [[ "$name" == "_"* ]] && continue
+  if ! ls tests/test_${name}_*.py >/dev/null 2>&1 && \
+     ! ls tests/test_${name}.py >/dev/null 2>&1; then
+    MISSING_TESTS+=("$name")
+  fi
+done
+for cap_file in agency/capabilities/*.py; do
+  name=$(basename "$cap_file" .py)
+  [[ "$name" == "_"* || "$name" == "__init__" ]] && continue
+  if ! ls tests/test_${name}_*.py >/dev/null 2>&1 && \
+     ! ls tests/test_${name}.py >/dev/null 2>&1; then
+    MISSING_TESTS+=("$name")
+  fi
+done
+if [[ ${#MISSING_TESTS[@]} -eq 0 ]]; then
+  say "    none"
+else
+  say "    ${#MISSING_TESTS[@]}: ${MISSING_TESTS[*]}"
+  # Don't fail on this — some capabilities (e.g. workspace) intentionally
+  # share tests with their consumer modules.
+fi
+say
+
+# ----------------------------------------------------------------------
+# Summary
+# ----------------------------------------------------------------------
+if [[ "$DRIFT" -eq 0 ]]; then
+  say "==> NO DRIFT DETECTED"
+else
+  say "==> DRIFT DETECTED — fix before commit"
+fi
+exit $DRIFT

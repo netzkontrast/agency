@@ -33,11 +33,38 @@ single-plugin marketplace. The plugin ships:
 .claude-plugin/plugin.json        # install descriptor (+ userConfig.jules_api_key, sensitive)
 .claude-plugin/marketplace.json   # single-plugin marketplace catalogue
 .mcp.json                         # declares the Agency MCP server (stdio, via bin/agency-mcp)
-bin/agency-mcp                    # stdio launcher (picks .venv if present, else system python)
-bin/agency-install                # idempotent setup
+bin/agency-mcp                    # thin PATH router to the pipx-installed `agency-mcp`
+bin/agency                        # thin PATH router to the pipx-installed `agency`
 skills/help/SKILL.md              # the /agency:help macroskill (live capability map)
 commands/help.md                  # the /agency:help slash command
 ```
+
+> **One canonical install path: pipx** (Spec 055 doctrine, 2026-06-03).
+> The legacy `.venv` bootstrap (`bin/agency-install`) has been removed;
+> `bin/agency-mcp` and `bin/agency` are thin PATH routers to the
+> pipx-installed console-scripts. Marketplace install still works — the
+> shim routes to the pipx binary.
+
+### Pipx install (canonical)
+
+```bash
+pipx install git+https://github.com/netzkontrast/agency@main
+# …or for a local checkout:
+pipx install --editable /path/to/agency
+
+# Verify:
+agency-doctor          # JSON health report; exit 0 if ok, 1 if degraded
+agency-mcp             # MCP server on stdio (bind via .mcp.json)
+agency search "any-keyword"  # bash CLI
+```
+
+The plugin ships three console-scripts (`agency-mcp`, `agency`,
+`agency-doctor`) registered in `pyproject.toml`. After `pipx install`,
+all three land on PATH; `.mcp.json` references `${CLAUDE_PLUGIN_ROOT}/
+bin/agency-mcp` which `exec`s the PATH-resolved `agency-mcp`.
+
+If `agency-mcp` isn't on PATH, the shim exits 127 with the install
+hint — no auto-bootstrap, no `.venv` surprises.
 
 ### From the GitHub marketplace
 
@@ -48,21 +75,54 @@ In Claude Code:
 /plugin install agency@agency
 ```
 
+This sets up the plugin tree under `${CLAUDE_PLUGIN_ROOT}`. **You then
+run `pipx install <plugin-root>`** to get `agency-mcp` on PATH so the
+marketplace `.mcp.json` shim can route to it.
+
 Claude Code prompts for your **Jules API key** (optional — only needed
 for the `jules` remote-async-agent capability; stored in your system
 keychain). On the next session the engine starts automatically as an
 MCP server, and `/agency:help` lists the live capability set.
 
-### Local-dev install
+### Local-dev install (contributors)
 
 ```bash
 git clone https://github.com/netzkontrast/agency.git
 cd agency
 python -m venv .venv && . .venv/bin/activate
+
+# Core dev (pytest + xdist + tiktoken):
 pip install -e ".[dev]"
-python -m pytest -q             # 228 passing on the real substrate
-claude --plugin-dir .           # point Claude Code at this directory
+
+# All optional extras (recommended for full local capability):
+pip install -e ".[dev,analyze,recall]"
+#   [analyze] → ruff, bandit, radon (Spec 050 composed lint/security/metric findings)
+#   [recall]  → sentence-transformers BGE embedder (Spec 045 — optional;
+#               TF-IDF is the zero-dep default)
+
+# Run tests (parallel; Spec 053):
+python -m pytest -q -n auto -m "not e2e"   # full suite, ~2:43
+scripts/test-cap analyze                    # only analyze tests, ~7s
+
+# Drift check before committing (Spec 054 — recommended pre-commit):
+scripts/check-drift
+
+# Wire Claude Code at this checkout:
+claude --plugin-dir .
 ```
+
+### After `pip install -e`
+
+The engine self-hosts its own install. After adding a capability,
+modifying a verb, or changing a docstring:
+
+```bash
+python -m agency.install     # regenerates plugin.json, .mcp.json, marketplace.json,
+                              # skills/help/SKILL.md, and commands/*.md from the live registry
+```
+
+The CI workflow runs this on every PR and fails if the regen would
+have produced a diff that wasn't committed.
 
 ### Regenerate the install (dogfood)
 
@@ -184,14 +244,32 @@ minimal while proving the extension contract end to end.
 push is wave-3 (specs 012-019). Read [`docs/vision/GOALS.md`](docs/vision/GOALS.md)
 to see which goal each spec advances.
 
-Shipped (wave 3, on this branch): **012** (Jules complete lifecycle +
-watcher) · **013** (Jules skills + AGENCY_PROTOCOL doctrine) · **015**
-(Jules-led architecture review, dogfood pass).
+[`TODO.md`](TODO.md) is the binding cross-spec status roll-up
+(maintained per CLAUDE.md Rule #4); each spec's `## Followup —
+Implementation Status` section is the ground truth.
+[`docs/vision/SPEC-VISION-ALIGNMENT.md`](docs/vision/SPEC-VISION-ALIGNMENT.md)
+maps every spec to the 8 Vision goals.
 
-Drafted (wave 3): **014** (observation → spec amendment) · **016**
-(capability authoring doctrine — first Core Expansion) · **017**
-(graph-native dogfood ledgers) · **018** (CLI token efficiency bundle)
-· **019** (engine output-shape contract).
+Shipped (18 — across all waves):
+- Substrate: **020** central .agency/session.db · **029** MCP bootstrap
+  + self-explain · **030** Jules-key + doctor + stateful welcome
+- Jules: **012** complete lifecycle + watcher · **013** skills + protocol
+  doctrine · **015** architecture review (dogfood pass)
+- Distribution: **039** pipx + E2E + console-scripts + discovery shims
+- Memory + Provenance: **017** graph-native dogfood ledgers · **045**
+  reflect.recall_semantic (TF-IDF + optional BGE) · **048** intent chain
+  + owner enum + analyze.paths
+- Capabilities: **040** subagent-decision heuristics · **042** analyze
+  (4 axes + improve/cleanup) · **043** document (render/explain/index_repo)
+  · **044** research (lead+specialist+verify) · **050** ruff+bandit+radon
+  integration · **052** DuckDuckGo web specialist + reachability check
+- Meta: **047** cluster-integration master · **053** test-suite-
+  organization + CI
+
+Drafted: **014** (observation → amendment) · **016** (capability authoring
+doctrine) · **019** (engine output-shape) · **049** (naming + token
+economy review) · **051** (analyze.architecture + networkx) · **054**
+(drift management — code tags + scripts/check-drift).
 
 ## Layout
 
@@ -218,22 +296,69 @@ Drafted (wave 3): **014** (observation → spec amendment) · **016**
 ## Develop
 
 ```bash
-. .venv/bin/activate         # always activate first
-python -m pytest -q          # 228 passing
-python -m agency.install     # regen the plugin install when capabilities change
+. .venv/bin/activate                      # always activate first
+python -m pytest -q -n auto -m "not e2e"  # full suite, parallel (~2:43)
+python -m agency.install                  # regen install when capabilities change
 ```
 
-> **Venv hygiene.** A globally-installed `pytest` (e.g. via `uv tool`) will
-> fail to find `graphqlite` / `fastmcp` and produce silent collection
-> errors. Always run `python -m pytest` from an activated venv so
-> imports resolve against the project's site-packages.
+### Fast iteration (Spec 053)
+
+`tests/conftest.py` auto-marks tests by file path so you can slice by
+capability without per-test maintenance:
+
+```bash
+scripts/test-cap analyze       # tests/test_analyze_*.py — ~7s
+scripts/test-cap research      # tests/test_research_*.py — ~12s
+scripts/test-cap "analyze or research"
+scripts/test-changed           # git-diff-driven; runs only touched capabilities
+scripts/test-changed --with-e2e
+```
+
+CI (`.github/workflows/test.yml`): every PR runs
+`pytest -n auto -m "not e2e"`; tagged builds (`v*`) also run the E2E suite.
+
+### Optional extras
+
+```bash
+pip install -e ".[dev]"        # pytest + xdist + tiktoken
+pip install -e ".[dev,analyze]"   # + ruff + bandit + radon (composed findings)
+pip install -e ".[dev,recall]"    # + sentence-transformers BGE embedder
+```
+
+`agency_doctor` reports which extras are live (`embedder`, `analyze_extras`,
+`install_method`, `drift` signals).
+
+### Drift management (Spec 054)
+
+The capability set is OPEN (reflection-based discovery), but a new
+capability indirectly touches ~9 places (pyproject extras, install
+regen, CLAUDE.md, TODO.md, SPEC-VISION-ALIGNMENT.md, test files,
+CI workflow, agency_doctor, the spec's Followup section). Two
+guardrails:
+
+1. **AGENCY-DRIFT code tags** — `# AGENCY-DRIFT: <topic>` inline at
+   every site where code reads a set/list that changes when
+   capabilities change. `grep -rn AGENCY-DRIFT agency/ tests/` lists
+   them all.
+2. **`scripts/check-drift`** — runs install dry-run + capability-test
+   gap check + tag inventory. CI runs this as a PR gate. Exit code 0
+   = clean; 1 = drift.
+
+Read [`Plan/054-drift-management/spec.md`](Plan/054-drift-management/spec.md)
+for the rationale + the 8 canonical drift tags.
+
+### Discipline
 
 - Feature branches; PRs target `main`; additive history; never rewrite
   or force-push.
-- Add a capability = add a file (or folder when Spec 016 lands).
+- Add a capability = add a file (folder-form for the heavier ones —
+  see `agency/capabilities/{analyze,document,research}/`).
 - Spec lifecycle: research → design → spec-panel → refine →
-  IMPLEMENTATION-PLAN → TDD. Per-phase: RED → GREEN → green
-  `python -m pytest -q` → commit → push.
-- Doctrine evolves through dogfooding: surface lessons via
-  `reflect.note(scope="observation", …)` — **NOT** new markdown files
-  (graph-as-store; Spec 017 closes the inversion).
+  IMPLEMENTATION-PLAN → TDD. Per-phase: RED → GREEN → green pytest →
+  commit → push.
+- **TODO.md update is MANDATORY** in every spec-touching commit
+  (CLAUDE.md Rule #4).
+- Doctrine evolves through dogfooding: `reflect.note(scope=
+  "observation", …)` and `dogfood.note(observation, plan_slug)` — NOT
+  new markdown files (Spec 017 closed the graph-vs-file inversion;
+  use `dogfood.render(plan_slug)` to project on demand).

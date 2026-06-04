@@ -460,9 +460,38 @@ Adding a new capability?
 - **Spec 019 docstring sweep** (Hint #7 on all verbs): `reflect`, `gate`, `delegate`, `jules` have zero `Inputs:` / `Returns:` / `chain_next:` markers. Only `develop.py` (15 occurrences) and `plugin.py` (4 occurrences) carry markers. Sweep not done.
 
 ### Refinement needed (given later specs)
-- Spec 019 (output-shape contract) depends on the Hint #7 docstring sweep being complete; that sweep is a 016 deliverable still open.
-- Spec 023 (adaptive disclosure) paired ship order requires lint + docstring migration; lint landed, but the docstring migration roster gating 023 GREEN is not done.
 - Spec 028 (jules-folder-migration) — the explicit Phase 6 deferral target; not yet a plan entry in Plan/000.
+
+## Followup — Hint #7 docstring sweep (2026-06-03)
+
+**Verdict:** Shipped (paired ship with Spec 023).
+
+### Done
+- All 49 verbs across 11 capabilities now carry the Spec-016-Hint-#7
+  `Inputs:` / `Returns:` / `chain_next:` markers.
+- File-by-file pass: `branch` (2), `gate` (1), `subagent` (1),
+  `skill_generator` (1), `workspace` (2), `reflect` (5), `delegate` (4),
+  `dogfood` (5 incl. v2 import), `plugin` (10), `develop` (6),
+  `jules` (22).
+- `plugin.lint_capability(name)` block-mode now passes for every
+  capability that opts in via the `# agency-scaffold: v1` marker
+  (Spec 024 gate).
+- Roster (Spec 023 §"Migration roster") shrinks to 0 non-compliant:
+  ```python
+  python -c "from agency.engine import Engine; e = Engine(':memory:');
+    non = [(c, v) for c in e.registry.names()
+           for v, s in e.registry.get(c).verbs.items()
+           if not all(m in (s['fn'].__doc__ or '') for m in
+                      ('Inputs:', 'Returns:', 'chain_next:'))]
+    ; print(len(non))"   # → 0
+  ```
+
+### Cluster-coherence (Spec 047)
+- C12 (Capability Authoring) — the doctrine page's Hint #7 is now
+  enforced across the whole capability surface.
+- C13 (Plugin/MCP Authoring) — paired with Spec 023's brief-slice
+  treatment, get_schema responses are now structurally consistent
+  across the live registry.
 
 ### Evidence
 - code: `agency/capabilities/__init__.py`, `agency/capabilities/plugin.py:279-430`, `agency/capabilities/develop.py:86-351`, `docs/vision/CAPABILITY-AUTHORING.md`, `docs/vision/CORE.md:51-69`

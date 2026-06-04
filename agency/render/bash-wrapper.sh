@@ -23,6 +23,47 @@ $arg_check
 
 kwargs=$$(python3 -c '
 import json, sys
+def _coerce(raw, ann):
+    # PR review round 8: argv arrives as a string regardless of the
+    # verb signature; coerce to the declared annotation so list/int/
+    # bool params reach the verb in the right shape. JSON-first lets
+    # callers pass e.g. `--axes "[\"quality\",\"security\"]"` or the
+    # bare bash form `quality,security` (CSV fallback for list-typed).
+    if ann is str:
+        return raw
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        parsed = None
+    if ann is bool:
+        if isinstance(parsed, bool):
+            return parsed
+        return raw.lower() in ("true", "1", "yes", "y")
+    if ann is int:
+        if isinstance(parsed, int) and not isinstance(parsed, bool):
+            return parsed
+        try:
+            return int(raw)
+        except (ValueError, TypeError):
+            return raw
+    if ann is float:
+        if isinstance(parsed, (int, float)) and not isinstance(parsed, bool):
+            return float(parsed)
+        try:
+            return float(raw)
+        except (ValueError, TypeError):
+            return raw
+    if ann is list:
+        if isinstance(parsed, list):
+            return parsed
+        # CSV fallback so `axes=quality,security` still works at the bash
+        # surface (common when scripting around the wrapper).
+        return [s for s in raw.split(",") if s]
+    if ann is dict:
+        if isinstance(parsed, dict):
+            return parsed
+        return {}
+    return raw
 print(json.dumps({$kwargs_pairs}))
 ' "$$iid" "$${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

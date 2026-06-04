@@ -63,7 +63,7 @@ enforces this — Phase 3 of the `jules-protocol-preamble` skill walks it
 before any dispatch. (See `Plan/013-…/DESIGN.md`.)
 
 **Related Jules tools the canon expects you to name in the prompt**
-(catalogued in full in `agency/capabilities/_jules_reference.md` §3):
+(catalogued in full in `agency/capabilities/jules/reference.md` §3):
 
 - `replace_with_git_merge_diff` — preferred multi-line edit primitive
   (Git merge-conflict markers; avoids JSON-escape failures).

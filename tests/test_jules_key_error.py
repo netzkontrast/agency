@@ -9,7 +9,7 @@ import os
 
 import pytest
 
-from agency.capabilities._jules_api import _api_key
+from agency.capabilities.jules.api import _api_key
 
 
 def test_jules_key_error_names_user_config_and_doctor(monkeypatch):

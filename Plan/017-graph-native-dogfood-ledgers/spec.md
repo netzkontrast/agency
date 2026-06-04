@@ -1,7 +1,8 @@
 ---
 spec_id: "017"
 slug: graph-native-dogfood-ledgers
-status: draft
+status: complete
+last_updated: 2026-06-03
 owner: "@agency"
 depends_on: ["013", "014", "015", "020"]   # 020 = central .agency/session.db
 affects:
@@ -175,7 +176,85 @@ runs on demand.
   cleanly).
 - `docs/vision/GOALS.md` goal #7 — the canon this spec closes.
 
-## Followup — Implementation Status (2026-05-31)
+## Followup — Implementation Status (2026-06-03)
+
+**Verdict:** Shipped — graph-native dogfood path live. The Vision/
+GOALS.md goal #7 "graph is the store; files are a rendered view"
+critical gap (per SPEC-VISION-ALIGNMENT.md audit) is closed for the
+dogfood/observation flow. 10 spec tests green.
+
+### Done
+- `dogfood.note(observation, plan_slug)` — new act verb that
+  writes a Reflection with `scope='observation'` + `plan_slug`
+  property + OBSERVED_DURING + SERVES edges. NO file writes
+  along the path; the graph is the canonical store.
+- `dogfood.render(plan_slug)` — new transform verb that queries
+  Reflection nodes matching the plan_slug and emits markdown in
+  the existing DOGFOOD-NOTES.md format. Pure (no graph writes).
+  Empty plan returns clean markdown with "(none yet)" body —
+  never raises.
+- `dogfood.collect` kept for backward compatibility (Spec 014's
+  observation→spec-amendment pipeline + one-shot migration of
+  existing DOGFOOD-NOTES.md files). Docstring updated with
+  deprecation note: "Deprecated for ongoing use — prefer
+  dogfood.note (graph-native authoring) + dogfood.render (markdown
+  projection on demand)."
+- Reflection ontology unchanged at the schema level — `plan_slug`
+  is an OPTIONAL property (Spec 017 §Done When: "Backward
+  compatible (optional field)"). The Reflection NODE_SCHEMAS lists
+  only `scope` and `text` as required; plan_slug is stored when
+  present + queryable via graph-query WHERE clause.
+
+### Tests
+- `tests/test_dogfood_graph_native.py` (10 tests):
+  - note records Reflection with plan_slug
+  - note links SERVES intent
+  - render produces markdown with observations
+  - empty plan returns clean "(none yet)" markdown
+  - plan_slug scoping (one plan's observations don't appear in
+    another's render)
+  - render is pure (no graph writes)
+  - reflect.note (existing verb without plan_slug) still works —
+    backward compat
+  - collect still works (deprecated docstring)
+  - collect docstring contains "Deprecated" + "dogfood.note"
+  - dogfood capability has all three verbs {note, render, collect}
+
+### Scope-cut (per spec §"Done When" v1)
+- The `_jules_skills.py` `JULES_SELF_IMPROVEMENT_SKILL` Phase 0
+  addition (Spec 017 §Done When line 58-62) — deferred. The
+  jules-self-improvement skill is a stable artifact and a Phase
+  insertion is risky without panel review. Add as a follow-up PR
+  once we have at least one full session running through Phase 0.
+- The `install.py:145` canon-acceptable comment — that file IS
+  the install manifest writer; comments about "rendered-view
+  exception" are doc-only changes that didn't fit the spec's
+  focused note/render shape. Add as a small doc-only follow-up.
+- CLAUDE.md rule #2 cross-reference to Spec 017 — defer until the
+  jules-self-improvement Phase 0 lands so both updates ship
+  together.
+
+### Doctrine win (vs SPEC-VISION-ALIGNMENT.md audit)
+- 🔴 Goal 7 (graph IS the store) — write-side gap on observations
+  is closed. Spec 043 (document.render) closed the render-side
+  for other scopes; Spec 017 now does the same for the dogfood
+  observation flow. Both halves match the Vision doctrine.
+
+### Open for v2 (per spec §"Open Questions")
+- OQ2 render write-to-disk vs return-only — v1 ships return-only
+  (caller decides; canon-correct).
+- OQ3 scope tag for graph-native observations — v1 ships
+  `scope='observation'` + plan_slug filter (no enum churn).
+- OQ4 backfill via collect — recommended in spec; v1 has no
+  automated backfill (callers run `collect` + `batch_note` if
+  they want to migrate).
+
+### Cluster-coherence (Spec 047)
+- C06/C08 (Memory) — closes the write-side of Goal 7.
+- C07 (Documentation) — render verb is the projection complement
+  to document.render(scope='install-artefacts'/'reflections').
+
+## Followup — Original Implementation Status (2026-05-31)
 
 > Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
 

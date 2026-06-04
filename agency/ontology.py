@@ -16,7 +16,11 @@ from dataclasses import dataclass, field
 
 # --- the CORE: base node types (label -> strict required fields) ------------
 NODE_SCHEMAS: dict[str, list[str]] = {
-    "Intent":     ["purpose", "deliverable", "acceptance", "status"],
+    # Spec 048: `owner` (closed enum below) tracks who minted the Intent
+    # (REQUIRED — every intent has an owner). `parent_intent_id` is
+    # OPTIONAL — '' (and missing) both signal a root intent that
+    # originated from a user prompt.
+    "Intent":     ["purpose", "deliverable", "acceptance", "status", "owner"],
     "Invocation": ["capability", "verb", "role"],
     "Lifecycle":  ["state", "phase"],
     "Agent":      ["runtime"],
@@ -36,18 +40,29 @@ LIFECYCLE_STATES = {                                # A2A-aligned task states
     "submitted", "working", "input-required", "auth-required",
     "completed", "failed", "canceled",
 }
+# Spec 048 — Intent owner closed enum.
+#   user     — originated from a user prompt (the default for top-level)
+#   agent    — the running agent minted this sub-intent to scope its work
+#   subagent — a dispatched local subagent minted this
+#   jules    — a remote Jules session minted this and reported back
+#   system   — engine-internal (install/doctor/scaffold substrate)
+INTENT_OWNERS = {"user", "agent", "subagent", "jules", "system"}
 
 # --- core edge types (enumerated; link() rejects anything else) -------------
 EDGE_TYPES = {
     "SERVES", "PERFORMED_BY", "PRODUCES", "PASSED", "BLOCKED_ON",
     "DERIVED_FROM", "VALIDATES_AGAINST", "SUPERSEDED_BY",
     "DISPATCHED_TO", "DRIVES", "PRECEDES", "NEXT", "HAS_PHASE",
+    # Spec 048 — sub-intent chains back to its originating parent.
+    "PARENT_INTENT",
 }
 
 # closed-enum constraints on specific (label, field) pairs — ENFORCED
 FIELD_ENUMS: dict[tuple[str, str], set] = {
     ("Invocation", "role"): ROLES,
     ("Lifecycle", "state"): LIFECYCLE_STATES,
+    # Spec 048 — Intent owner closed enum.
+    ("Intent", "owner"): INTENT_OWNERS,
 }
 
 # The core ships NO domain skills — skills are owned by the capabilities that
@@ -141,7 +156,16 @@ class Ontology:
         for name, req in ext.schemas.items():
             if name in self.schemas:
                 raise ValueError(f"{owner!r}: schema {name!r} already defined")
-            self.schemas[name] = list(req)
+            # Preserve dict-shaped (draft-07) schemas verbatim; the
+            # ``_schema_props`` materializer dispatches on shape. Only
+            # cast list-shaped (simple) schemas to a fresh list. A bare
+            # cast `list(dict)` here would silently collapse the draft-07
+            # schema to its top-level keys (`['name', 'required']`),
+            # corrupting validation downstream.
+            if isinstance(req, dict):
+                self.schemas[name] = dict(req)
+            else:
+                self.schemas[name] = list(req)
         for name, body in ext.templates.items():
             if name in self.templates:
                 raise ValueError(f"{owner!r}: template {name!r} already defined")
@@ -214,7 +238,12 @@ class Ontology:
         mapping: dict[str, str] = {}
         for name, body in self.templates.items():
             node_id = f"template:{name}"
-            desired_props = {"name": name, "body": body}
+            # Spec 060: bodies arriving from the file loader are
+            # `string.Template` objects; pre-existing dict declarations
+            # are bare strings. Coerce to str for the graph property
+            # (sqlite can't serialise a Template; it expects scalar).
+            body_str = body.template if hasattr(body, "template") else str(body)
+            desired_props = {"name": name, "body": body_str}
             existing = memory.recall(node_id)
             if existing is None:
                 memory.record("Template", desired_props, node_id=node_id)

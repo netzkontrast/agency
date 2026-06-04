@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# scripts/test-cap — run tests for one capability via Spec 053 marker.
+#
+# Usage:
+#   scripts/test-cap analyze       # pytest -m analyze (parallel)
+#   scripts/test-cap research      # pytest -m research
+#   scripts/test-cap "analyze or research"  # multi-marker via pytest -m expression
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "usage: $0 <marker-expression>" >&2
+  echo "examples:" >&2
+  echo "  $0 analyze" >&2
+  echo "  $0 research" >&2
+  echo "  $0 'analyze or research'" >&2
+  echo "  $0 'not e2e'  # full default suite" >&2
+  exit 2
+fi
+
+MARKER="$1"
+shift
+exec python -m pytest -q -n auto -m "$MARKER" "$@"

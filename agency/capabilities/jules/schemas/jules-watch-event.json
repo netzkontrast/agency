@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "JulesWatchEvent",
+  "description": "Single watcher event recorded on a Jules session — the action the agent should take next.",
+  "type": "object",
+  "required": ["sid", "action"],
+  "properties": {
+    "sid": {"type": "string"},
+    "action": {
+      "type": "string",
+      "enum": ["noop", "review_and_approve_plan", "answer_agent_question",
+               "verify_pr", "recover_silent_fail", "recover_apply_plan",
+               "dispatch_fresh", "inspect_and_resume", "terminal"]
+    },
+    "state": {"type": "string"},
+    "instruction": {"type": "string"}
+  }
+}

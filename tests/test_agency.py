@@ -206,7 +206,7 @@ def test_jules_api_phase2_endpoint_wrappers():
     Each function's HTTP shape is mocked via `_request`."""
     import datetime as _dt
     from unittest.mock import patch as _patch
-    from agency.capabilities import _jules_api as J
+    from agency.capabilities.jules import api as J
 
     # jules_get_full returns the raw response (not the trimmed shape).
     raw = {"id": "s1", "state": "COMPLETED", "outputs": [{"changeSet": {"gitPatch": {
@@ -820,8 +820,13 @@ def test_plugin_capability_generates_valid_artefacts():
 
     # the artefact is provenance and validates against a strict Schema
     art_id = next(a["id"] for a in mem.provenance(iid)["artefacts"] if a["kind"] == "plugin-manifest")
+    # Spec 060: schemas migrated to draft-07 dict form; the canonical
+    # required-list lives at schema['required'] (list of strings).
+    cap_schema = e.ontology.schemas["plugin-manifest"]
+    required_csv = (",".join(cap_schema["required"]) if isinstance(cap_schema, dict)
+                    else ",".join(cap_schema))
     schema = mem.record("Schema", {"name": "plugin-manifest",                # schema OWNED by the capability
-                                   "required": ",".join(e.ontology.schemas["plugin-manifest"])})
+                                   "required": required_csv})
     assert mem.validate_schema(art_id, schema) is True
     # the schema bites: a manifest missing `version` fails
     bad = mem.record("Artefact", {"kind": "plugin-manifest", "name": "x"})
@@ -1244,12 +1249,15 @@ def test_cli_emits_json_on_error():
 
 def test_reflect_is_the_class_form():
     """The reference migration: `reflect` is authored as a CapabilityBase subclass,
-    yet registers + behaves identically (verbs note/recall/search)."""
+    yet registers + behaves identically (verbs note/batch_note/recall/
+    recall_semantic/search). Spec 045 extended the four-verb surface to five."""
     from agency.capability import CapabilityBase
     from agency.capabilities.reflect import ReflectCapability
     assert issubclass(ReflectCapability, CapabilityBase)
     e = fresh()
-    assert set(e.registry.get("reflect").verbs) == {"note", "batch_note", "recall", "search"}
+    assert set(e.registry.get("reflect").verbs) == {
+        "note", "batch_note", "recall", "recall_semantic", "search",
+    }
     e.memory.close()
 
 
@@ -1440,7 +1448,7 @@ def test_branch_assesses_and_finishes():
     `assess` (transform) reads the branch state and recommends an action; `finish`
     (effect) executes the chosen action and records the outcome as provenance. The
     VCS boundary is injected — no real git runs."""
-    from agency.capabilities.branch import _recommend
+    from agency.capabilities.branch._main import _recommend
     # the recommendation is judgment-as-code over the branch state
     assert _recommend({"dirty": True, "ahead": 3}) == "keep"        # uncommitted -> not yet
     assert _recommend({"dirty": False, "ahead": 0}) == "discard"    # nothing to land
@@ -1644,8 +1652,8 @@ def test_logical_clock_survives_an_edge_as_last_write():
     from agency.memory import Memory
     path = tempfile.mktemp(suffix=".db")
     m = Memory(path, ont=ontology.Ontology.core())
-    i1 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft"})
-    i2 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft"})
+    i1 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft", "owner": "user"})
+    i2 = m.record("Intent", {"purpose": "p", "deliverable": "d", "acceptance": "a", "status": "draft", "owner": "user"})
     m.link(i1, i2, "SUPERSEDED_BY")                               # the edge is the LAST write
     last = m._tick
     m.close()

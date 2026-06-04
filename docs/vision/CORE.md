@@ -21,6 +21,11 @@ first-class participant; proven in `agency/` (`AGENTS.md` + a bash↔MCP isomorp
 test). Cross-cutting guards (quality-score, loop-detection, compaction,
 `Slot`/quota) are engine middleware, **not** concepts.
 
+Verbs may wrap their delta as `{result: <delta>}` for engine-side ok-path
+detection; the wire shape strips the wrap when `<delta>` is a dict (Spec
+019). Docstrings describe the wire shape — see CAPABILITY-AUTHORING.md
+§"Wire shape vs internal wrap".
+
 **1. Intent** *(human-owned).* A supersedable node carrying **purpose +
 acceptance**, with the **deliverable as an attribute** (why/what merged).
 `capture → confirm`, revised via `supersede`. **Everything edges back to it via
@@ -161,7 +166,9 @@ Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:
   capability contributes its own node types / skills / template-schemas
   (`Capability.ontology`), merged strictly onto the core and enforced in Memory;
 - the **`reflect` capability** — durable, scope-tagged cross-session memory
-  (`note`/`recall`/`search` over `Reflection` nodes the capability owns).
+  (`note`/`batch_note`/`recall`/`recall_semantic`/`search` over `Reflection`
+  nodes the capability owns; Spec 045 added the semantic-recall verb with a
+  pluggable TF-IDF/BGE embedder boundary).
 
 The whole capability landscape of every installed plugin was surveyed, clustered,
 and spec-paneled — see `CAPABILITY-CLUSTERS.md`. Verdict: the four concepts + the

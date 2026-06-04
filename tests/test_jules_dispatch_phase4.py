@@ -14,7 +14,7 @@ import tempfile
 
 import pytest
 
-from agency.capabilities import _jules_api
+from agency.capabilities.jules import api as _jules_api
 from agency.engine import Engine
 
 

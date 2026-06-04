@@ -136,7 +136,7 @@ a capability's `ontology.skills` and walked by `agency/skill.py` one phase at a 
 When dispatching a remote async agent (e.g. Jules) the prompt MUST name the
 agent's tools by their canonical symbols — prose alone leaves work in the
 agent's VM (the silent-fail mode that [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md)
-exists to close). The Jules canon (see `agency/capabilities/_jules_reference.md` §3):
+exists to close). The Jules canon (see `agency/capabilities/jules/reference.md` §3):
 
 - `pre_commit_instructions()` — mandatory pre-flight.
 - **`submit(branch_name, commit_message, title, description)`** — the *one*
