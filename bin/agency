@@ -9,6 +9,14 @@ SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || \
         python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' \
                 "${BASH_SOURCE[0]}")"
 
+# Spec 063 — per-project venv check FIRST (same shape as bin/agency-mcp).
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+  VENV_BIN="${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/agency"
+  if [[ -x "$VENV_BIN" ]]; then
+    exec "$VENV_BIN" "$@"
+  fi
+fi
+
 # PR review (round 7): iterate ALL PATH matches via `type -ap`; exec
 # the first non-self candidate. Bash's `command -v` returns ONLY the
 # first match — if the plugin's bin/ is earlier on PATH than the

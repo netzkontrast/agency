@@ -88,10 +88,22 @@ marketplace plugin updates flow through automatically.
 > session shows a one-time `agency: installing via pipx (one-time)
 > — this may take ~5s` line; thereafter the plugin just works.
 
-> **Fallback chain:** if `pipx` isn't on PATH the hook falls back
-> to `pip install --user --editable`. If neither is available the
-> hook prints a hint and the `.mcp.json` shim later exits 127 with
-> the install instructions.
+> **Three-step fallback chain (Spec 063):** the hook tries `pipx
+> install` first; if pipx isn't on PATH it falls through to
+> `pip install --user --editable`; if THAT also fails it creates a
+> per-project venv at `${CLAUDE_PROJECT_DIR}/.agency/.venv/` and
+> pip-installs `agency` into it. `bin/agency-mcp` knows to prefer
+> the project-local venv over PATH, so a sandboxed environment
+> without pipx still ends up with a working MCP server.
+> If all three paths fail the hook prints a hint and the
+> `.mcp.json` shim later exits 127 with the install instructions.
+
+> **Target-repo scaffold:** after any successful install path, the
+> hook runs `python -m agency.install --scaffold-db
+> ${CLAUDE_PROJECT_DIR}` so the project's `.agency/session.db` +
+> `.agency/README.md` + `.gitattributes` binary-marker land on first
+> session. The graph DB is per-project; the install ensures the dir
+> structure exists before the engine first writes.
 
 Claude Code prompts for your **Jules API key** (optional — only needed
 for the `jules` remote-async-agent capability; stored in your system

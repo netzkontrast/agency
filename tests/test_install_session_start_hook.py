@@ -56,12 +56,47 @@ def test_session_start_script_has_idempotency_guard():
     script = files["hooks/session-start.sh"]
     # Idempotency: bail out if agency-mcp is already on PATH.
     assert "command -v agency-mcp" in script
+    # Spec 063: also bail if the per-project venv binary exists.
+    assert ".agency/.venv/bin/agency-mcp" in script
     # pipx is the canonical install path (Spec 055).
     assert "pipx install --editable" in script
     # Pip fallback for environments without pipx.
     assert "pip install --user" in script
     # Fail-soft: don't block session start when neither tool is present.
     assert "exit 0" in script
+
+
+# ---------------------------------------------------------------------------
+# Spec 063 — venv fallback path + post-install scaffold-db.
+# ---------------------------------------------------------------------------
+
+
+def test_session_start_script_includes_venv_fallback():
+    """Spec 063: when pipx + pip --user both fail, the hook creates a
+    per-project venv at ${CLAUDE_PROJECT_DIR}/.agency/.venv and pip-
+    installs the agency package into it. The bin/agency-mcp shim
+    knows to prefer that venv over PATH."""
+    script = _files()["hooks/session-start.sh"]
+    assert "python3 -m venv" in script
+    assert "${CLAUDE_PROJECT_DIR}/.agency/.venv" in script
+    # The venv's pip is invoked directly (not the system pip).
+    assert "/.agency/.venv/bin/pip" in script
+
+
+def test_session_start_script_runs_scaffold_db_after_install():
+    """Spec 063: after ANY successful install path, the hook scaffolds
+    the target repo's .agency/ via Spec 020's --scaffold-db CLI so
+    session.db + README + .gitattributes land in the project root."""
+    script = _files()["hooks/session-start.sh"]
+    assert "python3 -m agency.install --scaffold-db" in script
+    assert "${CLAUDE_PROJECT_DIR}" in script
+
+
+def test_session_start_script_documents_three_paths():
+    """Sanity: the three install paths are visible in the comment
+    block so a debugger reading the script knows the fallback order."""
+    script = _files()["hooks/session-start.sh"]
+    assert "Path 1" in script and "Path 2" in script and "Path 3" in script
 
 
 def test_session_start_script_starts_with_shebang():

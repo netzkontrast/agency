@@ -1,33 +1,80 @@
 #!/usr/bin/env bash
-# agency SessionStart hook — Spec 062.
+# agency SessionStart hook — Spec 062 + Spec 063.
 #
-# Idempotently ensure `agency-mcp` is on PATH so the .mcp.json shim
-# (${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp, which routes to the pipx-
-# installed console-script) can find the binary on first MCP boot.
+# Three-step install fallback chain + target-repo scaffold. Runs once
+# per session at startup, BEFORE any MCP tool can be called.
 #
-# Without this hook, fresh marketplace installs (especially Claude
-# Code Web environments) silently fail: the plugin appears installed
-# but the MCP server never connects because nothing has run pipx yet.
+# Resolution order (first that succeeds wins):
+#   1. pipx install (canonical per Spec 055/062)
+#   2. pip install --user (sandboxed-env fallback)
+#   3. python -m venv ${CLAUDE_PROJECT_DIR}/.agency/.venv + pip -e
+#      (per-project venv fallback per Spec 063)
 #
-# Idempotency: early-exit when agency-mcp is already on PATH so
-# subsequent sessions don't reinstall. Editable mode means future
-# marketplace updates flow through without a second pipx call.
+# After ANY successful path, scaffolds the target repo's .agency/
+# (session.db + README + .gitattributes) via the Spec 020 scaffold-db
+# CLI mode.
+#
+# Idempotency: early-exit when agency-mcp is reachable through PATH
+# OR through the per-project venv. Subsequent sessions skip the
+# install loop. Editable installs mean marketplace updates flow
+# through without a second pipx call.
 set -e
 
+# Idempotent: bail if EITHER install path is already populated.
 if command -v agency-mcp >/dev/null 2>&1; then
   exit 0
 fi
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && \
+   [ -x "${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/agency-mcp" ]; then
+  exit 0
+fi
 
+INSTALL_OK=0
+
+# Path 1 — pipx (canonical per Spec 055).
 if command -v pipx >/dev/null 2>&1; then
   echo "agency: installing via pipx (one-time) — this may take ~5s" >&2
-  pipx install --editable "${CLAUDE_PLUGIN_ROOT}" >&2
-elif command -v pip >/dev/null 2>&1; then
-  echo "agency: pipx not found; falling back to pip --user" >&2
-  pip install --user --editable "${CLAUDE_PLUGIN_ROOT}" >&2
-else
-  echo "agency: neither pipx nor pip on PATH — install one and retry" >&2
+  if pipx install --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+    INSTALL_OK=1
+  fi
+fi
+
+# Path 2 — pip --user (sandboxed envs without pipx).
+if [ "$INSTALL_OK" -eq 0 ] && command -v pip >/dev/null 2>&1; then
+  echo "agency: pipx unavailable; trying pip --user" >&2
+  if pip install --user --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+    INSTALL_OK=1
+  fi
+fi
+
+# Path 3 — per-project venv at ${CLAUDE_PROJECT_DIR}/.agency/.venv
+# (Spec 063). Picked up by bin/agency-mcp's venv-first check on next
+# MCP boot.
+if [ "$INSTALL_OK" -eq 0 ] && \
+   [ -n "${CLAUDE_PROJECT_DIR:-}" ] && \
+   command -v python3 >/dev/null 2>&1; then
+  echo "agency: pip --user unavailable; creating .agency/.venv" >&2
+  mkdir -p "${CLAUDE_PROJECT_DIR}/.agency"
+  if python3 -m venv "${CLAUDE_PROJECT_DIR}/.agency/.venv" && \
+     "${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/pip" install \
+        --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+    INSTALL_OK=1
+  fi
+fi
+
+if [ "$INSTALL_OK" -eq 0 ]; then
+  echo "agency: no install path reachable (need pipx OR pip OR python3-venv)" >&2
   # Don't block session start; the MCP shim will exit 127 with its
   # own install hint on first call.
+  exit 0
+fi
+
+# After ANY successful install path, scaffold the target repo's
+# .agency/ via the Spec 020 CLI mode so session.db + the README +
+# .gitattributes binary marker land in the project root.
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  python3 -m agency.install --scaffold-db "${CLAUDE_PROJECT_DIR}" >&2 || \
+    echo "agency: .agency/ scaffold failed (non-fatal)" >&2
 fi
 
 exit 0

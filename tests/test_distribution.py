@@ -112,6 +112,9 @@ def test_shim_exits_127_with_pipx_hint(tmp_path):
     # does NOT.
     env = os.environ.copy()
     env["PATH"] = "/usr/bin:/bin"
+    # Spec 063 — explicitly clear CLAUDE_PROJECT_DIR so the venv-first
+    # check doesn't accidentally find anything in the test env.
+    env.pop("CLAUDE_PROJECT_DIR", None)
     result = subprocess.run(
         [os.path.join(repo, "bin", "agency-mcp")],
         env=env, capture_output=True, timeout=10,
@@ -119,3 +122,70 @@ def test_shim_exits_127_with_pipx_hint(tmp_path):
     assert result.returncode == 127
     assert b"pipx install" in result.stderr
     assert b"not found on PATH" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# Spec 063 — bin/agency-mcp prefers ${CLAUDE_PROJECT_DIR}/.agency/.venv
+# when it exists, before PATH iteration.
+# ---------------------------------------------------------------------------
+
+
+def test_shim_prefers_project_venv_over_path(tmp_path):
+    """Spec 063: when both a project-local venv binary AND a PATH
+    binary exist, the shim executes the venv one. A stale global
+    install must not shadow a project-pinned agency version."""
+    repo = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), ".."))
+
+    # Set up CLAUDE_PROJECT_DIR/.agency/.venv/bin/agency-mcp.
+    project = tmp_path / "project"
+    venv_bin_dir = project / ".agency" / ".venv" / "bin"
+    venv_bin_dir.mkdir(parents=True)
+    venv_mcp = venv_bin_dir / "agency-mcp"
+    venv_mcp.write_text("#!/bin/sh\necho VENV_HIT\n")
+    venv_mcp.chmod(0o755)
+
+    # Also put a different agency-mcp on PATH — the shim must NOT pick it.
+    path_bin = tmp_path / "path_bin"
+    path_bin.mkdir()
+    path_mcp = path_bin / "agency-mcp"
+    path_mcp.write_text("#!/bin/sh\necho PATH_HIT\n")
+    path_mcp.chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{path_bin}:/usr/bin:/bin"
+    env["CLAUDE_PROJECT_DIR"] = str(project)
+    result = subprocess.run(
+        [os.path.join(repo, "bin", "agency-mcp")],
+        env=env, capture_output=True, timeout=10,
+    )
+    assert result.returncode == 0
+    assert b"VENV_HIT" in result.stdout, (
+        f"shim preferred PATH over venv; stdout={result.stdout!r}")
+    assert b"PATH_HIT" not in result.stdout
+
+
+def test_shim_falls_through_to_path_when_no_venv(tmp_path):
+    """Spec 063: when CLAUDE_PROJECT_DIR/.agency/.venv/bin/agency-mcp
+    DOESN'T exist, the shim resolves via PATH as before (Spec 055
+    behavior preserved)."""
+    repo = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), ".."))
+
+    project = tmp_path / "project_without_venv"
+    project.mkdir()                              # no .agency/.venv
+    path_bin = tmp_path / "path_bin"
+    path_bin.mkdir()
+    path_mcp = path_bin / "agency-mcp"
+    path_mcp.write_text("#!/bin/sh\necho PATH_HIT\n")
+    path_mcp.chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{path_bin}:/usr/bin:/bin"
+    env["CLAUDE_PROJECT_DIR"] = str(project)
+    result = subprocess.run(
+        [os.path.join(repo, "bin", "agency-mcp")],
+        env=env, capture_output=True, timeout=10,
+    )
+    assert result.returncode == 0
+    assert b"PATH_HIT" in result.stdout
