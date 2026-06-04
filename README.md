@@ -105,6 +105,14 @@ marketplace plugin updates flow through automatically.
 > session. The graph DB is per-project; the install ensures the dir
 > structure exists before the engine first writes.
 
+> **Cross-platform + cross-IDE (Spec 064):** the SessionStart hook
+> ships through `hooks/run-hook.cmd` — a polyglot CMD+bash wrapper
+> that runs on Windows, macOS, and Linux from one entry. The hook
+> command and `.mcp.json` `command` both use the
+> `${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` bash fallback so Cursor /
+> Codex harnesses (which set `PLUGIN_ROOT`) also work. `using-agency`
+> is the broad-trigger entry skill any session calls first.
+
 Claude Code prompts for your **Jules API key** (optional — only needed
 for the `jules` remote-async-agent capability; stored in your system
 keychain). On the next session the engine starts automatically as an

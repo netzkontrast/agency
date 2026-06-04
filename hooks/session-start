@@ -34,7 +34,7 @@ INSTALL_OK=0
 # Path 1 — pipx (canonical per Spec 055).
 if command -v pipx >/dev/null 2>&1; then
   echo "agency: installing via pipx (one-time) — this may take ~5s" >&2
-  if pipx install --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+  if pipx install --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
     INSTALL_OK=1
   fi
 fi
@@ -42,7 +42,7 @@ fi
 # Path 2 — pip --user (sandboxed envs without pipx).
 if [ "$INSTALL_OK" -eq 0 ] && command -v pip >/dev/null 2>&1; then
   echo "agency: pipx unavailable; trying pip --user" >&2
-  if pip install --user --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+  if pip install --user --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
     INSTALL_OK=1
   fi
 fi
@@ -57,7 +57,7 @@ if [ "$INSTALL_OK" -eq 0 ] && \
   mkdir -p "${CLAUDE_PROJECT_DIR}/.agency"
   if python3 -m venv "${CLAUDE_PROJECT_DIR}/.agency/.venv" && \
      "${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/pip" install \
-        --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+        --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
     INSTALL_OK=1
   fi
 fi

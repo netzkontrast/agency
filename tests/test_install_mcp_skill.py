@@ -81,6 +81,44 @@ def test_mcp_json_has_no_pythonpath():
     assert "JULES_API_KEY" in env
 
 
+def test_mcp_json_pins_cwd_to_project_dir():
+    """Spec 064: cwd is pinned to ${CLAUDE_PROJECT_DIR} so the MCP
+    subprocess's path resolver lands the graph DB at the right place
+    even if AGENCY_DB substitution fails. Mirrors episodic-memory."""
+    import json
+    files = _files()
+    mcp_cfg = json.loads(files[".mcp.json"])
+    server = mcp_cfg["mcpServers"]["agency"]
+    assert server.get("cwd") == "${CLAUDE_PROJECT_DIR}", (
+        f"cwd should pin to project root; got {server.get('cwd')!r}")
+
+
+def test_mcp_json_declares_env_vars_passthrough():
+    """Spec 064: env_vars list declares which session env vars Claude
+    Code should pass through. Without this, AGENCY_EMBEDDER set in the
+    user's shell is silently dropped."""
+    import json
+    files = _files()
+    mcp_cfg = json.loads(files[".mcp.json"])
+    env_vars = mcp_cfg["mcpServers"]["agency"].get("env_vars")
+    assert isinstance(env_vars, list), (
+        f"env_vars should be a list; got {type(env_vars)}")
+    # AGENCY_EMBEDDER is the canary — Spec 045 BGE opt-in needs it.
+    assert "AGENCY_EMBEDDER" in env_vars
+    assert "AGENCY_DB" in env_vars
+    assert "JULES_API_KEY" in env_vars
+
+
+def test_mcp_json_command_uses_plugin_root_fallback():
+    """Spec 064: ${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}} bash fallback
+    lets Cursor/Codex harnesses that set PLUGIN_ROOT reach the shim."""
+    import json
+    files = _files()
+    mcp_cfg = json.loads(files[".mcp.json"])
+    cmd = mcp_cfg["mcpServers"]["agency"]["command"]
+    assert "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" in cmd
+
+
 def test_marketplace_description_names_live_surface():
     """Spec 061: the static DESCRIPTION constant left the marketplace
     description a generic engine pitch with no signal of the

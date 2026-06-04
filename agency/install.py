@@ -181,8 +181,16 @@ def _mcp_config() -> dict:
     return {
         "mcpServers": {
             "agency": {
-                "command": "${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp",
+                # Spec 064: ${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}} bash
+                # fallback lets Cursor/Codex harnesses that set
+                # PLUGIN_ROOT (rather than CLAUDE_PLUGIN_ROOT) reach the
+                # shim. Mirrors episodic-memory's cross-IDE pattern.
+                "command": "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/bin/agency-mcp",
                 "args": [],
+                # Spec 064: pin CWD to the project root so the MCP
+                # subprocess's path resolver lands the graph DB in the
+                # right place even if AGENCY_DB substitution fails.
+                "cwd": "${CLAUDE_PROJECT_DIR}",
                 "env": {
                     # Spec 061: PYTHONPATH removed under Spec 055
                     # pipx-only doctrine. agency-mcp resolves `agency`
@@ -193,6 +201,16 @@ def _mcp_config() -> dict:
                     "AGENCY_DB": "${CLAUDE_PROJECT_DIR}/.agency/session.db",
                     "JULES_API_KEY": "${user_config.jules_api_key}",
                 },
+                # Spec 064: env_vars list declares which session env
+                # vars Claude Code should pass through to the
+                # subprocess. AGENCY_EMBEDDER (Spec 045 BGE opt-in)
+                # would otherwise be silently dropped from the user's
+                # shell env. Mirror of episodic-memory's pattern.
+                "env_vars": [
+                    "AGENCY_DB",
+                    "AGENCY_EMBEDDER",
+                    "JULES_API_KEY",
+                ],
             }
         }
     }
@@ -242,25 +260,84 @@ def _marketplace(engine: Engine) -> dict:
     }
 
 
-# Spec 062 — SessionStart hook auto-runs `pipx install` on first
-# session so the marketplace install flow doesn't silently fail when
-# `agency-mcp` isn't on PATH yet. Idempotent (early-exit when
-# already on PATH); editable mode means marketplace plugin updates
-# flow through automatically.
+# Spec 062 + Spec 064 — SessionStart hook with cross-platform
+# polyglot wrapper (run-hook.cmd) + matcher + async: false.
+# The matcher excludes `compact` so the install loop doesn't fire
+# every time the session compacts. The polyglot wrapper handles
+# Windows + Unix from one command entry; extensionless script
+# avoids Claude Code's `.sh` auto-bash-prepend on Windows.
 _SESSION_START_HOOKS_JSON = json.dumps({
     "hooks": {
         "SessionStart": [
             {
+                "matcher": "startup|resume|clear",
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+                        "command": "\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/run-hook.cmd\" session-start",
+                        "async": False,
                     }
                 ]
             }
         ]
     }
 }, indent=2) + "\n"
+
+
+# Spec 064 — polyglot CMD+bash wrapper. Valid as both a Windows CMD
+# batch (the heredoc-delimited block runs first) and a bash script
+# (the `:` is a no-op label so `: << 'CMDBLOCK'` reads as a here-doc
+# CMD treats as a `:label` directive). Verbatim port of the canonical
+# Superpowers 5.1.0 wrapper; the only customisation is the script-
+# name passthrough at the tail.
+_RUN_HOOK_CMD_SCRIPT = """\
+: << 'CMDBLOCK'
+@echo off
+REM Cross-platform polyglot wrapper for hook scripts (Spec 064).
+REM On Windows: cmd.exe runs the batch portion, which finds and calls bash.
+REM On Unix: the shell interprets this as a script (: is a no-op in bash).
+REM
+REM Hook scripts use extensionless filenames (e.g. "session-start" not
+REM "session-start.sh") so Claude Code's Windows auto-detection -- which
+REM prepends "bash" to any command containing .sh -- doesn't interfere.
+REM
+REM Usage: run-hook.cmd <script-name> [args...]
+
+if "%~1"=="" (
+    echo run-hook.cmd: missing script name >&2
+    exit /b 1
+)
+
+set "HOOK_DIR=%~dp0"
+
+REM Try Git for Windows bash in standard locations
+if exist "C:\\Program Files\\Git\\bin\\bash.exe" (
+    "C:\\Program Files\\Git\\bin\\bash.exe" "%HOOK_DIR%%~1" %2 %3 %4 %5 %6 %7 %8 %9
+    exit /b %ERRORLEVEL%
+)
+if exist "C:\\Program Files (x86)\\Git\\bin\\bash.exe" (
+    "C:\\Program Files (x86)\\Git\\bin\\bash.exe" "%HOOK_DIR%%~1" %2 %3 %4 %5 %6 %7 %8 %9
+    exit /b %ERRORLEVEL%
+)
+
+REM Try bash on PATH (e.g. user-installed Git Bash, MSYS2, Cygwin)
+where bash >nul 2>nul
+if %ERRORLEVEL% equ 0 (
+    bash "%HOOK_DIR%%~1" %2 %3 %4 %5 %6 %7 %8 %9
+    exit /b %ERRORLEVEL%
+)
+
+REM No bash found - exit silently rather than error
+REM (plugin still works, just without SessionStart auto-install)
+exit /b 0
+CMDBLOCK
+
+# Unix: run the named script directly
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_NAME="$1"
+shift
+exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"
+"""
 
 
 _SESSION_START_HOOK_SCRIPT = """\
@@ -300,7 +377,7 @@ INSTALL_OK=0
 # Path 1 — pipx (canonical per Spec 055).
 if command -v pipx >/dev/null 2>&1; then
   echo "agency: installing via pipx (one-time) — this may take ~5s" >&2
-  if pipx install --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+  if pipx install --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
     INSTALL_OK=1
   fi
 fi
@@ -308,7 +385,7 @@ fi
 # Path 2 — pip --user (sandboxed envs without pipx).
 if [ "$INSTALL_OK" -eq 0 ] && command -v pip >/dev/null 2>&1; then
   echo "agency: pipx unavailable; trying pip --user" >&2
-  if pip install --user --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+  if pip install --user --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
     INSTALL_OK=1
   fi
 fi
@@ -323,7 +400,7 @@ if [ "$INSTALL_OK" -eq 0 ] && \\
   mkdir -p "${CLAUDE_PROJECT_DIR}/.agency"
   if python3 -m venv "${CLAUDE_PROJECT_DIR}/.agency/.venv" && \\
      "${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/pip" install \\
-        --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+        --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
     INSTALL_OK=1
   fi
 fi
@@ -344,6 +421,97 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
 fi
 
 exit 0
+"""
+
+
+# Spec 064 — using-agency meta-skill. Broad trigger ("any agency-
+# related task starts here") + a chain example that names the two
+# bootstrap calls every session must make. Modelled on
+# `using-superpowers` from Superpowers 5.1.0.
+_USING_AGENCY_SKILL_MD = """\
+---
+name: using-agency
+description: Use when starting any conversation that may touch the agency engine (capabilities, intents, provenance, MCP code-mode) — bootstrap an Intent via agency_welcome BEFORE invoking any agency verb.
+allowed-tools:
+  - mcp__plugin_agency_agency__execute
+  - mcp__plugin_agency_agency__search
+  - mcp__plugin_agency_agency__get_schema
+---
+
+# using-agency
+
+The entry skill the orchestrator MUST invoke before calling any agency
+capability verb. Modelled on the `using-superpowers` pattern: a broad-
+trigger skill that primes the canonical bootstrap chain.
+
+## The two-step bootstrap (load-bearing)
+
+**Every agency-related task starts with the same two calls.** No
+exceptions:
+
+1. `agency_welcome` — returns the canonical bootstrap example + the
+   live capability list + the resolved `.agency/` DB path. This IS
+   the first call of every session.
+2. `intent_bootstrap(purpose=, deliverable=, acceptance=)` — mints
+   AND confirms the Intent that EVERY subsequent verb will SERVE.
+
+```python
+# Inside an MCP execute block:
+welcome = await call_tool("agency_welcome", {})
+# Read welcome["capabilities"] for the live verb surface, then:
+i = await call_tool("intent_bootstrap", {
+    "purpose":     "<one-line why>",
+    "deliverable": "<one-line what>",
+    "acceptance":  "<one-line how to verify>"
+})
+intent_id = i["intent_id"]
+# Now any capability verb is reachable:
+r = await call_tool("capability_<cap>_<verb>", {"intent_id": intent_id, ...})
+```
+
+## Why both calls are required
+
+- **`agency_welcome`** is pure introspection (no graph writes). It
+  returns the discoverable surface — without it, the agent has to
+  guess capability names.
+- **`intent_bootstrap`** records the orchestrator's why/what/accept
+  triple as an `Intent` node. Every later verb call writes an
+  `Invocation` that `SERVES` this Intent. The cross-concern
+  provenance traversal starts here — skip it and the engine treats
+  your calls as orphaned activity.
+
+## When this skill applies (broad trigger)
+
+- The user mentions "agency", "capability", "intent", "verb",
+  "provenance", "dispatch", "Jules", "research", "analyze", "explain",
+  "reflect"…
+- The user asks the orchestrator to do anything in a repo where
+  `.agency/` exists.
+- A fresh session starts and any MCP code-mode block is about to call
+  a `capability_*` tool.
+- The user asks for a status/health check on the substrate
+  (`agency_doctor`).
+
+**When in doubt, invoke `agency_welcome` first.** Cheap (sub-1KB
+return) + cancellable; nothing else stands between a stale start and
+a clean dispatch.
+
+## Failure modes the skill prevents
+
+| Symptom | Root cause (this skill closes it) |
+|---|---|
+| `error: intent_id required` from a verb call | Skipped `intent_bootstrap` |
+| `unknown capability` | Skipped `agency_welcome` — guessed name |
+| Orphaned Invocation (no SERVES edge) | Verb called outside the intent flow |
+| `.agency/session.db` missing on first call | SessionStart hook hadn't finished — re-call `agency_welcome` which surfaces the resolved path |
+
+## See also
+
+- `agency_doctor` — health-check substrate tool when something silently fails.
+- `skills/help/SKILL.md` — the live capability map (regenerated by
+  `python -m agency.install`).
+- `dispatch-decision` — once an intent exists, this skill decides
+  inline vs subagent/Jules.
 """
 
 
@@ -377,7 +545,15 @@ def generate(engine: Engine) -> dict[str, str]:
         # Code Web environments) don't hit the .mcp.json shim's
         # exit-127 silent failure on a fresh install.
         "hooks/hooks.json":                _SESSION_START_HOOKS_JSON,
-        "hooks/session-start.sh":          _SESSION_START_HOOK_SCRIPT,
+        # Spec 064: cross-platform polyglot wrapper + extensionless
+        # hook script (so Windows doesn't auto-prepend `bash` to a `.sh`
+        # filename and break on systems without bash on PATH).
+        "hooks/run-hook.cmd":              _RUN_HOOK_CMD_SCRIPT,
+        "hooks/session-start":             _SESSION_START_HOOK_SCRIPT,
+        # Spec 064: using-agency meta-skill (broad-trigger). Tells the
+        # orchestrator to call agency_welcome + intent_bootstrap before
+        # any capability verb — mirrors using-superpowers' pattern.
+        "skills/using-agency/SKILL.md":    _USING_AGENCY_SKILL_MD,
         "skills/help/SKILL.md":            author_skill(
             "help", HELP_DESC, skill_body,
             allowed_tools=HELP_ALLOWED_TOOLS,
@@ -427,7 +603,9 @@ def write(root: str) -> list[str]:
             f.write(content)
         # Spec 032 §8a + Spec 062 — chmod +x for bash wrappers and
         # hook scripts; graceful degrade on RO mount.
-        if rel.startswith("bin/") or rel.endswith(".sh"):
+        if (rel.startswith("bin/")
+                or rel.startswith("hooks/")    # Spec 064 — any file under hooks/
+                or rel.endswith(".sh")):
             try:
                 os.chmod(path, 0o755)
             except OSError as e:
