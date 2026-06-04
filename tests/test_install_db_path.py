@@ -37,6 +37,9 @@ def test_mcp_config_keeps_plugin_root_for_command():
     resolves `agency` from its own site-packages."""
     cfg = _mcp_config()
     s = cfg["mcpServers"]["agency"]
-    assert s["command"] == "${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp"
+    # Spec 064: command uses the ${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}
+    # bash fallback so Cursor/Codex harnesses (which set PLUGIN_ROOT)
+    # also resolve the shim.
+    assert s["command"] == "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/bin/agency-mcp"
     assert "PYTHONPATH" not in s["env"], (
         "PYTHONPATH should be absent under Spec 061")

@@ -24,9 +24,13 @@ def test_generate_includes_per_cap_skill_md_when_skill_doc_present(tmp_path):
         # The legacy 5 fixed files MUST still be present
         assert ".claude-plugin/plugin.json" in files
         assert "skills/help/SKILL.md" in files
-        # No per-capability files yet (no shipped cap has skill_doc — Phase 4)
+        # No per-capability files yet (no shipped cap has skill_doc — Phase 4).
+        # Spec 064 adds skills/using-agency/SKILL.md — that's a substrate
+        # meta-skill (broad-trigger entry), not a per-capability skill, so
+        # it's excluded from the gate.
         per_cap = [p for p in files if p.startswith("skills/")
-                                       and p != "skills/help/SKILL.md"]
+                                       and p != "skills/help/SKILL.md"
+                                       and p != "skills/using-agency/SKILL.md"]
         assert per_cap == [], (
             f"unexpected per-cap files (no cap has skill_doc yet, Phase 4 will "
             f"add them): {per_cap!r}"
