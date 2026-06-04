@@ -57,3 +57,51 @@ def test_help_command_teaches_mcp_form():
     assert "mcp__plugin_agency_agency__execute" in cmd, cmd
     # Bash form remains as a fallback block
     assert "${CLAUDE_PLUGIN_ROOT}/bin/agency" in cmd
+
+
+# ---------------------------------------------------------------------------
+# Spec 061 — install surface refresh.
+# ---------------------------------------------------------------------------
+
+
+def test_mcp_json_has_no_pythonpath():
+    """Spec 061: PYTHONPATH was a vestige of the pre-Spec-055 .venv
+    bootstrap path. Under pipx-only doctrine the pipx venv carries its
+    own site-packages; PYTHONPATH=${CLAUDE_PLUGIN_ROOT} would shadow
+    the pipx-installed `agency` package with the plugin-tree source.
+    Generated `.mcp.json` must drop the env entry."""
+    import json
+    files = _files()
+    mcp_cfg = json.loads(files[".mcp.json"])
+    env = mcp_cfg["mcpServers"]["agency"]["env"]
+    assert "PYTHONPATH" not in env, (
+        f"PYTHONPATH unexpectedly present in .mcp.json env: {sorted(env)}")
+    # Substrate config that DOES stay.
+    assert "AGENCY_DB" in env
+    assert "JULES_API_KEY" in env
+
+
+def test_marketplace_description_names_live_surface():
+    """Spec 061: the static DESCRIPTION constant left the marketplace
+    description a generic engine pitch with no signal of the
+    14-capability surface. The generator now reads the live registry
+    so the description names what actually ships."""
+    import json
+    files = _files()
+    mp = json.loads(files[".claude-plugin/marketplace.json"])
+    desc = mp["plugins"][0]["description"]
+    # Per-cap surface signal: names "capabilities" + at least one of
+    # the canonical cap names the count should reflect.
+    assert "capabilities" in desc.lower()
+    # The count IS dynamic — assert the live registry's count is in
+    # the description, not a hardcoded number.
+    e = Engine(":memory:")
+    try:
+        cap_count = len(e.registry.names())
+    finally:
+        e.memory.close()
+    assert str(cap_count) in desc, (
+        f"description should name the live cap count ({cap_count}); "
+        f"got: {desc!r}")
+    # Bound the description so a marketplace UI renders it cleanly.
+    assert len(desc) < 400, f"description too long ({len(desc)} chars): {desc!r}"

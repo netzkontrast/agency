@@ -58,9 +58,9 @@ python -m agency.cli execute --code \
 ## Slash-command bash fallback
 
 If neither the MCP server nor the venv-aware launcher is reachable
-from your shell, the plugin's `bin/agency` wrapper resolves the
-plugin venv + PYTHONPATH so the `agency` package is always
-importable. Bootstrap an intent, then call the help verb with its
+from your shell, the plugin's `bin/agency` wrapper is a thin PATH
+router to the pipx-installed `agency` console-script (Spec 055).
+Bootstrap an intent, then call the help verb with its
 id (no `--db` — the Spec 020 resolver picks `./.agency/session.db`,
 the same store MCP uses):
 

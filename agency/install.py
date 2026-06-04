@@ -115,9 +115,9 @@ CMD_BODY = (
     _MCP_QUICKSTART
     + "## Slash-command bash fallback\n\n"
     "If neither the MCP server nor the venv-aware launcher is reachable\n"
-    "from your shell, the plugin's `bin/agency` wrapper resolves the\n"
-    "plugin venv + PYTHONPATH so the `agency` package is always\n"
-    "importable. Bootstrap an intent, then call the help verb with its\n"
+    "from your shell, the plugin's `bin/agency` wrapper is a thin PATH\n"
+    "router to the pipx-installed `agency` console-script (Spec 055).\n"
+    "Bootstrap an intent, then call the help verb with its\n"
     "id (no `--db` — the Spec 020 resolver picks `./.agency/session.db`,\n"
     "the same store MCP uses):\n\n"
     "    AGENCY=\"${CLAUDE_PLUGIN_ROOT}/bin/agency\"\n"
@@ -157,12 +157,13 @@ def _manifest() -> dict:
 
 def _mcp_config() -> dict:
     """`.mcp.json` — the in-plugin MCP server declaration. Launches the Agency
-    FastMCP engine in stdio mode via the bin/ wrapper, which picks the plugin's
-    venv if present and falls back to the system Python.
+    FastMCP engine in stdio mode via the bin/ wrapper, which is a thin
+    PATH router to the pipx-installed ``agency-mcp`` console-script
+    (Spec 055 pipx-only doctrine).
 
     Path conventions:
     - ``${CLAUDE_PLUGIN_ROOT}`` — the plugin install dir (read-only code).
-      Holds the launcher + PYTHONPATH; survives plugin updates by design.
+      Holds the bin/ launcher routers; survives plugin updates by design.
     - ``${CLAUDE_PROJECT_DIR}`` — the user's project root. Holds the graph
       DB so MCP + bash CLI converge on one store per project (the CLI
       defaults to ``./.agency/session.db`` via ``_db_path.resolve_db_path``;
@@ -183,7 +184,12 @@ def _mcp_config() -> dict:
                 "command": "${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp",
                 "args": [],
                 "env": {
-                    "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}",
+                    # Spec 061: PYTHONPATH removed under Spec 055
+                    # pipx-only doctrine. agency-mcp resolves `agency`
+                    # from its own pipx venv; PYTHONPATH would shadow
+                    # the pipx-installed package with the plugin-tree
+                    # source. AGENCY_DB + JULES_API_KEY stay (they're
+                    # substrate config, not python-path config).
                     "AGENCY_DB": "${CLAUDE_PROJECT_DIR}/.agency/session.db",
                     "JULES_API_KEY": "${user_config.jules_api_key}",
                 },
@@ -192,7 +198,26 @@ def _mcp_config() -> dict:
     }
 
 
-def _marketplace() -> dict:
+def _marketplace_description(engine: Engine) -> str:
+    """Spec 061 — dynamic description that names the live capability
+    surface so a marketplace browser sees what actually ships.
+
+    Concise form: ``<count> capabilities (<first 7 alphabetised>…)``.
+    Computed from ``engine.registry.names()`` at generate-time so the
+    description can never drift from the live registry.
+    """
+    caps = sorted(engine.registry.names())
+    cap_sample = ", ".join(caps[:7])
+    if len(caps) > 7:
+        cap_sample += "…"
+    return (
+        f"Harness-in-harness agency engine: {len(caps)} self-registering "
+        f"capabilities ({cap_sample}) over one provenance graph. "
+        f"Code-mode IS the contract."
+    )
+
+
+def _marketplace(engine: Engine) -> dict:
     """`.claude-plugin/marketplace.json` — single-plugin marketplace catalogue
     (this repo IS its own marketplace). `source: "./"` means the plugin source
     IS the marketplace root, so `/plugin marketplace add netzkontrast/agency`
@@ -205,7 +230,11 @@ def _marketplace() -> dict:
                 "name": NAME,
                 "source": "./",
                 "version": VERSION,
-                "description": DESCRIPTION,
+                # Spec 061: live-derived description (per-cap surface
+                # signal) rather than the static DESCRIPTION constant
+                # — keeps the marketplace catalogue honest as the
+                # capability surface grows.
+                "description": _marketplace_description(engine),
                 "homepage": HOMEPAGE,
                 "license": LICENSE,
             }
@@ -236,7 +265,7 @@ def generate(engine: Engine) -> dict[str, str]:
     skill_body = _MCP_QUICKSTART + "\n" + help_doc
     files: dict[str, str] = {
         ".claude-plugin/plugin.json":      json.dumps(_manifest(), indent=2),
-        ".claude-plugin/marketplace.json": json.dumps(_marketplace(), indent=2),
+        ".claude-plugin/marketplace.json": json.dumps(_marketplace(engine), indent=2),
         ".mcp.json":                       json.dumps(_mcp_config(), indent=2),
         "skills/help/SKILL.md":            author_skill(
             "help", HELP_DESC, skill_body,

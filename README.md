@@ -136,24 +136,28 @@ python -m agency.install        # rewrites the five files from the live registry
 
 ## What ships
 
-**11 self-registering capabilities** — drop a file in
-`agency/capabilities/` and the engine `discover()`s it via reflection,
-auto-wiring one MCP tool per `@verb`-decorated method. Each capability
-owns its ontology fragment (nodes · edges · enums · skills · templates).
+**14 self-registering capabilities** — drop a file (or folder, per
+Spec 060) in `agency/capabilities/` and the engine `discover()`s it
+via reflection, auto-wiring one MCP tool per `@verb`-decorated method.
+Each capability owns its ontology fragment (nodes · edges · enums ·
+skills · templates · schemas).
 
 | Capability | Role(s) | What |
 |---|---|---|
-| `plugin` | act/transform | Develop plugins: scaffold manifest, author skill/command, marketplace entry, lint skills (CSO rules), help. |
-| `jules` | effect/transform | Full remote-Jules-session lifecycle: dispatch · read (status/list/activities/plan) · drive (approve_plan/message) · `COMPLETED ≠ done` `verify` · `watch` · `recover` · `apply_patch` · `lint_prompt` · `review_comment` · `detect_mode`. |
-| `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`batch_note`/`recall`/`search`) — the graph-native store for observations. |
-| `develop` | transform | Dev-workflow disciplines as walkable skills (brainstorm · plan · tdd · debug · verify · spec-panel · review · execute). |
-| `delegate` | effect/transform | Agent orchestration: `fan_out` + `join` + the **`dispatch-decision`** skill (token-economics heuristic for inline vs Jules-dispatch). |
+| `analyze` | transform/effect/act | 4-axis decidable analysis (quality/security/performance/architecture) + Spec 048 `paths` axis. Composes optional ruff/bandit/radon via the `[analyze]` extra. `run` · `improve` · `cleanup` · `architecture` · `security` · `quality` · `performance` · `paths`. |
+| `branch` | transform/effect | Finish a development branch: `assess` + `finish`. |
+| `delegate` | transform/effect | Agent orchestration: `fan_out` + `join` + the **`dispatch-decision`** skill (eleven-signal token-economics heuristic for inline vs local-subagent vs Jules vs MCP). |
+| `develop` | transform/act | Dev-workflow disciplines as walkable skills (brainstorm · plan · tdd · debug · verify · spec-panel · review) + `scaffold_capability` (light/medium/heavy skeletons). |
+| `document` | transform/effect | Project graph state to markdown: `render` (5 scopes incl. `research-report` and `provenance`) · `explain` (3 depths) · `index_repo` (94% token reduction). |
+| `dogfood` | transform/effect/act | Graph-native observation ledgers — `note` (write) + `render` (project to DOGFOOD-NOTES.md) + `export`/`import` (JSON for merge-conflict recovery) + `collect` (legacy markdown-to-graph migration). |
 | `gate` | act | Reusable hard-gate predicate: `check` records PASSED or BLOCKED_ON + an `input-required` pause on failure. |
-| `workspace` | effect | Isolate a worktree on a fresh branch + baseline its green/red test result. |
-| `branch` | effect/transform | Finish a development branch: `assess` + `finish`. |
-| `subagent` | effect | Subagent-driven development: dispatch a worker via `delegate` + two-stage gated review (spec → quality). |
-| `dogfood` | transform | Walk `Plan/**/DOGFOOD-NOTES.md`, extract observations, feed `reflect.batch_note` to close the self-improvement loop. |
+| `jules` | effect/transform | Full remote-Jules-session lifecycle: 22 verbs covering dispatch · read · drive · `COMPLETED ≠ done` `verify` · `watch` · `recover` · `apply_patch` · `lint_prompt` · `review_comment` · `detect_mode`. |
+| `plugin` | act/transform | Develop plugins: scaffold manifest, author skill/command, marketplace entry, lint skills (CSO rules), lint capabilities (Hint #7 + wire-shape + reflection-link), help. |
+| `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`batch_note`/`recall`/`search`/`recall_semantic`) — the graph-native store for observations; TF-IDF default + optional BGE via the `[recall]` extra. |
+| `research` | act | Deep-research flow: `lead` (mint a Research node) → `specialist` (4 roles: codebase / prior-reflections / doc-corpus / web) → `verify` (adversarial citation check). |
 | `skill_generator` | act | Compose `plugin.author_skill` + `lint_skill` into one deploy-ready-skill verb. |
+| `subagent` | effect | Subagent-driven development: dispatch a worker via `delegate` + two-stage gated review (spec → quality). |
+| `workspace` | effect | Isolate a worktree on a fresh branch + baseline its green/red test result. |
 
 Plus the **engine substrate tools** (not capabilities, wired directly):
 `search` · `get_schema` · `execute` (the code-mode contract) +
@@ -165,7 +169,7 @@ Domain capabilities live in [`examples/`](examples/) — e.g.
 `Engine(..., extra_capabilities=[…])`. The bootstrapping harness stays
 minimal while proving the extension contract end to end.
 
-## What it proves (`tests/`, 216+ passing)
+## What it proves (`tests/`, 663 passing)
 
 1. **The moat — cross-concern provenance is one graph traversal.**
    `Memory.provenance(intent)` returns, in one Cypher walk, every

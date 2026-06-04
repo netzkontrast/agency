@@ -28,10 +28,15 @@ def test_mcp_config_agency_db_uses_project_dir_session_db():
 
 
 def test_mcp_config_keeps_plugin_root_for_command():
-    """The launcher script + PYTHONPATH stay under ${CLAUDE_PLUGIN_ROOT}
-    because they live inside the installed plugin, not the user's
-    project. Only the *data* (the graph) moves to the project."""
+    """The launcher script stays under ${CLAUDE_PLUGIN_ROOT} because
+    it lives inside the installed plugin, not the user's project.
+    Only the *data* (the graph) moves to the project.
+
+    Spec 061: PYTHONPATH was removed from the generated env block —
+    pipx-only doctrine (Spec 055) makes it vestigial; the pipx venv
+    resolves `agency` from its own site-packages."""
     cfg = _mcp_config()
     s = cfg["mcpServers"]["agency"]
     assert s["command"] == "${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp"
-    assert s["env"]["PYTHONPATH"] == "${CLAUDE_PLUGIN_ROOT}"
+    assert "PYTHONPATH" not in s["env"], (
+        "PYTHONPATH should be absent under Spec 061")
