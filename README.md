@@ -75,9 +75,23 @@ In Claude Code:
 /plugin install agency@agency
 ```
 
-This sets up the plugin tree under `${CLAUDE_PLUGIN_ROOT}`. **You then
-run `pipx install <plugin-root>`** to get `agency-mcp` on PATH so the
-marketplace `.mcp.json` shim can route to it.
+This sets up the plugin tree under `${CLAUDE_PLUGIN_ROOT}`. A
+**SessionStart hook** (Spec 062, `hooks/session-start.sh`)
+auto-runs `pipx install --editable ${CLAUDE_PLUGIN_ROOT}` on the
+first session so `agency-mcp` lands on PATH without a manual step.
+The hook is idempotent — every subsequent session early-exits when
+the binary is already installed. Editable mode means future
+marketplace plugin updates flow through automatically.
+
+> **Claude Code Web environments:** the hook removes the need to
+> manually `pipx install` after a marketplace install. The first
+> session shows a one-time `agency: installing via pipx (one-time)
+> — this may take ~5s` line; thereafter the plugin just works.
+
+> **Fallback chain:** if `pipx` isn't on PATH the hook falls back
+> to `pip install --user --editable`. If neither is available the
+> hook prints a hint and the `.mcp.json` shim later exits 127 with
+> the install instructions.
 
 Claude Code prompts for your **Jules API key** (optional — only needed
 for the `jules` remote-async-agent capability; stored in your system

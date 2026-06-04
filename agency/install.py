@@ -242,6 +242,64 @@ def _marketplace(engine: Engine) -> dict:
     }
 
 
+# Spec 062 — SessionStart hook auto-runs `pipx install` on first
+# session so the marketplace install flow doesn't silently fail when
+# `agency-mcp` isn't on PATH yet. Idempotent (early-exit when
+# already on PATH); editable mode means marketplace plugin updates
+# flow through automatically.
+_SESSION_START_HOOKS_JSON = json.dumps({
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+                    }
+                ]
+            }
+        ]
+    }
+}, indent=2) + "\n"
+
+
+_SESSION_START_HOOK_SCRIPT = """\
+#!/usr/bin/env bash
+# agency SessionStart hook — Spec 062.
+#
+# Idempotently ensure `agency-mcp` is on PATH so the .mcp.json shim
+# (${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp, which routes to the pipx-
+# installed console-script) can find the binary on first MCP boot.
+#
+# Without this hook, fresh marketplace installs (especially Claude
+# Code Web environments) silently fail: the plugin appears installed
+# but the MCP server never connects because nothing has run pipx yet.
+#
+# Idempotency: early-exit when agency-mcp is already on PATH so
+# subsequent sessions don't reinstall. Editable mode means future
+# marketplace updates flow through without a second pipx call.
+set -e
+
+if command -v agency-mcp >/dev/null 2>&1; then
+  exit 0
+fi
+
+if command -v pipx >/dev/null 2>&1; then
+  echo "agency: installing via pipx (one-time) — this may take ~5s" >&2
+  pipx install --editable "${CLAUDE_PLUGIN_ROOT}" >&2
+elif command -v pip >/dev/null 2>&1; then
+  echo "agency: pipx not found; falling back to pip --user" >&2
+  pip install --user --editable "${CLAUDE_PLUGIN_ROOT}" >&2
+else
+  echo "agency: neither pipx nor pip on PATH — install one and retry" >&2
+  # Don't block session start; the MCP shim will exit 127 with its
+  # own install hint on first call.
+fi
+
+exit 0
+"""
+
+
 def generate(engine: Engine) -> dict[str, str]:
     """Produce the install files from the LIVE registry (so `help` always reflects
     the real capability set). Returns {relative_path: file_contents}.
@@ -267,6 +325,12 @@ def generate(engine: Engine) -> dict[str, str]:
         ".claude-plugin/plugin.json":      json.dumps(_manifest(), indent=2),
         ".claude-plugin/marketplace.json": json.dumps(_marketplace(engine), indent=2),
         ".mcp.json":                       json.dumps(_mcp_config(), indent=2),
+        # Spec 062 — SessionStart hook auto-runs `pipx install` on
+        # first session so marketplace consumers (especially Claude
+        # Code Web environments) don't hit the .mcp.json shim's
+        # exit-127 silent failure on a fresh install.
+        "hooks/hooks.json":                _SESSION_START_HOOKS_JSON,
+        "hooks/session-start.sh":          _SESSION_START_HOOK_SCRIPT,
         "skills/help/SKILL.md":            author_skill(
             "help", HELP_DESC, skill_body,
             allowed_tools=HELP_ALLOWED_TOOLS,
@@ -314,8 +378,9 @@ def write(root: str) -> list[str]:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
             f.write(content)
-        # Spec 032 §8a — chmod +x for bash wrappers; graceful degrade on RO mount.
-        if rel.startswith("bin/"):
+        # Spec 032 §8a + Spec 062 — chmod +x for bash wrappers and
+        # hook scripts; graceful degrade on RO mount.
+        if rel.startswith("bin/") or rel.endswith(".sh"):
             try:
                 os.chmod(path, 0o755)
             except OSError as e:
