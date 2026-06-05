@@ -6,7 +6,6 @@ canonical install is `pipx install agency`. These tests reflect that.
 """
 import json
 import os
-import subprocess
 
 import pytest
 
@@ -65,57 +64,3 @@ def test_doctor_main_prints_json_to_stdout(capsys):
     assert (rc == 0 and payload["ok"]) or (rc == 1 and not payload["ok"])
 
 
-# ---------------------------------------------------------------------------
-# Discovery shim resolution (Spec 055 — PATH-only, no .venv).
-# ---------------------------------------------------------------------------
-
-
-def _resolve_agency_mcp(path_env: str | None = None) -> str:
-    """Pure-Python mirror of bin/agency-mcp's resolution.
-
-    Spec 055: PATH-only (no .venv fallback, no bootstrap). Raises
-    FileNotFoundError when agency-mcp isn't reachable.
-    """
-    import shutil
-    p = shutil.which("agency-mcp", path=path_env)
-    if p:
-        return p
-    raise FileNotFoundError("agency-mcp not found on PATH")
-
-
-def test_shim_finds_on_path(tmp_path):
-    """When agency-mcp is on PATH, the shim resolves it directly."""
-    path_bin = tmp_path / "path_bin"
-    path_bin.mkdir()
-    path_mcp = path_bin / "agency-mcp"
-    path_mcp.write_text("#!/bin/sh\necho path\n")
-    path_mcp.chmod(0o755)
-    resolved = _resolve_agency_mcp(path_env=str(path_bin))
-    assert resolved == str(path_mcp)
-
-
-def test_shim_raises_when_not_on_path(tmp_path):
-    """Spec 055 doctrine: no fallback. agency-mcp must be installed via
-    pipx + on PATH; missing → FileNotFoundError (or shim exit 127)."""
-    empty = tmp_path / "empty"
-    empty.mkdir()
-    with pytest.raises(FileNotFoundError):
-        _resolve_agency_mcp(path_env=str(empty))
-
-
-def test_shim_exits_127_with_pipx_hint(tmp_path):
-    """bin/agency-mcp shim exits 127 with the pipx install hint when
-    agency-mcp isn't on PATH. No bootstrap, no silent hang."""
-    repo = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), ".."))
-    # Sandboxed PATH so bash + standard utilities resolve but agency-mcp
-    # does NOT.
-    env = os.environ.copy()
-    env["PATH"] = "/usr/bin:/bin"
-    result = subprocess.run(
-        [os.path.join(repo, "bin", "agency-mcp")],
-        env=env, capture_output=True, timeout=10,
-    )
-    assert result.returncode == 127
-    assert b"pipx install" in result.stderr
-    assert b"not found on PATH" in result.stderr

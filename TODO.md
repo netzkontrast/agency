@@ -10,7 +10,7 @@
 > that ships a spec, opens a new spec, or changes a spec's status MUST
 > update the corresponding row here in the same commit. No drift.
 >
-> **Last reviewed:** 2026-06-02 (branch `claude/blissful-volta-rJ3rP`).
+> **Last reviewed:** 2026-06-05 (branch `claude/blissful-volta-rJ3rP`).
 > **Wave-3 + audit-bundle baseline:** 333 tests passed at consolidation
 > review (per `Plan/000-overview.md`'s 2026-05-31 snapshot); recent main
 > activity adds Spec 031 + 032 implementation work.
@@ -19,7 +19,7 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 20 | 012, 013, 015, 017, 020, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055 |
+| **Shipped** | 21 | 012, 013, 015, 017, 020, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 065 |
 | **Partially implemented** | 10 | 001, 006, 007, 016, 018, 023, 024, 025, 031, 032 |
 | **Not started** | 18 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 019, 021, 022, 026, 028, 041, 046, 049, 051 + (010 deferred-v2 axes) |
 
@@ -78,6 +78,11 @@ Total active specs: **41** (counting 000-overview).
 | 057 | analyzer-rule-axis-registry | Not started | Each `_<tool>.py` analyzer wrapper declares its `AXIS_PREFIXES` constant; `_main.py` builds registry by union | Drafted 2026-06-03 — refactors round-2 review fix from "central if-elif" to "wrapper-local declaration"; cleaner extension surface for future linters (mypy, pylint, semgrep). Depends on 050. |
 | 058 | reflection-link-lint | Not started | `_check_reflection_links` lint rule: a verb writing Reflection must link BOTH SERVES and OBSERVED_DURING | Drafted 2026-06-03 from the document.explain bug pattern in PR #17 round-1 review; pairs with Spec 016/019 lint scaffold extensibility. Expect 1-3 sites to migrate. Depends on 016 + 019. |
 | 059 | toolresult-convenience-layer | **Shipped** | Codes namespace + `.success`/`.failure` ctors + `Registry.invoke` stamps `error.trace_id` via `dataclasses.replace` + `next_cursor` opt-in + "when to use ToolResult vs plain dict" doctrine | 6 tests green in 0.62s; closes the carry-over from Spec 001 |
+| 061 | install-surface-refresh | **Shipped** | `.mcp.json` PYTHONPATH stripped (vestigial post-Spec 055); `marketplace.json` description now reads the live registry (cap count + first-7 surface signal, bounded < 400 chars); README capability table 11→14 rows; test count 216+→663; stale docstring references cleaned | Drafted + shipped 2026-06-04 from review-from-scratch audit. 2 new tests assert `.mcp.json` env shape + dynamic description. |
+| 062 | session-start-pipx-install | **Shipped** | SessionStart hook (`hooks/session-start.sh` + `hooks/hooks.json`) auto-runs `pipx install --editable ${CLAUDE_PLUGIN_ROOT}` on first session so marketplace installs (esp. Claude Code Web) don't silently fail. Idempotent (early-exit when agency-mcp already on PATH); pip --user fallback; install.py regen wires the hook into generate(); install.write() marks hooks/*.sh executable | 5 new tests green; README documents the auto-install flow + fallback chain |
+| 063 | venv-fallback-install-path | **Superseded → 065** | Original 3-step fallback chain shipped, then withdrawn after PR #19 review surfaced 4 P2 correctness issues (shim self-detection on PATH, pip --user PATH not guaranteed, Windows venv layout, wrong python interpreter for scaffold-db). Spec 065 replaces with pipx-only doctrine | Superseded 2026-06-05; frontmatter flipped; venv/pip-user code paths removed |
+| 064 | plugin-reference-compliance | **Shipped** | Cross-platform polyglot wrapper `hooks/run-hook.cmd` + extensionless `hooks/session-start`; `hooks.json` gains `matcher: "startup\|resume\|clear"` + `async: false`; `.mcp.json` gains `cwd: ${CLAUDE_PROJECT_DIR}` + `env_vars` passthrough (AGENCY_EMBEDDER etc); `${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` fallback for Cursor/Codex; new `skills/using-agency/SKILL.md` broad-trigger meta-skill mirrors using-superpowers pattern; `install.write()` chmods any `hooks/*` file (not just `.sh`) | 10 new tests green; mirrors superpowers 5.1.0 + episodic-memory 1.4.2 reference patterns |
+| **065** | pipx-direct-doctrine | **Shipped** | Pipx-only install (no shims, no venv fallback); `bin/agency` + `bin/agency-mcp` removed; `.mcp.json` uses bare `command: "agency-mcp"` (PATH-resolved); SessionStart hook prints HINT pointing at pipx.pypa.io when pipx missing; `agency` CLI grows `install`, `welcome`, `doctor`, `provenance` subcommands wrapping the substrate MCP tools; all docs (`README.md`, `docs/getting-started.md`, `docs/guide/extending.md`, `AGENTS.md`, `skills/using-agency/SKILL.md`) sweep `python -m agency.cli` → `agency` and `python -m agency.install` → `agency install` | Closes 4 P2 findings from PR #19; 683 passed + 1 skipped + 4 deselected (3m51s); 6 distribution-shim tests deleted; 5 new CLI subcommand tests added; supersedes Spec 063 |
 | 045 | reflect-semantic-recall | **Shipped** | TF-IDF + optional BGE embedder; `reflect.recall_semantic` verb; agency_doctor surfaces backend + fallback | 19 spec tests + 469 full-suite green; 4 code-review passes (F4 zip-sort cleanup, F9 doctor fallback messaging differentiated by failure mode, F13 k<=0 guard, DRY KNOWN_EMBEDDERS) |
 | 046 | micro-extensions-bundle | Not started | Code-review split + visual-companion + smart-commit + estimate + token-efficiency + doc-autosync | Designed in this branch |
 | **047** | cluster-integration | **Shipped** | Master plan: 13-cluster integration map (Discovery/Plan/Impl/Quality/Debug/Cleanup/Doc/Memory/Git/Research/Orch/Meta/Plugin) | The deliverable IS the plan — no code; promotes individual cluster plans to standalone specs when criteria hit (cluster-section > 150 LOC OR ≥ 3 cross-cluster decisions) |

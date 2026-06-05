@@ -60,7 +60,44 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("--purpose", required=True)
     i.add_argument("--deliverable", required=True)
     i.add_argument("--acceptance", required=True)   # ontology requires it (non-empty)
+    # Spec 065: `agency install` consolidates the install regen + scaffold
+    # paths so `python -m agency.install` is no longer the canonical form.
+    inst = sub.add_parser("install", help="regenerate the plugin install (and optionally scaffold .agency/)")
+    inst.add_argument("root", nargs="?", default=None,
+                      help="install root (default: this repo's root)")
+    inst.add_argument("--scaffold-db", action="store_true",
+                      help="also create .agency/ + .gitattributes binary marker (Spec 020)")
+    inst.add_argument("--scaffold-only", action="store_true",
+                      help="scaffold .agency/ + .gitattributes ONLY (do NOT write the "
+                           "plugin install surface — used by the SessionStart hook)")
+    inst.add_argument("--dry-run", action="store_true",
+                      help="print the would-write paths; touch nothing on disk")
+    # Spec 065 — substrate tools as first-class CLI subcommands so a
+    # bash user reaches the full code-mode + onboarding surface without
+    # writing inline `execute --code` blocks.
+    sub.add_parser("welcome",
+                   help="onboarding payload (live capability list + bootstrap example); like agency_welcome")
+    sub.add_parser("doctor",
+                   help="health check (python/deps/DB/JULES_API_KEY); like agency_doctor")
+    prov = sub.add_parser("provenance",
+                           help="cross-concern provenance for an intent; like memory_graph_provenance")
+    prov.add_argument("intent_id", help="the Intent id to walk")
     args = p.parse_args(argv)
+
+    # Spec 065: `install` doesn't need a graph DB — bypass the DB-path
+    # resolver and dispatch straight to the install module.
+    if args.cmd == "install":
+        from . import install as install_mod
+        sub_argv: list[str] = []
+        if args.root:
+            sub_argv.append(args.root)
+        if args.scaffold_db:
+            sub_argv.append("--scaffold-db")
+        if args.scaffold_only:
+            sub_argv.append("--scaffold-only")
+        if args.dry_run:
+            sub_argv.append("--dry-run")
+        return install_mod.main(sub_argv)
 
     # Spec 020: resolve the DB path via the canonical helper.
     from ._db_path import resolve_db_path
@@ -91,6 +128,12 @@ def main(argv: list[str] | None = None) -> int:
         name, params = "search", {"query": args.query}
     elif args.cmd == "get-schema":
         name, params = "get_schema", {"tools": args.tools}
+    elif args.cmd == "welcome":
+        name, params = "agency_welcome", {}
+    elif args.cmd == "doctor":
+        name, params = "agency_doctor", {}
+    elif args.cmd == "provenance":
+        name, params = "memory_graph_provenance", {"intent_id": args.intent_id}
     else:  # execute
         code = args.code if args.code is not None else sys.stdin.read()
         name, params = "execute", {"code": code}

@@ -100,13 +100,12 @@ _MCP_QUICKSTART = (
     "`./.agency/session.db`) — do NOT pass `--db`, or the bash surface writes\n"
     "to a different store than MCP. The canonical entrypoint is\n"
     "`python -m agency.cli` (works in Jules / no-MCP / any context where the\n"
-    "venv is activated). The `${CLAUDE_PLUGIN_ROOT}/bin/agency` wrapper is\n"
-    "a convenience inside Claude Code; under Jules / no-MCP it expands to\n"
-    "`/bin/agency` and fails — Codex review of cedcea0.\n\n"
+    "venv is activated). Spec 065: `agency` (the pipx-installed\n"
+    "console-script) is the canonical CLI form — no bin/ shim.\n\n"
     "```bash\n"
-    'iid=$(python -m agency.cli intent --purpose help --deliverable map --acceptance ok \\\n'
+    'iid=$(agency intent --purpose help --deliverable map --acceptance ok \\\n'
     '      | python3 -c \'import sys,json; print(json.load(sys.stdin)["intent_id"])\')\n'
-    'python -m agency.cli execute --code \\\n'
+    'agency execute --code \\\n'
     "  \"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
     "```\n\n"
 )
@@ -114,17 +113,16 @@ _MCP_QUICKSTART = (
 CMD_BODY = (
     _MCP_QUICKSTART
     + "## Slash-command bash fallback\n\n"
-    "If neither the MCP server nor the venv-aware launcher is reachable\n"
-    "from your shell, the plugin's `bin/agency` wrapper resolves the\n"
-    "plugin venv + PYTHONPATH so the `agency` package is always\n"
-    "importable. Bootstrap an intent, then call the help verb with its\n"
+    "If the MCP server isn't reachable from your shell, use the\n"
+    "pipx-installed `agency` console-script (Spec 055/065 — bin/ shims\n"
+    "removed; rely on pipx for PATH resolution).\n"
+    "Bootstrap an intent, then call the help verb with its\n"
     "id (no `--db` — the Spec 020 resolver picks `./.agency/session.db`,\n"
     "the same store MCP uses):\n\n"
-    "    AGENCY=\"${CLAUDE_PLUGIN_ROOT}/bin/agency\"\n"
-    "    iid=$(\"$AGENCY\" intent --purpose help "
+    "    iid=$(agency intent --purpose help "
     "--deliverable map --acceptance ok | python3 -c "
     "'import sys,json; print(json.load(sys.stdin)[\"intent_id\"])')\n"
-    "    \"$AGENCY\" execute --code "
+    "    agency execute --code "
     "\"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
 )
 
@@ -157,12 +155,13 @@ def _manifest() -> dict:
 
 def _mcp_config() -> dict:
     """`.mcp.json` — the in-plugin MCP server declaration. Launches the Agency
-    FastMCP engine in stdio mode via the bin/ wrapper, which picks the plugin's
-    venv if present and falls back to the system Python.
+    FastMCP engine in stdio mode via the bin/ wrapper, which is a thin
+    PATH router to the pipx-installed ``agency-mcp`` console-script
+    (Spec 055 pipx-only doctrine).
 
     Path conventions:
     - ``${CLAUDE_PLUGIN_ROOT}`` — the plugin install dir (read-only code).
-      Holds the launcher + PYTHONPATH; survives plugin updates by design.
+      Holds the bin/ launcher routers; survives plugin updates by design.
     - ``${CLAUDE_PROJECT_DIR}`` — the user's project root. Holds the graph
       DB so MCP + bash CLI converge on one store per project (the CLI
       defaults to ``./.agency/session.db`` via ``_db_path.resolve_db_path``;
@@ -180,19 +179,64 @@ def _mcp_config() -> dict:
     return {
         "mcpServers": {
             "agency": {
-                "command": "${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp",
+                # Spec 065 (pipx-direct doctrine): the bare
+                # `agency-mcp` command resolves from PATH, where pipx
+                # install lands the console-script. Removes the
+                # bin/agency-mcp shim (Specs 055/063 layered self-
+                # detection + venv-first logic that PR #19 review
+                # caught as fragile). Mirrors episodic-memory's bare
+                # command pattern.
+                "command": "agency-mcp",
                 "args": [],
+                # Spec 064: pin CWD to the project root so the MCP
+                # subprocess's path resolver lands the graph DB in the
+                # right place even if AGENCY_DB substitution fails.
+                "cwd": "${CLAUDE_PROJECT_DIR}",
                 "env": {
-                    "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}",
+                    # Spec 061: PYTHONPATH removed under Spec 055
+                    # pipx-only doctrine. agency-mcp resolves `agency`
+                    # from its own pipx venv; PYTHONPATH would shadow
+                    # the pipx-installed package with the plugin-tree
+                    # source. AGENCY_DB + JULES_API_KEY stay (they're
+                    # substrate config, not python-path config).
                     "AGENCY_DB": "${CLAUDE_PROJECT_DIR}/.agency/session.db",
                     "JULES_API_KEY": "${user_config.jules_api_key}",
                 },
+                # Spec 064: env_vars list declares which session env
+                # vars Claude Code should pass through to the
+                # subprocess. AGENCY_EMBEDDER (Spec 045 BGE opt-in)
+                # would otherwise be silently dropped from the user's
+                # shell env. Mirror of episodic-memory's pattern.
+                "env_vars": [
+                    "AGENCY_DB",
+                    "AGENCY_EMBEDDER",
+                    "JULES_API_KEY",
+                ],
             }
         }
     }
 
 
-def _marketplace() -> dict:
+def _marketplace_description(engine: Engine) -> str:
+    """Spec 061 — dynamic description that names the live capability
+    surface so a marketplace browser sees what actually ships.
+
+    Concise form: ``<count> capabilities (<first 7 alphabetised>…)``.
+    Computed from ``engine.registry.names()`` at generate-time so the
+    description can never drift from the live registry.
+    """
+    caps = sorted(engine.registry.names())
+    cap_sample = ", ".join(caps[:7])
+    if len(caps) > 7:
+        cap_sample += "…"
+    return (
+        f"Harness-in-harness agency engine: {len(caps)} self-registering "
+        f"capabilities ({cap_sample}) over one provenance graph. "
+        f"Code-mode IS the contract."
+    )
+
+
+def _marketplace(engine: Engine) -> dict:
     """`.claude-plugin/marketplace.json` — single-plugin marketplace catalogue
     (this repo IS its own marketplace). `source: "./"` means the plugin source
     IS the marketplace root, so `/plugin marketplace add netzkontrast/agency`
@@ -205,12 +249,292 @@ def _marketplace() -> dict:
                 "name": NAME,
                 "source": "./",
                 "version": VERSION,
-                "description": DESCRIPTION,
+                # Spec 061: live-derived description (per-cap surface
+                # signal) rather than the static DESCRIPTION constant
+                # — keeps the marketplace catalogue honest as the
+                # capability surface grows.
+                "description": _marketplace_description(engine),
                 "homepage": HOMEPAGE,
                 "license": LICENSE,
             }
         ],
     }
+
+
+# Spec 062 + Spec 064 — SessionStart hook with cross-platform
+# polyglot wrapper (run-hook.cmd) + matcher + async: false.
+# The matcher excludes `compact` so the install loop doesn't fire
+# every time the session compacts. The polyglot wrapper handles
+# Windows + Unix from one command entry; extensionless script
+# avoids Claude Code's `.sh` auto-bash-prepend on Windows.
+#
+# Spec 065 (PR #19 round-3 P2 PRRT_kwDOSj5Qos6HSqkH): the command
+# substitution layer does NOT honor bash parameter-expansion syntax
+# (`${VAR:-default}`), so we use the documented `${CLAUDE_PLUGIN_ROOT}`
+# token directly. Non-Claude harnesses (Cursor/Codex) that don't set
+# this var also won't run hooks via the Claude Code launcher, so the
+# token-only form is correct.
+_SESSION_START_HOOKS_JSON = json.dumps({
+    "hooks": {
+        "SessionStart": [
+            {
+                "matcher": "startup|resume|clear",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start",
+                        "async": False,
+                    }
+                ]
+            }
+        ]
+    }
+}, indent=2) + "\n"
+
+
+# Spec 064 — polyglot CMD+bash wrapper. Valid as both a Windows CMD
+# batch (the heredoc-delimited block runs first) and a bash script
+# (the `:` is a no-op label so `: << 'CMDBLOCK'` reads as a here-doc
+# CMD treats as a `:label` directive). Verbatim port of the canonical
+# Superpowers 5.1.0 wrapper; the only customisation is the script-
+# name passthrough at the tail.
+_RUN_HOOK_CMD_SCRIPT = """\
+: << 'CMDBLOCK'
+@echo off
+REM Cross-platform polyglot wrapper for hook scripts (Spec 064).
+REM On Windows: cmd.exe runs the batch portion, which finds and calls bash.
+REM On Unix: the shell interprets this as a script (: is a no-op in bash).
+REM
+REM Hook scripts use extensionless filenames (e.g. "session-start" not
+REM "session-start.sh") so Claude Code's Windows auto-detection -- which
+REM prepends "bash" to any command containing .sh -- doesn't interfere.
+REM
+REM Usage: run-hook.cmd <script-name> [args...]
+
+if "%~1"=="" (
+    echo run-hook.cmd: missing script name >&2
+    exit /b 1
+)
+
+set "HOOK_DIR=%~dp0"
+
+REM Try Git for Windows bash in standard locations
+if exist "C:\\Program Files\\Git\\bin\\bash.exe" (
+    "C:\\Program Files\\Git\\bin\\bash.exe" "%HOOK_DIR%%~1" %2 %3 %4 %5 %6 %7 %8 %9
+    exit /b %ERRORLEVEL%
+)
+if exist "C:\\Program Files (x86)\\Git\\bin\\bash.exe" (
+    "C:\\Program Files (x86)\\Git\\bin\\bash.exe" "%HOOK_DIR%%~1" %2 %3 %4 %5 %6 %7 %8 %9
+    exit /b %ERRORLEVEL%
+)
+
+REM Try bash on PATH (e.g. user-installed Git Bash, MSYS2, Cygwin)
+where bash >nul 2>nul
+if %ERRORLEVEL% equ 0 (
+    bash "%HOOK_DIR%%~1" %2 %3 %4 %5 %6 %7 %8 %9
+    exit /b %ERRORLEVEL%
+)
+
+REM No bash found - exit silently rather than error
+REM (plugin still works, just without SessionStart auto-install)
+exit /b 0
+CMDBLOCK
+
+# Unix: run the named script directly
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_NAME="$1"
+shift
+exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"
+"""
+
+
+_SESSION_START_HOOK_SCRIPT = """\
+#!/usr/bin/env bash
+# agency SessionStart hook — Spec 062 + Spec 065 (pipx-direct doctrine).
+#
+# Single install path: `pipx install --editable ${CLAUDE_PLUGIN_ROOT}`.
+# Scaffolds the project's .agency/ EVERY session (idempotent), then
+# installs the MCP server via pipx if not already on PATH.
+#
+# Spec 065 supersedes Spec 063's three-step fallback chain (PR #19
+# review surfaced 4 correctness issues with the pip --user and
+# .agency/.venv fallback paths). Rely on pipx; print a clear hint
+# when it's missing so the user can install it once and retry.
+#
+# Two ordering rules (closes PR #19 P1 + P2):
+#  - Scaffold runs BEFORE the install-check early-exit, so already-
+#    installed users get .agency/ in a fresh project on first session.
+#  - Scaffold uses `agency install --scaffold-only` (NOT --scaffold-db)
+#    so we never write the plugin's .mcp.json/hooks/skills/commands
+#    INTO the user's project repo. --scaffold-only writes the
+#    .agency/ dir + .gitattributes binary marker, nothing else.
+set -e
+
+# --- Scaffold the project's .agency/ (idempotent; runs every session) ---
+# Only reachable if agency-mcp is already installed; the post-install
+# block below covers the first-run case.
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && command -v agency >/dev/null 2>&1; then
+  agency install --scaffold-only "${CLAUDE_PROJECT_DIR}" >&2 || \\
+    echo "agency: .agency/ scaffold failed (non-fatal)" >&2
+fi
+
+# --- Idempotent install guard: bail if agency-mcp is already on PATH. ---
+if command -v agency-mcp >/dev/null 2>&1; then
+  exit 0
+fi
+
+# Single install path: pipx. No pip --user. No per-project venv.
+if ! command -v pipx >/dev/null 2>&1; then
+  cat >&2 <<'HINT'
+agency: pipx is required but not on PATH.
+
+Install pipx once (https://pipx.pypa.io/stable/installation/), then
+restart your session. The hook will auto-install agency.
+
+    python3 -m pip install --user pipx
+    python3 -m pipx ensurepath
+    # restart shell or `source ~/.bashrc`, then restart Claude Code
+HINT
+  # Don't block session start; MCP boot prints its own missing-binary
+  # hint when the user tries the first verb.
+  exit 0
+fi
+
+echo "agency: installing via pipx (one-time) — this may take ~5s" >&2
+if ! pipx install --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
+  echo "agency: pipx install failed (non-fatal — see output above)" >&2
+  exit 0
+fi
+
+# PR #19 round-3 P2 (PRRT_kwDOSj5Qos6HSqkN): pipx installs scripts
+# into ${PIPX_BIN_DIR} (default ~/.local/bin), but that dir may not
+# yet be on PATH in this session if the user hasn't run
+# `pipx ensurepath` + restarted the shell. Probe pipx's bin dir and
+# prepend it to PATH for THIS process so the immediate scaffold call
+# resolves; also run `pipx ensurepath` so future sessions inherit it.
+PIPX_BIN_DIR="$(pipx environment --value PIPX_BIN_DIR 2>/dev/null || echo "${HOME}/.local/bin")"
+case ":${PATH}:" in
+  *":${PIPX_BIN_DIR}:"*) ;;
+  *) export PATH="${PIPX_BIN_DIR}:${PATH}" ;;
+esac
+pipx ensurepath >/dev/null 2>&1 || true
+
+# Hard-validate that agency-mcp is actually reachable now. If pipx
+# install reported success but the script isn't resolvable, surface
+# an actionable error pointing at `pipx ensurepath` + shell restart.
+if ! command -v agency-mcp >/dev/null 2>&1; then
+  cat >&2 <<HINT
+agency: pipx install succeeded but agency-mcp is not on PATH.
+Pipx put it under: ${PIPX_BIN_DIR}
+
+Add that dir to PATH and restart your session:
+    pipx ensurepath
+    # then restart shell / Claude Code
+HINT
+  exit 0
+fi
+
+# After first-time install: scaffold the target repo's .agency/ via
+# the pipx-installed agency CLI. --scaffold-only never touches the
+# user's .mcp.json / hooks/ / skills/ / commands/ (PR #19 P1 fix).
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  agency install --scaffold-only "${CLAUDE_PROJECT_DIR}" >&2 || \\
+    echo "agency: .agency/ scaffold failed (non-fatal)" >&2
+fi
+
+exit 0
+"""
+
+
+# Spec 064 — using-agency meta-skill. Broad trigger ("any agency-
+# related task starts here") + a chain example that names the two
+# bootstrap calls every session must make. Modelled on
+# `using-superpowers` from Superpowers 5.1.0.
+_USING_AGENCY_SKILL_MD = """\
+---
+name: using-agency
+description: Use when starting any conversation that may touch the agency engine (capabilities, intents, provenance, MCP code-mode) — bootstrap an Intent via agency_welcome BEFORE invoking any agency verb.
+allowed-tools:
+  - mcp__plugin_agency_agency__execute
+  - mcp__plugin_agency_agency__search
+  - mcp__plugin_agency_agency__get_schema
+---
+
+# using-agency
+
+The entry skill the orchestrator MUST invoke before calling any agency
+capability verb. Modelled on the `using-superpowers` pattern: a broad-
+trigger skill that primes the canonical bootstrap chain.
+
+## The two-step bootstrap (load-bearing)
+
+**Every agency-related task starts with the same two calls.** No
+exceptions:
+
+1. `agency_welcome` — returns the canonical bootstrap example + the
+   live capability list + the resolved `.agency/` DB path. This IS
+   the first call of every session.
+2. `intent_bootstrap(purpose=, deliverable=, acceptance=)` — mints
+   AND confirms the Intent that EVERY subsequent verb will SERVE.
+
+```python
+# Inside an MCP execute block:
+welcome = await call_tool("agency_welcome", {})
+# Read welcome["capabilities"] for the live verb surface, then:
+i = await call_tool("intent_bootstrap", {
+    "purpose":     "<one-line why>",
+    "deliverable": "<one-line what>",
+    "acceptance":  "<one-line how to verify>"
+})
+intent_id = i["intent_id"]
+# Now any capability verb is reachable:
+r = await call_tool("capability_<cap>_<verb>", {"intent_id": intent_id, ...})
+```
+
+## Why both calls are required
+
+- **`agency_welcome`** is pure introspection (no graph writes). It
+  returns the discoverable surface — without it, the agent has to
+  guess capability names.
+- **`intent_bootstrap`** records the orchestrator's why/what/accept
+  triple as an `Intent` node. Every later verb call writes an
+  `Invocation` that `SERVES` this Intent. The cross-concern
+  provenance traversal starts here — skip it and the engine treats
+  your calls as orphaned activity.
+
+## When this skill applies (broad trigger)
+
+- The user mentions "agency", "capability", "intent", "verb",
+  "provenance", "dispatch", "Jules", "research", "analyze", "explain",
+  "reflect"…
+- The user asks the orchestrator to do anything in a repo where
+  `.agency/` exists.
+- A fresh session starts and any MCP code-mode block is about to call
+  a `capability_*` tool.
+- The user asks for a status/health check on the substrate
+  (`agency_doctor`).
+
+**When in doubt, invoke `agency_welcome` first.** Cheap (sub-1KB
+return) + cancellable; nothing else stands between a stale start and
+a clean dispatch.
+
+## Failure modes the skill prevents
+
+| Symptom | Root cause (this skill closes it) |
+|---|---|
+| `error: intent_id required` from a verb call | Skipped `intent_bootstrap` |
+| `unknown capability` | Skipped `agency_welcome` — guessed name |
+| Orphaned Invocation (no SERVES edge) | Verb called outside the intent flow |
+| `.agency/session.db` missing on first call | SessionStart hook hadn't finished — re-call `agency_welcome` which surfaces the resolved path |
+
+## See also
+
+- `agency_doctor` — health-check substrate tool when something silently fails.
+- `skills/help/SKILL.md` — the live capability map (regenerated by
+  `agency install`).
+- `dispatch-decision` — once an intent exists, this skill decides
+  inline vs subagent/Jules.
+"""
 
 
 def generate(engine: Engine) -> dict[str, str]:
@@ -236,8 +560,22 @@ def generate(engine: Engine) -> dict[str, str]:
     skill_body = _MCP_QUICKSTART + "\n" + help_doc
     files: dict[str, str] = {
         ".claude-plugin/plugin.json":      json.dumps(_manifest(), indent=2),
-        ".claude-plugin/marketplace.json": json.dumps(_marketplace(), indent=2),
+        ".claude-plugin/marketplace.json": json.dumps(_marketplace(engine), indent=2),
         ".mcp.json":                       json.dumps(_mcp_config(), indent=2),
+        # Spec 062 — SessionStart hook auto-runs `pipx install` on
+        # first session so marketplace consumers (especially Claude
+        # Code Web environments) don't hit the .mcp.json shim's
+        # exit-127 silent failure on a fresh install.
+        "hooks/hooks.json":                _SESSION_START_HOOKS_JSON,
+        # Spec 064: cross-platform polyglot wrapper + extensionless
+        # hook script (so Windows doesn't auto-prepend `bash` to a `.sh`
+        # filename and break on systems without bash on PATH).
+        "hooks/run-hook.cmd":              _RUN_HOOK_CMD_SCRIPT,
+        "hooks/session-start":             _SESSION_START_HOOK_SCRIPT,
+        # Spec 064: using-agency meta-skill (broad-trigger). Tells the
+        # orchestrator to call agency_welcome + intent_bootstrap before
+        # any capability verb — mirrors using-superpowers' pattern.
+        "skills/using-agency/SKILL.md":    _USING_AGENCY_SKILL_MD,
         "skills/help/SKILL.md":            author_skill(
             "help", HELP_DESC, skill_body,
             allowed_tools=HELP_ALLOWED_TOOLS,
@@ -285,8 +623,11 @@ def write(root: str) -> list[str]:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
             f.write(content)
-        # Spec 032 §8a — chmod +x for bash wrappers; graceful degrade on RO mount.
-        if rel.startswith("bin/"):
+        # Spec 032 §8a + Spec 062 — chmod +x for bash wrappers and
+        # hook scripts; graceful degrade on RO mount.
+        if (rel.startswith("bin/")
+                or rel.startswith("hooks/")    # Spec 064 — any file under hooks/
+                or rel.endswith(".sh")):
             try:
                 os.chmod(path, 0o755)
             except OSError as e:
@@ -320,6 +661,11 @@ def main(argv: list | None = None) -> int:
                         help="install root (default: this repo's root)")
     parser.add_argument("--scaffold-db", action="store_true",
                         help="also create .agency/ + .gitattributes binary marker (Spec 020)")
+    parser.add_argument("--scaffold-only", action="store_true",
+                        help="scaffold .agency/ + .gitattributes ONLY — do NOT write "
+                             "the plugin install surface into the target (Spec 065 — "
+                             "PR #19 P1: avoid overwriting a project's .mcp.json/hooks/ "
+                             "when the SessionStart hook calls us with CLAUDE_PROJECT_DIR)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print the would-write paths + per-file lint result; "
                              "touch nothing on disk. Exit 0 iff all lints pass.")
@@ -335,6 +681,18 @@ def main(argv: list | None = None) -> int:
             engine.memory.close()
         for rel in files:
             print(f"{os.path.join(target, rel)} OK")
+        return 0
+    if ns.scaffold_only:
+        # Spec 065 — scaffold the project's .agency/ WITHOUT writing the
+        # plugin install surface into it (the SessionStart hook calls us
+        # with target = ${CLAUDE_PROJECT_DIR}; we must not overwrite the
+        # user's own .mcp.json / hooks/ / skills/ / commands/).
+        scaffold_root = target
+        result = scaffold_db(scaffold_root)
+        for p in result["written"]:
+            print(p)
+        if result["gitattributes_updated"]:
+            print(os.path.join(scaffold_root, ".gitattributes"))
         return 0
     for p in write(target):
         print(p)

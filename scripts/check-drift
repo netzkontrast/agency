@@ -41,13 +41,13 @@ say
 # ----------------------------------------------------------------------
 say "==> install regen drift"
 INSTALL_OUT=$(python -m agency.install 2>&1 | tail -3 || true)
-if git diff --quiet -- .claude-plugin/ .mcp.json skills/help/ commands/; then
+if git diff --quiet -- .claude-plugin/ .mcp.json skills/help/ skills/using-agency/ commands/ hooks/; then
   say "    install: clean"
 else
   say "    install: REGEN PRODUCED A DIFF — commit the regenerated files"
   DRIFT=1
   if [[ "$QUIET" -eq 0 ]]; then
-    git diff --stat -- .claude-plugin/ .mcp.json skills/help/ commands/ | head -10
+    git diff --stat -- .claude-plugin/ .mcp.json skills/help/ skills/using-agency/ commands/ hooks/ | head -10
   fi
 fi
 say

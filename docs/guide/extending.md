@@ -84,16 +84,40 @@ capability without shipping in core.
 
 A skill is a Lifecycle template — an ordered list of phases, each declaring what
 it must `produce`, optionally ending in a hard gate. Contribute one via your
-`OntologyExtension(skills=…)`. A phase can be **bound to a verb**
-(`"invoke": {"capability": …, "verb": …}`) so that walking it *executes*; an
-unbound phase is a document step. See `agency/capabilities/develop.py` and
-`agency/capabilities/plugin.py` for shipped examples.
+`OntologyExtension(skills=…)` OR a file-based skill (Spec 060 folder form). A
+phase can be **bound to a verb** (`"invoke": {"capability": …, "verb": …}`) so
+that walking it *executes*; an unbound phase is a document step. See
+`agency/capabilities/develop/_main.py` and `agency/capabilities/plugin/_main.py`
+for shipped examples.
+
+### File-based templates + schemas (Spec 060)
+
+Drop strict artefact schemas under `<cap>/schemas/<name>.json` and rendering
+templates under `<cap>/templates/<name>.md`. The engine's bootstrap loader
+(Spec 060 §Phase 1) auto-discovers both and merges them into the capability's
+`OntologyExtension`. The `<!-- AGENT: -->` blocks in templates are stripped
+at render time for human output but remain visible when an agent reads the
+file directly — the Bitwize pattern that lets templates BOTH render artefacts
+AND instruct the agent on how to use them.
 
 ## After adding a capability
 
-Regenerate the self-hosted install so the `help` map reflects the new surface:
+Regenerate the self-hosted install so the `help` map + plugin manifest reflect
+the new surface, then verify lint + tests:
 
 ```bash
-python -m agency.install
-pytest -q
+agency install        # regenerate plugin install + hooks + help skill
+scripts/check-drift             # confirm install + tag inventory is clean
+python -m pytest -q -n auto -m "not e2e"
+```
+
+To run the seven-rule capability lint against your new cap:
+
+```bash
+python -c "
+from agency.engine import Engine
+from agency.capabilities.plugin import lint_capability
+e = Engine(':memory:')
+print(lint_capability(e.registry.get('<your-cap>')))
+"
 ```

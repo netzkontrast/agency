@@ -32,18 +32,22 @@ single-plugin marketplace. The plugin ships:
 ```
 .claude-plugin/plugin.json        # install descriptor (+ userConfig.jules_api_key, sensitive)
 .claude-plugin/marketplace.json   # single-plugin marketplace catalogue
-.mcp.json                         # declares the Agency MCP server (stdio, via bin/agency-mcp)
-bin/agency-mcp                    # thin PATH router to the pipx-installed `agency-mcp`
-bin/agency                        # thin PATH router to the pipx-installed `agency`
+.mcp.json                         # declares the Agency MCP server (bare `agency-mcp` on PATH)
+hooks/hooks.json                  # SessionStart hook (auto pipx-install on first session)
+hooks/session-start               # the install script (pipx-only, Spec 065)
+hooks/run-hook.cmd                # cross-platform CMD+bash polyglot wrapper (Spec 064)
+skills/using-agency/SKILL.md      # the broad-trigger entry meta-skill
 skills/help/SKILL.md              # the /agency:help macroskill (live capability map)
 commands/help.md                  # the /agency:help slash command
 ```
 
-> **One canonical install path: pipx** (Spec 055 doctrine, 2026-06-03).
-> The legacy `.venv` bootstrap (`bin/agency-install`) has been removed;
-> `bin/agency-mcp` and `bin/agency` are thin PATH routers to the
-> pipx-installed console-scripts. Marketplace install still works — the
-> shim routes to the pipx binary.
+> **One canonical install path: pipx** (Spec 055/065 doctrine).
+> The legacy `.venv` bootstrap (`bin/agency-install`) AND the
+> `bin/agency` / `bin/agency-mcp` shims have ALL been removed (Spec
+> 065 — PR #19 review surfaced fragility in the multi-step fallback
+> chain). The pipx-installed `agency` / `agency-mcp` / `agency-doctor`
+> console-scripts ARE the install. `.mcp.json` references bare
+> `agency-mcp` (PATH resolution) like episodic-memory does.
 
 ### Pipx install (canonical)
 
@@ -60,11 +64,11 @@ agency search "any-keyword"  # bash CLI
 
 The plugin ships three console-scripts (`agency-mcp`, `agency`,
 `agency-doctor`) registered in `pyproject.toml`. After `pipx install`,
-all three land on PATH; `.mcp.json` references `${CLAUDE_PLUGIN_ROOT}/
-bin/agency-mcp` which `exec`s the PATH-resolved `agency-mcp`.
+all three land on PATH. `.mcp.json` references bare `agency-mcp`
+(resolved from PATH — episodic-memory pattern; no bin/ shim).
 
-If `agency-mcp` isn't on PATH, the shim exits 127 with the install
-hint — no auto-bootstrap, no `.venv` surprises.
+If `agency-mcp` isn't on PATH the MCP server simply fails to start.
+The SessionStart hook (below) prevents this on first session.
 
 ### From the GitHub marketplace
 
@@ -75,9 +79,42 @@ In Claude Code:
 /plugin install agency@agency
 ```
 
-This sets up the plugin tree under `${CLAUDE_PLUGIN_ROOT}`. **You then
-run `pipx install <plugin-root>`** to get `agency-mcp` on PATH so the
-marketplace `.mcp.json` shim can route to it.
+This sets up the plugin tree under `${CLAUDE_PLUGIN_ROOT}`. A
+**SessionStart hook** (Spec 062, `hooks/session-start`) auto-runs
+`pipx install --editable ${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` on the
+first session so `agency-mcp` lands on PATH without a manual step.
+The hook is idempotent — every subsequent session early-exits when
+the binary is already installed. Editable mode means future
+marketplace plugin updates flow through automatically.
+
+> **Claude Code Web environments:** the hook removes the need to
+> manually `pipx install` after a marketplace install. The first
+> session shows a one-time `agency: installing via pipx (one-time)
+> — this may take ~5s` line; thereafter the plugin just works.
+
+> **Pipx-direct doctrine (Spec 065):** the SessionStart hook is a
+> single-path install — pipx only. Spec 063's multi-step fallback
+> (pip --user → per-project `.agency/.venv`) was removed after PR #19
+> review surfaced 4 P2 correctness issues in the chain. If pipx
+> isn't on PATH the hook prints a clear install hint
+> (`https://pipx.pypa.io/stable/installation/`) and exits 0. Users
+> install pipx once; the plugin just works thereafter.
+
+> **Target-repo scaffold:** after pipx install succeeds, the hook
+> runs `agency install --scaffold-db ${CLAUDE_PROJECT_DIR}` (using
+> the pipx-installed binary — NOT system python3, PR #19 review #2)
+> so the project's `.agency/session.db` + `.agency/README.md` +
+> `.gitattributes` binary-marker land on first session. The graph DB
+> is per-project; the install ensures the dir structure exists
+> before the engine first writes.
+
+> **Cross-platform + cross-IDE (Spec 064):** the SessionStart hook
+> ships through `hooks/run-hook.cmd` — a polyglot CMD+bash wrapper
+> that runs on Windows, macOS, and Linux from one entry. The hook
+> command uses the `${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` bash
+> fallback so Cursor / Codex harnesses (which set `PLUGIN_ROOT`)
+> also work. `using-agency` is the broad-trigger entry skill any
+> session calls first.
 
 Claude Code prompts for your **Jules API key** (optional — only needed
 for the `jules` remote-async-agent capability; stored in your system
@@ -117,7 +154,7 @@ The engine self-hosts its own install. After adding a capability,
 modifying a verb, or changing a docstring:
 
 ```bash
-python -m agency.install     # regenerates plugin.json, .mcp.json, marketplace.json,
+agency install     # regenerates plugin.json, .mcp.json, marketplace.json,
                               # skills/help/SKILL.md, and commands/*.md from the live registry
 ```
 
@@ -131,29 +168,33 @@ The manifest, `.mcp.json`, `marketplace.json`, the `help` skill, and the
 the `plugin` capability). After adding a new capability or skill:
 
 ```bash
-python -m agency.install        # rewrites the five files from the live registry
+agency install        # rewrites the five files from the live registry
 ```
 
 ## What ships
 
-**11 self-registering capabilities** — drop a file in
-`agency/capabilities/` and the engine `discover()`s it via reflection,
-auto-wiring one MCP tool per `@verb`-decorated method. Each capability
-owns its ontology fragment (nodes · edges · enums · skills · templates).
+**14 self-registering capabilities** — drop a file (or folder, per
+Spec 060) in `agency/capabilities/` and the engine `discover()`s it
+via reflection, auto-wiring one MCP tool per `@verb`-decorated method.
+Each capability owns its ontology fragment (nodes · edges · enums ·
+skills · templates · schemas).
 
 | Capability | Role(s) | What |
 |---|---|---|
-| `plugin` | act/transform | Develop plugins: scaffold manifest, author skill/command, marketplace entry, lint skills (CSO rules), help. |
-| `jules` | effect/transform | Full remote-Jules-session lifecycle: dispatch · read (status/list/activities/plan) · drive (approve_plan/message) · `COMPLETED ≠ done` `verify` · `watch` · `recover` · `apply_patch` · `lint_prompt` · `review_comment` · `detect_mode`. |
-| `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`batch_note`/`recall`/`search`) — the graph-native store for observations. |
-| `develop` | transform | Dev-workflow disciplines as walkable skills (brainstorm · plan · tdd · debug · verify · spec-panel · review · execute). |
-| `delegate` | effect/transform | Agent orchestration: `fan_out` + `join` + the **`dispatch-decision`** skill (token-economics heuristic for inline vs Jules-dispatch). |
+| `analyze` | transform/effect/act | 4-axis decidable analysis (quality/security/performance/architecture) + Spec 048 `paths` axis. Composes optional ruff/bandit/radon via the `[analyze]` extra. `run` · `improve` · `cleanup` · `architecture` · `security` · `quality` · `performance` · `paths`. |
+| `branch` | transform/effect | Finish a development branch: `assess` + `finish`. |
+| `delegate` | transform/effect | Agent orchestration: `fan_out` + `join` + the **`dispatch-decision`** skill (eleven-signal token-economics heuristic for inline vs local-subagent vs Jules vs MCP). |
+| `develop` | transform/act | Dev-workflow disciplines as walkable skills (brainstorm · plan · tdd · debug · verify · spec-panel · review) + `scaffold_capability` (light/medium/heavy skeletons). |
+| `document` | transform/effect | Project graph state to markdown: `render` (5 scopes incl. `research-report` and `provenance`) · `explain` (3 depths) · `index_repo` (94% token reduction). |
+| `dogfood` | transform/effect/act | Graph-native observation ledgers — `note` (write) + `render` (project to DOGFOOD-NOTES.md) + `export`/`import` (JSON for merge-conflict recovery) + `collect` (legacy markdown-to-graph migration). |
 | `gate` | act | Reusable hard-gate predicate: `check` records PASSED or BLOCKED_ON + an `input-required` pause on failure. |
-| `workspace` | effect | Isolate a worktree on a fresh branch + baseline its green/red test result. |
-| `branch` | effect/transform | Finish a development branch: `assess` + `finish`. |
-| `subagent` | effect | Subagent-driven development: dispatch a worker via `delegate` + two-stage gated review (spec → quality). |
-| `dogfood` | transform | Walk `Plan/**/DOGFOOD-NOTES.md`, extract observations, feed `reflect.batch_note` to close the self-improvement loop. |
+| `jules` | effect/transform | Full remote-Jules-session lifecycle: 22 verbs covering dispatch · read · drive · `COMPLETED ≠ done` `verify` · `watch` · `recover` · `apply_patch` · `lint_prompt` · `review_comment` · `detect_mode`. |
+| `plugin` | act/transform | Develop plugins: scaffold manifest, author skill/command, marketplace entry, lint skills (CSO rules), lint capabilities (Hint #7 + wire-shape + reflection-link), help. |
+| `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`batch_note`/`recall`/`search`/`recall_semantic`) — the graph-native store for observations; TF-IDF default + optional BGE via the `[recall]` extra. |
+| `research` | act | Deep-research flow: `lead` (mint a Research node) → `specialist` (4 roles: codebase / prior-reflections / doc-corpus / web) → `verify` (adversarial citation check). |
 | `skill_generator` | act | Compose `plugin.author_skill` + `lint_skill` into one deploy-ready-skill verb. |
+| `subagent` | effect | Subagent-driven development: dispatch a worker via `delegate` + two-stage gated review (spec → quality). |
+| `workspace` | effect | Isolate a worktree on a fresh branch + baseline its green/red test result. |
 
 Plus the **engine substrate tools** (not capabilities, wired directly):
 `search` · `get_schema` · `execute` (the code-mode contract) +
@@ -165,7 +206,7 @@ Domain capabilities live in [`examples/`](examples/) — e.g.
 `Engine(..., extra_capabilities=[…])`. The bootstrapping harness stays
 minimal while proving the extension contract end to end.
 
-## What it proves (`tests/`, 216+ passing)
+## What it proves (`tests/`, 663 passing)
 
 1. **The moat — cross-concern provenance is one graph traversal.**
    `Memory.provenance(intent)` returns, in one Cypher walk, every
@@ -298,7 +339,7 @@ economy review) · **051** (analyze.architecture + networkx) · **054**
 ```bash
 . .venv/bin/activate                      # always activate first
 python -m pytest -q -n auto -m "not e2e"  # full suite, parallel (~2:43)
-python -m agency.install                  # regen install when capabilities change
+agency install                  # regen install when capabilities change
 ```
 
 ### Fast iteration (Spec 053)

@@ -32,27 +32,19 @@ _TIMEOUT_PROC = 60.0    # total subprocess lifetime (kill threshold)
 def agency_mcp_binary():
     """Resolve the agency-mcp binary: PATH > plugin-venv > bin/.
 
-    Mirrors bin/agency-mcp's discovery logic. Raises pytest.skip if
-    nothing resolves (e.g. a slim CI image that hasn't installed the
-    plugin) so the test stays optional and doesn't block the suite.
+    Spec 065 (pipx-direct doctrine): `agency-mcp` resolves from PATH
+    only — the legacy `bin/agency-mcp` shim AND the Spec 063
+    `.agency/.venv` fallback are both gone. Pipx install puts the
+    console-script on PATH; that's the only resolution path.
+
+    Raises pytest.skip if `agency-mcp` isn't on PATH (slim CI image
+    where pipx hasn't run) so the test stays optional and doesn't
+    block the default suite.
     """
-    # 1. PATH (post-pipx-install).
     p = shutil.which("agency-mcp")
     if p:
         return p
-    # 2. Plugin-local venv (post-marketplace-install).
-    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT",
-                                  os.path.abspath(
-                                      os.path.join(os.path.dirname(__file__),
-                                                   "..")))
-    venv_mcp = os.path.join(plugin_root, ".venv", "bin", "agency-mcp")
-    if os.path.isfile(venv_mcp) and os.access(venv_mcp, os.X_OK):
-        return venv_mcp
-    # 3. bin/agency-mcp (the discovery shim itself).
-    shim = os.path.join(plugin_root, "bin", "agency-mcp")
-    if os.path.isfile(shim) and os.access(shim, os.X_OK):
-        return shim
-    pytest.skip("agency-mcp not resolvable via PATH, venv, or bin/")
+    pytest.skip("agency-mcp not on PATH (Spec 065: pipx install required)")
 
 
 def _send(p: subprocess.Popen, msg: dict) -> None:
