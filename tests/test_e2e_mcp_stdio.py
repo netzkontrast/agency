@@ -32,23 +32,35 @@ _TIMEOUT_PROC = 60.0    # total subprocess lifetime (kill threshold)
 def agency_mcp_binary():
     """Resolve the agency-mcp binary: PATH > plugin-venv > bin/.
 
-    Mirrors bin/agency-mcp's discovery logic. Raises pytest.skip if
-    nothing resolves (e.g. a slim CI image that hasn't installed the
-    plugin) so the test stays optional and doesn't block the suite.
+    Mirrors bin/agency-mcp's resolution order (Spec 063):
+      1. ${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/agency-mcp (venv fallback)
+      2. PATH (pipx-installed / pip --user / global)
+      3. ${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp shim itself (last resort)
+
+    Raises pytest.skip if nothing resolves (slim CI image without the
+    plugin installed) so the test stays optional.
+
+    Spec 055/063: the legacy `${CLAUDE_PLUGIN_ROOT}/.venv/bin/agency-mcp`
+    plugin-tree-venv path was removed alongside `bin/agency-install`;
+    the project-local `.agency/.venv` is the new fallback.
     """
-    # 1. PATH (post-pipx-install).
+    # 1. Project-local venv (Spec 063 fallback path) — preferred over
+    #    PATH so a project-pinned version wins.
+    project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    if project_dir:
+        venv_mcp = os.path.join(
+            project_dir, ".agency", ".venv", "bin", "agency-mcp")
+        if os.path.isfile(venv_mcp) and os.access(venv_mcp, os.X_OK):
+            return venv_mcp
+    # 2. PATH (post-pipx-install or post-pip-user).
     p = shutil.which("agency-mcp")
     if p:
         return p
-    # 2. Plugin-local venv (post-marketplace-install).
+    # 3. bin/agency-mcp (the discovery shim itself).
     plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT",
                                   os.path.abspath(
                                       os.path.join(os.path.dirname(__file__),
                                                    "..")))
-    venv_mcp = os.path.join(plugin_root, ".venv", "bin", "agency-mcp")
-    if os.path.isfile(venv_mcp) and os.access(venv_mcp, os.X_OK):
-        return venv_mcp
-    # 3. bin/agency-mcp (the discovery shim itself).
     shim = os.path.join(plugin_root, "bin", "agency-mcp")
     if os.path.isfile(shim) and os.access(shim, os.X_OK):
         return shim
