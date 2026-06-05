@@ -1,8 +1,9 @@
 ---
 spec_id: "063"
 slug: venv-fallback-install-path
-status: complete   # 2026-06-04: shim venv-first + hook 3-step fallback + scaffold-db + tests
-last_updated: 2026-06-04
+status: superseded   # 2026-06-05: PR #19 review surfaced 4 P2 issues in the 3-step chain; Spec 065 ships pipx-only
+superseded_by: "065"
+last_updated: 2026-06-05
 owner: "@agency"
 depends_on: ["055", "061", "062"]
 affects:

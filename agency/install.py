@@ -100,13 +100,12 @@ _MCP_QUICKSTART = (
     "`./.agency/session.db`) — do NOT pass `--db`, or the bash surface writes\n"
     "to a different store than MCP. The canonical entrypoint is\n"
     "`python -m agency.cli` (works in Jules / no-MCP / any context where the\n"
-    "venv is activated). The `${CLAUDE_PLUGIN_ROOT}/bin/agency` wrapper is\n"
-    "a convenience inside Claude Code; under Jules / no-MCP it expands to\n"
-    "`/bin/agency` and fails — Codex review of cedcea0.\n\n"
+    "venv is activated). Spec 065: `agency` (the pipx-installed\n"
+    "console-script) is the canonical CLI form — no bin/ shim.\n\n"
     "```bash\n"
-    'iid=$(python -m agency.cli intent --purpose help --deliverable map --acceptance ok \\\n'
+    'iid=$(agency intent --purpose help --deliverable map --acceptance ok \\\n'
     '      | python3 -c \'import sys,json; print(json.load(sys.stdin)["intent_id"])\')\n'
-    'python -m agency.cli execute --code \\\n'
+    'agency execute --code \\\n'
     "  \"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
     "```\n\n"
 )
@@ -114,17 +113,16 @@ _MCP_QUICKSTART = (
 CMD_BODY = (
     _MCP_QUICKSTART
     + "## Slash-command bash fallback\n\n"
-    "If neither the MCP server nor the venv-aware launcher is reachable\n"
-    "from your shell, the plugin's `bin/agency` wrapper is a thin PATH\n"
-    "router to the pipx-installed `agency` console-script (Spec 055).\n"
+    "If the MCP server isn't reachable from your shell, use the\n"
+    "pipx-installed `agency` console-script (Spec 055/065 — bin/ shims\n"
+    "removed; rely on pipx for PATH resolution).\n"
     "Bootstrap an intent, then call the help verb with its\n"
     "id (no `--db` — the Spec 020 resolver picks `./.agency/session.db`,\n"
     "the same store MCP uses):\n\n"
-    "    AGENCY=\"${CLAUDE_PLUGIN_ROOT}/bin/agency\"\n"
-    "    iid=$(\"$AGENCY\" intent --purpose help "
+    "    iid=$(agency intent --purpose help "
     "--deliverable map --acceptance ok | python3 -c "
     "'import sys,json; print(json.load(sys.stdin)[\"intent_id\"])')\n"
-    "    \"$AGENCY\" execute --code "
+    "    agency execute --code "
     "\"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
 )
 
@@ -181,11 +179,14 @@ def _mcp_config() -> dict:
     return {
         "mcpServers": {
             "agency": {
-                # Spec 064: ${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}} bash
-                # fallback lets Cursor/Codex harnesses that set
-                # PLUGIN_ROOT (rather than CLAUDE_PLUGIN_ROOT) reach the
-                # shim. Mirrors episodic-memory's cross-IDE pattern.
-                "command": "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/bin/agency-mcp",
+                # Spec 065 (pipx-direct doctrine): the bare
+                # `agency-mcp` command resolves from PATH, where pipx
+                # install lands the console-script. Removes the
+                # bin/agency-mcp shim (Specs 055/063 layered self-
+                # detection + venv-first logic that PR #19 review
+                # caught as fragile). Mirrors episodic-memory's bare
+                # command pattern.
+                "command": "agency-mcp",
                 "args": [],
                 # Spec 064: pin CWD to the project root so the MCP
                 # subprocess's path resolver lands the graph DB in the
@@ -342,81 +343,56 @@ exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"
 
 _SESSION_START_HOOK_SCRIPT = """\
 #!/usr/bin/env bash
-# agency SessionStart hook — Spec 062 + Spec 063.
+# agency SessionStart hook — Spec 062 + Spec 065 (pipx-direct doctrine).
 #
-# Three-step install fallback chain + target-repo scaffold. Runs once
-# per session at startup, BEFORE any MCP tool can be called.
+# Single install path: `pipx install --editable ${PLUGIN_ROOT}`.
+# When agency-mcp is already on PATH (subsequent sessions, or any
+# environment where pipx already ran), the hook exits early.
 #
-# Resolution order (first that succeeds wins):
-#   1. pipx install (canonical per Spec 055/062)
-#   2. pip install --user (sandboxed-env fallback)
-#   3. python -m venv ${CLAUDE_PROJECT_DIR}/.agency/.venv + pip -e
-#      (per-project venv fallback per Spec 063)
+# Spec 065 supersedes Spec 063's three-step fallback chain (PR #19
+# review surfaced 4 correctness issues with the pip --user and
+# .agency/.venv fallback paths). Rely on pipx; print a clear hint
+# when it's missing so the user can install it once and retry.
 #
-# After ANY successful path, scaffolds the target repo's .agency/
-# (session.db + README + .gitattributes) via the Spec 020 scaffold-db
-# CLI mode.
-#
-# Idempotency: early-exit when agency-mcp is reachable through PATH
-# OR through the per-project venv. Subsequent sessions skip the
-# install loop. Editable installs mean marketplace updates flow
-# through without a second pipx call.
+# After install succeeds, scaffolds the target repo's .agency/
+# (session.db + README + .gitattributes) via the pipx-installed
+# `agency install --scaffold-db` — the just-installed binary, NOT
+# the system python3 (PR #19 review #2 closed this way).
 set -e
 
-# Idempotent: bail if EITHER install path is already populated.
+# Idempotent: bail if agency-mcp is already on PATH.
 if command -v agency-mcp >/dev/null 2>&1; then
   exit 0
 fi
-if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && \\
-   [ -x "${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/agency-mcp" ]; then
+
+# Single install path: pipx. No pip --user. No per-project venv.
+if ! command -v pipx >/dev/null 2>&1; then
+  cat >&2 <<'HINT'
+agency: pipx is required but not on PATH.
+
+Install pipx once (https://pipx.pypa.io/stable/installation/), then
+restart your session. The hook will auto-install agency.
+
+    python3 -m pip install --user pipx
+    python3 -m pipx ensurepath
+    # restart shell or `source ~/.bashrc`, then restart Claude Code
+HINT
+  # Don't block session start; MCP boot prints its own missing-binary
+  # hint when the user tries the first verb.
   exit 0
 fi
 
-INSTALL_OK=0
-
-# Path 1 — pipx (canonical per Spec 055).
-if command -v pipx >/dev/null 2>&1; then
-  echo "agency: installing via pipx (one-time) — this may take ~5s" >&2
-  if pipx install --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
-    INSTALL_OK=1
-  fi
-fi
-
-# Path 2 — pip --user (sandboxed envs without pipx).
-if [ "$INSTALL_OK" -eq 0 ] && command -v pip >/dev/null 2>&1; then
-  echo "agency: pipx unavailable; trying pip --user" >&2
-  if pip install --user --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
-    INSTALL_OK=1
-  fi
-fi
-
-# Path 3 — per-project venv at ${CLAUDE_PROJECT_DIR}/.agency/.venv
-# (Spec 063). Picked up by bin/agency-mcp's venv-first check on next
-# MCP boot.
-if [ "$INSTALL_OK" -eq 0 ] && \\
-   [ -n "${CLAUDE_PROJECT_DIR:-}" ] && \\
-   command -v python3 >/dev/null 2>&1; then
-  echo "agency: pip --user unavailable; creating .agency/.venv" >&2
-  mkdir -p "${CLAUDE_PROJECT_DIR}/.agency"
-  if python3 -m venv "${CLAUDE_PROJECT_DIR}/.agency/.venv" && \\
-     "${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/pip" install \\
-        --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
-    INSTALL_OK=1
-  fi
-fi
-
-if [ "$INSTALL_OK" -eq 0 ]; then
-  echo "agency: no install path reachable (need pipx OR pip OR python3-venv)" >&2
-  # Don't block session start; the MCP shim will exit 127 with its
-  # own install hint on first call.
+echo "agency: installing via pipx (one-time) — this may take ~5s" >&2
+if ! pipx install --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
+  echo "agency: pipx install failed (non-fatal — see output above)" >&2
   exit 0
 fi
 
-# After ANY successful install path, scaffold the target repo's
-# .agency/ via the Spec 020 CLI mode so session.db + the README +
-# .gitattributes binary marker land in the project root.
+# After install: scaffold the target repo's .agency/ via the pipx-
+# installed agency CLI (NOT system python3 — the installed binary
+# runs in the pipx venv where the `agency` package is importable).
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
-  python3 -m agency.install --scaffold-db "${CLAUDE_PROJECT_DIR}" >&2 || \\
+  agency install --scaffold-db "${CLAUDE_PROJECT_DIR}" >&2 || \\
     echo "agency: .agency/ scaffold failed (non-fatal)" >&2
 fi
 
@@ -509,7 +485,7 @@ a clean dispatch.
 
 - `agency_doctor` — health-check substrate tool when something silently fails.
 - `skills/help/SKILL.md` — the live capability map (regenerated by
-  `python -m agency.install`).
+  `agency install`).
 - `dispatch-decision` — once an intent exists, this skill decides
   inline vs subagent/Jules.
 """

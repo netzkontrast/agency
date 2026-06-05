@@ -56,47 +56,56 @@ def test_session_start_script_has_idempotency_guard():
     script = files["hooks/session-start"]
     # Idempotency: bail out if agency-mcp is already on PATH.
     assert "command -v agency-mcp" in script
-    # Spec 063: also bail if the per-project venv binary exists.
-    assert ".agency/.venv/bin/agency-mcp" in script
-    # pipx is the canonical install path (Spec 055).
+    # Spec 065: pipx is the canonical (and only) install path.
     assert "pipx install --editable" in script
-    # Pip fallback for environments without pipx.
-    assert "pip install --user" in script
-    # Fail-soft: don't block session start when neither tool is present.
+    # Spec 065: no pip --user install action for agency itself, no
+    # .agency/.venv fallback. The HINT block mentions `pip install
+    # --user pipx` (user-facing fix for missing pipx — not an install
+    # action by us); the comment block mentions `.agency/.venv` in
+    # historical/why context. Only the CODE paths must be absent.
+    code_lines = [ln for ln in script.splitlines() if not ln.lstrip().startswith("#")]
+    code = "\n".join(code_lines)
+    assert "pip install --user --editable" not in code
+    assert "python3 -m venv" not in code
+    assert ".agency/.venv" not in code
+    # Fail-soft: don't block session start when pipx isn't on PATH.
     assert "exit 0" in script
 
 
 # ---------------------------------------------------------------------------
-# Spec 063 — venv fallback path + post-install scaffold-db.
+# Spec 065 — single pipx install path + agency CLI for scaffold-db.
 # ---------------------------------------------------------------------------
 
 
-def test_session_start_script_includes_venv_fallback():
-    """Spec 063: when pipx + pip --user both fail, the hook creates a
-    per-project venv at ${CLAUDE_PROJECT_DIR}/.agency/.venv and pip-
-    installs the agency package into it. The bin/agency-mcp shim
-    knows to prefer that venv over PATH."""
+def test_session_start_script_uses_pipx_only():
+    """Spec 065: the 3-step fallback chain (Spec 063) is gone. Pipx is
+    THE install path. If pipx isn't reachable the hook prints a clear
+    hint and exits 0 without blocking session startup."""
     script = _files()["hooks/session-start"]
-    assert "python3 -m venv" in script
-    assert "${CLAUDE_PROJECT_DIR}/.agency/.venv" in script
-    # The venv's pip is invoked directly (not the system pip).
-    assert "/.agency/.venv/bin/pip" in script
+    # Restrict to code lines so historical/context refs in comments
+    # don't false-fire.
+    code = "\n".join(
+        ln for ln in script.splitlines() if not ln.lstrip().startswith("#"))
+    # No project venv creation, no pip --user install of agency.
+    assert "python3 -m venv" not in code
+    assert "pip install --user --editable" not in code
+    # Pipx is the single install path.
+    assert "command -v pipx" in code
+    # Helpful hint when pipx is missing (HINT heredoc — not a comment).
+    assert "pipx.pypa.io" in script
 
 
 def test_session_start_script_runs_scaffold_db_after_install():
-    """Spec 063: after ANY successful install path, the hook scaffolds
-    the target repo's .agency/ via Spec 020's --scaffold-db CLI so
-    session.db + README + .gitattributes land in the project root."""
+    """Spec 065: after pipx install succeeds, the hook scaffolds the
+    target repo's .agency/ via the pipx-installed `agency install
+    --scaffold-db` (not `python3 -m agency.install` — that would use
+    the system interpreter where the package isn't importable; PR
+    #19 review #2)."""
     script = _files()["hooks/session-start"]
-    assert "python3 -m agency.install --scaffold-db" in script
+    assert "agency install --scaffold-db" in script
     assert "${CLAUDE_PROJECT_DIR}" in script
-
-
-def test_session_start_script_documents_three_paths():
-    """Sanity: the three install paths are visible in the comment
-    block so a debugger reading the script knows the fallback order."""
-    script = _files()["hooks/session-start"]
-    assert "Path 1" in script and "Path 2" in script and "Path 3" in script
+    # Explicit absence: don't use the system python3 form.
+    assert "python3 -m agency.install --scaffold-db" not in script
 
 
 def test_session_start_script_starts_with_shebang():

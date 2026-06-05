@@ -44,27 +44,25 @@ The CLI resolves the graph DB itself (Spec 020: `AGENCY_DB` env, else
 `./.agency/session.db`) — do NOT pass `--db`, or the bash surface writes
 to a different store than MCP. The canonical entrypoint is
 `python -m agency.cli` (works in Jules / no-MCP / any context where the
-venv is activated). The `${CLAUDE_PLUGIN_ROOT}/bin/agency` wrapper is
-a convenience inside Claude Code; under Jules / no-MCP it expands to
-`/bin/agency` and fails — Codex review of cedcea0.
+venv is activated). Spec 065: `agency` (the pipx-installed
+console-script) is the canonical CLI form — no bin/ shim.
 
 ```bash
-iid=$(python -m agency.cli intent --purpose help --deliverable map --acceptance ok \
+iid=$(agency intent --purpose help --deliverable map --acceptance ok \
       | python3 -c 'import sys,json; print(json.load(sys.stdin)["intent_id"])')
-python -m agency.cli execute --code \
+agency execute --code \
   "return await call_tool('capability_plugin_help', {'intent_id': '$iid'})"
 ```
 
 ## Slash-command bash fallback
 
-If neither the MCP server nor the venv-aware launcher is reachable
-from your shell, the plugin's `bin/agency` wrapper is a thin PATH
-router to the pipx-installed `agency` console-script (Spec 055).
+If the MCP server isn't reachable from your shell, use the
+pipx-installed `agency` console-script (Spec 055/065 — bin/ shims
+removed; rely on pipx for PATH resolution).
 Bootstrap an intent, then call the help verb with its
 id (no `--db` — the Spec 020 resolver picks `./.agency/session.db`,
 the same store MCP uses):
 
-    AGENCY="${CLAUDE_PLUGIN_ROOT}/bin/agency"
-    iid=$("$AGENCY" intent --purpose help --deliverable map --acceptance ok | python3 -c 'import sys,json; print(json.load(sys.stdin)["intent_id"])')
-    "$AGENCY" execute --code "return await call_tool('capability_plugin_help', {'intent_id': '$iid'})"
+    iid=$(agency intent --purpose help --deliverable map --acceptance ok | python3 -c 'import sys,json; print(json.load(sys.stdin)["intent_id"])')
+    agency execute --code "return await call_tool('capability_plugin_help', {'intent_id': '$iid'})"
 

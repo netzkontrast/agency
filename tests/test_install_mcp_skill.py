@@ -34,8 +34,8 @@ def test_help_skill_teaches_mcp_form():
 def test_help_skill_keeps_bash_fallback():
     files = _files()
     skill = files["skills/help/SKILL.md"]
-    # Bash bootstrap for Jules / no-MCP hosts
-    assert "${CLAUDE_PLUGIN_ROOT}/bin/agency" in skill
+    # Spec 065: pipx-installed `agency` console-script (no bin/ shim).
+    assert "agency intent" in skill or "agency execute" in skill
 
 
 def test_help_skill_allowed_tools_lists_agency_mcp_tools():
@@ -55,8 +55,8 @@ def test_help_command_teaches_mcp_form():
     files = _files()
     cmd = files["commands/help.md"]
     assert "mcp__plugin_agency_agency__execute" in cmd, cmd
-    # Bash form remains as a fallback block
-    assert "${CLAUDE_PLUGIN_ROOT}/bin/agency" in cmd
+    # Spec 065: pipx-installed `agency` console-script (no bin/ shim).
+    assert "agency intent" in cmd or "agency execute" in cmd
 
 
 # ---------------------------------------------------------------------------
@@ -109,14 +109,20 @@ def test_mcp_json_declares_env_vars_passthrough():
     assert "JULES_API_KEY" in env_vars
 
 
-def test_mcp_json_command_uses_plugin_root_fallback():
-    """Spec 064: ${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}} bash fallback
-    lets Cursor/Codex harnesses that set PLUGIN_ROOT reach the shim."""
+def test_mcp_json_command_is_bare_agency_mcp():
+    """Spec 065 (pipx-direct doctrine): the bin/agency-mcp shim is
+    removed; .mcp.json `command` is now just `agency-mcp`, resolved
+    from PATH where pipx install lands the console-script. Mirrors
+    episodic-memory's pattern."""
     import json
     files = _files()
     mcp_cfg = json.loads(files[".mcp.json"])
     cmd = mcp_cfg["mcpServers"]["agency"]["command"]
-    assert "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" in cmd
+    assert cmd == "agency-mcp", f"expected bare 'agency-mcp'; got {cmd!r}"
+    # Explicit absence: no bin/ path prefix, no ${PLUGIN_ROOT} fallback
+    # (the old Spec 064 shape).
+    assert "/bin/" not in cmd
+    assert "${" not in cmd
 
 
 def test_marketplace_description_names_live_surface():

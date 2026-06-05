@@ -32,18 +32,22 @@ single-plugin marketplace. The plugin ships:
 ```
 .claude-plugin/plugin.json        # install descriptor (+ userConfig.jules_api_key, sensitive)
 .claude-plugin/marketplace.json   # single-plugin marketplace catalogue
-.mcp.json                         # declares the Agency MCP server (stdio, via bin/agency-mcp)
-bin/agency-mcp                    # thin PATH router to the pipx-installed `agency-mcp`
-bin/agency                        # thin PATH router to the pipx-installed `agency`
+.mcp.json                         # declares the Agency MCP server (bare `agency-mcp` on PATH)
+hooks/hooks.json                  # SessionStart hook (auto pipx-install on first session)
+hooks/session-start               # the install script (pipx-only, Spec 065)
+hooks/run-hook.cmd                # cross-platform CMD+bash polyglot wrapper (Spec 064)
+skills/using-agency/SKILL.md      # the broad-trigger entry meta-skill
 skills/help/SKILL.md              # the /agency:help macroskill (live capability map)
 commands/help.md                  # the /agency:help slash command
 ```
 
-> **One canonical install path: pipx** (Spec 055 doctrine, 2026-06-03).
-> The legacy `.venv` bootstrap (`bin/agency-install`) has been removed;
-> `bin/agency-mcp` and `bin/agency` are thin PATH routers to the
-> pipx-installed console-scripts. Marketplace install still works — the
-> shim routes to the pipx binary.
+> **One canonical install path: pipx** (Spec 055/065 doctrine).
+> The legacy `.venv` bootstrap (`bin/agency-install`) AND the
+> `bin/agency` / `bin/agency-mcp` shims have ALL been removed (Spec
+> 065 — PR #19 review surfaced fragility in the multi-step fallback
+> chain). The pipx-installed `agency` / `agency-mcp` / `agency-doctor`
+> console-scripts ARE the install. `.mcp.json` references bare
+> `agency-mcp` (PATH resolution) like episodic-memory does.
 
 ### Pipx install (canonical)
 
@@ -60,11 +64,11 @@ agency search "any-keyword"  # bash CLI
 
 The plugin ships three console-scripts (`agency-mcp`, `agency`,
 `agency-doctor`) registered in `pyproject.toml`. After `pipx install`,
-all three land on PATH; `.mcp.json` references `${CLAUDE_PLUGIN_ROOT}/
-bin/agency-mcp` which `exec`s the PATH-resolved `agency-mcp`.
+all three land on PATH. `.mcp.json` references bare `agency-mcp`
+(resolved from PATH — episodic-memory pattern; no bin/ shim).
 
-If `agency-mcp` isn't on PATH, the shim exits 127 with the install
-hint — no auto-bootstrap, no `.venv` surprises.
+If `agency-mcp` isn't on PATH the MCP server simply fails to start.
+The SessionStart hook (below) prevents this on first session.
 
 ### From the GitHub marketplace
 
@@ -76,8 +80,8 @@ In Claude Code:
 ```
 
 This sets up the plugin tree under `${CLAUDE_PLUGIN_ROOT}`. A
-**SessionStart hook** (Spec 062, `hooks/session-start.sh`)
-auto-runs `pipx install --editable ${CLAUDE_PLUGIN_ROOT}` on the
+**SessionStart hook** (Spec 062, `hooks/session-start`) auto-runs
+`pipx install --editable ${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` on the
 first session so `agency-mcp` lands on PATH without a manual step.
 The hook is idempotent — every subsequent session early-exits when
 the binary is already installed. Editable mode means future
@@ -88,30 +92,29 @@ marketplace plugin updates flow through automatically.
 > session shows a one-time `agency: installing via pipx (one-time)
 > — this may take ~5s` line; thereafter the plugin just works.
 
-> **Three-step fallback chain (Spec 063):** the hook tries `pipx
-> install` first; if pipx isn't on PATH it falls through to
-> `pip install --user --editable`; if THAT also fails it creates a
-> per-project venv at `${CLAUDE_PROJECT_DIR}/.agency/.venv/` and
-> pip-installs `agency` into it. `bin/agency-mcp` knows to prefer
-> the project-local venv over PATH, so a sandboxed environment
-> without pipx still ends up with a working MCP server.
-> If all three paths fail the hook prints a hint and the
-> `.mcp.json` shim later exits 127 with the install instructions.
+> **Pipx-direct doctrine (Spec 065):** the SessionStart hook is a
+> single-path install — pipx only. Spec 063's multi-step fallback
+> (pip --user → per-project `.agency/.venv`) was removed after PR #19
+> review surfaced 4 P2 correctness issues in the chain. If pipx
+> isn't on PATH the hook prints a clear install hint
+> (`https://pipx.pypa.io/stable/installation/`) and exits 0. Users
+> install pipx once; the plugin just works thereafter.
 
-> **Target-repo scaffold:** after any successful install path, the
-> hook runs `python -m agency.install --scaffold-db
-> ${CLAUDE_PROJECT_DIR}` so the project's `.agency/session.db` +
-> `.agency/README.md` + `.gitattributes` binary-marker land on first
-> session. The graph DB is per-project; the install ensures the dir
-> structure exists before the engine first writes.
+> **Target-repo scaffold:** after pipx install succeeds, the hook
+> runs `agency install --scaffold-db ${CLAUDE_PROJECT_DIR}` (using
+> the pipx-installed binary — NOT system python3, PR #19 review #2)
+> so the project's `.agency/session.db` + `.agency/README.md` +
+> `.gitattributes` binary-marker land on first session. The graph DB
+> is per-project; the install ensures the dir structure exists
+> before the engine first writes.
 
 > **Cross-platform + cross-IDE (Spec 064):** the SessionStart hook
 > ships through `hooks/run-hook.cmd` — a polyglot CMD+bash wrapper
 > that runs on Windows, macOS, and Linux from one entry. The hook
-> command and `.mcp.json` `command` both use the
-> `${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` bash fallback so Cursor /
-> Codex harnesses (which set `PLUGIN_ROOT`) also work. `using-agency`
-> is the broad-trigger entry skill any session calls first.
+> command uses the `${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` bash
+> fallback so Cursor / Codex harnesses (which set `PLUGIN_ROOT`)
+> also work. `using-agency` is the broad-trigger entry skill any
+> session calls first.
 
 Claude Code prompts for your **Jules API key** (optional — only needed
 for the `jules` remote-async-agent capability; stored in your system
@@ -151,7 +154,7 @@ The engine self-hosts its own install. After adding a capability,
 modifying a verb, or changing a docstring:
 
 ```bash
-python -m agency.install     # regenerates plugin.json, .mcp.json, marketplace.json,
+agency install     # regenerates plugin.json, .mcp.json, marketplace.json,
                               # skills/help/SKILL.md, and commands/*.md from the live registry
 ```
 
@@ -165,7 +168,7 @@ The manifest, `.mcp.json`, `marketplace.json`, the `help` skill, and the
 the `plugin` capability). After adding a new capability or skill:
 
 ```bash
-python -m agency.install        # rewrites the five files from the live registry
+agency install        # rewrites the five files from the live registry
 ```
 
 ## What ships
@@ -336,7 +339,7 @@ economy review) · **051** (analyze.architecture + networkx) · **054**
 ```bash
 . .venv/bin/activate                      # always activate first
 python -m pytest -q -n auto -m "not e2e"  # full suite, parallel (~2:43)
-python -m agency.install                  # regen install when capabilities change
+agency install                  # regen install when capabilities change
 ```
 
 ### Fast iteration (Spec 053)

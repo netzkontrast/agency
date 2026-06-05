@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "agency": {
-      "command": "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/bin/agency-mcp",
+      "command": "agency-mcp",
       "args": [],
       "cwd": "${CLAUDE_PROJECT_DIR}",
       "env": {

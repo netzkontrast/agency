@@ -29,23 +29,23 @@ State lives in one graph file you pass as `--db <path>` (it persists across call
 
 ```bash
 # 0. bootstrap an Intent (everything you do SERVES one) — prints {"intent_id": "..."}
-python -m agency.cli --db graph.db intent \
+agency --db graph.db intent \
   --purpose "ship green CI" --deliverable "auth test passes" --acceptance "tests green"
 
 # 1. discover what tools exist
-python -m agency.cli --db graph.db search "lint skill"
+agency --db graph.db search "lint skill"
 
 # 2. get a tool's schema (params + returns)
-python -m agency.cli --db graph.db get-schema capability_plugin_lint_skill
+agency --db graph.db get-schema capability_plugin_lint_skill
 
 # 3. execute: write Python that chains tools and RETURNS ONLY A DELTA
-python -m agency.cli --db graph.db execute --code '
+agency --db graph.db execute --code '
 r = await call_tool("capability_plugin_lint_skill", {"name": "Bad Name", "description": "does stuff", "intent_id": "intent:abc"})
 return r["violations"] if isinstance(r, dict) and "violations" in r else r
 '
 # ...or pipe the code in on stdin:
 echo 'return await call_tool("memory_graph_provenance", {"intent_id": "intent:abc"})' \
-  | python -m agency.cli --db graph.db execute
+  | agency --db graph.db execute
 ```
 
 Inside `execute`, `await call_tool(name, params)` is in scope and `return` yields
@@ -118,12 +118,12 @@ a capability's `ontology.skills` and walked by `agency/skill.py` one phase at a 
 - After adding/changing a capability, regenerate the self-hosted install:
   `python -m agency.install` (rewrites `.claude-plugin/plugin.json` + `skills/help` + `commands/`).
 - **The plugin venv is mandatory for direct engine invocations** (Spec 030 §D / KP Fehlerbericht F5).
-  Running `python -m agency.cli ...` with the system `python3` fails
+  Running `agency ...` with the system `python3` fails
   silently with `ModuleNotFoundError: graphqlite` — the engine writes
   nothing yet the surrounding output can look successful. ALWAYS
   activate the plugin venv (`. .venv/bin/activate`) or invoke the
   venv's interpreter directly. Call `agency_doctor` from MCP (or
-  `python -m agency.cli execute --code "import json; r = await call_tool('agency_doctor', {}); print(json.dumps(r))"`)
+  `agency execute --code "import json; r = await call_tool('agency_doctor', {}); print(json.dumps(r))"`)
   to confirm both deps and the resolved DB path before bootstrapping.
 - Develop on the feature branch; **PRs target `main`**; additive commits, never
   force-push or rewrite history.

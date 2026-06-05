@@ -106,7 +106,7 @@ Regenerate the self-hosted install so the `help` map + plugin manifest reflect
 the new surface, then verify lint + tests:
 
 ```bash
-python -m agency.install        # regenerate plugin install + hooks + help skill
+agency install        # regenerate plugin install + hooks + help skill
 scripts/check-drift             # confirm install + tag inventory is clean
 python -m pytest -q -n auto -m "not e2e"
 ```

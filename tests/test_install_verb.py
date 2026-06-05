@@ -134,3 +134,85 @@ def test_agency_install_non_writable_target_fails(tmp_path):
             e.memory.close()
     finally:
         os.chmod(tmp_path, stat.S_IRWXU)   # restore so pytest can clean up
+
+
+# ---------------------------------------------------------------------------
+# Spec 065 — `agency install` CLI subcommand (consolidation).
+# ---------------------------------------------------------------------------
+
+
+def test_agency_install_cli_subcommand_dry_run(tmp_path, capsys):
+    """Spec 065: `agency install --dry-run` dispatches to
+    install.main(['--dry-run']) so the canonical CLI form replaces
+    `python -m agency.install --dry-run`."""
+    from agency.cli import main as cli_main
+    rc = cli_main(["install", "--dry-run"])
+    assert rc == 0
+
+
+def test_agency_install_cli_subcommand_scaffold_db(tmp_path):
+    """Spec 065: `agency install --scaffold-db <target>` is the path
+    the SessionStart hook uses to seed .agency/ in the project root.
+
+    scaffold_db creates the .agency/ directory + README + .gitattributes
+    binary marker. The session.db file appears lazily on the first
+    Memory write — not at scaffold time."""
+    from agency.cli import main as cli_main
+    rc = cli_main(["install", str(tmp_path), "--scaffold-db"])
+    assert rc == 0
+    assert (tmp_path / ".agency").is_dir()
+    assert (tmp_path / ".agency" / "README.md").exists()
+    assert (tmp_path / ".gitattributes").exists()
+
+
+def test_agency_welcome_cli_subcommand(tmp_path, capsys):
+    """Spec 065: `agency welcome` is the bash-side wrapper around the
+    agency_welcome substrate tool. Returns the canonical onboarding
+    payload (capability list, bootstrap example, db_path)."""
+    import json as _json
+    from agency.cli import main as cli_main
+    rc = cli_main(["--db", str(tmp_path / "g.db"), "welcome"])
+    assert rc == 0
+    out = _json.loads(capsys.readouterr().out)
+    # Spec 029 — payload shape: state + capabilities + next steps.
+    assert "state" in out
+    assert "capabilities" in out and isinstance(out["capabilities"], list)
+    assert "bootstrap_example" in out
+
+
+def test_agency_doctor_cli_subcommand(tmp_path, capsys):
+    """Spec 065: `agency doctor` is the bash-side wrapper around the
+    agency_doctor substrate tool (Spec 030)."""
+    import json as _json
+    from agency.cli import main as cli_main
+    rc = cli_main(["--db", str(tmp_path / "g.db"), "doctor"])
+    assert rc == 0
+    out = _json.loads(capsys.readouterr().out)
+    # Spec 030 — payload carries python_version + deps + db + ok.
+    assert "ok" in out
+    assert "python_version" in out
+    assert "deps" in out
+    assert "db" in out
+
+
+def test_agency_provenance_cli_subcommand(tmp_path, capsys):
+    """Spec 065: `agency provenance <intent_id>` is the bash-side
+    wrapper around the memory_graph_provenance substrate tool."""
+    import json as _json
+    from agency.cli import main as cli_main
+    db = str(tmp_path / "g.db")
+    # First mint an intent so we have a real id to walk.
+    rc = cli_main(["--db", db, "intent",
+                   "--purpose", "test",
+                   "--deliverable", "x",
+                   "--acceptance", "x"])
+    assert rc == 0
+    captured = capsys.readouterr()
+    iid = _json.loads(captured.out)["intent_id"]
+    # Now read provenance via the subcommand.
+    rc = cli_main(["--db", db, "provenance", iid])
+    assert rc == 0
+    out = _json.loads(capsys.readouterr().out)
+    # Memory.provenance returns {serves, agents, artefacts, gates}.
+    assert "serves" in out
+    assert "agents" in out

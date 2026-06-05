@@ -32,39 +32,19 @@ _TIMEOUT_PROC = 60.0    # total subprocess lifetime (kill threshold)
 def agency_mcp_binary():
     """Resolve the agency-mcp binary: PATH > plugin-venv > bin/.
 
-    Mirrors bin/agency-mcp's resolution order (Spec 063):
-      1. ${CLAUDE_PROJECT_DIR}/.agency/.venv/bin/agency-mcp (venv fallback)
-      2. PATH (pipx-installed / pip --user / global)
-      3. ${CLAUDE_PLUGIN_ROOT}/bin/agency-mcp shim itself (last resort)
+    Spec 065 (pipx-direct doctrine): `agency-mcp` resolves from PATH
+    only — the legacy `bin/agency-mcp` shim AND the Spec 063
+    `.agency/.venv` fallback are both gone. Pipx install puts the
+    console-script on PATH; that's the only resolution path.
 
-    Raises pytest.skip if nothing resolves (slim CI image without the
-    plugin installed) so the test stays optional.
-
-    Spec 055/063: the legacy `${CLAUDE_PLUGIN_ROOT}/.venv/bin/agency-mcp`
-    plugin-tree-venv path was removed alongside `bin/agency-install`;
-    the project-local `.agency/.venv` is the new fallback.
+    Raises pytest.skip if `agency-mcp` isn't on PATH (slim CI image
+    where pipx hasn't run) so the test stays optional and doesn't
+    block the default suite.
     """
-    # 1. Project-local venv (Spec 063 fallback path) — preferred over
-    #    PATH so a project-pinned version wins.
-    project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
-    if project_dir:
-        venv_mcp = os.path.join(
-            project_dir, ".agency", ".venv", "bin", "agency-mcp")
-        if os.path.isfile(venv_mcp) and os.access(venv_mcp, os.X_OK):
-            return venv_mcp
-    # 2. PATH (post-pipx-install or post-pip-user).
     p = shutil.which("agency-mcp")
     if p:
         return p
-    # 3. bin/agency-mcp (the discovery shim itself).
-    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT",
-                                  os.path.abspath(
-                                      os.path.join(os.path.dirname(__file__),
-                                                   "..")))
-    shim = os.path.join(plugin_root, "bin", "agency-mcp")
-    if os.path.isfile(shim) and os.access(shim, os.X_OK):
-        return shim
-    pytest.skip("agency-mcp not resolvable via PATH, venv, or bin/")
+    pytest.skip("agency-mcp not on PATH (Spec 065: pipx install required)")
 
 
 def _send(p: subprocess.Popen, msg: dict) -> None:
