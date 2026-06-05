@@ -345,3 +345,40 @@ prior install (P2).
   early-exit.
 - PRRT_kwDOSj5Qos6HSLSV (P1 — Avoid writing plugin files into the
   target repo): `--scaffold-only` bypasses `write()` entirely.
+
+## Follow-up — round-3 review fixes (2026-06-05 PM)
+
+PR #19 round-3 review (after round-2 push) surfaced two more P2
+findings, both about the install/launch boundary surviving real
+edge cases:
+
+### What landed
+- **`hooks/hooks.json` substitution simplified.** Replaced bash
+  parameter-expansion `${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` with
+  the canonical `${CLAUDE_PLUGIN_ROOT}` token. Claude Code's command
+  substitution layer does not honor bash `${VAR:-default}` syntax;
+  the unset-var fallback was therefore providing no real coverage
+  while risking a literal/malformed command in environments that
+  pass the field through the launcher unmodified.
+- **Hook validates pipx PATH after install.** After `pipx install`
+  succeeds, the hook now:
+  1. Probes `pipx environment --value PIPX_BIN_DIR` to find where
+     pipx put the console scripts (default `~/.local/bin`).
+  2. Prepends that dir to `PATH` for THIS process so the immediate
+     `agency install --scaffold-only` call resolves.
+  3. Runs `pipx ensurepath` so future shells inherit it.
+  4. Hard-validates `command -v agency-mcp` and surfaces an
+     actionable HINT (with the resolved dir) if it's still missing
+     instead of silently falling through.
+
+### PR #19 round-3 closure
+- PRRT_kwDOSj5Qos6HSqkH (P2 — hook-root substitution): switched to
+  canonical `${CLAUDE_PLUGIN_ROOT}`.
+- PRRT_kwDOSj5Qos6HSqkN (P2 — pipx app dir not on PATH): probe +
+  prepend + ensurepath + hard validation.
+
+### Tests
+- `test_hooks_json_uses_run_hook_cmd_polyglot_wrapper` updated to
+  assert canonical token form.
+- `test_session_start_probes_pipx_bin_dir_and_validates_path` —
+  new test asserting the 4-step probe/validate flow.

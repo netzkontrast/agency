@@ -267,6 +267,13 @@ def _marketplace(engine: Engine) -> dict:
 # every time the session compacts. The polyglot wrapper handles
 # Windows + Unix from one command entry; extensionless script
 # avoids Claude Code's `.sh` auto-bash-prepend on Windows.
+#
+# Spec 065 (PR #19 round-3 P2 PRRT_kwDOSj5Qos6HSqkH): the command
+# substitution layer does NOT honor bash parameter-expansion syntax
+# (`${VAR:-default}`), so we use the documented `${CLAUDE_PLUGIN_ROOT}`
+# token directly. Non-Claude harnesses (Cursor/Codex) that don't set
+# this var also won't run hooks via the Claude Code launcher, so the
+# token-only form is correct.
 _SESSION_START_HOOKS_JSON = json.dumps({
     "hooks": {
         "SessionStart": [
@@ -275,7 +282,7 @@ _SESSION_START_HOOKS_JSON = json.dumps({
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/run-hook.cmd\" session-start",
+                        "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start",
                         "async": False,
                     }
                 ]
@@ -345,7 +352,7 @@ _SESSION_START_HOOK_SCRIPT = """\
 #!/usr/bin/env bash
 # agency SessionStart hook — Spec 062 + Spec 065 (pipx-direct doctrine).
 #
-# Single install path: `pipx install --editable ${PLUGIN_ROOT}`.
+# Single install path: `pipx install --editable ${CLAUDE_PLUGIN_ROOT}`.
 # Scaffolds the project's .agency/ EVERY session (idempotent), then
 # installs the MCP server via pipx if not already on PATH.
 #
@@ -394,8 +401,36 @@ HINT
 fi
 
 echo "agency: installing via pipx (one-time) — this may take ~5s" >&2
-if ! pipx install --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
+if ! pipx install --editable "${CLAUDE_PLUGIN_ROOT}" >&2; then
   echo "agency: pipx install failed (non-fatal — see output above)" >&2
+  exit 0
+fi
+
+# PR #19 round-3 P2 (PRRT_kwDOSj5Qos6HSqkN): pipx installs scripts
+# into ${PIPX_BIN_DIR} (default ~/.local/bin), but that dir may not
+# yet be on PATH in this session if the user hasn't run
+# `pipx ensurepath` + restarted the shell. Probe pipx's bin dir and
+# prepend it to PATH for THIS process so the immediate scaffold call
+# resolves; also run `pipx ensurepath` so future sessions inherit it.
+PIPX_BIN_DIR="$(pipx environment --value PIPX_BIN_DIR 2>/dev/null || echo "${HOME}/.local/bin")"
+case ":${PATH}:" in
+  *":${PIPX_BIN_DIR}:"*) ;;
+  *) export PATH="${PIPX_BIN_DIR}:${PATH}" ;;
+esac
+pipx ensurepath >/dev/null 2>&1 || true
+
+# Hard-validate that agency-mcp is actually reachable now. If pipx
+# install reported success but the script isn't resolvable, surface
+# an actionable error pointing at `pipx ensurepath` + shell restart.
+if ! command -v agency-mcp >/dev/null 2>&1; then
+  cat >&2 <<HINT
+agency: pipx install succeeded but agency-mcp is not on PATH.
+Pipx put it under: ${PIPX_BIN_DIR}
+
+Add that dir to PATH and restart your session:
+    pipx ensurepath
+    # then restart shell / Claude Code
+HINT
   exit 0
 fi
 

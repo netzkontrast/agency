@@ -110,6 +110,27 @@ def test_session_start_script_runs_scaffold_after_install():
     assert "agency install --scaffold-db" not in script
 
 
+def test_session_start_probes_pipx_bin_dir_and_validates_path():
+    """Spec 065 round-3 (PR #19 P2 PRRT_kwDOSj5Qos6HSqkN): after
+    `pipx install` succeeds, pipx's app dir (PIPX_BIN_DIR, default
+    ~/.local/bin) may not yet be on PATH if the user hasn't run
+    `pipx ensurepath` + restarted the shell. The hook MUST:
+      1. Probe PIPX_BIN_DIR via `pipx environment --value PIPX_BIN_DIR`
+      2. Prepend it to PATH for this process
+      3. Run `pipx ensurepath` so future sessions inherit it
+      4. Hard-validate `command -v agency-mcp` and surface an
+         actionable HINT if missing (don't silently fall through)."""
+    script = _files()["hooks/session-start"]
+    assert "pipx environment --value PIPX_BIN_DIR" in script
+    assert "export PATH=" in script
+    assert "pipx ensurepath" in script
+    # The post-install validation block must check agency-mcp and
+    # print a hint pointing at ensurepath + shell restart.
+    post_install = script.split("pipx install --editable", 1)[1]
+    assert "command -v agency-mcp" in post_install
+    assert "pipx ensurepath" in post_install
+
+
 def test_session_start_scaffolds_before_install_early_exit():
     """Spec 065 follow-up (PR #19 P2 fix #PRRT_kwDOSj5Qos6HSLSR):
     when the user already has agency-mcp on PATH (e.g. from a prior
@@ -205,8 +226,11 @@ def test_hooks_json_uses_run_hook_cmd_polyglot_wrapper():
     cmd = cfg["hooks"]["SessionStart"][0]["hooks"][0]["command"]
     assert "run-hook.cmd" in cmd
     assert "session-start" in cmd
-    # Spec 064: PLUGIN_ROOT fallback for Cursor/Codex.
-    assert "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" in cmd
+    # Spec 065 (PR #19 round-3 P2): the command-substitution layer does
+    # NOT honor bash parameter-expansion (${VAR:-default}). Use the
+    # documented ${CLAUDE_PLUGIN_ROOT} token only.
+    assert "${CLAUDE_PLUGIN_ROOT}" in cmd
+    assert "${PLUGIN_ROOT:-" not in cmd
 
 
 def test_polyglot_wrapper_is_generated():
