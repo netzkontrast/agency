@@ -308,3 +308,40 @@ All 4 P2 findings resolved:
   Spec 055 pipx-canonical doctrine. Removes the iterations of Spec
   055/062/063/064 that layered defensive complexity atop the simple
   case; restores doctrinal clarity.
+
+## Follow-up — round-2 review fixes (2026-06-05 PM)
+
+PR #19 round-2 review (still-open threads after the initial Spec 065
+push) surfaced two more issues both rooted in the **same** flaw the
+Spec was trying to close: `agency install --scaffold-db` against the
+project root still ran `write(target)` before `scaffold_db`, which
+**overwrites the user's `.mcp.json` / `hooks/` / `skills/` /
+`commands/`** in their project repo (P1). The early-exit on
+`command -v agency-mcp` also prevented `.agency/` scaffolding in
+fresh project repos when a user already had agency-mcp on PATH from a
+prior install (P2).
+
+### What landed
+- **New `--scaffold-only` flag on `agency install`.** Does the
+  `.agency/` scaffold + `.gitattributes` binary marker, NOTHING ELSE.
+  Never calls `write(target)`. This is the canonical hook entry
+  point.
+- **SessionStart hook restructured.** Scaffold step now runs BEFORE
+  the install-check early-exit (so already-installed users still get
+  `.agency/` in fresh projects), and uses `--scaffold-only` for both
+  the pre-exit and post-install scaffold calls.
+- **Two new tests**:
+  - `test_session_start_scaffolds_before_install_early_exit` —
+    asserts the scaffold block index < idempotency-guard index in
+    the generated hook script.
+  - `test_agency_install_scaffold_only_does_not_write_plugin_files`
+    — calls `cli_main(["install", str(tmp_path), "--scaffold-only"])`
+    and asserts `.agency/` + `.gitattributes` exist while `.mcp.json`
+    / `.claude-plugin/` / `hooks/` / `skills/` / `commands/` do NOT.
+
+### PR #19 round-2 closure
+- PRRT_kwDOSj5Qos6HSLSR (P2 — Scaffold even when server is already
+  installed): scaffold now runs unconditionally before the
+  early-exit.
+- PRRT_kwDOSj5Qos6HSLSV (P1 — Avoid writing plugin files into the
+  target repo): `--scaffold-only` bypasses `write()` entirely.

@@ -95,17 +95,37 @@ def test_session_start_script_uses_pipx_only():
     assert "pipx.pypa.io" in script
 
 
-def test_session_start_script_runs_scaffold_db_after_install():
-    """Spec 065: after pipx install succeeds, the hook scaffolds the
-    target repo's .agency/ via the pipx-installed `agency install
-    --scaffold-db` (not `python3 -m agency.install` — that would use
-    the system interpreter where the package isn't importable; PR
-    #19 review #2)."""
+def test_session_start_script_runs_scaffold_after_install():
+    """Spec 065 follow-up (PR #19 P1 + P2 fixes): the hook uses
+    `agency install --scaffold-only` (NOT --scaffold-db) so we never
+    overwrite the user's .mcp.json / hooks/ / skills/ / commands/
+    when CLAUDE_PROJECT_DIR is the install root."""
     script = _files()["hooks/session-start"]
-    assert "agency install --scaffold-db" in script
+    assert "agency install --scaffold-only" in script
     assert "${CLAUDE_PROJECT_DIR}" in script
     # Explicit absence: don't use the system python3 form.
-    assert "python3 -m agency.install --scaffold-db" not in script
+    assert "python3 -m agency.install" not in script
+    # PR #19 P1 fix: --scaffold-db would call write() against the
+    # project root, overwriting the user's plugin install files.
+    assert "agency install --scaffold-db" not in script
+
+
+def test_session_start_scaffolds_before_install_early_exit():
+    """Spec 065 follow-up (PR #19 P2 fix #PRRT_kwDOSj5Qos6HSLSR):
+    when the user already has agency-mcp on PATH (e.g. from a prior
+    project or manual pipx install), the scaffold step MUST still run
+    in a fresh target repo. Concretely: the scaffold-only block must
+    appear in the script BEFORE the `command -v agency-mcp` early-
+    exit guard."""
+    script = _files()["hooks/session-start"]
+    scaffold_idx = script.find("agency install --scaffold-only")
+    guard_idx = script.find("command -v agency-mcp")
+    assert scaffold_idx > 0, "scaffold block missing"
+    assert guard_idx > 0, "idempotency guard missing"
+    assert scaffold_idx < guard_idx, (
+        "scaffold must run BEFORE the install-check early-exit so "
+        "already-installed users still get .agency/ in fresh project "
+        "repos (PR #19 P2)")
 
 
 def test_session_start_script_starts_with_shebang():

@@ -67,6 +67,9 @@ def main(argv: list[str] | None = None) -> int:
                       help="install root (default: this repo's root)")
     inst.add_argument("--scaffold-db", action="store_true",
                       help="also create .agency/ + .gitattributes binary marker (Spec 020)")
+    inst.add_argument("--scaffold-only", action="store_true",
+                      help="scaffold .agency/ + .gitattributes ONLY (do NOT write the "
+                           "plugin install surface — used by the SessionStart hook)")
     inst.add_argument("--dry-run", action="store_true",
                       help="print the would-write paths; touch nothing on disk")
     # Spec 065 — substrate tools as first-class CLI subcommands so a
@@ -90,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
             sub_argv.append(args.root)
         if args.scaffold_db:
             sub_argv.append("--scaffold-db")
+        if args.scaffold_only:
+            sub_argv.append("--scaffold-only")
         if args.dry_run:
             sub_argv.append("--dry-run")
         return install_mod.main(sub_argv)

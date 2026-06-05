@@ -346,21 +346,32 @@ _SESSION_START_HOOK_SCRIPT = """\
 # agency SessionStart hook — Spec 062 + Spec 065 (pipx-direct doctrine).
 #
 # Single install path: `pipx install --editable ${PLUGIN_ROOT}`.
-# When agency-mcp is already on PATH (subsequent sessions, or any
-# environment where pipx already ran), the hook exits early.
+# Scaffolds the project's .agency/ EVERY session (idempotent), then
+# installs the MCP server via pipx if not already on PATH.
 #
 # Spec 065 supersedes Spec 063's three-step fallback chain (PR #19
 # review surfaced 4 correctness issues with the pip --user and
 # .agency/.venv fallback paths). Rely on pipx; print a clear hint
 # when it's missing so the user can install it once and retry.
 #
-# After install succeeds, scaffolds the target repo's .agency/
-# (session.db + README + .gitattributes) via the pipx-installed
-# `agency install --scaffold-db` — the just-installed binary, NOT
-# the system python3 (PR #19 review #2 closed this way).
+# Two ordering rules (closes PR #19 P1 + P2):
+#  - Scaffold runs BEFORE the install-check early-exit, so already-
+#    installed users get .agency/ in a fresh project on first session.
+#  - Scaffold uses `agency install --scaffold-only` (NOT --scaffold-db)
+#    so we never write the plugin's .mcp.json/hooks/skills/commands
+#    INTO the user's project repo. --scaffold-only writes the
+#    .agency/ dir + .gitattributes binary marker, nothing else.
 set -e
 
-# Idempotent: bail if agency-mcp is already on PATH.
+# --- Scaffold the project's .agency/ (idempotent; runs every session) ---
+# Only reachable if agency-mcp is already installed; the post-install
+# block below covers the first-run case.
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && command -v agency >/dev/null 2>&1; then
+  agency install --scaffold-only "${CLAUDE_PROJECT_DIR}" >&2 || \\
+    echo "agency: .agency/ scaffold failed (non-fatal)" >&2
+fi
+
+# --- Idempotent install guard: bail if agency-mcp is already on PATH. ---
 if command -v agency-mcp >/dev/null 2>&1; then
   exit 0
 fi
@@ -388,11 +399,11 @@ if ! pipx install --editable "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" >&2; then
   exit 0
 fi
 
-# After install: scaffold the target repo's .agency/ via the pipx-
-# installed agency CLI (NOT system python3 — the installed binary
-# runs in the pipx venv where the `agency` package is importable).
+# After first-time install: scaffold the target repo's .agency/ via
+# the pipx-installed agency CLI. --scaffold-only never touches the
+# user's .mcp.json / hooks/ / skills/ / commands/ (PR #19 P1 fix).
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
-  agency install --scaffold-db "${CLAUDE_PROJECT_DIR}" >&2 || \\
+  agency install --scaffold-only "${CLAUDE_PROJECT_DIR}" >&2 || \\
     echo "agency: .agency/ scaffold failed (non-fatal)" >&2
 fi
 
@@ -615,6 +626,11 @@ def main(argv: list | None = None) -> int:
                         help="install root (default: this repo's root)")
     parser.add_argument("--scaffold-db", action="store_true",
                         help="also create .agency/ + .gitattributes binary marker (Spec 020)")
+    parser.add_argument("--scaffold-only", action="store_true",
+                        help="scaffold .agency/ + .gitattributes ONLY — do NOT write "
+                             "the plugin install surface into the target (Spec 065 — "
+                             "PR #19 P1: avoid overwriting a project's .mcp.json/hooks/ "
+                             "when the SessionStart hook calls us with CLAUDE_PROJECT_DIR)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print the would-write paths + per-file lint result; "
                              "touch nothing on disk. Exit 0 iff all lints pass.")
@@ -630,6 +646,18 @@ def main(argv: list | None = None) -> int:
             engine.memory.close()
         for rel in files:
             print(f"{os.path.join(target, rel)} OK")
+        return 0
+    if ns.scaffold_only:
+        # Spec 065 — scaffold the project's .agency/ WITHOUT writing the
+        # plugin install surface into it (the SessionStart hook calls us
+        # with target = ${CLAUDE_PROJECT_DIR}; we must not overwrite the
+        # user's own .mcp.json / hooks/ / skills/ / commands/).
+        scaffold_root = target
+        result = scaffold_db(scaffold_root)
+        for p in result["written"]:
+            print(p)
+        if result["gitattributes_updated"]:
+            print(os.path.join(scaffold_root, ".gitattributes"))
         return 0
     for p in write(target):
         print(p)

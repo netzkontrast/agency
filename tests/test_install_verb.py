@@ -195,6 +195,28 @@ def test_agency_doctor_cli_subcommand(tmp_path, capsys):
     assert "db" in out
 
 
+def test_agency_install_scaffold_only_does_not_write_plugin_files(tmp_path):
+    """Spec 065 follow-up (PR #19 P1 fix): `agency install --scaffold-only
+    <target>` writes ONLY the .agency/ scaffold + .gitattributes — it
+    must NOT write .mcp.json / hooks/ / skills/ / commands/ / plugin
+    manifest into the target. The SessionStart hook depends on this:
+    if the target is ${CLAUDE_PROJECT_DIR}, we must not overwrite the
+    user's repo files."""
+    from agency.cli import main as cli_main
+    rc = cli_main(["install", str(tmp_path), "--scaffold-only"])
+    assert rc == 0
+    # .agency/ scaffold IS created.
+    assert (tmp_path / ".agency").is_dir()
+    assert (tmp_path / ".agency" / "README.md").exists()
+    assert (tmp_path / ".gitattributes").exists()
+    # Plugin install surface MUST NOT be written into the target.
+    assert not (tmp_path / ".mcp.json").exists()
+    assert not (tmp_path / ".claude-plugin").exists()
+    assert not (tmp_path / "hooks").exists()
+    assert not (tmp_path / "skills").exists()
+    assert not (tmp_path / "commands").exists()
+
+
 def test_agency_provenance_cli_subcommand(tmp_path, capsys):
     """Spec 065: `agency provenance <intent_id>` is the bash-side
     wrapper around the memory_graph_provenance substrate tool."""
