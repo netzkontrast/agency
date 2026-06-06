@@ -32,6 +32,10 @@ NODE_SCHEMAS: dict[str, list[str]] = {
     "Skill":      ["name", "kind"],                 # a skill = an ordered Lifecycle of Phases
     "Phase":      ["skill", "index", "name", "produces"],   # one atomic step
     "Tool":       ["name", "input", "output"],      # a typed tool (input/output schema refs)
+    # Spec 076 — a captured Claude Code hook event (substrate provenance). The
+    # unified dispatcher records one per routed event; linked OBSERVED_DURING to
+    # the active intent (AGENCY_INTENT) when set.
+    "Event":      ["name", "session"],
 }
 
 # --- core closed enums ------------------------------------------------------

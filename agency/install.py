@@ -274,22 +274,58 @@ def _marketplace(engine: Engine) -> dict:
 # token directly. Non-Claude harnesses (Cursor/Codex) that don't set
 # this var also won't run hooks via the Claude Code launcher, so the
 # token-only form is correct.
-_SESSION_START_HOOKS_JSON = json.dumps({
-    "hooks": {
+# Spec 076 — the unified event dispatcher. Claude Code has NO top-level wildcard
+# hook (one block per event name), so "unity" = every capture event invokes the
+# SAME `dispatch` script, which pipes the event JSON to `agency hook` → the
+# engine's single hook-handler surface. SessionStart KEEPS its specialized
+# install hook (bootstrap, not capture). `async: true` keeps capture off the
+# critical path; tool/subagent events carry a matcher, the rest always fire.
+# AGENCY-DRIFT: hook-events — keep these event lists synced with the dispatcher
+#   + Spec 076; new captured events plug in here, NOT via a new script.
+_DISPATCH_CMD = "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" dispatch"
+_SESSION_START_CMD = "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start"
+_DISPATCH_MATCHER_EVENTS = ("PreToolUse", "PostToolUse", "SubagentStop")
+_DISPATCH_PLAIN_EVENTS = ("UserPromptSubmit", "Stop", "SessionEnd")
+
+
+def _build_hooks_json() -> str:
+    hooks: dict = {
         "SessionStart": [
             {
                 "matcher": "startup|resume|clear",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start",
-                        "async": False,
-                    }
-                ]
+                "hooks": [{"type": "command", "command": _SESSION_START_CMD,
+                           "async": False}],
             }
         ]
     }
-}, indent=2) + "\n"
+    dispatch_entry = {"type": "command", "command": _DISPATCH_CMD, "async": True}
+    for ev in _DISPATCH_MATCHER_EVENTS:
+        hooks[ev] = [{"matcher": "*", "hooks": [dict(dispatch_entry)]}]
+    for ev in _DISPATCH_PLAIN_EVENTS:
+        hooks[ev] = [{"hooks": [dict(dispatch_entry)]}]
+    return json.dumps({"hooks": hooks}, indent=2) + "\n"
+
+
+_SESSION_START_HOOKS_JSON = _build_hooks_json()
+
+
+# Spec 076 — the dispatcher script (extensionless, run via run-hook.cmd dispatch).
+# Reads the hook event JSON on stdin and pipes it to `agency hook`, which records
+# it as provenance. Non-blocking + never fails the session.
+_DISPATCH_HOOK_SCRIPT = """\
+#!/usr/bin/env bash
+# agency unified event dispatcher (Spec 076).
+#
+# Claude Code pipes each hook event's payload (JSON) to this script on stdin.
+# We forward it to `agency hook`, which routes it by hook_event_name to the
+# engine's handler surface (records an Event node; links it to the active
+# AGENCY_INTENT when set). Capture is best-effort: a missing CLI or a handler
+# error must NEVER break the session, so we swallow failures.
+if command -v agency >/dev/null 2>&1; then
+  agency hook >/dev/null 2>&1 || true
+fi
+exit 0
+"""
 
 
 # Spec 021 — the single engine Monitor channel. ONE monitors.json entry; every
@@ -595,6 +631,8 @@ def generate(engine: Engine) -> dict[str, str]:
         # filename and break on systems without bash on PATH).
         "hooks/run-hook.cmd":              _RUN_HOOK_CMD_SCRIPT,
         "hooks/session-start":             _SESSION_START_HOOK_SCRIPT,
+        # Spec 076 — the unified event dispatcher (run via run-hook.cmd dispatch).
+        "hooks/dispatch":                  _DISPATCH_HOOK_SCRIPT,
         # Spec 064: using-agency meta-skill (broad-trigger). Tells the
         # orchestrator to call agency_welcome + intent_bootstrap before
         # any capability verb — mirrors using-superpowers' pattern.

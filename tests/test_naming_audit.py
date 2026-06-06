@@ -21,8 +21,11 @@ from agency.disclosure import parse_slices
 from agency.engine import Engine
 
 _ENC = tiktoken.get_encoding("cl100k_base")
+# The documented substrate surface (engine tools, not capability verbs). Grows
+# deliberately: Spec 076 added `hook_event` (the unified hook dispatcher entry).
 _SUBSTRATE = {"agency_welcome", "agency_install", "agency_doctor",
-              "intent_bootstrap", "lifecycle_gate", "memory_graph_provenance"}
+              "intent_bootstrap", "lifecycle_gate", "memory_graph_provenance",
+              "hook_event"}
 _CONTRACT = {"search", "get_schema", "execute"}
 # Known cross-capability collisions that MUST be present (others are allowed).
 _KNOWN_COLLISIONS = {"note", "render", "verify"}
@@ -50,7 +53,7 @@ def _live_substrate():
         e.memory.close()
 
 
-def test_substrate_set_is_the_documented_six():
+def test_substrate_set_is_the_documented_surface():
     # a real contract (the substrate surface), not a fragile count
     assert _live_substrate() == _SUBSTRATE
     assert sum(_tk(s) for s in _CONTRACT) <= 6  # the code-mode contract stays tiny

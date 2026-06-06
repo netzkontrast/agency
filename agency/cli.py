@@ -197,6 +197,21 @@ def provenance(ctx, intent_id):
                                     {"intent_id": intent_id}))
 
 
+@cli.command()
+@click.pass_context
+def hook(ctx):
+    """Route a Claude Code hook event (JSON on stdin) to its handler (Spec 076).
+
+    The unified `hooks/dispatch` entry pipes every event's stdin JSON to this
+    command; the engine records it as provenance. No intent required."""
+    raw = sys.stdin.read()
+    try:
+        event = json.loads(raw) if raw.strip() else {}
+    except ValueError as e:
+        return _emit({"error": "JSONDecodeError", "message": str(e)}, 1)
+    return _emit(*_call_engine_tool(_db(ctx), "hook_event", {"event": event}))
+
+
 # --- Spec 079: auto-generated per-verb commands (mirror the live registry) -----
 
 def _ann_kind(ann) -> str:
