@@ -708,15 +708,168 @@ def _check_skill_name_parity(registry):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Spec 074 — prescriptive lint: every finding carries the HOW (steps + a
+# doctrine reference + an example), and an accept mechanism so the open-WARN
+# set means "work to do" (accepted WARNs carry a recorded reason, separately).
+# ---------------------------------------------------------------------------
+
+# Per-rule rework recipe — the single source of the HOW (one entry per kind).
+_REMEDIATION = {
+    "surface_size": {
+        "what": "A capability carries more verbs than the budget.",
+        "steps": [
+            "Audit the capability's verbs for genuine near-duplicates (Spec 070).",
+            "Collapse each near-duplicate pair behind ONE verb + a discriminating param.",
+            "Alias-and-deprecate the old verb names (old → new+param for one minor).",
+            "If the verbs are genuinely distinct, the surface is legitimately broad — "
+            "accept with `# agency-accept-warn: surface_size <why>`.",
+        ],
+        "reference": "Spec 070 + CAPABILITY-AUTHORING §Token-economy budgets",
+        "example": "jules.status + jules.status_all → jules.status(all=False)",
+    },
+    "name_token_budget": {
+        "what": "A verb's wire name exceeds the cl100k token budget.",
+        "steps": [
+            "Shorten the verb name where it reads no worse (record_authoring_outcome → record_outcome).",
+            "The prefix `capability_<cap>_` is the bulk of the cost; the bare code-mode "
+            "alias is the real fix but is FastMCP-blocked (Spec 069 cancelled).",
+            "If the wire form is being kept by design, accept it (this is a standing accept).",
+        ],
+        "reference": "Spec 049 audit + CORE §Naming (wire form kept)",
+        "example": "capability_develop_record_authoring_outcome (8 tok) → record_outcome",
+    },
+    "bare_name_collision": {
+        "what": "Two capabilities own the same bare verb name.",
+        "steps": [
+            "Pick a disambiguating bare form for one of them, OR keep the prefix.",
+            "Only load-bearing if/when bare code-mode dispatch ships (deferred, Spec 069).",
+        ],
+        "reference": "Spec 049 §4 + Spec 069 (cancelled)",
+        "example": "dogfood.note / reflect.note → keep prefixed, or dogfood.log_note",
+    },
+    "bare_name_contract_shadow": {
+        "what": "A bare verb name shadows a code-mode contract tool.",
+        "steps": ["Rename the verb's bare alias so it can't shadow search/get_schema/execute."],
+        "reference": "Spec 049 §4 + CORE §Naming",
+        "example": "reflect.search → reflect.find_notes (under a bare-name surface)",
+    },
+    "skill_name_parity": {
+        "what": "An ontology.skills key has no matching SKILL.md folder (the two surfaces diverge).",
+        "steps": [
+            "Choose ONE canonical name per skill across both surfaces (Spec 071).",
+            "Alias the old name for one minor (walker + marketplace lookup).",
+        ],
+        "reference": "Spec 071 + CORE §Skills (one name per skill)",
+        "example": "ontology `tdd` ↔ folder `test-driven-development` → reconcile",
+    },
+    "node_id_guard": {
+        "what": "A verb reads a `<label>_id` param without verifying the node's label.",
+        "steps": ["Use `memory.recall_typed(<param>, '<Label>')` instead of a bare recall/get_node."],
+        "reference": "Spec 056 + CAPABILITY-AUTHORING §Node-id parameters",
+        "example": "recall(research_id) → recall_typed(research_id, 'Research')",
+    },
+    "reflection_link": {
+        "what": "A Reflection is recorded without both SERVES and OBSERVED_DURING edges.",
+        "steps": ["Link the recorded id with BOTH `SERVES` and `OBSERVED_DURING` to the intent."],
+        "reference": "Spec 058 + CAPABILITY-AUTHORING §Reflection write convention",
+        "example": "ctx.link(rid, intent, 'SERVES'); ctx.link(rid, intent, 'OBSERVED_DURING')",
+    },
+    "render_slice": {
+        "what": "A verb's first-sentence brief is empty or > 120 chars.",
+        "steps": ["Make the first sentence a ≤120-char gist; move detail to the body / Inputs/Returns."],
+        "reference": "Spec 023 + CAPABILITY-AUTHORING §verb docstring contract",
+    },
+    "token_budget": {
+        "what": "A verb's brief slice exceeds the cl100k token budget.",
+        "steps": ["Tighten the first sentence; split a two-clause sentence into two."],
+        "reference": "Spec 023 + CAPABILITY-AUTHORING §verb docstring contract",
+    },
+    "role_tag": {
+        "what": "A transform-tagged verb's module imports a network/IO library.",
+        "steps": ["Re-tag the verb `@verb(role='effect')` — the provenance moat relies on the tag."],
+        "reference": "Spec 016 Hint #3 + CAPABILITY-AUTHORING §Role tags",
+    },
+    "wire_shape": {
+        "what": "A verb's docstring describes the internal wrap, not the wire shape.",
+        "steps": ["Document the unwrapped wire shape (strip the `{result: …}` envelope in the docstring)."],
+        "reference": "Spec 019 + CAPABILITY-AUTHORING §Wire shape vs internal wrap",
+    },
+    "consumer_contract": {
+        "what": "The capability does not round-trip through the MCP tool list.",
+        "steps": ["Fix the ontology fragment / verb signatures so build_mcp registers every verb."],
+        "reference": "Spec 016 + the engine's _wire",
+    },
+    "template_folder": {
+        "what": "A declared template/schema folder is malformed.",
+        "steps": ["Align the folder contents with the declared RenderTemplates/ArtefactSchemas."],
+        "reference": "Spec 060 + CAPABILITY-AUTHORING §Where templates live",
+    },
+    "structural": {
+        "what": "The capability is structurally malformed (missing name/home/verbs).",
+        "steps": ["Add the missing class attribute(s); see the capability skeleton."],
+        "reference": "Spec 016 + CAPABILITY-AUTHORING §Capability skeleton",
+    },
+}
+
+# Standing accepts — WARNs the project has DECIDED to keep, with the reason
+# (so the open-WARN set is genuine work). Per-site `# agency-accept-warn:` markers
+# add to this. AGENCY-DRIFT: accepted-warns — keep the reasons current.
+_STANDING_ACCEPTS = {
+    "name_token_budget": "wire form kept (CORE §Naming); bare alias FastMCP-blocked — Spec 069 cancelled",
+    "bare_name_collision": "wire names are unique; bare dispatch deferred — Spec 069 cancelled",
+    "bare_name_contract_shadow": "wire form keeps reflect.search disambiguated — Spec 069 cancelled",
+    "skill_name_parity": "tracked divergence; reconciliation deferred to Spec 071",
+}
+_ACCEPT_RE = re.compile(r"#\s*agency-accept-warn:\s*(\S+)\s*(.*)")
+
+
+def _with_remediation(finding: dict) -> dict:
+    """Spec 074 — enrich a finding with its rework recipe (additive; the existing
+    {verb, kind, msg, fix} keys are preserved)."""
+    rem = _REMEDIATION.get(finding.get("kind"), {})
+    out = {**finding,
+           "severity": finding.get("severity", "warn"),
+           "steps": rem.get("steps", []),
+           "reference": rem.get("reference", "")}
+    if rem.get("example"):
+        out["example"] = rem["example"]
+    return out
+
+
+def _accepted_kinds(source_text: str = "") -> dict:
+    """The accepted-WARN kinds → reason: the standing set plus any
+    `# agency-accept-warn: <kind> <reason>` markers in `source_text`."""
+    acc = dict(_STANDING_ACCEPTS)
+    for m in _ACCEPT_RE.finditer(source_text or ""):
+        acc[m.group(1)] = m.group(2).strip() or "accepted at site"
+    return acc
+
+
+def _split_accepted(findings: list, accepts: dict):
+    """Enrich + split findings into (open, accepted). Accepted findings carry an
+    `accept_reason` and severity='accepted'; open findings stay WARN."""
+    open_f, accepted_f = [], []
+    for f in findings:
+        f = _with_remediation(f)
+        reason = accepts.get(f["kind"])
+        if reason:
+            accepted_f.append({**f, "severity": "accepted", "accept_reason": reason})
+        else:
+            open_f.append(f)
+    return open_f, accepted_f
+
+
 def lint_surface(registry) -> dict:
     """Spec 067 — the registry-level (cross-capability) WARN rules: bare-name
-    uniqueness + skill-surface parity. Per-capability rules stay on
-    `lint_capability`; these inherently need the whole registry. WARN-only.
+    uniqueness + skill-surface parity. Spec 074 — findings carry remediation +
+    split into open `warnings` vs `accepted` (recorded-reason WARNs).
 
-    Returns: ``{ok: True, warnings: [...], mode: 'warn'}``.
+    Returns: ``{ok: True, warnings: [...], accepted: [...], mode: 'warn'}``.
     """
-    warnings = _check_bare_name_unique(registry) + _check_skill_name_parity(registry)
-    return {"ok": True, "warnings": warnings, "mode": "warn"}
+    findings = _check_bare_name_unique(registry) + _check_skill_name_parity(registry)
+    open_f, accepted_f = _split_accepted(findings, _accepted_kinds())
+    return {"ok": True, "warnings": open_f, "accepted": accepted_f, "mode": "warn"}
 
 
 def lint_capability(cap) -> dict:
@@ -746,12 +899,22 @@ def lint_capability(cap) -> dict:
     # WARN-only soft rules — never block, even in block mode (migration windows).
     soft_findings = (_check_node_id_guards(cap) + _check_reflection_links(cap)
                      + _check_name_token_budget(cap) + _check_surface_size(cap))
+    # Spec 074 — enrich with remediation; split soft WARNs into open vs accepted
+    # (standing accepts + per-site `# agency-accept-warn:` markers in the source).
+    src_text = ""
+    if source_path:
+        try:
+            src_text = open(source_path, encoding="utf-8").read()
+        except OSError:
+            pass
+    soft_open, soft_accepted = _split_accepted(soft_findings, _accepted_kinds(src_text))
+    hard = [_with_remediation(f) for f in all_findings]
     if mode == "block":
-        return {"ok": not all_findings, "violations": all_findings,
-                "warnings": soft_findings, "skipped": 0, "mode": mode}
+        return {"ok": not all_findings, "violations": hard,
+                "warnings": soft_open, "accepted": soft_accepted, "skipped": 0, "mode": mode}
     # warn mode — findings move to warnings; ok always True
-    return {"ok": True, "violations": [], "warnings": all_findings + soft_findings,
-            "skipped": 0, "mode": mode}
+    return {"ok": True, "violations": [], "warnings": hard + soft_open,
+            "accepted": soft_accepted, "skipped": 0, "mode": mode}
 
 
 def help_map(caps: dict) -> dict:
@@ -922,6 +1085,21 @@ class PluginCapability(CapabilityBase):
         """
         cap = self.ctx.registry.get(name)
         return lint_capability(cap)
+
+    @verb(role="transform")
+    def lint_explain(self, rule: str) -> dict:
+        """Return the rework recipe for a lint rule kind (Spec 074) — so you learn HOW to fix it.
+
+        Inputs: rule (the finding ``kind``, e.g. 'surface_size', 'reflection_link').
+        Returns: ``{kind, what, steps, reference, example?}`` (wire shape); or
+                 ``{error, known}`` when the rule kind is unrecognised.
+        chain_next: apply the ``steps``, then re-run ``plugin.lint_capability``.
+        """
+        rem = _REMEDIATION.get(rule)
+        if not rem:
+            return {"result": {"error": f"no remediation recipe for rule {rule!r}",
+                               "known": sorted(_REMEDIATION)}}
+        return {"result": {"kind": rule, **rem}}
 
     @verb(role="transform")
     def help(self) -> dict:

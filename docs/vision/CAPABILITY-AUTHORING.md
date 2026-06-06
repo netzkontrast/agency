@@ -559,8 +559,33 @@ the migration window). `scripts/check-drift` prints the live WARN counts.
 WARNs**, NOT slated for BLOCK: they document the kept `<concept>_<capability>_<verb>`
 wire form (CORE §Naming), whose bare code-mode alias is FastMCP-blocked (one shared
 CodeMode catalog) and was deferred once Spec 068 captured the discovery win. They
-remain as honest budget signals. `surface_size` → BLOCK via Spec 070;
-`skill_name_parity` → BLOCK via Spec 071.
+remain as honest budget signals.
+
+## Rework recipes — every WARN tells you HOW (Spec 074)
+
+A lint finding is an **instruction, not a verdict**. Each finding carries
+`{msg, fix, severity, steps, reference, example}` — `steps` is the ordered rework
+recipe, `reference` points at the doctrine, `example` shows a before→after. The
+recipes live in one place (`plugin._REMEDIATION`); **ask for one directly**:
+
+```python
+await call_tool("capability_plugin_lint_explain", {"rule": "surface_size", "intent_id": iid})
+# → {kind, what, steps: [...], reference, example}
+```
+
+**Accepting a WARN you've decided to keep.** A WARN that's genuinely fine (a
+legitimately broad capability, a kept wire form) is accepted **at the site** with
+a recorded reason — it then leaves the open count but stays auditable:
+
+```python
+# agency-accept-warn: surface_size jules is legitimately broad agent-orchestration
+```
+
+`grep -rn "agency-accept-warn"` inventories every accepted exception; project-wide
+standing accepts live in `plugin._STANDING_ACCEPTS`. `scripts/check-drift` prints
+**OPEN vs ACCEPTED** counts — so the open set is always real work. Today: OPEN =
+none; `surface_size` (jules) is an accepted broad surface, `skill_name_parity` is
+accepted-tracked for Spec 071, and the wire-form WARNs are standing-accepted.
 
 ---
 

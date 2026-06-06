@@ -88,7 +88,9 @@ def test_lint_surface_runs_registry_rules():
                     ontology=types.SimpleNamespace(skills={}))
     res = P.lint_surface(reg)
     assert res["ok"] is True and res["mode"] == "warn"
-    assert any(f["kind"] == "bare_name_collision" for f in res["warnings"])
+    # Spec 074 — bare_name_collision is a standing-accept, so it lands in `accepted`
+    # (with a reason), not the open `warnings` bucket.
+    assert any(f["kind"] == "bare_name_collision" for f in res["accepted"])
 
 
 def test_brief_budget_rule_is_wired():
@@ -101,15 +103,20 @@ def test_brief_budget_rule_is_wired():
 # --- live-registry snapshot (the recorded baseline, drift-guarded) ------------
 
 def test_live_surface_warns_match_the_known_baseline():
+    # Spec 074 — the wire-form WARNs + the tracked skill divergence are now
+    # ACCEPTED (standing reasons), so the OPEN set is empty and the baseline lives
+    # in the `accepted` bucket. This records that the cluster's WARNs are
+    # fixed-or-accepted, not lurking.
     e = Engine(":memory:")
     try:
-        warns = P.lint_surface(e.registry)["warnings"]
+        res = P.lint_surface(e.registry)
     finally:
         e.memory.close()
-    collisions = {f["verb"] for f in warns if f["kind"] == "bare_name_collision"}
-    # the Spec 049 §4 complete set — Spec 069 must drive this to empty before BLOCK
-    assert collisions == {"note", "render", "verify"}
-    shadows = {f["verb"] for f in warns if f["kind"] == "bare_name_contract_shadow"}
-    assert "search" in shadows  # reflect.search shadows the contract tool
-    # skill-surface divergence exists today (Spec 071 target)
-    assert any(f["kind"] == "skill_name_parity" for f in warns)
+    assert res["warnings"] == []  # OPEN = none
+    accepted = res["accepted"]
+    collisions = {f["verb"] for f in accepted if f["kind"] == "bare_name_collision"}
+    assert collisions == {"note", "render", "verify"}  # the Spec 049 §4 set
+    shadows = {f["verb"] for f in accepted if f["kind"] == "bare_name_contract_shadow"}
+    assert "search" in shadows
+    assert any(f["kind"] == "skill_name_parity" for f in accepted)
+    assert all(f.get("accept_reason") for f in accepted)  # every accept carries a reason

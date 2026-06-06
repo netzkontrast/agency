@@ -91,13 +91,16 @@ from collections import Counter
 from agency.engine import Engine
 from agency.capabilities.plugin._main import lint_surface, lint_capability
 e = Engine(":memory:")
-warns = list(lint_surface(e.registry)["warnings"])
+op, ac = [], []
+s = lint_surface(e.registry); op += s["warnings"]; ac += s.get("accepted", [])
 for n in e.registry.names():
-    warns += [w for w in lint_capability(e.registry.get(n)).get("warnings", [])
-              if w.get("kind") in ("name_token_budget", "surface_size")]
+    r = lint_capability(e.registry.get(n))
+    op += [w for w in r.get("warnings", []) if w.get("kind") in ("name_token_budget", "surface_size")]
+    ac += r.get("accepted", [])
 e.memory.close()
-c = Counter(w["kind"] for w in warns)
-print("    " + (", ".join(f"{k}={v}" for k, v in sorted(c.items())) or "clean"))
+co, ca = Counter(w["kind"] for w in op), Counter(w["kind"] for w in ac)
+print("    OPEN     " + (", ".join(f"{k}={v}" for k, v in sorted(co.items())) or "none — all WARNs fixed or accepted"))
+print("    ACCEPTED " + (", ".join(f"{k}={v}" for k, v in sorted(ca.items())) or "none") + "  (Spec 074: documented-accept reasons)")
 PYEOF
 )
 say "$TE_OUT"

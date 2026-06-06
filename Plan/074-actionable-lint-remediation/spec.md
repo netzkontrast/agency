@@ -1,7 +1,7 @@
 ---
 spec_id: "074"
 slug: actionable-lint-remediation
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/spec-074-impl-actionable-lint)
 last_updated: 2026-06-06
 owner: "@agency"
 serves_intent: "intent:fee6c64d"
@@ -137,3 +137,41 @@ new; check-drift's split is presentation-only.
 - User directives (2026-06-06): "adjust the linting … add clearer rules and
   instructions for reworking effective surfaces when warning, so the agent gets
   hints what to do — not only that something is bad."
+
+
+## Followup --- Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/spec-074-impl-actionable-lint`. TDD (RED 7 -> GREEN).
+> Chosen by the user as the token-economy cluster CAPSTONE (resolves 070/071's
+> residual WARNs honestly).
+
+**Verdict:** Shipped
+
+### Done
+- `plugin._REMEDIATION` --- per-rule rework catalog (14 kinds): each
+  `{what, steps[], reference, example?}`. The single source of the HOW.
+- `_with_remediation(finding)` enriches every finding additively (existing
+  `{verb,kind,msg,fix}` preserved) with `{severity, steps, reference, example}`.
+- `_STANDING_ACCEPTS` + `# agency-accept-warn: <kind> <reason>` at-the-site marker
+  + `_accepted_kinds()` / `_split_accepted()` --- WARNs move to an `accepted`
+  bucket (with reason) so the OPEN set is genuine work. `lint_capability` /
+  `lint_surface` now return `accepted` alongside `warnings`.
+- `plugin.lint_explain(rule)` verb --- returns the recipe so an agent learns the
+  fix WITHOUT tripping it (dogfoods the surface).
+- `scripts/check-drift` prints OPEN vs ACCEPTED counts.
+- CAPABILITY-AUTHORING "Rework recipes" section + `AGENCY-DRIFT: accepted-warns` tag.
+
+### Cluster resolution (the capstone effect)
+With the accept mechanism, the live token-economy WARN surface is now **OPEN:
+none** --- every WARN is fixed or documented-accepted:
+- jules `surface_size` --- accepted at the site (legitimately broad; Spec 070
+  audit found only ~3 cosmetic merges).
+- `skill_name_parity` (14) --- accepted-tracked (Spec 071 reconciliation).
+- `name_token_budget` + `bare_name_*` --- standing-accepted (kept wire form; Spec
+  069 cancelled).
+
+### Tests
+- `tests/test_lint_remediation.py` --- 7 (enrichment, catalog completeness meta-
+  lint, accept marker + standing accepts, open/accepted split, lint_explain). The
+  067 + naming-audit snapshots updated for the new `lint_explain` verb (70 verbs)
+  and the accepted-bucket split. Full suite 800 passed / 3 skipped; drift clean.
