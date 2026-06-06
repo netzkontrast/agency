@@ -1,7 +1,7 @@
 ---
 spec_id: 008
 slug: superclaude-analysts
-status: draft
+status: closed-superseded   # → 042 (analyze); closed 2026-06-06
 owner: "@agency"
 depends_on: [001, 003]
 affects:
@@ -394,11 +394,22 @@ open canon-shape question (raised by `VISION-REVIEW.md`).
   dropping files into `capabilities/`"). `agency/capabilities/transmute.py` does NOT
   exist yet — this spec BUILDS it (the cluster is specced-but-unbuilt).
 
+## Closure note (2026-06-06)
+
+**Closed — superseded by Spec 042 (`analyze`, Shipped).** This spec scoped
+SuperClaude-style analysis via a `transmute` cluster. The shipped `analyze`
+capability delivers that intent on the canon substrate: 4-axis decidable
+analysis (quality / security / performance / architecture) with `run` /
+`improve` / `cleanup` acts + the `code-analysis` skill. The persona/lens
+framing here was the pre-canon design; `analyze`'s decidable-transform model
+replaces it. No `transmute.py` port will be built. Spec text retained verbatim
+per the supersede pattern (GOALS.md #7); see `Plan/042-analyze-capability/`.
+
 ## Followup — Implementation Status (2026-05-31)
 
 > Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
 
-**Verdict:** Not started
+**Verdict:** Not started (CLOSED 2026-06-06 — see Closure note above)
 
 ### Done
 - Nothing from this spec has shipped. `agency/capabilities/transmute.py` does not exist (`ls agency/capabilities/` confirms). No `skills/analyze/`, `skills/business-panel/`, or `skills/brainstorm-discovery/` directories exist under `skills/`. No `tests/test_transmute_capability.py` or `tests/test_transmute_skills.py`. No `docs/vision/specs/superclaude-analysts-port.md`.

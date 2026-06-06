@@ -192,6 +192,35 @@ The Phase 8 `jules-pr-review-cycle` skill (Spec 013) is the
 canonical implementation: its `draft-replies` phase always renders
 this tail; the `reply-on-github` phase posts via GitHub MCP.
 
+## §10 — Live awareness via the engine monitor stream
+
+Spec 022 routes Jules state changes onto the **engine monitor channel**
+(Spec 021) — one `monitors/monitors.json` entry (`agency-engine`) that
+tails `.agency/monitor.log`. Each emitted line is delivered to Claude Code
+as a notification, so an orchestrator that dispatched Jules and walked away
+sees state changes **without** running a `jules.watch(...)` polling loop.
+
+Jules emits on the monitor channel at four points:
+- `dispatched` — the moment `jules.dispatch` creates the session (state
+  `QUEUED`), so you see it immediately, not seconds-to-minutes later.
+- one event **per classified watcher transition** (`kind` = the WatchAction:
+  `review_and_approve_plan`, `answer_agent_question`, `verify_pr`,
+  `recover_silent_fail`, …); `noop` heartbeats / same-state ticks are
+  filtered to keep the feed signal-dense.
+- `recovery_started` — when `jules.recover` promotes a session into the
+  probe-wait-recheck tracker.
+- `silent_fail_detected` — when `jules.verify` finds `COMPLETED` but the
+  branch is not on the remote (`COMPLETED ≠ done`, §1).
+
+The monitor is a **side-channel**, not a replacement: the per-intent
+`asyncio.Queue` still feeds programmatic consumers (`jules.watch`), and the
+durable record is still the graph (§8) — events fired while Claude Code was
+disconnected are visible in the log file but not re-delivered as live
+notifications, so on reconnect query `memory` provenance to recover the full
+`WatchEvent` history. Per the user's "don't expose too many Monitors"
+directive, ALL Jules events flow through the single `agency-engine` entry;
+no Jules-specific monitor is ever added.
+
 ---
 
 ## Quick reference — the canonical incantations

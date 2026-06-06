@@ -1,0 +1,7 @@
+[
+  {
+    "name": "agency-engine",
+    "command": "tail -n 0 -F \"${CLAUDE_PROJECT_DIR:-.}/.agency/monitor.log\"",
+    "description": "Agency engine event stream \u2014 capability events fan in here."
+  }
+]

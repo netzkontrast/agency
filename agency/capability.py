@@ -75,6 +75,40 @@ class CapabilityContext:
         intent (provenance by construction). Guarded against runaway recursion."""
         return self.spawn(cap, verb, **args)[0]
 
+    def emit_monitor(self, source: str, kind: str, message: str,
+                     intent_id: Optional[str] = None) -> None:
+        """Spec 021 — fan one event onto the engine's single Monitor channel.
+
+        Sugar over ``self.engine.monitor.emit(MonitorEvent(...))`` so verbs
+        don't import the dataclass. Auto-fills ``intent_id`` from the serving
+        intent and ``ts`` (in the emitter). Silent no-op when no engine/monitor
+        is attached (e.g. bare unit tests) — emitting is best-effort
+        notification, never load-bearing.
+
+        Inputs: source (capability name), kind (event kind — see
+                `_monitor.CANONICAL_KINDS`; open string), message (one-line
+                summary; truncated to the atomic-append budget by the emitter),
+                intent_id (override; defaults to the ctx's serving intent).
+        Returns: None.
+        chain_next: the agent receives the line via the `agency-engine` monitor.
+        """
+        engine = self.engine
+        monitor = getattr(engine, "monitor", None) if engine is not None else None
+        if monitor is None:
+            return
+        from ._monitor import MonitorEvent
+        try:
+            monitor.emit(MonitorEvent(
+                source=source, kind=kind, message=message,
+                intent_id=intent_id or self.intent_id or "",
+            ))
+        except OSError:
+            # Best-effort: a full disk / unwritable AGENCY_MONITOR_LOG / rotation
+            # permission error must NEVER fail a load-bearing verb (e.g.
+            # jules.dispatch after the remote session is already created, where a
+            # raised error could prompt a duplicate retry). Drop the notification.
+            pass
+
     def render(self, template: str, **vars: Any) -> str:
         # Spec 060 round 9 — `ontology.templates` carries BOTH bare strings
         # (dict-form declarations) and `string.Template` instances (file-

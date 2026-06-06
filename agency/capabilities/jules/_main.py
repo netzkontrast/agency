@@ -215,6 +215,13 @@ class JulesCapability(CapabilityBase):
                 alias_id = f"jules-alias:{alias}"
                 self.ctx.memory.record("JulesAlias", {"name": alias, "sid": sid}, node_id=alias_id)
                 self.ctx.memory.link(alias_id, sess_id, "ALIAS_OF")
+            # Spec 022 — surface the dispatch immediately on the engine monitor
+            # so the user sees it in Claude Code without waiting for the first
+            # watcher transition (seconds-to-minutes later).
+            self.ctx.emit_monitor(
+                source="jules", kind="dispatched",
+                message=f"sid={sid} state={s.get('state', 'QUEUED')} title={title}",
+            )
         return {
             "status": s.get("state", "submitted"),
             "session": sid,
@@ -333,7 +340,17 @@ class JulesCapability(CapabilityBase):
             return {"done": False, "state": state, "branch_on_remote": False,
                     "error": f"remote check failed: {chk.get('detail','')}"}
         branch_on_remote = bool(chk.get("exists"))
-        done = str(state).lower() == "completed" and branch_on_remote
+        is_completed = str(state).lower() == "completed"
+        done = is_completed and branch_on_remote
+        # Spec 022 — make COMPLETED≠done silent-fail detection visible on the
+        # monitor channel without the user reading the verify return value. Gate
+        # on COMPLETED (same condition as `done`): an in-progress session whose
+        # branch isn't pushed yet is NORMAL, not a silent fail (PR #20 review).
+        if is_completed and not branch_on_remote:
+            self.ctx.emit_monitor(
+                source="jules", kind="silent_fail_detected",
+                message=f"branch={branch!r} NOT on {remote} (state={state}) — likely silent fail",
+            )
         return {"done": done, "state": state, "branch_on_remote": branch_on_remote,
                 "sha": chk.get("sha", "")}
 
@@ -631,6 +648,11 @@ class JulesCapability(CapabilityBase):
             "owner": owner,
             "repo": repo,
         }
+        # Spec 022 — surface recovery entry on the engine monitor channel.
+        self.ctx.emit_monitor(
+            source="jules", kind="recovery_started",
+            message=f"sid={session} entering recovery (probe budget: 3 × 5min)",
+        )
         return {"status": "probing", "session": session, "attempts_planned": 3}
 
     @verb(role="transform")

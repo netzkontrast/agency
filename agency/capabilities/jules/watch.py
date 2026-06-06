@@ -218,6 +218,37 @@ class Watcher:
                 pass
         q.put_nowait(event)
 
+    def _emit_monitor(self, sinfo: dict, event: dict) -> None:
+        """Spec 022 — fan a classified transition onto the engine monitor
+        channel (Spec 021), the SIDE-CHANNEL to the per-intent queue. The queue
+        stays for programmatic consumers (`jules.watch`); the monitor is for
+        live awareness in Claude Code without a polling loop.
+
+        ``noop`` transitions (heartbeats, same-state) do NOT emit — OQ#1 noise
+        filter. Best-effort: silent no-op when no engine/monitor is attached
+        (e.g. a Watcher under unit test with no engine wired).
+        """
+        if event.get("action") == "noop":
+            return
+        engine = self.engine
+        monitor = getattr(engine, "monitor", None) if engine is not None else None
+        if monitor is None:
+            return
+        from agency._monitor import MonitorEvent
+        prev = sinfo.get("last_state") or {}
+        prev_state = prev.get("state") if isinstance(prev, dict) else None
+        sid = event.get("session", "")
+        instr = (event.get("instruction") or "")[:200]
+        try:
+            monitor.emit(MonitorEvent(
+                source="jules",
+                kind=event.get("action", "info"),
+                message=f"sid={sid} {prev_state}→{event.get('state')}: {instr}",
+                intent_id=sinfo.get("intent_id", ""),
+            ))
+        except OSError:
+            pass  # best-effort — never let a log-write failure break the poll loop
+
     def _calc_cadence(self) -> float:
         now = self.time_func()
 
@@ -253,7 +284,10 @@ class Watcher:
                 vcs = GitClient()
                 branch_on_remote = vcs.remote_exists(st.get("branch", ""))
                 if branch_on_remote:
-                    self._put_event(st["intent_id"], {"action": "verify_pr", "instruction": "...", "evidence": {}})
+                    ev = {"action": "verify_pr", "session": sid,
+                          "instruction": "...", "evidence": {}}
+                    self._put_event(st["intent_id"], ev)
+                    self._emit_monitor(st, ev)   # Spec 022 — recovery success is live too
                     del self.recovery_in_flight[sid]
                     continue
 
@@ -293,13 +327,15 @@ class Watcher:
                         # can fall back to a manual recovery.
                         plan = {}
 
-                    self._put_event(st["intent_id"], {
+                    ev = {
                         "action": "recover_apply_plan",
                         "session": sid,
                         "state": "COMPLETED",
                         "instruction": INSTRUCTIONS["recover_apply_plan"],
                         "evidence": {"plan": plan}
-                    })
+                    }
+                    self._put_event(st["intent_id"], ev)
+                    self._emit_monitor(st, ev)   # Spec 022 — patch-apply-needed is live too
                     del self.recovery_in_flight[sid]
                     continue
 
@@ -374,6 +410,7 @@ class Watcher:
 
                     if event:
                         self._put_event(sinfo["intent_id"], event)
+                        self._emit_monitor(sinfo, event)   # Spec 022 — live side-channel
                         sinfo["last_transition_at"] = self.time_func()
 
                         if event["action"] in ("terminal", "verify_pr", "dispatch_fresh"):

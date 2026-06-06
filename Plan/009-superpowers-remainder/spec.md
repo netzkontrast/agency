@@ -1,7 +1,7 @@
 ---
 spec_id: 009
 slug: superpowers-remainder
-status: draft
+status: closed-superseded   # → 041 + 046; closed 2026-06-06
 owner: "@agency"
 depends_on: [003]
 affects:
@@ -325,11 +325,23 @@ this as the primary expected outcome, evidenced by the SHA — not via the false
   `test_checklist_returns_steps…` — the invariants to preserve),
   `research/capability-specs/capability-catalogue.md` (per-skill status).
 
+## Closure note (2026-06-06)
+
+**Closed — superseded by Spec 041 + Spec 046.** This catch-all "finish the
+superpowers port" spec is carried by two successor specs that scope the
+remaining surface precisely: Spec 041 (implementation-discipline-skills —
+ports the discipline skills) and Spec 046 (micro-extensions-bundle —
+code-review split, smart-commit, estimate, doc-autosync, etc.). The
+`skills/code-review/SKILL.md` drift this spec flagged (`assess` vs
+`dispatch`) is tracked under those successors. No standalone "remainder"
+port will be built. Spec text retained verbatim per the supersede pattern
+(GOALS.md #7).
+
 ## Followup — Implementation Status (2026-05-31)
 
 > Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
 
-**Verdict:** Not started
+**Verdict:** Not started (CLOSED 2026-06-06 — see Closure note above)
 
 ### Done
 - The `develop` capability already ships 8 disciplines covering the bulk of the superpowers port (`agency/capabilities/develop.py:28-99`): `brainstorm`, `plan`, `tdd`, `debug`, `verify`, `spec-panel`, `review` (with `dispatch` bound to `delegate.fan_out`), `execute`. These are the prior-art baseline; 009 adds to them.
