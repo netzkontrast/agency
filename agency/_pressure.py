@@ -67,7 +67,15 @@ def _as_string_list(scenario: dict, key: str) -> list[str]:
     val = scenario[key]
     if isinstance(val, (str, bytes)):
         raise ValueError(f"scenario[{key!r}] must be a list of strings, not a scalar")
-    return [str(item) for item in val]
+    out: list[str] = []
+    for item in val:
+        s = str(item)
+        # A blank pattern matches every transcript (`'' in text` is always True),
+        # which would flip neutral transcripts to false compliant/rationalised.
+        if not s.strip():
+            raise ValueError(f"scenario[{key!r}] contains a blank entry")
+        out.append(s)
+    return out
 
 
 def _hits(patterns: list, text: str) -> list[str]:

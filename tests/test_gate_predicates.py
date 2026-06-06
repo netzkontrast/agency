@@ -55,6 +55,15 @@ def test_spec_validate_requires_step_under_the_scenario_header():
     assert any(f["rule"] == "gherkin" for f in res["findings"])
 
 
+def test_spec_validate_rejects_continuation_only_scenario():
+    # `And`/`But` are continuations, not real steps — a block with only `And`
+    # must NOT satisfy the Gherkin gate.
+    text = "The system MUST work.\nScenario: x\n  And something happens\n"
+    res = spec_validate(text)
+    assert res["ok"] is False
+    assert any(f["rule"] == "gherkin" for f in res["findings"])
+
+
 # --- confidence_check: go-threshold predicate --------------------------------
 
 def test_confidence_check_scores_and_blocks_below_threshold():
@@ -78,6 +87,15 @@ def test_confidence_check_full_passes_threshold():
 def test_confidence_check_empty_is_not_confident():
     res = confidence_check([])
     assert res["score"] == 0.0 and res["blocking"] == []
+
+
+def test_confidence_check_rejects_stringified_outcomes():
+    # {"ok": "false"} from JSON/YAML is truthy but must NOT count as met, or a
+    # failed claim could push the score over the 0.9 go-threshold.
+    res = confidence_check([{"claim": "a", "ok": True}, {"claim": "b", "ok": "false"},
+                            {"claim": "c", "ok": "true"}])  # only "a" is real True
+    assert res["score"] == pytest.approx(1 / 3)
+    assert set(res["blocking"]) == {"b", "c"}
 
 
 # --- the gate facet: sub-threshold confidence blocks the phase as a Gate ------

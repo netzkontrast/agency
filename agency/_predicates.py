@@ -14,7 +14,9 @@ _RFC2119 = (
     "MUST NOT", "MUST", "SHALL NOT", "SHALL", "SHOULD NOT", "SHOULD",
     "REQUIRED", "RECOMMENDED", "MAY", "OPTIONAL",
 )
-_GHERKIN_STEP = re.compile(r"^\s*(Given|When|Then|And|But)\b", re.MULTILINE)
+# A REAL step is Given/When/Then. `And`/`But` are continuations only — a block
+# with nothing but `And something` is malformed and must NOT satisfy the gate.
+_GHERKIN_STEP = re.compile(r"^\s*(Given|When|Then)\b", re.MULTILINE)
 _GHERKIN_SCENARIO = re.compile(r"^\s*Scenario\b", re.MULTILINE | re.IGNORECASE)
 # Split the text at each Scenario header; a well-formed spec has at least one
 # step (Given/When/Then) in the block FOLLOWING a header (not merely a stray
@@ -66,6 +68,9 @@ def confidence_check(checklist: list[dict]) -> dict:
     """
     if not checklist:
         return {"score": 0.0, "blocking": []}
-    met = sum(1 for item in checklist if item.get("ok"))
-    blocking = [item.get("claim", "") for item in checklist if not item.get("ok")]
+    # Strict `is True`: a stringified outcome from JSON/YAML (e.g. {"ok": "false"})
+    # is truthy and would otherwise count a failed claim as met, pushing the
+    # score over the 0.9 go-threshold. Only a real boolean True counts as met.
+    met = sum(1 for item in checklist if item.get("ok") is True)
+    blocking = [item.get("claim", "") for item in checklist if item.get("ok") is not True]
     return {"score": met / len(checklist), "blocking": blocking}

@@ -54,6 +54,13 @@ def test_scalar_rubric_does_not_cause_false_compliant():
         load_scenario(bad)
 
 
+def test_load_scenario_rejects_blank_rubric_entry():
+    # a blank pattern matches every transcript ('' in text is always True)
+    bad = {**_SCENARIO, "rationalisation_patterns": ["just this once", ""]}
+    with pytest.raises(ValueError):
+        load_scenario(bad)
+
+
 # --- score_transcript (anchor 133.2) -----------------------------------------
 
 def test_rationalisation_always_beats_compliance():
