@@ -10,20 +10,22 @@
 > that ships a spec, opens a new spec, or changes a spec's status MUST
 > update the corresponding row here in the same commit. No drift.
 >
-> **Last reviewed:** 2026-06-05 (branch `claude/blissful-volta-rJ3rP`).
-> **Wave-3 + audit-bundle baseline:** 333 tests passed at consolidation
-> review (per `Plan/000-overview.md`'s 2026-05-31 snapshot); recent main
-> activity adds Spec 031 + 032 implementation work.
+> **Last reviewed:** 2026-06-06 (branch `claude/affectionate-meitner-H4vTJ`).
+> Verdict counts reconciled row-by-row against the Status column (the
+> 2026-06-05 glance had drifted — 016/019/023/059/061/062/064 were
+> Shipped but undercounted, 001/016/023 sat in Partial, 032 had moved to
+> Superseded). Specs 008 + 009 closed as superseded this pass.
 
 ## Verdicts at a glance
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 21 | 012, 013, 015, 017, 020, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 065 |
-| **Partially implemented** | 10 | 001, 006, 007, 016, 018, 023, 024, 025, 031, 032 |
-| **Not started** | 18 | 002, 003, 004, 005, 008, 009, 010, 011, 014, 019, 021, 022, 026, 028, 041, 046, 049, 051 + (010 deferred-v2 axes) |
+| **Shipped** | 30 | 001, 012, 013, 015, 016, 017, 019, 020, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 059, 060, 061, 062, 064, 065 |
+| **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
+| **Not started** | 17 | 002, 003, 004, 005, 010, 011, 014, 021, 022, 026, 041, 046, 049, 051, 056, 057, 058 |
+| **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
-Total active specs: **41** (counting 000-overview).
+Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
 
 ## Status table
 
@@ -36,8 +38,8 @@ Total active specs: **41** (counting 000-overview).
 | 005 | context-mode-and-token-economics | Not started | Output-overflow capture + recall | Wave-1 backlog |
 | 006 | core-hardening | Partial | Red-team fixes: tick, pagination, verify | Fixes #1 O(1), #2 `seen_tokens`, #4 `capture_api_key` absent; `tests/test_hardening.py` missing |
 | 007 | music-domain-capability | Partial | Music domain (in `examples/music.py`) | Full surface depends on 002 driver registry |
-| 008 | superclaude-analysts | Not started | SuperClaude analysis (`transmute` cluster) | Superseded by Spec 042 (`analyze`) — close out? |
-| 009 | superpowers-remainder | Not started | Finish the superpowers port | Superseded by Specs 041 + 046 — close out? |
+| 008 | superclaude-analysts | **Closed (superseded → 042)** | SuperClaude analysis (`transmute` cluster) | Closed 2026-06-06. The `analyze` capability (Spec 042, Shipped) delivers the 4-axis decidable analysis this spec scoped via a `transmute` cluster; no separate port needed. Frontmatter flipped; spec text kept verbatim per supersede pattern (GOALS.md #7) |
+| 009 | superpowers-remainder | **Closed (superseded → 041 + 046)** | Finish the superpowers port | Closed 2026-06-06. Remaining superpowers surface is carried by Spec 041 (implementation-discipline-skills) + Spec 046 (micro-extensions-bundle); both supersede the catch-all "remainder" port. Frontmatter flipped; spec text kept verbatim |
 | 010 | novel-domain | Not started | Novel domain (Dramatica/NCP, gates) | 0% impl; 7 loops sequenced; spec rebased 2026-05-31 |
 | 011 | agentic-capabilities | Not started | Agentic guardrails (middleware + `gate` + skill) | Depends on Spec 021 monitor channel |
 | 012 | jules-complete-lifecycle-and-watcher | **Shipped** | Full Jules v1alpha + watcher + recovery | (frontmatter says draft — flip to done) |
@@ -90,16 +92,23 @@ Total active specs: **41** (counting 000-overview).
 
 ## Suggested implementation order (next 5)
 
-Per `Plan/000-overview.md` § "Recommended next implementation order"
-plus this branch's audit bundle:
+Refreshed 2026-06-06 (the prior list named 020 + 040, both Shipped).
+Ranked by leverage — what unblocks the most downstream work first:
 
-1. **Spec 020** finish — `dogfood.export` (one verb away).
-2. **Spec 021** — engine-monitor-channel (hard-blocks 011 + 022).
-3. **Spec 040** — subagent-decision-heuristics (informs 042-046).
-4. **Spec 017** — graph-native-dogfood-ledgers (depends on 020).
-5. **Spec 010** — novel domain Loop 0+1 (in parallel with above; F1-F5
-   Gemini-deep-research prompts already shipped under
-   `research/novel-prompts/`).
+1. **Spec 021** — engine-monitor-channel. Highest leverage: hard-blocks
+   BOTH 022 (jules-monitor) and 011 (agentic-guardrails). Substrate;
+   depends only on Shipped 020. *(in progress, branch
+   `claude/affectionate-meitner-H4vTJ`)*
+2. **Specs 056 + 057 + 058** — review-driven lint batch (type-safe
+   node-id, analyzer-rule-axis-registry, reflection-link-lint). Cheap:
+   1–3 sites each; deps (016 + 019 + 050) all Shipped; share the lint
+   scaffold context so they batch cleanly.
+3. **Spec 049** — naming-and-token-economy audit. Cuts the token cost of
+   every discovery call; audit-only, low-risk; do before more verbs accrete.
+4. **Spec 002** — boundary-driver-protocol. Generic Boundary/Driver +
+   DriverRegistry; unblocks Spec 007's full music surface.
+5. **Spec 010** — novel domain Loop 0+1 (F1–F5 Gemini-deep-research
+   prompts already shipped under `research/novel-prompts/`).
 
 ## When to update this file
 
