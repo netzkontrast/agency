@@ -180,6 +180,10 @@ class Engine:
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)
+        # Spec 021 — the single engine Monitor channel. Capabilities fan events
+        # in via ctx.emit_monitor(...); one tail -F on this log surfaces them.
+        from ._monitor import MonitorEmitter, resolve_monitor_log_path
+        self.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))
 
     def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
         """Auto-wire ONE MCP tool for a capability verb from its fn signature.
@@ -242,6 +246,7 @@ class Engine:
         @asynccontextmanager
         async def lifespan(server):
             from agency.capabilities.jules import watch as _jules_watch
+            engine.monitor.maybe_rotate()           # Spec 021 — bound the SLOG on session enter
             _jules_watch.start(engine)              # attaches engine._jules_watcher + starts poll loop
             try:
                 yield {}                             # lifespan state available via Context

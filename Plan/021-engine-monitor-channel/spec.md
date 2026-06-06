@@ -1,7 +1,7 @@
 ---
 spec_id: "021"
 slug: engine-monitor-channel
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/affectionate-meitner-H4vTJ)
 owner: "@agency"
 depends_on: ["020"]   # uses CLAUDE_PLUGIN_DATA path + .agency/ convention
 affects:
@@ -206,3 +206,50 @@ channel with zero monitors.json change.
 - code: `agency/_monitor.py` absent; `agency/capability.py:47` has `engine` field only; `agency/engine.py` has no `monitor` attribute; `monitors/` directory absent
 - tests: `tests/test_engine_monitor.py` absent
 - commits/notes: No commit referencing `MonitorEvent`, `MonitorEmitter`, `emit_monitor`, or `monitors.json`
+
+## Followup — Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/affectionate-meitner-H4vTJ` (Phase A of
+> `intent:a21a843b`). TDD: RED (12 failing tests, module absent) → GREEN.
+
+**Verdict:** Shipped
+
+### Done
+- `agency/_monitor.py` — `MonitorEvent` (frozen dataclass; `to_json`/`from_json`
+  single-line roundtrip) + `MonitorEmitter` (lazy append-only JSONL; `maybe_rotate`
+  at 1 MB via atomic `os.replace` overwriting `<log>.1`; `_fit_message` keeps each
+  line ≤ 4096 bytes for POSIX atomic-append safety) + `resolve_monitor_log_path`
+  (explicit > `AGENCY_MONITOR_LOG` env > sibling-of-DB > `./.agency/monitor.log`
+  > `~/.agency-monitor.log`). `kind` left OPEN (Q#6) with `CANONICAL_KINDS`
+  documented; NO engine-side throttle (Q#3).
+- `agency/engine.py:184-186` — `Engine.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))`.
+- `agency/engine.py` lifespan — `engine.monitor.maybe_rotate()` bounds the SLOG on session enter.
+- `agency/capability.py` — `CapabilityContext.emit_monitor(source, kind, message, intent_id=None)`
+  sugar; auto-fills `intent_id` from the serving intent; silent no-op when no
+  engine/monitor attached (best-effort, never load-bearing).
+- `agency/install.py` — `_MONITORS_JSON` single `agency-engine` entry added to
+  `generate()`; `${CLAUDE_PLUGIN_DATA}/monitor.log` with `|| ./.agency/monitor.log`
+  fallback (Q#1). `monitors/monitors.json` written to repo via regen.
+- `agency/install.py:scaffold_agency_dir` — writes `.agency/.gitignore`
+  (session.db + monitor.log*) so the SLOG never enters git (Q#2); repo root
+  `.gitignore` mirrors the guard.
+- `AGENCY-DRIFT: monitor-channel` tag at the install site (Spec 054).
+
+### Tests
+- `tests/test_engine_monitor.py` — 12 tests: event JSON roundtrip; JSONL append;
+  ts auto-fill; rotation-overwrites-`.1`; atomic-budget truncation;
+  path-resolution (explicit/env/sibling); `Engine.monitor` ownership;
+  `emit_monitor` auto-fill + no-engine no-op; single install entry; `tail -F`
+  one-line-per-event smoke (POSIX). All green; full suite 697 passed / 3 skipped;
+  `scripts/check-drift` reports NO DRIFT.
+
+### Still / deferred to v2
+- Multi-process Windows append atomicity (Q#4) — documented caveat; revisit only
+  if Windows becomes load-bearing.
+- Restart catch-up (Q#5) — by design the graph carries durable provenance; the
+  monitor is live-only.
+
+### Refinement (for Spec 022)
+- Spec 022 is now UNBLOCKED — wire the Jules `WatchEvent` classifier
+  (`agency/capabilities/jules/_jules_watch.py`) through `ctx.emit_monitor(
+  source="jules", kind="state_transition", ...)`; zero `monitors.json` change.

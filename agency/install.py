@@ -292,6 +292,24 @@ _SESSION_START_HOOKS_JSON = json.dumps({
 }, indent=2) + "\n"
 
 
+# Spec 021 — the single engine Monitor channel. ONE monitors.json entry; every
+# capability fans its events into ${.agency/monitor.log} via ctx.emit_monitor.
+# The `|| tail -F ./.agency/monitor.log` fallback lets the same declaration work
+# for marketplace installs (CLAUDE_PLUGIN_DATA) and local dev (CWD-local).
+# AGENCY-DRIFT: monitor-channel — this is the lone monitor surface; new
+#   event sources plug in via emit_monitor, NOT a new monitors.json entry.
+_MONITORS_JSON = json.dumps([
+    {
+        "name": "agency-engine",
+        "command": (
+            "tail -F ${CLAUDE_PLUGIN_DATA}/monitor.log 2>/dev/null "
+            "|| tail -F ./.agency/monitor.log"
+        ),
+        "description": "Agency engine event stream — capability events fan in here.",
+    }
+], indent=2) + "\n"
+
+
 # Spec 064 — polyglot CMD+bash wrapper. Valid as both a Windows CMD
 # batch (the heredoc-delimited block runs first) and a bash script
 # (the `:` is a no-op label so `: << 'CMDBLOCK'` reads as a here-doc
@@ -567,6 +585,8 @@ def generate(engine: Engine) -> dict[str, str]:
         # Code Web environments) don't hit the .mcp.json shim's
         # exit-127 silent failure on a fresh install.
         "hooks/hooks.json":                _SESSION_START_HOOKS_JSON,
+        # Spec 021 — single engine Monitor channel (one surface, many emitters).
+        "monitors/monitors.json":          _MONITORS_JSON,
         # Spec 064: cross-platform polyglot wrapper + extensionless
         # hook script (so Windows doesn't auto-prepend `bash` to a `.sh`
         # filename and break on systems without bash on PATH).
@@ -769,6 +789,16 @@ def scaffold_agency_dir(root: str) -> list[str]:
         with open(readme, "w") as f:
             f.write(_AGENCY_README)
         written.append(readme)
+    # Spec 021 — keep the SLOGs out of git. The monitor log + rotated history
+    # and the session DB are ephemeral; durable provenance lives in the graph.
+    gitignore = os.path.join(agency_dir, ".gitignore")
+    if not os.path.exists(gitignore):
+        with open(gitignore, "w") as f:
+            f.write("# Spec 020/021 — ephemeral SLOGs; not graph state.\n"
+                    "session.db\n"
+                    "monitor.log\n"
+                    "monitor.log.*\n")
+        written.append(gitignore)
     return written
 
 
