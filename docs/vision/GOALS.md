@@ -54,7 +54,7 @@ operational docs ([`../../AGENTS.md`](../../AGENTS.md),
 
 | Goal | Code surface | Doctrine page |
 |---|---|---|
-| 1 — Token efficiency | `agency/engine.py` CodeMode wiring; `delegate.dispatch-decision` skill | [CORE.md](CORE.md) §"Engine" |
+| 1 — Token efficiency | `agency/engine.py` CodeMode wiring; `delegate.dispatch-decision` skill; tiered discovery (Spec 068) + name-budget lint (Spec 067) | [CORE.md](CORE.md) §"Engine" + §"Naming" |
 | 2 — Provenance | `agency/memory.py` `_intent_chain` / `provenance` | [CORE.md](CORE.md) §"Memory" |
 | 3 — Agent-uniform | `agency/skill.py` SkillRun; Codex C3 hard-gate persistence | [AGENCY_PROTOCOL.md](../../AGENCY_PROTOCOL.md) |
 | 4 — Open set | `agency/capabilities/__init__.py` `discover()`; Spec 016 | [CAPABILITY-CLUSTERS.md](CAPABILITY-CLUSTERS.md) |

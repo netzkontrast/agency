@@ -23,9 +23,20 @@
 | **Shipped** | 37 | 001, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065 |
 | **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
 | **Not started** | 10 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 051 |
+| **Token-economy cluster (`intent:97534079`)** | 7 | **072 Shipped (PR #24)** · 066 master · 067/068/069/070/071 drafted |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
-Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
+Total spec rows: **65** (001–072, with 027 + 033–038 renumbered away).
+
+## Token-Economy & Readability cluster (`intent:97534079`, master Spec 066)
+
+A lint-first program to make the system cheaper to read/write/discover without
+weakening a GOALS goal. **Build order** (≠ spec number): **072** core-vision-
+alignment (doctrine, via spec-panel) → **067** lint-token-economy-rules (the
+executable goal-test) → **068** tiered-discovery → **069** naming-rename-impl
+(049) → **070** verb-surface-consolidation → **071** skill-surface-reconciliation.
+Each child: alias-and-deprecate migration, TDD, merged green. See
+`Plan/066-token-economy-cluster/spec.md` for the charter + goal→lint-rule map.
 
 ## Status table
 
