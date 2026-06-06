@@ -81,8 +81,10 @@ def test_welcome_no_graph_writes_on_call():
         e.memory.close()
 
 
-def test_welcome_token_budget_still_under_1kb_in_progress():
-    """The added state fields must not push welcome past the 1 KB budget."""
+def test_welcome_token_budget_still_under_2kb_in_progress():
+    """The state fields + the Spec 068 capability_tier must stay under the 2 KB
+    welcome budget (raised from 1 KB by Spec 068 — the tier is net-token-positive,
+    see test_welcome.py)."""
     e = Engine(tempfile.mktemp(suffix=".db"))
     for i in range(3):                                # a few intents on the graph
         e.intent.capture_and_confirm(f"p{i}", f"d{i}", f"a{i}")
@@ -95,6 +97,6 @@ def test_welcome_token_budget_still_under_1kb_in_progress():
     finally:
         e.memory.close()
     payload = json.dumps(out)
-    assert len(payload) <= 1024, (
-        f"welcome payload {len(payload)} bytes exceeds 1 KB budget after "
-        f"adding state fields")
+    assert len(payload) <= 2048, (
+        f"welcome payload {len(payload)} bytes exceeds 2 KB budget after "
+        f"adding state fields + capability_tier (Spec 068)")

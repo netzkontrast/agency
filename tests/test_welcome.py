@@ -88,10 +88,13 @@ def test_welcome_works_on_fresh_target(tmp_path, monkeypatch):
     assert "session.db" in out["db_path"]
 
 
-def test_welcome_token_budget_under_1kb():
-    """Regression invariant — Spec 029 OQ-3. The welcome payload must
-    stay under 1 KB on the current core registry; if a future capability
-    pushes it over, the truncation logic must be reintroduced."""
+def test_welcome_token_budget_under_2kb():
+    """Regression invariant — Spec 029 OQ-3, raised to 2 KB by Spec 068. The
+    welcome payload now carries the tier-0 `capability_tier` (one line per
+    capability) — a DELIBERATE, net-token-positive enrichment: it lets the agent
+    drill in instead of dumping every verb (~1471 tokens), so paying ~500 tokens
+    once on welcome saves far more on discovery. The bound stays tight (2 KB); a
+    future capability that pushes it over must trim, not raise again blindly."""
     e = Engine(tempfile.mktemp(suffix=".db"))
     mcp = e.build_mcp(codemode=False)
     try:
@@ -102,6 +105,6 @@ def test_welcome_token_budget_under_1kb():
     finally:
         e.memory.close()
     payload = json.dumps(out)
-    assert len(payload) <= 1024, (
-        f"welcome payload {len(payload)} bytes exceeds the 1 KB budget; "
-        f"reintroduce truncation per Spec 029 OQ-3")
+    assert len(payload) <= 2048, (
+        f"welcome payload {len(payload)} bytes exceeds the 2 KB budget; "
+        f"trim the capability_tier gists (Spec 068), don't raise the bound")
