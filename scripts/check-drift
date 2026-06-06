@@ -20,7 +20,7 @@ if [[ "${1:-}" == "--quiet" ]]; then
 fi
 
 DRIFT=0
-say() { [[ "$QUIET" -eq 0 ]] && echo "$@"; }
+say() { [[ "$QUIET" -eq 0 ]] && echo "$@"; return 0; }  # never non-zero (set -e safe in --quiet)
 
 # ----------------------------------------------------------------------
 # 1. AGENCY-DRIFT tags
@@ -80,6 +80,27 @@ else
   # Don't fail on this — some capabilities (e.g. workspace) intentionally
   # share tests with their consumer modules.
 fi
+say
+
+# ----------------------------------------------------------------------
+# 5. Token-economy WARN baseline (Spec 067) — WARN only, never fails CI.
+# ----------------------------------------------------------------------
+say "==> token-economy lint (Spec 067, WARN-only)"
+TE_OUT=$(python - <<'PYEOF' 2>/dev/null || echo "    (skipped: engine import failed)"
+from collections import Counter
+from agency.engine import Engine
+from agency.capabilities.plugin._main import lint_surface, lint_capability
+e = Engine(":memory:")
+warns = list(lint_surface(e.registry)["warnings"])
+for n in e.registry.names():
+    warns += [w for w in lint_capability(e.registry.get(n)).get("warnings", [])
+              if w.get("kind") in ("name_token_budget", "surface_size")]
+e.memory.close()
+c = Counter(w["kind"] for w in warns)
+print("    " + (", ".join(f"{k}={v}" for k, v in sorted(c.items())) or "clean"))
+PYEOF
+)
+say "$TE_OUT"
 say
 
 # ----------------------------------------------------------------------

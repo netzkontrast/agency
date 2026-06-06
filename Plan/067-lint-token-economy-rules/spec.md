@@ -1,7 +1,7 @@
 ---
 spec_id: "067"
 slug: lint-token-economy-rules
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/spec-067-lint-token-economy)
 last_updated: 2026-06-06
 owner: "@agency"
 serves_intent: "intent:97534079"
@@ -111,3 +111,33 @@ unchanged in shape; the surface rules are a parallel, additive call.
 - `scripts/check-drift` — the CI guard the new WARN section plugs into (Spec 054).
 - `GOALS.md` #1 (token efficiency) + `CORE.md` §Naming (the wire form the
   name budget measures against).
+
+
+## Followup --- Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/spec-067-lint-token-economy`. TDD (RED 10 -> GREEN 11).
+
+**Verdict:** Shipped
+
+### Done
+- `plugin._main` gains four WARN-first rules: `_check_name_token_budget` (wire
+  name <= 6 cl100k tok; tiktoken-guarded), `_check_surface_size` (<= 12 verbs),
+  `_check_bare_name_unique` (cross-cap collision + contract shadow),
+  `_check_skill_name_parity` (ontology key vs SKILL.md folder).
+- Per-cap rules join the WARN-only `soft_findings` bucket; registry-level rules
+  run via the new `lint_surface(registry)` entry point.
+- `scripts/check-drift` prints the live WARN baseline (exit 0): `bare_name_collision=3,
+  bare_name_contract_shadow=1, name_token_budget=3, skill_name_parity=14, surface_size=1`
+  --- the exact targets the child specs drive to zero before flipping to BLOCK.
+- `CAPABILITY-AUTHORING.md` Token-economy budgets section + `AGENCY-DRIFT:
+  token-economy-budgets` tag. tiktoken injected into the pipx MCP env so the
+  name-budget rule works inside the engine too.
+
+### Tests
+- `tests/test_lint_token_economy.py` --- 11 (per-rule synthetic + the live
+  baseline snapshot, drift-guarded). Full suite 790 passed / 3 skipped;
+  check-drift clean.
+
+### Hands off to
+- Spec 068 (surface_size), 069 (name_token_budget + bare_name_*), 071
+  (skill_name_parity) --- each drives its WARN count to zero, then flips to BLOCK.

@@ -534,6 +534,28 @@ or in this doc, not in `.md` files keyed to scope.
 
 ---
 
+## Token-economy budgets (Spec 067)
+
+Names and surface size are paid on every discovery call (GOALS #1). The lint
+pipeline encodes the budgets as WARN-first rules (they flip to BLOCK as the
+cluster's child specs drive each count to zero):
+
+| Rule (`plugin.lint_capability` / `lint_surface`) | Budget | Fixed by |
+|---|---|---|
+| `name_token_budget` | a verb's wire name `capability_<cap>_<verb>` ≤ **6** cl100k tokens | shorten the verb + the bare code-mode alias (Spec 069) |
+| `surface_size` | ≤ **12** verbs per capability before sub-grouping | tiered discovery (Spec 068) / consolidation (Spec 070) |
+| `bare_name_collision` / `bare_name_contract_shadow` | a bare verb name is unique across capabilities and never shadows `search`/`get_schema`/`execute` | disambiguate the bare alias (Spec 069) |
+| `skill_name_parity` | an `ontology.skills` key has a matching `skills/<key>/SKILL.md` folder | reconcile the two skill surfaces (Spec 071) |
+| `token_budget` (brief) | a verb's first-sentence brief ≤ 20 cl100k tokens | tighten the first line (Spec 023) |
+
+The budgets are **conventions documented here**, not magic numbers in canon
+(`CORE.md` §Naming points at this lint). Registry-level rules (`bare_name_*`,
+`skill_name_parity`) run via `lint_surface(registry)`; the per-capability rules
+ride the WARN-only `soft_findings` bucket (never block, even in block mode, during
+the migration window). `scripts/check-drift` prints the live WARN counts.
+
+---
+
 ## Node-id parameters must be label-checked (Spec 056)
 
 A verb that takes a `<label>_id` parameter (`research_id`, `parent_intent_id`,

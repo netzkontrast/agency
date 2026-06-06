@@ -613,6 +613,112 @@ def _check_reflection_links(cap):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Spec 067 — token-economy & readability rules (the executable goal-test for
+# the Spec 066 cluster). All WARN-first; each child spec (068–071) drives its
+# WARN count to zero, then flips its rule to BLOCK.
+# AGENCY-DRIFT: token-economy-budgets — the 6/12 budgets + the contract-tool set
+#   are the canon-documented conventions (CAPABILITY-AUTHORING.md §Token-economy).
+# ---------------------------------------------------------------------------
+
+_WIRE_NAME_BUDGET = 6          # cl100k tokens for `capability_<cap>_<verb>`
+_SURFACE_VERB_BUDGET = 12      # verbs per capability before sub-grouping
+_CONTRACT_TOOLS = {"search", "get_schema", "execute"}
+
+
+def _check_name_token_budget(cap):
+    """Spec 067 (WARN): a verb whose wire name (`capability_<cap>_<verb>`) exceeds
+    the cl100k token budget — the repeated discovery tax (GOALS #1; the bare
+    code-mode alias in Spec 069 is the fix). Skips silently if tiktoken missing."""
+    try:
+        import tiktoken
+    except ImportError:
+        return []
+    enc = tiktoken.get_encoding("cl100k_base")
+    out = []
+    for verb_name in cap.verbs:
+        wire = f"capability_{cap.name}_{verb_name}"
+        n = len(enc.encode(wire))
+        if n > _WIRE_NAME_BUDGET:
+            out.append({
+                "verb": verb_name, "kind": "name_token_budget",
+                "msg": f"wire name {wire!r} is {n} cl100k tokens (budget {_WIRE_NAME_BUDGET})",
+                "fix": "shorten the verb name and/or expose a bare code-mode alias (Spec 069)",
+            })
+    return out
+
+
+def _check_surface_size(cap, max_verbs: int = _SURFACE_VERB_BUDGET):
+    """Spec 067 (WARN): a capability carrying more than `max_verbs` verbs without
+    sub-grouping — tiered discovery (Spec 068) or consolidation (Spec 070) is the
+    answer (jules = 22 today)."""
+    n = len(cap.verbs)
+    if n > max_verbs:
+        return [{
+            "verb": None, "kind": "surface_size",
+            "msg": f"capability {cap.name!r} has {n} verbs (> {max_verbs})",
+            "fix": "tier discovery (Spec 068) or collapse near-duplicate verbs (Spec 070)",
+        }]
+    return []
+
+
+def _check_bare_name_unique(registry):
+    """Spec 067 (WARN, registry-level): cross-capability bare-verb collisions +
+    shadows of the code-mode contract tools. Gates the bare-name dispatch surface
+    (Spec 069) — a bare alias can only ship when its name is unambiguous."""
+    from collections import defaultdict
+    by: dict[str, set] = defaultdict(set)
+    for cap_name in registry.names():
+        for v in registry.get(cap_name).verbs:
+            by[v].add(cap_name)
+    out = []
+    for v, caps in sorted(by.items()):
+        if len(caps) > 1:
+            out.append({
+                "verb": v, "kind": "bare_name_collision",
+                "msg": f"bare verb {v!r} owned by {sorted(caps)} — ambiguous under bare dispatch",
+                "fix": "keep the prefix or pick a disambiguating bare form (Spec 069)",
+            })
+        if v in _CONTRACT_TOOLS:
+            out.append({
+                "verb": v, "kind": "bare_name_contract_shadow",
+                "msg": f"bare verb {v!r} ({sorted(caps)}) shadows the code-mode contract tool {v!r}",
+                "fix": "rename the verb's bare alias so it can't shadow search/get_schema/execute (Spec 069)",
+            })
+    return out
+
+
+def _check_skill_name_parity(registry):
+    """Spec 067 (WARN, registry-level): an `ontology.skills` key with no matching
+    `skills/<key>/SKILL.md` folder — the two skill surfaces diverge (Spec 071,
+    e.g. `tdd` ↔ `test-driven-development`). Folder-only skills (marketplace docs
+    without a walkable template) are NOT flagged."""
+    import glob
+    import os
+    onto_obj = getattr(registry, "ontology", None)
+    onto = set(getattr(onto_obj, "skills", {}) or {}) if onto_obj is not None else set()
+    folders = {os.path.basename(os.path.dirname(p)) for p in glob.glob("skills/*/SKILL.md")}
+    out = []
+    for key in sorted(onto - folders):
+        out.append({
+            "verb": None, "kind": "skill_name_parity",
+            "msg": f"ontology skill {key!r} has no matching skills/{key}/SKILL.md folder",
+            "fix": "reconcile the name across both skill surfaces (Spec 071)",
+        })
+    return out
+
+
+def lint_surface(registry) -> dict:
+    """Spec 067 — the registry-level (cross-capability) WARN rules: bare-name
+    uniqueness + skill-surface parity. Per-capability rules stay on
+    `lint_capability`; these inherently need the whole registry. WARN-only.
+
+    Returns: ``{ok: True, warnings: [...], mode: 'warn'}``.
+    """
+    warnings = _check_bare_name_unique(registry) + _check_skill_name_parity(registry)
+    return {"ok": True, "warnings": warnings, "mode": "warn"}
+
+
 def lint_capability(cap) -> dict:
     """Run the rule families against `cap` (a Capability instance).
 
@@ -638,7 +744,8 @@ def lint_capability(cap) -> dict:
         + _check_template_folder(cap)
     )
     # WARN-only soft rules — never block, even in block mode (migration windows).
-    soft_findings = _check_node_id_guards(cap) + _check_reflection_links(cap)
+    soft_findings = (_check_node_id_guards(cap) + _check_reflection_links(cap)
+                     + _check_name_token_budget(cap) + _check_surface_size(cap))
     if mode == "block":
         return {"ok": not all_findings, "violations": all_findings,
                 "warnings": soft_findings, "skipped": 0, "mode": mode}
