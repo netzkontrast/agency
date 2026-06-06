@@ -28,6 +28,50 @@ from . import (_architecture, _findings, _paths, _performance, _quality,
 _AXES = ("quality", "security", "performance", "architecture", "paths")
 
 
+# Spec 057 — rule-axis registry. Each analyzer module declares the rule prefixes
+# it owns via a module-level ``AXIS_PREFIXES`` constant; the registry unions them
+# at import time so adding a new tool means dropping in a wrapper (+ one import),
+# never editing a central if-elif here.
+def _build_axis_registry(modules=None) -> tuple[dict[int, dict[str, str]], int]:
+    """Union every analyzer module's ``AXIS_PREFIXES`` into a length-bucketed
+    prefix→axis lookup. Returns ``({prefix_len: {prefix: axis}}, max_prefix_len)``
+    so the lookup can iterate longest-prefix-first (RUF before R). Raises
+    ValueError when two modules claim the same prefix for DIFFERENT axes;
+    same-axis overlaps are idempotently unioned. ``modules`` overrides the
+    default analyzer set (used by tests to inject colliding declarations)."""
+    if modules is None:
+        from . import (_architecture, _bandit, _paths, _performance, _quality,
+                       _radon, _ruff, _security)
+        modules = (_quality, _security, _performance, _architecture, _paths,
+                   _ruff, _bandit, _radon)
+    by_len: dict[int, dict[str, str]] = {}
+    seen: dict[str, tuple[str, str]] = {}            # prefix -> (axis, module)
+    for mod in modules:
+        for axis, prefixes in getattr(mod, "AXIS_PREFIXES", {}).items():
+            for p in prefixes:
+                if p in seen and seen[p][0] != axis:
+                    prev_axis, prev_mod = seen[p]
+                    raise ValueError(
+                        f"axis-prefix collision: {p!r} owned by both "
+                        f"{prev_mod} (axis={prev_axis}) and "
+                        f"{mod.__name__} (axis={axis})")
+                seen[p] = (axis, mod.__name__)
+                by_len.setdefault(len(p), {})[p] = axis
+    return by_len, max(by_len, default=1)
+
+
+_AXIS_LOOKUP, _MAX_PREFIX_LEN = _build_axis_registry()
+
+
+def _rule_axis(rule: str) -> str:
+    """Map a finding's rule code to its axis via longest-prefix-first lookup."""
+    for n in range(min(len(rule), _MAX_PREFIX_LEN), 0, -1):
+        axis = _AXIS_LOOKUP.get(n, {}).get(rule[:n])
+        if axis:
+            return axis
+    return ""
+
+
 def _phase(idx: int, name: str, produces: list[str], gate: str = "") -> dict:
     p: dict = {"index": idx, "name": name, "produces": produces}
     if gate:
@@ -279,31 +323,7 @@ class AnalyzeCapability(CapabilityBase):
         out = [r["f"]["properties"] for r in rows]
         if axes:
             allow = set(axes)
-            # Filter by rule prefix → axis. Spec 048 added a `paths` axis
-            # whose findings use the `IP` two-letter prefix; Spec 050
-            # added external-analyzer wrappers whose findings use the
-            # source tool's own prefixes (ruff: E/F/W/I/C/N/UP/…;
-            # bandit: B). Check the two-letter prefix first, then fall
-            # back to the single letter.
-            two_letter_to_axis = {"IP": "paths"}
-            # ruff codes — most map to quality; pyupgrade (UP) and
-            # imports (I) also fit quality (style + maintainability).
-            ruff_prefixes = {"E", "F", "W", "I", "C", "N", "UP", "D",
-                             "PL", "PT", "RUF", "SIM", "RET", "TRY"}
-            one_letter_to_axis = {"Q": "quality", "S": "security",
-                                  "P": "performance", "A": "architecture",
-                                  "B": "security"}     # bandit B-codes
-
-            def _rule_axis(rule: str) -> str:
-                if rule[:2] in two_letter_to_axis:
-                    return two_letter_to_axis[rule[:2]]
-                # ruff codes can be 1-3 letters (E, UP, RUF, etc.); check
-                # the longest prefix in the ruff set first so RUF doesn't
-                # collapse to R.
-                for n in (3, 2, 1):
-                    if rule[:n] in ruff_prefixes:
-                        return "quality"
-                return one_letter_to_axis.get(rule[:1], "")
-
+            # Spec 057 — filter by the rule-axis registry (each analyzer module
+            # owns its prefixes via AXIS_PREFIXES; longest-prefix-first lookup).
             out = [f for f in out if _rule_axis(f["rule"]) in allow]
         return out

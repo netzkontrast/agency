@@ -11,6 +11,9 @@ NO taste-judgement ("name is unclear" → not shipped per Spec 042
 """
 from __future__ import annotations
 
+# Spec 057 — the rule prefixes this module's findings carry (axis registry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {"quality": frozenset({"Q"})}
+
 import ast
 import os
 

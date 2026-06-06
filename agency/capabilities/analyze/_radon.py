@@ -6,6 +6,9 @@ maintainability index < 65. Degrades silently when radon missing.
 """
 from __future__ import annotations
 
+# Spec 057 — radon rides on quality's Q prefix; declares none (symmetry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {}
+
 import json
 import shutil
 import subprocess

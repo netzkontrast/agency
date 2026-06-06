@@ -17,6 +17,9 @@ decide what to ship.
 """
 from __future__ import annotations
 
+# Spec 057 — the rule prefixes this module's findings carry (axis registry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {"paths": frozenset({"IP"})}
+
 from ._findings import Finding, make_finding
 
 

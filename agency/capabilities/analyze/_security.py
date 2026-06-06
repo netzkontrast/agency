@@ -14,6 +14,9 @@ The KEY VALUE never appears in the Finding message — only its pattern
 """
 from __future__ import annotations
 
+# Spec 057 — the rule prefixes this module's findings carry (axis registry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {"security": frozenset({"S"})}
+
 import ast
 import re
 
