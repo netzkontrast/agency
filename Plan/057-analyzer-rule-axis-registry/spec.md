@@ -1,7 +1,7 @@
 ---
 spec_id: "057"
 slug: analyzer-rule-axis-registry
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/spec-056-057-058-lint-batch)
 last_updated: 2026-06-03
 owner: "@agency"
 depends_on: ["050"]
@@ -213,3 +213,25 @@ picks up the new prefixes. No filter-logic edits.
   wrappers shipped under Spec 050.
 - Spec 050 — the external-analyzer composition pattern this spec
   refines from "central if-elif" to "wrapper-local declaration."
+
+
+## Followup — Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/spec-056-057-058-lint-batch`.
+
+**Verdict:** Shipped
+
+### Done
+- Each analyzer module (`_quality/_security/_performance/_architecture/_paths/
+  _ruff/_bandit`) declares `AXIS_PREFIXES`; `_radon` declares `{}` (rides on
+  quality's `Q`).
+- `analyze/_main._build_axis_registry(modules=None)` unions them at import time
+  with longest-prefix-first lookup (`_rule_axis`) + cross-axis collision
+  detection. The hardcoded if-elif prefix map in `improve`/`_findings_of` is gone.
+- Drop-in pattern: a future linter (mypy/pylint/semgrep) = one wrapper file + one
+  import line; no central filter edit.
+
+### Tests
+- `tests/test_analyze_axis_registry.py` — 9 (registry contents, longest-first,
+  collision raises, same-axis idempotent union, live registry clean). analyze
+  slice 51 passed / 2 skipped.

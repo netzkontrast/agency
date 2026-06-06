@@ -1,7 +1,7 @@
 ---
 spec_id: "058"
 slug: reflection-link-lint
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/spec-056-057-058-lint-batch)
 last_updated: 2026-06-03
 owner: "@agency"
 depends_on: ["016", "019"]
@@ -148,3 +148,27 @@ and finds nothing.
   rule extends.
 - Spec 019 — the wire-shape rule that proved out the lint
   extensibility this spec follows.
+
+
+## Followup — Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/spec-056-057-058-lint-batch`.
+
+**Verdict:** Shipped
+
+### Done
+- `plugin._check_reflection_links` — WARN-only AST lint rule: a `record(
+  "Reflection", …)` write must link the id with BOTH `SERVES` and
+  `OBSERVED_DURING`; dynamic labels + an `# agency-skip-link-check` marker opt out.
+- Critical side-fix: both 056 + 058 lint rules now resolve the REAL method behind
+  the class-form `_wrap_method` wrapper via `fn.__capability_method__` — before,
+  they only saw the 2-line wrapper and were inert on the live registry. This is
+  what let the audit surface the real gaps.
+- Audit + migrate: `analyze.improve` + `analyze.cleanup` gain `OBSERVED_DURING`;
+  `develop.record_authoring_outcome` gains `SERVES`. Live registry now 0 gaps.
+- CAPABILITY-AUTHORING.md §"Reflection write convention — both edges".
+
+### Tests
+- `tests/test_reflection_link_lint.py` — 6 (both-edges pass, SERVES-only warns,
+  OBSERVED_DURING-only warns, non-Reflection silent, skip-marker opts out,
+  live-registry regression). Full suite 766 passed / 3 skipped.
