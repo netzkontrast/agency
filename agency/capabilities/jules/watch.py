@@ -239,12 +239,15 @@ class Watcher:
         prev_state = prev.get("state") if isinstance(prev, dict) else None
         sid = event.get("session", "")
         instr = (event.get("instruction") or "")[:200]
-        monitor.emit(MonitorEvent(
-            source="jules",
-            kind=event.get("action", "info"),
-            message=f"sid={sid} {prev_state}→{event.get('state')}: {instr}",
-            intent_id=sinfo.get("intent_id", ""),
-        ))
+        try:
+            monitor.emit(MonitorEvent(
+                source="jules",
+                kind=event.get("action", "info"),
+                message=f"sid={sid} {prev_state}→{event.get('state')}: {instr}",
+                intent_id=sinfo.get("intent_id", ""),
+            ))
+        except OSError:
+            pass  # best-effort — never let a log-write failure break the poll loop
 
     def _calc_cadence(self) -> float:
         now = self.time_func()
@@ -281,7 +284,10 @@ class Watcher:
                 vcs = GitClient()
                 branch_on_remote = vcs.remote_exists(st.get("branch", ""))
                 if branch_on_remote:
-                    self._put_event(st["intent_id"], {"action": "verify_pr", "instruction": "...", "evidence": {}})
+                    ev = {"action": "verify_pr", "session": sid,
+                          "instruction": "...", "evidence": {}}
+                    self._put_event(st["intent_id"], ev)
+                    self._emit_monitor(st, ev)   # Spec 022 — recovery success is live too
                     del self.recovery_in_flight[sid]
                     continue
 
@@ -321,13 +327,15 @@ class Watcher:
                         # can fall back to a manual recovery.
                         plan = {}
 
-                    self._put_event(st["intent_id"], {
+                    ev = {
                         "action": "recover_apply_plan",
                         "session": sid,
                         "state": "COMPLETED",
                         "instruction": INSTRUCTIONS["recover_apply_plan"],
                         "evidence": {"plan": plan}
-                    })
+                    }
+                    self._put_event(st["intent_id"], ev)
+                    self._emit_monitor(st, ev)   # Spec 022 — patch-apply-needed is live too
                     del self.recovery_in_flight[sid]
                     continue
 

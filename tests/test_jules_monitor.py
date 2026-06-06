@@ -121,6 +121,42 @@ def test_verify_emits_silent_fail_detected(engine, iid, monitor_log):
     assert sf[0]["intent_id"] == iid
 
 
+def test_verify_no_silent_fail_when_not_completed(engine, iid, monitor_log):
+    # An in-progress session whose branch isn't pushed yet is NORMAL — gating
+    # the alert on COMPLETED avoids false recovery alerts (PR #20 review).
+    engine.registry.invoke(engine.memory, iid, "jules", "verify",
+                           state="IN_PROGRESS", branch="feat-x")
+    assert [r for r in _records(monitor_log) if r["kind"] == "silent_fail_detected"] == []
+
+
+def test_recovery_outcome_emits_via_st_shape(engine, iid, monitor_log):
+    # The recovery loop carries an `st` dict (intent_id, no last_state); the
+    # mirrored emit must handle that shape (PR #20 review — recovery live too).
+    w = Watcher()
+    w.engine = engine
+    w._emit_monitor({"intent_id": iid},
+                    {"action": "recover_apply_plan", "session": "sessions/abc",
+                     "state": "COMPLETED", "instruction": "apply the patch"})
+    recs = [r for r in _records(monitor_log) if r["kind"] == "recover_apply_plan"]
+    assert recs and recs[0]["intent_id"] == iid
+    assert "sessions/abc" in recs[0]["message"]
+
+
+def test_emit_monitor_is_best_effort_on_write_failure(engine, iid):
+    # A failing monitor write must NOT surface out of a load-bearing verb like
+    # jules.dispatch (the remote session already exists — a raised error could
+    # trigger a duplicate retry). PR #20 review.
+    class _Boom:
+        def emit(self, ev):
+            raise OSError("disk full")
+
+    engine.monitor = _Boom()
+    out, _ = engine.registry.invoke(engine.memory, iid, "jules", "dispatch",
+                                    source="o/r", starting_branch="main",
+                                    prompt="x", title="T")
+    assert out["session"] == "sessions/abc"  # dispatch succeeded despite the failing monitor
+
+
 # --- the hard constraint: no second monitor surface --------------------------
 
 def test_install_still_has_exactly_one_monitor_entry():

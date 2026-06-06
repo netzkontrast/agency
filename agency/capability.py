@@ -97,10 +97,17 @@ class CapabilityContext:
         if monitor is None:
             return
         from ._monitor import MonitorEvent
-        monitor.emit(MonitorEvent(
-            source=source, kind=kind, message=message,
-            intent_id=intent_id or self.intent_id or "",
-        ))
+        try:
+            monitor.emit(MonitorEvent(
+                source=source, kind=kind, message=message,
+                intent_id=intent_id or self.intent_id or "",
+            ))
+        except OSError:
+            # Best-effort: a full disk / unwritable AGENCY_MONITOR_LOG / rotation
+            # permission error must NEVER fail a load-bearing verb (e.g.
+            # jules.dispatch after the remote session is already created, where a
+            # raised error could prompt a duplicate retry). Drop the notification.
+            pass
 
     def render(self, template: str, **vars: Any) -> str:
         # Spec 060 round 9 — `ontology.templates` carries BOTH bare strings

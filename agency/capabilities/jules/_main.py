@@ -340,10 +340,13 @@ class JulesCapability(CapabilityBase):
             return {"done": False, "state": state, "branch_on_remote": False,
                     "error": f"remote check failed: {chk.get('detail','')}"}
         branch_on_remote = bool(chk.get("exists"))
-        done = str(state).lower() == "completed" and branch_on_remote
+        is_completed = str(state).lower() == "completed"
+        done = is_completed and branch_on_remote
         # Spec 022 — make COMPLETED≠done silent-fail detection visible on the
-        # monitor channel without the user reading the verify return value.
-        if not branch_on_remote:
+        # monitor channel without the user reading the verify return value. Gate
+        # on COMPLETED (same condition as `done`): an in-progress session whose
+        # branch isn't pushed yet is NORMAL, not a silent fail (PR #20 review).
+        if is_completed and not branch_on_remote:
             self.ctx.emit_monitor(
                 source="jules", kind="silent_fail_detected",
                 message=f"branch={branch!r} NOT on {remote} (state={state}) — likely silent fail",
