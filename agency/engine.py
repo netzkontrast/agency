@@ -225,7 +225,13 @@ class Engine:
         user_params = [p for n, p in inspect.signature(fn).parameters.items() if n not in inject]
 
         def impl(**kwargs):
-            intent_id = kwargs.pop("intent_id")
+            # Spec 018 Win 3 — implicit intent default. An explicit intent_id
+            # always wins; when omitted (or empty), fall back to the
+            # AGENCY_INTENT env so a long session against ONE intent need not
+            # repeat it on every call. With neither, the empty id flows to the
+            # SERVES guard, which raises its helpful bootstrap error.
+            import os as _os
+            intent_id = kwargs.pop("intent_id", "") or _os.environ.get("AGENCY_INTENT", "")
             agent_id = kwargs.pop("agent_id", "") or None
             result, _ = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
             # Spec 001 + Spec 019 — wire-shape contract.
@@ -247,7 +253,9 @@ class Engine:
             ann = p.annotation if p.annotation is not inspect.Parameter.empty else str
             default = p.default if p.default is not inspect.Parameter.empty else inspect.Parameter.empty
             params.append(inspect.Parameter(p.name, inspect.Parameter.KEYWORD_ONLY, annotation=ann, default=default))
-        params.append(inspect.Parameter("intent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str))
+        # Spec 018 Win 3: intent_id is wire-optional (default "") so a call may
+        # omit it and resolve via the AGENCY_INTENT env (see impl above).
+        params.append(inspect.Parameter("intent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str, default=""))
         params.append(inspect.Parameter("agent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str, default=""))
 
         impl.__signature__ = inspect.Signature(params)
