@@ -12,7 +12,7 @@
 
 | Surface | Count | Token cost (names) | Headline finding |
 |---|---:|---:|---|
-| Code-mode contract (`search`/`get_schema`/`execute`) | 3 | 4 | **KEEP** — the canon wire surface |
+| Code-mode contract (`search`/`get_schema`/`execute`) | 3 | 4 | **KEEP** — the canon wire surface (note: `reflect.search` shadows the contract `search` under a bare-name surface — see §4) |
 | Substrate `@mcp.tool`s | 6 | 18 | already short (avg 3 tok); a rename saves only **10 tok** total |
 | Capability verbs (wire `capability_<cap>_<verb>`) | 69 | 311 | the `capability_<cap>_` prefix is **202 tok of pure repetition** |
 | Skill folders | 19 | 59 | consistent kebab — **KEEP** |
@@ -73,10 +73,14 @@ for one minor; deprecate the old) keeps the cost near zero.
 ## 4. Capability verbs — the prefix tax (the real win)
 
 The MCP wire registers each verb as `capability_<cap>_<verb>`
-(e.g. `capability_delegate_dispatch_decision` = 8 tok). Code-mode callers
-**already** dispatch by the bare verb inside `execute`
-(`await call_tool("dispatch_decision", …)`), so the prefix is paid on the
-**discovery surface** without being used at the **call** surface.
+(e.g. `capability_delegate_dispatch_decision` = 8 tok; `Engine._wire` sets
+`impl.__name__ = f"capability_{cap}_{verb}"`). **Correction (PR #23 review):**
+code-mode callers currently invoke verbs by this **prefixed** name too — the CLI
+examples call `call_tool("capability_plugin_lint_skill", …)`, and there is **no
+existing bare alias**. So the prefix is paid at BOTH the discovery and the call
+surface today; the win below is the *opportunity*, contingent on the follow-up
+spec first designing the bare-name aliasing layer (it is not free, and it is not
+already happening).
 
 | Corpus | With prefix | Bare | Δ |
 |---|---:|---:|---:|
@@ -95,11 +99,21 @@ Python class hierarchy and in `get_schema` detail; only the discovery/call
 shorthand drops it. Backward-compat: emit BOTH for one minor, deprecate the
 prefixed form next minor.
 
-**Caveat — bare names must stay unique.** Across 69 verbs there are a few
-collisions once the prefix is dropped: `help` (plugin + the help skill),
-`note`/`render` (`dogfood` + `reflect`/`document`), `search`/`recall`
-(`reflect`). The follow-up spec MUST either (a) keep the prefix for the colliding
-minority, or (b) pick a disambiguating bare form. This audit flags it; the
+**Caveat — bare names must stay unique.** Computed cross-capability verb-name
+collisions once the prefix is dropped (the COMPLETE set across all 69 verbs):
+
+| Bare name | Owning capabilities |
+|---|---|
+| `note` | `dogfood`, `reflect` |
+| `render` | `document`, `dogfood` |
+| `verify` | `jules`, `research` |
+
+Plus one **contract shadow**: `reflect.search` would collide with the code-mode
+contract tool `search` under a bare-name surface. (`help` lives only on `plugin`
+and `recall` only on `reflect` — no cross-capability verb collision; an earlier
+draft listed them in error.) The follow-up spec MUST resolve each — either (a)
+keep the prefix for the colliding minority, or (b) pick a disambiguating bare
+form — before exposing bare dispatch. This audit flags the complete set; the
 implementation resolves it.
 
 ## 5. Per-verb naming consistency

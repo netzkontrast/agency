@@ -1,15 +1,19 @@
 """Spec 049 — naming & token-economy audit reproducibility guard.
 
-These assertions recompute the audit's headline figures from the LIVE registry
-so `Plan/049-…/naming-audit-report.md` can't silently drift from reality. They
-encode the CURRENT (pre-rename) baseline; the follow-up rename spec (066) updates
-them when it drops the `capability_<cap>_` prefix — which is the intended signal.
+These assertions PIN the exact figures published in
+`Plan/049-…/naming-audit-report.md` (the 2026-06-06 snapshot) against the live
+registry, so any change to the verb/skill surface FAILS this test and forces the
+report (and these numbers) to be updated in lock-step — that is the whole point
+of a reproducibility guard (PR #23 review: loose lower bounds let the report go
+stale). The follow-up rename spec (066) updates this snapshot when it drops the
+`capability_<cap>_` prefix.
 """
 from __future__ import annotations
 
 import glob
 import os
 import re
+from collections import defaultdict
 
 import tiktoken
 
@@ -21,6 +25,19 @@ _SUBSTRATE = {"agency_welcome", "agency_install", "agency_doctor",
               "intent_bootstrap", "lifecycle_gate", "memory_graph_provenance"}
 _CONTRACT = {"search", "get_schema", "execute"}
 
+# --- the published snapshot (keep in sync with naming-audit-report.md) ---------
+SNAP_VERB_COUNT = 69
+SNAP_SKILL_COUNT = 19
+SNAP_WIRE_TOK = 311
+SNAP_BARE_TOK = 109
+SNAP_PREFIX_TAX = 202        # = WIRE - BARE
+SNAP_PAYLOAD_WIRE = 1471
+SNAP_PAYLOAD_BARE = 1261
+SNAP_SUBSTRATE_TOK = 18
+SNAP_COLLISIONS = {"note": ["dogfood", "reflect"],
+                   "render": ["document", "dogfood"],
+                   "verify": ["jules", "research"]}
+
 
 def _tk(s: str) -> int:
     return len(_ENC.encode(s))
@@ -29,54 +46,59 @@ def _tk(s: str) -> int:
 def _verbs():
     e = Engine(":memory:")
     try:
-        out = []
-        for cap in e.registry.names():
-            c = e.registry.get(cap)
-            for v, spec in c.verbs.items():
-                brief = parse_slices(spec["fn"].__doc__ or "")["brief"] or ""
-                out.append((cap, v, brief))
-        return out
+        return [(cap, v, parse_slices(e.registry.get(cap).verbs[v]["fn"].__doc__ or "")["brief"] or "")
+                for cap in e.registry.names() for v in e.registry.get(cap).verbs]
     finally:
         e.memory.close()
 
 
-def test_substrate_tools_are_short():
-    # The 6 substrate tools are already 2-5 tokens; renaming saves ~10 tok total
-    # (small) — the report's basis for ALIAS-AND-RENAME, not RENAME-HARD.
-    assert sum(_tk(s) for s in _SUBSTRATE) <= 20
-    assert sum(_tk(s) for s in _CONTRACT) <= 6  # the code-mode contract stays
+def test_substrate_snapshot():
+    assert sum(_tk(s) for s in _SUBSTRATE) == SNAP_SUBSTRATE_TOK
+    assert sum(_tk(s) for s in _CONTRACT) == 4  # the code-mode contract stays
 
 
-def test_capability_prefix_is_the_dominant_tax():
+def test_verb_prefix_tax_snapshot():
     verbs = _verbs()
+    assert len(verbs) == SNAP_VERB_COUNT, "verb surface changed — update the audit report + snapshot"
     wire = [f"capability_{cap}_{v}" for cap, v, _ in verbs]
     bare = [v for _, v, _ in verbs]
     assert all(w.startswith("capability_") for w in wire)
-    prefix_tax = sum(_tk(w) for w in wire) - sum(_tk(b) for b in bare)
-    # the prefix is pure repetition; the report documents ~202 tok at audit time
-    assert prefix_tax > 150
-    # bare corpus is far smaller than the wire corpus (the rename's leverage)
-    assert sum(_tk(w) for w in wire) > 2.5 * sum(_tk(b) for b in bare)
+    assert sum(_tk(w) for w in wire) == SNAP_WIRE_TOK
+    assert sum(_tk(b) for b in bare) == SNAP_BARE_TOK
+    assert sum(_tk(w) for w in wire) - sum(_tk(b) for b in bare) == SNAP_PREFIX_TAX
 
 
-def test_full_search_payload_delta_is_material():
+def test_full_search_payload_snapshot():
     verbs = _verbs()
     pw = "\n".join(f"- capability_{cap}_{v}: {b}" for cap, v, b in verbs)
     pb = "\n".join(f"- {v}: {b}" for _, v, b in verbs)
-    delta = _tk(pw) - _tk(pb)
-    # dropping the prefix saves a material slice of the discovery payload
-    assert delta > 150
+    assert _tk(pw) == SNAP_PAYLOAD_WIRE
+    assert _tk(pb) == SNAP_PAYLOAD_BARE
+
+
+def test_bare_name_collision_set_is_complete():
+    # Guards report §4: the COMPLETE cross-capability verb-name collision set.
+    by = defaultdict(set)
+    for cap, v, _ in _verbs():
+        by[v].add(cap)
+    collisions = {v: sorted(cs) for v, cs in by.items() if len(cs) > 1}
+    assert collisions == SNAP_COLLISIONS
+    # the contract-shadow the report calls out
+    assert "search" in {v for _, v, _ in _verbs()}  # reflect.search shadows the `search` contract tool
 
 
 def test_skill_names_are_canonical_kebab():
     kebab = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     skills = [os.path.basename(os.path.dirname(p)) for p in glob.glob("skills/*/SKILL.md")]
-    assert skills, "no skills found"
+    assert len(skills) == SNAP_SKILL_COUNT
     assert all(kebab.match(s) for s in skills)
 
 
 def test_audit_report_exists_and_states_the_headline():
-    report = "Plan/049-naming-and-token-economy/naming-audit-report.md"
-    assert os.path.exists(report)
-    text = open(report).read()
+    text = open("Plan/049-naming-and-token-economy/naming-audit-report.md").read()
+    flat = " ".join(text.lower().split())  # normalise markdown line wraps
     assert "capability_<cap>_" in text and "KEEP" in text and "ALIAS-AND-RENAME" in text
+    # the corrected premise + complete collision set must be present
+    assert "no existing bare alias" in flat
+    for name in SNAP_COLLISIONS:
+        assert f"`{name}`" in text
