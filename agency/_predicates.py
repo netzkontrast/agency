@@ -16,6 +16,17 @@ _RFC2119 = (
 )
 _GHERKIN_STEP = re.compile(r"^\s*(Given|When|Then|And|But)\b", re.MULTILINE)
 _GHERKIN_SCENARIO = re.compile(r"^\s*Scenario\b", re.MULTILINE | re.IGNORECASE)
+# Split the text at each Scenario header; a well-formed spec has at least one
+# step (Given/When/Then) in the block FOLLOWING a header (not merely a stray
+# step anywhere in the document, e.g. in the preamble).
+_SCENARIO_SPLIT = re.compile(r"(?im)^\s*Scenario\b.*$")
+
+
+def _has_scenario_with_step(text: str) -> bool:
+    blocks = _SCENARIO_SPLIT.split(text)
+    if len(blocks) < 2:        # no Scenario header at all
+        return False
+    return any(_GHERKIN_STEP.search(block) for block in blocks[1:])
 
 
 def spec_validate(text: str) -> dict:
@@ -32,14 +43,13 @@ def spec_validate(text: str) -> dict:
     """
     findings: list[dict] = []
     has_normative = any(re.search(rf"\b{re.escape(kw)}\b", text) for kw in _RFC2119)
-    has_scenario = bool(_GHERKIN_SCENARIO.search(text))
-    has_step = bool(_GHERKIN_STEP.search(text))
     if not has_normative:
         findings.append({"rule": "rfc2119", "locator": "",
                          "msg": "no RFC-2119 normative keyword (MUST/SHALL/SHOULD/MAY/…) found"})
-    if not (has_scenario and has_step):
+    if not _has_scenario_with_step(text):
         findings.append({"rule": "gherkin", "locator": "",
-                         "msg": "no Gherkin scenario (Scenario: + Given/When/Then) found"})
+                         "msg": "no Gherkin scenario with a step under it (Scenario: + a "
+                                "Given/When/Then beneath the header) found"})
     return {"ok": not findings, "findings": findings}
 
 

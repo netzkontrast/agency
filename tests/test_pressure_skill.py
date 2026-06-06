@@ -40,6 +40,20 @@ def test_load_scenario_rejects_too_few_pressures():
         load_scenario(bad)
 
 
+def test_load_scenario_rejects_scalar_rubric_field():
+    # a bare string would be shredded into characters by list() → false matches
+    bad = {**_SCENARIO, "compliant_behaviours": "summarised"}
+    with pytest.raises(ValueError):
+        load_scenario(bad)
+
+
+def test_scalar_rubric_does_not_cause_false_compliant():
+    # the guard must run through the run step too (load_scenario is the gate)
+    bad = {**_SCENARIO, "pressures": "abc"}  # 3-char string would pass a naive len>=3
+    with pytest.raises(ValueError):
+        load_scenario(bad)
+
+
 # --- score_transcript (anchor 133.2) -----------------------------------------
 
 def test_rationalisation_always_beats_compliance():

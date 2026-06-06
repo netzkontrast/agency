@@ -48,6 +48,9 @@ def test_check_fails_with_orphaned_working_child():
         assert res["ok"] is False
         assert res["children"] == 2 and len(res["orphans"]) == 1
         assert res["gate"]["result"]["passed"] is False
+        # the orphan id is a real Agency node id (walkable via recall), not a row id
+        assert e.memory.recall(res["orphans"][0]) is not None
+        assert res["orphans"][0] == kids[1]
         # the gated lifecycle paused for re-entry
         assert e.memory.recall(kids[0])["state"] == "input-required"
     finally:
@@ -67,16 +70,35 @@ def test_check_passes_when_all_children_completed():
         e.memory.close()
 
 
-def test_check_rejects_cross_intent_lifecycle():
-    # gate.check guards: a lifecycle that does NOT serve the current intent is
-    # rejected — the check surfaces that error rather than recording a gate.
+def test_check_rejects_lifecycle_not_in_delegation():
+    # A lifecycle that isn't a child of this delegation must be rejected BEFORE
+    # recording a gate (the spec requires the gated lifecycle to be a child).
     e = Engine(tempfile.mktemp(suffix=".db"))
     try:
         iid = e.intent.capture("p", "d", "a")
         e.intent.confirm(iid)
         d, _ = _delegation_with_children(e, iid, ["working"])
-        stray = e.memory.record("Lifecycle", {"state": "working", "phase": 0})  # no SERVES edge
+        stray = e.memory.record("Lifecycle", {"state": "working", "phase": 0})
+        e.memory.link(stray, iid, "SERVES")  # serves intent, but NOT a child of d
         res = check_no_orphans(_ctx(e, iid), d, lifecycle_id=stray)
-        assert "error" in res["gate"]["result"]
+        assert "error" in res and "not a child" in res["error"]
+        assert "gate" not in res  # nothing recorded
+    finally:
+        e.memory.close()
+
+
+def test_check_rejects_cross_intent_delegation():
+    # A delegation from another intent must be rejected before reading its
+    # children (mirrors delegate.join's cross-intent guard).
+    e = Engine(tempfile.mktemp(suffix=".db"))
+    try:
+        iid = e.intent.capture("p", "d", "a")
+        e.intent.confirm(iid)
+        other = e.intent.capture("p2", "d2", "a2")
+        e.intent.confirm(other)
+        d_other, kids = _delegation_with_children(e, other, ["working"])  # serves OTHER intent
+        res = check_no_orphans(_ctx(e, iid), d_other, lifecycle_id=kids[0])
+        assert "error" in res and "does not serve" in res["error"]
+        assert "gate" not in res
     finally:
         e.memory.close()

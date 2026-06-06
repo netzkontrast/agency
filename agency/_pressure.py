@@ -43,7 +43,7 @@ def load_scenario(scenario: dict) -> dict:
     missing = [k for k in _REQUIRED_KEYS if k not in scenario]
     if missing:
         raise ValueError(f"scenario missing required keys: {missing}")
-    pressures = list(scenario["pressures"])
+    pressures = _as_string_list(scenario, "pressures")
     if len(pressures) < _MIN_PRESSURES:
         raise ValueError(f"scenario needs >= {_MIN_PRESSURES} pressures, got {len(pressures)}")
     return {
@@ -51,10 +51,23 @@ def load_scenario(scenario: dict) -> dict:
         "skill_under_test": str(scenario["skill_under_test"]),
         "pressures": pressures,
         "task_prompt": str(scenario["task_prompt"]),
-        "compliant_behaviours": list(scenario["compliant_behaviours"]),
-        "violation_indicators": list(scenario["violation_indicators"]),
-        "rationalisation_patterns": list(scenario["rationalisation_patterns"]),
+        "compliant_behaviours": _as_string_list(scenario, "compliant_behaviours"),
+        "violation_indicators": _as_string_list(scenario, "violation_indicators"),
+        "rationalisation_patterns": _as_string_list(scenario, "rationalisation_patterns"),
     }
+
+
+def _as_string_list(scenario: dict, key: str) -> list[str]:
+    """Coerce a rubric field to a list of strings, REJECTING a bare scalar.
+
+    A single ``str``/``bytes`` would otherwise be shredded into characters by
+    ``list()`` — turning common letters into spurious rubric matches that flip
+    neutral/violating transcripts to a false ``compliant`` verdict.
+    """
+    val = scenario[key]
+    if isinstance(val, (str, bytes)):
+        raise ValueError(f"scenario[{key!r}] must be a list of strings, not a scalar")
+    return [str(item) for item in val]
 
 
 def _hits(patterns: list, text: str) -> list[str]:

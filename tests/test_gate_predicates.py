@@ -42,6 +42,19 @@ def test_spec_validate_flags_missing_gherkin():
     assert any(f["rule"] == "gherkin" for f in res["findings"])
 
 
+def test_spec_validate_requires_step_under_the_scenario_header():
+    # A Scenario header with NO steps, plus an unrelated step in the preamble
+    # (before any Scenario), must NOT pass the Gherkin gate.
+    text = (
+        "Given some stray preamble line that is not under a scenario.\n"
+        "The system MUST work.\n"
+        "Scenario: empty block with no steps beneath it\n"
+    )
+    res = spec_validate(text)
+    assert res["ok"] is False
+    assert any(f["rule"] == "gherkin" for f in res["findings"])
+
+
 # --- confidence_check: go-threshold predicate --------------------------------
 
 def test_confidence_check_scores_and_blocks_below_threshold():

@@ -24,19 +24,42 @@ def check_no_orphans(ctx: Any, delegation_id: str, lifecycle_id: str) -> dict:
     """Assert a delegation left no orphaned `working` children; record via gate.
 
     Inputs: ctx (CapabilityContext), delegation_id (the Delegation node from
-            `delegate.fan_out`), lifecycle_id (a child Lifecycle of that
-            delegation — it MUST serve the current intent, else `gate.check`
-            rejects it).
-    Returns: ``{ok, orphans: [id…], children: int, gate}``. ``ok`` is True iff no
-             child remains `working`. The verdict is recorded as a `Gate`
-             (`name="no_orphans"`) via `gate.check`; a failure pauses
-             `lifecycle_id` at input-required for re-entry.
+            `delegate.fan_out` — it MUST serve the current intent), lifecycle_id
+            (the Lifecycle to gate — it MUST be a child of `delegation_id`).
+    Returns: ``{ok, orphans: [node_id…], children: int, gate}``; or
+             ``{error, …}`` when the delegation does not serve the current intent
+             or the lifecycle is not one of its children (mirrors
+             `delegate.join`'s cross-intent guard — the verdict is NOT recorded
+             against an unrelated run). ``ok`` is True iff no child remains
+             `working`; the verdict is recorded as a `Gate` (`name="no_orphans"`)
+             via `gate.check`; a failure pauses `lifecycle_id` at input-required.
     chain_next: on ``ok=False`` walk `orphans` and resolve each before re-join.
     """
+    # Guard 1 — the delegation must serve the current intent (or its amended
+    # chain), exactly like `delegate.join`. Without this, a cross-intent or
+    # typo'd delegation_id would pause/pass the current run on unrelated state.
+    chain = list(ctx.memory._intent_chain(ctx.intent_id))
+    if not ctx.memory.g.query(
+            "MATCH (d:Delegation)-[:SERVES]->(i:Intent) WHERE d.id = $d AND i.id IN $ids RETURN i",
+            {"d": delegation_id, "ids": chain}):
+        return {"error": "delegation does not serve the current intent (or its amended chain)",
+                "delegation": delegation_id}
+    # Guard 2 — the gated lifecycle MUST be a child of THIS delegation (the spec
+    # requirement). gate.check's intent guard alone would accept a sibling
+    # delegation's child or the parent lifecycle.
+    if not ctx.memory.g.query(
+            "MATCH (d:Delegation)-[:DELEGATES_TO]->(lc:Lifecycle) WHERE d.id = $d AND lc.id = $lc RETURN lc",
+            {"d": delegation_id, "lc": lifecycle_id}):
+        return {"error": "lifecycle is not a child of the delegation",
+                "delegation": delegation_id, "lifecycle_id": lifecycle_id}
+
     rows = ctx.memory.g.query(
         "MATCH (d:Delegation)-[:DELEGATES_TO]->(lc:Lifecycle) WHERE d.id = $d RETURN lc",
         {"d": delegation_id})
-    children = [{"id": r["lc"].get("id"),
+    # The Agency node id lives in properties["id"]; r["lc"]["id"] is GraphQLite's
+    # internal row id (unusable for ctx.recall). Read the former so `orphans`
+    # are walkable.
+    children = [{"id": r["lc"]["properties"].get("id"),
                  "state": r["lc"]["properties"].get("state")} for r in rows]
     orphans = orphaned_working_children(children)
     ok = not orphans
