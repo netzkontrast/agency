@@ -1,18 +1,16 @@
 # agency-scaffold: v1
 """research — lead + specialists + verifier (Spec 044).
 
-Three verbs:
-  lead       (act)       — scope the question, plan specialists,
-                           mint a Research node; returns the plan.
-  specialist (act)       — run one bounded sub-search per role
-                           (codebase | prior-reflections | doc-corpus
-                           | web); records Citation nodes.
-  verify     (transform) — adversarial citation check; records a
-                           Verification node + per-check results.
+Research runs a question through a lead that scopes it, specialists that gather evidence, and a verifier that adversarially checks claims before publishing.
 
-NO LLM. NO prose generation. The capability composes deterministic
-features over the graph; the document.render(scope='research-report')
-follow-up projects the records into prose (Spec 043 v2 scope addition).
+Use when: an open question needs cited evidence from multiple sources — driving a research question through a lead, fan-out specialists, and an adversarial verifier.
+Triggers:
+- A question whose answer needs cited, cross-checked sources
+- A claim that should be verified before it is trusted
+- A topic too broad for a single lookup
+Red flags:
+- Trusting a single source → cross-check with capability_research_verify
+- Answering an open question from memory → run capability_research_lead
 """
 from __future__ import annotations
 
@@ -48,6 +46,8 @@ _DEEP_RESEARCH_SKILL = {
           "gate": "hard"},
     ],
 }
+
+
 
 
 class ResearchCapability(CapabilityBase):

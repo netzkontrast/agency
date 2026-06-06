@@ -1,24 +1,15 @@
 """dogfood — graph-native observation ledgers (Spec 017).
 
-Spec 017 closes the **graph-vs-file inversion** documented in Spec 015
-weaknesses W1 + W2: today the orchestrator writes
-``Plan/<slug>/DOGFOOD-NOTES.md`` then `dogfood.collect` re-parses it
-into Reflection nodes. That's "markdown as primary store" — exactly
-the anti-pattern Vision/GOALS.md goal #7 names.
+Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exported and imported as JSON preserving ids and validity windows, and rendered to markdown on demand.
 
-The corrected flow:
-  - `dogfood.note(observation, plan_slug)` writes a Reflection
-    DIRECTLY to the graph (scope='observation', plan_slug=...).
-  - `dogfood.render(plan_slug)` projects matching Reflection nodes
-    into the DOGFOOD-NOTES.md markdown format — on demand, when
-    humans need it.
-  - `dogfood.collect` stays for backward compatibility (Spec 014's
-    observation→amendment pipeline) but the docstring marks it
-    deprecated; new code uses `note`+`render`.
-
-The capability owns NO ontology fragment of its own. Observations are
-recorded into the graph by `reflect`'s Reflection node (Spec 045 adds
-plan_slug as an optional property — backward-compatible).
+Use when: recording or rendering observation ledgers in the graph — capturing a development note, exporting the graph for merge-recovery, or importing it back.
+Triggers:
+- An insight from a dev session worth keeping
+- A graph that must survive a container or merge boundary
+- A ledger that should render to markdown on demand
+Red flags:
+- Writing a markdown ledger by hand → record it via capability_dogfood_note
+- Losing graph state across a container → capability_dogfood_export the graph
 """
 from __future__ import annotations
 
@@ -96,6 +87,8 @@ def _parse_observations(text: str) -> list[dict]:
             "text": first_para,
         })
     return out
+
+
 
 
 class DogfoodCapability(CapabilityBase):

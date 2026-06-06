@@ -78,6 +78,15 @@ def _ann_repr(annotation) -> str:
     return "str"
 
 
+def _skill_name(cap_name: str) -> str:
+    """The spec-legal Agent Skill name for a capability (Spec 080). The Anthropic
+    Agent Skills spec requires the `name` to be lowercase letters/digits/HYPHENS
+    (no underscores), so a capability whose registry name has an underscore (e.g.
+    ``skill_generator``) emits as ``skill-generator`` — for both the frontmatter
+    `name:` field AND the skill directory, so the emitted skill is spec-faithful."""
+    return cap_name.replace("_", "-")
+
+
 def _classify_tier(verb_fn) -> str:
     """Tier A iff all three Spec 016 structural markers present + non-empty
     (terminal chain_next counts as A per §5 Gherkin). Else Tier B."""
@@ -162,7 +171,7 @@ def emit_skill(cap_name: str, doc, verbs: dict) -> dict[str, str]:
 
     rendered = _CAPABILITY_SKILL_TEMPLATE.substitute(
         gen_version=str(GEN_VERSION),
-        cap_name=cap_name,
+        cap_name=_skill_name(cap_name),                 # Spec 080 — spec-legal name (hyphens)
         description=doc.description,
         overview=doc.overview,
         triggers_bulleted="\n".join(f"- {t}" for t in doc.triggers),
@@ -176,7 +185,7 @@ def emit_skill(cap_name: str, doc, verbs: dict) -> dict[str, str]:
     if tier_b_anchors:
         rendered = rendered.rstrip() + "\n\n" + "\n\n".join(tier_b_anchors) + "\n"
 
-    return {f"skills/{cap_name}/SKILL.md": rendered}
+    return {f"skills/{_skill_name(cap_name)}/SKILL.md": rendered}
 
 
 def _render_inputs_table(inputs_text: str) -> str:
@@ -265,7 +274,7 @@ def emit_references(cap_name: str, verbs: dict) -> dict[str, str]:
                 f"agency-{cap_name}-{verb_name} --intent-id $IID …"
             ),
         )
-        out[f"skills/{cap_name}/references/{verb_name}.md"] = rendered
+        out[f"skills/{_skill_name(cap_name)}/references/{verb_name}.md"] = rendered
     return out
 
 

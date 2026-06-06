@@ -1,0 +1,35 @@
+<!-- agency-generated: v1 -->
+---
+name: gate
+description: Use when a programmatic, reusable predicate must pass before work proceeds — an acceptance check recorded as a Gate in the provenance graph.
+allowed-tools:
+  - mcp__plugin_agency_agency__search
+  - mcp__plugin_agency_agency__get_schema
+  - mcp__plugin_agency_agency__execute
+  - Bash
+---
+
+# gate capability
+
+Gate evaluates a reusable predicate and records the outcome as a Gate node edged into the lifecycle and intent, so a pass or block is auditable provenance.
+
+## When to use
+
+- A decision point that must be enforced, not assumed
+- An acceptance condition that should be recorded as provenance
+
+## Verbs
+
+| Verb | Role | Brief | Reference |
+|------|------|-------|-----------|
+| `check` | act | Record a gate outcome on a Lifecycle: PASSED, or BLOCKED_ON + an input-required pause on failure. | [details](references/check.md) |
+
+## Example
+
+```bash
+await call_tool('capability_gate_check', {'intent_id': 'intent:abc'})
+```
+
+## Red flags — stop and re-read this skill
+
+- (none documented)

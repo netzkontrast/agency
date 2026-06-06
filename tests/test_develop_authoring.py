@@ -248,7 +248,7 @@ async def test_lint_consumer_contract_search_finds_under_budget(tmp_path):
     surface and the result must fit a token budget."""
     from agency.engine import Engine
     cap, _ = _load_capability_from_source(SCAFFOLDED_CLEAN, tmp_path, "cc2")
-    e = Engine(":memory:", extra_capabilities=[cap])
+    e = Engine(":memory:", extra_capabilities=[cap], _require_skill_doc=False)
     try:
         mcp = e.build_mcp(codemode=False)
         tools = await mcp._list_tools()

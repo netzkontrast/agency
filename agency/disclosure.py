@@ -97,6 +97,112 @@ def parse_slices(docstring: str) -> dict[str, str]:
     return out
 
 
+# ---- Spec 080: module-docstring → Agent-Skill metadata --------------------
+# A capability's MODULE docstring is the single source of its Agent Skill. The
+# mechanical fields derive for free (overview from the prose, briefs/references
+# from verb docstrings, the example synthesized from the primary verb); only the
+# judgment lives in the docstring, under labeled sections:
+#
+#   """<name> — <title>.
+#
+#   <overview prose — one paragraph>
+#
+#   Use when: <triggering conditions>.
+#   Triggers:
+#   - <symptom>
+#   - <symptom>
+#   Red flags:
+#   - <symptom> → <counter>
+#   Example: <optional canonical_example; else synthesized>
+#   """
+#
+# `parse_module_skill` returns a plain dict (no SkillDoc import → no cycle);
+# `SkillDoc.from_module` (capability.py) builds the dataclass from it.
+_SKILL_LABEL_RE = __import__("re").compile(
+    r"(?i)^\s*(use when|triggers|red flags|example)\s*:", )
+
+
+def _skill_bullets(lines: list[str], label: str) -> list[str]:
+    import re as _re
+    out: list[str] = []
+    capturing = False
+    for ln in lines:
+        s = ln.strip()
+        if _re.match(rf"(?i)^{_re.escape(label)}\s*:\s*$", s):
+            capturing = True
+            continue
+        if capturing:
+            if s.startswith(("- ", "* ")):
+                out.append(s[2:].strip())
+            elif s == "":
+                if out:
+                    break
+            else:
+                break
+    return out
+
+
+def parse_module_skill(docstring: str, cap_name: str,
+                       verb_names: list[str]) -> dict | None:
+    """Derive Agent-Skill metadata from a capability module docstring (Spec 080).
+
+    Returns a dict ``{description, overview, triggers, canonical_example,
+    red_flags}`` or ``None`` when no ``Use when:`` section is present (the marker
+    that opts a docstring into derivation). Mechanical fields are free:
+    ``overview`` = the first prose paragraph after the title line; the example is
+    the first ``Example:`` line, else synthesized from the primary (sorted-first)
+    verb. Only ``Use when:`` / ``Triggers:`` / ``Red flags:`` are authored."""
+    import re as _re
+    import textwrap as _tw
+    if not docstring:
+        return None
+    text = _tw.dedent(docstring).strip("\n")
+    lines = text.split("\n")
+
+    # description (required marker)
+    desc = None
+    for ln in lines:
+        m = _re.match(r"(?i)^\s*Use when\s*:\s*(.+)$", ln)
+        if m:
+            desc = "Use when " + m.group(1).strip()
+            break
+    if not desc:
+        return None
+
+    triggers = _skill_bullets(lines, "Triggers")
+    red_flags = _skill_bullets(lines, "Red flags")
+
+    # overview = first prose paragraph after the title line (line 0), stopping at
+    # the first labeled section.
+    para: list[str] = []
+    for ln in lines[1:]:
+        s = ln.strip()
+        if _SKILL_LABEL_RE.match(s):
+            break
+        if not s:
+            if para:
+                break
+            continue
+        para.append(s)
+    overview = " ".join(para).strip()
+
+    # canonical_example: explicit Example: line, else synthesize from primary verb
+    example = ""
+    for ln in lines:
+        m = _re.match(r"(?i)^\s*Example\s*:\s*(.+)$", ln)
+        if m:
+            example = m.group(1).strip()
+            break
+    if not example:
+        primary = sorted(verb_names)[0] if verb_names else ""
+        if primary:
+            example = (f"await call_tool('capability_{cap_name}_{primary}', "
+                       f"{{'intent_id': 'intent:abc'}})")
+
+    return {"description": desc, "overview": overview, "triggers": triggers,
+            "canonical_example": example, "red_flags": red_flags}
+
+
 # ---- format dispatch ------------------------------------------------------
 
 

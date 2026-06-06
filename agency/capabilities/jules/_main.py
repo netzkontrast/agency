@@ -1,19 +1,15 @@
 """jules — the agent capability. An agent IS a Lifecycle parameterization that
-dispatches a remote async session and inserts a `verify` step, because
-`COMPLETED != done`: the Jules session state flips to COMPLETED even when it
-paused before pushing a branch. `verify` checks the branch on REMOTE — the
-silent-fail guard — always verify the branch on origin before trusting completion.
 
-The verbs cover the whole session lifecycle the v1alpha API exposes:
-`dispatch` (create) · `status`/`list`/`activities`/`plan` (read) ·
-`approve_plan`/`message` (drive) · `verify` (done-check) · `stop` (documents that
-the API has no cancel). `message` is input-only — resumption is racy — and there is
-no cancel: those hard-won semantics live in the verb docstrings.
+Jules drives remote agent sessions end-to-end: dispatch, plan approval, follow-ups, and verification that a session reporting completed actually pushed a branch.
 
-The capability's boundary is a `JulesBackend` (a Protocol). The default backend,
-`JulesClient`, talks to the real Jules REST API via the vendored `_jules_api`
-client. The backend is injected, so the engine really dispatches Jules in
-production while deterministic tests inject a stand-in.
+Use when: fanning a coding task out to a remote Jules agent session and driving it to a verified PR — dispatching, sending follow-ups, approving plans, and recovering completed-but-unpushed work.
+Triggers:
+- A coding task suited to a remote agent session
+- A Jules session reporting completed but no branch on origin
+- A remote plan awaiting approval before it proceeds
+Red flags:
+- Trusting completed as done → confirm with capability_jules_verify (state and branch on origin)
+- Dispatching without a prompt review → run capability_jules_lint_prompt first
 """
 from __future__ import annotations
 
@@ -129,6 +125,8 @@ class JulesClient:
     def patch(self, session: str) -> dict:
         from . import api as _jules_api
         return _jules_api.jules_patch_extract(session)
+
+
 
 
 class JulesCapability(CapabilityBase):

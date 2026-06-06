@@ -1,14 +1,17 @@
 """skill_generator — generate a deploy-ready skill in one call.
 
-A composition capability: it doesn't reimplement skill authoring, it COMPOSES the
-existing `plugin` verbs via `ctx.call` — author the SKILL.md, then validate it
-against the CSO rules — and reports whether the result is deploy-ready. A clean
-demonstration of capability→capability composition (every delegated call is
-recorded as an Invocation that SERVES the intent).
+Skill_generator produces a deploy-ready skill in a single call, emitting a CSO-clean SKILL.md from a name and description.
+
+Use when: a deploy-ready skill should be produced in one call — a complete, CSO-clean SKILL.md generated from a description.
+Triggers:
+- A new skill needed without hand-assembling its files
+- A skill idea that should become a deployable artefact
 """
 from __future__ import annotations
 
 from ...capability import CapabilityBase, verb
+
+
 
 
 class SkillGeneratorCapability(CapabilityBase):

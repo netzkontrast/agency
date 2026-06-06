@@ -1,12 +1,11 @@
 """music — an EXAMPLE out-of-tree domain capability: album conceptualization.
 
-Lives in `examples/`, not the core capabilities package, to keep the
-self-bootstrapping harness minimal. It loads through the engine's extension point
-(`Engine(..., extra_capabilities=[MusicCapability.as_capability()])`), proving a
-domain capability registers and extends the ontology exactly like a core one
-without shipping in the core: it OWNS the `album-concept` conceptualizer (a
-7-phase gated planning skill ending in a hard confirm gate), an `Album` node type,
-the closed `album type` enum, and an album-concept artefact schema.
+Music is the reference drop-in domain capability: it owns the album-concept conceptualizer (a 7-phase gated planning skill), an Album node type, and a closed album-type enum — registering exactly like a core capability without shipping in core.
+
+Use when: conceptualizing an album — turning an artist, title, and theme into a structured, gated album concept (the example out-of-tree domain capability).
+Triggers:
+- An album idea that needs a structured concept before production
+- A reference for how an out-of-tree domain capability extends agency
 """
 from __future__ import annotations
 

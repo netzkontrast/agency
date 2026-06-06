@@ -35,13 +35,13 @@ from agency.engine import Engine
 
 
 def test_bootstrap_rejects_capability_with_verbs_but_no_skill_doc(monkeypatch):
-    """A capability declaring verbs must also declare a skill_doc (gated by env).
+    """Spec 080 — a capability declaring verbs MUST declare (or derive) a skill_doc;
+    the requirement is ALWAYS on (no env opt-in). The synthetic cap below has no
+    module docstring to derive from, so it must fail bootstrap.
 
-    Isolation: monkey-patch `discover` to return [] so the validation pass
-    sees ONLY the test capability — shipped caps don't get skill_doc until
-    Phase 4 and would otherwise trip the same gate.
+    Isolation: monkey-patch `discover` to return [] so the validation pass sees
+    ONLY the test capability.
     """
-    monkeypatch.setenv("AGENCY_SKILL_DOC_REQUIRED", "true")
     monkeypatch.setattr("agency.engine.discover", lambda: [])
     bad = Capability(
         name="badcap", home="capability",
@@ -56,7 +56,6 @@ def test_bootstrap_rejects_capability_with_verbs_but_no_skill_doc(monkeypatch):
 
 def test_bootstrap_allows_capability_without_verbs(monkeypatch):
     """A capability with no verbs needs no skill_doc (isolated from shipped caps)."""
-    monkeypatch.setenv("AGENCY_SKILL_DOC_REQUIRED", "true")
     monkeypatch.setattr("agency.engine.discover", lambda: [])
     empty = Capability(name="emptycap", home="capability", verbs={})
     e = Engine(":memory:", extra_capabilities=[empty])
@@ -66,15 +65,15 @@ def test_bootstrap_allows_capability_without_verbs(monkeypatch):
         e.memory.close()
 
 
-def test_bootstrap_validation_skipped_without_env_var(monkeypatch):
-    """The shim is opt-in: without the env var, capabilities lacking skill_doc still load."""
-    monkeypatch.delenv("AGENCY_SKILL_DOC_REQUIRED", raising=False)
+def test_require_skill_doc_false_bypasses_the_gate(monkeypatch):
+    """The internal `_require_skill_doc=False` flag bypasses the requirement —
+    used by lint probes / fixtures that build an engine to test OTHER concerns."""
+    monkeypatch.setattr("agency.engine.discover", lambda: [])
     bad = Capability(
         name="bad2", home="capability",
         verbs={"ping": {"role": "transform", "fn": lambda: {"result": "ok"}, "inject": []}},
     )
-    # Should NOT raise — shim defaults to off so Phase 1 doesn't break existing tests
-    e = Engine(":memory:", extra_capabilities=[bad])
+    e = Engine(":memory:", extra_capabilities=[bad], _require_skill_doc=False)
     try:
         assert "bad2" in e.registry.names()
     finally:

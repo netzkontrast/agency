@@ -1,16 +1,17 @@
 """gate — a reusable, programmatic gate predicate.
 
-The hard-gate predicate as a first-class capability verb, callable by any
-capability or skill via `ctx.call`. Where `lifecycle_gate` (the engine tool) asks
-a human via `ctx.elicit`, `gate.check` records a *computed* gate outcome on a
-Lifecycle: a PASSED edge when it passes, a BLOCKED_ON edge + an `input-required`
-pause when it fails — so a failed gate is provenance and the run halts for
-re-entry. This is what `subagent-driven-development` (spec-review then
-quality-review) and a verified `delegate.join` compose with.
+Gate evaluates a reusable predicate and records the outcome as a Gate node edged into the lifecycle and intent, so a pass or block is auditable provenance.
+
+Use when: a programmatic, reusable predicate must pass before work proceeds — an acceptance check recorded as a Gate in the provenance graph.
+Triggers:
+- A decision point that must be enforced, not assumed
+- An acceptance condition that should be recorded as provenance
 """
 from __future__ import annotations
 
 from ...capability import ArtefactSchemas, CapabilityBase, verb
+
+
 
 
 class GateCapability(CapabilityBase):

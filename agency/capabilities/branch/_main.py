@@ -1,10 +1,11 @@
 """branch — finish a development branch: detect state, then merge / open a PR /
-keep / discard.
 
-`assess` (transform) reads
-the branch state and recommends an action (judgment-as-code); `finish` (effect)
-executes the chosen action and records the outcome as provenance. The VCS boundary
-(`VCSBackend`) is injected, so tests never touch a real repo.
+Branch inspects the working tree and remote state and finishes the branch the appropriate way — merge when clean, a PR when review is needed, or a clear report of what blocks completion.
+
+Use when: a development branch is ready to wrap up and its state must be detected to merge, open a PR, or report what blocks completion.
+Triggers:
+- A feature branch whose work appears complete
+- Uncertainty whether a branch should merge or open a PR
 """
 from __future__ import annotations
 
@@ -22,6 +23,8 @@ def _recommend(state: dict) -> str:
     if int(state.get("ahead", 0) or 0) == 0:
         return "discard"                                    # nothing ahead to land
     return "merge" if int(state.get("behind", 0) or 0) == 0 else "pr"   # diverged -> open a PR
+
+
 
 
 class BranchCapability(CapabilityBase):

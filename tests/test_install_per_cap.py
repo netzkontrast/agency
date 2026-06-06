@@ -12,29 +12,24 @@ from agency import install
 
 
 def test_generate_includes_per_cap_skill_md_when_skill_doc_present(tmp_path):
-    """A capability with skill_doc gets a SKILL.md generated.
-
-    Reflect (the worked example) doesn't have skill_doc yet (Phase 4).
-    So we test that NO per-cap SKILL.md is generated today — proving the
-    gating. After Phase 4 lands skill_doc on reflect, the gate flips.
-    """
+    """Spec 080 — every capability now declares/derives a skill_doc, so generate()
+    emits a per-capability SKILL.md (the dormant pipeline is lit). Verify the
+    legacy fixed files remain AND real per-cap skills are present."""
     e = Engine(":memory:")
     try:
         files = install.generate(e)
-        # The legacy 5 fixed files MUST still be present
+        # The legacy fixed files MUST still be present
         assert ".claude-plugin/plugin.json" in files
         assert "skills/help/SKILL.md" in files
-        # No per-capability files yet (no shipped cap has skill_doc — Phase 4).
-        # Spec 064 adds skills/using-agency/SKILL.md — that's a substrate
-        # meta-skill (broad-trigger entry), not a per-capability skill, so
-        # it's excluded from the gate.
+        # Per-capability skills are now emitted (one SKILL.md per verb-bearing cap)
         per_cap = [p for p in files if p.startswith("skills/")
+                                       and p.endswith("/SKILL.md")
                                        and p != "skills/help/SKILL.md"
                                        and p != "skills/using-agency/SKILL.md"]
-        assert per_cap == [], (
-            f"unexpected per-cap files (no cap has skill_doc yet, Phase 4 will "
-            f"add them): {per_cap!r}"
-        )
+        assert per_cap, "per-capability SKILL.md files must be emitted now"
+        # a representative cap's full Agent-Skill triad: SKILL.md + references/
+        assert "skills/shell/SKILL.md" in files
+        assert any(p.startswith("skills/shell/references/") for p in files)
     finally:
         e.memory.close()
 

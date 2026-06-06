@@ -120,7 +120,7 @@ def test_skill_prefix_is_reserved():
             },
         },
     )
-    e = Engine(":memory:", extra_capabilities=[cap])
+    e = Engine(":memory:", extra_capabilities=[cap], _require_skill_doc=False)
     try:
         spec = _verb_spec(e, "rogue", "act")
         assert "skill:i-made-this-up" not in spec["tags"], (

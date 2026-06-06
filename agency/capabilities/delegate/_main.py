@@ -1,15 +1,15 @@
 """delegate — agent orchestration: fan-out + quota + join.
 
-The keystone primitive the capability roadmap flagged. **An agent IS a Lifecycle
-parameterization** — so fanning out a task means opening one *child Lifecycle* per
-unit of work (each `SERVES` the intent and is `DISPATCHED_TO` the driver agent),
-dispatching the driver, and edging the child Lifecycle to the driver Invocation it
-`DRIVES`. A quota caps how many children are admitted; `join` reduces over the
-children's Lifecycle state (dispatched ≠ done — children start `working` until
-verified). `jules` is the first driver; any capability/verb can drive.
+Delegate weighs the token-economics and safety signals of dispatching, fans a task out to one or more drivers, and reduces their results back into a single answer.
 
-Built on `ctx.spawn`, so every child dispatch is a recorded Invocation and the
-whole delegation is a connected provenance subgraph.
+Use when: a task might be better handled by a subagent (local, Jules, or another driver) and the choice to dispatch versus stay inline must be weighed, then work fanned out and the results joined.
+Triggers:
+- A task large or parallelizable enough to consider delegating
+- Several independent sibling tasks that could run concurrently
+- Uncertainty whether to dispatch a subagent or work inline
+Red flags:
+- Dispatching without weighing the cost → check capability_delegate_dispatch_decision first
+- Spawning siblings then losing their results → reduce with capability_delegate_join
 """
 from __future__ import annotations
 
@@ -152,6 +152,8 @@ def _compose_rationale(signals: list[str], driver: str) -> str:
         return f"dispatching to {driver} on caller request."
     return (f"dispatching to {driver} — signals fired: {', '.join(signals)}; "
             "subagent context-isolation + token amortisation justify the envelope.")
+
+
 
 
 class DelegateCapability(CapabilityBase):

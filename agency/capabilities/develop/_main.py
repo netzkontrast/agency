@@ -1,16 +1,15 @@
 """develop — the development-workflow capability.
 
-Implements the disciplines that help build the system further, AS first-class
-agency skills: each is a Lifecycle template (an ordered phase-graph ending in a
-hard gate) the engine's skill walker can walk, recording every phase as
-provenance. The capability OWNS these skill schemas (its `OntologyExtension`) —
-adding the dev toolkit is adding this file.
+Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance.
 
-Disciplines: brainstorm (discover requirements), plan (bite-sized implementation
-plan), tdd (the Iron Law: RED before GREEN, enforced by ordering), debug (trace
-to root cause), verify (evidence before completion), spec-panel (multi-expert
-spec critique), review (request + work through findings). The matching installable
-SKILL.md files live in `skills/`.
+Use when: building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, or running a skill to its first hard gate.
+Triggers:
+- About to implement a feature or fix without a discipline
+- A new capability needing a skeleton that lints clean
+- A multi-phase workflow that should pause at a human gate
+Red flags:
+- Writing implementation before a failing test → walk capability_develop_skill_walk with tdd
+- Hand-rolling a capability skeleton → use capability_develop_scaffold_capability
 """
 from __future__ import annotations
 
@@ -234,6 +233,23 @@ def _pascalcase(name: str) -> str:
     return "".join(p[:1].upper() + p[1:] for p in parts) + "Capability"
 
 
+def _skill_docstring_src(name: str) -> str:
+    """Spec 080 — the Agent-Skill sections for a scaffolded (ping-only)
+    capability, emitted INTO the module docstring (the single source). `as_
+    capability` derives the SkillDoc from these, so a new cap is a complete,
+    lint-clean Agent Skill by construction — no separate literal. The author
+    edits the docstring as the real verbs land; `develop.validate_skill` checks it."""
+    return (
+        f"{name} is a scaffolded capability; replace this overview and the ping "
+        f"verb with the real surface.\n\n"
+        f"Use when: the {name} capability's liveness needs a check, or as the "
+        f"starting point for authoring its real verbs.\n"
+        f"Triggers:\n"
+        f"- A liveness check for the {name} capability\n"
+        f"- A starting point for authoring {name} verbs\n"
+    )
+
+
 def _render_light_skeleton(name: str) -> str:
     """The minimal skeleton CAPABILITY-AUTHORING.md §"Class form" specifies.
     Single verb (ping) lint-clean under all five rule families."""
@@ -241,7 +257,7 @@ def _render_light_skeleton(name: str) -> str:
     return (
         f"# agency-scaffold: v{SCAFFOLD_VERSION}\n"
         f'"""{name} — one-line description of what this capability is for.\n\n'
-        f"CAPABILITY-AUTHORING.md is the doctrine this skeleton lints against.\n"
+        f"{_skill_docstring_src(name)}"
         f'"""\n'
         f"from agency.capability import CapabilityBase, verb\n"
         f"from agency.ontology import OntologyExtension\n"
@@ -272,8 +288,7 @@ def _render_medium_skeleton(name: str) -> str:
     return (
         f"# agency-scaffold: v{SCAFFOLD_VERSION}\n"
         f'"""{name} — one-line description.\n\n'
-        f"Medium scaffold: owns ontology fragment (node types, schemas,\n"
-        f"templates). Fill in the stubs below per CAPABILITY-AUTHORING.md.\n"
+        f"{_skill_docstring_src(name)}"
         f'"""\n'
         f"from agency.capability import CapabilityBase, verb\n"
         f"from agency.ontology import OntologyExtension\n"
@@ -365,11 +380,61 @@ def scaffold_capability(name: str, kind: str = "light", base_dir=None) -> dict:
     }
 
 
+
+
 class DevelopCapability(CapabilityBase):
     name = "develop"
     home = "lifecycle"
     render_templates = RenderTemplates.from_module(__file__)
     ontology = develop_ontology
+
+    @verb(role="transform")
+    def validate_skill(self, name: str = "") -> dict:
+        """Validate a capability's Agent-Skill (its SkillDoc) — lint + dry-run emit.
+
+        Spec 080 — the skill-authoring validation surface (dogfood, not a script):
+        runs ``plugin.lint_skill_doc`` AND a dry-run ``emit_skill`` (which catches
+        frontmatter/reference problems) against a capability's ``skill_doc``, so an
+        author confirms a capability is a complete Agent Skill before commit. The
+        ``authoring-capabilities`` discipline calls this before its commit gate.
+
+        Inputs: name (capability name; "" validates ALL caps that declare a skill_doc).
+        Returns: ``{ok, results: {<cap>: {ok, violations:[…], skill_doc: bool}}}`` —
+                 ``ok`` is the AND across the validated caps.
+        chain_next: fix violations in the capability's SkillDoc, then re-validate.
+        """
+        from ..plugin import lint_skill_doc
+        from ...skill_emit import emit_skill
+        reg = self.ctx.registry
+        targets = [name] if name else sorted(reg.names())
+        results: dict = {}
+        for cap_name in targets:
+            try:
+                cap = reg.get(cap_name)
+            except KeyError:
+                results[cap_name] = {"ok": False, "skill_doc": False,
+                                     "violations": [{"rule": "unknown-capability",
+                                                     "message": f"no capability {cap_name!r}"}]}
+                continue
+            doc = getattr(cap, "skill_doc", None)
+            if doc is None:
+                # only a finding when the cap HAS verbs (a skill must document them)
+                if cap.verbs:
+                    results[cap_name] = {"ok": False, "skill_doc": False,
+                                         "violations": [{"rule": "skill-doc-required",
+                                                         "message": "capability declares verbs but no skill_doc"}]}
+                continue
+            res = lint_skill_doc(cap_name, doc, cap.verbs)
+            violations = list(res["violations"])
+            if res["ok"]:
+                try:
+                    emit_skill(cap_name, doc, cap.verbs)   # dry run — raises on emit-lint failure
+                except Exception as ex:
+                    violations.append({"rule": "emit", "message": str(ex)})
+            results[cap_name] = {"ok": not violations, "skill_doc": True,
+                                 "violations": violations}
+        return {"result": {"ok": all(r["ok"] for r in results.values()) if results else True,
+                           "results": results}}
 
     @verb(role="transform")
     def checklist(self, discipline: str) -> dict:
