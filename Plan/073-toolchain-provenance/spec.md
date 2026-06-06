@@ -1,7 +1,7 @@
 ---
 spec_id: "073"
 slug: toolchain-provenance
-status: draft
+status: done   # Shipped 2026-06-06 — RESHAPED into the `shell` capability (user directive)
 last_updated: 2026-06-06
 owner: "@agency"
 serves_intent: "intent:558f1bf5"
@@ -108,3 +108,34 @@ are recorded; that is out of scope here.
 - User directives (2026-06-06): "use Agency MCP as much as possible — to save the
   audit trail"; "all scripts and tests should also be executed by agency
   capabilities."
+
+
+## Followup --- Implementation Status (2026-06-06) --- RESHAPED
+
+> Shipped on branch `claude/spec-073-impl-toolchain`. **Reshaped per user
+> directive** from "dogfood toolchain verbs" into a broader **`shell`
+> capability**: a token-efficient, recorded, templated host-command boundary
+> (not just the repo's own tests).
+
+**Verdict:** Shipped (foundation; extensions specced as 075)
+
+### Done
+- `agency/capabilities/shell.py` --- a new capability with three verbs:
+  - `shell.run(command|template, args, filter)` (effect) --- runs an ALLOWLISTED
+    command (or a named template), FILTERS the output to cut tokens, records a
+    `command-run` Artefact (SERVES + OBSERVED_DURING), returns only the filtered
+    delta. The allowlist (first-token check) is the safety model --- never
+    arbitrary exec from wire input.
+  - `shell.filter(text, spec)` (transform) --- pure output filter
+    (full|tail:N|head:N|grep:PAT|lines:A-B|count|last), no execution --- HOOK-READY.
+  - `shell.templates()` (transform) --- the named query recipes (write-less).
+- `agency/_runner.py` `SubprocessRunner` boundary + engine `runner` injector
+  (stubbable; tests never shell out).
+- Behaviour-first tests (`tests/test_shell.py`, no hardcoded counts).
+
+### Migration / notes
+- Additive; bare Bash unchanged. The `dogfood` toolchain verbs from the narrow
+  draft were reverted --- this functionality lives in `shell`.
+- Default seed templates are documented config (CLAUDE.md rule #8 allows
+  named/overridable config); making templates **definable + graph-stored +
+  MCP-discoverable** + seeding the common bash commands is **Spec 075**.

@@ -156,7 +156,8 @@ def test_collect_docstring_marks_deprecated(engine):
 
 def test_dogfood_has_five_verbs(engine):
     """Spec 020 v1 added `export`; Spec 020 v2 added `import`; Spec 017
-    added `note` + `render`; collect was pre-existing. Five verbs total."""
+    added `note` + `render`; collect was pre-existing. Five verbs total.
+    (Toolchain execution lives in the broader `shell` capability — Spec 073.)"""
     cap = engine.registry.get("dogfood")
     assert {"note", "render", "collect", "export", "import"} == set(cap.verbs)
 
