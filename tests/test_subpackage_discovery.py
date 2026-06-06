@@ -94,7 +94,7 @@ def test_folder_form_capability_walks_through_engine(temp_subpackage_capability)
     us (verify the surface, not just the wiring)."""
     from agency.engine import Engine
 
-    e = Engine(":memory:")
+    e = Engine(":memory:", _require_skill_doc=False)
     try:
         # Capability discovered into the registry
         assert "ztemp-folder-form" in e.registry.names()

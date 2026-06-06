@@ -1,16 +1,16 @@
 # agency-scaffold: v1
 """analyze — multi-axis decidable code analysis (Spec 042).
 
-Four transform verbs (one per axis) + two act verbs (improve, cleanup)
-+ one Lifecycle skill (`code-analysis`, 5-phase hard-gated walker).
+Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions.
 
-Every axis emits the canonical Finding shape (see ``_findings.py``).
-Composition (run / improve / cleanup) records findings as graph nodes
-— the wire payload stays a compact summary; detail lives in the graph.
-
-Doctrine: NO LLM judgement inline (Spec 042 §"Why decidable-only").
-Heuristic judgement happens at the skill's review phase via explicit
-dispatch, not as part of the transform.
+Use when: assessing a codebase or diff for quality, security, performance, or architecture problems before review or shipping — surfaces decidable findings as graph artefacts.
+Triggers:
+- Unsure whether a change is safe to ship
+- Suspected security or performance regressions in a diff
+- A codebase area that feels risky or unfamiliar before review
+Red flags:
+- Shipping a risky diff with no analysis → run capability_analyze_security first
+- Hand-waving 'looks fine' on unfamiliar code → get findings via capability_analyze_quality
 """
 from __future__ import annotations
 
@@ -96,6 +96,8 @@ _IMPROVEMENT_PLAN_SCHEMA = {
     "name": "improvement-plan",
     "required": ["analysis_id", "items"],
 }
+
+
 
 
 class AnalyzeCapability(CapabilityBase):

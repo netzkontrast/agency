@@ -138,7 +138,8 @@ def _default_hook_handler(engine, event: dict) -> dict:
 class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
                  embedder=None, web_search=None, runner=None,
-                 extra_capabilities=None, surface: str | None = None):
+                 extra_capabilities=None, surface: str | None = None,
+                 _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
         # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
         from ._runner import SubprocessRunner
@@ -205,28 +206,24 @@ class Engine:
             self.ontology.extend(cap.ontology, cap.name)
         # the Registry needs the effective ontology to build a CapabilityContext
         self.registry.ontology = self.ontology
-        # Spec 031 §A — bootstrap-time skill_doc validation.
-        # Any capability that declares verbs MUST declare a skill_doc; otherwise
-        # the per-capability skill emit pipeline (Spec 031 Phase 2) cannot render
-        # a SKILL.md for it. Fail loud at engine startup, not at install time.
-        #
-        # Phase-1 transition: until Phase 4 migration lands skill_doc on every
-        # shipped capability, validation is opt-in via AGENCY_SKILL_DOC_REQUIRED
-        # env. This shim is REMOVED at the Phase 4 checkpoint (after Task 4.5)
-        # once migration is complete. Spec 032 unifies this with the broader
-        # AGENCY_BOOTSTRAP_LINT={strict,warn,off} env var (panel F-10).
-        import os as _os
-        if _os.environ.get("AGENCY_SKILL_DOC_REQUIRED", "").lower() == "true":
-            for _cap_name in self.registry.names():
-                _cap = self.registry.get(_cap_name)
-                if _cap.verbs and getattr(_cap, "skill_doc", None) is None:
-                    raise ValueError(
-                        f"capability {_cap_name!r} declares verbs but no skill_doc — "
-                        f"add `skill_doc = SkillDoc(description='Use when …', "
-                        f"overview='…', triggers=[…], canonical_example='…')` to "
-                        f"the capability class per Spec 031 §A. See "
-                        f"agency/capabilities/reflect/_main.py for the reference shape."
-                    )
+        # Spec 031 §A + Spec 080 — bootstrap-time skill_doc REQUIREMENT.
+        # Every capability that declares verbs MUST declare a skill_doc; the
+        # per-capability emit pipeline renders a complete Agent Skill from it
+        # (SKILL.md + references/ + scripts/). Spec 080 migrated all shipped
+        # capabilities + flipped this from opt-in to ALWAYS required: a
+        # verb-bearing capability without a skill_doc is now a hard bootstrap
+        # failure (fail loud at engine start, not silently at install time).
+        for _cap_name in (self.registry.names() if _require_skill_doc else ()):
+            _cap = self.registry.get(_cap_name)
+            if _cap.verbs and getattr(_cap, "skill_doc", None) is None:
+                raise ValueError(
+                    f"capability {_cap_name!r} declares verbs but no skill_doc — "
+                    f"add `skill_doc = SkillDoc(description='Use when …', "
+                    f"overview='…', triggers=[…], canonical_example='…')` to "
+                    f"the capability class per Spec 080 §coverage (co-located with "
+                    f"the verbs — see any agency/capabilities/<cap>/_main.py), and "
+                    f"validate via `develop.validate_skill('<cap>')`."
+                )
         # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
         # injected per-call by the Registry itself, and the registry is on ctx.
         self.registry.injectors = {"client": lambda: self.jules_client,

@@ -207,6 +207,24 @@ class SkillDoc:
     required_subskills: list[str] = field(default_factory=list)
     verb_briefs: dict[str, str] = field(default_factory=dict)
 
+    @classmethod
+    def from_module(cls, module, cap_name: str,
+                    verb_names: list[str]) -> "Optional[SkillDoc]":
+        """Spec 080 — derive a SkillDoc from a capability's MODULE docstring.
+
+        The docstring is the single source: ``Use when:`` / ``Triggers:`` /
+        ``Red flags:`` sections carry the judgment; overview + example derive for
+        free. Returns ``None`` when the docstring has no ``Use when:`` marker (the
+        capability must then set ``skill_doc`` explicitly). Used by
+        ``as_capability`` so a capability that doesn't declare a literal still
+        gets a complete Agent Skill from its docstring — no redundant strings."""
+        from .disclosure import parse_module_skill
+        doc = getattr(module, "__doc__", None)
+        parsed = parse_module_skill(doc, cap_name, list(verb_names))
+        if parsed is None:
+            return None
+        return cls(**parsed)
+
 
 @dataclass
 class WalkerSkills:
@@ -321,6 +339,15 @@ class CapabilityBase:
         # cap.ontology.{templates,schemas}) would otherwise leak across
         # caps that inherit the same default instance.
         import copy as _copy
+        # Spec 080 — a capability's skill_doc is DERIVED from its module docstring
+        # (single source) unless it sets one explicitly. So a drop-in capability
+        # folder needs only a well-formed docstring; no redundant SkillDoc literal.
+        skill_doc = getattr(cls, "skill_doc", None)
+        if skill_doc is None:
+            import sys as _sys
+            module = _sys.modules.get(cls.__module__)
+            if module is not None:
+                skill_doc = SkillDoc.from_module(module, cls.name, list(verbs))
         return Capability(
             name=cls.name, home=cls.home, verbs=verbs,
             ontology=_copy.deepcopy(cls.ontology),
@@ -330,7 +357,7 @@ class CapabilityBase:
             # so install.generate() finds the SKILL.md spec and
             # walker_skills configuration even after class→dataclass
             # conversion.
-            skill_doc=getattr(cls, "skill_doc", None),
+            skill_doc=skill_doc,
             walker_skills=getattr(cls, "walker_skills", None))
 
 

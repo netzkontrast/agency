@@ -1,10 +1,15 @@
 """reflect — durable, scope-tagged cross-session memory.
 
-The reference migration to the class form: a `CapabilityBase` subclass whose
-verb-methods reach the graph through `self.ctx`. It OWNS its ontology fragment (a
-`Reflection` node type + a closed `scope` enum + the `OBSERVED_DURING` edge), and
-demonstrates that adding a capability is adding a file. The functional
-`Capability` form remains equally valid for other capabilities.
+Reflect is the cross-session memory surface: scope-tagged notes recorded as graph nodes, recalled by scope or by semantic similarity against prior observations.
+
+Use when: durable, scope-tagged memory must cross sessions — recording an insight, or recalling prior observations by scope or semantic similarity.
+Triggers:
+- A lesson that should outlive the current session
+- A question whose answer may live in prior reflections
+- Repeated rediscovery of something already learned
+Red flags:
+- Re-learning a past lesson → search prior notes via capability_reflect_recall_semantic
+- Letting an insight evaporate at session end → capability_reflect_note it
 """
 from __future__ import annotations
 
@@ -14,6 +19,8 @@ from ...capability import (
 from ...ontology import OntologyExtension
 
 REFLECT_SCOPES = {"observation", "reflection", "project", "technical", "user", "world"}
+
+
 
 
 class ReflectCapability(CapabilityBase):

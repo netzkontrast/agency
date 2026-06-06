@@ -1,16 +1,19 @@
 """workspace — isolate work in a git worktree + record a green baseline.
 
-`effect` verbs for isolated development: `isolate` creates a
-worktree on a fresh branch (so work can't clobber the main tree) and `baseline`
-runs the test command there and records whether the tree starts GREEN — the
-baseline later work is measured against. Both record provenance; the VCS boundary
-(`VCSBackend`) is injected, so tests never touch a real repo.
+Workspace isolates work in a git worktree and records a green baseline, so risky changes start from a clean, provably-green point that recovery can return to.
+
+Use when: work should be isolated in a git worktree with a recorded green baseline — a clean, provably-green starting point before risky changes.
+Triggers:
+- Risky changes that should not touch the main working tree
+- A starting point that must be provably green before edits
 """
 from __future__ import annotations
 
 from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 from .._vcs import GitClient
+
+
 
 
 class WorkspaceCapability(CapabilityBase):

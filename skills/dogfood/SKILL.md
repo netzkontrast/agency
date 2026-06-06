@@ -1,0 +1,41 @@
+<!-- agency-generated: v1 -->
+---
+name: dogfood
+description: Use when recording or rendering observation ledgers in the graph — capturing a development note, exporting the graph for merge-recovery, or importing it back.
+allowed-tools:
+  - mcp__plugin_agency_agency__search
+  - mcp__plugin_agency_agency__get_schema
+  - mcp__plugin_agency_agency__execute
+  - Bash
+---
+
+# dogfood capability
+
+Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exported and imported as JSON preserving ids and validity windows, and rendered to markdown on demand.
+
+## When to use
+
+- An insight from a dev session worth keeping
+- A graph that must survive a container or merge boundary
+- A ledger that should render to markdown on demand
+
+## Verbs
+
+| Verb | Role | Brief | Reference |
+|------|------|-------|-----------|
+| `collect` | transform | Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files; extract observations. | [details](references/collect.md) |
+| `export` | effect | Dump the provenance store to a portable JSON file. | [details](references/export.md) |
+| `import` | effect | Replay a JSON export into this graph, preserving ids + windows. | [details](references/import.md) |
+| `note` | act | Record an observation Reflection tagged with plan_slug. | [details](references/note.md) |
+| `render` | transform | Project plan_slug observations into DOGFOOD-NOTES.md. | [details](references/render.md) |
+
+## Example
+
+```bash
+await call_tool('capability_dogfood_collect', {'intent_id': 'intent:abc'})
+```
+
+## Red flags — stop and re-read this skill
+
+- Writing a markdown ledger by hand → record it via capability_dogfood_note
+- Losing graph state across a container → capability_dogfood_export the graph

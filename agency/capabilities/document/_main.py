@@ -1,12 +1,16 @@
 # agency-scaffold: v1
 """document — graph-native rendering + briefing (Spec 043).
 
-Three verbs:
-  render     (transform) — graph → markdown projection (4 scopes)
-  explain    (act)       — code → educational text via composition
-  index_repo (act)       — 94%-reduction repo briefing
+Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph.
 
-NO LLM. Every output is a deterministic projection of structured state.
+Use when: a repository's structure must be understood or rendered — an explanation of a subsystem, a project index, or a graph-native rendering — without loading the whole tree.
+Triggers:
+- An unfamiliar codebase that needs onboarding
+- A stale mental model of a tree untouched for weeks
+- A subsystem whose purpose is unclear from the files alone
+Red flags:
+- Reading every file to grasp a repo → index it via capability_document_index_repo
+- Guessing a subsystem's role → get capability_document_explain output
 """
 from __future__ import annotations
 
@@ -37,6 +41,8 @@ _SUPPORTED_SCOPES = frozenset({
     "install-artefacts", "reflections", "provenance", "capability-catalogue",
     "research-report",
 })
+
+
 
 
 class DocumentCapability(CapabilityBase):

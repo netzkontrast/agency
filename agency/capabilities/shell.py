@@ -1,12 +1,15 @@
 """shell — a token-efficient, recorded, templated host-command boundary (Spec 073).
 
-Run an ALLOWLISTED CLI tool (or a named template), FILTER its output so only the
-relevant tokens cross back (GOALS #1), and record the run as provenance (GOALS
-#2/#6). The value over raw Bash is **filtered + recorded + templated**, not new
-exec power: a stubbable `runner` boundary executes; the allowlist (the first token
-of every command must be known) keeps wire-supplied input from becoming an
-arbitrary command. `shell.filter` is a pure text filter (no exec) — hook-ready, so
-a future PostToolUse hook can trim tool output through the same machinery.
+Shell is a token-efficient host-command boundary: allowlisted execution, output filtering, and definable templates that bundle a command with its token-saving filter.
+
+Use when: running a host CLI command whose output should be token-filtered and recorded — an allowlisted command, a reusable template, or a pure output filter.
+Triggers:
+- A bash command whose full output would flood the context
+- A common command rerun often enough to template
+- Host output that needs trimming before it crosses back
+Red flags:
+- Dumping a long command's full output → trim it via capability_shell_filter
+- Re-composing the same command and filter → save it with capability_shell_define
 """
 from __future__ import annotations
 
@@ -105,6 +108,8 @@ def _apply_filter(text: str, spec: str) -> str:
     else:
         out = "\n".join(lines)
     return out[:_MAX_OUTPUT]
+
+
 
 
 class ShellCapability(CapabilityBase):

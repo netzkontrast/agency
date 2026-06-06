@@ -1,18 +1,17 @@
 """subagent — subagent-driven-development as a composition.
 
-Dispatch a worker as a child Lifecycle (via `delegate`), then run a TWO-STAGE
-gated review over that child
-(via `gate`): spec-review first, then quality-review. The child is `done` only
-when BOTH gates pass — a verified join. A failing spec-review pauses the child at
-input-required and the quality stage is skipped.
+Subagent composes subagent-driven development: a self-contained task is dispatched into a clean context and its verified result returns to the orchestrator.
 
-The review verdicts are inputs (the gate predicate's `passed`), so the discipline
-is judgment-as-code and records real Gate provenance. The worker `driver` is any
-local capability/verb (the local-subagent driver) or `jules` (remote).
+Use when: a unit of work should be composed as subagent-driven development — isolating a task to a dispatched subagent that returns a verified result.
+Triggers:
+- A self-contained task suited to a dispatched subagent
+- Work whose context is heavy enough to isolate from the main thread
 """
 from __future__ import annotations
 
 from ...capability import ArtefactSchemas, CapabilityBase, verb
+
+
 
 
 class SubagentCapability(CapabilityBase):

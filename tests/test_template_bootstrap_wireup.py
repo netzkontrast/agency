@@ -73,7 +73,7 @@ def _make_cap_with_folders(tmp_path: Path) -> type:
 def test_engine_loads_file_templates_at_bootstrap(tmp_path):
     cap_cls = _make_cap_with_folders(tmp_path)
     e = Engine(tempfile.mktemp(suffix=".db"),
-                extra_capabilities=[cap_cls.as_capability()])
+                extra_capabilities=[cap_cls.as_capability()], _require_skill_doc=False)
     # Post-bootstrap: the file-discovered template must be reachable
     # through the merged engine ontology.
     assert "greeting" in e.ontology.templates, (
@@ -91,7 +91,7 @@ def test_engine_loads_file_templates_at_bootstrap(tmp_path):
 def test_engine_loads_file_schemas_at_bootstrap(tmp_path):
     cap_cls = _make_cap_with_folders(tmp_path)
     e = Engine(tempfile.mktemp(suffix=".db"),
-                extra_capabilities=[cap_cls.as_capability()])
+                extra_capabilities=[cap_cls.as_capability()], _require_skill_doc=False)
     assert "greeter-payload" in e.ontology.schemas, (
         f"file-discovered schema 'greeter-payload' missing from engine "
         f"ontology; got keys={sorted(e.ontology.schemas)}")
@@ -102,7 +102,7 @@ def test_ctx_template_accessor(tmp_path):
     ontology — substrate accessor symmetric to `ctx.record` / `ctx.recall`."""
     cap_cls = _make_cap_with_folders(tmp_path)
     e = Engine(tempfile.mktemp(suffix=".db"),
-                extra_capabilities=[cap_cls.as_capability()])
+                extra_capabilities=[cap_cls.as_capability()], _require_skill_doc=False)
     iid = e.intent.capture_and_confirm("t", "x", "x", owner="user")
     # Invoke the verb (any verb) to build a real CapabilityContext via
     # the wiring path; we read via the engine's ontology proxy instead.
@@ -146,4 +146,4 @@ def test_collision_dict_plus_file_raises(tmp_path):
 
     with pytest.raises(ValueError, match=r"collide.*declared both"):
         Engine(tempfile.mktemp(suffix=".db"),
-                extra_capabilities=[_CollideCap.as_capability()])
+                extra_capabilities=[_CollideCap.as_capability()], _require_skill_doc=False)

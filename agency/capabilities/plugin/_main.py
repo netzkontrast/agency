@@ -1,25 +1,15 @@
 """The plugin-development capability — everything needed to develop a good plugin:
-skill creation (TDD-for-docs, with the CSO rules enforced as compute) and
-plugin/marketplace authoring, in the agency capability model.
 
-A REAL capability (template rendering + rule-checking is real compute — it
-mutates nothing external), role-tagged:
+Plugin ports the plugin-development craft into compute: scaffolds, skill and command authoring, marketplace entries, and the lint rules that enforce the authoring doctrine.
 
-- `scaffold` (act)         — generate a Claude Code plugin manifest (`.claude-plugin/plugin.json`).
-- `author_skill` (act)     — the *skill creator*: emit a SKILL.md (frontmatter + body).
-- `author_command` (act)   — emit a slash-command markdown file.
-- `marketplace_entry` (act)— emit a marketplace.json plugin entry.
-- `step_doc` (act)         — prestructure one chain step's resulting document.
-- `lint_skill` (transform) — the EXECUTABLE port of the writing-skills CSO rules:
-                             validate a skill's name + description against the
-                             "Use when…", hyphen-only-name, third-person, and
-                             length rules. Judgment-as-code.
-- `help` (transform)       — map the engine's capabilities (macroskills) to their
-                             verbs (the harness-in-harness micro-skills): the
-                             discovery surface a Claude Code plugin exposes as `help`.
-
-Each `act` verb returns an `artefact` so the Registry records a PRODUCES edge —
-the authored document is provenance, edged to the intent it SERVES.
+Use when: building or extending a Claude Code plugin — scaffolding a manifest, authoring a skill or command, or linting a capability against the authoring doctrine.
+Triggers:
+- A new plugin skill or command needing CSO-clean structure
+- A capability that may violate the authoring doctrine
+- A lint finding whose remedy is unclear
+Red flags:
+- Shipping a capability without linting → run capability_plugin_lint_capability
+- Hand-writing a SKILL.md → render it via capability_plugin_author_skill
 """
 from __future__ import annotations
 
@@ -299,7 +289,10 @@ def _check_consumer_contract(cap):
     import asyncio
     from agency.engine import Engine
     try:
-        e = Engine(":memory:", extra_capabilities=[cap])
+        # Spec 080 — this probe validates the cap's ontology + tool round-trip,
+        # NOT its skill_doc (a separate concern). Bypass the bootstrap skill_doc
+        # requirement so a clean-but-undocumented cap still round-trips here.
+        e = Engine(":memory:", extra_capabilities=[cap], _require_skill_doc=False)
     except Exception as exc:  # ontology collision, etc.
         return [{"verb": None, "kind": "consumer_contract",
                  "msg": f"Engine refused to load capability: {exc}",
@@ -1003,6 +996,8 @@ plugin_ontology = OntologyExtension(
     # them into this OntologyExtension's `schemas` dict before
     # `Ontology.extend` runs.
 )
+
+
 
 class PluginCapability(CapabilityBase):
     name = "plugin"
