@@ -20,9 +20,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 36 | 001, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065 |
+| **Shipped** | 37 | 001, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065 |
 | **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
-| **Not started** | 11 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 049, 051 |
+| **Not started** | 10 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 051 |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
 Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
@@ -69,7 +69,7 @@ Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
 | 042 | analyze-capability | **Shipped** | 4-axis decidable analysis (quality/security/performance/architecture) + run/improve/cleanup acts; code-analysis skill | 33 spec tests + 502 full-suite green; 4 code-review passes + 2 dogfood-driven false-positive fixes (`from __future__` + `__all__`); lint_capability ok=True block mode; engine dedupe bug fixed alongside |
 | 043 | document-capability | **Shipped** | render (4 scopes graph→md) + explain (3 depths, composition not generation) + index_repo (94% reduction; self-test < 3K tokens on agency repo) + repo-briefing skill | 29 spec tests + 532 full-suite green; 3 code-review passes incl. dogfood-driven fix (P002 false-positive on int counter caught by meta-dogfood); lint_capability ok=True block mode; intent-filter edge-traversal bug caught + regression test added |
 | 044 | research-capability | **Shipped** | lead+specialist+verify verbs; 3 specialist roles (codebase/prior-reflections/doc-corpus); 2 verifier checks (evidence-supports-claim + contradiction-cluster); web boundary slot reserved | 23 spec tests green; dogfooded via wire (composes 040+045+048); web specialist defers to v2 (no default driver); v2 followups: document.render(scope='research-report') + web-reachability check |
-| **049** | naming-and-token-economy | Not started | Audit + proposal spec for renaming substrate tools + capability verbs to reduce token-cost of every discovery call | Drafted from user audit 2026-06-03; pairs with future Spec 050 implementation PR; lands ONLY the audit + per-name verdict (KEEP / ALIAS-AND-RENAME / RENAME-HARD), not the renames themselves |
+| **049** | naming-and-token-economy | **Shipped (audit-only)** | `naming-audit-report.md` (cl100k over live registry): per-name verdicts. Headline — the `capability_<cap>_` verb prefix is 202 tok of pure repetition (65% of the name corpus; −210 tok / 14% of the full search payload). Substrate tools already short (18 tok; rename saves only 10). Skills = consistent kebab (KEEP) | 5 reproducibility tests guard the figures. Verdicts: RENAME the verb prefix (code-mode call surface) · ALIAS-AND-RENAME 5 substrate tools · KEEP intent_bootstrap + recall_semantic + skills. Renames land in a NEW follow-up spec (proposed **066** — draft said 050 but that number shipped as analyze-deps) |
 | **050** | analyze-deps-integration | **Shipped** | `[analyze]` extra wires ruff + bandit + radon into analyze axes (compose, don't replace) | 9 spec tests green; live dogfood (this repo) activates 700+ ruff rules, bandit B-series, radon CC+MI; silent fallback when deps missing; agency_doctor reports analyze_extras |
 | **051** | analyze-architecture-networkx | Not started | networkx-driven A001 cycle refactor + A004 fan-out / A005 fan-in / A006 god-module metrics | Drafted from deps-extension push; warm-recommend dep |
 | **052** | research-web-httpx | **Shipped** | DuckDuckGoClient zero-config default + AGENCY_WEB_BACKEND env resolution + web-reachability check (3rd verifier check) | 13 spec tests green; live wire confirms 3-check verify payload; closes Spec 044 v1 scope-cut |
@@ -92,19 +92,19 @@ Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
 
 ## Suggested implementation order (next 5)
 
-Refreshed 2026-06-06. Specs 021, 022, 011, 056, 057, 058 shipped this run (✅).
+Refreshed 2026-06-06. Specs 021, 022, 011, 056, 057, 058, 049 shipped this run (✅).
 Ranked by leverage — what unblocks the most downstream work first:
 
-1. ~~**Spec 021** — engine-monitor-channel~~ ✅ **Shipped** (merged PR #20).
-2. ~~**Spec 022** — jules-monitor-capability~~ ✅ **Shipped** (merged PR #20).
-3. ~~**Spec 011** — agentic-capabilities~~ ✅ **Shipped** (merged PR #21).
-4. ~~**Specs 056 + 057 + 058** — review-driven lint batch~~ ✅ **Shipped
-   2026-06-06** (branch `claude/spec-056-057-058-lint-batch`).
-5. **Spec 049** — naming-and-token-economy audit. Cuts the token cost of
-   every discovery call; audit-only, low-risk; do before more verbs accrete.
-6. **Spec 002** — boundary-driver-protocol. Generic Boundary/Driver +
+1. ~~**Spec 021 / 022**~~ ✅ Shipped (PR #20). ~~**011**~~ ✅ (PR #21).
+   ~~**056 / 057 / 058**~~ ✅ (PR #22). ~~**049** audit~~ ✅ (this branch).
+2. **Spec 066 (proposed)** — naming-rename-implementation: act on the 049
+   audit (drop the `capability_<cap>_` verb prefix from the code-mode call
+   surface + alias-rename 5 substrate tools). −210 tok / 14% off every
+   discovery payload; clears the ≥20% name-corpus gate (65%). Needs a folder.
+3. **Spec 002** — boundary-driver-protocol. Generic Boundary/Driver +
    DriverRegistry; unblocks Spec 007's full music surface.
-7. **Spec 010** — novel domain Loop 0+1 (F1–F5 prompts already shipped).
+4. **Spec 010** — novel domain Loop 0+1 (F1–F5 prompts already shipped).
+5. **Spec 046** — micro-extensions bundle (designed; code-review split etc.).
 
 ## When to update this file
 
