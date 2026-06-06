@@ -223,9 +223,13 @@ design; those are a follow-up spec).
   than the drafted 56/12). Per-surface tables + per-name verdicts (KEEP /
   ALIAS-AND-RENAME / RENAME).
 - Headline finding: the `capability_<cap>_` verb prefix = **202 tok of pure
-  repetition** (65% of the 311-tok name corpus; −210 tok / 14% of the full
-  `search` payload). Substrate tools already short (18 tok; rename saves 10).
-  Skills are consistent kebab (no split — Open Q3 resolved informational).
+  repetition** (65% of the 311-tok name corpus; −210 tok / 14% over a SYNTHETIC
+  name+brief corpus that MODELS the `search` payload — not a capture of the live
+  tool; report §2/§4). Substrate tools already short (18 tok; rename saves 10).
+- TWO skill surfaces (report §6): 19 SKILL.md folders (kebab, KEEP) AND 21
+  `ontology.skills` Lifecycle-template keys (67 tok) that DIVERGE in name from
+  their folders (`tdd`↔`test-driven-development`, `review`↔`code-review`; ~7 of
+  21 match). FLAG the divergence for the impl spec to reconcile or document.
 - One disagreement with the user's prompt, argued in the report: KEEP
   `intent_bootstrap` (bare `intent` loses the "mint the first intent" semantic
   for 1 token).
