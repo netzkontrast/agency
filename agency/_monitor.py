@@ -141,9 +141,28 @@ class MonitorEmitter:
             pass
 
     def _fit_message(self, event: MonitorEvent) -> str:
-        """Truncate ``message`` so the whole JSON line fits the atomic budget."""
-        base = len(replace(event, message="").to_json().encode("utf-8"))
-        budget = _MAX_EVENT_BYTES - base - len(_TRUNCATION_MARKER.encode("utf-8")) - 2
-        budget = max(budget, 0)
-        clipped = event.message.encode("utf-8")[:budget].decode("utf-8", "ignore")
-        return clipped + _TRUNCATION_MARKER
+        """Truncate ``message`` so the FULL serialized JSON line fits the budget.
+
+        Measures the *serialized* size, not the raw message bytes: escapable
+        characters (``"``, ``\\``, control chars) expand under ``json.dumps``
+        (e.g. a run of quotes nearly doubles), so clipping raw UTF-8 could still
+        overflow ``_MAX_EVENT_BYTES`` after escaping. Binary-search the kept
+        character count against the actual serialized line length.
+        """
+        def fits(n: int) -> bool:
+            candidate = event.message[:n] + _TRUNCATION_MARKER
+            size = len(replace(event, message=candidate).to_json().encode("utf-8"))
+            return size <= _MAX_EVENT_BYTES
+
+        if not fits(0):
+            # Degenerate: source/kind/intent_id alone exceed the budget. Drop the
+            # message entirely; nothing more we can clip without losing metadata.
+            return _TRUNCATION_MARKER
+        lo, hi = 0, len(event.message)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if fits(mid):
+                lo = mid
+            else:
+                hi = mid - 1
+        return event.message[:lo] + _TRUNCATION_MARKER

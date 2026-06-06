@@ -293,18 +293,21 @@ _SESSION_START_HOOKS_JSON = json.dumps({
 
 
 # Spec 021 — the single engine Monitor channel. ONE monitors.json entry; every
-# capability fans its events into ${.agency/monitor.log} via ctx.emit_monitor.
-# The `|| tail -F ./.agency/monitor.log` fallback lets the same declaration work
-# for marketplace installs (CLAUDE_PLUGIN_DATA) and local dev (CWD-local).
+# capability fans its events into .agency/monitor.log via ctx.emit_monitor.
+# The path MUST match where `Engine.monitor` actually writes: the engine
+# resolves the log as a sibling of the session DB, and `.mcp.json` sets
+# AGENCY_DB=${CLAUDE_PROJECT_DIR}/.agency/session.db — so the live log is
+# ${CLAUDE_PROJECT_DIR}/.agency/monitor.log. `${CLAUDE_PROJECT_DIR:-.}` shell
+# default-expansion covers local-dev (var unset → ./.agency/monitor.log)
+# without a dead `|| tail` branch (tail -F retries forever and never exits to
+# the `||`). `-n 0` starts at end-of-file so a fresh session does NOT replay
+# stale `completed`/`warning` history as if it just happened.
 # AGENCY-DRIFT: monitor-channel — this is the lone monitor surface; new
 #   event sources plug in via emit_monitor, NOT a new monitors.json entry.
 _MONITORS_JSON = json.dumps([
     {
         "name": "agency-engine",
-        "command": (
-            "tail -F ${CLAUDE_PLUGIN_DATA}/monitor.log 2>/dev/null "
-            "|| tail -F ./.agency/monitor.log"
-        ),
+        "command": 'tail -n 0 -F "${CLAUDE_PROJECT_DIR:-.}/.agency/monitor.log"',
         "description": "Agency engine event stream — capability events fan in here.",
     }
 ], indent=2) + "\n"
@@ -789,13 +792,15 @@ def scaffold_agency_dir(root: str) -> list[str]:
         with open(readme, "w") as f:
             f.write(_AGENCY_README)
         written.append(readme)
-    # Spec 021 — keep the SLOGs out of git. The monitor log + rotated history
-    # and the session DB are ephemeral; durable provenance lives in the graph.
+    # Spec 021 — keep ONLY the ephemeral monitor SLOG out of git. NOTE:
+    # session.db is deliberately NOT ignored — Spec 020 commits the graph (see
+    # _AGENCY_README + the .gitattributes binary marker); ignoring it here would
+    # hide the shared provenance graph after the first engine run.
     gitignore = os.path.join(agency_dir, ".gitignore")
     if not os.path.exists(gitignore):
         with open(gitignore, "w") as f:
-            f.write("# Spec 020/021 — ephemeral SLOGs; not graph state.\n"
-                    "session.db\n"
+            f.write("# Spec 021 — ephemeral monitor SLOG (NOT graph state).\n"
+                    "# session.db is committed (Spec 020) — do not add it here.\n"
                     "monitor.log\n"
                     "monitor.log.*\n")
         written.append(gitignore)

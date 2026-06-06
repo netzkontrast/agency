@@ -71,6 +71,17 @@ def test_event_line_stays_within_atomic_budget(tmp_path):
     assert json.loads(line)["source"] == "engine"  # still valid JSON after truncation
 
 
+def test_atomic_budget_holds_after_json_escaping(tmp_path):
+    # Escapable chars (quotes/backslashes) ~double under json.dumps; truncation
+    # must measure the SERIALIZED line, not the raw message bytes.
+    log = tmp_path / "monitor.log"
+    for msg in ('"' * 10_000, "\\" * 10_000, "\n" * 10_000):
+        MonitorEmitter(str(log)).emit(MonitorEvent("engine", "warning", msg))
+    for line in log.read_text().splitlines():
+        assert len(line.encode("utf-8")) <= 4096  # holds post-escaping
+        assert json.loads(line)["kind"] == "warning"  # still parseable
+
+
 def test_resolve_path_prefers_explicit_then_env(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENCY_MONITOR_LOG", str(tmp_path / "from-env.log"))
     assert resolve_monitor_log_path(explicit=str(tmp_path / "x.log")) == str(tmp_path / "x.log")

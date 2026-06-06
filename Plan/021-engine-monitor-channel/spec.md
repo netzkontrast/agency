@@ -228,8 +228,12 @@ channel with zero monitors.json change.
   sugar; auto-fills `intent_id` from the serving intent; silent no-op when no
   engine/monitor attached (best-effort, never load-bearing).
 - `agency/install.py` — `_MONITORS_JSON` single `agency-engine` entry added to
-  `generate()`; `${CLAUDE_PLUGIN_DATA}/monitor.log` with `|| ./.agency/monitor.log`
-  fallback (Q#1). `monitors/monitors.json` written to repo via regen.
+  `generate()`. Command: `tail -n 0 -F "${CLAUDE_PROJECT_DIR:-.}/.agency/monitor.log"`
+  — points at the path `Engine.monitor` actually writes (DB sibling; `.mcp.json`
+  sets `AGENCY_DB=${CLAUDE_PROJECT_DIR}/.agency/session.db`), `-n 0` starts at EOF
+  so no stale-history replay, and `${VAR:-.}` covers local-dev without a dead
+  `|| tail` branch (Q#1; corrected per PR #20 Codex review). `monitors/monitors.json`
+  written to repo via regen.
 - `agency/install.py:scaffold_agency_dir` — writes `.agency/.gitignore`
   (session.db + monitor.log*) so the SLOG never enters git (Q#2); repo root
   `.gitignore` mirrors the guard.
