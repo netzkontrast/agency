@@ -1,7 +1,7 @@
 ---
 spec_id: "068"
 slug: tiered-discovery
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/spec-068-tiered-discovery)
 last_updated: 2026-06-06
 owner: "@agency"
 serves_intent: "intent:97534079"
@@ -56,3 +56,33 @@ hard-code the flat shape get updated in lock-step.
 - `CORE.md` §Skills (the doctrine this fulfils); `GOALS.md` #1.
 - `agency/disclosure.py` (Spec 023 brief-slice machinery this extends).
 - `Plan/049-…/naming-audit-report.md` §1–2 (the flat-payload measurement).
+
+
+## Followup --- Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/spec-068-tiered-discovery`. TDD (RED -> GREEN).
+
+**Verdict:** Shipped
+
+### Done
+- `engine._capability_tier(registry)` --- the tier-0 discovery payload:
+  `[{name, gist, verbs}]`, gist = the capability module docstring first line
+  (redundant `name --` prefix stripped, capped ~72 chars), one line per cap.
+- Surfaced ADDITIVELY on `agency_welcome` as `capability_tier`; the names-only
+  `capabilities` field kept for back-compat (migration-safe). welcome docstring
+  documents the drill-in flow (browse tier -> search('<capability>')/get_schema).
+- Measured: the capability tier is **250 tokens vs 1471** for the flat verb dump
+  --- an **83% reduction** on the discovery path. The CodeMode `search` (flat
+  keyword search) stays as the fallback (additive, nothing removed).
+- welcome byte budget raised 1 KB -> 2 KB (justified: the tier is net-token-
+  positive --- ~500 tok once on welcome saves the ~1471-tok flat dump); both
+  budget tests updated with the rationale.
+
+### Tests
+- `tests/test_tiered_discovery.py` --- 3 (tier shape; tier << flat dump; welcome
+  surfaces the tier + keeps names). Full suite 793 passed / 3 skipped.
+
+### Note on surface_size (Spec 067 lint)
+Tiering makes a large surface TOLERABLE (you do not load jules's 22 verbs unless
+you drill into jules), but does not reduce the per-cap verb count --- the
+`surface_size` WARN stays for Spec 070 (consolidation) to drive to zero + BLOCK.

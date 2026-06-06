@@ -83,6 +83,33 @@ def resolve_surface(arg: str | None = None) -> str:
     return "mcp"
 
 
+def _capability_tier(registry) -> list:
+    """Spec 068 — the tier-0 discovery payload: one line per capability
+    (``{name, gist, verbs}`` — gist = the capability module's docstring first
+    line; ``verbs`` = its verb count). This is the cheap entry the agent browses
+    FIRST, then drills into one capability via ``search('<capability>')`` /
+    ``get_schema`` — progressive disclosure at the discovery layer (CORE.md
+    §Skills, Spec 072), far cheaper than a flat dump of every verb."""
+    import sys
+    tier = []
+    for name in sorted(registry.names()):
+        cap = registry.get(name)
+        gist = getattr(cap, "home", "") or ""
+        for spec in cap.verbs.values():
+            fn = getattr(spec.get("fn"), "__capability_method__", spec.get("fn"))
+            mod = sys.modules.get(getattr(fn, "__module__", "") or "")
+            doc = (getattr(mod, "__doc__", "") or "").strip()
+            if doc:
+                g = doc.split("\n", 1)[0].strip()
+                # strip the redundant leading "name — " (name is its own field)
+                if g.lower().startswith(name.lower()):
+                    g = g[len(name):].lstrip(" —–-:").strip() or g
+                gist = g[:72].rstrip()
+                break
+        tier.append({"name": name, "gist": gist, "verbs": len(cap.verbs)})
+    return tier
+
+
 class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
                  embedder=None, web_search=None,
@@ -568,9 +595,15 @@ class Engine:
 
             Inputs: none.
             Returns: ``{bootstrap_example, install_example, capabilities,
-                       db_path, next: [step1, step2, step3]}``.
-            chain_next: call ``agency_install`` then ``intent_bootstrap``
-            then any ``capability_*_*`` verb with the minted id.
+                       capability_tier, db_path, next: [step1, step2, step3]}``.
+            ``capability_tier`` (Spec 068) is the tier-0 discovery payload — one
+            line per capability (``{name, gist, verbs}``); browse it, then drill
+            into ONE capability via ``search('<capability>')`` / ``get_schema``
+            instead of dumping every verb (progressive disclosure at the
+            discovery layer — ~83% cheaper than the flat verb catalog).
+            ``capabilities`` (names only) is kept for back-compat.
+            chain_next: call ``agency_install`` then ``intent_bootstrap``, then
+            browse ``capability_tier`` and ``search('<capability>')`` to drill in.
             """
             from ._db_path import resolve_db_path
             # Spec 029 OQ-3: token budget bit. Names-only keeps the welcome
@@ -610,6 +643,12 @@ class Engine:
                 ),
                 "install_example": "call_tool('agency_install', {})",
                 "capabilities": caps,
+                # Spec 068 — tier-0 discovery: browse the capability tier here,
+                # then drill into one via search('<capability>') / get_schema,
+                # instead of dumping every verb (progressive disclosure at the
+                # discovery layer; CORE.md §Skills). `capabilities` (names) kept
+                # for back-compat.
+                "capability_tier": _capability_tier(engine.registry),
                 "db_path": resolve_db_path(None),
                 "next": next_steps,
             }
