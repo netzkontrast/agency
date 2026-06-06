@@ -71,9 +71,9 @@ flip to BLOCK once the audited surface is clean.
 | **0** | **072** core-vision-alignment | doctrine: fix CORE §Naming/§Skills/§Status to serve GOALS #1 (via spec-panel) | — (defines the WHY the rules encode) | doctrine-only |
 | **1** | **067** lint-token-economy-rules | encode the goals as `lint_capability` rules | (defines the gates) | additive WARN rules |
 | **2** | **068** tiered-discovery | capability-level discovery → drill-in (extends 023) | `surface_size` | additive; flat search stays a fallback |
-| **3** | **069** naming-rename-impl (049) | bare code-mode alias + 5 substrate aliases | `name_token_budget`, `bare_name_unique` | alias-and-deprecate; wire form kept |
-| **4** | **070** verb-surface-consolidation | collapse near-duplicate verbs | `surface_size` | alias-and-deprecate per collapsed verb |
-| **5** | **071** skill-surface-reconciliation | unify ontology key ↔ SKILL.md folder | `skill_name_parity` | alias old skill names one minor |
+| ~~3~~ | ~~**069** naming-rename-impl~~ | **CANCELLED** — FastMCP-blocked (one CodeMode catalog) + marginal post-068; `name_token_budget`/`bare_name_*` accepted as standing WARNs | — | n/a |
+| **3** | **070** verb-surface-consolidation | collapse near-duplicate verbs | `surface_size` → BLOCK | alias-and-deprecate per collapsed verb |
+| **4** | **071** skill-surface-reconciliation | unify ontology key ↔ SKILL.md folder | `skill_name_parity` → BLOCK | alias old skill names one minor |
 
 ## Promotion criteria
 

@@ -1,7 +1,7 @@
 ---
 spec_id: "069"
 slug: naming-rename-impl
-status: draft
+status: closed-cancelled   # FastMCP-blocked + marginal post-068; user-approved skip 2026-06-06
 last_updated: 2026-06-06
 owner: "@agency"
 serves_intent: "intent:97534079"
@@ -56,3 +56,27 @@ next minor. No hard break — every existing caller keeps working.
 
 - `Plan/049-…/naming-audit-report.md` (the per-name verdicts + collision set).
 - `CORE.md` §Naming (the sanctioned split); `agency/engine.py` `_wire`.
+
+
+## Closure note (2026-06-06) --- CANCELLED (user-approved)
+
+**Cancelled after the autonomous investigation + user decision (skip 069, go to
+070+071).** Two findings:
+
+1. **FastMCP-blocked.** CodeMode resolves `search` / `get_schema` / `call_tool`
+   over ONE shared catalog (`get_catalog`) --- there is no hidden-but-callable
+   alias path. A bare verb alias would either DOUBLE the verb catalog
+   (69 -> 138, defeating the token goal) or require forking CodeMode internals
+   (violates the charter's agency-integration clause). See `reflection:991dff6c`.
+2. **Marginal post-068.** Spec 068 (tiered discovery, shipped) already captured
+   the discovery-token win --- the agent browses the capability tier and drills
+   in, never paying the flat prefixed dump. The prefix-rename's residual value is
+   small.
+
+**Consequence.** The `<concept>_<capability>_<verb>` wire form is kept (CORE
+§Naming already mandates this for host disambiguation). The Spec 067
+`name_token_budget` + `bare_name_collision` + `bare_name_contract_shadow` rules
+remain **standing WARNs** --- documented budgets that record the kept-wire-form
+trade-off, NOT slated for BLOCK. The bare code-mode alias remains a CORE
+aspiration, revisitable only if CodeMode gains native hidden-alias support. The
+cheap 049 substrate aliases were also dropped (marginal, catalog churn).
