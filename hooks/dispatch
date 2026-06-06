@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# agency unified event dispatcher (Spec 076).
+#
+# Claude Code pipes each hook event's payload (JSON) to this script on stdin.
+# We forward it to `agency hook`, which routes it by hook_event_name to the
+# engine's handler surface (records an Event node; links it to the active
+# AGENCY_INTENT when set). Capture is best-effort: a missing CLI or a handler
+# error must NEVER break the session, so we swallow failures.
+if command -v agency >/dev/null 2>&1; then
+  agency hook >/dev/null 2>&1 || true
+fi
+exit 0

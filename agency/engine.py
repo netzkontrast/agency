@@ -110,6 +110,31 @@ def _capability_tier(registry) -> list:
     return tier
 
 
+def _default_hook_handler(engine, event: dict) -> dict:
+    """Spec 076 — the default event handler: record an `Event` node (substrate
+    provenance, no intent required) and, for tool events, capture a trimmed
+    payload via the shell filter. Links the Event OBSERVED_DURING the active
+    intent (``AGENCY_INTENT`` — Spec 018 Win 3) when one is set, so events during
+    an intent become its provenance. The handler surface is an OPEN SET; register
+    a per-event override via ``engine.register_hook_handler``."""
+    import json as _json
+    import os as _os
+    name = (event or {}).get("hook_event_name") or "unknown"
+    session = (event or {}).get("session_id") or "unknown"
+    props = {"name": name, "session": session}
+    tool = (event or {}).get("tool_name")
+    if tool:
+        props["tool"] = tool
+        payload = event.get("tool_input") or event.get("tool_response") or {}
+        from .capabilities.shell import _apply_filter
+        props["summary"] = _apply_filter(_json.dumps(payload, default=str), "head:5")[:500]
+    eid = engine.memory.record("Event", props)
+    iid = _os.environ.get("AGENCY_INTENT", "")
+    if iid and engine.memory.recall_typed(iid, "Intent") is not None:
+        engine.memory.link(eid, iid, "OBSERVED_DURING")
+    return {"recorded": eid, "event": name}
+
+
 class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
                  embedder=None, web_search=None, runner=None,
@@ -215,6 +240,26 @@ class Engine:
         # in via ctx.emit_monitor(...); one tail -F on this log surfaces them.
         from ._monitor import MonitorEmitter, resolve_monitor_log_path
         self.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))
+        # Spec 076 — the unified hook-handler surface (open set). "*" is the
+        # default catch-all; register_hook_handler adds per-event overrides.
+        self._hook_handlers = {"*": _default_hook_handler}
+
+    def register_hook_handler(self, event_name: str, fn) -> None:
+        """Spec 076 — register a per-event hook handler (open set). ``fn(engine,
+        event) -> dict``. Overrides the default for ``event_name``; use "*" to
+        replace the catch-all."""
+        self._hook_handlers[event_name] = fn
+
+    def dispatch_hook(self, event: dict) -> dict:
+        """Spec 076 — route ONE Claude Code hook event to its handler. The single
+        dispatcher (`hooks/dispatch`) pipes every event here by name; an exact
+        handler wins, else the "*" catch-all. Never raises on a malformed event —
+        capture must not break the session."""
+        name = (event or {}).get("hook_event_name") or "unknown"
+        handler = self._hook_handlers.get(name) or self._hook_handlers.get("*")
+        if handler is None:
+            return {"recorded": None, "event": name, "skipped": True}
+        return handler(self, event)
 
     def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
         """Auto-wire ONE MCP tool for a capability verb from its fn signature.
@@ -359,6 +404,23 @@ class Engine:
         def memory_graph_provenance(intent_id: str) -> dict:
             "Cross-concern provenance for an intent — one graph traversal."
             return mem.provenance(intent_id)
+
+        @mcp.tool
+        def hook_event(event: dict) -> dict:
+            """Route ONE Claude Code hook event to its handler (Spec 076).
+
+            Substrate — NO intent required (like intent_bootstrap). The single
+            `hooks/dispatch` entry pipes every event's stdin JSON here; the engine
+            routes by ``hook_event_name`` to a registered handler (open set),
+            recording an Event node and linking it OBSERVED_DURING the active
+            AGENCY_INTENT when set.
+
+            Inputs: event (the hook payload dict — carries hook_event_name,
+                    session_id, and event-specific fields).
+            Returns: ``{recorded: <event_id|None>, event: <name>, …}``.
+            chain_next: terminal — the event is provenance in the graph.
+            """
+            return engine.dispatch_hook(event or {})
 
         # Spec 029 §A — engine-substrate bootstrap tools. Substrate, not capability:
         # they live outside the per-capability auto-wire because intent_bootstrap

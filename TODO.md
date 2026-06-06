@@ -25,7 +25,8 @@
 | **Not started** | 10 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 051 |
 | **Token-economy cluster (`intent:97534079`) — GOAL MET** | 6 | 066 master · 072 ✅ · 067 ✅ · **068 ✅ (−83% discovery)** · **074 ✅ capstone** · ~~069 cancelled~~ · 070/071 WARN-accepted (optional future) |
 | **Shipped — audit-trail (`intent:558f1bf5` / `intent:d8090aef`)** | 4 | **073 ✅ → `shell` capability** (run/filter/templates) · **018 (Wins 1+3) ✅** (`develop.skill_walk` atomic walker + implicit `intent_id` via `AGENCY_INTENT`; Win 2 = cancelled-069, skipped) · **075 ✅** (`shell.define` + `shell.templates(query)` + run resolves graph-first; common-bash seeds — definable registry per CLAUDE.md #8) · **079 ✅** (Click CLI mirrors every capability verb as `agency <cap> <verb>` for non-MCP agents; auto-generated from the live registry; code-mode stays canonical) |
-| **Drafted — next-wave roadmap (user-sketched 2026-06-06)** | 3 | 076 unified-event-hook (research-first) · 077 bdd-gherkin-tests (research-first) · 078 static-walkable-skills (research-first; needs clarification) |
+| **Shipped — substrate foundation (`intent:bd7a1b7d`)** | 1 | **076 ✅** (unified event-hook: one `hooks/dispatch` → `agency hook` → `engine.dispatch_hook`; `Event` node + open-set handler surface + `AGENCY_INTENT` provenance linkage; install emits unified hooks.json for the capture events) |
+| **Drafted — next-wave roadmap (user-sketched 2026-06-06)** | 2 | 077 bdd-gherkin-tests (research-first) · 078 static-walkable-skills (research-first; needs clarification) |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
 Total spec rows: **71** (001–078, with 027 + 033–038 renumbered away).
