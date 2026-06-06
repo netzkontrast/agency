@@ -155,6 +155,41 @@ class AnalyzeCapability(CapabilityBase):
                 "counts": _findings.count_by_severity(findings)}
 
     @verb(role="transform")
+    def graph(self, node_type: str = "", scope: str = "", limit: int = 50) -> dict:
+        """Query the provenance graph — a census of node types + a typed listing (read the graph).
+
+        The missing read surface: code-mode exposes only ``call_tool``, so the graph
+        was queryable only one intent at a time via ``memory_graph_provenance``. This
+        analyzes the graph itself — count every node label live, and list one label's
+        rows (optionally filtered) — so "read the graph" is a first-class query.
+
+        Inputs: node_type (label to list, e.g. 'Reflection'/'Intent'; '' → census only);
+                scope (filter Reflection/Event rows by their scope/name); limit (max rows).
+        Returns: ``{census: {label: count}, nodes: [...]}`` — the LIVE graph, not a snapshot.
+        chain_next: drill an intent via ``memory_graph_provenance``, or re-query a node_type.
+        """
+        mem = self.ctx.memory
+        labels = sorted(getattr(getattr(self.ctx.registry, "ontology", None), "nodes", {})
+                        or {"Intent": 0, "Reflection": 0, "Event": 0, "Invocation": 0,
+                            "Artefact": 0, "Lifecycle": 0, "Gate": 0})
+        census = {}
+        for lab in labels:
+            try:
+                count = len(mem.find(lab))
+            except Exception:
+                count = 0
+            if count:
+                census[lab] = count
+        nodes = []
+        if node_type:
+            for row in mem.find(node_type):
+                if scope and (row.get("scope") or row.get("name")) != scope:
+                    continue
+                nodes.append(row)
+            nodes = nodes[: max(1, int(limit))]
+        return {"census": census, "nodes": nodes}
+
+    @verb(role="transform")
     def performance(self, path: str = ".", lang: str = "py") -> dict:
         """AST-based hot-path lint: nested O(n²), += in loop, unbounded while True.
 
