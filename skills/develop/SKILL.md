@@ -41,6 +41,29 @@ await call_tool('capability_develop_checklist', {'intent_id': 'intent:abc'})
 - Writing implementation before a failing test → walk capability_develop_skill_walk with tdd
 - Hand-rolling a capability skeleton → use capability_develop_scaffold_capability
 
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`authoring-capabilities`** (authoring): research → scaffold → author → lint → token-check → commit
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'authoring-capabilities', 'inputs': {}, 'intent_id': '…'})`
+- **`brainstorm`** (discipline): explore → present → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'brainstorm', 'inputs': {}, 'intent_id': '…'})`
+- **`debug`** (discipline): gather → hypothesize → trace → fix
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'debug', 'inputs': {}, 'intent_id': '…'})`
+- **`execute`** (discipline): load → execute → checkpoint → verify
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'execute', 'inputs': {}, 'intent_id': '…'})`
+- **`plan`** (discipline): map → self-review → approve
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan', 'inputs': {}, 'intent_id': '…'})`
+- **`review`** (discipline): request → dispatch → resolve
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'review', 'inputs': {}, 'intent_id': '…'})`
+- **`spec-panel`** (discipline): review → synthesize → approve
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'spec-panel', 'inputs': {}, 'intent_id': '…'})`
+- **`tdd`** (discipline): red → green → refactor → verify
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'tdd', 'inputs': {}, 'intent_id': '…'})`
+- **`verify`** (discipline): identify → run → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'verify', 'inputs': {}, 'intent_id': '…'})`
+
 ## skill_walk
 
 Walk a registered skill to the first hard gate in ONE call (the atomic walker).

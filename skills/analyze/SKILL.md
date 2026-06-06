@@ -43,3 +43,10 @@ await call_tool('capability_analyze_architecture', {'intent_id': 'intent:abc'})
 
 - Shipping a risky diff with no analysis → run capability_analyze_security first
 - Hand-waving 'looks fine' on unfamiliar code → get findings via capability_analyze_quality
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`code-analysis`** (discipline): scope → axes → run → review → apply
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'code-analysis', 'inputs': {}, 'intent_id': '…'})`

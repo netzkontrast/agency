@@ -33,3 +33,10 @@ await call_tool('capability_skill_generator_generate', {'intent_id': 'intent:abc
 ## Red flags — stop and re-read this skill
 
 - (none documented)
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`skill_generator-usage`** (usage): use-act → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'skill_generator-usage', 'inputs': {}, 'intent_id': '…'})`

@@ -1,7 +1,7 @@
 ---
 spec_id: "081"
 slug: walkable-usage-skills
-status: design
+status: shipped
 last_updated: 2026-06-06
 owner: "@agency"
 depends_on: ["080", "018"]   # docstring-derived Agent Skills + the atomic skill walker
@@ -85,3 +85,26 @@ fresh agent can learn the capability by walking it.
 
 **Verdict:** APPROVE with the cluster-not-per-verb + ≤6-phase cap + validate-before-
 emit refinements folded into Design.
+
+## Followup — Implementation Status (2026-06-06)
+
+**Verdict:** Shipped.
+
+- **`capability.derive_usage_skill(cap_name, verbs)`** — clusters verbs by role
+  (transform → effect → act → gate), ≤5 work-phases each naming its verbs, + a hard
+  `confirm` gate. `as_capability` injects `<cap>-usage` into `ontology.skills`
+  ONLY when the cap authored none (authored skills override — `develop`'s 9
+  disciplines, `jules`'s 6, etc. are untouched). The 8 previously-bare caps
+  (branch, dogfood, gate, reflect, shell, skill_generator, subagent, workspace)
+  now each ship a walkable `<cap>-usage`.
+- **Walkable** via the existing `develop.skill_walk('<cap>-usage', …)` — walks the
+  derived phase-graph to its hard gate, recorded as provenance (Spec 018 walker).
+- **Emit** — `emit_skill` renders a "## Walk this capability" section (each skill's
+  phase chain + the `skill_walk` invocation) into every per-cap SKILL.md.
+- **Tests** — `tests/test_walkable_usage_skills.py` (5): every cap has a walkable
+  skill; bare cap derives `<cap>-usage` ending in a hard gate naming real verbs;
+  authored skills not overridden; the derived walk is walkable; emit renders the
+  section. Full suite 866 passed, 3 skipped; `check-drift` clean; install regen
+  committed.
+- **Deferred** (per panel): high-value caps should AUTHOR a richer discipline over
+  the scaffold; a `validate_skill`-style check on the derived walk.

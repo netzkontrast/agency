@@ -37,3 +37,10 @@ await call_tool('capability_research_lead', {'intent_id': 'intent:abc'})
 
 - Trusting a single source → cross-check with capability_research_verify
 - Answering an open question from memory → run capability_research_lead
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`deep-research`** (discipline): plan → fan-out → verify → publish
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'deep-research', 'inputs': {}, 'intent_id': '…'})`

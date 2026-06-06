@@ -238,6 +238,38 @@ class WalkerSkills:
     schemas: dict[str, dict] = field(default_factory=dict)
 
 
+# Spec 081 — canonical role ordering for a derived usage-walk: read/compute first,
+# then side-effects, then state-changing acts, then gates.
+_USAGE_ROLE_ORDER = ("transform", "effect", "act", "gate")
+
+
+def derive_usage_skill(cap_name: str, verbs: dict) -> dict:
+    """Derive a `<cap>-usage` walkable skill from a capability's verbs (Spec 081).
+
+    Clusters the verbs by role into ≤5 work-phases (canonical order: transform →
+    effect → act → gate), each naming the verbs it drives, and appends a hard
+    `confirm` gate — so a fresh agent can `develop.skill_walk('<cap>-usage', …)`
+    to learn how to drive the capability's MCP surface. A scaffold that guarantees
+    coverage; high-value capabilities AUTHOR a richer discipline instead (which, as
+    a declared `ontology.skills`, overrides this)."""
+    by_role: dict[str, list[str]] = {}
+    for vname, spec in verbs.items():
+        by_role.setdefault(spec.get("role", "transform"), []).append(vname)
+    phases: list[dict] = []
+    idx = 1
+    for role in _USAGE_ROLE_ORDER:
+        if role not in by_role:
+            continue
+        phases.append({"index": idx, "name": f"use-{role}",
+                       "produces": [f"{role}_result"], "verbs": sorted(by_role[role])})
+        idx += 1
+        if idx > 5:          # cap at 5 work-phases + the confirm gate = 6 total
+            break
+    phases.append({"index": idx, "name": "confirm",
+                   "produces": ["outcome_confirmed"], "gate": "hard"})
+    return {"name": f"{cap_name}-usage", "kind": "usage", "phases": phases}
+
+
 @dataclass
 class TemplateDoc:
     """Rendering metadata for ONE template the capability ships (Spec 032 §A).
@@ -348,9 +380,16 @@ class CapabilityBase:
             module = _sys.modules.get(cls.__module__)
             if module is not None:
                 skill_doc = SkillDoc.from_module(module, cls.name, list(verbs))
+        ontology = _copy.deepcopy(cls.ontology)
+        # Spec 081 — every capability ships a WALKABLE skill. A cap that authored
+        # no `ontology.skills` gets a DERIVED `<cap>-usage` phase-graph (verbs
+        # clustered by role → walk via develop.skill_walk). Authored skills are
+        # the override — never replaced.
+        if verbs and not getattr(ontology, "skills", None):
+            ontology.skills[f"{cls.name}-usage"] = derive_usage_skill(cls.name, verbs)
         return Capability(
             name=cls.name, home=cls.home, verbs=verbs,
-            ontology=_copy.deepcopy(cls.ontology),
+            ontology=ontology,
             render_templates=cls.render_templates,
             artefact_schemas=cls.artefact_schemas,
             # PR review round 8 — preserve class-form authoring metadata

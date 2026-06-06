@@ -33,3 +33,10 @@ await call_tool('capability_gate_check', {'intent_id': 'intent:abc'})
 ## Red flags — stop and re-read this skill
 
 - (none documented)
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`gate-usage`** (usage): use-act → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'gate-usage', 'inputs': {}, 'intent_id': '…'})`
