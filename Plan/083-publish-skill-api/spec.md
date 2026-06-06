@@ -1,7 +1,7 @@
 ---
 spec_id: "083"
 slug: publish-skill-api
-status: design
+status: shipped
 last_updated: 2026-06-06
 owner: "@agency"
 depends_on: ["080"]   # the emitted per-capability Agent Skills
@@ -67,3 +67,26 @@ claude.ai). Publishing turns an agency capability into a first-class Agent Skill
   the API, which is where the 079 non-MCP-agent + hosted-agent themes converge.*
 
 **Verdict:** APPROVE — effect+provenance, dry-run default, single-cap v1.
+
+## Followup — Implementation Status (2026-06-06)
+
+**Verdict:** Shipped (boundary + verb + provenance; live SDK binding noted for
+first real publish).
+
+- **`SkillsClient`** (`plugin/_skills_client.py`) — lazy boundary: zips the package
+  + uploads via `client.beta.skills.create` / `.versions.create`; raises a clear
+  error without the `anthropic` SDK / `ANTHROPIC_API_KEY` (never imports `anthropic`
+  by default). Engine injects it as `skills_client` (param + `injectors`), stubbed
+  in tests.
+- **`plugin.publish_skill(name, dry_run=True)`** [role=effect] — packages the
+  capability's emitted skill via `emit_skill` + `emit_references`, re-rooted to the
+  Agent-Skills layout (SKILL.md at root + `references/`). `dry_run` (default) returns
+  the manifest (`files`, `bytes`); `dry_run=False` uploads and records a
+  `published-skill` Artefact (SERVES + OBSERVED_DURING). Emitted skill name is
+  spec-legal hyphens (`skill_generator` → `skill-generator`).
+- **`[publish]` extra** (anthropic SDK); optional — dry-run works offline.
+- **Tests** — `tests/test_publish_skill.py` (4): dry-run manifest (no upload),
+  upload packages + records provenance, underscore→hyphen name, unknown-cap error.
+  Full suite green; `check-drift` clean; install regen committed.
+- **Deferred:** verify the exact `client.beta.skills` zip-field binding against the
+  live SDK on first real publish; re-publish-as-version (SUPERSEDED_BY trail).
