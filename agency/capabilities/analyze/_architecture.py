@@ -12,6 +12,9 @@ project-specific thresholds).
 """
 from __future__ import annotations
 
+# Spec 057 — the rule prefixes this module's findings carry (axis registry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {"architecture": frozenset({"A"})}
+
 import ast
 import os
 

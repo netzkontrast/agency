@@ -125,6 +125,26 @@ class Memory:
             return None
         return props
 
+    def recall_typed(self, node_id: str, label: str) -> Optional[dict]:
+        """Return a node's properties iff it exists AND carries ``label``.
+
+        Spec 056 — the type-safe node-id guard. A verb that takes a ``<label>_id``
+        parameter must verify the endpoint's LABEL, not just its existence:
+        ``recall(id)`` passes for ANY node, so an ``intent_id`` typo'd as a
+        ``research_id`` would silently anchor edges at the wrong endpoint and
+        later label-filtered traversals drop them. Returns ``None`` for the three
+        caller-recoverable misses (empty id, missing node, wrong label) and a
+        COPY of the properties otherwise (mutation-safe). Pure read.
+        """
+        if not node_id:
+            return None
+        node = self.g.get_node(node_id)
+        if node is None:
+            return None
+        if label not in (node.get("labels") or []):
+            return None
+        return dict(node.get("properties", {}))
+
     def find(self, label: str, as_of: Optional[int] = None) -> list[dict]:
         rows = self.g.query(f"MATCH (n:{label}) RETURN n")
         out = []

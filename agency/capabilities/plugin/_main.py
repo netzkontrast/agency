@@ -488,13 +488,142 @@ def _check_token_budget(cap, max_per_verb=20):
     return out
 
 
+# Spec 056 — irregular `<prefix>_id` → expected node label. Unknown prefixes
+# skip the rule (no guess). Grows alongside the verbs that introduce new types.
+_NODE_ID_LABELS = {
+    "research": "Research",
+    "intent": "Intent",
+    "parent_intent": "Intent",
+    "for_intent": "Intent",
+    "root_intent": "Intent",
+    "lifecycle": "Lifecycle",
+}
+
+
+def _check_node_id_guards(cap):
+    """Spec 056 (WARN): flag a verb that reads a ``<label>_id`` parameter via a
+    bare ``recall(param)`` / ``get_node(param)`` WITHOUT verifying the node's
+    label — the silent-anchor bug class (an intent id typo'd as a research id
+    passes existence but anchors edges at the wrong endpoint). A verb passes when
+    it uses ``recall_typed(param, Label)``, a Cypher ``MATCH (n:Label)``, or an
+    explicit ``"Label" in labels`` check. Unknown id-prefixes skip (no guess).
+    """
+    import inspect
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        # Class-form verbs expose a wrapper as `fn`; the real method (with the
+        # user-facing source + signature) hangs off `__capability_method__`.
+        fn = getattr(spec.get("fn"), "__capability_method__", spec.get("fn"))
+        try:
+            src = inspect.getsource(fn)
+            params = inspect.signature(fn).parameters
+        except (OSError, TypeError, ValueError):
+            continue
+        for pname in params:
+            m = re.match(r"^(.+)_id$", pname)
+            if not m:
+                continue
+            label = _NODE_ID_LABELS.get(m.group(1))
+            if not label:
+                continue
+            reads_bare = f"recall({pname})" in src or f"get_node({pname})" in src
+            if not reads_bare:
+                continue
+            guarded = (f"recall_typed({pname}" in src
+                       or f'"{label}"' in src or f"'{label}'" in src
+                       or f":{label})" in src)
+            if not guarded:
+                out.append({
+                    "verb": verb_name, "kind": "node_id_guard",
+                    "msg": f"reads {pname!r} via bare recall/get_node without a "
+                           f"{label}-label check",
+                    "fix": f"use memory.recall_typed({pname}, {label!r}) — Spec 056",
+                })
+    return out
+
+
+def _is_record_reflection(call) -> bool:
+    import ast
+    f = call.func
+    return (isinstance(f, ast.Attribute) and f.attr == "record"
+            and bool(call.args)
+            and isinstance(call.args[0], ast.Constant)
+            and call.args[0].value == "Reflection")
+
+
+def _link_edges(call) -> set:
+    """String-constant edge names passed to a `.link(...)` call."""
+    import ast
+    if not (isinstance(call.func, ast.Attribute) and call.func.attr == "link"):
+        return set()
+    return {a.value for a in call.args
+            if isinstance(a, ast.Constant) and isinstance(a.value, str)}
+
+
+def _check_reflection_links(cap):
+    """Spec 058 (WARN): a verb that records a ``Reflection`` MUST link it with
+    BOTH ``SERVES`` (provenance — surfaces in ``Memory.provenance``) AND
+    ``OBSERVED_DURING`` (the intent-scoped reflection view used by
+    ``document.render(scope='reflections')`` + the repo-index recent-activity
+    filter). Missing either edge writes a node invisible to half its consumers.
+
+    AST walk: capture each ``<obj>.record("Reflection", …)`` assignment target,
+    then require both ``link(<var>, …, "SERVES")`` and ``…"OBSERVED_DURING"`` on
+    that var. Reflections recorded via a dynamic label variable skip (no
+    false-fire). A line carrying ``# agency-skip-link-check`` opts out.
+    """
+    import ast
+    import inspect
+    import textwrap
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        # Resolve the real method behind the class-form wrapper (see above).
+        fn = getattr(spec.get("fn"), "__capability_method__", spec.get("fn"))
+        try:
+            src = textwrap.dedent(inspect.getsource(fn))
+            tree = ast.parse(src)
+        except (OSError, TypeError, SyntaxError, ValueError):
+            continue
+        if "# agency-skip-link-check" in src:
+            continue
+        reflection_vars: set[str] = set()
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+                    and _is_record_reflection(node.value)):
+                reflection_vars |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+        if not reflection_vars:
+            continue
+        edges_by_var: dict[str, set] = {}
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and node.args
+                    and isinstance(node.args[0], ast.Name)):
+                e = _link_edges(node)
+                if e:
+                    edges_by_var.setdefault(node.args[0].id, set()).update(e)
+        for var in reflection_vars:
+            have = edges_by_var.get(var, set())
+            for required in ("SERVES", "OBSERVED_DURING"):
+                if required not in have:
+                    out.append({
+                        "verb": verb_name, "kind": "reflection_link",
+                        "msg": f"records a Reflection ({var!r}) but never links it {required}",
+                        "fix": f"add link({var}, <intent>, {required!r}) — both edges "
+                               f"required (Spec 058)",
+                    })
+    return out
+
+
 def lint_capability(cap) -> dict:
-    """Run the five rule families against `cap` (a Capability instance).
+    """Run the rule families against `cap` (a Capability instance).
 
     Mode dispatch: if the capability's source file carries the
     `# agency-scaffold: …` marker on its first non-blank line → BLOCK
     mode (violations are real errors, ok=False). Otherwise WARN mode
     (legacy grandfathering — violations move to warnings, ok=True).
+
+    Spec 056 — `_check_node_id_guards` is a WARN-ONLY soft rule (regardless of
+    mode) during its migration window: it surfaces as warnings even in block
+    mode so a scaffold-marked capability isn't broken before the audit completes.
 
     Returns: {ok, violations, warnings, skipped, mode}."""
     source_path = _capability_source_path(cap)
@@ -508,11 +637,13 @@ def lint_capability(cap) -> dict:
         + _check_wire_shape(cap)
         + _check_template_folder(cap)
     )
+    # WARN-only soft rules — never block, even in block mode (migration windows).
+    soft_findings = _check_node_id_guards(cap) + _check_reflection_links(cap)
     if mode == "block":
         return {"ok": not all_findings, "violations": all_findings,
-                "warnings": [], "skipped": 0, "mode": mode}
+                "warnings": soft_findings, "skipped": 0, "mode": mode}
     # warn mode — findings move to warnings; ok always True
-    return {"ok": True, "violations": [], "warnings": all_findings,
+    return {"ok": True, "violations": [], "warnings": all_findings + soft_findings,
             "skipped": 0, "mode": mode}
 
 

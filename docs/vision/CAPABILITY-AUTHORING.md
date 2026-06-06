@@ -534,6 +534,68 @@ or in this doc, not in `.md` files keyed to scope.
 
 ---
 
+## Node-id parameters must be label-checked (Spec 056)
+
+A verb that takes a `<label>_id` parameter (`research_id`, `parent_intent_id`,
+`lifecycle_id`, …) and guards only its *existence* has a silent-anchor bug: a
+bare `memory.recall(id)` passes for ANY node, so an id of the wrong type
+(`intent_id` typo'd as `research_id`) anchors edges at the wrong endpoint, and
+a later label-filtered traversal (`MATCH (r:Research)-[:CITES]->…`) drops them
+with no error. Three independent instances of this surfaced in one review pass.
+
+**Pattern — verify the LABEL, not just existence:**
+
+```python
+if self.ctx.memory.recall_typed(node_id, "Research") is None:
+    return {"error": f"{node_id!r} is not a valid Research node"}
+```
+
+`recall_typed(id, label)` returns the node's properties (a copy) only when the
+node exists AND carries `label`; it returns `None` for all three recoverable
+misses (empty id, missing node, wrong label). A Cypher `MATCH (n:Label) WHERE
+n.id = $id` is the equivalent inline form (what `gate.check` uses).
+
+**Anti-pattern (flagged by `plugin.lint_capability`'s `node_id_guard` rule):**
+
+```python
+node = self.ctx.memory.recall(research_id)   # existence only — wrong label slips through
+if node is None:
+    return {"error": "..."}
+```
+
+The lint rule (WARN-mode during the migration window) scans each verb for a
+bare `recall(param)` / `get_node(param)` on a known `<label>_id` parameter
+without a label check, and points you at `recall_typed`.
+
+---
+
+## Reflection write convention — both edges (Spec 058)
+
+A verb that records a `Reflection` MUST link it with BOTH edges:
+
+| Edge | Consumer | Purpose |
+|---|---|---|
+| `SERVES` | `Memory.provenance(intent_id)` | cross-concern provenance traversal |
+| `OBSERVED_DURING` | `document.render(scope='reflections', for_intent_id=)` | intent-scoped reflection view |
+| `OBSERVED_DURING` | `document.index_repo` recent-activity filter | repo-briefing surface |
+
+A Reflection linked with only one is invisible to half its consumers — a silent
+provenance hole that only surfaces when someone queries the missing-edge path
+and finds nothing (exactly the `document.explain` bug that motivated this rule).
+
+```python
+rid = self.ctx.record("Reflection", {"scope": "observation", "text": note})
+self.ctx.link(rid, self.ctx.intent_id, "SERVES")
+self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+```
+
+`plugin.lint_capability`'s `reflection_link` rule (WARN-mode) walks each verb's
+AST and flags a `record("Reflection", …)` whose id isn't linked with both edges.
+A verb that deliberately records a cross-intent Reflection opts out with an
+`# agency-skip-link-check: <reason>` marker.
+
+---
+
 ## Skills your capability owns (the Lifecycle templates)
 
 A skill is a Lifecycle template — an ordered phase-graph ending in a

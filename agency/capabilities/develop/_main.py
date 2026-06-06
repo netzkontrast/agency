@@ -360,5 +360,6 @@ class DevelopCapability(CapabilityBase):
             "scope": "observation",
             "text": text,
         })
+        self.ctx.link(rid, self.ctx.intent_id, "SERVES")           # Spec 058 — provenance traversal
         self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
         return {"result": rid}

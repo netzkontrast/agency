@@ -9,6 +9,12 @@ anyway). Timeout 30s. Failure → empty list.
 """
 from __future__ import annotations
 
+# Spec 057 — ruff codes this wrapper emits, all mapped to quality (longest-first in registry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {
+    "quality": frozenset({"E", "F", "W", "I", "C", "N", "UP", "D",
+                          "PL", "PT", "RUF", "SIM", "RET", "TRY"}),
+}
+
 import json
 import shutil
 import subprocess

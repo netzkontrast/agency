@@ -17,6 +17,9 @@ decide what to ship.
 """
 from __future__ import annotations
 
+# Spec 057 — the rule prefixes this module's findings carry (axis registry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {"paths": frozenset({"IP"})}
+
 from ._findings import Finding, make_finding
 
 
@@ -108,7 +111,10 @@ def scan(memory, root_intent_id: str = "",
     """
     findings: list[Finding] = []
     if root_intent_id:
-        roots = [memory.recall(root_intent_id)]
+        # Spec 056 — label-checked: a non-Intent id no longer yields a
+        # mis-scoped scan (recall would pass for any node); recall_typed returns
+        # None for a wrong-label id, which the filter below drops to "no roots".
+        roots = [memory.recall_typed(root_intent_id, "Intent")]
         roots = [r for r in roots if r]
     else:
         roots = _user_root_intents(memory)[:max_paths]

@@ -5,6 +5,9 @@ Finding shape. Degrades silently when bandit isn't on PATH.
 """
 from __future__ import annotations
 
+# Spec 057 — the rule prefixes this module's findings carry (axis registry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {"security": frozenset({"B"})}
+
 import json
 import shutil
 import subprocess

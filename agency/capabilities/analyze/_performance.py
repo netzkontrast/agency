@@ -12,6 +12,9 @@ NO profiling-based judgements ("this loop is slow" without O(n²) proof
 """
 from __future__ import annotations
 
+# Spec 057 — the rule prefixes this module's findings carry (axis registry).
+AXIS_PREFIXES: dict[str, frozenset[str]] = {"performance": frozenset({"P"})}
+
 import ast
 
 from ._findings import Finding, make_finding

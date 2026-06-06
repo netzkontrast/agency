@@ -1,7 +1,7 @@
 ---
 spec_id: "056"
 slug: type-safe-node-id-discipline
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/spec-056-057-058-lint-batch)
 last_updated: 2026-06-03
 owner: "@agency"
 depends_on: ["016", "019"]
@@ -186,3 +186,27 @@ rule rather than guessing.
 - Spec 016 Hint #7 (`Inputs:` / `Returns:` / `chain_next:` markers)
   — this spec adds the missing structural cousin: `<param>_id`
   parameters carry a label expectation that lint can verify.
+
+
+## Followup — Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/spec-056-057-058-lint-batch`.
+
+**Verdict:** Shipped
+
+### Done
+- `agency/memory.py` — `recall_typed(node_id, label)` returns a COPY of props iff
+  the node exists AND carries `label`; `None` for empty/missing/wrong-label.
+- Migrated the two genuine guards to `recall_typed`:
+  `research/_specialist._validate_research_id` and `intent.capture`'s
+  `parent_intent_id` guard.
+- New guard: `document.render` rejects a non-Intent `for_intent_id`. NOTE: the
+  spec named `document.explain`, but `explain.target` is a code path/symbol (not
+  a node id); `render.for_intent_id` is the genuine intent-id site.
+- `plugin._check_node_id_guards` — WARN-only lint rule (even in block mode);
+  resolves the real method behind the class-form wrapper via `__capability_method__`.
+- CAPABILITY-AUTHORING.md §"Node-id parameters must be label-checked".
+
+### Tests
+- `tests/test_recall_typed.py` — 10 (5 recall_typed + 5 lint rule). Live registry
+  shows 0 `node_id_guard` gaps after migration. Full suite 766 passed / 3 skipped.

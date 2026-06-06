@@ -20,9 +20,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 33 | 001, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 059, 060, 061, 062, 064, 065 |
+| **Shipped** | 36 | 001, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065 |
 | **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
-| **Not started** | 14 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 049, 051, 056, 057, 058 |
+| **Not started** | 11 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 049, 051 |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
 Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
@@ -76,9 +76,9 @@ Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
 | **053** | test-suite-organization-ci | **Shipped** | conftest auto-markers + pytest-xdist + slicing scripts (test-cap, test-changed) + CI workflow upgrade | analyze 6.6s, research 12.2s, dogfood 17.8s; full parallel 2:43 vs 4:13 sequential (35% speedup); CI: `pytest -n auto -m "not e2e"` + E2E on tag |
 | **054** | drift-management | **Shipped** | AGENCY-DRIFT code tags + scripts/check-drift + agency_doctor.drift field + CLAUDE.md Rule #6 + README install rewrite | 8 canonical tag sites seeded; live `scripts/check-drift` reports NO DRIFT on this branch; v1 ships tag-convention guard layer, install dry-run drift, capability-test-gap report |
 | **055** | pipx-only-install | **Shipped** | bin/agency-install removed; bin/agency-mcp + bin/agency reduced to thin PATH routers; collision guard vestigial; install_method enum 5→2 values; tests rewritten | One canonical install path (pipx); marketplace install still works (shim routes to pipx); 22 distribution+install tests in 2.6s; README + docs/getting-started.md migrated |
-| 056 | type-safe-node-id-discipline | Not started | `memory.recall_typed(id, label)` substrate helper + `_check_node_id_guards` lint rule + audit/migration of 3+ existing guards | Drafted 2026-06-03 from session learnings; three independent label-check bugs surfaced in PR #17 review = systemic. Depends on 016 + 019. |
-| 057 | analyzer-rule-axis-registry | Not started | Each `_<tool>.py` analyzer wrapper declares its `AXIS_PREFIXES` constant; `_main.py` builds registry by union | Drafted 2026-06-03 — refactors round-2 review fix from "central if-elif" to "wrapper-local declaration"; cleaner extension surface for future linters (mypy, pylint, semgrep). Depends on 050. |
-| 058 | reflection-link-lint | Not started | `_check_reflection_links` lint rule: a verb writing Reflection must link BOTH SERVES and OBSERVED_DURING | Drafted 2026-06-03 from the document.explain bug pattern in PR #17 round-1 review; pairs with Spec 016/019 lint scaffold extensibility. Expect 1-3 sites to migrate. Depends on 016 + 019. |
+| 056 | type-safe-node-id-discipline | **Shipped** | `Memory.recall_typed(id, label)` (existence + label, copy-safe) + `_check_node_id_guards` WARN-only lint rule + migrated research/intent guards + new document.render(for_intent_id) guard | 10 tests; live registry 0 node_id gaps after migration; CAPABILITY-AUTHORING §"Node-id parameters must be label-checked". Spec named document.explain but explain.target is a code path — render.for_intent_id is the genuine site |
+| 057 | analyzer-rule-axis-registry | **Shipped** | Each analyzer `_<tool>.py` declares `AXIS_PREFIXES`; `_main._build_axis_registry()` unions them (longest-prefix-first + cross-axis collision detection); hardcoded if-elif removed | 9 tests; live registry builds clean; drop-in pattern for future linters (mypy/pylint/semgrep) = wrapper + one import |
+| 058 | reflection-link-lint | **Shipped** | `_check_reflection_links` WARN-only AST lint rule (Reflection write must link BOTH SERVES + OBSERVED_DURING) + audit migrated analyze.improve/cleanup (+OBSERVED_DURING) + develop.record_authoring_outcome (+SERVES) | 6 tests + live-registry regression (0 gaps). Side-fix: both 056/058 rules now resolve the real method behind the class-form wrapper via `__capability_method__` (were inert before). CAPABILITY-AUTHORING §"Reflection write convention" |
 | 059 | toolresult-convenience-layer | **Shipped** | Codes namespace + `.success`/`.failure` ctors + `Registry.invoke` stamps `error.trace_id` via `dataclasses.replace` + `next_cursor` opt-in + "when to use ToolResult vs plain dict" doctrine | 6 tests green in 0.62s; closes the carry-over from Spec 001 |
 | 061 | install-surface-refresh | **Shipped** | `.mcp.json` PYTHONPATH stripped (vestigial post-Spec 055); `marketplace.json` description now reads the live registry (cap count + first-7 surface signal, bounded < 400 chars); README capability table 11→14 rows; test count 216+→663; stale docstring references cleaned | Drafted + shipped 2026-06-04 from review-from-scratch audit. 2 new tests assert `.mcp.json` env shape + dynamic description. |
 | 062 | session-start-pipx-install | **Shipped** | SessionStart hook (`hooks/session-start.sh` + `hooks/hooks.json`) auto-runs `pipx install --editable ${CLAUDE_PLUGIN_ROOT}` on first session so marketplace installs (esp. Claude Code Web) don't silently fail. Idempotent (early-exit when agency-mcp already on PATH); pip --user fallback; install.py regen wires the hook into generate(); install.write() marks hooks/*.sh executable | 5 new tests green; README documents the auto-install flow + fallback chain |
@@ -92,21 +92,19 @@ Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
 
 ## Suggested implementation order (next 5)
 
-Refreshed 2026-06-06. Specs 021, 022, 011 shipped this run (✅).
+Refreshed 2026-06-06. Specs 021, 022, 011, 056, 057, 058 shipped this run (✅).
 Ranked by leverage — what unblocks the most downstream work first:
 
 1. ~~**Spec 021** — engine-monitor-channel~~ ✅ **Shipped** (merged PR #20).
 2. ~~**Spec 022** — jules-monitor-capability~~ ✅ **Shipped** (merged PR #20).
-3. ~~**Spec 011** — agentic-capabilities~~ ✅ **Shipped 2026-06-06**
-   (branch `claude/spec-011-agentic-guardrails`; post-reframe, zero new caps).
-4. **Specs 056 + 057 + 058** — review-driven lint batch (type-safe
-   node-id, analyzer-rule-axis-registry, reflection-link-lint). Cheap:
-   1–3 sites each; deps (016 + 019 + 050) all Shipped; share the lint
-   scaffold context so they batch cleanly.
+3. ~~**Spec 011** — agentic-capabilities~~ ✅ **Shipped** (merged PR #21).
+4. ~~**Specs 056 + 057 + 058** — review-driven lint batch~~ ✅ **Shipped
+   2026-06-06** (branch `claude/spec-056-057-058-lint-batch`).
 5. **Spec 049** — naming-and-token-economy audit. Cuts the token cost of
    every discovery call; audit-only, low-risk; do before more verbs accrete.
 6. **Spec 002** — boundary-driver-protocol. Generic Boundary/Driver +
    DriverRegistry; unblocks Spec 007's full music surface.
+7. **Spec 010** — novel domain Loop 0+1 (F1–F5 prompts already shipped).
 
 ## When to update this file
 
