@@ -26,8 +26,8 @@ error by comparison.
 
 **Recommendation in one line:** drop the `capability_<cap>_` prefix from the
 **code-mode** `call_tool` surface (keep it on the FastMCP wire for multi-plugin
-host disambiguation); alias-and-rename the 6 substrate tools as a cheap,
-low-risk follow-on; KEEP everything else.
+host disambiguation); alias-and-rename **5** of the 6 substrate tools as a cheap,
+low-risk follow-on (KEEP `intent_bootstrap` — see §3); KEEP everything else.
 
 ## 2. Methodology
 

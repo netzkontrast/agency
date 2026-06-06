@@ -236,5 +236,7 @@ design; those are a follow-up spec).
 - Renames land in a NEW spec. The draft said "Spec 050", but **050 already
   shipped** as `analyze-deps-integration`; the implementation spec is proposed as
   **Spec 066** (needs a folder). Gated on ≥20% name-corpus reduction (audit shows
-  65%). Must resolve the bare-name collisions flagged in report §4
-  (`help`/`note`/`render`/`search`/`recall`).
+  65%). Must resolve the COMPLETE bare-name collision set flagged in report §4 —
+  cross-capability verbs `note` (dogfood+reflect), `render` (document+dogfood),
+  `verify` (jules+research), plus the contract shadow `reflect.search` vs the
+  `search` tool — before exposing bare dispatch.

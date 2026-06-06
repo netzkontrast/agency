@@ -10,6 +10,7 @@ stale). The follow-up rename spec (066) updates this snapshot when it drops the
 """
 from __future__ import annotations
 
+import asyncio
 import glob
 import os
 import re
@@ -17,6 +18,7 @@ from collections import defaultdict
 
 import tiktoken
 
+from agency.capabilities.plugin._main import _tool_names
 from agency.disclosure import parse_slices
 from agency.engine import Engine
 
@@ -34,6 +36,7 @@ SNAP_PREFIX_TAX = 202        # = WIRE - BARE
 SNAP_PAYLOAD_WIRE = 1471
 SNAP_PAYLOAD_BARE = 1261
 SNAP_SUBSTRATE_TOK = 18
+SNAP_SKILL_TOK = 59
 SNAP_COLLISIONS = {"note": ["dogfood", "reflect"],
                    "render": ["document", "dogfood"],
                    "verify": ["jules", "research"]}
@@ -52,7 +55,20 @@ def _verbs():
         e.memory.close()
 
 
+def _live_substrate():
+    """The non-contract, non-`capability_` tools actually registered on the built
+    MCP surface — so the snapshot guards against `@mcp.tool` drift, not a constant."""
+    e = Engine(":memory:")
+    try:
+        names = asyncio.run(_tool_names(e.build_mcp(codemode=False)))
+        return {n for n in names if not n.startswith("capability_") and n not in _CONTRACT}
+    finally:
+        e.memory.close()
+
+
 def test_substrate_snapshot():
+    # derive from the LIVE MCP surface, then pin the set + token total
+    assert _live_substrate() == _SUBSTRATE, "substrate @mcp.tool surface changed — update the audit"
     assert sum(_tk(s) for s in _SUBSTRATE) == SNAP_SUBSTRATE_TOK
     assert sum(_tk(s) for s in _CONTRACT) == 4  # the code-mode contract stays
 
@@ -92,6 +108,7 @@ def test_skill_names_are_canonical_kebab():
     skills = [os.path.basename(os.path.dirname(p)) for p in glob.glob("skills/*/SKILL.md")]
     assert len(skills) == SNAP_SKILL_COUNT
     assert all(kebab.match(s) for s in skills)
+    assert sum(_tk(s) for s in skills) == SNAP_SKILL_TOK  # pin the published 59-tok corpus
 
 
 def test_audit_report_exists_and_states_the_headline():
