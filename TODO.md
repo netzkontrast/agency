@@ -25,9 +25,10 @@
 | **Not started** | 10 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 051 |
 | **Token-economy cluster (`intent:97534079`)** | 6 | 066 master · **067 ✅** · **068 ✅ (−83% discovery)** · ~~069 cancelled (FastMCP-blocked)~~ · 070/071 drafted (072 ✅ merged PR #24) |
 | **Drafted — audit-trail (`intent:558f1bf5`)** | 1 | 073 toolchain-provenance (run scripts/tests via `dogfood`) |
+| **Drafted — lint ergonomics (`intent:fee6c64d`)** | 1 | 074 actionable-lint-remediation (prescriptive findings: steps + reference + `agency-accept-warn` marker + `lint_explain`) |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
-Total spec rows: **66** (001–073, with 027 + 033–038 renumbered away).
+Total spec rows: **67** (001–074, with 027 + 033–038 renumbered away).
 
 ## Token-Economy & Readability cluster (`intent:97534079`, master Spec 066)
 
