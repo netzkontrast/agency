@@ -40,16 +40,10 @@ _HEADER_RE = re.compile(
 
 
 def _count_tokens(text: str) -> int:
-    """cl100k tokens via tiktoken; char//4 proxy when tiktoken absent.
-
-    Same shape as Spec 043's _index_repo._count_tokens — token-budget
-    discipline matches the document.* family.
-    """
-    try:
-        import tiktoken
-        return len(tiktoken.get_encoding("cl100k_base").encode(text))
-    except (ImportError, KeyError):
-        return max(1, len(text) // 4)
+    """Spec 082 — route through the ONE token-count boundary (count_tokens →
+    tiktoken → proxy); was a duplicate of the document.* inline proxy."""
+    from ..._tokens import count_tokens
+    return count_tokens(text)
 
 
 def _clean_title(raw: str) -> str:

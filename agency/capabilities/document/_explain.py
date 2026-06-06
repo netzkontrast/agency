@@ -156,10 +156,7 @@ def explain(target: str, depth: str = "standard") -> dict:
 
 
 def _count_tokens(text: str) -> int:
-    """tiktoken cl100k if available; else char//4 proxy."""
-    try:
-        import tiktoken
-        enc = tiktoken.get_encoding("cl100k_base")
-        return len(enc.encode(text))
-    except (ImportError, KeyError):
-        return max(1, len(text) // _CHAR_PER_TOKEN)
+    """Spec 082 — route through the ONE token-count boundary (count_tokens →
+    tiktoken → proxy) instead of a duplicated inline tiktoken-else-proxy helper."""
+    from ..._tokens import count_tokens
+    return count_tokens(text)

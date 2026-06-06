@@ -29,7 +29,8 @@
 | **Shipped — Agent Skills spec coverage (`intent:…`)** | 1 | **080 ✅** (every capability is a complete, drop-in Agent Skill: SkillDoc DERIVED from the module docstring — `Use when:`/`Triggers:`/`Red flags:` parsed, overview/example free; `develop.validate_skill` gate; skill_doc REQUIRED; per-cap SKILL.md + references/ emitted for all 15) |
 | **Shipped — graph-query surface** | 1 | **084 ✅** `analyze.graph` (census of node labels + typed listing — code-mode's read-the-graph surface; proven on the live graph: 10 Intent / 33 Invocation / 29 Reflection. Drop-in proof: one verb → full Agent-Skill triad emitted) |
 | **Shipped — walkable usage-skills** | 1 | **081 ✅** (every cap ships a walkable skill: bare caps derive a `<cap>-usage` phase-graph — verbs clustered by role, ≤6 phases, hard confirm gate — walked via `develop.skill_walk`; authored disciplines override; emit renders a 'Walk this capability' section) |
-| **Spec-panel approved — design ready (goal program)** | 2 | **082 count-tokens-budget** (replace tiktoken with `count_tokens` in the budget gate — NEXT) · **083 publish-skill-api** (`plugin.publish_skill` → Anthropic Skills API) |
+| **Shipped — token-count boundary** | 1 | **082 ✅** (one `TokenCounter` boundary: count_tokens → tiktoken → proxy; centralizes the scattered duplicate proxy; `agency_doctor` reports `token_backend`; `[tokens]` extra; band-invariant test per rule 8) |
+| **Spec-panel approved — design ready (goal program)** | 1 | **083 publish-skill-api** (`plugin.publish_skill` → Anthropic Skills API — NEXT) |
 | **Drafted — backlog** | 2 | 077 bdd-gherkin-tests (research-first) · 078 static-walkable-skills (research-first; needs clarification) |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 

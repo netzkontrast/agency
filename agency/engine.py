@@ -139,7 +139,7 @@ class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
                  embedder=None, web_search=None, runner=None,
                  extra_capabilities=None, surface: str | None = None,
-                 _require_skill_doc: bool = True):
+                 token_counter=None, _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
         # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
         from ._runner import SubprocessRunner
@@ -161,6 +161,12 @@ class Engine:
             from .capabilities.research._web import resolve_web_search
             web_search = resolve_web_search()
         self.web_search = web_search
+        # Spec 082 — the token-count boundary (count_tokens → tiktoken → proxy),
+        # stubbable like embedder/web_search; agency_doctor reports its backend.
+        if token_counter is None:
+            from ._tokens import resolve_token_counter
+            token_counter = resolve_token_counter()
+        self.token_counter = token_counter
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it
@@ -636,6 +642,9 @@ class Engine:
                 # can confirm whether AGENCY_EMBEDDER took effect, or
                 # whether the BGE fallback to TF-IDF happened silently).
                 "embedder": self.embedder.name,
+                # Spec 082 — the live token-count backend (count_tokens / tiktoken /
+                # proxy), so a silent fallback to the inaccurate proxy is visible.
+                "token_backend": self.token_counter.backend,
                 # Spec 050 — which optional [analyze] tools are active.
                 "analyze_extras": analyze_extras,
                 # Spec 054 — drift indicators. v1 ships the
