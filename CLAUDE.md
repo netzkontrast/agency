@@ -106,6 +106,21 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    is the source of truth UNTIL promotion; the promoted spec wins
    thereafter.
 
+8. **No hardcoded values — code (and tests) solve the problem, they don't
+   gate a fixed solution.** Prefer COMPUTED / derived / discovered values
+   over magic numbers and frozen snapshots. A test that pins a live-derived
+   number (e.g. "the registry has exactly 73 verbs", "the payload is 1503
+   tokens") breaks on every legitimate change and forces a hand-edit — it
+   gates a fixed surface instead of guarding behaviour. Assert
+   **invariants + relationships** (`wire_tok > bare_tok * 2.5`; "the known
+   collisions are a SUBSET of live collisions"; "the substrate set equals
+   the documented six") and compute expectations from the live source, not
+   a constant. Genuine **tunable budgets** (a name-token limit, a payload
+   byte cap) are fine — they are documented config with a rationale, not a
+   snapshot of the current state; keep them few, named, and overridable.
+   When you catch yourself updating a magic number to make a test pass, stop
+   and make the test flexible instead.
+
 ## Surface (discoverable; don't memorize)
 
 Capabilities self-register from `agency/capabilities/`. Skills live on

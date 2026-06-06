@@ -112,9 +112,12 @@ def _capability_tier(registry) -> list:
 
 class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
-                 embedder=None, web_search=None,
+                 embedder=None, web_search=None, runner=None,
                  extra_capabilities=None, surface: str | None = None):
         self.surface = resolve_surface(surface)
+        # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
+        from ._runner import SubprocessRunner
+        self.runner = runner or SubprocessRunner()
         self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
         self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
         # Spec 045 — semantic-recall backend. Default is TF-IDF (zero-dep);
@@ -203,7 +206,8 @@ class Engine:
         # injected per-call by the Registry itself, and the registry is on ctx.
         self.registry.injectors = {"client": lambda: self.jules_client,
                                    "vcs": lambda: self.vcs_backend,
-                                   "embedder": lambda: self.embedder}
+                                   "embedder": lambda: self.embedder,
+                                   "runner": lambda: self.runner}
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)
