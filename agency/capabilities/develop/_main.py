@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from ...capability import RenderTemplates, CapabilityBase, verb
 from ...ontology import OntologyExtension
+from ...skill import SkillRun
 
 
 def _phase(index, name, produces, gate=None):
@@ -141,6 +142,74 @@ def checklist(discipline: str) -> dict:
     steps = [{"index": p["index"], "name": p["name"],
               "produces": p["produces"], "gate": p.get("gate")} for p in sk["phases"]]
     return {"result": {"discipline": discipline, "steps": steps}}
+
+
+def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
+    """The atomic walker (Spec 018 Win 1). Walk a registered skill to the first
+    hard gate in ONE call, returning the documented status contract. Composes
+    `SkillRun` — the boilerplate (open run, submit each phase, stop at the gate)
+    collapses into this function."""
+    ontology = ctx.ontology
+    skills = getattr(ontology, "skills", {}) or {}
+    if name not in skills:
+        return {"status": "failed", "phase": None,
+                "error": f"unknown skill {name!r}",
+                "available": sorted(skills),
+                "skill_id": None, "completed_phases": []}
+    schema = ontology.skill(name)
+    memory, registry, intent_id = ctx.memory, ctx.registry, ctx.intent_id
+    inputs = dict(inputs or {})
+
+    if resume_from:
+        run = SkillRun.resume(memory, intent_id, schema, resume_from, registry=registry)
+        confirm_gate = True            # re-entering a paused walk IS the gate confirmation
+    else:
+        run = SkillRun(memory, intent_id, schema, registry=registry)
+        confirm_gate = False
+
+    accumulated: dict = {}
+    completed: list = []
+    while not run.done:
+        phase = run.current()
+        is_gate = phase.get("gate") == "hard"
+        confirmed = is_gate and confirm_gate
+        call_outputs = {k: v for k, v in inputs.items() if v not in (None, "")}
+        if is_gate and not confirmed:
+            # The gate's produces are what the caller supplies on RESUME
+            # (resume_with), not what's needed to REACH the pause. Fill any
+            # missing produce with a placeholder so submit's missing-check
+            # passes and the pause path records the blocked Gate; the
+            # placeholder never persists (submit returns before the Phase
+            # record on the unconfirmed-gate path).
+            for k in phase["produces"]:
+                call_outputs.setdefault(k, "<pending>")
+        try:
+            res = run.submit(call_outputs, confirmed=confirmed)
+        except Exception as e:
+            # A phase failed — a missing required produce OR a bound verb
+            # raising. ABORT the walk (no half-applied state past the failing
+            # phase) and record a failed Gate so the abort is audit provenance,
+            # parallel to the C3 pause persistence (Spec 018 Win 1 contract).
+            gid = memory.record("Gate", {
+                "name": phase["name"], "passed": False, "paused": False,
+                "evidence": f"phase {phase['name']!r} failed: {type(e).__name__}: {e}",
+            })
+            memory.link(run.skill_id, gid, "BLOCKED_ON")
+            memory.link(gid, intent_id, "SERVES")
+            return {"status": "failed", "phase": phase["name"],
+                    "error": f"{type(e).__name__}: {e}",
+                    "skill_id": run.skill_id, "completed_phases": completed}
+        if res["status"] == "input-required":
+            return {"status": "input-required", "phase": res["phase"],
+                    "blocked_on": res["blocked_on"],
+                    "resume_with": list(phase["produces"]),
+                    "skill_id": run.skill_id,
+                    "partial_outputs": accumulated}
+        accumulated.update(res.get("outputs", {}))
+        completed.append(res["phase"])
+        if is_gate and confirmed:
+            confirm_gate = False       # only the re-entered gate auto-confirms; later gates pause
+    return {"status": "completed", "skill_id": run.skill_id, "outputs": accumulated}
 
 
 develop_ontology = OntologyExtension(skills=dict(DEV_SKILLS))
@@ -337,6 +406,27 @@ class DevelopCapability(CapabilityBase):
         """
         return scaffold_capability(name, kind=kind,
                                    base_dir=base_dir or None)
+
+    @verb(role="act")
+    def skill_walk(self, name: str, inputs: dict, resume_from: str = "") -> dict:
+        """Walk a registered skill to the first hard gate in ONE call (the atomic walker).
+
+        Replaces the 5× ``SkillRun(...).submit(...)`` boilerplate: supply the
+        skill name + a flat ``inputs`` map (keyed by the phases' ``produces``),
+        and the walker runs every plain/bound phase, executes the bound verbs,
+        and PAUSES at the first hard gate. Resume by re-calling with
+        ``resume_from=<skill_id>`` and the gate's ``resume_with`` keys populated
+        — re-entering a paused walk confirms that gate and continues.
+
+        Inputs: name (registered skill, e.g. 'tdd'), inputs (map of produce→value),
+                resume_from (a prior skill_id to resume; "" starts fresh).
+        Returns (the status contract):
+          - ``{status: "completed", skill_id, outputs}``
+          - ``{status: "input-required", phase, blocked_on, resume_with, skill_id, partial_outputs}``
+          - ``{status: "failed", phase, error, skill_id, completed_phases}``
+        chain_next: on input-required, re-call with resume_from + resume_with keys.
+        """
+        return _skill_walk(self.ctx, name, inputs, resume_from=resume_from)
 
     @verb(role="act")
     def record_authoring_outcome(self, name: str, kind: str = "light") -> dict:

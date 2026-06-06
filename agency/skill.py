@@ -33,6 +33,34 @@ class SkillRun:
         memory.link(self.skill_id, intent_id, "SERVES")
         self._prev_phase: Optional[str] = None
 
+    @classmethod
+    def resume(cls, memory: Memory, intent_id: str, schema: dict,
+               skill_id: str, registry=None) -> "SkillRun":
+        """Rebind to an EXISTING Skill run (Spec 018 Win 1 resume contract).
+
+        A fresh `SkillRun.__init__` mints a new Skill node; resume instead
+        reconstructs the walker's position from the append-only graph: the
+        count of recorded `Phase` nodes IS the next phase index (a paused
+        hard gate records a Gate, not a Phase, so the gate phase is exactly
+        the one we re-enter). The skill_id is the cross-call/cross-session
+        bridge (Spec 020 central DB)."""
+        self = cls.__new__(cls)
+        self.memory = memory
+        self.intent_id = intent_id
+        self.schema = schema
+        self.phases = schema["phases"]
+        self.registry = registry
+        self.skill_id = skill_id
+        rows = memory.g.query(
+            "MATCH (s:Skill)-[:HAS_PHASE]->(p:Phase) WHERE s.id = $sid RETURN p",
+            {"sid": skill_id})
+        recorded = [r["p"]["properties"] for r in rows]
+        self.i = len(recorded)
+        self._prev_phase = (
+            max(recorded, key=lambda p: p.get("index", 0)).get("id")
+            if recorded else None)
+        return self
+
     @property
     def done(self) -> bool:
         return self.i >= len(self.phases)
@@ -105,5 +133,11 @@ class SkillRun:
             self.memory.link(phase_id, inv_id, "PRECEDES")   # the phase owns its real invocation
         self._prev_phase = phase_id
         self.i += 1
-        return {"status": "completed" if self.done else "working", "phase": p["name"]}
+        # Spec 018 Win 1: surface the post-phase outputs map (incl. a real
+        # invoke phase's tool result) so the atomic walker can accumulate
+        # them into its `outputs` / `partial_outputs` contract. Additive —
+        # the pause path above returns before here, so a paused phase never
+        # leaks its placeholder produces into the accumulated outputs.
+        return {"status": "completed" if self.done else "working",
+                "phase": p["name"], "outputs": outputs}
 

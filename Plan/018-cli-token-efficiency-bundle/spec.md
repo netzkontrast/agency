@@ -161,7 +161,57 @@ independently useful and reverts cleanly.**
   composes).
 - `docs/vision/GOALS.md` goal #1.
 
-## Followup — Implementation Status (2026-05-31)
+## Followup — Implementation Status (2026-06-06)
+
+> Update on branch `claude/affectionate-meitner-H4vTJ` under the
+> "Audit-Trail & Code-Mode Compactness" charter. Wins 1 + 3 shipped; Win 2
+> documented-and-skipped (the cancelled Spec 069 finding); Win 7 already shipped.
+
+**Verdict:** Partially implemented (Wins 1, 3, 7 done; 4, 5, 6 remain)
+
+### Done (this pass)
+
+- **Win 1 — `develop.skill_walk(name, inputs, resume_from="")`** ✓ — atomic
+  walker on the `develop` capability (`agency/capabilities/develop/_main.py`
+  `_skill_walk` + the `skill_walk` verb). Walks every plain/bound phase,
+  EXECUTES bound verbs (invoke phases), and PAUSES at the first hard gate.
+  Returns the full status contract:
+  - `{status: "completed", skill_id, outputs}`
+  - `{status: "input-required", phase, blocked_on, resume_with, skill_id, partial_outputs}`
+  - `{status: "failed", phase, error, skill_id, completed_phases}` — aborts on
+    the first phase failure (missing required produce OR a bound verb raising)
+    and records a `Gate{passed:False, paused:False, error}` for audit (parallel
+    to the C3 pause persistence).
+  Resume via `SkillRun.resume(...)` (`agency/skill.py`) reconstructs the walker
+  position from the append-only graph (count of recorded `Phase` nodes = next
+  index; a paused gate records a Gate not a Phase, so resume re-enters exactly
+  the gate phase). `skill_id` is the cross-call/cross-session bridge (Spec 020).
+  `SkillRun.submit` now surfaces the post-phase `outputs` map (additive) so the
+  walker accumulates produces (incl. real invoke results). Tests:
+  `tests/test_skill_walk.py` (8 — gate-pause, resume-complete, unknown-skill,
+  missing-produce-abort, Skill-SERVES-intent, blocked-Gate provenance, invoke
+  execution).
+- **Win 3 — implicit `intent_id` via `AGENCY_INTENT`** ✓ — the engine wire
+  (`agency/engine.py` `_wire.impl`) falls back to the `AGENCY_INTENT` env when
+  no `intent_id` is supplied; `intent_id` is now wire-optional (default `""`).
+  Explicit always wins; with neither, the SERVES guard's helpful error still
+  fires. Tests: `tests/test_implicit_intent.py` (3 — env fallback, explicit
+  wins, neither-still-errors). Note: the spec also sketched `agency intent
+  --set`, but a subprocess cannot mutate the parent shell's env — `export
+  AGENCY_INTENT=…` (or the harness setting it) is the real mechanism, so the
+  `--set` subcommand was intentionally skipped.
+
+### Win 2 — documented and SKIPPED (not hacked)
+
+Capability-prefix elision (`jules.dispatch` as a bare alias for
+`capability_jules_dispatch`) is the **already-cancelled Spec 069 finding**.
+CodeMode exposes ONE shared tool catalog; a bare alias would either double the
+catalog (defeating the token-economy goal) or fork FastMCP. Spec 068 already
+captured the discovery-payload win (tiered `agency_welcome`, −83%). Win 2 is
+therefore deferred to whenever the upstream CodeMode catalog story changes —
+skipped, not worked around.
+
+### Followup — Implementation Status (2026-05-31)
 
 > Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
 
