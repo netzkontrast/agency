@@ -37,3 +37,10 @@ await call_tool('capability_document_explain', {'intent_id': 'intent:abc'})
 
 - Reading every file to grasp a repo → index it via capability_document_index_repo
 - Guessing a subsystem's role → get capability_document_explain output
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`repo-briefing`** (discipline): scope → scan → render → publish
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'repo-briefing', 'inputs': {}, 'intent_id': '…'})`

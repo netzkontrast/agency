@@ -127,11 +127,31 @@ def _render_tier_b_anchor(verb_name: str, fn, brief: str) -> str:
     )
 
 
-def emit_skill(cap_name: str, doc, verbs: dict) -> dict[str, str]:
+def _render_walk_section(skills: dict) -> str:
+    """Spec 081 — render the '## Walk this capability' section from the cap's
+    ontology.skills (derived `<cap>-usage` or authored disciplines). Lists each
+    walkable skill, its phase chain, and the develop.skill_walk invocation."""
+    if not skills:
+        return ""
+    rows = []
+    for name in sorted(skills):
+        sk = skills[name]
+        phases = " → ".join(p.get("name", "?") for p in sk.get("phases", []))
+        rows.append(f"- **`{name}`** ({sk.get('kind', 'skill')}): {phases}\n"
+                    f"  — walk it: `await call_tool('capability_develop_skill_walk', "
+                    f"{{'name': '{name}', 'inputs': {{}}, 'intent_id': '…'}})`")
+    return ("\n## Walk this capability\n\n"
+            "Drive this capability's verbs by WALKING a skill one phase at a time "
+            "(progressive disclosure, recorded as provenance):\n\n"
+            + "\n".join(rows) + "\n")
+
+
+def emit_skill(cap_name: str, doc, verbs: dict, skills: dict | None = None) -> dict[str, str]:
     """Render skills/<cap_name>/SKILL.md from the SkillDoc + verb registry.
 
     Returns {path: content} dict. Runs plugin.lint_skill_doc PRE-emit;
-    raises ValueError with structured violations on failure.
+    raises ValueError with structured violations on failure. `skills` (Spec 081 —
+    the cap's ontology.skills) renders a '## Walk this capability' section.
     """
     from agency.capabilities.plugin import lint_skill_doc
 
@@ -181,6 +201,10 @@ def emit_skill(cap_name: str, doc, verbs: dict) -> dict[str, str]:
                             or "- (none documented)"),
         required_subskills_block=required_subskills_block,
     )
+
+    walk = _render_walk_section(skills or {})
+    if walk:
+        rendered = rendered.rstrip() + "\n" + walk
 
     if tier_b_anchors:
         rendered = rendered.rstrip() + "\n\n" + "\n\n".join(tier_b_anchors) + "\n"

@@ -38,3 +38,10 @@ await call_tool('capability_delegate_dispatch_bash_hints', {'intent_id': 'intent
 
 - Dispatching without weighing the cost → check capability_delegate_dispatch_decision first
 - Spawning siblings then losing their results → reduce with capability_delegate_join
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`dispatch-decision`** (discipline): estimate-tokens-and-cache → estimate-shape → apply-heuristic → assemble-bash-hints → decide
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'dispatch-decision', 'inputs': {}, 'intent_id': '…'})`

@@ -43,3 +43,12 @@ await call_tool('capability_plugin_author_command', {'intent_id': 'intent:abc'})
 
 - Shipping a capability without linting → run capability_plugin_lint_capability
 - Hand-writing a SKILL.md → render it via capability_plugin_author_skill
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`plugin-dev`** (authoring): manifest → skill → command → marketplace → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plugin-dev', 'inputs': {}, 'intent_id': '…'})`
+- **`skill-creation`** (authoring): red-baseline → green-author → lint → refactor → deploy
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'skill-creation', 'inputs': {}, 'intent_id': '…'})`

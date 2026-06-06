@@ -39,3 +39,10 @@ await call_tool('capability_dogfood_collect', {'intent_id': 'intent:abc'})
 
 - Writing a markdown ledger by hand → record it via capability_dogfood_note
 - Losing graph state across a container → capability_dogfood_export the graph
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`dogfood-usage`** (usage): use-transform → use-effect → use-act → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'dogfood-usage', 'inputs': {}, 'intent_id': '…'})`

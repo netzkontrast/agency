@@ -657,7 +657,8 @@ def generate(engine: Engine) -> dict[str, str]:
         if getattr(cap, "skill_doc", None) is None:
             continue  # cap lacks skill_doc → can't render SKILL.md (Phase 4 will fix)
         _hash = _capability_hash(cap, GEN_VERSION)  # reserved for write()-side cache.peek
-        files.update(emit_skill(cap_name, cap.skill_doc, cap.verbs))
+        files.update(emit_skill(cap_name, cap.skill_doc, cap.verbs,
+                                getattr(cap.ontology, "skills", None)))
         files.update(emit_references(cap_name, cap.verbs))
         files.update(emit_bash_wrappers(cap_name, cap.verbs))
     return files

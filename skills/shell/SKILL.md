@@ -38,3 +38,10 @@ await call_tool('capability_shell_define', {'intent_id': 'intent:abc'})
 
 - Dumping a long command's full output → trim it via capability_shell_filter
 - Re-composing the same command and filter → save it with capability_shell_define
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`shell-usage`** (usage): use-transform → use-effect → use-act → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'shell-usage', 'inputs': {}, 'intent_id': '…'})`

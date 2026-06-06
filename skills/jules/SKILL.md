@@ -56,3 +56,20 @@ await call_tool('capability_jules_activities', {'intent_id': 'intent:abc'})
 
 - Trusting completed as done → confirm with capability_jules_verify (state and branch on origin)
 - Dispatching without a prompt review → run capability_jules_lint_prompt first
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`jules-fanout`** (discipline): plan-batch → fan-out → join
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-fanout', 'inputs': {}, 'intent_id': '…'})`
+- **`jules-pr-review-cycle`** (discipline): read-comments → draft-replies → reply-on-github
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-pr-review-cycle', 'inputs': {}, 'intent_id': '…'})`
+- **`jules-protocol-preamble`** (discipline): detect-mode → verify-remote-state → name-canonical-tools → set-scope → dispatched
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-protocol-preamble', 'inputs': {}, 'intent_id': '…'})`
+- **`jules-recovery-when-stuck`** (discipline): classify-state → probe-once → patch-or-empty → recovered
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-recovery-when-stuck', 'inputs': {}, 'intent_id': '…'})`
+- **`jules-self-improvement`** (discipline): collect-dogfood → fold-into-graph
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-self-improvement', 'inputs': {}, 'intent_id': '…'})`
+- **`jules-tool-discipline`** (discipline): apply-tool-discipline
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-tool-discipline', 'inputs': {}, 'intent_id': '…'})`

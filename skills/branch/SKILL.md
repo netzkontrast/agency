@@ -34,3 +34,10 @@ await call_tool('capability_branch_assess', {'intent_id': 'intent:abc'})
 ## Red flags — stop and re-read this skill
 
 - (none documented)
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`branch-usage`** (usage): use-transform → use-effect → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'branch-usage', 'inputs': {}, 'intent_id': '…'})`

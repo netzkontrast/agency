@@ -39,3 +39,10 @@ await call_tool('capability_reflect_batch_note', {'intent_id': 'intent:abc'})
 
 - Re-learning a past lesson → search prior notes via capability_reflect_recall_semantic
 - Letting an insight evaporate at session end → capability_reflect_note it
+
+## Walk this capability
+
+Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
+
+- **`reflect-usage`** (usage): use-transform → use-act → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'reflect-usage', 'inputs': {}, 'intent_id': '…'})`
