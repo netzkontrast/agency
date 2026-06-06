@@ -495,6 +495,7 @@ _NODE_ID_LABELS = {
     "intent": "Intent",
     "parent_intent": "Intent",
     "for_intent": "Intent",
+    "root_intent": "Intent",
     "lifecycle": "Lifecycle",
 }
 

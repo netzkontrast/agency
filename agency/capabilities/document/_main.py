@@ -82,13 +82,20 @@ class DocumentCapability(CapabilityBase):
                     "error": f"unknown scope {scope!r}; supported: "
                              f"{sorted(_SUPPORTED_SCOPES)}"}
         memory = self.ctx.memory
-        # Spec 056 — when a for_intent_id is supplied it MUST be an Intent: the
-        # provenance/reflections/research-report renders traverse intent-scoped
-        # edges, so a non-Intent id (typo, or another node's id) silently renders
-        # empty. Guard it via the label-checked substrate helper.
-        if for_intent_id and memory.recall_typed(for_intent_id, "Intent") is None:
-            return {"content": "", "tokens": 0, "node_count": 0, "scope": scope,
-                    "error": f"for_intent_id {for_intent_id!r} is not an Intent id"}
+        # Spec 056 — label-check a supplied for_intent_id, but the EXPECTED label
+        # is scope-dependent: provenance/reflections scope it to an Intent, while
+        # research-report forwards it to render_research_report AS a Research id
+        # (research.lead's output). An Intent-only guard would reject the valid
+        # deep-research publish path (PR #22 review).
+        if for_intent_id:
+            if (scope in ("provenance", "reflections")
+                    and memory.recall_typed(for_intent_id, "Intent") is None):
+                return {"content": "", "tokens": 0, "node_count": 0, "scope": scope,
+                        "error": f"for_intent_id {for_intent_id!r} is not an Intent id"}
+            if (scope == "research-report"
+                    and memory.recall_typed(for_intent_id, "Research") is None):
+                return {"content": "", "tokens": 0, "node_count": 0, "scope": scope,
+                        "error": f"for_intent_id {for_intent_id!r} is not a Research id"}
         if scope == "install-artefacts":
             content, node_count = _render.render_install_artefacts(memory)
         elif scope == "reflections":
