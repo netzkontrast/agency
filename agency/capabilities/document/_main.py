@@ -82,6 +82,13 @@ class DocumentCapability(CapabilityBase):
                     "error": f"unknown scope {scope!r}; supported: "
                              f"{sorted(_SUPPORTED_SCOPES)}"}
         memory = self.ctx.memory
+        # Spec 056 — when a for_intent_id is supplied it MUST be an Intent: the
+        # provenance/reflections/research-report renders traverse intent-scoped
+        # edges, so a non-Intent id (typo, or another node's id) silently renders
+        # empty. Guard it via the label-checked substrate helper.
+        if for_intent_id and memory.recall_typed(for_intent_id, "Intent") is None:
+            return {"content": "", "tokens": 0, "node_count": 0, "scope": scope,
+                    "error": f"for_intent_id {for_intent_id!r} is not an Intent id"}
         if scope == "install-artefacts":
             content, node_count = _render.render_install_artefacts(memory)
         elif scope == "reflections":

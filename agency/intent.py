@@ -42,22 +42,17 @@ class Intent:
             owner = "agent" if parent_intent_id else "user"
         # Cycle / depth guard BEFORE recording — fail-loud is the doctrine.
         if parent_intent_id:
-            # Reject typo'd / stale parent ids up front, AND verify the
-            # endpoint is actually an Intent (an Agent / Citation /
-            # Reflection node id passes recall() but fails the
-            # MATCH (c:Intent)-[:PARENT_INTENT]->(p:Intent) traversal
-            # used by provenance render + analyze.paths — the child
-            # would be silently dropped despite a successful bootstrap.
-            parent_node = self.m.g.get_node(parent_intent_id)
-            if parent_node is None:
+            # Spec 056 — label-checked guard via the substrate helper. An
+            # Agent/Citation/Reflection id passes a bare recall() but fails the
+            # MATCH (c:Intent)-[:PARENT_INTENT]->(p:Intent) traversal used by
+            # provenance render + analyze.paths, so the child would be silently
+            # dropped despite a successful bootstrap. recall_typed checks BOTH
+            # existence and the Intent label.
+            if self.m.recall_typed(parent_intent_id, "Intent") is None:
                 raise ValueError(
-                    f"parent_intent_id {parent_intent_id!r} does not resolve "
-                    f"to any node (typo, stale, or never recorded)")
-            parent_labels = parent_node.get("labels") or []
-            if "Intent" not in parent_labels:
-                raise ValueError(
-                    f"parent_intent_id {parent_intent_id!r} resolves to "
-                    f"{parent_labels!r}, not an Intent — pass an Intent id")
+                    f"parent_intent_id {parent_intent_id!r} is not an Intent "
+                    f"(typo, stale, never recorded, or wrong node type) — "
+                    f"pass an existing Intent id")
             # We don't yet have a new_id; we still need a cycle check that
             # walks the parent chain up to MAX. The new_id can't be in the
             # ancestry because it doesn't exist yet, so just enforce depth.

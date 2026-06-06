@@ -45,17 +45,13 @@ def _validate_research_id(memory, research_id: str) -> dict | None:
     if not research_id:
         return {"citations": 0,
                 "summary": "research_id required (call research.lead first)"}
-    node = memory.g.get_node(research_id)
-    if node is None:
+    # Spec 056 — label-checked guard via the substrate helper (existence AND
+    # Research label). A typo'd intent/citation id no longer anchors citations
+    # at a non-Research endpoint that research.verify's MATCH can't find.
+    if memory.recall_typed(research_id, "Research") is None:
         return {"citations": 0,
-                "summary": f"unknown research_id {research_id!r} "
-                           f"(call research.lead to mint one)"}
-    labels = node.get("labels") or []
-    if "Research" not in labels:
-        return {"citations": 0,
-                "summary": f"research_id {research_id!r} resolves to "
-                           f"{labels!r}, not a Research node "
-                           f"(call research.lead to mint a real one)"}
+                "summary": f"research_id {research_id!r} is not a valid Research "
+                           f"node (call research.lead to mint one)"}
     return None
 
 

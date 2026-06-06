@@ -488,13 +488,68 @@ def _check_token_budget(cap, max_per_verb=20):
     return out
 
 
+# Spec 056 — irregular `<prefix>_id` → expected node label. Unknown prefixes
+# skip the rule (no guess). Grows alongside the verbs that introduce new types.
+_NODE_ID_LABELS = {
+    "research": "Research",
+    "intent": "Intent",
+    "parent_intent": "Intent",
+    "for_intent": "Intent",
+    "lifecycle": "Lifecycle",
+}
+
+
+def _check_node_id_guards(cap):
+    """Spec 056 (WARN): flag a verb that reads a ``<label>_id`` parameter via a
+    bare ``recall(param)`` / ``get_node(param)`` WITHOUT verifying the node's
+    label — the silent-anchor bug class (an intent id typo'd as a research id
+    passes existence but anchors edges at the wrong endpoint). A verb passes when
+    it uses ``recall_typed(param, Label)``, a Cypher ``MATCH (n:Label)``, or an
+    explicit ``"Label" in labels`` check. Unknown id-prefixes skip (no guess).
+    """
+    import inspect
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        fn = spec.get("fn")
+        try:
+            src = inspect.getsource(fn)
+            params = inspect.signature(fn).parameters
+        except (OSError, TypeError, ValueError):
+            continue
+        for pname in params:
+            m = re.match(r"^(.+)_id$", pname)
+            if not m:
+                continue
+            label = _NODE_ID_LABELS.get(m.group(1))
+            if not label:
+                continue
+            reads_bare = f"recall({pname})" in src or f"get_node({pname})" in src
+            if not reads_bare:
+                continue
+            guarded = (f"recall_typed({pname}" in src
+                       or f'"{label}"' in src or f"'{label}'" in src
+                       or f":{label})" in src)
+            if not guarded:
+                out.append({
+                    "verb": verb_name, "kind": "node_id_guard",
+                    "msg": f"reads {pname!r} via bare recall/get_node without a "
+                           f"{label}-label check",
+                    "fix": f"use memory.recall_typed({pname}, {label!r}) — Spec 056",
+                })
+    return out
+
+
 def lint_capability(cap) -> dict:
-    """Run the five rule families against `cap` (a Capability instance).
+    """Run the rule families against `cap` (a Capability instance).
 
     Mode dispatch: if the capability's source file carries the
     `# agency-scaffold: …` marker on its first non-blank line → BLOCK
     mode (violations are real errors, ok=False). Otherwise WARN mode
     (legacy grandfathering — violations move to warnings, ok=True).
+
+    Spec 056 — `_check_node_id_guards` is a WARN-ONLY soft rule (regardless of
+    mode) during its migration window: it surfaces as warnings even in block
+    mode so a scaffold-marked capability isn't broken before the audit completes.
 
     Returns: {ok, violations, warnings, skipped, mode}."""
     source_path = _capability_source_path(cap)
@@ -508,11 +563,13 @@ def lint_capability(cap) -> dict:
         + _check_wire_shape(cap)
         + _check_template_folder(cap)
     )
+    # WARN-only soft rules — never block, even in block mode (migration windows).
+    soft_findings = _check_node_id_guards(cap)
     if mode == "block":
         return {"ok": not all_findings, "violations": all_findings,
-                "warnings": [], "skipped": 0, "mode": mode}
+                "warnings": soft_findings, "skipped": 0, "mode": mode}
     # warn mode — findings move to warnings; ok always True
-    return {"ok": True, "violations": [], "warnings": all_findings,
+    return {"ok": True, "violations": [], "warnings": all_findings + soft_findings,
             "skipped": 0, "mode": mode}
 
 
