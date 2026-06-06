@@ -21,13 +21,24 @@ wave: 5
 
 User directive (2026-06-06): *"after Spec 18 — extend it — use additional
 dependencies like Click to rewrite the CLI and add all verbs as commands to the
-CLI, mirroring the agency capabilities."* Today `agency/cli.py` is stdlib
-`argparse` with a handful of hand-wired subcommands (`search` / `get-schema` /
-`execute` / `intent` / `install` / `welcome` / `doctor` / `provenance`). A bash
-agent reaches a capability verb only by writing an inline `execute --code
-'await call_tool(...)'` block. The directive wants the FULL surface ergonomic
-from bash: `agency <capability> <verb> --arg … --intent-id …`, one command per
-verb, mirroring the live MCP catalog.
+CLI, mirroring the agency capabilities."* + clarification: *"non–Claude-Code
+agents might need a way to use the capabilities — and this is the cleanest way."*
+
+**The motivating user is a non-MCP agent** — Jules, Codex, or any LLM with only a
+shell (the L3 harness-in-harness layer `cli.py` already serves). Today such an
+agent reaches a capability verb only by hand-writing an inline `execute --code
+'await call_tool(...)'` block — it must know the wire tool name, the JSON param
+shape, and the code-mode envelope. That is a high floor for a bash-only agent.
+A mirrored command surface — `agency <capability> <verb> --arg … --intent-id …`,
+one command per verb, discoverable via `--help` — lets a shell agent USE the
+capabilities the same way it uses any CLI: `agency --help` → `agency shell
+--help` → `agency shell run --command "git status"`. The MCP catalog and this
+CLI stay isomorphic because both are generated from the ONE live registry.
+
+Today `agency/cli.py` is stdlib `argparse` with a handful of hand-wired
+subcommands (`search` / `get-schema` / `execute` / `intent` / `install` /
+`welcome` / `doctor` / `provenance`); this spec rewrites it on Click and adds the
+auto-generated per-verb command group beneath them.
 
 ## Doctrine reconciliation (the load-bearing decision)
 
