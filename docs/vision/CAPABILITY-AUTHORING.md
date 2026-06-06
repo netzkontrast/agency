@@ -569,6 +569,33 @@ without a label check, and points you at `recall_typed`.
 
 ---
 
+## Reflection write convention — both edges (Spec 058)
+
+A verb that records a `Reflection` MUST link it with BOTH edges:
+
+| Edge | Consumer | Purpose |
+|---|---|---|
+| `SERVES` | `Memory.provenance(intent_id)` | cross-concern provenance traversal |
+| `OBSERVED_DURING` | `document.render(scope='reflections', for_intent_id=)` | intent-scoped reflection view |
+| `OBSERVED_DURING` | `document.index_repo` recent-activity filter | repo-briefing surface |
+
+A Reflection linked with only one is invisible to half its consumers — a silent
+provenance hole that only surfaces when someone queries the missing-edge path
+and finds nothing (exactly the `document.explain` bug that motivated this rule).
+
+```python
+rid = self.ctx.record("Reflection", {"scope": "observation", "text": note})
+self.ctx.link(rid, self.ctx.intent_id, "SERVES")
+self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+```
+
+`plugin.lint_capability`'s `reflection_link` rule (WARN-mode) walks each verb's
+AST and flags a `record("Reflection", …)` whose id isn't linked with both edges.
+A verb that deliberately records a cross-intent Reflection opts out with an
+`# agency-skip-link-check: <reason>` marker.
+
+---
+
 ## Skills your capability owns (the Lifecycle templates)
 
 A skill is a Lifecycle template — an ordered phase-graph ending in a

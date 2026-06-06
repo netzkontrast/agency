@@ -510,7 +510,9 @@ def _check_node_id_guards(cap):
     import inspect
     out = []
     for verb_name, spec in cap.verbs.items():
-        fn = spec.get("fn")
+        # Class-form verbs expose a wrapper as `fn`; the real method (with the
+        # user-facing source + signature) hangs off `__capability_method__`.
+        fn = getattr(spec.get("fn"), "__capability_method__", spec.get("fn"))
         try:
             src = inspect.getsource(fn)
             params = inspect.signature(fn).parameters
@@ -539,6 +541,77 @@ def _check_node_id_guards(cap):
     return out
 
 
+def _is_record_reflection(call) -> bool:
+    import ast
+    f = call.func
+    return (isinstance(f, ast.Attribute) and f.attr == "record"
+            and bool(call.args)
+            and isinstance(call.args[0], ast.Constant)
+            and call.args[0].value == "Reflection")
+
+
+def _link_edges(call) -> set:
+    """String-constant edge names passed to a `.link(...)` call."""
+    import ast
+    if not (isinstance(call.func, ast.Attribute) and call.func.attr == "link"):
+        return set()
+    return {a.value for a in call.args
+            if isinstance(a, ast.Constant) and isinstance(a.value, str)}
+
+
+def _check_reflection_links(cap):
+    """Spec 058 (WARN): a verb that records a ``Reflection`` MUST link it with
+    BOTH ``SERVES`` (provenance — surfaces in ``Memory.provenance``) AND
+    ``OBSERVED_DURING`` (the intent-scoped reflection view used by
+    ``document.render(scope='reflections')`` + the repo-index recent-activity
+    filter). Missing either edge writes a node invisible to half its consumers.
+
+    AST walk: capture each ``<obj>.record("Reflection", …)`` assignment target,
+    then require both ``link(<var>, …, "SERVES")`` and ``…"OBSERVED_DURING"`` on
+    that var. Reflections recorded via a dynamic label variable skip (no
+    false-fire). A line carrying ``# agency-skip-link-check`` opts out.
+    """
+    import ast
+    import inspect
+    import textwrap
+    out = []
+    for verb_name, spec in cap.verbs.items():
+        # Resolve the real method behind the class-form wrapper (see above).
+        fn = getattr(spec.get("fn"), "__capability_method__", spec.get("fn"))
+        try:
+            src = textwrap.dedent(inspect.getsource(fn))
+            tree = ast.parse(src)
+        except (OSError, TypeError, SyntaxError, ValueError):
+            continue
+        if "# agency-skip-link-check" in src:
+            continue
+        reflection_vars: set[str] = set()
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+                    and _is_record_reflection(node.value)):
+                reflection_vars |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+        if not reflection_vars:
+            continue
+        edges_by_var: dict[str, set] = {}
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and node.args
+                    and isinstance(node.args[0], ast.Name)):
+                e = _link_edges(node)
+                if e:
+                    edges_by_var.setdefault(node.args[0].id, set()).update(e)
+        for var in reflection_vars:
+            have = edges_by_var.get(var, set())
+            for required in ("SERVES", "OBSERVED_DURING"):
+                if required not in have:
+                    out.append({
+                        "verb": verb_name, "kind": "reflection_link",
+                        "msg": f"records a Reflection ({var!r}) but never links it {required}",
+                        "fix": f"add link({var}, <intent>, {required!r}) — both edges "
+                               f"required (Spec 058)",
+                    })
+    return out
+
+
 def lint_capability(cap) -> dict:
     """Run the rule families against `cap` (a Capability instance).
 
@@ -564,7 +637,7 @@ def lint_capability(cap) -> dict:
         + _check_template_folder(cap)
     )
     # WARN-only soft rules — never block, even in block mode (migration windows).
-    soft_findings = _check_node_id_guards(cap)
+    soft_findings = _check_node_id_guards(cap) + _check_reflection_links(cap)
     if mode == "block":
         return {"ok": not all_findings, "violations": all_findings,
                 "warnings": soft_findings, "skipped": 0, "mode": mode}

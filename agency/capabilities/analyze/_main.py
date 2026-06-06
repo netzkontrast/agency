@@ -267,6 +267,7 @@ class AnalyzeCapability(CapabilityBase):
             "text": f"improvement plan for {analysis_id}: {len(items)} items",
         })
         self.ctx.link(plan_id, self.ctx.intent_id, "SERVES")
+        self.ctx.link(plan_id, self.ctx.intent_id, "OBSERVED_DURING")  # Spec 058 — intent-scoped view
         self.ctx.link(plan_id, analysis_id, "IMPROVES")
         # v1 apply path: NOT IMPLEMENTED (Open Question 3). Refusing
         # apply=True is the safer default — record the request in the
@@ -299,6 +300,7 @@ class AnalyzeCapability(CapabilityBase):
             "text": f"cleanup plan for {path}: {len(findings)} dead-code items",
         })
         self.ctx.link(plan_id, self.ctx.intent_id, "SERVES")
+        self.ctx.link(plan_id, self.ctx.intent_id, "OBSERVED_DURING")  # Spec 058 — intent-scoped view
         summary = (
             f"{len(findings)} dead-code findings; dry_run=True (v1)."
             if dry_run else
