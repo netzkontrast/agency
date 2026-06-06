@@ -30,6 +30,7 @@ Plugin ports the plugin-development craft into compute: scaffolds, skill and com
 | `lint_explain` | transform | Return the rework recipe for a lint rule kind (Spec 074) — so you learn HOW to fix it. | [details](references/lint_explain.md) |
 | `lint_skill` | transform | Lint a skill description against the CSO + length rules. | [details](references/lint_skill.md) |
 | `marketplace_entry` | act | Render a marketplace.json entry. | [details](references/marketplace_entry.md) |
+| `publish_skill` | effect | Publish a capability's Agent Skill to the Anthropic Skills API (Spec 083). | [details](references/publish_skill.md) |
 | `scaffold` | act | Render the plugin scaffold (plugin.json + .mcp.json). | [details](references/scaffold.md) |
 | `step_doc` | act | Render a step-doc markdown block (audit trail entry). | [details](references/step_doc.md) |
 

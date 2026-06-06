@@ -73,6 +73,13 @@ analyze = [
 tokens = [
     "anthropic>=0.40",
 ]
+# Spec 083 — optional Anthropic SDK for publishing capability Agent Skills to the
+# Skills API (`plugin.publish_skill`, /v1/skills). Without it (or without
+# ANTHROPIC_API_KEY), `publish_skill(dry_run=True)` still returns the package
+# manifest offline; only the upload path needs this extra + a key.
+publish = [
+    "anthropic>=0.40",
+]
 
 [project.scripts]
 # Spec 039 distribution surface — three entry points, one per consumer pattern:

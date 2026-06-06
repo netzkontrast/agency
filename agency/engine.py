@@ -139,7 +139,8 @@ class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
                  embedder=None, web_search=None, runner=None,
                  extra_capabilities=None, surface: str | None = None,
-                 token_counter=None, _require_skill_doc: bool = True):
+                 token_counter=None, skills_client=None,
+                 _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
         # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
         from ._runner import SubprocessRunner
@@ -167,6 +168,12 @@ class Engine:
             from ._tokens import resolve_token_counter
             token_counter = resolve_token_counter()
         self.token_counter = token_counter
+        # Spec 083 — the Anthropic Skills API boundary (plugin.publish_skill);
+        # lazy default, stubbed in tests, injected on ctx as `skills_client`.
+        if skills_client is None:
+            from .capabilities.plugin._skills_client import SkillsClient
+            skills_client = SkillsClient()
+        self.skills_client = skills_client
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it
@@ -235,7 +242,8 @@ class Engine:
         self.registry.injectors = {"client": lambda: self.jules_client,
                                    "vcs": lambda: self.vcs_backend,
                                    "embedder": lambda: self.embedder,
-                                   "runner": lambda: self.runner}
+                                   "runner": lambda: self.runner,
+                                   "skills_client": lambda: self.skills_client}
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)
