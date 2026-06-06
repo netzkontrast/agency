@@ -76,7 +76,7 @@ agency execute --code \
 - **plugin** — author_command, author_skill, help, lint_capability, lint_explain, lint_skill, marketplace_entry, scaffold, step_doc
 - **reflect** — batch_note, note, recall, recall_semantic, search
 - **research** — lead, specialist, verify
-- **shell** — filter, run, templates
+- **shell** — define, filter, run, templates
 - **skill_generator** — generate
 - **subagent** — develop
 - **workspace** — baseline, isolate
