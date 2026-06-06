@@ -13,6 +13,11 @@ dependencies = [
     "fastmcp[code-mode]>=3.3.0",
     "pysqlite3-binary",
     "httpx",
+    # Spec 079 — the bash CLI (agency/cli.py) is built on Click: it mirrors every
+    # capability verb as `agency <cap> <verb>` so non-MCP agents reach the
+    # capabilities directly. (Already present transitively via fastmcp; pinned
+    # direct because cli.py imports it.)
+    "click>=8.1",
 ]
 
 # AGENCY-DRIFT: deps-extras — adding/removing an extra here means:

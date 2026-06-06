@@ -184,7 +184,11 @@ Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:
 - **bi-temporal memory** (`as_of`); **`COMPLETED != done`** (real Jules `verify`:
   state completed AND a branch on origin);
 - **code-mode is the contract** (`search`/`get_schema`/`execute`) — exposed
-  isomorphically over MCP and a **bash CLI** (dogfooded over a bash-only session);
+  isomorphically over MCP and a **bash CLI** (dogfooded over a bash-only session).
+  The bash CLI ALSO mirrors every capability verb as a command (`agency <cap>
+  <verb> …`, Spec 079) so a non-MCP agent reaches the capabilities directly — a
+  **convenience layer** auto-generated from the live registry, routing through the
+  same engine path; code-mode stays the canonical contract beneath it;
 - **code-mode tool-chaining**; **gates via `elicit`**;
 - **schemas & templates** (typed/generative layer);
 - a **strictly enforced ontology** (`ontology.py`: per-node required-field schemas

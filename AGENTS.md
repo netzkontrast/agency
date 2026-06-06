@@ -51,6 +51,30 @@ echo 'return await call_tool("memory_graph_provenance", {"intent_id": "intent:ab
 Inside `execute`, `await call_tool(name, params)` is in scope and `return` yields
 the result. Every command prints **one JSON document** to stdout.
 
+## Shortcut: a command per verb (Spec 079)
+
+If you don't want to write `execute` blocks, every capability verb is ALSO a CLI
+command — `agency <capability> <verb> --param … --intent-id …` — auto-generated
+from the live registry. Discover the surface with `--help`:
+
+```bash
+agency --help                 # lists every capability as a command group
+agency shell --help           # lists shell's verbs (run, filter, templates, define)
+agency get-schema capability_shell_run   # full param/return detail for one verb
+
+# call a verb directly (dict/list params take a JSON string; --json adds extras):
+agency --db graph.db shell run --command "git status --short" --intent-id intent:abc
+agency --db graph.db develop skill_walk --name tdd \
+  --inputs '{"failing_test":"t","implementation":"i","refactored":"r","tests_pass":"ok"}' \
+  --intent-id intent:abc
+```
+
+`--intent-id` defaults to the `AGENCY_INTENT` env var — `export
+AGENCY_INTENT=intent:abc` once and omit it thereafter. These commands route
+through the SAME engine path as code-mode (same provenance, same SERVES guard);
+code-mode (`execute`) remains the canonical contract and is still the
+token-cheapest way to CHAIN several calls.
+
 ## The rules (why it's token-efficient)
 
 - **Chain tools inside one `execute` block.** Intermediate results stay in the

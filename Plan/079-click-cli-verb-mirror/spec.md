@@ -1,7 +1,7 @@
 ---
 spec_id: "079"
 slug: click-cli-verb-mirror
-status: draft
+status: shipped
 last_updated: 2026-06-06
 owner: "@agency"
 depends_on: ["018", "065"]   # the CLI token-efficiency bundle + the CLI subcommand surface
@@ -106,3 +106,44 @@ a surface, so this spec lands it as a **convenience layer, not a new contract**:
 - CORE.md "code-mode is the contract" + CLAUDE.md rule #1/#8 (the doctrine this
   reconciles).
 - User directive (2026-06-06).
+
+## Followup — Implementation Status (2026-06-06)
+
+**Verdict:** Shipped
+
+### Done
+
+- **`click>=8.1`** added to `pyproject.toml` core deps (already present
+  transitively via fastmcp; pinned direct because `cli.py` imports it). CI
+  (`pip install -e .[dev]`) pulls core deps — no workflow change needed.
+- **`agency/cli.py` rewritten on Click**, behaviour-preserving: every legacy
+  subcommand kept its exact contract (search / get-schema / execute / intent /
+  install / welcome / doctor / provenance — one JSON document per call, same rc
+  semantics, `--db` still a global option). `main(argv) -> int` preserved for the
+  console-script + direct test callers; `standalone_mode=False` + a SystemExit/
+  ClickException wrapper keep the int-rc contract.
+- **Auto-generated per-verb surface** — `_add_capability_commands` mounts one
+  Click group per capability (from `discover()`, the live registry) with a command
+  per verb; options derive from the verb signature minus injected params (same
+  elision as `engine._wire`). `--intent-id` defaults to `$AGENCY_INTENT` (Win 3),
+  `--agent-id` + a `--json` escape hatch are wire options; dict/list params parse
+  as JSON. `_ann_kind` handles string annotations (`from __future__ import
+  annotations`). Commands route through `call_tool` (codemode=False) → same
+  provenance/SERVES path. Legacy command names win on collision (OQ-3).
+- **Discovery parity:** `agency --help` lists all capability groups +
+  legacy commands; `agency <cap> --help` lists the verbs.
+- **Tests** — `tests/test_cli_click.py` (10): legacy welcome/intent/provenance/
+  execute behaviour-preserved; generated verb command invokes + records
+  provenance; `--intent-id` env fallback; dict param JSON parse; `--help`
+  discovery (computed, not pinned); unknown verb = clean non-zero rc. All
+  CLI-touching suites green (search-isomorphism, install-verb, distribution,
+  mcp-bootstrap, serves-guard, render). check-drift clean.
+- **Docs:** CORE.md §canon + AGENTS.md "Running the engine from bash" note the
+  convenience layer + code-mode-canonical reconciliation.
+
+### Deferred (per Open Questions)
+
+- Richer param typing beyond str/int/bool/JSON (OQ-1) — v1 covers the live
+  surface; complex shapes go through `--json`.
+- Lint warning for a capability/legacy-command name collision (OQ-3) — currently
+  a silent skip (legacy wins); no live collision exists.
