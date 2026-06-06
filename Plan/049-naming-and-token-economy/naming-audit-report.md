@@ -15,14 +15,16 @@
 | Code-mode contract (`search`/`get_schema`/`execute`) | 3 | 4 | **KEEP** — the canon wire surface (note: `reflect.search` shadows the contract `search` under a bare-name surface — see §4) |
 | Substrate `@mcp.tool`s | 6 | 18 | already short (avg 3 tok); a rename saves only **10 tok** total |
 | Capability verbs (wire `capability_<cap>_<verb>`) | 69 | 311 | the `capability_<cap>_` prefix is **202 tok of pure repetition** |
-| Skill folders | 19 | 59 | consistent kebab — **KEEP** |
+| Skill folders (SKILL.md) | 19 | 59 | consistent kebab — **KEEP** |
+| Ontology Lifecycle-skill keys | 21 | 67 | short; **FLAG** folder↔ontology name divergence (§6b) |
 
 **The one finding that matters:** the `capability_<cap>_` prefix repeated across
 69 verbs costs **202 tokens of pure prefix** (65% of the 311-token verb-name
-corpus). On the full `search ""` discovery payload (name + brief per verb) that
-is **1471 → 1261 tokens, a 210-token / 14% reduction** if dropped from the
-code-mode `call_tool` dispatch surface. Everything else in this audit is rounding
-error by comparison.
+corpus). Modelled over a synthetic `- <name>: <brief>` corpus (the name-controllable
+slice of the `search` discovery payload — see §2 for why this is a model, not a
+capture of the live tool), that is **1471 → 1261 tokens, a 210-token / 14%
+reduction** if the prefix is dropped from the code-mode `call_tool` surface.
+Everything else in this audit is rounding error by comparison.
 
 **Recommendation in one line:** drop the `capability_<cap>_` prefix from the
 **code-mode** `call_tool` surface (keep it on the FastMCP wire for multi-plugin
@@ -37,9 +39,14 @@ low-risk follow-on (KEEP `intent_bootstrap` — see §3); KEEP everything else.
   042–058).
 - Token counts are `cl100k_base` (the encoding GPT-4/Claude-adjacent tokenizers
   approximate; agency already standardises on it via `analyze`/`document`).
-- "Search payload" = the brief catalog `search` returns: `- <name>: <brief>`
-  per verb. The brief slices dominate the payload; names are the controllable
-  part.
+- **"Search payload" is a MODEL, not a live capture.** It is a synthetic
+  reconstruction — `- <name>: <brief>` per verb — of the name-controllable slice
+  of what `search` returns. It is built synthetically *on purpose*: the **delta**
+  (prefixed vs bare) is the deliverable, and there is no bare-name registry to
+  call `search` against, so the real tool can only give the BEFORE number, never
+  the −210 tok delta. The synthetic corpus is the only way to compute the win;
+  it is NOT claimed to byte-match the live tool's formatted output (which adds an
+  `N of M tools` header etc.). Figures are guarded by `tests/test_naming_audit.py`.
 
 ## 3. Substrate tools (`@mcp.tool`)
 
@@ -85,7 +92,7 @@ already happening).
 | Corpus | With prefix | Bare | Δ |
 |---|---:|---:|---:|
 | Verb names only (69) | 311 tok | 109 tok | **−202 (−65%)** |
-| Full `search` payload (name + brief) | 1471 tok | 1261 tok | **−210 (−14%)** |
+| Synthetic name+brief corpus (models the `search` payload — §2) | 1471 tok | 1261 tok | **−210 (−14%)** |
 
 Longest offenders: `capability_develop_record_authoring_outcome` (8),
 `capability_jules_approve_awaiting` (8),
@@ -129,13 +136,33 @@ implementation resolves it.
 No systemic verb-name drift found. The one long outlier
 (`record_authoring_outcome`) is a soft ALIAS candidate, not a RENAME-HARD.
 
-## 6. Skills
+## 6. Skills — TWO surfaces
 
-19 skill folders, all **kebab-case**, 59 tok total (avg 3.1). The drafted spec
-worried about a "kebab vs snake split" — there is **none**: both the SKILL.md
-frontmatter `name` and the ontology registration key use kebab. **KEEP**;
-document that kebab is the single canonical skill-name form (Open Question 3 =
-informational, resolved).
+There are **two** distinct skill name surfaces (the first draft of this audit
+covered only the first — PR #23 review):
+
+### 6a. SKILL.md folders (the marketplace/human surface)
+
+19 folders, all **kebab-case**, 59 tok total (avg 3.1). **KEEP** — uniform.
+
+### 6b. Ontology Lifecycle-skill keys (the walkable surface)
+
+`Engine(":memory:").ontology.skills` carries **21** keys, **67 tok** total — the
+templates a `SkillRun` walks (`tdd`, `plan`, `review`, `debug`, `verify`,
+`execute`, `brainstorm`, `plugin-dev`, `dispatch-decision`, `code-analysis`,
+`jules-*`, …). These are short (avg 3.2 tok) and a **mix of kebab and bare verbs**
+(`tdd`, `plan` vs `dispatch-decision`).
+
+**Finding — the two surfaces diverge in name for the same concept:** the ontology
+key and its SKILL.md folder are NOT 1:1. Examples: `tdd` ↔ `test-driven-development`,
+`plan` ↔ `writing-plans`, `review` ↔ `code-review`, `debug` ↔ `systematic-debugging`,
+`brainstorm` ↔ `brainstorming`, `plugin-dev` ↔ `plugin-development`. Only ~7 of 21
+ontology keys share their folder name. **Verdict: KEEP both (both short), but FLAG
+the divergence** — a reader who knows the SKILL.md name can't guess the ontology
+key. The follow-up should decide whether to reconcile (one canonical name per
+skill across both surfaces) or document the mapping; this audit surfaces it as the
+genuine skill-naming inconsistency (correcting Open Question 3, which the draft
+wrongly marked "no split exists").
 
 ## 7. Implementation handoff
 

@@ -37,6 +37,8 @@ SNAP_PAYLOAD_WIRE = 1471
 SNAP_PAYLOAD_BARE = 1261
 SNAP_SUBSTRATE_TOK = 18
 SNAP_SKILL_TOK = 59
+SNAP_ONTOLOGY_SKILL_COUNT = 21
+SNAP_ONTOLOGY_SKILL_TOK = 67
 SNAP_COLLISIONS = {"note": ["dogfood", "reflect"],
                    "render": ["document", "dogfood"],
                    "verify": ["jules", "research"]}
@@ -84,12 +86,28 @@ def test_verb_prefix_tax_snapshot():
     assert sum(_tk(w) for w in wire) - sum(_tk(b) for b in bare) == SNAP_PREFIX_TAX
 
 
-def test_full_search_payload_snapshot():
+def test_synthetic_name_brief_corpus_snapshot():
+    # NOTE: a SYNTHETIC `- <name>: <brief>` corpus (models the search payload's
+    # name-controllable slice — see report §2). It is NOT the live search tool's
+    # formatted output; the delta (prefixed vs bare) is the point and the live
+    # tool can't yield it (no bare-name registry exists).
     verbs = _verbs()
     pw = "\n".join(f"- capability_{cap}_{v}: {b}" for cap, v, b in verbs)
     pb = "\n".join(f"- {v}: {b}" for _, v, b in verbs)
     assert _tk(pw) == SNAP_PAYLOAD_WIRE
     assert _tk(pb) == SNAP_PAYLOAD_BARE
+
+
+def test_ontology_skill_surface_snapshot():
+    # The SECOND skill surface (walkable Lifecycle templates), distinct from the
+    # SKILL.md folders — derived live from the ontology so it guards against drift.
+    e = Engine(":memory:")
+    try:
+        keys = list(e.ontology.skills.keys())
+    finally:
+        e.memory.close()
+    assert len(keys) == SNAP_ONTOLOGY_SKILL_COUNT
+    assert sum(_tk(k) for k in keys) == SNAP_ONTOLOGY_SKILL_TOK
 
 
 def test_bare_name_collision_set_is_complete():
