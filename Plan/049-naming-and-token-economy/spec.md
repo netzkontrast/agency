@@ -1,7 +1,7 @@
 ---
 spec_id: "049"
 slug: naming-and-token-economy
-status: draft
+status: done   # Shipped (audit-only) 2026-06-06 (branch claude/spec-049-naming-token-economy)
 last_updated: 2026-06-03
 owner: "@agency"
 depends_on: [023, 029, 042, 043]
@@ -208,3 +208,33 @@ proposal not yet executed.
 ### Still to implement
 - All "Done When" deliverables (the audit + proposal documents).
 - A Spec 050 to actually rename (follow-up).
+
+
+## Followup — Implementation Status (2026-06-06, supersedes the 2026-06-03 entry)
+
+> Shipped (audit-only) on branch `claude/spec-049-naming-token-economy`.
+
+**Verdict:** Shipped — audit + per-name verdicts delivered. NO code renames (by
+design; those are a follow-up spec).
+
+### Done
+- `Plan/049-…/naming-audit-report.md` — the audit deliverable. `cl100k_base`
+  token measurement over the LIVE registry (69 verbs / 19 skills — already larger
+  than the drafted 56/12). Per-surface tables + per-name verdicts (KEEP /
+  ALIAS-AND-RENAME / RENAME).
+- Headline finding: the `capability_<cap>_` verb prefix = **202 tok of pure
+  repetition** (65% of the 311-tok name corpus; −210 tok / 14% of the full
+  `search` payload). Substrate tools already short (18 tok; rename saves 10).
+  Skills are consistent kebab (no split — Open Q3 resolved informational).
+- One disagreement with the user's prompt, argued in the report: KEEP
+  `intent_bootstrap` (bare `intent` loses the "mint the first intent" semantic
+  for 1 token).
+- `tests/test_naming_audit.py` — 5 reproducibility guards so the report can't
+  drift from the live registry; they flip when the rename spec lands.
+
+### Handoff
+- Renames land in a NEW spec. The draft said "Spec 050", but **050 already
+  shipped** as `analyze-deps-integration`; the implementation spec is proposed as
+  **Spec 066** (needs a folder). Gated on ≥20% name-corpus reduction (audit shows
+  65%). Must resolve the bare-name collisions flagged in report §4
+  (`help`/`note`/`render`/`search`/`recall`).
