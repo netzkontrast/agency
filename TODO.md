@@ -20,9 +20,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 32 | 001, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 059, 060, 061, 062, 064, 065 |
+| **Shipped** | 33 | 001, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 059, 060, 061, 062, 064, 065 |
 | **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
-| **Not started** | 15 | 002, 003, 004, 005, 010, 011, 014, 026, 041, 046, 049, 051, 056, 057, 058 |
+| **Not started** | 14 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 049, 051, 056, 057, 058 |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
 Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
@@ -41,7 +41,7 @@ Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
 | 008 | superclaude-analysts | **Closed (superseded → 042)** | SuperClaude analysis (`transmute` cluster) | Closed 2026-06-06. The `analyze` capability (Spec 042, Shipped) delivers the 4-axis decidable analysis this spec scoped via a `transmute` cluster; no separate port needed. Frontmatter flipped; spec text kept verbatim per supersede pattern (GOALS.md #7) |
 | 009 | superpowers-remainder | **Closed (superseded → 041 + 046)** | Finish the superpowers port | Closed 2026-06-06. Remaining superpowers surface is carried by Spec 041 (implementation-discipline-skills) + Spec 046 (micro-extensions-bundle); both supersede the catch-all "remainder" port. Frontmatter flipped; spec text kept verbatim |
 | 010 | novel-domain | Not started | Novel domain (Dramatica/NCP, gates) | 0% impl; 7 loops sequenced; spec rebased 2026-05-31 |
-| 011 | agentic-capabilities | Not started | Agentic guardrails (middleware + `gate` + skill) | Depends on Spec 021 monitor channel |
+| 011 | agentic-capabilities | **Shipped** | Agentic guardrails, post-reframe (ZERO new capabilities/ontology): `_middleware/loop.py` detect_loop (Plan-119 Jaccard) + `_predicates.py` spec_validate/confidence_check (gate facets) + `_checks.py` no-orphans Lifecycle check + `_pressure.py` load_scenario/score_transcript/run_pressure_test (Plan-133) + 2 discipline skills (agentic-pressure-test, orchestrator-discipline) + runnable example | 26 spec tests green (anchors 119.1, 133.1-133.3, gate facet); full suite 734 passed/3 skipped; both skills lint clean. Wet pressure path + loop-hooks layer deferred (no LLM driver / no hook layer in v1) |
 | 012 | jules-complete-lifecycle-and-watcher | **Shipped** | Full Jules v1alpha + watcher + recovery | (frontmatter says draft — flip to done) |
 | 013 | jules-skills-and-capability-improvements | **Shipped** | 6 Jules skills + AGENCY_PROTOCOL + lint + flag matrix | (flip frontmatter) |
 | 014 | observation-to-spec-amendment | Not started | Reflection → spec-amendment loop | Depends on 017 + 020 |
@@ -92,23 +92,21 @@ Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
 
 ## Suggested implementation order (next 5)
 
-Refreshed 2026-06-06 (the prior list named 020 + 040, both Shipped).
+Refreshed 2026-06-06. Specs 021, 022, 011 shipped this run (✅).
 Ranked by leverage — what unblocks the most downstream work first:
 
-1. ~~**Spec 021** — engine-monitor-channel~~ ✅ **Shipped 2026-06-06**
-   (branch `claude/affectionate-meitner-H4vTJ`). Unblocks 022 + 011.
-2. ~~**Spec 022** — jules-monitor-capability~~ ✅ **Shipped 2026-06-06**
-   (branch `claude/affectionate-meitner-H4vTJ`; first consumer of the channel).
-3. **Specs 056 + 057 + 058** — review-driven lint batch (type-safe
+1. ~~**Spec 021** — engine-monitor-channel~~ ✅ **Shipped** (merged PR #20).
+2. ~~**Spec 022** — jules-monitor-capability~~ ✅ **Shipped** (merged PR #20).
+3. ~~**Spec 011** — agentic-capabilities~~ ✅ **Shipped 2026-06-06**
+   (branch `claude/spec-011-agentic-guardrails`; post-reframe, zero new caps).
+4. **Specs 056 + 057 + 058** — review-driven lint batch (type-safe
    node-id, analyzer-rule-axis-registry, reflection-link-lint). Cheap:
    1–3 sites each; deps (016 + 019 + 050) all Shipped; share the lint
    scaffold context so they batch cleanly.
-4. **Spec 049** — naming-and-token-economy audit. Cuts the token cost of
+5. **Spec 049** — naming-and-token-economy audit. Cuts the token cost of
    every discovery call; audit-only, low-risk; do before more verbs accrete.
-5. **Spec 002** — boundary-driver-protocol. Generic Boundary/Driver +
+6. **Spec 002** — boundary-driver-protocol. Generic Boundary/Driver +
    DriverRegistry; unblocks Spec 007's full music surface.
-6. **Spec 011** — agentic-capabilities. Now unblocked by 021 (monitor
-   channel was its other hard dep); middleware + `gate` + skill.
 
 ## When to update this file
 

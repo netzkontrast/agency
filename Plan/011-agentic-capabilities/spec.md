@@ -1,7 +1,7 @@
 ---
 spec_id: "011"
 slug: agentic-capabilities
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/spec-011-agentic-guardrails)
 owner: "@agency"
 depends_on: [001, 003]
 affects:
@@ -450,3 +450,45 @@ Scenario: A sub-threshold confidence predicate blocks the phase as a Gate
 - code: no `agency/_middleware/` directory; no `skills/agentic-pressure-test/` or `skills/orchestrator-discipline/`; `agency/capabilities/gate.py` (composable `gate.check`); `agency/capabilities/develop.py:86-94` (`REFERENCES["testing-skills"]` prior art)
 - tests: none for loop middleware, gate predicates, lifecycle checks, or pressure skill
 - commits/notes: `Plan/000-overview.md` classifies 011 as "Wave-1 backlog"; no implementation commit in `git log --oneline --all` for agentic/loop/pressure
+
+## Followup — Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/spec-011-agentic-guardrails` (off merged main with
+> Specs 021+022). Built TDD per piece (RED→GREEN). The reframe held: **zero new
+> capabilities, zero ontology extensions, zero new node labels.**
+
+**Verdict:** Shipped
+
+### Done
+- `agency/_middleware/loop.py` + `__init__.py` — pure `detect_loop(messages,
+  tool_results)` (Plan-119 Jaccard over 3-char shingles, last 4 msgs + 5 tool
+  results ≤ 81 pairs, threshold 0.7, stdlib only). Middleware, never a verb
+  (test asserts it's absent from the registry surface).
+- `agency/_predicates.py` — `spec_validate` (RFC-2119 + Gherkin classification)
+  and `confidence_check` (≥ 0.9 go-threshold). Pure predicates; verdict recorded
+  via the existing `gate.check` verb.
+- `agency/_checks.py` — `orphaned_working_children` (pure) + `check_no_orphans`
+  (records via `gate.check`; honours the cross-intent guard). Depth + quota
+  dropped (enforced by `ctx.spawn` / `fan_out`).
+- `agency/_pressure.py` — `load_scenario` (≥3 pressures, required-key validation)
+  + `score_transcript` (rationalisation always beats compliance) +
+  `run_pressure_test` (transcript-as-input, `dry_run` default; records core
+  `Artefact{kind:scenario|pressure-run}` + scored `Gate`).
+- `skills/agentic-pressure-test/SKILL.md` + `skills/orchestrator-discipline/SKILL.md`
+  — both `discipline` kind, lint clean via `plugin.lint_skill`; the first
+  cross-links `develop`'s `testing-skills` reference rather than restating it.
+- `docs/examples/pressure_test_a_skill.py` — runnable dry-run provenance walk.
+
+### Tests
+- `tests/test_loop_middleware.py` (6), `tests/test_gate_predicates.py` (7),
+  `tests/test_lifecycle_check_invariants.py` (4), `tests/test_pressure_skill.py`
+  (9) — 26 total, covering anchors 119.1 + 133.1-133.3 + the gate facet. Full
+  suite 734 passed / 3 skipped; `scripts/check-drift` clean (`gate` now has a
+  test file).
+
+### Deferred (as specced)
+- Loop-detection consumer (UserPromptSubmit hook + throttle + message source) —
+  deferred whole as middleware (Agency has no hook layer / message store yet).
+- Pressure-test wet path (dispatch a fresh worker to GENERATE the transcript) —
+  Agency ships no local-subagent LLM driver returning scoreable text; v1 scores
+  a caller-supplied transcript.
