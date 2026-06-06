@@ -65,6 +65,14 @@ analyze = [
     "bandit>=1.7",
     "radon>=6",
 ]
+# Spec 082 — optional Anthropic SDK for AUTHORITATIVE token counting via
+# `messages.count_tokens` (the token-economy gate's measurement). Without it, the
+# TokenCounter boundary falls back to tiktoken (a dev dep) then a char//4 proxy —
+# `agency_doctor` reports the live `token_backend`. Opt in with
+# `pip install -e .[tokens]` + `ANTHROPIC_API_KEY`.
+tokens = [
+    "anthropic>=0.40",
+]
 
 [project.scripts]
 # Spec 039 distribution surface — three entry points, one per consumer pattern:

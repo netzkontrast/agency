@@ -144,11 +144,9 @@ def _recent_reflections(memory, intent_id: str, limit: int = 5) -> list[dict]:
 
 
 def _count_tokens(text: str) -> int:
-    try:
-        import tiktoken
-        return len(tiktoken.get_encoding("cl100k_base").encode(text))
-    except (ImportError, KeyError):
-        return max(1, len(text) // 4)
+    # Spec 082 — the ONE token-count boundary (count_tokens → tiktoken → proxy).
+    from ..._tokens import count_tokens
+    return count_tokens(text)
 
 
 def render(root: str, memory, intent_id: str = "",

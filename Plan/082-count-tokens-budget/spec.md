@@ -1,7 +1,7 @@
 ---
 spec_id: "082"
 slug: count-tokens-budget
-status: design
+status: shipped
 last_updated: 2026-06-06
 owner: "@agency"
 depends_on: ["023"]   # the token-budget gate this corrects
@@ -60,3 +60,25 @@ token-economy is calibrated against the wrong tokenizer (graph reflection
   payload that's actually over. Worth fixing.*
 
 **Verdict:** APPROVE — proxy-default + key-gated real path + invariant assertions.
+
+## Followup — Implementation Status (2026-06-06)
+
+**Verdict:** Shipped (boundary + centralization + doctor; real-count tier opt-in).
+
+- **`agency/_tokens.py`** — `TokenCounter` (`backend` + `count(text, model)`, never
+  raises → degrades to proxy) + `resolve_token_counter()` with tiers **count_tokens**
+  (Anthropic SDK + `ANTHROPIC_API_KEY`) → **tiktoken** → **proxy** (`len//4`).
+  `AGENCY_TOKENS=proxy|tiktoken` pins a tier (hermetic CI). Module-level
+  `count_tokens()` over a cached default.
+- **Centralized** the duplicated `tiktoken-else-char//4` helper (a derivability-audit
+  catch) — `document/_explain`, `document/_index_repo`, `dogfood` now route through
+  the ONE boundary; identical results in CI (tiktoken tier), upgraded when keyed.
+- **Engine** exposes `token_counter` (injectable/stubbable); **`agency_doctor`** reports
+  `token_backend` so a silent proxy fallback is visible.
+- **`[tokens]` extra** (anthropic SDK); optional — CI/offline use tiktoken/proxy.
+- **Tests** — `tests/test_token_counter.py` (7): tier selection, injected real counter,
+  never-raises fallback, the proxy↔tiktoken **band invariant** (rule 8 — not a pinned
+  number), engine exposure. `test_token_budget` + all document/dogfood suites green
+  (behaviour-preserving). Full suite green; `check-drift` clean.
+- **Deferred:** wire the real `count_tokens` into the Spec 067 lints behind a key-gated
+  marker (CI has no key); migrate the remaining `plugin` inline counter.
