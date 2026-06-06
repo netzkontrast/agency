@@ -72,8 +72,19 @@ flip to BLOCK once the audited surface is clean.
 | **1** | **067** lint-token-economy-rules | encode the goals as `lint_capability` rules | (defines the gates) | additive WARN rules |
 | **2** | **068** tiered-discovery | capability-level discovery → drill-in (extends 023) | `surface_size` | additive; flat search stays a fallback |
 | ~~3~~ | ~~**069** naming-rename-impl~~ | **CANCELLED** — FastMCP-blocked (one CodeMode catalog) + marginal post-068; `name_token_budget`/`bare_name_*` accepted as standing WARNs | — | n/a |
-| **3** | **070** verb-surface-consolidation | collapse near-duplicate verbs | `surface_size` → BLOCK | alias-and-deprecate per collapsed verb |
-| **4** | **071** skill-surface-reconciliation | unify ontology key ↔ SKILL.md folder | `skill_name_parity` → BLOCK | alias old skill names one minor |
+| **3** | **074** actionable-lint-remediation (CAPSTONE) | prescriptive findings + accept mechanism; resolves the residual WARNs | OPEN → none | additive |
+| ~~4~~ | **070** verb-surface-consolidation | **WARN accepted via 074** — jules audit: only ~3 cosmetic merges; the rest legitimately distinct. Genuine merges = optional future work | — | n/a now |
+| ~~5~~ | **071** skill-surface-reconciliation | **WARN accepted-tracked via 074** — 14 ontology↔folder divergences documented-accepted; reconciliation = optional future work | — | n/a now |
+
+## Cluster status (2026-06-06) — goal met
+
+The headline goal (measurably cheaper to read/write/discover) is **achieved**:
+**068** cut the discovery path **−83%** (1471→250 tok), **067** made the budgets an
+enforced goal-test, **072** aligned the doctrine, **074** made every lint finding
+an instruction + resolved the residual WARNs (OPEN: none — all fixed or
+documented-accepted). **069** was cancelled (FastMCP-blocked + marginal post-068);
+**070/071**'s genuine work is optional future cleanup, their WARNs honestly
+accepted. The cluster's binding acceptance criteria are satisfied.
 
 ## Promotion criteria
 

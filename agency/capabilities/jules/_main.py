@@ -17,6 +17,10 @@ production while deterministic tests inject a stand-in.
 """
 from __future__ import annotations
 
+# agency-accept-warn: surface_size jules is legitimately broad agent-orchestration
+# (Spec 070 audit: only ~3 cosmetic merges possible; the other ~16 verbs —
+# dispatch/message/recover/verify/watch/plan/activities/… — are genuinely distinct).
+
 from typing import Protocol
 
 from ...capability import ArtefactSchemas, CapabilityBase, RenderTemplates, verb

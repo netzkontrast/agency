@@ -28,13 +28,13 @@ _SUBSTRATE = {"agency_welcome", "agency_install", "agency_doctor",
 _CONTRACT = {"search", "get_schema", "execute"}
 
 # --- the published snapshot (keep in sync with naming-audit-report.md) ---------
-SNAP_VERB_COUNT = 69
+SNAP_VERB_COUNT = 70   # +1 lint_explain (Spec 074)
 SNAP_SKILL_COUNT = 19
-SNAP_WIRE_TOK = 311
-SNAP_BARE_TOK = 109
-SNAP_PREFIX_TAX = 202        # = WIRE - BARE
-SNAP_PAYLOAD_WIRE = 1471
-SNAP_PAYLOAD_BARE = 1261
+SNAP_WIRE_TOK = 317
+SNAP_BARE_TOK = 112
+SNAP_PREFIX_TAX = 205        # = WIRE - BARE
+SNAP_PAYLOAD_WIRE = 1503
+SNAP_PAYLOAD_BARE = 1290
 SNAP_SUBSTRATE_TOK = 18
 SNAP_SKILL_TOK = 59
 SNAP_ONTOLOGY_SKILL_COUNT = 21
