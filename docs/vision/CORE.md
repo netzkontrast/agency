@@ -85,6 +85,19 @@ step-by-step via code-mode. Each step discloses only the *next* instruction
 the whole skill. The chain *is* an executable dataflow graph, and because every
 `call_tool` records an Invocation, it mirrors itself into the provenance graph.
 
+**Progressive disclosure applies to DISCOVERY, not just skill-walks.** GOALS #1
+("the full tool list never loads into context") binds the *discovery* surface
+too: `search` should disclose the **capability tier first** (≈14 macroskills, one
+line each) and let the agent drill into a capability to load its verbs — the same
+pay-per-tier principle as the skill walker, one level up. A flat dump of every
+verb on every call is the anti-pattern (Spec 068 tiered-discovery).
+
+**A skill name lives on TWO surfaces; they are converging.** It appears as both
+the `ontology.skills` key (the walkable Lifecycle template) and the
+`skills/<name>/SKILL.md` folder (the marketplace/human doc). These can diverge
+today (`tdd` ↔ `test-driven-development`); the canonical direction is **one name
+per skill across both surfaces** (Spec 071 skill-surface reconciliation).
+
 **Gates / intent-verification / human-in-the-loop are `elicit` steps.** A step
 can `ctx.elicit(prompt)` (ask the agent or human a one-line question and get a
 typed answer), `ctx.sample(...)` (ask the caller's LLM), or `ctx.report_progress`
@@ -131,11 +144,26 @@ MCP / Skills / bash); the **`COMPLETED ≠ done`** lesson.
 
 ## Naming
 
-Structure-first. Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool
-names `<concept>_<capability>_<verb>` (underscores, ≤64, no dots; the client
-injects `mcp__`).
+Structure-first. Concepts: `intent`, `capability`, `lifecycle`, `memory`.
 
-## Status: the installable `agency` plugin proves it (56 passing, `agency/`)
+**Two name surfaces — one disambiguated (the wire), one lean (code-mode).** The
+**FastMCP wire name** is `<concept>_<capability>_<verb>` (underscores, ≤64, no
+dots; the client injects `mcp__`) — kept, because it disambiguates when a host
+loads several plugins. But the **code-mode `call_tool` surface** that `search`
+advertises SHOULD expose the **bare verb** (`call_tool("dispatch_decision", …)`,
+not the prefixed form): the `capability_<cap>_` prefix is pure repetition on
+every discovery call (GOALS #1 — the Spec 049 audit measured 202 tokens of it
+across the surface). The bare form is an **additive alias** on the code-mode
+surface (alias-and-deprecate — never a wire break, Goal 5 holds); bare names must
+stay unique across capabilities. Names carry a **token budget enforced by the
+lint pipeline** (Spec 067), not a magic number frozen in canon.
+
+## Status: the installable `agency` plugin proves it (`agency/`)
+
+> **Version-agnostic by design (Spec 072):** the live spec + test counts are the
+> binding index [`TODO.md`](../../TODO.md), never frozen here — so this section
+> states what is *proven*, not a count that drifts. (It once read "56 passing,
+> next build delegate"; both long obsolete.)
 
 v0.1 ships as an installable Claude Code plugin (this repo).
 Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:
@@ -172,9 +200,10 @@ Built on the real substrate (graphqlite + fastmcp + Monty). Proven runnable:
 
 The whole capability landscape of every installed plugin was surveyed, clustered,
 and spec-paneled — see `CAPABILITY-CLUSTERS.md`. Verdict: the four concepts + the
-engine absorb it all; the only net-new specs were **`delegate`** (agent fan-out +
-quota + join) and **`reflect`** (durable cross-session memory) — `reflect` is now
-built.
+engine absorb it all; the only net-new primitives were **`delegate`** (agent
+fan-out + quota + join) and **`reflect`** (durable cross-session memory) — both
+now built.
 
-Next: build the `delegate` spec; grow the capability set by dropping files into
-`capabilities/` (no wiring).
+The capability set grows by dropping files into `capabilities/` (no wiring); the
+live spec + test status is the binding index [`TODO.md`](../../TODO.md) — never a
+count frozen here.

@@ -1,7 +1,7 @@
 ---
 spec_id: "072"
 slug: core-vision-alignment
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/token-economy-cluster)
 last_updated: 2026-06-06
 owner: "@agency"
 serves_intent: "intent:97534079"
@@ -18,8 +18,8 @@ wave: 5
 
 # Spec 072 — Align CORE.md with the Vision goals (doctrinal anchor)
 
-> Builds FIRST in the token-economy cluster (Spec 066). The lint rules (068) and
-> the implementations (069–072) enforce the doctrine this spec corrects. Because
+> Builds FIRST in the token-economy cluster (Spec 066). The lint rules (067) and
+> the implementations (068–071) enforce the doctrine this spec corrects. Because
 > it edits **canon**, the CORE.md changes go through the `spec-panel` discipline
 > (multi-expert critique) BEFORE commit — per the cluster charter.
 
@@ -38,7 +38,7 @@ itself misaligned. Fix the doctrine first.
    established. CORE must say: the `<concept>_<capability>_<verb>` form is the
    **FastMCP wire name** (kept — it disambiguates multi-plugin hosts), but the
    **code-mode `call_tool` surface SHOULD expose a bare alias** (token
-   efficiency), and names carry a **token budget** (enforced by Spec 068 lint).
+   efficiency), and names carry a **token budget** (enforced by Spec 067 lint).
 
 2. **Progressive disclosure is scoped only to skill-walks (GOALS #1).** §"Skills
    are atomic, gated, progressively-disclosed step-graphs" says tokens are paid
@@ -46,13 +46,13 @@ itself misaligned. Fix the doctrine first.
    promises "the full tool list never loads into context" while `search` dumps
    all 69 verbs flat. CORE must state progressive disclosure applies to
    **discovery** too: capability-level index → verb-level drill-in (the basis
-   for Spec 069 tiered-discovery).
+   for Spec 068 tiered-discovery).
 
 3. **The two skill surfaces are unacknowledged (readability).** CORE implies one
    skill concept; the engine has BOTH `ontology.skills` keys (walkable Lifecycle
    templates) AND `skills/<name>/SKILL.md` folders (marketplace), and they
    **diverge** (`tdd` ↔ `test-driven-development`, only ~7 of 21 match). CORE must
-   name both surfaces + the canonical-name direction (Spec 072 reconciliation).
+   name both surfaces + the canonical-name direction (Spec 071 reconciliation).
 
 4. **§Status is stale (accuracy).** "56 passing… the only net-new specs were
    delegate and reflect… Next: build the delegate spec" — all obsolete (delegate
@@ -65,11 +65,11 @@ itself misaligned. Fix the doctrine first.
 - [ ] **spec-panel run** on the proposed CORE.md diff (multi-expert critique →
   synthesized revision) recorded as provenance; no goal weakened.
 - [ ] **§Naming** rewritten: wire form vs code-mode bare alias + the token-budget
-  pointer (Spec 068).
+  pointer (Spec 067).
 - [ ] **§Skills / §Engine** gains an explicit "progressive disclosure at the
-  discovery layer" statement (grounds Spec 069).
+  discovery layer" statement (grounds Spec 068).
 - [ ] **A skills-surface note** added: the two surfaces + the reconciliation
-  direction (grounds Spec 072).
+  direction (grounds Spec 071).
 - [ ] **§Status** made version-agnostic, pointing at `TODO.md` (the binding
   index) instead of a frozen count — so it cannot re-drift.
 - [ ] **GOALS.md §"How the goals show up"** row for Goal 1 updated to cite the
@@ -78,7 +78,7 @@ itself misaligned. Fix the doctrine first.
 
 ## What this spec does NOT do
 
-- It does NOT change any tool name, verb, or skill (those are 069–072).
+- It does NOT change any tool name, verb, or skill (those are 068–071).
 - It does NOT add a goal or remove one — it re-aligns the HOW with the existing WHY.
 - It does NOT touch GOALS.md's goal list (only the "how the goals show up" table).
 
@@ -86,7 +86,7 @@ itself misaligned. Fix the doctrine first.
 
 Doctrine-only — no runtime migration. But the CORE edits are **forward-compatible
 promises**: they describe the target state (bare code-mode alias, tiered
-discovery, reconciled skills) that 069–072 then implement. Each implementation
+discovery, reconciled skills) that 068–071 then implement. Each implementation
 spec cites the CORE section it fulfils, closing the doctrine→code loop (GOALS #6).
 
 ## Evidence
@@ -97,3 +97,27 @@ spec cites the CORE section it fulfils, closing the doctrine→code loop (GOALS 
 - `Plan/049-naming-and-token-economy/naming-audit-report.md` (the measured basis
   for the naming + skill-surface corrections).
 - `agency/skills/spec-panel` + `develop.spec-panel` discipline (the canon-edit gate).
+
+## Followup — Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/token-economy-cluster`. Doctrine-only (no code).
+> The proposed CORE.md diff was run through the spec-panel discipline
+> (doctrine-purity / migration / canon-hygiene / accuracy lenses) before commit.
+
+**Verdict:** Shipped
+
+### Done
+- `CORE.md` §Naming rewritten: the `<concept>_<capability>_<verb>` form is the
+  **wire name** (kept, disambiguation); the **code-mode call surface** gets a
+  **bare alias** (additive, alias-and-deprecate, Goal 5 intact); token budget is
+  a pointer to the Spec 067 lint, not a canon magic number.
+- `CORE.md` §Skills gains "progressive disclosure applies to DISCOVERY" (grounds
+  Spec 068) + "a skill name lives on TWO surfaces; converging" (grounds Spec 071).
+- `CORE.md` §Status made version-agnostic — points at `TODO.md`; the stale
+  "56 passing / next build delegate" removed; the substrate proof-list kept.
+- `GOALS.md` §"How the goals show up" Goal 1 row cites the tiered-discovery +
+  name-budget surfaces (forward-ref).
+
+### Closes the doctrine→code loop
+Each downstream child (067–071) now cites the CORE section it fulfils, so the
+implementations enforce *aligned* doctrine (GOALS #6 dogfood loop).
