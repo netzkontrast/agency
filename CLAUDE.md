@@ -121,6 +121,36 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    When you catch yourself updating a magic number to make a test pass, stop
    and make the test flexible instead.
 
+## Field-tested heuristics (dogfooded — grounded in graph reflections)
+
+Cheap checks that caught real failures during the 076→080 build-out. Pointers,
+not prose — `analyze.graph` to read the originating reflections.
+
+- **Dormant-surface audit.** Before trusting a pipeline, count its live triggers:
+  `grep` the gate predicate, count satisfiers; **zero = dead code**. (031/032 emit
+  shipped + tested but produced nothing — 0/15 caps declared `skill_doc`.)
+- **Derivability audit.** Authored metadata that duplicates an existing source is
+  drift waiting to happen — **derive it** (rule 2 applied to docstrings). SkillDocs
+  derive from the module docstring (`Use when:`/`Triggers:`/`Red flags:`); the
+  overview/briefs/example are free. No literal.
+- **Enforcement blast-radius.** Before flipping a bootstrap invariant, `grep
+  'Engine('` for synthetic-object call sites and ship a documented bypass
+  (`_require_skill_doc=False` for probes/fixtures).
+- **Sourcing-model first.** Decide the source-of-truth BEFORE any N>5 file
+  migration — re-sourcing 15 caps twice is the tax for skipping it.
+- **Full suite on a migration.** A migration touches repo-wide invariant/inventory
+  tests (`test_naming_audit` substrate set), not just the changed slice. Run all of
+  it before declaring green; CI is the net, not the first check.
+- **Read the graph:** `analyze.graph` (census + typed listing) is the query
+  surface — code-mode exposes only `call_tool`; `memory_graph_provenance` drills
+  one intent. Don't claim to "read the graph" by reading intents you already know.
+
+**The drop-in-capability bar.** Add a folder under `agency/capabilities/<name>/` —
+verbs + ontology + a docstring that *derives* its Agent Skill — and **nothing
+else**, and agency gains a complete, discoverable, walkable, CLI-exposed,
+MCP-wired, emittable capability. If adding a capability needs an edit anywhere
+else, that coupling is the bug to fix.
+
 ## Surface (discoverable; don't memorize)
 
 Capabilities self-register from `agency/capabilities/`. Skills live on
