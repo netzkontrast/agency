@@ -20,9 +20,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 31 | 001, 012, 013, 015, 016, 017, 019, 020, 021, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 059, 060, 061, 062, 064, 065 |
+| **Shipped** | 32 | 001, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 050, 052, 053, 054, 055, 059, 060, 061, 062, 064, 065 |
 | **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
-| **Not started** | 16 | 002, 003, 004, 005, 010, 011, 014, 022, 026, 041, 046, 049, 051, 056, 057, 058 |
+| **Not started** | 15 | 002, 003, 004, 005, 010, 011, 014, 026, 041, 046, 049, 051, 056, 057, 058 |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
 Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
@@ -52,7 +52,7 @@ Total spec rows: **58** (001–065, with 027 + 033–038 renumbered away).
 | 019 | engine-output-shape-contract | **Shipped** | Defensive comment at engine.py unwrap site + `wire_shape` lint rule + docstring sweep (10 verbs corrected) + test landmark + CAPABILITY-AUTHORING.md §"Wire shape vs internal wrap" + CORE.md addendum | 5 unwrap-contract tests green; 0 wire_shape leaks across live registry |
 | 020 | central-graph-db | **Shipped** | v2: `.agency/session.db` + DB path resolution + `.agency/` scaffold + `dogfood.export` + `dogfood.import` (JSON round-trip preserving ids + vfrom/vto windows) — closes merge-conflict recovery loop | 10 export tests + 10 import tests green; round-trip verified |
 | 021 | engine-monitor-channel | **Shipped** | `agency/_monitor.py` (MonitorEvent + MonitorEmitter: JSONL append, 1 MB rotation, 4096-byte atomic-append budget) + `Engine.monitor` + lifespan `maybe_rotate()` + `CapabilityContext.emit_monitor()` sugar + single `monitors/monitors.json` (`agency-engine`) + `.agency/.gitignore` SLOG guard | 12 spec tests green; full suite 697 passed/3 skipped; check-drift clean (install regen + new AGENCY-DRIFT: monitor-channel tag). **Unblocks 022 (first consumer) + 011** |
-| 022 | jules-monitor-capability | Not started | First use of 021 for Jules watcher transitions | Depends on 021 |
+| 022 | jules-monitor-capability | **Shipped** | First consumer of the 021 channel: watcher `_poll_loop` emits one `MonitorEvent` per classified transition (noop-filtered) via new `Watcher._emit_monitor`; `jules.dispatch`/`recover`/`verify` emit `dispatched`/`recovery_started`/`silent_fail_detected` through `ctx.emit_monitor`; AGENCY_PROTOCOL.md §10 doc | 7 spec tests green; full suite 705 passed/3 skipped. Side-channel preserves the per-intent queue; NO second monitors.json entry (regression-tested) |
 | 023 | adaptive-disclosure | **Shipped** | Token-budget gate + brief slices + substrate-tool brief-slicing parity + Hint #7 docstring migration roster 0 non-compliant | Phase 3 structured `search` delta-shape + Phase 4 intent-slice filter remain deferred to v2 |
 | 024 | capability-authoring-discipline | Partial | Block-mode lint when `# agency-scaffold: v1` marker present | Sweep of existing capabilities for marker addition |
 | 025 | skill-first-discovery | Partial | Skill-search ranks above tool-search | Refinement needed per consolidation pass |
@@ -97,9 +97,8 @@ Ranked by leverage — what unblocks the most downstream work first:
 
 1. ~~**Spec 021** — engine-monitor-channel~~ ✅ **Shipped 2026-06-06**
    (branch `claude/affectionate-meitner-H4vTJ`). Unblocks 022 + 011.
-2. **Spec 022** — jules-monitor-capability. Now unblocked by 021; the
-   first consumer of the monitor channel (wire the Jules watcher's
-   `WatchEvent` transitions through `ctx.emit_monitor`). Natural follow-on.
+2. ~~**Spec 022** — jules-monitor-capability~~ ✅ **Shipped 2026-06-06**
+   (branch `claude/affectionate-meitner-H4vTJ`; first consumer of the channel).
 3. **Specs 056 + 057 + 058** — review-driven lint batch (type-safe
    node-id, analyzer-rule-axis-registry, reflection-link-lint). Cheap:
    1–3 sites each; deps (016 + 019 + 050) all Shipped; share the lint
@@ -108,6 +107,8 @@ Ranked by leverage — what unblocks the most downstream work first:
    every discovery call; audit-only, low-risk; do before more verbs accrete.
 5. **Spec 002** — boundary-driver-protocol. Generic Boundary/Driver +
    DriverRegistry; unblocks Spec 007's full music surface.
+6. **Spec 011** — agentic-capabilities. Now unblocked by 021 (monitor
+   channel was its other hard dep); middleware + `gate` + skill.
 
 ## When to update this file
 

@@ -1,7 +1,7 @@
 ---
 spec_id: "022"
 slug: jules-monitor-capability
-status: draft
+status: done   # Shipped 2026-06-06 (branch claude/affectionate-meitner-H4vTJ)
 owner: "@agency"
 depends_on: ["012", "013", "021"]   # 012 = watcher; 013 = INSTRUCTIONS; 021 = channel
 affects:
@@ -172,3 +172,38 @@ capabilities also feed.
 - code: absent — no `agency/_monitor.py`, no `monitors/` directory, no `ctx.emit_monitor` in `agency/capability.py` or any capability
 - tests: none (`tests/test_jules_monitor.py` not found; `tests/test_engine_monitor.py` not found)
 - commits/notes: Plan/000-overview.md lists 022 as "In flight (drafted; awaiting design loop)" behind Spec 021; `status: draft` in frontmatter is accurate but understates the blocking: the dependency is entirely unimplemented.
+
+## Followup — Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/affectionate-meitner-H4vTJ`, immediately after its
+> dependency Spec 021 landed on the same branch/PR (#20).
+
+**Verdict:** Shipped
+
+### Done
+- `agency/capabilities/jules/watch.py` — `Watcher._emit_monitor(sinfo, event)`
+  fans each classified transition onto `engine.monitor` (Spec 021); called from
+  `_poll_loop` right after `_put_event` (queue + monitor both fire on the same
+  transition). `noop` actions are filtered (OQ#1); silent no-op when no
+  engine/monitor attached. Message = `sid={sid} {prev_state}→{state}: {instr[:200]}`,
+  `kind` = the WatchAction.
+- `agency/capabilities/jules/_main.py` — verb-level emits via `ctx.emit_monitor`:
+  `dispatch` → `dispatched` (on session create, inside the `if sid:` graph block);
+  `recover` → `recovery_started`; `verify` → `silent_fail_detected` on the
+  `branch_on_remote=False` path (COMPLETED≠done made visible without reading the
+  return value).
+- `AGENCY_PROTOCOL.md` §10 "Live awareness via the engine monitor stream" — the
+  four emit points + the side-channel/durable-graph distinction + the
+  single-monitor constraint.
+
+### Tests
+- `tests/test_jules_monitor.py` — 7 tests: watcher transition emits + keeps the
+  queue; noop filtered; emit no-op without engine; `dispatch`/`recover`/`verify`
+  emit their kinds with the serving intent_id; and the hard constraint —
+  `install.generate()` still yields exactly ONE `agency-engine` monitors.json
+  entry. All green; full suite 705 passed / 3 skipped.
+
+### Open questions — resolved as specced
+- OQ#1 (token cost): emit only on non-`noop` transitions. OQ#2 (priority field):
+  none in v1. OQ#3 (cross-session): graph carries durable `WatchEvent` history;
+  monitor is live-only. OQ#4 (`delegate.fan_out` events): out of scope — Spec 023.

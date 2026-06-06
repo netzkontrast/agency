@@ -218,6 +218,34 @@ class Watcher:
                 pass
         q.put_nowait(event)
 
+    def _emit_monitor(self, sinfo: dict, event: dict) -> None:
+        """Spec 022 — fan a classified transition onto the engine monitor
+        channel (Spec 021), the SIDE-CHANNEL to the per-intent queue. The queue
+        stays for programmatic consumers (`jules.watch`); the monitor is for
+        live awareness in Claude Code without a polling loop.
+
+        ``noop`` transitions (heartbeats, same-state) do NOT emit — OQ#1 noise
+        filter. Best-effort: silent no-op when no engine/monitor is attached
+        (e.g. a Watcher under unit test with no engine wired).
+        """
+        if event.get("action") == "noop":
+            return
+        engine = self.engine
+        monitor = getattr(engine, "monitor", None) if engine is not None else None
+        if monitor is None:
+            return
+        from agency._monitor import MonitorEvent
+        prev = sinfo.get("last_state") or {}
+        prev_state = prev.get("state") if isinstance(prev, dict) else None
+        sid = event.get("session", "")
+        instr = (event.get("instruction") or "")[:200]
+        monitor.emit(MonitorEvent(
+            source="jules",
+            kind=event.get("action", "info"),
+            message=f"sid={sid} {prev_state}→{event.get('state')}: {instr}",
+            intent_id=sinfo.get("intent_id", ""),
+        ))
+
     def _calc_cadence(self) -> float:
         now = self.time_func()
 
@@ -374,6 +402,7 @@ class Watcher:
 
                     if event:
                         self._put_event(sinfo["intent_id"], event)
+                        self._emit_monitor(sinfo, event)   # Spec 022 — live side-channel
                         sinfo["last_transition_at"] = self.time_func()
 
                         if event["action"] in ("terminal", "verify_pr", "dispatch_fresh"):
