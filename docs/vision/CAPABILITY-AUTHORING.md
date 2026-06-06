@@ -554,6 +554,14 @@ The budgets are **conventions documented here**, not magic numbers in canon
 ride the WARN-only `soft_findings` bucket (never block, even in block mode, during
 the migration window). `scripts/check-drift` prints the live WARN counts.
 
+**Standing WARNs (Spec 069 cancelled).** `name_token_budget`,
+`bare_name_collision`, and `bare_name_contract_shadow` are **accepted standing
+WARNs**, NOT slated for BLOCK: they document the kept `<concept>_<capability>_<verb>`
+wire form (CORE §Naming), whose bare code-mode alias is FastMCP-blocked (one shared
+CodeMode catalog) and was deferred once Spec 068 captured the discovery win. They
+remain as honest budget signals. `surface_size` → BLOCK via Spec 070;
+`skill_name_parity` → BLOCK via Spec 071.
+
 ---
 
 ## Node-id parameters must be label-checked (Spec 056)

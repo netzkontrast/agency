@@ -158,6 +158,15 @@ surface (alias-and-deprecate — never a wire break, Goal 5 holds); bare names m
 stay unique across capabilities. Names carry a **token budget enforced by the
 lint pipeline** (Spec 067), not a magic number frozen in canon.
 
+> **Implementation status (Spec 069, cancelled 2026-06-06).** The bare alias is
+> currently an *aspiration*, not shipped: FastMCP's CodeMode resolves
+> `search`/`get_schema`/`call_tool` over one shared catalog, so a hidden-but-
+> callable bare alias isn't possible without doubling the catalog or forking
+> CodeMode. Since Spec 068 (tiered discovery) already captured the discovery
+> token win, the prefix-rename was deferred; the `name_token_budget` /
+> `bare_name_*` lint rules stand as documented WARNs. Revisit if CodeMode gains
+> native alias support.
+
 ## Status: the installable `agency` plugin proves it (`agency/`)
 
 > **Version-agnostic by design (Spec 072):** the live spec + test counts are the

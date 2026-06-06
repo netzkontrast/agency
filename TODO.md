@@ -23,7 +23,7 @@
 | **Shipped** | 38 | 001, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072 |
 | **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
 | **Not started** | 10 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 051 |
-| **Token-economy cluster (`intent:97534079`)** | 6 | 066 master · **067 ✅** · **068 ✅ (−83% discovery)** · 069/070/071 drafted (072 ✅ merged PR #24) |
+| **Token-economy cluster (`intent:97534079`)** | 6 | 066 master · **067 ✅** · **068 ✅ (−83% discovery)** · ~~069 cancelled (FastMCP-blocked)~~ · 070/071 drafted (072 ✅ merged PR #24) |
 | **Drafted — audit-trail (`intent:558f1bf5`)** | 1 | 073 toolchain-provenance (run scripts/tests via `dogfood`) |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
