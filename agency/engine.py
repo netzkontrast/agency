@@ -139,7 +139,7 @@ class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
                  embedder=None, web_search=None, runner=None,
                  extra_capabilities=None, surface: str | None = None,
-                 token_counter=None, skills_client=None,
+                 token_counter=None, skills_client=None, drivers=None,
                  _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
         # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
@@ -239,11 +239,26 @@ class Engine:
                 )
         # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
         # injected per-call by the Registry itself, and the registry is on ctx.
-        self.registry.injectors = {"client": lambda: self.jules_client,
-                                   "vcs": lambda: self.vcs_backend,
-                                   "embedder": lambda: self.embedder,
-                                   "runner": lambda: self.runner,
-                                   "skills_client": lambda: self.skills_client}
+        # Spec 002 — the six ad-hoc boundaries (jules/vcs/embedder/runner/
+        # token_counter/skills_client) unify into ONE named DriverRegistry. A
+        # future boundary registers a driver under a name and needs no new Engine
+        # kwarg + no new injectors key. The injectors table is now DERIVED from
+        # the registry (one source of truth); `inject=[...]` + `ctx.client` keep
+        # working unchanged, and verbs reach drivers via `ctx.get_driver(name)`.
+        from .capability import DriverRegistry
+        self.drivers = DriverRegistry({
+            "jules": self.jules_client, "vcs": self.vcs_backend,
+            "embedder": self.embedder, "runner": self.runner,
+            "token_counter": self.token_counter, "skills_client": self.skills_client})
+        if drivers:
+            for _name, _driver in drivers.items():
+                self.drivers.register(_name, _driver)
+        self.registry.drivers = self.drivers
+        self.registry.injectors = {"client": lambda: self.drivers.get("jules"),
+                                   "vcs": lambda: self.drivers.get("vcs"),
+                                   "embedder": lambda: self.drivers.get("embedder"),
+                                   "runner": lambda: self.drivers.get("runner"),
+                                   "skills_client": lambda: self.drivers.get("skills_client")}
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)

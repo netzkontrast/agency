@@ -20,9 +20,9 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 38 | 001, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072 |
+| **Shipped** | 39 | 001, 002, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072 |
 | **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
-| **Not started** | 10 | 002, 003, 004, 005, 010, 014, 026, 041, 046, 051 |
+| **Not started** | 9 | 003, 004, 005, 010, 014, 026, 041, 046, 051 |
 | **Token-economy cluster (`intent:97534079`) — GOAL MET** | 6 | 066 master · 072 ✅ · 067 ✅ · **068 ✅ (−83% discovery)** · **074 ✅ capstone** · ~~069 cancelled~~ · 070/071 WARN-accepted (optional future) |
 | **Shipped — audit-trail (`intent:558f1bf5` / `intent:d8090aef`)** | 4 | **073 ✅ → `shell` capability** (run/filter/templates) · **018 (Wins 1+3) ✅** (`develop.skill_walk` atomic walker + implicit `intent_id` via `AGENCY_INTENT`; Win 2 = cancelled-069, skipped) · **075 ✅** (`shell.define` + `shell.templates(query)` + run resolves graph-first; common-bash seeds — definable registry per CLAUDE.md #8) · **079 ✅** (Click CLI mirrors every capability verb as `agency <cap> <verb>` for non-MCP agents; auto-generated from the live registry; code-mode stays canonical) |
 | **Shipped — substrate foundation (`intent:bd7a1b7d`)** | 1 | **076 ✅** (unified event-hook: one `hooks/dispatch` → `agency hook` → `engine.dispatch_hook`; `Event` node + open-set handler surface + `AGENCY_INTENT` provenance linkage; install emits unified hooks.json for the capture events) |
@@ -51,7 +51,7 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 | Spec | Slug | Status | One-line | Blocker / Next step |
 |---|---|---|---|---|
 | 001 | toolresult-and-typed-errors | **Shipped (carry-over → 059)** | Internal `ToolResult` envelope (Option C) + `Registry.invoke` unwraps `.data` + records warnings/archived_to/PRODUCES from artefacts_written | Q-2 wire-contract territory superseded by Spec 019; remaining convenience-layer work (Codes, .success/.failure, trace_id stamping, "when to use" doctrine) carried over to Spec 059. Spec text + frontmatter kept verbatim per supersede pattern (GOALS.md #7) |
-| 002 | boundary-driver-protocol | Not started | Generic Boundary/Driver + DriverRegistry | Hard-blocks 007's full music surface |
+| 002 | boundary-driver-protocol | **Shipped** | Boundary/Driver + DriverRegistry — 6 boundaries unified; ctx.get_driver; injectors derived | Unblocks 007's music surface (driver-fanout deferred) |
 | 003 | skill-phase-objects | Not started | Typed `Skill`/`Phase` parse/validate boundary | Wave-1 backlog; revisit when canon needs new ground |
 | 004 | template-schema-coverage | Not started | Wire generate/validate loop for uncovered kinds | Wave-1 backlog |
 | 005 | context-mode-and-token-economics | Not started | Output-overflow capture + recall | Wave-1 backlog |

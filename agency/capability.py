@@ -14,7 +14,7 @@ import inspect
 from dataclasses import dataclass, field
 from pathlib import Path
 from string import Template as _Template
-from typing import Any, Callable, ClassVar, Optional
+from typing import Any, Callable, ClassVar, Optional, Protocol, runtime_checkable
 
 from .memory import Memory
 from .ontology import OntologyExtension
@@ -46,6 +46,59 @@ class Capability:
         return self.verbs[verb]["role"]
 
 
+class DriverMissing(LookupError):
+    """Spec 002 — raised by ``DriverRegistry.get`` when no driver is registered
+    under a name. The wrapping capability converts it to a typed
+    ``ToolResult.failure(NOT_FOUND)`` (D-3); it is a ``LookupError`` so existing
+    ``except KeyError``/``except LookupError`` paths still catch it."""
+
+
+@runtime_checkable
+class Boundary(Protocol):
+    """Spec 002 — marker for ANY injected external dependency (an I/O seam isolated
+    for deterministic testing: Jules REST, git/gh, the embedder, a shell runner, the
+    token counter, the Skills API). No members — a memberless ``runtime_checkable``
+    Protocol is a no-op ``isinstance`` (PEP 544), so this imposes NO behaviour change
+    on the concrete clients."""
+
+
+@runtime_checkable
+class Driver(Boundary, Protocol):
+    """Spec 002 — a ``Boundary`` reached BY NAME through ``ctx.get_driver(name)``.
+    Option B: there is NO uniform ``dispatch(op, **kw)``. Each concrete driver keeps
+    its own typed, named methods (``JulesClient.create``, ``GitClient.branch``); the
+    uniform contract every driver shares is the RETURN TYPE (``ToolResult``, Spec 001),
+    produced by the *capability* that wraps the boundary — not a uniform method name."""
+
+
+class DriverRegistry:
+    """Spec 002 — ``Registry.injectors`` generalized to a named table. A domain
+    tool-cluster plugs in by registering a driver under a name and needs NO new
+    ``Engine`` kwarg and NO new ``injectors`` key. Named lookup + a uniform result
+    type (via the wrapping verb) is the whole value."""
+
+    def __init__(self, drivers: Optional[dict[str, Any]] = None):
+        self._drivers: dict[str, Any] = dict(drivers or {})
+
+    def register(self, name: str, driver: Any) -> None:
+        """Register (or replace) the driver under ``name``."""
+        self._drivers[name] = driver
+
+    def get(self, name: str) -> Any:
+        try:
+            return self._drivers[name]
+        except KeyError:
+            raise DriverMissing(
+                f"no driver registered under {name!r}; have {sorted(self._drivers)}"
+            ) from None
+
+    def has(self, name: str) -> bool:
+        return name in self._drivers
+
+    def names(self) -> list[str]:
+        return sorted(self._drivers)
+
+
 @dataclass
 class CapabilityContext:
     """The one typed handle a verb receives (via `inject: ["ctx"]`, or always for a
@@ -60,7 +113,16 @@ class CapabilityContext:
     depth: int = 0
     engine: Any = None                  # the owning Engine; for verbs that need engine-attached state
                                         # (e.g. the long-lived watcher singleton at engine._jules_watcher)
+    drivers: Any = None                 # Spec 002 — the engine's DriverRegistry (None in bare unit tests)
     MAX_DEPTH: int = 16
+
+    def get_driver(self, name: str) -> Any:
+        """Spec 002 — fetch a named external Driver from the engine's DriverRegistry.
+        Raises ``DriverMissing`` when no DriverRegistry is attached or the name is
+        unregistered (the wrapping capability converts it to a typed failure)."""
+        if self.drivers is None:
+            raise DriverMissing(f"no DriverRegistry on this context (name={name!r})")
+        return self.drivers.get(name)
 
     def spawn(self, cap: str, verb: str, **args) -> tuple:
         """Invoke a sibling capability and return BOTH its result and the recorded
@@ -407,6 +469,7 @@ class Registry:
         # {"client": () -> jules_client, "caps": () -> the live verb map}. The
         # per-call `memory` and `intent_id` are injected by name from invoke().
         self.injectors: dict[str, Callable[[], Any]] = {}
+        self.drivers: Any = None        # Spec 002 — the engine's DriverRegistry (named boundary table)
         self.ontology: Any = None       # the effective Ontology; set by the engine (for ctx)
 
     def register(self, cap: Capability) -> None:
@@ -467,7 +530,8 @@ class Registry:
                     memory=memory, ontology=self.ontology, registry=self,
                     intent_id=intent_id, agent_id=agent_id,
                     client=(self.injectors["client"]() if "client" in self.injectors else None),
-                    depth=_depth, engine=getattr(self, "engine", None))
+                    depth=_depth, engine=getattr(self, "engine", None),
+                    drivers=getattr(self, "drivers", None))
             elif name == "memory":
                 call["memory"] = memory
             elif name == "intent_id":
