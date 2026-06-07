@@ -13,6 +13,9 @@ canonical sources — it does **not** duplicate them (that would drift instantly
 `TODO.md` rolls up; each `Plan/NNN/spec.md` grounds. There is no drift between the two by
 rule: **every spec-touching commit updates the matching `TODO.md` row** (CLAUDE.md rule 4).
 
+➡️ **[index.md](index.md)** — every spec listed + linked (generated from `Plan/`
+frontmatter by `scripts/gen-spec-index`; re-run after adding/closing a spec).
+
 ## The spec lifecycle
 
 ```
