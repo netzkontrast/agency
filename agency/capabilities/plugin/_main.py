@@ -865,6 +865,64 @@ def lint_surface(registry) -> dict:
     return {"ok": True, "warnings": open_f, "accepted": accepted_f, "mode": "warn"}
 
 
+# Spec 092 G2 — names that are ALWAYS injected by Registry.invoke and so can never be
+# user-facing verb parameters (a collision raises `duplicate parameter name` at signature
+# build). The inject names (vcs/runner/embedder/skills_client) ARE valid params when
+# declared via `inject=[...]`, so they're excluded per-verb below.
+_RESERVED_PARAMS = {"intent_id", "ctx", "memory"}
+
+
+def _check_reserved_names(cap) -> list[dict]:
+    """Spec 092 G2 — author-time guards for the two reserved-name collisions that each
+    crash at runtime: a verb PARAMETER named like a reserved injected param, and a verb
+    that RETURNS a string under the key ``artefact`` (which the Registry auto-records as
+    an Artefact props dict). Returns findings (param = hard; return-key = soft WARN)."""
+    import ast
+    import inspect
+    import textwrap
+
+    findings: list[dict] = []
+    for vname, spec in cap.verbs.items():
+        fn = spec.get("fn")
+        method = getattr(fn, "__capability_method__", fn)
+        inject = set(spec.get("inject", []))
+        try:
+            params = list(inspect.signature(method).parameters)
+        except (TypeError, ValueError):
+            params = []
+        for pname in params:
+            if pname == "self" or pname in inject:
+                continue
+            if pname in _RESERVED_PARAMS:
+                findings.append({
+                    "verb": vname, "kind": "reserved_param_name", "hard": True,
+                    "msg": f"verb {vname!r} declares a parameter named {pname!r}, which "
+                           f"collides with the reserved injected param (duplicate parameter "
+                           f"name at signature build).",
+                    "fix": f"rename it; read the serving value ambiently via self.ctx.{pname} "
+                           f"instead of taking it as a parameter."})
+        # best-effort AST: a Return dict literal with an 'artefact' key whose value is a
+        # bare literal/name (not a dict/call) collides with the auto-artefact-record.
+        try:
+            tree = ast.parse(textwrap.dedent(inspect.getsource(method)))
+        except (OSError, TypeError, SyntaxError):
+            continue
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Return) and isinstance(node.value, ast.Dict)):
+                continue
+            for key, val in zip(node.value.keys, node.value.values):
+                if (isinstance(key, ast.Constant) and key.value == "artefact"
+                        and not isinstance(val, (ast.Dict, ast.Call))):
+                    findings.append({
+                        "verb": vname, "kind": "reserved_return_key", "hard": False,
+                        "msg": f"verb {vname!r} returns key 'artefact' with a non-dict value; "
+                               f"the Registry auto-records result['artefact'] as Artefact "
+                               f"props (dict) — a string/id here crashes the unwrap.",
+                        "fix": "use a different key (e.g. 'artefact_id') for an id; reserve "
+                               "'artefact' for an artefact props dict."})
+    return findings
+
+
 def lint_capability(cap) -> dict:
     """Run the rule families against `cap` (a Capability instance).
 
@@ -880,6 +938,7 @@ def lint_capability(cap) -> dict:
     Returns: {ok, violations, warnings, skipped, mode}."""
     source_path = _capability_source_path(cap)
     mode = "block" if _has_scaffold_marker(source_path) else "warn"
+    _reserved = _check_reserved_names(cap)                       # Spec 092 G2
     all_findings = (
         _check_structural(cap)
         + _check_role_tag(cap, source_path)
@@ -888,10 +947,12 @@ def lint_capability(cap) -> dict:
         + _check_token_budget(cap)
         + _check_wire_shape(cap)
         + _check_template_folder(cap)
+        + [f for f in _reserved if f.get("hard")]               # reserved param = hard
     )
     # WARN-only soft rules — never block, even in block mode (migration windows).
     soft_findings = (_check_node_id_guards(cap) + _check_reflection_links(cap)
-                     + _check_name_token_budget(cap) + _check_surface_size(cap))
+                     + _check_name_token_budget(cap) + _check_surface_size(cap)
+                     + [f for f in _reserved if not f.get("hard")])  # reserved return-key = warn
     # Spec 074 — enrich with remediation; split soft WARNs into open vs accepted
     # (standing accepts + per-site `# agency-accept-warn:` markers in the source).
     src_text = ""
