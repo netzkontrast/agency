@@ -72,6 +72,19 @@ preserved and the long-tail (resume/session/rebuild) wired.
   `agency/ontology.py` (the core extension mechanism). `git diff` confirms.
 - [ ] **`scripts/check-drift` Green** after install regen; no orphans in
   `bin/agency-music-*` / `skills/music/references/`.
+- [ ] **Reference docs ported verbatim from bitwize `reference/`** (50
+  markdown files across 10 subdirs — mastering/, suno/, cloud/, sheet-music/,
+  promotion/, release/, distribution/, workflows/, quick-start/, overrides/):
+  land under `agency/capabilities/music/data/reference/` with the bitwize
+  subdir layout preserved (so internal cross-links keep working). Read via
+  `state.read_data("reference", "<subdir>/<file>")` from any verb that needs
+  domain knowledge. Test asserts the file count matches bitwize source
+  (`len(list(data/reference/**/*.md)) == 50`).
+- [ ] **Genre guides ported verbatim from bitwize `genres/`** (all genre
+  directories — including subgenres + the INDEX.md). Land under
+  `agency/capabilities/music/data/genres/<slug>/`. Each genre dir's
+  internal README + production notes preserved. Test asserts directory
+  count matches bitwize source. Read via `state.read_data("genre", slug)`.
 - [ ] **pytest markers extended for the music wave** (Codex P2 — required
   for `scripts/test-cap music_*` to actually run music tests in 095–100):
   `tests/conftest.py`'s `_AUTO_MARKER_PATTERNS` gains entries for
@@ -242,7 +255,93 @@ music_ontology = OntologyExtension(
         # 098: "published-asset", "promo-album-package", "social-post"
         # 099: "research-claim", "verification-record"
     },
+    templates={                            # Spec 060 substrate — content
+                                           # scaffolds rendered by ctx.template().
+                                           # Bodies live under
+                                           # `agency/capabilities/music/templates/
+                                           # <name>.md` (engine bootstrap
+                                           # discovers + merges with the dict).
+                                           # See "Template porting" below.
+        "album":  None,    # → agency/capabilities/music/templates/album.md
+        "track":  None,    # → agency/capabilities/music/templates/track.md
+        "artist": None,    # → agency/capabilities/music/templates/artist.md
+        "genre":  None,    # → agency/capabilities/music/templates/genre.md
+        "ideas":  None,    # → agency/capabilities/music/templates/ideas.md
+        # 098 adds: "campaign","facebook","instagram","tiktok","twitter","youtube"
+        # 099 adds: "research","sources"
+    },
 )
+```
+
+### Template porting (bitwize `templates/` → agency `OntologyExtension.templates`)
+
+bitwize ships 8 content scaffolds under `templates/` (5 root + 6 in
+`templates/promo/`). Agency's substrate (Spec 060) makes templates a
+first-class field on `OntologyExtension` — accessed via `ctx.template(name)`
+(`agency/capability.py:202-…`) which returns a `string.Template` body for
+`.substitute(**fields)` rendering.
+
+**094 lifecycle ports these 5** (the album/track/artist/genre/ideas
+scaffolds — needed by `create_album`, `create_track`, and the conceptualizer
+to render the canonical bitwize-shaped README files):
+
+| bitwize path | agency path | Used by |
+|---|---|---|
+| `templates/album.md` | `agency/capabilities/music/templates/album.md` | `create_album` (renders the README) |
+| `templates/track.md` | `agency/capabilities/music/templates/track.md` | `create_track` (renders the track markdown) |
+| `templates/artist.md` | `agency/capabilities/music/templates/artist.md` | `create_album` (renders the artist info page on first album for a new artist) |
+| `templates/genre.md` | `agency/capabilities/music/templates/genre.md` | `create_album` (renders the genre directory README on first album in a new genre) |
+| `templates/ideas.md` | `agency/capabilities/music/templates/ideas.md` | `capture_idea` (initial IDEAS.md scaffold on first idea capture) |
+
+The bodies are checked into the repo verbatim from bitwize. Spec 060
+engine-bootstrap discovers them at startup and merges them into the
+declared `templates` dict. Tests assert `MusicCapability().ontology.templates`
+has each name registered after engine bootstrap.
+
+**Usage idiom** (matching `dogfood/_main.py:148`):
+
+```python
+# In clusters/lifecycle.py
+@verb(role="effect")
+def create_album(self, artist: str, title: str, genre: str,
+                 type: str = "thematic") -> ToolResult:
+    """Create the album root + READMEs, rendered from the canonical templates.
+    Spec 060: ctx.template(name) → string.Template; .substitute(**fields)
+    renders the body. The StateDriver persists the rendered markdown to
+    the album root path.
+    """
+    state = self.ctx.get_driver("music_state")
+    slug = _slugify(title)
+    root = state.create_album_root(artist=artist, genre=genre, slug=slug)
+    # Render the album README from the canonical bitwize-ported template:
+    album_tpl = self.ctx.template("album")
+    body = album_tpl.template          # raw body (kept verbatim from bitwize;
+                                       # the agent fills [Album Title]
+                                       # placeholders post-creation as the
+                                       # conceptualizer skill walks)
+    state.put(f"{root}/README.md", {"body": body})
+    # On first album for this artist: render artist.md
+    if not state.find_album(query=f"artist={artist}"):
+        artist_tpl = self.ctx.template("artist")
+        state.put(f"artists/{_slugify(artist)}/README.md",
+                  {"body": artist_tpl.template})
+    return ToolResult.success(data={"album_root": root, "slug": slug})
+
+@verb(role="effect")
+def create_track(self, album: str, title: str,
+                 track_number: int = 0) -> ToolResult:
+    """Create a track markdown rendered from the canonical bitwize-ported
+    track template. The .substitute call fills the track_number frontmatter
+    entry; the rest stays as placeholder bracketed-text for the lyric-writing
+    skill to fill on its first phase."""
+    state = self.ctx.get_driver("music_state")
+    track_tpl = self.ctx.template("track")
+    body = track_tpl.template.replace("track_number: 0",
+                                      f"track_number: {track_number}")
+    slug = _slugify(title)
+    track_id = state.create_track(album=album, slug=slug, title=title,
+                                  body=body)
+    return ToolResult.success(data={"track_id": track_id, "slug": slug})
 ```
 
 > The 094–100 wave is **purely additive** (Codex P2 #13 — strict): no

@@ -58,6 +58,13 @@ existing one.
 - [ ] **Domain registry** at `data/reference/research-domains.yaml` carries the
   10 bitwize specialist domains as named configurations (each declares
   preferred-sources, prompt-style, verifier-strictness).
+- [ ] **Templates ported from bitwize** (NEW per template-port fix): the
+  `research` and `sources` scaffolds land under
+  `agency/capabilities/music/templates/` and register on the music
+  `OntologyExtension.templates`. `dispatch_research` renders the
+  `research` dossier on first call per album; `verify_sources` updates
+  the `sources` summary. Both bodies are checked in verbatim from
+  bitwize `templates/research.md` + `templates/sources.md`.
 - [ ] **`scripts/test-cap music_research`** Green; the test bind a fake
   `Researcher` boundary that returns canned multi-specialist results.
 - [ ] **`TODO.md` updated;** parent (093) row notes child shipped.
@@ -159,6 +166,31 @@ RESEARCH_ENUMS = {
                                   "historical", "primary_source", "technical",
                                   "document_hunter"},
 }
+```
+
+### Templates (bitwize `templates/research.md` + `templates/sources.md`)
+
+Both bitwize scaffolds land verbatim under
+`agency/capabilities/music/templates/` and register on the music
+`OntologyExtension.templates`:
+
+| bitwize path | agency template name | Renders |
+|---|---|---|
+| `templates/research.md` | `research` | Per-album research dossier (primary sources / timeline / key people / events / track-by-track claim verification / creative-license areas) |
+| `templates/sources.md` | `sources` | Sources & documentation summary (categorized source list + downloaded-documents table) |
+
+`dispatch_research`'s first call per album renders the dossier:
+
+```python
+# In the dispatch_research flow (additions to the iteration-5 code):
+state = self.ctx.get_driver("music_state")
+if not state.read_data("research-dossier", album):     # first call
+    research_tpl = self.ctx.template("research")
+    state.put(f"albums/{album}/research.md",
+              {"body": research_tpl.template.replace("[Album Name]", album)})
+    sources_tpl = self.ctx.template("sources")
+    state.put(f"albums/{album}/sources.md",
+              {"body": sources_tpl.template.replace("[Album Name]", album)})
 ```
 
 ### Walkable skill: `research-workflow`

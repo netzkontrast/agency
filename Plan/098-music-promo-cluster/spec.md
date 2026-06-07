@@ -49,9 +49,14 @@ backend; the test fake records the upload manifest.
   → review → asset-attach → schedule → publish).
 - [ ] **Walkable skill: `release-publish`** — 4-phase workflow (gather-assets
   → upload → catalogue-update → announce).
-- [ ] **Platform templates** under `data/templates/`: X (280-char), Threads
-  (500-char), Instagram (caption + media), TikTok (description + hashtags),
-  Bluesky (300-char).
+- [ ] **Platform templates ported VERBATIM from bitwize** (fix —
+  see "Template porting" below): the 6 bitwize promo scaffolds (`campaign`,
+  `facebook`, `instagram`, `tiktok`, `twitter`, `youtube`) land as `.md`
+  bodies under `agency/capabilities/music/templates/` and register on the
+  music capability's `OntologyExtension.templates`. Earlier draft used a
+  speculative `{x,threads,instagram,tiktok,bluesky}.yaml` list with a
+  different schema — that was wrong on shape AND platforms; corrected to
+  match the source-of-truth in bitwize `templates/promo/`.
 - [ ] **`scripts/test-cap music_promo`** Green; runs in < 8 seconds with ZERO
   network/boto3 binary required.
 - [ ] **No regression on `promo_copy`, `publish_asset`** (preserved from 007).
@@ -231,19 +236,85 @@ PROMO_ARTEFACTS = [
 ]
 ```
 
-### Platform templates
+### Platform templates (bitwize `templates/promo/` → agency canonical)
 
-```
-agency/capabilities/music/data/templates/
-├── x.yaml              # 280-char Twitter/X
-├── threads.yaml        # 500-char Threads
-├── instagram.yaml      # caption + media
-├── tiktok.yaml         # description + hashtags
-└── bluesky.yaml        # 300-char Bluesky
+The 6 bitwize promo scaffolds land verbatim under
+`agency/capabilities/music/templates/` (NOT `data/templates/` — Spec 060
+substrate is the canonical home), register on the music
+`OntologyExtension.templates`, and become reachable via `ctx.template(name)`:
+
+| bitwize path | agency template name | Renders |
+|---|---|---|
+| `templates/promo/campaign.md` | `campaign` | The campaign-strategy overview (Album, Release Date, Primary Platform, Campaign Duration, Language) — driven from album frontmatter |
+| `templates/promo/facebook.md` | `facebook` | Long-form release post (2-3 paragraphs) + scheduled posts |
+| `templates/promo/instagram.md` | `instagram` | Caption + media reels (1-2 sentences hook) |
+| `templates/promo/tiktok.md` | `tiktok` | Short-form video caption (one punchy sentence) |
+| `templates/promo/twitter.md` | `twitter` | Thread structure ("1/", "2/", …) |
+| `templates/promo/youtube.md` | `youtube` | Full-album video description (2-3 paragraphs + tracklist) |
+
+Ontology declaration (in 094's consolidated extension):
+
+```python
+templates={
+    # …094 lifecycle templates above…
+    "campaign":  None,    # → agency/capabilities/music/templates/campaign.md
+    "facebook":  None,    # → agency/capabilities/music/templates/facebook.md
+    "instagram": None,    # → agency/capabilities/music/templates/instagram.md
+    "tiktok":    None,    # → agency/capabilities/music/templates/tiktok.md
+    "twitter":   None,    # → agency/capabilities/music/templates/twitter.md
+    "youtube":   None,    # → agency/capabilities/music/templates/youtube.md
+}
 ```
 
-Each carries: `pattern` (template string), `style_examples` (LLM hint),
-`max_chars` (validation), `media_required` (bool).
+Corrected `promo_copy` implementation (uses `ctx.template()` not the
+speculative `state.read_data("template", …)` path of the iteration-5
+sketch):
+
+```python
+@verb(role="act")
+def promo_copy(self, album: str, platform: str = "twitter",
+               variant: str = "release") -> ToolResult:
+    """Render the canonical bitwize-ported promo template for a platform.
+    Spec 060 substrate path: ctx.template(platform) returns a string.Template
+    whose body is the bitwize template verbatim. The agent fills bracketed
+    placeholders post-render OR routes the result through the optional
+    `llm` driver for richer synthesis (Path B below).
+    """
+    if platform not in {"campaign", "facebook", "instagram", "tiktok",
+                        "twitter", "youtube"}:
+        return ToolResult.failure(
+            "INVALID_ARGUMENT",
+            f"unknown platform {platform!r}; expected one of "
+            "campaign/facebook/instagram/tiktok/twitter/youtube")
+    state = self.ctx.get_driver("music_state")
+    hits = state.find_album(album)
+    if not hits:
+        return ToolResult.failure("INVALID_ARGUMENT",
+                                  f"album {album!r} not found")
+    album_data = hits[0]
+    # Path A — render the canonical bitwize template verbatim (default;
+    # default install works without an LLM driver per 093 deployment plan):
+    tpl = self.ctx.template(platform)
+    body = tpl.template.replace("[Album Name]", album_data["title"])
+    # Path B — when the `llm` driver is usable, route through it for
+    # richer in-line synthesis. (See iteration-5 except-clause for failure
+    # surface; rule-based body always stands on any LLM-side failure.)
+    try:
+        llm = self.ctx.get_driver("llm")
+        decision = llm.decide(
+            prompt=f"Fill this promo body for {album_data['title']} "
+                   f"(theme: {album_data.get('theme', '')}). Keep the "
+                   f"existing structure; replace bracketed placeholders "
+                   f"with concrete copy:\n\n{body}",
+            options=["free-form"])
+        body = decision.get("choice", body)
+    except (DriverMissing, RuntimeError, KeyError, ValueError,
+            TimeoutError, OSError):
+        pass     # rule-based body stands
+    return ToolResult.success(data={"result": body, "artefact": {
+        "kind": "promo-copy", "album": album, "platform": platform,
+        "body": body}})
+```
 
 ## Test plan
 

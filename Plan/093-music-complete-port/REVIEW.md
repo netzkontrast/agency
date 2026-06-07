@@ -543,6 +543,54 @@ Total verbs across the wave (Codex P2 counts now consistent):
 - 100 gates: 6 + 5 = 11
 - **Grand total: 85 user-facing + 14 gate = 99 registered verbs**
 
+## Iteration 7 — User-driven completeness audit (applied in follow-up commit)
+
+User question (2026-06-07): *"Are all bitwize templates ported? Is every
+aspect of the Plugin ported? And tightly integrated with agency?"*
+
+The honest answer **before** iteration 7 was **no** — three concrete gaps:
+
+| Gap | Status before iter-7 | Applied fix |
+|---|---|---|
+| **bitwize `templates/` (14 content scaffolds)** — 8 root + 6 promo | NOT ported. 098 had a speculative `data/templates/{x,threads,…}.yaml` list with wrong shape + wrong platforms. | All 14 ported VERBATIM to `agency/capabilities/music/templates/` (Spec 060 canonical home) + registered on `OntologyExtension.templates`. 094 owns the 5 lifecycle scaffolds (album/track/artist/genre/ideas); 098 owns the 6 promo scaffolds (campaign/facebook/instagram/tiktok/twitter/youtube); 099 owns the 2 research scaffolds (research/sources). `ctx.template(name)` reads them per `agency/capability.py:202`. |
+| **bitwize `reference/` (50 production docs)** | mentioned generically as "data/reference/" but never enumerated | All 50 docs ported verbatim with bitwize subdir layout preserved (mastering/, suno/, cloud/, sheet-music/, promotion/, release/, distribution/, workflows/, quick-start/, overrides/). 094 Done-When asserts `len(data/reference/**/*.md) == 50`. |
+| **bitwize `genres/` library (full subgenre dir tree)** | mentioned as "72 genres" but bitwize ships ~387 dirs including subgenres | Genre library ported verbatim with subdir layout preserved; tests assert directory count matches bitwize source. Read via `state.read_data("genre", slug)`. |
+
+**093 master gains a full bitwize-plugin audit table** under "Why" — every
+plugin aspect (89 tools, 53 skills, 14 templates, 50 reference docs, 388
+genre dirs, FastMCP server, slash commands, hooks, migrations, state
+cache, config, `tools/` utilities, tests, docs) has a disposition. ZERO
+unaccounted bitwize content.
+
+### Tight-integration verification
+
+After iteration-7 fixes, every bitwize plugin aspect routes through one
+of agency's canonical substrate mechanisms — there is NO out-of-band
+plumbing:
+
+| bitwize aspect | agency substrate | tight integration verified by |
+|---|---|---|
+| Templates | `OntologyExtension.templates` + `ctx.template(name)` | Spec 060 / `agency/capability.py:202` |
+| Skills (workflows) | `OntologyExtension.skills` walked by `develop.skill_walk` | Spec 080/081 |
+| MCP tools | Capability verbs registered via `@verb` decorator | `agency/capability.py` |
+| Drivers (external boundaries) | `Boundary`/`Driver` via `ctx.get_driver(name)` | Spec 002 |
+| Provenance | `Memory.record` + `link("SERVES")` + `provenance(intent_id)` | `agency/memory.py:243` |
+| Quality gates | `gate.check(lifecycle_id, name, passed, evidence)` | `agency/capabilities/gate/_main.py` |
+| Human-in-loop | `elicit`/`lifecycle_gate` | `agency/engine.py:420` |
+| FastMCP server | `mcp__agency__{search,get_schema,execute}` | Spec 029 |
+| CLI surface | `agency <cap> <verb>` Click mirror | Spec 079 |
+| Session hooks | Unified `hooks/dispatch` → `engine.dispatch_hook` | Spec 076 |
+| State cache | `.agency/session.db` graph (no JSON cache) | Spec 020 / CLAUDE.md rule 2 |
+| Config | per-cap config + `.agency/session.db` | Spec 092 G3 (`llm` driver pattern) |
+| Reference content (genres/data) | Static files under `data/`, read via `state.read_data(kind, slug)` | StateDriver method |
+| Test discipline | pytest markers via 094-extended `_AUTO_MARKER_PATTERNS` | Spec 053 |
+
+**Verdict: After iteration 7, every aspect of the bitwize plugin has
+either (a) a verb in 094–100 OR (b) a disposition in 093's audit table.
+Every behavioural surface routes through an agency substrate mechanism;
+nothing bypasses the engine.** Tight integration is asserted across the
+substrate — no parallel plumbing.
+
 ## What's applied vs deferred (between this review and commit)
 
 **Applied in this PR (the 8 spec files):**

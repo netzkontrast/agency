@@ -43,6 +43,33 @@ nothing else") truly holds, then porting bitwize-music's full surface should be
 a *single folder* with no edit anywhere else in `agency/`. **That is what 093
 proves, and what its CI gates check.**
 
+### The full bitwize-music surface (audit baseline)
+
+| Plugin aspect | Count / Description | Disposition in 093 |
+|---|---|---|
+| MCP tools | 89 (in 19 handler modules) | 75 ported (across 094–100), 11 absorbed by substrate, 3 dropped |
+| Skills | 53 markdown + frontmatter | Workflow skills → walkable `OntologyExtension.skills` (8+ phase-graphs across 094–100); reference skills → docs |
+| Templates | **14** (8 root `templates/*.md` + 6 in `templates/promo/`) | **All ported verbatim** to `agency/capabilities/music/templates/` + registered on `OntologyExtension.templates` (094 owns 5 lifecycle, 098 owns 6 promo, 099 owns 2 research/sources, 096 owns 1 genre — see per-cluster spec) |
+| Reference docs | **50** markdown across 10 subdirs (mastering, suno, cloud, sheet-music, promotion, release, distribution, workflows, quick-start, overrides) | All ported verbatim to `agency/capabilities/music/data/reference/<subdir>/` with bitwize subdir layout preserved (so internal cross-links work) |
+| Genre library | **All bitwize `genres/` dirs** (incl. subgenres + INDEX.md) | Ported verbatim to `agency/capabilities/music/data/genres/` (subdir-per-genre layout preserved) |
+| FastMCP server | `servers/bitwize-music-server/` | Absorbed by `mcp__agency__{search,get_schema,execute}` |
+| Slash commands | `/bitwize-music:<cmd>` per skill | Absorbed by Spec 079 CLI mirror (`agency music <verb>`) |
+| Hooks | 6 items (session-start, pre-commit, validate_track.py, check_version_sync.py) | Absorbed by Spec 076 unified hook dispatch |
+| Migrations | 6 version-specific `.md` notes | Bitwize-version-specific; not portable. Future agency migrations live in `agency/capabilities/music/migrations/` (097's `db_init.py` is the first) |
+| State cache | `~/.bitwize-music/cache/state.json` | Absorbed by `.agency/session.db` (graph-canonical per CLAUDE.md rule 2) |
+| Config | `~/.bitwize-music/config.yaml` | Absorbed by `.agency/session.db` + per-cap config |
+| `tools/` Python utilities | 11 subdirs (cloud, database, mastering, mixing, n8n, promotion, shared, sheet-music, state, userscripts, validate_help_completeness.py) | Absorbed into Driver method implementations (StateDriver/AudioDriver/CloudDriver/DBDriver/TextDriver) |
+| Tests | 3,773 tests | Behavioural parity in agency tests (per CLAUDE.md rule 8 — invariants not snapshots; we don't clone test count) |
+| Docs (configuration/skills/troubleshooting) | `docs/` 4 items | Absorbed by agency `document` capability + `skills.find/render` |
+
+> **bitwize-music plugin nothing-left-on-the-floor check:** every directory
+> under the bitwize plugin root has a disposition in this table. The 14
+> templates + 50 reference docs + the genre library are CONTENT artefacts —
+> they ship as-is into `agency/capabilities/music/{templates,data}/`. The
+> behaviour ports through verbs + drivers + skills. The infrastructure
+> (server, hooks, config, state cache) evaporates into agency substrate.
+> ZERO unaccounted bitwize content.
+
 ### What "complete" means here (the operating definition)
 
 Complete behavioral parity, NOT 1:1 verb-name parity:
