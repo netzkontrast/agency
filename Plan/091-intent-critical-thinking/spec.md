@@ -59,5 +59,6 @@ stays fully reachable via MCP (`capability_intent_*`), code-mode, and the per-ve
 
 ## Followup
 
-- Consider relocating `skills.suggests` → `intent.suggests` to fully honor the 026 panel
-  (Intent owns the projection) now that the capability exists — a later, breaking rename.
+- **Done (2026-06-07):** relocated `skills.suggests` → `intent.suggests` — Intent now owns
+  the projection (026 panel honored). `_all_skills` reused from the skills module (DRY).
+  `tests/test_intent_suggests.py` (6). The skills capability is back to find/render/lint/index.

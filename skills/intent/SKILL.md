@@ -31,6 +31,7 @@ Intent is the reasoning capability: it turns the human-owned goal into structure
 | `premortem` | transform | Premortem — assume the goal FAILED, reason backward to causes + mitigations. | [details](references/premortem.md) |
 | `second_order` | transform | Trace second- and third-order consequences — 'and then what?' past the first effect. | [details](references/second_order.md) |
 | `steelman` | transform | Build the STRONGEST version of the opposing or alternative position. | [details](references/steelman.md) |
+| `suggests` | transform | Project the serving intent + the last verb's state to the next applicable skill (Spec 026 Part B — Intent owns the intent→skill projection; a RECOMMENDATION, not a dispatch). | [details](references/suggests.md) |
 | `tradeoffs` | transform | Build an explicit trade-off matrix — options × criteria — for a decision. | [details](references/tradeoffs.md) |
 
 ## Example

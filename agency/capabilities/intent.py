@@ -162,6 +162,62 @@ class IntentCapability(CapabilityBase):
         ], "output": "the consequence chain past the first-order effect"}
 
     @verb(role="transform")
+    def suggests(self, called_capability: str = "", called_verb: str = "",
+                 called_state: str = "", floor: float = 0.5) -> dict:
+        """Project the serving intent + the last verb's state to the next applicable
+        skill (Spec 026 Part B — Intent owns the intent→skill projection; a
+        RECOMMENDATION, not a dispatch). Evaluates each skill's optional
+        ``applies_when`` Matcher across the whole registry.
+
+        Matcher kinds: ``pattern`` (regex over the context); ``verb_code`` (invoke a
+        decider verb returning ``{matches, confidence}`` — cycle-checked against the
+        verb in flight); ``llm_select`` is deferred (needs an LLM Driver, Spec 002).
+
+        Inputs: called_capability / called_verb / called_state (the last step's
+                context); floor (min confidence, default 0.5). The serving intent is
+                read ambiently from ``ctx.intent_id``.
+        Returns: ``{skill, mode, confidence, cue, matched_by}`` for the best match, or
+                 ``{skill: None, reason}`` when nothing clears the floor.
+        chain_next: ``develop.skill_walk`` the recommended skill, or ``skills.render`` it.
+        """
+        import re
+
+        from .skills import _all_skills          # reuse the registry-scan helper (DRY)
+        parts = [called_capability, called_verb, called_state]
+        node = self.ctx.memory.recall(self.ctx.intent_id) or {}
+        parts += [node.get("purpose", ""), node.get("deliverable", ""),
+                  node.get("acceptance", "")]
+        context = " ".join(p for p in parts if p).lower()
+
+        best = None
+        for meta in _all_skills(self.ctx.registry).values():
+            matcher = meta["_schema"].get("applies_when")
+            if not matcher:
+                continue
+            kind = matcher.get("kind")
+            matched, conf = False, 0.0
+            if kind == "pattern":
+                if re.search(matcher.get("pattern", ""), context, re.I):
+                    matched, conf = True, float(matcher.get("confidence", 1.0))
+            elif kind == "verb_code":
+                vc = matcher.get("verb_code", {})
+                cap, vb = vc.get("capability"), vc.get("verb")
+                if (cap, vb) == (called_capability, called_verb):
+                    continue                              # cycle-check: skip the verb in flight
+                try:
+                    rr = self.ctx.call(cap, vb, **(vc.get("args") or {}))
+                    rr = rr.get("result", rr) if isinstance(rr, dict) else {}
+                    matched, conf = bool(rr.get("matches")), float(rr.get("confidence", 0.0))
+                except Exception:
+                    matched, conf = False, 0.0
+            # kind == "llm_select" deferred — needs an LLM Driver (Spec 002 registry)
+            if matched and conf >= floor and (best is None or conf > best["confidence"]):
+                best = {"skill": meta["name"], "mode": kind, "confidence": conf,
+                        "cue": meta["phases"][0] if meta["phases"] else "",
+                        "matched_by": f"{kind}:{meta['name']}"}
+        return best or {"skill": None, "reason": f"no matcher cleared the floor ({floor})"}
+
+    @verb(role="transform")
     def tradeoffs(self, options: str = "", criteria: str = "") -> dict:
         """Build an explicit trade-off matrix — options × criteria — for a decision.
 

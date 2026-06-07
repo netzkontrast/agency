@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# agency-generated: v1 — capability_skills_suggests
-# Project the serving intent + the last verb's state to the next applicable skill (Spec 026 Part B — the intent→skill projection, a RECOMMENDATION not a dispatch).
-# Usage: agency-skills-suggests [--intent-id ID] <called_capability> <called_verb> <called_state> <floor>
+# agency-generated: v1 — capability_intent_suggests
+# Project the serving intent + the last verb's state to the next applicable skill (Spec 026 Part B — Intent owns the intent→skill projection; a RECOMMENDATION, not a dispatch).
+# Usage: agency-intent-suggests [--intent-id ID] <called_capability> <called_verb> <called_state> <floor>
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -72,5 +72,5 @@ print(json.dumps({"intent_id": sys.argv[1], "called_capability": _coerce(sys.arg
 
 exec python -m agency.cli execute --code "
 import json
-return await call_tool('capability_skills_suggests', json.loads(r'''${kwargs}'''))
+return await call_tool('capability_intent_suggests', json.loads(r'''${kwargs}'''))
 "

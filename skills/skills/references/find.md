@@ -15,7 +15,7 @@ Enumerate the walkable skills across all capabilities, with light filters.
 
 ## Chain-next
 
-``skills.render`` one candidate, or ``develop.skill_walk`` to walk it. The intent→next-skill projection lives on ``intent.suggests_skill`` (Spec 026 B).
+``skills.render`` one candidate, or ``develop.skill_walk`` to walk it. The intent→next-skill projection lives on ``intent.suggests`` (Spec 026 B).
 
 ## Details
 

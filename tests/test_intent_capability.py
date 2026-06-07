@@ -72,6 +72,6 @@ def test_authored_critical_thinking_discipline_overrides_and_walks(engine, iid):
 
 
 def test_suggests_projects_to_critical_thinking(engine, iid):
-    out = _call(engine, iid, "skills", "suggests",
+    out = _call(engine, iid, "intent", "suggests",
                 called_state="this decision is risky and the approach is unclear")
     assert out["skill"] == "critical-thinking" and out["mode"] == "pattern"
