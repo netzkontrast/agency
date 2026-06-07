@@ -1,7 +1,7 @@
 ---
 spec_id: "092"
 slug: substrate-hardening-and-authoring-guardrails
-status: design
+status: shipped
 last_updated: 2026-06-07
 owner: "@agency"
 depends_on: ["054", "080", "081", "002"]
@@ -84,9 +84,9 @@ present). Not a hard gate — a nudge that a roll-up claim is ungrounded.
   .suggests` evaluates an `llm_select` Matcher through it (stubbed in tests).
 - [x] **G4** `develop`'s plan/spec-panel skills name the `intent.*` reasoning steps; a
   test asserts the cue is present + walkable.
-- [ ] **G5** `check-doc-drift` runs in CI (advisory); documented in `operations/`.
-- [ ] **G6** `scripts/check-followup` advisory exists + documented.
-- [ ] Each lands as its own merged-green PR; `check-drift` + `check-doc-drift` clean.
+- [x] **G5** `check-doc-drift` runs in CI (advisory); documented in `operations/`.
+- [x] **G6** `scripts/check-followup` advisory exists + documented.
+- [x] Each lands as its own merged-green PR; `check-drift` + `check-doc-drift` clean.
 
 ## Spec-panel critique
 
@@ -106,3 +106,21 @@ present). Not a hard gate — a nudge that a roll-up claim is ungrounded.
   cluster. *Accepted.*
 
 **Verdict:** APPROVE — master spec; ship G1 → G2 → G4 → G3 → G5 → G6 as six PRs.
+
+## Followup — Implementation Status (2026-06-07)
+
+**Verdict:** Shipped — all six improvements, six merged-green PRs (#54 G1 · #56 G2 ·
+#57 G3 · #55 G4 · this G5+G6).
+
+- **G1** installer prunes stale `bin/`/`references/`; `check-drift` orphan check.
+- **G2** `plugin.lint_capability` flags reserved param names (hard) + string `artefact`
+  return keys (soft AST); all 17 caps collision-free.
+- **G3** the `llm` Driver via **OpenRouter** (httpx, no SDK; `AGENCY_LLM_MODEL`,
+  `response_format` json_schema + tolerant parse); `intent.suggests` evaluates `llm_select`.
+- **G4** `develop`'s brainstorm/plan/spec-panel disciplines cue the `intent.*` methods.
+- **G5** `scripts/check-doc-drift` runs in CI (advisory `continue-on-error`).
+- **G6** `scripts/check-followup` (advisory) — a Shipped spec cites tests that exist;
+  27 cited test files across 23 Shipped specs all present.
+
+`tests/test_advisory_scripts.py` (2) + the per-improvement suites. Full suite 955 passed,
+3 skipped; `check-drift` + `check-doc-drift` clean.

@@ -20,7 +20,7 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 40 | 001, 002, 006, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072 |
+| **Shipped** | 41 | 001, 002, 006, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072 |
 | **Partially implemented** | 6 | 007, 018, 024, 025, 026, 031 |
 | **Not started** | 8 | 003, 004, 005, 010, 014, 041, 046, 051 |
 | **Token-economy cluster (`intent:97534079`) — GOAL MET** | 6 | 066 master · 072 ✅ · 067 ✅ · **068 ✅ (−83% discovery)** · **074 ✅ capstone** · ~~069 cancelled~~ · 070/071 WARN-accepted (optional future) |
@@ -32,7 +32,7 @@
 | **Shipped — token-count boundary** | 1 | **082 ✅** (one `TokenCounter` boundary: count_tokens → tiktoken → proxy; centralizes the scattered duplicate proxy; `agency_doctor` reports `token_backend`; `[tokens]` extra; band-invariant test per rule 8) |
 | **Shipped — reasoning capability** | 1 | **091 ✅** (`intent` capability — eight critical-thinking methods: decompose/assumptions/premortem/first_principles/inversion/steelman/second_order/tradeoffs, each defaulting its subject to the serving intent; authored `critical-thinking` walkable discipline; CLI collision resolved via 079 OQ-3) |
 | **Shipped — Skills API publishing** | 1 | **083 ✅** (`plugin.publish_skill(name, dry_run)` packages a cap's emitted Agent Skill → Anthropic Skills API; SkillsClient boundary, dry-run default, `published-skill` Artefact provenance; `[publish]` extra — an agency capability becomes a first-class Agent Skill on ANY Claude surface) |
-| **Design — substrate hardening (spec-panel approved)** | 1 | **092 substrate-hardening-and-guardrails** (6 tool improvements from this generation's build: G1 installer prune + orphan check · G2 reserved param/return-key lints · G3 LLM-decider Driver for `llm_select` · G4 wire `intent` reasoning into `develop` · G5 doc-drift in CI · G6 followup-grounding check — ship as 6 PRs; **G1 ✅ · G2 ✅ · G3 ✅ · G4 ✅ shipped**) |
+| **Shipped — substrate hardening (6 PRs)** | 1 | **092 ✅** (G1 installer prune · G2 reserved-name lints · G3 OpenRouter LLM Driver → llm_select · G4 intent→develop cues · G5 doc-drift in CI · G6 followup-grounding) |
 | **Drafted — backlog** | 2 | 077 bdd-gherkin-tests (research-first) · 078 static-walkable-skills (research-first; needs clarification) |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
