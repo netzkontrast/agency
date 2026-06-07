@@ -56,7 +56,7 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 | 004 | template-schema-coverage | Not started | Wire generate/validate loop for uncovered kinds | Wave-1 backlog |
 | 005 | context-mode-and-token-economics | Not started | Output-overflow capture + recall | Wave-1 backlog |
 | 006 | core-hardening | Partial | Red-team fixes: tick, pagination, verify | Fixes #1 O(1), #2 `seen_tokens`, #4 `capture_api_key` absent; `tests/test_hardening.py` missing |
-| 007 | music-domain-capability | Partial | Music domain (in `examples/music.py`) | Full surface depends on 002 driver registry |
+| 007 | music-domain-capability | **Partial** | 9 clustered verbs (8 clusters) routing through 5 Spec-002 Drivers; ToolResult + provenance moat; 0 core edits | 002 unblocked it. Next: computed-gate wiring (gate.check) + remaining clusters (sheet/video/streaming) |
 | 008 | superclaude-analysts | **Closed (superseded → 042)** | SuperClaude analysis (`transmute` cluster) | Closed 2026-06-06. The `analyze` capability (Spec 042, Shipped) delivers the 4-axis decidable analysis this spec scoped via a `transmute` cluster; no separate port needed. Frontmatter flipped; spec text kept verbatim per supersede pattern (GOALS.md #7) |
 | 009 | superpowers-remainder | **Closed (superseded → 041 + 046)** | Finish the superpowers port | Closed 2026-06-06. Remaining superpowers surface is carried by Spec 041 (implementation-discipline-skills) + Spec 046 (micro-extensions-bundle); both supersede the catch-all "remainder" port. Frontmatter flipped; spec text kept verbatim |
 | 010 | novel-domain | Not started | Novel domain (Dramatica/NCP, gates) | 0% impl; 7 loops sequenced; spec rebased 2026-05-31 |
