@@ -10,8 +10,11 @@ the roll-up). For each, the ``## Followup`` section is scanned for cited test fi
 - **FAIL** (exit 1) if a cited test does NOT exist — an ungrounded claim (the failure mode
   that let a "Partial" row overstate 006 this generation: the fix was claimed in prose but
   the test file did not exist).
-- **INFO** (non-failing) if a Shipped spec cites NO test — surfaced as a nudge, but not a
-  failure: doctrine/doc specs (e.g. 049, 072) legitimately ship without a test.
+- A reference the spec itself records as **absent** (on a line saying "does not exist",
+  "absent by design", "not yet written", "superseded", …) is NOT a grounding claim — it is
+  the spec honestly documenting what it did not build, so it is **skipped**, not flagged.
+- **INFO** (non-failing) if a Shipped spec cites NO (positive) test — surfaced as a nudge,
+  but not a failure: doctrine/doc specs (e.g. 049, 072) legitimately ship without a test.
 
 Advisory: wire into CI as a non-failing step, or run by hand.
 Usage: scripts/check-followup [--quiet]
@@ -29,6 +32,12 @@ _STATUS = re.compile(r'^status:\s*"?([A-Za-z]+)', re.M)
 _FOLLOWUP = re.compile(r"## Followup.*?(?=\n## |\Z)", re.S)
 _TEST_REF = re.compile(r"tests/test_[A-Za-z0-9_]+\.py")
 _SHIPPED_ROW = re.compile(r"\|\s*\*\*Shipped\*\*\s*\|\s*\d+\s*\|(.+?)\|")
+# A test reference on a line that DOCUMENTS the test as intentionally absent (superseded,
+# not-yet-written, deleted) is not a grounding claim — skip it (else the advisory
+# false-positives on a spec that honestly records what it did NOT build).
+_ABSENT = re.compile(
+    r"(does not exist|not exist|absent|not yet written|never written|won'?t exist|"
+    r"missing[: ]|supersed|removed|deleted|\bn/?a\b|not implemented|unimplemented)", re.I)
 
 
 def _shipped_ids() -> set[str]:
@@ -63,11 +72,17 @@ def main(quiet: bool = False) -> int:
             continue
         section = _FOLLOWUP.search(spec.read_text(errors="ignore"))
         scope = section.group(0) if section else spec.read_text(errors="ignore")
-        refs = sorted(set(_TEST_REF.findall(scope)))
+        # collect only POSITIVE citations — a ref on an absence-context line is the spec
+        # honestly recording what it did NOT build, not a grounding claim.
+        refs: set[str] = set()
+        for line in scope.splitlines():
+            if _ABSENT.search(line):
+                continue
+            refs.update(_TEST_REF.findall(line))
         if not refs:
             no_citation.append(sid)
             continue
-        for ref in refs:
+        for ref in sorted(refs):
             checked += 1
             if not (ROOT / ref).exists():
                 missing.append(f"{spec.relative_to(ROOT)}  cites  {ref}  — NOT FOUND")

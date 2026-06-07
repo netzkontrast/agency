@@ -15,13 +15,13 @@ def _load(name, rel):
     return mod
 
 
-def test_check_followup_runs_without_crashing():
-    # G6 — advisory (the CI step is continue-on-error). The suite asserts the script runs
-    # over the binding TODO.md Shipped set and returns a clean exit code; it does NOT gate
-    # on zero ungrounded citations, since older Shipped specs carry pre-existing stale
-    # citations the advisory is meant to SURFACE (in CI logs), not block every PR on.
+def test_check_followup_every_shipped_spec_is_grounded():
+    # G6 — every Shipped spec's Followup cites tests that EXIST (a ref the spec documents
+    # as intentionally absent/superseded/not-yet-written is skipped, not flagged). Now
+    # that the false-positives are fixed this is an accurate grounding gate; the CI step
+    # stays advisory (continue-on-error) for the log report.
     cf = _load("check_followup", "scripts/check-followup")
-    assert cf.main(quiet=True) in (0, 1)
+    assert cf.main(quiet=True) == 0
 
 
 def test_check_doc_drift_runs_without_crashing():
