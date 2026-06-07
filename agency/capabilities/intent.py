@@ -171,7 +171,8 @@ class IntentCapability(CapabilityBase):
 
         Matcher kinds: ``pattern`` (regex over the context); ``verb_code`` (invoke a
         decider verb returning ``{matches, confidence}`` — cycle-checked against the
-        verb in flight); ``llm_select`` is deferred (needs an LLM Driver, Spec 002).
+        verb in flight); ``llm_select`` (ask the ``llm`` Driver — Spec 092 G3 — whether
+        the skill applies; skipped when no LLM seam is configured).
 
         Inputs: called_capability / called_verb / called_state (the last step's
                 context); floor (min confidence, default 0.5). The serving intent is
@@ -210,7 +211,21 @@ class IntentCapability(CapabilityBase):
                     matched, conf = bool(rr.get("matches")), float(rr.get("confidence", 0.0))
                 except Exception:
                     matched, conf = False, 0.0
-            # kind == "llm_select" deferred — needs an LLM Driver (Spec 002 registry)
+            elif kind == "llm_select":
+                # Spec 092 G3 — ask the LLM-decider Driver whether this skill applies.
+                from ..capability import DriverMissing
+                try:
+                    llm = self.ctx.get_driver("llm")
+                except DriverMissing:
+                    continue                              # no LLM seam configured → skip
+                question = matcher.get("llm_select", {}).get("prompt", "Does this apply?")
+                prompt = (f"Context: {context}\n\nSkill: {meta['name']}\n{question}")
+                try:
+                    rr = llm.decide(prompt, ["match", "skip"])
+                    matched = rr.get("choice") == "match"
+                    conf = float(rr.get("confidence", 0.0))
+                except Exception:
+                    matched, conf = False, 0.0
             if matched and conf >= floor and (best is None or conf > best["confidence"]):
                 best = {"skill": meta["name"], "mode": kind, "confidence": conf,
                         "cue": meta["phases"][0] if meta["phases"] else "",

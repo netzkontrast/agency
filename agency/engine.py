@@ -139,7 +139,7 @@ class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
                  embedder=None, web_search=None, runner=None,
                  extra_capabilities=None, surface: str | None = None,
-                 token_counter=None, skills_client=None, drivers=None,
+                 token_counter=None, skills_client=None, llm_client=None, drivers=None,
                  _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
         # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
@@ -174,6 +174,13 @@ class Engine:
             from .capabilities.plugin._skills_client import SkillsClient
             skills_client = SkillsClient()
         self.skills_client = skills_client
+        # Spec 092 G3 — the LLM-decider boundary (an `llm` Driver): lazy default,
+        # stubbed in tests, reached via ctx.get_driver("llm") (e.g. intent.suggests's
+        # llm_select Matcher).
+        if llm_client is None:
+            from ._llm import LLMClient
+            llm_client = LLMClient()
+        self.llm_client = llm_client
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it
@@ -249,7 +256,8 @@ class Engine:
         self.drivers = DriverRegistry({
             "jules": self.jules_client, "vcs": self.vcs_backend,
             "embedder": self.embedder, "runner": self.runner,
-            "token_counter": self.token_counter, "skills_client": self.skills_client})
+            "token_counter": self.token_counter, "skills_client": self.skills_client,
+            "llm": self.llm_client})
         if drivers:
             for _name, _driver in drivers.items():
                 self.drivers.register(_name, _driver)
@@ -668,6 +676,9 @@ class Engine:
                 # Spec 082 — the live token-count backend (count_tokens / tiktoken /
                 # proxy), so a silent fallback to the inaccurate proxy is visible.
                 "token_backend": self.token_counter.backend,
+                # Spec 092 G3 — the live LLM-decider backend (openrouter / anthropic /
+                # none), never the key. Custom-injected clients may omit backend().
+                "llm_backend": getattr(self.llm_client, "backend", lambda: "custom")(),
                 # Spec 050 — which optional [analyze] tools are active.
                 "analyze_extras": analyze_extras,
                 # Spec 054 — drift indicators. v1 ships the

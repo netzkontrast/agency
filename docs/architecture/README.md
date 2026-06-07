@@ -35,4 +35,4 @@ provenance graph. External I/O (git, Jules, audio, the token counter, the Skills
 is isolated behind **Drivers** (`drivers.md`) resolved by name from a `DriverRegistry`.
 
 <!-- doc-source: agency/engine.py -->
-<!-- doc-hash: 6befa27b791ec0ab -->
+<!-- doc-hash: bd429e5db6a4a909 -->

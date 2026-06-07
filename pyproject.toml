@@ -80,7 +80,6 @@ tokens = [
 publish = [
     "anthropic>=0.40",
 ]
-
 [project.scripts]
 # Spec 039 distribution surface — three entry points, one per consumer pattern:
 #   `agency`        — CLI for bash callers (search/get-schema/execute over argv)

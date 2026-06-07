@@ -80,7 +80,7 @@ present). Not a hard gate — a nudge that a roll-up claim is ungrounded.
   remove a verb on a probe capability → no stale files; orphan check trips on a planted one.
 - [x] **G2** `plugin.lint_capability` flags a verb with a reserved param name + a
   reserved string return key; tests cover both; the existing caps still lint clean.
-- [ ] **G3** an `llm` Driver Protocol + lazy default on the `DriverRegistry`; `intent
+- [x] **G3** an `llm` Driver Protocol + lazy default on the `DriverRegistry`; `intent
   .suggests` evaluates an `llm_select` Matcher through it (stubbed in tests).
 - [x] **G4** `develop`'s plan/spec-panel skills name the `intent.*` reasoning steps; a
   test asserts the cue is present + walkable.

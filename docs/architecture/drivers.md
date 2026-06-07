@@ -1,7 +1,7 @@
 # Drivers & Boundaries — external I/O (Spec 002)
 
 <!-- doc-source: agency/capability.py agency/engine.py examples/music_drivers.py Plan/002-boundary-driver-protocol/spec.md -->
-<!-- doc-hash: e6b6fdcef87c07ea -->
+<!-- doc-hash: d67b5696bb5303d1 -->
 
 Every external side-effect (git, Jules, audio, a DB, object storage, the token counter,
 the Skills API) is isolated behind a **Driver** so it can be stubbed deterministically in
@@ -22,8 +22,9 @@ seams into one named table.
 
 ## How the engine wires it
 
-`Engine.__init__` builds one `DriverRegistry` registering the six core boundaries —
-`jules` · `vcs` · `embedder` · `runner` · `token_counter` · `skills_client` — and derives
+`Engine.__init__` builds one `DriverRegistry` registering the core boundaries —
+`jules` · `vcs` · `embedder` · `runner` · `token_counter` · `skills_client` · `llm`
+(the OpenRouter LLM-decider, Spec 092 G3) — and derives
 `Registry.injectors` from it (one source of truth, so `inject=[…]` + `ctx.client` keep
 working). A `drivers={…}` kwarg lets a host register **a domain cluster with no new
 Engine kwarg and no new injectors key**.

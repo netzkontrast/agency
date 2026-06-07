@@ -19,7 +19,7 @@ Project the serving intent + the last verb's state to the next applicable skill 
 
 ## Details
 
-Matcher kinds: ``pattern`` (regex over the context); ``verb_code`` (invoke a decider verb returning ``{matches, confidence}`` — cycle-checked against the verb in flight); ``llm_select`` is deferred (needs an LLM Driver, Spec 002).
+Matcher kinds: ``pattern`` (regex over the context); ``verb_code`` (invoke a decider verb returning ``{matches, confidence}`` — cycle-checked against the verb in flight); ``llm_select`` (ask the ``llm`` Driver — Spec 092 G3 — whether the skill applies; skipped when no LLM seam is configured).
 
 ## Example
 
