@@ -1,7 +1,7 @@
 ---
 spec_id: 002
 slug: boundary-driver-protocol
-status: draft
+status: shipped
 owner: "@agency"
 depends_on: [001]
 affects:
@@ -543,3 +543,30 @@ code and `Driver`s remain dumb I/O edges with no `CapabilityContext`/memory acce
 - code: `agency/capability.py:139` (old `injectors`), `agency/engine.py:87-106` (old kwargs pattern), `agency/capabilities/jules.py:155-157` (`_backend` via `ctx.client`)
 - tests: none covering DriverRegistry
 - commits/notes: frontmatter `status: draft`; Plan/000-overview.md:54 places it in the Wave-1 backlog with no active work.
+
+## Followup — Implementation Status (2026-06-06)
+
+**Verdict:** Shipped (faithful core; music-cluster driver-fanout stays out of scope
+per the original spec).
+
+- **`Boundary` / `Driver` marker Protocols + `DriverRegistry` + `DriverMissing`** live
+  in `agency/capability.py` (Option B — NO uniform `dispatch(op)`; each driver keeps
+  its typed named methods; the uniform contract is the RETURN TYPE via the wrapping
+  verb). The markers are memberless `runtime_checkable` Protocols → no-op `isinstance`,
+  so `JulesClient`/`GitClient`/… need NO base-class change.
+- **`CapabilityContext.drivers` + `get_driver(name)`** — every verb reaches a named
+  boundary through `ctx.get_driver`; `DriverMissing` (a `LookupError`) on absence.
+- **Engine unifies SIX boundaries** (the spec's original two grew to six):
+  `jules` · `vcs` · `embedder` · `runner` · `token_counter` · `skills_client` register
+  into one `DriverRegistry`. `Registry.injectors` is now DERIVED from it (one source of
+  truth), so `inject=[...]` + `ctx.client` keep working unchanged. A `drivers=` override
+  kwarg lands a domain cluster with NO new Engine kwarg / injectors key; the legacy
+  `jules_client=`/`vcs_backend=`/… kwargs stay as forwarders (D-4).
+- **`jules._backend()`** now resolves `ctx.get_driver("jules")` (falling back to
+  `ctx.client` → fresh client for bare tests).
+- **Tests** — `tests/test_driver_registry.py` (7): register/get/has/names,
+  `DriverMissing`, the six-boundary unification, `drivers=` override, legacy-kwarg
+  forwarder, `ctx.get_driver`, no-op markers. Full suite 884 passed, 3 skipped;
+  `check-drift` clean.
+- **Deferred (unchanged from spec):** the `fan_out`-as-raw-`Driver` path; a domain
+  tool-cluster (bitwize-music mastering/audio/db) registering via `drivers=`.

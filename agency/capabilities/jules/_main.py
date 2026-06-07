@@ -157,6 +157,12 @@ class JulesCapability(CapabilityBase):
     )
 
     def _backend(self) -> JulesBackend:
+        # Spec 002 — reach the Jules boundary by name through the DriverRegistry;
+        # fall back to ctx.client (the legacy injector seam) then a fresh client,
+        # so bare unit tests with no engine still work.
+        drivers = getattr(self.ctx, "drivers", None)
+        if drivers is not None and drivers.has("jules"):
+            return drivers.get("jules")
         return self.ctx.client or JulesClient()    # the engine injects its jules backend as ctx.client
 
     @verb(role="effect")
