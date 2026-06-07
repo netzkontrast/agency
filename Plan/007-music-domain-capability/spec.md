@@ -555,3 +555,44 @@ zero are unmodelable. 14 rows are flagged **[SHIP]** (the representative slice);
 - code: `examples/music.py` (single verb + skill + ontology); no `examples/music_drivers.py` or `examples/test_music_capability.py`
 - tests: `tests/test_agency.py:1116-1153` (music capability smoke test — conceptualize + album-concept skill walk + type enum rejection)
 - commits/notes: `5a4263b` "move the music domain demo out of core into examples/" (the original extraction); Spec 002 (`Plan/002-boundary-driver-protocol/spec.md`) remains `status: draft`, confirming the driver injection blocker is unresolved.
+
+## Followup — Implementation Status (2026-06-07)
+
+**Verdict:** Partially implemented — the clustered Driver contract + provenance moat
+are proven; computed-gate wiring + the long-tail remain.
+
+### Done (PR — first slice)
+- **`examples/music_drivers.py`** — the five Spec-002 `Driver` protocols (Option B,
+  typed named methods): `StateDriver` · `TextDriver` · `AudioDriver` · `DBDriver` ·
+  `CloudDriver`, each with a deterministic FAKE (no ffmpeg / Postgres / R2 / network).
+  `fake_drivers()` is the test bundle.
+- **`examples/music.py`** — `MusicCapability` grows from 1 → **9 representative verbs**
+  across 8 clusters, each role-tagged + reaching external work via
+  `self.ctx.get_driver(name)` (NO direct ffmpeg/Postgres/R2): `conceptualize` (act,
+  kept) · `count_syllables` (transform, driver-free) · `lyric_report` (act, TextDriver)
+  · `master_album` (effect, AudioDriver) · `catalogue_status` (transform, DBDriver) ·
+  `promo_copy` (act) · `set_album_status` (effect, StateDriver) · `publish_asset`
+  (effect, CloudDriver → typed `DEPENDENCY_MISSING` when unconfigured). Every verb
+  returns a Spec-001 `ToolResult`; act verbs set `data['artefact']` → PRODUCES edge.
+- **Ontology** extended in a single `OntologyExtension`: Album (status/genre/slug/
+  target_lufs) + Track (status/slug) + Tweet/Idea/SheetMusic nodes, the closed
+  `(Album,status)`/`(Track,status)` enums, the `pre-generation` + `release-qa` gated
+  skill phase-graphs, and the `promo-copy`/`mastering-report`/`lyric-report` artefact
+  schemas. Merges strictly onto core; `conceptualize` + `album-concept` preserved.
+- **007 modifies NO file under `agency/`** — drivers inject via the Spec-002
+  `DriverRegistry` (`Engine(..., drivers=fake_drivers())`), proving the drop-in claim.
+- **The provenance moat** (the headline, net-new vs bitwize): every verb records an
+  `Invocation` that SERVES the intent; `master_album`/`lyric_report`/`promo_copy`
+  record a PRODUCES artefact — a release audit is one traversal.
+- **Tests** — `tests/test_music_capability.py` (9, CI-collected): discovery + ontology
+  merge, deterministic driver-free transform, AudioDriver routing + provenance, DBDriver
+  cursor, TextDriver lyric-report, state/promo clusters, typed INVALID_ARGUMENT +
+  DEPENDENCY_MISSING failures, and missing-driver degradation. Full suite 913 passed.
+
+### Still
+- The **computed-gate** test (Done-When (e)): `pre-generation`/`release-qa` predicates
+  via `gate.check` returning `GATE_FAILED` + pausing the lifecycle, with the terminal
+  human confirm via `elicit`/`lifecycle_gate`. (The skill phase-graphs ship; the
+  gate-verb wiring is the next increment.)
+- Reach the full 12–16 representative verbs (sheet-music/video/streaming/health
+  clusters); the 89-tool long tail stays "covered-by-pattern, port-on-demand."
