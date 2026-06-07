@@ -21,8 +21,8 @@
 | Verdict | Count | Specs |
 |---|---|---|
 | **Shipped** | 39 | 001, 002, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072 |
-| **Partially implemented** | 6 | 006, 007, 018, 024, 025, 031 |
-| **Not started** | 9 | 003, 004, 005, 010, 014, 026, 041, 046, 051 |
+| **Partially implemented** | 7 | 006, 007, 018, 024, 025, 026, 031 |
+| **Not started** | 8 | 003, 004, 005, 010, 014, 041, 046, 051 |
 | **Token-economy cluster (`intent:97534079`) — GOAL MET** | 6 | 066 master · 072 ✅ · 067 ✅ · **068 ✅ (−83% discovery)** · **074 ✅ capstone** · ~~069 cancelled~~ · 070/071 WARN-accepted (optional future) |
 | **Shipped — audit-trail (`intent:558f1bf5` / `intent:d8090aef`)** | 4 | **073 ✅ → `shell` capability** (run/filter/templates) · **018 (Wins 1+3) ✅** (`develop.skill_walk` atomic walker + implicit `intent_id` via `AGENCY_INTENT`; Win 2 = cancelled-069, skipped) · **075 ✅** (`shell.define` + `shell.templates(query)` + run resolves graph-first; common-bash seeds — definable registry per CLAUDE.md #8) · **079 ✅** (Click CLI mirrors every capability verb as `agency <cap> <verb>` for non-MCP agents; auto-generated from the live registry; code-mode stays canonical) |
 | **Shipped — substrate foundation (`intent:bd7a1b7d`)** | 1 | **076 ✅** (unified event-hook: one `hooks/dispatch` → `agency hook` → `engine.dispatch_hook`; `Event` node + open-set handler surface + `AGENCY_INTENT` provenance linkage; install emits unified hooks.json for the capture events) |
@@ -75,7 +75,7 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 | 023 | adaptive-disclosure | **Shipped** | Token-budget gate + brief slices + substrate-tool brief-slicing parity + Hint #7 docstring migration roster 0 non-compliant | Phase 3 structured `search` delta-shape + Phase 4 intent-slice filter remain deferred to v2 |
 | 024 | capability-authoring-discipline | Partial | Block-mode lint when `# agency-scaffold: v1` marker present | Sweep of existing capabilities for marker addition |
 | 025 | skill-first-discovery | Partial | Skill-search ranks above tool-search | Refinement needed per consolidation pass |
-| 026 | skills-as-core-capability | Not started | Skill surface as a first-class capability | Depends on 016 cleanup |
+| 026 | skills-as-core-capability | **Partial** | `skills` capability (find/render/lint) + authored skills-triage discipline shipped | Part B: `intent.suggests_skill` projection (Matcher taxonomy + cycle-check + Jules benchmark) + Skill graph-node promotion |
 | 028 | jules-folder-migration | **Absorbed → 060** | Folder-form `jules/` lands as heavy-migration wave of Spec 060 | Closed standalone; carries over verbatim into 060 |
 | 029 | mcp-bootstrap-and-self-explain | **Shipped** | `agency_welcome` + `agency_install` + `intent_bootstrap` substrate tools | (flip frontmatter) |
 | 030 | jules-key-doctor-stateful-welcome | **Shipped** | `agency_doctor` + stateful welcome + JULES_API_KEY clarity | (flip frontmatter) |

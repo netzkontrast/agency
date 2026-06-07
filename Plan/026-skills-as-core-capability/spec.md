@@ -1,7 +1,7 @@
 ---
 spec_id: "026"
 slug: skills-as-core-capability
-status: draft
+status: partial
 version: 2                              # rev 2 — folds spec-panel verdict REVISE
 owner: "@agency"
 depends_on: ["016", "023"]
@@ -309,3 +309,37 @@ benchmark; ships only if it reduces orchestrator hardcoding by ≥50%.
 - code: `agency/capabilities/skills.py` — absent; `agency/capabilities/intent.py` — absent; `agency/ontology.py` — no Matcher schema
 - tests: `tests/test_skills_capability.py` — absent; `tests/test_intent_suggests_skill.py` — absent; `tests/test_jules_workflow_dispatch.py` — absent
 - commits/notes: Spec design commits only (`f272b80` v1 draft); no implementation commits found. IMPLEMENTATION-PLAN.md exists but no TDD cycle started.
+
+
+## Followup — Implementation Status (2026-06-06)
+
+**Verdict:** Partially implemented — Part A (the `skills` capability) shipped;
+Part B (`intent.suggests_skill` projection) remains.
+
+### Done — Part A: the first-class `skills` capability
+- `agency/capabilities/skills.py` lands as a single-file core capability (drop-in:
+  docstring-derived SkillDoc + CLI + MCP + a walk section, all for free):
+  - `skills.find(kind="", capability="")` → `{candidates:[{name,kind,capability,
+    phases,phase_count}], total}` — enumerates every capability's authored + derived
+    skills WITH owning capability (which the merged engine ontology loses).
+  - `skills.render(skill_name, depth="brief"|"full", phase_index=-1)` → `{markdown}`
+    — progressive disclosure of one skill's phase-graph.
+  - `skills.lint(skill_name)` → `{ok, violations}` — phase-shape validation
+    (non-empty, unique int index + name per phase, gate ∈ {hard,soft}). No `dispatch`
+    verb here (panel F5).
+- AUTHORED discipline `skills-triage` (enumerate → read → validate → decide) proves
+  the Spec 081 authored-override path end-to-end: it replaces the derived
+  `skills-usage`, lints clean, and walks via `develop.skill_walk`.
+- Tests: `tests/test_skills_capability.py` (8). Full suite 892 passed, 3 skipped;
+  `check-drift` clean; install regen committed.
+
+### Still — Part B (next slice)
+- `intent.suggests_skill(intent_id, called_capability=, called_verb=, called_state=)`
+  — the intent→next-skill projection with the `Matcher` taxonomy (pattern / verb_code
+  [e.g. `delegate.dispatch_decision` per panel F4] / llm_select), cycle-check on
+  deciders, and the return-shape `next_skill` convention.
+- Promote `ontology.skills` → `Skill`/`Phase`/`Gate` graph nodes at registration
+  (so skills are queryable via `analyze.graph`).
+- Convergence gate: the Jules-workflow benchmark (panel F7).
+- Note: `llm_select` needs an LLM decider boundary — a `Driver` on the Spec 002
+  registry is the natural seam.
