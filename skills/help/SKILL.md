@@ -78,7 +78,7 @@ agency execute --code \
 - **research** — lead, specialist, verify
 - **shell** — define, filter, run, templates
 - **skill_generator** — generate
-- **skills** — find, lint, render, suggests
+- **skills** — find, index, lint, render, suggests
 - **subagent** — develop
 - **workspace** — baseline, isolate
 

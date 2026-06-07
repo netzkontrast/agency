@@ -347,9 +347,18 @@ Part B (`intent.suggests_skill` projection) remains.
   (6) covers pattern, floor, no-match, verb_code (a registered decider cap), and the
   cycle-check.
 
+### Done — Skill/Phase graph promotion (shipped 2026-06-07)
+- `skills.index()` [role=effect] promotes every capability's `ontology.skills` into the
+  graph as `Skill` + `Phase` nodes (`HAS_PHASE` edges; the ontology already defined these
+  schemas). Idempotent via deterministic ids (`skill:<name>`, `phase:<name>:<index>`).
+  Skills are now first-class graph citizens — queryable via `analyze.graph`
+  (node_type='Skill'/'Phase'). `tests/test_skills_index.py` (3). (Auto-promotion at
+  bootstrap deferred — bootstrap is write-free; `index` keeps promotion explicit.)
+
 ### Still — remaining 026 surface
 - `llm_select` Matcher kind — deferred; needs an LLM decider Driver on the Spec 002
   registry (the natural seam now that 002 shipped).
+- The Jules-workflow convergence benchmark (panel F7).
 - Promote `ontology.skills` → `Skill`/`Phase`/`Gate` graph nodes at registration
   (so skills are queryable via `analyze.graph`).
 - Convergence gate: the Jules-workflow benchmark (panel F7).
