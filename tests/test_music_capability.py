@@ -144,6 +144,37 @@ def test_pregen_gate_blocks_then_passes(engine, iid):
     assert ok["passed"] is True
 
 
+def test_longtail_clusters_route_through_their_drivers(engine, iid):
+    # sheet-music (AudioDriver, produces an artefact)
+    sheet = _data(engine, iid, "transcribe_sheet", album="X", path="a.wav")
+    assert sheet["artefact"]["kind"] == "sheet-music"
+    assert engine.drivers.get("music_audio").ffmpeg_calls          # transcription ran via the driver
+    assert any(a.get("kind") == "sheet-music" for a in engine.memory.find("Artefact"))
+    # mixing (AudioDriver) — deterministic findings from the fake's -14 LUFS
+    mix = _data(engine, iid, "analyze_mix", album="X", path="a.wav")
+    assert mix["measured_lufs"] == -14.0 and mix["findings"] == ["within target"]
+    # streaming (CloudDriver) — the fake returns 200 → all live
+    stream = _data(engine, iid, "verify_streaming", album="X", urls="https://a, https://b")
+    assert stream["live"] == ["https://a", "https://b"] and stream["dead"] == []
+
+
+def test_capture_idea_records_an_idea_node(engine, iid):
+    out = _data(engine, iid, "capture_idea", text="a concept album about lighthouses")
+    assert out["idea_id"] and out["text"].startswith("a concept")
+    ideas = engine.memory.find("Idea")
+    assert any(i.get("text", "").startswith("a concept") for i in ideas)
+    # persisted via the StateDriver too
+    assert engine.drivers.get("music_state").get(f"idea:{out['idea_id']}")["text"]
+
+
+def test_music_health_reports_wired_drivers(engine, iid):
+    out = _data(engine, iid, "music_health")
+    assert out["ok"] is True
+    assert set(out["drivers_wired"]) == {"music_state", "music_text", "music_audio",
+                                         "music_db", "music_cloud"}
+    assert out["drivers_missing"] == []
+
+
 def test_missing_driver_degrades_to_typed_failure(iid_factory=None):
     # a driver-backed verb with NO driver registered returns DEPENDENCY_MISSING
     e = _engine(drivers={})                            # no music drivers at all

@@ -598,6 +598,15 @@ are proven; computed-gate wiring + the long-tail remain.
   skills' hard final phase). `tests/test_music_capability.py` (+3). Music is now 11
   verbs / 9 clusters.
 
+### Done — long-tail clusters (2026-06-07)
+- 5 more representative verbs reach the 12–16 target — now **15 verbs / 11 clusters**:
+  `transcribe_sheet` (sheet-music, act via AudioDriver → `sheet-music` artefact) ·
+  `analyze_mix` (mixing, transform via AudioDriver, decidable loudness findings) ·
+  `verify_streaming` (streaming, transform via CloudDriver `url_head`) · `capture_idea`
+  (ideas, effect — records an `Idea` graph node + StateDriver persist) · `music_health`
+  (health, transform, driver-free). `tests/test_music_capability.py` (+3).
+
 ### Still
-- Reach the full 12–16 representative verbs (sheet-music/video/streaming/health
-  clusters); the 89-tool long tail stays "covered-by-pattern, port-on-demand."
+- The remaining bitwize tools (video sampler, promo videos, maintenance, …) stay
+  "covered-by-pattern, port-on-demand" — each is a verb in one of the proven clusters,
+  not a new contract.
