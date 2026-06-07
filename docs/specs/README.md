@@ -43,5 +43,7 @@ walkable Agent Skills · **082** TokenCounter · **083** Skills-API publishing �
 `analyze.graph` · **007** music clustered-Driver example + computed gates · **091**
 `intent` critical-thinking capability.
 
-<!-- doc-source: TODO.md -->
-<!-- doc-hash: b8c5cd0c70c7ef35 -->
+<!-- This is a navigation/index page — it LINKS to TODO.md + Plan/ rather than rendering
+     their content, so it carries no doc-source marker (every TODO edit would otherwise
+     flag it). The authoritative, always-current spec list is docs/specs/index.md
+     (generated) + TODO.md itself. -->
