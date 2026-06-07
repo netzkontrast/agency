@@ -139,7 +139,7 @@ class CloudDriver(Boundary):
 | Postgres schema missing (tweets table) | `psycopg2.errors.UndefinedTable` | raises | `ToolResult.failure(BOUNDARY_FAILED, "schema not initialized — run db_init")` |
 | Streaming URL HEAD timeout (default 5s) | `urllib.error.URLError` | returns 0 | `ToolResult.success(dead=[url])` (the verb records "dead" — not failure; the URL is provably unreachable) |
 | Streaming URL invalid scheme (`file:`, `javascript:`) | rejected at SSRF guard | returns 0 | `ToolResult.success(dead=[url])` (SSRF guard preserves bitwize's safety) |
-| `psycopg2` import fails | `ImportError` at driver init | driver `__init__` raises | engine bootstrap fails with `DependencyMissing("[music-db]")` |
+| `psycopg2` not installed (default install, no `[music-db]` extra) | deferred import — DBDriver `__init__` does NOT touch psycopg2; `cursor()` lazy-imports on first call | first `cursor()` call raises `DependencyMissing("[music-db]")` | per-verb `ToolResult.failure(DEPENDENCY_MISSING, "psycopg2 not installed — install agency[music-db]")`. Lifecycle/lyrics/research/gates verbs stay usable; only DB-backed catalogue verbs degrade. |
 
 ### Walkable skill: `tweet-curation`
 

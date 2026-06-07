@@ -79,16 +79,19 @@ audio binds at production via the `[music-audio]` extra
 | 16 | `qc_audio` | transform | AudioDriver | `qc_audio` | 7-point QC checklist |
 | 17 | `mono_fold_check` | transform | AudioDriver | `mono_fold_check` | phase-cancellation check |
 | 18 | `generate_promo_videos` | effect | AudioDriver | `generate_promo_videos` | 15s vertical promo render |
+| 19 | `create_songbook` | effect | AudioDriver | `create_songbook` | LilyPond render to PDF — sheet-music domain belongs to AudioDriver |
 
-**Total: 18 verbs covering 18 bitwize tools (1:1 in audio).**
+**Total: 19 verbs covering 19 bitwize tools (1:1 in audio + sheet-music).**
 
-> **Verdict on the three media tools** (panel-corrected, iteration 1):
+> **Verdict on the related media tools** (panel-corrected x2 — Codex P2):
 > `prepare_singles` and `generate_album_sampler` ship in **Spec 098 (promo
 > cluster)** because their domain is release-packaging, not mastering.
-> `create_songbook` ships in **a tiny "sheet-music" sub-folder of Spec 096's
-> followup PR** — its domain IS audio (LilyPond rendering), but the PR
-> cadence keeps the cluster atomic. ZERO bitwize tools are silently
-> deferred; every row in 007's Appendix A has a verdict in 094–100.
+> `create_songbook` (row 19 above) ships in **this spec** — its domain IS
+> audio (LilyPond render via the same AudioDriver shell-out path). An
+> earlier draft deferred it to a followup; that conflicted with 093's
+> "complete port, no silent defers" contract. ZERO bitwize tools are
+> deferred; every row in 007's Appendix A has a verdict in 094–100 (see
+> 093's Appendix A audit table).
 
 ## Design
 
@@ -159,7 +162,7 @@ Driver fakes simulate each row; tests assert the verb's typed-error mapping.
 | `ffmpeg` timeout (configurable, default 60s) | `subprocess.TimeoutExpired` | `TimeoutError` | `ToolResult.failure(BOUNDARY_TIMEOUT, "ffmpeg exceeded 60s")` |
 | `ffmpeg` not installed | `FileNotFoundError` | raises `DependencyMissing("ffmpeg")` | `ToolResult.failure(DEPENDENCY_MISSING, "ffmpeg not on PATH")` |
 | AnthemScore not installed | `FileNotFoundError` | raises `DependencyMissing("anthemscore")` | `ToolResult.failure(DEPENDENCY_MISSING, "AnthemScore not installed")` |
-| `pyloudnorm` import fails | `ImportError` at driver init | driver `__init__` raises | engine bootstrap fails fast with `DependencyMissing("[music-audio]")` |
+| `pyloudnorm`/`numpy`/`scipy`/`soundfile` not installed (default install, no `[music-audio]` extra) | deferred import — AudioDriver `__init__` does NOT touch them; first method call lazy-imports | first audio method call raises `DependencyMissing("[music-audio]")` | per-verb `ToolResult.failure(DEPENDENCY_MISSING, "audio backend not installed — install agency[music-audio]")`. Music capability stays usable; only AudioDriver-backed verbs degrade. |
 | Audio file unreadable | `soundfile.LibsndfileError` | raises `BoundaryFailed` | `ToolResult.failure(INVALID_ARGUMENT, "audio file unreadable: <path>")` |
 | Disk full on render | `OSError: No space left` | raises | `ToolResult.failure(BOUNDARY_FAILED, "out of disk")` |
 

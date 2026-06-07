@@ -149,7 +149,7 @@ driver and verifies Path B.
 | R2 auth failed | `botocore.exceptions.ClientError` (403/401) | raises | `ToolResult.failure(DEPENDENCY_MISSING, "R2 auth failed — check `[music-cloud]` config")` |
 | R2 bucket missing | `ClientError` (NoSuchBucket) | raises | `ToolResult.failure(BOUNDARY_FAILED, "bucket missing")` |
 | Quota exceeded | `ClientError` (QuotaExceeded) | raises | `ToolResult.failure(BOUNDARY_FAILED, "R2 quota exceeded")` |
-| `boto3` import fails | `ImportError` at driver init | driver `__init__` raises | engine bootstrap fails with `DependencyMissing("[music-cloud]")` |
+| `boto3` not installed (default install, no `[music-cloud]` extra) | deferred import — CloudDriver `__init__` (the boto3 half) does NOT touch boto3; `r2_put`/`r2_get`/`r2_delete`/`r2_list` lazy-import on first call. The stdlib half (`url_head`) stays available regardless. | first R2 method call raises `DependencyMissing("[music-cloud]")` | per-verb `ToolResult.failure(DEPENDENCY_MISSING, "boto3 not installed — install agency[music-cloud]")`. Lifecycle/lyrics/research/gates/streaming-verify (stdlib half) stay usable; only R2 upload verbs degrade. |
 | LLM driver decide() times out | `TimeoutError` | raises | promo_copy falls back to Path A (rule-based) silently, records warning |
 
 ### Walkable skill: `promo-pass`

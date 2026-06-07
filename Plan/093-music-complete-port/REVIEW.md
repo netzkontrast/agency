@@ -408,6 +408,35 @@ Iteration 1 fixes raise the average to **8.4**; iteration 2 to **8.7**.
 **Panel consensus: PROCEED to implementation after iteration-1 fixes; iteration-2
 fixes can land in 094's PR (the migration) since they cross multiple specs.**
 
+## Iteration 3 — Codex automated review (post-commit, applied in follow-up commit)
+
+The Codex PR-review bot (chatgpt-codex-connector) flagged **8 P2 findings**
+on commit `7e3dc30`. **7 were valid + actionable**; 1 (verb-count
+arithmetic) was a bot arithmetic error (sum of 14+13+18+14+10+8+6 IS 83,
+not 67 as the bot claimed).
+
+| # | Finding | Verdict | Applied |
+|---|---|---|---|
+| 1 | Verb-count totals don't match row sums | **bot arithmetic error** — sum IS 83 | Skipped; added "Arithmetic check" line so future audits don't trip |
+| 2 | Spec 100 manifest missing 5 composite gate verbs | VALID | Added gate-verb sub-table to 100; updated 093 total to 14 internal gates |
+| 3 | release_check manifest column says DBDriver | VALID | Corrected to StateDriver+gate.check (the body's iteration-2 correction now matches the manifest) |
+| 4 | Migration order schedules 100 second | VALID — conflicts with 100's `depends_on: [094,095,096,097,099,093]` | Corrected: 100 ships LAST; 095/096/097/098/099 parallel-safe after 094 |
+| 5 | 89-tool audit table promised but absent | VALID | Embedded as Appendix A (per-row verdicts; mechanically auditable via `scripts/audit-music-tools`) |
+| 6 | create_songbook deferred outside the wave | VALID — conflicts with "complete port" contract | Un-deferred: now row 19 in 096's manifest |
+| 7 | Spec 099 calls research.fan_out (doesn't exist) | VALID — agency.research has `lead`/`specialist`/`verify` | Corrected delegation pattern to use shipped API with music-domain mapping onto generic `{codebase,web,doc-corpus,prior-reflections}` roles |
+| 8 | psycopg2 ImportError fails engine bootstrap | VALID — contradicts "default install works" promise | Corrected to deferred-import (DBDriver lazy-imports on first cursor() call); same fix applied to boto3 (098) and pyloudnorm (096) |
+
+**Net result of iteration 3:** spec set is now coverage-mechanical (audit
+table), dependency-honest (degraded imports at verb time, not bootstrap),
+API-honest (research delegation matches shipped surface), and order-
+consistent (100 last). The migration sequence + the audit table + the
+deferred-import discipline are CI-checkable contracts going forward.
+
+**Codex's automated review is acknowledged as a legitimate review pass** —
+findings 2–8 each closed a real gap a future implementer would have hit at
+RED-phase. Finding 1 (the arithmetic error) is documented above so it
+doesn't recur in a future audit pass.
+
 ## What's applied vs deferred (between this review and commit)
 
 **Applied in this PR (the 8 spec files):**

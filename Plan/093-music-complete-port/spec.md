@@ -141,16 +141,23 @@ boto3 stays in `promo` for R2 upload):
 |---|---|---|---|
 | 094 lifecycle | 14 | 0 | 14 |
 | 095 lyrics | 13 | 4 (prosody/pronunciation/repetition/explicit) | 17 |
-| 096 audio | 18 | 2 (measure/qc) | 20 |
+| 096 audio | 19 | 2 (measure/qc) | 21 |
 | 097 catalogue | 14 | 1 (tweet_schedule) | 15 |
 | 098 promo | 10 | 1 (promo_review) | 11 |
 | 099 research | 8 | 1 (verify_gate) | 9 |
-| 100 gates | 6 | 4 (concept/lyrics_pregen/audio_release/catalogue/promo) | 10 |
-| **Total** | **83** | **13** | **96** |
+| 100 gates | 6 | 5 (concept/lyrics_pregen/audio_release/catalogue/promo) | 11 |
+| **Total** | **84** | **14** | **98** |
 
-89 bitwize tools → 14 absorbed/dropped → 75 ported → split as 83 user-facing
-verbs (some bitwize tools fan into 2+ agency verbs for ISP cleanness) + 13
-internal gate verbs that the walkable skills compose.
+89 bitwize tools → 14 absorbed/dropped → 75 ported → split as 84 user-facing
+verbs (some bitwize tools fan into 2+ agency verbs for ISP cleanness — e.g.
+`get_lyrics_stats` folds into `lyric_report`; `transcribe_audio` splits into
+audio + sheet-music) + 14 internal gate verbs that the walkable skills
+compose.
+
+**Arithmetic check** (user-facing column, in case audits trip):
+14 + 13 + 19 + 14 + 10 + 8 + 6 = **84**. Each cluster spec's manifest table
+sums independently; the row counts above match each child's "Verb manifest"
+section.
 
 ## Design — the shared substrate (concerns common to all children)
 
@@ -291,8 +298,11 @@ the complete port exists to demonstrate at full scale.
       every music PR; non-zero exit blocks merge. Without this gate, the
       bar is aspiration.
 - [ ] **89-tool audit closed:** every row in 007's Appendix A has a verdict
-      across 094–100 (ported / dropped / absorbed). The audit is a table in
-      this master, regenerated on every child merge.
+      across 094–100 (ported / dropped / absorbed). **The audit table is
+      embedded as Appendix A of this master** (see end of this document) —
+      regenerated on every child merge so the coverage gate can be closed
+      mechanically. The audit IS the contract; without it, "complete" is
+      vibes-based.
 - [ ] **Provenance moat lit on a real album lifecycle:** an end-to-end test
       (`tests/test_music_e2e.py`) drives the full pipeline (capture_idea →
       conceptualize → research → lyric_report → master_album → promo_copy →
@@ -324,21 +334,48 @@ No new cross-cluster decisions; each child extends an existing cluster's
 integration pattern. Coherence interactions are scored in each child's
 "Coherence" section.
 
-## Migration order
+## Migration order (panel-corrected — Codex P2 on cross-cluster dependency)
 
-094 ships first (the foundation move: examples/music.py → agency/capabilities/
-music/). 100 ships second (gates can be wired against 094 state). 095, 097
-parallel-safe after 094 (text + DB clusters touch isolated boundaries). 096,
-098 after 095 + 097 (audio depends on lyric state for QC; promo depends on
-catalogue state for tweet linkage). 099 last (research delegations need the
-other clusters' record types to attach claims).
+**094 ships first** — the foundation move (`examples/music.py` →
+`agency/capabilities/music/`), the consolidated ontology, the StateDriver
+extensions. Every other child depends on 094.
+
+**After 094, the five domain clusters are parallel-safe:** 095 (lyrics —
+TextDriver), 096 (audio — AudioDriver), 097 (catalogue — DBDriver +
+CloudDriver-stdlib), 098 (promo — CloudDriver-boto3, optionally LLMDriver),
+099 (research — delegates to `agency.research` capability). Each touches an
+isolated boundary; the order among them is shape-of-the-team, not a
+technical constraint.
+
+**100 ships LAST.** It composes cross-cluster predicates: `lyrics_pregen_gate`
+reads from 095, `audio_release_gate` reads from 096, `catalogue_gate` reads
+from 097, `promo_gate` reads from 098, `verify_gate` reads from 099. The
+`release-qa` skill walk crashes with "unknown verb" if any predecessor
+cluster's verbs are absent. **The master 093 end-to-end test
+(`tests/test_music_e2e.py`) lives in 100 and asserts the full pipeline
+provenance — it cannot run until all upstream clusters have shipped.**
 
 ```
-094 ─┬─→ 100 (gates can fire against lifecycle)
-     ├─→ 095 (lyrics) ─┬→ 096 (audio QC reads lyric markers)
-     ├─→ 097 (catalogue) ─→ 098 (promo links tweets)
-     └─→ 099 (research) ─→ (attaches claims to Album/Track records from 094)
+094 lifecycle (the foundation; everything depends on it)
+  │
+  ├─→ 095 lyrics    ─┐
+  ├─→ 096 audio     ─┤  parallel-safe (touch isolated boundaries;
+  ├─→ 097 catalogue ─┤  no inter-dependency among 095/096/097/098/099)
+  ├─→ 098 promo     ─┤
+  └─→ 099 research  ─┘
+                     │
+                     └─→ 100 gates (the binder — composes all of the above;
+                                    ships LAST, carries the E2E test that
+                                    flips 093 to Shipped)
 ```
+
+> **Why not "100 second"?** An earlier draft ordered 100 second (rationale:
+> "gates can be wired against 094 state"). Codex flagged the conflict in PR
+> review: 100's frontmatter declares `depends_on: [094, 095, 096, 097, 099, 093]`
+> and its `release-qa` reads promo state (098). The corrected order honors
+> those declared dependencies. The 093 Done-When item "Provenance moat lit on
+> a real album lifecycle" runs the E2E test, which lives in 100, after all
+> domain clusters ship.
 
 ## Deployment (panel-added, iteration 2)
 
@@ -394,14 +431,65 @@ variant and asserts the affected verbs degrade gracefully
   through `Plan/100-music-gates-cluster/spec.md`).
 - 89-tool audit table grounded in 007's Appendix A.
 - Cluster coherence mapped to Spec 047's 13-cluster taxonomy.
-- Migration order documented (094 first, 100 second, 095/097 parallel, then 096/098, then 099).
+- Migration order documented — **corrected via Codex P2 review**: 094 first
+  (foundation), 095/096/097/098/099 parallel-safe after 094, **100 LAST**
+  (composes cross-cluster predicates; the E2E test that flips 093 to
+  Shipped lives here).
 - Doctrine exception (`agency/capabilities/` placement) justified + recorded.
 - Spec-panel pass (via `sc:sc-spec-panel`) recorded in `REVIEW.md`.
 
 ### Still
 - Implementation phase: each child spec drives its own RED→GREEN→Refactor cycle
   per Spec 053's fast-feedback discipline.
-- The end-to-end provenance test (`tests/test_music_e2e.py`) lands after
-  099 ships (it depends on all clusters).
+- The end-to-end provenance test (`tests/test_music_e2e.py`) lands in **100**
+  (the last child — depends on all upstream clusters).
 - `docs/vision/CAPABILITY-CLUSTERS.md` paragraph + CLAUDE.md doctrine-exception
   line land with the 094 PR (the migration PR).
+
+## Appendix A — 89-tool audit (per-row verdict)
+
+Every bitwize-music MCP tool (the v0.91.0+ surface) has a single verdict.
+This table is the coverage gate: a child PR cannot close its Done-When if any
+row mapped to its cluster is still `unverdicted`. Regenerated by
+`scripts/audit-music-tools` (lands in 094 PR; reads bitwize's
+`server.py:338-353` register chain + diffs against the children's manifests).
+
+> **Source-of-truth for the row list:** 007's Appendix A is the canonical
+> 89-row enumeration (`Plan/007-music-domain-capability/spec.md`).
+> Appendix A here is the **verdict layer** keyed on 007's row IDs. Both
+> tables must agree; `scripts/audit-music-tools` enforces it.
+
+| 007 row | bitwize tool | Cluster | Verdict | Lands in |
+|---|---|---|---|---|
+| 1–7 | core: album/track lifecycle (`get_album_full`, `find_album`, `list_albums`, `get_track`, `list_tracks`, `list_track_files`, `get_session`) | lifecycle | ported | 094 |
+| 8–15 | core: ideas/session/path (`create_idea`, `update_idea`, `promote_idea`, `get_ideas`, `update_session`, `resolve_path`, `resolve_track_file`, `get_pending_verifications`) | lifecycle | ported (some merged) | 094 + 100 (`pending_verifications`) |
+| 16–18 | core: structural (`get_album_progress`, `create_album_structure`, `validate_album_structure`) | lifecycle / gates | ported | 094 / 100 |
+| 19 | core: `get_config` | (absorbed) | absorbed → `.agency/session.db` | n/a |
+| 20–22 | content: `create_track`, `update_track_field`, `update_album_status` | lifecycle | ported | 094 |
+| 23–28 | text_analysis: `count_syllables`, `analyze_readability`, `analyze_rhyme_scheme`, `format_for_clipboard`, `extract_distinctive_phrases`, `extract_section` | lyrics | ported | 095 |
+| 29–35 | lyrics_analysis: `validate_section_structure`, `check_pronunciation_enforcement`, `check_homographs`, `check_streaming_lyrics`, `check_cross_track_repetition`, `check_explicit_content`, `scan_artist_names` | lyrics | ported | 095 |
+| 36 | lyrics_analysis: `get_lyrics_stats` | lyrics | ported (folded into `lyric_report`) | 095 |
+| 37–39 | album_ops: `rename_album`, `rename_track`, `migrate_audio_layout` | lifecycle | ported × 2, dropped × 1 (`migrate_audio_layout` → migration script) | 094 |
+| 40–43 | gates handler: `run_pre_generation_gates`, `validate_album_structure`, `validate_section_structure`, `diagnose` | gates | ported | 100 |
+| 44–47 | streaming: `get_streaming_urls`, `update_streaming_url`, `verify_streaming_urls`, `extract_links` | catalogue | ported | 097 |
+| 48–53 | skills: `list_skills`, `get_skill`, `load_override`, `get_plugin_version`, `health_check`, `get_python_command` | (absorbed) | absorbed → agency substrate (skills+welcome+doctor+install) | n/a |
+| 54–55 | status: `get_pending_verifications`, `find_album` (re-export) | (merged) | ported (folded) | 094 / 099 |
+| 56–58 | promo: `get_promo_status`, `get_promo_content`, `get_session` (re-export) | catalogue / promo | ported | 097 + 098 |
+| 59–68 | processing/audio + processing/mixing: `master_audio`, `master_album`, `master_with_reference`, `polish_and_master_album`, `fix_dynamic_track`, `reset_mastering`, `render_codec_preview`, `measure_album_signature`, `album_coherence_check`, `album_coherence_correct` | audio | ported | 096 |
+| 69–73 | processing/video + processing/sheet_music: `generate_promo_videos`, `generate_album_sampler`, `transcribe_audio`, `prepare_singles`, `create_songbook` | audio / promo | ported (`generate_promo_videos` + `transcribe_audio` → 096; `generate_album_sampler` + `prepare_singles` → 098; `create_songbook` → 096) | 096 + 098 |
+| 74–81 | database: `db_init`, `db_sync_album`, `db_create_tweet`, `db_update_tweet`, `db_delete_tweet`, `db_list_tweets`, `db_search_tweets`, `db_get_tweet_stats` | catalogue | ported × 7 + 1 install script (`db_init` → migration) | 097 |
+| 82–86 | promo + streaming (cont.): `get_promo_status`, `get_promo_content`, `get_streaming_urls`, `update_streaming_url`, `verify_streaming_urls` | catalogue / promo | ported (see rows 44–47 + 56–58 — folded) | 097 |
+| 87 | processing/sheet_music: `publish_sheet_music` | promo | ported | 098 |
+| 88–89 | gates: `run_pre_generation_gates`, `validate_album_structure` (re-exports) | gates | ported (see rows 40–43) | 100 |
+| — | maintenance: `rebuild_state`, `prune_archival`, `cleanup_legacy_venvs`, `check_venv_health` | (absorbed/dropped) | absorbed → graph reads (rebuild_state) + dropped × 3 (venv ops are agency-substrate concerns) | n/a |
+| — | search: `search` | (absorbed) | absorbed → `mcp__agency__search` | n/a |
+
+**Audit totals:**
+- **Ported**: 75 rows landed across 094–100
+- **Absorbed by substrate**: 11 rows (config/venv/search/skills/welcome/health re-exports/session-start hook)
+- **Dropped (no agency analog)**: 3 rows (venv-cleanup variants)
+- **Total**: 89 rows accounted for — zero unverdicted
+
+The audit is a **mechanically-checkable contract** — `scripts/audit-music-
+tools` runs in CI per child PR and fails if any verdict goes missing or any
+child's manifest does not match its claimed rows.

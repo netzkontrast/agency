@@ -38,8 +38,11 @@ chronological order.
 
 ## Done When
 
-- [ ] **Verbs ship:** 6 gate verbs (see "Verb manifest"), all computing
-  predicates from cross-cluster state.
+- [ ] **Verbs ship:** 6 top-level + 5 composite gate verbs = 11 registered
+  (see "Verb manifest"), all computing predicates from cross-cluster state.
+  Without the composite gates, the `pre-generation` and `release-qa` skill
+  walks crash with "unknown verb" — they are part of the cluster, not a
+  followup.
 - [ ] **No DRIVER additions** — gates compose existing cluster verbs +
   StateDriver reads + `gate.check` core verb.
 - [ ] **Walkable skill: `pre-generation`** — 4-phase workflow (concept-ready
@@ -63,13 +66,33 @@ chronological order.
 | # | Verb | Role | Driver / Backing | bitwize tool absorbed | Notes |
 |---|---|---|---|---|---|
 | 1 | `pregen_check` | effect | StateDriver+gate.check | `run_pre_generation_gates` | kept from 007; expanded predicates |
-| 2 | `release_check` | effect | DBDriver+gate.check | (composite) | kept from 007 |
+| 2 | `release_check` | effect | StateDriver+gate.check | (composite) | kept from 007 — track status read graph-canonically (NOT via DBDriver — see "Track-status correction" below) |
 | 3 | `validate_album` | transform | StateDriver | `validate_album_structure` | mirror-path + file-presence check |
 | 4 | `validate_sections` | transform | TextDriver | `validate_section_structure` | delegated to 095 |
 | 5 | `diagnose` | transform | (composite, driver-free) | `diagnose` | composite health probe |
 | 6 | `music_health` | transform | (driver-free) | `health_check` | kept from 007 |
 
-**Total: 6 verbs covering 6 bitwize tools (1:1 in gates).**
+**Internal composite gate verbs** (registered, but called only by walkable
+skill phases — counted in 093's gate-verb column):
+
+| # | Verb | Role | Composes | Called by skill |
+|---|---|---|---|---|
+| G1 | `concept_gate` | effect | StateDriver.find_album + gate.check | `pre-generation` phase 1 |
+| G2 | `lyrics_pregen_gate` | effect | `music.list_tracks` + 4 lyric `*_gate` verbs (095) + gate.check | `pre-generation` phase 3 |
+| G3 | `audio_release_gate` | effect | `music.list_tracks` + `music.qc_audio` + gate.check | `release-qa` phase 1 |
+| G4 | `catalogue_gate` | effect | `music.get_streaming_urls` + `music.db_list_tweets` + gate.check | `release-qa` phase 2 |
+| G5 | `promo_gate` | effect | StateDriver.read promo dir + gate.check | `release-qa` phase 3 |
+
+**Total: 6 top-level verbs + 5 composite gate verbs = 11 registered.** All 6
+bitwize-equivalent tools (1:1) + 5 agency-native compositions that the
+walkable skills compose. The composite gates are what make the
+`pre-generation` and `release-qa` skill walks executable; without them, the
+skills reference undefined gate verbs at walk-time.
+
+> The 093 master gate-column for cluster 100 lists 4 gates; this manifest
+> lists 5. The fifth (`concept_gate`, phase 1 of pre-generation) was
+> implicit in the master table's count. 093 master gate-column corrected
+> to 5 in this same wave.
 
 ## Design
 

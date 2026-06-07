@@ -178,36 +178,84 @@ RESEARCH_WORKFLOW_SKILL = {
 
 ### Delegation pattern
 
+### The actual `agency.research` API (panel-corrected — Codex P2)
+
+The shipped `agency.research` capability (Spec 044, `agency/capabilities/
+research/_main.py`) exposes **three verbs**:
+
+- `research.lead(question, depth)` → `{research_id, specialists, plan}` —
+  mints a `Research` graph node SERVES the intent
+- `research.specialist(research_id, role, query, …)` → `{citations, summary}`
+  — runs ONE bounded sub-search; records `Citation` nodes under the research_id
+- `research.verify(research_id)` → `{verified, contradictions}` — cross-
+  checks claims; the verifier pass
+
+The shipped specialist `role` enum is `{codebase, prior-reflections,
+doc-corpus, web}` — generic, NOT music-domain. Music's 10-domain registry
+(legal, financial, …) maps onto this surface as **(role, query, search_root)
+tuples** — each music domain becomes a `web` or `doc-corpus` specialist
+call with a domain-prompted query.
+
 ```python
-# In clusters/research.py:
+# In clusters/research.py (CORRECTED — matches the shipped API):
 @verb(role="effect")
 def dispatch_research(self, question: str, domains: str = "all",
                       album: str = "") -> ToolResult:
-    """Fan out to music-domain research specialists via agency.research.
-    Records ResearchClaim nodes per finding, all SERVES the parent intent.
+    """Drive agency.research.lead → N agency.research.specialist calls →
+    agency.research.verify. Maps music's 10 domain specialists onto the
+    shipped {codebase|prior-reflections|doc-corpus|web} role enum by
+    domain-prompting the query. Records ResearchClaim nodes per finding,
+    all SERVES the parent intent.
     """
     state = self.ctx.get_driver("music_state")
     domain_registry = state.read_data("research-domain", "all")
     selected = (list(domain_registry["domains"].keys()) if domains == "all"
                 else [d.strip() for d in domains.split(",")])
 
-    # Delegate to agency.research — the heavy lifting:
-    fan = self.ctx.call("research", "fan_out", intent_id=self.ctx.intent_id,
-                        question=question, specialists=selected,
-                        config_per_specialist={d: domain_registry["domains"][d]
-                                               for d in selected})
-    # Result carries the claims; record them as music ontology nodes:
-    for claim in fan["claims"]:
-        claim_id = self.ctx.record("ResearchClaim", {
-            "text": claim["text"], "source_uri": claim["source_uri"],
-            "domain": claim["domain"], "confidence": claim["confidence"],
-            "verified": "pending"})
-        self.ctx.link(claim_id, self.ctx.intent_id, "SERVES")
-        if album:
-            self.ctx.link(claim_id, album, "RELATES_TO")
-    return ToolResult.success(data={"claim_count": len(fan["claims"]),
-                                    "album": album})
+    # 1. Lead — mints the Research node:
+    lead = self.ctx.call("research", "lead",
+                         question=question, depth="standard").data
+    research_id = lead["research_id"]
+
+    # 2. Specialists — one call per music-domain, mapped to a research role:
+    for music_domain in selected:
+        cfg = domain_registry["domains"][music_domain]
+        # Music domains primarily hit web sources (court records, SEC
+        # filings, news); document_hunter + legal map to web with stricter
+        # source filtering inside the query prompt:
+        role = "web" if cfg.get("preferred_sources") else "doc-corpus"
+        domain_query = (f"[domain={music_domain}] {question}\n"
+                        f"Preferred sources: {cfg.get('preferred_sources', [])}\n"
+                        f"Style: {cfg.get('description', '')}")
+        result = self.ctx.call("research", "specialist",
+                               research_id=research_id, role=role,
+                               query=domain_query, k=cfg.get("k", 5)).data
+        # Record each citation as a music ResearchClaim:
+        for cite in result.get("citations", []):
+            claim_id = self.ctx.record("ResearchClaim", {
+                "text": cite.get("snippet", ""),
+                "source_uri": cite.get("uri", ""),
+                "domain": music_domain,
+                "confidence": cite.get("confidence", 0.5),
+                "verified": "pending"})
+            self.ctx.link(claim_id, self.ctx.intent_id, "SERVES")
+            if album:
+                self.ctx.link(claim_id, album, "RELATES_TO")
+
+    # 3. Verify — agency.research.verify cross-checks the citations under
+    # the Research node; music inherits the verification verdict:
+    self.ctx.call("research", "verify", research_id=research_id)
+    return ToolResult.success(data={"research_id": research_id,
+                                    "album": album,
+                                    "domain_count": len(selected)})
 ```
+
+**The web specialist** (research.specialist with role=`web`) requires a
+web-search Boundary on the engine — Spec 044 reserved the slot but does
+NOT bind a default driver. Music's research cluster inherits that gap: in
+CI, the web specialist returns a stub `{citations: [], summary: ""}` (the
+fake `Researcher` boundary). In production, binding a web-search Driver
+(e.g. via `[research-web]` extra) enables real specialist calls.
 
 ## Test plan
 
