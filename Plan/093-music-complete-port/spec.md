@@ -140,22 +140,23 @@ boto3 stays in `promo` for R2 upload):
 | Child | User-facing verbs | Internal `*_gate` verbs | Total registered |
 |---|---|---|---|
 | 094 lifecycle | 14 | 0 | 14 |
-| 095 lyrics | 13 | 4 (prosody/pronunciation/repetition/explicit) | 17 |
+| 095 lyrics | 14 | 4 (prosody/pronunciation/repetition/explicit) | 18 |
 | 096 audio | 19 | 2 (measure/qc) | 21 |
 | 097 catalogue | 14 | 1 (tweet_schedule) | 15 |
 | 098 promo | 10 | 1 (promo_review) | 11 |
 | 099 research | 8 | 1 (verify_gate) | 9 |
 | 100 gates | 6 | 5 (concept/lyrics_pregen/audio_release/catalogue/promo) | 11 |
-| **Total** | **84** | **14** | **98** |
+| **Total** | **85** | **14** | **99** |
 
-89 bitwize tools → 14 absorbed/dropped → 75 ported → split as 84 user-facing
-verbs (some bitwize tools fan into 2+ agency verbs for ISP cleanness — e.g.
+89 bitwize tools → 14 absorbed/dropped → 75 ported + 1 bitwize-skill
+(voice-checker) ported as a verb → split as 85 user-facing verbs (some
+bitwize tools fan into 2+ agency verbs for ISP cleanness — e.g.
 `get_lyrics_stats` folds into `lyric_report`; `transcribe_audio` splits into
 audio + sheet-music) + 14 internal gate verbs that the walkable skills
 compose.
 
 **Arithmetic check** (user-facing column, in case audits trip):
-14 + 13 + 19 + 14 + 10 + 8 + 6 = **84**. Each cluster spec's manifest table
+14 + 14 + 19 + 14 + 10 + 8 + 6 = **85**. Each cluster spec's manifest table
 sums independently; the row counts above match each child's "Verb manifest"
 section.
 
@@ -293,10 +294,13 @@ the complete port exists to demonstrate at full scale.
       music requires ZERO edits to `agency/engine.py`, `agency/registry.py`,
       `agency/ontology.py`, `agency/capability.py`, or `agency/toolresult.py`
       (the substrate's load-bearing core). Enforced by
-      `scripts/check-drop-in-bar` (new in this PR): asserts the named files
-      have no diff vs `main` across the entire 093-wave PR sequence. Run on
-      every music PR; non-zero exit blocks merge. Without this gate, the
-      bar is aspiration.
+      `scripts/check-drop-in-bar` — **lands in the 094 PR (the migration
+      PR), not in this design-only spec set.** Codex P2 flagged that the
+      spec PR labels the script "new in this PR" but doesn't ship it; the
+      label was wrong — this is a design wave (specs only), and the script
+      is itself an artefact of the implementation wave that begins with 094.
+      Once 094 ships, the script runs on every music PR; non-zero exit
+      blocks merge. Without this gate the bar is aspiration.
 - [ ] **89-tool audit closed:** every row in 007's Appendix A has a verdict
       across 094–100 (ported / dropped / absorbed). **The audit table is
       embedded as Appendix A of this master** (see end of this document) —
@@ -340,12 +344,17 @@ integration pattern. Coherence interactions are scored in each child's
 `agency/capabilities/music/`), the consolidated ontology, the StateDriver
 extensions. Every other child depends on 094.
 
-**After 094, the five domain clusters are parallel-safe:** 095 (lyrics —
-TextDriver), 096 (audio — AudioDriver), 097 (catalogue — DBDriver +
-CloudDriver-stdlib), 098 (promo — CloudDriver-boto3, optionally LLMDriver),
-099 (research — delegates to `agency.research` capability). Each touches an
-isolated boundary; the order among them is shape-of-the-team, not a
-technical constraint.
+**Wave 1 (parallel-safe after 094):** 095 (lyrics — TextDriver), 096 (audio
+— AudioDriver), 097 (catalogue — DBDriver + CloudDriver-stdlib), 099
+(research — delegates to `agency.research`). Each touches an isolated
+boundary; the order among them is shape-of-the-team.
+
+**Wave 2 (after 096 + 097):** 098 (promo — CloudDriver-boto3, optionally
+LLMDriver). Codex P2: 098's `release_package` verb composes audio render
+outputs (096's `generate_promo_videos`, `generate_album_sampler`,
+`prepare_singles`) and catalogue state (097's streaming URLs + tweet
+records), so its release-packaging tests fail-fast if 096/097 are absent.
+**098 is NOT parallel with 096/097 — it follows them.**
 
 **100 ships LAST.** It composes cross-cluster predicates: `lyrics_pregen_gate`
 reads from 095, `audio_release_gate` reads from 096, `catalogue_gate` reads
@@ -359,14 +368,15 @@ provenance — it cannot run until all upstream clusters have shipped.**
 094 lifecycle (the foundation; everything depends on it)
   │
   ├─→ 095 lyrics    ─┐
-  ├─→ 096 audio     ─┤  parallel-safe (touch isolated boundaries;
-  ├─→ 097 catalogue ─┤  no inter-dependency among 095/096/097/098/099)
-  ├─→ 098 promo     ─┤
+  ├─→ 096 audio     ─┤  Wave 1 — parallel-safe (touch isolated boundaries)
+  ├─→ 097 catalogue ─┤
   └─→ 099 research  ─┘
-                     │
-                     └─→ 100 gates (the binder — composes all of the above;
-                                    ships LAST, carries the E2E test that
-                                    flips 093 to Shipped)
+        │   │
+        │   └─→ 098 promo (Wave 2 — depends on 096 audio render + 097
+        │                  catalogue state; release-packaging composes both)
+        ↓
+        └─→ 100 gates (the binder — composes all of the above; ships LAST,
+                       carries the E2E test that flips 093 to Shipped)
 ```
 
 > **Why not "100 second"?** An earlier draft ordered 100 second (rationale:

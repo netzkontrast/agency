@@ -38,10 +38,9 @@ output an LLM can reason about.
 
 ## Done When
 
-- [ ] **Verbs ship:** 13 lyrics verbs (see "Verb manifest"), covering bitwize's
-  14 text/lyric tools (one merge: `analyze_rhyme_scheme` absorbs internal
-  syllable_helper).
-- [ ] **TextDriver extended** with 13 new methods (one per verb that needs
+- [ ] **Verbs ship:** 14 lyrics verbs (see "Verb manifest"), covering bitwize's
+  14 text/lyric tools + the `voice-checker` skill ported as verb #14.
+- [ ] **TextDriver extended** with 14 new methods (one per verb that needs
   external pattern tables); pure-stdlib fake covers all of them.
 - [ ] **Artefact schemas added** to ontology: `lyric-report` (kept from 007),
   `pronunciation-report`, `prosody-report`, `cross-track-report`,
@@ -70,8 +69,9 @@ output an LLM can reason about.
 | 11 | `extract_section` | transform | TextDriver | `extract_section` | verse/chorus/bridge structural parse |
 | 12 | `validate_section_structure` | transform | TextDriver | `validate_section_structure` | section-tag well-formedness |
 | 13 | `scan_artist_names` | transform | TextDriver | `scan_artist_names` | guards against accidental name-drops |
+| 14 | `check_voice_tells` | transform | TextDriver | (the bitwize `voice-checker` skill) | rule-based AI-tell detection (abstract-noun stacking, cliché escalation, over-explained metaphors, missing idiosyncrasy); returns `findings` list with severity per row (Warning/Info — advisory only, doesn't block any gate) |
 
-**Total: 13 verbs covering 14 bitwize tools.**
+**Total: 14 verbs covering 14 bitwize tools + 1 bitwize-skill (voice-checker) ported as a verb.**
 
 ## Design
 
@@ -197,9 +197,13 @@ def test_finalize_phase_pauses_on_hard_elicit(): ...
    path (e.g. `.agency/music/pronunciation-guide.yaml`) read by StateDriver.
    Deferred — single-source-of-truth (data/) is the default; overrides land in
    a followup.
-3. **`voice-checker` (AI-tell detection) — verb or skill?** Verb
-   (`check_voice_tells`) deferred to a followup; the bitwize skill is advisory
-   Warning/Info severity and rule-based. Could route through `llm` driver later.
+3. **`voice-checker` (AI-tell detection) — verb or skill?** **Resolved
+   (Codex P2):** ported as verb #14 `check_voice_tells` (transform,
+   TextDriver, rule-based) — see manifest. The bitwize skill's prose
+   guidance lives in the cluster as a checker; severity stays advisory
+   (returns `findings` list with severity per row, doesn't block any gate).
+   `llm` driver routing remains a followup enhancement; the rule-based
+   path is the v1 contract.
 
 ## Followup
 

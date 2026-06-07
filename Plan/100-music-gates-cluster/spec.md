@@ -4,7 +4,7 @@ slug: music-gates-cluster
 status: draft
 last_updated: 2026-06-07
 owner: "@agency"
-depends_on: ["094", "095", "096", "097", "099", "093"]
+depends_on: ["094", "095", "096", "097", "098", "099", "093"]
 affects:
   - agency/capabilities/music/clusters/gates.py
   - agency/capabilities/music/ontology.py       # release-qa + pre-gen + validate-structure skills
@@ -256,50 +256,75 @@ validity).
 def test_music_full_pipeline_records_complete_provenance_chain(fake_drivers):
     """Drive the full music capability through release; assert that
     memory_graph_provenance returns every Invocation/Artefact/Reflection
-    SERVES the album intent."""
+    SERVES the album intent.
+
+    API note (Codex P2 — verified against capability.py:520 +
+    test_engine_unwrap_contract.py:56): Engine does NOT expose .call() or
+    .intent_bootstrap() helpers. The two canonical idioms are:
+      A) `engine.registry.invoke(memory, intent_id, cap, verb, agent_id=, **kw)`
+         → returns `(result_dict, error_str)`; the registry has already
+         unwrapped ToolResult.data.
+      B) `await engine.build_mcp(codemode=True).call_tool(tool_name, kwargs)`
+         → MCP wire path; result on `.structured_content` or `.data`.
+    The intent is minted via `engine.intent.capture_and_confirm(purpose,
+    deliverable, acceptance, owner="user")` → returns the intent_id string.
+    """
     eng = Engine(":memory:", drivers=fake_drivers())
-    intent = eng.intent_bootstrap("album X", "release", "verify provenance")
+    intent_id = eng.intent.capture_and_confirm(
+        purpose="album X", deliverable="release", acceptance="verify provenance",
+        owner="user")
+    invoke = lambda cap, verb, **kw: eng.registry.invoke(
+        eng.memory, intent_id, cap, verb, agent_id="agent:e2e", **kw)[0]
 
     # 1. lifecycle
-    eng.call("music", "capture_idea", text="album X")
-    eng.call("music", "promote_idea", idea_id=...)
-    eng.call("music", "conceptualize", artist="Artist", title="X",
-             type="documentary", theme="...", tracklist="t1\nt2")
+    invoke("music", "capture_idea", text="album X")
+    idea = invoke("music", "list_ideas")
+    invoke("music", "promote_idea", idea_id=idea["ideas"][0]["id"])
+    invoke("music", "conceptualize", artist="Artist", title="X",
+           type="documentary", theme="...", tracklist="t1\nt2")
 
     # 2. research
-    eng.call("music", "dispatch_research", question="X facts",
-             domains="legal,financial", album="X")
-    eng.call("music", "verify_sources", album="X")
+    invoke("music", "dispatch_research", question="X facts",
+           domains="legal,financial", album="X")
+    invoke("music", "verify_sources", album="X")
 
     # 3. lyrics
-    eng.call("music", "lyric_report", track="t1", lyrics="...")
+    invoke("music", "lyric_report", track="t1", lyrics="...")
 
     # 4. audio
-    eng.call("music", "master_album", album="X", target_lufs=-14)
-    eng.call("music", "qc_audio", path=".../X/master.wav")
+    invoke("music", "master_album", album="X", target_lufs=-14)
+    invoke("music", "qc_audio", path=".../X/master.wav")
 
     # 5. catalogue + promo
-    eng.call("music", "db_create_tweet", album="X", body="...",
-             scheduled_at="...", platform="x")
-    eng.call("music", "promo_copy", album="X", platform="x")
-    eng.call("music", "publish_asset", key="X/master.wav", body=b"...")
+    invoke("music", "db_create_tweet", album="X", body="...",
+           scheduled_at="...", platform="x")
+    invoke("music", "promo_copy", album="X", platform="x")
+    invoke("music", "publish_asset", key="X/master.wav", body=b"...")
 
-    # 6. gates — release_check should now pass
-    result = eng.call("music", "release_check", lifecycle_id=intent.lifecycle_id,
-                      album="X")
-    assert result.ok
+    # 6. gates — release_check should now pass (we built a lifecycle when
+    # conceptualize landed; reuse its id from the graph)
+    lifecycle_id = eng.memory.find_lifecycle_for_intent(intent_id)
+    result = invoke("music", "release_check", lifecycle_id=lifecycle_id,
+                    album="X")
+    assert result.get("passed") is True
 
-    # 7. THE HEADLINE — provenance returns the full chain
-    prov = eng.call("memory", "graph_provenance",
-                    intent_id=intent.intent_id,
-                    include=["Invocation", "Artefact", "Reflection",
-                            "ResearchClaim", "VerificationRecord"])
-    assert prov.data["invocation_count"] >= 10
-    assert prov.data["artefact_count"] >= 5  # concept, master-report, qc,
-                                              # tweet, promo, asset
-    assert "ResearchClaim" in prov.data["node_types"]
+    # 7. THE HEADLINE — provenance returns the full chain (memory verbs
+    # exposed via the memory capability; we read the registry's unwrap):
+    prov = invoke("memory", "graph_provenance",
+                  intent_id=intent_id,
+                  include=["Invocation", "Artefact", "Reflection",
+                          "ResearchClaim", "VerificationRecord"])
+    # Causal-ordered provenance (per 093's call-patterns table):
+    assert prov["invocation_count"] >= 12     # 1 idea + 1 promote + 1 concept
+                                              # + 1 research + 1 verify + 1
+                                              # lyric + 1 master + 1 qc + 1
+                                              # tweet + 1 promo + 1 publish
+                                              # + 1 release_check
+    assert prov["artefact_count"] >= 5        # concept, master-report, qc,
+                                              # promo, published-asset
+    assert "ResearchClaim" in prov["node_types"]
     assert all(edge["type"] == "SERVES"
-               for edge in prov.data["edges_from_root"])
+               for edge in prov["edges_from_root"])
 ```
 
 ## Test plan (cluster-local)

@@ -39,10 +39,12 @@ audio binds at production via the `[music-audio]` extra
 
 ## Done When
 
-- [ ] **Verbs ship:** 18 audio verbs (see "Verb manifest"), covering all
-  bitwize audio + media tools.
-- [ ] **AudioDriver extended** with 19 new methods; fake produces deterministic
-  outputs for every method (no real audio binaries in CI).
+- [ ] **Verbs ship:** **19 audio verbs** (see "Verb manifest" — un-deferred
+  `create_songbook` is row 19 per Codex P2; the Done-When count now matches
+  the manifest), covering all bitwize audio + media tools.
+- [ ] **AudioDriver extended** with 20 new methods (one per verb that touches
+  external audio toolchain; `create_songbook` adds `render_songbook`); fake
+  produces deterministic outputs for every method (no real audio binaries in CI).
 - [ ] **Artefact schemas added:** `mastering-report` (kept from 007),
   `mix-analysis`, `qc-report`, `sheet-music` (kept from 007), `coherence-report`,
   `promo-video`, `album-sampler`.

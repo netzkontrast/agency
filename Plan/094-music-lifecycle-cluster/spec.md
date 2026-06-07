@@ -72,6 +72,19 @@ preserved and the long-tail (resume/session/rebuild) wired.
   `agency/ontology.py` (the core extension mechanism). `git diff` confirms.
 - [ ] **`scripts/check-drift` Green** after install regen; no orphans in
   `bin/agency-music-*` / `skills/music/references/`.
+- [ ] **pytest markers extended for the music wave** (Codex P2 — required
+  for `scripts/test-cap music_*` to actually run music tests in 095–100):
+  `tests/conftest.py`'s `_AUTO_MARKER_PATTERNS` gains entries for
+  `test_music_lifecycle_` → `music_lifecycle`, `test_music_lyrics_` →
+  `music_lyrics`, `test_music_audio_` → `music_audio`, `test_music_catalogue_`
+  → `music_catalogue`, `test_music_promo_` → `music_promo`,
+  `test_music_research_` → `music_research`, `test_music_gates_` →
+  `music_gates`. Mirror in `pyproject.toml`'s
+  `[tool.pytest.ini_options].markers` and `scripts/test-changed` mapping.
+  This lands in 094's PR (the foundation PR) so every subsequent child can
+  use `scripts/test-cap music_<cluster>` from day one. Without this,
+  `pytest -m music_lyrics` deselects all music_lyrics tests, and the cluster
+  Done-When commands report "0 collected" instead of running.
 - [ ] **`docs/vision/CAPABILITY-CLUSTERS.md`** gains a paragraph noting music's
   graduation from `examples/`; **CLAUDE.md** gains the one-line exception.
 - [ ] **`TODO.md`** row added for 094, 093 row updated to "Partial" with the

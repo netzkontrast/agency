@@ -437,6 +437,33 @@ findings 2–8 each closed a real gap a future implementer would have hit at
 RED-phase. Finding 1 (the arithmetic error) is documented above so it
 doesn't recur in a future audit pass.
 
+## Iteration 4 — Codex second pass (post-iteration-3 commit, applied in follow-up commit)
+
+After commit `37c4205` (iteration-3 fixes), Codex re-reviewed and flagged
+**9 NEW P2 findings**. All 9 valid + actionable; applied below.
+
+| # | Finding | Spec / Line | Applied fix |
+|---|---|---|---|
+| 1 | Resolve deferred voice-checker (every workflow needs a verdict) | 095:202 | Ported as verb #14 `check_voice_tells` (rule-based TextDriver; severity Warning/Info; advisory-only) |
+| 2 | Keep `update_streaming_url` out of CloudDriver (mismatch between verb manifest + driver-delta sections) | 097:46 | Manifest row 9 now reads StateDriver only; CloudDriver method-delta unchanged (no new methods) |
+| 3 | Audio Done-When says 18 verbs but manifest has 19 | 096:43 | Done-When updated: "19 audio verbs (per Codex P2 un-deferred create_songbook)" |
+| 4 | pytest marker auto-map lacks music_* entries — `scripts/test-cap music_lyrics` would deselect tests | 095:52 (applies to all music children) | Added to 094 Done-When: `conftest.py`'s `_AUTO_MARKER_PATTERNS` extended with 7 music_* entries; mirror in pyproject + test-changed |
+| 5 | 098 frontmatter depends_on `[094, 095, 096, 097, 093]` — NOT parallel-safe with 096/097 | 093:364 | Migration order corrected: Wave 1 = 095/096/097/099 parallel; Wave 2 = 098 (after audio+catalogue); Wave 3 = 100 last |
+| 6 | `scripts/check-drop-in-bar` labeled "new in this PR" but PR didn't add it | 093:298 | Clarified: lands in 094 PR (the migration), NOT this design-only spec set; label was incorrect |
+| 7 | 100 frontmatter `depends_on` missing 098 (release-qa reads promo state) | 100:7 | Added 098 to depends_on list |
+| 8 | E2E test uses `eng.intent_bootstrap()` + `eng.call()` — Engine doesn't expose those | 100:264 | Rewrote with real API: `engine.intent.capture_and_confirm(...)` + `engine.registry.invoke(memory, intent_id, cap, verb, agent_id, **kw)` (mirrors `test_engine_unwrap_contract.py:56`) |
+| 9 | `self.ctx.call(...).data` — CapabilityContext.call returns unwrapped dict (not ToolResult) | 099:218 | Removed `.data` accesses; added comment citing `capability.py:138` ($\rightarrow$ `self.spawn(...)[0]`) |
+
+**Net result of iteration 4:** every concrete API reference in the spec set
+is now grounded in actual code (capability.py / engine.py / conftest.py /
+tests/test_engine_unwrap_contract.py). Implementation can RED-phase against
+the specs without first re-discovering the API surface. The migration
+ordering matches the children's `depends_on` declarations. Every bitwize
+workflow has a verdict (voice-checker no longer deferred).
+
+This closes the spec-design loop. Future implementer PRs (starting with 094)
+inherit a spec set whose API claims are mechanically verifiable.
+
 ## What's applied vs deferred (between this review and commit)
 
 **Applied in this PR (the 8 spec files):**

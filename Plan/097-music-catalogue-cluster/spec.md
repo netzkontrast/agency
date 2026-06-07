@@ -42,8 +42,11 @@ across fake and real.
   bitwize DB + streaming tools.
 - [ ] **DBDriver extended** with 7 new methods; psycopg2-shaped cursor fake
   covers all of them.
-- [ ] **CloudDriver(stdlib) extended** with 1 new method (`url_head` exists;
-  add `update_streaming_url` that writes URL into markdown state via StateDriver).
+- [ ] **CloudDriver(stdlib) carries ZERO new methods** in this child (`url_head`
+  already exists from 007). `update_streaming_url` is a StateDriver-only verb
+  (verb manifest row 9); the caller composes `verify_streaming` + this verb if
+  reachability matters. Honors the CloudDriver method-delta section below
+  (no new methods).
 - [ ] **Artefact schemas added:** `tweet-record`, `streaming-verify`,
   `catalogue-snapshot`.
 - [ ] **Walkable skill: `tweet-curation`** — 4-phase workflow (draft → schedule
@@ -71,7 +74,7 @@ across fake and real.
 | 6 | `db_get_tweet_stats` | transform | DBDriver | `db_get_tweet_stats` | aggregate counts |
 | 7 | `db_sync_album` | effect | DBDriver+StateDriver | `db_sync_album` | syncs tweet rows ↔ markdown promo dir |
 | 8 | `verify_streaming` | transform | CloudDriver | `verify_streaming_urls` | kept from 007 |
-| 9 | `update_streaming_url` | effect | CloudDriver+StateDriver | `update_streaming_url` | records URL after release |
+| 9 | `update_streaming_url` | effect | StateDriver | `update_streaming_url` | records URL into markdown state after release. **NOTE:** does NOT call CloudDriver — caller invokes `verify_streaming` first if URL reachability matters, then calls this to persist. Two-step idiom keeps each driver's surface clean (Codex P2 — match the CloudDriver method-delta section, which adds no new methods). |
 | 10 | `get_streaming_urls` | transform | StateDriver | `get_streaming_urls` | reads recorded URLs |
 | 11 | `get_promo_status` | transform | StateDriver | `get_promo_status` | per-album promo state |
 | 12 | `get_promo_content` | transform | StateDriver | `get_promo_content` | reads promo dir |

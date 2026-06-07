@@ -212,9 +212,12 @@ def dispatch_research(self, question: str, domains: str = "all",
     selected = (list(domain_registry["domains"].keys()) if domains == "all"
                 else [d.strip() for d in domains.split(",")])
 
-    # 1. Lead — mints the Research node:
+    # 1. Lead — mints the Research node.
+    # NOTE: CapabilityContext.call returns the spawned verb's unwrapped result
+    # dict (NOT a ToolResult) — `self.spawn(...)[0]` per capability.py:138.
+    # Codex P2: never .data on a ctx.call result.
     lead = self.ctx.call("research", "lead",
-                         question=question, depth="standard").data
+                         question=question, depth="standard")
     research_id = lead["research_id"]
 
     # 2. Specialists — one call per music-domain, mapped to a research role:
@@ -229,7 +232,7 @@ def dispatch_research(self, question: str, domains: str = "all",
                         f"Style: {cfg.get('description', '')}")
         result = self.ctx.call("research", "specialist",
                                research_id=research_id, role=role,
-                               query=domain_query, k=cfg.get("k", 5)).data
+                               query=domain_query, k=cfg.get("k", 5))
         # Record each citation as a music ResearchClaim:
         for cite in result.get("citations", []):
             claim_id = self.ctx.record("ResearchClaim", {
