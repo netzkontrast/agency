@@ -498,6 +498,51 @@ Codex's automated review has effectively closed the spec-to-code gap that
 hand-written specs always carry. The implementation phase can RED-phase
 against the specs without a re-discovery pass.
 
+## Iteration 6 — Codex fourth pass (post-iteration-5 commit, applied in follow-up commit)
+
+Codex re-reviewed commit `b8d0631` (iteration-5 fixes) and flagged **16 NEW
+P2 findings**. 15 valid + actionable; **1 false positive** (the
+`PROMO_PASS_SKILL` "duplicate produces line" — verified syntactically valid
+via `grep -n` of the literal: 5 `"produces"` lines, one per phase, all
+inside dict literals). Applied below.
+
+| # | Finding | Spec / Line | Applied fix |
+|---|---|---|---|
+| 1 | 100 `pregen_check` still indexes `research["data"]` and `lyrics["data"]` | 100:236 | Removed `["data"]` wrapping; direct dict indexing per `capability.py:138` unwrap contract |
+| 2 | E2E asserts against `invocation_count`/`artefact_count`/`node_types`/`edges_from_root` — Memory.provenance returns `serves`/`agents`/`artefacts`/`gates` lists | 100:336 | Rewrote E2E assertions against real shape (verified `memory.py:243-…`); uses `prov["serves"]` / `prov["artefacts"]` / `prov["gates"]` lists with label/kind/name lookups |
+| 3 | 096 OQ still says `create_songbook`/`prepare_singles`/`generate_album_sampler` are followups | 096:254 | OQ resolved: create_songbook → 096 (row 19); prepare_singles + generate_album_sampler → 098 (rows 8+9). Zero followups |
+| 4 | 099 OQ still says `agency.research.fan_out`/`verify` is the API | 099:296 | OQ corrected: shipped API is `lead`/`specialist`/`verify`; specialist roles `{codebase,prior-reflections,doc-corpus,web}` mapped via domain-prompted queries |
+| 5 | 095 manifest lacks 4 internal gate verbs (prosody/pronunciation/repetition/explicit) | 095:132 | Added sub-table; Done-When now "14 user + 4 gate = 18 registered" |
+| 6 | 093 master drop table sends `db_init` to `scripts/install-music.py` but 097 puts it at `agency/capabilities/music/migrations/db_init.py` | 093:79 | Aligned: master row now references 097's path |
+| 7 | 098 `PROMO_PASS_SKILL` literal: claimed "duplicate produces outside any phase dict" | 098:180 | **FALSE POSITIVE** — verified syntactically valid via grep (5 produces lines, all inside phase dicts). No fix |
+| 8 | 096 manifest lacks 2 internal gate verbs (measure/qc) | 096:192 | Added sub-table; Done-When now "19 user + 2 gate = 21 registered" |
+| 9 | 097 manifest lacks 1 internal gate verb (tweet_schedule) | 097:158 | Added sub-table; Done-When now "14 user + 1 gate = 15 registered" |
+| 10 | 093 `memory_graph_provenance` example passes `include=` kwarg | 093:79 | Removed `include` kwarg — substrate tool signature is `(intent_id: str) -> dict` only; filter on result keys |
+| 11 | 098 manifest lacks 1 internal gate verb (promo_review) | 098:174 | Added sub-table; Done-When now "10 user + 1 gate = 11 registered" |
+| 12 | 094 `OntologyExtension` sketch uses `nodes={"Album": {set}}`, `skills=[list]`, `artefacts=[list]` — actual dataclass uses `dict[str, list[str]]`, `dict`, `schemas` (not `artefacts`) | 094:201 | Rewrote ontology sketch against `ontology.py:102-128`: nodes is `{label: [required_fields_LIST]}`, skills is `{name: schema_dict}`, schemas (NOT artefacts) is `{name: [required_fields]}` |
+| 13 | 094 Album schema removes 007 `title` field + adds new required fields (`theme`, `created_at`) — violates additive invariant | 094:175 | Rewrote: 007 baseline (`artist`, `title`, `type`, `status`, `genre`, `slug`, `target_lufs`) preserved verbatim as the required-list; new 094 fields documented as OPTIONAL via comment |
+| 14 | 098 LLM `except` doesn't catch `TimeoutError` (which is `OSError`, not `RuntimeError`) | 098:135 | Added `TimeoutError, OSError` to the except clause; comment cites the class hierarchy |
+| 15 | 099 manifest lacks 1 internal gate verb (verify_gate) — referenced by both 099 + 100 skills | 099:164 | Added sub-table; Done-When now "8 user + 1 gate = 9 registered" |
+| 16 | 099 links claim to `album` slug string — Memory.link expects node ids | 099:254 | Resolve via `state.find_album(album)[0]["id"]` then link to the canonical Album node id |
+
+**Net result of iteration 6:** the spec set is now grounded in line-cited
+APIs across every implementation sketch. Every walkable skill that
+references a gate verb has the gate verb in its cluster's manifest. The
+OntologyExtension signature matches the real dataclass. The Memory.provenance
+shape matches the real return. Album schema preserves 007 verbatim plus
+additive-only extensions. RELATES_TO endpoints resolve to graph node ids
+through StateDriver.find_album, not slug strings.
+
+Total verbs across the wave (Codex P2 counts now consistent):
+- 094 lifecycle: 14
+- 095 lyrics: 14 + 4 = 18
+- 096 audio: 19 + 2 = 21
+- 097 catalogue: 14 + 1 = 15
+- 098 promo: 10 + 1 = 11
+- 099 research: 8 + 1 = 9
+- 100 gates: 6 + 5 = 11
+- **Grand total: 85 user-facing + 14 gate = 99 registered verbs**
+
 ## What's applied vs deferred (between this review and commit)
 
 **Applied in this PR (the 8 spec files):**

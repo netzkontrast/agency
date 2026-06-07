@@ -168,39 +168,88 @@ no filesystem write outside a tmp_path fixture).
 
 ### Ontology consolidation
 
+**API signature** (Codex P2 iteration 6 — verified against
+`agency/ontology.py:102-128`): `OntologyExtension` is a dataclass with:
+- `nodes: dict[str, list[str]]` — label → **list of required fields** (NOT a set)
+- `edges: set` — additional edge types
+- `enums: dict` — `(label, field)` → allowed-values set
+- `skills: dict` — name → skill schema (NOT a list)
+- `schemas: dict` — artefact/template name → required fields (NOT a kwarg
+  called `artefacts`)
+- `templates: dict` — template name → body
+
 ```python
+# Preserves existing 007 fields ADDITIVELY (Codex P2 — match the
+# ontology-additive invariant declared below). All 007 Album fields
+# (`artist`, `title`, `type`, `status`, `genre`, `slug`, `target_lufs`)
+# stay required; new fields (`theme`, `created_at`) join as OPTIONAL only —
+# i.e. not in the required-list. The required-list is the STRICT set.
 music_ontology = OntologyExtension(
     nodes={
-        "Album": {"status", "type", "genre", "slug", "artist", "target_lufs",
-                  "theme", "created_at"},
-        "Track": {"status", "slug", "album", "syllables", "readability",
-                  "lyrics_path"},
-        "Idea": {"text", "status", "captured_at", "promoted_to_album"},
-        # stubs for future children
-        "Tweet": {"album", "body", "scheduled_at", "status", "platform"},
-        "SheetMusic": {"album", "source_audio", "format", "body", "published_url"},
-        "Genre": {"slug", "name", "mastering_target_lufs", "suno_tips",
-                  "reference_artists"},
-        "Reference": {"kind", "slug", "body"},
+        # 007 baseline (preserved verbatim) + 094 optional extensions noted
+        # in comments. Required-list stays ≡ 007:
+        "Album": ["artist", "title", "type", "status", "genre", "slug",
+                  "target_lufs"],
+        # optional Album fields any 094+ verb may set: "theme", "created_at"
+        "Track": ["title", "status", "slug"],
+        # optional Track fields: "album", "syllables", "readability",
+        # "lyrics_path"
+        "Idea": ["text"],
+        # optional Idea fields: "status", "captured_at", "promoted_to_album"
+        # 007 stubs (preserved verbatim):
+        "Tweet": ["text"],
+        "SheetMusic": ["title"],
+        # 094 NEW (data / reference) nodes — required fields minimal:
+        "Genre": ["slug", "name"],
+        # optional Genre fields: mastering_target_lufs, suno_tips,
+        # reference_artists
+        "Reference": ["kind", "slug"],
+        # optional Reference field: body
     },
     enums={
-        ("Album", "status"): {"draft", "in-production", "mastered", "released"},
-        ("Album", "type"): ALBUM_TYPES,    # preserved from 007
-        ("Track", "status"): {"draft", "recorded", "mixed", "mastered"},
-        ("Idea", "status"): {"new", "promoted", "dropped"},
-        ("Tweet", "status"): {"draft", "scheduled", "posted", "archived"},
+        ("Album", "type"): ALBUM_TYPES,           # preserved verbatim from 007
+        ("Album", "status"): ALBUM_STATUS,         # preserved verbatim from 007
+        ("Track", "status"): TRACK_STATUS,         # preserved verbatim from 007
+        ("Idea", "status"): {"new", "promoted", "dropped"},      # 094 NEW
+        ("Tweet", "status"): {"draft", "scheduled", "posted",
+                              "archived"},          # 094 NEW
     },
-    edges={                               # Codex P2 iteration 5: declare
-                                          # every edge music adds; Memory.link()
-                                          # rejects unknown edge types
-        "RELATES_TO",      # ResearchClaim → Album (099)
-        "PROMOTED_TO",     # Idea → Album (094)
-        "RECORDED_FOR",    # Track → Album (094, alternative to membership)
+    edges={                                # Codex P2 iteration 5+6 — music
+                                           # declares every edge it adds.
+                                           # Memory.link() rejects unknown
+                                           # edge types.
+        "RELATES_TO",      # ResearchClaim → Album node id (099)
+        "PROMOTED_TO",     # Idea → Album node id (094)
+        "RECORDED_FOR",    # Track → Album node id (094)
     },
-    skills=[ALBUM_CONCEPT_SKILL],         # kept verbatim from 007
-    artefacts=["album-concept"],          # kept; children add the rest
+    skills={                               # DICT not list (Codex P2 #12)
+        "album-concept": ALBUM_CONCEPT_SKILL,    # preserved verbatim from 007
+        "pre-generation": PRE_GENERATION_SKILL,  # preserved from 007 (slice)
+        "release-qa": RELEASE_QA_SKILL,          # preserved from 007 (slice)
+    },
+    schemas={                              # NOT `artefacts` (Codex P2 #12)
+        "album-concept": ["artist", "title", "type"],   # 007 verbatim
+        "promo-copy": ["album", "body"],                # 007 verbatim
+        "mastering-report": ["album", "body"],          # 007 verbatim
+        "lyric-report": ["album", "body"],              # 007 verbatim
+        "sheet-music": ["album", "body"],               # 007 verbatim
+        # 094-100 add per-cluster:
+        # 095: "pronunciation-report", "prosody-report", "cross-track-report",
+        #      "explicit-scan", "voice-check"
+        # 096: "mix-analysis", "qc-report", "coherence-report",
+        #      "promo-video", "album-sampler"
+        # 097: "tweet-record", "streaming-verify", "catalogue-snapshot"
+        # 098: "published-asset", "promo-album-package", "social-post"
+        # 099: "research-claim", "verification-record"
+    },
 )
 ```
+
+> The 094–100 wave is **purely additive** (Codex P2 #13 — strict): no
+> required-field additions to existing 007 nodes, no field/enum/node
+> renames, no enum-value removals. New required fields go on NEW nodes
+> only (Genre, Reference, etc.); extensions to existing nodes are
+> **optional** (i.e. not in the required-list).
 
 ### The album-concept skill (preserved)
 

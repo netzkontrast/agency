@@ -76,7 +76,7 @@ Complete behavioral parity, NOT 1:1 verb-name parity:
 | `get_python_command`, `check_venv_health`, `cleanup_legacy_venvs` | Plugin-bootstrap concerns; agency installs differently |
 | `load_override`, `get_config` | Replaced by `.agency/session.db` + Spec 092 G3 `llm` driver config |
 | `health_check` (bitwize-specific) | Replaced by `music_health` (already in 007) + `agency_doctor` |
-| `db_init`, `rebuild_state` | One-shot install ops, not verbs — moved to `scripts/install-music.py` |
+| `db_init`, `rebuild_state` | One-shot install ops, not verbs. **`db_init` → `agency/capabilities/music/migrations/db_init.py`** (per Spec 097's Done-When — Codex P2 alignment); `rebuild_state` evaporates (graph reads are canonical per CLAUDE.md rule 2) |
 | `migrate_audio_layout`, `prune_archival` | Migration ops, not verbs — moved to `agency/capabilities/music/migrations/` |
 | `get_plugin_version` | `agency_welcome` returns it |
 | FastMCP server | Absorbed by `mcp__agency__{search,get_schema,execute}` |
@@ -269,14 +269,20 @@ for parallel calls.
 
 ### Provenance moat (the headline — net-new vs bitwize)
 
-The full release audit becomes a single traversal:
+The full release audit becomes a single traversal. The substrate tool
+signature (`engine.py:438`) is `memory_graph_provenance(intent_id: str) -> dict`
+— **no `include` kwarg**; the result returns ALL relevant nodes (serves,
+agents, artefacts, gates) keyed by category. Filtering happens on the result.
 
 ```python
 # "Show me every research claim, lyric pass, master, QC run, tweet, and
 # promo asset for album X, with the intent that served each."
-result = await call_tool("memory_graph_provenance", {
-    "intent_id": album_intent_id, "include": ["Invocation", "Reflection",
-    "Artefact", "ResearchClaim", "VerificationRecord"]})
+result = await call_tool("memory_graph_provenance",
+                         {"intent_id": album_intent_id})
+# result["serves"]   — every node SERVES the intent (invocations, claims, …)
+# result["artefacts"] — every PRODUCES'd artefact
+# result["gates"]    — gate.check ledger entries
+# result["agents"]   — every agent that performed an invocation
 ```
 
 bitwize cannot do this (handlers are flat; no graph). This is the one thing

@@ -42,7 +42,9 @@ existing one.
 
 ## Done When
 
-- [ ] **Verbs ship:** 8 research verbs (see "Verb manifest"), all delegating
+- [ ] **Verbs ship:** **8 user-facing + 1 composite gate verb = 9 registered**
+  (Codex P2 iteration 6 — `verify_gate` is required by both 099's
+  `research-workflow` AND 100's `pre-generation` skill walks), all delegating
   to `agency.research` with music-domain configuration.
 - [ ] **No DRIVER additions** — research routes through the existing
   `agency.research` capability and its `Researcher` boundary; music adds zero
@@ -73,8 +75,21 @@ existing one.
 | 7 | `human_signoff` | effect | (graph) + `elicit` | (the human-review skill) | terminal human-approval step |
 | 8 | `document_hunt` | effect | agency.research | `document-hunter` skill | specific specialist: court filings / govt docs |
 
-**Total: 8 verbs.** Lighter verb count than the others because the heavy
-lifting lives in `agency.research`.
+**Total: 8 user-facing verbs.** Lighter verb count than the others because
+the heavy lifting lives in `agency.research`.
+
+**Internal composite gate verb** (Codex P2 iteration 6 — registered, but
+called only by walkable skill phase; counted in 093's gate-verb column for
+099):
+
+| # | Verb | Role | Composes | Called by skill |
+|---|---|---|---|---|
+| G1 | `verify_gate` | effect | `list_claims(verified="pending")` count + gate.check (BLOCKED_ON if pending count > 0) | `research-workflow` phase 4 + Spec 100's `pre-generation` phase 2 |
+
+**Done-When implication:** the cluster ships **8 user + 1 gate = 9
+registered verbs**. Without `verify_gate`, both the `research-workflow`
+verify phase AND Spec 100's `pre-generation` research-verified phase crash
+at "unknown verb".
 
 ## Design
 
@@ -247,11 +262,16 @@ def dispatch_research(self, question: str, domains: str = "all",
             self.ctx.link(claim_id, self.ctx.intent_id, "SERVES")
             if album:
                 # Codex P2 iteration 5: RELATES_TO must be declared in
-                # music's OntologyExtension.edges (added in 094 — see
-                # ontology consolidation). Memory.link() rejects unknown
-                # edge types; declaring RELATES_TO + ABOUT in music's
-                # edge set is how the cluster wires claim→album linkage.
-                self.ctx.link(claim_id, album, "RELATES_TO")
+                # music's OntologyExtension.edges (added in 094).
+                # Codex P2 iteration 6: `album` here is a slug (e.g. "X"),
+                # NOT a graph node id. Memory.link() endpoints MUST be node
+                # ids — resolve the album to its node id via the music_state
+                # driver's find_album, then link to that id.
+                state = self.ctx.get_driver("music_state")
+                hits = state.find_album(album)
+                if hits:
+                    album_node_id = hits[0]["id"]   # the canonical Album node id
+                    self.ctx.link(claim_id, album_node_id, "RELATES_TO")
 
     # 3. Verify — agency.research.verify cross-checks the citations under
     # the Research node; music inherits the verification verdict:
@@ -291,9 +311,15 @@ def test_verify_gate_blocks_when_pending_claims_remain(): ...
    orchestrates calls.
 3. **Web search vs document-hunter — split clusters?** No — they're both
    "research dispatch" with different specialist registries. Same cluster.
-4. **`agency.research`-side changes required?** Probably none — the existing
-   `fan_out`/`verify` API already accepts `specialists` + `config_per_specialist`.
-   If a gap surfaces, 099 opens a small followup spec against 044.
+4. **`agency.research`-side changes required?** **Corrected (Codex P2
+   iteration 6 — matches the delegation pattern above):** the shipped
+   `agency.research` capability (`agency/capabilities/research/_main.py`)
+   exposes `lead(question, depth)`, `specialist(research_id, role, query, …)`,
+   and `verify(research_id)` — NOT a `fan_out` verb. The specialist `role`
+   enum is the generic `{codebase, prior-reflections, doc-corpus, web}`.
+   099 maps music's 10 domain-specialists onto this surface via
+   `(role="web", query=domain-prompted)` tuples; no agency.research-side
+   change required.
 
 ## Followup
 

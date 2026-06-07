@@ -39,12 +39,13 @@ audio binds at production via the `[music-audio]` extra
 
 ## Done When
 
-- [ ] **Verbs ship:** **19 audio verbs** (see "Verb manifest" — un-deferred
-  `create_songbook` is row 19 per Codex P2; the Done-When count now matches
-  the manifest), covering all bitwize audio + media tools.
-- [ ] **AudioDriver extended** with 20 new methods (one per verb that touches
-  external audio toolchain; `create_songbook` adds `render_songbook`); fake
-  produces deterministic outputs for every method (no real audio binaries in CI).
+- [ ] **Verbs ship:** **19 user-facing + 2 composite gate verbs = 21
+  registered** (Codex P2 iteration 6 — gate verbs were the missing piece
+  for `mastering` skill walks), covering all bitwize audio + media tools.
+- [ ] **AudioDriver extended** with 20 new methods (one per user-facing verb
+  that touches external audio toolchain; `create_songbook` adds
+  `render_songbook`); fake produces deterministic outputs for every method
+  (no real audio binaries in CI).
 - [ ] **Artefact schemas added:** `mastering-report` (kept from 007),
   `mix-analysis`, `qc-report`, `sheet-music` (kept from 007), `coherence-report`,
   `promo-video`, `album-sampler`.
@@ -84,6 +85,19 @@ audio binds at production via the `[music-audio]` extra
 | 19 | `create_songbook` | effect | AudioDriver | `create_songbook` | LilyPond render to PDF — sheet-music domain belongs to AudioDriver |
 
 **Total: 19 verbs covering 19 bitwize tools (1:1 in audio + sheet-music).**
+
+**Internal composite gate verbs** (Codex P2 iteration 6 — registered, but
+called only by walkable skill phases; counted in 093's gate-verb column for
+096):
+
+| # | Verb | Role | Composes | Called by skill |
+|---|---|---|---|---|
+| G1 | `measure_gate` | effect | `analyze_audio` + `read_loudness` + gate.check | `mastering` phase 1 |
+| G2 | `qc_gate` | effect | `qc_audio` + gate.check (BLOCKED_ON if any of the 7 rows fail) | `mastering` phase 4 |
+
+**Done-When implication:** the cluster ships **19 user + 2 gate = 21
+registered verbs** total. Without them, the `mastering` skill walk crashes
+at phase 1 (measure) or phase 4 (qc) with "unknown verb".
 
 > **Verdict on the related media tools** (panel-corrected x2 — Codex P2):
 > `prepare_singles` and `generate_album_sampler` ship in **Spec 098 (promo
@@ -250,8 +264,12 @@ def test_mastering_preset_loaded_via_state_driver_read_data(): ...
    `polish_album` reads from the StateDriver's stem layout; `polish_audio`
    accepts an explicit dict for unit-test control.
 3. **`prepare_singles` / `create_songbook` / `generate_album_sampler` in 096 or
-   a followup?** Followup (port-on-demand). The pattern is proven; the verbs
-   are mechanical to add but inflate the spec.
+   a followup?** **Resolved (Codex P2 iteration 6 — overrides earlier draft):**
+   `create_songbook` ships in **this cluster** as verb #19 (LilyPond render
+   IS AudioDriver domain). `prepare_singles` + `generate_album_sampler` ship
+   in **Spec 098** (their domain is release-packaging, not mastering — see
+   098's manifest rows 8+9). ZERO of these are followups; the complete-port
+   contract requires every bitwize tool to land in 094–100.
 4. **Mastering preset overrides?** A project-local preset YAML under
    `.agency/music/mastering-presets/<slug>.yaml` overrides the bundled one.
    Deferred to followup; the bundled four cover the common cases.

@@ -222,7 +222,12 @@ state across clusters via composed driver calls:
 @verb(role="effect")
 def pregen_check(self, lifecycle_id: str, album: str = "") -> ToolResult:
     """Composite pre-generation gate — reads cross-cluster state and computes
-    PASSED/BLOCKED_ON via gate.check."""
+    PASSED/BLOCKED_ON via gate.check.
+
+    API note (Codex P2 iteration 6 — same unwrap contract as 099 + the
+    release_check fix earlier in this spec): ctx.call returns the spawned
+    verb's UNWRAPPED result dict. Never `.data` or `["data"]` indexing.
+    """
     state = self.ctx.get_driver("music_state")
     album_data = state.find_album(album)[0]
 
@@ -230,10 +235,10 @@ def pregen_check(self, lifecycle_id: str, album: str = "") -> ToolResult:
     concept_ok = album_data.get("status") in {"in-production", "mastered",
                                               "released"}
     research = self.ctx.call("music", "pending_verifications", album=album)
-    research_ok = research["data"]["pending_count"] == 0
+    research_ok = research["pending_count"] == 0                # NOT ["data"][...]
     lyrics = self.ctx.call("music", "list_tracks", album=album)
     lyrics_ok = all(t["status"] in {"recorded", "mixed", "mastered"}
-                    for t in lyrics["data"]["tracks"])
+                    for t in lyrics["tracks"])                  # NOT ["data"][...]
 
     missing = []
     if not concept_ok: missing.append("concept")
@@ -325,24 +330,39 @@ def test_music_full_pipeline_records_complete_provenance_chain(fake_drivers):
     # 7. THE HEADLINE — provenance returns the full chain.
     # Codex P2 iteration 5: `memory_graph_provenance` is an MCP SUBSTRATE
     # tool (engine.py:438 @mcp.tool), NOT a capability verb. There is no
-    # `memory` capability. Two equivalent call paths:
+    # `memory` capability. The substrate tool's signature is
+    # `memory_graph_provenance(intent_id: str) -> dict` — NO `include` kwarg.
+    # Two equivalent call paths:
     #   A) Direct on the memory object: `eng.memory.provenance(intent_id)`
     #      (engine.py:440 — `mem.provenance(intent_id)`).
     #   B) Via the MCP wire: `await mcp.call_tool("memory_graph_provenance",
     #      {"intent_id": intent_id})` after `mcp = eng.build_mcp(codemode=True)`.
-    # Path A is simpler for the E2E test:
+    # Path A is simpler for the E2E test.
+    #
+    # SHAPE (Codex P2 iteration 6 — verified against agency/memory.py:243-…):
+    # `Memory.provenance` returns dict[str, list[dict]] with keys
+    # `serves`, `agents`, `artefacts`, `gates`. NOT `invocation_count` /
+    # `artefact_count` / `node_types` / `edges_from_root`. Assertions
+    # must use the real keys.
     prov = eng.memory.provenance(intent_id)
-    # Causal-ordered provenance (per 093's call-patterns table):
-    assert prov["invocation_count"] >= 12     # 1 idea + 1 promote + 1 concept
-                                              # + 1 research + 1 verify + 1
-                                              # lyric + 1 master + 1 qc + 1
-                                              # tweet + 1 promo + 1 publish
-                                              # + 1 release_check
-    assert prov["artefact_count"] >= 5        # concept, master-report, qc,
-                                              # promo, published-asset
-    assert "ResearchClaim" in prov["node_types"]
-    assert all(edge["type"] == "SERVES"
-               for edge in prov["edges_from_root"])
+    # The `serves` list carries every node SERVES the intent — invocations,
+    # reflections, lifecycles, and the music-domain nodes (Idea, Album,
+    # ResearchClaim) that linked via SERVES.
+    serves_labels = {p.get("__label") or "" for p in prov["serves"]}
+    assert "Invocation" in serves_labels      # every invoke() recorded one
+    assert "ResearchClaim" in serves_labels   # the dispatch_research path
+    # The `artefacts` list carries every PRODUCES artefact under the intent:
+    artefact_kinds = {a.get("kind", "") for a in prov["artefacts"]}
+    assert "album-concept" in artefact_kinds
+    assert "mastering-report" in artefact_kinds
+    assert "promo-copy" in artefact_kinds
+    assert "published-asset" in artefact_kinds
+    # The `gates` list shows the gate.check ledger:
+    gate_names = {g.get("name", "") for g in prov["gates"]}
+    assert "release-qa" in gate_names         # release_check fired it
+    # Length sanity (causal-ordered per 093's call-patterns table):
+    assert len(prov["serves"]) >= 12          # ~1 per invocation
+    assert len(prov["artefacts"]) >= 5
 ```
 
 ## Test plan (cluster-local)

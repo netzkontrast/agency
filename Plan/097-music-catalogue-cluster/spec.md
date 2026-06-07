@@ -38,8 +38,9 @@ across fake and real.
 
 ## Done When
 
-- [ ] **Verbs ship:** 14 catalogue verbs (see "Verb manifest"), covering all
-  bitwize DB + streaming tools.
+- [ ] **Verbs ship:** **14 user-facing + 1 composite gate verb = 15
+  registered** (Codex P2 iteration 6 — `tweet_schedule_gate` is required for
+  the `tweet-curation` skill walk), covering all bitwize DB + streaming tools.
 - [ ] **DBDriver extended** with 7 new methods; psycopg2-shaped cursor fake
   covers all of them.
 - [ ] **CloudDriver(stdlib) carries ZERO new methods** in this child (`url_head`
@@ -82,6 +83,18 @@ across fake and real.
 | 14 | `catalogue_status` | transform | DBDriver | (composite of stats) | kept from 007 |
 
 **Total: 14 verbs covering 14 bitwize tools.**
+
+**Internal composite gate verb** (Codex P2 iteration 6 — registered, but
+called only by walkable skill phase; counted in 093's gate-verb column for
+097):
+
+| # | Verb | Role | Composes | Called by skill |
+|---|---|---|---|---|
+| G1 | `tweet_schedule_gate` | effect | platform-specific length validation + future-scheduling-window check + album-status check + gate.check | `tweet-curation` phase 2 |
+
+**Done-When implication:** the cluster ships **14 user + 1 gate = 15
+registered verbs**. Without the gate verb, `tweet-curation`'s schedule
+phase crashes at "unknown verb".
 
 > Note: bitwize `extract_links` lives in the database/text helpers — placed
 > here because it feeds streaming URL discovery. Could equally land in 095

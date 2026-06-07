@@ -38,8 +38,9 @@ backend; the test fake records the upload manifest.
 
 ## Done When
 
-- [ ] **Verbs ship:** 10 promo verbs (see "Verb manifest"), covering all
-  bitwize promo + cloud tools.
+- [ ] **Verbs ship:** **10 user-facing + 1 composite gate verb = 11
+  registered** (Codex P2 iteration 6 — `promo_review_gate` is required for
+  the `promo-pass` skill walk), covering all bitwize promo + cloud tools.
 - [ ] **CloudDriver(boto3) extended** with 4 new methods; in-memory dict-backed
   fake covers all of them; `r2_put` already exists from 007.
 - [ ] **Artefact schemas added:** `promo-copy` (kept from 007),
@@ -73,6 +74,18 @@ backend; the test fake records the upload manifest.
 
 **Total: 10 verbs covering 10 bitwize tools (sampler/singles delegate to 096
 audio but live conceptually with release).**
+
+**Internal composite gate verb** (Codex P2 iteration 6 — registered, but
+called only by walkable skill phase; counted in 093's gate-verb column for
+098):
+
+| # | Verb | Role | Composes | Called by skill |
+|---|---|---|---|---|
+| G1 | `promo_review_gate` | effect | `promo_review` scoring + platform-limit check + gate.check (BLOCKED_ON if review score below threshold) | `promo-pass` phase 2 |
+
+**Done-When implication:** the cluster ships **10 user + 1 gate = 11
+registered verbs**. Without it, the `promo-pass` review phase crashes at
+"unknown verb".
 
 ## Design
 
@@ -131,7 +144,12 @@ def promo_copy(self, album: str, platform: str = "x",
             options=["free-form"],   # non-empty per LLMClient contract
         )
         body = decision.get("choice", body)        # falls through if no choice
-    except (DriverMissing, RuntimeError, KeyError, ValueError):
+    except (DriverMissing, RuntimeError, KeyError, ValueError,
+            TimeoutError, OSError):
+        # Codex P2 iteration 6: TimeoutError is a subclass of OSError, NOT
+        # RuntimeError. The failure-mode table promises a fallback on LLM
+        # timeout; include both to honor it. OSError also covers socket
+        # errors and other I/O issues from the LLM transport.
         pass    # rule-based body stands; default install has no API key
 
     return ToolResult.success(data={"result": body, "artefact": {

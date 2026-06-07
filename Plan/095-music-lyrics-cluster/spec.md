@@ -38,10 +38,14 @@ output an LLM can reason about.
 
 ## Done When
 
-- [ ] **Verbs ship:** 14 lyrics verbs (see "Verb manifest"), covering bitwize's
-  14 text/lyric tools + the `voice-checker` skill ported as verb #14.
-- [ ] **TextDriver extended** with 14 new methods (one per verb that needs
-  external pattern tables); pure-stdlib fake covers all of them.
+- [ ] **Verbs ship:** **14 user-facing + 4 composite gate verbs = 18
+  registered** (see "Verb manifest"), covering bitwize's 14 text/lyric tools
+  + the `voice-checker` skill ported as verb #14 + the 4 gate verbs the
+  `lyric-writing` skill calls (Codex P2 iteration 6 — without them the
+  walk crashes).
+- [ ] **TextDriver extended** with 14 new methods (one per user-facing verb
+  that needs external pattern tables; the gate verbs reuse the underlying
+  methods); pure-stdlib fake covers all of them.
 - [ ] **Artefact schemas added** to ontology: `lyric-report` (kept from 007),
   `pronunciation-report`, `prosody-report`, `cross-track-report`,
   `explicit-scan`, `voice-check`.
@@ -72,6 +76,22 @@ output an LLM can reason about.
 | 14 | `check_voice_tells` | transform | TextDriver | (the bitwize `voice-checker` skill) | rule-based AI-tell detection (abstract-noun stacking, cliché escalation, over-explained metaphors, missing idiosyncrasy); returns `findings` list with severity per row (Warning/Info — advisory only, doesn't block any gate) |
 
 **Total: 14 verbs covering 14 bitwize tools + 1 bitwize-skill (voice-checker) ported as a verb.**
+
+**Internal composite gate verbs** (Codex P2 iteration 6 — registered, but
+called only by walkable skill phases; counted in 093's gate-verb column for
+095):
+
+| # | Verb | Role | Composes | Called by skill |
+|---|---|---|---|---|
+| G1 | `prosody_gate` | effect | `analyze_rhyme_scheme` + `count_syllables` + gate.check | `lyric-writing` phase 2 |
+| G2 | `pronunciation_gate` | effect | `check_pronunciation` + `check_homographs` + gate.check | `lyric-writing` phase 3 |
+| G3 | `repetition_gate` | effect | `check_cross_track_repetition` + gate.check | `lyric-writing` phase 4 |
+| G4 | `explicit_gate` | effect | `check_explicit_content` + gate.check | `lyric-writing` phase 5 |
+
+**Done-When implication:** the cluster ships **14 user + 4 gate = 18
+registered verbs** total. Without the gate verbs, the `lyric-writing` skill
+walk crashes at "unknown verb" on the prosody / pronunciation / repetition /
+explicit phases.
 
 ## Design
 
