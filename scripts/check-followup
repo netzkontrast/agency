@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """check-followup — Spec 092 G6 advisory: a Shipped spec's claims should be grounded.
 
-For each ``Plan/NNN-slug/spec.md`` whose frontmatter ``status`` is ``shipped``/``done``,
-scan its ``## Followup`` section for cited test files (``tests/test_*.py``) and confirm
-they exist on disk. A miss means the roll-up claim is ungrounded — the failure mode that
-let a "Partial" TODO row overstate 006's completeness this generation (the fix existed in
-prose but the test file did not). Advisory: prints a report; exits 1 if any cited test is
-missing, 0 otherwise (wire it into CI as a non-failing/advisory step, or run by hand).
+The Shipped set is taken from **`TODO.md`** — the binding status index (the single source
+of truth for what is done) — UNION any spec whose own frontmatter says shipped/done (so a
+spec marked shipped in either place is checked, even if its frontmatter has drifted from
+the roll-up). For each, the ``## Followup`` section is scanned for cited test files
+(``tests/test_*.py``):
 
+- **FAIL** (exit 1) if a cited test does NOT exist — an ungrounded claim (the failure mode
+  that let a "Partial" row overstate 006 this generation: the fix was claimed in prose but
+  the test file did not exist).
+- **INFO** (non-failing) if a Shipped spec cites NO test — surfaced as a nudge, but not a
+  failure: doctrine/doc specs (e.g. 049, 072) legitimately ship without a test.
+
+Advisory: wire into CI as a non-failing step, or run by hand.
 Usage: scripts/check-followup [--quiet]
 """
 from __future__ import annotations
@@ -22,34 +28,62 @@ PLAN = ROOT / "Plan"
 _STATUS = re.compile(r'^status:\s*"?([A-Za-z]+)', re.M)
 _FOLLOWUP = re.compile(r"## Followup.*?(?=\n## |\Z)", re.S)
 _TEST_REF = re.compile(r"tests/test_[A-Za-z0-9_]+\.py")
+_SHIPPED_ROW = re.compile(r"\|\s*\*\*Shipped\*\*\s*\|\s*\d+\s*\|(.+?)\|")
+
+
+def _shipped_ids() -> set[str]:
+    """The binding Shipped set: spec ids from TODO.md's `**Shipped**` verdict row, UNION
+    any spec whose frontmatter status is shipped/done."""
+    ids: set[str] = set()
+    todo = ROOT / "TODO.md"
+    if todo.exists():
+        row = _SHIPPED_ROW.search(todo.read_text(errors="ignore"))
+        if row:
+            ids |= set(re.findall(r"\b(\d{3})\b", row.group(1)))
+    for spec in PLAN.glob("*/spec.md"):
+        fm = _STATUS.search(spec.read_text(errors="ignore"))
+        if fm and fm.group(1).lower() in ("shipped", "done"):
+            ids.add(spec.parent.name.split("-", 1)[0])
+    return ids
+
+
+def _spec_path(sid: str) -> pathlib.Path | None:
+    hits = sorted(PLAN.glob(f"{sid}-*/spec.md"))
+    return hits[0] if hits else None
 
 
 def main(quiet: bool = False) -> int:
     missing: list[str] = []
+    no_citation: list[str] = []
     checked = 0
-    shipped = 0
-    for spec in sorted(PLAN.glob("*/spec.md")):
-        text = spec.read_text(errors="ignore")
-        m = _STATUS.search(text)
-        if not m or m.group(1).lower() not in ("shipped", "done"):
+    shipped = _shipped_ids()
+    for sid in sorted(shipped):
+        spec = _spec_path(sid)
+        if spec is None:
             continue
-        shipped += 1
-        section = _FOLLOWUP.search(text)
-        scope = section.group(0) if section else text
-        for ref in sorted(set(_TEST_REF.findall(scope))):
+        section = _FOLLOWUP.search(spec.read_text(errors="ignore"))
+        scope = section.group(0) if section else spec.read_text(errors="ignore")
+        refs = sorted(set(_TEST_REF.findall(scope)))
+        if not refs:
+            no_citation.append(sid)
+            continue
+        for ref in refs:
             checked += 1
             if not (ROOT / ref).exists():
                 missing.append(f"{spec.relative_to(ROOT)}  cites  {ref}  — NOT FOUND")
 
     if not quiet:
-        print(f"==> followup-grounding: {checked} cited test file(s) across {shipped} "
-              f"Shipped specs")
+        print(f"==> followup-grounding: {checked} cited test file(s) across "
+              f"{len(shipped)} Shipped specs (source: TODO.md ∪ frontmatter)")
         for row in missing:
             print(f"    UNGROUNDED  {row}")
+        if no_citation:
+            print(f"    INFO        {len(no_citation)} Shipped spec(s) cite no test: "
+                  f"{', '.join(no_citation)}")
     if missing:
         if not quiet:
-            print("==> UNGROUNDED FOLLOWUP — a Shipped spec cites a test that does not exist; "
-                  "either the test is missing or the Followup is stale.")
+            print("==> UNGROUNDED FOLLOWUP — a Shipped spec cites a test that does not "
+                  "exist; either the test is missing or the Followup is stale.")
         return 1
     if not quiet:
         print("==> all cited Followup test files exist")
