@@ -488,6 +488,24 @@ class DevelopCapability(CapabilityBase):
             return {"result": {"error": f"unknown reference {topic!r}", "available": sorted(REFERENCES)}}
         return {"result": {"topic": topic, "doc": doc}}
 
+    @verb(role="transform")
+    def estimate(self, loc: int = 0, files: int = 0, tests: int = 0) -> dict:
+        """Decidable effort estimate from change-size inputs (Spec 046 F-D — sc-estimate,
+        DECIDABLE only: no LLM, a transparent formula over the inputs you can count).
+
+        Inputs: loc (lines of change), files (files touched), tests (tests to write).
+        Returns: ``{points, bucket, confidence, drivers}`` — bucket ∈ S/M/L/XL; confidence
+                 falls as size grows (more unknowns).
+        chain_next: walk ``plan`` (large) or ``tdd`` (small) accordingly.
+        """
+        loc, files, tests = max(0, int(loc)), max(0, int(files)), max(0, int(tests))
+        # transparent, documented weights (a tunable config, not a magic snapshot — rule 8)
+        points = round(loc / 50 + files * 1.5 + tests * 1.0, 1)
+        bucket = ("S" if points < 5 else "M" if points < 15 else "L" if points < 40 else "XL")
+        confidence = round(max(0.3, 1.0 - points / 60), 2)   # shrinks with size
+        return {"result": {"points": points, "bucket": bucket, "confidence": confidence,
+                           "drivers": {"loc": loc, "files": files, "tests": tests}}}
+
     @verb(role="act")
     def scaffold_capability(self, name: str, kind: str = "light",
                             base_dir: str = "") -> dict:

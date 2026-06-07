@@ -66,9 +66,9 @@ agency execute --code \
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
 - **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, run, security
-- **branch** — assess, finish
+- **branch** — assess, commit_smart, finish
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
-- **develop** — checklist, record_authoring_outcome, reference, scaffold_capability, skill_walk, validate_skill
+- **develop** — checklist, estimate, record_authoring_outcome, reference, scaffold_capability, skill_walk, validate_skill
 - **document** — explain, index_repo, render
 - **dogfood** — collect, export, import, note, render
 - **gate** — check

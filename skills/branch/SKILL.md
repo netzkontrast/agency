@@ -23,6 +23,7 @@ Branch inspects the working tree and remote state and finishes the branch the ap
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `assess` | transform | Read the branch state (ahead/behind/dirty) and recommend merge/pr/keep/discard. | [details](references/assess.md) |
+| `commit_smart` | transform | Compose a conventional-commit message from a change summary + the changed paths (Spec 046 F-C — decidable, no LLM). | [details](references/commit_smart.md) |
 | `finish` | effect | Finish the branch by the chosen action (merge/pr/keep/discard); record the outcome. | [details](references/finish.md) |
 
 ## Example
@@ -33,7 +34,8 @@ await call_tool('capability_branch_assess', {'intent_id': 'intent:abc'})
 
 ## Red flags — stop and re-read this skill
 
-- (none documented)
+- Hand-writing a commit message → compose it with capability_branch_commit_smart
+- Merging a branch without reading its state → run capability_branch_assess first
 
 ## Walk this capability
 
