@@ -589,10 +589,15 @@ are proven; computed-gate wiring + the long-tail remain.
   cursor, TextDriver lyric-report, state/promo clusters, typed INVALID_ARGUMENT +
   DEPENDENCY_MISSING failures, and missing-driver degradation. Full suite 913 passed.
 
+### Done — computed gates (2026-06-07, Done-When (e))
+- `music.pregen_check(lifecycle_id, concept_ready, rights_clear)` + `music.release_check
+  (lifecycle_id, album)` [effect] compute the predicate (release_check reads track
+  statuses via the DBDriver) and call `gate.check` — a fail records BLOCKED_ON, flips
+  the lifecycle to `input-required`, and returns a typed `GATE_FAILED`; a pass records
+  PASSED. The terminal human "ship it?" stays an `elicit`/`lifecycle_gate` (the gated
+  skills' hard final phase). `tests/test_music_capability.py` (+3). Music is now 11
+  verbs / 9 clusters.
+
 ### Still
-- The **computed-gate** test (Done-When (e)): `pre-generation`/`release-qa` predicates
-  via `gate.check` returning `GATE_FAILED` + pausing the lifecycle, with the terminal
-  human confirm via `elicit`/`lifecycle_gate`. (The skill phase-graphs ship; the
-  gate-verb wiring is the next increment.)
 - Reach the full 12–16 representative verbs (sheet-music/video/streaming/health
   clusters); the 89-tool long tail stays "covered-by-pattern, port-on-demand."

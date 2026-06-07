@@ -104,6 +104,46 @@ def test_cloud_unconfigured_returns_typed_dependency_missing(engine, iid):
     assert node.get("outcome") == "failed" and "DEPENDENCY_MISSING" in node.get("error", "")
 
 
+def test_release_check_computed_gate_fails_and_pauses_lifecycle(engine, iid):
+    # (e) a failed COMPUTED gate → ToolResult(GATE_FAILED) + the lifecycle pauses via gate.check
+    lc = engine.lifecycle.open(iid)
+    data, inv = _invoke(engine, iid, "release_check", lifecycle_id=lc, album="X")
+    assert data is None                                # ok=False → unwrapped to None
+    assert "GATE_FAILED" in engine.memory.recall(inv).get("error", "")
+    assert engine.memory.recall(lc).get("state") == "input-required"   # gate.check paused it
+    assert any(g.get("name") == "release-qa" and not g.get("passed")
+               for g in engine.memory.find("Gate"))
+
+
+def test_release_check_passes_when_all_tracks_mastered(iid):
+    from examples.music_drivers import FakeDBDriver, fake_drivers
+    drivers = fake_drivers()
+    drivers["music_db"] = FakeDBDriver(rows=[("t1", "mastered"), ("t2", "mastered")])
+    e = _engine(drivers=drivers)
+    try:
+        i = e.intent.capture("a", "b", "c")
+        e.intent.confirm(i)
+        lc = e.lifecycle.open(i)
+        data, _inv = e.registry.invoke(e.memory, i, "music", "release_check",
+                                       lifecycle_id=lc, album="X")
+        assert data["passed"] is True
+        assert e.memory.recall(lc).get("state") != "input-required"
+    finally:
+        e.memory.close()
+
+
+def test_pregen_gate_blocks_then_passes(engine, iid):
+    lc = engine.lifecycle.open(iid)
+    data, inv = _invoke(engine, iid, "pregen_check", lifecycle_id=lc,
+                        concept_ready=True, rights_clear=False)
+    assert data is None and "GATE_FAILED" in engine.memory.recall(inv).get("error", "")
+    assert engine.memory.recall(lc).get("state") == "input-required"
+    lc2 = engine.lifecycle.open(iid)
+    ok, _ = _invoke(engine, iid, "pregen_check", lifecycle_id=lc2,
+                    concept_ready=True, rights_clear=True)
+    assert ok["passed"] is True
+
+
 def test_missing_driver_degrades_to_typed_failure(iid_factory=None):
     # a driver-backed verb with NO driver registered returns DEPENDENCY_MISSING
     e = _engine(drivers={})                            # no music drivers at all

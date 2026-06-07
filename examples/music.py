@@ -239,3 +239,53 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure(res.get("error", "INTERNAL"),
                                       f"cloud put failed for {key!r}")
         return ToolResult.success(data={"key": key, "bytes": res.get("bytes", 0)})
+
+    # ───────── gate cluster (computed predicates via gate.check) ─────────
+    @verb(role="effect")
+    def pregen_check(self, lifecycle_id: str, concept_ready: bool = False,
+                     rights_clear: bool = False) -> ToolResult:
+        """Computed `pre-generation` gate (CORE.md:57-62 — a MACHINE-checkable predicate,
+        not the human ship-it confirm). Passes only when the concept is complete AND
+        rights are cleared; a fail records BLOCKED_ON + flips the lifecycle to
+        ``input-required`` via ``gate.check`` and returns a typed ``GATE_FAILED``. The
+        terminal human "ready?" stays an ``elicit``/``lifecycle_gate``.
+
+        Inputs: lifecycle_id (the Lifecycle serving the intent), concept_ready,
+                rights_clear (the computed predicate inputs).
+        """
+        missing = [n for n, ok in (("concept", concept_ready), ("rights", rights_clear))
+                   if not ok]
+        passed = not missing
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id, name="pre-generation",
+                      passed=passed, evidence="ready" if passed else f"missing: {missing}")
+        if not passed:
+            return ToolResult.failure("GATE_FAILED", f"pre-generation blocked; missing: {missing}")
+        return ToolResult.success(data={"gate": "pre-generation", "passed": True})
+
+    @verb(role="effect")
+    def release_check(self, lifecycle_id: str, album: str = "") -> ToolResult:
+        """Computed `release-qa` gate: every track mastered (read via the DBDriver).
+        Records PASSED/BLOCKED_ON on the lifecycle via ``gate.check``; returns a typed
+        ``GATE_FAILED`` + pauses the lifecycle when not ready.
+
+        Inputs: lifecycle_id (the Lifecycle serving the intent), album.
+        chain_next: on PASSED, ``music.publish_asset`` the release; on fail, master the
+        blocking tracks then re-check.
+        """
+        try:
+            db = self.ctx.get_driver("music_db")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_db' driver registered")
+        cur = db.cursor()
+        cur.execute("SELECT slug, status FROM tracks WHERE album = %s", (album,))
+        rows = cur.fetchall()
+        cur.close()
+        unmastered = [r[0] for r in rows if r[1] != "mastered"]
+        passed = not unmastered
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id, name="release-qa",
+                      passed=passed,
+                      evidence="all mastered" if passed else f"unmastered: {unmastered}")
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED", f"release-qa blocked: {len(unmastered)} unmastered: {unmastered}")
+        return ToolResult.success(data={"album": album, "gate": "release-qa", "passed": True})
