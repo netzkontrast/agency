@@ -1,7 +1,7 @@
 # The three surfaces — install, CLI, MCP
 
 <!-- doc-source: agency/install.py agency/cli.py -->
-<!-- doc-hash: 237bb382451265b1 -->
+<!-- doc-hash: b7e500e195d6fb60 -->
 
 Agency presents the same capability surface three ways, all generated from the live
 registry. Code-mode (MCP) is canonical; the others are mirrors.
@@ -41,5 +41,7 @@ surface from the registry — **everything is derived**:
 
 Because it's all rendered, **adding a capability folder regenerates a complete install**
 — the drop-in bar. A self-hosted install-drift check gates merge (the regen must equal
-what's committed). ⚠️ Known gap: the installer *writes but does not prune* stale wrappers
-when a verb is removed — see [../operations/README.md](../operations/README.md).
+what's committed). The regen also **prunes** generator-owned files (`bin/agency-<cap>-*`
+wrappers + `skills/<cap>/references/*.md`) that no longer map to a live verb (Spec 092
+G1), and `check-drift` flags any committed orphan the prune removes — so a removed/renamed
+verb never leaves a stale file behind.

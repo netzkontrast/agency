@@ -50,6 +50,19 @@ else
     git diff --stat -- .claude-plugin/ .mcp.json skills/help/ skills/using-agency/ commands/ hooks/ | head -10
   fi
 fi
+# Spec 092 G1 — orphan check: the regen above PRUNES generator-owned files (bin wrappers
+# + skill references) that no longer map to a live verb. If a committed orphan was
+# pruned, git now shows a deletion under bin/ or skills/*/references/ → flag it.
+ORPHANS=$(git status --porcelain -- bin/ 'skills/*/references/' 2>/dev/null | grep -E '^ ?D' || true)
+if [[ -n "$ORPHANS" ]]; then
+  say "    install: ORPHANS PRUNED — commit the deletions (stale bin/refs for removed verbs)"
+  DRIFT=1
+  if [[ "$QUIET" -eq 0 ]]; then
+    echo "$ORPHANS" | head -10
+  fi
+else
+  say "    orphans: none"
+fi
 say
 
 # ----------------------------------------------------------------------

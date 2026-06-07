@@ -676,8 +676,13 @@ def write(root: str) -> list[str]:
     engine = Engine(":memory:")
     try:
         files = generate(engine)
+        cap_names = list(engine.registry.names())
     finally:
         engine.memory.close()
+    # Spec 092 G1 — prune generator-owned files that no longer correspond to a live verb
+    # (the installer historically WROTE but never PRUNED, so a removed/renamed verb left
+    # an orphan bin wrapper / reference that check-drift didn't catch).
+    pruned = _prune_orphans(root, set(files), cap_names)
     written: list[str] = []
     chmod_warnings: list[str] = []
     for rel, content in files.items():
@@ -701,7 +706,44 @@ def write(root: str) -> list[str]:
     if chmod_warnings:
         for w in chmod_warnings:
             print(f"WARNING: {w}", file=sys.stderr)
+    for p in pruned:
+        print(f"pruned stale {p}", file=sys.stderr)
     return written
+
+
+def _prune_orphans(root: str, expected: set[str], cap_names: list[str]) -> list[str]:
+    """Spec 092 G1 — delete generator-owned files no longer in the generated set, scoped
+    to the two fully-owned namespaces so nothing hand-authored is ever touched:
+    ``bin/agency-<cap>-*`` per-verb wrappers (only for a LIVE capability) and
+    ``skills/<cap>/references/*.md``.
+    """
+    from .skill_emit import _skill_name
+
+    pruned: list[str] = []
+    bin_prefixes = tuple(f"agency-{c}-" for c in cap_names)
+    bindir = os.path.join(root, "bin")
+    if os.path.isdir(bindir):
+        for fn in sorted(os.listdir(bindir)):
+            rel = f"bin/{fn}"
+            if fn.startswith(bin_prefixes) and rel not in expected:
+                try:
+                    os.remove(os.path.join(bindir, fn))
+                    pruned.append(rel)
+                except OSError:
+                    pass
+    for cap in cap_names:
+        refdir = os.path.join(root, "skills", _skill_name(cap), "references")
+        if not os.path.isdir(refdir):
+            continue
+        for fn in sorted(os.listdir(refdir)):
+            rel = f"skills/{_skill_name(cap)}/references/{fn}"
+            if rel not in expected:
+                try:
+                    os.remove(os.path.join(refdir, fn))
+                    pruned.append(rel)
+                except OSError:
+                    pass
+    return pruned
 
 
 def main(argv: list | None = None) -> int:

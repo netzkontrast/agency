@@ -75,7 +75,7 @@ present). Not a hard gate — a nudge that a roll-up claim is ungrounded.
 
 ## Done When
 
-- [ ] **G1** `install.generate` prunes stale `bin/`/`references/` to the live verb set;
+- [x] **G1** `install.generate` prunes stale `bin/`/`references/` to the live verb set;
   `check-drift` flags orphans; relocating/removing a verb leaves no orphan. Test: add then
   remove a verb on a probe capability → no stale files; orphan check trips on a planted one.
 - [ ] **G2** `plugin.lint_capability` flags a verb with a reserved param name + a
