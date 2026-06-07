@@ -60,3 +60,16 @@ jobs:
             git diff --stat
             exit 1
           fi
+
+      # Spec 092 G5 — doc-drift, ADVISORY: report any doc whose declared sources changed
+      # since it was stamped (`scripts/check-doc-drift --update` re-stamps). Does not fail
+      # the build yet (continue-on-error) — promote to gating once the marked set is stable.
+      - name: Doc-drift (advisory)
+        continue-on-error: true
+        run: python scripts/check-doc-drift
+
+      # Spec 092 G6 — followup-grounding, ADVISORY: a Shipped spec should cite tests that
+      # exist (catches a roll-up claim that overstates completeness).
+      - name: Followup-grounding (advisory)
+        continue-on-error: true
+        run: python scripts/check-followup
