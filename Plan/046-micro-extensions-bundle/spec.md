@@ -1,7 +1,7 @@
 ---
 spec_id: "046"
 slug: micro-extensions-bundle
-status: draft
+status: partial
 last_updated: 2026-06-02
 owner: "@agency"
 depends_on: [023, 040, 041]
@@ -333,3 +333,20 @@ independent enough to ship as one PR but each can be split if needed.
   call before F-C implementation.
 - Open Question 4 (token-efficiency cross-reference) is cosmetic;
   decide once F-E lands.
+
+## Followup — Implementation Status (2026-06-07)
+
+**Verdict:** Partial — the two engine-native decidable verbs shipped; the skill-content /
+script items are superseded or deferred under the 080/081 derive model.
+
+- **F-C `branch.commit_smart(summary, paths)`** — decidable conventional-commit
+  composition: infers `type(scope): subject` from the changed paths (tests/→test,
+  docs/→docs, capability path→scope, fix/refactor/chore keywords), no LLM.
+- **F-D `develop.estimate(loc, files, tests)`** — decidable effort estimate: a transparent
+  formula (loc/50 + files·1.5 + tests) → S/M/L/XL bucket + a confidence that shrinks with
+  size. Inputs clamped; deterministic.
+- `tests/test_micro_extensions_046.py` (4). Full suite 966 passed; `check-drift` clean.
+- **Deferred / superseded:** F-A code-review split + F-E token-efficiency skill are skill
+  content (code-review is `develop.review`; token-economy is Spec 067 + CLAUDE.md doctrine);
+  F-B visual-companion + F-F upstream-doc autosync are out-of-process scripts — none fits
+  the derive-from-capability model cleanly, so they stay port-on-demand.

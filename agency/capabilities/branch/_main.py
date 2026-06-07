@@ -6,6 +6,9 @@ Use when: a development branch is ready to wrap up and its state must be detecte
 Triggers:
 - A feature branch whose work appears complete
 - Uncertainty whether a branch should merge or open a PR
+Red flags:
+- Hand-writing a commit message → compose it with capability_branch_commit_smart
+- Merging a branch without reading its state → run capability_branch_assess first
 """
 from __future__ import annotations
 
@@ -25,6 +28,34 @@ def _recommend(state: dict) -> str:
     return "merge" if int(state.get("behind", 0) or 0) == 0 else "pr"   # diverged -> open a PR
 
 
+# Spec 046 F-C — conventional-commit composition as DECIDABLE code (the sc-git pattern,
+# agency-flavoured): infer the type + scope from the changed paths, no LLM.
+_DOC_EXT = (".md", ".rst", ".txt")
+
+
+def _infer_commit_type(paths: list[str], summary: str) -> str:
+    low = summary.lower()
+    if paths and all(p.startswith("tests/") or "/test" in p for p in paths):
+        return "test"
+    if paths and all(p.startswith("docs/") or p.endswith(_DOC_EXT) for p in paths):
+        return "docs"
+    if any(w in low for w in ("fix", "bug", "regression", "broken", "crash")):
+        return "fix"
+    if any(w in low for w in ("refactor", "rename", "cleanup", "tidy", "extract")):
+        return "refactor"
+    if any(w in low for w in ("ci", "build", "deps", "bump", "chore", "config")):
+        return "chore"
+    return "feat"
+
+
+def _infer_scope(paths: list[str]) -> str:
+    # a capability path → its name; else the common top-level component
+    for p in paths:
+        parts = p.split("/")
+        if len(parts) >= 3 and parts[:2] == ["agency", "capabilities"]:
+            return parts[2].replace(".py", "")
+    tops = {p.split("/")[0] for p in paths if "/" in p}
+    return next(iter(tops)) if len(tops) == 1 else ""
 
 
 class BranchCapability(CapabilityBase):
@@ -32,6 +63,23 @@ class BranchCapability(CapabilityBase):
     home = "lifecycle"
     artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(nodes={"BranchOutcome": ["branch", "action", "ok"]})
+
+    @verb(role="transform")
+    def commit_smart(self, summary: str, paths: str = "") -> dict:
+        """Compose a conventional-commit message from a change summary + the changed paths
+        (Spec 046 F-C — decidable, no LLM). Infers ``type(scope): subject``.
+
+        Inputs: summary (one-line description of the change); paths (comma-separated
+                changed files — drives the inferred type + scope).
+        Returns: ``{message, type, scope}``.
+        chain_next: use the message for the commit; then ``branch.assess`` / ``finish``.
+        """
+        files = [p.strip() for p in paths.split(",") if p.strip()]
+        ctype = _infer_commit_type(files, summary)
+        scope = _infer_scope(files)
+        subject = " ".join(summary.strip().rstrip(".").split())[:60].lower()
+        message = f"{ctype}({scope}): {subject}" if scope else f"{ctype}: {subject}"
+        return {"result": {"message": message, "type": ctype, "scope": scope}}
 
     @verb(role="transform", inject=["vcs"])
     def assess(self, vcs, branch: str, base: str = "main") -> dict:
