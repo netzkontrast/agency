@@ -44,4 +44,4 @@ walkable Agent Skills · **082** TokenCounter · **083** Skills-API publishing �
 `intent` critical-thinking capability.
 
 <!-- doc-source: TODO.md -->
-<!-- doc-hash: bb75cceea2e89b28 -->
+<!-- doc-hash: 6ff6826b650af8fc -->

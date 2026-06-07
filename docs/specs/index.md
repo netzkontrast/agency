@@ -2,7 +2,7 @@
 
 <!-- doc-generated-by: scripts/gen-spec-index (re-run; do not hand-edit) -->
 
-> **Generated** from `Plan/*/spec.md` frontmatter — every one of the **76** specs, listed + linked. This is NAVIGATION; the authoritative **verdict** index is [`/TODO.md`](../../TODO.md) and the per-spec detail is each linked `spec.md`. See [README.md](README.md) for how the spec system works.
+> **Generated** from `Plan/*/spec.md` frontmatter — every one of the **77** specs, listed + linked. This is NAVIGATION; the authoritative **verdict** index is [`/TODO.md`](../../TODO.md) and the per-spec detail is each linked `spec.md`. See [README.md](README.md) for how the spec system works.
 
 | Spec | Slug | Status | Title | |
 |---|---|---|---|---|
@@ -82,3 +82,4 @@
 | 082 | `count-tokens-budget` | shipped | Spec 082 — Real token counting for the budget gate (count_tokens, not tiktoken) | [spec](../../Plan/082-count-tokens-budget/spec.md) |
 | 083 | `publish-skill-api` | shipped | Spec 083 — Publish capability skills via the Anthropic Skills API | [spec](../../Plan/083-publish-skill-api/spec.md) |
 | 091 | `intent-critical-thinking` | shipped | Spec 091 — `intent` capability: critical-thinking methods | [spec](../../Plan/091-intent-critical-thinking/spec.md) |
+| 092 | `substrate-hardening-and-authoring-guardrails` | design | Spec 092 — Substrate hardening & authoring guardrails | [spec](../../Plan/092-substrate-hardening-and-guardrails/spec.md) |
