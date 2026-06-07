@@ -110,7 +110,8 @@ music_ontology = OntologyExtension(
     schemas={"album-concept": ["artist", "title", "type"],
              "promo-copy": ["album", "body"],
              "mastering-report": ["album", "body"],
-             "lyric-report": ["album", "body"]},
+             "lyric-report": ["album", "body"],
+             "sheet-music": ["album", "body"]},
 )
 
 
@@ -289,3 +290,93 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure(
                 "GATE_FAILED", f"release-qa blocked: {len(unmastered)} unmastered: {unmastered}")
         return ToolResult.success(data={"album": album, "gate": "release-qa", "passed": True})
+
+    # ───────── sheet-music cluster (act via AudioDriver) ─────────
+    @verb(role="act")
+    def transcribe_sheet(self, album: str, path: str) -> ToolResult:
+        """Transcribe audio to sheet music via the AudioDriver (act, produces a
+        ``sheet-music`` artefact) — the transcription tool (AnthemScore-class) runs
+        behind the driver, never inline.
+
+        Inputs: album, path (the audio file). chain_next: ``music.publish_asset``.
+        """
+        try:
+            audio = self.ctx.get_driver("music_audio")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_audio' driver registered")
+        audio.run_ffmpeg(["-i", path, "-f", "musicxml", f"{album}.musicxml"])
+        body = f"# Sheet music: {album}\nsource: {path}\nformat: musicxml\n"
+        return ToolResult.success(data={"result": body, "artefact": {
+            "kind": "sheet-music", "album": album, "source": path, "body": body}})
+
+    # ───────── mixing cluster (transform via AudioDriver) ─────────
+    @verb(role="transform")
+    def analyze_mix(self, album: str, path: str) -> ToolResult:
+        """Analyse a mix for loudness issues via the AudioDriver (transform).
+
+        Inputs: album, path. Returns ``{album, measured_lufs, findings}`` — decidable
+        findings (too hot > -9, too quiet < -16). chain_next: ``music.master_album``.
+        """
+        try:
+            audio = self.ctx.get_driver("music_audio")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_audio' driver registered")
+        loud = audio.read_loudness(path)
+        findings = []
+        if loud > -9:
+            findings.append("too hot (clipping risk)")
+        if loud < -16:
+            findings.append("too quiet (below streaming target)")
+        return ToolResult.success(data={"album": album, "measured_lufs": loud,
+                                        "findings": findings or ["within target"]})
+
+    # ───────── streaming cluster (transform via CloudDriver) ─────────
+    @verb(role="transform")
+    def verify_streaming(self, album: str, urls: str = "") -> ToolResult:
+        """Verify an album's streaming links are live via the CloudDriver (transform).
+
+        Inputs: album, urls (comma-separated). Returns ``{live, dead}``. chain_next:
+        re-submit any dead links to the distributor.
+        """
+        try:
+            cloud = self.ctx.get_driver("music_cloud")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_cloud' driver registered")
+        targets = [u.strip() for u in urls.split(",") if u.strip()]
+        live = [u for u in targets if cloud.url_head(u) == 200]
+        return ToolResult.success(data={"album": album, "live": live,
+                                        "dead": [u for u in targets if u not in live]})
+
+    # ───────── ideas cluster (effect via StateDriver, records an Idea node) ─────────
+    @verb(role="effect")
+    def capture_idea(self, text: str) -> ToolResult:
+        """Capture a creative idea (effect) — records an ``Idea`` graph node (provenance)
+        and persists it via the StateDriver.
+
+        Inputs: text. Returns ``{idea_id, text}``. chain_next: ``music.conceptualize``
+        when an idea grows into an album.
+        """
+        if not text.strip():
+            return ToolResult.failure("INVALID_ARGUMENT", "idea text is required")
+        idea_id = self.ctx.record("Idea", {"text": text})
+        self.ctx.link(idea_id, self.ctx.intent_id, "SERVES")
+        try:
+            state = self.ctx.get_driver("music_state")
+            state.put(f"idea:{idea_id}", {"text": text})
+        except DriverMissing:
+            pass                                          # graph node is the record of truth
+        return ToolResult.success(data={"idea_id": idea_id, "text": text})
+
+    # ───────── health cluster (transform, driver-free) ─────────
+    @verb(role="transform")
+    def music_health(self) -> ToolResult:
+        """Self-check the music capability (transform, driver-free): which Driver seams are
+        wired and a deterministic readiness report.
+
+        Inputs: none. Returns ``{ok, drivers, verbs}``. chain_next: register any missing
+        driver via ``Engine(..., drivers=…)``.
+        """
+        wanted = ("music_state", "music_text", "music_audio", "music_db", "music_cloud")
+        wired = [d for d in wanted if self.ctx.drivers is not None and self.ctx.drivers.has(d)]
+        return ToolResult.success(data={"ok": True, "drivers_wired": wired,
+                                        "drivers_missing": [d for d in wanted if d not in wired]})
