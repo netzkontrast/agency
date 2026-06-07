@@ -45,3 +45,5 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`dispatch-decision`** (discipline): estimate-tokens-and-cache → estimate-shape → apply-heuristic → assemble-bash-hints → decide
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'dispatch-decision', 'inputs': {}, 'intent_id': '…'})`
+- **`dispatching-parallel-agents`** (discipline): partition → dispatch → join → synthesize
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'dispatching-parallel-agents', 'inputs': {}, 'intent_id': '…'})`

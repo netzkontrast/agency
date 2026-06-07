@@ -34,6 +34,27 @@ def _phase(idx: int, name: str, produces: list[str], gate: str = "") -> dict:
 # budget models. Phase 0 captures the new return-token-budget + cache + role
 # signals (S1, S6, S7, S8, S9, S10, S11); the human-readable discipline lives
 # in skills/dispatch-decision/SKILL.md + references/.
+# Spec 041 — the parallel-fan-out discipline (Superpowers `dispatching-parallel-agents`,
+# agency-flavoured): partition into INDEPENDENT domains, fan out, join, synthesize. The
+# dispatch/join phases bind to `delegate`'s real verbs so walking it executes.
+_DISPATCHING_PARALLEL_SKILL = {
+    "name": "dispatching-parallel-agents",
+    "kind": "discipline",
+    "applies_when": {"kind": "pattern",
+                     "pattern": r"parallel|independent|fan.?out|multiple (domains|tasks)",
+                     "confidence": 0.7},
+    "phases": [
+        {"index": 1, "name": "partition",
+         "produces": ["independent_domains"],            # 2+ NON-overlapping problem domains
+         "verbs": ["delegate.dispatch_decision"]},       # confirm dispatch beats inline first
+        {"index": 2, "name": "dispatch", "produces": ["delegations"],
+         "verbs": ["delegate.fan_out"]},
+        {"index": 3, "name": "join", "produces": ["results"], "verbs": ["delegate.join"]},
+        {"index": 4, "name": "synthesize", "produces": ["merged_result"], "gate": "hard"},
+    ],
+}
+
+
 _DISPATCH_DECISION_SKILL = {
     "name": "dispatch-decision",
     "kind": "discipline",
@@ -163,7 +184,8 @@ class DelegateCapability(CapabilityBase):
     ontology = OntologyExtension(
         nodes={"Delegation": ["driver", "driver_verb", "count", "quota"]},
         edges={"DELEGATES_TO", "REDUCES_INTO"},
-        skills={"dispatch-decision": _DISPATCH_DECISION_SKILL},
+        skills={"dispatch-decision": _DISPATCH_DECISION_SKILL,
+                "dispatching-parallel-agents": _DISPATCHING_PARALLEL_SKILL},
     )
 
     @verb(role="transform")
