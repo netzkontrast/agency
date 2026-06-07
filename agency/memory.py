@@ -37,29 +37,21 @@ class Memory:
         self._tick = self._max_persisted_tick()
 
     def _max_persisted_tick(self) -> int:
-        mx = 0
-        try:
-            rows = self.g.query("MATCH (n) RETURN n")
-        except Exception:
-            rows = []
-        for r in rows:
-            p = r.get("n", {}).get("properties", {})
-            for k in ("vfrom", "vto"):
-                v = p.get(k, 0)
-                if isinstance(v, int) and v != OPEN and v > mx:
-                    mx = v
-        # edges advance the same clock and persist `vfrom`; if the last write before
-        # a reopen was an edge, scanning nodes alone would reset the tick below the
-        # true max and let new writes reuse stale ticks — so scan edges too.
-        try:
-            erows = self.g.query("MATCH ()-[r]->() RETURN r")
-        except Exception:
-            erows = []
-        for r in erows:
-            v = r.get("r", {}).get("properties", {}).get("vfrom", 0)
-            if isinstance(v, int) and v != OPEN and v > mx:
-                mx = v
-        return mx
+        # Spec 006 #1 — O(1) clock seed: NO unconstrained full scan. Every tick ever
+        # assigned appears as some row's `vfrom` (vto is only ever a prior tick or OPEN),
+        # so two server-side `max(vfrom)` aggregations — one over nodes, one over edges —
+        # and take the larger. (Scanning nodes alone under-counts when the last write
+        # before a reopen was an edge, letting new writes reuse stale ticks.)
+        def _agg(query: str) -> int:
+            try:
+                rows = self.g.query(query)
+            except Exception:
+                return 0
+            v = (rows[0] or {}).get("m", 0) if rows else 0
+            return v if isinstance(v, int) and v != OPEN else 0
+
+        return max(_agg("MATCH (n) RETURN max(n.vfrom) AS m"),
+                   _agg("MATCH ()-[r]->() RETURN max(r.vfrom) AS m"))
 
     def _now(self) -> int:
         with self._lock:
