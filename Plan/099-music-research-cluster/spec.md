@@ -1,0 +1,241 @@
+---
+spec_id: "099"
+slug: music-research-cluster
+status: draft
+last_updated: 2026-06-07
+owner: "@agency"
+depends_on: ["044", "094", "093"]
+affects:
+  - agency/capabilities/music/clusters/research.py
+  - agency/capabilities/music/ontology.py       # ResearchClaim, VerificationRecord
+  - agency/capabilities/music/data/reference/research-domains.yaml
+  - tests/test_music_research.py
+domain: music / research / delegation
+wave: 7
+parent_spec: "093"
+---
+
+# Spec 099 — Music Research Cluster
+
+## Why
+
+bitwize's research system is a **10-domain parallel-research orchestrator**:
+one `researcher` lead skill that dispatches to specialists (legal, financial,
+security, government, journalism, biographical, historical, primary-source,
+technical, document-hunter) and a `verifier` that cross-checks claims before
+human review. For documentary/true-story albums, every lyric line traces to a
+captured, verified primary source.
+
+agency already ships this contract — **Spec 044's `research` capability** is
+exactly this pattern (lead + specialists + verifier). The music research
+cluster does NOT re-implement it; instead it **specializes** Spec 044 with:
+
+1. **Music-domain specialist registry** (the 10 bitwize domains as a named set)
+2. **`ResearchClaim` + `VerificationRecord` nodes** in the music ontology, so
+   research output is provenance-recorded against the Album
+3. **Pre-generation gate integration** (Spec 100): no lyric generation until
+   `verify-sources` has confirmed claims for the album
+
+This is the cluster that proves agency's research capability **composes** —
+the music domain doesn't need its own research engine, it parameterizes the
+existing one.
+
+## Done When
+
+- [ ] **Verbs ship:** 8 research verbs (see "Verb manifest"), all delegating
+  to `agency.research` with music-domain configuration.
+- [ ] **No DRIVER additions** — research routes through the existing
+  `agency.research` capability and its `Researcher` boundary; music adds zero
+  driver methods.
+- [ ] **Ontology adds `ResearchClaim` + `VerificationRecord` nodes** with the
+  `(ResearchClaim, verified)` closed enum (`pending / human-confirmed /
+  rejected`).
+- [ ] **Walkable skill: `research-workflow`** — 5-phase workflow (scope →
+  dispatch-specialists → collect → verify → human-sign-off) with terminal hard
+  gate.
+- [ ] **Domain registry** at `data/reference/research-domains.yaml` carries the
+  10 bitwize specialist domains as named configurations (each declares
+  preferred-sources, prompt-style, verifier-strictness).
+- [ ] **`scripts/test-cap music_research`** Green; the test bind a fake
+  `Researcher` boundary that returns canned multi-specialist results.
+- [ ] **`TODO.md` updated;** parent (093) row notes child shipped.
+
+## Verb manifest
+
+| # | Verb | Role | Driver / Delegate | bitwize tool / skill absorbed | Notes |
+|---|---|---|---|---|---|
+| 1 | `research_scope` | act | (delegate) | `researcher` lead skill | defines the research question + domain set |
+| 2 | `dispatch_research` | effect | agency.research | `researcher` lead + N specialists | calls `research.fan_out` on selected domains |
+| 3 | `capture_claim` | effect | (graph) | (new — was implicit in bitwize) | records a `ResearchClaim` node SERVES the intent |
+| 4 | `verify_sources` | effect | agency.research+TextDriver | `researchers-verifier`, `verify-sources` skill | cross-checks claims; flips status |
+| 5 | `list_claims` | transform | (graph) | (new — was implicit) | filters claims by album/status |
+| 6 | `pending_verifications` | transform | (graph) | `get_pending_verifications` | aggregates `pending` claims |
+| 7 | `human_signoff` | effect | (graph) + `elicit` | (the human-review skill) | terminal human-approval step |
+| 8 | `document_hunt` | effect | agency.research | `document-hunter` skill | specific specialist: court filings / govt docs |
+
+**Total: 8 verbs.** Lighter verb count than the others because the heavy
+lifting lives in `agency.research`.
+
+## Design
+
+### Research-domain registry
+
+```yaml
+# agency/capabilities/music/data/reference/research-domains.yaml
+domains:
+  legal:
+    description: court documents, indictments, plea agreements, sentencing
+    preferred_sources: [courtlistener, pacer, justice.gov]
+    verifier_strictness: high
+  financial:
+    description: SEC filings, earnings calls, analyst reports
+    preferred_sources: [sec.gov, edgar, finra]
+    verifier_strictness: high
+  security:
+    description: malware analysis, CVEs, attribution reports
+    preferred_sources: [mitre, nist-nvd, virustotal, krebs]
+    verifier_strictness: medium
+  government:
+    description: DOJ/FBI/SEC press releases, agency statements
+    preferred_sources: [justice.gov, fbi.gov, sec.gov, treasury.gov]
+    verifier_strictness: high
+  journalism:
+    description: investigative articles, interviews, news coverage
+    preferred_sources: [nytimes, wapo, propublica, reuters, ap]
+    verifier_strictness: medium
+  biographical:
+    description: personal backgrounds, interviews, motivations
+    preferred_sources: [linkedin, wikipedia, biography.com]
+    verifier_strictness: low
+  historical:
+    description: archives, contemporary accounts, timeline reconstruction
+    preferred_sources: [archive.org, jstor, loc.gov]
+    verifier_strictness: medium
+  primary_source:
+    description: subject's own words — tweets, blogs, forums, chat logs
+    preferred_sources: [twitter, github, telegram, pastebin]
+    verifier_strictness: high
+  technical:
+    description: project histories, changelogs, developer interviews
+    preferred_sources: [github, gitlab, hackernews]
+    verifier_strictness: medium
+  document_hunter:
+    description: automated browser navigation for primary sources
+    preferred_sources: [courtlistener, sec-edgar, govinfo, archive-today]
+    verifier_strictness: high
+```
+
+### Ontology additions
+
+```python
+# In ontology.py (the consolidated extension):
+RESEARCH_NODES = {
+    "ResearchClaim": {"text", "source_uri", "domain", "confidence",
+                      "verified", "captured_at"},
+    "VerificationRecord": {"claim", "verified_by", "verified_at",
+                           "verdict", "notes"},
+}
+RESEARCH_ENUMS = {
+    ("ResearchClaim", "verified"): {"pending", "human-confirmed", "rejected"},
+    ("VerificationRecord", "verdict"): {"confirmed", "rejected",
+                                        "needs-more-evidence"},
+    ("ResearchClaim", "domain"): {"legal", "financial", "security",
+                                  "government", "journalism", "biographical",
+                                  "historical", "primary_source", "technical",
+                                  "document_hunter"},
+}
+```
+
+### Walkable skill: `research-workflow`
+
+```python
+RESEARCH_WORKFLOW_SKILL = {
+    "name": "research-workflow",
+    "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "scope",
+         "produces": ["question", "domains_selected"]},
+        {"index": 2, "name": "dispatch",
+         "produces": ["specialist_dispatches"]},
+        {"index": 3, "name": "collect",
+         "produces": ["claims_captured"]},
+        {"index": 4, "name": "verify",
+         "produces": ["verified_count", "pending_count"],
+         "gate": "computed", "gate_verb": "music.verify_gate"},
+        {"index": 5, "name": "human-signoff",
+         "produces": ["all_human_confirmed"],
+         "gate": "hard"},   # elicit — human is the final filter
+    ],
+}
+```
+
+### Primary actors (panel-added, iteration 1 / Cockburn)
+
+- `research-workflow` — **Primary actor: agent** (orchestrates specialist
+  fan-out + verifier); human-curator is the final filter at phase 5
+  (human-signoff hard gate). Without human signoff, no lyric generation
+  proceeds (the pre-generation skill in 100 reads `pending_count == 0`).
+
+### Delegation pattern
+
+```python
+# In clusters/research.py:
+@verb(role="effect")
+def dispatch_research(self, question: str, domains: str = "all",
+                      album: str = "") -> ToolResult:
+    """Fan out to music-domain research specialists via agency.research.
+    Records ResearchClaim nodes per finding, all SERVES the parent intent.
+    """
+    state = self.ctx.get_driver("music_state")
+    domain_registry = state.read_data("research-domain", "all")
+    selected = (list(domain_registry["domains"].keys()) if domains == "all"
+                else [d.strip() for d in domains.split(",")])
+
+    # Delegate to agency.research — the heavy lifting:
+    fan = self.ctx.call("research", "fan_out", intent_id=self.ctx.intent_id,
+                        question=question, specialists=selected,
+                        config_per_specialist={d: domain_registry["domains"][d]
+                                               for d in selected})
+    # Result carries the claims; record them as music ontology nodes:
+    for claim in fan["claims"]:
+        claim_id = self.ctx.record("ResearchClaim", {
+            "text": claim["text"], "source_uri": claim["source_uri"],
+            "domain": claim["domain"], "confidence": claim["confidence"],
+            "verified": "pending"})
+        self.ctx.link(claim_id, self.ctx.intent_id, "SERVES")
+        if album:
+            self.ctx.link(claim_id, album, "RELATES_TO")
+    return ToolResult.success(data={"claim_count": len(fan["claims"]),
+                                    "album": album})
+```
+
+## Test plan
+
+```python
+# tests/test_music_research.py — ~8 tests
+def test_research_cluster_discovers_all_verbs(): ...
+def test_dispatch_research_delegates_to_agency_research(): ...
+def test_capture_claim_records_research_claim_node_with_serves_edge(): ...
+def test_verify_sources_flips_claim_status_to_human_confirmed_or_rejected(): ...
+def test_pending_verifications_filters_by_album_and_status(): ...
+def test_document_hunt_specializes_to_document_hunter_domain(): ...
+def test_research_workflow_skill_pauses_on_human_signoff_hard_gate(): ...
+def test_verify_gate_blocks_when_pending_claims_remain(): ...
+```
+
+## Open questions
+
+1. **Should the 10 specialists be hard-coded or extensible?** Hard-coded enum
+   for now (matches bitwize). Adding a domain is a small ontology change.
+2. **Verifier as a verb or a skill phase?** Verb (`verify_sources`) — it
+   produces a record-of-truth `VerificationRecord` artefact. The skill
+   orchestrates calls.
+3. **Web search vs document-hunter — split clusters?** No — they're both
+   "research dispatch" with different specialist registries. Same cluster.
+4. **`agency.research`-side changes required?** Probably none — the existing
+   `fan_out`/`verify` API already accepts `specialists` + `config_per_specialist`.
+   If a gap surfaces, 099 opens a small followup spec against 044.
+
+## Followup
+
+(Populated when the PR ships.)

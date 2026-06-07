@@ -34,9 +34,10 @@
 | **Shipped — Skills API publishing** | 1 | **083 ✅** (`plugin.publish_skill(name, dry_run)` packages a cap's emitted Agent Skill → Anthropic Skills API; SkillsClient boundary, dry-run default, `published-skill` Artefact provenance; `[publish]` extra — an agency capability becomes a first-class Agent Skill on ANY Claude surface) |
 | **Shipped — substrate hardening (6 PRs)** | 1 | **092 ✅** (G1 installer prune · G2 reserved-name lints · G3 OpenRouter LLM Driver → llm_select · G4 intent→develop cues · G5 doc-drift in CI · G6 followup-grounding) |
 | **Drafted — backlog** | 2 | 077 bdd-gherkin-tests (research-first) · 078 static-walkable-skills (research-first; needs clarification) |
+| **Drafted — music complete port (`intent:715c815c`)** | 8 | **093** master (music-complete-port) · 094 lifecycle · 095 lyrics · 096 audio · 097 catalogue · 098 promo · 099 research · 100 gates (all draft; spec-panel reviewed) |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
-Total spec rows: **71** (001–078, with 027 + 033–038 renumbered away).
+Total spec rows: **79** (001–100, with 027 + 033–038 + 084–090 renumbered away / reserved).
 
 ## Token-Economy & Readability cluster (`intent:97534079`, master Spec 066)
 
@@ -58,7 +59,7 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 | 004 | template-schema-coverage | Not started | Wire generate/validate loop for uncovered kinds | Wave-1 backlog |
 | 005 | context-mode-and-token-economics | Not started | Output-overflow capture + recall | Wave-1 backlog |
 | 006 | core-hardening | **Shipped** | All 4 red-team fixes: #1 O(1) max(vfrom) clock seed, #2 pagination exhaustion+seen_tokens guard, #3 fail-closed jules.verify, #4 API-key value never captured | `tests/test_hardening.py` (9) green |
-| 007 | music-domain-capability | **Partial** | 15 verbs / 11 clusters via 5 Drivers; ToolResult + provenance moat; computed gates; sheet-music/mixing/streaming/ideas/health; 0 core edits | Long tail (video sampler, promo videos, maintenance) = port-on-demand within proven clusters |
+| 007 | music-domain-capability | **Partial → 093** | 15 verbs / 11 clusters via 5 Drivers; ToolResult + provenance moat; computed gates; sheet-music/mixing/streaming/ideas/health; 0 core edits — the **proof-of-contract slice** | The "port-on-demand" long tail is no longer notional: Spec 093 (master, drafted 2026-06-07) carries the complete port → `agency/capabilities/music/` via 7 cluster children (094–100). 007 row flips to Shipped + Superseded when 094 lands |
 | 008 | superclaude-analysts | **Closed (superseded → 042)** | SuperClaude analysis (`transmute` cluster) | Closed 2026-06-06. The `analyze` capability (Spec 042, Shipped) delivers the 4-axis decidable analysis this spec scoped via a `transmute` cluster; no separate port needed. Frontmatter flipped; spec text kept verbatim per supersede pattern (GOALS.md #7) |
 | 009 | superpowers-remainder | **Closed (superseded → 041 + 046)** | Finish the superpowers port | Closed 2026-06-06. Remaining superpowers surface is carried by Spec 041 (implementation-discipline-skills) + Spec 046 (micro-extensions-bundle); both supersede the catch-all "remainder" port. Frontmatter flipped; spec text kept verbatim |
 | 010 | novel-domain | Not started | Novel domain (Dramatica/NCP, gates) | 0% impl; 7 loops sequenced; spec rebased 2026-05-31 |
@@ -110,6 +111,14 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 | 046 | micro-extensions-bundle | Not started | Code-review split + visual-companion + smart-commit + estimate + token-efficiency + doc-autosync | Designed in this branch |
 | **047** | cluster-integration | **Shipped** | Master plan: 13-cluster integration map (Discovery/Plan/Impl/Quality/Debug/Cleanup/Doc/Memory/Git/Research/Orch/Meta/Plugin) | The deliverable IS the plan — no code; promotes individual cluster plans to standalone specs when criteria hit (cluster-section > 150 LOC OR ≥ 3 cross-cluster decisions) |
 | **048** | intent-chain-and-owners | **Shipped** | PARENT_INTENT edge + closed owner enum {user/agent/subagent/jules/system} + analyze.paths axis (IP001/IP002/IP003) + render(provenance) sub-intents | User-requested for session traceability + capability-opportunity detection. 25 spec tests green; dogfooded via wire (5-deep chain → IP001 fires); 2 minor regression-test updates for the new axis enum |
+| **093** | music-complete-port (master) | **Draft** | Master spec for the complete bitwize-music port → `agency/capabilities/music/` (doctrine exception, justified). Master + 7 cluster children (094–100); ~75 verbs across 8 clusters via 5 proven Drivers; ZERO engine edits; provenance moat lit on full pipeline | Spec set authored + spec-panel reviewed (`Plan/093-music-complete-port/REVIEW.md`); implementation begins with 094 (lifecycle migration) — moves `examples/music.py` to `agency/capabilities/music/` + the doctrine-exception PR |
+| 094 | music-lifecycle-cluster | Draft | 14 verbs covering 22 bitwize lifecycle tools via StateDriver; carries the migration (examples/music.py → agency/capabilities/music/) + doctrine exception (CLAUDE.md + CAPABILITY-CLUSTERS.md) | Implements 093 first child; preserves 007's `conceptualize` + `album-concept` skill verbatim |
+| 095 | music-lyrics-cluster | Draft | 13 verbs covering 14 bitwize text/lyric tools via TextDriver; `lyric-writing` walkable skill with computed prosody/pronunciation/repetition/explicit gates | Driver-free transforms; deterministic; CI < 5s |
+| 096 | music-audio-cluster | Draft | 18 verbs covering 18 bitwize audio tools via AudioDriver; `mastering` + `mix-polish` walkable skills; zero ffmpeg/pyloudnorm/AnthemScore in CI | The infrastructure-heavy cluster; production binds `[music-audio]` extra |
+| 097 | music-catalogue-cluster | Draft | 14 verbs covering 14 bitwize DB + streaming tools via DBDriver (psycopg2-shaped fake) + CloudDriver(stdlib); `tweet-curation` + `streaming-verify` skills; `db_init` migration script | Zero Postgres host in CI; production binds `[music-db]` extra |
+| 098 | music-promo-cluster | Draft | 10 verbs covering 10 bitwize promo/cloud tools via CloudDriver(boto3) + optional `llm` driver; `promo-pass` + `release-publish` skills; 5 platform templates | LLM driver wiring is opt-in (Path A rule-based default) |
+| 099 | music-research-cluster | Draft | 8 verbs delegating to `agency.research` (Spec 044) with music-domain 10-specialist registry; `ResearchClaim` + `VerificationRecord` nodes; `research-workflow` skill | Proof that the research capability composes; zero new drivers |
+| 100 | music-gates-cluster | Draft | 6 verbs composing cross-cluster predicates via `gate.check` + `elicit`; `pre-generation` + `release-qa` + `validate-structure` walkable skills | Carries the master 093 end-to-end test (full provenance chain assertion); 093 row flips to Shipped when 100 lands Green |
 
 ## Suggested implementation order (next 5)
 

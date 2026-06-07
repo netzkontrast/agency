@@ -1,0 +1,407 @@
+---
+spec_id: "093"
+slug: music-complete-port
+status: draft
+last_updated: 2026-06-07
+owner: "@agency"
+depends_on: ["001", "002", "007", "020", "047", "054", "076", "079", "080", "081", "092"]
+affects:
+  - agency/capabilities/music/
+  - examples/music.py
+  - examples/music_drivers.py
+  - tests/test_music_*.py
+source-repos:
+  - "https://github.com/bitwize-music-studio/claude-ai-music-skills.git @ v0.91.0+ (89 MCP tools, 53 skills, 72 genres, 46 reference docs)"
+domain: music / cluster-integration / capability
+wave: 7
+research_first: false
+---
+
+# Spec 093 — Music Complete Port (master)
+
+> **Master spec** — coordinates the seven child specs (094–100), one per cluster.
+> Child specs ship independently; this master tracks coherence, ontology
+> consolidation, and the doctrine exception that places music in
+> `agency/capabilities/` instead of `examples/`.
+
+## Why
+
+Spec 007 deliberately shipped music as a **proof-of-contract slice** (15 verbs / 8
+clusters / 5 drivers in `examples/music.py`), leaving the long-tail ~70 bitwize
+tools marked **"covered-by-pattern, port-on-demand"**. That slice proved the
+clustered Capability + Boundary/Driver contract + provenance moat on a real
+domain. **What 007 proved, 093 ships in full.**
+
+User directive (2026-06-07): *"Check the bitwize Music Plugin — and port it
+completely to the Agency Plugin as capability."* The "covered-by-pattern" tail
+is no longer notional — it is the deliverable.
+
+A **complete port** is the next stress test of the substrate. If the
+drop-in-capability bar (`CLAUDE.md`: "add a folder under `agency/capabilities/
+<name>/` — verbs + ontology + a docstring that derives its Agent Skill — and
+nothing else") truly holds, then porting bitwize-music's full surface should be
+a *single folder* with no edit anywhere else in `agency/`. **That is what 093
+proves, and what its CI gates check.**
+
+### What "complete" means here (the operating definition)
+
+Complete behavioral parity, NOT 1:1 verb-name parity:
+
+- **Every bitwize tool either becomes a verb in an existing cluster OR is
+  explicitly DROPPED with justification.** The 89-tool inventory from 007's
+  Appendix is the audit list — every row gets a verdict in 093 (or a child).
+- **Every bitwize workflow skill becomes a walkable `OntologyExtension.skills`
+  phase-graph** with computed predicates via `gate.check` and a terminal human
+  `elicit` (Spec 080/081 contract). bitwize has 53 skills; ~35 are workflows
+  (the rest are domain references or model-tier shims that evaporate).
+- **Every bitwize side effect routes through a Driver.** The five proven driver
+  protocols (StateDriver/TextDriver/AudioDriver/DBDriver/CloudDriver) already
+  cover every bitwize boundary. No new driver protocols. The `llm` driver from
+  Spec 092 G3 wires Suno prompt synthesis when desired.
+- **Every bitwize stateful concept lives in the graph** — extending the existing
+  Album/Track/Idea/Tweet/SheetMusic nodes with Genre, MasteringPreset, Reference,
+  PromoTemplate, VerificationRecord, ResearchClaim. Reference data (72 genre
+  guides, 46 reference docs) stays as static files under
+  `agency/capabilities/music/data/` — read by drivers, NOT graph-ified
+  (CLAUDE.md rule 2: graph is the store for *behavior + provenance*, not static
+  data assets).
+- **bitwize's MCP server, slash commands, session hooks, and state cache are
+  ABSORBED** by agency's substrate (Specs 020 / 076 / 079) — they don't get
+  ported, they evaporate. Net code reduction at the substrate level.
+
+### What gets DROPPED (explicit non-port)
+
+| bitwize tool/feature | Why dropped |
+|---|---|
+| `get_python_command`, `check_venv_health`, `cleanup_legacy_venvs` | Plugin-bootstrap concerns; agency installs differently |
+| `load_override`, `get_config` | Replaced by `.agency/session.db` + Spec 092 G3 `llm` driver config |
+| `health_check` (bitwize-specific) | Replaced by `music_health` (already in 007) + `agency_doctor` |
+| `db_init`, `rebuild_state` | One-shot install ops, not verbs — moved to `scripts/install-music.py` |
+| `migrate_audio_layout`, `prune_archival` | Migration ops, not verbs — moved to `agency/capabilities/music/migrations/` |
+| `get_plugin_version` | `agency_welcome` returns it |
+| FastMCP server | Absorbed by `mcp__agency__{search,get_schema,execute}` |
+| Slash-command facade | Absorbed by Spec 079's `agency <cap> <verb>` CLI mirror |
+| Session-start hook | Absorbed by Spec 076's unified hook dispatch |
+| `state.json` cache | Replaced by graph reads (Spec 020 central DB) |
+
+That's ~14 tools that **disappear into substrate**, not 14 missing features.
+
+## Doctrine exception (load-bearing)
+
+CLAUDE.md standing rule: *"Domain capabilities live in `examples/` (e.g.
+`examples/music.py`), loaded via `Engine(..., extra_capabilities=[…])` — the
+bootstrapping harness stays minimal."*
+
+**093 places music in `agency/capabilities/music/` (first-class, in-tree).**
+User directive (2026-06-07 — explicit decision in the brainstorm gate of this
+spec) overrides the default doctrine. The justifications, recorded so future
+audits do not flag this as drift:
+
+1. **Music has crossed the proof threshold.** 007 already proved music belongs
+   in the substrate's capability set behaviorally (15 verbs, 5 drivers, full
+   ontology, gated skills, provenance moat — all green). The `examples/` home
+   was a hedge; the complete port retires it.
+2. **The bootstrap harness stays minimal where it matters.** Music registers
+   like every other capability (zero engine edits, single folder). The bootstrap
+   cost of a first-class music cap is the same as any other capability.
+3. **Future domain caps can still live in `examples/`.** The doctrine still
+   applies to *new, unproven* domain caps. Music is the *proven* domain cap —
+   its place in `agency/capabilities/` is earned, not granted by default.
+4. **The drop-in bar still binds.** Adding music as a folder under
+   `agency/capabilities/music/` with *no other edit* is the discriminator. If
+   093 requires editing `agency/engine.py` or `agency/registry.py`, the bar is
+   broken and the spec fails its own Done-When.
+
+The `examples/music.py` + `examples/music_drivers.py` files will be **migrated**
+into `agency/capabilities/music/` (Spec 094, lifecycle cluster, ships the move).
+The `tests/test_agency.py` smoke (single-verb conceptualize) becomes
+`tests/test_music_lifecycle.py`. No test count regression.
+
+## Spec layout (the seven children)
+
+Each child spec corresponds to one cluster from the proven 7-cluster
+decomposition (007's 8 clusters consolidated: `media` folds into `audio` for
+sheet-music transcription + into `promo` for video render; `cloud` splits along
+the stdlib vs boto3 line — stdlib stays in `catalogue` for streaming verify,
+boto3 stays in `promo` for R2 upload):
+
+| Spec | Cluster | Driver(s) | bitwize tools absorbed | Skills (walkable) |
+|---|---|---|---|---|
+| **094** | lifecycle | StateDriver | album/track/idea CRUD + conceptualizer + rename + resume + session (~22 tools) | `album-concept` (kept) + `album-conceptualizer` (7-phase) + `lifecycle-walk` |
+| **095** | lyrics | TextDriver | lyric analysis, pronunciation, voice-checker, plagiarism, explicit, rhyme/syllable (~14 tools) | `lyric-writing` + `lyric-review` + `pronunciation-pass` |
+| **096** | audio | AudioDriver | mix/master/QC/album-coherence + sheet-music transcription + signature/measurement (~18 tools) | `mastering` + `mix-polish` + `release-prep-audio` |
+| **097** | catalogue | DBDriver + CloudDriver(stdlib) | tweet DB CRUD + streaming verify + URL store (~14 tools) | `tweet-curation` + `streaming-verify` |
+| **098** | promo | StateDriver + CloudDriver(boto3) + (optional) LLMDriver | promo copy + promo video render + cloud upload + sheet-music publish (~10 tools) | `promo-pass` + `release-publish` |
+| **099** | research | research capability (delegation) + StateDriver | 10-domain researchers + verifier + document-hunter + verify-sources (~8 verbs as agency.research delegations) | `research-workflow` |
+| **100** | gates | StateDriver + `gate.check` + `elicit` | pre-generation + structure validation + release-qa (~6 tools, mostly orchestration) | `pre-generation` + `release-qa` + `validate-structure` |
+
+**Verb-count target** (panel-corrected, iteration 1):
+
+| Child | User-facing verbs | Internal `*_gate` verbs | Total registered |
+|---|---|---|---|
+| 094 lifecycle | 14 | 0 | 14 |
+| 095 lyrics | 13 | 4 (prosody/pronunciation/repetition/explicit) | 17 |
+| 096 audio | 18 | 2 (measure/qc) | 20 |
+| 097 catalogue | 14 | 1 (tweet_schedule) | 15 |
+| 098 promo | 10 | 1 (promo_review) | 11 |
+| 099 research | 8 | 1 (verify_gate) | 9 |
+| 100 gates | 6 | 4 (concept/lyrics_pregen/audio_release/catalogue/promo) | 10 |
+| **Total** | **83** | **13** | **96** |
+
+89 bitwize tools → 14 absorbed/dropped → 75 ported → split as 83 user-facing
+verbs (some bitwize tools fan into 2+ agency verbs for ISP cleanness) + 13
+internal gate verbs that the walkable skills compose.
+
+## Design — the shared substrate (concerns common to all children)
+
+### Drivers (no new boundaries)
+
+All five protocols already live in `examples/music_drivers.py`. Spec 094
+relocates them to `agency/capabilities/music/drivers.py` and the child specs
+*extend the method surface* on existing drivers — they do NOT add new driver
+protocols. The driver method audit is part of each child's Done-When.
+
+| Driver | New methods added across 094–100 |
+|---|---|
+| StateDriver | `list_tracks`, `set_track_status`, `find_album`, `get_session`, `update_session`, `get_ideas`, `update_idea`, `promote_idea`, `rename_album`, `rename_track`, `resolve_path`, `validate_structure`, `pending_verifications`, `update_album_status` |
+| TextDriver | `count_syllables_text`, `extract_distinctive_phrases`, `extract_section`, `validate_section_structure`, `analyze_rhyme_scheme`, `analyze_readability`, `check_pronunciation_enforcement`, `check_homographs`, `check_streaming_lyrics`, `check_cross_track_repetition`, `check_explicit_content`, `scan_artist_names`, `format_for_clipboard` |
+| AudioDriver | `polish_audio`, `master_audio`, `master_with_reference`, `polish_album`, `polish_and_master_album`, `fix_dynamic_track`, `reset_mastering`, `render_codec_preview`, `measure_album_signature`, `album_coherence_check`, `album_coherence_correct`, `analyze_audio`, `analyze_mix_issues`, `qc_audio`, `mono_fold_check`, `transcribe_audio`, `prepare_singles`, `create_songbook`, `generate_promo_videos`, `generate_album_sampler` |
+| DBDriver | `update_tweet`, `delete_tweet`, `list_tweets`, `search_tweets`, `get_tweet_stats`, `sync_album` |
+| CloudDriver | `r2_put` (already exists), `r2_delete`, `r2_list`, `publish_sheet_music`, `upload_promo_asset` |
+
+**Every new method goes through the typed-named-method discipline** (Spec 002
+Option B). No `dispatch(op, **kw)`. Fakes for tests are deterministic; CI runs
+zero real ffmpeg, zero real Postgres, zero real R2.
+
+### Ontology (a single extension, merged via children)
+
+The 094 cluster spec carries the **canonical ontology** for music; child specs
+add their nodes via the same `OntologyExtension` (one extension per cap, per
+Spec 002). The full node set after 093 ships:
+
+```
+Album       (status, type, genre, slug, artist, target_lufs, theme,
+             created_at)
+Track       (status, slug, album, syllables, readability, lyrics_path)
+Idea        (text, status, captured_at, promoted_to_album)
+Tweet       (album, body, scheduled_at, status, platform)
+SheetMusic  (album, source_audio, format, body, published_url)
+Genre       (slug, name, mastering_target_lufs, suno_tips, reference_artists)
+Reference   (kind, slug, body)               # mastering/Suno/prosody refs
+PromoTemplate (platform, slug, body)
+VerificationRecord (claim, source, verified_by, verified_at)
+ResearchClaim (text, source_uri, confidence, verified)
+MasteringPreset (slug, target_lufs, eq_curve, true_peak, suno_compat)
+```
+
+Closed enums:
+- `(Album, status)`: `draft / in-production / mastered / released`
+- `(Album, type)`: existing `ALBUM_TYPES` (preserved)
+- `(Track, status)`: `draft / recorded / mixed / mastered`
+- `(Idea, status)`: `new / promoted / dropped`
+- `(Tweet, status)`: `draft / scheduled / posted / archived`
+- `(ResearchClaim, verified)`: `pending / human-confirmed / rejected`
+
+Artefact schemas (every `act` verb that produces a document):
+- `album-concept` (preserved from 007), `promo-copy` (preserved), `mastering-report`
+  (preserved), `lyric-report` (preserved), `sheet-music` (preserved),
+  `promo-video`, `qc-report`, `research-claim`, `pronunciation-report`,
+  `genre-guide`, `release-package`.
+
+### Walkable skills (workflows as phase-graphs)
+
+bitwize's workflow skills (album-conceptualizer, lyric-writer, mastering-engineer,
+release-director, pre-generation-check, etc.) each become a walkable
+`OntologyExtension.skills` phase-graph (Spec 080/081 contract). Each phase has:
+
+- `produces` — the keys it must set on the lifecycle context
+- optional `gate` — computed via `gate.check` (BLOCKED_ON / PASSED) OR human
+  via `elicit`/`lifecycle_gate` for the terminal "ship it?" confirmation
+
+Naming follows Spec 081: the cap's walkable skill defaults to `music-usage`
+(role-clustered, ≤6 phases, hard confirm gate); authored disciplines override.
+
+### Reference data (static files, NOT graphed)
+
+`agency/capabilities/music/data/` holds:
+```
+data/
+├── genres/         # 72 genre guides — one .yaml per genre (production notes,
+│                   # Suno tips, reference artists, mastering target)
+├── reference/      # 46 reference docs — mastering workflows, Suno V5 guide,
+│                   # vocal direction taxonomy, etc.
+└── templates/      # promo platform templates (X/Threads/Instagram/TikTok)
+```
+
+The StateDriver gains a `read_data(kind, slug)` method to load them; tests bind
+a fixture-data fake. **These files are CHECKED INTO THE REPO** because they are
+authored domain content, not user-state. (User-state is graph-canonical per
+rule 2.)
+
+### Cross-cluster call patterns (panel-added, iteration 2)
+
+| Pattern | Used where | Guarantees |
+|---|---|---|
+| Idempotent synchronous query | most `transform` verbs (find_album, list_tracks, lyric_report, …) | safe to retry, no state mutation, returns deterministic data |
+| At-most-once side effect (intent-keyed) | all `effect` verbs that record artefacts | provenance ensures retry-safety: a retry against the same intent_id detects the prior PRODUCES edge and returns the prior result |
+| Cross-cluster method call | 100's `pregen_check` calls `music.list_tracks`, `music.pending_verifications` | within-cap RPC via `ctx.call(cap, verb, …)`; idempotent if the called verb is `transform`; side-effecting otherwise |
+| Fire-and-forget telemetry | `music_health`, `diagnose` | no provenance recorded; not retried |
+
+**Track state lives in the graph** (Album/Track nodes, StateDriver-backed) —
+NOT in Postgres. The DBDriver carries **promo/social state only** (tweets,
+their scheduling + posting status). 100's `release_check` reads track status
+via `find_album` → `list_tracks` (StateDriver), never via DBDriver. The 007
+example's `release_check` query against tracks-in-DB is corrected to read
+graph-canonical state.
+
+**Provenance ordering is causal, NOT chronological.** A graph traversal from
+the root intent returns edges in SERVES-DAG order, which agrees with wall-
+clock for sequential calls and is well-defined (but not wall-clock-ordered)
+for parallel calls.
+
+### Provenance moat (the headline — net-new vs bitwize)
+
+The full release audit becomes a single traversal:
+
+```python
+# "Show me every research claim, lyric pass, master, QC run, tweet, and
+# promo asset for album X, with the intent that served each."
+result = await call_tool("memory_graph_provenance", {
+    "intent_id": album_intent_id, "include": ["Invocation", "Reflection",
+    "Artefact", "ResearchClaim", "VerificationRecord"]})
+```
+
+bitwize cannot do this (handlers are flat; no graph). This is the one thing
+the complete port exists to demonstrate at full scale.
+
+## Done When (master-level coverage gates)
+
+- [ ] **All seven child specs (094–100) ship Green** with their own Done-When
+      gates met; each child's Followup is grounded (Spec 092 G6).
+- [ ] **`agency/capabilities/music/` is the live music cap;** the old
+      `examples/music.py` + `examples/music_drivers.py` are deleted (the migration
+      lands in Spec 094); `tests/test_agency.py:1116-1153` smoke is replaced by
+      `tests/test_music_lifecycle.py`.
+- [ ] **The drop-in bar holds end-to-end** AND is ENFORCED by CI: porting
+      music requires ZERO edits to `agency/engine.py`, `agency/registry.py`,
+      `agency/ontology.py`, `agency/capability.py`, or `agency/toolresult.py`
+      (the substrate's load-bearing core). Enforced by
+      `scripts/check-drop-in-bar` (new in this PR): asserts the named files
+      have no diff vs `main` across the entire 093-wave PR sequence. Run on
+      every music PR; non-zero exit blocks merge. Without this gate, the
+      bar is aspiration.
+- [ ] **89-tool audit closed:** every row in 007's Appendix A has a verdict
+      across 094–100 (ported / dropped / absorbed). The audit is a table in
+      this master, regenerated on every child merge.
+- [ ] **Provenance moat lit on a real album lifecycle:** an end-to-end test
+      (`tests/test_music_e2e.py`) drives the full pipeline (capture_idea →
+      conceptualize → research → lyric_report → master_album → promo_copy →
+      verify_streaming) and asserts `memory_graph_provenance(intent_id)`
+      returns the full chain with PRODUCES/SERVES edges intact.
+- [ ] **Doc-drift clean:** `docs/guide/capabilities.md` regenerates with the
+      new music verbs (Spec 092 G5); doctrine exception is recorded in
+      `docs/vision/CAPABILITY-CLUSTERS.md` (one paragraph noting music
+      graduated from examples/).
+- [ ] **`TODO.md` updated** with 093 + each child spec row (rule 4).
+- [ ] **`scripts/check-drift` Green** for the music capability (no orphans,
+      no missing references); install regen committed.
+
+## Cluster coherence (CLAUDE.md rule 5)
+
+Per Spec 047 (cluster integration master), every new verb/skill lands in one
+of the 13 SDLC+meta clusters. The seven music children map to:
+
+- 094 lifecycle → **state cluster** (extends with domain-specific state)
+- 095 lyrics → **content/analysis cluster** (decidable transforms)
+- 096 audio → **artefact cluster** (produces mastering-reports + sheet-music)
+- 097 catalogue → **catalogue/CRUD cluster** + **boundary cluster** (DB +
+  network)
+- 098 promo → **artefact cluster** (produces promo-copy + promo-video)
+- 099 research → **research cluster** (delegates to existing `agency.research`)
+- 100 gates → **gate cluster** (predicates + lifecycle pauses)
+
+No new cross-cluster decisions; each child extends an existing cluster's
+integration pattern. Coherence interactions are scored in each child's
+"Coherence" section.
+
+## Migration order
+
+094 ships first (the foundation move: examples/music.py → agency/capabilities/
+music/). 100 ships second (gates can be wired against 094 state). 095, 097
+parallel-safe after 094 (text + DB clusters touch isolated boundaries). 096,
+098 after 095 + 097 (audio depends on lyric state for QC; promo depends on
+catalogue state for tweet linkage). 099 last (research delegations need the
+other clusters' record types to attach claims).
+
+```
+094 ─┬─→ 100 (gates can fire against lifecycle)
+     ├─→ 095 (lyrics) ─┬→ 096 (audio QC reads lyric markers)
+     ├─→ 097 (catalogue) ─→ 098 (promo links tweets)
+     └─→ 099 (research) ─→ (attaches claims to Album/Track records from 094)
+```
+
+## Deployment (panel-added, iteration 2)
+
+```bash
+# Default install — lifecycle + lyrics + research + gates work out of the box
+# (no audio binaries, no Postgres, no boto3). ~75% of music verbs available.
+pipx install --editable agency
+
+# Per-cluster opt-in extras:
+pipx install agency[music-audio]    # pyloudnorm + numpy + scipy + soundfile + ffmpeg system binary
+pipx install agency[music-db]       # psycopg2-binary
+pipx install agency[music-cloud]    # boto3
+pipx install agency[music-llm]      # routes promo_copy through `llm` driver (Spec 092 G3)
+pipx install agency[music]          # everything above (the kitchen-sink extra)
+```
+
+CI matrix runs **5 install variants** to catch import-graph regressions:
+default, `[music]`, `[music-audio]`, `[music-db]`, `[music-cloud]`. A
+`scripts/check-install-matrix` job exercises one verb from each cluster per
+variant and asserts the affected verbs degrade gracefully
+(DEPENDENCY_MISSING) when their extra is absent.
+
+## Open questions (resolved in panel pass — see REVIEW.md)
+
+1. **Genre data shape: YAML or .py?** Recommend YAML (data-only, no executable);
+   loaded by `StateDriver.read_data`. Children may revisit if performance bites.
+2. **LLMDriver for Suno prompt synthesis?** Optional — the `suno-engineer`
+   skill's prompt construction can stay rule-based (current bitwize approach)
+   OR route through the `llm` driver (Spec 092 G3) for richer synthesis.
+   Decision deferred to 098 (promo cluster) when the prompt builder lands.
+3. **Postgres dependency in CI?** No — the DBDriver fake (psycopg2-shaped
+   cursor) covers all DB tests. Production binds psycopg2 via the `[music-db]`
+   extra; CI runs zero Postgres.
+4. **AnthemScore for sheet-music?** Out of scope — the AudioDriver fake stubs
+   `transcribe_audio` to return a deterministic `sheet-music` artefact; real
+   transcription requires AnthemScore licensing, which is not a CI concern.
+5. **Doctrine exception in CLAUDE.md text?** Add one line under rule "Domain
+   capabilities live in `examples/`": *"…except music (Spec 093), which earned
+   first-class placement via the proof-of-contract slice (007)."* This lands in
+   Spec 094's PR.
+6. **Renumbering Plan/ folder for music children?** No — 094–100 are
+   contiguous and reserved by this spec. The Plan/ already has 091, 092 as
+   the head; 094+ continues naturally (no gap collisions per the existing
+   numbering policy).
+
+## Followup — Implementation Status (2026-06-07)
+
+**Verdict:** Drafted (spec set authored + spec-panel reviewed).
+
+### Done
+- Master spec authored (this file).
+- Seven cluster specs (094–100) drafted (`Plan/094-music-lifecycle-cluster/spec.md`
+  through `Plan/100-music-gates-cluster/spec.md`).
+- 89-tool audit table grounded in 007's Appendix A.
+- Cluster coherence mapped to Spec 047's 13-cluster taxonomy.
+- Migration order documented (094 first, 100 second, 095/097 parallel, then 096/098, then 099).
+- Doctrine exception (`agency/capabilities/` placement) justified + recorded.
+- Spec-panel pass (via `sc:sc-spec-panel`) recorded in `REVIEW.md`.
+
+### Still
+- Implementation phase: each child spec drives its own RED→GREEN→Refactor cycle
+  per Spec 053's fast-feedback discipline.
+- The end-to-end provenance test (`tests/test_music_e2e.py`) lands after
+  099 ships (it depends on all clusters).
+- `docs/vision/CAPABILITY-CLUSTERS.md` paragraph + CLAUDE.md doctrine-exception
+  line land with the 094 PR (the migration PR).
