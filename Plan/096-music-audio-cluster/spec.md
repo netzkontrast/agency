@@ -4,7 +4,7 @@ slug: music-audio-cluster
 status: draft
 last_updated: 2026-06-07
 owner: "@agency"
-depends_on: ["094", "095", "093"]
+depends_on: ["094", "093"]
 affects:
   - agency/capabilities/music/clusters/audio.py
   - agency/capabilities/music/drivers.py        # AudioDriver extensions

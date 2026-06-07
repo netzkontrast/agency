@@ -464,6 +464,40 @@ workflow has a verdict (voice-checker no longer deferred).
 This closes the spec-design loop. Future implementer PRs (starting with 094)
 inherit a spec set whose API claims are mechanically verifiable.
 
+## Iteration 5 — Codex third pass (post-iteration-4 commit, applied in follow-up commit)
+
+Codex re-reviewed commit `a8c175a` (iteration-4 fixes) and flagged **10 NEW
+P2 findings**. All 10 valid + actionable; applied below. Codex's review
+loop has effectively become the implementation-grounding QA pass — every
+finding now grounds a concrete API claim in actual code.
+
+| # | Finding | Spec / Line | Applied fix |
+|---|---|---|---|
+| 1 | TODO.md still says 095=13 verbs + 096=18 verbs | TODO.md:117 | Updated to 14 + 19 (matches manifests after iteration-4 voice-checker + create_songbook fixes) |
+| 2 | Master 093 Done-When says `examples/music.py` deleted, but 094 says deprecation shim | 093:291 | Aligned: 093 Done-When now references "deprecation re-export shims for one spec cycle"; removal lands in ~Spec 110 |
+| 3 | 096 frontmatter `depends_on: ["094","095","093"]` but graph schedules 095/096 parallel | 093:371 | Removed 095 from 096's frontmatter — audio QC doesn't actually read lyric state; the dependency was speculative. Migration graph stays Wave 1 parallel |
+| 4 | 097 failure-mode table uses `ToolResult.success(dead=[url])` — no such kwarg | 097:143 | Changed to `ToolResult.success(data={"album":…, "live":[], "dead":[url]})` matching `toolresult.py:71` signature |
+| 5 | 098 `promo_copy` catches only `DriverMissing`; `llm` driver always registered, raises RuntimeError | 098:126 | Catch `(DriverMissing, RuntimeError, KeyError, ValueError)`; pass `options=["free-form"]` per LLMClient contract |
+| 6 | 099 `dispatch_research` omits `captured_at` on ResearchClaim record | 099:242 | Added `"captured_at": int(time.time())` (required ontology field) |
+| 7 | 099 uses `RELATES_TO` edge but music ontology doesn't declare it; Memory.link rejects | 099:246 | Added `edges={"RELATES_TO", "PROMOTED_TO", "RECORDED_FOR"}` to 094's `music_ontology` OntologyExtension |
+| 8 | 100 `release_check` sketch still has `self.ctx.call(...).data` access (same as fixed in 099) | 100:192 | Removed `.data` access; added inline citation of `capability.py:138` |
+| 9 | 100 E2E test calls `eng.memory.find_lifecycle_for_intent` — method doesn't exist | 100:306 | Replaced with explicit `eng.memory.record("Lifecycle", {...})` + `eng.memory.link(lc, iid, "SERVES")` pattern (per `tests/test_codex_c2_c3.py:45-46` + `_pressure.py:147`) |
+| 10 | 100 E2E calls `registry.invoke("memory", "graph_provenance", ...)` — no `memory` capability; provenance is a substrate tool | 100:316 | Replaced with `eng.memory.provenance(intent_id)` (per `engine.py:440`) — the direct memory-object path; documented the alternative MCP-wire path |
+
+**Net result of iteration 5:** every concrete API reference in every
+implementation sketch is grounded in actual code with a line citation.
+The spec set has been re-verified against:
+- `agency/memory.py` (Memory.link edge validation, Memory.record, Memory.provenance)
+- `agency/engine.py` (`memory_graph_provenance` substrate-tool path)
+- `agency/capability.py:135-138, 193-194, 520-...` (CapabilityContext.call, .link, Registry.invoke)
+- `agency/toolresult.py:71` (ToolResult.success signature)
+- `tests/test_codex_c2_c3.py:45-46`, `tests/test_engine_unwrap_contract.py:56`,
+  `agency/_pressure.py:147-153` (lifecycle minting + gate.check patterns)
+
+Codex's automated review has effectively closed the spec-to-code gap that
+hand-written specs always carry. The implementation phase can RED-phase
+against the specs without a re-discovery pass.
+
 ## What's applied vs deferred (between this review and commit)
 
 **Applied in this PR (the 8 spec files):**

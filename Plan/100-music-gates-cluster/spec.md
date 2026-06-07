@@ -188,8 +188,14 @@ the music capability's own `list_tracks`:
 @verb(role="effect")
 def release_check(self, lifecycle_id: str, album: str = "") -> ToolResult:
     """Composite release-qa gate — reads track status from graph (StateDriver),
-    NOT from the tweet DB. Records PASSED/BLOCKED_ON via gate.check."""
-    tracks = self.ctx.call("music", "list_tracks", album=album).data["tracks"]
+    NOT from the tweet DB. Records PASSED/BLOCKED_ON via gate.check.
+
+    API note (Codex P2 iteration 5 — same contract as 099): ctx.call returns
+    the spawned verb's unwrapped result dict (capability.py:138 →
+    self.spawn(...)[0]). Never .data on a ctx.call result.
+    """
+    result = self.ctx.call("music", "list_tracks", album=album)
+    tracks = result["tracks"]
     unmastered = [t["slug"] for t in tracks if t["status"] != "mastered"]
     passed = not unmastered
     self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
@@ -301,19 +307,31 @@ def test_music_full_pipeline_records_complete_provenance_chain(fake_drivers):
     invoke("music", "promo_copy", album="X", platform="x")
     invoke("music", "publish_asset", key="X/master.wav", body=b"...")
 
-    # 6. gates — release_check should now pass (we built a lifecycle when
-    # conceptualize landed; reuse its id from the graph)
-    lifecycle_id = eng.memory.find_lifecycle_for_intent(intent_id)
+    # 6. gates — release_check should now pass.
+    # Codex P2 iteration 5: there is no `eng.memory.find_lifecycle_for_intent`
+    # method. Lifecycles are created directly via `memory.record("Lifecycle",
+    # {...})` + `memory.link(lifecycle_id, intent_id, "SERVES")` (the pattern
+    # used in tests/test_codex_c2_c3.py:45-46 and agency/_pressure.py:147).
+    # The E2E sketch mints one explicitly here, matching how the album-concept
+    # skill walker creates its lifecycle:
+    lifecycle_id = eng.memory.record("Lifecycle",
+                                     {"state": "working", "phase": 0,
+                                      "name": "release-qa"})
+    eng.memory.link(lifecycle_id, intent_id, "SERVES")
     result = invoke("music", "release_check", lifecycle_id=lifecycle_id,
                     album="X")
     assert result.get("passed") is True
 
-    # 7. THE HEADLINE — provenance returns the full chain (memory verbs
-    # exposed via the memory capability; we read the registry's unwrap):
-    prov = invoke("memory", "graph_provenance",
-                  intent_id=intent_id,
-                  include=["Invocation", "Artefact", "Reflection",
-                          "ResearchClaim", "VerificationRecord"])
+    # 7. THE HEADLINE — provenance returns the full chain.
+    # Codex P2 iteration 5: `memory_graph_provenance` is an MCP SUBSTRATE
+    # tool (engine.py:438 @mcp.tool), NOT a capability verb. There is no
+    # `memory` capability. Two equivalent call paths:
+    #   A) Direct on the memory object: `eng.memory.provenance(intent_id)`
+    #      (engine.py:440 — `mem.provenance(intent_id)`).
+    #   B) Via the MCP wire: `await mcp.call_tool("memory_graph_provenance",
+    #      {"intent_id": intent_id})` after `mcp = eng.build_mcp(codemode=True)`.
+    # Path A is simpler for the E2E test:
+    prov = eng.memory.provenance(intent_id)
     # Causal-ordered provenance (per 093's call-patterns table):
     assert prov["invocation_count"] >= 12     # 1 idea + 1 promote + 1 concept
                                               # + 1 research + 1 verify + 1

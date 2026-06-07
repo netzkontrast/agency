@@ -114,17 +114,25 @@ def promo_copy(self, album: str, platform: str = "x",
         track_count=len(album_data["tracks"]),
     )
 
-    # Path B (if `llm` driver registered — richer synthesis):
+    # Path B (LLM-enhanced synthesis when usable — see Codex P2 below).
+    # IMPORTANT (Codex P2 iteration 5): Engine ALWAYS registers an `llm`
+    # driver per Spec 092 G3, so `DriverMissing` never fires. The default
+    # `LLMClient.decide()` raises `RuntimeError` when `OPENROUTER_API_KEY`
+    # is unset, and the API expects a non-empty `options` list (free-form
+    # = ["free-form"] sentinel, not None). Catch the broad failure surface
+    # so the rule-based body stays as the default-install behavior promised
+    # in 093's deployment plan.
     try:
         llm = self.ctx.get_driver("llm")
-        body = llm.decide(
+        decision = llm.decide(
             prompt=f"Write a {platform} promo for {album_data['title']} "
                    f"(theme: {album_data['theme']}). Match this style: "
                    f"{template['style_examples']}",
-            options=None,   # free-form
-        )["choice"]
-    except DriverMissing:
-        pass    # rule-based body stands
+            options=["free-form"],   # non-empty per LLMClient contract
+        )
+        body = decision.get("choice", body)        # falls through if no choice
+    except (DriverMissing, RuntimeError, KeyError, ValueError):
+        pass    # rule-based body stands; default install has no API key
 
     return ToolResult.success(data={"result": body, "artefact": {
         "kind": "promo-copy", "album": album, "platform": platform,

@@ -286,10 +286,13 @@ the complete port exists to demonstrate at full scale.
 
 - [ ] **All seven child specs (094–100) ship Green** with their own Done-When
       gates met; each child's Followup is grounded (Spec 092 G6).
-- [ ] **`agency/capabilities/music/` is the live music cap;** the old
-      `examples/music.py` + `examples/music_drivers.py` are deleted (the migration
-      lands in Spec 094); `tests/test_agency.py:1116-1153` smoke is replaced by
-      `tests/test_music_lifecycle.py`.
+- [ ] **`agency/capabilities/music/` is the live music cap;**
+      `examples/music.py` + `examples/music_drivers.py` become **deprecation
+      re-export shims** for one spec cycle (Codex P2 — match 094's contract;
+      delete-outright would break any existing import). Removal lands in a
+      future spec (~110 or whenever a grep confirms no external import
+      survives — whichever first). `tests/test_agency.py:1116-1153` smoke is
+      replaced by `tests/test_music_lifecycle.py`.
 - [ ] **The drop-in bar holds end-to-end** AND is ENFORCED by CI: porting
       music requires ZERO edits to `agency/engine.py`, `agency/registry.py`,
       `agency/ontology.py`, `agency/capability.py`, or `agency/toolresult.py`
@@ -348,6 +351,13 @@ extensions. Every other child depends on 094.
 — AudioDriver), 097 (catalogue — DBDriver + CloudDriver-stdlib), 099
 (research — delegates to `agency.research`). Each touches an isolated
 boundary; the order among them is shape-of-the-team.
+
+> **Frontmatter alignment** (Codex P2 — iteration 5): 096's earlier draft
+> declared `depends_on: ["094", "095", "093"]` on the speculation that
+> audio QC would read lyric markers. The actual 096 verb set (master/mix/QC
+> on audio paths) does NOT read lyric state — that integration point was
+> never real. 096's `depends_on` is corrected to `["094", "093"]`, matching
+> the Wave 1 parallel-safe claim here.
 
 **Wave 2 (after 096 + 097):** 098 (promo — CloudDriver-boto3, optionally
 LLMDriver). Codex P2: 098's `release_package` verb composes audio render

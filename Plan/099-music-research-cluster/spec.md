@@ -234,15 +234,23 @@ def dispatch_research(self, question: str, domains: str = "all",
                                research_id=research_id, role=role,
                                query=domain_query, k=cfg.get("k", 5))
         # Record each citation as a music ResearchClaim:
+        # Codex P2 iteration 5: `captured_at` is a required ontology field;
+        # omitting it causes Memory.record() to raise. Stamp it from time.
         for cite in result.get("citations", []):
             claim_id = self.ctx.record("ResearchClaim", {
                 "text": cite.get("snippet", ""),
                 "source_uri": cite.get("uri", ""),
                 "domain": music_domain,
                 "confidence": cite.get("confidence", 0.5),
-                "verified": "pending"})
+                "verified": "pending",
+                "captured_at": int(time.time())})
             self.ctx.link(claim_id, self.ctx.intent_id, "SERVES")
             if album:
+                # Codex P2 iteration 5: RELATES_TO must be declared in
+                # music's OntologyExtension.edges (added in 094 — see
+                # ontology consolidation). Memory.link() rejects unknown
+                # edge types; declaring RELATES_TO + ABOUT in music's
+                # edge set is how the cluster wires claim→album linkage.
                 self.ctx.link(claim_id, album, "RELATES_TO")
 
     # 3. Verify — agency.research.verify cross-checks the citations under

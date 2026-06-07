@@ -190,6 +190,13 @@ music_ontology = OntologyExtension(
         ("Idea", "status"): {"new", "promoted", "dropped"},
         ("Tweet", "status"): {"draft", "scheduled", "posted", "archived"},
     },
+    edges={                               # Codex P2 iteration 5: declare
+                                          # every edge music adds; Memory.link()
+                                          # rejects unknown edge types
+        "RELATES_TO",      # ResearchClaim → Album (099)
+        "PROMOTED_TO",     # Idea → Album (094)
+        "RECORDED_FOR",    # Track → Album (094, alternative to membership)
+    },
     skills=[ALBUM_CONCEPT_SKILL],         # kept verbatim from 007
     artefacts=["album-concept"],          # kept; children add the rest
 )

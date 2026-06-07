@@ -140,8 +140,8 @@ class CloudDriver(Boundary):
 | Postgres unreachable | `psycopg2.OperationalError` | raises `BoundaryFailed` | `ToolResult.failure(BOUNDARY_FAILED, "DB unreachable")` |
 | Postgres auth failed | `psycopg2.OperationalError` | raises | `ToolResult.failure(DEPENDENCY_MISSING, "DB auth failed — check `[music-db]` config")` |
 | Postgres schema missing (tweets table) | `psycopg2.errors.UndefinedTable` | raises | `ToolResult.failure(BOUNDARY_FAILED, "schema not initialized — run db_init")` |
-| Streaming URL HEAD timeout (default 5s) | `urllib.error.URLError` | returns 0 | `ToolResult.success(dead=[url])` (the verb records "dead" — not failure; the URL is provably unreachable) |
-| Streaming URL invalid scheme (`file:`, `javascript:`) | rejected at SSRF guard | returns 0 | `ToolResult.success(dead=[url])` (SSRF guard preserves bitwize's safety) |
+| Streaming URL HEAD timeout (default 5s) | `urllib.error.URLError` | returns 0 | `ToolResult.success(data={"album": album, "live": [], "dead": [url]})` (the verb records "dead" — not failure; the URL is provably unreachable). Codex P2 — `ToolResult.success` accepts `data=`/`warnings=`/`next_suggested_tools=`/`artefacts_written=` only; no `dead=` kwarg. |
+| Streaming URL invalid scheme (`file:`, `javascript:`) | rejected at SSRF guard | returns 0 | `ToolResult.success(data={"album": album, "live": [], "dead": [url]})` (SSRF guard preserves bitwize's safety) |
 | `psycopg2` not installed (default install, no `[music-db]` extra) | deferred import — DBDriver `__init__` does NOT touch psycopg2; `cursor()` lazy-imports on first call | first `cursor()` call raises `DependencyMissing("[music-db]")` | per-verb `ToolResult.failure(DEPENDENCY_MISSING, "psycopg2 not installed — install agency[music-db]")`. Lifecycle/lyrics/research/gates verbs stay usable; only DB-backed catalogue verbs degrade. |
 
 ### Walkable skill: `tweet-curation`
