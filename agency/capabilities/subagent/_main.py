@@ -10,13 +10,32 @@ Triggers:
 from __future__ import annotations
 
 from ...capability import ArtefactSchemas, CapabilityBase, verb
+from ...ontology import OntologyExtension
 
-
+# Spec 041 — the subagent-driven-development discipline (Superpowers port, agency-flavoured):
+# write a crisp task spec, dispatch an implementer into a clean context, then a TWO-STAGE
+# review gate — spec-fidelity (soft) then code-quality (hard). The dispatch + gates bind to
+# `subagent.develop`, whose `spec_passed`/`quality_passed` inputs ARE the two stages.
+_SUBAGENT_DRIVEN_SKILL = {
+    "name": "subagent-driven-development",
+    "kind": "discipline",
+    "applies_when": {"kind": "pattern",
+                     "pattern": r"subagent|isolate|clean context|two.?stage review",
+                     "confidence": 0.7},
+    "phases": [
+        {"index": 1, "name": "write-spec", "produces": ["task_spec"]},
+        {"index": 2, "name": "dispatch", "produces": ["implementation"],
+         "verbs": ["subagent.develop"]},
+        {"index": 3, "name": "spec-review", "produces": ["spec_passed"], "gate": "soft"},
+        {"index": 4, "name": "code-review", "produces": ["quality_passed"], "gate": "hard"},
+    ],
+}
 
 
 class SubagentCapability(CapabilityBase):
     name = "subagent"
     home = "lifecycle"
+    ontology = OntologyExtension(skills={"subagent-driven-development": _SUBAGENT_DRIVEN_SKILL})
     artefact_schemas = ArtefactSchemas.from_module(__file__)
 
     @verb(role="effect")

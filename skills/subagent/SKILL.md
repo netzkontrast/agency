@@ -38,5 +38,5 @@ await call_tool('capability_subagent_develop', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`subagent-usage`** (usage): use-effect → confirm
-  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'subagent-usage', 'inputs': {}, 'intent_id': '…'})`
+- **`subagent-driven-development`** (discipline): write-spec → dispatch → spec-review → code-review
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'subagent-driven-development', 'inputs': {}, 'intent_id': '…'})`

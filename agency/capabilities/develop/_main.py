@@ -136,6 +136,25 @@ REFERENCES: dict[str, str] = {
         "- Every unit of work is provenance: a recorded skill walk or Invocation that SERVES the intent. Discovery is search/get_schema/execute, not recall.\n"
         "- Bind a phase to a real verb where one exists so walking the discipline EXECUTES; degrade to a document phase where none does.\n"
     ),
+    # Spec 041 — deepening the tdd + debug disciplines with Superpowers material
+    # (knowledge re-expressed, principle-focused). Fetched on demand via develop.reference.
+    "testing-anti-patterns": (
+        "# Testing anti-patterns (the Red-Flags table)\n\n"
+        "A test that can't fail proves nothing. Reject these rationalizations BEFORE writing impl:\n"
+        "- 'I'll mock it' — mocking the thing under test asserts your mock, not the code. Mock the BOUNDARY (a Driver), never the subject.\n"
+        "- 'too simple to test' — the simple path is where the silent regression hides; write the one-line test.\n"
+        "- 'I'll verify later' — later never comes; RED before GREEN is the Iron Law, enforced by phase ordering.\n"
+        "- 'the test passes' (but you never saw it FAIL) — a test you didn't watch fail may be asserting nothing; force the failure first.\n"
+        "- pinning a live-derived number (a token count, a verb count) — gates a snapshot, not behaviour. Assert invariants + relationships (CLAUDE.md rule 8).\n"
+    ),
+    "debugging-anti-patterns": (
+        "# Debugging discipline (the 3-fix limit → escalate)\n\n"
+        "Gather evidence at the boundary, trace to the ROOT cause, fix once. The escalation rule:\n"
+        "- After 3 failed fixes for the same symptom, STOP patching — the bug is architectural; re-frame, don't re-try.\n"
+        "- Bisect to the polluter: find the first commit/test/input that flips the behaviour (a `find-polluter` sweep), don't guess.\n"
+        "- Reproduce deterministically before fixing; a fix for a non-reproduced bug fixes nothing.\n"
+        "- A flaky test is a real bug (shared state, ordering, time) — quarantine + root-cause, never `@retry`.\n"
+    ),
 }
 
 

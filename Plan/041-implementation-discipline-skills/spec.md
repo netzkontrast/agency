@@ -1,7 +1,7 @@
 ---
 spec_id: "041"
 slug: implementation-discipline-skills
-status: draft
+status: partial
 last_updated: 2026-06-02
 owner: "@agency"
 depends_on: [011, 012, 023, 040]
@@ -318,3 +318,23 @@ remain unchanged.
 ### Refinement needed
 - Open Question 2 (cross-spec dependency between 033 and 034) is
   cosmetic; templates carry a forward-pointer until 034 lands.
+
+## Followup — Implementation Status (2026-06-07)
+
+**Verdict:** Partial — the disciplines + deepenings ported into the CURRENT model
+(080/081 supersede the standalone `skills/` folders the original draft listed).
+
+- **dispatching-parallel-agents** → a walkable `ontology.skills` discipline on `delegate`
+  (partition → fan_out → join → synthesize; dispatch/join bind to real verbs).
+- **subagent-driven-development** → a walkable discipline on `subagent` (write-spec →
+  dispatch → spec-review soft gate → code-review hard gate; binds to `subagent.develop`).
+- **executing-plans** → already shipped as `develop`'s `execute` discipline (no new skill).
+- **Deepenings** → `develop.REFERENCES` gains `testing-anti-patterns` (the Red-Flags table)
+  + `debugging-anti-patterns` (the 3-fix→escalate + find-polluter rule), fetched via
+  `develop.reference`.
+- Both disciplines lint clean, walk, and are `intent.suggests`-able (pattern Matchers);
+  no dangling verb. `tests/test_discipline_skills_041.py` (4). Full suite 962 passed.
+- **Superseded (not built):** the literal `skills/<name>/SKILL.md` folders + standalone
+  prompt-template files — the derive-from-capability model (080/081) renders skills from
+  the capabilities that own them; the discipline knowledge now lives on the engine, not
+  hand-authored files.
