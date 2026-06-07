@@ -18,22 +18,30 @@ from ...ontology import OntologyExtension
 from ...skill import SkillRun
 
 
-def _phase(index, name, produces, gate=None):
+def _phase(index, name, produces, gate=None, verbs=None):
     p = {"index": index, "name": name, "produces": list(produces)}
     if gate:
         p["gate"] = gate
+    if verbs:                       # Spec 092 G4 — reasoning-method cues for this phase
+        p["verbs"] = list(verbs)
     return p
 
 
 DEV_SKILLS = {
+    # Spec 092 G4 — the `intent` critical-thinking methods are surfaced as phase cues
+    # at the step that needs them, so reasoning fires in the workflow instead of staying
+    # a dormant capability (the methods default their subject to the serving intent).
     "brainstorm": {"name": "brainstorm", "kind": "discipline", "phases": [
-        _phase(1, "explore", ["questions", "assumptions"]),
-        _phase(2, "present", ["design", "tradeoffs"]),
+        _phase(1, "explore", ["questions", "assumptions"],
+               verbs=["intent.decompose", "intent.assumptions", "intent.first_principles"]),
+        _phase(2, "present", ["design", "tradeoffs"],
+               verbs=["intent.tradeoffs", "intent.steelman", "intent.second_order"]),
         _phase(3, "confirm", ["user_confirmed"], gate="hard"),
     ]},
     "plan": {"name": "plan", "kind": "discipline", "phases": [
-        _phase(1, "map", ["files", "steps"]),
-        _phase(2, "self-review", ["gaps_checked"]),
+        _phase(1, "map", ["files", "steps"], verbs=["intent.decompose"]),
+        _phase(2, "self-review", ["gaps_checked"],
+               verbs=["intent.premortem", "intent.inversion"]),
         _phase(3, "approve", ["user_confirmed"], gate="hard"),
     ]},
     # the Iron Law (RED before GREEN) is enforced by the phase ordering itself.
@@ -55,8 +63,9 @@ DEV_SKILLS = {
         _phase(3, "confirm", ["evidence_matches"], gate="hard"),
     ]},
     "spec-panel": {"name": "spec-panel", "kind": "discipline", "phases": [
-        _phase(1, "review", ["expert_findings"]),
-        _phase(2, "synthesize", ["revised_spec"]),
+        _phase(1, "review", ["expert_findings"],
+               verbs=["intent.steelman", "intent.assumptions", "intent.premortem"]),
+        _phase(2, "synthesize", ["revised_spec"], verbs=["intent.tradeoffs"]),
         _phase(3, "approve", ["user_confirmed"], gate="hard"),
     ]},
     # the dispatch phase is BOUND to delegate.fan_out: walking review with a
