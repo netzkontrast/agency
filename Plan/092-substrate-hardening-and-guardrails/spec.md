@@ -82,7 +82,7 @@ present). Not a hard gate — a nudge that a roll-up claim is ungrounded.
   reserved string return key; tests cover both; the existing caps still lint clean.
 - [ ] **G3** an `llm` Driver Protocol + lazy default on the `DriverRegistry`; `intent
   .suggests` evaluates an `llm_select` Matcher through it (stubbed in tests).
-- [ ] **G4** `develop`'s plan/spec-panel skills name the `intent.*` reasoning steps; a
+- [x] **G4** `develop`'s plan/spec-panel skills name the `intent.*` reasoning steps; a
   test asserts the cue is present + walkable.
 - [ ] **G5** `check-doc-drift` runs in CI (advisory); documented in `operations/`.
 - [ ] **G6** `scripts/check-followup` advisory exists + documented.
