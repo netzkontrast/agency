@@ -156,6 +156,35 @@ class SkillsCapability(CapabilityBase):
                          f"(want one of {sorted(_VALID_GATES)})")
         return {"ok": not v, "violations": v}
 
+    @verb(role="effect")
+    def index(self) -> dict:
+        """Promote walkable skills into the graph as Skill + Phase nodes (Spec 026).
+
+        Writes a `Skill` node per skill + a `Phase` node per phase (with `HAS_PHASE`
+        edges), so skills are queryable like any other node via `analyze.graph`.
+        Idempotent: deterministic node ids (`skill:<name>`, `phase:<name>:<index>`) make
+        re-indexing an upsert, not a duplicate. (Auto-promotion at bootstrap is deferred
+        — bootstrap is write-free today; this keeps promotion explicit.)
+
+        Inputs: none.
+        Returns: ``{skills, phases}`` — counts of nodes written/updated.
+        chain_next: ``analyze.graph`` (node_type='Skill') to read the promoted nodes.
+        """
+        mem = self.ctx.memory
+        skills = phases = 0
+        for meta in _all_skills(self.ctx.registry).values():
+            sid = f"skill:{meta['name']}"
+            mem.record("Skill", {"name": meta["name"], "kind": meta["kind"]}, node_id=sid)
+            skills += 1
+            for p in meta["_schema"].get("phases", []):
+                pid = f"phase:{meta['name']}:{p.get('index')}"
+                mem.record("Phase", {"skill": meta["name"], "index": p.get("index", 0),
+                                     "name": p.get("name", ""),
+                                     "produces": p.get("produces", [])}, node_id=pid)
+                mem.link(sid, pid, "HAS_PHASE")
+                phases += 1
+        return {"skills": skills, "phases": phases}
+
     @verb(role="transform")
     def suggests(self, called_capability: str = "", called_verb: str = "",
                  called_state: str = "", floor: float = 0.5) -> dict:

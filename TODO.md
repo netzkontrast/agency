@@ -75,7 +75,7 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 | 023 | adaptive-disclosure | **Shipped** | Token-budget gate + brief slices + substrate-tool brief-slicing parity + Hint #7 docstring migration roster 0 non-compliant | Phase 3 structured `search` delta-shape + Phase 4 intent-slice filter remain deferred to v2 |
 | 024 | capability-authoring-discipline | Partial | Block-mode lint when `# agency-scaffold: v1` marker present | Sweep of existing capabilities for marker addition |
 | 025 | skill-first-discovery | Partial | Skill-search ranks above tool-search | Refinement needed per consolidation pass |
-| 026 | skills-as-core-capability | **Partial** | `skills` cap (find/render/lint) + `skills.suggests` intent→skill projection (pattern + verb_code Matchers, cycle-check) shipped | Remaining: `llm_select` Matcher (needs LLM Driver) + Skill graph-node promotion |
+| 026 | skills-as-core-capability | **Partial** | `skills` cap (find/render/lint/suggests/index): projection (pattern+verb_code Matchers) + Skill/Phase graph promotion shipped | Remaining: `llm_select` Matcher (needs LLM Driver) + Jules convergence benchmark |
 | 028 | jules-folder-migration | **Absorbed → 060** | Folder-form `jules/` lands as heavy-migration wave of Spec 060 | Closed standalone; carries over verbatim into 060 |
 | 029 | mcp-bootstrap-and-self-explain | **Shipped** | `agency_welcome` + `agency_install` + `intent_bootstrap` substrate tools | (flip frontmatter) |
 | 030 | jules-key-doctor-stateful-welcome | **Shipped** | `agency_doctor` + stateful welcome + JULES_API_KEY clarity | (flip frontmatter) |
