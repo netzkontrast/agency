@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""gen-capability-docs — emit docs/guide/capabilities.md from the LIVE registry.
+
+DRY (CLAUDE.md rule 2): the capability reference is RENDERED from the engine, not
+hand-maintained — so it can never drift from the code. Re-run after adding/changing a
+capability. The output carries a ``doc-generated-by`` marker so ``check-doc-drift``
+skips it (regenerate, don't hand-edit).
+"""
+from __future__ import annotations
+
+import pathlib
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+OUT = ROOT / "docs" / "guide" / "capabilities.md"
+
+
+def _first_line(doc: str | None) -> str:
+    if not doc:
+        return ""
+    for ln in doc.strip().splitlines():
+        ln = ln.strip()
+        if ln:
+            return ln
+    return ""
+
+
+def main() -> int:
+    import sys
+    sys.path.insert(0, str(ROOT))
+    from agency.engine import Engine
+
+    e = Engine(":memory:")
+    try:
+        rows = []
+        names = e.registry.names()
+        for name in names:
+            cap = e.registry.get(name)
+            doc = getattr(cap, "skill_doc", None)
+            desc = (getattr(doc, "description", "") or "").strip()
+            verbs = cap.verbs
+            skills = sorted((getattr(cap.ontology, "skills", {}) or {}).keys())
+            lines = [f"## `{name}`  ({cap.home})", ""]
+            if desc:
+                lines += [desc, ""]
+            if skills:
+                lines += [f"**Walkable skills:** {', '.join(f'`{s}`' for s in skills)}", ""]
+            lines += ["| verb | role | summary |", "|---|---|---|"]
+            for vname in sorted(verbs):
+                spec = verbs[vname]
+                role = spec.get("role", "?")
+                brief = _first_line(spec.get("fn").__doc__).replace("|", "\\|")
+                lines.append(f"| `{name}.{vname}` | {role} | {brief} |")
+            lines.append("")
+            rows.append("\n".join(lines))
+
+        header = [
+            "# Capability reference",
+            "",
+            "<!-- doc-generated-by: scripts/gen-capability-docs (re-run; do not hand-edit) -->",
+            "",
+            "> **Generated** from the live registry by `scripts/gen-capability-docs`. Every "
+            "capability self-registers from `agency/capabilities/`; this page is rendered "
+            "from the running engine, so it is always current. Per-capability deep docs (the "
+            "L1/L2/L3 Agent Skill) live in `skills/<capability>/SKILL.md`.",
+            "",
+            f"**{len(names)} core capabilities.** Domain capabilities (e.g. `music`) load "
+            "out-of-tree via `Engine(..., extra_capabilities=[…])` — see "
+            "`examples/music.py` + [../architecture/drivers.md](../architecture/drivers.md).",
+            "",
+            "The wire contract is always the same three substrate tools — **`search` · "
+            "`get_schema` · `execute`** — plus a few bootstrap tools; every verb below is "
+            "reached through `execute` (code-mode) or its `agency <cap> <verb>` CLI mirror.",
+            "",
+            "---",
+            "",
+        ]
+        OUT.write_text("\n".join(header) + "\n".join(rows))
+        print(f"wrote {OUT.relative_to(ROOT)} — {len(names)} capabilities")
+    finally:
+        e.memory.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""check-doc-drift — flag documentation that has fallen out of sync with the code/specs
+it documents.
+
+Doc-drift markers (per CLAUDE.md §"Address drift before committing", extended to docs).
+Every hand-written doc under ``docs/`` that describes specific source declares, near its
+top, the files it documents:
+
+    <!-- doc-source: agency/engine.py agency/capability.py Plan/002-boundary-driver-protocol/spec.md -->
+    <!-- doc-hash: a1b2c3… -->
+
+This script recomputes a hash over the listed sources (their current bytes) and compares
+it to the stamped ``doc-hash``. A mismatch means a source CHANGED since the doc was last
+synced — the doc is STALE and should be reviewed. Generated docs (catalogue) carry
+``<!-- doc-generated-by: scripts/... -->`` instead and are skipped (regenerate, don't
+hand-edit).
+
+Usage:
+    scripts/check-doc-drift            # report; exit 1 if any doc is stale or unmarked
+    scripts/check-doc-drift --update   # re-stamp every doc-hash to the current sources
+    scripts/check-doc-drift --strict   # also fail on docs that have NO marker at all
+
+Exit 0 = all marked docs in sync; 1 = drift (or, with --strict, an unmarked doc).
+"""
+from __future__ import annotations
+
+import hashlib
+import pathlib
+import re
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+DOCS = ROOT / "docs"
+
+_SOURCE_RE = re.compile(r"<!--\s*doc-source:\s*(.+?)\s*-->")
+_HASH_RE = re.compile(r"<!--\s*doc-hash:\s*([0-9a-f]*)\s*-->")
+_GENERATED_RE = re.compile(r"<!--\s*doc-generated-by:")
+
+
+def _hash_sources(paths: list[str]) -> tuple[str, list[str]]:
+    """Hash the concatenated bytes of the listed source paths (sorted, deterministic).
+    Returns (hex_digest, missing_paths)."""
+    h = hashlib.sha256()
+    missing: list[str] = []
+    for rel in sorted(paths):
+        p = ROOT / rel
+        if not p.exists():
+            missing.append(rel)
+            continue
+        h.update(rel.encode())
+        h.update(p.read_bytes())
+    return h.hexdigest()[:16], missing
+
+
+def _scan() -> list[pathlib.Path]:
+    return sorted(DOCS.rglob("*.md"))
+
+
+def check(update: bool = False, strict: bool = False) -> int:
+    stale: list[str] = []
+    unmarked: list[str] = []
+    updated: list[str] = []
+    ok = 0
+    for doc in _scan():
+        text = doc.read_text()
+        if _GENERATED_RE.search(text):
+            continue
+        m = _SOURCE_RE.search(text)
+        if not m:
+            unmarked.append(str(doc.relative_to(ROOT)))
+            continue
+        sources = m.group(1).split()
+        digest, missing = _hash_sources(sources)
+        rel = str(doc.relative_to(ROOT))
+        if missing:
+            stale.append(f"{rel}  (missing source: {', '.join(missing)})")
+            continue
+        hm = _HASH_RE.search(text)
+        stamped = hm.group(1) if hm else ""
+        if stamped == digest:
+            ok += 1
+            continue
+        if update:
+            new = f"<!-- doc-hash: {digest} -->"
+            if hm:
+                text = text[:hm.start()] + new + text[hm.end():]
+            else:                                   # insert right after the doc-source line
+                text = text[:m.end()] + "\n" + new + text[m.end():]
+            doc.write_text(text)
+            updated.append(rel)
+        else:
+            stale.append(f"{rel}  (sources changed — review + re-stamp)")
+
+    print(f"==> doc-drift: {ok} in sync"
+          + (f", {len(updated)} re-stamped" if updated else "")
+          + (f", {len(stale)} STALE" if stale else "")
+          + (f", {len(unmarked)} unmarked" if unmarked else ""))
+    for u in updated:
+        print(f"    UPDATED  {u}")
+    for s in stale:
+        print(f"    STALE    {s}")
+    if strict:
+        for u in unmarked:
+            print(f"    UNMARKED {u}")
+    if update:
+        return 0
+    if stale or (strict and unmarked):
+        print("==> DOC DRIFT DETECTED — review the stale docs, then "
+              "`scripts/check-doc-drift --update` to re-stamp.")
+        return 1
+    print("==> NO DOC DRIFT")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(check(update="--update" in sys.argv, strict="--strict" in sys.argv))
