@@ -73,8 +73,8 @@ claude.ai). Publishing turns an agency capability into a first-class Agent Skill
 **Verdict:** Shipped (boundary + verb + provenance; live SDK binding noted for
 first real publish).
 
-- **`SkillsClient`** (`plugin/_skills_client.py`) — lazy boundary: zips the package
-  + uploads via `client.beta.skills.create` / `.versions.create`; raises a clear
+- **`SkillsClient`** (`plugin/_skills_client.py`) — lazy boundary: uploads the package
+  as a `files` list via `client.beta.skills.create` / `.versions.create`; raises a clear
   error without the `anthropic` SDK / `ANTHROPIC_API_KEY` (never imports `anthropic`
   by default). Engine injects it as `skills_client` (param + `injectors`), stubbed
   in tests.
@@ -88,5 +88,11 @@ first real publish).
 - **Tests** — `tests/test_publish_skill.py` (4): dry-run manifest (no upload),
   upload packages + records provenance, underscore→hyphen name, unknown-cap error.
   Full suite green; `check-drift` clean; install regen committed.
-- **Deferred:** verify the exact `client.beta.skills` zip-field binding against the
-  live SDK on first real publish; re-publish-as-version (SUPERSEDED_BY trail).
+- **Binding VERIFIED (2026-06-06)** against anthropic SDK 0.107.0: the guess was
+  wrong — `beta.skills.create` takes `display_title` + a `files` LIST (uploads with
+  SKILL.md at root), NOT a zip `file=`; returns `.id` + `.latest_version`.
+  `versions.create(skill_id, files)` → `.version`. `SkillsClient.publish` rewritten
+  to build `(path, content)` uploads; `tests/test_skills_api_binding.py` re-checks
+  the signatures + response fields whenever the SDK is importable (skips in CI).
+- **Deferred:** re-publish-as-version (SUPERSEDED_BY trail); a live end-to-end
+  publish (needs ANTHROPIC_API_KEY — not available in this environment).
