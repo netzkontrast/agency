@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""gen-spec-index — emit docs/specs/index.md, a navigable table of EVERY spec.
+
+Rendered from each `Plan/NNN-slug/spec.md` frontmatter (spec_id · slug · status) + its
+first `# ` heading, so every spec is listed + linked from the docs without duplicating
+content (the canonical detail stays in the spec file; `TODO.md` stays the binding
+verdict index). Carries a ``doc-generated-by`` marker so ``check-doc-drift`` skips it —
+re-run after adding/closing a spec.
+"""
+from __future__ import annotations
+
+import pathlib
+import re
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PLAN = ROOT / "Plan"
+OUT = ROOT / "docs" / "specs" / "index.md"
+
+_FM = re.compile(r"^---\s*$(.*?)^---\s*$", re.S | re.M)
+
+
+def _field(fm: str, key: str) -> str:
+    m = re.search(rf"^{key}:\s*\"?([^\"\n]+)\"?\s*$", fm, re.M)
+    return m.group(1).strip() if m else ""
+
+
+def _title(text: str) -> str:
+    m = re.search(r"^#\s+(.+)$", text, re.M)
+    return m.group(1).strip() if m else ""
+
+
+def main() -> int:
+    rows = []
+    for d in sorted(PLAN.glob("*/spec.md")):
+        text = d.read_text(errors="ignore")
+        fm = _FM.search(text)
+        fm = fm.group(1) if fm else ""
+        sid = _field(fm, "spec_id") or d.parent.name.split("-")[0]
+        slug = _field(fm, "slug") or d.parent.name
+        status = _field(fm, "status") or "?"
+        title = _title(text).replace("|", "\\|")
+        link = d.relative_to(ROOT)
+        rows.append((sid, slug, status, title, str(link)))
+
+    rows.sort(key=lambda r: r[0])
+    lines = [
+        "# Spec index",
+        "",
+        "<!-- doc-generated-by: scripts/gen-spec-index (re-run; do not hand-edit) -->",
+        "",
+        f"> **Generated** from `Plan/*/spec.md` frontmatter — every one of the **{len(rows)}** "
+        "specs, listed + linked. This is NAVIGATION; the authoritative **verdict** index is "
+        "[`/TODO.md`](../../TODO.md) and the per-spec detail is each linked `spec.md`. See "
+        "[README.md](README.md) for how the spec system works.",
+        "",
+        "| Spec | Slug | Status | Title | |",
+        "|---|---|---|---|---|",
+    ]
+    for sid, slug, status, title, link in rows:
+        lines.append(f"| {sid} | `{slug}` | {status} | {title} | [spec]({'../../' + link}) |")
+    lines.append("")
+    OUT.write_text("\n".join(lines))
+    print(f"wrote {OUT.relative_to(ROOT)} — {len(rows)} specs")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

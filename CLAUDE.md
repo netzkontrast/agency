@@ -93,6 +93,15 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    When adding a new capability / extra / substrate tool, run
    `scripts/check-drift` BEFORE commit. Failure to do so is a doctrine
    violation; future audits flag it.
+   - **Doc drift.** The engineering docs live in [`docs/`](docs/) (start at
+     `docs/README.md`; `docs/architecture/` is the module-by-module
+     reference). Hand-written docs carry a `<!-- doc-source: … -->` marker
+     naming the code/specs they describe; `scripts/check-doc-drift` hashes
+     those sources and flags any doc gone stale (`--update` re-stamps,
+     `--strict` flags unmarked). The capability reference
+     (`docs/guide/capabilities.md`) is GENERATED — `scripts/gen-capability-docs`,
+     never hand-edit. When you change a documented module, run
+     `scripts/check-doc-drift`, review what it flags, and update the page.
 
 5. **Check cluster coherence before adding a verb / skill.** Spec 047
    (cluster-integration master) maps the 13 SDLC+meta clusters onto the
