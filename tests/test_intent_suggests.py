@@ -1,4 +1,4 @@
-"""Spec 026 Part B — skills.suggests: the intent→skill projection (Matcher taxonomy)."""
+"""Spec 026 Part B — intent.suggests: the intent→skill projection (Matcher taxonomy)."""
 import tempfile
 
 import pytest
@@ -60,33 +60,33 @@ def _call(e, iid, cap, verb, **kw):
 
 def test_pattern_matcher_projects_to_a_skill(engine):
     iid = _iid(engine)
-    out = _call(engine, iid, "skills", "suggests", called_state="which skill should I walk")
+    out = _call(engine, iid, "intent", "suggests", called_state="which skill should I walk")
     assert out["skill"] == "skills-triage" and out["mode"] == "pattern"
     assert out["confidence"] == 0.8
 
 
 def test_floor_filters_low_confidence(engine):
     iid = _iid(engine)
-    out = _call(engine, iid, "skills", "suggests",
+    out = _call(engine, iid, "intent", "suggests",
                 called_state="which skill should I walk", floor=0.9)
     assert out["skill"] is None and "floor" in out["reason"]
 
 
 def test_no_matcher_matches_returns_none(engine):
     iid = _iid(engine)
-    out = _call(engine, iid, "skills", "suggests", called_state="totally unrelated xyzzy")
+    out = _call(engine, iid, "intent", "suggests", called_state="totally unrelated xyzzy")
     assert out["skill"] is None
 
 
 def test_verb_code_matcher_invokes_a_decider(decider_engine):
     iid = _iid(decider_engine)
-    out = _call(decider_engine, iid, "skills", "suggests", called_state="unrelated xyzzy")
+    out = _call(decider_engine, iid, "intent", "suggests", called_state="unrelated xyzzy")
     assert out["skill"] == "decider-skill" and out["mode"] == "verb_code"
     assert out["confidence"] == 0.95
 
 
 def test_cycle_check_skips_the_verb_in_flight(decider_engine):
     iid = _iid(decider_engine)
-    out = _call(decider_engine, iid, "skills", "suggests",
+    out = _call(decider_engine, iid, "intent", "suggests",
                 called_capability="decider", called_verb="decide", called_state="unrelated xyzzy")
     assert out["skill"] != "decider-skill"     # the decider in flight is cycle-skipped

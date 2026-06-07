@@ -334,8 +334,9 @@ Part B (`intent.suggests_skill` projection) remains.
   `check-drift` clean; install regen committed.
 
 ### Done — Part B: the intent→skill projection (shipped 2026-06-07)
-- `skills.suggests(called_capability=, called_verb=, called_state=, floor=0.5)` —
-  the projection ships on the `skills` capability (NOT a new `intent` capability:
+- `intent.suggests(called_capability=, called_verb=, called_state=, floor=0.5)` —
+  the projection ships on the `intent` capability (relocated from `skills` 2026-06-07,
+  honoring the panel: Intent owns the projection) (NOT a new `intent` capability:
   `intent` is a core engine concept, not a registered capability, and the substrate
   is fixed; `suggests` is a read-only RECOMMENDATION, not dispatch, so panel F5 holds).
   Reads the serving intent AMBIENTLY from `ctx.intent_id` (a verb param named
