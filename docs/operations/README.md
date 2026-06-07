@@ -42,10 +42,10 @@ regenerate them with `scripts/gen-capability-docs`, don't hand-edit.
 
 ## Known gaps (tracked)
 
-- **Installer prune** — `python -m agency.install` *writes* the `bin/` wrappers +
-  `references/` but does **not prune** stale ones when a verb is removed/renamed, and
-  `check-drift` doesn't flag the orphans. Remove them by hand for now (graph reflection
-  `e42e67fe`).
+- **Installer prune** — ✅ **fixed (Spec 092 G1)**: `python -m agency.install` now prunes
+  generator-owned `bin/`/`references/` files that no longer map to a live verb, and
+  `check-drift` flags any committed orphan the prune removes (`orphans:` section). The
+  remaining substrate improvements are tracked in `Plan/092-…` (G2–G6).
 
 ## Releasing
 
