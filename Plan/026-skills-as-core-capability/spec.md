@@ -333,11 +333,23 @@ Part B (`intent.suggests_skill` projection) remains.
 - Tests: `tests/test_skills_capability.py` (8). Full suite 892 passed, 3 skipped;
   `check-drift` clean; install regen committed.
 
-### Still — Part B (next slice)
-- `intent.suggests_skill(intent_id, called_capability=, called_verb=, called_state=)`
-  — the intent→next-skill projection with the `Matcher` taxonomy (pattern / verb_code
-  [e.g. `delegate.dispatch_decision` per panel F4] / llm_select), cycle-check on
-  deciders, and the return-shape `next_skill` convention.
+### Done — Part B: the intent→skill projection (shipped 2026-06-07)
+- `skills.suggests(called_capability=, called_verb=, called_state=, floor=0.5)` —
+  the projection ships on the `skills` capability (NOT a new `intent` capability:
+  `intent` is a core engine concept, not a registered capability, and the substrate
+  is fixed; `suggests` is a read-only RECOMMENDATION, not dispatch, so panel F5 holds).
+  Reads the serving intent AMBIENTLY from `ctx.intent_id` (a verb param named
+  `intent_id` collides with the reserved injected one). Evaluates each skill's optional
+  `applies_when` Matcher: `pattern` (regex over intent.purpose/deliverable + last-state)
+  and `verb_code` (invoke a decider verb returning `{matches, confidence}`, cycle-checked
+  against the verb in flight). Confidence floor; best match wins.
+- Demonstrator: `skills-triage` ships a `pattern` Matcher; `tests/test_skills_suggests.py`
+  (6) covers pattern, floor, no-match, verb_code (a registered decider cap), and the
+  cycle-check.
+
+### Still — remaining 026 surface
+- `llm_select` Matcher kind — deferred; needs an LLM decider Driver on the Spec 002
+  registry (the natural seam now that 002 shipped).
 - Promote `ontology.skills` → `Skill`/`Phase`/`Gate` graph nodes at registration
   (so skills are queryable via `analyze.graph`).
 - Convergence gate: the Jules-workflow benchmark (panel F7).
