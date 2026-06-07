@@ -29,6 +29,11 @@ class JulesAPIError(RuntimeError):
 
 
 def _api_key() -> str:
+    # Spec 006 #4 (defense-in-depth) — this VALUE is auth material: it is sent only as
+    # the `x-goog-api-key` request header (line ~73) and MUST NEVER be captured into the
+    # graph, recorded on an Invocation, logged, or returned to a caller. `agency_doctor`
+    # reports only its PRESENCE ("set"/"missing"), never the value. Do NOT add a
+    # `capture_api_key`-style helper; `tests/test_hardening.py` guards against one.
     key = os.environ.get("JULES_API_KEY", "")
     if not key:
         # Spec 030 §A (F2): the previous "export it in the shell" advice
@@ -79,24 +84,29 @@ def _request(method: str, path: str, body: Optional[dict] = None,
     return resp.json() if resp.text else {}
 
 
-def _paginate(path: str, params: dict, max_pages: int = 10) -> list[dict]:
+def _paginate(path: str, params: dict, max_pages: Optional[int] = None) -> list[dict]:
+    # Spec 006 #2 — walk to real exhaustion (`max_pages=None`), with a `seen_tokens`
+    # repeated-token guard as the ONLY stop other than exhaustion: a buggy/hostile API
+    # that returns the same nextPageToken forever can no longer loop unboundedly.
     items: list[dict] = []
     token = ""
-    pages = 0
+    seen_tokens: set[str] = set()
     array_key: Optional[str] = None
-    while pages < max_pages:
+    while True:
         q = dict(params)
         if token:
             q["pageToken"] = token
         raw = _request("GET", path, params=q)
-        pages += 1
         if array_key is None:
             array_key = next((k for k, v in raw.items() if isinstance(v, list)), None)
             if array_key is None:
                 break
         items.extend(raw.get(array_key, []) or [])
         token = raw.get("nextPageToken", "")
-        if not token:
+        if not token or token in seen_tokens:        # exhausted, or API loop guard
+            break
+        seen_tokens.add(token)
+        if max_pages is not None and len(seen_tokens) >= max_pages:
             break
     return items
 

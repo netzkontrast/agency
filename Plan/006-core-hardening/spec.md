@@ -1,7 +1,7 @@
 ---
 spec_id: 006
 slug: core-hardening
-status: draft
+status: shipped
 owner: "@agency"
 depends_on: []
 affects:
@@ -472,3 +472,24 @@ All citations re-pinned against branch `claude/extract-agency-plugin-o4JRc`
 - code: `agency/memory.py:39-62` (O(N+E) scan still present); `agency/capabilities/_jules_api.py:82-99` (`max_pages=10` still default, no `seen_tokens`); `agency/capabilities/_vcs.py:60-73` (`remote_exists` shipped); `agency/capabilities/jules.py:269-287` (`verify` with vcs injection shipped)
 - tests: `tests/test_agency.py:484-508` (verify/remote), `tests/test_agency.py:1640-1654` (clock edge); `tests/test_hardening.py` — does not exist
 - commits/notes: frontmatter `status: draft`; Plan/000-overview.md:32 lists Spec 006 as **Shipped** ("Red-team fixes: tick, pagination, verify, env validation") — this is over-stated; #1 O(1), #2 seen_tokens, and #4 capture_api_key are not implemented.
+
+## Followup — Implementation Status (2026-06-07)
+
+**Verdict:** Shipped.
+
+- **#1 O(1) clock seed** — `Memory._max_persisted_tick` rewritten to two server-side
+  `max(vfrom)` aggregations (nodes + edges, take the larger); NO full-row scan. GraphQLite
+  supports `max()` aggregation. Reopening a graph seeds the tick to the true persisted max
+  (incl. a trailing edge write) so new writes never reuse a stale tick.
+- **#2 pagination** — `jules/api.py::_paginate` walks to real exhaustion (`max_pages=None`
+  default) with a `seen_tokens` repeated-token loop guard as the only non-exhaustion stop;
+  `_resolve_github_source` no longer caps at 10 pages.
+- **#3 fail-closed verify** — `jules.verify(vcs, …)` already derives `branch_on_remote`
+  independently via the injected `vcs.remote_exists` (`git ls-remote`); any lookup error →
+  `done=False`. Never trusts a caller bool. (Was implemented; now covered by tests.)
+- **#4 API-key value never captured** — defense-in-depth comment at `_api_key()`
+  (sent only as `x-goog-api-key`; never recorded/logged/returned); `agency_doctor` reports
+  only presence ("set"/"missing"). No `capture_api_key` helper exists.
+- **Tests** — `tests/test_hardening.py` (9): aggregation-not-scan + reopen-no-reuse,
+  pagination exhaustion + loop guard, verify fail-closed (3 cases), no-capture-helper +
+  doctor-no-leak. Full suite 932 passed, 3 skipped; `check-drift` clean.

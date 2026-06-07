@@ -1,7 +1,7 @@
 # Memory — the bi-temporal graph store
 
 <!-- doc-source: agency/memory.py -->
-<!-- doc-hash: 8b0f96dad8965da6 -->
+<!-- doc-hash: ce9d8d48febaf6c2 -->
 
 `agency/memory.py` wraps a **GraphQLite** graph as the engine's single store. Files are
 a rendered view; the graph is the source of truth.

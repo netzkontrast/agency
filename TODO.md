@@ -20,8 +20,8 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 39 | 001, 002, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072 |
-| **Partially implemented** | 7 | 006, 007, 018, 024, 025, 026, 031 |
+| **Shipped** | 40 | 001, 002, 006, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072 |
+| **Partially implemented** | 6 | 007, 018, 024, 025, 026, 031 |
 | **Not started** | 8 | 003, 004, 005, 010, 014, 041, 046, 051 |
 | **Token-economy cluster (`intent:97534079`) — GOAL MET** | 6 | 066 master · 072 ✅ · 067 ✅ · **068 ✅ (−83% discovery)** · **074 ✅ capstone** · ~~069 cancelled~~ · 070/071 WARN-accepted (optional future) |
 | **Shipped — audit-trail (`intent:558f1bf5` / `intent:d8090aef`)** | 4 | **073 ✅ → `shell` capability** (run/filter/templates) · **018 (Wins 1+3) ✅** (`develop.skill_walk` atomic walker + implicit `intent_id` via `AGENCY_INTENT`; Win 2 = cancelled-069, skipped) · **075 ✅** (`shell.define` + `shell.templates(query)` + run resolves graph-first; common-bash seeds — definable registry per CLAUDE.md #8) · **079 ✅** (Click CLI mirrors every capability verb as `agency <cap> <verb>` for non-MCP agents; auto-generated from the live registry; code-mode stays canonical) |
@@ -56,7 +56,7 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 | 003 | skill-phase-objects | Not started | Typed `Skill`/`Phase` parse/validate boundary | Wave-1 backlog; revisit when canon needs new ground |
 | 004 | template-schema-coverage | Not started | Wire generate/validate loop for uncovered kinds | Wave-1 backlog |
 | 005 | context-mode-and-token-economics | Not started | Output-overflow capture + recall | Wave-1 backlog |
-| 006 | core-hardening | Partial | Red-team fixes: tick, pagination, verify | Fixes #1 O(1), #2 `seen_tokens`, #4 `capture_api_key` absent; `tests/test_hardening.py` missing |
+| 006 | core-hardening | **Shipped** | All 4 red-team fixes: #1 O(1) max(vfrom) clock seed, #2 pagination exhaustion+seen_tokens guard, #3 fail-closed jules.verify, #4 API-key value never captured | `tests/test_hardening.py` (9) green |
 | 007 | music-domain-capability | **Partial** | 11 verbs / 9 clusters via 5 Drivers; ToolResult + provenance moat; computed gates (pregen/release via gate.check); 0 core edits | Remaining: sheet-music/video/streaming/health clusters (long tail port-on-demand) |
 | 008 | superclaude-analysts | **Closed (superseded → 042)** | SuperClaude analysis (`transmute` cluster) | Closed 2026-06-06. The `analyze` capability (Spec 042, Shipped) delivers the 4-axis decidable analysis this spec scoped via a `transmute` cluster; no separate port needed. Frontmatter flipped; spec text kept verbatim per supersede pattern (GOALS.md #7) |
 | 009 | superpowers-remainder | **Closed (superseded → 041 + 046)** | Finish the superpowers port | Closed 2026-06-06. Remaining superpowers surface is carried by Spec 041 (implementation-discipline-skills) + Spec 046 (micro-extensions-bundle); both supersede the catch-all "remainder" port. Frontmatter flipped; spec text kept verbatim |
