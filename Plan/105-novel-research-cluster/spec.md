@@ -203,6 +203,30 @@ def test_research_workflow_skill_pauses_on_human_signoff_hard_gate(): ...
 def test_verify_gate_blocks_when_pending_claims_remain(): ...
 ```
 
+## Genre-conditional dispatch (iteration 3)
+
+A novel's `Novel.genres: list[str]` field implies which research domains
+matter MOST. The cluster ships a transform helper:
+
+```python
+@verb(role="transform")
+def suggest_domains_for_genre(self, genre: str) -> ToolResult:
+    """Map genre → recommended research domains. Reads
+    data/reference/research-domains.yaml where each domain declares
+    typical_novels: list[str]. Returns a ranked-by-relevance domain list
+    that dispatch_research consumes as its default `domains` arg.
+    """
+```
+
+Examples:
+- `historical fiction` → [historical, biographical, cultural, geographic]
+- `thriller` → [forensic, occupational, scientific, journalism]
+- `hard SF` → [scientific, occupational, geographic]
+- `fantasy` → [mythological, historical (real-world inspiration), cultural]
+- `literary` → [biographical, cultural, geographic, occupational]
+
+Multi-genre novels get the UNION (no dedup beyond exact-match).
+
 ## Open questions
 
 1. **Research domain registry — closed enum or open set?** Closed for v1

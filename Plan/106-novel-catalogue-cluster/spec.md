@@ -230,6 +230,67 @@ the novel set has `Volume` / `Part` / `Book` hierarchy:
 Each axis emits its own findings array; a `WARN` (not a `FAIL`) blocks
 nothing but feeds the publication-director skill.
 
+## Draft-variant experimentation (iteration 3)
+
+Real writers experiment: "what if I rewrote this chapter from another
+POV?", "what if the antagonist wins this scene?", "what if I cut chapter
+17 entirely?" The design supports this through **graph-branch variants**
+without leaving the substrate:
+
+### `DraftVariant` node
+
+```python
+# Added to 102's consolidated ontology (iteration 3):
+DraftVariant     (slug, chapter, parent_draft, hypothesis, status,
+                  body, branch_at, branched_by)
+# branch_at: ISO timestamp of when this variant was forked
+# parent_draft: the Draft this variant branches from
+# hypothesis: agent's note on what's being explored
+# status: experimental | promoted | abandoned
+```
+
+### Two new effect verbs (in 106)
+
+```python
+@verb(role="effect")
+def branch_draft_variant(self, novel: str, chapter: int,
+                         hypothesis: str) -> ToolResult:
+    """Fork a chapter into a DraftVariant for experimentation. The
+    variant lives alongside the main draft; both are in the graph;
+    verbs that read 'the draft' read the main unless variant_slug
+    is passed."""
+
+@verb(role="effect")
+def promote_draft_variant(self, variant_slug: str) -> ToolResult:
+    """Promote a variant to be the main draft. Records a REVISES edge
+    from the new main back to the old main (provenance preserved); the
+    old main becomes 'archived' status."""
+```
+
+### Walkable skill: `experiment-pass` (new)
+
+```python
+EXPERIMENT_PASS_SKILL = {
+    "name": "experiment-pass",
+    "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "branch",
+         "produces": ["variant_created"]},
+        {"index": 2, "name": "draft-variant",
+         "produces": ["variant_body_written"]},
+        {"index": 3, "name": "compare",
+         "produces": ["variant_metrics_compared"]},
+        {"index": 4, "name": "decide",
+         "produces": ["variant_decision_made"],
+         "gate": "hard"},   # human chooses: promote / archive / keep-both
+    ],
+}
+```
+
+Test asserts that branching does NOT break the provenance moat —
+`memory.provenance(intent_id)` returns both the main draft AND the
+variant tree.
+
 ## Open questions
 
 1. **Coherence-check as gate or report?** Report (transform), per the

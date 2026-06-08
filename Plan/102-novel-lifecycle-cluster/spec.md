@@ -277,6 +277,71 @@ def test_rename_novel_emits_mirrored_path_manifest(): ...
 def test_resume_session_restores_last_novel_context(): ...
 ```
 
+## Implementation guidance (iteration 3) — First-PR scope
+
+102 is the foundation spec; its PR carries the heaviest scope of any
+child. Use this prioritized scope to keep the first PR tractable
+(target: ~600 LoC implementation + ~200 LoC tests). Defer everything
+below the cutoff to follow-up PRs.
+
+### First-PR scope (MUST land in 102's initial PR)
+
+1. **The module skeleton** (`__init__.py` + `ontology.py` + `drivers.py`
+   + `clusters/__init__.py`).
+2. **`OntologyExtension` declaration** — full schema (base + iteration-2
+   nodes). Even nodes whose verbs aren't yet implemented MUST be declared
+   so children can attach.
+3. **11 templates ported VERBATIM** from
+   `Plan/_research/novel-mvp-source/templates/` to
+   `agency/capabilities/novel/templates/`. No content edits.
+4. **Data assets ported VERBATIM**:
+   - `data/dramatica/ontology.json` (304 entries)
+   - `data/dramatica/scenarios.json` (12 scenarios)
+   - `data/schemas/ncp-schema-v1.3.0.json` (from
+     `legacy-skills/ncp-author/upstream/schema/`)
+   - `data/reference/research-domains.yaml`
+5. **Base lifecycle verbs (1-7)**: `conceptualize`, `capture_idea`,
+   `promote_idea`, `list_ideas`, `create_novel`, `find_novel`,
+   `set_novel_status`. Cover the simple-novel happy path.
+6. **`novel-concept` walkable skill** (the 10-phase conceptualizer).
+7. **`tests/test_novel_lifecycle.py`** — 12 tests focused on the
+   simple-novel happy path + the doctrine-exception assertions (zero
+   engine edits, ontology merges strictly).
+8. **pytest marker addition** to `conftest.py`.
+
+### Second-PR scope (DEFERRED — opens follow-up PR after 102 base lands)
+
+- Chapter / Scene / Beat verbs (8-14)
+- Iteration-2 Volume/Part/Book lifecycle verbs (`create_volume`,
+  `create_part`, `create_book`) — gated on `outline_hierarchy`
+  declaration
+- Iteration-2 World sub-schema effect verbs (`create_culture`,
+  `create_religion`, `create_language`, `create_magic_system`, …)
+- Iteration-2 Faction / House / Family / Arc / ArcPhase verbs
+- Complex-novel fixture tests (multi-volume, multi-POV, multi-subplot)
+- The `novel-concept` skill's iteration-2 phases (dramatica-seed,
+  outline-shape, series-hypothesis — currently phases 7-9)
+
+### Build order within the first PR
+
+1. Declare `OntologyExtension` first (no behaviour, just structure).
+2. Implement StateDriver method delta with fake.
+3. Port templates + data assets (file copies).
+4. Implement verbs 1-7 in `clusters/lifecycle.py`.
+5. Implement `novel-concept` skill phase-graph.
+6. Write tests covering each verb + the skill walk.
+7. Run `scripts/test-cap novel` Green.
+8. Run install regen + commit.
+
+### Risk register (first PR)
+
+| Risk | Mitigation |
+|---|---|
+| Ontology merge fails because a node label already exists in core | Use namespacing — every novel-specific label is unique (Novel, Series, Storyform, etc.) |
+| Template port fails because mustache `{{var}}` syntax conflicts with `string.Template` `$var` | Use `template.template` (raw body access) until Spec 060 mustache support lands; document as Open Q |
+| `data/dramatica/ontology.json` size (304 entries, ~50KB) bloats wheel | Acceptable — under the 100KB threshold for data assets |
+| 102's StateDriver method count grows past the music 094 baseline (which had 14) | Acceptable — novels need richer state ops; document the delta in the followup |
+
 ## Open questions
 
 1. **Idea node — Novel-specific or reuse music's `Idea` label?** Reuse the

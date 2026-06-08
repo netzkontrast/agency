@@ -265,6 +265,72 @@ pov_character distribution across the novel). 108's `pov_balance_gate`
 calls it. Per-novel threshold: default "no POV > 40% unless
 `narrative_type=first-person-protagonist`".
 
+## Writer's workflow extensions (iteration 3)
+
+Real writers don't draft sequentially — they jump around, leave TODOs,
+stub chapters, revise out-of-order. The design supports this through
+**inline-TODO extraction**, **stub-chapter** flagging, and **skip-write**:
+
+### Inline-TODO extraction
+
+Drafts may contain `<!-- TODO: <text> -->` HTML-style comments OR
+`[[TODO: <text>]]` brackets. A new transform verb extracts them:
+
+```python
+@verb(role="transform")
+def extract_inline_todos(self, novel: str = "",
+                        chapter: int = 0) -> ToolResult:
+    """Scan draft prose for inline TODOs; return structured findings
+    that 106's add_edit_note can record as EditNotes per chapter."""
+```
+
+The `chapter-drafting` skill phase 1 (beat-sheet) accepts beats with
+embedded TODOs; the draft body preserves them as scaffolding. Phase 5
+(confirmation) reports unresolved TODO count; the hard gate WARNS
+(but does not block) if TODOs remain — the writer signs off
+intentionally.
+
+### Stub-chapter flagging
+
+A chapter can be marked `status: stub` (102 enum extended). A stub has
+only the beat-sheet + placeholder body. Verbs that consume drafted prose
+(continuity-check, voice-consistency, line-gate) skip stub chapters with
+a typed `{status: "n/a", reason: "chapter is stub"}` rather than
+failing. The `pre-draft` gate (108) WARNs (not BLOCKs) when stubs exist
+beyond chapter 5; the writer confirms intentional stubs at the hard
+gate.
+
+### Skip-write support
+
+`Chapter.write_order` (102 iter-3 addition) tracks the order chapters
+WERE written (independent of `narrative_order` for reader-facing
+sequence). `extract_inline_todos` + `chapter-drafting` skill walk
+respect `write_order`: a chapter 30 drafted before chapter 10 emits a
+`forward-reference` flag if it mentions events that haven't been written
+yet, but doesn't block.
+
+### Genre-specific verbs
+
+Mystery / thriller / romance / fantasy / sci-fi share the base prose
+verbs but each genre has discipline-specific patterns. Implemented as
+optional verb extensions (opt-in via `Novel.genres`):
+
+| Genre | Verb | Discipline |
+|---|---|---|
+| mystery | `track_clues` (transform) | Per-clue placement + reveal-distance; flags clues planted too late or never used |
+| mystery | `check_red_herring_distribution` (transform) | Red-herring density should be 1.5x clue density per genre-convention |
+| thriller | `analyze_pacing` (transform) | Beat-density per chapter; flags slow-pace chapters in act 2/3 |
+| thriller | `check_tension_curve` (transform) | Tension should rise; flags tension drops outside breather scenes |
+| romance | `track_relationship_beats` (transform) | Meet-cute / first-conflict / first-kiss / dark-moment / declaration / HEA — reports beat coverage |
+| romance | `check_tropes_used` (transform) | Match against declared `Novel.romance_tropes: list[str]` |
+| fantasy | `check_magic_consistency` (transform) | Reads `MagicSystem` node; flags scenes where magic violates declared rules (e.g. hard-magic system used unpredictably) |
+| sci-fi | `check_scientific_accuracy` (transform) | Delegates to 105 research with `scientific` domain; flags claims without supporting `ResearchClaim` |
+| literary | `check_thematic_density` (transform) | Identifies recurring motifs; flags chapters where the central theme is absent |
+
+These verbs are opt-in (CALLED ONLY when the genre matches); they emit
+WARNINGS not gates. Implementations may ship with empty stubs (`{status:
+"n/a", reason: "not yet implemented"}`) in the initial wave.
+
 ## Open questions
 
 1. **Generated-prose attribution**: every LLM-drafted artefact carries a
