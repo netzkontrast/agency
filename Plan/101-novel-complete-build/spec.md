@@ -172,7 +172,7 @@ via novel frontmatter (`outline_hierarchy`, `multilingual`, `pov_count`,
 
 **The decidable backbone is Dramatica + NCP v1.3.0**. Per the imported
 **Dramatica Decidability Matrix** (`Plan/_research/novel-mvp-source/
-references/dramatica-decidability.md` — embedded brief, source research
+references/dramatica-decidability.md` — embedded dossier, source research
 agent `a78bd055cd15ef572`):
 
 - **11 decidable checks** (graph lookups, set-membership tests, permutation
@@ -203,7 +203,7 @@ production pipeline:
 - Every storyform choice is a typed graph node SERVES the intent — so a
   release audit traces every design choice + revision.
 - Every coherence check is a verb returning the **lowest-token-cost
-  report shape** (per the decidability brief): drop PASS-check items
+  report shape** (per the decidability dossier): drop PASS-check items
   arrays, use ontology ids not labels, cap violations at ~120 chars.
 - The NCP `.ncp.json` document is the **structural source of truth**;
   storyform changes serialize through `ncp-author` patterns.
@@ -478,7 +478,7 @@ The base schema (simple novel) works without ANY of the iteration-2
 additions. They activate when the novel's frontmatter declares the
 relevant complexity field.
 
-### ADR-14: Novel delegates to brief + prompt + thinking capabilities (iteration 13)
+### ADR-14: Novel delegates to dossier + prompt + thinking capabilities (iteration 13)
 
 User directive (2026-06-07): *"Those Research Parts - Need to be its
 own capability - that Feed into Research agents - so that we can freely
@@ -494,14 +494,14 @@ PROMOTES these to three first-class agency capabilities:
 |---|---|---|
 | `prompt` | 109 | Prompt engineering + optimization + 10-builder family + research-prompt-optimizer + token-budget composition + A/B variants + scoring + anti-pattern library |
 | `thinking` | 110 | 14 critical-thinking methods (8 from Spec 091 + 6 net-new: red_team / socratic / pre_commitment / if_then_else / bayesian_update / analogy_map) + 3 composite verbs (apply_full_review / apply_decision_discipline / apply_design_review) |
-| `brief` | 112 | Research-brief authoring (intent_capture / brief_render / brief_audit / brief_finalize / catalog_list) + corpus management (ingest / chunk / extract_entities / taxonomize / link / list) + context mapping (declare_context / infer_context / render_brief / render_snippet) |
+|  `dossier` | 112 | Research-dossier authoring (intent_capture / brief_render / dossier.audit / brief_finalize / catalog_list) + corpus management (ingest / chunk / extract_entities / taxonomize / link / list) + context mapping (declare_context / infer_context / render_dossier / render_snippet) |
 
 Novel's iter-10 + iter-11 verbs become **thin wrappers delegating to
 the three new caps** via `ctx.call`. Per Spec 111 (capability migration
 plan):
 
-- 105 iter-10 research-entity stack → delegates to `brief.*`
-- 105 iter-12 research-prompt-optimizer verbs → delegate to `brief.*`
+- 105 iter-10 research-entity stack → delegates to `dossier.*`
+- 105 iter-12 research-prompt-optimizer verbs → delegate to `dossier.*`
 - 104 iter-11 10 prompt builders → registered as domain-specific
   builders via `prompt.register_builder`
 - 104 iter-11 engineering verbs → delegate to `prompt.*`
@@ -513,15 +513,15 @@ plan):
 
 **The handshake** (per Spec 112):
 ```
-USER → brief.intent_capture → brief.dispatch_research_via_brief
+USER → dossier.intent_capture → dossier.dispatch_research_via_dossier
                                     ↓
                               research.lead + research.specialist
                                     ↓
-                              brief.extract_entities + brief.taxonomize
+                              dossier.extract_entities + dossier.taxonomize
                                     ↓
-                              brief.declare_context (scope=chapter)
+                              dossier.declare_context (scope=chapter)
                                     ↓
-                              brief.render_snippet (snippet_kind=writing-assist)
+                              dossier.render_snippet (snippet_kind=writing-assist)
                                     ↓
                               prompt.engineer (builder=chapter,
                                                context_refs=[snippet_id],
@@ -541,15 +541,15 @@ USER → brief.intent_capture → brief.dispatch_research_via_brief
 
 **Why this matters**:
 - **Composability**: music's research-heavy concept albums can use
-  `brief.*` without re-implementing the entity pipeline. Screenplay,
+  `dossier.*` without re-implementing the entity pipeline. Screenplay,
   journalism, legal, academic — same story.
 - **Substrate over duplication**: the prompt-engineering pattern
   becomes one capability serving many domains, not duplicated per-cap.
 - **Critical-thinking as first-class**: ANY capability can call
   `thinking.apply_design_review` on its own specs. The pattern that
   produced novel iter-12's CRITICAL-ANALYSIS.md generalizes.
-- **Research-capability handshake**: `brief.dispatch_research_via_brief`
-  is the bridge — domain caps ask brief, brief asks research.
+- **Research-capability handshake**: `dossier.dispatch_research_via_dossier`
+  is the bridge — domain caps ask dossier, dossier asks research.
 
 ### ADR-13: Distribution channels + post-pub feedback loop (iteration 12 — decompose pass)
 

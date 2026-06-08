@@ -1,6 +1,6 @@
 ---
 spec_id: "111"
-slug: capability-migration-to-prompt-thinking-brief
+slug: capability-migration-to-prompt-thinking-dossier
 status: draft
 last_updated: 2026-06-07
 owner: "@agency"
@@ -10,7 +10,7 @@ affects:
   - agency/capabilities/analyze/       # use thinking.tradeoffs + prompt.engineer
   - agency/capabilities/develop/       # use thinking.apply_design_review + prompt.brief_render
   - agency/capabilities/document/      # use prompt.engineer for render explanations
-  - agency/capabilities/research/      # consumed by brief; minor wiring
+  - agency/capabilities/research/      # consumed by dossier; minor wiring
   - agency/capabilities/delegate/      # use thinking.tradeoffs for dispatch decisions
   - agency/capabilities/jules/         # use prompt for review-comment composition
   - agency/capabilities/gate/          # use thinking for predicate clarity
@@ -21,21 +21,21 @@ affects:
   - agency/capabilities/dogfood/       # use thinking for observation analysis
   - agency/capabilities/plugin/        # use prompt for skill body authoring
   - examples/music.py                  # (when music ships its own capability folder)
-  - agency/capabilities/novel/         # 105 iter-10 → brief; 104 iter-11 → prompt
+  - agency/capabilities/novel/         # 105 iter-10 → dossier; 104 iter-11 → prompt
   - tests/test_capability_migration_*.py
 domain: substrate / migration
 wave: 8
 research_first: false
 ---
 
-# Spec 111 — Capability Migration to `prompt` + `thinking` + `brief`
+# Spec 111 — Capability Migration to `prompt` + `thinking` + `dossier`
 
 ## Why
 
 User directive (2026-06-07): *"Also think about how to Improve and
 migrate all current capabilities to use those new capabilities."*
 
-Specs 109 (`prompt`), 110 (`thinking`), 112 (`brief`) ship three new
+Specs 109 (`prompt`), 110 (`thinking`), 112 (`dossier`) ship three new
 substrate-adjacent capabilities. This spec is the **systematic migration
 plan** for every existing agency capability to adopt them, so the new
 substrate becomes the canonical surface, not a parallel layer.
@@ -47,7 +47,7 @@ no API break for callers.
 ## Discoverable migration surface
 
 For each of agency's 17 existing capabilities, this spec declares:
-1. **Adoption surface** — which verbs delegate to prompt/thinking/brief
+1. **Adoption surface** — which verbs delegate to prompt/thinking/dossier
 2. **Migration shape** — wrapper / refactor / delete-and-replace
 3. **Backward compat note** — any caller-visible change
 4. **PR sequencing** — independent / sequenced / batched
@@ -141,7 +141,7 @@ preserved.
 ### 5. `research` (Spec 044)
 
 **Adoption surface**: minor — research is the DOWNSTREAM cap that
-brief delegates TO. The 044 verbs (`lead` / `specialist` / `verify`)
+dossier delegates TO. The 044 verbs (`lead` / `specialist` / `verify`)
 are unchanged. Brief calls them.
 
 **Shape**: no direct refactor; research stays as-is. Brief consumes
@@ -337,8 +337,8 @@ to delegate to prompt.
 | 104 `chapter_draft_assisted` | delegates to `prompt.engineer` (iter-11 wrapped) |
 | 104 iter-11 10 prompt builders | move to `prompt.build` (registered as domain-specific builders via `prompt.register_builder`) |
 | 104 iter-11 engineering verbs | delegate to `prompt.*` |
-| 105 iter-10 research-entity stack | delegates to `brief.*` (per Spec 112 §"Migration from 105") |
-| 105 iter-12 research-prompt-optimizer verbs | delegate to `brief.*` + `prompt.*` |
+| 105 iter-10 research-entity stack | delegates to `dossier.*` (per Spec 112 §"Migration from 105") |
+| 105 iter-12 research-prompt-optimizer verbs | delegate to `dossier.*` + `prompt.*` |
 | 101 CRITICAL-ANALYSIS.md | uses `thinking.apply_design_review` |
 
 **Shape**: spec changes in 104, 105, 101 land BEFORE implementation

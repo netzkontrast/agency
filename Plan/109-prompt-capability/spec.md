@@ -9,7 +9,7 @@ affects:
   - agency/capabilities/prompt/
   - tests/test_prompt_*.py
 source-material:
-  - "Plan/_research/novel-mvp-source/research-prompt-optimizer/ (the 5-tool research-prompt-optimizer pattern: intent_capture + brief_render + brief_audit + brief_finalize + catalog_list)"
+  - "Plan/_research/novel-mvp-source/research-prompt-optimizer/ (the 5-tool research-prompt-optimizer pattern: intent_capture + brief_render + dossier.audit + brief_finalize + catalog_list)"
   - "Plan/_research/novel-mvp-source/prior-specs/021-prompt-builder.md (the 10-builder family pattern: world/character/scene/storyform/throughline/bridge/chapter/revision/theme/relationship; read-only, idempotent, source-traceable, ≤200-token preview, acyclic compose-with DAG)"
   - "Spec 104 iter-11 (novel prose cluster's prompt-engineering layer — generalized into a first-class capability)"
 domain: capability / prompt-engineering
@@ -53,7 +53,7 @@ The capability ports three lineages:
       `agency/capability.py`, `agency/registry.py`, `agency/ontology.py`,
       `agency/toolresult.py`.
 - [ ] 15 user-facing verbs ship + 2 internal gate verbs (see manifest).
-- [ ] 5 walkable skills ship (`brief-author` / `prompt-engineering-pass`
+- [ ] 5 walkable skills ship (`dossier-author` / `prompt-engineering-pass`
       / `optimize-pass` / `audit-pass` / `iterate-variants`).
 - [ ] Templates ship under `agency/capabilities/prompt/templates/` —
       registered on the consolidated `OntologyExtension.templates`.
@@ -107,7 +107,7 @@ agency/capabilities/prompt/
 │   ├── engineer.py          # engineering verbs (8-12)
 │   └── catalog.py           # template + catalog verbs (13-15)
 ├── templates/               # template bodies
-│   ├── brief-skeleton.md
+│   ├── dossier-skeleton.md
 │   ├── system-prompt-skeleton.md
 │   ├── builder-template.md
 │   ├── intent-yaml.md
@@ -132,11 +132,11 @@ agency/capabilities/prompt/
 ```python
 prompt_ontology = OntologyExtension(
     nodes={
-        # Research-brief lineage (1-5):
+        # Research-dossier lineage (1-5):
         "ResearchIntent":      ["seed_query", "topic", "deliverable",
                                 "success_criteria"],
         "ResearchBrief":       ["intent", "body_uri"],
-        "BriefAudit":          ["brief", "clarity_score",
+        "BriefAudit":          ["dossier", "clarity_score",
                                 "missing_sections"],
         "CatalogModule":       ["category", "identifier", "name"],
 
@@ -154,7 +154,7 @@ prompt_ontology = OntologyExtension(
     },
     enums={
         ("ResearchIntent", "deliverable"): {
-            "brief", "report", "outline", "memo"},
+            "dossier", "report", "outline", "memo"},
         ("CatalogModule", "category"): {"A", "B", "C"},
         ("PromptInstance", "purpose"): {
             "writing-assist", "dialogue-prompt", "description-prompt",
@@ -183,7 +183,7 @@ prompt_ontology = OntologyExtension(
         "APPLIES_PASS",      # PromptInstance → OptimizationPass
     },
     skills={
-        "brief-author":            BRIEF_AUTHOR_SKILL,
+        "dossier-author":            BRIEF_AUTHOR_SKILL,
         "prompt-engineering-pass": PROMPT_ENGINEERING_PASS_SKILL,
         "optimize-pass":           OPTIMIZE_PASS_SKILL,
         "audit-pass":              AUDIT_PASS_SKILL,
@@ -191,12 +191,12 @@ prompt_ontology = OntologyExtension(
     },
     schemas={
         "intent-yaml":     ["topic", "deliverable", "success_criteria"],
-        "research-brief":  ["intent_ref", "body"],
+        "research-dossier":  ["intent_ref", "body"],
         "prompt-instance": ["template_ref", "rendered_body"],
         "audit-report":    ["brief_ref", "clarity_score", "missing_sections"],
     },
     templates={
-        "brief-skeleton":          None,  # → data/templates/
+        "dossier-skeleton":          None,  # → data/templates/
         "system-prompt-skeleton":  None,
         "builder-template":        None,
         "intent-yaml":             None,
@@ -210,15 +210,15 @@ prompt_ontology = OntologyExtension(
 ### 5 walkable skills
 
 ```python
-# brief-author (5 phases — research-brief lineage):
+# dossier-author (5 phases — research-dossier lineage):
 BRIEF_AUTHOR_SKILL = {
-    "name": "brief-author", "kind": "workflow",
+    "name": "dossier-author", "kind": "workflow",
     "phases": [
         {"index": 1, "name": "intent-capture",
          "produces": ["intent_yaml_recorded"]},
         {"index": 2, "name": "module-select",
          "produces": ["catalog_modules_chosen"]},
-        {"index": 3, "name": "brief-render",
+        {"index": 3, "name": "dossier-render",
          "produces": ["brief_body_rendered"]},
         {"index": 4, "name": "audit",
          "produces": ["audit_findings"],
@@ -337,7 +337,7 @@ def test_capability_registers(): ...
 def test_drop_in_bar_zero_engine_edits(): ...
 def test_intent_capture_records_research_intent_node(): ...
 def test_brief_render_is_deterministic_for_same_inputs(): ...
-def test_brief_audit_returns_clarity_score_and_missing_sections(): ...
+def test_dossier.audit_returns_clarity_score_and_missing_sections(): ...
 def test_brief_finalize_packages_artefact_set(): ...
 def test_catalog_list_returns_36_modules_from_yaml(): ...
 def test_build_is_read_only_and_idempotent(): ...
@@ -354,13 +354,189 @@ def test_brief_author_skill_walks_through_audit_gate(): ...
 def test_prompt_engineering_pass_skill_walks_through_token_budget_gate(): ...
 ```
 
+## Prompt frameworks as walkable skills (iter-13b — user directive)
+
+User directive (2026-06-07): *"the prompt capability should also include
+all prompt Frameworks From the Research prompt optimizer skill… Like
+react etc… also… they Need to bei walkeble - so that they dont Flood
+context Window - but that they can be given to the Agent step by step
+when the Agent needs that instructions."*
+
+The capability ships **18 prompt frameworks** from the literature as
+**walkable skills** — each phase delivers ONE chunk of instruction so
+the agent's context window doesn't get flooded with the full framework
+at once. The walker (per Spec 080/081 contract) advances one phase at
+a time; the agent fills `produces` keys and calls back to advance.
+
+### The 18 frameworks (catalog)
+
+| # | Framework | Category | Phases | Triggers |
+|---|---|---|---|---|
+| 1 | `zero-shot` | foundational | 2 | direct instruction |
+| 2 | `few-shot` | foundational | 3 | analogy from examples |
+| 3 | `chain-of-thought` (CoT) | reasoning | 4 | multi-step reasoning |
+| 4 | `zero-shot-cot` | reasoning | 3 | "let's think step by step" |
+| 5 | `tree-of-thoughts` (ToT) | search | 5 | branching exploration |
+| 6 | `react` | acting | (loop) 3+1 | reasoning + action loops |
+| 7 | `rewoo` | planning | 4 | plan-then-execute |
+| 8 | `reflexion` | self-critique | 4 (loop) | retry with reflection |
+| 9 | `plan-and-solve` | planning | 4 | explicit plan before solve |
+| 10 | `least-to-most` | decomposition | 4 | break into easier sub-problems |
+| 11 | `self-consistency` | sampling | 4 | sample N reasoning paths + vote |
+| 12 | `self-refine` | iteration | 4 (loop) | iterative refinement |
+| 13 | `generated-knowledge` | priming | 3 | generate facts first |
+| 14 | `step-back` | abstraction | 3 | abstract the question first |
+| 15 | `self-ask` | decomposition | 4 (loop) | decompose into sub-questions |
+| 16 | `skeleton-of-thought` | structure | 3 | skeleton then expand |
+| 17 | `chain-of-verification` | verification | 4 | generate then verify |
+| 18 | `persona-prompting` | role-based | 3 | adopt expert role |
+
+### Why walkable? Context-window discipline
+
+Without walkable delivery, including the FULL framework in a prompt
+means:
+- ReAct's full instruction set ≈ 800-1500 tokens of scaffolding
+- 18 frameworks × ~1000 tokens = 18K tokens just for framework docs
+- The agent's context window fills with meta-instructions
+
+With walkable delivery:
+- Phase 1 (e.g. ReAct "Thought") gets ~150 tokens of instruction
+- Agent reasons, fills `produces` keys, calls back
+- Engine tracks state in the Lifecycle
+- Context-window usage stays bounded; framework guidance is
+  just-in-time
+
+### Two new verbs (iter-13b)
+
+```python
+@verb(role="act")
+def framework_walk(self, name: str, problem: str = "",
+                   intent_id: str = "") -> ToolResult:
+    """Begin walking a prompt framework. Creates a Lifecycle that
+    SERVES the intent + registers the framework's phase schema. Returns
+    the FIRST phase's instructions only.
+
+    Example: prompt.framework_walk("react", problem="Find the capital")
+    → returns Phase 1 (Thought) instructions ~150 tokens."""
+
+@verb(role="effect")
+def framework_advance(self, lifecycle_id: str,
+                      produces: dict) -> ToolResult:
+    """Advance a framework walk to the next phase. Records the
+    produces keys on the Lifecycle; returns the next phase's
+    instructions OR signals completion if terminal phase fired.
+
+    Loop-based frameworks (ReAct / Reflexion / Self-Refine): walker
+    re-enters loop phase when continue_loop is set; exits when
+    commit is set."""
+```
+
+### Example: ReAct as a walkable skill
+
+```python
+REACT_FRAMEWORK = {
+    "name": "react", "kind": "framework",
+    "category": "acting", "loop": True,
+    "phases": [
+        {"index": 1, "name": "thought",
+         "instruction": (
+             "Reason about what to do. Format: 'Thought: <reasoning>'. "
+             "Identify whether you need an Action, more Thought, or commit."),
+         "produces": ["thought", "next_action_kind"]},
+        {"index": 2, "name": "action",
+         "instruction": (
+             "Choose one action. Format: 'Action: <name>(<args>)'. "
+             "Available: search / lookup / compute / ask."),
+         "produces": ["action_name", "action_args", "action_result"]},
+        {"index": 3, "name": "observation",
+         "instruction": (
+             "Record what you learned. Format: 'Observation: <text>'. "
+             "Decide: loop back to thought OR commit if you have the answer."),
+         "produces": ["observation", "continue_loop", "commit"]},
+        {"index": 4, "name": "answer",
+         "instruction": "Provide the final answer. Format: 'Answer: <text>'.",
+         "produces": ["final_answer"],
+         "gate": "hard"},
+    ],
+}
+```
+
+Total context cost: ~600 tokens for a full ReAct walk versus ~2000 for
+including the framework upfront.
+
+### Lifecycle integration (Workflows Core)
+
+User directive (2026-06-07): *"It might also have to be integrated with
+Workflows Core capability (lifecycle)."*
+
+Every framework walk creates a **Lifecycle** node (Spec 080/081
+contract). The Lifecycle:
+- SERVES the parent intent (provenance preserved)
+- Holds the current phase + accumulated `produces` keys
+- Records gate.check ledger entries for each phase
+- Pauses on hard gates via `elicit`/`lifecycle_gate`
+
+```
+USER → prompt.framework_walk(name="react", problem="...")
+    ↓ creates Lifecycle{state="working", phase=1, name="react"}
+    ↓ Lifecycle SERVES intent
+    ↓ returns phase 1 instructions (only)
+AGENT → reads instructions, fills produces, calls framework_advance
+    ↓
+prompt.framework_advance(lifecycle_id, produces={thought, ...})
+    ↓ records produces on Lifecycle + advances to phase 2
+    ↓ returns phase 2 instructions (only)
+... loop until commit or hard gate ...
+```
+
+### Three new ontology nodes
+
+```python
+PromptFramework  (slug, category, loop, phase_count)
+FrameworkWalk    (slug, framework, lifecycle, phases_completed,
+                  final_answer)
+FrameworkChoice  (slug, problem, chosen_framework, rationale)
+```
+
+Closed enum: `(PromptFramework, category)`: `foundational / reasoning /
+search / acting / planning / self-critique / sampling / iteration /
+priming / abstraction / decomposition / structure / verification /
+role-based`
+
+### Two helper walkable skills
+
+- `framework-select` (3 phases — characterize-problem →
+  recommend → confirm HARD GATE)
+- `framework-compare` (4 phases — select-pair → walk-a → walk-b →
+  compare HARD GATE)
+
+### Catalog data file
+
+`agency/capabilities/prompt/data/reference/frameworks/catalog.yaml`
+holds the 18 framework definitions verbatim with phase schemas + per-
+phase `instruction` field (the token-budget delivery) + source
+citations.
+
+### Integration with existing 109 verbs
+
+Framework walks are COMPLEMENTARY to the engineering pass:
+- `prompt.engineer` composes a prompt FOR THE LLM CALL
+- `prompt.framework_walk` walks THE AGENT through a reasoning framework
+
+Complete writing-assist session:
+1. Agent walks `framework-select` → choose framework
+2. Agent walks the chosen framework (e.g. ReAct) → solve problem
+3. Agent uses `prompt.engineer` → compose LLM call
+4. Agent uses `prompt.score_output` → evaluate
+5. Everything recorded in the Lifecycle + provenance graph
+
 ## Open questions
 
 1. **Default `llm` driver requirement?** Path A rule-based works for
    all 17 verbs. Path B (LLM-needed for `intent_capture` /
    `brief_audit`) opts in via `[prompt-llm]` extra.
 2. **Per-domain catalog modules?** The A/B/C × M01-M12 catalog is the
-   research-brief default; per-domain caps (novel/music/screenplay)
+   research-dossier default; per-domain caps (novel/music/screenplay)
    may declare ADDITIONAL catalog modules under their own
    `data/reference/`.
 3. **Shared anti-pattern library?** The base 8 anti-patterns ship with

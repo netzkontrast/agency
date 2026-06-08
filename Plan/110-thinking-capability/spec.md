@@ -383,6 +383,54 @@ The `thinking` capability is invoked by:
 lists it. `intent.suggests` (091) recommends `thinking.*` methods
 for high-uncertainty intents.
 
+## Lifecycle integration (Workflows Core)
+
+User directive (2026-06-07): *"It might also have to be integrated with
+Workflows Core capability (lifecycle)."*
+
+Every thinking-method invocation that produces an artefact creates a
+**ThoughtChain** Lifecycle node (Spec 080/081 contract). The Lifecycle:
+
+- SERVES the parent intent (provenance preserved)
+- Holds accumulated method-findings as the chain progresses
+- Records gate.check ledger entries when a composite verb
+  (`apply_full_review` / `apply_decision_discipline` /
+  `apply_design_review`) walks its 8/14 methods in sequence
+- Pauses on hard gates via `elicit`/`lifecycle_gate` — composite
+  reviews can require human acknowledgement of critical findings
+  (RedTeam severity=critical) before progressing
+
+Each method verb optionally accepts `lifecycle_id` to RESUME a
+ThoughtChain in progress (vs starting a new one):
+
+```python
+# First call — starts a chain:
+result1 = thinking.decompose(subject="design X")
+# returns {finding_id, lifecycle_id}
+
+# Subsequent methods attach to the same chain:
+result2 = thinking.assumptions(subject="design X",
+                                lifecycle_id=result1["lifecycle_id"])
+# attaches AssumptionFinding to the same ThoughtChain
+```
+
+The `critical-thinking` walkable skill (ported from Spec 091) creates
+ThoughtChain Lifecycles by default. Each phase records its method-
+finding as part of the chain.
+
+### ThoughtChain node (new — added to ontology)
+
+```python
+ThoughtChain  (slug, intent_ref, depth, finding_refs: list,
+               status, started_at, completed_at)
+               # status: working / paused / complete / abandoned
+```
+
+ThoughtChain SERVES the parent intent + accumulates DEPENDS_ON_FINDING
+edges to atomic findings as the chain progresses. A composite verb
+(`apply_full_review`) populates one ThoughtChain with 8 finding refs;
+`apply_design_review` populates with 14.
+
 ## Test plan
 
 ```python

@@ -1,23 +1,23 @@
 ---
 spec_id: "112"
-slug: brief-capability
+slug: dossier-capability
 status: draft
 last_updated: 2026-06-07
 owner: "@agency"
 depends_on: ["001", "002", "020", "044", "047", "054", "060", "076", "079", "080", "081", "092", "109"]
 affects:
-  - agency/capabilities/brief/
-  - tests/test_brief_*.py
+  - agency/capabilities/dossier/
+  - tests/test_dossier_*.py
 source-material:
   - "Plan/_research/novel-mvp-source/research-prompt-optimizer/ (research-prompt-optimizer 5-phase pattern)"
   - "Plan/_research/novel-mvp-source/research-prompt-optimizer/agentic-tool-catalog.md (A/B/C × M01-M12 module catalog)"
   - "Spec 105 iter-10 (novel research cluster's 4-stage research-entity ontology — generalized into a first-class capability)"
-domain: capability / research-brief / corpus
+domain: capability / research-dossier / corpus
 wave: 8
 research_first: false
 ---
 
-# Spec 112 — `brief` Capability (research-brief + corpus)
+# Spec 112 — `dossier` Capability (research-dossier + corpus)
 
 ## Why
 
@@ -42,9 +42,9 @@ This pattern is reusable across:
 - **legal-brief** (future) — research → case-brief sections
 
 Spec 112 promotes the pattern to a first-class agency capability
-`brief` under `agency/capabilities/brief/`. It **feeds INTO the
+`dossier` under `agency/capabilities/dossier/`. It **feeds INTO the
 existing `research` capability** (Spec 044: `lead`/`specialist`/
-`verify`) — the brief capability handles intent capture, brief
+`verify`) — the dossier capability handles intent capture, brief
 authoring, corpus ingestion, entity extraction, and prompt-snippet
 rendering. The research capability handles outbound search +
 verification.
@@ -55,7 +55,7 @@ verification.
 USER REQUEST
      ↓
 ┌────────────────────────────────────┐
-│ brief capability (Spec 112)        │
+│ dossier capability (Spec 112)        │
 │                                    │
 │  Stage 0: intent_capture           │
 │  Stage 1: ingest_source            │
@@ -86,25 +86,25 @@ PromptSnippet → engineer_writing_prompt (prompt capability, Spec 109)
 
 ## Done When
 
-- [ ] `agency/capabilities/brief/` registers `BriefCapability` with
+- [ ] `agency/capabilities/dossier/` registers `DossierCapability` with
       drop-in bar (zero engine edits).
 - [ ] 20 user-facing verbs ship (4 intent/audit + 4 corpus + 5
       entity + 4 mapping/snippet + 3 catalog). See manifest.
 - [ ] 3 internal gate verbs.
-- [ ] 4 walkable skills (`brief-intent-pass` / `corpus-ingest-pass` /
+- [ ] 4 walkable skills (`dossier-intent-pass` / `corpus-ingest-pass` /
       `entity-mapping-pass` / `snippet-render-pass`).
 - [ ] Ontology + schemas + edges declared (see Design).
-- [ ] Templates ship under `agency/capabilities/brief/templates/`
+- [ ] Templates ship under `agency/capabilities/dossier/templates/`
       (brief-skeleton / intent-yaml / module-catalog-entry /
       entity-card / snippet-skeleton).
-- [ ] Data assets ship under `agency/capabilities/brief/data/` —
+- [ ] Data assets ship under `agency/capabilities/dossier/data/` —
       A/B/C × M01-M12 module catalog (verbatim from imported
       `agentic-tool-catalog.md`).
-- [ ] Cross-capability surface: brief calls `research.specialist`
+- [ ] Cross-capability surface: dossier calls `research.specialist`
       for outbound search (delegation pattern); novel (Spec 105 iter-10)
-      refactored to DELEGATE its research-entity verbs to `brief.*`
+      refactored to DELEGATE its research-entity verbs to `dossier.*`
       via `ctx.call`.
-- [ ] `tests/test_brief_capability.py` Green (~22 tests).
+- [ ] `tests/test_dossier_capability.py` Green (~22 tests).
 - [ ] `TODO.md` updated with 112 row.
 
 ## Verb manifest
@@ -116,7 +116,7 @@ PromptSnippet → engineer_writing_prompt (prompt capability, Spec 109)
 | 1 | `intent_capture` | act | research-prompt-optimizer Phase 1 |
 | 2 | `audit` | effect | research-prompt-optimizer Phase 3 (reader-test) |
 | 3 | `finalize` | effect | research-prompt-optimizer Phase 5 |
-| 4 | `dispatch_research_via_brief` | effect | delegates to `research.lead` + `research.specialist` × N |
+| 4 | `dispatch_research_via_dossier` | effect | delegates to `research.lead` + `research.specialist` × N |
 
 ### 2. Corpus cluster (4 verbs)
 
@@ -158,7 +158,7 @@ PromptSnippet → engineer_writing_prompt (prompt capability, Spec 109)
 
 | # | Verb | Walks |
 |---|---|---|
-| G1 | `audit_gate` | `brief-intent-pass` phase 4 |
+| G1 | `audit_gate` | `dossier-intent-pass` phase 4 |
 | G2 | `entity_extraction_gate` | `corpus-ingest-pass` phase 3 |
 | G3 | `context_coverage_gate` | `entity-mapping-pass` phase 3 |
 
@@ -169,8 +169,8 @@ PromptSnippet → engineer_writing_prompt (prompt capability, Spec 109)
 ### Module layout
 
 ```
-agency/capabilities/brief/
-├── __init__.py              # BriefCapability + module docstring → SkillDoc
+agency/capabilities/dossier/
+├── __init__.py              # DossierCapability + module docstring → SkillDoc
 ├── ontology.py              # OntologyExtension
 ├── clusters/
 │   ├── __init__.py
@@ -191,14 +191,14 @@ agency/capabilities/brief/
     │                                  # agentic-tool-catalog A/B/C × M01-M12
     └── schemas/
         ├── intent.schema.json
-        ├── brief.schema.json
+        ├── dossier.schema.json
         └── entity.schema.json
 ```
 
 ### Ontology (consolidated `OntologyExtension`)
 
 ```python
-brief_ontology = OntologyExtension(
+dossier_ontology = OntologyExtension(
     nodes={
         # Intent + audit layer:
         "ResearchIntent":      ["seed_query", "topic", "deliverable",
@@ -268,7 +268,7 @@ brief_ontology = OntologyExtension(
         "DERIVED_FROM_MODULE",     # ResearchBrief → CatalogModule
     },
     skills={
-        "brief-intent-pass":   BRIEF_INTENT_PASS_SKILL,
+        "dossier-intent-pass":   DOSSIER_INTENT_PASS_SKILL,
         "corpus-ingest-pass":  CORPUS_INGEST_PASS_SKILL,
         "entity-mapping-pass": ENTITY_MAPPING_PASS_SKILL,
         "snippet-render-pass": SNIPPET_RENDER_PASS_SKILL,
@@ -292,8 +292,8 @@ brief_ontology = OntologyExtension(
 ### 4 walkable skills (one per layer)
 
 ```python
-BRIEF_INTENT_PASS_SKILL = {
-    "name": "brief-intent-pass", "kind": "workflow",
+DOSSIER_INTENT_PASS_SKILL = {
+    "name": "dossier-intent-pass", "kind": "workflow",
     "phases": [
         {"index": 1, "name": "intent-capture",
          "produces": ["intent_yaml_recorded"]},
@@ -303,7 +303,7 @@ BRIEF_INTENT_PASS_SKILL = {
          "produces": ["brief_body_rendered"]},
         {"index": 4, "name": "audit",
          "produces": ["audit_findings"],
-         "gate": "computed", "gate_verb": "brief.audit_gate"},
+         "gate": "computed", "gate_verb": "dossier.audit_gate"},
         {"index": 5, "name": "finalize",
          "produces": ["brief_finalized"], "gate": "hard"},
     ],
@@ -318,7 +318,7 @@ CORPUS_INGEST_PASS_SKILL = {
          "produces": ["chunks_created"]},
         {"index": 3, "name": "extract",
          "produces": ["entities_extracted"],
-         "gate": "computed", "gate_verb": "brief.entity_extraction_gate"},
+         "gate": "computed", "gate_verb": "dossier.entity_extraction_gate"},
         {"index": 4, "name": "taxonomize",
          "produces": ["entities_taxonomized"]},
         {"index": 5, "name": "human-review",
@@ -335,7 +335,7 @@ ENTITY_MAPPING_PASS_SKILL = {
          "produces": ["contexts_declared"]},
         {"index": 3, "name": "coverage",
          "produces": ["coverage_verified"],
-         "gate": "computed", "gate_verb": "brief.context_coverage_gate"},
+         "gate": "computed", "gate_verb": "dossier.context_coverage_gate"},
         {"index": 4, "name": "confirmation",
          "produces": ["mapping_locked"], "gate": "hard"},
     ],
@@ -362,7 +362,7 @@ The brief capability **delegates outbound search to `research`**:
 
 ```python
 @verb(role="effect")
-def dispatch_research_via_brief(self, brief_id: str,
+def dispatch_research_via_dossier(self, brief_id: str,
                                  specialists: str = "all") -> ToolResult:
     """Brief capability's primary handshake with the research capability.
 
@@ -415,7 +415,7 @@ instance = self.ctx.call("prompt", "engineer",
 
 ### Integration with `thinking` capability (Spec 110)
 
-`brief.audit` can call `thinking.red_team` for adversarial brief
+`dossier.audit` can call `thinking.red_team` for adversarial brief
 review:
 
 ```python
@@ -440,22 +440,22 @@ wrappers / delegations to `brief.*`:
 
 | 105 verb | becomes |
 |---|---|
-| `research_intent_capture` | wraps `brief.intent_capture` (sets domain=novel) |
-| `ingest_research_source` | wraps `brief.ingest_source` |
-| `chunk_research_source` | wraps `brief.chunk_source` |
-| `extract_entities` | wraps `brief.extract_entities` |
-| `taxonomize_entity` | wraps `brief.taxonomize_entity` |
-| `auto_taxonomize_source` | wraps `brief.auto_taxonomize_source` |
-| `link_entities` | wraps `brief.link_entities` |
-| `declare_chapter_context` | wraps `brief.declare_context` (scope=chapter) |
-| `infer_chapter_context` | wraps `brief.infer_context` (scope=chapter) |
-| `chapter_research_brief` | wraps `brief.render_brief` (scope_id=chapter) |
-| `build_writing_prompt_snippet` | wraps `brief.render_snippet` |
-| `research_brief_audit` | wraps `brief.audit` |
-| `research_catalog_list` | wraps `brief.catalog_list` |
+| `research_intent_capture` | wraps `dossier.intent_capture` (sets domain=novel) |
+| `ingest_research_source` | wraps `dossier.ingest_source` |
+| `chunk_research_source` | wraps `dossier.chunk_source` |
+| `extract_entities` | wraps `dossier.extract_entities` |
+| `taxonomize_entity` | wraps `dossier.taxonomize_entity` |
+| `auto_taxonomize_source` | wraps `dossier.auto_taxonomize_source` |
+| `link_entities` | wraps `dossier.link_entities` |
+| `declare_chapter_context` | wraps `dossier.declare_context` (scope=chapter) |
+| `infer_chapter_context` | wraps `dossier.infer_context` (scope=chapter) |
+| `chapter_research_brief` | wraps `dossier.render_brief` (scope_id=chapter) |
+| `build_writing_prompt_snippet` | wraps `dossier.render_snippet` |
+| `research_brief_audit` | wraps `dossier.audit` |
+| `research_catalog_list` | wraps `dossier.catalog_list` |
 
 The novel-specific behaviors (e.g. inferring context from Chapter.beat
-nodes) ride OVER the `brief` capability — the brief returns generic
+nodes) ride OVER the `dossier` capability — the brief returns generic
 findings; novel's wrapper adds the domain-specific scoring.
 
 ## Why this matters
@@ -466,7 +466,7 @@ findings; novel's wrapper adds the domain-specific scoring.
 - **Provenance**: ResearchEntity nodes SERVE the parent intent — a
   novel's research entities AND a music album's research entities
   share the same audit surface
-- **Feed-into-research**: `brief.dispatch_research_via_brief`
+- **Feed-into-research**: `dossier.dispatch_research_via_dossier`
   delegates outbound search to `research.specialist` — the brief
   capability handles the prep + post-processing; research handles the
   actual search
@@ -475,10 +475,69 @@ findings; novel's wrapper adds the domain-specific scoring.
   modules (chapter-mapping, lyric-mapping). The catalog ecology
   grows organically.
 
+## Lifecycle integration (Workflows Core)
+
+User directive (2026-06-07): *"It might also have to be integrated with
+Workflows Core capability (lifecycle)."*
+
+Each of the 4 walkable skills (`dossier-intent-pass`, `corpus-ingest-pass`,
+`entity-mapping-pass`, `snippet-render-pass`) creates a **Lifecycle**
+node per the Spec 080/081 contract. The Lifecycle:
+
+- SERVES the parent intent
+- Holds accumulated stage outcomes (intent_yaml → modules → brief →
+  entities → contexts → snippets)
+- Records gate.check ledger entries at each computed gate
+- Pauses on hard gates via `elicit`/`lifecycle_gate`
+
+The four stages compose into a single **DossierWorkflow** Lifecycle
+that holds the full ingest-to-snippet pipeline state:
+
+```python
+# New node added to ontology (iter-13b):
+DossierWorkflow  (slug, intent_ref, scope_ref,
+                  intent_yaml_ref, source_refs: list,
+                  entity_refs: list, context_refs: list,
+                  snippet_refs: list,
+                  current_stage, status)
+                  # current_stage: intent | corpus | entity | mapping |
+                  #                snippet | done
+                  # status: working | paused | complete | abandoned
+```
+
+The agent can RESUME a DossierWorkflow across sessions — the
+Lifecycle records where the pipeline paused (e.g. waiting on
+human_review at corpus stage).
+
+### Cross-cap Lifecycle composition
+
+A novel chapter's research uses ALL THREE caps via composed
+Lifecycles:
+
+```
+DossierWorkflow Lifecycle
+  ├─→ Stage 1: dossier.intent_capture
+  │     ├─→ thinking.red_team Lifecycle (adversarial brief audit)
+  │     └─→ produces: ResearchBrief
+  ├─→ Stage 2: dispatch_research_via_dossier
+  │     ├─→ research.lead + research.specialist × N (per Spec 044)
+  │     └─→ produces: Citations → ResearchEntities
+  ├─→ Stage 3: dossier.extract_entities + taxonomize
+  ├─→ Stage 4: dossier.declare_context (scope=chapter)
+  ├─→ Stage 5: dossier.render_snippet
+  │     └─→ produces: PromptSnippet
+  └─→ Stage 6: handoff to prompt.engineer
+         └─→ prompt-engineering-pass Lifecycle
+                └─→ produces: PromptInstance → LLM call → Draft
+```
+
+Each cap's Lifecycle SERVES the same parent intent — the full
+pipeline is one traversal of `memory.provenance(intent_id)`.
+
 ## Test plan
 
 ```python
-# tests/test_brief_capability.py — ~22 tests
+# tests/test_dossier_capability.py — ~22 tests
 def test_capability_registers_with_drop_in_bar(): ...
 def test_intent_capture_records_research_intent_node(): ...
 def test_audit_returns_clarity_score(): ...
@@ -513,7 +572,7 @@ def test_audit_with_red_team_calls_thinking_red_team(): ...
    additional CatalogModule nodes via `register_module` — but the
    base 36 (A/B/C × M01-M12) ship with `brief`.
 3. **research → brief feedback loop**: when `research.specialist`
-   produces citations, brief.extract_entities materializes them as
+   produces citations, dossier.extract_entities materializes them as
    ResearchEntities. The reverse (brief sends signal back to
    research about which citations were USEFUL) is a v2 enhancement.
 4. **Multi-novel / multi-domain shared corpus**: a writer with both a
