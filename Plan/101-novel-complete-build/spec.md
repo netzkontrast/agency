@@ -478,6 +478,79 @@ The base schema (simple novel) works without ANY of the iteration-2
 additions. They activate when the novel's frontmatter declares the
 relevant complexity field.
 
+### ADR-14: Novel delegates to brief + prompt + thinking capabilities (iteration 13)
+
+User directive (2026-06-07): *"Those Research Parts - Need to be its
+own capability - that Feed into Research agents - so that we can freely
+combine capabilities - novel is only the First one to make use of the
+Research capability."*
+
+The novel spec set's iter-10 (research-entity ontology) + iter-11
+(prompt-engineering layer) + iter-12 (critical-thinking analysis +
+research-prompt-optimizer ports) describe a general pattern. iter-13
+PROMOTES these to three first-class agency capabilities:
+
+| New capability | Spec | What it owns |
+|---|---|---|
+| `prompt` | 109 | Prompt engineering + optimization + 10-builder family + research-prompt-optimizer + token-budget composition + A/B variants + scoring + anti-pattern library |
+| `thinking` | 110 | 14 critical-thinking methods (8 from Spec 091 + 6 net-new: red_team / socratic / pre_commitment / if_then_else / bayesian_update / analogy_map) + 3 composite verbs (apply_full_review / apply_decision_discipline / apply_design_review) |
+| `brief` | 112 | Research-brief authoring (intent_capture / brief_render / brief_audit / brief_finalize / catalog_list) + corpus management (ingest / chunk / extract_entities / taxonomize / link / list) + context mapping (declare_context / infer_context / render_brief / render_snippet) |
+
+Novel's iter-10 + iter-11 verbs become **thin wrappers delegating to
+the three new caps** via `ctx.call`. Per Spec 111 (capability migration
+plan):
+
+- 105 iter-10 research-entity stack → delegates to `brief.*`
+- 105 iter-12 research-prompt-optimizer verbs → delegate to `brief.*`
+- 104 iter-11 10 prompt builders → registered as domain-specific
+  builders via `prompt.register_builder`
+- 104 iter-11 engineering verbs → delegate to `prompt.*`
+- 101 CRITICAL-ANALYSIS.md → uses `thinking.apply_design_review`
+- The novel-specific behaviors (chapter-scoped context, voice-
+  signature injection, beat-sheet binding) ride OVER the generic
+  cap surface — wrappers add domain-specific logic, generic cap
+  handles the substrate.
+
+**The handshake** (per Spec 112):
+```
+USER → brief.intent_capture → brief.dispatch_research_via_brief
+                                    ↓
+                              research.lead + research.specialist
+                                    ↓
+                              brief.extract_entities + brief.taxonomize
+                                    ↓
+                              brief.declare_context (scope=chapter)
+                                    ↓
+                              brief.render_snippet (snippet_kind=writing-assist)
+                                    ↓
+                              prompt.engineer (builder=chapter,
+                                               context_refs=[snippet_id],
+                                               voice_refs=[...],
+                                               constraints=...)
+                                    ↓
+                              novel.chapter_draft_assisted
+                                    ↓
+                              LLM (via Spec 092 G3 llm driver)
+                                    ↓
+                              novel.score_prompt_output
+                                    ↓
+                              prompt.score_output (accepted=True)
+                                    ↓
+                              novel Draft node PRODUCES the canonical chapter
+```
+
+**Why this matters**:
+- **Composability**: music's research-heavy concept albums can use
+  `brief.*` without re-implementing the entity pipeline. Screenplay,
+  journalism, legal, academic — same story.
+- **Substrate over duplication**: the prompt-engineering pattern
+  becomes one capability serving many domains, not duplicated per-cap.
+- **Critical-thinking as first-class**: ANY capability can call
+  `thinking.apply_design_review` on its own specs. The pattern that
+  produced novel iter-12's CRITICAL-ANALYSIS.md generalizes.
+- **Research-capability handshake**: `brief.dispatch_research_via_brief`
+  is the bridge — domain caps ask brief, brief asks research.
+
 ### ADR-13: Distribution channels + post-pub feedback loop (iteration 12 — decompose pass)
 
 Critical-thinking decompose surfaced two MECE gaps:
