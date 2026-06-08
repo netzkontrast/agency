@@ -331,6 +331,44 @@ These verbs are opt-in (CALLED ONLY when the genre matches); they emit
 WARNINGS not gates. Implementations may ship with empty stubs (`{status:
 "n/a", reason: "not yet implemented"}`) in the initial wave.
 
+## Prose rhythm detection (iteration 8)
+
+Skilled prose varies sentence length + paragraph length intentionally —
+to control pace, signal emotional intensity, or create breathing room.
+Three transform verbs analyze rhythm:
+
+```python
+@verb(role="transform")
+def sentence_length_variance(self, novel: str, chapter: int) -> ToolResult:
+    """Per-chapter sentence-length distribution. Reports mean, stdev,
+    min, max. Flags chapters with extremely-low variance (monotone
+    rhythm) as candidates for prose-refinement."""
+
+@verb(role="transform")
+def paragraph_length_variance(self, novel: str, chapter: int) -> ToolResult:
+    """Same for paragraphs. Short paragraphs = emotional punch; long
+    paragraphs = descriptive flow. Variance is the craft."""
+
+@verb(role="transform")
+def alliteration_density(self, novel: str, chapter: int) -> ToolResult:
+    """Per-paragraph alliteration count (consecutive words sharing
+    initial consonant). Useful for literary fiction; can be tuned per
+    novel via Novel.literary_alliteration_tolerance."""
+
+@verb(role="transform")
+def setting_description_ratio(self, novel: str, chapter: int) -> ToolResult:
+    """Ratio of description (setting/character physical details) vs
+    action+dialogue. Default target 15-25% description; >40% flags
+    'sagging description' chapter."""
+
+@verb(role="transform")
+def dialogue_subtext_check(self, novel: str, scene: str) -> ToolResult:
+    """Identifies dialogue where the literal meaning equals the
+    intended meaning (no subtext) — flags as warning. Subtext is when
+    characters say one thing but mean another; on-the-nose dialogue
+    has no subtext and reads flat."""
+```
+
 ## AI-use disclosure (iteration 5 — ADR-7 in 101)
 
 ```python

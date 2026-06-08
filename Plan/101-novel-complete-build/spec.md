@@ -362,6 +362,71 @@ The base schema (simple novel) works without ANY of the iteration-2
 additions. They activate when the novel's frontmatter declares the
 relevant complexity field.
 
+### ADR-8: Multi-author collaboration (iteration 8 — was deferred at iter-1)
+
+A complex novel may have multiple authors — co-writers, ghostwriters,
+editors with write-access. The capability supports this via
+**per-scope authorship**:
+
+- The `Novel` node carries `authors: list[str]` (slug list).
+- The `Chapter` node carries `primary_author: str` + `contributors: list[str]`.
+- The `Scene` node inherits its chapter's authorship by default; can be
+  overridden.
+- The `Character` node has `owned_by: str` for character-ownership in
+  POV-rotation novels.
+
+Conflict resolution:
+- One writer per Chapter at a time (lifecycle phase serializes edits).
+- The `claim_chapter` verb (102 iter-8) marks a chapter `locked_by:
+  <author>` for the duration of an editing session.
+- `release_chapter` releases the lock; auto-released after 60-min idle.
+- Concurrent reads are always allowed; writes are serialized.
+
+Provenance: every Draft has `author_slug` matching the contributing
+author. The ai_use_report (104) breaks out per-author percentages.
+
+### ADR-9: Marketing & comp-title tracking (iteration 8)
+
+For traditional publishing, query letters and synopsis need comp titles
+(comparable books) and BISAC categories. The capability declares:
+
+```python
+# Added to 102's consolidated ontology:
+CompTitle    (slug, novel, title, author, year, similarity_axis,
+              market_performance)
+              # similarity_axis: theme | genre | tone | structure | hook
+              # market_performance: bestseller | strong | mid | weak
+
+BisacCategory (slug, novel, code)  # e.g. "FIC027070"
+```
+
+107 verbs (added in iter-8):
+- `add_comp_title` (effect) — declares a comp; records similarity_axis
+- `add_bisac_category` (effect) — primary + up to 2 secondary BISACs
+- `comp_title_report` (transform) — summarizes for query letter
+- `validate_bisac` (transform) — checks BISAC code against the official
+  list (data file under `data/reference/marketing/bisac-codes.yaml`)
+
+### ADR-10: Legal/IP awareness (iteration 8)
+
+Beyond plagiarism check, biographical/historical fiction has libel risk;
+some fiction uses public-domain characters. The capability adds:
+
+- `LegalNote` node (102, iter-8): `slug, novel, kind: libel-risk|
+  public-domain-character|trademark-usage|real-person-portrayal, text,
+  resolved: bool, resolution_note`
+- `check_libel_risk` (105, iter-8): scans prose for real-person mentions;
+  cross-references against 105's research claims; WARNs on unverified
+  attribution
+- `check_public_domain_usage` (105, iter-8): flags use of named
+  characters (Sherlock Holmes, Anne Shirley) and reports their PD
+  status by jurisdiction
+- The `publish-ready` skill (108) gates on `LegalNote.resolved=true` for
+  every flagged risk
+
+These are diagnostic — they surface concerns; they don't litigate. The
+human-curator (or an actual lawyer) resolves them.
+
 ### ADR-7: AI-use disclosure (iteration 5)
 
 Traditional publishing increasingly requires authors to disclose
