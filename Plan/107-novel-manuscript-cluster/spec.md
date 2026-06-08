@@ -166,6 +166,39 @@ def test_manuscript_pass_skill_walks_to_phase_5(): ...
 def test_publication_gate_blocks_when_query_letter_missing(): ...
 ```
 
+## Complex-novel extensions (iteration 2)
+
+### Series-boxset rendering
+
+For multi-volume / series novels, the cluster ships two additional verbs:
+
+| # | Verb | Composes |
+|---|---|---|
+| 11 | `render_series_boxset` | Iterates Volumes (102 ontology) + renders a combined epub/PDF per volume + a single boxset epub bundling all volumes |
+| 12 | `render_per_volume_manuscript` | Renders manuscript-format per Volume (for individual-Volume agent queries) |
+
+The `publish_package` verb (existing #10) gains a `mode` parameter:
+`single-novel | series-boxset | per-volume`. Default `single-novel`
+matches base behaviour.
+
+### Per-format multilingual metadata (ADR-1 honored)
+
+For multilingual novels:
+- The rendered epub/PDF carries `<dc:language>` metadata matching the
+  CHAPTER's `canon_language`
+- A novel that mixes languages (e.g. German narration + English
+  dialogue) ships a single epub with `dc:language` = the dominant
+  language and per-chapter `xml:lang` attributes
+- No machine translation step is offered — agency cannot translate
+  canon prose (per ADR-1)
+
+### Manuscript-format for agents (query-letter context)
+
+The query-letter template (already declared) gains a `target_language`
+field — for German canon, an English query-letter is a SEPARATE artefact
+draft (`generated_by: agent`), NOT a translation of canon prose. The
+agent drafts an English query OF the German novel from scratch.
+
 ## Open questions
 
 1. **Format options**: v1 ships pandoc / wkhtmltopdf / calibre via

@@ -209,6 +209,62 @@ def test_chapter_drafting_skill_walks_through_developmental_gate(): ...
 def test_scene_revision_skill_pauses_on_hard_confirm_gate(): ...
 ```
 
+## Complex-novel extensions (iteration 2)
+
+### Per-POV voice signatures (ADR-6)
+
+`check_voice_consistency` is parameterized by POV character. The
+`voice_signature` is computed per `(novel, pov_character)` so a
+5-POV-character novel has 5 independent signatures. Drift is detected
+within a POV across chapters, NOT across POVs (different POV characters
+SHOULD sound different).
+
+```python
+@verb(role="transform")
+def check_voice_consistency(self, novel: str, chapter: int,
+                            pov_character: str = "") -> ToolResult:
+    """Per-POV voice drift detection. If pov_character is omitted, infers
+    from Scene.pov_character. Compares against the running signature for
+    the SAME pov across prior chapters."""
+```
+
+### Voice-signature versioning (character arc evolution — ADR-6)
+
+A character's voice changes over their arc (a darker tone after losing a
+loved one; more clipped speech after combat trauma). `voice_signature` is
+versioned per `ArcPhase`:
+
+```python
+# Character node carries: voice_signature_by_phase: {phase_id: signature}
+# 104's check_voice_consistency uses the CURRENT phase's signature, not
+# the chapter-1 signature, when evaluating later chapters.
+```
+
+The arc-evolution model is opt-in: novels without `Arc` nodes use the
+single-signature path.
+
+### Multilingual canon preservation (ADR-1 — load-bearing)
+
+The capability **MUST NOT translate canon prose into any other language**.
+
+- No `translate_prose` verb exists on this cluster.
+- The `chapter_draft_assisted` verb's Path B (LLM-drafted prose) returns
+  prose IN THE CHAPTER'S `canon_language`; if the LLM responds in a
+  different language, the verb returns `ToolResult.failure(
+  CANON_LANGUAGE_VIOLATION, ...)` and discards the draft.
+- A `extract_language` verb (transform) detects prose language for any
+  block; chapter's `canon_language` field is the source of truth.
+
+Test asserts: a German `canon_language: "de"` chapter that is
+LLM-drafted in English causes a typed failure.
+
+### POV-balance gate (for 108)
+
+The cluster ships `pov_balance_check` (transform — reads Scene.
+pov_character distribution across the novel). 108's `pov_balance_gate`
+calls it. Per-novel threshold: default "no POV > 40% unless
+`narrative_type=first-person-protagonist`".
+
 ## Open questions
 
 1. **Generated-prose attribution**: every LLM-drafted artefact carries a

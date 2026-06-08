@@ -36,6 +36,24 @@ draft → revise → beta → query → publish) that gains everything music
 gained (typed verbs, walkable gates, provenance audit) PLUS a domain-
 specific **decidable structural backbone**.
 
+**The design holds a very complex novel** (iteration 2 — see
+`COMPLEXITY-AUDIT.md`): multi-volume series (Series → Volume → Part →
+Book → Chapter → Scene, 6-level hierarchy opt-in); multi-POV (5+ POV
+characters with per-POV voice signatures + POV-balance gate); nested
+storyforms (each subplot gets its own 4-throughline Dramatica argument);
+non-linear narrative (narrative_order + story_time on every node);
+worldbuilding depth (Culture/Religion/Language/MagicSystem/Politics/
+Economy/Geography/Bestiary + WorldAxiom sub-graph); large cast
+(Faction/House/Family hierarchy); character voice evolution (versioned
+per arc-position); multilingual canon preservation (German canon NOT
+translated per ADR-1); character arcs across volumes; series-level
+coherence; genre-blending; provenance at scale.
+
+The iteration-2 additions are **back-loaded**: simple novels work with
+the base schema; complex-novel features activate when the user opts in
+via novel frontmatter (`outline_hierarchy`, `multilingual`, `pov_count`,
+`subplot_count`).
+
 **The decidable backbone is Dramatica + NCP v1.3.0**. Per the imported
 **Dramatica Decidability Matrix** (`Plan/_research/novel-mvp-source/
 references/dramatica-decidability.md` — embedded brief, source research
@@ -108,8 +126,20 @@ children read from it rather than re-derive:
 | **105** | research | delegates to `agency.research` | music research (099) | ~8 user + 1 gate (10 domains; reuses 099 verbatim) |
 | **106** | catalogue | DBDriver+StateDriver | music catalogue (097) | ~10 user + 1 gate (beta-feedback + version-log; manuscript/series coherence split) |
 | **107** | manuscript | FormatDriver (new) + StateDriver+CloudDriver | music audio + promo (096+098) | ~10 user + 1 gate (4-stage editorial: developmental→line→copy→proof; renders manuscript-format/epub/PDF/docx + query letter + synopsis + blurb) |
-| **108** | gates | gate.check + elicit | music gates (100) | ~6 user + 4 gate (pre-draft/beta-ready/query-ready/publish-ready) |
-| | | **Totals** | | **~73 user + 11 gate = 84 registered** |
+| **108** | gates | gate.check + elicit | music gates (100) | ~6 user + 4 gate (pre-draft/beta-ready/query-ready/publish-ready) + **4 iter-2 gates** (pov_balance / subplot_resolution / timeline_continuity / world_canon) |
+| | | **Totals (base + iter-2)** | | **~73 user + 11 gate base + ~5 iter-2 user + 4 iter-2 gate = 93 registered** |
+
+**Iteration-2 verb additions** (opt-in for complex novels):
+- 102: `create_volume`, `create_part`, `create_book` + 8 world-subschema effect verbs
+- 103: `list_storyforms` (transform) — multi-Storyform discovery
+- 104: `extract_language`, `pov_balance_check` (transforms)
+- 106: `arc_coverage_report`, `cast_hierarchy_report`, `worldbuilding_coverage` (transforms)
+- 107: `render_series_boxset`, `render_per_volume_manuscript` (effects)
+- 108: `pov_balance_gate`, `subplot_resolution_gate`, `timeline_continuity_gate`, `world_canon_gate`
+
+All iteration-2 verbs degrade gracefully on simple novels (return
+`{status: "n/a", reason: "novel lacks <field>"}` per CLAUDE.md rule 8 —
+no surprise failures).
 
 Per the parity table, the cluster surface maps to **28 spirit-isomorphic
 skills + 4 ported storyform/theory skills = 32 walkable SKILL.md** entries
@@ -314,6 +344,23 @@ pipx install agency[novel-cloud]    # boto3 (reuses [music-cloud])
 pipx install agency[novel-llm]      # routes prose-gen through `llm` driver
 pipx install agency[novel]          # all of the above
 ```
+
+## ADRs (iteration 2 — see `COMPLEXITY-AUDIT.md` for the full table)
+
+Six load-bearing decisions for very complex novels:
+
+| ADR | Decision | Where it lands |
+|---|---|---|
+| ADR-1 | Canon prose MUST NOT be translated | 101 (this section), 104 (translation-refusal verb behaviour), 107 (multilingual epub metadata) |
+| ADR-2 | Each subplot gets its own Storyform sub-graph; H1–H12 run per-Storyform | 103 (subplot manifest) |
+| ADR-3 | Every Chapter+Scene carries both `narrative_order` and `story_time` | 102 (ontology), 106 (series_coherence's timeline-alignment axis), 108 (timeline_continuity_gate) |
+| ADR-4 | World is a typed sub-graph with closed taxonomy | 102 (8 sub-schema nodes + WorldAxiom + Canon edges) |
+| ADR-5 | Volume/Part/Book hierarchy is opt-in via `Novel.outline_hierarchy` | 102 (ontology + lifecycle verbs gated on declaration) |
+| ADR-6 | Per-POV voice signatures + arc-versioned signatures | 104 (`check_voice_consistency` POV-parameterized), 102 (Arc + ArcPhase nodes) |
+
+The base schema (simple novel) works without ANY of the iteration-2
+additions. They activate when the novel's frontmatter declares the
+relevant complexity field.
 
 ## Open questions
 

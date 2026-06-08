@@ -242,6 +242,49 @@ The fixtures-driven tests are the load-bearing assertion that the 11
 decidability checks are real — each `broken_<row>` fixture proves the
 check fires precisely on its own row's violation.
 
+## Complex-novel extensions (iteration 2 — ADR-2)
+
+### Nested storyforms / subplots
+
+A complex novel has ONE main Storyform (the OS) PLUS N Subplot Storyforms,
+each its own 4-throughline Dramatica argument scoped to a subset of the
+cast. The 11 decidability checks run **per Storyform** — the main
+storyform AND every subplot Storyform must individually pass.
+
+```python
+# Additional verb (iteration 2):
+@verb(role="transform")
+def list_storyforms(self, novel: str) -> ToolResult:
+    """List the main Storyform + every Subplot Storyform on the novel."""
+
+# The novel_coherence_check composite (G1) fans out across all
+# Storyforms; the report aggregates per-form findings:
+{
+  "status": "FAIL",
+  "violations": 3,
+  "storyforms": {
+    "main": {"status": "PASS", "checks": {...}},
+    "subplot:tyrion": {"status": "FAIL", "violations": 2, "checks": {...}},
+    "subplot:bran":   {"status": "FAIL", "violations": 1, "checks": {...}}
+  }
+}
+```
+
+**`cross_storyform_check` (deferred to v2)**: validates that each Subplot's
+resolution serves the Main's goal (e.g. subplot Outcome must not contradict
+Main's Outcome trajectory). Judgement-leaning; deferred to a follow-up
+spec when the implementation surfaces concrete patterns.
+
+### Subplot ontology
+
+```python
+# Declared via 102's OntologyExtension (iter-2 additions):
+Subplot       (slug, novel, parent_storyform, scope_characters)
+Storyform     (existing — now scoped to either Novel-main or Subplot)
+```
+
+The `Storyform.scope` field distinguishes `main` vs `subplot:<slug>`.
+
 ## Open questions
 
 1. **Element-level subgraph (deferred)**: Per Spec 101 Open Q #3,

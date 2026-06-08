@@ -198,6 +198,38 @@ def test_beta_feedback_skill_walks_through_gate(): ...
 def test_catalogue_verb_fails_typed_when_db_driver_missing(): ...
 ```
 
+## Complex-novel extensions (iteration 2)
+
+The catalogue cluster grows three new TRANSFORM verbs for complex-novel
+diagnostics (no schema changes — the new verbs read the ontology nodes
+102 declares):
+
+| # | Verb | Reads | Reports |
+|---|---|---|---|
+| 11 | `arc_coverage_report` | `Arc` + `ArcPhase` nodes | per-Character: phases-covered / phases-pending / phases-skipped |
+| 12 | `cast_hierarchy_report` | `Faction` / `House` / `Family` nodes | tree-render of faction → house → family → character with member counts |
+| 13 | `worldbuilding_coverage` | `World` + sub-schema nodes | gap report: cultures-defined / cultures-mentioned-but-undefined; same for religions, languages, magic systems |
+
+These verbs DO NOT gate — they inform the human-curator pass at the
+review-discipline phase. (Gates that consume them live in 108.)
+
+### Series-level coherence (`series_coherence_check` extended)
+
+The existing `series_coherence_check` (verb 9) gains a 4-axis report when
+the novel set has `Volume` / `Part` / `Book` hierarchy:
+
+1. **Character age math**: a character born in year X must be the right
+   age in every subsequent novel's `story_time`
+2. **WorldAxiom consistency**: no `CONTRADICTS` edges between axioms
+   defined across novels in the same series
+3. **Timeline alignment**: no event in Novel N's `story_time` happens
+   AFTER the same event referenced in Novel N+1
+4. **Cast carryover**: dead characters do not appear in later novels'
+   `story_time > death_time`
+
+Each axis emits its own findings array; a `WARN` (not a `FAIL`) blocks
+nothing but feeds the publication-director skill.
+
 ## Open questions
 
 1. **Coherence-check as gate or report?** Report (transform), per the

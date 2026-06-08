@@ -237,6 +237,69 @@ def test_pre_draft_skill_walks_through_2_computed_gates(): ...
 def test_publish_ready_skill_pauses_on_hard_ship_gate(): ...
 ```
 
+## Complex-novel extensions (iteration 2)
+
+The cluster grows three additional gate verbs + one walkable skill for
+complex novels. All are **opt-in** — they fire only when the novel's
+frontmatter declares the relevant complexity field (`pov_count > 1`,
+`outline_hierarchy includes "volume"`, `subplot_count > 0`).
+
+### Additional gate verbs
+
+| # | Verb | Composes | Walks |
+|---|---|---|---|
+| G5 | `pov_balance_gate` | `novel.pov_balance_check` (104) + gate.check (BLOCKED if any POV > 40% unless first-person-protagonist) | `beta-ready` phase 2 (opt-in for multi-POV novels) |
+| G6 | `subplot_resolution_gate` | per-Subplot `novel_coherence_check` (103) + cross-storyform consistency + gate.check | `pre-draft` phase 1 alongside `storyform_complete_gate` |
+| G7 | `timeline_continuity_gate` | reads `Chapter.story_time` across the novel; flags chronological gaps + duplicate timestamps + impossible character-age math | `beta-ready` phase 2 |
+| G8 | `world_canon_gate` | reads `WorldAxiom` nodes + scenes' `ENCODES` edges; flags axioms with `CONTRADICTS` edges and scenes that violate hard-canon axioms | `pre-draft` (opt-in for worldbuilt novels) |
+
+### Additional walkable skill: `series-publish-ready`
+
+For multi-volume series:
+
+```python
+SERIES_PUBLISH_READY_SKILL = {
+    "name": "series-publish-ready",
+    "kind": "gate",
+    "phases": [
+        {"index": 1, "name": "all-volumes-rendered",
+         "produces": ["all_volumes_have_manuscript_artefact"]},
+        {"index": 2, "name": "series-coherence",
+         "produces": ["series_coherence_clean"],
+         "gate": "computed", "gate_verb": "novel.series_coherence_check"},
+        {"index": 3, "name": "boxset-rendered",
+         "produces": ["boxset_artefact_ready"]},
+        {"index": 4, "name": "series-publish",
+         "produces": ["series_released"], "gate": "hard"},
+    ],
+}
+```
+
+### Extended E2E test (complex-novel run)
+
+`tests/test_novel_e2e.py` ships TWO end-to-end paths:
+
+1. **Simple novel** — the existing pipeline (capture → conceptualize →
+   research → storyform-build → pre-draft → draft → revise → beta →
+   manuscript-pass). Asserts the 4 base gates fire.
+
+2. **Complex novel** — opts in via:
+   - `outline_hierarchy = ["volume", "book", "chapter", "scene"]`
+   - 3 volumes, each with 2 books, each with 8 chapters
+   - 5 POV characters
+   - 2 subplot Storyforms (each its own 4-throughline argument)
+   - Worldbuilding: 2 cultures + 1 religion + 1 magic system + 4
+     WorldAxioms
+   - Series-level: 2 novels in the series, character carryover
+
+   Asserts ALL 8 gates fire (4 base + G5 pov_balance + G6 subplot_
+   resolution + G7 timeline_continuity + G8 world_canon), the series-
+   publish-ready skill walks to its hard gate, and the provenance moat
+   returns the full multi-Storyform chain.
+
+The complex-novel test asserts the design holds — every iteration-2
+node + gate participates in the trace.
+
 ## Open questions
 
 1. **Pre-draft enforcement strictness**: H1-H12 from the kohaerenz Hard

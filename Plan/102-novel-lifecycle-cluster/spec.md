@@ -179,9 +179,75 @@ NOVEL_CONCEPT_SKILL = {
 **Primary actor**: human-curator (the user); agent assists by populating
 each phase's `produces` keys but does NOT auto-advance phase 10.
 
-### Ontology declaration
+### Ontology declaration (with iteration-2 complexity extensions)
 
-(Full schema in Spec 101. 102 ships the dataclass instance.)
+The base schema (Spec 101) plus iteration-2 additions for complex novels.
+**All iteration-2 nodes are optional** — simple novels need only the base set.
+
+**Base set** (simple novel: Novel → Chapter → Scene):
+- Novel, Series, Chapter, Scene, Character, Beat, Idea (declared in
+  Spec 101's consolidated extension)
+- Novel.outline_hierarchy: `["chapter", "scene"]` (default)
+
+**Iteration-2 additions** (complex novel — opt-in via
+`Novel.outline_hierarchy` or per-novel frontmatter):
+
+```python
+# Volume/Part/Book hierarchy (ADR-5):
+Volume      (slug, series, number, title, word_count)
+Part        (slug, volume, number, title)
+Book        (slug, part_or_volume, number, title, word_count)
+
+# Worldbuilding sub-graph (ADR-4):
+World       (slug, novel, body_uri)
+Culture     (slug, world, body)
+Religion    (slug, world, body)
+Language    (slug, world, body, written_script)
+MagicSystem (slug, world, body, hard_or_soft)
+Politics    (slug, world, body)
+Economy     (slug, world, body)
+Geography   (slug, world, body)
+Bestiary    (slug, world, body)
+WorldAxiom  (slug, world, text, severity)        # hard / soft canon
+Canon       (slug, novel, axiom, scene_or_chapter)  # ENCODES edges
+
+# Large-cast hierarchy:
+Faction     (slug, novel, body)
+House       (slug, faction, name, sigil)
+Family      (slug, house_or_faction, name, members)
+
+# Character arc tracking (ADR-6):
+Arc         (slug, character, novel_or_series, phases)
+ArcPhase    (arc, position, growth_state, voice_signature_version)
+
+# Non-linear narrative (ADR-3):
+# Scene gains: narrative_order (manuscript position) + story_time
+# (in-world timestamp); same for Chapter
+
+# Multilingual (ADR-1):
+# Chapter.canon_language: str (e.g. "de", "en"); never translated.
+# CharacterSpeechLanguage: closed enum {de, en, fr, …} on Character node.
+```
+
+Closed enums added in iter-2:
+- `(Arc, growth_state)`: `seed / setback / commitment / crisis / change / mastery`
+- `(WorldAxiom, severity)`: `hard / soft` — hard axioms are inviolable;
+  soft are bendable for dramatic effect
+- `(MagicSystem, hard_or_soft)`: `hard / soft` — Sanderson's distinction
+- `(Language, written_script)`: `latin / cyrillic / arabic / kanji /
+  invented / pictographic`
+
+Edges added in iter-2:
+- `ENCODES` (Scene → WorldAxiom) — Scene establishes or relies on a Canon fact
+- `BELONGS_TO` (Character → Faction / House / Family)
+- `INHABITS` (Character → Culture)
+- `WORSHIPS` (Character → Religion)
+- `SPEAKS` (Character → Language)
+- `WIELDS` (Character → MagicSystem)
+- `CONTRADICTS` (WorldAxiom → WorldAxiom) — series-coherence flag
+
+(Full schema declared in 102's ontology.py; children attach their own
+nodes additively per ADR-5.)
 
 ### Pytest markers
 
