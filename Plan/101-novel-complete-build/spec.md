@@ -123,7 +123,7 @@ children read from it rather than re-derive:
 | **102** | lifecycle | StateDriver | music lifecycle (094) | ~14 user + 0 gate |
 | **103** | storyform | TextDriver (structured) | (no music analog — net new) | ~13 user (11 decidable checks + 2 hybrid) + 1 gate |
 | **104** | prose | TextDriver | music lyrics (095) | ~12 user + 3 gate (developmental/line/copy editorial passes) |
-| **105** | research | delegates to `agency.research` | music research (099) | ~8 user + 1 gate (10 domains; reuses 099 verbatim) |
+| **105** | research | delegates to `agency.research` + Research-Entity ontology (iter-10) | music research (099) | ~8 base + 16 iter-10 user + 1 gate (verbatim 099 pattern + 4-stage research-to-prompt-snippet pipeline) |
 | **106** | catalogue | DBDriver+StateDriver | music catalogue (097) | ~10 user + 1 gate (beta-feedback + version-log; manuscript/series coherence split) |
 | **107** | manuscript | FormatDriver (new) + StateDriver+CloudDriver | music audio + promo (096+098) | ~10 user + 1 gate (4-stage editorial: developmental→line→copy→proof; renders manuscript-format/epub/PDF/docx + query letter + synopsis + blurb) |
 | **108** | gates | gate.check + elicit | music gates (100) | ~6 user + 4 gate (pre-draft/beta-ready/query-ready/publish-ready) + **4 iter-2 gates** (pov_balance / subplot_resolution / timeline_continuity / world_canon) |
@@ -361,6 +361,69 @@ Six load-bearing decisions for very complex novels:
 The base schema (simple novel) works without ANY of the iteration-2
 additions. They activate when the novel's frontmatter declares the
 relevant complexity field.
+
+### ADR-11: Research-entity ontology for writing-assist (iteration 10)
+
+User directive (2026-06-07): *"we Need Complex Research World Ontology
+Workflows — to ingest background Research (Physics, Philosophy, etc...)
+and we Need a way to map those into Chapters. Also a way to rebuild it
+into entities tagged to address specific aspects we can directly use as
+prompt snippet for writing assist."*
+
+The cluster extends from "claim verification" (099 pattern: ResearchClaim
++ VerificationRecord) to **research-informed writing assistance**: a
+four-stage pipeline (ingest → extract → map → render) that turns
+long-form background research into per-chapter prompt snippets the LLM
+driver consumes during drafting.
+
+**The four-stage pipeline** (full design in 105 iteration-10):
+
+```
+ResearchSource → ResearchChunk → ResearchEntity → ChapterContext → PromptSnippet
+                                  + EntityTag      (CONTEXTUALIZES)   (BUNDLES)
+                                  + EntityRelation
+```
+
+**Key node types** (declared in 102's consolidated ontology):
+- `ResearchSource` (kind: paper/book/treatise/lecture-transcript/
+  interview/dataset/image-set)
+- `ResearchChunk` (paragraph/section/quote/figure-caption)
+- `ResearchEntity` (concept/mechanism/definition/example/counterexample/
+  lineage/theorem/anecdote/quote/analogy/empirical-fact)
+- `EntityTag` (taxonomies: subject/discipline/era/author/applicability/mood)
+- `EntityRelation` (depends-on/contradicts/illustrates/refines/
+  derives-from/inspired-by)
+- `ChapterContext` (purposes: backbone/flavor/factcheck/counterpoint/
+  metaphor-source)
+- `PromptSnippet` (snippet kinds: writing-assist/dialogue-prompt/
+  description-prompt/exposition-prompt/metaphor-prompt)
+
+**Two new walkable skills** (in 105):
+- `research-ingest-pipeline` (5 phases: source-upload → chunk → extract
+  → taxonomize → human-review)
+- `chapter-context-build` (4 phases: infer-candidates → declare-context
+  → build-snippet → confirmation)
+
+**Integration with 104 prose**: `chapter_draft_assisted` gains an
+`inject_prompt_snippet` parameter; when set + a cached `PromptSnippet`
+exists for the chapter, the snippet's body prepends the LLM prompt as
+research-context prefix. The snippet replaces the `voice_notes` slot
+in the existing prompt template.
+
+**Integration with 099 base** (ResearchClaim → ResearchEntity):
+`materialize_claims_as_entities` bridges 099's claim-verification
+pattern into iter-10's writing-assist pattern — every verified
+ResearchClaim becomes a ResearchEntity (kind=quote/empirical-fact)
+that can flow into ChapterContext + PromptSnippet.
+
+**Doctrine alignment**:
+- ADR-1 (no canon translation): entity bodies preserve source language;
+  the agent decides integration (paraphrase / quote / footnote)
+- ADR-7 (AI-use disclosure): ResearchEntity carries `generated_by` so
+  entity-derived prose factors into the AI-use report
+- Canon prose protection: prompt snippets contain RESEARCH entities,
+  NOT the novel's draft prose; the author's voice is never used as
+  training context
 
 ### ADR-8: Multi-author collaboration (iteration 8 — was deferred at iter-1)
 

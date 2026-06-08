@@ -357,6 +357,91 @@ def orphaned_foreshadowing_report(self, novel: str) -> ToolResult:
 The `developmental-editor` skill (104) consumes this report — orphaned
 foreshadowing is a standard dev-edit flag.
 
+### Research-entity ontology (iteration 10 — complex research workflows)
+
+For research-informed fiction (hard SF, literary fiction with deep
+philosophy, historical fiction with academic backing), the design needs
+to ingest long-form research material (papers, books, treatises) and
+extract structured entities that can be:
+
+1. Mapped to chapters that need them
+2. Re-rendered as prompt snippets for LLM-assisted writing
+
+New nodes (declared in 102's consolidated extension):
+
+```python
+# Research-source layer:
+ResearchSource    (slug, novel, kind, title, author, year, body_uri,
+                   ingestion_status)
+                   # kind: paper | book | treatise | lecture-transcript |
+                   #       interview | dataset | image-set
+                   # ingestion_status: pending | chunked | extracted | indexed
+
+ResearchChunk     (slug, source, position, body, byte_range,
+                   chunk_kind)
+                   # chunk_kind: paragraph | section | quote | figure-caption
+
+# Extracted entity layer:
+ResearchEntity    (slug, source_chunk, kind, name, body,
+                   confidence, generated_by)
+                   # kind: concept | mechanism | definition | example |
+                   #       counterexample | lineage | theorem | anecdote |
+                   #       quote | analogy | empirical-fact
+
+EntityTag         (slug, entity, taxonomy, tag)
+                   # taxonomy: subject | discipline | era | author |
+                   #            applicability | mood
+                   # tag: free-form within the taxonomy (e.g.
+                   #      "quantum-mechanics", "kant.categorical-imperative",
+                   #      "stoicism.virtue", "renaissance.humanism")
+
+EntityRelation    (slug, source_entity, target_entity, kind)
+                   # kind: depends-on | contradicts | illustrates |
+                   #       refines | derives-from | inspired-by
+
+# Chapter-context layer:
+ChapterContext    (slug, chapter, entity, weight, declared_or_inferred,
+                   purpose)
+                   # weight: 0.0-1.0 (relevance score)
+                   # declared_or_inferred: declared | inferred
+                   # purpose: backbone | flavor | factcheck |
+                   #          counterpoint | metaphor-source
+
+# Prompt-snippet layer:
+PromptSnippet     (slug, chapter, scene, snippet_kind, body,
+                   entity_refs, generated_at)
+                   # snippet_kind: writing-assist | dialogue-prompt |
+                   #               description-prompt | exposition-prompt |
+                   #               metaphor-prompt
+                   # body: the rendered prompt text (~500-2000 tokens)
+                   # entity_refs: list[entity_id] — which entities were
+                   #              bundled into the snippet
+```
+
+Closed enums:
+- `(ResearchSource, kind)`: `paper / book / treatise / lecture-transcript /
+  interview / dataset / image-set`
+- `(ResearchSource, ingestion_status)`: `pending / chunked / extracted /
+  indexed`
+- `(ResearchChunk, chunk_kind)`: `paragraph / section / quote / figure-caption`
+- `(ResearchEntity, kind)`: `concept / mechanism / definition / example /
+  counterexample / lineage / theorem / anecdote / quote / analogy /
+  empirical-fact`
+- `(EntityRelation, kind)`: `depends-on / contradicts / illustrates /
+  refines / derives-from / inspired-by`
+- `(ChapterContext, declared_or_inferred)`: `declared / inferred`
+- `(ChapterContext, purpose)`: `backbone / flavor / factcheck /
+  counterpoint / metaphor-source`
+- `(PromptSnippet, snippet_kind)`: `writing-assist / dialogue-prompt /
+  description-prompt / exposition-prompt / metaphor-prompt`
+
+New edges:
+- `EXTRACTED_FROM` (ResearchEntity → ResearchChunk)
+- `TAGGED_AS` (ResearchEntity → EntityTag)
+- `RELATES_TO_ENTITY` (EntityRelation source → target)
+- `CONTEXTUALIZES` (ChapterContext → ResearchEntity)
+- `BUNDLES` (PromptSnippet → ResearchEntity)
+
 ### Ontology declaration (with iteration-2 complexity extensions)
 
 The base schema (Spec 101) plus iteration-2 additions for complex novels.
