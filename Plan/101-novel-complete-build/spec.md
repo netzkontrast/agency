@@ -122,7 +122,7 @@ children read from it rather than re-derive:
 |---|---|---|---|---|
 | **102** | lifecycle | StateDriver | music lifecycle (094) | ~14 user + 0 gate |
 | **103** | storyform | TextDriver (structured) | (no music analog — net new) | ~13 user (11 decidable checks + 2 hybrid) + 1 gate |
-| **104** | prose | TextDriver | music lyrics (095) | ~12 user + 3 gate (developmental/line/copy editorial passes) |
+| **104** | prose | TextDriver | music lyrics (095) | ~12 base + 10 builders + 5 engineer + 3 inject (iter-11) user + 3 gate (developmental/line/copy editorial passes + token-budget gate) |
 | **105** | research | delegates to `agency.research` + Research-Entity ontology (iter-10) | music research (099) | ~8 base + 16 iter-10 user + 1 gate (verbatim 099 pattern + 4-stage research-to-prompt-snippet pipeline) |
 | **106** | catalogue | DBDriver+StateDriver | music catalogue (097) | ~10 user + 1 gate (beta-feedback + version-log; manuscript/series coherence split) |
 | **107** | manuscript | FormatDriver (new) + StateDriver+CloudDriver | music audio + promo (096+098) | ~10 user + 1 gate (4-stage editorial: developmental→line→copy→proof; renders manuscript-format/epub/PDF/docx + query letter + synopsis + blurb) |
@@ -361,6 +361,69 @@ Six load-bearing decisions for very complex novels:
 The base schema (simple novel) works without ANY of the iteration-2
 additions. They activate when the novel's frontmatter declares the
 relevant complexity field.
+
+### ADR-12: Prompt + context engineer for writing-assist (iteration 11)
+
+User directive (2026-06-07): *"We also Need a prompt and context
+engineer for writing assist prompts."*
+
+Lands in 104 prose cluster (where prompts run + LLM is consumed) with
+the following shape:
+
+- **10 prompt builders** ported verbatim from the imported
+  `021-novel-prompt-builder-family.md` (world/character/scene/
+  storyform/throughline/bridge/chapter/revision/theme/relationship)
+- Uniform signature: `build_<entity>_prompt(work_id, entity_id, mode,
+  dry_run)` → `{prompt, sources, composes_with, preview, mode}`
+- Read-only + idempotent + source-traceable + preview ≤ 200 tokens +
+  acyclic composes-with DAG (021 contract)
+- Anchored in 8 prompt-engineering research sources (Anthropic
+  long-context · Sudowrite · NovelCrafter · Lee CHI 2024 · Weaver ·
+  DraftSmith · K.M. Weiland · Matt Bell)
+
+**Engineering pass layer** (iter-11 net-new beyond 021):
+- `engineer_writing_prompt` (HEADLINE verb): composes builder backbone
+  + voice signature + storyform context + beat sheet + PromptSnippets
+  (iter-10) + anti-patterns; token-budget enforced
+- `score_prompt_output` (effect): human evaluates LLM output;
+  promote-to-draft via `accepted=True`
+- `analyze_prompt_iteration` (transform): A/B compares prompt variants
+- `register_anti_pattern` (effect): records known failure modes;
+  appears as DO-NOT-DO-THIS examples in future prompts
+- 3 context-injection helpers (voice / storyform / beats)
+
+**Walkable skill** `prompt-engineering-pass` (6 phases): select-builder
+→ inject-context → specify-constraints → render-prompt → iterate-
+variants → score-output (hard human-eval gate).
+
+**Load-bearing handshake**: `engineer_writing_prompt` (iter-11)
+consumes `PromptSnippet` (iter-10) — the research-entity pipeline
+feeds the writing-assist prompt composer. A complex novel's chapter
+draft uses: builder backbone + voice + storyform + beats + N research
+snippets + anti-patterns, all composed within the token budget.
+
+**New ontology nodes** (declared in 102):
+- `PromptTemplate` (builder_kind + body + version)
+- `PromptInstance` (template + entity_refs + voice_sig_ref +
+  storyform_refs + rendered_body)
+- `PromptOutput` (instance + response_body + score + accepted)
+- `PromptVariant` (parent_instance + variant_kind: tone-shift|
+  length-target|constraint-relax|constraint-tighten)
+- `AntiPattern` (kind: on-the-nose-dialogue|filter-word-overload|
+  adjective-heavy|telling-not-showing|...)
+
+**Doctrine alignment**:
+- 021 contract preserved (read-only, idempotent, source-traceable,
+  ≤200-token preview, acyclic DAG)
+- ADR-1: prompts preserve canon_language (no translation)
+- ADR-7 (AI-use): every PromptOutput stamped generated_by="llm";
+  accepted=True drafts inherit; ai_use_report (104) factors them
+- ADR-11 integration: PromptSnippets (research entities) bundle into
+  prompts; the same research effort serves both pipelines
+- **Canon prose protection**: prompts contain entities + voice
+  instructions + storyform constraints + beats + anti-patterns — NOT
+  the novel's prior canon prose. The author's voice is never re-fed
+  to the LLM as training context.
 
 ### ADR-11: Research-entity ontology for writing-assist (iteration 10)
 

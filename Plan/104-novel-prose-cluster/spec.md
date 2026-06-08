@@ -331,6 +331,287 @@ These verbs are opt-in (CALLED ONLY when the genre matches); they emit
 WARNINGS not gates. Implementations may ship with empty stubs (`{status:
 "n/a", reason: "not yet implemented"}`) in the initial wave.
 
+## Prompt + context engineering layer (iteration 11)
+
+User directive (2026-06-07): *"We also Need a prompt and context engineer
+for writing assist prompts."*
+
+This is the layer that **composes prompts** for LLM-assisted writing —
+the engineer role from the parity table (`prose-generation-prompt-
+engineer` → maps from bitwize's `suno-engineer`). Carries forward the
+**10-builder family pattern** from the imported `021-novel-prompt-
+builder-family.md` spec + adds the engineering discipline (scoring,
+A/B variants, anti-patterns, voice/storyform injection).
+
+### Source material grounded
+
+The 10-builder pattern is anchored in 8 LLM-prompting research sources
+(per `Plan/_research/novel-mvp-source/prior-specs/021-prompt-builder.md`):
+
+- **Anthropic long-context** — XML-tagged section discipline
+  (`<voice>`/`<world>`/`<beat>`/`<task>` skeleton)
+- **Sudowrite Beat-then-prose** — beat sheet → prose expansion
+- **NovelCrafter Entity-hydration** — entity-driven context bundling
+- **Lee CHI 2024 sentence-granularity** — preview ≤ 200 tokens
+- **Weaver hierarchical chains** — composition DAGs across prompts
+- **DraftSmith psycho-model serialization** — character psyche → prompt
+- **K.M. Weiland Q-audit** — Question→Answer pre-prompt structuring
+- **Matt Bell three-pass discipline** — purposeful per-pass prompts
+
+### The 10 prompt builders
+
+Per `021-novel-prompt-builder-family.md` — ported verbatim as 104
+iteration-11 verbs:
+
+| # | Verb | Entity | Composes with |
+|---|---|---|---|
+| 1 | `build_world_prompt` | World | (none — root) |
+| 2 | `build_character_prompt` | Character | world |
+| 3 | `build_scene_prompt` | Scene | character + world + throughline + bridge |
+| 4 | `build_storyform_prompt` | Storyform | (none — root) |
+| 5 | `build_throughline_prompt` | Throughline | storyform |
+| 6 | `build_bridge_prompt` | Bridge (scene↔storyform) | scene + throughline |
+| 7 | `build_chapter_prompt` | Chapter | scene + theme + relationship |
+| 8 | `build_revision_prompt` | Revision | chapter + character |
+| 9 | `build_theme_prompt` | Theme | storyform |
+| 10 | `build_relationship_prompt` | Relationship | character × 2 |
+
+**Uniform signature** (per 021):
+
+```python
+@verb(role="transform")  # transforms are read-only + idempotent (021 contract)
+def build_chapter_prompt(self, work_id: str, entity_id: str,
+                         mode: str = "draft",
+                         dry_run: bool = False) -> ToolResult:
+    """Build a chapter-writing prompt from the entity store.
+
+    mode: draft | revise | research
+    - draft: generate new prose from beats
+    - revise: rewrite existing prose with a lens
+    - research: surface research questions before drafting
+
+    Returns: {prompt: str, sources: list[{type, id, version}],
+              composes_with: list[str], preview: str, mode: str}
+
+    Properties (021 contract):
+    - READ-ONLY: never mutates graph or filesystem
+    - IDEMPOTENT: byte-identical output for same inputs
+    - SOURCE-TRACEABLE: every fragment in `prompt` named in `sources`
+    - preview ≤ 200 tokens (Lee CHI 2024 sentence-granularity)
+    - composes_with DAG acyclic
+    """
+```
+
+### Engineering pass (iter-11 net-new — beyond 021)
+
+The engineering pass adds quality scoring, A/B variants, anti-pattern
+injection, and prompt versioning:
+
+```python
+# Added to 102's consolidated ontology:
+PromptTemplate    (slug, novel, builder_kind, body, version,
+                   parent_template, created_at)
+                   # builder_kind: world | character | scene | storyform |
+                   #               throughline | bridge | chapter |
+                   #               revision | theme | relationship
+PromptInstance    (slug, template, entity_refs, voice_sig_ref,
+                   storyform_refs, rendered_body,
+                   built_at, snippet_refs)
+                   # snippet_refs: PromptSnippet (iter-10) ids bundled in
+PromptOutput      (slug, instance, response_body, model, latency_ms,
+                   tokens_in, tokens_out, score, accepted)
+                   # score: 0-100 human eval
+                   # accepted: bool — promoted as canonical draft
+PromptVariant     (slug, parent_instance, variant_kind, hypothesis,
+                   rendered_body)
+                   # variant_kind: tone-shift | length-target |
+                   #               constraint-relax | constraint-tighten
+AntiPattern       (slug, kind, body, detected_in_outputs: list[str])
+                   # kind: on-the-nose-dialogue | filter-word-overload |
+                   #       adjective-heavy | telling-not-showing | etc.
+```
+
+### Engineering verbs (5 net-new beyond the 10 builders)
+
+```python
+@verb(role="act")
+def engineer_writing_prompt(self, novel: str, chapter: int = 0,
+                             scene: str = "",
+                             builder: str = "chapter",
+                             snippet_kinds: list = None,
+                             voice_sig_ref: str = "",
+                             constraints: dict = None,
+                             token_budget: int = 4000) -> ToolResult:
+    """The HEADLINE engineering verb.
+
+    Composes a full writing-assist prompt from:
+    1. The selected builder (one of the 10) for the structural backbone
+    2. Research-entity PromptSnippets (105 iter-10) for context
+    3. Voice-signature instructions (104 voice_signature)
+    4. Anti-pattern negative examples (from prior PromptOutputs)
+    5. Genre + tone constraints (from Novel.genres)
+
+    Token-budget enforced; prefers backbone > voice > snippets > anti-
+    patterns when over budget. Records a PromptInstance + the rendered
+    body. The agent passes the rendered body to the LLM driver."""
+
+@verb(role="effect")
+def score_prompt_output(self, output_slug: str, score: int,
+                         notes: str = "",
+                         accepted: bool = False) -> ToolResult:
+    """Human-scored output quality (0-100). Updates the template's
+    rolling quality history. accepted=True promotes the output as the
+    canonical Draft (records PRODUCES edge to a new Draft node)."""
+
+@verb(role="transform")
+def analyze_prompt_iteration(self, instance_slug: str) -> ToolResult:
+    """A/B compare a PromptInstance with its variants. Reports per-
+    variant {score_delta, latency_delta, tokens_delta}. Identifies the
+    winning variant; suggests template update."""
+
+@verb(role="effect")
+def register_anti_pattern(self, kind: str, body: str,
+                           source_output: str = "") -> ToolResult:
+    """Record a known failure mode. Future prompts include the
+    AntiPattern.body as a 'DO NOT DO THIS' example. Builds a per-novel
+    anti-pattern library that improves prompts over time."""
+
+@verb(role="transform")
+def list_prompt_outputs(self, novel: str, builder: str = "",
+                        min_score: int = 0,
+                        accepted_only: bool = False) -> ToolResult:
+    """Discover prior outputs. Used for: which prompt patterns worked,
+    which got accepted as drafts, which got rejected."""
+```
+
+### Context injection helpers (3 transforms)
+
+```python
+@verb(role="transform")
+def inject_voice_signature(self, character: str,
+                            arc_phase: int = 0) -> ToolResult:
+    """Render a Character's voice_signature as prompt instructions:
+    style notes, syntax rules, vocabulary register, dialogue
+    cadence. arc_phase=0 uses current; otherwise uses ArcPhase voice
+    signature."""
+
+@verb(role="transform")
+def inject_storyform_context(self, novel: str,
+                              throughline: str = "") -> ToolResult:
+    """Render storyform constraints as prompt instructions:
+    'This chapter advances the MC throughline toward [class]; the OS
+    Goal is X; the character's role is Y in the dynamic pair.'"""
+
+@verb(role="transform")
+def inject_beat_sheet_context(self, chapter: int) -> ToolResult:
+    """Render the chapter's Beat sequence as the prompt's structural
+    spine. Each Beat becomes a scene-shape instruction."""
+```
+
+### Walkable skill: `prompt-engineering-pass` (6 phases)
+
+```python
+PROMPT_ENGINEERING_PASS_SKILL = {
+    "name": "prompt-engineering-pass",
+    "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "select-builder",
+         "produces": ["builder_kind_selected"]},
+        {"index": 2, "name": "inject-context",
+         "produces": ["research_snippets_chosen",
+                      "voice_signature_chosen",
+                      "storyform_context_chosen",
+                      "beat_sheet_loaded"]},
+        {"index": 3, "name": "specify-constraints",
+         "produces": ["constraints_declared", "anti_patterns_loaded"]},
+        {"index": 4, "name": "render-prompt",
+         "produces": ["prompt_instance_built"],
+         "gate": "computed", "gate_verb": "novel.token_budget_gate"},
+        {"index": 5, "name": "iterate-variants",
+         "produces": ["variants_evaluated"]},
+        {"index": 6, "name": "score-output",
+         "produces": ["output_scored"],
+         "gate": "hard"},   # human evaluates LLM output
+    ],
+}
+```
+
+**Primary actor**: agent (composes + iterates); human-curator scores
+the LLM output at phase 6 and promotes one to canonical draft.
+
+### Integration with iter-10 research-entity pipeline
+
+The `engineer_writing_prompt` verb consumes `PromptSnippet` nodes
+(iter-10) as a context source — specifically:
+
+```python
+# Inside engineer_writing_prompt:
+if snippet_kinds:
+    for kind in snippet_kinds:
+        snippet = self.ctx.call("novel", "build_writing_prompt_snippet",
+                                novel=novel, chapter=chapter, scene=scene,
+                                snippet_kind=kind)
+        # Bundle snippet.body into the rendered prompt
+        # Record snippet_id in PromptInstance.snippet_refs
+```
+
+This is the **load-bearing handshake** between iter-10 (research →
+snippets) and iter-11 (snippets → prompts). A complex novel's chapter
+draft uses: builder backbone + voice instructions + storyform context
++ beat sheet + N research snippets + anti-pattern examples — all
+composed within the token budget by the engineer pass.
+
+### Test plan
+
+```python
+# tests/test_novel_prompt_engineering.py — ~18 tests
+def test_all_10_builders_registered_with_uniform_signature(): ...
+def test_each_builder_is_read_only_no_mtime_change(): ...
+def test_each_builder_is_byte_identical_idempotent(): ...
+def test_each_builder_preview_under_200_tokens(): ...
+def test_source_traceability_every_fragment_named_in_sources(): ...
+def test_composes_with_dag_acyclic_via_topological_sort(): ...
+def test_engineer_writing_prompt_bundles_snippets_from_iter10(): ...
+def test_engineer_writing_prompt_respects_token_budget(): ...
+def test_engineer_writing_prompt_records_prompt_instance(): ...
+def test_score_prompt_output_updates_template_quality_history(): ...
+def test_score_prompt_output_with_accepted_creates_draft_with_produces(): ...
+def test_analyze_prompt_iteration_compares_variants(): ...
+def test_register_anti_pattern_records_node(): ...
+def test_anti_pattern_appears_in_next_prompt_as_negative_example(): ...
+def test_inject_voice_signature_renders_per_arc_phase(): ...
+def test_inject_storyform_context_renders_dramatica_constraints(): ...
+def test_prompt_engineering_pass_walks_through_6_phases(): ...
+def test_phase_4_token_budget_gate_blocks_over_budget(): ...
+def test_phase_6_pauses_on_hard_human_evaluation_gate(): ...
+```
+
+### Performance + token budgets
+
+- Single builder ≤ 30ms (read-only graph queries + body rendering)
+- Builder DAG composition (full chapter prompt) ≤ 150ms
+- `engineer_writing_prompt` total ≤ 300ms (includes snippet bundling)
+- Preview cap: 200 tokens per 021
+- Full prompt cap: 4000 tokens default; configurable up to model context
+
+### Doctrine alignment
+
+1. **021 contract preserved**: builders are read-only, idempotent,
+   source-traceable, ≤200-token preview, acyclic compose-with DAG.
+2. **ADR-1 honored**: prompt bodies preserve `canon_language`; no
+   translation of canon prose into prompt context.
+3. **ADR-7 (AI-use disclosure)**: every PromptOutput records its
+   `generated_by="llm"` source; the Draft created by `accepted=True`
+   inherits this flag. The ai_use_report (104) factors prompt-built
+   drafts.
+4. **Provenance moat lit**: every PromptInstance + PromptOutput SERVES
+   the intent; the engineer's iteration history is queryable via
+   `memory.provenance(intent_id)`.
+5. **Canon prose protection**: prompts contain ENTITIES, VOICE
+   INSTRUCTIONS, STORYFORM CONSTRAINTS, BEATS, ANTI-PATTERNS — but
+   NOT the novel's prior canon prose. The author's voice is never
+   re-fed to the LLM as context.
+
 ## Prose rhythm detection (iteration 8)
 
 Skilled prose varies sentence length + paragraph length intentionally —
