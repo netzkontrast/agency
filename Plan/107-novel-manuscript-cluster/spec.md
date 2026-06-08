@@ -166,6 +166,114 @@ def test_manuscript_pass_skill_walks_to_phase_5(): ...
 def test_publication_gate_blocks_when_query_letter_missing(): ...
 ```
 
+## Audiobook prep (iteration 9 — carries forward bitwize's pronunciation discipline)
+
+Music's `pronunciation-specialist` skill (095) ports to novels as the
+`narrator-voice-specialist` per the parity table. For audiobook
+production, the manuscript cluster ships:
+
+```python
+@verb(role="effect")
+def generate_audiobook_pronunciation_key(self, novel: str) -> ToolResult:
+    """Per-novel proper-noun pronunciation guide. Extracts every Character.
+    name, place name (from World subgraph), made-up word, and foreign
+    term. For each, declares phonetic pronunciation (IPA + plain spelling)
+    + per-character voice direction (age, accent, register).
+
+    Output: a markdown file the narrator/director uses during recording.
+    Artefact kind: 'audiobook-pronunciation-key'."""
+
+@verb(role="effect")
+def render_audiobook_script(self, novel: str,
+                            with_direction: bool = True) -> ToolResult:
+    """Renders chapter prose with stage-direction annotations: POV
+    character voice cues, emotional beats, scene-transition markers,
+    dialogue speakers explicit. Format suitable for narrator script."""
+
+@verb(role="transform")
+def detect_pronunciation_risks(self, novel: str) -> ToolResult:
+    """Mirrors music's check_pronunciation_enforcement. Scans for
+    homographs, foreign words, proper nouns lacking the pronunciation
+    key entry, and reports candidates needing IPA annotation."""
+```
+
+The `narrator-voice-specialist` skill is the agency-skill front-end;
+the verbs above are its tool surface.
+
+## Series-arc tracking (iteration 9 — multi-book novels)
+
+For multi-book series (10-book epic), character arcs span volumes.
+iteration 9 adds:
+
+```python
+# Added to 102's consolidated ontology:
+SeriesArc      (slug, series, character, arc_phases: list[dict])
+                # arc_phases: [{volume: N, phase_name, growth_state,
+                #               key_events}]
+
+@verb(role="effect")
+def declare_series_arc(self, character: str, series: str,
+                       arc_phases: list[dict]) -> ToolResult: ...
+
+@verb(role="transform")
+def series_arc_coverage(self, series: str) -> ToolResult:
+    """For each Character with a SeriesArc, report which phases have
+    been narratively realized (cross-references Beat + Scene nodes)
+    vs which remain pending across the series."""
+
+@verb(role="transform")
+def character_continuity_across_series(self, character: str,
+                                       series: str) -> ToolResult:
+    """Tracks character age math, motivation continuity, relationship
+    states across volumes. Flags inconsistencies (character 'forgets'
+    a vow taken 3 books ago)."""
+```
+
+## Reader-experience modeling (iteration 9)
+
+Different readers experience the novel differently. The cluster ships:
+
+```python
+@verb(role="transform")
+def first_read_pacing_check(self, novel: str) -> ToolResult:
+    """Simulates a first-time reader's pacing experience. Flags chapters
+    likely to lose first-time readers: information overload, too many
+    new characters, opaque worldbuilding without context."""
+
+@verb(role="transform")
+def reread_signal_check(self, novel: str) -> ToolResult:
+    """For literary fiction that rewards rereading: identifies callbacks
+    + foreshadowing density. Heavy callback density = high reread
+    value; novels lacking callback structure may underperform on
+    rereads."""
+
+@verb(role="transform")
+def binge_friendliness_check(self, novel: str) -> ToolResult:
+    """For genre fiction read in single sittings: per-chapter cliffhanger
+    density. Flags chapters that end on a 'low note' (no question, no
+    forward momentum) — binge-resistant chapters."""
+```
+
+## Full-export disaster recovery (iteration 9)
+
+For novel-DR purposes, a single verb that exports EVERYTHING in
+machine-readable form:
+
+```python
+@verb(role="effect")
+def export_full_archive(self, novel: str,
+                        format: str = "tar.gz") -> ToolResult:
+    """Export the complete novel state — all chapters, scenes, characters,
+    storyform, NCP, world, beta-feedback, edit-notes, version log,
+    AI-use report, legal notes, comp titles, BISAC, audiobook prep,
+    series arcs — as a single tarball.
+
+    Restorable via import_full_archive. Designed as the disaster-
+    recovery backstop independent of session.db format changes.
+
+    Format options: tar.gz (default), zip, json-bundle."""
+```
+
 ## Complex-novel extensions (iteration 2)
 
 ### Series-boxset rendering
