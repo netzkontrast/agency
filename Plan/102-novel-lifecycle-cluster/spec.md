@@ -190,6 +190,173 @@ NOVEL_CONCEPT_SKILL = {
 **Primary actor**: human-curator (the user); agent assists by populating
 each phase's `produces` keys but does NOT auto-advance phase 10.
 
+### Character psychology layer (iteration 7)
+
+Per the imported ncp-author character-appreciations + the parity table's
+`character-architect` skill (uses TSDP/IFS, Big Five (OCEAN), Enneagram,
+Jung archetypes). The Character node already declares `big_five` and
+`enneagram` properties. iteration 7 adds the corresponding verbs +
+sub-node structure:
+
+```python
+# Character node (extended):
+Character (slug, novel, archetype, role_in_OS, voice_signature,
+           big_five: dict,        # {O: 0-100, C: 0-100, E: 0-100,
+                                  #  A: 0-100, N: 0-100}
+           enneagram: str,        # "1"..."9" or "1w2" etc
+           ifs_parts: list,       # [{name, role: manager|firefighter|exile, age, voice}]
+           jung_archetype: str,   # closed enum (per Jungian list)
+           moral_alignment: str)  # closed enum (D&D-style optional)
+
+# Additional sub-nodes:
+PsychProfile  (slug, character, lens, body, generated_by)
+                # lens: big-five | enneagram | ifs | jung
+                # one profile per character per lens
+Trait         (slug, character, name, expression, conflict_potential)
+                # one Trait node per OCEAN-derived behavioral pattern
+```
+
+iter-7 verbs (effects + transforms):
+
+```python
+@verb(role="effect")
+def generate_psych_profile(self, character: str,
+                           lens: str = "big-five") -> ToolResult:
+    """Per the kohaerenz parity table's character-architect skill —
+    produce a PsychologicalProfileNode for the character via the
+    chosen lens. Default Big Five; Enneagram/IFS/Jung opt-in."""
+
+@verb(role="effect")
+def select_psych_framework(self, novel: str,
+                           genre: str = "") -> ToolResult:
+    """Recommend psychology frameworks for this novel based on genre.
+    Per kohaerenz SYNTHESIS verb-catalogue (slice 04):
+    - Genre: literary → [big-five, enneagram]
+    - Genre: thriller → [big-five, jung]
+    - Genre: psychological → [ifs, big-five, enneagram]
+    - Genre: SF/F → [big-five, jung, ifs]"""
+
+@verb(role="transform")
+def validate_dramatica_mapping(self, character: str) -> ToolResult:
+    """Per kohaerenz SYNTHESIS — verifies psychological traits don't
+    contradict the assigned Dramatica role. Example: a Protagonist with
+    big_five.A=10 (very low agreeableness) + Logic-archetype = warning;
+    a Sidekick with big_five.E=10 (introvert) + Faith-archetype = warning."""
+```
+
+### Worldbuilding verbs (iteration 7)
+
+iteration 2 declared the World sub-graph nodes; iteration 7 adds the
+verbs that populate + query them:
+
+```python
+@verb(role="effect")
+def create_world(self, novel: str, slug: str) -> ToolResult: ...
+@verb(role="effect")
+def create_culture(self, world: str, slug: str, name: str) -> ToolResult: ...
+@verb(role="effect")
+def create_religion(self, world: str, slug: str, name: str) -> ToolResult: ...
+@verb(role="effect")
+def create_language(self, world: str, slug: str, name: str,
+                    written_script: str = "latin") -> ToolResult: ...
+@verb(role="effect")
+def create_magic_system(self, world: str, slug: str, name: str,
+                        hard_or_soft: str = "hard") -> ToolResult: ...
+@verb(role="effect")
+def create_world_axiom(self, world: str, slug: str, text: str,
+                       severity: str = "hard") -> ToolResult: ...
+
+@verb(role="transform")
+def list_world(self, novel: str) -> ToolResult:
+    """Return the full World sub-graph as a tree:
+    {world: {cultures: [...], religions: [...], languages: [...],
+             magic_systems: [...], axioms: [...]}}"""
+
+@verb(role="transform")
+def find_axiom_contradictions(self, novel: str) -> ToolResult:
+    """Per kohaerenz SYNTHESIS — flag CONTRADICTS edges between
+    WorldAxioms; used by 108's world_canon_gate."""
+
+@verb(role="effect")
+def link_character_to_world(self, character: str, world_node_id: str,
+                            edge_type: str) -> ToolResult:
+    """One verb covering: BELONGS_TO (Faction), INHABITS (Culture),
+    WORSHIPS (Religion), SPEAKS (Language), WIELDS (MagicSystem).
+    edge_type is validated against the declared edge set."""
+
+@verb(role="effect")
+def draft_research_brief(self, world: str,
+                         domain: str = "history") -> ToolResult:
+    """Per kohaerenz SYNTHESIS — draft a domain research brief for the
+    world; 105's dispatch_research consumes it."""
+
+@verb(role="effect")
+def integrate_research_findings(self, world: str,
+                                research_id: str) -> ToolResult:
+    """Per kohaerenz SYNTHESIS — extract WorldAxiomNodes from research
+    findings; stage the canonical world data."""
+```
+
+### Conflict + Theme tracking (iteration 7)
+
+Two new node types + verbs:
+
+```python
+# Added to 102's consolidated ontology:
+Conflict   (slug, novel, scope, type, intensity, resolution_status)
+            # scope: scene | chapter | volume | series
+            # type: internal | interpersonal | societal | environmental | metaphysical
+            # intensity: 1-10 scale
+Theme      (slug, novel, name, motif_words, central: bool)
+            # central: is this the OS theme or a subordinate theme?
+
+@verb(role="effect")
+def track_conflict(self, scope: str, scope_id: str,
+                   conflict_type: str, intensity: int) -> ToolResult: ...
+
+@verb(role="transform")
+def conflict_density_report(self, novel: str) -> ToolResult:
+    """Per-chapter conflict intensity. Identifies 'flat' chapters
+    (no conflict) — flag for revision."""
+
+@verb(role="effect")
+def declare_theme(self, novel: str, slug: str, name: str,
+                  motif_words: list[str], central: bool = False) -> ToolResult: ...
+
+@verb(role="transform")
+def check_thematic_motif_distribution(self, novel: str) -> ToolResult:
+    """Scan motif_words across all chapters; report per-theme density
+    + chapters where the central theme is ABSENT (concerning)."""
+```
+
+### Foreshadowing + callbacks (iteration 7)
+
+The "Chekhov's gun" discipline — every planted element gets paid off:
+
+```python
+# Added to 102's consolidated ontology:
+PlantedElement (slug, novel, chapter_planted, description,
+                payoff_chapter, payoff_scene, status)
+                # status: planted | partially-paid | paid | orphaned
+
+@verb(role="effect")
+def plant_element(self, novel: str, chapter: int,
+                  description: str) -> ToolResult: ...
+
+@verb(role="effect")
+def mark_paid_off(self, planted_slug: str,
+                  chapter: int, scene: str = "") -> ToolResult: ...
+
+@verb(role="transform")
+def orphaned_foreshadowing_report(self, novel: str) -> ToolResult:
+    """Identifies PlantedElement nodes with status='planted' or
+    'partially-paid' beyond chapter X (X = total_chapters - 5).
+    Returns: {planted: [...], close_to_end_unresolved: [...]}."""
+```
+
+The `developmental-editor` skill (104) consumes this report — orphaned
+foreshadowing is a standard dev-edit flag.
+
 ### Ontology declaration (with iteration-2 complexity extensions)
 
 The base schema (Spec 101) plus iteration-2 additions for complex novels.
