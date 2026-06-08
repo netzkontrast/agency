@@ -291,6 +291,55 @@ Test asserts that branching does NOT break the provenance moat —
 `memory.provenance(intent_id)` returns both the main draft AND the
 variant tree.
 
+## Beta-reader engagement schema (iteration 5)
+
+Extends the catalogue schema with structured per-chapter polling +
+reading-session tracking. Three new nodes (declared in 102's
+consolidated ontology):
+
+```python
+BetaPoll       (beta_reader, novel, chapter, question, response,
+                response_time_minutes, submitted_at)
+ReadingSession (beta_reader, novel, start_chapter, end_chapter,
+                started_at, ended_at, dropoff: bool)
+SpoilerScope   (beta_reader, novel, last_chapter_submitted_feedback_on)
+```
+
+### Three new effect verbs
+
+```python
+@verb(role="effect")
+def record_beta_poll(self, beta_id: int, novel: str, chapter: int,
+                     question: str, response: str,
+                     response_time_minutes: int) -> ToolResult: ...
+
+@verb(role="effect")
+def record_reading_session(self, beta_id: int, novel: str,
+                           start_chapter: int, end_chapter: int,
+                           dropoff: bool = False) -> ToolResult: ...
+
+@verb(role="effect")
+def update_spoiler_scope(self, beta_id: int, novel: str,
+                         last_chapter: int) -> ToolResult: ...
+```
+
+### One new transform verb
+
+```python
+@verb(role="transform")
+def engagement_dashboard(self, novel: str) -> ToolResult:
+    """Per-chapter aggregate: average engagement, response-time, dropoff
+    count. Surfaces the load-bearing 'high-dropoff' signal for
+    developmental editing."""
+```
+
+### `list_beta_feedback` extended
+
+Accepts `spoiler_aware: bool = False` parameter. When True, returns ONLY
+feedback for chapters in the BetaReader's `SpoilerScope.last_chapter_
+submitted_feedback_on` range — prevents late-chapter spoilers when
+beta is still on chapter 5.
+
 ## Open questions
 
 1. **Coherence-check as gate or report?** Report (transform), per the

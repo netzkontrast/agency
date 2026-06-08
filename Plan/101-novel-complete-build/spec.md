@@ -362,6 +362,30 @@ The base schema (simple novel) works without ANY of the iteration-2
 additions. They activate when the novel's frontmatter declares the
 relevant complexity field.
 
+### ADR-7: AI-use disclosure (iteration 5)
+
+Traditional publishing increasingly requires authors to disclose
+LLM-generated prose. The novel capability ships an **AI-use disclosure**
+discipline:
+
+- Every artefact (Draft, Chapter, Scene body) carries a `generated_by`
+  field — one of `human`, `agent`, `llm`, or `mixed`.
+- A new transform verb `ai_use_report` (104) aggregates per-novel:
+  `{total_words, words_by_source: {human: N, agent: N, llm: N, mixed: N},
+  percentages, chapters_with_llm_content: [N]}`.
+- The `publish-ready` skill (108) requires a hard `elicit` gate on
+  "review AI-use report"; the artefact is part of the publication
+  package (recorded as `ManuscriptArtefact, kind: ai-use-report`).
+- The `query_letter` template (107) carries a `disclose_ai_use: bool`
+  field; when set, the rendered letter includes a paragraph drawn from
+  the AI-use report.
+- The `chapter_draft_assisted` verb (104 Path B) MUST stamp
+  `generated_by: llm`; manual edits flip to `mixed` (verb
+  `mark_human_edited` in 104).
+
+Test asserts: no verb can silently set `generated_by` to `human` once a
+prior version was `llm` or `mixed` (audit-trail integrity).
+
 ### ADR-1 edge cases (multilingual canon details)
 
 The "no translation" rule has 6 specific behaviours that need

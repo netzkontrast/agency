@@ -331,6 +331,115 @@ These verbs are opt-in (CALLED ONLY when the genre matches); they emit
 WARNINGS not gates. Implementations may ship with empty stubs (`{status:
 "n/a", reason: "not yet implemented"}`) in the initial wave.
 
+## AI-use disclosure (iteration 5 — ADR-7 in 101)
+
+```python
+@verb(role="transform")
+def ai_use_report(self, novel: str) -> ToolResult:
+    """Aggregate generated_by across every Draft/Chapter/Scene body:
+    {total_words, words_by_source: {human, agent, llm, mixed},
+     percentages, chapters_with_llm_content: [N],
+     chapters_with_mixed_content: [N]}.
+
+    The `publish-ready` skill (108) requires the human-curator to review
+    this report; the artefact `kind: ai-use-report` is part of the
+    publication package."""
+
+@verb(role="effect")
+def mark_human_edited(self, novel: str, chapter: int,
+                      scope: str = "all") -> ToolResult:
+    """Flip generated_by from llm → mixed for chapters edited by the
+    human. Audit-trail integrity: records a REVISES edge from the
+    edited version back to the LLM version; the LLM version's
+    generated_by is preserved as 'llm' (never flipped to 'human')."""
+```
+
+## Long-form structural checks (iteration 5)
+
+Long novels have known structural failure modes that short fiction
+doesn't. Three additional transform verbs:
+
+```python
+@verb(role="transform")
+def check_sagging_middle(self, novel: str) -> ToolResult:
+    """Identify the middle 40% of the manuscript (by narrative_order or
+    by chapter count). Compute beat density, tension curve, sub-plot
+    engagement. Flag if any 5-chapter window in the middle has zero
+    major beats (per 102's Beat node) or all-falling tension."""
+
+@verb(role="transform")
+def check_third_act_pacing(self, novel: str) -> ToolResult:
+    """The final 25% of the manuscript. Assert: climax beat exists;
+    falling action ≤ 15% of remaining; no new POV introduced; no new
+    subplot launched. Report violations as findings."""
+
+@verb(role="transform")
+def chapter_length_variance(self, novel: str) -> ToolResult:
+    """Per-chapter word-count distribution. Flag chapters > 2σ from
+    the mean (very long OR very short) as candidates for split/merge."""
+```
+
+These are diagnostic transforms (not gates). The `developmental-editor`
+skill (104 base) consumes them at its review phase.
+
+## Sensitivity-reading nuances (iteration 5)
+
+`check_sensitivity` (base verb 12) returns lens-keyed findings. iter-5
+expands the lens set and adds per-lens calibration:
+
+```python
+SENSITIVITY_LENSES = {
+    "default": "stereotypes + slurs (broad scan)",
+    "race": "racial stereotypes + dialect representation",
+    "gender": "gender stereotypes + pronoun consistency",
+    "disability": "disability tropes (inspiration porn, magical disabled)",
+    "neurodivergence": "ASD/ADHD representation",
+    "mental-health": "mental illness portrayal + suicide depiction",
+    "lgbtq": "queer rep beyond surface markers",
+    "religion": "religious caricature + respectful depiction",
+    "culture": "cultural appropriation flags",
+    "trauma": "graphic content / TW recommendations",
+}
+
+# Each lens is opt-in via Novel.sensitivity_lenses: list[str]
+# `check_sensitivity` accepts lens="" (apply all declared) or lens="<name>"
+```
+
+Per-lens calibration data ships under `data/reference/prose/sensitivity/
+<lens>.yaml` — phrase lists, common-pitfall examples, links to
+sensitivity-reader resources. The base lens (`default`) ships with the
+initial PR; specialized lenses ship in followup PRs.
+
+The verb returns findings at three severities: `info` (flag for
+awareness), `warn` (consider revising), `concern` (recommend consulting
+sensitivity reader). NO findings are `fail` — sensitivity is human
+judgement; the verb informs, it does not gate.
+
+## Beta-reader engagement model (iteration 5 — interacts with 106)
+
+Per-chapter polling: a Beta-Reader can be asked one structured question
+per chapter ("did this chapter hold your attention?", "did you understand
+character X's motivation?"). Stored in 106 as `BetaPoll` rows. Findings
+feed a transform verb in 104:
+
+```python
+@verb(role="transform")
+def chapter_engagement_report(self, novel: str) -> ToolResult:
+    """Aggregate beta-reader polls per chapter. Returns:
+    {chapters: [{chapter: N, polls: [...], engagement_score: 0.0-1.0,
+    avg_response_time_minutes: N, dropoff_count: N}]}.
+    """
+```
+
+The `dropoff_count` (beta readers who stopped reading at that chapter)
+is the load-bearing signal — high dropoff at a chapter is a
+developmental-edit flag.
+
+`spoiler_aware` flag on 106's `list_beta_feedback`: when set, only
+returns feedback for chapters the BetaReader has SUBMITTED feedback for
+— prevents agent/author from seeing late-chapter spoilers from a beta
+still on chapter 5.
+
 ## Open questions
 
 1. **Generated-prose attribution**: every LLM-drafted artefact carries a
