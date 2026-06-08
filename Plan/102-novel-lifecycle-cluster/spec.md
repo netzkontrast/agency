@@ -90,8 +90,19 @@ NCP schema as static data** under `agency/capabilities/novel/data/` so
 | 12 | `rename_novel` | effect | StateDriver | Mirror-paths via StateDriver |
 | 13 | `novel_progress` | transform | StateDriver | Word-count + beat-completion + chapter-status aggregate |
 | 14 | `resume_session` | transform | StateDriver | Restores last-novel context |
+| 15 | `import_from_markdown` | effect | StateDriver | Iteration-6 — see IMPORT-EXPORT.md |
+| 16 | `import_from_scrivener` | effect | StateDriver | Iteration-6 |
+| 17 | `import_from_docx` | effect | StateDriver | Iteration-6 (deferred to Wave-4 PR-K2) |
+| 18 | `import_from_md_file` | effect | StateDriver | Iteration-6 |
+| 19 | `export_for_editor` | effect | StateDriver+FormatDriver | Iteration-6 |
+| 20 | `reconcile_disk_with_graph` | transform | StateDriver | Iteration-6 |
+| 21 | `migrate_to_volume_hierarchy` | effect | StateDriver | Iteration-6 (schema migration) |
 
-**Total: 14 verbs.**
+**Total: 21 verbs (14 base + 7 iteration-6 import/export/migration).**
+
+The 7 iteration-6 verbs are documented in `IMPORT-EXPORT.md`. They ship
+in Wave 4 PR-K2 (import/export feature PR) — NOT the base 102 PR
+(which keeps to the first-PR scope above).
 
 ## Design
 
