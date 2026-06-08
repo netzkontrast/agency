@@ -275,6 +275,64 @@ SERIES_PUBLISH_READY_SKILL = {
 }
 ```
 
+### Complex-novel fixture (used by the E2E test path 2)
+
+Lands at `tests/fixtures/novel/complex_novel/` and carries:
+
+```
+complex_novel/
+├── novel.yaml                  # outline_hierarchy: ["volume", "book", "chapter", "scene"]
+                                # pov_count: 5
+                                # multilingual: true
+                                # canon_language: "de"
+                                # subplot_count: 2
+                                # genres: ["literary", "historical"]
+├── volumes/
+│   ├── vol-1/
+│   │   ├── volume.yaml         # number: 1, title, word_count_target
+│   │   └── books/
+│   │       ├── book-1/
+│   │       │   ├── book.yaml
+│   │       │   └── chapters/
+│   │       │       └── ch01.yaml  # canon_language: "de", pov_character: ...,
+│   │       │                       # narrative_order: 1, story_time: "1899-04-12"
+│   │       └── book-2/
+│   │           └── ...
+│   ├── vol-2/...
+│   └── vol-3/...
+├── characters/
+│   ├── protagonist.yaml         # archetype: Protagonist; voice_signature_by_phase
+│   ├── antagonist.yaml
+│   ├── pov-2.yaml
+│   ├── pov-3.yaml
+│   └── pov-4.yaml
+├── world/
+│   ├── cultures/{c1.yaml, c2.yaml}
+│   ├── religions/{r1.yaml}
+│   ├── languages/{l1.yaml}
+│   ├── magic_systems/{m1.yaml}     # hard_or_soft: hard
+│   └── axioms/{a1-a4.yaml}
+├── storyforms/
+│   ├── main.ncp.json
+│   ├── subplot-1.ncp.json
+│   └── subplot-2.ncp.json
+└── research/
+    └── claims.yaml             # 8 claims, all human-confirmed
+```
+
+**Invariants the fixture proves**:
+
+| Invariant | Verb that asserts it |
+|---|---|
+| Volume/Book/Chapter hierarchy navigable | `list_volumes` → `list_books_in_volume` → `list_chapters_in_book` returns 3 → 6 → 24 |
+| Multi-POV ≤ 40% concentration | `pov_balance_check`: each of 5 POVs is between 15-25% |
+| Multi-Storyform integrity | `novel_coherence_check` returns `{main: PASS, subplot-1: PASS, subplot-2: PASS}` |
+| Multilingual: chapters DE, no translations | `extract_language` per-chapter returns `de`; no `translation-draft` artefacts exist |
+| WorldAxiom + Canon edges | `world_canon_gate` PASS (no CONTRADICTS edges between axioms) |
+| Timeline alignment | `timeline_continuity_gate` PASS (no chronological gaps > 30 days unmotivated) |
+| Series-level coherence | `series_coherence_check` PASS across the 3 volumes |
+| Provenance moat | full chain returned by `eng.memory.provenance(intent_id)` |
+
 ### Extended E2E test (complex-novel run)
 
 `tests/test_novel_e2e.py` ships TWO end-to-end paths:

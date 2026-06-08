@@ -351,7 +351,7 @@ Six load-bearing decisions for very complex novels:
 
 | ADR | Decision | Where it lands |
 |---|---|---|
-| ADR-1 | Canon prose MUST NOT be translated | 101 (this section), 104 (translation-refusal verb behaviour), 107 (multilingual epub metadata) |
+| ADR-1 | Canon prose MUST NOT be translated (see edge cases below) | 101 (this section), 104 (translation-refusal verb behaviour), 107 (multilingual epub metadata) |
 | ADR-2 | Each subplot gets its own Storyform sub-graph; H1–H12 run per-Storyform | 103 (subplot manifest) |
 | ADR-3 | Every Chapter+Scene carries both `narrative_order` and `story_time` | 102 (ontology), 106 (series_coherence's timeline-alignment axis), 108 (timeline_continuity_gate) |
 | ADR-4 | World is a typed sub-graph with closed taxonomy | 102 (8 sub-schema nodes + WorldAxiom + Canon edges) |
@@ -361,6 +361,41 @@ Six load-bearing decisions for very complex novels:
 The base schema (simple novel) works without ANY of the iteration-2
 additions. They activate when the novel's frontmatter declares the
 relevant complexity field.
+
+### ADR-1 edge cases (multilingual canon details)
+
+The "no translation" rule has 6 specific behaviours that need
+implementation discipline:
+
+1. **Code-switching dialogue** (a German character speaks one English
+   sentence): the sentence stays English in the canon; `extract_
+   language` reports a `mixed` rather than a `de` classification; voice-
+   consistency check uses the dominant language's signature.
+
+2. **Translation drafts** (an English version OF the German canon): a
+   SEPARATE artefact `kind: translation-draft` with explicit
+   `source_language: de`, `target_language: en`, `generated_by` field.
+   These are renders of the canon, NOT the canon. The base novel state
+   reads ONLY the canon.
+
+3. **Multilingual epub `<dc:language>`**: the dominant language; per-
+   chapter `xml:lang` reflects the chapter's `canon_language`.
+
+4. **Foreign-language single-word terms** (named items, place names):
+   left in source language; `extract_proper_nouns` (104) does not
+   translate them.
+
+5. **LLM Path B drafting**: when the LLM is bound and used to draft
+   prose, the prompt explicitly instructs "respond in `<canon_language>`";
+   if the response is detected (via `extract_language`) in a different
+   language, the verb returns `CANON_LANGUAGE_VIOLATION` and discards
+   the draft.
+
+6. **Query letter / synopsis as separate works**: a German-canon novel
+   may have an ENGLISH query letter — but the query letter is its own
+   artefact authored from scratch by the agent, NOT a translation of
+   the canon prose. The query letter template's `target_language`
+   field declares the language; the body is composed independently.
 
 ## Open questions
 

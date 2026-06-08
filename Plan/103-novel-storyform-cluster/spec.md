@@ -285,6 +285,33 @@ Storyform     (existing — now scoped to either Novel-main or Subplot)
 
 The `Storyform.scope` field distinguishes `main` vs `subplot:<slug>`.
 
+## Performance budgets (iteration 4)
+
+The storyform cluster runs the heaviest decidability work in the
+capability. Budgets:
+
+| Verb | Target wall-clock (single Storyform) | Target tokens (report) |
+|---|---|---|
+| Single check (`check_*`) | ≤ 5ms | clean PASS ≤ 40; FAIL ≤ 200 |
+| `novel_coherence_check` (composite) | ≤ 50ms (13 checks × 5ms + agg) | clean PASS ≤ 80; 3 violations ≤ 400 |
+| `novel_coherence_check` (multi-Storyform, 5 subplots) | ≤ 250ms (5 × 50ms) | per-form rollup ≤ 1500 tokens for 5 forms |
+| `load_ontology` first call | ≤ 100ms (memoized; one-time) | n/a |
+| `validate_ncp_against_schema` | ≤ 20ms per fixture | n/a |
+
+**Strategy** (per the imported decidability brief):
+- Load `ontology.json` once at first TextDriver call; memoize.
+- Decidable checks are pure graph lookups; no string allocation in the
+  hot path.
+- Aggregator caps each violation at ~120 chars (already specified in
+  base spec).
+- PASS-check `items` arrays dropped (clean PASS report is ~40 tokens
+  per check).
+
+**Stress-test fixture**: a synthetic "max-complexity" NCP with 5
+subplots, each with 16-slot full-fill + 12 character archetypes,
+exercises the multi-Storyform path. Token-budget test asserts the
+aggregated report stays ≤ 1500 tokens.
+
 ## Open questions
 
 1. **Element-level subgraph (deferred)**: Per Spec 101 Open Q #3,
