@@ -203,6 +203,154 @@ def test_research_workflow_skill_pauses_on_human_signoff_hard_gate(): ...
 def test_verify_gate_blocks_when_pending_claims_remain(): ...
 ```
 
+## Research-prompt-optimizer pattern (iteration 12 — critical-thinking pass)
+
+Per the imported `Plan/_research/novel-mvp-source/research-prompt-
+optimizer/agentic-tool-catalog.md`, the agency ecosystem ships a
+5-tool research-brief discipline. iter-12 ports the **Phase 0 intent
+capture** + **catalog list** + **brief audit** verbs to the novel
+research cluster, bringing the rigor of the research-prompt-optimizer
+to per-novel research before ingestion runs.
+
+### The 5-phase research-prompt-optimizer pattern
+
+| Phase | Tool | Kind | Brought to novel |
+|---|---|---|---|
+| 1 — Intent capture | `research_intent_capture(seed_query)` | LLM-needed | ✓ `research_intent_capture` (105 iter-12) |
+| 2 — Brief render | `research_brief_render(intent, modules)` | Decidable | maps to `chapter_research_brief` (105 iter-10 existing) |
+| 3 — Brief audit | `research_brief_audit(brief)` | LLM-needed | ✓ `research_brief_audit` (105 iter-12) |
+| 4 — Finalize | `research_brief_finalize(brief, zip)` | Decidable | maps to `export_full_archive` (107 iter-9 existing) |
+| 5 — Catalog | `research_catalog_list(category)` | Decidable | ✓ `research_catalog_list` (105 iter-12) |
+
+### Three new verbs in 105 (iter-12)
+
+```python
+@verb(role="act")
+def research_intent_capture(self, novel: str,
+                            seed_query: str) -> ToolResult:
+    """Phase 0 of the iter-10 pipeline (was previously implicit).
+    Turn a free-form seed query into a structured intent YAML:
+    {topic, sub_topics, depth, deliverable, success_criteria,
+     deadline, audience}.
+
+    The intent drives the ingestion + extraction stages — it tells
+    extract_entities WHICH entity kinds matter, tells
+    chapter_research_brief what shape the output should take, and
+    feeds the A/B/C module-catalog (next verb).
+
+    Path A (rule-based): parses the seed_query for key terms +
+    matches against the A/B/C × M01-M12 catalog modules to seed
+    the intent.
+
+    Path B (LLM-assisted): routes through the `llm` driver for
+    richer intent extraction. Opt-in via [novel-llm] extra or
+    per-call llm=True parameter.
+
+    Records ResearchIntent node SERVES the parent intent."""
+
+@verb(role="transform")
+def research_catalog_list(self, category: str = "") -> ToolResult:
+    """Per the agentic-tool-catalog A/B/C × M01-M12 module taxonomy:
+    A = foundational research modules (4-axis primary sources)
+    B = extension modules (cross-domain synthesis)
+    C = synthesis modules (writer-facing briefs)
+    M01-M12 = specific module identifiers (per the upstream catalog)
+
+    Returns the catalog modules matching the category filter. Used by
+    chapter_research_brief to select which modules apply per chapter.
+
+    Catalog source: data/reference/research-modules/catalog.yaml
+    (ships in 102 base PR — verbatim from the imported catalog)."""
+
+@verb(role="effect")
+def research_brief_audit(self, brief_artefact_slug: str) -> ToolResult:
+    """Reader-test simulation: can a fresh reader locate task,
+    constraints, deliverable, success criteria from the brief?
+
+    Uses the `llm` driver if bound; falls back to rule-based check
+    that searches for the 4 mandatory headings (Task, Constraints,
+    Deliverable, Success Criteria).
+
+    Records a BriefAudit node with {found_sections, missing_sections,
+    clarity_score, recommended_revisions}. The 105's
+    `chapter-context-build` walkable skill consumes the audit
+    findings at its confirmation phase."""
+```
+
+### Three new nodes (declared in 102's consolidated extension)
+
+```python
+ResearchIntent  (slug, novel, seed_query, topic, sub_topics,
+                 depth, deliverable, success_criteria,
+                 deadline, audience, generated_by)
+CatalogModule   (slug, category, identifier, name, body, deps)
+                # category: A | B | C
+                # identifier: M01..M12 (or extended)
+BriefAudit      (slug, brief_artefact, found_sections,
+                 missing_sections, clarity_score,
+                 recommended_revisions, audited_at, audited_by)
+```
+
+### Catalog data file (ships with 102 base PR)
+
+`agency/capabilities/novel/data/reference/research-modules/catalog.yaml`
+holds the A/B/C × M01-M12 module definitions. Verbatim from the
+imported `Plan/_research/novel-mvp-source/research-prompt-optimizer/
+agentic-tool-catalog.md` §1.4 (the 36 catalog entries).
+
+### Walkable skill update — `research-ingest-pipeline` now 6 phases
+
+Iter-10's 5-phase skill is extended with Phase 0 intent capture at
+the front:
+
+```python
+RESEARCH_INGEST_PIPELINE_SKILL_v2 = {
+    "name": "research-ingest-pipeline",
+    "kind": "workflow",
+    "phases": [
+        {"index": 0, "name": "intent-capture",
+         "produces": ["research_intent_recorded"]},
+        {"index": 1, "name": "source-upload",
+         "produces": ["source_registered"]},
+        {"index": 2, "name": "chunk",
+         "produces": ["chunks_created"]},
+        {"index": 3, "name": "extract",
+         "produces": ["entities_extracted"],
+         "gate": "computed", "gate_verb": "novel.entity_extraction_gate"},
+        {"index": 4, "name": "taxonomize",
+         "produces": ["entities_taxonomized"]},
+        {"index": 5, "name": "brief-audit",
+         "produces": ["briefs_audited"],
+         "gate": "computed", "gate_verb": "novel.brief_audit_gate"},
+        {"index": 6, "name": "human-review",
+         "produces": ["sources_human_curated"], "gate": "hard"},
+    ],
+}
+```
+
+Phase 0 + Phase 5 are the iter-12 additions; the rest are iter-10
+verbatim. New computed gate `brief_audit_gate` ensures every research
+brief passes reader-test simulation before human review.
+
+### Why this matters
+
+Without intent capture (Phase 0), the iter-10 ingestion runs without
+direction — pulling everything from a source instead of the relevant
+shape. The intent YAML focuses extraction: a novel about "the ethics
+of artificial general intelligence" with sub-topic "consequentialist
+vs deontological frameworks" produces TARGETED entities (Mill, Kant,
+Bostrom, Yudkowsky), not the universe of AI-ethics writing.
+
+Without brief audit (Phase 5), briefs render but their CLARITY is
+unverified — the writer downloads a 50-page brief that's structurally
+incoherent. The audit catches this BEFORE the writer wastes time
+reading.
+
+The catalog (M01-M12) provides reusable module templates so a brief
+covers known shapes (historical-context, primary-sources, opposing-
+views, contemporary-debate, etc.) — the writer doesn't have to
+remember what a "complete" brief looks like.
+
 ## Complex research → world-ontology workflows (iteration 10)
 
 Per user directive (2026-06-07): *"we Need Complex Research World

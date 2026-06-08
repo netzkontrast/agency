@@ -27,6 +27,122 @@ research_first: false
 > 7 prior novel specs + the Dramatica Decidability Matrix + the Novel-Craft
 > Parity Table), imported under `Plan/_research/novel-mvp-source/`.
 
+## First-Principles Minimum (iter-12 — critical-thinking-driven)
+
+The 5-verb path from idea to manuscript is the **minimum viable
+novel** (see `MINIMAL-VIABLE-NOVEL.md`). A simple-novel writer uses:
+
+1. `conceptualize` (102)
+2. `create_novel` (102)
+3. `create_chapter` (102)
+4. `chapter_report` (104)
+5. `render_manuscript` (107)
+
+Plus the walkable skill `novel-concept` (102). That's it. Storyform,
+multi-POV, worldbuilding, audiobook prep, prompt engineering, research
+entities — all opt-in. Complex novels turn features ON; simple novels
+ship in 5 verbs.
+
+## Invariants That Cannot Be Broken (iter-12 — inversion pass)
+
+Seven hard-NEVERs whose violation = design failure:
+
+1. **Drop-in bar**: zero edits to `agency/engine.py`,
+   `agency/capability.py`, `agency/registry.py`, `agency/ontology.py`,
+   `agency/toolresult.py`. Enforced by `scripts/check-drop-in-bar`.
+2. **No canon translation** (ADR-1): canon prose preserved in source
+   language; no `translate_prose` verb exists.
+3. **No silent generated_by flip**: `generated_by="llm"` can become
+   `"mixed"` (via `mark_human_edited`) but NEVER becomes `"human"`.
+4. **Iter-2+ features are opt-in only**: simple novels work with the
+   base schema; complex features activate via novel frontmatter
+   (`outline_hierarchy`, `pov_count`, `subplot_count`, `multilingual`,
+   `genres`).
+5. **Driver protocol cap = 6**: `StateDriver` / `TextDriver` /
+   `AudioDriver` / `DBDriver` / `CloudDriver` / `FormatDriver`. Plus
+   the shared `llm` substrate driver. A 7th cluster-specific protocol
+   = design failure.
+6. **Every hard gate has an `elicit` escape valve**: no walkable skill
+   can block the user without offering a human-confirm path.
+7. **No direct cluster-to-cluster imports**: cross-cluster use goes
+   through `ctx.call(cap, verb, **kw)` (returns unwrapped dict per
+   `capability.py:138`).
+
+## Assumption Manifest (iter-12 — assumptions pass)
+
+**Load-bearing** (failure = design re-architecture):
+- Dramatica as story-design framework (103) — *mitigation: 103 is
+  optional for simple novels*
+- Graph-canonical, file-derived (CLAUDE.md rule 2) — *mitigation:
+  iter-6 import/export bridges Scrivener/Word*
+- LLM availability for Path B (092 G3) — *mitigation: Path A
+  rule-based default*
+- Markdown as primary prose format — *mitigation: import discipline
+  handles rich-text sources*
+
+**Incidental** (can swap without re-arch):
+- pytest as test framework
+- SQLite as graph store
+- YAML vs JSON for config
+
+## Why this isn't a kitchen sink (iter-12 — steelman pass)
+
+**Concern**: "30+ verbs in 104 alone, 11 iterations of additions,
+multi-volume + multi-POV + multi-language + multi-author + audiobook
++ marketing + prompt engineering — kitchen sink, not focused product."
+
+**Response**:
+- **Opt-in discipline**: 5 verbs ship simple novels. Everything beyond
+  activates by frontmatter declaration.
+- **Walkable skills as discoverability**: writers don't read the verb
+  list; they walk a skill and the engine surfaces relevant verbs.
+- **`agency novel help` (Spec 079 CLI mirror)**: lists every verb
+  organized by cluster + walkable skill discovery via `intent
+  suggests`.
+- **The 30 verbs in 104 are addressable surface, not required surface**:
+  simple novels use 1 (chapter_report); complex multi-POV uses 8;
+  research-heavy + LLM-assisted uses all 30.
+- **Per-cluster extras** (`[novel-format]`, `[novel-db]`,
+  `[novel-cloud]`, `[novel-llm]`): users install only what they need.
+
+The kitchen-sink concern is real for hand-rolled APIs. The agency
+substrate's discoverability primitives + walkable-skill + verb-mirror
+ergonomics make breadth tolerable.
+
+## Downstream Predictions (iter-12 — second-order pass)
+
+After 101 → Shipped, the consequence chain:
+
+1. Writers using it generate large provenance graphs → researchers
+   study creative process via the data
+2. Publishers integrate with catalogue + manuscript clusters for
+   streamlined acquisition
+3. Some writers reject over privacy concerns → need clear data-
+   ownership story
+4. Dramatica community contributes ontology improvements → versioning
+   discipline (iter-9 schema migration covers this)
+5. Forks for non-Dramatica frameworks emerge → pattern is reusable
+6. The 10-builder prompt family gets copied by other domain caps
+   (music, screenplay, journalism) → `agency.prompt-engineering`
+   substrate capability may emerge
+7. AI-use disclosure (ADR-7) becomes publishing-industry table-stakes
+8. Translation services build on the multilingual layer
+
+## Design Alternatives Considered (iter-12 — tradeoffs pass)
+
+| Option | Drop-in | Accessibility | Decidability | Coverage | Cost | Wave-1 ship |
+|---|---|---|---|---|---|---|
+| **Selected: 7 clusters, opt-in iter-2+** | ✓ | medium | high | wide | high | ~3 weeks |
+| Slim (102+104+108 only) | ✓ | **high** | medium | narrow | low | **~1 week** |
+| Fat (all features mandatory) | ✓ | low | high | wide | very high | ~6 weeks |
+| Plugin-per-cluster | medium | medium | high | wide | very high | ~6 weeks |
+| Embed in music plugin | ✓ | medium | high | wide | medium | ~2 weeks |
+| External Scrivener API | n/a | high | low | narrow | low | ~3 days |
+
+**Selected**: best balance of coverage + decidability + drop-in
+compliance. The extra 2 weeks over the slim path buy complex-novel
+coverage that distinguishes from a Scrivener clone.
+
 ## Why
 
 Music proved that a hard creative-production domain fits the clustered
@@ -361,6 +477,49 @@ Six load-bearing decisions for very complex novels:
 The base schema (simple novel) works without ANY of the iteration-2
 additions. They activate when the novel's frontmatter declares the
 relevant complexity field.
+
+### ADR-13: Distribution channels + post-pub feedback loop (iteration 12 — decompose pass)
+
+Critical-thinking decompose surfaced two MECE gaps:
+
+**Distribution-channel optimization** (107 cluster gains per-channel
+metadata):
+```python
+DistributionChannel  (slug, name, kind)
+                      # kind: kdp | apple | ingramspark | smashwords |
+                      #       draft2digital | other
+ChannelMetadata      (channel, novel, metadata: dict)
+                      # platform-specific: BISAC codes, keywords,
+                      #  series name, pricing tier, etc.
+```
+
+Two new verbs in 107:
+- `prepare_for_channel(novel, channel_slug)` (act): renders the
+  manuscript + metadata for a specific channel; per-channel format
+  validation
+- `validate_channel_metadata(novel, channel_slug)` (transform): checks
+  every required field for the platform
+
+**Post-publication feedback loop** (106 catalogue gains):
+```python
+PostPubFeedback      (slug, novel, source, rating, body,
+                      sentiment, published_at)
+                      # source: amazon | goodreads | apple | direct |
+                      #         reviewer-org
+```
+
+Three new verbs in 106:
+- `ingest_review(novel, source, rating, body)` (effect): records a
+  review/rating; cross-references existing analytics
+- `review_sentiment_aggregate(novel)` (transform): per-novel sentiment
+  distribution + chapter-level keyword analysis
+- `trigger_revision_from_feedback(novel, threshold)` (effect): when
+  rating drops below threshold, creates EditNotes from the lowest-
+  rated reviews; feeds a follow-up revision pass
+
+IP-extension framework (audio drama / TTRPG / video game / film
+adaptation) is **deferred** to a future spec — too out-of-scope for
+this wave but documented for downstream planning.
 
 ### ADR-12: Prompt + context engineer for writing-assist (iteration 11)
 
