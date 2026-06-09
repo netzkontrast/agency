@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_transcribe_sheet
-# Transcribe audio to sheet music via the AudioDriver (act, produces a ``sheet-music`` artefact).
+# Transcribe audio → sheet music via AudioDriver (act); produces sheet-music artefact.
 # Usage: agency-music-transcribe_sheet [--intent-id ID] <album> <path>
 set -euo pipefail
 

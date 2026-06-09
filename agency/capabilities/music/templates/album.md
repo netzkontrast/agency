@@ -309,3 +309,5 @@ Format: PNG preferred, JPEG acceptable. Resolution: at least 3000x3000 for distr
 | # | Title | Duration | Listen |
 |---|-------|----------|--------|
 | 01 | [Track Name] | 0:00 | [SoundCloud](URL) |
+
+<!-- AGENT: Render this album README at album-root after `create_album`; fill artist / title / tracklist from the album-concept artefact. Preserve placeholder brackets the conceptualizer fills next. -->

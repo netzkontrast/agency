@@ -277,3 +277,5 @@ Important: The image will have an audio waveform overlaid on top, so avoid fine 
 | — | — |
 
 <!-- END WAVEFORM ART -->
+
+<!-- AGENT: Render this track markdown into `tracks/<NN>-<slug>.md` after `create_track`; the conceptualizer fills lyrics, style prompt, and explicit flag. Do not strip frontmatter. -->

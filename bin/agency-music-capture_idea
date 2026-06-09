@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_capture_idea
-# Capture a creative idea (effect) — records an ``Idea`` graph node (provenance) and persists it via the StateDriver.
+# Capture a creative idea (effect) — record an Idea node, persist via StateDriver.
 # Usage: agency-music-capture_idea [--intent-id ID] <text>
 set -euo pipefail
 

@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # music.capture_idea
 
-Capture a creative idea (effect) — records an ``Idea`` graph node (provenance) and persists it via the StateDriver.
+Capture a creative idea (effect) — record an Idea node, persist via StateDriver.
 
 ## Inputs
 
@@ -11,11 +11,11 @@ Capture a creative idea (effect) — records an ``Idea`` graph node (provenance)
 
 ## Returns
 
-``{idea_id, text}``.
+``{idea_id, text, status}``.
 
 ## Chain-next
 
-``music.conceptualize`` when an idea grows into an album.
+``music.promote_idea`` when an idea grows into an album.
 
 ## Details
 

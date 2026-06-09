@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_pregen_check
-# Computed `pre-generation` gate (CORE.md:57-62 — a MACHINE-checkable predicate, not the human ship-it confirm).
+# Computed `pre-generation` gate — machine-checkable predicate (Spec 094).
 # Usage: agency-music-pregen_check [--intent-id ID] <lifecycle_id> <concept_ready> <rights_clear>
 set -euo pipefail
 

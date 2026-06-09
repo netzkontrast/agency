@@ -39,3 +39,5 @@ For style reference when prompting:
 - [Artist] - "[Track]"
 - [Artist] - "[Track]"
 - [Artist] - "[Track]"
+
+<!-- AGENT: Render this genre directory README on first album in a new genre; production notes + reference artists live here, NOT in album READMEs. -->

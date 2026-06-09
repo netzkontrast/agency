@@ -34,3 +34,5 @@ Capture album concepts here before they become full projects.
 
 <!-- Add your album ideas below using the template above -->
 
+
+<!-- AGENT: Render this IDEAS.md scaffold on first `capture_idea`; append new ideas below the heading, do not overwrite existing entries. -->

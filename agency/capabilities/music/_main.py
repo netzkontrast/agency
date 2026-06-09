@@ -26,16 +26,29 @@ Red flags:
 """
 from __future__ import annotations
 
-from agency.capability import CapabilityBase, DriverMissing, verb
+from agency.capability import CapabilityBase, DriverMissing, RenderTemplates, verb
 from agency.toolresult import ToolResult
 
 from .ontology import (
     ALBUM_STATUS,
     ALBUM_TYPES,
+    IDEA_STATUS,
+    TRACK_STATUS,
     music_ontology,
 )
 
 _VOWELS = "aeiouy"
+_SLUG_BAD = (" ", "/", "\\", ".", ",", "!", "?", "'", "\"", "(", ")", "[", "]")
+
+
+def _slugify(text: str) -> str:
+    """Deterministic slugifier — lowercase, replace non-alnum with hyphen, collapse."""
+    s = text.lower().strip()
+    for ch in _SLUG_BAD:
+        s = s.replace(ch, "-")
+    while "--" in s:
+        s = s.replace("--", "-")
+    return s.strip("-")
 
 
 def _syllables(word: str) -> int:
@@ -68,6 +81,7 @@ class MusicCapability(CapabilityBase):
     name = "music"
     home = "capability"
     ontology = music_ontology
+    render_templates = RenderTemplates.from_module(__file__)
 
     # ───────── act / conceptualize cluster (preserved demo) ─────────
     @verb(role="act")
@@ -211,9 +225,11 @@ class MusicCapability(CapabilityBase):
     @verb(role="effect")
     def pregen_check(self, lifecycle_id: str, concept_ready: bool = False,
                      rights_clear: bool = False) -> ToolResult:
-        """Computed `pre-generation` gate (CORE.md:57-62 — a MACHINE-checkable predicate,
-        not the human ship-it confirm). Passes only when the concept is complete AND
-        rights are cleared; a fail records BLOCKED_ON + flips the lifecycle to
+        """Computed `pre-generation` gate — machine-checkable predicate (Spec 094).
+
+        Not the human ship-it confirm — that stays on an `elicit`/`lifecycle_gate`.
+        Passes only when the concept is complete AND rights are cleared; a fail
+        records BLOCKED_ON + flips the lifecycle to
         ``input-required`` via ``gate.check`` and returns a typed ``GATE_FAILED``. The
         terminal human "ready?" stays an ``elicit``/``lifecycle_gate``.
 
@@ -263,7 +279,7 @@ class MusicCapability(CapabilityBase):
     # ───────── sheet-music cluster (act via AudioDriver) ─────────
     @verb(role="act")
     def transcribe_sheet(self, album: str, path: str) -> ToolResult:
-        """Transcribe audio to sheet music via the AudioDriver (act, produces a ``sheet-music`` artefact).
+        """Transcribe audio → sheet music via AudioDriver (act); produces sheet-music artefact.
 
         The transcription tool (AnthemScore-class) runs behind the driver, never inline.
         Inputs: album, path (the audio file).
@@ -322,23 +338,304 @@ class MusicCapability(CapabilityBase):
     # ───────── ideas cluster (effect via StateDriver, records an Idea node) ─────────
     @verb(role="effect")
     def capture_idea(self, text: str) -> ToolResult:
-        """Capture a creative idea (effect) — records an ``Idea`` graph node (provenance)
-        and persists it via the StateDriver.
+        """Capture a creative idea (effect) — record an Idea node, persist via StateDriver.
 
         Inputs: text.
-        Returns: ``{idea_id, text}``.
-        chain_next: ``music.conceptualize`` when an idea grows into an album.
+        Returns: ``{idea_id, text, status}``.
+        chain_next: ``music.promote_idea`` when an idea grows into an album.
         """
         if not text.strip():
             return ToolResult.failure("INVALID_ARGUMENT", "idea text is required")
-        idea_id = self.ctx.record("Idea", {"text": text})
+        idea_id = self.ctx.record("Idea", {"text": text, "status": "new"})
         self.ctx.link(idea_id, self.ctx.intent_id, "SERVES")
         try:
             state = self.ctx.get_driver("music_state")
-            state.put(f"idea:{idea_id}", {"text": text})
+            state.put(f"idea:{idea_id}", {"idea_id": idea_id, "text": text,
+                                          "status": "new"})
         except DriverMissing:
             pass                                          # graph node is the record of truth
-        return ToolResult.success(data={"idea_id": idea_id, "text": text})
+        return ToolResult.success(data={"idea_id": idea_id, "text": text,
+                                        "status": "new"})
+
+    # ───────── 094 Slice 2: ideas lifecycle (promote_idea, list_ideas) ─────────
+    @verb(role="effect")
+    def promote_idea(self, idea_id: str, artist: str, title: str,
+                     genre: str, type: str = "thematic") -> ToolResult:
+        """Promote an Idea → Album (effect); record Album + PROMOTED_TO edge.
+
+        Inputs: idea_id, artist, title, genre, type.
+        Returns: ``{idea_id, album_id, album_slug, status}``.
+        chain_next: ``music.conceptualize`` to draft the album concept.
+        """
+        if type not in ALBUM_TYPES:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"type={type!r} not in {sorted(ALBUM_TYPES)}")
+        idea_node = self.ctx.recall(idea_id) if hasattr(self.ctx, "recall") else None
+        slug = _slugify(title)
+        album_id = self.ctx.record("Album", {
+            "artist": artist, "title": title, "type": type,
+            "status": "draft", "genre": genre, "slug": slug,
+            "target_lufs": -14.0,
+        })
+        self.ctx.link(album_id, self.ctx.intent_id, "SERVES")
+        self.ctx.link(idea_id, album_id, "PROMOTED_TO")
+        self.ctx.update(idea_id, {"status": "promoted"}) if hasattr(self.ctx, "update") else None
+        try:
+            state = self.ctx.get_driver("music_state")
+            state.update_idea(idea_id, {"status": "promoted",
+                                        "promoted_to_album": slug})
+            state.create_album_root(artist=artist, genre=genre, slug=slug,
+                                    title=title, type=type)
+        except DriverMissing:
+            pass
+        return ToolResult.success(data={"idea_id": idea_id, "album_id": album_id,
+                                        "album_slug": slug, "status": "promoted"})
+
+    @verb(role="transform")
+    def list_ideas(self, status: str = "") -> ToolResult:
+        """List captured ideas via the StateDriver (transform) — filter by status.
+
+        Inputs: status (one of ``IDEA_STATUS`` or ``""`` for all).
+        Returns: ``{ideas: [{idea_id, text, status, …}], count}``.
+        chain_next: ``music.promote_idea`` to turn a "new" idea into an album.
+        """
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        ideas = state.list_ideas(status=status)
+        return ToolResult.success(data={"ideas": ideas, "count": len(ideas)})
+
+    # ───────── 094 Slice 2: album lifecycle (create / find / progress) ─────────
+    @verb(role="effect")
+    def create_album(self, artist: str, title: str, genre: str,
+                     type: str = "thematic") -> ToolResult:
+        """Create an album root + render the canonical templates (effect).
+
+        Records an ``Album`` graph node, calls StateDriver.create_album_root for
+        the disk layout (production); the README is rendered from the bitwize-
+        ported ``album`` template (Spec 094 §"Template porting"). Optional
+        ``artist`` page renders on first album for this artist.
+
+        Inputs: artist, title, genre, type (default ``thematic``).
+        Returns: ``{album_id, album_slug, album_root, artist_seeded, title}``.
+        chain_next: ``music.create_track`` for each track in the tracklist.
+        """
+        if type not in ALBUM_TYPES:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"type={type!r} not in {sorted(ALBUM_TYPES)}")
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        slug = _slugify(title)
+        # Graph-canonical record FIRST (CLAUDE.md rule 2).
+        album_id = self.ctx.record("Album", {
+            "artist": artist, "title": title, "type": type,
+            "status": "draft", "genre": genre, "slug": slug,
+            "target_lufs": -14.0,
+        })
+        self.ctx.link(album_id, self.ctx.intent_id, "SERVES")
+        # Driver maintains the on-disk mirror (production); fake stores in-memory.
+        root = state.create_album_root(artist=artist, genre=genre, slug=slug,
+                                       title=title, type=type)
+        # Render the album README from the template; artist seed on first album.
+        album_tpl = self.ctx.template("album")
+        if album_tpl is not None:
+            state.put(f"{root}/README.md", {"body": album_tpl.template})
+        artist_seeded = False
+        if not state.find_album(query=f"artist:{artist}"):
+            artist_tpl = self.ctx.template("artist")
+            if artist_tpl is not None:
+                state.put(f"artists/{_slugify(artist)}/README.md",
+                          {"body": artist_tpl.template})
+                artist_seeded = True
+        return ToolResult.success(data={"album_id": album_id,
+                                        "album_slug": slug,
+                                        "album_root": root,
+                                        "artist_seeded": artist_seeded,
+                                        "title": title})
+
+    @verb(role="transform")
+    def find_album(self, query: str = "") -> ToolResult:
+        """Find albums by slug / fuzzy match via the StateDriver (transform).
+
+        Inputs: query (slug-exact wins; substring then; ``""`` returns all).
+        Returns: ``{albums: […], count, query}``.
+        chain_next: ``music.album_progress`` on a found slug.
+        """
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        albums = state.find_album(query=query)
+        return ToolResult.success(data={"albums": albums,
+                                        "count": len(albums),
+                                        "query": query})
+
+    @verb(role="effect")
+    def rename_album(self, old_slug: str, new_slug: str) -> ToolResult:
+        """Rename an album, mirroring paths via the StateDriver (effect).
+
+        Inputs: old_slug, new_slug.
+        Returns: ``{success, old_slug, new_slug, title, tracks_updated}``.
+        chain_next: ``music.album_progress`` to verify state preserved.
+        """
+        if not new_slug.strip():
+            return ToolResult.failure("INVALID_ARGUMENT",
+                                      "new_slug must be non-empty")
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        result = state.rename_album(old_slug=old_slug, new_slug=new_slug)
+        if not result.get("success"):
+            return ToolResult.failure(result.get("error", "NOT_FOUND"),
+                                      f"rename_album {old_slug!r} failed")
+        return ToolResult.success(data=result)
+
+    @verb(role="transform")
+    def album_progress(self, album: str) -> ToolResult:
+        """Album progress aggregate via the StateDriver (transform).
+
+        Inputs: album (slug).
+        Returns: ``{album_slug, track_count, tracks_completed, completion_percentage, tracks_by_status}``.
+        chain_next: ``music.release_check`` once completion_percentage = 100.
+        """
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        return ToolResult.success(data=state.album_progress(album=album))
+
+    # ───────── 094 Slice 2: track lifecycle ─────────
+    @verb(role="effect")
+    def create_track(self, album: str, title: str,
+                     track_number: int = 0) -> ToolResult:
+        """Create a track in an album, rendered from the bitwize ``track`` template (effect).
+
+        Records a ``Track`` graph node, edges ``Track RECORDED_FOR Album``, persists
+        via the StateDriver.
+
+        Inputs: album (slug), title, track_number (0-padded to 2 digits in the slug).
+        Returns: ``{track_id, track_slug, album, track_number, title}``.
+        chain_next: ``music.set_track_status`` as the track progresses.
+        """
+        slug = _slugify(title)
+        if track_number > 0:
+            slug = f"{track_number:02d}-{slug}"
+        # Graph node first
+        track_id = self.ctx.record("Track", {
+            "title": title, "status": "draft", "slug": slug,
+        })
+        self.ctx.link(track_id, self.ctx.intent_id, "SERVES")
+        # Edge to album if we can find it
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.success(data={"track_id": track_id,
+                                            "track_slug": slug,
+                                            "album": album,
+                                            "track_number": track_number,
+                                            "title": title})
+        track_tpl = self.ctx.template("track")
+        body = track_tpl.template if track_tpl is not None else ""
+        if body and "track_number: 0" in body:
+            body = body.replace("track_number: 0",
+                                f"track_number: {track_number}")
+        state.create_track(album=album, slug=slug, title=title, body=body)
+        return ToolResult.success(data={"track_id": track_id,
+                                        "track_slug": slug,
+                                        "album": album,
+                                        "track_number": track_number,
+                                        "title": title})
+
+    @verb(role="transform")
+    def list_tracks(self, album: str) -> ToolResult:
+        """List tracks for an album via the StateDriver (transform).
+
+        Inputs: album (slug).
+        Returns: ``{album, tracks: [{slug, title, status, …}], count}``.
+        chain_next: ``music.album_progress`` for the aggregate view.
+        """
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        tracks = state.list_tracks(album=album)
+        return ToolResult.success(data={"album": album, "tracks": tracks,
+                                        "count": len(tracks)})
+
+    @verb(role="effect")
+    def set_track_status(self, album: str, track: str,
+                         status: str) -> ToolResult:
+        """Persist a track's production status via the StateDriver (effect).
+
+        Inputs: album (slug), track (slug), status (one of ``TRACK_STATUS``).
+        Returns: ``{album, track, status}``.
+        chain_next: ``music.list_tracks`` to verify, then ``music.album_progress``.
+        """
+        if status not in TRACK_STATUS:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"status={status!r} not in {sorted(TRACK_STATUS)}")
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        state.update_track_field(album=album, track=track,
+                                 field="status", value=status)
+        return ToolResult.success(data={"album": album, "track": track,
+                                        "status": status})
+
+    @verb(role="effect")
+    def rename_track(self, album: str, old_slug: str,
+                     new_slug: str) -> ToolResult:
+        """Rename a track within an album, mirroring paths via the StateDriver (effect).
+
+        Inputs: album, old_slug, new_slug.
+        Returns: ``{success, album_slug, old_slug, new_slug, title}``.
+        chain_next: ``music.list_tracks`` to verify.
+        """
+        if not new_slug.strip():
+            return ToolResult.failure("INVALID_ARGUMENT",
+                                      "new_slug must be non-empty")
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        result = state.rename_track(album=album, old_slug=old_slug,
+                                    new_slug=new_slug)
+        if not result.get("success"):
+            return ToolResult.failure(result.get("error", "NOT_FOUND"),
+                                      f"rename_track {old_slug!r} failed")
+        return ToolResult.success(data=result)
+
+    # ───────── 094 Slice 2: session ─────────
+    @verb(role="transform")
+    def resume_session(self) -> ToolResult:
+        """Restore the last-album context via the StateDriver (transform).
+
+        Inputs: none.
+        Returns: ``{session: {last_album?, last_track?, last_phase?, pending_actions?}}``.
+        chain_next: ``music.album_progress`` on ``session.last_album`` if set.
+        """
+        try:
+            state = self.ctx.get_driver("music_state")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_state' driver registered")
+        return ToolResult.success(data={"session": state.get_session()})
 
     # ───────── health cluster (transform, driver-free) ─────────
     @verb(role="transform")

@@ -67,13 +67,29 @@ RELEASE_QA_SKILL = {
 }
 
 
+IDEA_STATUS = {"new", "promoted", "dropped"}
+
+
 music_ontology = OntologyExtension(
-    nodes={"Album": ["artist", "title", "type", "status", "genre", "slug", "target_lufs"],
-           "Track": ["title", "status", "slug"],
-           "Tweet": ["text"], "Idea": ["text"], "SheetMusic": ["title"]},
+    nodes={
+        # 007 baseline (verbatim required-fields preserved)
+        "Album": ["artist", "title", "type", "status", "genre", "slug", "target_lufs"],
+        "Track": ["title", "status", "slug"],
+        "Tweet": ["text"],
+        "Idea": ["text"],                        # optional: status, captured_at
+        "SheetMusic": ["title"],
+        # 094 Slice 2 — reference data nodes (back the vendored genres + reference docs)
+        "Genre": ["slug", "name"],               # optional: mastering_target_lufs, suno_tips
+        "Reference": ["kind", "slug"],           # optional: body
+    },
     enums={("Album", "type"): ALBUM_TYPES,
            ("Album", "status"): ALBUM_STATUS,
-           ("Track", "status"): TRACK_STATUS},
+           ("Track", "status"): TRACK_STATUS,
+           ("Idea", "status"): IDEA_STATUS},     # 094 Slice 2 NEW
+    edges={                                       # 094 Slice 2 NEW closed-set edges
+        "PROMOTED_TO",                            # Idea → Album (promote_idea)
+        "RECORDED_FOR",                           # Track → Album (create_track)
+    },
     skills={"album-concept": ALBUM_CONCEPT_SKILL,
             "pre-generation": PRE_GENERATION_SKILL,
             "release-qa": RELEASE_QA_SKILL},

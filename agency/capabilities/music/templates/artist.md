@@ -38,3 +38,5 @@
 - [Visual element 1]
 - [Visual element 2]
 - [Visual element 3]
+
+<!-- AGENT: Seed this artist page once per artist on first album creation; reuse for subsequent albums. Edit artist bio + discography only, leave frontmatter alone. -->
