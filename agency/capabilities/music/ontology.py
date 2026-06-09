@@ -66,6 +66,36 @@ RELEASE_QA_SKILL = {
     ],
 }
 
+# Spec 097 — tweet status enum (open-set: bitwize uses {draft, scheduled, posted, archived}).
+TWEET_STATUS = {"draft", "scheduled", "posted", "archived"}
+
+# Spec 097 — catalogue cluster walkable skills.
+TWEET_CURATION_SKILL = {
+    "name": "tweet-curation", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "draft",
+         "produces": ["tweet_body", "tweet_platform"]},
+        {"index": 2, "name": "schedule",
+         "produces": ["scheduled_at_set"],
+         "gate": "computed", "gate_verb": "music.tweet_schedule_gate"},
+        {"index": 3, "name": "publish",
+         "produces": ["posted"]},
+        {"index": 4, "name": "archive",
+         "produces": ["archived"]},
+    ],
+}
+STREAMING_VERIFY_SKILL = {
+    "name": "streaming-verify", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "collect",
+         "produces": ["urls_to_check"]},
+        {"index": 2, "name": "head-check",
+         "produces": ["live_urls", "dead_urls"]},
+        {"index": 3, "name": "record",
+         "produces": ["verification_recorded"]},
+    ],
+}
+
 # Spec 096 — mastering + mix-polish workflow skills.
 MASTERING_SKILL = {
     "name": "mastering", "kind": "workflow",
@@ -153,7 +183,8 @@ music_ontology = OntologyExtension(
     enums={("Album", "type"): ALBUM_TYPES,
            ("Album", "status"): ALBUM_STATUS,
            ("Track", "status"): TRACK_STATUS,
-           ("Idea", "status"): IDEA_STATUS},     # 094 Slice 2 NEW
+           ("Idea", "status"): IDEA_STATUS,      # 094 Slice 2 NEW
+           ("Tweet", "status"): TWEET_STATUS},   # 097 NEW
     edges={                                       # 094 Slice 2 NEW closed-set edges
         "PROMOTED_TO",                            # Idea → Album (promote_idea)
         "RECORDED_FOR",                           # Track → Album (create_track)
@@ -163,7 +194,9 @@ music_ontology = OntologyExtension(
             "release-qa": RELEASE_QA_SKILL,
             "lyric-writing": LYRIC_WRITING_SKILL,    # 095 NEW
             "mastering": MASTERING_SKILL,            # 096 NEW
-            "mix-polish": MIX_POLISH_SKILL},         # 096 NEW
+            "mix-polish": MIX_POLISH_SKILL,          # 096 NEW
+            "tweet-curation": TWEET_CURATION_SKILL,  # 097 NEW
+            "streaming-verify": STREAMING_VERIFY_SKILL},  # 097 NEW
     schemas={"album-concept": ["artist", "title", "type"],
              "promo-copy": ["album", "body"],
              "mastering-report": ["album", "body"],
@@ -180,5 +213,9 @@ music_ontology = OntologyExtension(
              "qc-report":            ["album", "track", "rows"],
              "coherence-report":     ["album", "avg_distance"],
              "promo-video":          ["album", "track", "output_path"],
-             "album-sampler":        ["album", "output_path"]},
+             "album-sampler":        ["album", "output_path"],
+             # 097 NEW — catalogue cluster artefact reports
+             "tweet-record":         ["album", "body", "platform"],
+             "streaming-verify":     ["album", "live", "dead"],
+             "catalogue-snapshot":   ["album", "total", "by_status"]},
 )

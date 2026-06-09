@@ -125,8 +125,27 @@ class AudioDriver(Driver, Protocol):
 
 @runtime_checkable
 class DBDriver(Driver, Protocol):
-    """A psycopg2-shaped cursor source (catalogue DB), no Postgres host required."""
+    """A psycopg2-shaped cursor source (catalogue DB), no Postgres host required.
+
+    Spec 097 extends with 7 typed-named methods so the catalogue cluster
+    doesn't repeat SQL strings in each verb — production binds via the
+    `[music-db]` extra; the fake's in-memory store keys by auto-incremented
+    ID so the SQL router can be a thin shim.
+    """
+    # ── 007 baseline ──
     def cursor(self): ...
+
+    # ── 097 — catalogue cluster method delta ──
+    def create_tweet(self, album: str, body: str, scheduled_at: str,
+                     platform: str = "x") -> int: ...
+    def update_tweet(self, tweet_id: int, fields: dict) -> None: ...
+    def delete_tweet(self, tweet_id: int) -> None: ...
+    def list_tweets(self, album: str = "", status: str = "",
+                    limit: int = 100) -> list[dict]: ...
+    def search_tweets(self, query: str, limit: int = 50) -> list[dict]: ...
+    def tweet_stats(self, album: str = "") -> dict: ...
+    def sync_album_tweets(self, album: str,
+                          tweets: list[dict]) -> dict: ...
 
 
 @runtime_checkable
@@ -698,11 +717,82 @@ class _FakeCursor:
 
 
 class FakeDBDriver:
+    """In-memory DBDriver fake — Spec 097 catalogue cluster surface.
+
+    The 007 cursor-shim path is preserved (rows-based fake for catalogue_status
+    + release_check); Spec 097 adds an indexed tweet store keyed by auto-id.
+    Production binds psycopg2-binary via the `[music-db]` extra.
+    """
+
     def __init__(self, rows: list[tuple] | None = None) -> None:
         self._rows = rows or [("track-1", "mastered"), ("track-2", "draft")]
+        # 097: tweet table (album → list[{id, body, status, platform, scheduled_at}])
+        self._tweets: dict[int, dict] = {}
+        self._tweet_seq = 0
 
+    # ── 007 baseline ──
     def cursor(self):
         return _FakeCursor(self._rows)
+
+    # ── 097 — catalogue cluster delta ──
+    def create_tweet(self, album: str, body: str, scheduled_at: str,
+                     platform: str = "x") -> int:
+        self._tweet_seq += 1
+        tid = self._tweet_seq
+        self._tweets[tid] = {
+            "id": tid, "album": album, "body": body,
+            "scheduled_at": scheduled_at, "platform": platform,
+            "status": "draft",
+        }
+        return tid
+
+    def update_tweet(self, tweet_id: int, fields: dict) -> None:
+        if tweet_id in self._tweets:
+            self._tweets[tweet_id].update(fields)
+
+    def delete_tweet(self, tweet_id: int) -> None:
+        self._tweets.pop(tweet_id, None)
+
+    def list_tweets(self, album: str = "", status: str = "",
+                    limit: int = 100) -> list[dict]:
+        out = list(self._tweets.values())
+        if album:
+            out = [t for t in out if t.get("album") == album]
+        if status:
+            out = [t for t in out if t.get("status") == status]
+        return [dict(t) for t in out[:limit]]
+
+    def search_tweets(self, query: str, limit: int = 50) -> list[dict]:
+        q = query.lower()
+        return [dict(t) for t in self._tweets.values()
+                if q in t.get("body", "").lower()][:limit]
+
+    def tweet_stats(self, album: str = "") -> dict:
+        tweets = (list(self._tweets.values()) if not album else
+                  [t for t in self._tweets.values()
+                   if t.get("album") == album])
+        by_status: dict[str, int] = {}
+        for t in tweets:
+            s = t.get("status", "unknown")
+            by_status[s] = by_status.get(s, 0) + 1
+        return {"album": album or "*", "total": len(tweets),
+                "by_status": by_status}
+
+    def sync_album_tweets(self, album: str,
+                          tweets: list[dict]) -> dict:
+        """Idempotent sync — replaces all tweets for an album with the input list."""
+        existing = [tid for tid, t in self._tweets.items()
+                    if t.get("album") == album]
+        for tid in existing:
+            del self._tweets[tid]
+        created = 0
+        for t in tweets:
+            self.create_tweet(album=album, body=t.get("body", ""),
+                              scheduled_at=t.get("scheduled_at", ""),
+                              platform=t.get("platform", "x"))
+            created += 1
+        return {"album": album, "removed": len(existing),
+                "created": created}
 
 
 class FakeCloudDriver:

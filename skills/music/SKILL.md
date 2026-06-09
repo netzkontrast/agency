@@ -43,12 +43,23 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `create_album` | effect | Create an album root + render the canonical templates (effect). | [details](references/create_album.md) |
 | `create_songbook` | effect | LilyPond → PDF songbook render via AudioDriver (effect). | [details](references/create_songbook.md) |
 | `create_track` | effect | Create a track in an album, rendered from the bitwize ``track`` template (effect). | [details](references/create_track.md) |
+| `db_create_tweet` | effect | Insert a tweet row via the DBDriver (effect); produces tweet-record artefact. | [details](references/db_create_tweet.md) |
+| `db_delete_tweet` | effect | Delete a tweet row via the DBDriver (effect). | [details](references/db_delete_tweet.md) |
+| `db_get_tweet_stats` | transform | Aggregate counts of tweets by status via DBDriver (transform). | [details](references/db_get_tweet_stats.md) |
+| `db_list_tweets` | transform | List tweets via the DBDriver, filtered by album + status (transform). | [details](references/db_list_tweets.md) |
+| `db_search_tweets` | transform | Substring search across tweet bodies via DBDriver (transform). | [details](references/db_search_tweets.md) |
+| `db_sync_album` | effect | Idempotent sync of an album's tweets — replaces existing (effect). | [details](references/db_sync_album.md) |
+| `db_update_tweet` | effect | Update tweet row fields via the DBDriver (effect). | [details](references/db_update_tweet.md) |
 | `explicit_gate` | effect | Computed explicit-content gate (effect). | [details](references/explicit_gate.md) |
 | `extract_distinctive_phrases` | transform | Return novel tri-grams (not in corpus) from the lyrics (transform). | [details](references/extract_distinctive_phrases.md) |
+| `extract_links` | transform | Extract URLs from text via simple regex (transform). | [details](references/extract_links.md) |
 | `extract_section` | transform | Extract the body under a ``[<label>]`` section tag (transform). | [details](references/extract_section.md) |
 | `find_album` | transform | Find albums by slug / fuzzy match via the StateDriver (transform). | [details](references/find_album.md) |
 | `fix_dynamic_track` | effect | Dynamic range fixer — applies compression/expansion (effect). | [details](references/fix_dynamic_track.md) |
 | `generate_promo_videos` | effect | Render a vertical promo video via AudioDriver (effect). | [details](references/generate_promo_videos.md) |
+| `get_promo_content` | transform | Read promo content (drafts + scheduled tweets) via DBDriver (transform). | [details](references/get_promo_content.md) |
+| `get_promo_status` | transform | Per-album promo state via StateDriver + DBDriver (transform). | [details](references/get_promo_status.md) |
+| `get_streaming_urls` | transform | Read recorded streaming URLs for an album via StateDriver (transform). | [details](references/get_streaming_urls.md) |
 | `list_ideas` | transform | List captured ideas via the StateDriver (transform) — filter by status. | [details](references/list_ideas.md) |
 | `list_tracks` | transform | List tracks for an album via the StateDriver (transform). | [details](references/list_tracks.md) |
 | `lyric_report` | act | Analyze a lyric sheet's syllable load per line via the TextDriver (act). | [details](references/lyric_report.md) |
@@ -81,6 +92,8 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `set_album_status` | effect | Persist an album's production status via the StateDriver (effect). | [details](references/set_album_status.md) |
 | `set_track_status` | effect | Persist a track's production status via the StateDriver (effect). | [details](references/set_track_status.md) |
 | `transcribe_sheet` | act | Transcribe audio → sheet music via AudioDriver (act); produces sheet-music artefact. | [details](references/transcribe_sheet.md) |
+| `tweet_schedule_gate` | effect | Computed tweet-schedule gate (effect) — composes 3 checks. | [details](references/tweet_schedule_gate.md) |
+| `update_streaming_url` | effect | Persist a verified streaming URL via StateDriver (effect). | [details](references/update_streaming_url.md) |
 | `validate_section_structure` | transform | Validate section tag well-formedness (Title Case in brackets) (transform). | [details](references/validate_section_structure.md) |
 | `verify_streaming` | transform | Verify an album's streaming links are live via the CloudDriver (transform). | [details](references/verify_streaming.md) |
 
@@ -111,6 +124,10 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'pre-generation', 'inputs': {}, 'intent_id': '…'})`
 - **`release-qa`** (gate): mastered → metadata → ship
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'release-qa', 'inputs': {}, 'intent_id': '…'})`
+- **`streaming-verify`** (workflow): collect → head-check → record
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'streaming-verify', 'inputs': {}, 'intent_id': '…'})`
+- **`tweet-curation`** (workflow): draft → schedule → publish → archive
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'tweet-curation', 'inputs': {}, 'intent_id': '…'})`
 
 ## count_syllables
 
