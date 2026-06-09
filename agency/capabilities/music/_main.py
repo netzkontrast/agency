@@ -62,6 +62,12 @@ _SYLLABLE_TOLERANCE: int = 2
 # Referenced by the 4 master/QC verbs + the audio Driver default.
 STREAMING_TARGET_LUFS: float = -14.0
 
+# Spec 099 — default confidence for `capture_claim`. 0.8 = "moderate
+# confidence by default" for an unverified primary-source claim (raised by
+# `verify_sources` when a second source corroborates, lowered when one
+# contradicts). Per CLAUDE.md rule 8: documented tunable, not a snapshot.
+DEFAULT_CLAIM_CONFIDENCE: float = 0.8
+
 
 def _validate_album_type(value: str) -> Optional["ToolResult"]:
     """Single-source ALBUM_TYPES enum check (post-Round-1 dedup).
@@ -866,7 +872,7 @@ class MusicCapability(CapabilityBase):
         passed = not prn and not hom
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
                       name="pronunciation", passed=passed,
-                      evidence=(f"clean" if passed else
+                      evidence=("clean" if passed else
                                 f"pronunciation:{len(prn)} homograph:{len(hom)}"))
         if not passed:
             return ToolResult.failure(
@@ -1811,21 +1817,29 @@ class MusicCapability(CapabilityBase):
         chain_next: ``music.capture_claim`` per finding.
         """
         sp = specialists or list(RESEARCH_DOMAINS)
+        dispatched: list[str] = []
+        errors: dict[str, str] = {}
         for role in sp:
             try:
                 self.ctx.call("research", "specialist",
                               research_id=research_id, role=role)
-            except Exception:
-                pass        # graceful — some specialists may not be wired
+                dispatched.append(role)
+            except Exception as e:
+                # Graceful — some specialists may not be wired. Mirror the
+                # lyrics_pregen_gate evidence pattern (Round 1 attempt-4):
+                # observable partial failure beats silent success.
+                errors[role] = f"{type(e).__name__}: {e}"
         return ToolResult.success(data={"research_id": research_id,
-                                        "dispatched_to": sp,
-                                        "count": len(sp),
+                                        "dispatched_to": dispatched,
+                                        "count": len(dispatched),
+                                        "requested": sp,
+                                        "errors": errors,
                                         "album": album})
 
     @verb(role="effect")
     def capture_claim(self, text: str, source_uri: str,
                        domain: str, album: str = "",
-                       confidence: float = 0.8) -> ToolResult:
+                       confidence: float = DEFAULT_CLAIM_CONFIDENCE) -> ToolResult:
         """Record a ResearchClaim node SERVES the intent (effect).
 
         Inputs: text, source_uri, domain (one of RESEARCH_DOMAINS), album,
@@ -1964,7 +1978,7 @@ class MusicCapability(CapabilityBase):
         passed = len(pending) == 0
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
                       name="verify", passed=passed,
-                      evidence=(f"ok (0 pending)" if passed else
+                      evidence=("ok (0 pending)" if passed else
                                 f"{len(pending)} pending: {by_domain}"))
         if not passed:
             return ToolResult.failure(

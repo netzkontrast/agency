@@ -10,11 +10,13 @@
 > that ships a spec, opens a new spec, or changes a spec's status MUST
 > update the corresponding row here in the same commit. No drift.
 >
-> **Last reviewed:** 2026-06-06 (branch `claude/affectionate-meitner-H4vTJ`).
-> Verdict counts reconciled row-by-row against the Status column (the
-> 2026-06-05 glance had drifted — 016/019/023/059/061/062/064 were
-> Shipped but undercounted, 001/016/023 sat in Partial, 032 had moved to
-> Superseded). Specs 008 + 009 closed as superseded this pass.
+> **Last reviewed:** 2026-06-09 (branch `claude/music-todo-flip-and-novel-start`).
+> Round 1 autonomous-loop reconciliation: Spec 010 closed → 101 + 102-108;
+> roll-up count corrected from 49 → 43 (094-099 cluster-children stay
+> Partial until per-cluster file-split lands); novel cluster Slice 1 row
+> added; "Suggested next 5" item #4 retargeted to Spec 102 (was the now-
+> closed Spec 010). Prior 2026-06-06 pass reconciled 016/019/023/059/061/
+> 062/064 → Shipped + closed Specs 008, 009 as superseded.
 
 ## Verdicts at a glance
 

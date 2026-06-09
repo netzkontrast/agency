@@ -545,7 +545,7 @@ class FakeTextDriver:
         for name in self._ARTIST_BLOCKLIST:
             if name in blob and name not in allow_set:
                 hits.append({"name": name, "severity": "warning",
-                             "fix": f"replace or add to allow-list"})
+                             "fix": "replace or add to allow-list"})
         return hits
 
     def voice_tells(self, text: str) -> list[dict]:
