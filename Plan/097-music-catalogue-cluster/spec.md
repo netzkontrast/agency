@@ -265,6 +265,40 @@ def test_catalogue_verb_fails_typed_when_db_driver_missing(): ...
    with database/streaming workflows. 097 owns it; cross-cluster reuse is fine
    per Spec 047 patterns.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
-(Populated when the PR ships.)
+**Verdict:** Partial (Slice 1 shipped — full v1 catalogue surface; per-cluster file split + production `[music-db]` extra binding deferred).
+
+### Done (Slice 1 — `claude/music-097-catalogue`, stacked on PR #67)
+- **DBDriver Protocol extended** (drivers.py) with 7 typed-named methods: `create_tweet`, `update_tweet`, `delete_tweet`, `list_tweets`, `search_tweets`, `tweet_stats`, `sync_album_tweets`. All implemented on `FakeDBDriver` with indexed in-memory store keyed by auto-incremented IDs. The 007 psycopg2-shaped `cursor()` shim is preserved (used by `catalogue_status` + `release_check`).
+- **11 new user-facing verbs + 1 composite gate verb** on `MusicCapability`:
+  - DB verbs (effects): `db_create_tweet`, `db_update_tweet`, `db_delete_tweet`, `db_sync_album`
+  - DB verbs (transforms): `db_list_tweets`, `db_search_tweets`, `db_get_tweet_stats`
+  - StateDriver-only (effect): `update_streaming_url` (Spec 097 §9 two-step idiom — caller invokes `verify_streaming` first if reachability matters)
+  - StateDriver-only (transforms): `get_streaming_urls`, `get_promo_status`, `get_promo_content`
+  - TextDriver-free (transform): `extract_links` (stdlib regex, SSRF-safe — rejects javascript:/file:/data:)
+  - Gate verb (effect): `tweet_schedule_gate` — composes body-length + non-empty-body + scheduled_at checks; passes iff all three OK
+- **TWEET_CURATION_SKILL** (4-phase: draft → schedule → publish → archive) — computed gate at schedule delegates to `tweet_schedule_gate` via `gate_verb` metadata (agent dispatches per 095 ontology pattern).
+- **STREAMING_VERIFY_SKILL** (3-phase: collect → head-check → record-results) — driver-only, NO human gate (routine ops workflow).
+- **3 NEW artefact schemas**: `tweet-record` (per-tweet PRODUCES'd by `db_create_tweet`), `streaming-verify` (the live/dead URL report), `catalogue-snapshot` (per-album composite stats).
+- **Tweet status enum** added to OntologyExtension: `{draft, scheduled, posted, archived}` (bites at `Memory.record` time).
+- **`migrations/db_init.py`** ships the bitwize-shaped schema (`CREATE TABLE tweets + tracks` + 4 indexes for sub-second query performance at scale). `init_schema(db_driver)` runs the statements via the cursor — verifies the migration is well-formed even on the fake.
+- **`tests/test_music_catalogue.py` — 20 tests** covering: verb auto-discovery (all 13 register), both walkable skills' shape + walk-through, every DB verb's happy + edge paths (`db_create_tweet → update → list → delete` round-trip, search substring match, stats aggregation, sync-replaces-existing), streaming-URL round-trip, promo status composition, link extraction, all 3 gate failure modes (empty body, length over 280, missing scheduled_at) + the happy path, `db_init` schema migration smoke test.
+- **Block-mode lint clean**: 73 verbs total on `music` (26 lifecycle + 16 lyrics + 18 audio + 13 catalogue). `surface_size>12` warn remains the documented per-cluster-file-split deferral.
+- **CI guarantee verified**: zero PostgreSQL host required; FakeDBDriver covers the full surface; production binds psycopg2-binary via the `[music-db]` extra.
+- **`update_streaming_url` two-step idiom**: verb only persists to StateDriver; caller invokes `verify_streaming` (CloudDriver) first if reachability matters. CloudDriver gets ZERO new methods in this child (preserves Spec 097 §"CloudDriver method delta" — boto3 half lives in 098).
+
+### Still to implement (deferred)
+- **Per-cluster file split**: 13 catalogue verbs live on `_main.py`. Move into `agency/capabilities/music/clusters/catalogue.py` as part of the batch cluster-split PR once 095-100 all ship.
+- **`[music-db]` extra in pyproject.toml**: opt-in `psycopg2-binary` dependency for production binding. Out-of-scope for Slice 1; add when packaging the music-extras tier.
+- **Real `BoundaryFailed` failure-mode wiring**: Spec 097 §"Failure modes" table (Postgres unreachable / auth failed / schema missing / URL timeout / `psycopg2` not installed). The fake never raises; the verbs return DEPENDENCY_MISSING on `DriverMissing`. Production wiring lands with the `[music-db]` extra.
+
+### Refinement needed (given later specs)
+- DEPENDENCY_MISSING boilerplate now 56 sites across 094-097 (8 + 16 + 18 + 14). The 096 review flagged this; deferral was "acceptable for one more slice." Now PAST that line — **the `_require_driver()` helper SHOULD ship as a separate cleanup PR before 098**. Tracking as the next planned cleanup.
+- `surface_size>12` warn still firing for 73 verbs — same justification (drops post-100 file split).
+
+### Evidence
+- code: `agency/capabilities/music/_main.py` (12 new methods on `MusicCapability`), `drivers.py` (DBDriver Protocol + FakeDBDriver extensions), `ontology.py` (Tweet status enum + 2 skills + 3 schemas), `migrations/db_init.py`.
+- tests: `tests/test_music_catalogue.py` (20 tests, all green); full suite Green: 1047 passed.
+- lint: `plugin.lint_capability('music')` → ok=True block mode, 0 violations.
+- branch: `claude/music-097-catalogue` (stacked on `claude/music-096-audio`).
