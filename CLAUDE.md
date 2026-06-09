@@ -167,9 +167,19 @@ Capabilities self-register from `agency/capabilities/`. Skills live on
 `python -m agency.cli search <kw>` lists both. Jules needs `JULES_API_KEY`
 at call time; see `AGENCY_PROTOCOL.md`.
 
-Domain capabilities live in `examples/` (e.g. `examples/music.py`), loaded
-via `Engine(..., extra_capabilities=[…])` — the bootstrapping harness stays
-minimal.
+Domain capabilities live in `examples/` (e.g. third-party domain proofs),
+loaded via `Engine(..., extra_capabilities=[…])` — the bootstrapping harness
+stays minimal.
+
+**Spec 094 doctrine exception:** the `music` capability graduated from
+`examples/music.py` to `agency/capabilities/music/` as the substrate's
+first user-facing creative-production application (a clustered Capability
+bundle spanning lifecycle / lyrics / audio / catalogue / promo / research /
+gates per Spec 093). It's auto-discovered like any core cap; the legacy
+`examples/music.py` + `music_drivers.py` remain as deprecation re-export
+shims for one spec cycle (removed by Spec 110). Music remains the
+**reference clustered domain capability** — third-party domain caps still
+land in `examples/`.
 
 ## How to use the agency MCP (preferred runtime — Spec 114)
 

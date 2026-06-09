@@ -196,6 +196,14 @@ class CapabilityContext:
     def recall(self, node_id: str, as_of: Optional[int] = None):
         return self.memory.recall(node_id, as_of=as_of)
 
+    def update(self, node_id: str, props: dict) -> None:
+        """Update a node's mutable properties — graph-canonical write
+        (Spec 048 bi-temporal: a new revision, NOT a destructive overwrite).
+        Symmetric with ``record``/``link``/``recall``; lets a verb flip a
+        status / append metadata without dropping to ``ctx.memory.update``.
+        """
+        self.memory.update(node_id, props)
+
     def find(self, label: str, as_of: Optional[int] = None):
         return self.memory.find(label, as_of=as_of)
 

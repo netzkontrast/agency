@@ -13,7 +13,7 @@ fragment.
 | `develop` (dev disciplines) | process | Lifecycle | brainstorm · plan · tdd · debug · verify · spec-panel · review, as walkable gated skills | **built (v0.1)** |
 | `reflect` (durable memory) | act, transform | Memory | scope-tagged insight nodes + recency/keyword recall | **built (v0.1)** |
 | `jules` (remote async agent) | effect, transform | Capability · Lifecycle | dispatch a remote coding session; `COMPLETED ≠ done` `verify` | **built (v0.1)** |
-| `music` (domain bundle) | act | Capability · Memory | the album conceptualizer (a 7-phase gated skill) + `Album` types | **example extension** (`examples/music.py`, loaded via `extra_capabilities`) |
+| `music` (domain bundle) | act | Capability · Memory | the album conceptualizer (a 7-phase gated skill) + `Album` types + the clustered Driver contract | **first-class** (`agency/capabilities/music/`, auto-discovered) — Spec 094 doctrine exception: music graduates from `examples/` as the user-facing creative-production application; `examples/music.py` shim removed by Spec 110 |
 | `delegate` | effect, transform | Capability · Lifecycle · Memory | fan a task out across children under a quota + join; `DELEGATES_TO`/`REDUCES_INTO` edges; built on `ctx.spawn` with `jules` as first driver | **built** |
 | `gate` | transform, process | Lifecycle · Memory | a stateless precondition/quality predicate that passes or blocks a Lifecycle phase, recording evidence | facet of Lifecycle |
 | `craft` | act | Capability · Intent · Memory | produce a domain artefact from an Intent + upstream artefacts | the open `act` set |

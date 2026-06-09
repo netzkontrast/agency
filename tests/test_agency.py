@@ -1118,42 +1118,10 @@ def test_ontology_extension_contract_all_six_kinds():
     mem.close()
 
 
-def test_music_capability_owns_conceptualizer():
-    """The `music` DOMAIN capability is an EXAMPLE out-of-tree extension: loaded via
-    the engine's `extra_capabilities` hook (not shipped in core), it owns the
-    conceptualizer — a 7-phase gated planning skill — plus an `Album` node type with
-    a closed `type` enum. Proof a domain capability extends the ontology (skill +
-    node + enum) without touching the core."""
-    from examples.music import ALBUM_TYPES, MusicCapability
-    e = fresh(extra_capabilities=[MusicCapability.as_capability()])
-    iid = e.intent.capture("plan an album", "album concept", "user confirms")
-
-    sk = e.ontology.skill("album-concept")                   # owned by music, not core
-    assert len(sk["phases"]) == 7 and sk["phases"][-1].get("gate") == "hard"
-    run = SkillRun(e.memory, iid, sk)
-    fills = [
-        {"artist": "a", "genre": "g", "type": "thematic", "scale": "ep", "theme": "t", "true_story": "no"},
-        {"key_subjects": "k", "emotional_core": "e", "why": "w"},
-        {"references": "r", "production_style": "p", "vocal_approach": "v",
-         "instrumentation": "i", "mood": "m", "target_duration": "4:00"},
-        {"tracklist": "t", "sequencing": "s", "energy_map": "e"},
-        {"visual_concept": "v", "palette": "p", "symbols": "s"},
-        {"album_title": "t", "track_titles": "t", "research_needs": "n",
-         "explicit": "no", "distributor_genres": "g"},
-    ]
-    for out in fills:
-        assert run.submit(out)["status"] == "working"
-    assert run.current()["gate"] == "hard"
-    assert run.submit({"user_confirmed": "yes"}, confirmed=True)["status"] == "completed"
-
-    e.intent.confirm(iid)
-    res, _ = e.registry.invoke(e.memory, iid, "music", "conceptualize",
-                               artist="A", title="T", type="narrative", theme="x")
-    assert "# T" in res["result"]
-    assert any(a["kind"] == "album-concept" for a in e.memory.provenance(iid)["artefacts"])
-    with pytest.raises(ValueError):                          # the capability-owned type enum bites
-        e.memory.record("Album", {"artist": "A", "title": "T", "type": "polka"})
-    e.memory.close()
+# NOTE: `test_music_capability_owns_conceptualizer` was deleted in Spec 094
+# (music graduates from examples/ → agency/capabilities/music/). The
+# replacement tests live in `tests/test_music_lifecycle.py` and assert
+# auto-discovery (no `extra_capabilities` hook needed).
 
 
 def test_rejected_gate_pauses_lifecycle_and_is_provenance():

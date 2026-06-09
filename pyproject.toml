@@ -129,6 +129,15 @@ markers = [
     "subagent: tests targeting the subagent capability",
     "skill_generator: tests targeting the skill_generator capability",
     "plugin: tests targeting the plugin capability",
+    # Spec 094 — music cluster wave (lifecycle child + 6 sibling clusters).
+    "music: tests targeting the music capability (any cluster)",
+    "music_lifecycle: tests targeting the music lifecycle cluster (Spec 094)",
+    "music_lyrics: tests targeting the music lyrics cluster (Spec 095)",
+    "music_audio: tests targeting the music audio cluster (Spec 096)",
+    "music_catalogue: tests targeting the music catalogue cluster (Spec 097)",
+    "music_promo: tests targeting the music promo cluster (Spec 098)",
+    "music_research: tests targeting the music research cluster (Spec 099)",
+    "music_gates: tests targeting the music gates cluster (Spec 100)",
 ]
 filterwarnings = [
     # Third-party noise: opentelemetry-api 1.42 calls

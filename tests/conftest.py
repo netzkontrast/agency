@@ -64,6 +64,22 @@ _AUTO_MARKER_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"test_plugin_"),          "plugin"),
     (re.compile(r"test_welcome"),      "substrate"),
     (re.compile(r"test_agency_doctor"), "substrate"),
+    # Spec 094 — music cluster wave (lifecycle child + 6 sibling clusters).
+    # AGENCY-DRIFT: music-cluster-markers — when a 095-100 cluster ships,
+    #   add its test_music_<cluster>_ pattern here and mirror in pyproject's
+    #   [tool.pytest.ini_options].markers and scripts/test-changed mapping.
+    (re.compile(r"test_music_lifecycle"), "music_lifecycle"),
+    (re.compile(r"test_music_lyrics"),    "music_lyrics"),
+    (re.compile(r"test_music_audio"),     "music_audio"),
+    (re.compile(r"test_music_catalogue"), "music_catalogue"),
+    (re.compile(r"test_music_promo"),     "music_promo"),
+    (re.compile(r"test_music_research"),  "music_research"),
+    (re.compile(r"test_music_gates"),     "music_gates"),
+    # Generic fallback so `scripts/test-cap music` picks up any test_music_*
+    # that doesn't match a more specific cluster pattern (e.g. a future
+    # test_music_smoke.py). Must come AFTER the specific patterns since
+    # first-match wins.
+    (re.compile(r"test_music_"),          "music"),
 ]
 
 

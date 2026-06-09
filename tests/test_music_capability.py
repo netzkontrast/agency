@@ -1,18 +1,23 @@
 """Spec 007 — the music capability proves the clustered Capability + Driver contract
 end-to-end with deterministic fake drivers, and the provenance moat (a release audit
-is one traversal — the net-new vs bitwize)."""
+is one traversal — the net-new vs bitwize).
+
+Spec 094 migration: imports updated from ``examples.music*`` → ``agency.capabilities.
+music*`` (music graduated from examples/ into a first-class folder-form capability).
+The legacy ``examples.music*`` modules remain as deprecation shims for one cycle;
+``test_music_lifecycle.py`` covers the shim contract separately. Auto-discovery means
+no ``extra_capabilities=[…]`` host hook is needed.
+"""
 import tempfile
 
 import pytest
 
+from agency.capabilities.music.drivers import FakeCloudDriver, fake_drivers
 from agency.engine import Engine
-from examples.music import MusicCapability
-from examples.music_drivers import FakeCloudDriver, fake_drivers
 
 
 def _engine(drivers=None):
     return Engine(tempfile.mktemp(suffix=".db"),
-                  extra_capabilities=[MusicCapability.as_capability()],
                   drivers=fake_drivers() if drivers is None else drivers)
 
 
@@ -116,7 +121,7 @@ def test_release_check_computed_gate_fails_and_pauses_lifecycle(engine, iid):
 
 
 def test_release_check_passes_when_all_tracks_mastered(iid):
-    from examples.music_drivers import FakeDBDriver, fake_drivers
+    from agency.capabilities.music.drivers import FakeDBDriver, fake_drivers
     drivers = fake_drivers()
     drivers["music_db"] = FakeDBDriver(rows=[("t1", "mastered"), ("t2", "mastered")])
     e = _engine(drivers=drivers)
