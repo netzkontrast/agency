@@ -44,7 +44,9 @@ from .ontology import (
     music_ontology,
 )
 
-_VOWELS = "aeiouy"
+from agency._prosody import syllables as _syllables_shared
+
+_VOWELS = "aeiouy"   # kept for module-level constant compatibility
 
 # Spec 095 — prosody-gate tunables (CLAUDE.md rule 8: documented budgets, not
 # snapshots). The MIN_RHYME_GROUPS bound = "actual rhyming needs at least 2
@@ -133,17 +135,14 @@ def _fill_track_body(body: str, title: str, track_number: int) -> str:
 
 
 def _syllables(word: str) -> int:
-    """A deterministic, driver-free syllable heuristic (vowel-group count, ≥ 1)."""
-    w = word.lower().strip()
-    count, prev_vowel = 0, False
-    for ch in w:
-        is_vowel = ch in _VOWELS
-        if is_vowel and not prev_vowel:
-            count += 1
-        prev_vowel = is_vowel
-    if w.endswith("e") and count > 1:
-        count -= 1
-    return max(1, count) if w else 0
+    """Deterministic syllable heuristic — delegates to agency._prosody.syllables.
+
+    Kept as a local alias so existing call sites (used in 094-Slice-2's
+    `lyric_report` family) don't churn. Post Round-1 sc-analyze F2
+    (CLAUDE.md §"Derivability audit") — the heuristic lives in
+    `agency/_prosody.py` so music + novel share one implementation.
+    """
+    return _syllables_shared(word)
 
 
 def conceptualize(artist: str, title: str, type: str,

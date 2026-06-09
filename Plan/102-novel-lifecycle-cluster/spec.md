@@ -618,6 +618,62 @@ below the cutoff to follow-up PRs.
    returns the raw string; the agent substitutes inline. Acceptable for
    v1; `string.Template` migration is a followup.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
-(Populated when the PR ships.)
+**Slice 1 SHIPPED** on branch `claude/spec-102-novel-lifecycle` (stacks on
+PR #78 / branch `claude/music-todo-flip-and-novel-start`). Commit:
+extends `agency/capabilities/novel/_main.py` with the 5 new lifecycle
+verbs + Idea ontology + 10-phase skill.
+
+### Done in Slice 1 (the first-PR scope per §"First-PR scope")
+- 5 NEW verbs ship: `capture_idea` (effect, Idea node + SERVES),
+  `promote_idea` (effect, Idea→Novel transition with PROMOTED_TO edge +
+  status flip to `promoted`), `list_ideas` (transform, optional status
+  filter rejected with INVALID_ARGUMENT for unknown values),
+  `find_novel` (transform, case-insensitive substring on title),
+  `set_novel_status` (effect, NOVEL_STATUS enum-checked).
+- `Idea` node + `IDEA_STATUS` enum (`new`/`promoted`/`dropped`) +
+  `PROMOTED_TO` edge added to `novel_ontology`.
+- `novel-concept` walkable skill extended from 5 → 10 phases:
+  `premise` → `genre` → `audience` → `pov` → `setting` →
+  `characters-core` → `dramatica-seed` → `outline-shape` →
+  `series-hypothesis` → `confirmation` (hard gate). Test asserts the
+  full walk + phase-name list.
+- 17 dedicated tests in `tests/test_novel_lifecycle.py`: verb
+  registration, ontology declarations, status enum bites, happy paths
+  for all 5 verbs, NOT_FOUND failures, invalid-status rejections,
+  10-phase skill walk.
+- Existing 14 `tests/test_novel_capability.py` tests updated for the
+  10-phase shape — the 5-MVN-verbs assertion relaxed to a SUBSET check
+  so the cap can grow as cluster children land.
+
+### Carve-outs from §"First-PR scope" (deferred to Slice 2+)
+- **StateDriver Protocol + FakeStateDriver**: Slice 1 is graph-only
+  (Idea + Novel + PROMOTED_TO live on the bi-temporal graph). The
+  disk-layer (`agency/capabilities/novel/data/<slug>/`) follows the
+  Spec-115 production-binding split: real disk write lands in a
+  follow-up paired with the StateDriver protocol declaration.
+- **`agency/capabilities/novel/ontology.py` + `drivers.py` + `clusters/lifecycle.py`
+  module split**: ontology + verbs still co-located in `_main.py` per
+  music's per-cluster-split-deferred precedent. Batch migration when
+  all 102-108 children ship.
+- **Templates port** (11 .md/.json): SHIPPED — 10 markdown verbatim
+  from `Plan/_research/novel-mvp-source/templates/` + ncp.json under
+  `data/ncp/`. Already in Spec 101 Slice 1.
+- **Data assets port**: SHIPPED — Dramatica ontology.json (304
+  entries) + decidability matrix doc already in Spec 101 Slice 1.
+  Remaining (`dramatica/scenarios.json`, `schemas/ncp-schema-v1.3.0.json`,
+  `reference/research-domains.yaml`) are Slice 2/3 (consumed by Specs
+  103/105).
+- **Verbs 8-14**: `list_chapters`, `create_scene`, `set_chapter_status`,
+  `rename_novel`, `novel_progress`, `resume_session` — Slice 2.
+  `create_chapter` shipped in Spec 101 Slice 1.
+- **pytest marker for `novel`**: SHIPPED in PR #78's marker-drift fix
+  (commit 813ed76; `conftest._AUTO_MARKER_PATTERNS` + `pyproject.toml`
+  markers + `scripts/test-changed`).
+
+### Done When status
+
+5 of 10 Done-When boxes ticked. The remaining 5 (StateDriver delta,
+verbs 8-14, per-cluster file split, Slice-2 data assets, the 21-verb
+total) are deferred per the §"Second-PR scope" enumeration.
