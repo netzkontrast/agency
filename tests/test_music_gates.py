@@ -220,12 +220,13 @@ def test_lyrics_pregen_gate_blocks_on_empty_lyrics() -> None:
     e.memory.close()
 
 
-def test_lyrics_pregen_gate_composes_all_four_sub_gates() -> None:
-    """Guards F1 from Round 1 sc-analyze: the composite must call all 4
-    declared sub-gates (prosody + pronunciation + repetition + explicit).
+def test_lyrics_pregen_gate_composes_all_sub_gates() -> None:
+    """Guards F1 from Round 1 sc-analyze: the composite must call every
+    declared sub-gate (prosody + pronunciation + repetition + explicit +
+    name_exposure — Spec 119 added the additive 5th).
 
-    The docstring + GATE_FAILED message both promise 4 — assert the loop
-    actually fires all 4 by patching each sub-gate's verb fn and counting.
+    The docstring + GATE_FAILED message promise the full set — assert the loop
+    actually fires each by patching each sub-gate's verb fn and counting.
     """
     from agency.toolresult import ToolResult
     e = _fresh_configured()
@@ -234,8 +235,9 @@ def test_lyrics_pregen_gate_composes_all_four_sub_gates() -> None:
     music_cap = e.registry._caps["music"]
     called: list[str] = []
     originals = {}
-    for sub in ("prosody_gate", "pronunciation_gate",
-                "repetition_gate", "explicit_gate"):
+    expected = {"prosody_gate", "pronunciation_gate",
+                "repetition_gate", "explicit_gate", "name_exposure_gate"}
+    for sub in expected:
         originals[sub] = music_cap.verbs[sub]["fn"]
 
         def make_stub(name):
@@ -249,8 +251,7 @@ def test_lyrics_pregen_gate_composes_all_four_sub_gates() -> None:
                           lifecycle_id=lc, album="A",
                           lyrics="non-empty body")
         assert data is not None and data["passed"] is True
-        assert set(called) == {"prosody_gate", "pronunciation_gate",
-                                "repetition_gate", "explicit_gate"}, called
+        assert set(called) == expected, called
     finally:
         for sub, fn in originals.items():
             music_cap.verbs[sub]["fn"] = fn

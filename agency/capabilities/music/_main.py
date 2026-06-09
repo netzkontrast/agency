@@ -894,6 +894,49 @@ class MusicCapability(CapabilityBase):
         hits = drv.scan_artist_names(lyrics, allow or [])
         return ToolResult.success(data={"hits": hits, "count": len(hits)})
 
+    @staticmethod
+    def _name_exposure_hits(text: str, roster: list[str]) -> list[dict]:
+        """Deterministic whole-word, case-insensitive scan of `text` vs `roster`.
+
+        Spec 119 — shared by `check_name_exposure` (transform) and
+        `name_exposure_gate` (effect). Pure text math, no driver/network/disk.
+        A name fires only on a whole-word match (so "Lex" never matches inside
+        "lexicon"). Returns ``[{name, count}]`` for any name with ≥ 1 hit.
+        """
+        import re
+        hits: list[dict] = []
+        for name in roster:
+            name = (name or "").strip()
+            if not name:
+                continue
+            count = len(re.findall(r"\b" + re.escape(name) + r"\b", text, re.I))
+            if count:
+                hits.append({"name": name, "count": count})
+        return hits
+
+    @verb(role="transform")
+    def check_name_exposure(self, text: str,
+                            roster: list[str] | None = None) -> ToolResult:
+        """Scan text for forbidden roster names (driver-free, deterministic) (transform).
+
+        Spec 119 — F6 from Spec 117. A personal/character name (alter, real
+        person) must never reach a public-facing music field. Case-insensitive
+        WHOLE-WORD match so "Lex" does not fire inside "lexicon". When `roster`
+        is None it defaults to the project's ``name_exposure.blocklist`` from
+        MusicConfig; an empty roster yields zero hits (no-op).
+
+        Inputs: text, roster (defaults to config blocklist).
+        Returns: ``{hits: [{name, count}], count, roster_size}``.
+        chain_next: ``music.name_exposure_gate`` to block on a hit.
+        """
+        if roster is None:
+            from .config import MusicConfig
+            roster = list(MusicConfig.load().name_exposure_blocklist)
+        hits = self._name_exposure_hits(text, roster)
+        return ToolResult.success(data={"hits": hits,
+                                        "count": len(hits),
+                                        "roster_size": len(roster)})
+
     @verb(role="transform")
     def check_voice_tells(self, lyrics: str) -> ToolResult:
         """AI-tell rule-based detector (advisory only — no gate impact) (transform).
@@ -1043,6 +1086,40 @@ class MusicCapability(CapabilityBase):
         return ToolResult.success(data={"gate": "explicit", "passed": True,
                                         "rating": report["rating"],
                                         "override": is_override})
+
+    @verb(role="effect")
+    def name_exposure_gate(self, lifecycle_id: str, lyrics: str,
+                           roster: list[str] | None = None) -> ToolResult:
+        """Computed name-exposure gate — no forbidden roster names in lyrics (effect).
+
+        Spec 119 — F6 from Spec 117. Passes iff zero rostered personal/character
+        names appear (whole-word, case-insensitive). When `roster` is None it
+        defaults to the project's ``name_exposure.blocklist``; an empty roster
+        yields zero hits → PASSED (no-op for rosterless projects). Records
+        PASSED/BLOCKED_ON on the lifecycle via gate.check.
+
+        Inputs: lifecycle_id, lyrics, roster (defaults to config blocklist).
+        Returns: ``{gate, passed, hits}`` or typed GATE_FAILED.
+        chain_next: on failure, replace the leaked name with a function/role
+                    descriptor then re-check.
+        """
+        if roster is None:
+            from .config import MusicConfig
+            roster = list(MusicConfig.load().name_exposure_blocklist)
+        hits = self._name_exposure_hits(lyrics, roster)
+        passed = not hits
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="name-exposure", passed=passed,
+                      evidence=("clean" if passed else
+                                f"leaked names: {[h['name'] for h in hits]}"))
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"name-exposure: forbidden names present: "
+                f"{[h['name'] for h in hits]}")
+        return ToolResult.success(data={"gate": "name-exposure",
+                                        "passed": True,
+                                        "hits": hits})
 
     # ════════════════════════════════════════════════════════════════════════
     # Spec 096 — audio cluster: 16 NEW verbs + 2 composite gate verbs
@@ -1739,10 +1816,12 @@ class MusicCapability(CapabilityBase):
     @verb(role="effect")
     def lyrics_pregen_gate(self, lifecycle_id: str, album: str,
                             lyrics: str = "") -> ToolResult:
-        """Composite lyrics pre-generation gate — chains 095's 4 lyric gates (effect).
+        """Composite lyrics pre-generation gate — chains the lyric gates (effect).
 
-        Composes prosody + pronunciation + repetition + explicit gates from
-        Spec 095. Passes iff all 4 pass. The lifecycle_id is reused for each
+        Composes prosody + pronunciation + repetition + explicit (Spec 095) +
+        name-exposure (Spec 119) sub-gates. Passes iff all pass. The
+        name-exposure sub-gate is a no-op pass for rosterless projects (empty
+        ``name_exposure.blocklist``). The lifecycle_id is reused for each
         sub-gate so the audit trail is unified.
 
         Inputs: lifecycle_id, album, lyrics (the lyric body to check).
@@ -1763,7 +1842,10 @@ class MusicCapability(CapabilityBase):
                 ("prosody", "prosody_gate"),
                 ("pronunciation", "pronunciation_gate"),
                 ("repetition", "repetition_gate"),
-                ("explicit", "explicit_gate")):
+                ("explicit", "explicit_gate"),
+                # Spec 119 — additive 5th sub-gate. Empty roster → no-op pass,
+                # so the composite verdict is unchanged for rosterless projects.
+                ("name_exposure", "name_exposure_gate")):
             try:
                 sub_res = self.ctx.call("music", sub_verb,
                                         lifecycle_id=lifecycle_id,

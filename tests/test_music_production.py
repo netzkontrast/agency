@@ -83,6 +83,30 @@ def test_config_as_dict_returns_bitwize_shape() -> None:
     assert d["paths"]["content_root"] == "/tmp/x"
 
 
+def test_config_loads_name_exposure_blocklist(tmp_path, monkeypatch) -> None:
+    """Spec 119 — the project-supplied forbidden-name roster round-trips."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    (tmp_path / ".agency").mkdir()
+    (tmp_path / ".agency" / "music-config.yaml").write_text(
+        "artist:\n"
+        "  name: A\n"
+        "name_exposure:\n"
+        '  blocklist: ["Lex", "Kael", "Nyx"]\n'
+    )
+    cfg = MusicConfig.load()
+    assert cfg.name_exposure_blocklist == ["Lex", "Kael", "Nyx"]
+    # round-trips back out under the name_exposure key
+    assert cfg.as_dict()["name_exposure"]["blocklist"] == ["Lex", "Kael", "Nyx"]
+
+
+def test_config_name_exposure_defaults_empty() -> None:
+    """Rosterless projects get an empty blocklist (no-op enforcement)."""
+    cfg = MusicConfig.defaults()
+    assert cfg.name_exposure_blocklist == []
+    assert cfg.as_dict()["name_exposure"]["blocklist"] == []
+
+
 # ─────────────────────────── FileStateDriver tests ───────────────────────────
 
 def test_file_state_driver_creates_canonical_album_layout(tmp_path) -> None:

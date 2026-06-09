@@ -51,8 +51,9 @@ def test_lyrics_cluster_verbs_discover() -> None:
               "check_explicit_content", "extract_distinctive_phrases",
               "extract_section", "validate_section_structure",
               "scan_artist_names", "check_voice_tells",
+              "check_name_exposure",
               "prosody_gate", "pronunciation_gate",
-              "repetition_gate", "explicit_gate"):
+              "repetition_gate", "explicit_gate", "name_exposure_gate"):
         assert v in verbs, f"verb {v!r} not registered on music capability"
     e.memory.close()
 
@@ -233,6 +234,125 @@ def test_repetition_gate_passes_on_unique_tracks() -> None:
                               "different second track content"])
     assert data["passed"] is True
     e.memory.close()
+
+
+# ─────────────────────── Spec 119 — name-exposure ───────────────────────
+
+
+def test_check_name_exposure_finds_rostered_name() -> None:
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    data, _ = _invoke(e, iid, "check_name_exposure",
+                      text="Lex stood there in the rain", roster=["Lex"])
+    assert data["count"] == 1
+    assert data["roster_size"] == 1
+    assert data["hits"] == [{"name": "Lex", "count": 1}]
+    e.memory.close()
+
+
+def test_check_name_exposure_respects_word_boundary() -> None:
+    """CRITICAL: 'Lex' must NOT match inside 'lexicon'."""
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    data, _ = _invoke(e, iid, "check_name_exposure",
+                      text="it is in my lexicon", roster=["Lex"])
+    assert data["count"] == 0
+    assert data["hits"] == []
+    e.memory.close()
+
+
+def test_check_name_exposure_is_case_insensitive() -> None:
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    data, _ = _invoke(e, iid, "check_name_exposure",
+                      text="lex walked home alone", roster=["Lex"])
+    assert data["count"] == 1
+    assert data["hits"][0]["name"] == "Lex"
+    e.memory.close()
+
+
+def test_check_name_exposure_empty_roster_is_noop() -> None:
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    data, _ = _invoke(e, iid, "check_name_exposure",
+                      text="Lex and Kael and Nyx", roster=[])
+    assert data["count"] == 0
+    assert data["roster_size"] == 0
+    e.memory.close()
+
+
+def test_name_exposure_gate_blocks_on_rostered_name() -> None:
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    lc = e.lifecycle.open(iid)
+    data, inv = _invoke(e, iid, "name_exposure_gate",
+                        lifecycle_id=lc,
+                        lyrics="and then Lex spoke softly",
+                        roster=["Lex"])
+    assert data is None
+    assert "GATE_FAILED" in e.memory.recall(inv).get("error", "")
+    assert e.memory.recall(lc).get("state") == "input-required"
+    e.memory.close()
+
+
+def test_name_exposure_gate_passes_when_clean() -> None:
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    lc = e.lifecycle.open(iid)
+    data, _ = _invoke(e, iid, "name_exposure_gate",
+                      lifecycle_id=lc,
+                      lyrics="the host watched the witness leave",
+                      roster=["Lex", "Kael"])
+    assert data["passed"] is True
+    assert data["hits"] == []
+    e.memory.close()
+
+
+def test_name_exposure_gate_empty_roster_passes() -> None:
+    """No-op pass when the roster is empty — rosterless projects unaffected."""
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    lc = e.lifecycle.open(iid)
+    data, _ = _invoke(e, iid, "name_exposure_gate",
+                      lifecycle_id=lc,
+                      lyrics="Lex and Kael appear here freely",
+                      roster=[])
+    assert data["passed"] is True
+    e.memory.close()
+
+
+def test_lyrics_pregen_gate_includes_name_exposure_subgate() -> None:
+    """Spec 119 — the composite carries a 5th `name_exposure` sub-gate and
+    still passes overall with an empty (default) roster.
+
+    The other sub-gates are stubbed (mirrors test_music_gates' compose test) so
+    the only live sub-gate under test is the real `name_exposure_gate`; with the
+    default empty blocklist it is a no-op pass, keeping the composite green for
+    rosterless projects.
+    """
+    from agency.toolresult import ToolResult
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    lc = e.lifecycle.open(iid)
+    music_cap = e.registry._caps["music"]
+    originals = {}
+    for sub in ("prosody_gate", "pronunciation_gate",
+                "repetition_gate", "explicit_gate"):
+        originals[sub] = music_cap.verbs[sub]["fn"]
+        music_cap.verbs[sub]["fn"] = (
+            lambda ctx, **kw: ToolResult.success(data={"passed": True}))
+    try:
+        data, _ = _invoke(e, iid, "lyrics_pregen_gate",
+                          lifecycle_id=lc, album="demo",
+                          lyrics="non-empty clean body")
+        assert data is not None, "composite should pass with a clean rosterless run"
+        assert "name_exposure" in data["sub_gates"]
+        assert data["sub_gates"]["name_exposure"] is True
+        assert data["passed"] is True
+    finally:
+        for sub, fn in originals.items():
+            music_cap.verbs[sub]["fn"] = fn
+        e.memory.close()
 
 
 def test_lyric_writing_skill_walks_through_finalize() -> None:

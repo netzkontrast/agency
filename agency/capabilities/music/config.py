@@ -141,6 +141,10 @@ class MusicConfig:
     additional_genres: list = field(default_factory=list)
     sheet_music_enabled: bool = True
     sheet_music_page_size: str = "letter"
+    # Spec 119 — project-supplied roster of forbidden personal/character names
+    # that must never reach a lyric/streaming-lyric/metatag/promo field. Empty
+    # by default → name-exposure enforcement is a no-op for rosterless projects.
+    name_exposure_blocklist: list = field(default_factory=list)
 
     @classmethod
     def defaults(cls) -> "MusicConfig":
@@ -236,6 +240,7 @@ class MusicConfig:
         db = d.get("db") or {}
         gen = d.get("generation") or {}
         sheet = d.get("sheet_music") or {}
+        ne = d.get("name_exposure") or {}
         cfg = cls(
             artist_name=artist.get("name") or "",
             content_root=_expand(paths.get("content_root") or _DEFAULT_CONTENT_ROOT),
@@ -248,6 +253,7 @@ class MusicConfig:
             additional_genres=list(gen.get("additional_genres") or []),
             sheet_music_enabled=bool(sheet.get("enabled", True)),
             sheet_music_page_size=str(sheet.get("page_size") or "letter"),
+            name_exposure_blocklist=list(ne.get("blocklist") or []),
         )
         cfg._fill_path_defaults()
         return cfg
@@ -281,4 +287,5 @@ class MusicConfig:
                 "enabled": self.sheet_music_enabled,
                 "page_size": self.sheet_music_page_size,
             },
+            "name_exposure": {"blocklist": list(self.name_exposure_blocklist)},
         }
