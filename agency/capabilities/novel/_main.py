@@ -599,6 +599,122 @@ class NovelCapability(CapabilityBase):
             "claims": claims, "count": len(claims),
         })
 
+    # ───────────────── Spec 106 — catalogue (graph-only) ─────────────────
+    # Slice 1 ships 1 graph-only coherence verb. DBDriver-backed verbs
+    # (beta reader registry, edit notes, version log) + composite
+    # beta_feedback_gate land in Slice 2 once the DBDriver protocol is
+    # declared (parallel to music's 097 pattern).
+
+    @verb(role="transform")
+    def manuscript_coherence_check(self, novel_id: str) -> ToolResult:
+        """Chapter-sequence contiguity check (transform, driver-free).
+
+        Inputs: novel_id.
+        Returns: ``{passed, chapter_count, gaps}`` — gaps lists missing
+        chapter numbers between 1 and the max present number.
+        chain_next: ``novel.render_manuscript`` when contiguous.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = [c for c in self.ctx.find("Chapter")
+                    if c.get("novel") == novel_id]
+        numbers = sorted({int(c.get("number", 0)) for c in chapters})
+        gaps: list[int] = []
+        if numbers:
+            for n in range(1, max(numbers) + 1):
+                if n not in numbers:
+                    gaps.append(n)
+        return ToolResult.success(data={
+            "passed": not gaps,
+            "chapter_count": len(chapters),
+            "gaps": gaps,
+        })
+
+    # ───────────────── Spec 107 — manuscript renderers (driver-free) ─────────────────
+    # 3 driver-free artefact renderers for publication packages. The
+    # FormatDriver-backed verbs (epub/PDF/docx export via pandoc shell-outs
+    # behind a deterministic fake) + composite publication_gate + walkable
+    # skills land in Slice 2.
+
+    @verb(role="act")
+    def render_blurb(self, novel_id: str, hook: str,
+                      stakes: str) -> ToolResult:
+        """Render a back-cover blurb (act, driver-free).
+
+        Inputs: novel_id, hook (one-sentence premise), stakes.
+        Returns: ``{result, artefact}`` blurb artefact.
+        chain_next: ``novel.render_query_letter`` for the agent submission.
+        """
+        node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        title = node.get("title", "Untitled")
+        author = node.get("author", "")
+        body = (f"**{title}** by {author}\n\n"
+                f"{hook}\n\n"
+                f"But {stakes}\n")
+        return ToolResult.success(data={
+            "result": body,
+            "artefact": {"kind": "blurb", "novel": novel_id,
+                         "title": title, "author": author,
+                         "body": body},
+        })
+
+    @verb(role="act")
+    def render_query_letter(self, novel_id: str, agent_name: str,
+                              comp_titles: str = "") -> ToolResult:
+        """Render an agent query letter (act, driver-free).
+
+        Inputs: novel_id, agent_name, comp_titles (comparable titles).
+        Returns: ``{result, artefact}`` query-letter artefact.
+        chain_next: ``novel.render_synopsis`` to bundle the submission.
+        """
+        node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        title = node.get("title", "Untitled")
+        author = node.get("author", "")
+        body = (f"Dear {agent_name},\n\n"
+                f"I'm seeking representation for my novel "
+                f"**{title}**.\n\n"
+                f"For fans of {comp_titles}.\n\n"
+                f"Sincerely,\n{author}\n")
+        return ToolResult.success(data={
+            "result": body,
+            "artefact": {"kind": "query-letter", "novel": novel_id,
+                         "agent": agent_name, "body": body},
+        })
+
+    @verb(role="act")
+    def render_synopsis(self, novel_id: str) -> ToolResult:
+        """Render a synopsis from chapter outline (act, driver-free).
+
+        Inputs: novel_id.
+        Returns: ``{result, artefact}`` synopsis artefact with chapters
+        in order.
+        chain_next: ``novel.render_query_letter`` for the submission.
+        """
+        node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = sorted(
+            [c for c in self.ctx.find("Chapter")
+             if c.get("novel") == novel_id],
+            key=lambda c: c.get("number", 0))
+        title = node.get("title", "Untitled")
+        parts = [f"# Synopsis: {title}\n\n"]
+        for c in chapters:
+            parts.append(
+                f"**Chapter {c.get('number', 0)}: {c.get('title', '')}**\n"
+                f"{c.get('body', '')[:200]}\n\n")
+        body = "".join(parts)
+        return ToolResult.success(data={
+            "result": body,
+            "artefact": {"kind": "synopsis", "novel": novel_id,
+                         "chapter_count": len(chapters), "body": body},
+        })
+
     # ───────────────── Spec 108 — gates (composite) ─────────────────
     # Slice 1 ships 1 composite gate verb wiring the cross-cluster
     # predicates that have actually landed in 101 + 102 + 103 + 105.

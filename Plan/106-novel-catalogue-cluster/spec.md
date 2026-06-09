@@ -351,6 +351,19 @@ beta is still on chapter 5.
    `series_coherence_check` iterates novels via the StateDriver +
    `novel.series_slug` field. No separate Series-feedback table needed.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
-(Populated when the PR ships.)
+**Slice 1 SHIPPED** on branch `claude/spec-102-novel-lifecycle` (PR #80).
+
+### Done in Slice 1
+
+1 graph-only coherence verb: `manuscript_coherence_check(novel_id)` —
+walks Chapter nodes CHAPTER_OF the novel, reports gaps in [1..max].
+
+5 tests in `tests/test_novel_catalogue.py`.
+
+### Deferred to Slice 2+
+
+DBDriver protocol + 9 DBDriver-backed verbs (beta reader registry,
+edit notes, version log, series_coherence) + composite
+beta_feedback_gate + per-cluster file split.
