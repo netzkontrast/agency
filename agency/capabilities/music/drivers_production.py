@@ -91,6 +91,66 @@ class FileStateDriver:
             return ""
         return tpl.read_text(encoding="utf-8")
 
+    # ── frontmatter helpers (Spec 117 Slice 2 — stdlib only, no YAML dep) ──
+    @staticmethod
+    def _parse_frontmatter(text: str) -> dict:
+        """Parse a leading ``---\\n…\\n---`` block into a flat ``key: value`` dict.
+
+        Deliberately shallow: only top-level ``key: value`` lines are read
+        (nested blocks like ``sheet_music:`` are skipped). Values are
+        de-quoted. Returns ``{}`` when there's no frontmatter block."""
+        if not text.startswith("---"):
+            return {}
+        lines = text.splitlines()
+        if not lines or lines[0].strip() != "---":
+            return {}
+        out: dict = {}
+        for ln in lines[1:]:
+            if ln.strip() == "---":
+                break
+            # top-level keys only (no leading indentation)
+            if not ln or ln[0] in (" ", "\t") or ln.lstrip().startswith("#"):
+                continue
+            if ":" not in ln:
+                continue
+            key, _, raw = ln.partition(":")
+            val = raw.strip()
+            if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+                val = val[1:-1]
+            out[key.strip()] = val
+        return out
+
+    @staticmethod
+    def _set_frontmatter_field(text: str, field: str, value: str) -> str:
+        """Set ``field: "value"`` inside the leading frontmatter block,
+        preserving the rest of the file. Rewrites the line if present, else
+        inserts it just before the closing ``---``. String values are quoted
+        the way the templates do (``status: "Mastered"``)."""
+        new_line = f'{field}: "{value}"'
+        lines = text.splitlines(keepends=True)
+        if not lines or lines[0].strip() != "---":
+            return text
+        # find the closing fence
+        close_idx = None
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                close_idx = i
+                break
+        if close_idx is None:
+            return text
+        nl = "\n"
+        for i in range(1, close_idx):
+            stripped = lines[i].lstrip()
+            if lines[i][:1] in (" ", "\t"):
+                continue  # nested key, skip
+            if stripped.startswith(f"{field}:"):
+                eol = nl if lines[i].endswith("\n") else ""
+                lines[i] = new_line + eol
+                return "".join(lines)
+        # not present — insert before the closing fence
+        lines.insert(close_idx, new_line + nl)
+        return "".join(lines)
+
     # ── 007 baseline ──
     def get(self, key: str) -> dict | None:
         """Read a state key — the FileStateDriver uses disk paths AS the key.
@@ -262,29 +322,36 @@ class FileStateDriver:
         for f in sorted(tracks_dir.iterdir()):
             if f.suffix == ".md":
                 slug = f.stem
+                body = f.read_text(encoding="utf-8") if f.is_file() else ""
+                # Spec 117 Slice 2 (F4): source status + title from the track
+                # markdown frontmatter — `status` defaults to "Not Started"
+                # (the template default) when absent; title falls back to the
+                # slug-title.
+                fm = self._parse_frontmatter(body)
                 out.append({
                     "track_id": f"track:{slug}",
                     "album": album,
                     "slug": slug,
-                    "title": slug.replace("-", " ").title(),
-                    "status": "draft",
-                    "body": f.read_text(encoding="utf-8") if f.is_file() else "",
+                    "title": fm.get("title") or slug.replace("-", " ").title(),
+                    "status": fm.get("status") or "Not Started",
+                    "body": body,
                 })
         return out
 
     def update_track_field(self, album: str, track: str, field: str,
                            value: str) -> None:
-        # FileStateDriver stores track state in the markdown frontmatter.
-        # For Slice 1 v1 we keep a simple side-car JSON; richer frontmatter
-        # editing belongs in a future slice (uses a real markdown parser).
+        # Spec 117 Slice 2 (F4): status (and any frontmatter field) is the
+        # single source of truth IN the track markdown — no `.meta.json`
+        # sidecar. Edit the frontmatter line in place, preserving the body.
         album_dir = self._find_album_dir(album)
         if album_dir is None:
             return
-        meta = album_dir / "tracks" / f"{track}.meta.json"
-        import json
-        data = json.loads(meta.read_text()) if meta.is_file() else {}
-        data[field] = value
-        meta.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        track_file = album_dir / "tracks" / f"{track}.md"
+        if not track_file.is_file():
+            return
+        text = track_file.read_text(encoding="utf-8")
+        track_file.write_text(
+            self._set_frontmatter_field(text, field, value), encoding="utf-8")
 
     def rename_track(self, album: str, old_slug: str,
                      new_slug: str) -> dict:

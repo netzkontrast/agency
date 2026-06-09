@@ -52,16 +52,17 @@ dogfooding run surfaced, scoping them to follow-up specs.
 |---|---|---|---|
 | **F1** | **Production drivers are unreachable from the MCP/plugin runtime.** `__main__.main()` builds `engine = Engine(db_path)` with no `drivers=`; `production_drivers()` is referenced *only* by tests (zero call sites in `__main__`, `engine.py`, `install.py`, `cli.py`). | `agency/__main__.py:37`; `engine.py:142` (`drivers=None` default) + the `if drivers:` registration guard; `grep production_drivers agency/` → tests only | **CLOSED** |
 | **F2** | **No default config / fresh-repo bootstrap.** `MusicConfig.load()` returns in-memory defaults (content_root `~/music-projects`, empty artist) but never writes a config file or creates the root; a new user has nothing to edit and no place for output. | `config.py:124` `load()` is read-only | **CLOSED** |
-| **F3** | **Verbs render templates verbatim — no field substitution.** `create_album`/`create_track` write the raw bitwize template skeleton: the persisted README keeps `title: "[Album Title]"` and the track keeps `title: "[Track Title]"`; only YAML `track_number` is substituted. bitwize fills title/album/track-number into frontmatter + tables. | `_main.py` `create_album`/`create_track` `state.put(...)` / `state.create_track(...)` write `tpl.template` unmodified (only the `track_number:` line is patched) | **deferred → Spec 118** |
-| **F4** | **Status persists to a `.meta.json` sidecar, not frontmatter.** `set_track_status` → `FileStateDriver.update_track_field` writes `tracks/NN-slug.meta.json` (`{"status": ...}`) and explicitly defers real frontmatter editing "to a future slice"; the markdown `Status` row stays `Not Started`. bitwize has no sidecars — status is the single source of truth in the track. | `drivers_production.py` `update_track_field` (sidecar write + deferral comment) | **deferred → Spec 118** |
-| **F5** | **Track template frontmatter omits `status:`.** The vendored `track.md` frontmatter carries `title/track_number/instrumental/explicit/suno_url/sheet_music` but no `status:`. Real bitwize tracks carry `status:` in frontmatter, and the-agency-system's `validate_track.py` PostToolUse hook **hard-requires** `["title","track_number","status"]` — so an agency-rendered track *fails validation in that repo*. | `templates/track.md:1-11` vs `the-agency-system/hooks/validate_track.py:11` | **deferred → Spec 118** |
+| **F3** | **Verbs render templates verbatim — no field substitution.** `create_album`/`create_track` write the raw bitwize template skeleton: the persisted README keeps `title: "[Album Title]"` and the track keeps `title: "[Track Title]"`; only YAML `track_number` is substituted. bitwize fills title/album/track-number into frontmatter + tables. | `_main.py` `create_album`/`create_track` `state.put(...)` / `state.create_track(...)` write `tpl.template` unmodified (only the `track_number:` line is patched) | **CLOSED (Slice 2)** |
+| **F4** | **Status persists to a `.meta.json` sidecar, not frontmatter.** `set_track_status` → `FileStateDriver.update_track_field` writes `tracks/NN-slug.meta.json` (`{"status": ...}`) and explicitly defers real frontmatter editing "to a future slice"; the markdown `Status` row stays `Not Started`. bitwize has no sidecars — status is the single source of truth in the track. | `drivers_production.py` `update_track_field` (sidecar write + deferral comment) | **CLOSED (Slice 2)** |
+| **F5** | **Track template frontmatter omits `status:`.** The vendored `track.md` frontmatter carries `title/track_number/instrumental/explicit/suno_url/sheet_music` but no `status:`. Real bitwize tracks carry `status:` in frontmatter, and the-agency-system's `validate_track.py` PostToolUse hook **hard-requires** `["title","track_number","status"]` — so an agency-rendered track *fails validation in that repo*. | `templates/track.md:1-11` vs `the-agency-system/hooks/validate_track.py:11` | **CLOSED (Slice 2)** |
 | **F6** | **No project-DNA name-exposure enforcement.** `scan_artist_names` checks a configured artist-name blocklist, not a project's alter/character roster. The Umschalten run leaked a personal name ("Lex") into an S4 lyric draft; nothing in the music capability flagged it (it was caught by the `theagencysystem` skill's `name_exposure` rule, which lives outside both plugins). | `_main.py scan_artist_names` (blocklist only); caught manually | **noted → Spec 119 candidate** |
 
-Findings **F1/F2** are the runtime blockers and are closed here. **F3/F4/F5**
-are output-fidelity gaps (the rendered file is structurally bitwize-canonical
-— the templates are byte-identical save a Spec 060 `<!-- AGENT -->` comment —
-but under-populated); they are a coherent next slice (Spec 118
-"music-render-fidelity"). **F6** is a cross-cutting authoring-safety gap.
+Findings **F1/F2** are the runtime blockers and are closed in Slice 1.
+**F3/F4/F5** are output-fidelity gaps (the rendered file is structurally
+bitwize-canonical — the templates are byte-identical save a Spec 060
+`<!-- AGENT -->` comment — but under-populated); they are **closed in
+Slice 2** (render fidelity, below). **F6** remains a cross-cutting
+authoring-safety gap → Spec 119 candidate.
 
 ## Scope (this spec)
 
@@ -95,7 +96,9 @@ config + content root when a repo has none.
   all-five-wired). Blast-radius guard
   `test_missing_driver_degrades_to_typed_failure` still green.
 - [x] `TODO.md` row 117 added.
-- [ ] **(F3/F4/F5)** rendered-output fidelity — moved to **Spec 118**.
+- [x] **(F3/F4/F5)** rendered-output fidelity — **shipped in Slice 2**
+  (template `status:`, album/track field substitution, frontmatter-sourced
+  status round-trip; no `.meta.json` sidecar).
 
 ## Design
 
@@ -145,19 +148,21 @@ Resolution order is unchanged (Spec 115): `.agency/music-config.yaml` →
 
 ## Remaining gaps → follow-up specs
 
-- **Spec 118 — music-render-fidelity (F3/F4/F5):** substitute template fields on
-  render (album/track title, track number, POV); write `status:` into track
-  frontmatter (add the field to `track.md`); make `set_track_status` edit
-  frontmatter instead of (or alongside) the `.meta.json` sidecar so bitwize
-  tooling + the-agency-system `validate_track.py` hook read consistently.
+- **F3/F4/F5 — render fidelity:** CLOSED in **Slice 2** (below). Template
+  field substitution on render (album/track title, track number), `status:`
+  in `track.md` frontmatter, and frontmatter-sourced status round-trip
+  (no `.meta.json` sidecar) all landed; the-agency-system `validate_track.py`
+  hook now reads a populated `status:`. Spec 118 retains only any genuinely
+  remaining render polish (e.g. POV / tracklist auto-population), not F3/F4/F5.
 - **Spec 119 candidate — authoring-safety (F6):** a project-DNA name/roster
   blocklist the lyric gates can enforce (the `name_exposure` rule), generalising
   `scan_artist_names` beyond the single configured artist name.
 
 ## Followup — Implementation Status (2026-06-09)
 
-**Verdict:** Partial → the F1/F2 runtime binding is shipped + tested; F3–F6
-inventoried and deferred to Specs 118/119.
+**Verdict:** Shipped (Slice 1 + Slice 2) → F1/F2 runtime binding (Slice 1) +
+F3/F4/F5 render fidelity (Slice 2) shipped + tested; only F6 (name-exposure)
+remains, deferred to the Spec 119 candidate.
 
 ### Done (`claude/agency-plugin-album-spec-ns8gb7`)
 - `config.py` — `DEFAULT_CONFIG_YAML`, `config_file_exists()`, `bootstrap()`.
@@ -178,5 +183,45 @@ inventoried and deferred to Specs 118/119.
   via `production_drivers` wired through the auto-wire path.
 
 ### Still
-- F3/F4/F5 render fidelity (Spec 118); F6 name-exposure enforcement (Spec 119).
+- F6 name-exposure enforcement (Spec 119 candidate).
 - Real audio/cloud production drivers still fake-backed (Spec 115 Slice 2).
+
+## Followup — Slice 2: render fidelity (F3/F4/F5) (2026-06-09)
+
+**Verdict:** Shipped → F3/F4/F5 closed; the rendered album/track files are now
+populated (not skeleton) and status is the single source of truth in the
+track frontmatter.
+
+### Done (`claude/agency-plugin-album-spec-ns8gb7`)
+- **F5** — `templates/track.md` frontmatter carries `status: "Not Started"`
+  (right after `track_number: 0`), parity with the bitwize source template;
+  the-agency-system `validate_track.py` hook's `status` requirement is met.
+- **F3** — `_main.py`: `_fill_album_body(body, artist, title, genre)` +
+  `_fill_track_body(body, title, track_number)` private helpers do targeted
+  string substitution into the rendered body before `state.put` /
+  `state.create_track`. Album: frontmatter `title:` + H1 + `[Album Name]` +
+  `[Artist Name]` + the `[Genre](/genres/[genre]/…)` link. Track: frontmatter
+  `title:`, H1, and the Track Details `Track #` / `Title` rows (plus the
+  existing `track_number: 0` substitution).
+- **F4** — `drivers_production.py` `FileStateDriver`: added stdlib
+  `_parse_frontmatter` + `_set_frontmatter_field` helpers (no YAML dep).
+  `update_track_field` now edits the track `.md` frontmatter line in place
+  (quoted `status: "…"`), no `.meta.json` sidecar; missing track file is a
+  no-op as before. `list_tracks` sources `status` (default `"Not Started"`)
+  and `title` from the parsed frontmatter (slug-title fallback). `album_progress`
+  (derived from `list_tracks`) now reflects real statuses. The GRAPH Track-node
+  status enum stays lowercase `{draft,recorded,mixed,mastered}`; only the
+  rendered FILE frontmatter carries the value written by `set_track_status`.
+
+### Evidence
+- tests: 3 new in `tests/test_music_production.py` —
+  `test_create_track_renders_title_and_status_into_frontmatter`,
+  `test_set_track_status_round_trips_through_frontmatter_no_sidecar`,
+  `test_create_album_substitutes_title_artist_genre_into_readme` — RED→GREEN.
+  Required music slices green: `106 passed`
+  (`test_music_production / _capability / _lifecycle / _interop / _gates`).
+- drift: `scripts/check-drift` → NO DRIFT DETECTED.
+- blast radius: fake-driver `list_tracks`/`set_track_status`/`album_progress`
+  tests (`test_music_lifecycle`, `test_music_audio`) untouched — the change is
+  isolated to `FileStateDriver`; FakeStateDriver path unchanged, no expectation
+  edits needed.
