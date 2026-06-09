@@ -11,7 +11,7 @@ Revert all master/polish state for an album (effect).
 
 ## Returns
 
-``{album, reset}``.
+``{album, reset, tracks_reset}``.
 
 ## Chain-next
 
@@ -19,7 +19,7 @@ re-run ``music.polish_and_master_album``.
 
 ## Details
 
-(no further detail)
+Delegates to ``music.set_track_status`` per track so each flip records its own Invocation in provenance (review finding: direct StateDriver writes lose the per-track audit trail). The sibling verb also enforces the ``TRACK_STATUS`` enum at write time.
 
 ## Example
 
