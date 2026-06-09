@@ -35,9 +35,11 @@
 | **Shipped — substrate hardening (6 PRs)** | 1 | **092 ✅** (G1 installer prune · G2 reserved-name lints · G3 OpenRouter LLM Driver → llm_select · G4 intent→develop cues · G5 doc-drift in CI · G6 followup-grounding) |
 | **Drafted — backlog** | 2 | 077 bdd-gherkin-tests (research-first) · 078 static-walkable-skills (research-first; needs clarification) |
 | **Drafted — music complete port (`intent:715c815c`)** | 8 | **093** master (music-complete-port) · 094 lifecycle · 095 lyrics · 096 audio · 097 catalogue · 098 promo · 099 research · 100 gates (all draft; spec-panel reviewed) |
+| **Drafted — novel complete build (`intent:f12c1d68`)** | 8 | **101** master (novel-complete-build) · 102 lifecycle · 103 storyform (Dramatica engine — 11 decidable + 2 hybrid checks) · 104 prose · 105 research · 106 catalogue · 107 manuscript (NEW FormatDriver) · 108 gates. MVP source imported from netzkontrast/the-agency-system + netzkontrast/kohaerenzprotokoll under `Plan/_research/novel-mvp-source/` (188 files: 11 templates + 36 reference + 34 fixtures + 8 prior specs + 14 dramatica-theory chapters + kohaerenz normative spec) |
+| **Drafted — substrate-adjacent capabilities (`intent:f12c1d68` iter-13)** | 4 | **109** prompt capability (5-tool research-prompt-optimizer + 10-builder family + engineering pass) · **110** thinking capability (8 critical-thinking methods from 091 + 6 net-new: red_team/socratic/pre_commitment/if_then_else/bayesian_update/analogy_map + 3 composite verbs) · **111** capability-migration plan (17 existing caps + 2 in-flight domain caps mapped to adoption surface + migration shape + PR sequencing) · **112** dossier capability (research-brief authoring + corpus management + entity ontology + chapter-mapping equivalent at abstract level — feeds INTO research cap; novel is first consumer; reusable by music/screenplay/journalism/legal/academic; renamed from brief→dossier per user-confirmation 2026-06-07) |
 | **Closed / Superseded** | 5 | 008 (→042), 009 (→041+046), 028 (→060), 032 (→060), 063 (→065) |
 
-Total spec rows: **79** (001–100, with 027 + 033–038 + 084–090 renumbered away / reserved).
+Total spec rows: **91** (001–112, with 027 + 033–038 + 084–090 renumbered away / reserved).
 
 ## Token-Economy & Readability cluster (`intent:97534079`, master Spec 066)
 

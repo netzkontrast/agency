@@ -1,0 +1,12 @@
+{
+  "name": "ncp-author-skill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local dependency stub for the ncp-author skill's validate.js. Run `npm install` once to pull ajv; the skill scripts will then work.",
+  "scripts": {
+    "validate": "node scripts/validate.js"
+  },
+  "dependencies": {
+    "ajv": "^8.12.0"
+  }
+}

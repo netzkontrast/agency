@@ -171,6 +171,65 @@ Domain capabilities live in `examples/` (e.g. `examples/music.py`), loaded
 via `Engine(..., extra_capabilities=[…])` — the bootstrapping harness stays
 minimal.
 
+## How to use the agency MCP (preferred runtime — Spec 114)
+
+The agency plugin is the **primary driver of the session**, not just a
+tool. Default to its surface over raw tools.
+
+**Discovery — agency MCP search ALWAYS beats ToolSearch:**
+
+```python
+# Find capabilities by query — works on the live verb graph:
+await call_tool("mcp__agency__search",
+                {"query": "<keyword>", "detail": "brief"})
+# Get schemas for verbs you found:
+await call_tool("mcp__agency__get_schema",
+                {"tools": ["capability_<cap>_<verb>", ...]})
+# Execute code-mode block chaining multiple call_tool calls (one return):
+await call_tool("mcp__agency__execute", {"code": """
+    welcome = await call_tool("agency_welcome", {})
+    intent = await call_tool("intent_bootstrap", {...})
+    # chain N more calls
+    return {...}
+"""})
+```
+
+Use `mcp__agency__search` for ANY "where is X" question before
+`ToolSearch`. The agency surface is the live capability registry;
+ToolSearch is the deferred-schema fallback only.
+
+**Session-start protocol (Spec 114):**
+
+1. `agency_welcome` — read the live capability list + DB path
+2. `intent_bootstrap(purpose, deliverable, acceptance)` — every session
+   serves an intent
+3. Walk a discipline skill rather than improvising — `develop.brainstorm`
+   for design work, `develop.write_spec` for spec authoring,
+   `develop.implement` for code
+
+**Verb-first action routing** — prefer the capability verb over raw tool:
+
+| Action | Verb (preferred) | Raw fallback |
+|---|---|---|
+| Edit a spec / write a doc | (use Write/Edit but call `dogfood.observe` to record) | Write / Edit |
+| Run tests | `develop.test(scope)` | Bash `pytest` |
+| Search code | `mcp__agency__search` + `analyze.*` | Grep / Glob |
+| Web fetch | `research.fetch(url, query)` (when shipped) | WebFetch |
+| Commit | `branch.commit_smart(message)` | Bash `git commit` |
+| Push + PR | `branch.finish_branch(...)` | Bash + gh CLI |
+| Dispatch subagent | `subagent.dispatch(...)` | Agent tool |
+| Dispatch Jules | `jules.dispatch(...)` | (no fallback) |
+| Critical thinking | `intent.<method>` (8 methods per Spec 091) | (do it in chat — but lossy) |
+
+**Skills as session mode** — every walkable skill IS a Lifecycle
+template. Walk via `develop.skill_walk(intent_id, name)`. The engine
+delivers ONE phase at a time so context stays bounded.
+
+**Why this matters** — actions through capability verbs auto-record
+provenance (`Invocation` SERVES intent + `Artefact` PRODUCES edges).
+Raw-tool actions don't. The provenance moat IS the moat; bypass it
+and the session is one-shot.
+
 ## Dev
 
 ```bash
