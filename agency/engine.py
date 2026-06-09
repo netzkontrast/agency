@@ -702,22 +702,30 @@ class Engine:
             """One-shot onboarding payload — the canonical first call.
 
             Replaces the "read three files to know how to start" tax on
-            fresh MCP clients. Returns the bootstrap example, the install
-            example, the live capability map, and the resolved graph DB
-            path. No ``intent_id`` required (pure introspection — no graph
-            writes regardless of caller state).
+            fresh MCP clients. Returns the wire contract, code-mode
+            chaining example, the bootstrap example, the live capability
+            map, the walkable discipline-skills roster, and the resolved
+            graph DB path. No ``intent_id`` required (pure introspection —
+            no graph writes regardless of caller state).
 
             Inputs: none.
-            Returns: ``{bootstrap_example, install_example, capabilities,
-                       capability_tier, db_path, next: [step1, step2, step3]}``.
-            ``capability_tier`` (Spec 068) is the tier-0 discovery payload — one
-            line per capability (``{name, gist, verbs}``); browse it, then drill
-            into ONE capability via ``search('<capability>')`` / ``get_schema``
-            instead of dumping every verb (progressive disclosure at the
-            discovery layer — ~83% cheaper than the flat verb catalog).
-            ``capabilities`` (names only) is kept for back-compat.
-            chain_next: call ``agency_install`` then ``intent_bootstrap``, then
-            browse ``capability_tier`` and ``search('<capability>')`` to drill in.
+            Returns: ``{wire_contract, code_mode_example, bootstrap_example,
+                       install_example, capabilities, capability_tier,
+                       discipline_skills, docs, db_path, next}``.
+            ``wire_contract`` (CORE.md) names the 3 lean substrate tools —
+            ``search`` · ``get_schema`` · ``execute`` — every other call
+            travels through ``execute`` as a chained Python block (one
+            return crosses the wire, no per-call overhead). ``code_mode_example``
+            shows the canonical chain: bootstrap an intent, call a verb,
+            note a reflection — all in one block. ``capability_tier``
+            (Spec 068) is the tier-0 discovery payload (one line per
+            capability — browse it, then drill into ONE via
+            ``search('<capability>')`` instead of dumping every verb).
+            ``discipline_skills`` (Spec 114) lists the walkable skills
+            that should be walked rather than improvised on every
+            session: brainstorm / implement / skill_walk / session_init.
+            chain_next: call ``execute`` with the code_mode_example as
+            template; substitute the verb names for your task.
             """
             from ._db_path import resolve_db_path
             # Spec 029 OQ-3: token budget bit. Names-only keeps the welcome
@@ -740,16 +748,44 @@ class Engine:
                 next_steps = [
                     "agency_install — scaffold .agency/ if missing",
                     "intent_bootstrap — mint the intent every verb SERVES",
+                    "execute(code_mode_example) — chain verbs in one block",
                 ]
             else:
                 next_steps = [
                     f"search('<keyword>') — discover a capability_*_* verb",
                     f"memory_graph_provenance('{last_intent}') — see what served the last intent",
+                    "execute(code_mode_example) — chain verbs in one block",
                 ]
+            # Spec 114 §"verb-first action routing" — walkable skills
+            # bounding session work. Names only; drill via `search`.
+            discipline_skills = [
+                "develop.brainstorm", "develop.write_spec",
+                "develop.implement", "develop.skill_walk",
+                "develop.session_init",
+            ]
             return {
                 "state": state,
                 "intents_count": intents_count,
                 "last_intent": last_intent,
+                # Spec CORE.md — the lean wire contract. EVERY interaction
+                # is one of these three; per-verb tools are reached via
+                # `execute` as chained call_tool() within a Python block.
+                "wire_contract": ["search", "get_schema", "execute"],
+                # CORE.md — `execute` runs ONE Python block; chained
+                # `await call_tool(...)` calls cross no extra wire hops;
+                # one return value crosses back. The example is the canon.
+                "code_mode_example": (
+                    "execute({'code': '''\n"
+                    "iid = (await call_tool(\"intent_bootstrap\","
+                    " {\"purpose\":\"<why>\",\"deliverable\":\"<what>\","
+                    "\"acceptance\":\"<verify>\"}))[\"intent_id\"]\n"
+                    "r = await call_tool(\"capability_<cap>_<verb>\","
+                    " {\"intent_id\": iid, \"agent_id\":\"agent:me\"})\n"
+                    "await call_tool(\"capability_reflect_note\","
+                    " {\"intent_id\": iid, \"agent_id\":\"agent:me\","
+                    " \"scope\":\"observation\",\"text\":\"<lesson>\"})\n"
+                    "return r\n'''})"
+                ),
                 "bootstrap_example": (
                     "call_tool('intent_bootstrap', "
                     "{'purpose': '<why>', 'deliverable': '<what>', "
@@ -763,6 +799,7 @@ class Engine:
                 # discovery layer; CORE.md §Skills). `capabilities` (names) kept
                 # for back-compat.
                 "capability_tier": _capability_tier(engine.registry),
+                "discipline_skills": discipline_skills,
                 "db_path": resolve_db_path(None),
                 "next": next_steps,
             }
