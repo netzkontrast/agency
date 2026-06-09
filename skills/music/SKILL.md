@@ -23,7 +23,10 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `album_coherence_check` | transform | Cross-track tonal coherence report via AudioDriver (transform). | [details](references/album_coherence_check.md) |
+| `album_coherence_correct` | effect | Apply coherence corrections to bring outliers in line (effect). | [details](references/album_coherence_correct.md) |
 | `album_progress` | transform | Album progress aggregate via the StateDriver (transform). | [details](references/album_progress.md) |
+| `analyze_audio` | transform | General spectral + loudness probe via AudioDriver (transform). | [details](references/analyze_audio.md) |
 | `analyze_mix` | transform | Analyse a mix for loudness issues via the AudioDriver (transform). | [details](references/analyze_mix.md) |
 | `analyze_readability` | transform | Flesch-Kincaid-shaped readability over the lyric text (transform). | [details](references/analyze_readability.md) |
 | `analyze_rhyme_scheme` | transform | Build a rhyme scheme (A/B/C labels) over the lyric lines (transform). | [details](references/analyze_rhyme_scheme.md) |
@@ -38,26 +41,41 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `conceptualize` | act | Render an album-concept document (act); ``type`` must be a known album type. | [details](references/conceptualize.md) |
 | `count_syllables` | transform | Count syllables in a word — deterministic, driver-free text math. | [details](#count_syllables) |
 | `create_album` | effect | Create an album root + render the canonical templates (effect). | [details](references/create_album.md) |
+| `create_songbook` | effect | LilyPond → PDF songbook render via AudioDriver (effect). | [details](references/create_songbook.md) |
 | `create_track` | effect | Create a track in an album, rendered from the bitwize ``track`` template (effect). | [details](references/create_track.md) |
 | `explicit_gate` | effect | Computed explicit-content gate (effect). | [details](references/explicit_gate.md) |
 | `extract_distinctive_phrases` | transform | Return novel tri-grams (not in corpus) from the lyrics (transform). | [details](references/extract_distinctive_phrases.md) |
 | `extract_section` | transform | Extract the body under a ``[<label>]`` section tag (transform). | [details](references/extract_section.md) |
 | `find_album` | transform | Find albums by slug / fuzzy match via the StateDriver (transform). | [details](references/find_album.md) |
+| `fix_dynamic_track` | effect | Dynamic range fixer — applies compression/expansion (effect). | [details](references/fix_dynamic_track.md) |
+| `generate_promo_videos` | effect | Render a vertical promo video via AudioDriver (effect). | [details](references/generate_promo_videos.md) |
 | `list_ideas` | transform | List captured ideas via the StateDriver (transform) — filter by status. | [details](references/list_ideas.md) |
 | `list_tracks` | transform | List tracks for an album via the StateDriver (transform). | [details](references/list_tracks.md) |
 | `lyric_report` | act | Analyze a lyric sheet's syllable load per line via the TextDriver (act). | [details](references/lyric_report.md) |
 | `master_album` | effect | Master an audio file to a target loudness via the AudioDriver (effect). | [details](references/master_album.md) |
+| `master_audio` | effect | Single-track master via AudioDriver (effect); produces mastering-report. | [details](references/master_audio.md) |
+| `master_with_reference` | effect | Master `path` to match `reference` album loudness (effect). | [details](references/master_with_reference.md) |
+| `measure_album_signature` | transform | Spectral signatures for an album's tracks via AudioDriver (transform). | [details](references/measure_album_signature.md) |
+| `measure_gate` | effect | Computed measure gate — composes loudness probe + range check (effect). | [details](references/measure_gate.md) |
+| `mono_fold_check` | transform | Phase-cancellation check via AudioDriver (transform). | [details](references/mono_fold_check.md) |
 | `music_health` | transform | Self-check the music capability (transform, driver-free) — report which Driver seams are wired. | [details](references/music_health.md) |
+| `polish_album` | effect | Album-wide polish pass — applies polish to every track (effect). | [details](references/polish_album.md) |
+| `polish_and_master_album` | effect | Combined polish + master pipeline (effect); produces mastering-report. | [details](references/polish_and_master_album.md) |
+| `polish_audio` | effect | Per-track polish pass via AudioDriver (effect). | [details](references/polish_audio.md) |
 | `pregen_check` | effect | Computed `pre-generation` gate — machine-checkable predicate (Spec 094). | [details](references/pregen_check.md) |
 | `promo_copy` | act | Draft promotional copy for an album (act, produces a ``promo-copy`` artefact). | [details](references/promo_copy.md) |
 | `promote_idea` | effect | Promote an Idea → Album (effect); record Album + PROMOTED_TO edge. | [details](references/promote_idea.md) |
 | `pronunciation_gate` | effect | Computed pronunciation gate — composes pronunciation + homograph (effect). | [details](references/pronunciation_gate.md) |
 | `prosody_gate` | effect | Computed prosody gate — composes rhyme + syllable checks (effect). | [details](references/prosody_gate.md) |
 | `publish_asset` | effect | Publish an album asset to object storage via the CloudDriver (effect). | [details](references/publish_asset.md) |
+| `qc_audio` | transform | 7-point QC checklist via AudioDriver (transform). | [details](references/qc_audio.md) |
+| `qc_gate` | effect | Computed QC gate — composes 7-point QC checklist (effect). | [details](references/qc_gate.md) |
 | `release_check` | effect | Computed `release-qa` gate: every track mastered (read via the DBDriver). | [details](references/release_check.md) |
 | `rename_album` | effect | Rename an album, mirroring paths via the StateDriver (effect). | [details](references/rename_album.md) |
 | `rename_track` | effect | Rename a track within an album, mirroring paths via the StateDriver (effect). | [details](references/rename_track.md) |
+| `render_codec_preview` | effect | Render a streaming-codec preview via AudioDriver (effect). | [details](references/render_codec_preview.md) |
 | `repetition_gate` | effect | Computed cross-track repetition gate (effect). | [details](references/repetition_gate.md) |
+| `reset_mastering` | effect | Revert all master/polish state for an album (effect). | [details](references/reset_mastering.md) |
 | `resume_session` | transform | Restore the last-album context via the StateDriver (transform). | [details](references/resume_session.md) |
 | `scan_artist_names` | transform | Scan for accidental artist-name drops against the blocklist (transform). | [details](references/scan_artist_names.md) |
 | `set_album_status` | effect | Persist an album's production status via the StateDriver (effect). | [details](references/set_album_status.md) |
@@ -69,7 +87,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 ## Example
 
 ```bash
-await call_tool('capability_music_album_progress', {'intent_id': 'intent:abc'})
+await call_tool('capability_music_album_coherence_check', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
@@ -85,6 +103,10 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'album-concept', 'inputs': {}, 'intent_id': '…'})`
 - **`lyric-writing`** (workflow): draft → prosody → pronunciation → cross-track → explicit → finalize
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'lyric-writing', 'inputs': {}, 'intent_id': '…'})`
+- **`mastering`** (workflow): measure → polish → master → qc → coherence
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'mastering', 'inputs': {}, 'intent_id': '…'})`
+- **`mix-polish`** (workflow): transcribe-stems → polish-per-stem → remix → loudness-check
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'mix-polish', 'inputs': {}, 'intent_id': '…'})`
 - **`pre-generation`** (gate): concept-ready → rights-clear → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'pre-generation', 'inputs': {}, 'intent_id': '…'})`
 - **`release-qa`** (gate): mastered → metadata → ship
