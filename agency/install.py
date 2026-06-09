@@ -924,39 +924,82 @@ _CLAUDE_MD_SNIPPET = f"""\
 {_CLAUDE_MD_MARKER_START}
 ## Agency plugin — onboarding (auto-generated, do not edit between markers)
 
-This repo carries an `.agency/` provenance graph (Spec 020). The
-agency plugin's MCP server exposes three onboarding tools alongside
-the code-mode contract:
+This repo carries an `.agency/session.db` provenance graph (Spec 020 —
+committed to git so team learnings travel with the repo).
 
-- `agency_welcome` — one-shot first call; returns the bootstrap +
-  install examples and the live capability list. **Start here.**
-- `agency_install` — scaffold `.agency/` + this snippet in any target
-  repo. Idempotent.
-- `intent_bootstrap` — mint AND confirm an Intent. Every capability
-  verb requires an `intent_id`; this is the only tool that doesn't
-  (it mints the first one).
-- `agency_doctor` — Spec 030 health check: report python version,
-  deps, DB reachability, and env-var status (`JULES_API_KEY`
-  presence — never the value). Call this when something silently
-  fails.
+### Wire contract — 3 tools (CORE.md)
 
-Canonical first-call sequence (inside one `execute` block):
+The agency MCP server exposes ONE lean contract:
+
+| tool | purpose |
+|---|---|
+| `search` | discover capabilities + verbs by keyword |
+| `get_schema` | fetch parameter schemas for a found verb |
+| `execute` | run a Python block; chain `await call_tool(...)` calls inside |
+
+Plus four engine-substrate onboarding tools:
+
+- `agency_welcome` — one-shot first call; returns the wire contract +
+  a chained code-mode example + the live capability tier + the discipline-
+  skills roster + the resolved DB path. **Start here.** No intent_id.
+- `agency_install` — scaffold `.agency/` + refresh this snippet. Idempotent.
+- `agency_doctor` — health check (Spec 030): python version, deps, DB
+  reachability, env-var presence. Call when something silently fails.
+- `intent_bootstrap` — mint AND confirm the Intent every verb SERVES
+  against. The only tool that does NOT require an existing `intent_id`.
+
+### Code-mode chaining — one block, one return
+
+`execute` runs ONE Python block in a sandbox; every `await call_tool(...)`
+inside crosses NO extra wire hops; ONE value crosses back. Chain instead
+of per-call — it's the headline win of the substrate.
 
 ```python
-# 1. Get onboarded (no intent_id required)
-await call_tool('agency_welcome', {{}})
-# 2. Scaffold .agency/ if missing (idempotent)
-await call_tool('agency_install', {{}})
-# 3. Mint the intent every capability verb SERVES against
-r = await call_tool('intent_bootstrap', {{
-    'purpose': 'why', 'deliverable': 'what', 'acceptance': 'verify',
-}})
-# 4. Use it
-await call_tool('capability_plugin_help', {{'intent_id': r['intent_id']}})
+await call_tool('execute', {{'code': '''
+    # 1. mint the intent every cap verb will SERVE
+    iid = (await call_tool("intent_bootstrap", {{
+        "purpose": "<why>", "deliverable": "<what>", "acceptance": "<verify>",
+    }}))["intent_id"]
+    # 2. chain N verb calls — only the final return crosses the wire
+    r = await call_tool("capability_<cap>_<verb>", {{
+        "intent_id": iid, "agent_id": "agent:me",
+    }})
+    # 3. record the lesson so the graph carries it (provenance moat)
+    await call_tool("capability_reflect_note", {{
+        "intent_id": iid, "agent_id": "agent:me",
+        "scope": "observation", "text": "<lesson>",
+    }})
+    return r
+'''}})
 ```
 
-State lives in `.agency/session.db` (committed to git per Spec 020 —
-team learnings travel with the repo).
+### Session mode — walk discipline skills, don't improvise
+
+Every walkable skill IS a Lifecycle template (Spec 114). Walk them via
+`develop.skill_walk` so the engine bounds context one phase at a time:
+
+- `develop.brainstorm` — explore intent before code
+- `develop.write_spec` — harden a draft into a spec
+- `develop.implement` — RED → GREEN → commit → push (TDD walker)
+- `develop.skill_walk` — walk any cap's walkable skill
+- `develop.session_init` — open + resume a session
+
+### Provenance is the moat — verb-first beats raw tools
+
+Capability verbs auto-record Invocations + SERVES edges + Artefacts.
+Raw `Bash`/`Edit` actions don't. Prefer:
+
+| action | verb | raw fallback |
+|---|---|---|
+| run tests | `develop.test` | Bash `pytest` |
+| commit | `branch.commit_smart` | Bash `git commit` |
+| push + open PR | `branch.finish_branch` | Bash + `gh` |
+| dispatch subagent | `subagent.dispatch` | Agent tool |
+| search code | `search` + `analyze.*` | Grep / Glob |
+| critical thinking | `intent.<method>` (8 methods, Spec 091) | chat |
+
+When in doubt, call `agency_welcome` first — sub-1KB, pure introspection,
+state-aware (fresh-graph → bootstrap; populated → discovery + provenance).
 {_CLAUDE_MD_MARKER_END}
 """
 

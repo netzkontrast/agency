@@ -758,6 +758,52 @@ Multi-genre novels get the UNION (no dedup beyond exact-match).
    default. 105 inherits — production binds via `[research-web]`; CI
    stubs `{citations: [], summary: ""}`.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
+
+**Slice 1 SHIPPED** on branch `claude/spec-102-novel-lifecycle` (PR #80).
+
+### Done in Slice 1
+
+3 graph-only research verbs in `agency/capabilities/novel/_main.py`:
+- `capture_claim(text, source_uri, domain)` (effect): records a
+  `NovelClaim` node with SERVES edge to the intent; validates `domain`
+  against `RESEARCH_DOMAINS` enum (10 novel-domain set).
+- `list_claims(verified="")` (transform): filter by verification status;
+  `INVALID_ARGUMENT` on unknown status.
+- `pending_verifications()` (transform): aggregates pending claims
+  grouped by domain.
+
+Ontology delta:
+- `NovelClaim` node with schema `["text", "source_uri", "domain"]`
+- `CLAIM_VERIFIED` enum constraining `("NovelClaim", "verified")`
+  values: pending / confirmed / refuted / needs-source
+- `RESEARCH_DOMAINS` enum (10 novel-domain set, parallel to music's 099):
+  historical / scientific / cultural / geographical / linguistic /
+  philosophical / religious / political / technological / biographical
+
+`tests/test_novel_research.py` NEW: 9 tests covering verb registration,
+NovelClaim node + enum bite, capture_claim happy path + invalid domain,
+list_claims filter + invalid verified, pending_verifications aggregate.
+
+### Deferred to Slice 2+
+
+- 5 delegating verbs (`research_scope`, `dispatch_research`,
+  `verify_sources`, `document_hunt`, `human_signoff`) — these call
+  `ctx.call("research", …)` and need a wired agency.research stack
+  with a research-bearing intent.
+- Composite `verify_gate` (composes `list_claims(verified="pending")`
+  count + `gate.check`; BLOCKED_ON when > 0).
+- `research-workflow` 5-phase walkable skill (verbatim from 099 but
+  novel-targeted).
+- `data/reference/research-domains.yaml` data port (10 domain configs
+  with preferred sources and verification heuristics).
+- Verification record node + edge wiring for evidence chains.
+
+### Done When status
+
+3 of 7 Done-When boxes ticked (3 of 8 verbs; NovelClaim ontology;
+9 tests of the ~12 target). The remaining 4 (delegating verbs +
+composite gate + walkable skill + domains data) gate on agency.research
+wiring against a research-bearing novel intent.
 
 (Populated when the PR ships.)

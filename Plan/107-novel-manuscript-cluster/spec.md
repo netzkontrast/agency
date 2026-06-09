@@ -317,6 +317,32 @@ agent drafts an English query OF the German novel from scratch.
    generated). `cover-art-director` skill provides design brief; image
    is supplied by the user.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
-(Populated when the PR ships.)
+**Slice 1 SHIPPED** on branch `claude/spec-102-novel-lifecycle` (PR #80).
+
+### Done in Slice 1
+
+3 driver-free renderers, all acts producing typed artefacts:
+- `render_blurb(novel_id, hook, stakes)` → blurb artefact
+- `render_query_letter(novel_id, agent_name, comp_titles)` → query-
+  letter artefact
+- `render_synopsis(novel_id)` → synopsis artefact (chapters in order)
+
+Each verb runs `_require_novel` for NOT_FOUND on bogus novel_id. The
+Registry records PRODUCES edges automatically when verbs return
+`data["artefact"]`.
+
+6 tests in `tests/test_novel_manuscript.py` (registration + happy +
+NOT_FOUND for each renderer).
+
+### Deferred to Slice 2+
+
+- FormatDriver protocol declaration (pandoc / wkhtmltopdf / calibre
+  shell-outs behind a deterministic fake)
+- 7 FormatDriver-backed verbs: render_epub / render_pdf / render_docx
+  / render_print_proof / etc.
+- Composite `publication_gate`
+- 2 walkable skills: manuscript-pass, publish-prep
+- 4 publication templates port (query-letter.md / synopsis.md /
+  blurb.md / back-cover.md)

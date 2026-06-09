@@ -475,4 +475,31 @@ def test_decision_discipline_skill_walks_through_6_phases(): ...
 
 ## Followup
 
+## Followup — Implementation Status (2026-06-09)
+
+**Verdict:** Partial (Slice 1 shipped — 8 founding methods + 2 net-new + 1 composite + 1 skill).
+
+### Done (Slice 1 — bundled with PR #77 / Spec 109)
+- **11 verbs**: 8 founding (`decompose`, `assumptions`, `premortem`, `first_principles`, `inversion`, `steelman`, `second_order`, `tradeoffs`) + 2 net-new (`red_team`, `socratic`) + 1 composite (`apply_full_review`)
+- **1 walkable skill**: `critical-thinking-pass` (5-phase: decompose → surface-assumptions → premortem → steelman-and-inversion → synthesize, hard elicit at synthesize)
+- **Ontology**: 2 nodes (ThinkingMethod, ThinkingFinding) + ThinkingFinding.severity enum + ANALYZES edge + 2 schemas (thinking-analysis, thinking-finding)
+- **Method shape**: all transforms returning `{method, subject, steps, output_schema}` — scaffolds the agent fills out. Subject defaults to the serving intent\047s deliverable (Spec 091 pattern preserved)
+- **`red_team` distinct from `steelman`**: steelman finds the strongest argument AGAINST a position; red_team finds the strongest path to system failure. Documented + tested
+- **14 tests** covering surface invariants + each method\047s scaffold shape + composite artefact production + walkable skill walk + enum bites
+- **Block-mode lint clean**: 0 violations
+- **Skill name**: `critical-thinking-pass` (renamed from spec\047s `critical-thinking` to avoid collision with the existing `intent` capability\047s skill of the same name; Spec 111 migration will reconcile)
+
+### Still to implement (Slice 2)
+- **4 remaining methods**: `pre_commitment`, `bayesian_update`, `if_then_else`, `analogy_map`
+- **2 more composites**: `apply_decision_discipline` (tradeoffs + premortem + red_team + pre_commitment), `apply_design_review` (all 14 methods on a spec/design doc)
+- **2 more walkable skills**: `red-team-pass`, `decision-discipline`
+- **7 templates**: decompose, tradeoff-matrix, premortem, bayesian-update, analogy-map, red-team-checklist, pre-commitment-bind
+- **Intent capability migration (Spec 111)**: the 8 founding methods on `intent.py` become thin wrappers that delegate to `thinking.*`. Backward-compat preserved for callers of `intent.decompose` etc.
+
+### Evidence
+- code: `agency/capabilities/thinking/{__init__,_main}.py`
+- tests: `tests/test_thinking_capability.py` (14 tests Green); full suite Green: 1204 passed
+- lint: `plugin.lint_capability(\047thinking\047)` → ok=True block-mode, 0 violations
+- branch: `claude/spec-109-prompt-capability` (bundled)
+
 (Populated when the PR ships.)
