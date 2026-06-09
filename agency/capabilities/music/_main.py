@@ -60,6 +60,45 @@ _SYLLABLE_TOLERANCE: int = 2
 from ._slug import slugify as _slugify         # noqa: E402
 
 
+def _fill_album_body(body: str, artist: str, title: str, genre: str) -> str:
+    """Substitute the album template's placeholders with the real values
+    (Spec 117 Slice 2 / F3). Only replaces placeholder strings that exist in
+    ``templates/album.md`` — `[Album Title]` (frontmatter `title:` + H1 + the
+    Album row), `[Album Name]`, `[Artist Name]`, `[Genre Name]`."""
+    if not body:
+        return body
+    body = body.replace('title: "[Album Title]"', f'title: "{title}"')
+    body = body.replace("[Album Title]", title)
+    body = body.replace("[Album Name]", title)
+    body = body.replace("[Artist Name]", artist)
+    # Genre appears in the Album Details table as
+    # `| **Genre** | [Genre](/genres/[genre]/README.md) / [Subgenre] |` —
+    # fill the link label + the path slug (both placeholders present in
+    # templates/album.md).
+    body = body.replace("[Genre](/genres/[genre]/README.md)",
+                        f"[{genre}](/genres/{genre}/README.md)")
+    body = body.replace("[Genre Name]", genre)
+    return body
+
+
+def _fill_track_body(body: str, title: str, track_number: int) -> str:
+    """Substitute the track template's placeholders with the real values
+    (Spec 117 Slice 2 / F3). Targets the frontmatter `title:`, the H1, and the
+    Track Details table rows (`Track #`, `Title`); keeps the existing
+    `track_number: 0` → real-number substitution."""
+    if not body:
+        return body
+    body = body.replace("track_number: 0", f"track_number: {track_number}")
+    body = body.replace('title: "[Track Title]"', f'title: "{title}"')
+    body = body.replace("# [Track Title]", f"# {title}")
+    body = body.replace("| **Track #** | XX |",
+                        f"| **Track #** | {track_number} |")
+    body = body.replace("| **Title** | [Track Title] |",
+                        f"| **Title** | {title} |")
+    body = body.replace("[Track Title]", title)
+    return body
+
+
 def _syllables(word: str) -> int:
     """A deterministic, driver-free syllable heuristic (vowel-group count, ≥ 1)."""
     w = word.lower().strip()
@@ -495,7 +534,9 @@ class MusicCapability(CapabilityBase):
         # Render the album README from the template; artist seed on first album.
         album_tpl = self.ctx.template("album")
         if album_tpl is not None:
-            state.put(f"{root}/README.md", {"body": album_tpl.template})
+            body = _fill_album_body(album_tpl.template, artist=artist,
+                                    title=title, genre=genre)
+            state.put(f"{root}/README.md", {"body": body})
         artist_seeded = False
         if not state.find_album(query=f"artist:{artist}"):
             artist_tpl = self.ctx.template("artist")
@@ -595,9 +636,7 @@ class MusicCapability(CapabilityBase):
                                             "title": title})
         track_tpl = self.ctx.template("track")
         body = track_tpl.template if track_tpl is not None else ""
-        if body and "track_number: 0" in body:
-            body = body.replace("track_number: 0",
-                                f"track_number: {track_number}")
+        body = _fill_track_body(body, title=title, track_number=track_number)
         state.create_track(album=album, slug=slug, title=title, body=body)
         return ToolResult.success(data={"track_id": track_id,
                                         "track_slug": slug,
