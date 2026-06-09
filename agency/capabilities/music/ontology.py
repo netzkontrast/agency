@@ -71,6 +71,16 @@ RELEASE_QA_SKILL = {
 # tiny *_gate verbs (the lifecycle cluster pattern from 007: pregen_check,
 # release_check) — each verb composes the underlying transforms + calls
 # gate.check to record PASSED/BLOCKED_ON on the lifecycle.
+#
+# Note on `gate_verb`: this is **advisory metadata for the dispatching agent**,
+# not a walker auto-invoke directive. The agency skill walker
+# (`agency/skill.py`) advances on `run.submit(fills)` only; it does NOT call
+# the named gate_verb itself. The agent walking the skill is expected to
+# invoke the gate verb between phase submits (CORE.md:57-62 — progressive
+# disclosure means the walker emits one phase at a time; verb dispatch is
+# the orchestrating agent's job). Reading `phase["gate_verb"]` tells the
+# agent "this is the right gate to call before submitting this phase's
+# fills". A future walker enhancement could automate this; v1 is metadata.
 LYRIC_WRITING_SKILL = {
     "name": "lyric-writing", "kind": "workflow",
     "phases": [

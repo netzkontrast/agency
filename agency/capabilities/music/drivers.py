@@ -292,10 +292,12 @@ class FakeTextDriver:
         "synth":    "sinth",
         "modem":    "mo-dem",
     }
-    _EXPLICIT_LEXICON: set[str] = {
-        "fuck", "shit", "damn", "bitch", "ass",
-        # Suggestive (sub-class): triggers `suggestive` rating not `explicit`
-    }
+    # Exact-word-match only — derived forms ("fucking", "fucked", "shitter")
+    # slip through. Documented limitation; widen via the bundled
+    # `data/reference/` YAML when Slice 2 of 095 lands the override-path.
+    # CLAUDE.md rule 8: this is a tunable budget, not a snapshot — the v1
+    # lexicon stays minimal until real corpus data justifies expansion.
+    _EXPLICIT_LEXICON: set[str] = {"fuck", "shit", "damn", "bitch", "ass"}
     _SUGGESTIVE_LEXICON: set[str] = {"hell", "crap", "piss"}
     _VOICE_TELLS: list[tuple[str, str]] = [
         # (heuristic_key, severity)
@@ -496,11 +498,18 @@ class FakeTextDriver:
                                  "phrase": c, "severity": "info",
                                  "fix": "replace with a specific image"})
                 break
-        # Heuristic 3: missing idiosyncrasy (no proper nouns + no digits)
+        # Heuristic 3: missing idiosyncrasy (no proper nouns + no digits).
+        # Strip ``[Section Tag]`` lines first so `[Verse 1]` doesn't satisfy
+        # the digit check (review finding: section tags don't count as
+        # lyric content for this heuristic).
+        body_lines = [ln for ln in text.splitlines()
+                      if not (ln.strip().startswith("[")
+                              and ln.strip().endswith("]"))]
+        body_text = "\n".join(body_lines)
         has_proper = any(w[0].isupper() and len(w) > 1
-                         for ln in text.splitlines() for w in ln.split()
+                         for ln in body_lines for w in ln.split()
                          if w and w[0].isupper())
-        has_digit = any(ch.isdigit() for ch in text)
+        has_digit = any(ch.isdigit() for ch in body_text)
         if not has_proper and not has_digit:
             findings.append({"heuristic": "missing_idiosyncrasy",
                              "severity": "info",

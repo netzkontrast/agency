@@ -43,6 +43,16 @@ from .ontology import (
 _VOWELS = "aeiouy"
 _SLUG_BAD = (" ", "/", "\\", ".", ",", "!", "?", "'", "\"", "(", ")", "[", "]")
 
+# Spec 095 — prosody-gate tunables (CLAUDE.md rule 8: documented budgets, not
+# snapshots). The MIN_RHYME_GROUPS bound = "actual rhyming needs at least 2
+# distinct rhyme groups; all-A monorhyme is an opinionated reject — set the
+# bound to 1 via a verb-param override if your genre (hip-hop, blues) wants
+# monorhyme to pass". The SYLLABLE_TOLERANCE = ±2 syllables around the
+# per-line target — a default; per-genre tuning lands when the YAML preset
+# layer ships (deferred to Slice 2+).
+_MIN_RHYME_GROUPS: int = 2
+_SYLLABLE_TOLERANCE: int = 2
+
 
 def _slugify(text: str) -> str:
     """Deterministic slugifier — lowercase, replace non-alnum with hyphen, collapse."""
@@ -875,15 +885,17 @@ class MusicCapability(CapabilityBase):
         lines = [ln for ln in lyrics.splitlines() if ln.strip()]
         rhyme = drv.rhyme_scheme(lines)
         problems = []
-        if rhyme["groups"] < 2:
-            problems.append("rhyme_scheme is all-one-group (no actual rhyming)")
+        if rhyme["groups"] < _MIN_RHYME_GROUPS:
+            problems.append(
+                f"rhyme_scheme has {rhyme['groups']} group(s) "
+                f"(min {_MIN_RHYME_GROUPS})")
         if syllable_target > 0:
             stats = drv.stats(lyrics)
             avg = stats["syllables"] / max(stats["lines"], 1)
-            if abs(avg - syllable_target) > 2:
+            if abs(avg - syllable_target) > _SYLLABLE_TOLERANCE:
                 problems.append(
                     f"avg syllables {avg:.1f} differs from target "
-                    f"{syllable_target} by > 2")
+                    f"{syllable_target} by > {_SYLLABLE_TOLERANCE}")
         passed = not problems
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
                       name="prosody", passed=passed,
@@ -977,17 +989,26 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure("DEPENDENCY_MISSING",
                                       "no 'music_text' driver registered")
         report = drv.explicit(lyrics)
+        # `allow_explicit=True` is an override path — the gate passes BUT the
+        # evidence string carries an explicit override marker so audit can
+        # distinguish "clean pass" from "explicit content was OK'd". Review
+        # finding: without the marker the two passes look identical.
+        is_override = report["rating"] == "explicit" and allow_explicit
         passed = report["rating"] != "explicit" or allow_explicit
+        evidence = f"rating={report['rating']}"
+        if is_override:
+            evidence += " +allow_explicit"
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
                       name="explicit", passed=passed,
-                      evidence=f"rating={report['rating']}")
+                      evidence=evidence)
         if not passed:
             return ToolResult.failure(
                 "GATE_FAILED",
                 f"explicit: rating={report['rating']} (set allow_explicit=True "
                 f"to ship)")
         return ToolResult.success(data={"gate": "explicit", "passed": True,
-                                        "rating": report["rating"]})
+                                        "rating": report["rating"],
+                                        "override": is_override})
 
     # ───────── health cluster (transform, driver-free) ─────────
     @verb(role="transform")
