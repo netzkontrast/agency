@@ -1,8 +1,8 @@
 ---
 spec_id: "010"
 slug: novel-domain
-status: draft
-last_updated: 2026-05-31
+status: closed-superseded   # → 101 + 102-108; closed 2026-06-09
+last_updated: 2026-06-09
 owner: "@agency"
 depends_on: [001, 004, 016]
 affects:

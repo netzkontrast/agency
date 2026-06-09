@@ -220,6 +220,43 @@ def test_lyrics_pregen_gate_blocks_on_empty_lyrics() -> None:
     e.memory.close()
 
 
+def test_lyrics_pregen_gate_composes_all_four_sub_gates() -> None:
+    """Guards F1 from Round 1 sc-analyze: the composite must call all 4
+    declared sub-gates (prosody + pronunciation + repetition + explicit).
+
+    The docstring + GATE_FAILED message both promise 4 — assert the loop
+    actually fires all 4 by patching each sub-gate's verb fn and counting.
+    """
+    from agency.toolresult import ToolResult
+    e = _fresh_configured()
+    iid = _confirmed_iid(e)
+    lc = e.lifecycle.open(iid)
+    music_cap = e.registry._caps["music"]
+    called: list[str] = []
+    originals = {}
+    for sub in ("prosody_gate", "pronunciation_gate",
+                "repetition_gate", "explicit_gate"):
+        originals[sub] = music_cap.verbs[sub]["fn"]
+
+        def make_stub(name):
+            def stub(ctx, **kw):
+                called.append(name)
+                return ToolResult.success(data={"passed": True})
+            return stub
+        music_cap.verbs[sub]["fn"] = make_stub(sub)
+    try:
+        data, _ = _invoke(e, iid, "lyrics_pregen_gate",
+                          lifecycle_id=lc, album="A",
+                          lyrics="non-empty body")
+        assert data is not None and data["passed"] is True
+        assert set(called) == {"prosody_gate", "pronunciation_gate",
+                                "repetition_gate", "explicit_gate"}, called
+    finally:
+        for sub, fn in originals.items():
+            music_cap.verbs[sub]["fn"] = fn
+        e.memory.close()
+
+
 def test_pre_generation_full_skill_walks_through_ready() -> None:
     e = _fresh_configured()
     iid = _confirmed_iid(e)

@@ -80,6 +80,8 @@ _AUTO_MARKER_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # test_music_smoke.py). Must come AFTER the specific patterns since
     # first-match wins.
     (re.compile(r"test_music_"),          "music"),
+    # Spec 101 — novel cluster wave (master + Slices 102-108 sibling clusters).
+    (re.compile(r"test_novel_"),          "novel"),
 ]
 
 
