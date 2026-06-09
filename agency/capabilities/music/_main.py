@@ -1,5 +1,5 @@
 # agency-scaffold: v1
-"""music — clustered domain capability (Spec 093 master / Spec 094 lifecycle migration).
+"""music — clustered domain capability (Spec 093 master + Specs 094-100 + 115).
 
 Music graduates from ``examples/music.py`` into a first-class folder-form
 capability under ``agency/capabilities/music/`` (Spec 094). The CLAUDE.md +
@@ -8,14 +8,15 @@ files; music remains the **reference clustered domain capability** but is no
 longer "third-party example" — it's the substrate's first creative-production
 domain.
 
-This module hosts the migrated 007 verb surface (``conceptualize`` + 10
-cluster-representative verbs) PLUS the 11 NEW lifecycle verbs from Spec 094
-Slice 2 (``promote_idea``, ``list_ideas``, ``create_album``, ``find_album``,
-``create_track``, ``list_tracks``, ``set_track_status``, ``rename_album``,
-``rename_track``, ``album_progress``, ``resume_session``) — 26 verbs total.
-The per-cluster file split (Spec 094 design §"Module layout") is intentionally
-deferred to Specs 095-100: each cluster spec moves its slice of verbs from
-``_main.py`` into the dedicated ``clusters/<name>.py`` module as it ships,
+This module hosts the migrated 007 verb surface PLUS every cluster verb
+from Specs 094-100 (lifecycle, lyrics, audio, catalogue, promo, research,
+gates) PLUS Spec 115 production-binding extras. The live ``@verb``
+decorators are the authoritative count — `agency.registry._caps['music'].verbs`
+enumerates them — per CLAUDE.md §"Derivability audit" (authored numerals
+in docstrings drift; the live surface is the single source of truth).
+The per-cluster file split (Spec 094 design §"Module layout") is
+intentionally deferred: cluster verbs sit in `_main.py` until the batch
+migration into `clusters/<name>.py` modules ships (deferred follow-up),
 keeping behavioural contracts and provenance unchanged through the migration.
 
 Use when: conceptualizing or producing an album — turning an idea into a gated concept, mastering to a target loudness, drafting promo copy, or auditing a release — as the reference for how a first-class clustered domain capability extends agency.
