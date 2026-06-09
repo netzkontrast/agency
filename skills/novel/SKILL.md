@@ -65,6 +65,8 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `set_chapter_status` | effect | Flip a Chapter's lifecycle status; enum-checked (effect). | [details](references/set_chapter_status.md) |
 | `set_novel_status` | effect | Flip a Novel's lifecycle status; enum-checked (effect). | [details](references/set_novel_status.md) |
 | `storyform_critical_pass` | act | Critical-thinking pass over the storyform (act, xcap to thinking). | [details](references/storyform_critical_pass.md) |
+| `validate_appreciations` | transform | Hybrid check (row 12): NCP `appreciation` values ∈ canonical 463 set (transform). | [details](references/validate_appreciations.md) |
+| `validate_narrative_functions` | transform | Hybrid check (row 13): NCP `narrative_function` values ∈ canonical 144 set (transform). | [details](references/validate_narrative_functions.md) |
 
 ## Example
 

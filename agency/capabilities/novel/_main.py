@@ -123,6 +123,48 @@ def _syllables_word(w: str) -> int:
 
 
 @lru_cache(maxsize=1)
+def _load_ncp_schema() -> dict:
+    """Spec 103 hybrid rows 12+13 — vendored NCP v1.3.0 JSON schema loader.
+
+    Reads `data/ncp/ncp-schema-v1.3.0.json` once (lru-cached); the
+    canonical_appreciation (463 values) and canonical_narrative_function
+    (144 values) sets live under `$defs.*.enum`.
+    """
+    p = Path(__file__).parent / "data" / "ncp" / "ncp-schema-v1.3.0.json"
+    return json.loads(p.read_text())
+
+
+@lru_cache(maxsize=1)
+def _canonical_appreciations() -> frozenset[str]:
+    """The 463 canonical NCP appreciations from the vendored schema."""
+    defs = _load_ncp_schema().get("$defs", {})
+    return frozenset(
+        defs.get("canonical_appreciation", {}).get("enum", []))
+
+
+@lru_cache(maxsize=1)
+def _canonical_narrative_functions() -> frozenset[str]:
+    """The 144 canonical NCP narrative_function values from the schema."""
+    defs = _load_ncp_schema().get("$defs", {})
+    return frozenset(
+        defs.get("canonical_narrative_function", {}).get("enum", []))
+
+
+def _walk_field(obj, field_name: str, path: str = ""):
+    """Yield (path, value) for every `field_name` occurrence in nested dict/list."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            child_path = f"{path}.{k}" if path else k
+            if k == field_name and isinstance(v, str):
+                yield child_path, v
+            else:
+                yield from _walk_field(v, field_name, child_path)
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            yield from _walk_field(item, field_name, f"{path}[{i}]")
+
+
+@lru_cache(maxsize=1)
 def _load_dramatica_ontology() -> dict:
     """Spec 103 — module-level memoized loader for the Dramatica ontology.
 
@@ -750,6 +792,52 @@ class NovelCapability(CapabilityBase):
                     f"row11: moments[{i}].storybeat_ref={ref!r} dangling")
         return ToolResult.success(data={
             "passed": not violations, "violations": violations,
+        })
+
+    @verb(role="transform")
+    def validate_appreciations(self, ncp: dict) -> ToolResult:
+        """Hybrid check (row 12): NCP `appreciation` values ∈ canonical 463 set (transform).
+
+        Walks every ``appreciation`` field across the NCP body
+        recursively; each string must belong to the
+        ``canonical_appreciation`` enum from the vendored NCP v1.3.0
+        schema (463 values).
+
+        Inputs: ncp (NCP v1.3.0 payload).
+        Returns: ``{passed, violations: [{path, value}], canonical_size}``.
+        chain_next: ``novel.validate_narrative_functions`` for row 13.
+        """
+        canonical = _canonical_appreciations()
+        violations: list[dict] = []
+        for path, value in _walk_field(ncp, "appreciation"):
+            if value not in canonical:
+                violations.append({"path": path, "value": value})
+        return ToolResult.success(data={
+            "passed": not violations,
+            "violations": violations,
+            "canonical_size": len(canonical),
+        })
+
+    @verb(role="transform")
+    def validate_narrative_functions(self, ncp: dict) -> ToolResult:
+        """Hybrid check (row 13): NCP `narrative_function` values ∈ canonical 144 set (transform).
+
+        Walks every ``narrative_function`` field; each string must
+        belong to the ``canonical_narrative_function`` enum (144 values).
+
+        Inputs: ncp (NCP v1.3.0 payload).
+        Returns: ``{passed, violations: [{path, value}], canonical_size}``.
+        chain_next: ``novel.check_throughline_partition`` for structural row 5.
+        """
+        canonical = _canonical_narrative_functions()
+        violations: list[dict] = []
+        for path, value in _walk_field(ncp, "narrative_function"):
+            if value not in canonical:
+                violations.append({"path": path, "value": value})
+        return ToolResult.success(data={
+            "passed": not violations,
+            "violations": violations,
+            "canonical_size": len(canonical),
         })
 
     # NOTE: `check_signpost_permutation` (row 10) DEFERRED to Slice 3.
