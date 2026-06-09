@@ -126,10 +126,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` where artefact.kind = ``lyric-report`` (PRODUCES edge).
         chain_next: feed the report into the mix/master step.
         """
-        try:
-            text = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_text' driver registered")
+        text, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         lines = [ln for ln in lyrics.splitlines() if ln.strip()]
         per_line = [sum(text.syllables(w) for w in ln.split()) for ln in lines]
         body = (f"# Lyric report: {album}\nlines: {len(lines)}\n"
@@ -149,10 +147,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` where artefact.kind = ``mastering-report`` with measured_lufs, target_lufs, gain_db.
         chain_next: ``music.publish_asset``.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         measured = audio.read_loudness(path)
         gain = target_lufs - measured
         audio.run_ffmpeg(["-i", path, "-af", f"volume={gain}dB"])
@@ -171,10 +167,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{tracks: [{slug, status}]}``.
         chain_next: gate on all-tracks-mastered before release.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         cur = db.cursor()
         cur.execute("SELECT slug, status FROM tracks WHERE album = %s", (album,))
         rows = cur.fetchall()
@@ -206,10 +200,8 @@ class MusicCapability(CapabilityBase):
         if status not in ALBUM_STATUS:
             return ToolResult.failure("INVALID_ARGUMENT",
                                       f"status {status!r} not in {sorted(ALBUM_STATUS)}")
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         state.put(f"album:{album}", {"album": album, "status": status})
         return ToolResult.success(data={"album": album, "status": status})
 
@@ -224,10 +216,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{key, bytes}`` on success.
         chain_next: ``music.verify_streaming`` once distributor links propagate.
         """
-        try:
-            cloud = self.ctx.get_driver("music_cloud")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_cloud' driver registered")
+        cloud, _fail = self._require_drv("music_cloud")
+        if _fail: return _fail
         res = cloud.r2_put(key, body.encode())
         if not res.get("ok"):
             return ToolResult.failure(res.get("error", "INTERNAL"),
@@ -271,10 +261,8 @@ class MusicCapability(CapabilityBase):
         chain_next: on PASSED, ``music.publish_asset`` the release; on fail, master the
         blocking tracks then re-check.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         cur = db.cursor()
         cur.execute("SELECT slug, status FROM tracks WHERE album = %s", (album,))
         rows = cur.fetchall()
@@ -299,10 +287,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` where artefact.kind = ``sheet-music`` with source path.
         chain_next: ``music.publish_asset``.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         audio.run_ffmpeg(["-i", path, "-f", "musicxml", f"{album}.musicxml"])
         body = f"# Sheet music: {album}\nsource: {path}\nformat: musicxml\n"
         return ToolResult.success(data={"result": body, "artefact": {
@@ -317,10 +303,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, measured_lufs, findings}`` — decidable findings (too hot > -9, too quiet < -16).
         chain_next: ``music.master_album``.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         loud = audio.read_loudness(path)
         findings = []
         if loud > -9:
@@ -342,10 +326,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, live, dead, artefact}`` partitioning the URLs by HEAD-status.
         chain_next: re-submit any dead links to the distributor.
         """
-        try:
-            cloud = self.ctx.get_driver("music_cloud")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_cloud' driver registered")
+        cloud, _fail = self._require_drv("music_cloud")
+        if _fail: return _fail
         targets = [u.strip() for u in urls.split(",") if u.strip()]
         live = [u for u in targets if cloud.url_head(u) == 200]
         dead = [u for u in targets if u not in live]
@@ -428,11 +410,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{ideas: [{idea_id, text, status, …}], count}``.
         chain_next: ``music.promote_idea`` to turn a "new" idea into an album.
         """
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         ideas = state.list_ideas(status=status)
         return ToolResult.success(data={"ideas": ideas, "count": len(ideas)})
 
@@ -455,11 +434,8 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure(
                 "INVALID_ARGUMENT",
                 f"type={type!r} not in {sorted(ALBUM_TYPES)}")
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         slug = _slugify(title)
         # Graph-canonical record FIRST (CLAUDE.md rule 2).
         album_id = self.ctx.record("Album", {
@@ -496,11 +472,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{albums: […], count, query}``.
         chain_next: ``music.album_progress`` on a found slug.
         """
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         albums = state.find_album(query=query)
         return ToolResult.success(data={"albums": albums,
                                         "count": len(albums),
@@ -517,11 +490,8 @@ class MusicCapability(CapabilityBase):
         if not new_slug.strip():
             return ToolResult.failure("INVALID_ARGUMENT",
                                       "new_slug must be non-empty")
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         result = state.rename_album(old_slug=old_slug, new_slug=new_slug)
         if not result.get("success"):
             return ToolResult.failure(result.get("error", "NOT_FOUND"),
@@ -536,11 +506,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album_slug, track_count, tracks_completed, completion_percentage, tracks_by_status}``.
         chain_next: ``music.release_check`` once completion_percentage = 100.
         """
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         return ToolResult.success(data=state.album_progress(album=album))
 
     # ───────── 094 Slice 2: track lifecycle ─────────
@@ -600,11 +567,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, tracks: [{slug, title, status, …}], count}``.
         chain_next: ``music.album_progress`` for the aggregate view.
         """
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         tracks = state.list_tracks(album=album)
         return ToolResult.success(data={"album": album, "tracks": tracks,
                                         "count": len(tracks)})
@@ -622,11 +586,8 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure(
                 "INVALID_ARGUMENT",
                 f"status={status!r} not in {sorted(TRACK_STATUS)}")
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         state.update_track_field(album=album, track=track,
                                  field="status", value=status)
         return ToolResult.success(data={"album": album, "track": track,
@@ -644,11 +605,8 @@ class MusicCapability(CapabilityBase):
         if not new_slug.strip():
             return ToolResult.failure("INVALID_ARGUMENT",
                                       "new_slug must be non-empty")
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         result = state.rename_track(album=album, old_slug=old_slug,
                                     new_slug=new_slug)
         if not result.get("success"):
@@ -665,11 +623,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{session: {last_album?, last_track?, last_phase?, pending_actions?}}``.
         chain_next: ``music.album_progress`` on ``session.last_album`` if set.
         """
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         return ToolResult.success(data={"session": state.get_session()})
 
     # ════════════════════════════════════════════════════════════════════════
@@ -684,11 +639,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{scheme, groups, self_rhymes}`` via TextDriver.rhyme_scheme.
         chain_next: ``music.prosody_gate`` for an integrated prosody check.
         """
-        try:
-            text = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        text, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         lines = [ln for ln in lyrics.splitlines() if ln.strip()]
         return ToolResult.success(data=text.rhyme_scheme(lines))
 
@@ -700,11 +652,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{grade_level, avg_words_per_sentence, avg_syllables_per_word}``.
         chain_next: pair with ``music.analyze_rhyme_scheme`` for a full prosody view.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         return ToolResult.success(data=drv.readability(text_))
 
     @verb(role="transform")
@@ -715,11 +664,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{findings: [{word, suggested, severity}], count}``.
         chain_next: ``music.pronunciation_gate`` to gate the lyric-writing skill.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         findings = drv.pronunciation(lyrics)
         return ToolResult.success(data={"findings": findings,
                                         "count": len(findings)})
@@ -732,11 +678,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{findings: [{word, ambiguous_readings, severity}], count}``.
         chain_next: ``music.pronunciation_gate``.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         findings = drv.homographs(lyrics)
         return ToolResult.success(data={"findings": findings,
                                         "count": len(findings)})
@@ -750,11 +693,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{platform, bracket_tags, safe, fix?}``.
         chain_next: strip bracket tags before upload if ``safe=False``.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         return ToolResult.success(data=drv.streaming_safe(lyrics, platform))
 
     @verb(role="transform")
@@ -765,11 +705,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{repeated_lines, track_count, examples}``.
         chain_next: ``music.repetition_gate``.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         return ToolResult.success(data=drv.cross_track(tracks))
 
     @verb(role="transform")
@@ -780,11 +717,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{rating, explicit_words, suggestive_words}``.
         chain_next: ``music.explicit_gate``.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         return ToolResult.success(data=drv.explicit(lyrics))
 
     @verb(role="transform")
@@ -796,11 +730,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{phrases: [...], count}``.
         chain_next: use distinctive phrases as marketing hooks.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         phrases = drv.distinctive_phrases(lyrics, corpus or [])
         return ToolResult.success(data={"phrases": phrases,
                                         "count": len(phrases)})
@@ -813,11 +744,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{section, body}``.
         chain_next: pass the section body to a per-section transform.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         body = drv.extract_section(lyrics, label)
         return ToolResult.success(data={"section": label, "body": body})
 
@@ -829,11 +757,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{ok, findings: [{line, tag, issue, severity}]}``.
         chain_next: fix flagged tags before the prosody pass.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         return ToolResult.success(data=drv.validate_sections(lyrics))
 
     @verb(role="transform")
@@ -845,11 +770,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{hits: [{name, severity, fix}], count}``.
         chain_next: replace flagged names or extend the allowlist.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         hits = drv.scan_artist_names(lyrics, allow or [])
         return ToolResult.success(data={"hits": hits, "count": len(hits)})
 
@@ -861,11 +783,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{findings: [{heuristic, severity, fix}], count}``.
         chain_next: rewrite flagged lines for idiosyncrasy.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         findings = drv.voice_tells(lyrics)
         return ToolResult.success(data={"findings": findings,
                                         "count": len(findings)})
@@ -885,11 +804,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{gate, passed, evidence}`` or typed GATE_FAILED.
         chain_next: on failure, revise lyrics + re-check.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         lines = [ln for ln in lyrics.splitlines() if ln.strip()]
         rhyme = drv.rhyme_scheme(lines)
         problems = []
@@ -926,11 +842,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{gate, passed, evidence}`` or typed GATE_FAILED.
         chain_next: resolve flagged words then re-check.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         prn = drv.pronunciation(lyrics)
         hom = drv.homographs(lyrics)
         passed = not prn and not hom
@@ -959,11 +872,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{gate, passed, evidence}`` or typed GATE_FAILED.
         chain_next: rewrite the repeated lines on one of the tracks.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         report = drv.cross_track(tracks)
         passed = report["repeated_lines"] == 0
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
@@ -991,11 +901,8 @@ class MusicCapability(CapabilityBase):
         chain_next: rewrite explicit words OR re-call with allow_explicit=True
                     if the release is intentionally explicit.
         """
-        try:
-            drv = self.ctx.get_driver("music_text")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_text' driver registered")
+        drv, _fail = self._require_drv("music_text")
+        if _fail: return _fail
         report = drv.explicit(lyrics)
         # `allow_explicit=True` is an override path — the gate passes BUT the
         # evidence string carries an explicit override marker so audit can
@@ -1033,11 +940,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` with input/output paths + gain.
         chain_next: ``music.qc_audio`` to verify.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         rep = audio.master(path=path, target_lufs=target_lufs, preset=preset)
         body = (f"# Mastered: {album}\ninput: {path}\noutput: {rep['output']}\n"
                 f"target: {target_lufs} LUFS\nmeasured: {rep['measured_lufs']} LUFS\n"
@@ -1055,11 +959,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` mastering-report.
         chain_next: ``music.album_coherence_check`` to verify match.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         rep = audio.master_to_reference(path=path, reference=reference)
         body = (f"# Mastered to reference: {album}\ninput: {path}\n"
                 f"reference: {reference}\noutput: {rep['output']}\n"
@@ -1076,11 +977,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, input, output}``.
         chain_next: ``music.master_audio`` once polished.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         out = audio.polish_full(path=path)
         return ToolResult.success(data={"album": album, "input": path,
                                         "output": out})
@@ -1093,11 +991,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, polished: [...], count}``.
         chain_next: ``music.polish_and_master_album`` or per-track master.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         polished = [audio.polish_full(p) for p in paths]
         return ToolResult.success(data={"album": album, "polished": polished,
                                         "count": len(polished)})
@@ -1111,11 +1006,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` with per-track gain summary.
         chain_next: ``music.qc_audio`` per output.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         outputs = []
         for p in paths:
             polished = audio.polish_full(p)
@@ -1139,11 +1031,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, path, measured_dr, target_dr, applied, output}``.
         chain_next: ``music.qc_audio`` to verify.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.dynamic_fix(path,
                                                             target_dr=target_dr)})
@@ -1161,11 +1050,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, reset, tracks_reset}``.
         chain_next: re-run ``music.polish_and_master_album``.
         """
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         reset = 0
         for t in state.list_tracks(album):
             if t.get("status") == "mastered":
@@ -1186,11 +1072,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, path, codec, output, bitrate_kbps}``.
         chain_next: ``music.publish_asset`` the preview.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.codec_preview(path, codec=codec)})
 
@@ -1203,11 +1086,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, signatures: [{path, centroid_hz, …}], count}``.
         chain_next: ``music.album_coherence_check``.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         sigs = [audio.measure_signature(p) for p in paths]
         return ToolResult.success(data={"album": album, "signatures": sigs,
                                         "count": len(sigs)})
@@ -1221,11 +1101,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, coherent, avg_distance, outliers, track_count}``.
         chain_next: ``music.album_coherence_correct`` if outliers found.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.coherence_report(paths)})
 
@@ -1238,11 +1115,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, applied_to, target, ok}``.
         chain_next: ``music.album_coherence_check`` to verify.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.apply_coherence(
                                             paths, target=target or {})})
@@ -1255,11 +1129,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, loudness_lufs, signature: {…}}``.
         chain_next: ``music.qc_audio`` for the full QC pass.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         "loudness_lufs": audio.read_loudness(path),
                                         "signature": audio.measure_signature(path)})
@@ -1272,11 +1143,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, path, rows: {…}, summary}``.
         chain_next: ``music.qc_gate`` for the gating composite.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.qc_checklist(path)})
 
@@ -1288,11 +1156,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, path, cancellation_db, phase_safe}``.
         chain_next: rebalance the mix on phase_safe=False.
         """
-        try:
-            audio = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        audio, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.mono_fold(path)})
 
@@ -1305,11 +1170,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` promo-video artefact.
         chain_next: ``music.publish_asset`` the video.
         """
-        try:
-            drv = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        drv, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         out = drv.render_promo_video(audio=audio, art=art, template=template)
         body = f"# Promo video: {album}\noutput: {out}\ntemplate: {template or 'default'}\n"
         return ToolResult.success(data={"result": body, "artefact": {
@@ -1325,11 +1187,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` sheet-music artefact (PDF stub).
         chain_next: ``music.publish_asset`` the songbook.
         """
-        try:
-            drv = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        drv, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         out = drv.render_songbook(tracks=tracks)
         body = f"# Songbook: {album}\noutput: {out}\ntrack count: {len(tracks)}\n"
         return ToolResult.success(data={"result": body, "artefact": {
@@ -1351,11 +1210,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{gate, passed, measured_lufs}`` or typed GATE_FAILED.
         chain_next: on failure, ``music.master_audio`` to adjust.
         """
-        try:
-            drv = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        drv, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         measured = drv.read_loudness(path)
         passed = min_lufs <= measured <= max_lufs
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
@@ -1379,11 +1235,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{gate, passed, summary, rows}`` or typed GATE_FAILED.
         chain_next: on failure, fix the failing rows + re-check.
         """
-        try:
-            drv = self.ctx.get_driver("music_audio")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_audio' driver registered")
+        drv, _fail = self._require_drv("music_audio")
+        if _fail: return _fail
         report = drv.qc_checklist(path)
         failed_rows = [r for r, s in report["rows"].items() if s == "fail"]
         warned = [r for r, s in report["rows"].items() if s == "warn"]
@@ -1415,11 +1268,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` tweet-record artefact with tweet_id.
         chain_next: ``music.db_update_tweet`` to flip status; ``music.tweet_schedule_gate``.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         tid = db.create_tweet(album=album, body=body,
                               scheduled_at=scheduled_at, platform=platform)
         return ToolResult.success(data={"result": f"tweet:{tid}", "artefact": {
@@ -1436,11 +1286,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{tweet_id, fields}``.
         chain_next: ``music.db_list_tweets`` to verify.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         db.update_tweet(tweet_id=tweet_id, fields=fields)
         return ToolResult.success(data={"tweet_id": tweet_id,
                                         "fields": fields})
@@ -1453,11 +1300,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{tweet_id, deleted}``.
         chain_next: ``music.db_list_tweets`` to verify.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         db.delete_tweet(tweet_id=tweet_id)
         return ToolResult.success(data={"tweet_id": tweet_id, "deleted": True})
 
@@ -1470,11 +1314,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{tweets, count, album, status}``.
         chain_next: ``music.tweet_schedule_gate`` per row.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         tweets = db.list_tweets(album=album, status=status, limit=limit)
         return ToolResult.success(data={"tweets": tweets,
                                         "count": len(tweets),
@@ -1489,11 +1330,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{tweets, count, query}``.
         chain_next: ``music.db_update_tweet`` to revise hits.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         tweets = db.search_tweets(query=query, limit=limit)
         return ToolResult.success(data={"tweets": tweets,
                                         "count": len(tweets),
@@ -1507,11 +1345,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, total, by_status}``.
         chain_next: ``music.tweet-curation`` skill walk.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         return ToolResult.success(data=db.tweet_stats(album=album))
 
     @verb(role="effect")
@@ -1523,11 +1358,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, removed, created}``.
         chain_next: ``music.db_list_tweets(album)`` to verify.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         return ToolResult.success(data=db.sync_album_tweets(
             album=album, tweets=tweets))
 
@@ -1544,11 +1376,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, platform, url, persisted}``.
         chain_next: ``music.get_streaming_urls`` to verify.
         """
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         state.put(f"streaming:{album}:{platform}",
                   {"album": album, "platform": platform, "url": url})
         return ToolResult.success(data={"album": album, "platform": platform,
@@ -1562,11 +1391,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, urls: [{platform, url}]}``.
         chain_next: ``music.verify_streaming`` to re-check.
         """
-        try:
-            state = self.ctx.get_driver("music_state")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_state' driver registered")
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
         # Iterate via StateDriver.list_keys — production drivers expose this
         # primitive; reaching into a private `_store` would lose the
         # contract in production (review finding).
@@ -1585,11 +1411,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, tweets: {total, by_status}, streaming_urls: int}``.
         chain_next: ``music.tweet-curation`` skill walk for any pending tweets.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         try:
             state = self.ctx.get_driver("music_state")
         except DriverMissing:
@@ -1612,11 +1435,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album, drafts, scheduled, total}``.
         chain_next: ``music.db_update_tweet`` to advance status.
         """
-        try:
-            db = self.ctx.get_driver("music_db")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_db' driver registered")
+        db, _fail = self._require_drv("music_db")
+        if _fail: return _fail
         drafts = db.list_tweets(album=album, status="draft")
         scheduled = db.list_tweets(album=album, status="scheduled")
         return ToolResult.success(data={"album": album,
@@ -1735,11 +1555,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` published-asset artefact.
         chain_next: ``music.r2_signed_url`` to share.
         """
-        try:
-            cloud = self.ctx.get_driver("music_cloud")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_cloud' driver registered")
+        cloud, _fail = self._require_drv("music_cloud")
+        if _fail: return _fail
         res = cloud.r2_put(key, body or b"\x00")
         if not res.get("ok"):
             return ToolResult.failure(res.get("error", "INTERNAL"),
@@ -1763,11 +1580,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{result, artefact}`` published-asset artefact.
         chain_next: ``music.r2_signed_url`` to share.
         """
-        try:
-            cloud = self.ctx.get_driver("music_cloud")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_cloud' driver registered")
+        cloud, _fail = self._require_drv("music_cloud")
+        if _fail: return _fail
         res = cloud.r2_put(key, body or b"\x00")
         if not res.get("ok"):
             return ToolResult.failure(res.get("error", "INTERNAL"),
@@ -1787,11 +1601,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{key, deleted}``.
         chain_next: ``music.r2_list`` to verify.
         """
-        try:
-            cloud = self.ctx.get_driver("music_cloud")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_cloud' driver registered")
+        cloud, _fail = self._require_drv("music_cloud")
+        if _fail: return _fail
         res = cloud.r2_delete(key)
         if not res.get("ok"):
             return ToolResult.failure(res.get("error", "INTERNAL"),
@@ -1807,11 +1618,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{prefix, objects: [{key, bytes}], count}``.
         chain_next: ``music.r2_delete`` for cleanup.
         """
-        try:
-            cloud = self.ctx.get_driver("music_cloud")
-        except DriverMissing:
-            return ToolResult.failure("DEPENDENCY_MISSING",
-                                      "no 'music_cloud' driver registered")
+        cloud, _fail = self._require_drv("music_cloud")
+        if _fail: return _fail
         objects = cloud.r2_list(prefix=prefix)
         return ToolResult.success(data={"prefix": prefix,
                                         "objects": objects,
