@@ -66,6 +66,25 @@ RELEASE_QA_SKILL = {
     ],
 }
 
+# Spec 115 — production-binding `new-album` setup skill (mirrors bitwize's
+# new-album skill flow but routed through agency primitives + the
+# FileStateDriver disk layout).
+NEW_ALBUM_SKILL = {
+    "name": "new-album", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "parse-args",
+         "produces": ["album_name", "genre", "documentary"]},
+        {"index": 2, "name": "validate-genre",
+         "produces": ["genre_valid"]},
+        {"index": 3, "name": "check-existing",
+         "produces": ["safe_to_create"]},
+        {"index": 4, "name": "create-structure",
+         "produces": ["album_root", "files_created"]},
+        {"index": 5, "name": "confirm",
+         "produces": ["user_confirmed"], "gate": "hard"},
+    ],
+}
+
 
 IDEA_STATUS = {"new", "promoted", "dropped"}
 
@@ -92,7 +111,8 @@ music_ontology = OntologyExtension(
     },
     skills={"album-concept": ALBUM_CONCEPT_SKILL,
             "pre-generation": PRE_GENERATION_SKILL,
-            "release-qa": RELEASE_QA_SKILL},
+            "release-qa": RELEASE_QA_SKILL,
+            "new-album": NEW_ALBUM_SKILL},          # Spec 115 NEW
     schemas={"album-concept": ["artist", "title", "type"],
              "promo-copy": ["album", "body"],
              "mastering-report": ["album", "body"],
