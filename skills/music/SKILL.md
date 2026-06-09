@@ -75,13 +75,19 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `polish_audio` | effect | Per-track polish pass via AudioDriver (effect). | [details](references/polish_audio.md) |
 | `pregen_check` | effect | Computed `pre-generation` gate — machine-checkable predicate (Spec 094). | [details](references/pregen_check.md) |
 | `promo_copy` | act | Draft promotional copy for an album (act, produces a ``promo-copy`` artefact). | [details](references/promo_copy.md) |
+| `promo_review` | transform | Rule-based scoring of promo copy quality (transform). | [details](references/promo_review.md) |
+| `promo_review_gate` | effect | Computed promo-review gate (effect) — composes ``promo_review`` scoring. | [details](references/promo_review_gate.md) |
 | `promote_idea` | effect | Promote an Idea → Album (effect); record Album + PROMOTED_TO edge. | [details](references/promote_idea.md) |
 | `pronunciation_gate` | effect | Computed pronunciation gate — composes pronunciation + homograph (effect). | [details](references/pronunciation_gate.md) |
 | `prosody_gate` | effect | Computed prosody gate — composes rhyme + syllable checks (effect). | [details](references/prosody_gate.md) |
 | `publish_asset` | effect | Publish an album asset to object storage via the CloudDriver (effect). | [details](references/publish_asset.md) |
+| `publish_sheet_music` | effect | Publish a sheet-music PDF to object storage (effect). | [details](references/publish_sheet_music.md) |
 | `qc_audio` | transform | 7-point QC checklist via AudioDriver (transform). | [details](references/qc_audio.md) |
 | `qc_gate` | effect | Computed QC gate — composes 7-point QC checklist (effect). | [details](references/qc_gate.md) |
+| `r2_delete` | effect | Retract a published asset from object storage (effect). | [details](references/r2_delete.md) |
+| `r2_list` | transform | List published assets by key prefix (transform). | [details](references/r2_list.md) |
 | `release_check` | effect | Computed `release-qa` gate: every track mastered (read via the DBDriver). | [details](references/release_check.md) |
+| `release_package` | act | Record a release package — gathers all release artefact paths (act). | [details](references/release_package.md) |
 | `rename_album` | effect | Rename an album, mirroring paths via the StateDriver (effect). | [details](references/rename_album.md) |
 | `rename_track` | effect | Rename a track within an album, mirroring paths via the StateDriver (effect). | [details](references/rename_track.md) |
 | `render_codec_preview` | effect | Render a streaming-codec preview via AudioDriver (effect). | [details](references/render_codec_preview.md) |
@@ -94,6 +100,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `transcribe_sheet` | act | Transcribe audio → sheet music via AudioDriver (act); produces sheet-music artefact. | [details](references/transcribe_sheet.md) |
 | `tweet_schedule_gate` | effect | Computed tweet-schedule gate (effect) — composes 3 checks. | [details](references/tweet_schedule_gate.md) |
 | `update_streaming_url` | effect | Persist a verified streaming URL via StateDriver (effect). | [details](references/update_streaming_url.md) |
+| `upload_promo_video` | effect | Upload a promo video to object storage (effect). | [details](references/upload_promo_video.md) |
 | `validate_section_structure` | transform | Validate section tag well-formedness (Title Case in brackets) (transform). | [details](references/validate_section_structure.md) |
 | `verify_streaming` | transform | Verify an album's streaming links are live via the CloudDriver (transform). | [details](references/verify_streaming.md) |
 
@@ -122,6 +129,10 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'mix-polish', 'inputs': {}, 'intent_id': '…'})`
 - **`pre-generation`** (gate): concept-ready → rights-clear → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'pre-generation', 'inputs': {}, 'intent_id': '…'})`
+- **`promo-pass`** (workflow): draft → review → asset-attach → schedule → publish
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'promo-pass', 'inputs': {}, 'intent_id': '…'})`
+- **`release-publish`** (workflow): gather-assets → upload → catalogue-update → announce
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'release-publish', 'inputs': {}, 'intent_id': '…'})`
 - **`release-qa`** (gate): mastered → metadata → ship
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'release-qa', 'inputs': {}, 'intent_id': '…'})`
 - **`streaming-verify`** (workflow): collect → head-check → record

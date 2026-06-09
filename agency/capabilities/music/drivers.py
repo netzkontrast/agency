@@ -153,9 +153,21 @@ class DBDriver(Driver, Protocol):
 
 @runtime_checkable
 class CloudDriver(Driver, Protocol):
-    """Object storage / CDN (R2) + URL checks."""
+    """Object storage / CDN (R2) + URL checks.
+
+    Spec 098 extends with 4 typed-named methods for delete, list, and signed-URL
+    flows; production binds boto3 via the ``[music-cloud]`` extra. The in-memory
+    fake records every upload for audit + holds a dict-shaped object store.
+    """
+    # ── 007 baseline ──
     def url_head(self, url: str) -> int: ...
     def r2_put(self, key: str, data: bytes) -> dict: ...
+
+    # ── 098 — promo cluster method delta ──
+    def r2_delete(self, key: str) -> dict: ...
+    def r2_list(self, prefix: str = "") -> list[dict]: ...
+    def r2_signed_url(self, key: str, ttl_s: int = 3600) -> str: ...
+    def r2_head(self, key: str) -> dict | None: ...
 
 
 # ─────────────────────────────── deterministic fakes ───────────────────────────────
@@ -811,19 +823,60 @@ class FakeDBDriver:
 
 
 class FakeCloudDriver:
-    """`url_head` is real (stdlib-shaped); `r2_put` reports DEPENDENCY_MISSING when
-    unconfigured, so the verb returns a typed failure instead of importing boto3."""
+    """In-memory CloudDriver fake.
+
+    `url_head` is real (stdlib-shaped); object-store ops (`r2_put`/`r2_delete`/
+    `r2_list`/`r2_head`/`r2_signed_url`) use an in-memory dict so Spec 098
+    promo cluster verbs run hermetically. Production binds boto3 via the
+    `[music-cloud]` extra. When unconfigured (the default), `r2_put` /
+    `r2_delete` return `{"ok": False, "error": "DEPENDENCY_MISSING"}` and the
+    wrapping verb converts to a typed `ToolResult.failure`.
+    """
+
     def __init__(self, configured: bool = False, head_status: int = 200) -> None:
         self._configured = configured
         self._head_status = head_status
+        # In-memory object store — populated only when configured=True.
+        self._objects: dict[str, dict] = {}
+        # Upload audit log for downstream consumers (a dashboard, an
+        # audit-export verb). Spec 096's FakeAudioDriver follows the same
+        # pattern (master_calls / polish_calls / render_calls).
+        self.put_calls: list[dict] = []
 
+    # ── 007 baseline ──
     def url_head(self, url: str) -> int:
         return self._head_status
 
     def r2_put(self, key: str, data: bytes) -> dict:
+        self.put_calls.append({"key": key, "bytes": len(data)})
         if not self._configured:
             return {"ok": False, "error": "DEPENDENCY_MISSING"}
+        self._objects[key] = {"key": key, "bytes": len(data),
+                               "data": bytes(data)}
         return {"ok": True, "key": key, "bytes": len(data)}
+
+    # ── 098 — promo cluster delta ──
+    def r2_delete(self, key: str) -> dict:
+        if not self._configured:
+            return {"ok": False, "error": "DEPENDENCY_MISSING"}
+        existed = self._objects.pop(key, None) is not None
+        return {"ok": True, "key": key, "deleted": existed}
+
+    def r2_list(self, prefix: str = "") -> list[dict]:
+        if not self._configured:
+            return []
+        return [{"key": k, "bytes": v["bytes"]}
+                for k, v in self._objects.items() if k.startswith(prefix)]
+
+    def r2_signed_url(self, key: str, ttl_s: int = 3600) -> str:
+        # Deterministic stub — production drivers return real pre-signed URLs.
+        return f"https://r2.example.com/{key}?ttl={ttl_s}&sig=fake"
+
+    def r2_head(self, key: str) -> dict | None:
+        obj = self._objects.get(key) if self._configured else None
+        if obj is None:
+            return None
+        return {"key": key, "bytes": obj["bytes"]}
 
 
 def fake_drivers() -> dict[str, object]:

@@ -66,6 +66,37 @@ RELEASE_QA_SKILL = {
     ],
 }
 
+# Spec 098 — promo cluster walkable skills.
+PROMO_PASS_SKILL = {
+    "name": "promo-pass", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "draft",
+         "produces": ["promo_body", "promo_platform"]},
+        {"index": 2, "name": "review",
+         "produces": ["review_score", "review_passed"],
+         "gate": "computed", "gate_verb": "music.promo_review_gate"},
+        {"index": 3, "name": "asset-attach",
+         "produces": ["assets_attached"]},
+        {"index": 4, "name": "schedule",
+         "produces": ["scheduled_at_set"]},
+        {"index": 5, "name": "publish",
+         "produces": ["published"], "gate": "hard"},
+    ],
+}
+RELEASE_PUBLISH_SKILL = {
+    "name": "release-publish", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "gather-assets",
+         "produces": ["release_assets_collected"]},
+        {"index": 2, "name": "upload",
+         "produces": ["assets_uploaded"]},
+        {"index": 3, "name": "catalogue-update",
+         "produces": ["catalogue_synced"]},
+        {"index": 4, "name": "announce",
+         "produces": ["announcement_posted"], "gate": "hard"},
+    ],
+}
+
 # Spec 097 — tweet status enum (open-set: bitwize uses {draft, scheduled, posted, archived}).
 TWEET_STATUS = {"draft", "scheduled", "posted", "archived"}
 
@@ -196,7 +227,9 @@ music_ontology = OntologyExtension(
             "mastering": MASTERING_SKILL,            # 096 NEW
             "mix-polish": MIX_POLISH_SKILL,          # 096 NEW
             "tweet-curation": TWEET_CURATION_SKILL,  # 097 NEW
-            "streaming-verify": STREAMING_VERIFY_SKILL},  # 097 NEW
+            "streaming-verify": STREAMING_VERIFY_SKILL,  # 097 NEW
+            "promo-pass": PROMO_PASS_SKILL,          # 098 NEW
+            "release-publish": RELEASE_PUBLISH_SKILL},  # 098 NEW
     schemas={"album-concept": ["artist", "title", "type"],
              "promo-copy": ["album", "body"],
              "mastering-report": ["album", "body"],
@@ -217,5 +250,9 @@ music_ontology = OntologyExtension(
              # 097 NEW — catalogue cluster artefact reports
              "tweet-record":         ["album", "body", "platform"],
              "streaming-verify":     ["album", "live", "dead"],
-             "catalogue-snapshot":   ["album", "total", "by_status"]},
+             "catalogue-snapshot":   ["album", "total", "by_status"],
+             # 098 NEW — promo cluster artefact reports
+             "published-asset":      ["album", "key", "bytes"],
+             "promo-album-package":  ["album", "assets"],
+             "social-post":          ["album", "platform", "body"]},
 )
