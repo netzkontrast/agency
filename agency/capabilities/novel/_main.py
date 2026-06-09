@@ -23,22 +23,40 @@ from agency.toolresult import ToolResult
 NOVEL_STATUS = {"concept", "outlining", "drafting", "revising",
                 "beta", "querying", "published"}
 CHAPTER_STATUS = {"outlined", "drafted", "revised", "final"}
+# Spec 102 — Idea lifecycle (mirrors music's IDEA_STATUS).
+IDEA_STATUS = {"new", "promoted", "dropped"}
 
 
 # ─────────────────────────── walkable skill ───────────────────────────
+# Spec 102 §"novel-concept walkable skill (10 phases)" — extends the
+# 5-phase Slice 1 skeleton with genre/audience/setting/characters-core/
+# dramatica-seed/outline-shape/series-hypothesis blocks. The dramatica-seed
+# phase populates the 4 dynamics that Spec 103's storyform cluster consumes.
 NOVEL_CONCEPT_SKILL = {
     "name": "novel-concept", "kind": "conceptualizer",
     "phases": [
         {"index": 1, "name": "premise",
-         "produces": ["premise", "central_question"]},
-        {"index": 2, "name": "throughlines",
-         "produces": ["main_character", "objective_story",
-                       "impact_character", "relationship_story"]},
-        {"index": 3, "name": "structure",
-         "produces": ["chapter_outline", "act_breakdown"]},
-        {"index": 4, "name": "voice",
-         "produces": ["pov", "tense", "narrative_distance"]},
-        {"index": 5, "name": "confirmation",
+         "produces": ["logline", "central_question"]},
+        {"index": 2, "name": "genre",
+         "produces": ["genre", "subgenre", "tone"]},
+        {"index": 3, "name": "audience",
+         "produces": ["target_reader", "comp_titles"]},
+        {"index": 4, "name": "pov",
+         "produces": ["pov_choice", "narrator_voice"]},
+        {"index": 5, "name": "setting",
+         "produces": ["world", "time_period", "geography"]},
+        {"index": 6, "name": "characters-core",
+         "produces": ["protagonist_seed", "antagonist_seed",
+                      "supporting_seeds"]},
+        {"index": 7, "name": "dramatica-seed",
+         "produces": ["resolve_intent", "growth_intent",
+                      "approach_intent", "mental_sex_intent"]},
+        {"index": 8, "name": "outline-shape",
+         "produces": ["act_structure", "midpoint_intent",
+                      "ending_intent"]},
+        {"index": 9, "name": "series-hypothesis",
+         "produces": ["standalone_or_series", "series_arc"]},
+        {"index": 10, "name": "confirmation",
          "produces": ["user_confirmed"], "gate": "hard"},
     ],
 }
@@ -50,17 +68,25 @@ novel_ontology = OntologyExtension(
         # Lifecycle (Slice 1 minimum — extended in 102/103/...)
         "Novel":   ["title", "author", "status"],
         "Chapter": ["novel", "number", "title", "status"],
+        # Spec 102 — pre-novel idea capture (mirrors music's Idea node:
+        # schema is text-only, `status` carried as an optional field
+        # constrained by the IDEA_STATUS enum below — same shape music uses).
+        "Idea":    ["text"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
         ("Chapter", "status"): CHAPTER_STATUS,
+        ("Idea",    "status"): IDEA_STATUS,
     },
     edges={
         "CHAPTER_OF",       # Chapter → Novel (mirror of music's RECORDED_FOR)
+        "PROMOTED_TO",      # Idea → Novel (mirror of music's PROMOTED_TO)
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL},
     schemas={
-        "novel-concept": ["title", "premise", "central_question"],
+        # Spec 102: logline replaces `premise` in the canonical phase name;
+        # both verb args + skill produce the same field set.
+        "novel-concept": ["title", "logline", "central_question"],
         "chapter-report": ["novel_id", "chapter_count", "word_count_total"],
         "manuscript":     ["novel", "body", "chapter_count"],
     },
@@ -207,4 +233,111 @@ class NovelCapability(CapabilityBase):
                          "novel": novel_id,
                          "chapter_count": len(chapters),
                          "body": body},
+        })
+
+    # ───────────────── Spec 102 — lifecycle delta ─────────────────
+    # Idea capture/promotion + novel discovery/status flip. Graph-only
+    # for Slice 1; StateDriver (disk-layer) lands in a Spec-115-equivalent
+    # follow-up matching music's production-binding split.
+
+    @verb(role="effect")
+    def capture_idea(self, text: str) -> ToolResult:
+        """Record an Idea node SERVING the intent (effect).
+
+        Pre-novel capture surface: free-text premise jotted before the
+        gated conceptualizer runs. Default status ``new``.
+
+        Inputs: text.
+        Returns: ``{idea_id, text, status}``.
+        chain_next: ``novel.promote_idea`` once the premise hardens.
+        """
+        iid = self.ctx.record("Idea", {"text": text, "status": "new"})
+        self.ctx.link(iid, self.ctx.intent_id, "SERVES")
+        return ToolResult.success(data={
+            "idea_id": iid, "text": text, "status": "new",
+        })
+
+    @verb(role="transform")
+    def list_ideas(self, status: str = "") -> ToolResult:
+        """List captured ideas; optional status filter (transform).
+
+        Inputs: status (one of ``IDEA_STATUS`` or ``""`` for all).
+        Returns: ``{ideas: [...], count}``.
+        chain_next: ``novel.promote_idea`` for any "new" idea ready to ship.
+        """
+        if status and status not in IDEA_STATUS:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"status={status!r} not in {sorted(IDEA_STATUS)}")
+        ideas = [i for i in self.ctx.find("Idea")
+                 if not status or i.get("status") == status]
+        return ToolResult.success(data={"ideas": ideas, "count": len(ideas)})
+
+    @verb(role="effect")
+    def promote_idea(self, idea_id: str, title: str,
+                      author: str) -> ToolResult:
+        """Idea → Novel transition; records PROMOTED_TO edge (effect).
+
+        Flips the Idea's status to ``promoted``, mints a Novel node, and
+        wires a PROMOTED_TO edge. Mirrors music's promote_idea / Idea-to-
+        Album lineage.
+
+        Inputs: idea_id, title, author.
+        Returns: ``{idea_id, novel_id, title, status}``.
+        chain_next: ``novel.create_chapter`` to start outlining.
+        """
+        node = self.ctx.recall(idea_id)
+        if node is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"idea_id={idea_id!r} not found")
+        nid = self.ctx.record("Novel", {
+            "title": title, "author": author, "status": "concept",
+        })
+        self.ctx.link(nid, self.ctx.intent_id, "SERVES")
+        self.ctx.link(idea_id, nid, "PROMOTED_TO")
+        self.ctx.update(idea_id, {"status": "promoted"})
+        return ToolResult.success(data={
+            "idea_id": idea_id, "novel_id": nid,
+            "title": title, "status": "concept",
+        })
+
+    @verb(role="transform")
+    def find_novel(self, query: str = "") -> ToolResult:
+        """Substring-match novel titles (transform, driver-free).
+
+        Inputs: query (case-insensitive substring; ``""`` returns all).
+        Returns: ``{novels: [{novel_id, title, author, status}], count}``.
+        chain_next: ``novel.set_novel_status`` or ``novel.render_manuscript``.
+        """
+        q = query.lower()
+        hits = []
+        for n in self.ctx.find("Novel"):
+            title = (n.get("title") or "").lower()
+            if not q or q in title:
+                hits.append({
+                    "novel_id": n.get("id"),
+                    "title": n.get("title"),
+                    "author": n.get("author"),
+                    "status": n.get("status"),
+                })
+        return ToolResult.success(data={"novels": hits, "count": len(hits)})
+
+    @verb(role="effect")
+    def set_novel_status(self, novel_id: str, status: str) -> ToolResult:
+        """Flip a Novel's lifecycle status; enum-checked (effect).
+
+        Inputs: novel_id, status (one of ``NOVEL_STATUS``).
+        Returns: ``{novel_id, status}``.
+        chain_next: continue per the new lifecycle phase.
+        """
+        if status not in NOVEL_STATUS:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"status={status!r} not in {sorted(NOVEL_STATUS)}")
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        self.ctx.update(novel_id, {"status": status})
+        return ToolResult.success(data={
+            "novel_id": novel_id, "status": status,
         })

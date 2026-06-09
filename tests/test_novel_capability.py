@@ -28,13 +28,17 @@ def _invoke(e: Engine, iid: str, verb: str, **kw):
 
 
 def test_novel_capability_registers_five_mvn_verbs() -> None:
-    """Spec 101 First-Principles Minimum: 5 verbs cover the simple-novel path."""
+    """Spec 101 First-Principles Minimum: the 5 MVN verbs MUST remain present.
+
+    The cap grows beyond 5 as Spec 102+ ship (capture_idea etc.); this test
+    guards the MVN-subset invariant — every novel cap, no matter which
+    cluster slices are loaded, MUST expose the MVN path.
+    """
     e = _fresh()
     cap = e.registry._caps["novel"]
-    assert set(cap.verbs) == {
-        "conceptualize", "create_novel", "create_chapter",
-        "chapter_report", "render_manuscript",
-    }
+    mvn = {"conceptualize", "create_novel", "create_chapter",
+           "chapter_report", "render_manuscript"}
+    assert mvn <= set(cap.verbs), f"missing MVN verbs: {mvn - set(cap.verbs)}"
     e.memory.close()
 
 
@@ -158,15 +162,18 @@ def test_novel_status_enum_bites() -> None:
     e.memory.close()
 
 
-def test_novel_concept_skill_is_five_phased_with_hard_gate() -> None:
+def test_novel_concept_skill_terminates_in_hard_gate() -> None:
+    """Spec 101 → 102 invariant: the `novel-concept` skill is a conceptualizer
+    that ends in a hard elicit. Phase count + names belong to whichever spec
+    slice last extended the skill (Spec 102 extends to 10 phases) — this test
+    guards the skill-shape invariant rather than a frozen phase list.
+    """
     e = _fresh()
     sk = e.ontology.skill("novel-concept")
     assert sk["kind"] == "conceptualizer"
-    assert len(sk["phases"]) == 5
     assert sk["phases"][-1].get("gate") == "hard"
-    names = [p["name"] for p in sk["phases"]]
-    assert names == ["premise", "throughlines", "structure",
-                     "voice", "confirmation"]
+    assert sk["phases"][-1]["name"] == "confirmation"
+    assert len(sk["phases"]) >= 5  # MVN floor; Spec 102 takes it to 10
     e.memory.close()
 
 
@@ -255,13 +262,20 @@ def test_novel_concept_skill_walks_through_confirmation() -> None:
     iid = _confirmed_iid(e)
     sk = e.ontology.skill("novel-concept")
     run = SkillRun(e.memory, iid, sk)
+    # Spec 102 extends to 10 phases — walk each then confirm.
     fills = [
-        {"premise": "x", "central_question": "y"},
-        {"main_character": "MC", "objective_story": "OS",
-         "impact_character": "IC", "relationship_story": "RS"},
-        {"chapter_outline": "ch1..ch10", "act_breakdown": "3-act"},
-        {"pov": "third-limited", "tense": "past",
-         "narrative_distance": "close"},
+        {"logline": "x", "central_question": "y"},
+        {"genre": "g", "subgenre": "sg", "tone": "t"},
+        {"target_reader": "r", "comp_titles": "c"},
+        {"pov_choice": "p", "narrator_voice": "n"},
+        {"world": "w", "time_period": "t", "geography": "g"},
+        {"protagonist_seed": "p", "antagonist_seed": "a",
+         "supporting_seeds": "s"},
+        {"resolve_intent": "r", "growth_intent": "g",
+         "approach_intent": "a", "mental_sex_intent": "m"},
+        {"act_structure": "3-act", "midpoint_intent": "m",
+         "ending_intent": "e"},
+        {"standalone_or_series": "s", "series_arc": "n/a"},
     ]
     for out in fills:
         assert run.submit(out)["status"] == "working"
