@@ -11,7 +11,7 @@ Verify an album's streaming links are live via the CloudDriver (transform).
 
 ## Returns
 
-``{album, live, dead}`` partitioning the URLs by HEAD-status.
+``{album, live, dead, artefact}`` partitioning the URLs by HEAD-status.
 
 ## Chain-next
 
@@ -19,7 +19,7 @@ re-submit any dead links to the distributor.
 
 ## Details
 
-(no further detail)
+Spec 097 Slice 2 (review-driven): produces a `streaming-verify` artefact — without this the ontology schema was dormant.
 
 ## Example
 

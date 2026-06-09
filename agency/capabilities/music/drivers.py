@@ -59,6 +59,9 @@ class StateDriver(Driver, Protocol):
     def update_session(self, fields: dict) -> None: ...
     def resolve_path(self, kind: str, **vars) -> str: ...
     def read_data(self, kind: str, slug: str) -> dict: ...
+    # 097 Slice 2 (review-driven): production drivers expose a key-iteration
+    # primitive so verbs don't reach into a `_store` private attribute.
+    def list_keys(self, prefix: str = "") -> list[str]: ...
 
 
 @runtime_checkable
@@ -312,6 +315,18 @@ class FakeStateDriver:
         # Stub — production reads `data/{kind}/{slug}.{md,yaml}`. Slice 1's
         # vendored genres + reference docs back this in the real driver.
         return {"kind": kind, "slug": slug, "body": ""}
+
+    def list_keys(self, prefix: str = "") -> list[str]:
+        """Spec 097 Slice 2 (review-driven): return keys matching prefix.
+
+        Lets `get_streaming_urls` / `get_promo_status` iterate without
+        reaching into `_store` (a private attribute production drivers
+        don't expose). Production redis/etcd-backed implementations use
+        their native prefix-scan; the fake just iterates the dict.
+        """
+        if not prefix:
+            return sorted(self._store.keys())
+        return sorted(k for k in self._store if k.startswith(prefix))
 
 
 class FakeTextDriver:

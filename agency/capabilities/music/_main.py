@@ -335,8 +335,11 @@ class MusicCapability(CapabilityBase):
     def verify_streaming(self, album: str, urls: str = "") -> ToolResult:
         """Verify an album's streaming links are live via the CloudDriver (transform).
 
+        Spec 097 Slice 2 (review-driven): produces a `streaming-verify`
+        artefact — without this the ontology schema was dormant.
+
         Inputs: album, urls (comma-separated).
-        Returns: ``{album, live, dead}`` partitioning the URLs by HEAD-status.
+        Returns: ``{album, live, dead, artefact}`` partitioning the URLs by HEAD-status.
         chain_next: re-submit any dead links to the distributor.
         """
         try:
@@ -345,8 +348,13 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure("DEPENDENCY_MISSING", "no 'music_cloud' driver registered")
         targets = [u.strip() for u in urls.split(",") if u.strip()]
         live = [u for u in targets if cloud.url_head(u) == 200]
+        dead = [u for u in targets if u not in live]
         return ToolResult.success(data={"album": album, "live": live,
-                                        "dead": [u for u in targets if u not in live]})
+                                        "dead": dead,
+                                        "artefact": {"kind": "streaming-verify",
+                                                     "album": album,
+                                                     "live": live,
+                                                     "dead": dead}})
 
     # ───────── ideas cluster (effect via StateDriver, records an Idea node) ─────────
     @verb(role="effect")
@@ -1559,10 +1567,13 @@ class MusicCapability(CapabilityBase):
         except DriverMissing:
             return ToolResult.failure("DEPENDENCY_MISSING",
                                       "no 'music_state' driver registered")
-        # Iterate the store for streaming:{album}:* keys
+        # Iterate via StateDriver.list_keys — production drivers expose this
+        # primitive; reaching into a private `_store` would lose the
+        # contract in production (review finding).
         urls = []
-        for k, v in (state._store.items() if hasattr(state, "_store") else []):
-            if k.startswith(f"streaming:{album}:"):
+        for k in state.list_keys(prefix=f"streaming:{album}:"):
+            v = state.get(k) or {}
+            if "platform" in v and "url" in v:
                 urls.append({"platform": v["platform"], "url": v["url"]})
         return ToolResult.success(data={"album": album, "urls": urls})
 
@@ -1584,10 +1595,11 @@ class MusicCapability(CapabilityBase):
         except DriverMissing:
             state = None
         tweet_stats = db.tweet_stats(album=album)
+        # Same fix as get_streaming_urls — use the StateDriver primitive,
+        # not a private attribute (review finding).
         url_count = 0
-        if state is not None and hasattr(state, "_store"):
-            url_count = sum(1 for k in state._store
-                            if k.startswith(f"streaming:{album}:"))
+        if state is not None:
+            url_count = len(state.list_keys(prefix=f"streaming:{album}:"))
         return ToolResult.success(data={"album": album,
                                         "tweets": tweet_stats,
                                         "streaming_urls": url_count})
