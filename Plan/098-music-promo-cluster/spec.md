@@ -350,6 +350,35 @@ def test_promo_verb_fails_typed_when_cloud_driver_missing_for_publish(): ...
    a record-of-truth artefact that the release skill's final phase consumes.
    The skill orchestrates; the verb produces.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
+**Verdict:** Partial (Slice 1 shipped — full v1 promo verb surface; 6-platform template port + `[music-cloud]` extra deferred).
+
+### Done (Slice 1 — branch `claude/music-098-promo`, stacked on PR #68)
+- **CloudDriver Protocol extended** (drivers.py) with 4 typed-named methods: `r2_delete`, `r2_list`, `r2_signed_url`, `r2_head`. `FakeCloudDriver` implementations use an in-memory object store + audit `put_calls` log.
+- **7 NEW verbs + 1 composite gate verb** on `MusicCapability` (3 already shipped):
+  - Transforms: `promo_review` (rule-based 0-100 scorer covering length/CTA/explicit), `r2_list`.
+  - Effects: `publish_sheet_music` (PDF wrapper); `upload_promo_video`; `r2_delete`; `release_package` (act, gathers all release artefact paths).
+  - Gate verb: `promo_review_gate` (composes `promo_review` inline; passes iff score ≥ min_score default 70).
+- **PROMO_PASS_SKILL** — 5 phases (draft → review → asset-attach → schedule → publish) with computed gate at review + hard elicit at publish.
+- **RELEASE_PUBLISH_SKILL** — 4 phases (gather-assets → upload → catalogue-update → announce) with hard elicit at announce.
+- **3 NEW artefact schemas**: `published-asset`, `promo-album-package`, `social-post`.
+- **17 promo tests**; block-mode lint clean; full suite Green (1064 passed).
+
+### Still to implement (deferred)
+- **6 platform template port from bitwize** (`templates/promo/{campaign,facebook,instagram,tiktok,twitter,youtube}.md` → `agency/capabilities/music/templates/`). Mechanical subagent batch — defer to Slice 2.
+- **`[music-cloud]` extra in pyproject.toml** — opt-in boto3 binding.
+- **LLM driver routing for `promo_copy`** (Path A rule-based shipped; Path B follow-up enhancement).
+- **Per-cluster file split** — defer to batch cluster-split PR.
+
+### Refinement needed
+- DEPENDENCY_MISSING boilerplate now ~63 sites — **the `_require_driver()` helper cleanup PR is mandatory before 099** per the 097 review.
+
+### Evidence
+- code: _main.py (8 new methods), drivers.py (CloudDriver Protocol + FakeCloudDriver), ontology.py (2 skills + 3 schemas).
+- tests: tests/test_music_promo.py (17 tests Green).
+- lint: ok=True block mode, 0 violations.
+- branch: `claude/music-098-promo`.
+
+(Populated when the PR ships.)
 (Populated when the PR ships.)

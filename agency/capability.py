@@ -425,6 +425,30 @@ class CapabilityBase:
     def __init__(self, ctx: CapabilityContext):
         self.ctx = ctx
 
+    def _require_drv(self, name: str) -> tuple[Any, Any]:
+        """Cleanup helper (Spec 097 review-driven): get a named Driver or return
+        a typed DEPENDENCY_MISSING ToolResult. Replaces a 4-line
+        ``try: drv = self.ctx.get_driver(name) except DriverMissing: return
+        ToolResult.failure("DEPENDENCY_MISSING", ...)`` idiom that was repeated
+        60+ times across the music cluster.
+
+        Verb-level usage::
+
+            drv, fail = self._require_drv("music_state")
+            if fail: return fail
+
+        Returns ``(driver, None)`` on success, ``(None, ToolResult)`` on missing.
+        The 2-tuple shape avoids type ambiguity that a single-return helper
+        would introduce (a Driver could theoretically be a ToolResult).
+        """
+        from .toolresult import ToolResult
+        try:
+            return self.ctx.get_driver(name), None
+        except DriverMissing:
+            return None, ToolResult.failure(
+                "DEPENDENCY_MISSING",
+                f"no {name!r} driver registered")
+
     @classmethod
     def as_capability(cls) -> Capability:
         verbs = {}

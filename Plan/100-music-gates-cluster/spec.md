@@ -395,7 +395,43 @@ def test_release_qa_skill_pauses_on_hard_ship_gate(): ...
    cap (`music.pending_verifications`, `music.list_tracks`). The pattern is
    already proven in 091/092. No engine change needed.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
-(Populated when the PR ships. The master 093 row moves to **Shipped** when 100
-lands Green.)
+**Verdict:** **Shipped** — and the master Spec 093 flips to Shipped with it.
+
+### Done (Slice 1 — branch `claude/music-100-gates`, stacked on PR #71)
+- **3 NEW top-level verbs** on `MusicCapability` (3 already shipped: `pregen_check` + `release_check` + `music_health` from 007):
+  - `validate_album` (transform) — StateDriver check on file presence + mirror-path consistency
+  - `validate_sections` (transform) — TextDriver-delegated section structure validation; iterates album tracks when called with empty lyrics
+  - `diagnose` (transform, driver-free) — composite health probe returning drivers_wired + verbs_count + skills_count
+- **5 NEW composite gate verbs**:
+  - `concept_gate` — passes iff album resolves via StateDriver
+  - `lyrics_pregen_gate` — composes 095's prosody + pronunciation + explicit sub-gates; all must pass
+  - `audio_release_gate` — passes iff every track in album has status=mastered
+  - `catalogue_gate` — passes iff at least 1 streaming URL + 1 scheduled tweet
+  - `promo_gate` — passes iff at least 1 published-asset in cloud store for the album
+- **3 NEW walkable skills**:
+  - `pre-generation-full` (4-phase: concept-ready → research-verified → lyrics-clean → ready-to-generate hard)
+  - `release-qa-full` (4-phase: audio-mastered → catalogue-synced → promo-drafted → ship hard)
+  - `validate-structure` (3-phase driver-only)
+- **The end-to-end provenance chain test passes** (`test_e2e_full_provenance_chain_through_release_qa`): drives a full music pipeline through every cluster (lifecycle → research → audio → catalogue → promo → gates) and asserts the complete graph provenance — published-asset + tweet-record artefacts PRODUCES'd against the intent; audio-release + catalogue + promo gates recorded. **This is the master Spec 093 contract met**.
+- **19 gate tests** covering: verb discovery; all 3 skills' shape; validate_album happy + missing-album path; diagnose driver inventory; concept_gate pass+block; audio_release_gate pass+block (mastered+unmastered); catalogue_gate pass+block; promo_gate pass+block; lyrics_pregen_gate empty-lyrics block; both walkable skills' full walk; the E2E test.
+- **Block-mode lint clean**: 97 verbs total on `music` (the surface_size>12 warn accepted per the documented Slice 2 file-split deferral).
+- **Full pytest -n auto Green**: 1099 passed, 6 skipped, 0 failed.
+
+### Master Spec 093 contract verified
+The bitwize-music plugin (~75 verbs across 8 clusters) is now fully ported to `agency/capabilities/music/` as a first-class clustered Capability. ZERO engine edits across the 7 PRs (#65-#72); every effect verb records provenance; every gate records `Gate` + `PASSED`/`BLOCKED_ON` SERVES the intent; release audit is one graph traversal. The provenance moat is lit on the full pipeline.
+
+### Deferred (per-cluster nice-to-haves, not Done-When-blocking)
+- Per-cluster file split — 97 verbs live on `_main.py`. Move into `clusters/{lifecycle,lyrics,audio,catalogue,promo,research,gates}.py` as a single cleanup PR.
+- Spec 097 Slice 2: 6 promo platform templates + `[music-cloud]` extra.
+- Spec 098 Slice 2: LLM driver routing for `promo_copy`.
+- Spec 099 Slice 2: `research-domains.yaml` + research/sources templates.
+
+### Evidence
+- code: `agency/capabilities/music/_main.py` (8 new gate methods + 3 transforms), `ontology.py` (3 walkable skills).
+- tests: `tests/test_music_gates.py` (19 tests Green); full suite Green: **1099 passed**.
+- lint: `plugin.lint_capability('music')` → ok=True block mode, 0 violations.
+- branch: `claude/music-100-gates` (stacked on `claude/music-099-research`).
+
+**Master 093 row flipped to Shipped in TODO.md.**
