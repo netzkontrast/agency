@@ -80,6 +80,8 @@ def _load_dramatica_ontology() -> dict:
 NOVEL_STATUS = {"concept", "outlining", "drafting", "revising",
                 "beta", "querying", "published"}
 CHAPTER_STATUS = {"outlined", "drafted", "revised", "final"}
+# Spec 102 Slice 2 — Scene POV (canonical narrative-craft set).
+SCENE_POV = {"first", "second", "third-limited", "third-omniscient"}
 # Spec 102 — Idea lifecycle (mirrors music's IDEA_STATUS).
 IDEA_STATUS = {"new", "promoted", "dropped"}
 # Spec 105 — research-claim verification + domain enums (mirrors 099's
@@ -145,6 +147,8 @@ novel_ontology = OntologyExtension(
         # Domain + verification status are optional fields constrained by
         # the enums below; same shape as the music cap's NovelClaim sibling.
         "NovelClaim": ["text", "source_uri", "domain"],
+        # Spec 102 Slice 2 — Scene under Chapter (drafting-grain).
+        "Scene": ["chapter", "slug", "pov"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -152,10 +156,12 @@ novel_ontology = OntologyExtension(
         ("Idea",    "status"): IDEA_STATUS,
         ("NovelClaim", "verified"): CLAIM_VERIFIED,
         ("NovelClaim", "domain"):   RESEARCH_DOMAINS,
+        ("Scene",   "pov"): SCENE_POV,
     },
     edges={
         "CHAPTER_OF",       # Chapter → Novel (mirror of music's RECORDED_FOR)
         "PROMOTED_TO",      # Idea → Novel (mirror of music's PROMOTED_TO)
+        "SCENE_OF",         # Spec 102 Slice 2 — Scene → Chapter
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL},
     schemas={
@@ -415,6 +421,152 @@ class NovelCapability(CapabilityBase):
         self.ctx.update(novel_id, {"status": status})
         return ToolResult.success(data={
             "novel_id": novel_id, "status": status,
+        })
+
+    # ───────────────── Spec 102 Slice 2 — chapter + scene + session ─────────────────
+    # Graph-only; StateDriver disk-layer still deferred per Slice 1 carve-out.
+
+    def _require_chapter(self, chapter_id: str) -> tuple[dict | None, ToolResult | None]:
+        """NOT_FOUND guard for verbs taking a chapter_id — mirrors `_require_novel`."""
+        node = self.ctx.recall(chapter_id)
+        if node is None:
+            return None, ToolResult.failure(
+                "NOT_FOUND", f"chapter_id={chapter_id!r} not found")
+        return node, None
+
+    @verb(role="transform")
+    def list_chapters(self, novel_id: str) -> ToolResult:
+        """List a novel's chapters ordered by number (transform).
+
+        Inputs: novel_id.
+        Returns: ``{chapters: [{chapter_id, number, title, status}], count}``.
+        chain_next: ``novel.set_chapter_status`` or ``novel.create_scene``.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = sorted(
+            (c for c in self.ctx.find("Chapter")
+             if c.get("novel") == novel_id),
+            key=lambda c: c.get("number", 0))
+        items = [{
+            "chapter_id": c.get("id"),
+            "number": c.get("number"),
+            "title": c.get("title"),
+            "status": c.get("status"),
+        } for c in chapters]
+        return ToolResult.success(data={"chapters": items, "count": len(items)})
+
+    @verb(role="effect")
+    def create_scene(self, chapter_id: str, slug: str,
+                      pov: str) -> ToolResult:
+        """Record a Scene node + SCENE_OF the parent Chapter (effect).
+
+        Inputs: chapter_id, slug (scene-local short name), pov (one of
+                ``SCENE_POV``).
+        Returns: ``{scene_id, chapter_id, slug, pov}``.
+        chain_next: ``novel.create_scene`` for next beat or back to
+                    ``novel.set_chapter_status`` once the chapter's
+                    scene set is complete.
+        """
+        if pov not in SCENE_POV:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"pov={pov!r} not in {sorted(SCENE_POV)}")
+        _, fail = self._require_chapter(chapter_id)
+        if fail is not None:
+            return fail
+        sid = self.ctx.record("Scene", {
+            "chapter": chapter_id, "slug": slug, "pov": pov,
+        })
+        self.ctx.link(sid, chapter_id, "SCENE_OF")
+        self.ctx.link(sid, self.ctx.intent_id, "SERVES")
+        return ToolResult.success(data={
+            "scene_id": sid, "chapter_id": chapter_id,
+            "slug": slug, "pov": pov,
+        })
+
+    @verb(role="effect")
+    def set_chapter_status(self, chapter_id: str,
+                            status: str) -> ToolResult:
+        """Flip a Chapter's lifecycle status; enum-checked (effect).
+
+        Inputs: chapter_id, status (one of ``CHAPTER_STATUS``).
+        Returns: ``{chapter_id, status}``.
+        chain_next: ``novel.novel_progress`` to see the aggregate shift.
+        """
+        if status not in CHAPTER_STATUS:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"status={status!r} not in {sorted(CHAPTER_STATUS)}")
+        _, fail = self._require_chapter(chapter_id)
+        if fail is not None:
+            return fail
+        self.ctx.update(chapter_id, {"status": status})
+        return ToolResult.success(data={
+            "chapter_id": chapter_id, "status": status,
+        })
+
+    @verb(role="effect")
+    def rename_novel(self, novel_id: str, new_title: str) -> ToolResult:
+        """Update a Novel's title (effect, graph-only).
+
+        Inputs: novel_id, new_title.
+        Returns: ``{novel_id, title}``.
+        chain_next: continue authoring; the rename is auditable via the
+                    graph's bi-temporal stamp.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        self.ctx.update(novel_id, {"title": new_title})
+        return ToolResult.success(data={
+            "novel_id": novel_id, "title": new_title,
+        })
+
+    @verb(role="transform")
+    def novel_progress(self, novel_id: str) -> ToolResult:
+        """Aggregate progress (word-count + per-status counts) for a novel (transform).
+
+        Inputs: novel_id.
+        Returns: ``{novel_id, chapter_count, word_count_total, by_status}``.
+        chain_next: ``novel.render_manuscript`` once status counts say ready.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = [c for c in self.ctx.find("Chapter")
+                    if c.get("novel") == novel_id]
+        word_count = sum(len((c.get("body") or "").split())
+                         for c in chapters)
+        by_status: dict[str, int] = {}
+        for c in chapters:
+            s = c.get("status", "outlined")
+            by_status[s] = by_status.get(s, 0) + 1
+        return ToolResult.success(data={
+            "novel_id": novel_id,
+            "chapter_count": len(chapters),
+            "word_count_total": word_count,
+            "by_status": by_status,
+        })
+
+    @verb(role="transform")
+    def resume_session(self) -> ToolResult:
+        """Return the most-recently-created Novel's id + title (transform).
+
+        Inputs: none.
+        Returns: ``{novel_id, title}`` — empty strings when no Novel exists.
+        chain_next: typically ``novel.novel_progress(novel_id)`` to land in
+                    the right state on session resume.
+        """
+        novels = list(self.ctx.find("Novel"))
+        if not novels:
+            return ToolResult.success(data={"novel_id": "", "title": ""})
+        # Newest first by valid-from (graphqlite's bi-temporal stamp).
+        last = max(novels, key=lambda r: r.get("vfrom", 0))
+        return ToolResult.success(data={
+            "novel_id": last.get("id", ""),
+            "title": last.get("title", ""),
         })
 
     # ───────────────── Spec 103 — Dramatica storyform checks ─────────────────
