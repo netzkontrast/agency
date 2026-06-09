@@ -150,13 +150,15 @@ class FakeStateDriver:
     def find_album(self, query: str) -> list[dict]:
         if not query:
             return [dict(a) for a in self._albums.values()]
-        # exact-slug match first, then substring (both directions)
+        # exact-slug match first, then directional substring (query is the
+        # search term, slug/title is the haystack). The reverse direction
+        # (`slug in query`) was too lax — `find_album("origin-classic")`
+        # matched an existing "origin" — see PR #65 review.
         if query in self._albums:
             return [dict(self._albums[query])]
         q = query.lower()
         return [dict(a) for a in self._albums.values()
-                if q in a["slug"].lower() or a["slug"].lower() in q
-                or q in a["title"].lower()]
+                if q in a["slug"].lower() or q in a["title"].lower()]
 
     def list_albums(self) -> list[dict]:
         return [dict(a) for a in self._albums.values()]

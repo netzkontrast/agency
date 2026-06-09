@@ -8,12 +8,15 @@ files; music remains the **reference clustered domain capability** but is no
 longer "third-party example" — it's the substrate's first creative-production
 domain.
 
-This module is the migration scaffold: it ports the 007 verb surface
-(``conceptualize`` + 10 cluster-representative verbs) VERBATIM into the
-cluster layout. The 14 NEW lifecycle verbs Spec 094 mandates land in a
-subsequent slice; the per-cluster verbs (095 lyrics, 096 audio, 097
-catalogue, 098 promo, 099 research, 100 gates) land in their own PRs and
-move out of this module into ``clusters/*.py`` over the wave.
+This module hosts the migrated 007 verb surface (``conceptualize`` + 10
+cluster-representative verbs) PLUS the 11 NEW lifecycle verbs from Spec 094
+Slice 2 (``promote_idea``, ``list_ideas``, ``create_album``, ``find_album``,
+``create_track``, ``list_tracks``, ``set_track_status``, ``rename_album``,
+``rename_track``, ``album_progress``, ``resume_session``) — 26 verbs total.
+The per-cluster file split (Spec 094 design §"Module layout") is intentionally
+deferred to Specs 095-100: each cluster spec moves its slice of verbs from
+``_main.py`` into the dedicated ``clusters/<name>.py`` module as it ships,
+keeping behavioural contracts and provenance unchanged through the migration.
 
 Use when: conceptualizing or producing an album — turning an idea into a gated concept, mastering to a target loudness, drafting promo copy, or auditing a release — as the reference for how a first-class clustered domain capability extends agency.
 Triggers:
@@ -371,7 +374,12 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure(
                 "INVALID_ARGUMENT",
                 f"type={type!r} not in {sorted(ALBUM_TYPES)}")
-        idea_node = self.ctx.recall(idea_id) if hasattr(self.ctx, "recall") else None
+        # Validate the idea actually exists — silently promoting a non-existent
+        # idea_id would orphan the PROMOTED_TO edge (review finding).
+        idea_node = self.ctx.recall(idea_id)
+        if idea_node is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"idea_id={idea_id!r} not found")
         slug = _slugify(title)
         album_id = self.ctx.record("Album", {
             "artist": artist, "title": title, "type": type,
@@ -380,7 +388,9 @@ class MusicCapability(CapabilityBase):
         })
         self.ctx.link(album_id, self.ctx.intent_id, "SERVES")
         self.ctx.link(idea_id, album_id, "PROMOTED_TO")
-        self.ctx.update(idea_id, {"status": "promoted"}) if hasattr(self.ctx, "update") else None
+        # Graph-canonical status flip (CLAUDE.md rule 2) — the StateDriver
+        # mirror below is the disk projection; the graph is the truth.
+        self.ctx.update(idea_id, {"status": "promoted"})
         try:
             state = self.ctx.get_driver("music_state")
             state.update_idea(idea_id, {"status": "promoted",
@@ -531,12 +541,19 @@ class MusicCapability(CapabilityBase):
         slug = _slugify(title)
         if track_number > 0:
             slug = f"{track_number:02d}-{slug}"
-        # Graph node first
+        # Graph node first (CLAUDE.md rule 2)
         track_id = self.ctx.record("Track", {
             "title": title, "status": "draft", "slug": slug,
         })
         self.ctx.link(track_id, self.ctx.intent_id, "SERVES")
-        # Edge to album if we can find it
+        # Resolve the album graph node by slug so the RECORDED_FOR edge
+        # actually lands (review finding: declared edge was dormant-surface).
+        # `ctx.find(label)` returns properties dicts where ``id`` is the
+        # agency node-id (memory.py:62-69 round-trips it via upsert_node).
+        album_node = next((a for a in self.ctx.find("Album")
+                           if a.get("slug") == album), None)
+        if album_node is not None:
+            self.ctx.link(track_id, album_node["id"], "RECORDED_FOR")
         try:
             state = self.ctx.get_driver("music_state")
         except DriverMissing:

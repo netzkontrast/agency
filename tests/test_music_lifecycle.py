@@ -176,19 +176,49 @@ def test_capture_idea_records_status_new() -> None:
 
 def test_promote_idea_flips_status_and_creates_album() -> None:
     """``promote_idea`` records an ``Album`` node, edges ``Idea PROMOTED_TO Album``,
-    and flips the ``Idea.status`` via the StateDriver."""
+    flips the graph ``Idea.status`` to ``promoted``, and mirrors via the
+    StateDriver. CLAUDE.md rule 2: the graph is the truth; the StateDriver
+    write is the projection."""
     e = _fresh_with_drivers()
     iid = _confirmed_iid(e, "promote")
     cap, _ = _invoke(e, iid, "capture_idea", text="The phreaker tale")
-    res, _ = _invoke(e, iid, "promote_idea",
-                     idea_id=cap["idea_id"], artist="Phreak",
-                     title="The Phreaker Tale", genre="ambient")
+    res, inv = _invoke(e, iid, "promote_idea",
+                       idea_id=cap["idea_id"], artist="Phreak",
+                       title="The Phreaker Tale", genre="ambient")
     assert res["status"] == "promoted"
     assert res["album_slug"] == "the-phreaker-tale"
-    # The PROMOTED_TO edge is the audit trail.
+    # Graph-canonical: the Idea node's status is now "promoted".
+    idea = e.memory.recall(cap["idea_id"])
+    assert idea.get("status") == "promoted"
+    # The PROMOTED_TO edge IS the audit trail — assert it actually landed.
+    # `provenance()` summarises nodes by category; use the graph query for
+    # arbitrary edge assertions.
+    rows = e.memory.g.query(
+        "MATCH (i)-[r:PROMOTED_TO]->(a) "
+        "WHERE i.id = $iid AND a.id = $aid RETURN r",
+        {"iid": cap["idea_id"], "aid": res["album_id"]})
+    assert rows, (
+        f"PROMOTED_TO edge missing from graph; expected "
+        f"{cap['idea_id']!r} → {res['album_id']!r}")
+    # StateDriver mirror also flipped (the disk projection).
     state = e.drivers.get("music_state")
     promoted = state.list_ideas(status="promoted")
     assert any(i["idea_id"] == cap["idea_id"] for i in promoted)
+    e.memory.close()
+
+
+def test_promote_idea_unknown_idea_returns_not_found() -> None:
+    """``promote_idea`` on a non-existent ``idea_id`` returns NOT_FOUND
+    instead of silently creating an Album off an orphan PROMOTED_TO edge
+    (review finding: review of PR #65 surfaced the dormant idea validation)."""
+    e = _fresh_with_drivers()
+    iid = _confirmed_iid(e, "ghost")
+    data, inv = _invoke(e, iid, "promote_idea",
+                        idea_id="idea:ghost-does-not-exist",
+                        artist="A", title="T", genre="g")
+    assert data is None
+    node = e.memory.recall(inv)
+    assert "NOT_FOUND" in node.get("error", "")
     e.memory.close()
 
 
@@ -268,17 +298,26 @@ def test_find_album_fuzzy_and_exact() -> None:
 
 def test_create_and_list_tracks_and_set_status() -> None:
     """``create_track`` + ``list_tracks`` + ``set_track_status`` round-trip;
-    status enum bites on bogus value."""
+    status enum bites on bogus value; the ``RECORDED_FOR`` edge IS the audit
+    trail linking Track → Album in the graph."""
     e = _fresh_with_drivers()
     iid = _confirmed_iid(e, "tracks")
-    _invoke(e, iid, "create_album", artist="A", title="Loop",
-            genre="ambient")
+    album, _ = _invoke(e, iid, "create_album", artist="A", title="Loop",
+                       genre="ambient")
     t1, _ = _invoke(e, iid, "create_track", album="loop", title="Intro",
                     track_number=1)
     t2, _ = _invoke(e, iid, "create_track", album="loop", title="Beat",
                     track_number=2)
     assert t1["track_slug"].startswith("01-")
     assert t2["track_slug"].startswith("02-")
+    # Graph-canonical: RECORDED_FOR edges land for each track → album
+    # (review finding: the declared edge was dormant-surface until #65 fix).
+    rows = e.memory.g.query(
+        "MATCH (t:Track)-[r:RECORDED_FOR]->(a:Album) "
+        "WHERE a.id = $aid RETURN t",
+        {"aid": album["album_id"]})
+    assert len(rows) == 2, (
+        f"expected 2 RECORDED_FOR edges (one per track); got {len(rows)}")
     listed, _ = _invoke(e, iid, "list_tracks", album="loop")
     assert listed["count"] == 2
     # Status flip works
