@@ -138,6 +138,8 @@ markers = [
     "music_promo: tests targeting the music promo cluster (Spec 098)",
     "music_research: tests targeting the music research cluster (Spec 099)",
     "music_gates: tests targeting the music gates cluster (Spec 100)",
+    # Spec 101 — novel cluster wave.
+    "novel: tests targeting the novel capability (any cluster)",
 ]
 filterwarnings = [
     # Third-party noise: opentelemetry-api 1.42 calls
