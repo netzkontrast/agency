@@ -1383,3 +1383,59 @@ class NovelCapability(CapabilityBase):
             "artefact": {"kind": "thinking-analysis",
                           "novel": novel_id, "body": body},
         })
+
+    @verb(role="effect")
+    def record_storyform_decision(self, novel_id: str, decision: str,
+                                    rationale: str = "") -> ToolResult:
+        """Record a contested storyform decision (effect, xcap to dogfood).
+
+        Routes through ``dogfood.record_decision`` so the decision lands
+        in the cluster-wide decision audit. ``subject`` is bound to the
+        novel id so analyses can filter by story.
+
+        Inputs: novel_id, decision, rationale (optional).
+        Returns: ``{novel_id, decision_id, decision}``.
+        chain_next: continue authoring; later ``analyze.graph`` reads
+                    the audit trail.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        result = self.ctx.call("dogfood", "record_decision",
+                                subject=novel_id,
+                                decision=decision,
+                                rationale=rationale)
+        decision_id = (result or {}).get("decision_id", "")
+        return ToolResult.success(data={
+            "novel_id": novel_id,
+            "decision_id": decision_id,
+            "decision": decision,
+        })
+
+    @verb(role="transform")
+    def audit_novel_provenance(self, novel_id: str) -> ToolResult:
+        """Aggregate the provenance graph census for the serving intent (transform, xcap to analyze).
+
+        Routes through ``analyze.graph`` to surface a node-type census
+        + verb summary. The audit catches which cluster caps have
+        SERVED the novel's intent across the session.
+
+        Inputs: novel_id (validated for NOT_FOUND only).
+        Returns: ``{novel_id, census, capabilities}``.
+        chain_next: revise the storyform per surfaced gaps.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        # analyze.graph returns a census + typed listing for the current intent.
+        result = self.ctx.call("analyze", "graph",
+                                node_type="Invocation", limit=200)
+        census = (result or {}).get("census") or {}
+        nodes = (result or {}).get("nodes") or []
+        caps = sorted({n.get("capability", "") for n in nodes
+                       if n.get("capability")})
+        return ToolResult.success(data={
+            "novel_id": novel_id,
+            "census": census,
+            "capabilities": caps,
+        })

@@ -24,6 +24,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `analyze_readability` | transform | Flesch Reading Ease for prose (transform, driver-free). | [details](#analyze_readability) |
+| `audit_novel_provenance` | transform | Aggregate the provenance graph census for the serving intent (transform, xcap to analyze). | [details](references/audit_novel_provenance.md) |
 | `beta_ready_gate` | effect | Composite gate: all chapters drafted+ (effect). | [details](references/beta_ready_gate.md) |
 | `capture_claim` | effect | Record a NovelClaim node SERVING the intent (effect). | [details](references/capture_claim.md) |
 | `capture_idea` | effect | Record an Idea node SERVING the intent (effect). | [details](references/capture_idea.md) |
@@ -52,6 +53,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `promote_idea` | effect | Idea → Novel transition; records PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
+| `record_storyform_decision` | effect | Record a contested storyform decision (effect, xcap to dogfood). | [details](references/record_storyform_decision.md) |
 | `rename_novel` | effect | Update a Novel's title (effect, graph-only). | [details](references/rename_novel.md) |
 | `render_blurb` | act | Render a back-cover blurb (act, driver-free). | [details](references/render_blurb.md) |
 | `render_chapter_brief` | act | Produce a research-dossier brief tied to a chapter (act, xcap to prompt). | [details](references/render_chapter_brief.md) |
