@@ -8,3 +8,7 @@ __pycache__/
 # Spec 021 — engine monitor SLOG (ephemeral; durable provenance is the graph)
 .agency/monitor.log
 .agency/monitor.log.*
+# SQLite WAL/journal files (transient — never commit)
+*.db-journal
+*.db-wal
+*.db-shm
