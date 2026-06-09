@@ -126,6 +126,53 @@ class MusicCapability(CapabilityBase):
     ontology = music_ontology
     render_templates = RenderTemplates.from_module(__file__)
 
+    # AGENCY-DRIFT: music driver set — mirror `diagnose` wanted + production_drivers() keys.
+    _MUSIC_DRIVER_NAMES = ("music_state", "music_text", "music_audio",
+                           "music_db", "music_cloud")
+
+    # ───────── Spec 117: lazy production-driver auto-wiring ─────────
+    def _production_enabled(self) -> bool:
+        """Lazy auto-wiring is enabled only in the production runtime — the MCP
+        server (`agency/__main__.py`) flips ``engine._music_production = True``.
+
+        A bare ``Engine(..., drivers={})`` built by a unit test has no flag, so
+        the driver-backed verbs keep their typed ``DEPENDENCY_MISSING`` contract
+        (the enforcement blast-radius stays bounded; CLAUDE.md heuristic).
+        """
+        return getattr(self.ctx.engine, "_music_production", False) is True
+
+    def _autowire_music_drivers(self) -> None:
+        """Build ``production_drivers(MusicConfig.bootstrap())`` ONCE and register
+        the bundle on the engine's DriverRegistry the first time a verb needs a
+        driver — so every later verb + ``diagnose`` sees them wired without the
+        caller passing ``Engine(..., drivers=…)``. ``MusicConfig.bootstrap()``
+        writes a default config + creates a fresh content root when none exists.
+
+        No-op when there's no DriverRegistry (bare unit tests), the production
+        flag is off, or all five drivers are already registered (fake-driver
+        tests + idempotent re-entry).
+        """
+        reg = self.ctx.drivers
+        if reg is None or not self._production_enabled():
+            return
+        if all(reg.has(n) for n in self._MUSIC_DRIVER_NAMES):
+            return
+        from .config import MusicConfig
+        from .drivers_production import production_drivers
+        bundle = production_drivers(MusicConfig.bootstrap())
+        for n, drv in bundle.items():
+            if not reg.has(n):
+                reg.register(n, drv)
+
+    def _require_drv(self, name: str):  # type: ignore[override]
+        """Override (Spec 117): auto-wire production drivers on first miss before
+        falling back to the base typed-failure resolver."""
+        if name in self._MUSIC_DRIVER_NAMES:
+            reg = self.ctx.drivers
+            if reg is not None and not reg.has(name):
+                self._autowire_music_drivers()
+        return super()._require_drv(name)
+
     # ───────── act / conceptualize cluster (preserved demo) ─────────
     @verb(role="act")
     def conceptualize(self, artist: str, title: str, type: str,
@@ -381,6 +428,7 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure("INVALID_ARGUMENT", "idea text is required")
         idea_id = self.ctx.record("Idea", {"text": text, "status": "new"})
         self.ctx.link(idea_id, self.ctx.intent_id, "SERVES")
+        self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
             state.put(f"idea:{idea_id}", {"idea_id": idea_id, "text": text,
@@ -419,6 +467,7 @@ class MusicCapability(CapabilityBase):
         # Graph-canonical status flip (CLAUDE.md rule 2) — the StateDriver
         # mirror below is the disk projection; the graph is the truth.
         self.ctx.update(idea_id, {"status": "promoted"})
+        self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
             state.update_idea(idea_id, {"status": "promoted",
@@ -569,6 +618,7 @@ class MusicCapability(CapabilityBase):
                            if a.get("slug") == album), None)
         if album_node is not None:
             self.ctx.link(track_id, album_node["id"], "RECORDED_FOR")
+        self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
         except DriverMissing:
@@ -1443,6 +1493,7 @@ class MusicCapability(CapabilityBase):
         """
         db, _fail = self._require_drv("music_db")
         if _fail: return _fail
+        self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
         except DriverMissing:

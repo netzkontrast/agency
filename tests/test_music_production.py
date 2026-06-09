@@ -341,6 +341,101 @@ def test_load_override_reads_existing_file(tmp_path, monkeypatch) -> None:
     assert "Custom override" in data["body"]
 
 
+# ─────────────── Spec 117: default config + fresh-repo bootstrap ───────────────
+
+def test_bootstrap_writes_default_config_when_absent(tmp_path, monkeypatch) -> None:
+    """A fresh repo with no config gets a default `.agency/music-config.yaml`
+    written + the content root created; a second call is a no-op."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    assert not MusicConfig.config_file_exists()
+
+    cfg = MusicConfig.bootstrap()
+    written = tmp_path / ".agency" / "music-config.yaml"
+    assert written.is_file(), "bootstrap should write a default config"
+    assert MusicConfig.config_file_exists()
+    # content root materialised so the FileStateDriver has a home
+    assert Path(cfg.content_root).is_dir()
+
+    # Idempotent: the existing config is not clobbered (mtime stable).
+    before = written.read_text()
+    MusicConfig.bootstrap()
+    assert written.read_text() == before
+
+
+def test_bootstrap_is_noop_when_config_present(tmp_path, monkeypatch) -> None:
+    """An existing project keeps its bindings — bootstrap never overwrites."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    (tmp_path / ".agency").mkdir()
+    (tmp_path / ".agency" / "music-config.yaml").write_text(
+        f"artist:\n  name: Existing\npaths:\n  content_root: {tmp_path}/proj\n")
+    cfg = MusicConfig.bootstrap()
+    assert cfg.artist_name == "Existing"
+    assert cfg.content_root == f"{tmp_path}/proj"
+
+
+# ─────────────── Spec 117: lazy production-driver auto-wiring ───────────────
+
+def test_autowire_disabled_keeps_dependency_missing(tmp_path, monkeypatch) -> None:
+    """Without the production flag, a driver-backed verb on a music-driverless
+    engine keeps the typed DEPENDENCY_MISSING contract (blast radius bounded)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    e = _fresh(drivers={})                 # registry present, no music drivers, no flag
+    try:
+        iid = _confirmed_iid(e)
+        data, inv = _invoke(e, iid, "create_album",
+                            artist="A", title="T", genre="ambient")
+        assert data is None
+        assert "DEPENDENCY_MISSING" in e.memory.recall(inv).get("error", "")
+    finally:
+        e.memory.close()
+
+
+def test_autowire_enabled_wires_production_drivers_and_writes_disk(
+        tmp_path, monkeypatch) -> None:
+    """With `engine._music_production = True`, the first driver-backed verb
+    lazily wires production_drivers from config, persists to the configured
+    content root, and `diagnose` then reports all five drivers wired."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    content = tmp_path / "content"
+    (tmp_path / ".agency").mkdir()
+    (tmp_path / ".agency" / "music-config.yaml").write_text(
+        f"artist:\n  name: The Phreakers\n"
+        f"paths:\n  content_root: {content}\n"
+        f"db:\n  backend: sqlite\n  path: {tmp_path}/.agency/music.db\n")
+
+    e = _fresh(drivers={})                 # no music drivers wired at construction
+    e._music_production = True             # the MCP entrypoint flips this
+    try:
+        iid = _confirmed_iid(e)
+        # Pre-state: diagnose sees nothing wired.
+        diag0, _ = _invoke(e, iid, "diagnose")
+        assert diag0["drivers_wired"] == []
+
+        data, inv = _invoke(e, iid, "create_album",
+                            artist="The Phreakers", title="Umschalten",
+                            genre="ambient")
+        assert data is not None, e.memory.recall(inv).get("error", "")
+        # README persisted on disk under the configured content root.
+        readme = (content / "artists" / "the-phreakers" / "albums"
+                  / "ambient" / "umschalten" / "README.md")
+        assert readme.is_file(), f"expected {readme} written by auto-wired FileStateDriver"
+
+        # Post-state: diagnose now reports the full bundle wired.
+        diag1, _ = _invoke(e, iid, "diagnose")
+        assert set(diag1["drivers_wired"]) == {
+            "music_state", "music_text", "music_audio", "music_db", "music_cloud"}
+        assert diag1["drivers_missing"] == []
+    finally:
+        e.memory.close()
+
+
 def test_get_reference_reads_bundled_data_doc() -> None:
     """Read a reference doc bundled at agency/capabilities/music/data/reference/.
     Spec 094 vendored 50 docs there; the SKILL_INDEX.md is the canonical entry."""

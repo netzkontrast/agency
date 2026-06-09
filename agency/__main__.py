@@ -35,6 +35,13 @@ def main() -> None:
     db_path = resolve_db_path()
     os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
     engine = Engine(db_path)
+    # Spec 117: this is the production runtime — let the music capability
+    # lazily auto-wire its production drivers (FileStateDriver + SqliteDBDriver
+    # + the rest) the first time a verb needs them, bootstrapping a default
+    # config + fresh content root if the repo has none yet. Unit tests build a
+    # bare Engine without this flag and keep the typed-DEPENDENCY_MISSING
+    # contract, so the blast radius stays bounded.
+    engine._music_production = True
     mcp = engine.build_mcp(codemode=True)
     mcp.run()                    # default transport = stdio
 
