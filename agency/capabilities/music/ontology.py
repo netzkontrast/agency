@@ -66,6 +66,38 @@ RELEASE_QA_SKILL = {
     ],
 }
 
+# Spec 096 — mastering + mix-polish workflow skills.
+MASTERING_SKILL = {
+    "name": "mastering", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "measure",
+         "produces": ["loudness_measured", "signature_captured"],
+         "gate": "computed", "gate_verb": "music.measure_gate"},
+        {"index": 2, "name": "polish",
+         "produces": ["stems_polished"]},
+        {"index": 3, "name": "master",
+         "produces": ["master_rendered"]},
+        {"index": 4, "name": "qc",
+         "produces": ["qc_passed"],
+         "gate": "computed", "gate_verb": "music.qc_gate"},
+        {"index": 5, "name": "coherence",
+         "produces": ["album_coherent"], "gate": "hard"},
+    ],
+}
+MIX_POLISH_SKILL = {
+    "name": "mix-polish", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "transcribe-stems",
+         "produces": ["stems_isolated"]},
+        {"index": 2, "name": "polish-per-stem",
+         "produces": ["stems_polished"]},
+        {"index": 3, "name": "remix",
+         "produces": ["remixed_track"]},
+        {"index": 4, "name": "loudness-check",
+         "produces": ["loudness_in_target"], "gate": "hard"},
+    ],
+}
+
 # Spec 095 — lyric-writing workflow skill. 6 phases ending in a hard elicit.
 # Computed gates at prosody / pronunciation / cross-track / explicit delegate to
 # tiny *_gate verbs (the lifecycle cluster pattern from 007: pregen_check,
@@ -129,7 +161,9 @@ music_ontology = OntologyExtension(
     skills={"album-concept": ALBUM_CONCEPT_SKILL,
             "pre-generation": PRE_GENERATION_SKILL,
             "release-qa": RELEASE_QA_SKILL,
-            "lyric-writing": LYRIC_WRITING_SKILL},   # 095 NEW
+            "lyric-writing": LYRIC_WRITING_SKILL,    # 095 NEW
+            "mastering": MASTERING_SKILL,            # 096 NEW
+            "mix-polish": MIX_POLISH_SKILL},         # 096 NEW
     schemas={"album-concept": ["artist", "title", "type"],
              "promo-copy": ["album", "body"],
              "mastering-report": ["album", "body"],
@@ -140,5 +174,11 @@ music_ontology = OntologyExtension(
              "prosody-report":       ["album", "track", "scheme"],
              "cross-track-report":   ["album", "repeated_lines"],
              "explicit-scan":        ["album", "track", "rating"],
-             "voice-check":          ["album", "track", "findings"]},
+             "voice-check":          ["album", "track", "findings"],
+             # 096 NEW — audio cluster artefact reports
+             "mix-analysis":         ["album", "track", "findings"],
+             "qc-report":            ["album", "track", "rows"],
+             "coherence-report":     ["album", "avg_distance"],
+             "promo-video":          ["album", "track", "output_path"],
+             "album-sampler":        ["album", "output_path"]},
 )

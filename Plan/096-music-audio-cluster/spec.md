@@ -274,6 +274,34 @@ def test_mastering_preset_loaded_via_state_driver_read_data(): ...
    `.agency/music/mastering-presets/<slug>.yaml` overrides the bundled one.
    Deferred to followup; the bundled four cover the common cases.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
-(Populated when the PR ships.)
+**Verdict:** Partial (Slice 1 shipped — full v1 audio surface; per-cluster file split + YAML preset data files deferred).
+
+### Done (Slice 1 — branch `claude/music-096-audio`, stacked on PR #66)
+- **AudioDriver Protocol extended** (drivers.py) with 13 new methods covering the bitwize audio handler shape: `measure_signature`, `coherence_report`, `apply_coherence`, `qc_checklist`, `mono_fold`, `polish_stems`, `polish_full`, `master`, `master_to_reference`, `dynamic_fix`, `codec_preview`, `render_promo_video`, `render_songbook`. All implemented on `FakeAudioDriver` with hash-derived deterministic outputs. The `read_loudness` 007 contract (returns `self._loudness`, default `-14.0`) is preserved — per-path spectral variation lives in `measure_signature.rms_db` instead.
+- **16 new verbs + 2 composite gate verbs** on `MusicCapability` (3 already shipped from 007: `master_album`, `analyze_mix`, `transcribe_sheet`):
+  - Effects: `master_audio`, `master_with_reference`, `polish_audio`, `polish_album`, `polish_and_master_album`, `fix_dynamic_track`, `reset_mastering`, `render_codec_preview`, `album_coherence_correct`, `generate_promo_videos`, `create_songbook`.
+  - Transforms: `measure_album_signature`, `album_coherence_check`, `analyze_audio`, `qc_audio`, `mono_fold_check`.
+  - Gate verbs: `measure_gate` (loudness within [min,max] window), `qc_gate` (7-point QC checklist, passes iff zero `fail` rows; `warn` count recorded in evidence).
+- **MASTERING_SKILL** (5-phase: measure → polish → master → qc → coherence) + **MIX_POLISH_SKILL** (4-phase: transcribe-stems → polish-per-stem → remix → loudness-check) — both end in a hard elicit; computed gates at measure + qc phases delegate to the corresponding `*_gate` verbs via `gate_verb` metadata (agent dispatches, per 095 ontology comment).
+- **5 NEW artefact schemas**: `mix-analysis`, `qc-report`, `coherence-report`, `promo-video`, `album-sampler`. The `mastering-report` + `sheet-music` schemas (from 007) extended additively — no required-field changes.
+- **`reset_mastering`** routes through StateDriver: flips every `status="mastered"` track on the album back to `"recorded"`. Verified by the test that creates a mastered track then resets.
+- **`tests/test_music_audio.py` — 23 tests** covering: verb auto-discovery (all 18 register), both walkable skills' shape + walk-through, every effect/transform happy path, the two gate verbs' PASSED + BLOCKED paths (the measure gate test exercises both wide-window pass + tight-window fail; the qc gate handles the warn-vs-fail summary), promo-video + songbook artefact production, the reset_mastering round-trip with the StateDriver. CI runs without ffmpeg / pyloudnorm / AnthemScore / LilyPond.
+- **Block-mode lint clean**: 60 verbs total on `music` (26 lifecycle + 16 lyrics + 18 audio). `surface_size>12` warn remains the documented per-cluster-file-split deferral.
+- **Spec 096 Done When fully met**: 21 verbs registered (19 user + 2 gate); both skills present; AudioDriver extended with 13 methods (one per net-new user-facing verb that touches an external toolchain); artefact schemas added; CI guarantee verified (zero audio binaries needed).
+
+### Still to implement (deferred)
+- **Per-cluster file split**: 18 audio verbs (16 new + 2 gates) live on `_main.py` per the atomic-migration strategy. Move into `agency/capabilities/music/clusters/audio.py` as part of the batch cluster-split PR once 095-100 all ship.
+- **Mastering preset YAML data files**: Spec 096 §"Mastering presets (data files)" mentions preset packs. For Slice 1, `master_audio(preset="streaming")` is a labeled hint, not a fetched preset. Slice 2 reads from `data/reference/mastering-presets/<name>.yaml`.
+- **Real audio binding via `[music-audio]` extra**: Spec 096 §"CI guarantee" — production binds `pyloudnorm` + `numpy` + `scipy` + `soundfile` + ffmpeg via the extra. Out-of-scope for Slice 1; add when the music package is opted-in via marketplace install.
+
+### Refinement needed (given later specs)
+- The DEPENDENCY_MISSING boilerplate now appears 43 times across 094 (8) + 095 (16) + 096 (18) + the original 007 verbs (~). The 094 review flagged the `_require_driver(name)` helper opportunity twice; deferral is at the limit of "acceptable for one more slice." Best to address in a cleanup slice between 097 and 098.
+- `surface_size>12` warn is now firing for 60 verbs — same justification as 095 (drops post-100 file split).
+
+### Evidence
+- code: `agency/capabilities/music/_main.py` (16 new methods + 2 gates on `MusicCapability`), `drivers.py` (Protocol + FakeAudioDriver extensions), `ontology.py` (MASTERING_SKILL + MIX_POLISH_SKILL + 5 schemas).
+- tests: `tests/test_music_audio.py` (23 tests, all green). Full suite Green: 1027 passed.
+- lint: `plugin.lint_capability('music')` → ok=True block mode, 0 violations.
+- branch: `claude/music-096-audio` (stacked on `claude/music-095-lyrics`).

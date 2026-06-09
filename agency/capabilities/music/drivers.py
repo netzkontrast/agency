@@ -93,9 +93,34 @@ class TextDriver(Driver, Protocol):
 
 @runtime_checkable
 class AudioDriver(Driver, Protocol):
-    """Loudness/mastering — stands in for pyloudnorm + ffmpeg."""
+    """Loudness/mastering — stands in for pyloudnorm + ffmpeg.
+
+    Spec 096 extends the surface with 13 new methods covering the bitwize
+    audio handler shape (master/polish/qc/coherence/promo render). The fake
+    produces deterministic outputs from path hashes so CI runs zero real
+    ffmpeg / pyloudnorm / AnthemScore / LilyPond binaries. Production binds
+    via the ``[music-audio]`` extra.
+    """
+    # ── 007 baseline ──
     def read_loudness(self, path: str) -> float: ...
     def run_ffmpeg(self, args: list[str]) -> dict: ...
+
+    # ── 096 — audio cluster method delta ──
+    def measure_signature(self, path: str) -> dict: ...
+    def coherence_report(self, paths: list[str]) -> dict: ...
+    def apply_coherence(self, paths: list[str], target: dict) -> dict: ...
+    def qc_checklist(self, path: str) -> dict: ...
+    def mono_fold(self, path: str) -> dict: ...
+    def polish_stems(self, stems: dict[str, str]) -> dict: ...
+    def polish_full(self, path: str) -> str: ...
+    def master(self, path: str, target_lufs: float,
+               preset: str = "") -> dict: ...
+    def master_to_reference(self, path: str, reference: str) -> dict: ...
+    def dynamic_fix(self, path: str, target_dr: float = 8.0) -> dict: ...
+    def codec_preview(self, path: str, codec: str = "aac") -> dict: ...
+    def render_promo_video(self, audio: str, art: str,
+                            template: str = "") -> str: ...
+    def render_songbook(self, tracks: list[str]) -> str: ...
 
 
 @runtime_checkable
@@ -518,17 +543,141 @@ class FakeTextDriver:
 
 
 class FakeAudioDriver:
-    """Returns a fixed loudness so a mastering verb is deterministic in tests."""
+    """In-memory AudioDriver fake — Spec 096 audio cluster surface.
+
+    Deterministic outputs from path hashes: zero ffmpeg / pyloudnorm /
+    AnthemScore / LilyPond required in CI. The fake covers the 13 new
+    methods Spec 096 adds; production binds via the ``[music-audio]`` extra.
+    """
+    _QC_ROWS = ("loudness", "clipping", "silence", "phase",
+                "stereo_width", "frequency_balance", "dynamic_range")
+
     def __init__(self, loudness: float = -14.0) -> None:
         self._loudness = loudness
         self.ffmpeg_calls: list[list[str]] = []
+        # Track calls for assertion / audit purposes
+        self.master_calls: list[dict] = []
+        self.polish_calls: list[dict] = []
+        self.render_calls: list[dict] = []
 
+    # ── 007 baseline ──
     def read_loudness(self, path: str) -> float:
+        # Constructor-provided fixed loudness — 007 contract preserved.
+        # Per-path variation is exposed through `measure_signature.rms_db`
+        # (Spec 096) so tests that depend on `-14.0` as a baseline still
+        # match while spectral signatures stay hash-derived.
         return self._loudness
 
     def run_ffmpeg(self, args: list[str]) -> dict:
         self.ffmpeg_calls.append(list(args))
         return {"ok": True, "args": list(args)}
+
+    # ── 096 — audio cluster delta ──
+    def measure_signature(self, path: str) -> dict:
+        """Deterministic spectral signature from path hash — a fingerprint
+        for cross-track coherence comparison."""
+        h = sum(ord(c) for c in path)
+        return {"path": path,
+                "centroid_hz": 1000 + (h % 4000),       # 1000..5000 Hz
+                "rolloff_hz":  4000 + (h % 8000),
+                "flatness":    round((h % 100) / 100.0, 3),  # 0..1
+                "rms_db":     -12.0 - ((h % 600) / 100.0)}   # -12..-18
+
+    def coherence_report(self, paths: list[str]) -> dict:
+        sigs = [self.measure_signature(p) for p in paths]
+        if len(sigs) < 2:
+            return {"coherent": True, "avg_distance": 0.0,
+                    "outliers": [], "track_count": len(sigs)}
+        # Avg pairwise centroid distance — proxy for tonal coherence.
+        from itertools import combinations
+        dists = [abs(a["centroid_hz"] - b["centroid_hz"])
+                 for a, b in combinations(sigs, 2)]
+        avg = sum(dists) / max(len(dists), 1)
+        outliers = []
+        if avg > 0:
+            mean_c = sum(s["centroid_hz"] for s in sigs) / len(sigs)
+            for s in sigs:
+                if abs(s["centroid_hz"] - mean_c) > avg * 1.5:
+                    outliers.append(s["path"])
+        return {"coherent": avg <= 1500,    # threshold tunable
+                "avg_distance": avg,
+                "outliers": outliers,
+                "track_count": len(sigs)}
+
+    def apply_coherence(self, paths: list[str], target: dict) -> dict:
+        # Deterministic: report what would change; fake doesn't write files.
+        return {"applied_to": list(paths), "target": dict(target),
+                "ok": True}
+
+    def qc_checklist(self, path: str) -> dict:
+        """7-point QC checklist with deterministic pass/warn/fail per row."""
+        h = sum(ord(c) for c in path)
+        rows = {}
+        for i, row in enumerate(self._QC_ROWS):
+            v = (h + i * 7) % 10
+            status = "pass" if v < 7 else ("warn" if v < 9 else "fail")
+            rows[row] = status
+        worst = "fail" if "fail" in rows.values() else (
+                "warn" if "warn" in rows.values() else "pass")
+        return {"path": path, "rows": rows, "summary": worst}
+
+    def mono_fold(self, path: str) -> dict:
+        h = sum(ord(c) for c in path) % 20
+        cancellation_db = -h * 0.5            # -0..-10 dB
+        return {"path": path, "cancellation_db": cancellation_db,
+                "phase_safe": cancellation_db > -6.0}
+
+    def polish_stems(self, stems: dict[str, str]) -> dict:
+        self.polish_calls.append({"kind": "stems", "stems": dict(stems)})
+        return {"polished_stems": {n: f"{p}.polished"
+                                   for n, p in stems.items()},
+                "stem_count": len(stems)}
+
+    def polish_full(self, path: str) -> str:
+        self.polish_calls.append({"kind": "full", "path": path})
+        return f"{path}.polished"
+
+    def master(self, path: str, target_lufs: float,
+               preset: str = "") -> dict:
+        measured = self.read_loudness(path)
+        gain = target_lufs - measured
+        out = f"{path}.mastered"
+        self.master_calls.append({"path": path, "out": out,
+                                  "target_lufs": target_lufs,
+                                  "preset": preset})
+        return {"input": path, "output": out, "preset": preset,
+                "measured_lufs": measured,
+                "target_lufs": target_lufs,
+                "gain_db": gain}
+
+    def master_to_reference(self, path: str, reference: str) -> dict:
+        target = self.read_loudness(reference)
+        return self.master(path, target_lufs=target,
+                           preset=f"ref:{reference}")
+
+    def dynamic_fix(self, path: str, target_dr: float = 8.0) -> dict:
+        h = sum(ord(c) for c in path) % 10
+        measured_dr = 4.0 + h * 0.5            # 4.0..8.5
+        return {"path": path, "measured_dr": measured_dr,
+                "target_dr": target_dr,
+                "applied": measured_dr < target_dr,
+                "output": f"{path}.dyn"}
+
+    def codec_preview(self, path: str, codec: str = "aac") -> dict:
+        return {"path": path, "codec": codec,
+                "output": f"{path}.{codec}.preview",
+                "bitrate_kbps": 256 if codec == "aac" else 320}
+
+    def render_promo_video(self, audio: str, art: str,
+                            template: str = "") -> str:
+        self.render_calls.append({"kind": "promo_video", "audio": audio,
+                                  "art": art, "template": template})
+        return f"{audio}.{template or 'default'}.mp4-stub"
+
+    def render_songbook(self, tracks: list[str]) -> str:
+        self.render_calls.append({"kind": "songbook",
+                                  "track_count": len(tracks)})
+        return f"songbook-{len(tracks)}-tracks.pdf-stub"
 
 
 class _FakeCursor:
