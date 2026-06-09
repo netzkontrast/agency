@@ -20,7 +20,16 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 49 | 001, 002, 006, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **094**, **095**, **096**, **097**, **098**, **099**, **100**, **115** |
+| **Shipped** | 43 | 001, 002, 006, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **115** |
+
+> **094-099 cluster-children stay Partial until the deferred per-cluster
+> file-split lands** (Done-When line: "verbs imported from
+> `clusters/<name>.py`"). The verb surface + tests are GREEN; the
+> cluster-module split is batched per row 129's note ("defer until all
+> 095-100 ship and we batch the migration"). Roll-up will flip to 49
+> when the split commit lands. Master Spec 093 + gates Spec 100 + binding
+> Spec 115 are Shipped because their Done-When lines do not depend on
+> the per-cluster split.
 
 > **Bitwize port audit (2026-06-09)** — no orphan surfaces in the
 > bitwize-music plugin missing an agency counterpart:
