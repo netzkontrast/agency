@@ -1,4 +1,5 @@
 # agency-scaffold: v1
+# agency-accept-warn: surface_size clustered domain capability (Spec 093/101): 8 sub-clusters by design, ~45 verbs across lifecycle/storyform/prose/research/catalogue/manuscript/gates/xcap. Tier discovery via Spec 068 not warranted while cluster slices are still landing.
 """novel — minimum-viable-novel Slice 1 (Spec 101 master First-Principles Minimum).
 
 Five-verb path from premise to manuscript: conceptualize → create_novel → create_chapter → chapter_report → render_manuscript, plus the novel-concept gated planning skill.
