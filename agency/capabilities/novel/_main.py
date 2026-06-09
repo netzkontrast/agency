@@ -186,10 +186,9 @@ class NovelCapability(CapabilityBase):
         Returns: ``{result, artefact}`` manuscript artefact with the assembled body.
         chain_next: terminal — deliver to the publishing path.
         """
-        novel_node = self.ctx.recall(novel_id)
-        if novel_node is None:
-            return ToolResult.failure(
-                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+        novel_node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
         chapters = sorted(
             [c for c in self.ctx.find("Chapter")
              if c.get("novel") == novel_id],

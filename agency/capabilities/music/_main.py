@@ -435,6 +435,10 @@ class MusicCapability(CapabilityBase):
         Returns: ``{ideas: [{idea_id, text, status, …}], count}``.
         chain_next: ``music.promote_idea`` to turn a "new" idea into an album.
         """
+        if status and status not in IDEA_STATUS:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"status={status!r} not in {sorted(IDEA_STATUS)}")
         state, _fail = self._require_drv("music_state")
         if _fail: return _fail
         ideas = state.list_ideas(status=status)
