@@ -3,7 +3,7 @@
 After the recovery merge brought Specs 095-100 onto current main alongside
 Spec 094 + 115, this test verifies the combined surface:
 
-- All 101 verbs are registered and dispatchable
+- All cluster verbs are registered and dispatchable (surface grows; no pinned count)
 - All 15 walkable skills walk through their phases
 - All 7 ontology templates render via `ctx.template`
 - All 8 verbatim-vendored promo + documentary templates are accessible on disk
@@ -29,26 +29,30 @@ from agency.skill import SkillRun
 
 # ─────────────────────────── surface invariants ───────────────────────────
 
-def test_music_capability_registers_101_verbs() -> None:
-    """101 verbs across 7 cluster slices + 4 production-binding verbs.
-
-    Surface composition:
-      Lifecycle (094):       26
-      Lyrics (095):          16
-      Audio (096):           18
-      Catalogue (097):       13
-      Promo (098):            8
-      Research (099):         9
-      Gates (100):            8
-      Production binding (115): 4
-      ────────────────────────────
-      TOTAL:                 101 (some overlap counted in cluster homes)
+def test_music_capability_registers_full_verb_surface() -> None:
+    """Every cluster contributes to the music verb surface, and the surface
+    only grows (Spec 119 added the name-exposure verbs). Asserts representative
+    verbs from each cluster are present + the count is at least that known set
+    — an invariant + subset relationship, NOT a frozen snapshot (CLAUDE.md
+    rule 8: don't pin a live-derived count that breaks on every legit change).
     """
     e = Engine(":memory:", _require_skill_doc=False)
     cap = e.registry._caps["music"]
-    assert len(cap.verbs) == 101, (
-        f"expected 101 verbs total, got {len(cap.verbs)} — "
-        f"surface drifted; check _main.py")
+    # one or two representative verbs per cluster — the live surface must
+    # always be a SUPERSET of this known set.
+    known = {
+        "create_album", "create_track",                  # lifecycle (094)
+        "check_streaming_lyrics", "check_name_exposure", # lyrics (095 / 119)
+        "master_album", "qc_audio",                      # audio (096)
+        "catalogue_status", "db_create_tweet",           # catalogue (097)
+        "promo_review", "publish_asset",                 # promo (098)
+        "research_scope", "verify_sources",              # research (099)
+        "validate_album", "diagnose",                    # gates (100)
+        "get_config", "format_clipboard",                # production binding (115)
+    }
+    missing = known - set(cap.verbs)
+    assert not missing, f"cluster verbs missing from the surface: {sorted(missing)}"
+    assert len(cap.verbs) >= len(known)
     e.memory.close()
 
 
@@ -600,6 +604,8 @@ def test_diagnose_reports_full_driver_inventory_and_surface() -> None:
     assert set(data["drivers_wired"]) == {"music_state", "music_text",
                                             "music_audio", "music_db",
                                             "music_cloud"}
-    assert data["verbs_count"] == 101
+    # diagnose must report the LIVE registry size, not a frozen count
+    # (rule 8) — the contract is "verbs_count == however many are registered".
+    assert data["verbs_count"] == len(e.registry._caps["music"].verbs)
     assert data["skills_count"] >= 15
     e.memory.close()

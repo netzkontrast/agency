@@ -2208,6 +2208,19 @@ class MusicCapability(CapabilityBase):
                                             "bitch", "ass")):
             findings.append({"kind": "explicit", "severity": "warn"})
             score -= 20
+        # Spec 119 (promo layer): a project-DNA forbidden name must not reach
+        # public copy either. Reuse the lyrics name-exposure scan against the
+        # configured roster; a hit is a hard miss (severity fail + heavy
+        # penalty) so `promo_review_gate`'s score threshold blocks it. Empty
+        # roster → no hits → no-op for rosterless projects.
+        from .config import MusicConfig
+        name_hits = self._name_exposure_hits(
+            body, MusicConfig.load().name_exposure_blocklist)
+        if name_hits:
+            findings.append({"kind": "name_exposure",
+                             "names": [h["name"] for h in name_hits],
+                             "severity": "fail"})
+            score -= 50
         return ToolResult.success(data={
             "score": max(0, score), "findings": findings,
             "max_length": max_length, "platform": platform})

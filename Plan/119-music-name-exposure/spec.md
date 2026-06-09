@@ -59,6 +59,11 @@ behaviour change), so the gate is safe to compose by default.
   returns empty on an empty roster; gate blocks on a hit + passes clean;
   config loads the blocklist; the composite includes the `name_exposure`
   sub-gate and still passes with an empty roster.
+- [x] **Promo layer (Slice 2).** `promo_review` scans copy against the roster;
+  a hit is a `name_exposure` finding (severity `fail`) with a heavy score
+  penalty, so the existing `promo_review_gate` score threshold blocks it — no
+  new gate needed. Empty roster → no-op. So `name_exposure` is enforced across
+  **both** public-facing text surfaces (lyrics + promo).
 - [x] `scripts/check-drift` clean; `Plan/119-…/spec.md` Followup + `TODO.md`
   row 119 added.
 
@@ -95,9 +100,10 @@ the name-exposure check for free in their pre-generation gate.
 
 ## Non-goals
 
-- The **design** and **promo** layers (cover-art prompts, social copy) also
-  carry `name_exposure` — out of scope here; this spec covers the **lyrics/text**
-  layer. A follow-up can reuse `check_name_exposure` from the promo cluster.
+- The **design** layer (cover-art / ASDLS image prompts) also carries
+  `name_exposure` — out of scope here. A follow-up can reuse the shared
+  `_name_exposure_hits` scan from a future design/art cluster. (The **promo**
+  layer is now covered — Slice 2 above.)
 - The roster is enforced, not authored: deriving the roster from a project's
   DNA files (e.g. the resolver) stays the project's / skill's job.
 
@@ -153,6 +159,18 @@ tests/test_music_capability.py tests/test_music_gates.py
 tests/test_music_production.py` → `99 passed`. `scripts/check-drift` → NO DRIFT
 DETECTED.
 
-**Nothing deferred** — F6 closed for the lyrics/text layer. Design + promo
-layer name-exposure remains a non-goal (a follow-up can reuse
-`check_name_exposure` from the promo cluster).
+### Slice 2 (promo layer) — 2026-06-09
+
+- `promo_review` (`_main.py`) now scans copy via the shared
+  `_name_exposure_hits` against `MusicConfig.load().name_exposure_blocklist`;
+  a hit appends a `{"kind":"name_exposure","names":[…],"severity":"fail"}`
+  finding and a `-50` score penalty, so the existing `promo_review_gate`
+  threshold blocks it — no new gate. Empty roster → no-op.
+- Tests (`tests/test_music_promo.py`): `test_promo_review_flags_name_exposure`
+  (rostered name → fail finding + score < 70), 
+  `test_promo_review_name_exposure_noop_without_roster`. `test_music_promo.py`
+  → 19 passed.
+
+`name_exposure` is now enforced across **both** public text surfaces (lyrics +
+promo). The **design/art** layer remains the one documented non-goal — a
+follow-up can reuse `_name_exposure_hits` from a future art cluster.
