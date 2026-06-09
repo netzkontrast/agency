@@ -1225,6 +1225,8 @@ def test_reflect_is_the_class_form():
     e = fresh()
     assert set(e.registry.get("reflect").verbs) == {
         "note", "batch_note", "recall", "recall_semantic", "search",
+        # Spec 114 — session-end synthesis lives here.
+        "synthesize_session",
     }
     e.memory.close()
 

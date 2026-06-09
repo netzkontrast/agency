@@ -25,9 +25,12 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 |------|------|-------|-----------|
 | `checklist` | transform | Project a discipline (skill walk) into a step-by-step checklist. | [details](references/checklist.md) |
 | `estimate` | transform | Decidable effort estimate from change-size inputs (Spec 046 F-D — sc-estimate, DECIDABLE only: no LLM, a transparent formula over the inputs you can count). | [details](references/estimate.md) |
+| `mode_select` | effect | Switch session mode + record a ModeShift node (effect). | [details](references/mode_select.md) |
 | `record_authoring_outcome` | act | Record a Reflection at the end of an authoring-capabilities walk. | [details](references/record_authoring_outcome.md) |
 | `reference` | transform | Fetch a discipline's heavy how-to on demand (T3 disclosure). | [details](references/reference.md) |
 | `scaffold_capability` | act | Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton. | [details](references/scaffold_capability.md) |
+| `session_check` | transform | Read the current SessionLifecycle state (transform). | [details](references/session_check.md) |
+| `session_init` | act | Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb. | [details](references/session_init.md) |
 | `skill_walk` | act | Walk a registered skill to the first hard gate in ONE call (the atomic walker). | [details](#skill_walk) |
 | `validate_skill` | transform | Validate a capability's Agent-Skill (its SkillDoc) — lint + dry-run emit. | [details](references/validate_skill.md) |
 
@@ -58,6 +61,8 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan', 'inputs': {}, 'intent_id': '…'})`
 - **`review`** (discipline): request → dispatch → resolve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'review', 'inputs': {}, 'intent_id': '…'})`
+- **`session-driver-pass`** (workflow): init → mode-select → work-loop → synthesize → archive
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'session-driver-pass', 'inputs': {}, 'intent_id': '…'})`
 - **`spec-panel`** (discipline): review → synthesize → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'spec-panel', 'inputs': {}, 'intent_id': '…'})`
 - **`tdd`** (discipline): red → green → refactor → verify

@@ -32,6 +32,11 @@ class ReflectCapability(CapabilityBase):
         nodes={"Reflection": ["scope", "text"]},
         enums={("Reflection", "scope"): REFLECT_SCOPES},
         edges={"OBSERVED_DURING", "INFORMS"},
+        # Spec 114 — session synthesis artefact schema (the closing
+        # deliverable of every session-driver-pass).
+        schemas={"session-reflection": ["session_lifecycle_id",
+                                          "lessons",
+                                          "open_questions"]},
     )
 
     @verb(role="act")
@@ -137,3 +142,50 @@ class ReflectCapability(CapabilityBase):
             "vfrom": r["vfrom"],
         } for s, r in paired[:k]]
         return {"results": out, "embedder": embedder.name}
+
+    # ════════════════════════════════════════════════════════════════════════
+    # Spec 114 — session-end synthesis: closes the session-driver-pass.
+    # ════════════════════════════════════════════════════════════════════════
+
+    @verb(role="act")
+    def synthesize_session(self, session_lifecycle_id: str,
+                            lessons: str = "",
+                            open_questions: str = "",
+                            handoff_notes: str = "") -> dict:
+        """Produce a session-reflection artefact at session close (act).
+
+        Flips the SessionLifecycle to ``archived`` + records a
+        ``session-reflection`` artefact PRODUCES'd against the intent. Also
+        writes a ``Reflection{scope:'reflection'}`` for the synthesis-style
+        notes so they surface in future-session search.
+
+        Inputs: session_lifecycle_id, lessons (multi-line), open_questions
+                (multi-line), handoff_notes (next-session continuity).
+        Returns: ``{result, artefact}`` session-reflection artefact.
+        chain_next: terminal — agent closes the session.
+        """
+        body = (f"# Session reflection\n\n"
+                f"Lifecycle: {session_lifecycle_id}\n\n"
+                f"## Lessons\n{lessons}\n\n"
+                f"## Open questions\n{open_questions}\n\n"
+                f"## Handoff notes\n{handoff_notes}\n")
+        # Also record the lessons as a regular Reflection so they surface in
+        # future-session search (this is the cross-session knowledge channel).
+        if lessons.strip():
+            rid = self.ctx.record("Reflection", {
+                "scope": "reflection",
+                "text": f"Session {session_lifecycle_id}: {lessons.strip()}",
+            })
+            self.ctx.link(rid, self.ctx.intent_id, "SERVES")
+            self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
+        # Archive the SessionLifecycle if it exists
+        node = self.ctx.recall(session_lifecycle_id)
+        if node is not None:
+            self.ctx.update(session_lifecycle_id, {"status": "archived"})
+        return {"result": body, "artefact": {
+            "kind": "session-reflection",
+            "session_lifecycle_id": session_lifecycle_id,
+            "lessons": lessons,
+            "open_questions": open_questions,
+            "body": body,
+        }}
