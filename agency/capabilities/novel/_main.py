@@ -81,6 +81,14 @@ NOVEL_STATUS = {"concept", "outlining", "drafting", "revising",
 CHAPTER_STATUS = {"outlined", "drafted", "revised", "final"}
 # Spec 102 — Idea lifecycle (mirrors music's IDEA_STATUS).
 IDEA_STATUS = {"new", "promoted", "dropped"}
+# Spec 105 — research-claim verification + domain enums (mirrors 099's
+# AlbumClaim shape; reused as NovelClaim with the same status alphabet).
+CLAIM_VERIFIED = {"pending", "confirmed", "refuted", "needs-source"}
+RESEARCH_DOMAINS = {
+    "historical", "scientific", "cultural", "geographical",
+    "linguistic", "philosophical", "religious", "political",
+    "technological", "biographical",
+}
 
 
 # ─────────────────────────── walkable skill ───────────────────────────
@@ -132,11 +140,16 @@ novel_ontology = OntologyExtension(
         # Schema is `["novel"]` — the NCP body lives as an optional `body`
         # field (open dict). Check verbs read the body directly.
         "Storyform": ["novel"],
+        # Spec 105 — research-claim layer (mirrors music's AlbumClaim).
+        # Domain + verification status are optional fields constrained by
+        # the enums below; same shape as the music cap's NovelClaim sibling.
+        "NovelClaim": ["text", "source_uri", "domain"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
         ("Chapter", "status"): CHAPTER_STATUS,
         ("Idea",    "status"): IDEA_STATUS,
+        ("NovelClaim", "verified"): CLAIM_VERIFIED,
     },
     edges={
         "CHAPTER_OF",       # Chapter → Novel (mirror of music's RECORDED_FOR)
@@ -535,4 +548,71 @@ class NovelCapability(CapabilityBase):
             "total_words": total,
             "density": round(density, 4),
             "offenders": sorted(set(offenders)),
+        })
+
+    # ───────────────── Spec 105 — research cluster (graph-only) ─────────────────
+    # Slice 1 ships 3 graph-only research verbs (mirrors music's 099
+    # pattern via the NovelClaim node). The delegating verbs
+    # (research_scope, dispatch_research, verify_sources, document_hunt)
+    # + composite `verify_gate` + `research-workflow` walkable skill land
+    # in Slice 2 once the wiring against agency.research is exercised on
+    # a research-bearing novel intent.
+
+    @verb(role="effect")
+    def capture_claim(self, text: str, source_uri: str,
+                       domain: str) -> ToolResult:
+        """Record a NovelClaim node SERVING the intent (effect).
+
+        Inputs: text, source_uri, domain (one of ``RESEARCH_DOMAINS``).
+        Returns: ``{claim_id, text, domain, verified}``.
+        chain_next: ``novel.verify_sources`` (Slice 2) to cross-check.
+        """
+        if domain not in RESEARCH_DOMAINS:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"domain={domain!r} not in {sorted(RESEARCH_DOMAINS)}")
+        cid = self.ctx.record("NovelClaim", {
+            "text": text, "source_uri": source_uri,
+            "domain": domain, "verified": "pending",
+        })
+        self.ctx.link(cid, self.ctx.intent_id, "SERVES")
+        return ToolResult.success(data={
+            "claim_id": cid, "text": text,
+            "domain": domain, "verified": "pending",
+        })
+
+    @verb(role="transform")
+    def list_claims(self, verified: str = "") -> ToolResult:
+        """List captured claims; optional verified-status filter (transform).
+
+        Inputs: verified (one of ``CLAIM_VERIFIED`` or ``""`` for all).
+        Returns: ``{claims, count}``.
+        chain_next: ``novel.verify_sources`` for pending claims.
+        """
+        if verified and verified not in CLAIM_VERIFIED:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"verified={verified!r} not in {sorted(CLAIM_VERIFIED)}")
+        claims = [c for c in self.ctx.find("NovelClaim")
+                  if not verified or c.get("verified") == verified]
+        return ToolResult.success(data={
+            "claims": claims, "count": len(claims),
+        })
+
+    @verb(role="transform")
+    def pending_verifications(self) -> ToolResult:
+        """Aggregate pending claims by domain (transform).
+
+        Inputs: none.
+        Returns: ``{count, by_domain}`` — only claims with ``verified=="pending"``.
+        chain_next: ``novel.dispatch_research`` (Slice 2) to fan out specialists.
+        """
+        pending = [c for c in self.ctx.find("NovelClaim")
+                   if c.get("verified") == "pending"]
+        by_domain: dict[str, int] = {}
+        for c in pending:
+            d = c.get("domain", "unknown")
+            by_domain[d] = by_domain.get(d, 0) + 1
+        return ToolResult.success(data={
+            "count": len(pending), "by_domain": by_domain,
         })
