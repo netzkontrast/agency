@@ -549,4 +549,33 @@ Complete writing-assist session:
 
 ## Followup
 
+## Followup — Implementation Status (2026-06-09)
+
+**Verdict:** Partial (Slice 1 shipped — core dossier + engineering lineages with token-budget gate).
+
+### Done (Slice 1 — `claude/spec-109-prompt-capability`)
+- **7 user verbs**: `intent_capture`, `catalog_list`, `brief_render`, `brief_audit`, `brief_finalize`, `engineer`, `audit`
+- **2 gate verbs**: `token_budget_gate`, `audit_gate`
+- **2 walkable skills**: `dossier-author` (5-phase, hard finalize), `prompt-engineering-pass` (6-phase, hard score-output)
+- **2 templates**: `dossier-skeleton.md`, `intent-yaml.md` (Spec 060 AGENT blocks included)
+- **Ontology**: 9 nodes (ResearchIntent, ResearchBrief, BriefAudit, CatalogModule, PromptInstance, PromptVariant, PromptOutput, AntiPattern, OptimizationPass) + 7 closed enums + 6 edges (RENDERS_FROM, AUDITS, VARIANT_OF, PRODUCED_BY, FLAGS_ANTI, APPLIES_PASS) + 4 schemas
+- **Seed catalog**: 6 modules (M01-M06 across categories A/B/C)
+- **23 tests** covering surface invariants, intent_capture + catalog_list filtering, brief_render + audit + finalize round-trip, engineer + audit scoring, both gates PASSED + BLOCKED paths, walkable skill walks
+- **Token approximation**: 4-chars/token heuristic (cl100k-band proxy when tiktoken absent); Spec 082 TokenCounter boundary swap deferred
+- **Block-mode lint clean**: 0 violations
+
+### Still to implement (Slice 2)
+- **7 remaining verbs**: `build`, `register_builder`, `optimize`, `score_output`, `analyze_iteration`, `register_anti_pattern`, `list_templates`, `register_template`
+- **3 more walkable skills**: `optimize-pass`, `audit-pass`, `iterate-variants`
+- **5 more templates**: `system-prompt-skeleton`, `builder-template`, `audit-checklist`, `tradeoff-matrix`, `anti-pattern-example`
+- **Bundled YAML catalog**: `data/reference/research-module-catalog.yaml` (the full A/B/C × M-IDs set)
+- **Anti-pattern library**: 4 YAML files (on-the-nose, filter-words, adjective-heavy, telling-not-showing)
+- **Cross-cap delegation**: refactor novel cluster (Spec 104 iter-11) to delegate its engineering verbs to `prompt.*` via `ctx.call`
+
+### Evidence
+- code: `agency/capabilities/prompt/{__init__,_main,ontology}.py`, `agency/capabilities/prompt/templates/{dossier-skeleton,intent-yaml}.md`
+- tests: `tests/test_prompt_capability.py` (23 tests Green); full suite Green: 1204 passed
+- lint: `plugin.lint_capability(\047prompt\047)` → ok=True block-mode, 0 violations
+- branch: `claude/spec-109-prompt-capability`
+
 (Populated when the PR ships.)
