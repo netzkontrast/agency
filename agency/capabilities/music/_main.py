@@ -8,7 +8,7 @@ files; music remains the **reference clustered domain capability** but is no
 longer "third-party example" — it's the substrate's first creative-production
 domain.
 
-This module hosts the migrated 007 verb surface PLUS every cluster verb
+This module hosts the migrated Spec-007 verb surface PLUS every cluster verb
 from Specs 094-100 (lifecycle, lyrics, audio, catalogue, promo, research,
 gates) PLUS Spec 115 production-binding extras. The live ``@verb``
 decorators are the authoritative count — `agency.registry._caps['music'].verbs`
