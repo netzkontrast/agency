@@ -38,6 +38,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `check_cross_track_repetition` | transform | Flag lyric lines repeated across multiple album tracks (transform). | [details](references/check_cross_track_repetition.md) |
 | `check_explicit_content` | transform | Classify lyrics as clean / suggestive / explicit (transform). | [details](references/check_explicit_content.md) |
 | `check_homographs` | transform | Flag words with multiple legitimate pronunciations (transform). | [details](references/check_homographs.md) |
+| `check_name_exposure` | transform | Scan text for forbidden roster names (driver-free, deterministic) (transform). | [details](references/check_name_exposure.md) |
 | `check_pronunciation` | transform | Flag words requiring forced pronunciation per the bundled guide (transform). | [details](references/check_pronunciation.md) |
 | `check_streaming_lyrics` | transform | Check the lyric body for platform-incompatible markup (transform). | [details](references/check_streaming_lyrics.md) |
 | `check_voice_tells` | transform | AI-tell rule-based detector (advisory only — no gate impact) (transform). | [details](references/check_voice_tells.md) |
@@ -76,7 +77,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `list_tracks` | transform | List tracks for an album via the StateDriver (transform). | [details](references/list_tracks.md) |
 | `load_override` | transform | Load a user-authored override file from the configured overrides dir (transform). | [details](references/load_override.md) |
 | `lyric_report` | act | Analyze a lyric sheet's syllable load per line via the TextDriver (act). | [details](references/lyric_report.md) |
-| `lyrics_pregen_gate` | effect | Composite lyrics pre-generation gate — chains 095's 4 lyric gates (effect). | [details](references/lyrics_pregen_gate.md) |
+| `lyrics_pregen_gate` | effect | Composite lyrics pre-generation gate — chains the lyric gates (effect). | [details](references/lyrics_pregen_gate.md) |
 | `master_album` | effect | Master an audio file to a target loudness via the AudioDriver (effect). | [details](references/master_album.md) |
 | `master_audio` | effect | Single-track master via AudioDriver (effect); produces mastering-report. | [details](references/master_audio.md) |
 | `master_with_reference` | effect | Master `path` to match `reference` album loudness (effect). | [details](references/master_with_reference.md) |
@@ -84,6 +85,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `measure_gate` | effect | Computed measure gate — composes loudness probe + range check (effect). | [details](references/measure_gate.md) |
 | `mono_fold_check` | transform | Phase-cancellation check via AudioDriver (transform). | [details](references/mono_fold_check.md) |
 | `music_health` | transform | Self-check the music capability (transform, driver-free) — report which Driver seams are wired. | [details](references/music_health.md) |
+| `name_exposure_gate` | effect | Computed name-exposure gate — no forbidden roster names in lyrics (effect). | [details](references/name_exposure_gate.md) |
 | `pending_verifications` | transform | Aggregate count of pending claims (transform). | [details](references/pending_verifications.md) |
 | `polish_album` | effect | Album-wide polish pass — applies polish to every track (effect). | [details](references/polish_album.md) |
 | `polish_and_master_album` | effect | Combined polish + master pipeline (effect); produces mastering-report. | [details](references/polish_and_master_album.md) |

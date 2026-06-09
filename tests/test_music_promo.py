@@ -104,6 +104,42 @@ def test_promo_review_flags_explicit() -> None:
     e.memory.close()
 
 
+def test_promo_review_flags_name_exposure(tmp_path, monkeypatch) -> None:
+    """Spec 119 (promo layer): a rostered forbidden name in public copy is a
+    hard miss — severity fail + a score drop below the promo_review_gate
+    threshold, so name leaks are blocked in promo just like in lyrics."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    (tmp_path / ".agency").mkdir()
+    (tmp_path / ".agency" / "music-config.yaml").write_text(
+        'artist:\n  name: A\nname_exposure:\n  blocklist: ["Lex"]\n')
+    e = _fresh_configured()
+    iid = _confirmed_iid(e)
+    data, _ = _invoke(e, iid, "promo_review",
+                      body="Lex drops the new album. Stream now!",
+                      platform="x")
+    ne = [f for f in data["findings"] if f["kind"] == "name_exposure"]
+    assert ne and ne[0]["severity"] == "fail"
+    assert "Lex" in ne[0]["names"]
+    assert data["score"] < 70          # below the default promo_review_gate min
+    e.memory.close()
+
+
+def test_promo_review_name_exposure_noop_without_roster(tmp_path, monkeypatch) -> None:
+    """Rosterless project: no name_exposure finding (and no false positives)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    e = _fresh_configured()
+    iid = _confirmed_iid(e)
+    data, _ = _invoke(e, iid, "promo_review",
+                      body="Lex drops the new album. Stream now!",
+                      platform="x")
+    assert not any(f["kind"] == "name_exposure" for f in data["findings"])
+    e.memory.close()
+
+
 def test_publish_sheet_music_produces_published_asset() -> None:
     e = _fresh_configured()
     iid = _confirmed_iid(e)

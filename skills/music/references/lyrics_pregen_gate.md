@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # music.lyrics_pregen_gate
 
-Composite lyrics pre-generation gate — chains 095's 4 lyric gates (effect).
+Composite lyrics pre-generation gate — chains the lyric gates (effect).
 
 ## Inputs
 
@@ -19,7 +19,7 @@ revise lyrics until all 4 sub-gates pass.
 
 ## Details
 
-Composes prosody + pronunciation + repetition + explicit gates from Spec 095. Passes iff all 4 pass. The lifecycle_id is reused for each sub-gate so the audit trail is unified.
+Composes prosody + pronunciation + repetition + explicit (Spec 095) + name-exposure (Spec 119) sub-gates. Passes iff all pass. The name-exposure sub-gate is a no-op pass for rosterless projects (empty ``name_exposure.blocklist``). The lifecycle_id is reused for each sub-gate so the audit trail is unified.
 
 ## Example
 
