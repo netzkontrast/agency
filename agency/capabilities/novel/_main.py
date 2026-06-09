@@ -15,12 +15,50 @@ Red flags:
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 
 from agency.capability import CapabilityBase, RenderTemplates, verb
 from agency.ontology import OntologyExtension
 from agency.toolresult import ToolResult
+
+
+# Spec 104 — show-don't-tell filter words (canonical writing-craft list).
+# A documented tunable per CLAUDE.md §8: not a snapshot of "what we
+# measured once" — the set IS the writing convention.
+FILTER_WORDS: frozenset[str] = frozenset({
+    "really", "just", "very", "somehow", "actually", "perhaps",
+    "maybe", "literally", "basically", "totally", "definitely",
+    "probably", "suddenly", "instantly", "completely", "absolutely",
+    "quite", "rather", "almost", "nearly", "seemingly",
+})
+
+# Spec 104 — filter-word density threshold for the show-don't-tell gate.
+# Documented tunable; 5% = "polished" prose per editorial heuristics.
+FILTER_WORD_DENSITY_THRESHOLD: float = 0.05
+
+_WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
+_VOWEL_GROUP_RE = re.compile(r"[aeiouyAEIOUY]+")
+
+
+def _word_tokens(body: str) -> list[str]:
+    return _WORD_RE.findall(body)
+
+
+def _count_sentences(body: str) -> int:
+    return max(1, len(re.findall(r"[.!?]+", body)))
+
+
+def _syllables_word(w: str) -> int:
+    """Deterministic vowel-group syllable count, ≥ 1. Mirrors music's
+    `_syllables` helper — same heuristic, stable across runs."""
+    if not w:
+        return 0
+    count = len(_VOWEL_GROUP_RE.findall(w.lower()))
+    if w.lower().endswith("e") and count > 1:
+        count -= 1
+    return max(1, count)
 
 
 @lru_cache(maxsize=1)
@@ -431,3 +469,70 @@ class NovelCapability(CapabilityBase):
     # its named check" contract: ship only verbs that hold the contract.
     # Slice 2 reconciles fixture-ids ↔ vendored ontology then implements
     # all 13 checks with the full element-graph traversal.
+
+    # ───────────────── Spec 104 — prose-analysis (driver-free) ─────────────────
+    # Slice 1 ships 3 deterministic, driver-free prose-analysis verbs.
+
+    @verb(role="transform")
+    def count_words(self, body: str) -> ToolResult:
+        """Word + char counter (transform, driver-free).
+
+        Inputs: body. Returns: ``{word_count, char_count}``.
+        chain_next: ``novel.analyze_readability`` for prosody metrics.
+        """
+        return ToolResult.success(data={
+            "word_count": len(_word_tokens(body)),
+            "char_count": len(body.strip()),
+        })
+
+    @verb(role="transform")
+    def analyze_readability(self, body: str) -> ToolResult:
+        """Flesch Reading Ease for prose (transform, driver-free).
+
+        Score 0-100; conversational lands ~60-70. Formula:
+        206.835 − 1.015 × (words/sentences) − 84.6 × (syllables/words).
+        Inputs: body (non-empty). Returns: ``{flesch, words, sentences,
+        syllables}``.
+        chain_next: ``novel.check_filter_words`` for show-don't-tell pass.
+        """
+        if not body.strip():
+            return ToolResult.failure(
+                "INVALID_ARGUMENT", "body is empty")
+        words = _word_tokens(body)
+        word_n = len(words)
+        sent_n = _count_sentences(body)
+        syll_n = sum(_syllables_word(w) for w in words)
+        flesch = (206.835
+                  - 1.015 * (word_n / max(sent_n, 1))
+                  - 84.6 * (syll_n / max(word_n, 1)))
+        return ToolResult.success(data={
+            "flesch": round(flesch, 2),
+            "words": word_n,
+            "sentences": sent_n,
+            "syllables": syll_n,
+        })
+
+    @verb(role="transform")
+    def check_filter_words(self, body: str,
+                            threshold: float = FILTER_WORD_DENSITY_THRESHOLD
+                            ) -> ToolResult:
+        """Filter-word density check (transform, show-don't-tell).
+
+        Scans for canonical filter words (really / just / very / etc.).
+        Density = filter-count / total-words; passes when ≤ threshold.
+
+        Inputs: body, threshold (default 0.05).
+        Returns: ``{passed, filter_count, total_words, density, offenders}``.
+        chain_next: ``novel.set_chapter_status`` once density is in range.
+        """
+        words_lower = [w.lower() for w in _word_tokens(body)]
+        total = len(words_lower)
+        offenders = [w for w in words_lower if w in FILTER_WORDS]
+        density = (len(offenders) / total) if total else 0.0
+        return ToolResult.success(data={
+            "passed": density <= threshold,
+            "filter_count": len(offenders),
+            "total_words": total,
+            "density": round(density, 4),
+            "offenders": sorted(set(offenders)),
+        })
