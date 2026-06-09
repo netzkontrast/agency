@@ -1133,6 +1133,116 @@ class NovelCapability(CapabilityBase):
             "passed": True, "checks": checks,
         })
 
+    @verb(role="effect")
+    def beta_ready_gate(self, novel_id: str) -> ToolResult:
+        """Composite gate: all chapters drafted+ (effect).
+
+        Passes IFF every Chapter for the Novel has status ∈
+        {drafted, revised, final}. Outlined chapters block.
+
+        Inputs: novel_id.
+        Returns: ``{passed, checks}`` or typed GATE_FAILED.
+        chain_next: ``novel.set_novel_status('beta')`` then ship to readers.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = [c for c in self.ctx.find("Chapter")
+                    if c.get("novel") == novel_id]
+        drafted_plus = {"drafted", "revised", "final"}
+        outlined = [c for c in chapters
+                    if c.get("status") not in drafted_plus]
+        checks = {
+            "has_chapters": bool(chapters),
+            "all_chapters_drafted": not outlined,
+        }
+        if not all(checks.values()):
+            failed = [k for k, v in checks.items() if not v]
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"beta-ready: missing {failed}")
+        return ToolResult.success(data={
+            "passed": True, "checks": checks,
+        })
+
+    @verb(role="effect")
+    def query_ready_gate(self, novel_id: str) -> ToolResult:
+        """Composite gate: status ≥ beta + content-clean (effect).
+
+        Composes: Novel.status reaches {beta, querying, published}
+        AND aggregate chapter body passes check_content_warnings
+        (empty warnings list).
+
+        Inputs: novel_id.
+        Returns: ``{passed, checks}`` or typed GATE_FAILED.
+        chain_next: ``novel.render_query_letter`` then agent submission.
+        """
+        node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = [c for c in self.ctx.find("Chapter")
+                    if c.get("novel") == novel_id]
+        body = " ".join(c.get("body", "") for c in chapters)
+        # Re-use the canonical CONTENT_WARNINGS scanner inline (sibling
+        # verb composition stays in-process; no MCP roundtrip).
+        words_lower = {w.lower() for w in _word_tokens(body)}
+        warnings_hit: list[str] = []
+        for category, lexicon in CONTENT_WARNINGS.items():
+            if words_lower & lexicon:
+                warnings_hit.append(category)
+        status_ok = node.get("status") in {"beta", "querying", "published"}
+        checks = {
+            "status_beta_or_later": status_ok,
+            "content_clean": not warnings_hit,
+        }
+        if not all(checks.values()):
+            failed = [k for k, v in checks.items() if not v]
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"query-ready: missing {failed}; warnings={warnings_hit}")
+        return ToolResult.success(data={
+            "passed": True, "checks": checks,
+            "content_warnings": warnings_hit,
+        })
+
+    @verb(role="effect")
+    def publish_ready_gate(self, novel_id: str) -> ToolResult:
+        """Composite gate: contiguous chapters + status ≥ querying (effect).
+
+        Composes: manuscript_coherence_check (no chapter-number gaps)
+        AND Novel.status ∈ {querying, published}. The publication-prep
+        terminal gate before set_novel_status('published').
+
+        Inputs: novel_id.
+        Returns: ``{passed, checks}`` or typed GATE_FAILED.
+        chain_next: ``novel.set_novel_status('published')``.
+        """
+        node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = [c for c in self.ctx.find("Chapter")
+                    if c.get("novel") == novel_id]
+        numbers = sorted(c.get("number") for c in chapters
+                         if isinstance(c.get("number"), int))
+        gaps: list[int] = []
+        if numbers:
+            for n in range(1, max(numbers) + 1):
+                if n not in numbers:
+                    gaps.append(n)
+        status_ok = node.get("status") in {"querying", "published"}
+        checks = {
+            "no_chapter_gaps": not gaps,
+            "status_at_querying_or_later": status_ok,
+        }
+        if not all(checks.values()):
+            failed = [k for k, v in checks.items() if not v]
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"publish-ready: missing {failed}; gaps={gaps}")
+        return ToolResult.success(data={
+            "passed": True, "checks": checks,
+        })
+
     @verb(role="transform")
     def pending_verifications(self) -> ToolResult:
         """Aggregate pending claims by domain (transform).
