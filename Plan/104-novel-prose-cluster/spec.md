@@ -770,6 +770,55 @@ still on chapter 5.
    per-novel `style-sheet.yaml`. Default ships under `data/reference/
    prose/default-style-sheet.yaml`. Per-novel override in a followup.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
+
+**Slice 1 SHIPPED** on branch `claude/spec-102-novel-lifecycle` (PR #80).
+
+### Done in Slice 1
+
+3 driver-free deterministic prose-analysis verbs, all transforms:
+
+- `count_words(body)` — word + char count via regex tokenizer
+- `analyze_readability(body)` — canonical Flesch Reading Ease formula
+  (`206.835 − 1.015 × words/sentences − 84.6 × syllables/words`), with
+  INVALID_ARGUMENT on empty body
+- `check_filter_words(body, threshold=0.05)` — show-don't-tell density
+  check against the `FILTER_WORDS` canonical set (really / just / very /
+  somehow / actually / …), with `FILTER_WORD_DENSITY_THRESHOLD` as a
+  documented tunable per CLAUDE.md §8
+
+Shared helpers added at module level:
+- `_word_tokens(body)` — regex word-tokenizer
+- `_count_sentences(body)` — terminator-count, min 1
+- `_syllables_word(w)` — deterministic vowel-group syllable count
+  (mirrors music's `_syllables` heuristic)
+
+`tests/test_novel_prose.py` NEW: 10 tests covering registration, 3 paths
+on count_words (simple / whitespace+punct / empty), 3 paths on readability
+(easy prose ≥ 80 Flesch / dense polysyllabic < 40 / empty body fails),
+3 paths on filter_words (density+offenders / clean prose / pass-signal).
+
+### Deferred to Slice 2+
+
+- 9 remaining prose verbs (chapter_report-as-act / check_voice_consistency
+  / check_pov_consistency / check_dialogue_attribution / check_show_dont_tell
+  / check_continuity / scan_proper_nouns / check_content_warnings /
+  check_sensitivity) — most need TextDriver
+- TextDriver Protocol declaration (voice signature / POV consistency /
+  dialogue ratio / filter-word scan production-grade ports)
+- 3 composite editorial-stage gate verbs (`developmental_gate` /
+  `line_gate` / `copy_gate`)
+- 6 walkable skills (chapter-drafting / scene-revision /
+  developmental-editor / line-editor / voice-consistency-checker /
+  narrator-voice-specialist / polish-pass / prose-generation-prompt-
+  engineer)
+- Style-sheet + sensitivity-list data ports
+- 14-test suite (Slice 1 ships 10; the remaining 4 cover the deferred
+  TextDriver verbs once they land)
+
+### Done When status
+
+3 of 6 Done-When boxes ticked (3 of 12 verbs; TextDriver delta pending;
+gates + skills + 14-test target pending).
 
 (Populated when the PR ships.)
