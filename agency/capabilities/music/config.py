@@ -32,6 +32,21 @@ def _expand(p: str) -> str:
     return os.path.expanduser(os.path.expandvars(p))
 
 
+def _mtime(p: str) -> float:
+    """Cheap stat — 0.0 when missing; used as cache invalidation token."""
+    try:
+        return os.path.getmtime(p)
+    except OSError:
+        return 0.0
+
+
+# Module-level mtime-keyed cache for MusicConfig.load (Spec 116 efficiency
+# review): every config-touching verb calls load(), and engine bootstrap
+# touches it 2-3× per session. The cache key is (paths-tuple, mtime-tuple)
+# so a real config edit invalidates without engine restart.
+_LOAD_CACHE: dict[tuple, "MusicConfig"] = {}
+
+
 def _parse_yaml(text: str) -> dict:
     """Try PyYAML first; fall back to a minimal subset parser.
 
@@ -115,8 +130,24 @@ class MusicConfig:
           2. `~/.agency-music/config.yaml`
           3. `$AGENCY_MUSIC_HOME/config.yaml`
           4. defaults
+
+        Result is mtime-cached: re-calling on the same file (no mtime change)
+        returns the same `MusicConfig` instance instead of re-parsing YAML.
+        Mtime invalidation handles edits-in-place without engine restart.
         """
-        paths = search_paths if search_paths is not None else cls._default_search_paths()
+        paths = (tuple(search_paths) if search_paths is not None
+                 else tuple(cls._default_search_paths()))
+        # Build a cache key keyed by paths + per-path mtime (mtime=0 if missing).
+        signature = tuple((p, _mtime(_expand(p))) for p in paths)
+        cached = _LOAD_CACHE.get(signature)
+        if cached is not None:
+            return cached
+        cfg = cls._load_uncached(paths)
+        _LOAD_CACHE[signature] = cfg
+        return cfg
+
+    @classmethod
+    def _load_uncached(cls, paths: tuple[str, ...]) -> "MusicConfig":
         for path in paths:
             p = Path(_expand(path))
             if p.is_file():

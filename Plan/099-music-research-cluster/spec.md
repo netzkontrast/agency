@@ -353,6 +353,41 @@ def test_verify_gate_blocks_when_pending_claims_remain(): ...
    `(role="web", query=domain-prompted)` tuples; no agency.research-side
    change required.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
-(Populated when the PR ships.)
+**Verdict:** Partial (Slice 1 shipped — full v1 verb surface + ontology + skill; reference YAML + templates deferred).
+
+### Done (Slice 1 — `claude/music-099-research`, stacked on PR #70 cleanup)
+- **8 NEW verbs + 1 composite gate verb** on `MusicCapability`, ALL delegating to `agency.research` via `ctx.call("research", ...)` — ZERO new drivers added (Spec 099 Done When line 50 met):
+  - `research_scope` (act) — delegates to `research.lead` to mint a Research node + plan specialists
+  - `dispatch_research` (effect) — fans out to N specialists via `research.specialist` calls
+  - `capture_claim` (effect) — records an `AlbumClaim` node SERVES the intent; enum-checks domain
+  - `verify_sources` (effect) — iterates pending claims, flips to `human-confirmed`, records `AlbumVerification` per claim
+  - `list_claims` (transform) — filters by album/status
+  - `pending_verifications` (transform) — aggregates by domain
+  - `human_signoff` (effect) — terminal human approval; records an `AlbumVerification`
+  - `document_hunt` (effect) — delegates to research.lead with `depth="deep"` for document-hunter specialist
+  - `verify_gate` (effect, composite) — passes iff zero pending claims; called by 099's research-workflow phase 4 AND 100's pre-generation phase 2
+- **Ontology additions** (renamed to avoid collision with agency.research's own ResearchClaim/VerificationRecord):
+  - `AlbumClaim` node (required: text, source_uri, domain, verified)
+  - `AlbumVerification` node (required: claim, verdict)
+  - 3 closed enums: `(AlbumClaim, verified) = {pending, human-confirmed, rejected}`; `(AlbumClaim, domain)` = 10 bitwize specialist domains; `(AlbumVerification, verdict) = {confirmed, rejected, needs-more-evidence}`
+- **RESEARCH_WORKFLOW_SKILL** — 5 phases (scope → dispatch-specialists → collect → verify → human-sign-off), with computed gate at verify (→ verify_gate) and hard elicit at human-sign-off
+- **2 NEW artefact schemas**: `album-claim`, `album-verification`
+- **16 research tests** covering: verb auto-discovery; skill shape + walk; both enums bite; capture_claim records node + SERVES edge; capture_claim rejects unknown domain; list_claims status filter; pending_verifications by-domain aggregate; verify_sources clears pending; verify_gate passes on zero pending + blocks with pending (lifecycle paused); human_signoff records verification; document_hunt + research_scope + dispatch_research all delegate to research.lead/specialist; research-workflow walks through to hard elicit
+- **Block-mode lint clean**: 89 verbs total on `music` (26 lifecycle + 16 lyrics + 18 audio + 13 catalogue + 7 promo + 9 research). `surface_size>12` warn accepted.
+
+### Still to implement (deferred)
+- **`data/reference/research-domains.yaml`**: the 10-domain registry with preferred sources + verifier_strictness per domain. Slice 2 ships this for full bitwize parity.
+- **`templates/research.md` + `templates/sources.md`** verbatim port from bitwize. Slice 2 ships.
+- **Real `research.verify` integration**: `verify_sources` stub-confirms all pending claims; production wires to the real `agency.research.verify` per claim.
+- **Per-cluster file split**: 9 research verbs live on `_main.py`. Move into `clusters/research.py` as part of the batch cluster-split PR.
+
+### Doctrine note on node renaming
+The original spec used `ResearchClaim` + `VerificationRecord` as node names. Those collide with `agency.research`'s own ontology (research.ResearchClaim has different required fields). Renamed to `AlbumClaim` + `AlbumVerification` to honor Spec 094's "purely additive" doctrine — different node types in the music cluster, not redefinitions. This is a defensible deviation from the spec text; the spirit (music-scoped research provenance) is preserved.
+
+### Evidence
+- code: `agency/capabilities/music/_main.py` (9 new methods), `ontology.py` (2 nodes + 3 enums + skill + 2 schemas).
+- tests: `tests/test_music_research.py` (16 tests Green); full suite Green: 1080 passed.
+- lint: `plugin.lint_capability('music')` → ok=True block mode, 0 violations.
+- branch: `claude/music-099-research` (stacked on `claude/music-099-research-prep` cleanup PR).

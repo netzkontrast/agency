@@ -225,6 +225,32 @@ def test_finalize_phase_pauses_on_hard_elicit(): ...
    `llm` driver routing remains a followup enhancement; the rule-based
    path is the v1 contract.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
 
-(Populated when the PR ships.)
+**Verdict:** Partial (Slice 1 shipped — all v1 verbs + skill landed; per-cluster file split deferred).
+
+### Done (Slice 1 — branch `claude/music-095-lyrics`, stacked on PR #65)
+- **TextDriver Protocol extended** (drivers.py) with 13 new methods covering the bitwize text/lyric handler shape: `stats`, `rhyme_scheme`, `readability`, `pronunciation`, `homographs`, `streaming_safe`, `cross_track`, `explicit`, `distinctive_phrases`, `extract_section`, `validate_sections`, `scan_artist_names`, `voice_tells`. All implemented on `FakeTextDriver` with deterministic pattern tables (4 homographs, 3 pronunciation entries, 5 explicit + 3 suggestive words, voice-tell heuristic set with abstract-noun-stack / cliché-escalation / missing-idiosyncrasy detectors, artist blocklist with 6 entries). Stdlib-only — no `pronouncing`/`textstat` dep.
+- **12 transform verbs + 4 composite gate verbs = 16 new verbs** on `MusicCapability`:
+  - Transforms: `analyze_rhyme_scheme`, `analyze_readability`, `check_pronunciation`, `check_homographs`, `check_streaming_lyrics`, `check_cross_track_repetition`, `check_explicit_content`, `extract_distinctive_phrases`, `extract_section`, `validate_section_structure`, `scan_artist_names`, `check_voice_tells`.
+  - Gate verbs (effect, compose `gate.check`): `prosody_gate`, `pronunciation_gate`, `repetition_gate`, `explicit_gate`. Each returns typed `ToolResult.failure("GATE_FAILED", …)` on block + records `PASSED`/`BLOCKED_ON` on the Lifecycle.
+- **`lyric-writing` walkable skill** added to OntologyExtension.skills: 6-phase workflow (`draft → prosody → pronunciation → cross-track → explicit → finalize`) ending in a hard elicit. Computed gates at phases 2-5 delegate to the matching `*_gate` verb via `gate_verb` field (engine skill walker dispatches).
+- **5 NEW artefact schemas** in OntologyExtension.schemas: `pronunciation-report`, `prosody-report`, `cross-track-report`, `explicit-scan`, `voice-check` (with `[album, track, …]` required fields).
+- **`tests/test_music_lyrics.py` — 20 tests** covering each transform's happy + edge cases, all 4 gates' PASSED + BLOCKED paths (the explicit gate's `allow_explicit=True` override path included), the 6-phase walker through to the hard elicit, verb auto-discovery, voice-tells flagging cliché escalation, and the section-tag title-case validator rejecting lowercase.
+- **Block-mode lint clean**: `plugin.lint_capability('music')` returns `ok=True, violations=0, warnings=1` (the accepted `surface_size>12` warn — now 42 verbs total: 26 from 094 + 16 from 095).
+- **Note on `count_syllables` + `lyric_report`**: kept verbatim from 007 / Slice 1 (no duplication; the spec's manifest lists them as "kept from 007").
+
+### Still to implement (deferred)
+- **Per-cluster file split**: the 16 new verbs live on `_main.py` per the atomic-migration strategy used in 094 Slice 1+2. The eventual move into `agency/capabilities/music/clusters/lyrics.py` lands as part of a future cluster-batch migration (once 095-100 all ship, do a single split PR per cluster). This is the same deferral pattern Spec 094's Followup documented.
+- **Pronunciation YAML override path**: Spec §"Pronunciation reference data" notes a `data/reference/pronunciation-guide.yaml` override; for now the bundled `_PRONUNCIATION_GUIDE` dict on `FakeTextDriver` is the canonical source (3 entries — sufficient for v1 coverage). Slice 2 widens this to read from `data/reference/`.
+- **`pronouncing` / `textstat` as `[lyrics]` extra**: open question §1 — defer to a follow-up PR. The pattern-table approach matches bitwize's behaviour and keeps CI lean. Mark `extras` in pyproject for the future opt-in.
+
+### Refinement needed (given later specs)
+- The 16 new verbs follow the same `try: state = self.ctx.get_driver(...) except DriverMissing: return ToolResult.failure("DEPENDENCY_MISSING", …)` pattern as 094 Slice 2's 11 verbs. The `_require_driver(name)` helper the 094 review suggested would now save ~96 lines (16 verbs × ~6 lines of boilerplate each) across the 16 verbs here plus 094's 11. Defer to a cleanup slice; not blocking.
+- `surface_size>12` warn is now firing for a substantially larger surface (42 verbs). Per CLAUDE.md "field-tested heuristics" §"Dormant-surface audit", once 100 (gates) ships and the per-cluster split lands, this warn naturally drops since each cluster will carry ~5-15 verbs. Tracking it here as a non-blocking refinement.
+
+### Evidence
+- code: `agency/capabilities/music/_main.py` (16 new methods on `MusicCapability`), `drivers.py` (Protocol + FakeTextDriver), `ontology.py` (LYRIC_WRITING_SKILL + 5 schemas).
+- tests: `tests/test_music_lyrics.py` (20 tests, all green); full suite Green (1004 passed).
+- lint: `plugin.lint_capability('music')` → ok=True block mode, 0 violations.
+- branch: `claude/music-095-lyrics` (stacked on `claude/busy-bohr-wb18pg`).
