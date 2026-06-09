@@ -65,8 +65,8 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `set_chapter_status` | effect | Flip a Chapter's lifecycle status; enum-checked (effect). | [details](references/set_chapter_status.md) |
 | `set_novel_status` | effect | Flip a Novel's lifecycle status; enum-checked (effect). | [details](references/set_novel_status.md) |
 | `storyform_critical_pass` | act | Critical-thinking pass over the storyform (act, xcap to thinking). | [details](references/storyform_critical_pass.md) |
-| `validate_appreciations` | transform | Hybrid check (row 12): NCP `appreciation` values ∈ canonical 463 set (transform). | [details](references/validate_appreciations.md) |
-| `validate_narrative_functions` | transform | Hybrid check (row 13): NCP `narrative_function` values ∈ canonical 144 set (transform). | [details](references/validate_narrative_functions.md) |
+| `validate_appreciations` | transform | Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform). | [details](references/validate_appreciations.md) |
+| `validate_narrative_functions` | transform | Row 13 hybrid: NCP narrative_functions ∈ canonical 144 (transform). | [details](references/validate_narrative_functions.md) |
 
 ## Example
 
@@ -83,8 +83,14 @@ await call_tool('capability_novel_analyze_readability', {'intent_id': 'intent:ab
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
+- **`character-architect`** (conceptualizer): psychology → archetype → voice → confirmation
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'character-architect', 'inputs': {}, 'intent_id': '…'})`
 - **`novel-concept`** (conceptualizer): premise → genre → audience → pov → setting → characters-core → dramatica-seed → outline-shape → series-hypothesis → confirmation
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'novel-concept', 'inputs': {}, 'intent_id': '…'})`
+- **`scene-bridge-auditor`** (auditor): Q1-purpose → Q2-POV → Q3-stakes → Q4-conflict → Q5-payoff-and-signoff
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'scene-bridge-auditor', 'inputs': {}, 'intent_id': '…'})`
+- **`world-bible-architect`** (conceptualizer): geography → cultures → religions-languages → magic-systems → canon-lock
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'world-bible-architect', 'inputs': {}, 'intent_id': '…'})`
 
 ## analyze_readability
 

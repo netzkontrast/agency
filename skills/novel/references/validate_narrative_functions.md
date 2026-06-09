@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.validate_narrative_functions
 
-Hybrid check (row 13): NCP `narrative_function` values ∈ canonical 144 set (transform).
+Row 13 hybrid: NCP narrative_functions ∈ canonical 144 (transform).
 
 ## Inputs
 

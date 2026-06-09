@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_validate_appreciations
-# Hybrid check (row 12): NCP `appreciation` values ∈ canonical 463 set (transform).
+# Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform).
 # Usage: agency-novel-validate_appreciations [--intent-id ID] <ncp>
 set -euo pipefail
 

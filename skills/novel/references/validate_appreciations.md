@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.validate_appreciations
 
-Hybrid check (row 12): NCP `appreciation` values ∈ canonical 463 set (transform).
+Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform).
 
 ## Inputs
 

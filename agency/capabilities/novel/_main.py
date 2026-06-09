@@ -231,6 +231,67 @@ NOVEL_CONCEPT_SKILL = {
 }
 
 
+# Spec 102/104 — character-architect walkable skill (4 phases).
+# Per kohaerenz §04-character-and-world: psychology (TSDP/IFS/Big-Five/
+# Enneagram) → archetype (Jung + moral alignment) → voice → confirm.
+CHARACTER_ARCHITECT_SKILL = {
+    "name": "character-architect", "kind": "conceptualizer",
+    "phases": [
+        {"index": 1, "name": "psychology",
+         "produces": ["big_five", "enneagram", "ifs_parts"]},
+        {"index": 2, "name": "archetype",
+         "produces": ["jung_archetype", "moral_alignment"]},
+        {"index": 3, "name": "voice",
+         "produces": ["voice_signature", "register"]},
+        {"index": 4, "name": "confirmation",
+         "produces": ["user_confirmed"], "gate": "hard"},
+    ],
+}
+
+
+# Spec 102/104 — world-bible-architect walkable skill (5 phases).
+# Per kohaerenz §04: geography → cultures → religions+languages →
+# magic-systems → canon-lock (axioms become hard invariants).
+WORLD_BIBLE_ARCHITECT_SKILL = {
+    "name": "world-bible-architect", "kind": "conceptualizer",
+    "phases": [
+        {"index": 1, "name": "geography",
+         "produces": ["continents", "biomes", "time_period"]},
+        {"index": 2, "name": "cultures",
+         "produces": ["cultures", "core_values"]},
+        {"index": 3, "name": "religions-languages",
+         "produces": ["religions", "languages"]},
+        {"index": 4, "name": "magic-systems",
+         "produces": ["magic_systems", "hard_or_soft"]},
+        {"index": 5, "name": "canon-lock",
+         "produces": ["user_confirmed", "axioms_canon_locked"],
+         "gate": "hard"},
+    ],
+}
+
+
+# Spec 103/108 — scene-bridge-auditor walkable skill (5 phases / Q1-Q5).
+# Per kohaerenz §05-structure-scene-coherence + decidability brief
+# ("tools assert structure; skills assert meaning"): scene-bridge
+# Q1-Q5 ships as a walkable skill — purpose/POV/stakes/conflict/payoff.
+SCENE_BRIDGE_AUDITOR_SKILL = {
+    "name": "scene-bridge-auditor", "kind": "auditor",
+    "phases": [
+        {"index": 1, "name": "Q1-purpose",
+         "produces": ["scene_purpose"]},
+        {"index": 2, "name": "Q2-POV",
+         "produces": ["pov_choice", "narrator_voice"]},
+        {"index": 3, "name": "Q3-stakes",
+         "produces": ["stakes_internal", "stakes_external"]},
+        {"index": 4, "name": "Q4-conflict",
+         "produces": ["conflict_axis", "tension_arc"]},
+        {"index": 5, "name": "Q5-payoff-and-signoff",
+         "produces": ["user_confirmed", "scene_signoff"],
+         "gate": "hard"},
+    ],
+}
+
+
 # ─────────────────────────── ontology ───────────────────────────
 novel_ontology = OntologyExtension(
     nodes={
@@ -265,7 +326,10 @@ novel_ontology = OntologyExtension(
         "PROMOTED_TO",      # Idea → Novel (mirror of music's PROMOTED_TO)
         "SCENE_OF",         # Spec 102 Slice 2 — Scene → Chapter
     },
-    skills={"novel-concept": NOVEL_CONCEPT_SKILL},
+    skills={"novel-concept": NOVEL_CONCEPT_SKILL,
+            "character-architect": CHARACTER_ARCHITECT_SKILL,
+            "world-bible-architect": WORLD_BIBLE_ARCHITECT_SKILL,
+            "scene-bridge-auditor": SCENE_BRIDGE_AUDITOR_SKILL},
     schemas={
         # Spec 102: logline replaces `premise` in the canonical phase name;
         # both verb args + skill produce the same field set.
@@ -796,7 +860,7 @@ class NovelCapability(CapabilityBase):
 
     @verb(role="transform")
     def validate_appreciations(self, ncp: dict) -> ToolResult:
-        """Hybrid check (row 12): NCP `appreciation` values ∈ canonical 463 set (transform).
+        """Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform).
 
         Walks every ``appreciation`` field across the NCP body
         recursively; each string must belong to the
@@ -820,7 +884,7 @@ class NovelCapability(CapabilityBase):
 
     @verb(role="transform")
     def validate_narrative_functions(self, ncp: dict) -> ToolResult:
-        """Hybrid check (row 13): NCP `narrative_function` values ∈ canonical 144 set (transform).
+        """Row 13 hybrid: NCP narrative_functions ∈ canonical 144 (transform).
 
         Walks every ``narrative_function`` field; each string must
         belong to the ``canonical_narrative_function`` enum (144 values).
