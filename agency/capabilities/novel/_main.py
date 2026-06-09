@@ -51,14 +51,15 @@ def _count_sentences(body: str) -> int:
 
 
 def _syllables_word(w: str) -> int:
-    """Deterministic vowel-group syllable count, ≥ 1. Mirrors music's
-    `_syllables` helper — same heuristic, stable across runs."""
-    if not w:
-        return 0
-    count = len(_VOWEL_GROUP_RE.findall(w.lower()))
-    if w.lower().endswith("e") and count > 1:
-        count -= 1
-    return max(1, count)
+    """Deterministic syllable heuristic — delegates to `agency._prosody.syllables`.
+
+    Post Round-1 sc-analyze F2: music + novel previously hand-rolled two
+    syllable counters with the same heuristic but different impl —
+    classic derivability-audit drift. Promoted to `agency._prosody` so
+    both caps import the same source.
+    """
+    from agency._prosody import syllables
+    return syllables(w)
 
 
 @lru_cache(maxsize=1)
@@ -456,7 +457,12 @@ class NovelCapability(CapabilityBase):
                 violations.append(f"H1: missing throughlines {sorted(missing)}")
             if extra:
                 violations.append(f"H1: unexpected throughlines {sorted(extra)}")
-        # H2: each Class used exactly once across the 4 throughlines
+        # H2: each Class used exactly once across the 4 throughlines.
+        # Post Round-1 sc-analyze F3: the missing-class_id branch must
+        # not be suppressed when other H2 violations fire. Report
+        # missing-class_id IFF the throughline count is correct (H1 passed)
+        # but some throughline omits `class_id` — that's a separate H2
+        # facet from class-reuse.
         classes = [t.get("class_id") for t in throughlines.values()
                    if t.get("class_id")]
         from collections import Counter
@@ -464,8 +470,8 @@ class NovelCapability(CapabilityBase):
         dupes = [c for c, n in counts.items() if n > 1]
         if dupes:
             violations.append(f"H2: class reuse {sorted(dupes)}")
-        if len(classes) < 4 and not violations:
-            violations.append(f"H2: missing class_id on some throughlines")
+        if len(throughlines) == 4 and len(classes) < 4:
+            violations.append("H2: missing class_id on some throughlines")
         return ToolResult.success(data={
             "passed": not violations,
             "violations": violations,
@@ -636,6 +642,14 @@ class NovelCapability(CapabilityBase):
     # FormatDriver-backed verbs (epub/PDF/docx export via pandoc shell-outs
     # behind a deterministic fake) + composite publication_gate + walkable
     # skills land in Slice 2.
+    #
+    # Post Round-1 sc-analyze F1 — the 10 vendored markdown templates
+    # under `templates/` are NOT consumed by these Slice-1 renderers
+    # (each hand-rolls its body via f-strings); they materialise as
+    # Template graph nodes per Spec 032 and Slice 2's FormatDriver-backed
+    # renderers will read them via `ctx.template(name).template`. Acknowledged
+    # debt, not drift — same shape as music's "per-cluster file split
+    # deferred" carve-out.
 
     @verb(role="act")
     def render_blurb(self, novel_id: str, hook: str,
