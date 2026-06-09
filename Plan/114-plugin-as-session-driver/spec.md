@@ -620,7 +620,39 @@ def test_verb_suggestion_on_return_present_in_mcp_response(): ...
 
 ## Followup — Implementation Status
 
-**Verdict (2026-06-07):** Drafted. Gated on 109+110+112 shipping.
+**Verdict (2026-06-09):** Partial — Slice 1 shipped on
+`claude/spec-114-session-driver`. Slice 2 (hooks + auto-recording +
+cross-session handoff) deferred to follow-up PR.
+
+### Slice 1 Done (2026-06-09)
+- **`develop.session_init(purpose, deliverable, acceptance, mode_hint)`** — mints `SessionLifecycle` SERVES intent; auto-detects mode from cwd state via `git status` (Plan/*/*.md → spec-authoring; capabilities/*.py → coding; default brainstorming); honors `mode_hint` override; returns `{session_lifecycle_id, intent_id, mode, suggested_first_verb}` with first-verb suggestions per mode.
+- **`develop.session_check(session_lifecycle_id="")`** — reads SessionLifecycle state + ModeShift history; defaults to most-recent SessionLifecycle when no id supplied; returns `not_found` status for unknown ids.
+- **`develop.mode_select(session_lifecycle_id, new_mode, reason)`** — records ModeShift node + flips SessionLifecycle.mode; rejects unknown modes with `ValueError`.
+- **`reflect.synthesize_session(session_lifecycle_id, lessons, open_questions, handoff_notes)`** — produces `session-reflection` artefact PRODUCES'd against intent; flips SessionLifecycle.status → `archived`; also writes a Reflection(scope=reflection) linking SERVES + OBSERVED_DURING so the lessons surface in future-session search.
+- **`dogfood.record_decision(subject, decision, rationale, next_action, session_lifecycle_id)`** — records DecisionRecord SERVES intent + RELATES_TO session.
+- **`dogfood.boundary_use_audit(session_lifecycle_id="")`** — reads BoundaryUse nodes + suggests capability verbs that would have covered each (Bash → shell.run, Write → develop.scaffold_capability/edit_spec, etc.). Returns empty until Slice 2 hook layer records uses.
+- **`session-driver-pass` walkable skill** — 5 phases (init → mode-select → work-loop → synthesize → archive) ending in hard elicit.
+- **Ontology additions**:
+  - `develop.ontology`: SessionLifecycle + ModeShift nodes; `(SessionLifecycle, mode|status)` + `(ModeShift, from_mode|to_mode)` closed enums (SESSION_MODE = {brainstorming, spec-authoring, coding, review, synthesize}; SESSION_STATUS = {active, paused, archived}).
+  - `dogfood.ontology`: DecisionRecord + BoundaryUse nodes; RELATES_TO edge.
+  - `reflect.ontology`: session-reflection artefact schema.
+- **17 tests** in `tests/test_session_driver.py` covering: SessionLifecycle SERVES intent + enum bites; mode_hint honored + invalid hint falls through; session_check explicit/fallback/not_found; mode_select shift + lifecycle update + unknown-mode rejection; synthesize_session artefact production + archival + reflection surfacing; record_decision SERVES intent + RELATES_TO session (with/without session id) + DecisionRecord enum bites; boundary_use_audit empty + populated; 5-phase walkable skill shape + walk-through to hard elicit.
+- **Adjacent test updates**: `tests/test_agency.py::test_reflect_is_the_class_form` recognizes new `synthesize_session` verb; `tests/test_dogfood_graph_native.py::test_dogfood_has_five_verbs` → renamed to `_has_session_tracking_verbs`, expects 7 verbs.
+- **Full suite Green**: 1160 passed, 6 skipped. Block-mode lint clean on develop/reflect/dogfood.
+
+### Slice 2 — Still to implement
+- **Hook integration (`hooks/session-start.sh`)** — auto-invoke `develop.session_init` via the Spec 076 unified-hook substrate.
+- **BoundaryUse auto-recording** — every raw Write/Edit/Bash invocation gets a `BoundaryUse` node (via the same Spec 076 hook mechanism) so `boundary_use_audit` returns non-empty in real sessions.
+- **Cross-session handoff** — new session opening the same project auto-discovers prior SessionLifecycle via `Intent → SessionLifecycle` traversal; offers a resume option.
+- **Mode → skill mappings**: `develop.brainstorm` skill ✅ exists; `develop.write_spec`, `develop.implement`, `develop.review_pr` skills are proposed but not yet authored.
+
+### Evidence
+- code: `agency/capabilities/develop/_main.py` (3 verbs + ontology extension + walkable skill), `agency/capabilities/reflect/_main.py` (1 verb + schema), `agency/capabilities/dogfood/_main.py` (2 verbs + ontology extension).
+- tests: `tests/test_session_driver.py` (17 tests Green); full suite Green: 1160 passed.
+- lint: `plugin.lint_capability` on develop/reflect/dogfood — all `ok=True` block-mode, 0 violations.
+- branch: `claude/spec-114-session-driver`.
+
+### Original draft notes (2026-06-07) — preserved
 
 ### Done
 

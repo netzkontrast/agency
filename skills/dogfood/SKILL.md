@@ -23,16 +23,18 @@ Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exporte
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `boundary_use_audit` | transform | Audit BoundaryUse nodes — flag raw-tool uses where a verb exists (transform). | [details](references/boundary_use_audit.md) |
 | `collect` | transform | Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files; extract observations. | [details](references/collect.md) |
 | `export` | effect | Dump the provenance store to a portable JSON file. | [details](references/export.md) |
 | `import` | effect | Replay a JSON export into this graph, preserving ids + windows. | [details](references/import.md) |
 | `note` | act | Record an observation Reflection tagged with plan_slug. | [details](references/note.md) |
+| `record_decision` | effect | Bind a decision to the current session (effect). | [details](references/record_decision.md) |
 | `render` | transform | Project plan_slug observations into DOGFOOD-NOTES.md. | [details](references/render.md) |
 
 ## Example
 
 ```bash
-await call_tool('capability_dogfood_collect', {'intent_id': 'intent:abc'})
+await call_tool('capability_dogfood_boundary_use_audit', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill

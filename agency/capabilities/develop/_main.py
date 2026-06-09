@@ -239,7 +239,46 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
     return {"status": "completed", "skill_id": run.skill_id, "outputs": accumulated}
 
 
-develop_ontology = OntologyExtension(skills=dict(DEV_SKILLS))
+# Spec 114 — session-driver protocol: the plugin IS the primary session driver.
+# A SessionLifecycle node tracks the agent's current mode + the intent it serves;
+# ModeShift records explicit transitions; DecisionRecord captures binding
+# decisions; SessionReflection is the synthesize_session artefact at end-of-
+# session. See Plan/114-plugin-as-session-driver/spec.md.
+SESSION_MODE = {"brainstorming", "spec-authoring", "coding", "review",
+                "synthesize"}
+SESSION_STATUS = {"active", "paused", "archived"}
+
+SESSION_DRIVER_SKILL = {
+    "name": "session-driver-pass", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "init",
+         "produces": ["session_lifecycle_id", "intent_id", "mode"]},
+        {"index": 2, "name": "mode-select",
+         "produces": ["confirmed_mode"]},
+        {"index": 3, "name": "work-loop",
+         "produces": ["work_done"]},
+        {"index": 4, "name": "synthesize",
+         "produces": ["lessons_recorded"]},
+        {"index": 5, "name": "archive",
+         "produces": ["session_archived"], "gate": "hard"},
+    ],
+}
+
+develop_ontology = OntologyExtension(
+    skills={**DEV_SKILLS, "session-driver-pass": SESSION_DRIVER_SKILL},
+    nodes={
+        "SessionLifecycle": ["mode", "status"],
+        "ModeShift": ["from_mode", "to_mode"],   # optional: reason
+        # DecisionRecord lives on dogfood (Spec 114 §"Session-tracking cluster")
+    },
+    enums={
+        ("SessionLifecycle", "mode"): SESSION_MODE,
+        ("SessionLifecycle", "status"): SESSION_STATUS,
+        ("ModeShift", "from_mode"): SESSION_MODE,
+        ("ModeShift", "to_mode"): SESSION_MODE,
+    },
+    # session-reflection schema lives on reflect (the producing cap)
+)
 
 
 # ---- Plan/024 PR-A — scaffold_capability ----------------------------------
@@ -538,6 +577,140 @@ class DevelopCapability(CapabilityBase):
         chain_next: on input-required, re-call with resume_from + resume_with keys.
         """
         return _skill_walk(self.ctx, name, inputs, resume_from=resume_from)
+
+    # ════════════════════════════════════════════════════════════════════════
+    # Spec 114 — plugin-as-session-driver: 3 verbs for the session lifecycle
+    # (init / check / mode-select). reflect.synthesize_session +
+    # dogfood.record_decision + dogfood.boundary_use_audit live on their own
+    # caps. See Plan/114-plugin-as-session-driver/spec.md.
+    # ════════════════════════════════════════════════════════════════════════
+
+    @verb(role="act")
+    def session_init(self, purpose: str = "", deliverable: str = "",
+                      acceptance: str = "",
+                      mode_hint: str = "") -> dict:
+        """Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb.
+
+        The plugin's primary session-driver entry point (Spec 114 Pillar 1).
+        Records a SessionLifecycle node tied to the serving intent + an initial
+        mode (auto-detected from cwd state, or honoring ``mode_hint``).
+
+        Mode-detection heuristics (cheap, deterministic):
+          - cwd contains ``Plan/*/spec.md`` modified → ``spec-authoring``
+          - cwd contains ``agency/capabilities/*/*.py`` modified → ``coding``
+          - default → ``brainstorming``
+
+        Inputs: purpose, deliverable, acceptance (optional intent triple — if
+                empty, uses the serving intent's existing fields), mode_hint
+                (override the auto-detect).
+        Returns: ``{session_lifecycle_id, intent_id, mode, suggested_first_verb}``.
+        chain_next: ``develop.session_check`` to read state OR
+                    ``develop.mode_select`` to switch.
+        """
+        mode = mode_hint if mode_hint in SESSION_MODE else self._detect_mode()
+        sid = self.ctx.record("SessionLifecycle", {
+            "mode": mode, "status": "active",
+            "purpose": purpose or "session", "deliverable": deliverable,
+            "acceptance": acceptance,
+        })
+        self.ctx.link(sid, self.ctx.intent_id, "SERVES")
+        suggested = {
+            "brainstorming": "develop.brainstorm",
+            "spec-authoring": "develop.checklist",   # → write_spec
+            "coding": "develop.test",
+            "review": "develop.skill_walk",
+            "synthesize": "reflect.synthesize_session",
+        }.get(mode, "develop.brainstorm")
+        return {
+            "session_lifecycle_id": sid,
+            "intent_id": self.ctx.intent_id,
+            "mode": mode,
+            "suggested_first_verb": suggested,
+        }
+
+    @verb(role="transform")
+    def session_check(self, session_lifecycle_id: str = "") -> dict:
+        """Read the current SessionLifecycle state (transform).
+
+        Inputs: session_lifecycle_id (defaults to the most recent
+                SessionLifecycle SERVING the current intent).
+        Returns: ``{session_lifecycle_id, mode, status, mode_history}``.
+        chain_next: ``develop.mode_select`` to switch modes.
+        """
+        if session_lifecycle_id:
+            node = self.ctx.recall(session_lifecycle_id)
+        else:
+            sessions = [s for s in self.ctx.find("SessionLifecycle")]
+            node = sorted(sessions, key=lambda n: n.get("vfrom", 0),
+                          reverse=True)[0] if sessions else None
+        if not node:
+            return {"session_lifecycle_id": "", "mode": "",
+                    "status": "not_found", "mode_history": []}
+        # Mode history = ModeShift nodes for this session
+        shifts = [s for s in self.ctx.find("ModeShift")]
+        history = sorted(
+            [{"from": s["from_mode"], "to": s["to_mode"],
+              "reason": s.get("reason", "")} for s in shifts],
+            key=lambda h: h.get("vfrom", 0))
+        return {
+            "session_lifecycle_id": node.get("id", session_lifecycle_id),
+            "mode": node.get("mode", ""),
+            "status": node.get("status", ""),
+            "purpose": node.get("purpose", ""),
+            "mode_history": history,
+        }
+
+    @verb(role="effect")
+    def mode_select(self, session_lifecycle_id: str,
+                     new_mode: str, reason: str = "") -> dict:
+        """Switch session mode + record a ModeShift node (effect).
+
+        Inputs: session_lifecycle_id, new_mode (one of ``SESSION_MODE``), reason.
+        Returns: ``{from_mode, to_mode, mode_shift_id}``.
+        chain_next: the walkable skill for the new mode.
+        """
+        if new_mode not in SESSION_MODE:
+            raise ValueError(
+                f"mode={new_mode!r} not in {sorted(SESSION_MODE)}")
+        node = self.ctx.recall(session_lifecycle_id)
+        if not node:
+            raise KeyError(
+                f"SessionLifecycle {session_lifecycle_id!r} not found")
+        from_mode = node.get("mode", "brainstorming")
+        shift_id = self.ctx.record("ModeShift", {
+            "from_mode": from_mode, "to_mode": new_mode,
+            "reason": reason,
+        })
+        self.ctx.link(shift_id, session_lifecycle_id, "SERVES")
+        self.ctx.update(session_lifecycle_id, {"mode": new_mode})
+        return {
+            "from_mode": from_mode, "to_mode": new_mode,
+            "mode_shift_id": shift_id,
+        }
+
+    def _detect_mode(self) -> str:
+        """Cheap deterministic mode-detection from cwd state.
+
+        Inspects the current working directory for modified spec / code files
+        via `git status --short`. Returns a SESSION_MODE value.
+        """
+        import subprocess
+        try:
+            res = subprocess.run(
+                ["git", "status", "--short"], capture_output=True,
+                text=True, timeout=2, check=False)
+            output = res.stdout or ""
+        except (FileNotFoundError, subprocess.SubprocessError):
+            return "brainstorming"
+        has_spec = any("Plan/" in ln and ".md" in ln
+                       for ln in output.splitlines())
+        has_code = any("agency/capabilities/" in ln and ln.endswith(".py")
+                       for ln in output.splitlines())
+        if has_spec and not has_code:
+            return "spec-authoring"
+        if has_code:
+            return "coding"
+        return "brainstorming"
 
     @verb(role="act")
     def record_authoring_outcome(self, name: str, kind: str = "light") -> dict:

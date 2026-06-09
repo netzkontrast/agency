@@ -28,6 +28,7 @@ Reflect is the cross-session memory surface: scope-tagged notes recorded as grap
 | `recall` | transform | Retrieve reflections, newest first, optionally filtered by scope. | [details](references/recall.md) |
 | `recall_semantic` | transform | Semantic top-k recall over Reflection nodes; backend-injectable. | [details](references/recall_semantic.md) |
 | `search` | transform | Keyword search over reflection text (deterministic substring match). | [details](references/search.md) |
+| `synthesize_session` | act | Produce a session-reflection artefact at session close (act). | [details](references/synthesize_session.md) |
 
 ## Example
 

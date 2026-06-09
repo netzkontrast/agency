@@ -20,6 +20,7 @@ import time
 
 from ...capability import CapabilityBase, RenderTemplates, verb
 from ...memory import OPEN
+from ...ontology import OntologyExtension
 
 
 _EXPORT_VERSION = 1   # bump on shape changes
@@ -89,6 +90,18 @@ class DogfoodCapability(CapabilityBase):
     name = "dogfood"
     home = "memory"
     render_templates = RenderTemplates.from_module(__file__)
+    # Spec 114 — session-tracking ontology: DecisionRecord binds decisions to
+    # a session; BoundaryUse records a raw-tool invocation so future sessions
+    # can detect "should have called a capability verb" patterns.
+    ontology = OntologyExtension(
+        nodes={
+            # `rationale` required for grounded decisions; `next_action`
+            # optional. SessionLifecycle linkage via RELATES_TO when known.
+            "DecisionRecord": ["subject", "decision", "rationale"],
+            "BoundaryUse":    ["tool", "argument_summary"],
+        },
+        edges={"RELATES_TO"},        # DecisionRecord → SessionLifecycle
+    )
 
     # -----------------------------------------------------------------
     # Spec 017 — graph-native authoring path.
@@ -434,3 +447,68 @@ class DogfoodCapability(CapabilityBase):
             "plans": plans,
             "warnings": warnings,
         }
+
+    # ════════════════════════════════════════════════════════════════════════
+    # Spec 114 — session-tracking: bind decisions + audit boundary uses.
+    # ════════════════════════════════════════════════════════════════════════
+
+    @verb(role="effect")
+    def record_decision(self, subject: str, decision: str,
+                         rationale: str = "",
+                         next_action: str = "",
+                         session_lifecycle_id: str = "") -> dict:
+        """Bind a decision to the current session (effect).
+
+        Creates a `DecisionRecord` node SERVING the intent. Optionally edges
+        to a SessionLifecycle so the decision history is queryable.
+
+        Inputs: subject (what was decided about), decision (the choice),
+                rationale (why), next_action (what follows), session_lifecycle_id
+                (optional — links the DecisionRecord to the session).
+        Returns: ``{decision_id, subject, decision}``.
+        chain_next: act on `next_action`, or `reflect.note` the rationale.
+        """
+        did = self.ctx.record("DecisionRecord", {
+            "subject": subject, "decision": decision,
+            "rationale": rationale, "next_action": next_action,
+        })
+        self.ctx.link(did, self.ctx.intent_id, "SERVES")
+        if session_lifecycle_id:
+            self.ctx.link(did, session_lifecycle_id, "RELATES_TO")
+        return {"decision_id": did, "subject": subject,
+                "decision": decision}
+
+    @verb(role="transform")
+    def boundary_use_audit(self,
+                            session_lifecycle_id: str = "") -> dict:
+        """Audit BoundaryUse nodes — flag raw-tool uses where a verb exists (transform).
+
+        Reads all BoundaryUse nodes in the graph (recorded by Spec 076's
+        unified hook layer when a raw Write/Edit/Bash fires) and lists each
+        with a suggestion: did a capability verb exist for that boundary?
+        The Spec 076 hook integration ships in Slice 2; this verb is the
+        read-side that future-sessions will consult.
+
+        Inputs: session_lifecycle_id (optional; if given, filters to uses
+                related to that session).
+        Returns: ``{uses: [{tool, argument_summary, suggested_verb}], count}``.
+        chain_next: walk the verbs surfaced in `suggested_verb` for the next session.
+        """
+        uses = self.ctx.find("BoundaryUse")
+        # Suggestion mapping (Pillar 2 of Spec 114 — capability-first routing)
+        _SUGGEST = {
+            "Write": "develop.scaffold_capability OR edit_spec (future)",
+            "Edit":  "develop.edit_spec (future) OR direct verb call",
+            "Bash":  "shell.run (Spec 075) or branch.commit_smart",
+            "WebFetch": "research.fetch (future)",
+            "Grep":  "analyze.search (future)",
+        }
+        out = []
+        for u in uses:
+            tool = u.get("tool", "")
+            out.append({
+                "tool": tool,
+                "argument_summary": u.get("argument_summary", ""),
+                "suggested_verb": _SUGGEST.get(tool, "(none)"),
+            })
+        return {"uses": out, "count": len(out)}
