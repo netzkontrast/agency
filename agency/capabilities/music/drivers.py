@@ -63,8 +63,32 @@ class StateDriver(Driver, Protocol):
 
 @runtime_checkable
 class TextDriver(Driver, Protocol):
-    """Pure text analysis (syllables, pronunciation) — no external process."""
+    """Pure text analysis — no external process.
+
+    Spec 095 extends the surface with 11 new methods that mirror the bitwize
+    ``text_analysis``/``lyrics_analysis`` handler shape (pattern-table-driven,
+    no `pronouncing`/`textstat` deps). Real deployments can later bind
+    `pronouncing` etc. via the ``[lyrics]`` extra; the fake covers all of
+    them with stdlib + bundled pattern tables.
+    """
+    # ── 007 baseline ──
     def syllables(self, word: str) -> int: ...
+
+    # ── 095 — lyrics cluster method delta ──
+    def stats(self, text: str) -> dict: ...
+    def rhyme_scheme(self, lines: list[str]) -> dict: ...
+    def readability(self, text: str) -> dict: ...
+    def pronunciation(self, text: str, guide: dict | None = None) -> list[dict]: ...
+    def homographs(self, text: str) -> list[dict]: ...
+    def streaming_safe(self, text: str, platform: str = "spotify") -> dict: ...
+    def cross_track(self, tracks: list[str]) -> dict: ...
+    def explicit(self, text: str) -> dict: ...
+    def distinctive_phrases(self, text: str, corpus: list[str]) -> list[str]: ...
+    def extract_section(self, text: str, label: str) -> str: ...
+    def validate_sections(self, text: str) -> dict: ...
+    def scan_artist_names(self, text: str,
+                          allow: list[str] | None = None) -> list[dict]: ...
+    def voice_tells(self, text: str) -> list[dict]: ...
 
 
 @runtime_checkable
@@ -247,8 +271,47 @@ class FakeStateDriver:
 
 
 class FakeTextDriver:
-    _VOWELS = "aeiouy"
+    """In-memory TextDriver fake — Spec 095 lyrics-cluster surface.
 
+    Deterministic, stdlib-only implementations: covers the 14 user verbs +
+    4 gate verbs without any `pronouncing`/`textstat` dep. Pattern tables
+    (homograph list, explicit lexicon, voice-tell heuristics) are bundled
+    inline + can be widened via the OntologyExtension's data folder later.
+    """
+    _VOWELS = "aeiouy"
+    # Minimal pattern tables — deepened by Slice 2+ via YAML in
+    # data/reference/. Each entry's behaviour is decidable + cheap.
+    _HOMOGRAPHS: dict[str, list[str]] = {
+        "lead":   ["led (verb, past)", "leed (metal)"],
+        "tear":   ["teer (rip)", "teir (eye-water)"],
+        "read":   ["reed (present)", "red (past)"],
+        "wind":   ["wynd (turn)", "wihnd (air)"],
+    }
+    _PRONUNCIATION_GUIDE: dict[str, str] = {
+        "phreaker": "freak-er",
+        "synth":    "sinth",
+        "modem":    "mo-dem",
+    }
+    # Exact-word-match only — derived forms ("fucking", "fucked", "shitter")
+    # slip through. Documented limitation; widen via the bundled
+    # `data/reference/` YAML when Slice 2 of 095 lands the override-path.
+    # CLAUDE.md rule 8: this is a tunable budget, not a snapshot — the v1
+    # lexicon stays minimal until real corpus data justifies expansion.
+    _EXPLICIT_LEXICON: set[str] = {"fuck", "shit", "damn", "bitch", "ass"}
+    _SUGGESTIVE_LEXICON: set[str] = {"hell", "crap", "piss"}
+    _VOICE_TELLS: list[tuple[str, str]] = [
+        # (heuristic_key, severity)
+        ("abstract_noun_stack", "warning"),  # ≥3 abstract nouns in 2 lines
+        ("cliche_escalation",   "info"),     # "deeper than", "more than ever"
+        ("over_explained_metaphor", "info"), # like a + simile + because clause
+        ("missing_idiosyncrasy", "info"),    # zero proper nouns + zero numbers
+    ]
+    _ABSTRACT_NOUNS = {"love", "hope", "fear", "truth", "soul", "heart",
+                       "dream", "freedom", "destiny", "passion"}
+    _ARTIST_BLOCKLIST = {"drake", "beyonce", "taylor swift", "kendrick",
+                         "sza", "the weeknd"}
+
+    # ── 007 baseline ──
     def syllables(self, word: str) -> int:
         """A deterministic syllable heuristic (vowel-group count, ≥ 1) — driver-free
         text math, no external pronunciation dictionary."""
@@ -262,6 +325,196 @@ class FakeTextDriver:
         if w.endswith("e") and count > 1:        # silent trailing 'e'
             count -= 1
         return max(1, count)
+
+    # ── 095 — lyrics cluster delta ──
+    def stats(self, text: str) -> dict:
+        lines = [ln for ln in text.splitlines() if ln.strip()]
+        words = text.split()
+        return {"lines": len(lines), "words": len(words),
+                "syllables": sum(self.syllables(w) for w in words),
+                "chars": len(text)}
+
+    def rhyme_scheme(self, lines: list[str]) -> dict:
+        """Build a rhyme scheme by clustering trailing syllables.
+
+        Two lines rhyme iff their last word's 2-character tail matches.
+        Returns ``{scheme, groups, self_rhymes}``.
+        """
+        labels: dict[str, str] = {}
+        next_label = 0
+        scheme_chars = []
+        self_rhymes = 0
+        for ln in lines:
+            words = ln.strip().split()
+            if not words:
+                scheme_chars.append("-")
+                continue
+            tail = words[-1].lower().rstrip(",.!?\"'")[-2:]
+            if tail in labels:
+                scheme_chars.append(labels[tail])
+            else:
+                lbl = chr(ord("A") + next_label) if next_label < 26 else "Z"
+                labels[tail] = lbl
+                next_label += 1
+                scheme_chars.append(lbl)
+            if len(words) >= 2 and words[-1].lower() == words[-2].lower():
+                self_rhymes += 1
+        return {"scheme": "".join(scheme_chars), "groups": len(labels),
+                "self_rhymes": self_rhymes}
+
+    def readability(self, text: str) -> dict:
+        """Flesch-Kincaid-shaped readability (no `textstat` dep)."""
+        words = text.split()
+        sentences = max(1, sum(1 for ch in text if ch in ".!?"))
+        syll = sum(self.syllables(w) for w in words) or 1
+        fk_grade = 0.39 * (len(words) / sentences) + 11.8 * (syll / max(len(words), 1)) - 15.59
+        return {"grade_level": round(fk_grade, 2),
+                "avg_words_per_sentence": len(words) / sentences,
+                "avg_syllables_per_word": syll / max(len(words), 1)}
+
+    def pronunciation(self, text: str, guide: dict | None = None) -> list[dict]:
+        guide = guide or self._PRONUNCIATION_GUIDE
+        findings = []
+        for word in text.lower().split():
+            stripped = word.strip(",.!?\"'()[]")
+            if stripped in guide:
+                findings.append({"word": stripped,
+                                 "suggested": guide[stripped],
+                                 "severity": "warning"})
+        return findings
+
+    def homographs(self, text: str) -> list[dict]:
+        findings = []
+        for word in text.lower().split():
+            stripped = word.strip(",.!?\"'()[]")
+            if stripped in self._HOMOGRAPHS:
+                findings.append({"word": stripped,
+                                 "ambiguous_readings": self._HOMOGRAPHS[stripped],
+                                 "severity": "info"})
+        return findings
+
+    def streaming_safe(self, text: str, platform: str = "spotify") -> dict:
+        # Streaming platforms strip bracketed section tags; we flag them.
+        bracketed = sum(1 for ln in text.splitlines()
+                        if ln.strip().startswith("[") and ln.strip().endswith("]"))
+        return {"platform": platform, "bracket_tags": bracketed,
+                "safe": bracketed == 0,
+                "fix": "strip [Verse]/[Chorus] tags before upload"
+                       if bracketed else None}
+
+    def cross_track(self, tracks: list[str]) -> dict:
+        seen_lines: dict[str, list[int]] = {}
+        for i, t in enumerate(tracks):
+            for ln in t.splitlines():
+                norm = ln.strip().lower()
+                if len(norm.split()) < 3:
+                    continue
+                seen_lines.setdefault(norm, []).append(i)
+        repeats = {ln: ids for ln, ids in seen_lines.items()
+                   if len({i for i in ids}) > 1}
+        return {"repeated_lines": len(repeats),
+                "track_count": len(tracks),
+                "examples": list(repeats.items())[:5]}
+
+    def explicit(self, text: str) -> dict:
+        words = {w.lower().strip(",.!?\"'()[]") for w in text.split()}
+        explicit_hits = words & self._EXPLICIT_LEXICON
+        suggestive_hits = words & self._SUGGESTIVE_LEXICON
+        if explicit_hits:
+            rating = "explicit"
+        elif suggestive_hits:
+            rating = "suggestive"
+        else:
+            rating = "clean"
+        return {"rating": rating, "explicit_words": sorted(explicit_hits),
+                "suggestive_words": sorted(suggestive_hits)}
+
+    def distinctive_phrases(self, text: str, corpus: list[str]) -> list[str]:
+        """Return tri-grams in `text` that don't appear in any line of `corpus`."""
+        words = [w.lower().strip(",.!?\"'") for w in text.split() if w.strip()]
+        trigrams = [" ".join(words[i:i+3]) for i in range(len(words) - 2)]
+        corpus_blob = " ".join(corpus).lower()
+        return [tg for tg in trigrams if tg and tg not in corpus_blob][:10]
+
+    def extract_section(self, text: str, label: str) -> str:
+        """Extract the body under a ``[<label>]`` section tag (e.g. ``Verse 1``)."""
+        target = f"[{label}]".lower()
+        lines = text.splitlines()
+        out = []
+        capture = False
+        for ln in lines:
+            stripped = ln.strip()
+            if stripped.lower() == target:
+                capture = True
+                continue
+            if capture and stripped.startswith("[") and stripped.endswith("]"):
+                break
+            if capture:
+                out.append(ln)
+        return "\n".join(out).strip()
+
+    def validate_sections(self, text: str) -> dict:
+        """Section tags must be ``[<Title Case>]``; raises findings on malformed."""
+        findings = []
+        for i, ln in enumerate(text.splitlines(), 1):
+            s = ln.strip()
+            if s.startswith("[") and s.endswith("]"):
+                inner = s[1:-1]
+                if not inner or inner.lower() == inner:
+                    findings.append({"line": i, "tag": s,
+                                     "issue": "title-case required",
+                                     "severity": "warning"})
+        return {"findings": findings, "ok": not findings}
+
+    def scan_artist_names(self, text: str,
+                          allow: list[str] | None = None) -> list[dict]:
+        allow_set = {a.lower() for a in (allow or [])}
+        blob = text.lower()
+        hits = []
+        for name in self._ARTIST_BLOCKLIST:
+            if name in blob and name not in allow_set:
+                hits.append({"name": name, "severity": "warning",
+                             "fix": f"replace or add to allow-list"})
+        return hits
+
+    def voice_tells(self, text: str) -> list[dict]:
+        """Heuristic AI-tell detection — advisory only (no gate impact)."""
+        findings = []
+        lines = [ln.lower() for ln in text.splitlines() if ln.strip()]
+        # Heuristic 1: abstract-noun stacking (≥3 in any 2-line window)
+        for i in range(len(lines) - 1):
+            window = lines[i] + " " + lines[i + 1]
+            stack = sum(1 for n in self._ABSTRACT_NOUNS if n in window.split())
+            if stack >= 3:
+                findings.append({"heuristic": "abstract_noun_stack",
+                                 "line": i + 1, "severity": "warning",
+                                 "fix": "swap abstract nouns for concrete imagery"})
+                break
+        # Heuristic 2: cliché escalation
+        cliches = ["deeper than", "more than ever", "stronger than", "harder than"]
+        for c in cliches:
+            if c in text.lower():
+                findings.append({"heuristic": "cliche_escalation",
+                                 "phrase": c, "severity": "info",
+                                 "fix": "replace with a specific image"})
+                break
+        # Heuristic 3: missing idiosyncrasy (no proper nouns + no digits).
+        # Strip ``[Section Tag]`` lines first so `[Verse 1]` doesn't satisfy
+        # the digit check (review finding: section tags don't count as
+        # lyric content for this heuristic).
+        body_lines = [ln for ln in text.splitlines()
+                      if not (ln.strip().startswith("[")
+                              and ln.strip().endswith("]"))]
+        body_text = "\n".join(body_lines)
+        has_proper = any(w[0].isupper() and len(w) > 1
+                         for ln in body_lines for w in ln.split()
+                         if w and w[0].isupper())
+        has_digit = any(ch.isdigit() for ch in body_text)
+        if not has_proper and not has_digit:
+            findings.append({"heuristic": "missing_idiosyncrasy",
+                             "severity": "info",
+                             "fix": "add a proper noun, number, or specific detail"})
+        return findings
 
 
 class FakeAudioDriver:

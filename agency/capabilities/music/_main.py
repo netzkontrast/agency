@@ -43,6 +43,16 @@ from .ontology import (
 _VOWELS = "aeiouy"
 _SLUG_BAD = (" ", "/", "\\", ".", ",", "!", "?", "'", "\"", "(", ")", "[", "]")
 
+# Spec 095 — prosody-gate tunables (CLAUDE.md rule 8: documented budgets, not
+# snapshots). The MIN_RHYME_GROUPS bound = "actual rhyming needs at least 2
+# distinct rhyme groups; all-A monorhyme is an opinionated reject — set the
+# bound to 1 via a verb-param override if your genre (hip-hop, blues) wants
+# monorhyme to pass". The SYLLABLE_TOLERANCE = ±2 syllables around the
+# per-line target — a default; per-genre tuning lands when the YAML preset
+# layer ships (deferred to Slice 2+).
+_MIN_RHYME_GROUPS: int = 2
+_SYLLABLE_TOLERANCE: int = 2
+
 
 def _slugify(text: str) -> str:
     """Deterministic slugifier — lowercase, replace non-alnum with hyphen, collapse."""
@@ -653,6 +663,352 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure("DEPENDENCY_MISSING",
                                       "no 'music_state' driver registered")
         return ToolResult.success(data={"session": state.get_session()})
+
+    # ════════════════════════════════════════════════════════════════════════
+    # Spec 095 — lyrics cluster: 13 NEW transforms + 4 composite gate verbs
+    # ════════════════════════════════════════════════════════════════════════
+
+    @verb(role="transform")
+    def analyze_rhyme_scheme(self, lyrics: str) -> ToolResult:
+        """Build a rhyme scheme (A/B/C labels) over the lyric lines (transform).
+
+        Inputs: lyrics (multi-line text).
+        Returns: ``{scheme, groups, self_rhymes}`` via TextDriver.rhyme_scheme.
+        chain_next: ``music.prosody_gate`` for an integrated prosody check.
+        """
+        try:
+            text = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        lines = [ln for ln in lyrics.splitlines() if ln.strip()]
+        return ToolResult.success(data=text.rhyme_scheme(lines))
+
+    @verb(role="transform")
+    def analyze_readability(self, text_: str) -> ToolResult:
+        """Flesch-Kincaid-shaped readability over the lyric text (transform).
+
+        Inputs: text_ (multi-line — `text` is a builtin so kw is suffixed).
+        Returns: ``{grade_level, avg_words_per_sentence, avg_syllables_per_word}``.
+        chain_next: pair with ``music.analyze_rhyme_scheme`` for a full prosody view.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        return ToolResult.success(data=drv.readability(text_))
+
+    @verb(role="transform")
+    def check_pronunciation(self, lyrics: str) -> ToolResult:
+        """Flag words requiring forced pronunciation per the bundled guide (transform).
+
+        Inputs: lyrics (multi-line text).
+        Returns: ``{findings: [{word, suggested, severity}], count}``.
+        chain_next: ``music.pronunciation_gate`` to gate the lyric-writing skill.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        findings = drv.pronunciation(lyrics)
+        return ToolResult.success(data={"findings": findings,
+                                        "count": len(findings)})
+
+    @verb(role="transform")
+    def check_homographs(self, lyrics: str) -> ToolResult:
+        """Flag words with multiple legitimate pronunciations (transform).
+
+        Inputs: lyrics.
+        Returns: ``{findings: [{word, ambiguous_readings, severity}], count}``.
+        chain_next: ``music.pronunciation_gate``.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        findings = drv.homographs(lyrics)
+        return ToolResult.success(data={"findings": findings,
+                                        "count": len(findings)})
+
+    @verb(role="transform")
+    def check_streaming_lyrics(self, lyrics: str,
+                                platform: str = "spotify") -> ToolResult:
+        """Check the lyric body for platform-incompatible markup (transform).
+
+        Inputs: lyrics, platform (default ``spotify``).
+        Returns: ``{platform, bracket_tags, safe, fix?}``.
+        chain_next: strip bracket tags before upload if ``safe=False``.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        return ToolResult.success(data=drv.streaming_safe(lyrics, platform))
+
+    @verb(role="transform")
+    def check_cross_track_repetition(self, tracks: list[str]) -> ToolResult:
+        """Flag lyric lines repeated across multiple album tracks (transform).
+
+        Inputs: tracks (list of lyric bodies, one per track).
+        Returns: ``{repeated_lines, track_count, examples}``.
+        chain_next: ``music.repetition_gate``.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        return ToolResult.success(data=drv.cross_track(tracks))
+
+    @verb(role="transform")
+    def check_explicit_content(self, lyrics: str) -> ToolResult:
+        """Classify lyrics as clean / suggestive / explicit (transform).
+
+        Inputs: lyrics.
+        Returns: ``{rating, explicit_words, suggestive_words}``.
+        chain_next: ``music.explicit_gate``.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        return ToolResult.success(data=drv.explicit(lyrics))
+
+    @verb(role="transform")
+    def extract_distinctive_phrases(self, lyrics: str,
+                                     corpus: list[str] | None = None) -> ToolResult:
+        """Return novel tri-grams (not in corpus) from the lyrics (transform).
+
+        Inputs: lyrics, corpus (list of comparison lyric bodies — defaults to []).
+        Returns: ``{phrases: [...], count}``.
+        chain_next: use distinctive phrases as marketing hooks.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        phrases = drv.distinctive_phrases(lyrics, corpus or [])
+        return ToolResult.success(data={"phrases": phrases,
+                                        "count": len(phrases)})
+
+    @verb(role="transform")
+    def extract_section(self, lyrics: str, label: str) -> ToolResult:
+        """Extract the body under a ``[<label>]`` section tag (transform).
+
+        Inputs: lyrics, label (e.g. ``Verse 1``).
+        Returns: ``{section, body}``.
+        chain_next: pass the section body to a per-section transform.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        body = drv.extract_section(lyrics, label)
+        return ToolResult.success(data={"section": label, "body": body})
+
+    @verb(role="transform")
+    def validate_section_structure(self, lyrics: str) -> ToolResult:
+        """Validate section tag well-formedness (Title Case in brackets) (transform).
+
+        Inputs: lyrics.
+        Returns: ``{ok, findings: [{line, tag, issue, severity}]}``.
+        chain_next: fix flagged tags before the prosody pass.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        return ToolResult.success(data=drv.validate_sections(lyrics))
+
+    @verb(role="transform")
+    def scan_artist_names(self, lyrics: str,
+                          allow: list[str] | None = None) -> ToolResult:
+        """Scan for accidental artist-name drops against the blocklist (transform).
+
+        Inputs: lyrics, allow (allowlist of explicitly permitted artist mentions).
+        Returns: ``{hits: [{name, severity, fix}], count}``.
+        chain_next: replace flagged names or extend the allowlist.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        hits = drv.scan_artist_names(lyrics, allow or [])
+        return ToolResult.success(data={"hits": hits, "count": len(hits)})
+
+    @verb(role="transform")
+    def check_voice_tells(self, lyrics: str) -> ToolResult:
+        """AI-tell rule-based detector (advisory only — no gate impact) (transform).
+
+        Inputs: lyrics.
+        Returns: ``{findings: [{heuristic, severity, fix}], count}``.
+        chain_next: rewrite flagged lines for idiosyncrasy.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        findings = drv.voice_tells(lyrics)
+        return ToolResult.success(data={"findings": findings,
+                                        "count": len(findings)})
+
+    # ── 4 composite gate verbs — called by the lyric-writing skill ──
+
+    @verb(role="effect")
+    def prosody_gate(self, lifecycle_id: str, lyrics: str,
+                     syllable_target: int = 0) -> ToolResult:
+        """Computed prosody gate — composes rhyme + syllable checks (effect).
+
+        Passes iff rhyme_scheme has ≥ 2 groups (real rhyming, not all-A) AND
+        (when syllable_target > 0) avg line syllables within ±2 of target.
+        Records PASSED/BLOCKED_ON on the lifecycle via gate.check.
+
+        Inputs: lifecycle_id, lyrics, syllable_target (0 = skip).
+        Returns: ``{gate, passed, evidence}`` or typed GATE_FAILED.
+        chain_next: on failure, revise lyrics + re-check.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        lines = [ln for ln in lyrics.splitlines() if ln.strip()]
+        rhyme = drv.rhyme_scheme(lines)
+        problems = []
+        if rhyme["groups"] < _MIN_RHYME_GROUPS:
+            problems.append(
+                f"rhyme_scheme has {rhyme['groups']} group(s) "
+                f"(min {_MIN_RHYME_GROUPS})")
+        if syllable_target > 0:
+            stats = drv.stats(lyrics)
+            avg = stats["syllables"] / max(stats["lines"], 1)
+            if abs(avg - syllable_target) > _SYLLABLE_TOLERANCE:
+                problems.append(
+                    f"avg syllables {avg:.1f} differs from target "
+                    f"{syllable_target} by > {_SYLLABLE_TOLERANCE}")
+        passed = not problems
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="prosody", passed=passed,
+                      evidence="ok" if passed else "; ".join(problems))
+        if not passed:
+            return ToolResult.failure("GATE_FAILED",
+                                      f"prosody: {'; '.join(problems)}")
+        return ToolResult.success(data={"gate": "prosody", "passed": True,
+                                        "evidence": rhyme})
+
+    @verb(role="effect")
+    def pronunciation_gate(self, lifecycle_id: str,
+                            lyrics: str) -> ToolResult:
+        """Computed pronunciation gate — composes pronunciation + homograph (effect).
+
+        Passes iff zero pronunciation findings AND zero homograph findings.
+        Records PASSED/BLOCKED_ON on the lifecycle via gate.check.
+
+        Inputs: lifecycle_id, lyrics.
+        Returns: ``{gate, passed, evidence}`` or typed GATE_FAILED.
+        chain_next: resolve flagged words then re-check.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        prn = drv.pronunciation(lyrics)
+        hom = drv.homographs(lyrics)
+        passed = not prn and not hom
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="pronunciation", passed=passed,
+                      evidence=(f"clean" if passed else
+                                f"pronunciation:{len(prn)} homograph:{len(hom)}"))
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"pronunciation: {len(prn)} forced + {len(hom)} ambiguous")
+        return ToolResult.success(data={"gate": "pronunciation",
+                                        "passed": True,
+                                        "pronunciation": prn,
+                                        "homographs": hom})
+
+    @verb(role="effect")
+    def repetition_gate(self, lifecycle_id: str,
+                         tracks: list[str]) -> ToolResult:
+        """Computed cross-track repetition gate (effect).
+
+        Passes iff no lyric line is repeated across multiple tracks.
+        Records PASSED/BLOCKED_ON on the lifecycle via gate.check.
+
+        Inputs: lifecycle_id, tracks (list of lyric bodies).
+        Returns: ``{gate, passed, evidence}`` or typed GATE_FAILED.
+        chain_next: rewrite the repeated lines on one of the tracks.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        report = drv.cross_track(tracks)
+        passed = report["repeated_lines"] == 0
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="repetition", passed=passed,
+                      evidence=("ok" if passed else
+                                f"{report['repeated_lines']} repeats"))
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"repetition: {report['repeated_lines']} cross-track repeats")
+        return ToolResult.success(data={"gate": "repetition", "passed": True,
+                                        "report": report})
+
+    @verb(role="effect")
+    def explicit_gate(self, lifecycle_id: str, lyrics: str,
+                       allow_explicit: bool = False) -> ToolResult:
+        """Computed explicit-content gate (effect).
+
+        Passes iff rating ∈ {clean, suggestive} OR ``allow_explicit=True``.
+        Records the rating on the gate's evidence so audit knows what was
+        OK'd. Records PASSED/BLOCKED_ON on the lifecycle via gate.check.
+
+        Inputs: lifecycle_id, lyrics, allow_explicit (default False).
+        Returns: ``{gate, passed, rating}`` or typed GATE_FAILED.
+        chain_next: rewrite explicit words OR re-call with allow_explicit=True
+                    if the release is intentionally explicit.
+        """
+        try:
+            drv = self.ctx.get_driver("music_text")
+        except DriverMissing:
+            return ToolResult.failure("DEPENDENCY_MISSING",
+                                      "no 'music_text' driver registered")
+        report = drv.explicit(lyrics)
+        # `allow_explicit=True` is an override path — the gate passes BUT the
+        # evidence string carries an explicit override marker so audit can
+        # distinguish "clean pass" from "explicit content was OK'd". Review
+        # finding: without the marker the two passes look identical.
+        is_override = report["rating"] == "explicit" and allow_explicit
+        passed = report["rating"] != "explicit" or allow_explicit
+        evidence = f"rating={report['rating']}"
+        if is_override:
+            evidence += " +allow_explicit"
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="explicit", passed=passed,
+                      evidence=evidence)
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"explicit: rating={report['rating']} (set allow_explicit=True "
+                f"to ship)")
+        return ToolResult.success(data={"gate": "explicit", "passed": True,
+                                        "rating": report["rating"],
+                                        "override": is_override})
 
     # ───────── health cluster (transform, driver-free) ─────────
     @verb(role="transform")

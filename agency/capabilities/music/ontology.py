@@ -66,6 +66,42 @@ RELEASE_QA_SKILL = {
     ],
 }
 
+# Spec 095 — lyric-writing workflow skill. 6 phases ending in a hard elicit.
+# Computed gates at prosody / pronunciation / cross-track / explicit delegate to
+# tiny *_gate verbs (the lifecycle cluster pattern from 007: pregen_check,
+# release_check) — each verb composes the underlying transforms + calls
+# gate.check to record PASSED/BLOCKED_ON on the lifecycle.
+#
+# Note on `gate_verb`: this is **advisory metadata for the dispatching agent**,
+# not a walker auto-invoke directive. The agency skill walker
+# (`agency/skill.py`) advances on `run.submit(fills)` only; it does NOT call
+# the named gate_verb itself. The agent walking the skill is expected to
+# invoke the gate verb between phase submits (CORE.md:57-62 — progressive
+# disclosure means the walker emits one phase at a time; verb dispatch is
+# the orchestrating agent's job). Reading `phase["gate_verb"]` tells the
+# agent "this is the right gate to call before submitting this phase's
+# fills". A future walker enhancement could automate this; v1 is metadata.
+LYRIC_WRITING_SKILL = {
+    "name": "lyric-writing", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "draft", "produces": ["lyrics_draft"]},
+        {"index": 2, "name": "prosody",
+         "produces": ["syllable_target_met", "rhyme_scheme_valid"],
+         "gate": "computed", "gate_verb": "music.prosody_gate"},
+        {"index": 3, "name": "pronunciation",
+         "produces": ["pronunciation_clean"],
+         "gate": "computed", "gate_verb": "music.pronunciation_gate"},
+        {"index": 4, "name": "cross-track",
+         "produces": ["no_album_wide_repeats"],
+         "gate": "computed", "gate_verb": "music.repetition_gate"},
+        {"index": 5, "name": "explicit",
+         "produces": ["explicit_rating_assigned"],
+         "gate": "computed", "gate_verb": "music.explicit_gate"},
+        {"index": 6, "name": "finalize",
+         "produces": ["lyrics_locked"], "gate": "hard"},
+    ],
+}
+
 
 IDEA_STATUS = {"new", "promoted", "dropped"}
 
@@ -92,10 +128,17 @@ music_ontology = OntologyExtension(
     },
     skills={"album-concept": ALBUM_CONCEPT_SKILL,
             "pre-generation": PRE_GENERATION_SKILL,
-            "release-qa": RELEASE_QA_SKILL},
+            "release-qa": RELEASE_QA_SKILL,
+            "lyric-writing": LYRIC_WRITING_SKILL},   # 095 NEW
     schemas={"album-concept": ["artist", "title", "type"],
              "promo-copy": ["album", "body"],
              "mastering-report": ["album", "body"],
              "lyric-report": ["album", "body"],
-             "sheet-music": ["album", "body"]},
+             "sheet-music": ["album", "body"],
+             # 095 NEW — lyric cluster artefact reports
+             "pronunciation-report": ["album", "track", "findings"],
+             "prosody-report":       ["album", "track", "scheme"],
+             "cross-track-report":   ["album", "repeated_lines"],
+             "explicit-scan":        ["album", "track", "rating"],
+             "voice-check":          ["album", "track", "findings"]},
 )
