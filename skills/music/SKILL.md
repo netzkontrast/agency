@@ -30,8 +30,10 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `analyze_mix` | transform | Analyse a mix for loudness issues via the AudioDriver (transform). | [details](references/analyze_mix.md) |
 | `analyze_readability` | transform | Flesch-Kincaid-shaped readability over the lyric text (transform). | [details](references/analyze_readability.md) |
 | `analyze_rhyme_scheme` | transform | Build a rhyme scheme (A/B/C labels) over the lyric lines (transform). | [details](references/analyze_rhyme_scheme.md) |
+| `audio_release_gate` | effect | Composite audio-release gate — every track QC-passed (effect). | [details](references/audio_release_gate.md) |
 | `capture_claim` | effect | Record a ResearchClaim node SERVES the intent (effect). | [details](references/capture_claim.md) |
 | `capture_idea` | effect | Capture a creative idea (effect) — record an Idea node, persist via StateDriver. | [details](references/capture_idea.md) |
+| `catalogue_gate` | effect | Catalogue-synced gate — streaming URLs + tweets ready (effect). | [details](references/catalogue_gate.md) |
 | `catalogue_status` | transform | Read track statuses from the catalogue DB via the DBDriver (transform). | [details](references/catalogue_status.md) |
 | `check_cross_track_repetition` | transform | Flag lyric lines repeated across multiple album tracks (transform). | [details](references/check_cross_track_repetition.md) |
 | `check_explicit_content` | transform | Classify lyrics as clean / suggestive / explicit (transform). | [details](references/check_explicit_content.md) |
@@ -39,6 +41,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `check_pronunciation` | transform | Flag words requiring forced pronunciation per the bundled guide (transform). | [details](references/check_pronunciation.md) |
 | `check_streaming_lyrics` | transform | Check the lyric body for platform-incompatible markup (transform). | [details](references/check_streaming_lyrics.md) |
 | `check_voice_tells` | transform | AI-tell rule-based detector (advisory only — no gate impact) (transform). | [details](references/check_voice_tells.md) |
+| `concept_gate` | effect | Pre-generation gate: concept exists for the album (effect). | [details](references/concept_gate.md) |
 | `conceptualize` | act | Render an album-concept document (act); ``type`` must be a known album type. | [details](references/conceptualize.md) |
 | `count_syllables` | transform | Count syllables in a word — deterministic, driver-free text math. | [details](#count_syllables) |
 | `create_album` | effect | Create an album root + render the canonical templates (effect). | [details](references/create_album.md) |
@@ -51,6 +54,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `db_search_tweets` | transform | Substring search across tweet bodies via DBDriver (transform). | [details](references/db_search_tweets.md) |
 | `db_sync_album` | effect | Idempotent sync of an album's tweets — replaces existing (effect). | [details](references/db_sync_album.md) |
 | `db_update_tweet` | effect | Update tweet row fields via the DBDriver (effect). | [details](references/db_update_tweet.md) |
+| `diagnose` | transform | Composite driver-free health probe (transform). | [details](references/diagnose.md) |
 | `dispatch_research` | effect | Fan out to N specialists via agency.research (effect). | [details](references/dispatch_research.md) |
 | `document_hunt` | effect | Dispatch a document-hunter specialist via agency.research (effect). | [details](references/document_hunt.md) |
 | `explicit_gate` | effect | Computed explicit-content gate (effect). | [details](references/explicit_gate.md) |
@@ -68,6 +72,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `list_ideas` | transform | List captured ideas via the StateDriver (transform) — filter by status. | [details](references/list_ideas.md) |
 | `list_tracks` | transform | List tracks for an album via the StateDriver (transform). | [details](references/list_tracks.md) |
 | `lyric_report` | act | Analyze a lyric sheet's syllable load per line via the TextDriver (act). | [details](references/lyric_report.md) |
+| `lyrics_pregen_gate` | effect | Composite lyrics pre-generation gate — chains 095's 4 lyric gates (effect). | [details](references/lyrics_pregen_gate.md) |
 | `master_album` | effect | Master an audio file to a target loudness via the AudioDriver (effect). | [details](references/master_album.md) |
 | `master_audio` | effect | Single-track master via AudioDriver (effect); produces mastering-report. | [details](references/master_audio.md) |
 | `master_with_reference` | effect | Master `path` to match `reference` album loudness (effect). | [details](references/master_with_reference.md) |
@@ -81,6 +86,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `polish_audio` | effect | Per-track polish pass via AudioDriver (effect). | [details](references/polish_audio.md) |
 | `pregen_check` | effect | Computed `pre-generation` gate — machine-checkable predicate (Spec 094). | [details](references/pregen_check.md) |
 | `promo_copy` | act | Draft promotional copy for an album (act, produces a ``promo-copy`` artefact). | [details](references/promo_copy.md) |
+| `promo_gate` | effect | Promo-drafted gate — at least 1 promo asset exists (effect). | [details](references/promo_gate.md) |
 | `promo_review` | transform | Rule-based scoring of promo copy quality (transform). | [details](references/promo_review.md) |
 | `promo_review_gate` | effect | Computed promo-review gate (effect) — composes ``promo_review`` scoring. | [details](references/promo_review_gate.md) |
 | `promote_idea` | effect | Promote an Idea → Album (effect); record Album + PROMOTED_TO edge. | [details](references/promote_idea.md) |
@@ -108,7 +114,9 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `tweet_schedule_gate` | effect | Computed tweet-schedule gate (effect) — composes 3 checks. | [details](references/tweet_schedule_gate.md) |
 | `update_streaming_url` | effect | Persist a verified streaming URL via StateDriver (effect). | [details](references/update_streaming_url.md) |
 | `upload_promo_video` | effect | Upload a promo video to object storage (effect). | [details](references/upload_promo_video.md) |
+| `validate_album` | transform | Validate album file presence + mirror-path consistency via StateDriver (transform). | [details](references/validate_album.md) |
 | `validate_section_structure` | transform | Validate section tag well-formedness (Title Case in brackets) (transform). | [details](references/validate_section_structure.md) |
+| `validate_sections` | transform | Validate lyric section structure across an album (transform). | [details](references/validate_sections.md) |
 | `verify_gate` | effect | Computed verification gate — composes pending_verifications (effect). | [details](references/verify_gate.md) |
 | `verify_sources` | effect | Cross-check pending claims (effect). | [details](references/verify_sources.md) |
 | `verify_streaming` | transform | Verify an album's streaming links are live via the CloudDriver (transform). | [details](references/verify_streaming.md) |
@@ -138,18 +146,24 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'mix-polish', 'inputs': {}, 'intent_id': '…'})`
 - **`pre-generation`** (gate): concept-ready → rights-clear → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'pre-generation', 'inputs': {}, 'intent_id': '…'})`
+- **`pre-generation-full`** (workflow): concept-ready → research-verified → lyrics-clean → ready-to-generate
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'pre-generation-full', 'inputs': {}, 'intent_id': '…'})`
 - **`promo-pass`** (workflow): draft → review → asset-attach → schedule → publish
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'promo-pass', 'inputs': {}, 'intent_id': '…'})`
 - **`release-publish`** (workflow): gather-assets → upload → catalogue-update → announce
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'release-publish', 'inputs': {}, 'intent_id': '…'})`
 - **`release-qa`** (gate): mastered → metadata → ship
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'release-qa', 'inputs': {}, 'intent_id': '…'})`
+- **`release-qa-full`** (workflow): audio-mastered → catalogue-synced → promo-drafted → ship
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'release-qa-full', 'inputs': {}, 'intent_id': '…'})`
 - **`research-workflow`** (workflow): scope → dispatch-specialists → collect → verify → human-sign-off
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'research-workflow', 'inputs': {}, 'intent_id': '…'})`
 - **`streaming-verify`** (workflow): collect → head-check → record
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'streaming-verify', 'inputs': {}, 'intent_id': '…'})`
 - **`tweet-curation`** (workflow): draft → schedule → publish → archive
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'tweet-curation', 'inputs': {}, 'intent_id': '…'})`
+- **`validate-structure`** (workflow): album-files → track-files → mirror-paths
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'validate-structure', 'inputs': {}, 'intent_id': '…'})`
 
 ## count_syllables
 
