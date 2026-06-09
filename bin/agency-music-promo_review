@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# agency-generated: v1 — capability_music_promo_review
+# Rule-based scoring of promo copy quality (transform).
+# Usage: agency-music-promo_review [--intent-id ID] <body> <platform>
+set -euo pipefail
+
+iid="${AGENCY_INTENT_ID:-}"
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --intent-id) iid="$2"; shift 2;;
+    --) shift; args+=("$@"); break;;
+    *) args+=("$1"); shift;;
+  esac
+done
+
+if [ -z "$iid" ]; then
+  echo "error: --intent-id or AGENCY_INTENT_ID required" >&2
+  exit 1
+fi
+
+if [ "${#args[@]}" -lt 2 ]; then
+  echo "error: expected 2 arg(s) (body platform); got ${#args[@]}" >&2
+  exit 2
+fi
+
+kwargs=$(python3 -c '
+import json, sys
+def _coerce(raw, ann):
+    # PR review round 8: argv arrives as a string regardless of the
+    # verb signature; coerce to the declared annotation so list/int/
+    # bool params reach the verb in the right shape. JSON-first lets
+    # callers pass e.g. `--axes "[\"quality\",\"security\"]"` or the
+    # bare bash form `quality,security` (CSV fallback for list-typed).
+    if ann is str:
+        return raw
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        parsed = None
+    if ann is bool:
+        if isinstance(parsed, bool):
+            return parsed
+        return raw.lower() in ("true", "1", "yes", "y")
+    if ann is int:
+        if isinstance(parsed, int) and not isinstance(parsed, bool):
+            return parsed
+        try:
+            return int(raw)
+        except (ValueError, TypeError):
+            return raw
+    if ann is float:
+        if isinstance(parsed, (int, float)) and not isinstance(parsed, bool):
+            return float(parsed)
+        try:
+            return float(raw)
+        except (ValueError, TypeError):
+            return raw
+    if ann is list:
+        if isinstance(parsed, list):
+            return parsed
+        # CSV fallback so `axes=quality,security` still works at the bash
+        # surface (common when scripting around the wrapper).
+        return [s for s in raw.split(",") if s]
+    if ann is dict:
+        if isinstance(parsed, dict):
+            return parsed
+        return {}
+    return raw
+print(json.dumps({"intent_id": sys.argv[1], "body": _coerce(sys.argv[2], str), "platform": _coerce(sys.argv[3], str)}))
+' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
+
+exec python -m agency.cli execute --code "
+import json
+return await call_tool('capability_music_promo_review', json.loads(r'''${kwargs}'''))
+"
