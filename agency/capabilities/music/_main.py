@@ -60,6 +60,45 @@ _SYLLABLE_TOLERANCE: int = 2
 from ._slug import slugify as _slugify         # noqa: E402
 
 
+def _fill_album_body(body: str, artist: str, title: str, genre: str) -> str:
+    """Substitute the album template's placeholders with the real values
+    (Spec 117 Slice 2 / F3). Only replaces placeholder strings that exist in
+    ``templates/album.md`` — `[Album Title]` (frontmatter `title:` + H1 + the
+    Album row), `[Album Name]`, `[Artist Name]`, `[Genre Name]`."""
+    if not body:
+        return body
+    body = body.replace('title: "[Album Title]"', f'title: "{title}"')
+    body = body.replace("[Album Title]", title)
+    body = body.replace("[Album Name]", title)
+    body = body.replace("[Artist Name]", artist)
+    # Genre appears in the Album Details table as
+    # `| **Genre** | [Genre](/genres/[genre]/README.md) / [Subgenre] |` —
+    # fill the link label + the path slug (both placeholders present in
+    # templates/album.md).
+    body = body.replace("[Genre](/genres/[genre]/README.md)",
+                        f"[{genre}](/genres/{genre}/README.md)")
+    body = body.replace("[Genre Name]", genre)
+    return body
+
+
+def _fill_track_body(body: str, title: str, track_number: int) -> str:
+    """Substitute the track template's placeholders with the real values
+    (Spec 117 Slice 2 / F3). Targets the frontmatter `title:`, the H1, and the
+    Track Details table rows (`Track #`, `Title`); keeps the existing
+    `track_number: 0` → real-number substitution."""
+    if not body:
+        return body
+    body = body.replace("track_number: 0", f"track_number: {track_number}")
+    body = body.replace('title: "[Track Title]"', f'title: "{title}"')
+    body = body.replace("# [Track Title]", f"# {title}")
+    body = body.replace("| **Track #** | XX |",
+                        f"| **Track #** | {track_number} |")
+    body = body.replace("| **Title** | [Track Title] |",
+                        f"| **Title** | {title} |")
+    body = body.replace("[Track Title]", title)
+    return body
+
+
 def _syllables(word: str) -> int:
     """A deterministic, driver-free syllable heuristic (vowel-group count, ≥ 1)."""
     w = word.lower().strip()
@@ -91,6 +130,53 @@ class MusicCapability(CapabilityBase):
     home = "capability"
     ontology = music_ontology
     render_templates = RenderTemplates.from_module(__file__)
+
+    # AGENCY-DRIFT: music driver set — mirror `diagnose` wanted + production_drivers() keys.
+    _MUSIC_DRIVER_NAMES = ("music_state", "music_text", "music_audio",
+                           "music_db", "music_cloud")
+
+    # ───────── Spec 117: lazy production-driver auto-wiring ─────────
+    def _production_enabled(self) -> bool:
+        """Lazy auto-wiring is enabled only in the production runtime — the MCP
+        server (`agency/__main__.py`) flips ``engine._music_production = True``.
+
+        A bare ``Engine(..., drivers={})`` built by a unit test has no flag, so
+        the driver-backed verbs keep their typed ``DEPENDENCY_MISSING`` contract
+        (the enforcement blast-radius stays bounded; CLAUDE.md heuristic).
+        """
+        return getattr(self.ctx.engine, "_music_production", False) is True
+
+    def _autowire_music_drivers(self) -> None:
+        """Build ``production_drivers(MusicConfig.bootstrap())`` ONCE and register
+        the bundle on the engine's DriverRegistry the first time a verb needs a
+        driver — so every later verb + ``diagnose`` sees them wired without the
+        caller passing ``Engine(..., drivers=…)``. ``MusicConfig.bootstrap()``
+        writes a default config + creates a fresh content root when none exists.
+
+        No-op when there's no DriverRegistry (bare unit tests), the production
+        flag is off, or all five drivers are already registered (fake-driver
+        tests + idempotent re-entry).
+        """
+        reg = self.ctx.drivers
+        if reg is None or not self._production_enabled():
+            return
+        if all(reg.has(n) for n in self._MUSIC_DRIVER_NAMES):
+            return
+        from .config import MusicConfig
+        from .drivers_production import production_drivers
+        bundle = production_drivers(MusicConfig.bootstrap())
+        for n, drv in bundle.items():
+            if not reg.has(n):
+                reg.register(n, drv)
+
+    def _require_drv(self, name: str):  # type: ignore[override]
+        """Override (Spec 117): auto-wire production drivers on first miss before
+        falling back to the base typed-failure resolver."""
+        if name in self._MUSIC_DRIVER_NAMES:
+            reg = self.ctx.drivers
+            if reg is not None and not reg.has(name):
+                self._autowire_music_drivers()
+        return super()._require_drv(name)
 
     # ───────── act / conceptualize cluster (preserved demo) ─────────
     @verb(role="act")
@@ -347,6 +433,7 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure("INVALID_ARGUMENT", "idea text is required")
         idea_id = self.ctx.record("Idea", {"text": text, "status": "new"})
         self.ctx.link(idea_id, self.ctx.intent_id, "SERVES")
+        self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
             state.put(f"idea:{idea_id}", {"idea_id": idea_id, "text": text,
@@ -387,6 +474,7 @@ class MusicCapability(CapabilityBase):
         # Graph-canonical status flip (CLAUDE.md rule 2) — the StateDriver
         # mirror below is the disk projection; the graph is the truth.
         self.ctx.update(idea_id, {"status": "promoted"})
+        self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
             state.update_idea(idea_id, {"status": "promoted",
@@ -446,7 +534,9 @@ class MusicCapability(CapabilityBase):
         # Render the album README from the template; artist seed on first album.
         album_tpl = self.ctx.template("album")
         if album_tpl is not None:
-            state.put(f"{root}/README.md", {"body": album_tpl.template})
+            body = _fill_album_body(album_tpl.template, artist=artist,
+                                    title=title, genre=genre)
+            state.put(f"{root}/README.md", {"body": body})
         artist_seeded = False
         if not state.find_album(query=f"artist:{artist}"):
             artist_tpl = self.ctx.template("artist")
@@ -535,6 +625,7 @@ class MusicCapability(CapabilityBase):
                            if a.get("slug") == album), None)
         if album_node is not None:
             self.ctx.link(track_id, album_node["id"], "RECORDED_FOR")
+        self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
         except DriverMissing:
@@ -545,9 +636,7 @@ class MusicCapability(CapabilityBase):
                                             "title": title})
         track_tpl = self.ctx.template("track")
         body = track_tpl.template if track_tpl is not None else ""
-        if body and "track_number: 0" in body:
-            body = body.replace("track_number: 0",
-                                f"track_number: {track_number}")
+        body = _fill_track_body(body, title=title, track_number=track_number)
         state.create_track(album=album, slug=slug, title=title, body=body)
         return ToolResult.success(data={"track_id": track_id,
                                         "track_slug": slug,
@@ -1409,6 +1498,7 @@ class MusicCapability(CapabilityBase):
         """
         db, _fail = self._require_drv("music_db")
         if _fail: return _fail
+        self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
         except DriverMissing:
