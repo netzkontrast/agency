@@ -38,6 +38,66 @@ FILTER_WORDS: frozenset[str] = frozenset({
 # Documented tunable; 5% = "polished" prose per editorial heuristics.
 FILTER_WORD_DENSITY_THRESHOLD: float = 0.05
 
+# Spec 104 Slice 2 — dialogue attribution lexicons.
+# `PLAIN_ATTRIBUTIONS` are the invisible tags an editor prefers (Strunk &
+# White, Stephen King "On Writing"). `FLOWERY_ATTRIBUTIONS` are the
+# attention-stealing alternatives; high count = author intruding.
+PLAIN_ATTRIBUTIONS: frozenset[str] = frozenset({
+    "said", "asked", "replied", "answered",
+})
+FLOWERY_ATTRIBUTIONS: frozenset[str] = frozenset({
+    "exclaimed", "muttered", "ejaculated", "expostulated",
+    "interjected", "vociferated", "thundered", "whimpered",
+    "growled", "hissed", "gasped", "sputtered",
+})
+
+# Spec 104 Slice 2 — common sentence-starter stopwords filtered out by
+# `scan_proper_nouns`. Title-Case at sentence position 1 is ambiguous;
+# this allow-list says "these never refer to people/places". Documented
+# tunable per CLAUDE.md §8: editorial canon, not a snapshot. Cased
+# lowercase here; the verb compares case-folded.
+_SENTENCE_STARTERS: frozenset[str] = frozenset({
+    "the", "a", "an",
+    "he", "she", "it", "they", "we", "you", "i",
+    "his", "her", "their", "its",
+    "this", "that", "these", "those",
+    "then", "when", "where", "why", "how", "what", "who",
+    "if", "as", "and", "but", "or", "so", "yet",
+    "after", "before", "during", "while", "since", "until",
+    "now", "still", "even", "just", "only",
+})
+
+
+# Spec 104 Slice 2 — show-don't-tell telling verbs (interior monologue).
+# Distinct from FILTER_WORDS (adverbs); these flag verbs that NARRATE
+# emotion instead of dramatizing it.
+TELLING_VERBS: frozenset[str] = frozenset({
+    "felt", "feel", "feels",
+    "realized", "realize", "realizes",
+    "noticed", "notice", "notices",
+    "wondered", "wonder", "wonders",
+    "thought", "thinks",
+    "knew", "knows",
+})
+
+# Spec 104 Slice 2 — canonical content-warning category lexicons.
+# A documented tunable per CLAUDE.md §8 (editorial taxonomy, not a
+# snapshot); each category maps to a set of keyword stems. Matched
+# category names go in the returned `warnings` list.
+CONTENT_WARNINGS: dict[str, frozenset[str]] = {
+    "violence":  frozenset({"knife", "blood", "gun", "shot",
+                             "stab", "punch", "kill", "killed",
+                             "murder", "wound", "bleeding"}),
+    "sex":       frozenset({"sex", "naked", "intimate", "kiss",
+                             "lover", "bed", "undress"}),
+    "substance": frozenset({"whiskey", "vodka", "beer", "wine",
+                             "cocaine", "heroin", "cigarette",
+                             "marijuana", "drunk", "overdose"}),
+    "death":     frozenset({"died", "dying", "corpse", "funeral",
+                             "grave", "death", "dead"}),
+    "self-harm": frozenset({"suicide", "cutting", "razor", "overdose"}),
+}
+
 _WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _VOWEL_GROUP_RE = re.compile(r"[aeiouyAEIOUY]+")
 
@@ -766,6 +826,102 @@ class NovelCapability(CapabilityBase):
             "total_words": total,
             "density": round(density, 4),
             "offenders": sorted(set(offenders)),
+        })
+
+    # ─────────────── Spec 104 Slice 2 — 4 more prose checks ───────────────
+
+    @verb(role="transform")
+    def scan_proper_nouns(self, body: str) -> ToolResult:
+        """Extract proper nouns (Title-Case words, sentence-starter words filtered) (transform).
+
+        Catches character + place names for continuity / world-bible
+        cross-reference. Filters out common sentence-starter words
+        ("The", "She", "Then", etc.) which would be Title-Case at
+        position 1 of every sentence — a false-positive source.
+
+        Inputs: body.
+        Returns: ``{proper_nouns: [sorted unique], count}``.
+        chain_next: ``novel.check_continuity`` (Slice 3+) for the cross-check.
+        """
+        nouns: set[str] = set()
+        for w in body.split():
+            w_clean = w.strip(".,;:!?\"'()")
+            if (w_clean and w_clean[0].isupper()
+                    and w_clean[1:].islower()
+                    and w_clean.lower() not in _SENTENCE_STARTERS):
+                nouns.add(w_clean)
+        return ToolResult.success(data={
+            "proper_nouns": sorted(nouns),
+            "count": len(nouns),
+        })
+
+    @verb(role="transform")
+    def check_dialogue_attribution(self, body: str) -> ToolResult:
+        """Dialogue-tag check — plain ('said') vs flowery (transform).
+
+        Counts plain attributions (`said`/`asked`/etc.) vs flowery ones
+        (`exclaimed`/`muttered`/etc.). Strunk & White: invisible is
+        better. Passes when `flowery_count == 0`.
+
+        Inputs: body.
+        Returns: ``{passed, plain_count, flowery_count, flowery_hits}``.
+        chain_next: revise flowery hits then re-check.
+        """
+        words = [w.lower() for w in _word_tokens(body)]
+        plain = [w for w in words if w in PLAIN_ATTRIBUTIONS]
+        flowery = [w for w in words if w in FLOWERY_ATTRIBUTIONS]
+        return ToolResult.success(data={
+            "passed": len(flowery) == 0,
+            "plain_count": len(plain),
+            "flowery_count": len(flowery),
+            "flowery_hits": sorted(set(flowery)),
+        })
+
+    @verb(role="transform")
+    def check_show_dont_tell(self, body: str) -> ToolResult:
+        """Telling-verb scan — interior-monologue tells (transform).
+
+        Distinct from ``check_filter_words`` (which scans adverbs).
+        Flags ``felt``/``realized``/``noticed``/etc. — verbs that
+        NARRATE emotion instead of dramatizing it.
+
+        Inputs: body.
+        Returns: ``{passed, tell_count, tells}``.
+        chain_next: rewrite tells into action / sensory detail.
+        """
+        words = [w.lower() for w in _word_tokens(body)]
+        hits = [w for w in words if w in TELLING_VERBS]
+        return ToolResult.success(data={
+            "passed": len(hits) == 0,
+            "tell_count": len(hits),
+            "tells": sorted(set(hits)),
+        })
+
+    @verb(role="transform")
+    def check_content_warnings(self, body: str) -> ToolResult:
+        """Content-warning category scanner (transform, driver-free).
+
+        Scans body for canonical content-warning keyword stems
+        (violence / sex / substance / death / self-harm). Returns
+        matched categories so publishers + reviewers can flag in
+        front-matter.
+
+        Inputs: body.
+        Returns: ``{warnings: [categories], hits: {category: [keywords]}}``.
+        chain_next: add to manuscript front-matter or trigger
+                    sensitivity-reader workflow (Slice 3).
+        """
+        words_lower = {w.lower() for w in _word_tokens(body)}
+        warnings: list[str] = []
+        hits: dict[str, list[str]] = {}
+        for category, lexicon in CONTENT_WARNINGS.items():
+            matched = sorted(words_lower & lexicon)
+            if matched:
+                warnings.append(category)
+                hits[category] = matched
+        return ToolResult.success(data={
+            "warnings": sorted(warnings),
+            "hits": hits,
         })
 
     # ───────────────── Spec 105 — research cluster (graph-only) ─────────────────
