@@ -15,4 +15,4 @@ sources: []
 ## Details
 (World element details)
 
-<!-- AGENT: Render this world.md template once per novel (for sci-fi/fantasy); world-bible-architect skill fills geography/culture/magic-system. -->
+<!-- AGENT: Render world.md once per work at works/{author_slug}/{work_slug}/world.md; populate `cultures`, `religions`, `languages`, `magic_systems`, `axioms` via the world-bible-architect skill walk; treat declared axioms as hard invariants that scene drafts must respect. -->
