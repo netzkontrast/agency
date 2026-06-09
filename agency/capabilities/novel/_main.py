@@ -599,6 +599,42 @@ class NovelCapability(CapabilityBase):
             "claims": claims, "count": len(claims),
         })
 
+    # ───────────────── Spec 108 — gates (composite) ─────────────────
+    # Slice 1 ships 1 composite gate verb wiring the cross-cluster
+    # predicates that have actually landed in 101 + 102 + 103 + 105.
+    # Slice 2 adds beta-ready / query-ready / publish-ready gates +
+    # their walkable skills + the full 6-verb gate surface.
+
+    @verb(role="effect")
+    def pre_draft_gate(self, novel_id: str) -> ToolResult:
+        """Composite gate: storyform + research + chapters present (effect).
+
+        Inputs: novel_id.
+        Returns: ``{passed, checks}`` or typed GATE_FAILED.
+        chain_next: ``novel.set_novel_status('drafting')`` once passed.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = [c for c in self.ctx.find("Chapter")
+                    if c.get("novel") == novel_id]
+        claims = list(self.ctx.find("NovelClaim"))
+        storyforms = [s for s in self.ctx.find("Storyform")
+                      if s.get("novel") == novel_id]
+        checks = {
+            "chapter_outline": bool(chapters),
+            "research_present": bool(claims),
+            "storyform_present": bool(storyforms),
+        }
+        if not all(checks.values()):
+            failed = [k for k, v in checks.items() if not v]
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"pre-draft: missing {failed}")
+        return ToolResult.success(data={
+            "passed": True, "checks": checks,
+        })
+
     @verb(role="transform")
     def pending_verifications(self) -> ToolResult:
         """Aggregate pending claims by domain (transform).

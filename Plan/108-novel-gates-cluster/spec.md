@@ -371,7 +371,56 @@ node + gate participates in the trace.
 3. **Validate-structure as gate vs report?** Report (transform) — matches
    music's pattern.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
+
+**Slice 1 SHIPPED** on branch `claude/spec-102-novel-lifecycle` (PR #80).
+
+### Done in Slice 1
+
+- 1 composite gate verb: `pre_draft_gate(novel_id)` (effect). Composes
+  the three cross-cluster predicates that have actually landed across
+  Specs 101 / 102 / 103 / 105:
+  - `chapter_outline`: any `Chapter` node CHAPTER_OF this novel
+  - `research_present`: any `NovelClaim` node serving the intent
+  - `storyform_present`: any `Storyform` node tagged to this novel
+  Returns `{passed, checks}` or typed `GATE_FAILED` listing the missing
+  prereqs.
+- **The load-bearing E2E provenance test** at
+  `tests/test_novel_e2e.py::test_full_novel_pipeline_provenance_e2e`.
+  Walks: capture_idea → promote_idea → create_chapter×3 → capture_claim
+  (historical + technological domains) → count_words + check_filter_words
+  (prose analysis on chapter body) → chapter_report → set_novel_status
+  (drafting → revising) → pre_draft_gate → render_manuscript on a fresh
+  DB. Asserts every fired verb is in `memory.provenance(intent_id).serves`
+  and the manuscript artefact lands in `.artefacts`. **This is the Spec
+  101 master ship-condition.**
+- 2 additional gate tests: pre_draft_gate blocks without prereqs;
+  passes with all 3 prereqs present.
+
+### Spec 101 master flip
+
+This Slice flips Spec 101's TODO.md row from Partial → **Shipped**
+because the E2E test proves the "5-verb path from premise to manuscript"
+contract through the provenance graph. The remaining novel-cluster
+specs (102-108) stay Partial because their full surfaces have more
+verbs / gates / skills deferred.
+
+### Deferred to Slice 2+
+
+- 3 remaining composite gate verbs: `beta_ready_gate`, `query_ready_gate`,
+  `publish_ready_gate`
+- 4 walkable skills: pre-draft, beta-ready, query-ready, publish-ready
+  (each terminating in a hard elicit)
+- 5 remaining user verbs: validate_structure / novel_health / diagnose
+  / validate_chapter / cross_cluster_health
+- Manuscript ↔ catalogue handoff (gates on the DBDriver-backed Spec 106
+  surface that's still draft-only)
+
+### Done When status
+
+3 of 6 Done-When boxes ticked (1 of 4 composite gates; the E2E test
+shipped; the 101 master flips). The remaining 3 (5 user verbs + 3
+gates + 4 walkable skills) land in Slice 2.
 
 (Populated when the PR ships. 101 row flips to Shipped when 108 lands
 Green.)

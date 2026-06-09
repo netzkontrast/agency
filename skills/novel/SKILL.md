@@ -37,6 +37,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `list_claims` | transform | List captured claims; optional verified-status filter (transform). | [details](references/list_claims.md) |
 | `list_ideas` | transform | List captured ideas; optional status filter (transform). | [details](references/list_ideas.md) |
 | `pending_verifications` | transform | Aggregate pending claims by domain (transform). | [details](references/pending_verifications.md) |
+| `pre_draft_gate` | effect | Composite gate: storyform + research + chapters present (effect). | [details](references/pre_draft_gate.md) |
 | `promote_idea` | effect | Idea → Novel transition; records PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
 | `render_manuscript` | act | Concatenate chapters into a manuscript artefact (act). | [details](references/render_manuscript.md) |
 | `set_novel_status` | effect | Flip a Novel's lifecycle status; enum-checked (effect). | [details](references/set_novel_status.md) |
