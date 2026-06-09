@@ -29,6 +29,8 @@ Red flags:
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from agency.capability import CapabilityBase, DriverMissing, RenderTemplates, verb
 from agency.toolresult import ToolResult
 
@@ -52,6 +54,28 @@ _VOWELS = "aeiouy"
 # layer ships (deferred to Slice 2+).
 _MIN_RHYME_GROUPS: int = 2
 _SYLLABLE_TOLERANCE: int = 2
+
+# Spec 096 — mastering / streaming loudness target. Industry baseline for
+# streaming-platform delivery is -14 LUFS integrated (Spotify / Apple Music /
+# YouTube reference). Per CLAUDE.md rule 8: a documented tunable budget, not a
+# frozen snapshot — verb args can override per-platform (LANDR / Tidal / etc.).
+# Referenced by the 4 master/QC verbs + the audio Driver default.
+STREAMING_TARGET_LUFS: float = -14.0
+
+
+def _validate_album_type(value: str) -> Optional["ToolResult"]:
+    """Single-source ALBUM_TYPES enum check (post-Round-1 dedup).
+
+    Returns a ToolResult.failure when ``value`` is not in the enum, else None.
+    Three verbs (conceptualize, promote_idea, create_album) used to repeat
+    this 3-line block; consolidated to one helper to keep the enum's
+    surface area + error string drift-free.
+    """
+    if value not in ALBUM_TYPES:
+        return ToolResult.failure(
+            "INVALID_ARGUMENT",
+            f"type={value!r} not in {sorted(ALBUM_TYPES)}")
+    return None
 
 # Single-source slugifier (post-review cleanup): both this module and
 # drivers_production.py used to host duplicate `_slugify` functions with
@@ -78,6 +102,7 @@ def conceptualize(artist: str, title: str, type: str,
                   theme: str = "", tracklist: str = "") -> dict:
     "Render an album-concept document (act). `type` must be a known album type."
     if type not in ALBUM_TYPES:
+        # Standalone (no ctx) — raise. Verb-form callers use _validate_album_type.
         raise ValueError(f"type={type!r} not in {sorted(ALBUM_TYPES)}")
     body = (f"# {title}\n\n**Artist:** {artist}  \n**Type:** {type}\n\n"
             f"## Theme\n{theme}\n\n## Tracklist\n{tracklist}\n")
@@ -134,7 +159,7 @@ class MusicCapability(CapabilityBase):
 
     # ───────── audio/mastering cluster (effect via AudioDriver) ─────────
     @verb(role="effect")
-    def master_album(self, album: str, path: str, target_lufs: float = -14.0) -> ToolResult:
+    def master_album(self, album: str, path: str, target_lufs: float = STREAMING_TARGET_LUFS) -> ToolResult:
         """Master an audio file to a target loudness via the AudioDriver (effect).
 
         Reads measured loudness, applies the gain via ffmpeg (both through the
@@ -366,10 +391,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{idea_id, album_id, album_slug, status}``.
         chain_next: ``music.conceptualize`` to draft the album concept.
         """
-        if type not in ALBUM_TYPES:
-            return ToolResult.failure(
-                "INVALID_ARGUMENT",
-                f"type={type!r} not in {sorted(ALBUM_TYPES)}")
+        if (fail := _validate_album_type(type)) is not None:
+            return fail
         # Validate the idea actually exists — silently promoting a non-existent
         # idea_id would orphan the PROMOTED_TO edge (review finding).
         idea_node = self.ctx.recall(idea_id)
@@ -380,7 +403,7 @@ class MusicCapability(CapabilityBase):
         album_id = self.ctx.record("Album", {
             "artist": artist, "title": title, "type": type,
             "status": "draft", "genre": genre, "slug": slug,
-            "target_lufs": -14.0,
+            "target_lufs": STREAMING_TARGET_LUFS,
         })
         self.ctx.link(album_id, self.ctx.intent_id, "SERVES")
         self.ctx.link(idea_id, album_id, "PROMOTED_TO")
@@ -426,10 +449,8 @@ class MusicCapability(CapabilityBase):
         Returns: ``{album_id, album_slug, album_root, artist_seeded, title}``.
         chain_next: ``music.create_track`` for each track in the tracklist.
         """
-        if type not in ALBUM_TYPES:
-            return ToolResult.failure(
-                "INVALID_ARGUMENT",
-                f"type={type!r} not in {sorted(ALBUM_TYPES)}")
+        if (fail := _validate_album_type(type)) is not None:
+            return fail
         state, _fail = self._require_drv("music_state")
         if _fail: return _fail
         slug = _slugify(title)
@@ -437,7 +458,7 @@ class MusicCapability(CapabilityBase):
         album_id = self.ctx.record("Album", {
             "artist": artist, "title": title, "type": type,
             "status": "draft", "genre": genre, "slug": slug,
-            "target_lufs": -14.0,
+            "target_lufs": STREAMING_TARGET_LUFS,
         })
         self.ctx.link(album_id, self.ctx.intent_id, "SERVES")
         # Driver maintains the on-disk mirror (production); fake stores in-memory.
@@ -928,7 +949,7 @@ class MusicCapability(CapabilityBase):
 
     @verb(role="effect")
     def master_audio(self, album: str, path: str,
-                     target_lufs: float = -14.0,
+                     target_lufs: float = STREAMING_TARGET_LUFS,
                      preset: str = "") -> ToolResult:
         """Single-track master via AudioDriver (effect); produces mastering-report.
 
@@ -995,7 +1016,7 @@ class MusicCapability(CapabilityBase):
 
     @verb(role="effect")
     def polish_and_master_album(self, album: str, paths: list[str],
-                                  target_lufs: float = -14.0) -> ToolResult:
+                                  target_lufs: float = STREAMING_TARGET_LUFS) -> ToolResult:
         """Combined polish + master pipeline (effect); produces mastering-report.
 
         Inputs: album, paths, target_lufs.
@@ -1632,6 +1653,7 @@ class MusicCapability(CapabilityBase):
             return ToolResult.failure("GATE_FAILED",
                                       "lyrics-pregen: empty lyrics")
         results = {}
+        errors = {}
         # Sub-gate composition — each records its own gate.check; failures
         # bubble up but we attempt every sub-gate so audit sees all signals.
         for sub_name, sub_verb in (
@@ -1644,13 +1666,19 @@ class MusicCapability(CapabilityBase):
                                         lifecycle_id=lifecycle_id,
                                         lyrics=lyrics)
                 results[sub_name] = (sub_res or {}).get("passed", False)
-            except Exception:
+            except Exception as e:
+                # Narrowed evidence (Round 1 attempt-3 sc-analyze): a config
+                # bug (DriverMissing) was indistinguishable from a semantic
+                # fail. Record the exception class so the audit trail can
+                # distinguish them.
                 results[sub_name] = False
+                errors[sub_name] = f"{type(e).__name__}: {e}"
         all_passed = all(results.values())
         # Record the composite outcome
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
                       name="lyrics-pregen", passed=all_passed,
-                      evidence=f"sub: {results}")
+                      evidence=f"sub: {results}"
+                               + (f" errors: {errors}" if errors else ""))
         if not all_passed:
             failed = [k for k, v in results.items() if not v]
             return ToolResult.failure(

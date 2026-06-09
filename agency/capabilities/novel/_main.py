@@ -73,6 +73,16 @@ class NovelCapability(CapabilityBase):
     ontology = novel_ontology
     render_templates = RenderTemplates.from_module(__file__)
 
+    def _require_novel(self, novel_id: str) -> ToolResult | None:
+        """NOT_FOUND guard for verbs that only need to verify the Novel
+        node exists (chapter_report, create_chapter). Returns the
+        failure or None on hit. render_manuscript reads the node body so
+        keeps the explicit `recall()` binding."""
+        if self.ctx.recall(novel_id) is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+        return None
+
     @verb(role="act")
     def conceptualize(self, title: str, author: str,
                        premise: str = "",
@@ -119,10 +129,8 @@ class NovelCapability(CapabilityBase):
         Returns: ``{chapter_id, novel_id, number, title, status}``.
         chain_next: ``novel.chapter_report`` to aggregate state.
         """
-        novel_node = self.ctx.recall(novel_id)
-        if novel_node is None:
-            return ToolResult.failure(
-                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+        if (fail := self._require_novel(novel_id)) is not None:
+            return fail
         cid = self.ctx.record("Chapter", {
             "novel": novel_id, "number": number, "title": title,
             "status": "outlined", "body": body,
@@ -142,10 +150,8 @@ class NovelCapability(CapabilityBase):
         Returns: ``{novel_id, chapter_count, word_count_total, by_status}``.
         chain_next: revise chapters then ``novel.render_manuscript``.
         """
-        novel_node = self.ctx.recall(novel_id)
-        if novel_node is None:
-            return ToolResult.failure(
-                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+        if (fail := self._require_novel(novel_id)) is not None:
+            return fail
         # Find chapters of this novel
         chapters = [c for c in self.ctx.find("Chapter")
                     if c.get("novel") == novel_id]

@@ -598,7 +598,7 @@ class FakeAudioDriver:
     _QC_ROWS = ("loudness", "clipping", "silence", "phase",
                 "stereo_width", "frequency_balance", "dynamic_range")
 
-    def __init__(self, loudness: float = -14.0) -> None:
+    def __init__(self, loudness: float = -14.0) -> None:   # Spec 096 — kept as literal: FakeAudioDriver is a test fixture, the canonical tunable lives at music._main.STREAMING_TARGET_LUFS
         self._loudness = loudness
         self.ffmpeg_calls: list[list[str]] = []
 
