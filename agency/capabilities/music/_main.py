@@ -74,9 +74,11 @@ def _validate_album_type(value: str) -> Optional["ToolResult"]:
     """Single-source ALBUM_TYPES enum check (post-Round-1 dedup).
 
     Returns a ToolResult.failure when ``value`` is not in the enum, else None.
-    Three verbs (conceptualize, promote_idea, create_album) used to repeat
-    this 3-line block; consolidated to one helper to keep the enum's
-    surface area + error string drift-free.
+    Used by `promote_idea` and `create_album` — the two verbs that take a
+    user-supplied `type` arg and return ToolResult. The standalone
+    `conceptualize()` (and its verb-form wrapper) raises ValueError instead
+    because it pre-dates the ToolResult convention and stays delegated; that
+    contract is the standalone-fn doctrine carve-out.
     """
     if value not in ALBUM_TYPES:
         return ToolResult.failure(
