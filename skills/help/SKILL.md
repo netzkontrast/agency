@@ -74,6 +74,7 @@ agency execute --code \
 - **gate** — check
 - **intent** — assumptions, decompose, first_principles, inversion, premortem, second_order, steelman, suggests, tradeoffs
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch
+- **music** — analyze_mix, capture_idea, catalogue_status, conceptualize, count_syllables, lyric_report, master_album, music_health, pregen_check, promo_copy, publish_asset, release_check, set_album_status, transcribe_sheet, verify_streaming
 - **plugin** — author_command, author_skill, help, lint_capability, lint_explain, lint_skill, marketplace_entry, publish_skill, scaffold, step_doc
 - **reflect** — batch_note, note, recall, recall_semantic, search
 - **research** — lead, specialist, verify
