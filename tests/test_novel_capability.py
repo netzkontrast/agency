@@ -231,13 +231,32 @@ def test_decidability_matrix_doc_vendored() -> None:
     assert "11 decidable + 2 hybrid + 2 judgement" in body
 
 
+def test_novel_concept_schema_satisfied_by_skill_phases() -> None:
+    """Guard against the schema↔skill name drift the self-review caught.
+
+    Every field in the `novel-concept` schema must be producible by walking
+    the `novel-concept` skill (any phase's `produces`) OR be a `conceptualize`
+    verb arg. Otherwise the schema is unsatisfiable from the canonical path.
+    """
+    e = Engine(":memory:", _require_skill_doc=False)
+    sk = e.ontology.skill("novel-concept")
+    produced = {p for ph in sk["phases"] for p in ph.get("produces", [])}
+    verb_args = {"title", "author"}
+    schema_fields = set(
+        e.registry._caps["novel"].ontology.schemas["novel-concept"])
+    assert schema_fields <= (produced | verb_args), (
+        f"schema fields not covered by skill phases or verb args: "
+        f"{schema_fields - (produced | verb_args)}")
+    e.memory.close()
+
+
 def test_novel_concept_skill_walks_through_confirmation() -> None:
     e = _fresh()
     iid = _confirmed_iid(e)
     sk = e.ontology.skill("novel-concept")
     run = SkillRun(e.memory, iid, sk)
     fills = [
-        {"premise_statement": "x", "central_question": "y"},
+        {"premise": "x", "central_question": "y"},
         {"main_character": "MC", "objective_story": "OS",
          "impact_character": "IC", "relationship_story": "RS"},
         {"chapter_outline": "ch1..ch10", "act_breakdown": "3-act"},

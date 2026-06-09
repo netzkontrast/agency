@@ -1637,6 +1637,7 @@ class MusicCapability(CapabilityBase):
         for sub_name, sub_verb in (
                 ("prosody", "prosody_gate"),
                 ("pronunciation", "pronunciation_gate"),
+                ("repetition", "repetition_gate"),
                 ("explicit", "explicit_gate")):
             try:
                 sub_res = self.ctx.call("music", sub_verb,
@@ -2224,7 +2225,6 @@ class MusicCapability(CapabilityBase):
         return ToolResult.success(data={"text": cleaned, "format": "lyrics",
                                         "char_count": len(cleaned)})
 
-    # ───────── health cluster (transform, driver-free) ─────────
     # ───────── health cluster (transform, driver-free) ─────────
     @verb(role="transform")
     def music_health(self) -> ToolResult:

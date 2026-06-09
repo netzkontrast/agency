@@ -30,7 +30,7 @@ NOVEL_CONCEPT_SKILL = {
     "name": "novel-concept", "kind": "conceptualizer",
     "phases": [
         {"index": 1, "name": "premise",
-         "produces": ["premise_statement", "central_question"]},
+         "produces": ["premise", "central_question"]},
         {"index": 2, "name": "throughlines",
          "produces": ["main_character", "objective_story",
                        "impact_character", "relationship_story"]},
@@ -61,7 +61,7 @@ novel_ontology = OntologyExtension(
     skills={"novel-concept": NOVEL_CONCEPT_SKILL},
     schemas={
         "novel-concept": ["title", "premise", "central_question"],
-        "chapter-report": ["novel", "chapter_count", "word_count_total"],
+        "chapter-report": ["novel_id", "chapter_count", "word_count_total"],
         "manuscript":     ["novel", "body", "chapter_count"],
     },
 )
