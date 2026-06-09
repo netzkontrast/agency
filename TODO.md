@@ -160,7 +160,7 @@ Ranked by leverage — what unblocks the most downstream work first:
    discovery payload; clears the ≥20% name-corpus gate (65%). Needs a folder.
 3. **Spec 002** — boundary-driver-protocol. Generic Boundary/Driver +
    DriverRegistry; unblocks Spec 007's full music surface.
-4. **Spec 010** — novel domain Loop 0+1 (F1–F5 prompts already shipped).
+4. **Spec 102** — novel-lifecycle-cluster Slice 2 (Spec 101 Slice 1 shipped this branch; 102 carries the consolidated `OntologyExtension` + StateDriver Protocol + 4 new base lifecycle verbs + 10-phase `novel-concept` skill extension; first child of the 101 master).
 5. **Spec 046** — micro-extensions bundle (designed; code-review split etc.).
 
 ## When to update this file
