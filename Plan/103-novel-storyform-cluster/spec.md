@@ -330,6 +330,64 @@ aggregated report stays ≤ 1500 tokens.
    `novel_coherence_check`. 103's manifest registers it; 108's manifest
    only references it as a dependency.
 
-## Followup
+## Followup — Implementation Status (2026-06-09)
+
+**Slice 1 SHIPPED** on branch `claude/spec-102-novel-lifecycle` (stacks
+on PR #80, which stacks on #78). Per the top-3 sc:sc-recommend inputs
+that gated this brainstorm:
+
+### Recommendation 1 — "graph-only first; defer TextDriver split" — APPLIED
+- No `drivers.py`, no `ontology.py`, no `clusters/storyform.py` files
+  introduced. Verbs live in `agency/capabilities/novel/_main.py`.
+- The 304-entry Dramatica ontology is read via a module-level
+  `_load_dramatica_ontology()` with `@lru_cache(maxsize=1)` — one
+  parse per process; no driver indirection.
+
+### Recommendation 2 — "12 fixtures VERBATIM in Slice 1" — APPLIED
+- `tests/fixtures/novel/` contains exactly the 12 ported fixtures
+  (1 `good_work.ncp.json` + 11 `broken_work_<row>.ncp.json`).
+- `test_fixtures_byte_identical_to_upstream` asserts sha256 parity
+  against `Plan/_research/novel-mvp-source/fixtures/`.
+
+### Recommendation 3 — "schema-skill alignment up front" — APPLIED
+- Spec 102's `dramatica-seed` phase produces `resolve_intent` /
+  `growth_intent` / `approach_intent` / `mental_sex_intent` — names
+  preserved (no `_set` rename); the 13-check verb manifest reads NCP
+  body fields directly, not skill-output keys. The composite gate
+  Slice 2 will read the same keys with no translation layer.
+
+### Done in Slice 1
+- 12 NCP fixtures vendored (1 good + 11 broken) byte-identical.
+- `Storyform` node declared in `novel_ontology`.
+- 2 representative check verbs:
+  - `check_throughline_partition` (row 5 — H1+H2: exactly 4
+    throughlines, each Class used once)
+  - `check_quad_completeness` (row 3 — crucial_element_id ≡ MC
+    problem_id; element-id shape; MC problem ≠ solution)
+- 9 tests in `tests/test_novel_storyform.py`: registration / fixture
+  port + sha256 parity / 2 happy paths / each broken fixture fails
+  ONLY its named check (per Rec 2) / report-shape token budget proxy.
+
+### Deferred to Slice 2+
+- 9 remaining decidable check verbs (rows 1, 2, 4, 6, 7, 8, 9, 10, 11)
+- 2 hybrid check verbs (rows 12, 13)
+- `novel_coherence_check` composite gate verb
+- `storyform-build` 6-phase walkable skill
+- Full token-counter integration on the report shape (Slice 1 uses
+  serialized-JSON-length proxy, ≤ 200 chars for clean PASS, ≤ 2000
+  chars for broken — generous budget pending real counter wiring)
+- Element-id ↔ ontology reconciliation: the fixtures use ids
+  (`el.self-interest`, `el.morality`, `el.pursuit`) the vendored
+  `ontology.json` doesn't carry under those exact ids. Slice 1's
+  shape-validation guard suffices for the broken-fixture contract;
+  Slice 2 reconciles via either an ontology update or a fixture-id
+  alias table (open Q for the brainstorm).
+
+### Done When status
+
+3 of 7 Done-When boxes ticked (12-fixture port, vendored ontology
+load, 2 of 13 verbs). The remaining 4 (full 13-verb manifest,
+composite gate, storyform-build skill, full report-shape budget) are
+deferred per the Slice 2 enumeration.
 
 (Populated when the PR ships.)

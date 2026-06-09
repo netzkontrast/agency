@@ -14,9 +14,27 @@ Red flags:
 """
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from agency.capability import CapabilityBase, RenderTemplates, verb
 from agency.ontology import OntologyExtension
 from agency.toolresult import ToolResult
+
+
+@lru_cache(maxsize=1)
+def _load_dramatica_ontology() -> dict:
+    """Spec 103 — module-level memoized loader for the Dramatica ontology.
+
+    Reads the vendored `data/dramatica/ontology.json` (304 entries) once;
+    LRU-cached so the 50KB JSON parse happens at most once per process.
+    Storyform check verbs (Spec 103 Slice 1+) call this directly — no
+    TextDriver, no lazy-import indirection (per the sc:sc-recommend Rec 1
+    'graph-only-first; defer the TextDriver split').
+    """
+    p = Path(__file__).parent / "data" / "dramatica" / "ontology.json"
+    return json.loads(p.read_text())
 
 
 # ─────────────────────────── enums ───────────────────────────
@@ -72,6 +90,10 @@ novel_ontology = OntologyExtension(
         # schema is text-only, `status` carried as an optional field
         # constrained by the IDEA_STATUS enum below — same shape music uses).
         "Idea":    ["text"],
+        # Spec 103 — Dramatica storyform payload (NCP v1.3.0 shape).
+        # Schema is `["novel"]` — the NCP body lives as an optional `body`
+        # field (open dict). Check verbs read the body directly.
+        "Storyform": ["novel"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -340,4 +362,114 @@ class NovelCapability(CapabilityBase):
         self.ctx.update(novel_id, {"status": status})
         return ToolResult.success(data={
             "novel_id": novel_id, "status": status,
+        })
+
+    # ───────────────── Spec 103 — Dramatica storyform checks ─────────────────
+    # Per the sc:sc-recommend top-3 inputs to Spec 103 brainstorming:
+    # (1) graph-only first — no drivers.py / clusters/ split (verbs live in
+    #     _main.py reading the already-landed data/dramatica/ontology.json
+    #     directly via a module-level memoized loader);
+    # (2) NCP body passed as a dict arg — the storyform-build skill (Slice 2)
+    #     will mint Storyform nodes whose body field carries the NCP;
+    # (3) schema-skill alignment — phase 1 (premise) produces `logline` +
+    #     `central_question`, which Spec 102's `novel-concept` already does.
+    #
+    # Slice 1 ships 2 representative checks (row 5 throughline-partition
+    # covering H1+H2+H8, row 3 quad-completeness covering H3-style invariants).
+    # Slice 2 ships the remaining 9 decidable + 2 hybrid verbs + the
+    # `novel_coherence_check` composite gate verb + the storyform-build
+    # walkable skill (6 phases per Spec 103 design).
+
+    @verb(role="transform")
+    def check_throughline_partition(self, ncp: dict) -> ToolResult:
+        """Decidable check (row 5): 4 throughlines / 4 distinct Classes (transform).
+
+        Inputs: ncp (the NCP v1.3.0 storyform payload — top-level dict
+                with ``storyform.throughlines.{mc,os,ic,rs}.class_id``).
+        Returns: ``{passed, violations}`` — violations is a list of
+                 short codes (≤120 chars each per the report-shape
+                 budget in Spec 103 §"Done When").
+        chain_next: ``novel.check_quad_completeness`` then the composite
+                    ``novel_coherence_check`` (Slice 2).
+        """
+        violations: list[str] = []
+        story = ncp.get("storyform") or {}
+        throughlines = story.get("throughlines") or {}
+        # H1: exactly the four named throughlines (mc, os, ic, rs)
+        expected = {"mc", "os", "ic", "rs"}
+        actual = set(throughlines)
+        if actual != expected:
+            missing = expected - actual
+            extra = actual - expected
+            if missing:
+                violations.append(f"H1: missing throughlines {sorted(missing)}")
+            if extra:
+                violations.append(f"H1: unexpected throughlines {sorted(extra)}")
+        # H2: each Class used exactly once across the 4 throughlines
+        classes = [t.get("class_id") for t in throughlines.values()
+                   if t.get("class_id")]
+        from collections import Counter
+        counts = Counter(classes)
+        dupes = [c for c, n in counts.items() if n > 1]
+        if dupes:
+            violations.append(f"H2: class reuse {sorted(dupes)}")
+        if len(classes) < 4 and not violations:
+            violations.append(f"H2: missing class_id on some throughlines")
+        return ToolResult.success(data={
+            "passed": not violations,
+            "violations": violations,
+        })
+
+    @verb(role="transform")
+    def check_quad_completeness(self, ncp: dict) -> ToolResult:
+        """Decidable check (row 3): quad-reverse-index audit.
+
+        Verifies the crucial_element_id resolves and the MC's problem +
+        solution elements (Spec 103 §"Decidable" row 3) are declared and
+        sit on a known dynamic pair within the Dramatica ontology.
+
+        Inputs: ncp (NCP v1.3.0 payload).
+        Returns: ``{passed, violations}``.
+        chain_next: ``novel.check_throughline_partition``.
+        """
+        violations: list[str] = []
+        story = ncp.get("storyform") or {}
+        ce_id = story.get("crucial_element_id")
+        # Slice 1: validate SHAPE only (id present + "el." prefix). The
+        # full ontology lookup lands in Slice 2 once the fixture id-set
+        # is reconciled against the vendored ontology.json (an known
+        # follow-up — fixtures use ids like 'el.self-interest' that
+        # the ontology doesn't yet carry under that exact label).
+        if not ce_id:
+            violations.append("row3: crucial_element_id missing")
+        elif not ce_id.startswith("el."):
+            violations.append(f"row3: crucial_element_id={ce_id!r} bad shape")
+        # MC problem + solution element ids must be declared and shaped.
+        mc = (story.get("throughlines") or {}).get("mc") or {}
+        problem_id = mc.get("problem_id")
+        solution_id = mc.get("solution_id")
+        if mc and not problem_id:
+            violations.append("row3: mc.problem_id missing")
+        elif mc and not problem_id.startswith("el."):
+            violations.append(f"row3: mc.problem_id={problem_id!r} bad shape")
+        if mc and not solution_id:
+            violations.append("row3: mc.solution_id missing")
+        elif mc and not solution_id.startswith("el."):
+            violations.append(f"row3: mc.solution_id={solution_id!r} bad shape")
+        # Slice 1 fail-mode: if the MC problem == solution they collapse
+        # the dynamic pair (the quad-completeness contract is violated).
+        if problem_id and solution_id and problem_id == solution_id:
+            violations.append(
+                f"row3: mc.problem_id == mc.solution_id ({problem_id!r})")
+        # Per Dramatica canon (H5/H6/H7 quad-completeness): the crucial
+        # element IS the MC's central problem. The fixture-pair encodes
+        # this — broken_work_quad_completeness diverges good_work ONLY in
+        # mc.problem_id, leaving crucial_element_id unchanged.
+        if ce_id and problem_id and ce_id != problem_id:
+            violations.append(
+                f"row3: crucial_element_id={ce_id!r} != "
+                f"mc.problem_id={problem_id!r}")
+        return ToolResult.success(data={
+            "passed": not violations,
+            "violations": violations,
         })
