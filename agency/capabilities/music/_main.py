@@ -654,6 +654,120 @@ class MusicCapability(CapabilityBase):
                                       "no 'music_state' driver registered")
         return ToolResult.success(data={"session": state.get_session()})
 
+    # ════════════════════════════════════════════════════════════════════════
+    # Spec 115 — production binding: 4 NEW verbs covering bitwize's config /
+    # override / reference / clipboard MCP functions.
+    # ════════════════════════════════════════════════════════════════════════
+
+    @verb(role="transform")
+    def get_config(self) -> ToolResult:
+        """Read the music capability's loaded config (transform).
+
+        Resolves from `.agency/music-config.yaml`, `~/.agency-music/config.yaml`,
+        or `$AGENCY_MUSIC_HOME/config.yaml` per Spec 115 resolution order.
+
+        Inputs: none.
+        Returns: ``{config: dict}`` in the bitwize-compatible config shape.
+        chain_next: ``music.create_album`` once artist + paths are confirmed.
+        """
+        from .config import MusicConfig
+        cfg = MusicConfig.load()
+        return ToolResult.success(data={"config": cfg.as_dict()})
+
+    @verb(role="transform")
+    def load_override(self, name: str) -> ToolResult:
+        """Load a user-authored override file from the configured overrides dir (transform).
+
+        Bitwize lets users author `{overrides}/<name>.md` (e.g. a custom
+        pronunciation guide or genre tweak); this verb reads it. Empty/missing
+        returns ``found=False``.
+
+        Inputs: name (override file stem).
+        Returns: ``{name, found, body}``.
+        chain_next: pass ``body`` into a verb that takes the override as input.
+        """
+        from pathlib import Path
+        from .config import MusicConfig
+        cfg = MusicConfig.load()
+        overrides_dir = Path(cfg.overrides).expanduser()
+        candidate = overrides_dir / f"{name}.md"
+        if not candidate.is_file():
+            return ToolResult.success(data={"name": name, "found": False,
+                                            "body": ""})
+        return ToolResult.success(data={"name": name, "found": True,
+                                        "body": candidate.read_text(encoding="utf-8")})
+
+    @verb(role="transform")
+    def get_reference(self, slug: str,
+                       kind: str = "reference") -> ToolResult:
+        """Read a bundled reference / data file by slug (transform).
+
+        Resolves from ``agency/capabilities/music/data/<kind>/<slug>``.
+        ``kind`` defaults to ``reference`` (the 50 bitwize docs ported in
+        Spec 094). Pass ``kind="genres"`` to read a genre file.
+
+        Inputs: slug (path or filename under data/<kind>/), kind (default ``reference``).
+        Returns: ``{kind, slug, body}``.
+        chain_next: feed the body into a verb that needs the doctrine context.
+        """
+        state, _fail = self._require_drv("music_state") if hasattr(self, "_require_drv") else (None, None)
+        if state is None:
+            # Driver missing — read directly from the cap's bundled data dir
+            from pathlib import Path
+            data_dir = Path(__file__).parent / "data" / kind / slug
+            if data_dir.is_file():
+                return ToolResult.success(data={"kind": kind, "slug": slug,
+                                                "body": data_dir.read_text(encoding="utf-8")})
+            md = data_dir.with_suffix(".md")
+            if md.is_file():
+                return ToolResult.success(data={"kind": kind, "slug": slug,
+                                                "body": md.read_text(encoding="utf-8")})
+            return ToolResult.success(data={"kind": kind, "slug": slug,
+                                            "body": ""})
+        return ToolResult.success(data=state.read_data(kind=kind, slug=slug))
+
+    @verb(role="transform")
+    def format_clipboard(self, text: str,
+                          format: str = "lyrics") -> ToolResult:
+        """Format text for clipboard paste into Suno / other generation services (transform).
+
+        Bitwize ports ``format_for_clipboard`` from the content handler. Two
+        shapes:
+
+        - ``lyrics``: strips bracketed section tags + trailing whitespace
+          (Suno-safe).
+        - ``style-prompt``: collapses multi-line prompts to single-line + cap
+          at 200 chars (Suno style-prompt limit).
+
+        Inputs: text, format (one of ``lyrics`` / ``style-prompt``; default ``lyrics``).
+        Returns: ``{text, format, char_count}``.
+        chain_next: paste into Suno / external generation service.
+        """
+        if format == "style-prompt":
+            single = " ".join(text.split())
+            if len(single) > 200:
+                single = single[:200].rsplit(" ", 1)[0] + "…"
+            return ToolResult.success(data={"text": single,
+                                            "format": "style-prompt",
+                                            "char_count": len(single)})
+        # Default = lyrics: strip [Verse 1]-style tags + collapse blank runs
+        out_lines = []
+        prev_blank = False
+        for ln in text.splitlines():
+            s = ln.strip()
+            if s.startswith("[") and s.endswith("]"):
+                continue
+            if not s:
+                if prev_blank:
+                    continue
+                prev_blank = True
+            else:
+                prev_blank = False
+            out_lines.append(ln)
+        cleaned = "\n".join(out_lines).strip()
+        return ToolResult.success(data={"text": cleaned, "format": "lyrics",
+                                        "char_count": len(cleaned)})
+
     # ───────── health cluster (transform, driver-free) ─────────
     @verb(role="transform")
     def music_health(self) -> ToolResult:

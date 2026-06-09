@@ -32,8 +32,12 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `create_album` | effect | Create an album root + render the canonical templates (effect). | [details](references/create_album.md) |
 | `create_track` | effect | Create a track in an album, rendered from the bitwize ``track`` template (effect). | [details](references/create_track.md) |
 | `find_album` | transform | Find albums by slug / fuzzy match via the StateDriver (transform). | [details](references/find_album.md) |
+| `format_clipboard` | transform | Format text for clipboard paste into Suno / other generation services (transform). | [details](references/format_clipboard.md) |
+| `get_config` | transform | Read the music capability's loaded config (transform). | [details](references/get_config.md) |
+| `get_reference` | transform | Read a bundled reference / data file by slug (transform). | [details](references/get_reference.md) |
 | `list_ideas` | transform | List captured ideas via the StateDriver (transform) — filter by status. | [details](references/list_ideas.md) |
 | `list_tracks` | transform | List tracks for an album via the StateDriver (transform). | [details](references/list_tracks.md) |
+| `load_override` | transform | Load a user-authored override file from the configured overrides dir (transform). | [details](references/load_override.md) |
 | `lyric_report` | act | Analyze a lyric sheet's syllable load per line via the TextDriver (act). | [details](references/lyric_report.md) |
 | `master_album` | effect | Master an audio file to a target loudness via the AudioDriver (effect). | [details](references/master_album.md) |
 | `music_health` | transform | Self-check the music capability (transform, driver-free) — report which Driver seams are wired. | [details](references/music_health.md) |
@@ -67,6 +71,8 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`album-concept`** (conceptualizer): foundation → concept → sonic → structure → art → practical → confirmation
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'album-concept', 'inputs': {}, 'intent_id': '…'})`
+- **`new-album`** (workflow): parse-args → validate-genre → check-existing → create-structure → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'new-album', 'inputs': {}, 'intent_id': '…'})`
 - **`pre-generation`** (gate): concept-ready → rights-clear → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'pre-generation', 'inputs': {}, 'intent_id': '…'})`
 - **`release-qa`** (gate): mastered → metadata → ship
