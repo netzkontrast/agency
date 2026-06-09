@@ -1,6 +1,7 @@
 ---
 title: "[Track Title]"
 track_number: 0
+status: "Not Started"
 instrumental: false
 explicit: false
 suno_url: ""

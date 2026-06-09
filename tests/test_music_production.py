@@ -341,6 +341,101 @@ def test_load_override_reads_existing_file(tmp_path, monkeypatch) -> None:
     assert "Custom override" in data["body"]
 
 
+# ─────────────── Spec 117: default config + fresh-repo bootstrap ───────────────
+
+def test_bootstrap_writes_default_config_when_absent(tmp_path, monkeypatch) -> None:
+    """A fresh repo with no config gets a default `.agency/music-config.yaml`
+    written + the content root created; a second call is a no-op."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    assert not MusicConfig.config_file_exists()
+
+    cfg = MusicConfig.bootstrap()
+    written = tmp_path / ".agency" / "music-config.yaml"
+    assert written.is_file(), "bootstrap should write a default config"
+    assert MusicConfig.config_file_exists()
+    # content root materialised so the FileStateDriver has a home
+    assert Path(cfg.content_root).is_dir()
+
+    # Idempotent: the existing config is not clobbered (mtime stable).
+    before = written.read_text()
+    MusicConfig.bootstrap()
+    assert written.read_text() == before
+
+
+def test_bootstrap_is_noop_when_config_present(tmp_path, monkeypatch) -> None:
+    """An existing project keeps its bindings — bootstrap never overwrites."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    (tmp_path / ".agency").mkdir()
+    (tmp_path / ".agency" / "music-config.yaml").write_text(
+        f"artist:\n  name: Existing\npaths:\n  content_root: {tmp_path}/proj\n")
+    cfg = MusicConfig.bootstrap()
+    assert cfg.artist_name == "Existing"
+    assert cfg.content_root == f"{tmp_path}/proj"
+
+
+# ─────────────── Spec 117: lazy production-driver auto-wiring ───────────────
+
+def test_autowire_disabled_keeps_dependency_missing(tmp_path, monkeypatch) -> None:
+    """Without the production flag, a driver-backed verb on a music-driverless
+    engine keeps the typed DEPENDENCY_MISSING contract (blast radius bounded)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    e = _fresh(drivers={})                 # registry present, no music drivers, no flag
+    try:
+        iid = _confirmed_iid(e)
+        data, inv = _invoke(e, iid, "create_album",
+                            artist="A", title="T", genre="ambient")
+        assert data is None
+        assert "DEPENDENCY_MISSING" in e.memory.recall(inv).get("error", "")
+    finally:
+        e.memory.close()
+
+
+def test_autowire_enabled_wires_production_drivers_and_writes_disk(
+        tmp_path, monkeypatch) -> None:
+    """With `engine._music_production = True`, the first driver-backed verb
+    lazily wires production_drivers from config, persists to the configured
+    content root, and `diagnose` then reports all five drivers wired."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    content = tmp_path / "content"
+    (tmp_path / ".agency").mkdir()
+    (tmp_path / ".agency" / "music-config.yaml").write_text(
+        f"artist:\n  name: The Phreakers\n"
+        f"paths:\n  content_root: {content}\n"
+        f"db:\n  backend: sqlite\n  path: {tmp_path}/.agency/music.db\n")
+
+    e = _fresh(drivers={})                 # no music drivers wired at construction
+    e._music_production = True             # the MCP entrypoint flips this
+    try:
+        iid = _confirmed_iid(e)
+        # Pre-state: diagnose sees nothing wired.
+        diag0, _ = _invoke(e, iid, "diagnose")
+        assert diag0["drivers_wired"] == []
+
+        data, inv = _invoke(e, iid, "create_album",
+                            artist="The Phreakers", title="Umschalten",
+                            genre="ambient")
+        assert data is not None, e.memory.recall(inv).get("error", "")
+        # README persisted on disk under the configured content root.
+        readme = (content / "artists" / "the-phreakers" / "albums"
+                  / "ambient" / "umschalten" / "README.md")
+        assert readme.is_file(), f"expected {readme} written by auto-wired FileStateDriver"
+
+        # Post-state: diagnose now reports the full bundle wired.
+        diag1, _ = _invoke(e, iid, "diagnose")
+        assert set(diag1["drivers_wired"]) == {
+            "music_state", "music_text", "music_audio", "music_db", "music_cloud"}
+        assert diag1["drivers_missing"] == []
+    finally:
+        e.memory.close()
+
+
 def test_get_reference_reads_bundled_data_doc() -> None:
     """Read a reference doc bundled at agency/capabilities/music/data/reference/.
     Spec 094 vendored 50 docs there; the SKILL_INDEX.md is the canonical entry."""
@@ -427,4 +522,102 @@ def test_production_drivers_round_trip_through_real_engine(tmp_path, monkeypatch
     # SQLite db file created
     db_path = tmp_path / ".agency" / "music.db"
     assert db_path.is_file()
+    e.memory.close()
+
+
+# ─────────────── Spec 117 Slice 2: render fidelity (F3/F4/F5) ───────────────
+
+def _slice2_cfg(tmp_path):
+    cfg = MusicConfig(artist_name="The Phreakers", content_root=str(tmp_path))
+    cfg._fill_path_defaults()
+    return cfg
+
+
+def test_create_track_renders_title_and_status_into_frontmatter(tmp_path, monkeypatch) -> None:
+    """F3+F5: create_track substitutes the real title + track number into the
+    rendered body, and the track template carries a `status:` frontmatter line —
+    so no `[Track Title]` / `XX` placeholders remain in the title/track-# fields
+    and the-agency-system's validate_track.py hook (requires title/track_number/
+    status) would pass."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    e = Engine(tempfile.mktemp(suffix=".db"),
+               drivers=production_drivers(_slice2_cfg(tmp_path)))
+    iid = _confirmed_iid(e)
+    _invoke(e, iid, "create_album", artist="The Phreakers",
+            title="Umschalten", genre="ambient")
+    data, _ = _invoke(e, iid, "create_track", album="umschalten",
+                      title="Carrier Tone", track_number=3)
+    track_file = (tmp_path / "artists" / "the-phreakers" / "albums"
+                  / "ambient" / "umschalten" / "tracks" / "03-carrier-tone.md")
+    body = track_file.read_text()
+    # F5: status line present in frontmatter
+    assert "status:" in body.split("---")[1]
+    # F3: real title substituted into frontmatter + H1, no placeholder left
+    assert 'title: "Carrier Tone"' in body
+    assert "# Carrier Tone" in body
+    assert "[Track Title]" not in body
+    # F3: track number filled into the Track Details table (no `XX` placeholder)
+    assert "| **Track #** | 3 |" in body
+    assert "| **Title** | Carrier Tone |" in body
+    e.memory.close()
+
+
+def test_set_track_status_round_trips_through_frontmatter_no_sidecar(tmp_path, monkeypatch) -> None:
+    """F4: set_track_status edits the track .md frontmatter in place (no
+    .meta.json sidecar); list_tracks + album_progress read the new status back."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    e = Engine(tempfile.mktemp(suffix=".db"),
+               drivers=production_drivers(_slice2_cfg(tmp_path)))
+    iid = _confirmed_iid(e)
+    _invoke(e, iid, "create_album", artist="The Phreakers",
+            title="Umschalten", genre="ambient")
+    t, _ = _invoke(e, iid, "create_track", album="umschalten",
+                   title="Carrier Tone", track_number=1)
+    slug = t["track_slug"]
+    _invoke(e, iid, "set_track_status", album="umschalten",
+            track=slug, status="mastered")
+
+    track_file = (tmp_path / "artists" / "the-phreakers" / "albums"
+                  / "ambient" / "umschalten" / "tracks" / f"{slug}.md")
+    # frontmatter updated in place
+    assert 'status: "mastered"' in track_file.read_text().split("---")[1]
+    # NO sidecar created
+    sidecar = track_file.parent / f"{slug}.meta.json"
+    assert not sidecar.exists(), "set_track_status must not write a .meta.json sidecar"
+
+    # round-trip: list_tracks reads the new status back
+    listed, _ = _invoke(e, iid, "list_tracks", album="umschalten")
+    assert any(tr["status"] == "mastered" for tr in listed["tracks"])
+    # title is sourced from frontmatter, not the slug
+    assert any(tr["title"] == "Carrier Tone" for tr in listed["tracks"])
+    # album_progress reflects the real status
+    prog, _ = _invoke(e, iid, "album_progress", album="umschalten")
+    assert prog["tracks_by_status"].get("mastered") == 1
+    assert prog["tracks_completed"] == 1
+    e.memory.close()
+
+
+def test_create_album_substitutes_title_artist_genre_into_readme(tmp_path, monkeypatch) -> None:
+    """F3: create_album fills album title/artist/genre into the README — no
+    `[Album Title]` placeholder survives in the rendered title/H1."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENCY_MUSIC_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "fake-home"))
+    e = Engine(tempfile.mktemp(suffix=".db"),
+               drivers=production_drivers(_slice2_cfg(tmp_path)))
+    iid = _confirmed_iid(e)
+    _invoke(e, iid, "create_album", artist="The Phreakers",
+            title="Umschalten", genre="dystopian-future-synth")
+    readme = (tmp_path / "artists" / "the-phreakers" / "albums"
+              / "dystopian-future-synth" / "umschalten" / "README.md")
+    body = readme.read_text()
+    assert 'title: "Umschalten"' in body
+    assert "# Umschalten" in body
+    assert "[Album Title]" not in body
+    assert "The Phreakers" in body
+    assert "dystopian-future-synth" in body
     e.memory.close()

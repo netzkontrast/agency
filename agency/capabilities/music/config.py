@@ -27,6 +27,33 @@ from pathlib import Path
 
 _DEFAULT_CONTENT_ROOT = "~/music-projects"
 
+# Spec 117 — the default config written when a fresh repo has none yet.
+# Mirrors the bitwize-music config shape; empty artist + the generic
+# content_root are the "fill me in" defaults a fresh user edits.
+_DEFAULT_CONFIG_REL = ".agency/music-config.yaml"
+DEFAULT_CONFIG_YAML = """\
+# agency music — production config (auto-generated default, Spec 117).
+# Bind a project by editing `artist.name` + `paths.content_root`, then run
+# any music verb. Mirrors the bitwize-music `~/.bitwize-music/config.yaml` shape.
+artist:
+  name: ""
+
+paths:
+  content_root: "~/music-projects"
+  # audio_root / documents_root / overrides / ideas_file default under content_root
+
+db:
+  backend: sqlite
+  path: ".agency/music.db"
+
+generation:
+  additional_genres: []
+
+sheet_music:
+  enabled: true
+  page_size: "letter"
+"""
+
 
 def _expand(p: str) -> str:
     return os.path.expanduser(os.path.expandvars(p))
@@ -162,6 +189,45 @@ class MusicConfig:
         if env:
             out.append(f"{env.rstrip('/')}/config.yaml")
         return out
+
+    @classmethod
+    def config_file_exists(cls, search_paths: list[str] | None = None) -> bool:
+        """True when any search-path config file is present (Spec 117).
+
+        The bootstrap predicate: a fresh repo has none, so `bootstrap()`
+        writes a default; an existing project has one, so bootstrap is a no-op.
+        """
+        paths = (search_paths if search_paths is not None
+                 else cls._default_search_paths())
+        return any(Path(_expand(p)).is_file() for p in paths)
+
+    @classmethod
+    def bootstrap(cls, *, write_config: bool = True, make_dirs: bool = True,
+                  config_path: str = _DEFAULT_CONFIG_REL) -> "MusicConfig":
+        """Default-config + fresh-repo bootstrap (Spec 117).
+
+        Idempotent "set up if not done yet": when NO music config exists on any
+        search path, write a default ``.agency/music-config.yaml`` so a fresh
+        repo is ready to edit, then (optionally) create the ``content_root`` so
+        the FileStateDriver has a home to write into. A no-op when a config
+        already exists — an existing project keeps its bindings. Returns the
+        loaded `MusicConfig`.
+
+        Driven lazily by the music capability's auto-wiring (set up drivers —
+        and their config — only when a verb needs them).
+        """
+        if write_config and not cls.config_file_exists():
+            dest = Path(_expand(config_path))
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(DEFAULT_CONFIG_YAML)
+            _LOAD_CACHE.clear()      # invalidate so load() sees the new file
+        cfg = cls.load()
+        if make_dirs:
+            try:
+                Path(_expand(cfg.content_root)).mkdir(parents=True, exist_ok=True)
+            except OSError:
+                pass                 # best-effort; FileStateDriver also mkdirs on write
+        return cfg
 
     @classmethod
     def _from_dict(cls, d: dict) -> "MusicConfig":
