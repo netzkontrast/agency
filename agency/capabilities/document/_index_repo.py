@@ -196,6 +196,20 @@ def render(root: str, memory, intent_id: str = "",
         short_sections.append("- _no recent reflections recorded_\n")
     parts.extend(short_sections)
     parts.append("\n## Macro-structure\n")
+    # Always-present capability roster — one line listing every
+    # capability folder under agency/capabilities/, so a fresh agent
+    # gets every cap name even when the variable-size per-dir details
+    # below get budget-truncated. Each name is followed by a small
+    # marker (`/`) so the test predicate `cap in content` stays robust
+    # against future briefing-shape changes.
+    cap_dirs = sorted({
+        d.split("/")[-1] for d in briefs_by_dir
+        if "agency/capabilities/" in d
+        and not d.rstrip("/").endswith("capabilities")
+    })
+    if cap_dirs:
+        parts.append("\n**Capabilities:** "
+                     + ", ".join(f"`{c}/`" for c in cap_dirs) + "\n")
     omitted = 0
     for dir_rel in sorted(briefs_by_dir):
         items = briefs_by_dir[dir_rel]

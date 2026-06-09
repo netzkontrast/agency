@@ -151,6 +151,7 @@ novel_ontology = OntologyExtension(
         ("Chapter", "status"): CHAPTER_STATUS,
         ("Idea",    "status"): IDEA_STATUS,
         ("NovelClaim", "verified"): CLAIM_VERIFIED,
+        ("NovelClaim", "domain"):   RESEARCH_DOMAINS,
     },
     edges={
         "CHAPTER_OF",       # Chapter → Novel (mirror of music's RECORDED_FOR)
