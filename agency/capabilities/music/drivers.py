@@ -555,7 +555,10 @@ class FakeAudioDriver:
     def __init__(self, loudness: float = -14.0) -> None:
         self._loudness = loudness
         self.ffmpeg_calls: list[list[str]] = []
-        # Track calls for assertion / audit purposes
+        # Audit-only call logs — populated by master/polish/render methods so
+        # downstream consumers (a SaaS dashboard, an audit-export verb) can
+        # introspect what the fake "did". Not used by tests in this PR;
+        # documented because the bitwize prod driver writes the same surface.
         self.master_calls: list[dict] = []
         self.polish_calls: list[dict] = []
         self.render_calls: list[dict] = []

@@ -1144,8 +1144,13 @@ class MusicCapability(CapabilityBase):
     def reset_mastering(self, album: str) -> ToolResult:
         """Revert all master/polish state for an album (effect).
 
+        Delegates to ``music.set_track_status`` per track so each flip records
+        its own Invocation in provenance (review finding: direct StateDriver
+        writes lose the per-track audit trail). The sibling verb also enforces
+        the ``TRACK_STATUS`` enum at write time.
+
         Inputs: album (slug).
-        Returns: ``{album, reset}``.
+        Returns: ``{album, reset, tracks_reset}``.
         chain_next: re-run ``music.polish_and_master_album``.
         """
         try:
@@ -1153,11 +1158,16 @@ class MusicCapability(CapabilityBase):
         except DriverMissing:
             return ToolResult.failure("DEPENDENCY_MISSING",
                                       "no 'music_state' driver registered")
+        reset = 0
         for t in state.list_tracks(album):
             if t.get("status") == "mastered":
-                state.update_track_field(album=album, track=t["slug"],
-                                         field="status", value="recorded")
-        return ToolResult.success(data={"album": album, "reset": True})
+                # Sibling verb call — records Invocation, validates enum.
+                self.ctx.call("music", "set_track_status",
+                              album=album, track=t["slug"],
+                              status="recorded")
+                reset += 1
+        return ToolResult.success(data={"album": album, "reset": True,
+                                        "tracks_reset": reset})
 
     @verb(role="effect")
     def render_codec_preview(self, album: str, path: str,
