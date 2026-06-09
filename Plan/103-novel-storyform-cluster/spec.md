@@ -359,14 +359,24 @@ that gated this brainstorm:
 ### Done in Slice 1
 - 12 NCP fixtures vendored (1 good + 11 broken) byte-identical.
 - `Storyform` node declared in `novel_ontology`.
-- 2 representative check verbs:
+- 1 working check verb:
   - `check_throughline_partition` (row 5 — H1+H2: exactly 4
-    throughlines, each Class used once)
-  - `check_quad_completeness` (row 3 — crucial_element_id ≡ MC
-    problem_id; element-id shape; MC problem ≠ solution)
-- 9 tests in `tests/test_novel_storyform.py`: registration / fixture
-  port + sha256 parity / 2 happy paths / each broken fixture fails
-  ONLY its named check (per Rec 2) / report-shape token budget proxy.
+    throughlines, each Class used once). PROVEN to fire on EXACTLY
+    `broken_work_throughline_partition.ncp.json` and PASS on the
+    other 10 broken fixtures (`test_check_throughline_partition_does_not_fail_other_broken_fixtures`).
+- `check_quad_completeness` (row 3) was retracted post-Round-1: my
+  Slice-1 implementation fired on both `broken_work_quad_completeness`
+  AND `broken_work_crucial_element_placement` because both fixtures
+  trip the `ce_id != mc.problem_id` shape signal — which is the
+  row-6 H6/H7 crucial-element-agreement invariant, not the row-3
+  quad-completeness invariant. The decidable distinction needs
+  ontology lookup to know which Elements sit on the same Dramatica
+  quad. Per Rec 2 ("each broken fixture fails EXACTLY its named
+  check"), the verb was removed and deferred to Slice 2 after
+  fixture-id ↔ vendored-ontology reconciliation.
+- 5 tests in `tests/test_novel_storyform.py`: registration / fixture
+  port + sha256 parity / happy path / exact-fail isolation /
+  report-shape token budget proxy.
 
 ### Deferred to Slice 2+
 - 9 remaining decidable check verbs (rows 1, 2, 4, 6, 7, 8, 9, 10, 11)
