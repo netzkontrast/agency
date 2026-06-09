@@ -1,4 +1,5 @@
 # agency-scaffold: v1
+# agency-accept-warn: surface_size clustered domain capability (Spec 093/101): 8 sub-clusters by design, ~45 verbs across lifecycle/storyform/prose/research/catalogue/manuscript/gates/xcap. Tier discovery via Spec 068 not warranted while cluster slices are still landing.
 """novel — minimum-viable-novel Slice 1 (Spec 101 master First-Principles Minimum).
 
 Five-verb path from premise to manuscript: conceptualize → create_novel → create_chapter → chapter_report → render_manuscript, plus the novel-concept gated planning skill.
@@ -123,6 +124,48 @@ def _syllables_word(w: str) -> int:
 
 
 @lru_cache(maxsize=1)
+def _load_ncp_schema() -> dict:
+    """Spec 103 hybrid rows 12+13 — vendored NCP v1.3.0 JSON schema loader.
+
+    Reads `data/ncp/ncp-schema-v1.3.0.json` once (lru-cached); the
+    canonical_appreciation (463 values) and canonical_narrative_function
+    (144 values) sets live under `$defs.*.enum`.
+    """
+    p = Path(__file__).parent / "data" / "ncp" / "ncp-schema-v1.3.0.json"
+    return json.loads(p.read_text())
+
+
+@lru_cache(maxsize=1)
+def _canonical_appreciations() -> frozenset[str]:
+    """The 463 canonical NCP appreciations from the vendored schema."""
+    defs = _load_ncp_schema().get("$defs", {})
+    return frozenset(
+        defs.get("canonical_appreciation", {}).get("enum", []))
+
+
+@lru_cache(maxsize=1)
+def _canonical_narrative_functions() -> frozenset[str]:
+    """The 144 canonical NCP narrative_function values from the schema."""
+    defs = _load_ncp_schema().get("$defs", {})
+    return frozenset(
+        defs.get("canonical_narrative_function", {}).get("enum", []))
+
+
+def _walk_field(obj, field_name: str, path: str = ""):
+    """Yield (path, value) for every `field_name` occurrence in nested dict/list."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            child_path = f"{path}.{k}" if path else k
+            if k == field_name and isinstance(v, str):
+                yield child_path, v
+            else:
+                yield from _walk_field(v, field_name, child_path)
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            yield from _walk_field(item, field_name, f"{path}[{i}]")
+
+
+@lru_cache(maxsize=1)
 def _load_dramatica_ontology() -> dict:
     """Spec 103 — module-level memoized loader for the Dramatica ontology.
 
@@ -189,6 +232,67 @@ NOVEL_CONCEPT_SKILL = {
 }
 
 
+# Spec 102/104 — character-architect walkable skill (4 phases).
+# Per kohaerenz §04-character-and-world: psychology (TSDP/IFS/Big-Five/
+# Enneagram) → archetype (Jung + moral alignment) → voice → confirm.
+CHARACTER_ARCHITECT_SKILL = {
+    "name": "character-architect", "kind": "conceptualizer",
+    "phases": [
+        {"index": 1, "name": "psychology",
+         "produces": ["big_five", "enneagram", "ifs_parts"]},
+        {"index": 2, "name": "archetype",
+         "produces": ["jung_archetype", "moral_alignment"]},
+        {"index": 3, "name": "voice",
+         "produces": ["voice_signature", "register"]},
+        {"index": 4, "name": "confirmation",
+         "produces": ["user_confirmed"], "gate": "hard"},
+    ],
+}
+
+
+# Spec 102/104 — world-bible-architect walkable skill (5 phases).
+# Per kohaerenz §04: geography → cultures → religions+languages →
+# magic-systems → canon-lock (axioms become hard invariants).
+WORLD_BIBLE_ARCHITECT_SKILL = {
+    "name": "world-bible-architect", "kind": "conceptualizer",
+    "phases": [
+        {"index": 1, "name": "geography",
+         "produces": ["continents", "biomes", "time_period"]},
+        {"index": 2, "name": "cultures",
+         "produces": ["cultures", "core_values"]},
+        {"index": 3, "name": "religions-languages",
+         "produces": ["religions", "languages"]},
+        {"index": 4, "name": "magic-systems",
+         "produces": ["magic_systems", "hard_or_soft"]},
+        {"index": 5, "name": "canon-lock",
+         "produces": ["user_confirmed", "axioms_canon_locked"],
+         "gate": "hard"},
+    ],
+}
+
+
+# Spec 103/108 — scene-bridge-auditor walkable skill (5 phases / Q1-Q5).
+# Per kohaerenz §05-structure-scene-coherence + decidability brief
+# ("tools assert structure; skills assert meaning"): scene-bridge
+# Q1-Q5 ships as a walkable skill — purpose/POV/stakes/conflict/payoff.
+SCENE_BRIDGE_AUDITOR_SKILL = {
+    "name": "scene-bridge-auditor", "kind": "auditor",
+    "phases": [
+        {"index": 1, "name": "Q1-purpose",
+         "produces": ["scene_purpose"]},
+        {"index": 2, "name": "Q2-POV",
+         "produces": ["pov_choice", "narrator_voice"]},
+        {"index": 3, "name": "Q3-stakes",
+         "produces": ["stakes_internal", "stakes_external"]},
+        {"index": 4, "name": "Q4-conflict",
+         "produces": ["conflict_axis", "tension_arc"]},
+        {"index": 5, "name": "Q5-payoff-and-signoff",
+         "produces": ["user_confirmed", "scene_signoff"],
+         "gate": "hard"},
+    ],
+}
+
+
 # ─────────────────────────── ontology ───────────────────────────
 novel_ontology = OntologyExtension(
     nodes={
@@ -223,7 +327,10 @@ novel_ontology = OntologyExtension(
         "PROMOTED_TO",      # Idea → Novel (mirror of music's PROMOTED_TO)
         "SCENE_OF",         # Spec 102 Slice 2 — Scene → Chapter
     },
-    skills={"novel-concept": NOVEL_CONCEPT_SKILL},
+    skills={"novel-concept": NOVEL_CONCEPT_SKILL,
+            "character-architect": CHARACTER_ARCHITECT_SKILL,
+            "world-bible-architect": WORLD_BIBLE_ARCHITECT_SKILL,
+            "scene-bridge-auditor": SCENE_BRIDGE_AUDITOR_SKILL},
     schemas={
         # Spec 102: logline replaces `premise` in the canonical phase name;
         # both verb args + skill produce the same field set.
@@ -750,6 +857,52 @@ class NovelCapability(CapabilityBase):
                     f"row11: moments[{i}].storybeat_ref={ref!r} dangling")
         return ToolResult.success(data={
             "passed": not violations, "violations": violations,
+        })
+
+    @verb(role="transform")
+    def validate_appreciations(self, ncp: dict) -> ToolResult:
+        """Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform).
+
+        Walks every ``appreciation`` field across the NCP body
+        recursively; each string must belong to the
+        ``canonical_appreciation`` enum from the vendored NCP v1.3.0
+        schema (463 values).
+
+        Inputs: ncp (NCP v1.3.0 payload).
+        Returns: ``{passed, violations: [{path, value}], canonical_size}``.
+        chain_next: ``novel.validate_narrative_functions`` for row 13.
+        """
+        canonical = _canonical_appreciations()
+        violations: list[dict] = []
+        for path, value in _walk_field(ncp, "appreciation"):
+            if value not in canonical:
+                violations.append({"path": path, "value": value})
+        return ToolResult.success(data={
+            "passed": not violations,
+            "violations": violations,
+            "canonical_size": len(canonical),
+        })
+
+    @verb(role="transform")
+    def validate_narrative_functions(self, ncp: dict) -> ToolResult:
+        """Row 13 hybrid: NCP narrative_functions ∈ canonical 144 (transform).
+
+        Walks every ``narrative_function`` field; each string must
+        belong to the ``canonical_narrative_function`` enum (144 values).
+
+        Inputs: ncp (NCP v1.3.0 payload).
+        Returns: ``{passed, violations: [{path, value}], canonical_size}``.
+        chain_next: ``novel.check_throughline_partition`` for structural row 5.
+        """
+        canonical = _canonical_narrative_functions()
+        violations: list[dict] = []
+        for path, value in _walk_field(ncp, "narrative_function"):
+            if value not in canonical:
+                violations.append({"path": path, "value": value})
+        return ToolResult.success(data={
+            "passed": not violations,
+            "violations": violations,
+            "canonical_size": len(canonical),
         })
 
     # NOTE: `check_signpost_permutation` (row 10) DEFERRED to Slice 3.
@@ -1382,4 +1535,60 @@ class NovelCapability(CapabilityBase):
             "result": body,
             "artefact": {"kind": "thinking-analysis",
                           "novel": novel_id, "body": body},
+        })
+
+    @verb(role="effect")
+    def record_storyform_decision(self, novel_id: str, decision: str,
+                                    rationale: str = "") -> ToolResult:
+        """Record a contested storyform decision (effect, xcap to dogfood).
+
+        Routes through ``dogfood.record_decision`` so the decision lands
+        in the cluster-wide decision audit. ``subject`` is bound to the
+        novel id so analyses can filter by story.
+
+        Inputs: novel_id, decision, rationale (optional).
+        Returns: ``{novel_id, decision_id, decision}``.
+        chain_next: continue authoring; later ``analyze.graph`` reads
+                    the audit trail.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        result = self.ctx.call("dogfood", "record_decision",
+                                subject=novel_id,
+                                decision=decision,
+                                rationale=rationale)
+        decision_id = (result or {}).get("decision_id", "")
+        return ToolResult.success(data={
+            "novel_id": novel_id,
+            "decision_id": decision_id,
+            "decision": decision,
+        })
+
+    @verb(role="transform")
+    def audit_novel_provenance(self, novel_id: str) -> ToolResult:
+        """Aggregate the provenance graph census for the serving intent (transform, xcap to analyze).
+
+        Routes through ``analyze.graph`` to surface a node-type census
+        + verb summary. The audit catches which cluster caps have
+        SERVED the novel's intent across the session.
+
+        Inputs: novel_id (validated for NOT_FOUND only).
+        Returns: ``{novel_id, census, capabilities}``.
+        chain_next: revise the storyform per surfaced gaps.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        # analyze.graph returns a census + typed listing for the current intent.
+        result = self.ctx.call("analyze", "graph",
+                                node_type="Invocation", limit=200)
+        census = (result or {}).get("census") or {}
+        nodes = (result or {}).get("nodes") or []
+        caps = sorted({n.get("capability", "") for n in nodes
+                       if n.get("capability")})
+        return ToolResult.success(data={
+            "novel_id": novel_id,
+            "census": census,
+            "capabilities": caps,
         })

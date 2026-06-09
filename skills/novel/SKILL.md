@@ -24,6 +24,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `analyze_readability` | transform | Flesch Reading Ease for prose (transform, driver-free). | [details](#analyze_readability) |
+| `audit_novel_provenance` | transform | Aggregate the provenance graph census for the serving intent (transform, xcap to analyze). | [details](references/audit_novel_provenance.md) |
 | `beta_ready_gate` | effect | Composite gate: all chapters drafted+ (effect). | [details](references/beta_ready_gate.md) |
 | `capture_claim` | effect | Record a NovelClaim node SERVING the intent (effect). | [details](references/capture_claim.md) |
 | `capture_idea` | effect | Record an Idea node SERVING the intent (effect). | [details](references/capture_idea.md) |
@@ -52,6 +53,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `promote_idea` | effect | Idea → Novel transition; records PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
+| `record_storyform_decision` | effect | Record a contested storyform decision (effect, xcap to dogfood). | [details](references/record_storyform_decision.md) |
 | `rename_novel` | effect | Update a Novel's title (effect, graph-only). | [details](references/rename_novel.md) |
 | `render_blurb` | act | Render a back-cover blurb (act, driver-free). | [details](references/render_blurb.md) |
 | `render_chapter_brief` | act | Produce a research-dossier brief tied to a chapter (act, xcap to prompt). | [details](references/render_chapter_brief.md) |
@@ -63,6 +65,8 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `set_chapter_status` | effect | Flip a Chapter's lifecycle status; enum-checked (effect). | [details](references/set_chapter_status.md) |
 | `set_novel_status` | effect | Flip a Novel's lifecycle status; enum-checked (effect). | [details](references/set_novel_status.md) |
 | `storyform_critical_pass` | act | Critical-thinking pass over the storyform (act, xcap to thinking). | [details](references/storyform_critical_pass.md) |
+| `validate_appreciations` | transform | Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform). | [details](references/validate_appreciations.md) |
+| `validate_narrative_functions` | transform | Row 13 hybrid: NCP narrative_functions ∈ canonical 144 (transform). | [details](references/validate_narrative_functions.md) |
 
 ## Example
 
@@ -79,8 +83,14 @@ await call_tool('capability_novel_analyze_readability', {'intent_id': 'intent:ab
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
+- **`character-architect`** (conceptualizer): psychology → archetype → voice → confirmation
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'character-architect', 'inputs': {}, 'intent_id': '…'})`
 - **`novel-concept`** (conceptualizer): premise → genre → audience → pov → setting → characters-core → dramatica-seed → outline-shape → series-hypothesis → confirmation
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'novel-concept', 'inputs': {}, 'intent_id': '…'})`
+- **`scene-bridge-auditor`** (auditor): Q1-purpose → Q2-POV → Q3-stakes → Q4-conflict → Q5-payoff-and-signoff
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'scene-bridge-auditor', 'inputs': {}, 'intent_id': '…'})`
+- **`world-bible-architect`** (conceptualizer): geography → cultures → religions-languages → magic-systems → canon-lock
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'world-bible-architect', 'inputs': {}, 'intent_id': '…'})`
 
 ## analyze_readability
 
