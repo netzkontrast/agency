@@ -601,13 +601,6 @@ class FakeAudioDriver:
     def __init__(self, loudness: float = -14.0) -> None:
         self._loudness = loudness
         self.ffmpeg_calls: list[list[str]] = []
-        # Audit-only call logs — populated by master/polish/render methods so
-        # downstream consumers (a SaaS dashboard, an audit-export verb) can
-        # introspect what the fake "did". Not used by tests in this PR;
-        # documented because the bitwize prod driver writes the same surface.
-        self.master_calls: list[dict] = []
-        self.polish_calls: list[dict] = []
-        self.render_calls: list[dict] = []
 
     # ── 007 baseline ──
     def read_loudness(self, path: str) -> float:
@@ -677,13 +670,11 @@ class FakeAudioDriver:
                 "phase_safe": cancellation_db > -6.0}
 
     def polish_stems(self, stems: dict[str, str]) -> dict:
-        self.polish_calls.append({"kind": "stems", "stems": dict(stems)})
         return {"polished_stems": {n: f"{p}.polished"
                                    for n, p in stems.items()},
                 "stem_count": len(stems)}
 
     def polish_full(self, path: str) -> str:
-        self.polish_calls.append({"kind": "full", "path": path})
         return f"{path}.polished"
 
     def master(self, path: str, target_lufs: float,
@@ -691,9 +682,6 @@ class FakeAudioDriver:
         measured = self.read_loudness(path)
         gain = target_lufs - measured
         out = f"{path}.mastered"
-        self.master_calls.append({"path": path, "out": out,
-                                  "target_lufs": target_lufs,
-                                  "preset": preset})
         return {"input": path, "output": out, "preset": preset,
                 "measured_lufs": measured,
                 "target_lufs": target_lufs,
@@ -719,13 +707,9 @@ class FakeAudioDriver:
 
     def render_promo_video(self, audio: str, art: str,
                             template: str = "") -> str:
-        self.render_calls.append({"kind": "promo_video", "audio": audio,
-                                  "art": art, "template": template})
         return f"{audio}.{template or 'default'}.mp4-stub"
 
     def render_songbook(self, tracks: list[str]) -> str:
-        self.render_calls.append({"kind": "songbook",
-                                  "track_count": len(tracks)})
         return f"songbook-{len(tracks)}-tracks.pdf-stub"
 
 
@@ -838,17 +822,12 @@ class FakeCloudDriver:
         self._head_status = head_status
         # In-memory object store — populated only when configured=True.
         self._objects: dict[str, dict] = {}
-        # Upload audit log for downstream consumers (a dashboard, an
-        # audit-export verb). Spec 096's FakeAudioDriver follows the same
-        # pattern (master_calls / polish_calls / render_calls).
-        self.put_calls: list[dict] = []
 
     # ── 007 baseline ──
     def url_head(self, url: str) -> int:
         return self._head_status
 
     def r2_put(self, key: str, data: bytes) -> dict:
-        self.put_calls.append({"key": key, "bytes": len(data)})
         if not self._configured:
             return {"ok": False, "error": "DEPENDENCY_MISSING"}
         self._objects[key] = {"key": key, "bytes": len(data),

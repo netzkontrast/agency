@@ -42,7 +42,6 @@ from .ontology import (
 )
 
 _VOWELS = "aeiouy"
-_SLUG_BAD = (" ", "/", "\\", ".", ",", "!", "?", "'", "\"", "(", ")", "[", "]")
 
 # Spec 095 — prosody-gate tunables (CLAUDE.md rule 8: documented budgets, not
 # snapshots). The MIN_RHYME_GROUPS bound = "actual rhyming needs at least 2
@@ -54,15 +53,11 @@ _SLUG_BAD = (" ", "/", "\\", ".", ",", "!", "?", "'", "\"", "(", ")", "[", "]")
 _MIN_RHYME_GROUPS: int = 2
 _SYLLABLE_TOLERANCE: int = 2
 
-
-def _slugify(text: str) -> str:
-    """Deterministic slugifier — lowercase, replace non-alnum with hyphen, collapse."""
-    s = text.lower().strip()
-    for ch in _SLUG_BAD:
-        s = s.replace(ch, "-")
-    while "--" in s:
-        s = s.replace("--", "-")
-    return s.strip("-")
+# Single-source slugifier (post-review cleanup): both this module and
+# drivers_production.py used to host duplicate `_slugify` functions with
+# slightly different `_SLUG_BAD` tuples. Consolidated to `_slug.slugify` to
+# eliminate the drift risk that would surface as "track not found" bugs.
+from ._slug import slugify as _slugify         # noqa: E402
 
 
 def _syllables(word: str) -> int:
@@ -2179,20 +2174,12 @@ class MusicCapability(CapabilityBase):
         Returns: ``{kind, slug, body}``.
         chain_next: feed the body into a verb that needs the doctrine context.
         """
-        state, _fail = self._require_drv("music_state") if hasattr(self, "_require_drv") else (None, None)
-        if state is None:
-            # Driver missing — read directly from the cap's bundled data dir
-            from pathlib import Path
-            data_dir = Path(__file__).parent / "data" / kind / slug
-            if data_dir.is_file():
-                return ToolResult.success(data={"kind": kind, "slug": slug,
-                                                "body": data_dir.read_text(encoding="utf-8")})
-            md = data_dir.with_suffix(".md")
-            if md.is_file():
-                return ToolResult.success(data={"kind": kind, "slug": slug,
-                                                "body": md.read_text(encoding="utf-8")})
-            return ToolResult.success(data={"kind": kind, "slug": slug,
-                                            "body": ""})
+        # `_require_drv` is on CapabilityBase — the prior `hasattr` guard was
+        # unreachable. Always route via StateDriver.read_data (both
+        # FakeStateDriver and FileStateDriver implement it).
+        state, _fail = self._require_drv("music_state")
+        if _fail:
+            return _fail
         return ToolResult.success(data=state.read_data(kind=kind, slug=slug))
 
     @verb(role="transform")

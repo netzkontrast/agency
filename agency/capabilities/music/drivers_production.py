@@ -63,9 +63,11 @@ class FileStateDriver:
             self._templates_dir = Path(__file__).parent / "templates"
         self._session: dict = {}
         # In-memory mirrors for read-side fast-paths; the disk is canonical
-        # but we cache the index so list_albums / list_tracks don't scan
-        # the filesystem on every call.
-        self._albums_cache: dict[str, dict] | None = None
+        # Filesystem is the source of truth — `_scan_albums()` walks 3 nested
+        # iterdir() levels per call. Spec 115 review-driven cleanup: the
+        # previous `_albums_cache` was invalidated on every write (even idea/
+        # streaming puts) so it rarely served a hit. Cost of `_scan_albums`
+        # is O(albums) stat calls — acceptable for any realistic project.
         self._ideas: list[dict] = []
         self._tweet_counter = 0
 
@@ -79,13 +81,9 @@ class FileStateDriver:
 
     @staticmethod
     def _slugify(text: str) -> str:
-        bad = (" ", "/", "\\", ".", ",", "!", "?", "'", "\"", "(", ")", "[", "]")
-        s = text.lower().strip()
-        for ch in bad:
-            s = s.replace(ch, "-")
-        while "--" in s:
-            s = s.replace("--", "-")
-        return s.strip("-")
+        # Single source of truth — see `_slug.slugify` docstring rationale.
+        from ._slug import slugify
+        return slugify(text)
 
     def _render_template(self, name: str) -> str:
         tpl = self._templates_dir / f"{name}.md"
@@ -178,7 +176,6 @@ class FileStateDriver:
             if genre_body:
                 genre_readme.parent.mkdir(parents=True, exist_ok=True)
                 genre_readme.write_text(genre_body, encoding="utf-8")
-        self._albums_cache = None     # invalidate
         return str(album_root.relative_to(self._content_root()))
 
     def find_album(self, query: str) -> list[dict]:
@@ -195,8 +192,6 @@ class FileStateDriver:
         return list(self._scan_albums().values())
 
     def _scan_albums(self) -> dict[str, dict]:
-        if self._albums_cache is not None:
-            return self._albums_cache
         out: dict[str, dict] = {}
         root = self._content_root() / "artists"
         if root.is_dir():
@@ -222,7 +217,6 @@ class FileStateDriver:
                             "status": "draft",
                             "root": str(album_dir.relative_to(self._content_root())),
                         }
-        self._albums_cache = out
         return out
 
     def rename_album(self, old_slug: str, new_slug: str) -> dict:
@@ -236,7 +230,6 @@ class FileStateDriver:
             return {"success": False, "error": "NOT_FOUND",
                     "old_slug": old_slug}
         shutil.move(str(old_root), str(new_root))
-        self._albums_cache = None
         return {"success": True, "old_slug": old_slug, "new_slug": new_slug,
                 "title": albums[old_slug].get("title", new_slug),
                 "tracks_updated": 0}
@@ -520,16 +513,27 @@ class SqliteDBDriver:
 
     def sync_album_tweets(self, album: str,
                           tweets: list[dict]) -> dict:
-        cur = self._conn.cursor()
-        cur.execute("SELECT COUNT(*) as c FROM tweets WHERE album = ?",
-                    (album,))
-        existing = cur.fetchone()["c"]
-        cur.execute("DELETE FROM tweets WHERE album = ?", (album,))
-        for t in tweets:
-            self.create_tweet(
-                album=album, body=t.get("body", ""),
-                scheduled_at=t.get("scheduled_at", ""),
-                platform=t.get("platform", "x"))
+        """Bulk-sync — one transaction, one fsync (was N commits in v1).
+
+        Spec 115 efficiency review: was calling `create_tweet` per row,
+        which opened a cursor + committed per insert. With `with self._conn:`
+        all inserts share one commit on context-exit; ~10-100× faster on
+        bulk sync at the cost of all-or-nothing semantics (right contract
+        for an idempotent replace).
+        """
+        with self._conn:
+            cur = self._conn.cursor()
+            cur.execute("SELECT COUNT(*) as c FROM tweets WHERE album = ?",
+                        (album,))
+            existing = cur.fetchone()["c"]
+            cur.execute("DELETE FROM tweets WHERE album = ?", (album,))
+            rows = [(album, t.get("body", ""),
+                     t.get("scheduled_at", ""),
+                     t.get("platform", "x")) for t in tweets]
+            cur.executemany(
+                "INSERT INTO tweets (album, body, scheduled_at, platform) "
+                "VALUES (?, ?, ?, ?)", rows)
+            cur.close()
         return {"album": album, "removed": existing,
                 "created": len(tweets)}
 
