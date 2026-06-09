@@ -420,56 +420,14 @@ class NovelCapability(CapabilityBase):
             "violations": violations,
         })
 
-    @verb(role="transform")
-    def check_quad_completeness(self, ncp: dict) -> ToolResult:
-        """Decidable check (row 3): quad-reverse-index audit.
-
-        Verifies the crucial_element_id resolves and the MC's problem +
-        solution elements (Spec 103 §"Decidable" row 3) are declared and
-        sit on a known dynamic pair within the Dramatica ontology.
-
-        Inputs: ncp (NCP v1.3.0 payload).
-        Returns: ``{passed, violations}``.
-        chain_next: ``novel.check_throughline_partition``.
-        """
-        violations: list[str] = []
-        story = ncp.get("storyform") or {}
-        ce_id = story.get("crucial_element_id")
-        # Slice 1: validate SHAPE only (id present + "el." prefix). The
-        # full ontology lookup lands in Slice 2 once the fixture id-set
-        # is reconciled against the vendored ontology.json (an known
-        # follow-up — fixtures use ids like 'el.self-interest' that
-        # the ontology doesn't yet carry under that exact label).
-        if not ce_id:
-            violations.append("row3: crucial_element_id missing")
-        elif not ce_id.startswith("el."):
-            violations.append(f"row3: crucial_element_id={ce_id!r} bad shape")
-        # MC problem + solution element ids must be declared and shaped.
-        mc = (story.get("throughlines") or {}).get("mc") or {}
-        problem_id = mc.get("problem_id")
-        solution_id = mc.get("solution_id")
-        if mc and not problem_id:
-            violations.append("row3: mc.problem_id missing")
-        elif mc and not problem_id.startswith("el."):
-            violations.append(f"row3: mc.problem_id={problem_id!r} bad shape")
-        if mc and not solution_id:
-            violations.append("row3: mc.solution_id missing")
-        elif mc and not solution_id.startswith("el."):
-            violations.append(f"row3: mc.solution_id={solution_id!r} bad shape")
-        # Slice 1 fail-mode: if the MC problem == solution they collapse
-        # the dynamic pair (the quad-completeness contract is violated).
-        if problem_id and solution_id and problem_id == solution_id:
-            violations.append(
-                f"row3: mc.problem_id == mc.solution_id ({problem_id!r})")
-        # Per Dramatica canon (H5/H6/H7 quad-completeness): the crucial
-        # element IS the MC's central problem. The fixture-pair encodes
-        # this — broken_work_quad_completeness diverges good_work ONLY in
-        # mc.problem_id, leaving crucial_element_id unchanged.
-        if ce_id and problem_id and ce_id != problem_id:
-            violations.append(
-                f"row3: crucial_element_id={ce_id!r} != "
-                f"mc.problem_id={problem_id!r}")
-        return ToolResult.success(data={
-            "passed": not violations,
-            "violations": violations,
-        })
+    # NOTE: `check_quad_completeness` (row 3) DEFERRED to Slice 2.
+    # The decidable distinction between row 3 (quad completeness) and
+    # row 6 (crucial-element placement) requires ontology lookup to know
+    # which Elements sit on the same Dramatica quad. Without it, the
+    # broken_work_quad_completeness and broken_work_crucial_element_placement
+    # fixtures both trip the same `ce_id != mc.problem_id` shape signal
+    # — Round 1 sc-analyze (commit 21aff0e) flagged this honestly as a
+    # false-positive risk. Per Rec 2's "each broken fixture fails EXACTLY
+    # its named check" contract: ship only verbs that hold the contract.
+    # Slice 2 reconciles fixture-ids ↔ vendored ontology then implements
+    # all 13 checks with the full element-graph traversal.

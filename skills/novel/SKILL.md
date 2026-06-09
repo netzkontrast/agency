@@ -25,7 +25,6 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 |------|------|-------|-----------|
 | `capture_idea` | effect | Record an Idea node SERVING the intent (effect). | [details](references/capture_idea.md) |
 | `chapter_report` | transform | Read-only aggregate over the novel's chapters (transform). | [details](references/chapter_report.md) |
-| `check_quad_completeness` | transform | Decidable check (row 3): quad-reverse-index audit. | [details](references/check_quad_completeness.md) |
 | `check_throughline_partition` | transform | Decidable check (row 5): 4 throughlines / 4 distinct Classes (transform). | [details](references/check_throughline_partition.md) |
 | `conceptualize` | act | Render a novel-concept document (act); the first verb of the MVN flow. | [details](references/conceptualize.md) |
 | `create_chapter` | effect | Record a Chapter graph node + CHAPTER_OF the parent Novel (effect). | [details](references/create_chapter.md) |
