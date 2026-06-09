@@ -66,6 +66,32 @@ RELEASE_QA_SKILL = {
     ],
 }
 
+# Spec 099 — research cluster.
+RESEARCH_DOMAINS = {
+    "legal", "financial", "security", "government", "journalism",
+    "biographical", "historical", "primary_source", "technical",
+    "document_hunter",
+}
+RESEARCH_CLAIM_VERIFIED = {"pending", "human-confirmed", "rejected"}
+VERIFICATION_VERDICT = {"confirmed", "rejected", "needs-more-evidence"}
+
+RESEARCH_WORKFLOW_SKILL = {
+    "name": "research-workflow", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "scope",
+         "produces": ["research_question", "domains_selected"]},
+        {"index": 2, "name": "dispatch-specialists",
+         "produces": ["specialists_dispatched"]},
+        {"index": 3, "name": "collect",
+         "produces": ["claims_captured"]},
+        {"index": 4, "name": "verify",
+         "produces": ["pending_resolved"],
+         "gate": "computed", "gate_verb": "music.verify_gate"},
+        {"index": 5, "name": "human-sign-off",
+         "produces": ["sources_signed_off"], "gate": "hard"},
+    ],
+}
+
 # Spec 098 — promo cluster walkable skills.
 PROMO_PASS_SKILL = {
     "name": "promo-pass", "kind": "workflow",
@@ -210,12 +236,20 @@ music_ontology = OntologyExtension(
         # 094 Slice 2 — reference data nodes (back the vendored genres + reference docs)
         "Genre": ["slug", "name"],               # optional: mastering_target_lufs, suno_tips
         "Reference": ["kind", "slug"],           # optional: body
+        # 099 NEW — music-specific research nodes (the `research` capability
+        # owns its own ResearchClaim/VerificationRecord with a slightly
+        # different shape; ours are music-album-scoped).
+        "AlbumClaim": ["text", "source_uri", "domain", "verified"],
+        "AlbumVerification": ["claim", "verdict"],
     },
     enums={("Album", "type"): ALBUM_TYPES,
            ("Album", "status"): ALBUM_STATUS,
            ("Track", "status"): TRACK_STATUS,
            ("Idea", "status"): IDEA_STATUS,      # 094 Slice 2 NEW
-           ("Tweet", "status"): TWEET_STATUS},   # 097 NEW
+           ("Tweet", "status"): TWEET_STATUS,    # 097 NEW
+           ("AlbumClaim", "verified"): RESEARCH_CLAIM_VERIFIED,  # 099 NEW
+           ("AlbumClaim", "domain"): RESEARCH_DOMAINS,           # 099 NEW
+           ("AlbumVerification", "verdict"): VERIFICATION_VERDICT}, # 099 NEW
     edges={                                       # 094 Slice 2 NEW closed-set edges
         "PROMOTED_TO",                            # Idea → Album (promote_idea)
         "RECORDED_FOR",                           # Track → Album (create_track)
@@ -229,7 +263,8 @@ music_ontology = OntologyExtension(
             "tweet-curation": TWEET_CURATION_SKILL,  # 097 NEW
             "streaming-verify": STREAMING_VERIFY_SKILL,  # 097 NEW
             "promo-pass": PROMO_PASS_SKILL,          # 098 NEW
-            "release-publish": RELEASE_PUBLISH_SKILL},  # 098 NEW
+            "release-publish": RELEASE_PUBLISH_SKILL,  # 098 NEW
+            "research-workflow": RESEARCH_WORKFLOW_SKILL},  # 099 NEW
     schemas={"album-concept": ["artist", "title", "type"],
              "promo-copy": ["album", "body"],
              "mastering-report": ["album", "body"],
@@ -254,5 +289,8 @@ music_ontology = OntologyExtension(
              # 098 NEW — promo cluster artefact reports
              "published-asset":      ["album", "key", "bytes"],
              "promo-album-package":  ["album", "assets"],
-             "social-post":          ["album", "platform", "body"]},
+             "social-post":          ["album", "platform", "body"],
+             # 099 NEW — research cluster artefact reports
+             "album-claim":          ["text", "domain"],
+             "album-verification":   ["claim", "verdict"]},
 )

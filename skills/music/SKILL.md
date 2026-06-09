@@ -30,6 +30,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `analyze_mix` | transform | Analyse a mix for loudness issues via the AudioDriver (transform). | [details](references/analyze_mix.md) |
 | `analyze_readability` | transform | Flesch-Kincaid-shaped readability over the lyric text (transform). | [details](references/analyze_readability.md) |
 | `analyze_rhyme_scheme` | transform | Build a rhyme scheme (A/B/C labels) over the lyric lines (transform). | [details](references/analyze_rhyme_scheme.md) |
+| `capture_claim` | effect | Record a ResearchClaim node SERVES the intent (effect). | [details](references/capture_claim.md) |
 | `capture_idea` | effect | Capture a creative idea (effect) — record an Idea node, persist via StateDriver. | [details](references/capture_idea.md) |
 | `catalogue_status` | transform | Read track statuses from the catalogue DB via the DBDriver (transform). | [details](references/catalogue_status.md) |
 | `check_cross_track_repetition` | transform | Flag lyric lines repeated across multiple album tracks (transform). | [details](references/check_cross_track_repetition.md) |
@@ -50,6 +51,8 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `db_search_tweets` | transform | Substring search across tweet bodies via DBDriver (transform). | [details](references/db_search_tweets.md) |
 | `db_sync_album` | effect | Idempotent sync of an album's tweets — replaces existing (effect). | [details](references/db_sync_album.md) |
 | `db_update_tweet` | effect | Update tweet row fields via the DBDriver (effect). | [details](references/db_update_tweet.md) |
+| `dispatch_research` | effect | Fan out to N specialists via agency.research (effect). | [details](references/dispatch_research.md) |
+| `document_hunt` | effect | Dispatch a document-hunter specialist via agency.research (effect). | [details](references/document_hunt.md) |
 | `explicit_gate` | effect | Computed explicit-content gate (effect). | [details](references/explicit_gate.md) |
 | `extract_distinctive_phrases` | transform | Return novel tri-grams (not in corpus) from the lyrics (transform). | [details](references/extract_distinctive_phrases.md) |
 | `extract_links` | transform | Extract URLs from text via simple regex (transform). | [details](references/extract_links.md) |
@@ -60,6 +63,8 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `get_promo_content` | transform | Read promo content (drafts + scheduled tweets) via DBDriver (transform). | [details](references/get_promo_content.md) |
 | `get_promo_status` | transform | Per-album promo state via StateDriver + DBDriver (transform). | [details](references/get_promo_status.md) |
 | `get_streaming_urls` | transform | Read recorded streaming URLs for an album via StateDriver (transform). | [details](references/get_streaming_urls.md) |
+| `human_signoff` | effect | Record terminal human approval for the album's research (effect). | [details](references/human_signoff.md) |
+| `list_claims` | transform | List ResearchClaim nodes (transform). | [details](references/list_claims.md) |
 | `list_ideas` | transform | List captured ideas via the StateDriver (transform) — filter by status. | [details](references/list_ideas.md) |
 | `list_tracks` | transform | List tracks for an album via the StateDriver (transform). | [details](references/list_tracks.md) |
 | `lyric_report` | act | Analyze a lyric sheet's syllable load per line via the TextDriver (act). | [details](references/lyric_report.md) |
@@ -70,6 +75,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `measure_gate` | effect | Computed measure gate — composes loudness probe + range check (effect). | [details](references/measure_gate.md) |
 | `mono_fold_check` | transform | Phase-cancellation check via AudioDriver (transform). | [details](references/mono_fold_check.md) |
 | `music_health` | transform | Self-check the music capability (transform, driver-free) — report which Driver seams are wired. | [details](references/music_health.md) |
+| `pending_verifications` | transform | Aggregate count of pending claims (transform). | [details](references/pending_verifications.md) |
 | `polish_album` | effect | Album-wide polish pass — applies polish to every track (effect). | [details](references/polish_album.md) |
 | `polish_and_master_album` | effect | Combined polish + master pipeline (effect); produces mastering-report. | [details](references/polish_and_master_album.md) |
 | `polish_audio` | effect | Per-track polish pass via AudioDriver (effect). | [details](references/polish_audio.md) |
@@ -92,6 +98,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `rename_track` | effect | Rename a track within an album, mirroring paths via the StateDriver (effect). | [details](references/rename_track.md) |
 | `render_codec_preview` | effect | Render a streaming-codec preview via AudioDriver (effect). | [details](references/render_codec_preview.md) |
 | `repetition_gate` | effect | Computed cross-track repetition gate (effect). | [details](references/repetition_gate.md) |
+| `research_scope` | act | Define a research question + plan specialist domains (act). | [details](references/research_scope.md) |
 | `reset_mastering` | effect | Revert all master/polish state for an album (effect). | [details](references/reset_mastering.md) |
 | `resume_session` | transform | Restore the last-album context via the StateDriver (transform). | [details](references/resume_session.md) |
 | `scan_artist_names` | transform | Scan for accidental artist-name drops against the blocklist (transform). | [details](references/scan_artist_names.md) |
@@ -102,6 +109,8 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `update_streaming_url` | effect | Persist a verified streaming URL via StateDriver (effect). | [details](references/update_streaming_url.md) |
 | `upload_promo_video` | effect | Upload a promo video to object storage (effect). | [details](references/upload_promo_video.md) |
 | `validate_section_structure` | transform | Validate section tag well-formedness (Title Case in brackets) (transform). | [details](references/validate_section_structure.md) |
+| `verify_gate` | effect | Computed verification gate — composes pending_verifications (effect). | [details](references/verify_gate.md) |
+| `verify_sources` | effect | Cross-check pending claims (effect). | [details](references/verify_sources.md) |
 | `verify_streaming` | transform | Verify an album's streaming links are live via the CloudDriver (transform). | [details](references/verify_streaming.md) |
 
 ## Example
@@ -135,6 +144,8 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'release-publish', 'inputs': {}, 'intent_id': '…'})`
 - **`release-qa`** (gate): mastered → metadata → ship
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'release-qa', 'inputs': {}, 'intent_id': '…'})`
+- **`research-workflow`** (workflow): scope → dispatch-specialists → collect → verify → human-sign-off
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'research-workflow', 'inputs': {}, 'intent_id': '…'})`
 - **`streaming-verify`** (workflow): collect → head-check → record
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'streaming-verify', 'inputs': {}, 'intent_id': '…'})`
 - **`tweet-curation`** (workflow): draft → schedule → publish → archive
