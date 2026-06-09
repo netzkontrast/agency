@@ -22,7 +22,7 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 44 | 001, 002, 006, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **115**, **119** |
+| **Shipped** | 52 | 001, 002, 006, 011, 012, 013, 015, 016, 017, 019, 020, 021, 022, 023, 029, 030, 039, 040, 042, 043, 044, 045, 047, 048, 049, 050, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **101**, **102**, **103**, **104**, **105**, **106**, **107**, **108**, **115**, **119** |
 
 > **094-099 cluster-children stay Partial until the deferred per-cluster
 > file-split lands** (Done-When line: "verbs imported from
@@ -44,7 +44,7 @@
 > - Skills: 53 SKILL.md docs ≠ 15 walkable workflows (intentional —
 >   bitwize SKILL.md files are advisory docs; agency walkable skills are
 >   phased workflows for the engine walker).
-| **Partially implemented** | 19 | 007, 018, 024, 025, 026, 031, 041, 046, **101**, **102**, **103**, **104**, **105**, **106**, **107**, **108**, 109, 110, 114, **117** |
+| **Partially implemented** | 11 | 007, 018, 024, 025, 026, 031, 041, 046, 109, 110, 114, **117** |
 | **Not started** | 6 | 003, 004, 005, 010, 014, 051 |
 | **Token-economy cluster (`intent:97534079`) — GOAL MET** | 6 | 066 master · 072 ✅ · 067 ✅ · **068 ✅ (−83% discovery)** · **074 ✅ capstone** · ~~069 cancelled~~ · 070/071 WARN-accepted (optional future) |
 | **Shipped — audit-trail (`intent:558f1bf5` / `intent:d8090aef`)** | 4 | **073 ✅ → `shell` capability** (run/filter/templates) · **018 (Wins 1+3) ✅** (`develop.skill_walk` atomic walker + implicit `intent_id` via `AGENCY_INTENT`; Win 2 = cancelled-069, skipped) · **075 ✅** (`shell.define` + `shell.templates(query)` + run resolves graph-first; common-bash seeds — definable registry per CLAUDE.md #8) · **079 ✅** (Click CLI mirrors every capability verb as `agency <cap> <verb>` for non-MCP agents; auto-generated from the live registry; code-mode stays canonical) |
