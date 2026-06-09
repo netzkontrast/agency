@@ -170,10 +170,11 @@ def test_novel_concept_skill_is_five_phased_with_hard_gate() -> None:
     e.memory.close()
 
 
-def test_novel_capability_ships_11_bitwize_templates() -> None:
+def test_novel_capability_ships_10_bitwize_templates_plus_ncp_json() -> None:
     """10 markdown templates (via RenderTemplates.from_module) + ncp.json (data).
 
-    11 templates ported verbatim from `Plan/_research/novel-mvp-source/templates/`
+    10 markdown + 1 JSON structural template ported verbatim from
+    `Plan/_research/novel-mvp-source/templates/`
     per Spec 101 §"Templates (ported VERBATIM from the-agency-system)".
     `README.md` renamed to `readme.md` for kebab-case compliance; `ncp.json` lives
     at `data/ncp/ncp-template.json` (structural template, not a render-template).
