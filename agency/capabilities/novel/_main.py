@@ -630,17 +630,76 @@ class NovelCapability(CapabilityBase):
             "violations": violations,
         })
 
-    # NOTE: `check_quad_completeness` (row 3) DEFERRED to Slice 2.
+    # NOTE: `check_quad_completeness` (row 3) DEFERRED to Slice 3.
     # The decidable distinction between row 3 (quad completeness) and
     # row 6 (crucial-element placement) requires ontology lookup to know
-    # which Elements sit on the same Dramatica quad. Without it, the
-    # broken_work_quad_completeness and broken_work_crucial_element_placement
-    # fixtures both trip the same `ce_id != mc.problem_id` shape signal
-    # — Round 1 sc-analyze (commit 21aff0e) flagged this honestly as a
-    # false-positive risk. Per Rec 2's "each broken fixture fails EXACTLY
-    # its named check" contract: ship only verbs that hold the contract.
-    # Slice 2 reconciles fixture-ids ↔ vendored ontology then implements
-    # all 13 checks with the full element-graph traversal.
+    # which Elements sit on the same Dramatica quad. Both fixtures trip
+    # the same `ce_id != mc.problem_id` shape signal — Slice 1 retraction
+    # log carries the detail. Slice 3 reconciles fixture-ids ↔ vendored
+    # ontology then implements all 13 checks with full element traversal.
+
+    # ───────────── Spec 103 Slice 2 — 3 more decidable checks ─────────────
+    # All 3 ship the EXACT-FAIL contract per Rec 2: each fires on its
+    # named broken fixture and PASSES on the other 10. No ontology lookup
+    # needed; shape-decidable from the NCP body alone.
+
+    @verb(role="transform")
+    def check_slot_fill(self, ncp: dict) -> ToolResult:
+        """Decidable check (row 4): no null required slots (transform).
+
+        Each throughline must carry non-null `class_id`, `concern_id`,
+        `approach`, `mental_sex`, `resolve` slots (or omit the slot
+        entirely — explicit null is a fill error, not absence).
+
+        Inputs: ncp (NCP v1.3.0 payload).
+        Returns: ``{passed, violations}``.
+        chain_next: ``novel.check_throughline_partition`` for H1+H2.
+        """
+        violations: list[str] = []
+        story = ncp.get("storyform") or {}
+        throughlines = story.get("throughlines") or {}
+        for tname, tbody in throughlines.items():
+            for slot in ("class_id", "concern_id", "approach",
+                         "mental_sex", "resolve"):
+                if slot in tbody and tbody.get(slot) is None:
+                    violations.append(
+                        f"row4: {tname}.{slot} is null (use omission, not null)")
+        return ToolResult.success(data={
+            "passed": not violations, "violations": violations,
+        })
+
+    @verb(role="transform")
+    def check_storybeat_moment_refs(self, ncp: dict) -> ToolResult:
+        """Decidable check (row 11): every moment.storybeat_ref resolves (transform).
+
+        Each `moments[*].storybeat_ref` must point to an existing
+        `storybeats[*].id`. A dangling ref is a NCP-referential break.
+
+        Inputs: ncp (NCP v1.3.0 payload).
+        Returns: ``{passed, violations}``.
+        chain_next: ``novel.check_slot_fill`` for row 4 audit.
+        """
+        violations: list[str] = []
+        storybeats = ncp.get("storybeats") or []
+        moments = ncp.get("moments") or []
+        beat_ids = {sb.get("id") for sb in storybeats if sb.get("id")}
+        for i, m in enumerate(moments):
+            ref = m.get("storybeat_ref")
+            if ref and ref not in beat_ids:
+                violations.append(
+                    f"row11: moments[{i}].storybeat_ref={ref!r} dangling")
+        return ToolResult.success(data={
+            "passed": not violations, "violations": violations,
+        })
+
+    # NOTE: `check_signpost_permutation` (row 10) DEFERRED to Slice 3.
+    # The canonical signpost orderings ARE encodable in-code, but the
+    # check over-fires on `broken_work_throughline_partition` (which
+    # mutates mc.class_id universe→physics, leaving the original
+    # universe signposts intact — now mismatched under physics).
+    # Per Rec 2's exact-fail contract: ship only verbs that hold the
+    # contract. Slice 3 chains the two checks (gate on partition-clean,
+    # only then audit signpost-canonical) so the over-fire is structural.
 
     # ───────────────── Spec 104 — prose-analysis (driver-free) ─────────────────
     # Slice 1 ships 3 deterministic, driver-free prose-analysis verbs.

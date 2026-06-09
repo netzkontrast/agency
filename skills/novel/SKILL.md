@@ -28,6 +28,8 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `capture_idea` | effect | Record an Idea node SERVING the intent (effect). | [details](references/capture_idea.md) |
 | `chapter_report` | transform | Read-only aggregate over the novel's chapters (transform). | [details](references/chapter_report.md) |
 | `check_filter_words` | transform | Filter-word density check (transform, show-don't-tell). | [details](references/check_filter_words.md) |
+| `check_slot_fill` | transform | Decidable check (row 4): no null required slots (transform). | [details](references/check_slot_fill.md) |
+| `check_storybeat_moment_refs` | transform | Decidable check (row 11): every moment.storybeat_ref resolves (transform). | [details](references/check_storybeat_moment_refs.md) |
 | `check_throughline_partition` | transform | Decidable check (row 5): 4 throughlines / 4 distinct Classes (transform). | [details](references/check_throughline_partition.md) |
 | `conceptualize` | act | Render a novel-concept document (act); the first verb of the MVN flow. | [details](references/conceptualize.md) |
 | `count_words` | transform | Word + char counter (transform, driver-free). | [details](#count_words) |
