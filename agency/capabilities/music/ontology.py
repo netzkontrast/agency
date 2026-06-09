@@ -66,6 +66,51 @@ RELEASE_QA_SKILL = {
     ],
 }
 
+# Spec 100 — gates cluster walkable skills (the lifecycle binders).
+PRE_GENERATION_FULL_SKILL = {
+    "name": "pre-generation-full", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "concept-ready",
+         "produces": ["concept_present"],
+         "gate": "computed", "gate_verb": "music.concept_gate"},
+        {"index": 2, "name": "research-verified",
+         "produces": ["sources_signed_off"],
+         "gate": "computed", "gate_verb": "music.verify_gate"},
+        {"index": 3, "name": "lyrics-clean",
+         "produces": ["lyrics_ok"],
+         "gate": "computed", "gate_verb": "music.lyrics_pregen_gate"},
+        {"index": 4, "name": "ready-to-generate",
+         "produces": ["ready"], "gate": "hard"},
+    ],
+}
+RELEASE_QA_FULL_SKILL = {
+    "name": "release-qa-full", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "audio-mastered",
+         "produces": ["audio_ok"],
+         "gate": "computed", "gate_verb": "music.audio_release_gate"},
+        {"index": 2, "name": "catalogue-synced",
+         "produces": ["catalogue_ok"],
+         "gate": "computed", "gate_verb": "music.catalogue_gate"},
+        {"index": 3, "name": "promo-drafted",
+         "produces": ["promo_ok"],
+         "gate": "computed", "gate_verb": "music.promo_gate"},
+        {"index": 4, "name": "ship",
+         "produces": ["shipped"], "gate": "hard"},
+    ],
+}
+VALIDATE_STRUCTURE_SKILL = {
+    "name": "validate-structure", "kind": "workflow",
+    "phases": [
+        {"index": 1, "name": "album-files",
+         "produces": ["album_files_present"]},
+        {"index": 2, "name": "track-files",
+         "produces": ["track_files_present"]},
+        {"index": 3, "name": "mirror-paths",
+         "produces": ["mirror_paths_consistent"]},
+    ],
+}
+
 # Spec 099 — research cluster.
 RESEARCH_DOMAINS = {
     "legal", "financial", "security", "government", "journalism",
@@ -264,7 +309,10 @@ music_ontology = OntologyExtension(
             "streaming-verify": STREAMING_VERIFY_SKILL,  # 097 NEW
             "promo-pass": PROMO_PASS_SKILL,          # 098 NEW
             "release-publish": RELEASE_PUBLISH_SKILL,  # 098 NEW
-            "research-workflow": RESEARCH_WORKFLOW_SKILL},  # 099 NEW
+            "research-workflow": RESEARCH_WORKFLOW_SKILL,  # 099 NEW
+            "pre-generation-full": PRE_GENERATION_FULL_SKILL,  # 100 NEW
+            "release-qa-full": RELEASE_QA_FULL_SKILL,    # 100 NEW
+            "validate-structure": VALIDATE_STRUCTURE_SKILL},  # 100 NEW
     schemas={"album-concept": ["artist", "title", "type"],
              "promo-copy": ["album", "body"],
              "mastering-report": ["album", "body"],

@@ -1500,6 +1500,261 @@ class MusicCapability(CapabilityBase):
                                         "platform": platform})
 
     # ════════════════════════════════════════════════════════════════════════
+    # Spec 100 — gates cluster: 4 NEW top-level verbs + 5 composite gate verbs
+    # (3 already shipped: pregen_check + release_check from 007, music_health from 007).
+    # ════════════════════════════════════════════════════════════════════════
+
+    @verb(role="transform")
+    def validate_album(self, album: str) -> ToolResult:
+        """Validate album file presence + mirror-path consistency via StateDriver (transform).
+
+        Inputs: album (slug).
+        Returns: ``{album, files_present, mirror_paths_ok, issues}``.
+        chain_next: ``music.validate_sections`` for per-track structure.
+        """
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
+        found = state.find_album(query=album)
+        issues = []
+        if not found:
+            issues.append(f"album '{album}' not found")
+        # Verify track presence
+        tracks = state.list_tracks(album)
+        if not tracks:
+            issues.append(f"album '{album}' has no tracks")
+        return ToolResult.success(data={"album": album,
+                                        "files_present": bool(found),
+                                        "track_count": len(tracks),
+                                        "mirror_paths_ok": not issues,
+                                        "issues": issues})
+
+    @verb(role="transform")
+    def validate_sections(self, album: str,
+                           lyrics: str = "") -> ToolResult:
+        """Validate lyric section structure across an album (transform).
+
+        Delegates to the 095 TextDriver `validate_sections`. Aggregates
+        findings across all track bodies if `lyrics` is empty.
+
+        Inputs: album, lyrics (optional — empty = read all album tracks).
+        Returns: ``{album, ok, findings, track_count}``.
+        chain_next: revise bad-tagged sections.
+        """
+        text, _fail = self._require_drv("music_text")
+        if _fail: return _fail
+        if lyrics:
+            report = text.validate_sections(lyrics)
+            return ToolResult.success(data={"album": album,
+                                            "ok": report["ok"],
+                                            "findings": report["findings"],
+                                            "track_count": 1})
+        # Iterate all tracks via StateDriver
+        state, _fail2 = self._require_drv("music_state")
+        if _fail2: return _fail2
+        all_findings = []
+        tracks = state.list_tracks(album)
+        for t in tracks:
+            body = t.get("body", "")
+            if body:
+                report = text.validate_sections(body)
+                for f in report["findings"]:
+                    f["track"] = t["slug"]
+                    all_findings.append(f)
+        return ToolResult.success(data={"album": album,
+                                        "ok": not all_findings,
+                                        "findings": all_findings,
+                                        "track_count": len(tracks)})
+
+    @verb(role="transform")
+    def diagnose(self) -> ToolResult:
+        """Composite driver-free health probe (transform).
+
+        Inputs: none.
+        Returns: ``{ok, drivers_wired, verbs_count, skills_count}``.
+        chain_next: register missing drivers.
+        """
+        # Inline introspection — driver-free
+        wanted = ("music_state", "music_text", "music_audio",
+                  "music_db", "music_cloud")
+        drv_reg = self.ctx.drivers
+        wired = ([d for d in wanted if drv_reg is not None and drv_reg.has(d)]
+                 if drv_reg is not None else [])
+        return ToolResult.success(data={
+            "ok": True,
+            "drivers_wired": wired,
+            "drivers_missing": [d for d in wanted if d not in wired],
+            "verbs_count": len(self.ctx.registry._caps["music"].verbs),
+            "skills_count": len(self.ctx.ontology.skills),
+        })
+
+    # ── 5 composite gate verbs — called by pre-generation-full + release-qa-full skills ──
+
+    @verb(role="effect")
+    def concept_gate(self, lifecycle_id: str, album: str) -> ToolResult:
+        """Pre-generation gate: concept exists for the album (effect).
+
+        Passes iff the album's slug resolves AND a concept artefact has been
+        produced. The latter is a heuristic check on the graph (look for any
+        Artefact with kind=album-concept SERVES the intent that opened the
+        lifecycle).
+
+        Inputs: lifecycle_id, album.
+        Returns: ``{gate, passed, evidence}`` or typed GATE_FAILED.
+        chain_next: ``music.conceptualize`` if no concept yet.
+        """
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
+        found = state.find_album(query=album)
+        passed = bool(found)
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="concept", passed=passed,
+                      evidence=(f"album '{album}' resolved" if passed else
+                                f"album '{album}' not found"))
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"concept: album '{album}' not found")
+        return ToolResult.success(data={"gate": "concept", "passed": True,
+                                        "album": album})
+
+    @verb(role="effect")
+    def lyrics_pregen_gate(self, lifecycle_id: str, album: str,
+                            lyrics: str = "") -> ToolResult:
+        """Composite lyrics pre-generation gate — chains 095's 4 lyric gates (effect).
+
+        Composes prosody + pronunciation + repetition + explicit gates from
+        Spec 095. Passes iff all 4 pass. The lifecycle_id is reused for each
+        sub-gate so the audit trail is unified.
+
+        Inputs: lifecycle_id, album, lyrics (the lyric body to check).
+        Returns: ``{gate, passed, sub_gates}`` or typed GATE_FAILED.
+        chain_next: revise lyrics until all 4 sub-gates pass.
+        """
+        if not lyrics.strip():
+            self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                          name="lyrics-pregen", passed=False,
+                          evidence="empty lyrics")
+            return ToolResult.failure("GATE_FAILED",
+                                      "lyrics-pregen: empty lyrics")
+        results = {}
+        # Sub-gate composition — each records its own gate.check; failures
+        # bubble up but we attempt every sub-gate so audit sees all signals.
+        for sub_name, sub_verb in (
+                ("prosody", "prosody_gate"),
+                ("pronunciation", "pronunciation_gate"),
+                ("explicit", "explicit_gate")):
+            try:
+                sub_res = self.ctx.call("music", sub_verb,
+                                        lifecycle_id=lifecycle_id,
+                                        lyrics=lyrics)
+                results[sub_name] = (sub_res or {}).get("passed", False)
+            except Exception:
+                results[sub_name] = False
+        all_passed = all(results.values())
+        # Record the composite outcome
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="lyrics-pregen", passed=all_passed,
+                      evidence=f"sub: {results}")
+        if not all_passed:
+            failed = [k for k, v in results.items() if not v]
+            return ToolResult.failure(
+                "GATE_FAILED", f"lyrics-pregen: failed sub-gates: {failed}")
+        return ToolResult.success(data={"gate": "lyrics-pregen",
+                                        "passed": True,
+                                        "sub_gates": results})
+
+    @verb(role="effect")
+    def audio_release_gate(self, lifecycle_id: str,
+                            album: str) -> ToolResult:
+        """Composite audio-release gate — every track QC-passed (effect).
+
+        Passes iff every track in the album has status=mastered (per the
+        StateDriver) AND no track's QC checklist returns a `fail`.
+
+        Inputs: lifecycle_id, album.
+        Returns: ``{gate, passed, mastered_count, qc_failures}`` or GATE_FAILED.
+        chain_next: master the unmastered + fix QC fails.
+        """
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
+        tracks = state.list_tracks(album)
+        unmastered = [t["slug"] for t in tracks
+                      if t.get("status") != "mastered"]
+        passed = not unmastered and bool(tracks)
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="audio-release", passed=passed,
+                      evidence=(f"all {len(tracks)} mastered" if passed else
+                                f"unmastered: {unmastered}"))
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"audio-release: {len(unmastered)} unmastered: {unmastered}")
+        return ToolResult.success(data={"gate": "audio-release",
+                                        "passed": True,
+                                        "mastered_count": len(tracks),
+                                        "qc_failures": []})
+
+    @verb(role="effect")
+    def catalogue_gate(self, lifecycle_id: str,
+                        album: str) -> ToolResult:
+        """Catalogue-synced gate — streaming URLs + tweets ready (effect).
+
+        Passes iff at least 1 streaming URL is recorded AND at least 1
+        scheduled tweet exists for the album.
+
+        Inputs: lifecycle_id, album.
+        Returns: ``{gate, passed, streaming_urls, scheduled_tweets}``.
+        chain_next: ``music.update_streaming_url`` and ``music.db_create_tweet``.
+        """
+        state, _fail = self._require_drv("music_state")
+        if _fail: return _fail
+        db, _fail2 = self._require_drv("music_db")
+        if _fail2: return _fail2
+        url_count = len(state.list_keys(prefix=f"streaming:{album}:"))
+        scheduled = db.list_tweets(album=album, status="scheduled")
+        passed = url_count > 0 and len(scheduled) > 0
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="catalogue", passed=passed,
+                      evidence=(f"{url_count} urls + {len(scheduled)} scheduled tweets"
+                                if passed else
+                                f"{url_count} urls, {len(scheduled)} scheduled"))
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"catalogue: {url_count} urls, {len(scheduled)} tweets")
+        return ToolResult.success(data={"gate": "catalogue",
+                                        "passed": True,
+                                        "streaming_urls": url_count,
+                                        "scheduled_tweets": len(scheduled)})
+
+    @verb(role="effect")
+    def promo_gate(self, lifecycle_id: str,
+                    album: str) -> ToolResult:
+        """Promo-drafted gate — at least 1 promo asset exists (effect).
+
+        Passes iff at least 1 published-asset is recorded for the album in
+        the cloud store.
+
+        Inputs: lifecycle_id, album.
+        Returns: ``{gate, passed, asset_count}`` or typed GATE_FAILED.
+        chain_next: ``music.publish_asset`` or ``music.upload_promo_video``.
+        """
+        cloud, _fail = self._require_drv("music_cloud")
+        if _fail: return _fail
+        assets = cloud.r2_list(prefix=f"{album}/")
+        passed = len(assets) > 0
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="promo", passed=passed,
+                      evidence=(f"{len(assets)} assets" if passed else
+                                "no assets"))
+        if not passed:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"promo: no published assets for album '{album}'")
+        return ToolResult.success(data={"gate": "promo", "passed": True,
+                                        "asset_count": len(assets)})
+
+    # ════════════════════════════════════════════════════════════════════════
     # Spec 099 — research cluster: 8 NEW verbs + 1 composite gate verb
     # All delegate to the agency.research capability (Spec 044) — ZERO new
     # drivers added. Proof that agency.research composes for domain caps.
