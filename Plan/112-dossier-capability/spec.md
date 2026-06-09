@@ -534,6 +534,35 @@ DossierWorkflow Lifecycle
 Each cap's Lifecycle SERVES the same parent intent — the full
 pipeline is one traversal of `memory.provenance(intent_id)`.
 
+## Failure modes (iter-15 panel fix — Nygard)
+
+### `dispatch_research_via_dossier` cascade legs
+
+| Leg | Failure mode | Driver returns | Verb returns |
+|---|---|---|---|
+| `research.lead` raises | research not bootable | propagated `BoundaryFailed` | `ToolResult.failure(BOUNDARY_FAILED, "research.lead failed: <msg>")` |
+| `research.specialist` × N — partial failure (some succeed, some fail) | `2/N raise` | per-call failure handled | `ToolResult.success(data={research_id, partial=true, succeeded: [...], failed: [...]})` — partial commit; entities created for successful legs only |
+| All `research.specialist` calls fail | `N/N raise` | all raised | `ToolResult.failure(BOUNDARY_FAILED, "all specialist calls failed; cascade aborted; no entities created")` |
+| `research.verify` raises after entities recorded | post-entity verification fail | propagated | `ToolResult.success(data={research_id, entities_count, verify_failed: true, manual_verification_required: true})` — keep the entities; flag manual verify |
+| Network mid-cascade | partial state | retried 1× per leg | falls into "partial failure" path above |
+| LLM driver missing for Path B in `extract_entities` | DriverMissing | catches | falls back to Path A rule-based; emits warning |
+| LLM driver timeout (Path B) | TimeoutError | catches | falls back to Path A; records `metric: dossier.extract.path=a_fallback` |
+
+**Idempotency**: re-running `dispatch_research_via_dossier` with the
+same `brief_id` is idempotent — entity creation checks for existing
+EntityTag(`source=research:<research_id>`) and skips dedupes.
+
+### `extract_entities` failure modes
+
+| Failure mode | Behaviour |
+|---|---|
+| Empty source body | returns `ToolResult.success(data={entities_count: 0, warnings: ["source body empty"]})` — no failure |
+| Source body too large (>1MB) | chunks anyway; emits warning; may produce many ResearchChunk nodes |
+| Unparseable encoding | returns `ToolResult.failure(INVALID_ARGUMENT, "source body not UTF-8 decodable")` |
+| Path B LLM timeout | falls back to Path A; emits warning |
+| Path B response in wrong format | falls back to Path A; emits warning |
+| All entity kinds yielded 0 entities | `success(data={entities_count: 0, status: "low-yield"})` + WARN metric |
+
 ## Test plan
 
 ```python

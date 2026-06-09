@@ -93,24 +93,69 @@ instruction-set so an MCP code-mode agent can ingest it AFTER 109
 The spec is **agent-actionable**: every phase below is an MCP code-mode
 block. Each `await call_tool(...)` maps to a concrete agency verb.
 
-### Selective-port discipline (load-bearing)
+### Selective-port discipline (iter-15 sharpened — concrete checklists)
 
 Per directive 2, every pattern surfaced during ingestion goes through
-a 3-stage filter BEFORE port:
+a 3-stage filter BEFORE port. Each filter is a **6-question checklist**
+producing a Y/N answer; ANY N triggers "catalogue for reference, do
+not port":
 
-1. **Vision-fit check**: does the pattern advance the current vision
-   (Intent · Capability · Lifecycle · Memory four-concepts substrate)?
-2. **Goal-fit check**: does it solve a current goal (drop-in-bar,
-   token economy, provenance moat, decidability)?
-3. **Architecture-fit check**: does it compose with the current
-   five-driver / OntologyExtension / walkable-skills model without
-   re-architecture?
+#### Filter 1 — Vision-fit (advances four-concepts substrate?)
 
-A pattern that fails ANY of the three checks is **catalogued for
-reference only**, not ported. Phase 4 of the ingestion procedure
-explicitly applies these filters via
-`thinking.apply_design_review(depth="deep")` — which runs all 14
-critical-thinking methods on the imported corpus.
+- [ ] Does the pattern make ONE of the four concepts (Intent ·
+      Capability · Lifecycle · Memory) more queryable, traceable, or
+      composable? (cite which)
+- [ ] Does it preserve the wire contract (`search` · `get_schema` ·
+      `execute`)?
+- [ ] Does it eliminate a doctrine violation we currently tolerate?
+- [ ] Is it expressible as ontology + verbs, not as a parallel runtime?
+- [ ] Does it ship with provenance writes by construction?
+- [ ] Does its absence cost more than its presence?
+
+#### Filter 2 — Goal-fit (solves a current goal?)
+
+- [ ] Drop-in bar preserved (zero edits to load-bearing core)?
+- [ ] Token economy improved (cite the metric: tokens-per-action,
+      context-window-headroom, p99-latency, etc.)?
+- [ ] Provenance moat strengthened (new node types recorded; new
+      edges traversable)?
+- [ ] Decidability increased (more checks become rule-based vs
+      judgement)?
+- [ ] Existing capability surface stays MECE (no overlap with current
+      verbs)?
+- [ ] Adds < 5% to the surface area an agent must discover?
+
+#### Filter 3 — Architecture-fit (composes without re-arch?)
+
+- [ ] Fits the 5-driver model (StateDriver/TextDriver/AudioDriver/
+      DBDriver/CloudDriver) OR is genuinely a NEW boundary type?
+- [ ] Expressible as an OntologyExtension (declarative) vs imperative
+      hook?
+- [ ] Composes with the walkable-skills pattern (Spec 080/081) — i.e.
+      can be the body of a skill phase?
+- [ ] Honours cluster-coherence (Spec 047) — lands in ONE cluster, not
+      spread across 5?
+- [ ] Backward-compatible with existing capability versions?
+- [ ] Honours the cell-manifest pattern (if 3×N matrix is adopted —
+      otherwise N/A)?
+
+#### How filters are applied
+
+Phase 4 of the ingestion procedure runs `thinking.apply_design_review
+(depth="deep")` which delegates to `thinking.apply_full_review` over
+each candidate pattern. For EACH pattern, the review produces a
+**3-line verdict**:
+
+```
+Pattern: <name>
+Vision-fit:        Y/N  (which concept(s) advanced; or which question failed)
+Goal-fit:          Y/N  (which goal advanced; or which question failed)
+Architecture-fit:  Y/N  (which compose-point; or which question failed)
+PortDecision:      port | catalogue-only | needs-followup-spec
+```
+
+The verdict is recorded as a `PortVerdict` artefact node SERVES the
+intent. Downstream port PRs cite the verdict.
 
 ## Done When
 

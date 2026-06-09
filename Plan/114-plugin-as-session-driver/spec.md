@@ -407,6 +407,168 @@ behavioral adoption. The migration sequence:
 This migration is bound to Spec 113's selective-port + Specs 109/110/
 112's adoption. Phase B starts when 109+110+112 ship Green.
 
+## Cultural-adoption cadence (iter-15 panel fix — Gregory)
+
+Behavioural change needs a check-in cadence. Per the migration phases
+A→D:
+
+### Phase B check-in (after first soft-adoption session)
+
+After the FIRST session post-Phase-A, the agent runs:
+
+```python
+audit = await call_tool("capability_dogfood_boundary_use_audit", {
+    "intent_id": current_intent_id,
+    "report_kind": "session-end"
+})
+# Returns: total_actions, verb_calls, boundary_uses, adoption_ratio,
+#          top_5_suggested_verbs_missed
+```
+
+If `adoption_ratio < 0.5`, `reflect.synthesize_session` records a
+LessonLearned: "Phase B target NOT met — top boundary-use suggestions:
+<list>". This becomes input to the next session's `develop.session_init`.
+
+### Phase C check-in (after every 3 sessions)
+
+A `develop.adoption_review` verb (NEW in iter-15) aggregates the last
+3 sessions' boundary-use audits:
+
+```python
+review = await call_tool("capability_develop_adoption_review", {
+    "intent_id": current_intent_id,
+    "window_sessions": 3
+})
+# Returns: trend (improving/flat/regressing), top_persistent_gaps,
+#          suggested_followup_verbs (recurring boundary-uses → spec ideas)
+```
+
+Persistent gaps become FOLLOWUP SPEC seeds (e.g. "Bash git push
+appears in 12/15 boundary uses → spec a `branch.push` verb").
+
+### Phase D measurement (every 30 days)
+
+`develop.driver_health` (NEW iter-15) emits the gauge:
+
+```
+session.boundary_use.adoption_ratio   (per-session)
+session.driver_health.aggregate       (rolling 30-day p50)
+```
+
+Phase D is declared MET when `aggregate >= 0.90` for 30 consecutive
+days. Until then, the migration is still in C.
+
+### Ownership
+
+- **`develop.adoption_review`** is owned by the develop cap (114).
+- The check-in cadence is enforced by the SessionLifecycle's
+  `synthesize` phase — explicitly checks the cadence rule before
+  marking the session archived.
+- A human-curator override exists: `synthesize_session(skip_audit=
+  True, reason="...")` records the skip + reason. Used sparingly.
+
+## Edge-case enumeration (iter-15 panel fix — Crispin)
+
+| Verb | Edge case | Behaviour |
+|---|---|---|
+| `session_init` | Prior lifecycle in `working` state (not archived) | Detects + offers resume; if user declines, prior lifecycle flagged `stale` |
+| `session_init` | No git repo (cwd is not under git) | Modes default to `brainstorming`; no resume detection |
+| `session_init` | MCP server not ready (cold start) | Retry 3× with exponential backoff (1s/2s/4s); fail after |
+| `session_init` | Multiple concurrent sessions for same intent | Each gets its own SessionLifecycle; warning emitted; coalesce on next synthesize |
+| `mode_select` | Same mode as current (no-op switch) | No ModeShift recorded; returns success with `noop: true` |
+| `mode_select` | Unknown mode | `ToolResult.failure(INVALID_ARGUMENT, "unknown mode; expected: brainstorming|spec-authoring|coding|review|synthesize")` |
+| `record_decision` | Empty decision string | `failure(INVALID_ARGUMENT, "decision text required")` |
+| `record_decision` | Subject not linked to any artefact | Records anyway; warning that decision orphan-floats |
+| `boundary_use_audit` | Session has no BoundaryUse records | Returns success with `count: 0, adoption_ratio: 1.0` |
+| `synthesize_session` | Session has zero invocations | Records a minimal SessionReflection with `outcome: abandoned, reason: empty-session` |
+| `synthesize_session` | Already synthesized | Returns existing SessionReflection (idempotent) |
+| `synthesize_session` | SessionLifecycle still has phase < 4 | Forces archive only if `force=True` passed; else warns |
+
+## Given/When/Then scenarios (iter-15 panel fix — Adzic)
+
+### Scenario 1: clean session-init on a fresh repo
+
+```gherkin
+Scenario: Session-init detects spec-authoring mode from open PR
+  Given a fresh agent session in a repo with an open PR
+  And the PR has recent review comments awaiting response
+  When the agent invokes develop.session_init()
+  Then a SessionLifecycle is created
+  And the SessionLifecycle.mode is "review"
+  And SessionLifecycle SERVES the bootstrapped intent
+  And the suggested_first_verb is "jules.review_comment" or
+      "subagent.respond_to_review"
+```
+
+### Scenario 2: BoundaryUse hook fires + suggests verb
+
+```gherkin
+Scenario: Raw Edit on a spec file triggers verb suggestion
+  Given a session with mode=spec-authoring
+  When the agent invokes Edit on Plan/101/spec.md
+  Then a BoundaryUse node is recorded SERVES the SessionLifecycle
+  And BoundaryUse.tool is "Edit"
+  And BoundaryUse.suggested_verb is "develop.edit_spec"
+  And the next tool result includes a one-line nudge:
+      "⚠️ Suggested: capability_develop_edit_spec — records provenance"
+```
+
+### Scenario 3: Cross-cap handshake — dossier → research → prompt → LLM → draft
+
+```gherkin
+Scenario: Full handshake produces draft with provenance chain
+  Given a session with mode=coding
+  And dossier.intent_capture("research X for chapter 3") has run
+  And the ResearchBrief is finalized
+  When the agent invokes dossier.dispatch_research_via_dossier(brief_id)
+  Then research.lead + research.specialist × N + research.verify cascade
+  And ResearchEntities are extracted from the citations
+  And dossier.declare_context(scope="chapter", scope_id="ch3") is called
+  And dossier.render_snippet(snippet_kind="writing-assist") produces a PromptSnippet
+  And prompt.engineer(builder="chapter", context_refs=[snippet_id]) builds a PromptInstance
+  And the LLM call produces a PromptOutput
+  And prompt.score_output(accepted=True) promotes it to a Draft node
+  And memory.provenance(intent_id) returns the FULL chain
+      (Intent → Lifecycle → ResearchIntent → ResearchBrief → ResearchEntities
+       → Context → PromptSnippet → PromptInstance → PromptOutput → Draft)
+```
+
+### Scenario 4: Session-end synthesis with archived outcome
+
+```gherkin
+Scenario: Session ends cleanly with synthesis
+  Given a session with 23 invocations, 4 artefacts, 1 gate fired
+  And the agent explicitly triggers reflect.synthesize_session()
+  When the synthesize verb runs
+  Then a SessionReflection artefact is produced
+  And the body includes: artefacts_summary, decisions_summary,
+      boundary_uses_summary, lessons_learned
+  And SessionLifecycle.outcome is set
+      (complete if intent.acceptance met; else partial)
+  And SessionLifecycle is flipped to archived
+  And reflect.note is called for the top 3-5 lessons learned
+  And the next session opening the same intent auto-displays the
+      handoff artefact on session_init
+```
+
+### Scenario 5: Mode shift records ModeShift with reason
+
+```gherkin
+Scenario: Spec-authoring done; switch to coding
+  Given a SessionLifecycle in mode=spec-authoring
+  And the agent has just committed a draft spec
+  When the agent invokes develop.mode_select(new_mode="coding",
+                                              reason="spec drafted; ready to implement")
+  Then a ModeShift node is recorded
+  And ModeShift.from_mode is "spec-authoring"
+  And ModeShift.to_mode is "coding"
+  And ModeShift.reason is "spec drafted; ready to implement"
+  And ModeShift SERVES the SessionLifecycle
+  And SessionLifecycle.mode is updated to "coding"
+  And the suggested next verb shifts to coding-mode skills
+      (develop.implement, RED-phase verbs, etc.)
+```
+
 ## Test plan
 
 ```python
