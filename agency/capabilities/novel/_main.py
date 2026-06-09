@@ -14,7 +14,7 @@ Red flags:
 """
 from __future__ import annotations
 
-from agency.capability import CapabilityBase, verb
+from agency.capability import CapabilityBase, RenderTemplates, verb
 from agency.ontology import OntologyExtension
 from agency.toolresult import ToolResult
 
@@ -71,6 +71,7 @@ class NovelCapability(CapabilityBase):
     name = "novel"
     home = "capability"
     ontology = novel_ontology
+    render_templates = RenderTemplates.from_module(__file__)
 
     @verb(role="act")
     def conceptualize(self, title: str, author: str,

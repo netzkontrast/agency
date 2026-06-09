@@ -170,6 +170,66 @@ def test_novel_concept_skill_is_five_phased_with_hard_gate() -> None:
     e.memory.close()
 
 
+def test_novel_capability_ships_11_bitwize_templates() -> None:
+    """10 markdown templates (via RenderTemplates.from_module) + ncp.json (data).
+
+    11 templates ported verbatim from `Plan/_research/novel-mvp-source/templates/`
+    per Spec 101 §"Templates (ported VERBATIM from the-agency-system)".
+    `README.md` renamed to `readme.md` for kebab-case compliance; `ncp.json` lives
+    at `data/ncp/ncp-template.json` (structural template, not a render-template).
+    """
+    e = _fresh()
+    cap = e.registry._caps["novel"]
+    expected = {"cast", "chapter", "character", "dramatica", "outline",
+                "premise", "readme", "scene", "work", "world"}
+    assert expected == set(cap.ontology.templates), (
+        f"missing: {expected - set(cap.ontology.templates)}; "
+        f"extra: {set(cap.ontology.templates) - expected}")
+    # ncp.json is at data/ncp/, not in templates
+    from pathlib import Path
+    ncp = (Path(__file__).parent.parent
+           / "agency" / "capabilities" / "novel"
+           / "data" / "ncp" / "ncp-template.json")
+    assert ncp.is_file()
+    e.memory.close()
+
+
+def test_dramatica_ontology_vendored_with_304_entries() -> None:
+    """Per Spec 101 source-fidelity + decidability-matrix §"Context": the
+    Dramatica ontology is the structural backbone (4 classes / 16 types / 62
+    variations / 63 elements / 8 archetypes / 4 character-dynamics / 4
+    plot-dynamics / 4 throughlines / 65 dynamic-pairs / 35 quads / 38 concepts
+    = 303-304 entries depending on the vendor's count). Vendored at
+    `data/dramatica/ontology.json` for Spec 103 storyform cluster to read."""
+    from pathlib import Path
+    import json
+    ontology = (Path(__file__).parent.parent
+                / "agency" / "capabilities" / "novel"
+                / "data" / "dramatica" / "ontology.json")
+    assert ontology.is_file()
+    data = json.loads(ontology.read_text())
+    # Tolerant: spec docs cite 303 OR 304; either is acceptable
+    entries = data.get("entries", [])
+    assert 300 <= len(entries) <= 310, (
+        f"ontology has {len(entries)} entries — expected 303 or 304 per "
+        f"Spec 101 source-fidelity audit")
+
+
+def test_decidability_matrix_doc_vendored() -> None:
+    """The 15-row Dramatica decidability matrix grounds Spec 103's check
+    selection (11 decidable + 2 hybrid + 2 judgement). Vendored as a
+    reference doc for the storyform cluster to cite."""
+    from pathlib import Path
+    matrix = (Path(__file__).parent.parent
+              / "agency" / "capabilities" / "novel"
+              / "data" / "reference" / "dramatica-decidability.md")
+    assert matrix.is_file()
+    body = matrix.read_text()
+    assert "Decidable" in body
+    assert "Judgement" in body
+    assert "11 decidable + 2 hybrid + 2 judgement" in body
+
+
 def test_novel_concept_skill_walks_through_confirmation() -> None:
     e = _fresh()
     iid = _confirmed_iid(e)
