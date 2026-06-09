@@ -40,6 +40,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `create_chapter` | effect | Record a Chapter graph node + CHAPTER_OF the parent Novel (effect). | [details](references/create_chapter.md) |
 | `create_novel` | effect | Record a Novel node SERVING the intent (effect). | [details](references/create_novel.md) |
 | `create_scene` | effect | Record a Scene node + SCENE_OF the parent Chapter (effect). | [details](references/create_scene.md) |
+| `dispatch_novel_research` | effect | Mint a research lead + record NovelClaim (delegates to research cap). | [details](references/dispatch_novel_research.md) |
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
 | `list_claims` | transform | List captured claims; optional verified-status filter (transform). | [details](references/list_claims.md) |
@@ -53,6 +54,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
 | `rename_novel` | effect | Update a Novel's title (effect, graph-only). | [details](references/rename_novel.md) |
 | `render_blurb` | act | Render a back-cover blurb (act, driver-free). | [details](references/render_blurb.md) |
+| `render_chapter_brief` | act | Produce a research-dossier brief tied to a chapter (act, xcap to prompt). | [details](references/render_chapter_brief.md) |
 | `render_manuscript` | act | Concatenate chapters into a manuscript artefact (act). | [details](references/render_manuscript.md) |
 | `render_query_letter` | act | Render an agent query letter (act, driver-free). | [details](references/render_query_letter.md) |
 | `render_synopsis` | act | Render a synopsis from chapter outline (act, driver-free). | [details](references/render_synopsis.md) |
@@ -60,6 +62,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `scan_proper_nouns` | transform | Extract proper nouns (Title-Case words, sentence-starter words filtered) (transform). | [details](references/scan_proper_nouns.md) |
 | `set_chapter_status` | effect | Flip a Chapter's lifecycle status; enum-checked (effect). | [details](references/set_chapter_status.md) |
 | `set_novel_status` | effect | Flip a Novel's lifecycle status; enum-checked (effect). | [details](references/set_novel_status.md) |
+| `storyform_critical_pass` | act | Critical-thinking pass over the storyform (act, xcap to thinking). | [details](references/storyform_critical_pass.md) |
 
 ## Example
 
