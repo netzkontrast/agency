@@ -728,6 +728,10 @@ class _BriefContext:
         chapter = ctx.recall(chapter_id) or {}
         novel_id = chapter.get("novel")
         novel = ctx.recall(novel_id) if novel_id else {}
+        # Inject the novel's id into the novel props dict so composers can read
+        # it without a separate lookup.
+        if novel and novel_id:
+            novel = {**novel, "id": novel_id}
         storyform_scope: dict = {}
         if novel_id:
             # Find a Storyform for this novel; pick the most-recent body.
@@ -797,9 +801,42 @@ def _compose_scene_cast(bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
         {"node_id": bctx.scene.get("id", ""), "kind": "Scene"}]
 
 
-def _compose_world_rules(_bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
-    return ("(world rules — Spec 132 codex parity pending; "
-            "no world facts injected)", [])
+def _compose_world_rules(bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
+    """Spec 132 upgrade — scans scene text against registered codex triggers."""
+    sources: list[dict] = []
+    novel_id = (bctx.novel or {}).get("id", "")
+    if not novel_id:
+        return ("(no novel context — world_rules skipped)", sources)
+    # Gather scannable text: chapter body + scene cast + scene slug.
+    scan_text = " ".join([
+        bctx.chapter.get("body", "") or "",
+        bctx.chapter.get("title", "") or "",
+        bctx.scene.get("slug", "") or "",
+        bctx.scene.get("cast", "") or "",
+    ])
+    if not scan_text.strip():
+        return ("(no scene/chapter text to scan — world_rules skipped)",
+                sources)
+    matches: list[dict] = []
+    try:
+        from agency.capabilities.novel._main import NovelCapability
+        novel_cap = NovelCapability(bctx._ctx) if bctx._ctx else None
+        if novel_cap is not None:
+            result = novel_cap.match_codex_entries(
+                novel_id=novel_id, text=scan_text)
+            matches = (getattr(result, "data", result) or {}).get(
+                "matches", [])
+    except Exception:
+        matches = []
+    if not matches:
+        return ("(no codex entries match this scene's text — "
+                "register entries via novel.create_codex_entry)",
+                sources)
+    parts = ["World facts in scope (auto-matched by trigger):"]
+    for m in matches:
+        parts.append(f"- **{m['name']}** ({m['kind']}): {m['body']}")
+        sources.append({"node_id": m["entry_id"], "kind": "CodexEntry"})
+    return "\n".join(parts), sources
 
 
 def _compose_continuity(bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
