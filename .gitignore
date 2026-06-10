@@ -8,6 +8,11 @@ __pycache__/
 # Spec 021 — engine monitor SLOG (ephemeral; durable provenance is the graph)
 .agency/monitor.log
 .agency/monitor.log.*
+# Spec 126 — research-ingest source corpus (subagent-isolated; durable
+# provenance is the ingested-source Artefact, not the file).
+.agency/sources/
+# Spec 129 — per-project Dramatica fragment overlay (author-extensible).
+.agency/dramatica-fragments-overlay.yaml
 # SQLite WAL/journal files (transient — never commit)
 *.db-journal
 *.db-wal
