@@ -28,15 +28,19 @@ def _invoke(e: Engine, iid: str, verb: str, **kw):
 
 # ─────────────────────────── surface invariants ───────────────────────────
 
-def test_prompt_capability_registers_9_verbs() -> None:
-    """7 user + 2 gate = 9 verbs total (Slice 1 surface)."""
+def test_prompt_capability_slice1_founding_verbs_present() -> None:
+    """Spec 109 Slice 1 surface — these 9 verbs (7 user + 2 gate) are the
+    founding contract. Per CLAUDE.md rule 8 (no magic-number snapshots),
+    assert SUBSET presence: the founding 9 must always be there, but
+    additions (Spec 129 fragments, Spec 127 assembly, etc.) grow the
+    surface and shouldn't break this test."""
     e = _fresh()
     cap = e.registry._caps["prompt"]
-    expected = {"intent_capture", "catalog_list", "brief_render",
+    founding = {"intent_capture", "catalog_list", "brief_render",
                 "brief_audit", "brief_finalize",
                 "engineer", "audit",
                 "token_budget_gate", "audit_gate"}
-    assert set(cap.verbs) == expected
+    assert founding <= set(cap.verbs)
     e.memory.close()
 
 
