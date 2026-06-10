@@ -136,11 +136,13 @@ def test_continuity_anchors_to_chapter_number(engine, iid, scene_id):
 
 
 def test_unimplemented_sections_flag_their_dependency(engine, iid, scene_id):
-    """world_rules / foreshadowing must explicitly name their future spec
-    so a reader knows it's a placeholder, not a silent gap."""
+    """Sections that still have future-spec dependencies must explicitly
+    name their gating spec so a reader knows it's a placeholder, not a
+    silent gap. As specs close their carve-outs (128 continuity, 132
+    world_rules), they drop out of this assertion. Foreshadowing still
+    waits on Spec 123's PlantedElement layer."""
     r = _call(engine, iid, "prompt", "assemble_scene_brief",
               scene_id=scene_id)
-    assert "Spec" in r["sections"]["world_rules"]
     assert "Spec" in r["sections"]["foreshadowing"]
 
 
