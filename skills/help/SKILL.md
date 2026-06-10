@@ -79,7 +79,7 @@ agency execute --code \
 - **plugin** — author_command, author_skill, help, lint_capability, lint_explain, lint_skill, marketplace_entry, publish_skill, scaffold, step_doc
 - **prompt** — audit, audit_gate, brief_audit, brief_finalize, brief_render, catalog_list, engineer, intent_capture, token_budget_gate
 - **reflect** — batch_note, note, recall, recall_semantic, search, synthesize_session
-- **research** — lead, specialist, verify
+- **research** — ingest_gdoc, lead, record_ingested_source, specialist, verify
 - **shell** — define, filter, run, templates
 - **skill_generator** — generate
 - **skills** — find, index, lint, render

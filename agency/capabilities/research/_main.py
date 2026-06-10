@@ -14,6 +14,7 @@ Red flags:
 """
 from __future__ import annotations
 
+import re
 import time
 
 from agency.capability import (
@@ -22,6 +23,14 @@ from agency.capability import (
 from agency.ontology import OntologyExtension
 
 from . import _lead, _specialist, _verify
+
+
+# Spec 126 — Google Drive source resolution.
+# A valid Google Drive file_id is the URL-safe base64 alphabet; we accept
+# [A-Za-z0-9_-]{20,} so a stray space / non-id string fails INVALID_SOURCE
+# rather than silently becoming the "file_id".
+_GDOC_FILE_ID_RE = re.compile(r"[A-Za-z0-9_-]{20,}")
+_GDOC_URL_HOSTS = ("docs.google.com", "drive.google.com")
 
 
 _RESEARCH_STATUSES = {"planning", "fanning-out", "verifying", "ready",
@@ -199,3 +208,139 @@ class ResearchCapability(CapabilityBase):
             pass
         result["verification_id"] = vid
         return result
+
+    # ------------------------------------------------------------------
+    # Spec 126 — Google Drive ingest (subagent-isolated; no body in main ctx).
+    # ------------------------------------------------------------------
+
+    @verb(role="transform")
+    def ingest_gdoc(self, source: str, dest: str = "") -> dict:
+        """Compose a subagent dispatch contract that ingests a Google Doc to disk.
+
+        The verb performs NO I/O. It resolves ``source`` (URL or file_id) and
+        returns a contract the orchestrator hands to the Agent tool: the
+        subagent fetches via ``mcp__Google_Drive__*``, writes to ``dest``, and
+        returns ONLY ``{path, bytes, lines, sha256, title}`` — the doc body
+        never crosses back to main context. After the subagent returns, call
+        ``research.record_ingested_source`` with the metadata to record the
+        ``ingested-source`` Artefact (SERVES + PRODUCES edges).
+
+        Inputs: source (URL or file_id), dest (str — default
+                ``.agency/sources/gdoc-<id>.md``).
+        Returns: ``{action, prompt, tools, model, dest, file_id, after}``
+                 OR ``{error: 'INVALID_SOURCE', source}``.
+        chain_next: orchestrator dispatches Agent tool with ``prompt``+``tools``;
+                    on return, calls ``after.verb`` with ``after.kwargs``
+                    plus the subagent's structured return.
+        """
+        fid = _resolve_gdoc_id(source)
+        if not fid:
+            return {"error": "INVALID_SOURCE", "source": source}
+        dest = dest or f".agency/sources/gdoc-{fid}.md"
+        source_url = (source if source.startswith("http")
+                      else f"https://docs.google.com/document/d/{fid}/edit")
+        prompt = _gdoc_subagent_prompt(fid, dest)
+        return {
+            "action": "dispatch_subagent",
+            "prompt": prompt,
+            "tools": [
+                "mcp__Google_Drive__download_file_content",
+                "mcp__Google_Drive__get_file_metadata",
+                "Write",
+                "Bash",
+            ],
+            "model": "haiku",
+            "dest": dest,
+            "file_id": fid,
+            "after": {
+                "verb": "research.record_ingested_source",
+                "kwargs": {
+                    "intent_id": self.ctx.intent_id,
+                    "source_url": source_url,
+                    "dest": dest,
+                },
+            },
+        }
+
+    @verb(role="effect")
+    def record_ingested_source(self, source_url: str, dest: str,
+                               bytes: int, lines: int, sha256: str,
+                               title: str) -> dict:
+        """Record an ``ingested-source`` Artefact (SERVES intent + PRODUCES edge).
+
+        Idempotent on ``(intent_id, sha256)``: a re-fetch of the same doc body
+        returns the existing artefact_id, so a re-run of an ingestion pipeline
+        doesn't double-record.
+
+        Inputs: source_url (str — gdoc URL), dest (str — path on disk),
+                bytes/lines (int), sha256 (str — 64 hex), title (str).
+        Returns: ``{artefact_id, idempotent}`` OR
+                 ``{error: 'UNKNOWN_INTENT', intent_id}``.
+        chain_next: ``analyze.graph`` to see the corpus; downstream readers
+                    open ``dest`` directly.
+        """
+        iid = self.ctx.intent_id
+        existing = self._find_ingested_source(iid, sha256)
+        if existing:
+            return {"artefact_id": existing, "idempotent": True}
+
+        aid = self.ctx.record("Artefact", {
+            "kind": "ingested-source",
+            "source_url": source_url,
+            "path": dest,
+            "bytes": int(bytes),
+            "lines": int(lines),
+            "sha256": sha256,
+            "title": title,
+        })
+        self.ctx.link(aid, iid, "SERVES")
+        self.ctx.link(iid, aid, "PRODUCES")
+        return {"artefact_id": aid, "idempotent": False}
+
+    def _find_ingested_source(self, intent_id: str, sha256: str) -> str | None:
+        rows = self.ctx.memory.g.query(
+            "MATCH (i:Intent)-[:PRODUCES]->(a:Artefact) "
+            "WHERE i.id = $iid AND a.kind = 'ingested-source' "
+            "AND a.sha256 = $sha RETURN a",
+            {"iid": intent_id, "sha": sha256})
+        if not rows:
+            return None
+        # graphqlite's row["a"]["id"] is its internal int; the agency-level
+        # node id lives in properties["id"] (see _checks.py:59 comment).
+        return rows[0]["a"]["properties"].get("id")
+
+
+def _resolve_gdoc_id(source: str) -> str | None:
+    """URL → file_id, or bare file_id → file_id, or None."""
+    if not source or not isinstance(source, str):
+        return None
+    source = source.strip()
+    if source.startswith("http"):
+        # docs.google.com/document/d/<ID>/... or drive.google.com/file/d/<ID>/...
+        if not any(h in source for h in _GDOC_URL_HOSTS):
+            return None
+        m = re.search(r"/d/([A-Za-z0-9_-]{20,})", source)
+        return m.group(1) if m else None
+    # Bare id — must be the URL-safe base64 alphabet end-to-end.
+    if _GDOC_FILE_ID_RE.fullmatch(source):
+        return source
+    return None
+
+
+def _gdoc_subagent_prompt(file_id: str, dest: str) -> str:
+    return (
+        f"Ingest Google Doc file_id={file_id} to {dest}. Steps:\n"
+        f"1. Call mcp__Google_Drive__download_file_content with file_id={file_id} "
+        f"and mimeType=\"text/markdown\".\n"
+        f"2. Write the returned body to {dest} using the Write tool.\n"
+        f"3. Run Bash: shasum -a 256 {dest} | awk '{{print $1}}' (capture SHA);\n"
+        f"   wc -l < {dest} (capture lines); wc -c < {dest} (capture bytes).\n"
+        f"4. Call mcp__Google_Drive__get_file_metadata with file_id={file_id} "
+        f"to capture the title (name field).\n"
+        f"5. Return EXACTLY ONE JSON line and nothing else:\n"
+        f'   {{"path": "{dest}", "bytes": N, "lines": N, "sha256": "...", "title": "..."}}\n'
+        f"\n"
+        f"HARD CONSTRAINT: Do not echo or summarise the document body. The body lives on disk; "
+        f"only the metadata JSON crosses back to the orchestrator. Do not output the body at "
+        f"any point, in any form, even partially."
+    )
