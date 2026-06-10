@@ -73,8 +73,12 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
 | `list_claims` | transform | List captured claims; optional verified-status filter (transform). | [details](references/list_claims.md) |
 | `list_ideas` | transform | List captured ideas; optional status filter (transform). | [details](references/list_ideas.md) |
+| `list_reveals_in` | transform | List events this scene discloses (transform). | [details](references/list_reveals_in.md) |
+| `list_story_events_up_to` | transform | Story-time slice: events with ``when_story`` ≤ this scene's anchor (transform). | [details](references/list_story_events_up_to.md) |
 | `list_world` | transform | Render a tree of a World's contents (transform). | [details](references/list_world.md) |
 | `manuscript_coherence_check` | transform | Chapter-sequence contiguity check (transform, driver-free). | [details](references/manuscript_coherence_check.md) |
+| `mark_narrative_beat` | effect | Mint a NarrativeBeat + optional PRECEDES edge from a predecessor (effect). | [details](references/mark_narrative_beat.md) |
+| `narrative_order` | transform | Topo-sort over PRECEDES; canonical narrative reading order (transform). | [details](references/narrative_order.md) |
 | `novel_coherence_check` | effect | Composite gate (Spec 120): runs all 11 storyform checks with chaining. | [details](references/novel_coherence_check.md) |
 | `novel_progress` | transform | Aggregate progress (word-count + per-status counts) for a novel (transform). | [details](references/novel_progress.md) |
 | `pending_verifications` | transform | Aggregate pending claims by domain (transform). | [details](references/pending_verifications.md) |
@@ -83,6 +87,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `publication_gate` | effect | Terminal composite: publish_ready + ≥1 export + front-matter declared (effect). | [details](references/publication_gate.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
+| `record_story_event` | effect | Mint a StoryTimeEvent + optional HAPPENS_AT edge from a scene (effect). | [details](references/record_story_event.md) |
 | `record_storyform_decision` | effect | Record a contested storyform decision (effect, xcap to dogfood). | [details](references/record_storyform_decision.md) |
 | `rename_novel` | effect | Update a Novel's title (effect, graph-only). | [details](references/rename_novel.md) |
 | `render_blurb` | act | Render a back-cover blurb (act, driver-free). | [details](references/render_blurb.md) |
@@ -91,6 +96,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `render_query_letter` | act | Render an agent query letter (act, driver-free). | [details](references/render_query_letter.md) |
 | `render_synopsis` | act | Render a synopsis from chapter outline (act, driver-free). | [details](references/render_synopsis.md) |
 | `resume_session` | transform | Return the most-recently-created Novel's id + title (transform). | [details](references/resume_session.md) |
+| `reveal_in_scene` | effect | Add the REVEALED_IN edge (event disclosed by this scene) (effect). | [details](references/reveal_in_scene.md) |
 | `scan_proper_nouns` | transform | Extract proper nouns (Title-Case words, sentence-starter words filtered) (transform). | [details](references/scan_proper_nouns.md) |
 | `set_chapter_status` | effect | Flip a Chapter's lifecycle status; enum-checked (effect). | [details](references/set_chapter_status.md) |
 | `set_novel_status` | effect | Flip a Novel's lifecycle status; enum-checked (effect). | [details](references/set_novel_status.md) |
