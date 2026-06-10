@@ -90,6 +90,176 @@ storyform-transition, never per-scene routing between two live storyforms.
 - Stays graph-only; NCP bodies live on the Storyform nodes' `body` field as
   today.
 
+## Schema
+
+```text
+# New nodes
+StoryformSet {
+  novel:  str         # novel_id (FK)
+  label:  str         # "kohaerenz-protokoll-dual-A-B"
+  count:  int         # 2 for KP, N-ary
+}
+
+StoryformTransition {
+  storyform_set_id: str   # FK
+  from_role:        str   # "primary" | "secondary" | …
+  to_role:          str
+  at_chapter:       int   # chapter where the transition centres
+  kind:             str   # ∈ STORYFORM_TRANSITION_KIND
+}
+
+# Extends existing Storyform node (additive — open-set property)
+Storyform.role: str       # "primary" | "secondary" | "tertiary"…
+                          # Defaults absent for single-storyform novels.
+
+# New enums
+STORYFORM_TRANSITION_KIND = {"operative", "ontological", "synthesis"}
+SCENE_ROUTE_MODE          = {"hard", "soft"}
+
+# New edges
+MEMBER_OF   : Storyform           --→ StoryformSet     (cardinality N:1)
+ROUTED_TO   : Scene               --→ Storyform        (cardinality N:1 per mode;
+                                                        a scene can have one
+                                                        ROUTED_TO[mode=hard] OR
+                                                        two ROUTED_TO[mode=soft])
+TRANSITIONS : StoryformTransition --→ StoryformSet     (cardinality N:1)
+```
+
+## Verb signatures
+
+```python
+def create_storyform_set(novel_id: str, label: str, count: int = 2) -> dict:
+    """Returns: {set_id, label, count}"""
+
+def add_storyform_to_set(storyform_id: str, set_id: str, role: str) -> dict:
+    """Mints MEMBER_OF; stamps Storyform.role.
+    Returns: {storyform_id, set_id, role, set_membership_count}
+    Raises: ValueError when role collides with an existing member's role.
+    """
+
+def check_klein_c_inversion(storyform_set_id: str) -> dict:
+    """Verify involutive symmetry across the two slot dimensions.
+    Returns: {
+      passed: bool,
+      class_pair: {a_mc, b_mc, a_os, b_os, inverted: bool},
+      dynamics: {
+        resolve:  {a, b, inverted: bool},
+        growth:   {a, b, inverted: bool},
+        approach: {a, b, inverted: bool},
+        style:    {a, b, inverted: bool},
+        driver:   {a, b, inverted: bool},
+        limit:    {a, b, inverted: bool},
+        outcome:  {a, b, inverted: bool},
+        judgment: {a, b, inverted: bool},
+      },
+      non_inverted: [{slot, a_value, b_value}…]   # the failure list
+    }
+    Math: V₄ = Z₂(class) × Z₂(dynamics); each Z₂ check is independent.
+    Pass condition: both Z₂ flips hold (all 8 dynamics inverse AND class-pair swap).
+    """
+
+def record_storyform_transition(
+    storyform_set_id: str,
+    from_role: str,
+    to_role: str,
+    at_chapter: int,
+    kind: str,
+) -> dict:
+    """Returns: {transition_id, …}; Raises on unknown kind."""
+
+def check_driver_transition_legality(transition_id: str) -> dict:
+    """Returns: {
+      passed: bool,
+      from_driver: str,          # e.g. "Action"
+      to_driver:   str,          # e.g. "Decision"
+      same_storyform: bool,      # true → illegal (Dramatica forbids driver-flip)
+      verdict: str,              # "legal-transition" | "illegal-within-storyform"
+    }
+    """
+
+def route_scene_storyform(
+    scene_id: str,
+    primary_role: str,
+    mode: str = "hard",
+    secondary_role: str = "",
+) -> dict:
+    """Mints ROUTED_TO edge(s) with mode.
+    `mode=hard`  → single edge to the primary_role's Storyform.
+    `mode=soft`  → two edges (primary + secondary), both readings simultaneously true.
+    Returns: {scene_id, mode, routed_storyforms: [storyform_id…]}
+    Raises: ValueError when mode=soft and secondary_role is empty/same as primary.
+    """
+
+def bridge_frequency_report(novel_id: str) -> dict:
+    """Per mode-block (Spec 141 IN_MODE_BLOCK), the share of soft-routed scenes.
+    Returns: {
+      blocks: [{label, from_chapter, to_chapter,
+                soft_share, target, deviation, verdict}…],
+      curve_intact: bool,   # True iff soft_share monotone non-decreasing through Vortex
+    }
+    Targets per KP §1: Akt I ~0.10, Akt II ~0.25, Akt III-A ~0.40, Vortex 1.00.
+    Deviation > 0.15 from a configured target flags the block.
+    """
+
+def dual_storyform_coherence_check(storyform_set_id: str) -> dict:
+    """Composite: runs novel_coherence_check on each member + Klein-c +
+    transition legality for every recorded transition.
+    Returns: {
+      passed: bool,
+      members:    [{role, storyform_id, coherence: <novel_coherence_check-output>}],
+      inversion:  <check_klein_c_inversion-output>,
+      transitions:[{transition_id, legality: <check_driver_transition_legality-output>}],
+      bridge:     <bridge_frequency_report-output>,
+      artefact_id: str,    # the dual-storyform-report Artefact this records
+    }
+    """
+```
+
+## Test scaffold
+
+```text
+tests/test_novel_dual_storyform.py  (target ≥ 18 tests)
+  test_storyform_set_node_registered
+  test_storyform_role_field_extends_storyform
+  test_create_storyform_set_count_default_2
+  test_add_storyform_to_set_mints_MEMBER_OF_and_role
+  test_add_storyform_to_set_rejects_role_collision
+  test_check_klein_c_passes_canonical_kohaerenz_fixture
+  test_check_klein_c_fails_when_dynamics_not_inverse
+  test_check_klein_c_fails_when_class_pair_same
+  test_check_klein_c_lists_non_inverted_slots
+  test_storyform_transition_kind_enum_validated
+  test_record_storyform_transition_happy_path
+  test_check_driver_transition_legality_legal_handoff
+  test_check_driver_transition_legality_illegal_within_storyform
+  test_route_scene_storyform_hard_single_edge
+  test_route_scene_storyform_soft_two_edges
+  test_route_scene_storyform_soft_rejects_missing_secondary
+  test_bridge_frequency_report_curve_intact
+  test_bridge_frequency_report_flags_deviation
+  test_dual_storyform_coherence_check_composes_all
+  test_dual_storyform_coherence_records_artefact
+  test_backward_compat_single_storyform_unchanged
+```
+
+## Fixture (canonical KP slot table — for klein-c test)
+
+```text
+A storyform (Kael):                  B storyform (AEGIS):
+  MC class    = Mind                   MC class    = Universe
+  OS class    = Psychology             OS class    = Physics
+  Resolve     = Steadfast              Resolve     = Change
+  Growth      = Stop                   Growth      = Start
+  Approach    = Be-er                  Approach    = Do-er
+  Style       = Holistic               Style       = Linear
+  Driver      = Decision               Driver      = Action
+  Limit       = Optionlock             Limit       = Timelock
+  Outcome     = Success                Outcome     = Failure
+  Judgment    = Good                   Judgment    = Bad
+
+Klein-c check passes IFF every row's A ≠ B AND the pair is the documented inverse.
+```
+
 ## Open questions
 
 1. Should `route_scene_storyform` reject a hard-routed scene that contradicts
@@ -98,6 +268,12 @@ storyform-transition, never per-scene routing between two live storyforms.
 2. Klein-c verification when the two NCPs use different slot vocabularies?
    **Recommend**: require both to validate against the same NCP schema first
    (Spec 120's checks) before comparing — fail fast on schema mismatch.
+3. The synthesis-kind transition (c, leaving Klein-c) — should it be a separate
+   verb or a `kind` value on `StoryformTransition`? **Recommend**: keep it a
+   `kind` value (`synthesis`) — a transition out of the symmetry group is still
+   a storyform-transition; only the post-condition (the symmetry no longer holds
+   thereafter) differs, and `dual_storyform_coherence_check` re-runs
+   inversion-check only over chapters BEFORE the synthesis transition.
 
 ## Followup
 

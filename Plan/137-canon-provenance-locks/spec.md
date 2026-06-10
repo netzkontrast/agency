@@ -90,6 +90,130 @@ Kanonisieren spekulativer Inhalte").
 - This is the substrate Spec 136 (dual-storyform) and 138 (plural-character)
   hang their `[K]`/`[V]`/`[L]` status on — almost every KP fact is marked.
 
+## Schema
+
+```text
+# Enum (new, on novel ontology)
+CANON_STATUS = {"canonical", "proposal", "quarry", "gap"}
+                 # [K]          [V]         [S]       [L]
+
+# Cross-cutting property (no schema change required — open-set substrate)
+<any-novel-node>.canon_status: str  # optional; one of CANON_STATUS, or absent
+
+# New node
+Lock {
+  novel:         str   # novel_id (FK)
+  topic:         str   # e.g. "kw1-physik", "kael-mc-class", "vortex-kind"
+  content:      str   # the locked statement, verbatim
+  locked_on:    str   # ISO date "YYYY-MM-DD"
+  source:       str   # originating doc/log name
+  supersedes:   str   # optional Lock-id this overrides
+  superseded_by: str  # set when a newer Lock supersedes this one ("" otherwise)
+}
+
+# New edge (optional — a Lock can be free-standing policy)
+LOCKS : Lock --→ <any-target-node>   # cardinality 1:N (one Lock can govern many)
+```
+
+## Verb signatures
+
+```python
+def set_canon_status(node_id: str, status: str) -> dict:
+    """Stamp any node with a CANON_STATUS marker.
+    Returns: {node_id, canon_status, was: <prior-status-or-empty>}
+    Raises: ValueError when status ∉ CANON_STATUS.
+    """
+
+def record_lock(
+    novel_id: str,
+    topic: str,
+    content: str,
+    source: str,
+    locked_on: str = "",      # defaults to today (UTC ISO date)
+    supersedes: str = "",
+) -> dict:
+    """Mint a Lock node. When `supersedes` is set, flips that lock's
+    `superseded_by` to the new id (never deletes — audit chain).
+    Returns: {lock_id, topic, locked_on, supersedes, supersedes_chain: [ids…]}
+    """
+
+def lock_index(novel_id: str, topic: str = "") -> dict:
+    """The Master-Index. Active locks only (superseded excluded by default).
+    Returns: {locks: [{id, topic, content, locked_on, source}…],
+              count, by_topic: {topic: count}}
+    Sort: locked_on DESC (newest = highest authority).
+    """
+
+def resolve_canon_conflict(
+    candidates: list[dict],   # [{node_id, canon_status, source_date}…]
+) -> dict:
+    """Apply newer-wins + quarry-loses-to-non-quarry.
+    Returns: {winner: node_id, losers: [node_id…], reason: str}
+    Rule: any `canonical`/`proposal` beats every `quarry`; among non-quarry,
+    later `source_date` wins; ties → return all with `tied=True`.
+    """
+
+def quarry_filter(novel_id: str, kind: str = "") -> dict:
+    """List `quarry`-status nodes for a novel (optionally filtered by node kind).
+    Returns: {nodes: [{node_id, kind, name_or_slug, canon_status}…], count}
+    """
+
+def promote_from_quarry(
+    node_id: str,
+    source: str,
+    topic: str = "",
+) -> dict:
+    """Flip a quarry node → proposal; mint a Lock recording the promotion
+    (topic defaults to "promote:<node_kind>:<slug>").
+    Returns: {node_id, new_status: "proposal", lock_id}
+    Raises: ValueError when node's current status is not "quarry".
+    """
+
+def canon_audit(novel_id: str) -> dict:
+    """Census + open-work surface.
+    Returns: {
+      counts: {canonical: int, proposal: int, quarry: int, gap: int, unmarked: int},
+      gaps:  [{node_id, kind, slug_or_name}…],     # [L] still to set
+      unmarked: [{node_id, kind, slug_or_name}…],  # no status set — decide
+      latest_locks: [{lock_id, topic, locked_on}…] # 5 newest
+    }
+    """
+```
+
+## skill_walk gate
+
+```text
+# Predicate name: canon-gate
+# Args: node_id, allow=["canonical"]
+# Pass: node.canon_status ∈ allow  OR  override_token present in ctx
+# Fail: node.canon_status ∈ {"proposal","quarry","gap"} without override
+#       → emits {gate:"canon-gate", node_id, status, advice: "consult lock_index"}
+```
+
+## Test scaffold
+
+```text
+tests/test_novel_canon_locks.py  (target ≥ 14 tests)
+  test_canon_status_enum_registered
+  test_set_canon_status_happy_path
+  test_set_canon_status_rejects_unknown
+  test_record_lock_mints_node_and_locked_on_default
+  test_record_lock_supersedes_chain_marks_old
+  test_lock_index_excludes_superseded_by_default
+  test_lock_index_topic_filter
+  test_lock_index_sorted_newest_first
+  test_resolve_canon_conflict_newer_wins
+  test_resolve_canon_conflict_quarry_always_loses
+  test_resolve_canon_conflict_ties
+  test_quarry_filter_lists_only_quarry_status
+  test_promote_from_quarry_flips_status_and_mints_lock
+  test_promote_from_quarry_rejects_non_quarry
+  test_canon_audit_counts_and_gaps
+  test_canon_audit_lists_unmarked
+  test_canon_gate_predicate_blocks_proposal_without_override
+  test_canon_gate_predicate_passes_canonical
+```
+
 ## Open questions
 
 1. Should `canon_status` default to `proposal` on node creation, forcing an
@@ -98,6 +222,10 @@ Kanonisieren spekulativer Inhalte").
    thousands of incidental nodes that aren't canon claims.
 2. Lock granularity — one Lock per decision, or batched "lock-sets"?
    **Recommend**: one per decision; `lock_index` groups by topic for reading.
+3. Should `LOCKS` be bi-directional (target → Lock for "which locks govern me")?
+   **Recommend**: yes — store as a single typed edge; query both directions via
+   `ctx.neighbors(node_id, "LOCKS", direction="in")` (Spec 125 traversal
+   pattern), no duplicate edge needed.
 
 ## Followup
 

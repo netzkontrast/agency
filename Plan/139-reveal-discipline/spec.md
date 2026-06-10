@@ -92,6 +92,161 @@ Without it, a drafting agent can't tell whether a scene leaks a reveal early.
   later prose-lint from "fixing" a deliberate indeterminacy — the KP's
   contradictory footnotes and temporal scrambling are features.
 
+## Schema
+
+```text
+# New enums
+AUDIENCE_TIER  = {"reader", "pov", "antagonist"}
+REVEAL_CHANNEL = {"glitch", "log", "sensory", "dialogue", "metaphor", "narration", ""}
+LEERSTELLE_KIND = {
+  "fragmented-perspective", "contradictory-footnote",
+  "temporal-scramble", "pronoun-shift",
+}
+READER_LAYER = {"narratological", "phenomenological", "operative"}
+
+# New nodes
+RevealRule {
+  novel:                    str
+  fact:                     str   # freeform OR a node-id
+  fact_node_id:             str   # populated when fact IS a node-ref ("" otherwise)
+  tier:                     str   # ∈ AUDIENCE_TIER
+  may_know_from_chapter:    int
+  must_not_before:          int   # 0 = no hard floor (uses may_know_from_chapter)
+  channel:                  str   # ∈ REVEAL_CHANNEL
+  rationale:                str
+}
+
+Leerstelle {
+  novel:    str
+  scene_id: str
+  kind:     str   # ∈ LEERSTELLE_KIND
+  note:     str
+}
+
+# New edges
+GOVERNS_REVEAL : RevealRule --→ <fact-bearing-node>   (cardinality N:N optional)
+HAS_GAP        : Leerstelle --→ Scene                  (cardinality N:1)
+```
+
+## Verb signatures
+
+```python
+def set_reveal_rule(
+    novel_id: str,
+    fact: str,
+    tier: str,
+    may_know_from_chapter: int,
+    must_not_before: int = 0,
+    channel: str = "",
+    rationale: str = "",
+    fact_node_id: str = "",
+) -> dict:
+    """Mints/updates a RevealRule (upsert keyed by (novel_id, fact, tier)).
+    Returns: {rule_id, novel_id, fact, tier, may_know_from_chapter,
+              must_not_before, channel, was_update: bool}
+    Raises on unknown tier/channel.
+    """
+
+def check_reveal_timing(scene_id: str, fact: str = "") -> dict:
+    """For a scene (+ chapter), check every rule governing the fact(s)
+    detected in the scene body. When `fact` is empty, scans the scene
+    for ALL rules' facts (substring match, case-insensitive) and checks
+    each hit.
+    Returns: {
+      ok: bool,
+      chapter: int,
+      violations: [{tier, rule_id, fact, must_not_before, verdict}…],
+      no_rule: bool,    # true when no rule governs anything in the scene
+    }
+    Verdict: "premature-reveal" when scene.chapter < rule.must_not_before
+             (or < may_know_from_chapter when must_not_before == 0).
+    """
+
+def reveal_timeline_report(novel_id: str, tier: str = "") -> dict:
+    """The §6.2 timeline. Sorted by may_know_from_chapter ASC.
+    Returns: {
+      by_tier: {tier: [{rule_id, fact, may_know_from_chapter,
+                        must_not_before, channel}…]},
+      total: int,
+    }
+    """
+
+def check_veil(
+    novel_id: str,
+    veil_terms: str = "DID,Alter,Fragment,ANP,EP,TSDP",
+    hold_until_chapter: int = 13,
+) -> dict:
+    """Scans every chapter < hold_until_chapter for any veil term.
+    Returns: {
+      passed: bool,
+      breaches: [{chapter, scene_id, term, snippet}…],
+      veil_terms_checked: [str…],
+      hold_until: int,
+    }
+    """
+
+def record_leerstelle(scene_id: str, kind: str, note: str) -> dict:
+    """Returns: {leerstelle_id, scene_id, kind, note}; raises on unknown kind."""
+
+def leerstellen_report(novel_id: str) -> dict:
+    """Returns: {gaps: [{leerstelle_id, scene_id, chapter, kind, note}…],
+                 by_kind: {kind: count}}"""
+
+def reader_function_audit(scene_id: str) -> dict:
+    """Tags which of Iser's three reader-layers the scene serves.
+    Returns: {
+      scene_id: str,
+      layers_served: [str…],         # subset of READER_LAYER
+      gives_reader_assembly_work: bool,
+      missing_layers: [str…],
+    }
+    Heuristic (decidable): narratological iff at least one Leerstelle of
+    kind ∈ {temporal-scramble, fragmented-perspective}; phenomenological
+    iff scene has sensoric markers (Spec 140 motif/anchor refs);
+    operative iff scene chains into another scene's Leerstelle resolution.
+    """
+
+def reveal_gate(novel_id: str) -> dict:
+    """Composite. Passes iff:
+      - check_reveal_timing(scene) has no `premature-reveal` for ANY scene
+      - check_veil(novel_id) passes
+    Returns: {
+      passed: bool,
+      premature_reveals: [{scene_id, …}…],
+      veil_breaches: [{chapter, term, …}…],
+    }
+    """
+```
+
+## Test scaffold
+
+```text
+tests/test_novel_reveal_discipline.py  (target ≥ 20 tests)
+  test_audience_tier_enum_registered
+  test_reveal_channel_enum_registered
+  test_leerstelle_kind_enum_registered
+  test_set_reveal_rule_upsert_by_key
+  test_set_reveal_rule_rejects_unknown_tier
+  test_check_reveal_timing_passes_after_must_not_before
+  test_check_reveal_timing_flags_premature
+  test_check_reveal_timing_no_rule_returns_ok
+  test_check_reveal_timing_multi_tier_independent
+  test_reveal_timeline_report_sorted_by_chapter
+  test_reveal_timeline_report_filtered_by_tier
+  test_check_veil_passes_after_hold_chapter
+  test_check_veil_flags_breach_before_chapter
+  test_check_veil_custom_terms
+  test_record_leerstelle_happy_path
+  test_record_leerstelle_rejects_unknown_kind
+  test_leerstellen_report_grouped_by_kind
+  test_reader_function_audit_tags_narratological
+  test_reader_function_audit_tags_phenomenological
+  test_reader_function_audit_tags_operative
+  test_reveal_gate_passes_clean_manuscript
+  test_reveal_gate_fails_on_premature_reveal
+  test_reveal_gate_fails_on_veil_breach
+```
+
 ## Open questions
 
 1. Should `fact` be a freeform string or a ref to a graph node (CodexEntry /
@@ -100,6 +255,14 @@ Without it, a drafting agent can't tell whether a scene leaks a reveal early.
 2. Veil-term set per-novel or shared default? **Recommend**: per-novel arg
    with a documented default (`{DID, Alter, Fragment, ANP, EP, TSDP}`); other
    novels have other veils.
+3. Should `check_reveal_timing` scan ALL rules' facts when `fact=""` or
+   require an explicit fact arg? **Recommend**: scan-all on empty; this is
+   the editorial-pipeline use-case (Spec 122 chains it on every scene),
+   which can't enumerate every rule by hand.
+4. `reader_function_audit` heuristic — decidable proxy vs LLM judgement?
+   **Recommend**: decidable proxy (specified above); the KP wants
+   machine-checkable, and "narratological/phenomenological/operative" map
+   cleanly onto graph features. LLM-grade Iser-analysis is out of scope.
 
 ## Followup
 

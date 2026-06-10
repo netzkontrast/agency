@@ -95,6 +95,174 @@ DID/plural-narrator novel.
 - **No-fusion is a hard invariant**, not a style note — the KP forbids final
   fusion absolutely; `validate_no_fusion` makes that machine-checkable.
 
+## Schema
+
+```text
+# New enums
+ALTER_CATEGORY  = {"anp", "ep", "special", "mirror"}
+TRAUMA_LAYER    = {"layer-1", "layer-2", "cross-layer"}
+PHOBIA_VECTOR   = {"anp-ep", "anp-anp", "ep-ep", "mirror"}
+PHOBIA_INTENSITY = {"max", "phobic-avoidance", "friction", "ambivalent"}
+
+# New nodes
+CharacterSystem {
+  novel: str        # FK
+  name:  str        # "Kael"
+  model: str        # "TSDP" | "OSDD" | "authored"
+}
+
+Alter {
+  system_id: str    # FK → CharacterSystem
+  name:      str    # "Lex", "Nyx", "Echo", "Sonder", "Spiegel-Silas", …
+  category:  str    # ∈ ALTER_CATEGORY
+  layer:     str    # ∈ TRAUMA_LAYER
+  function:  str    # "Fight" | "Freeze" | "Caregiver" | "Rationalist" | …  (freeform)
+  taboo_rules: str  # comma-separated anti-cliché rules (read by Spec 134 check_pov_voice)
+}
+
+# New edges
+ALTER_OF   : Alter --→ CharacterSystem            (cardinality N:1)
+PHOBIA_OF  : Alter --→ Alter                       (cardinality N:N; typed)
+             props: vector ∈ PHOBIA_VECTOR
+                    intensity ∈ PHOBIA_INTENSITY
+                    rationale: str (freeform why)
+VOICED_BY  : Alter --→ VoiceProfile (Spec 134)    (cardinality 1:1)
+MIRRORS    : Alter --→ <external-entity-node>     (cardinality 1:N; mirror-alters only)
+```
+
+## Verb signatures
+
+```python
+def create_character_system(novel_id: str, name: str, model: str = "TSDP") -> dict:
+    """Returns: {system_id, novel_id, name, model}"""
+
+def add_alter(
+    system_id: str,
+    name: str,
+    category: str,
+    layer: str,
+    function: str = "",
+    taboo_rules: str = "",
+) -> dict:
+    """Enum-validates category + layer.
+    Returns: {alter_id, system_id, name, category, layer, function}
+    Raises: ValueError on unknown enum value or duplicate name in system.
+    """
+
+def record_alter_conflict(
+    alter_a: str,
+    alter_b: str,
+    vector: str,
+    intensity: str,
+    rationale: str = "",
+) -> dict:
+    """Mints PHOBIA_OF edge (a→b). To record symmetric phobia, call twice.
+    Returns: {edge_id, a, b, vector, intensity}
+    Raises on unknown vector/intensity; rejects a==b.
+    """
+
+def conflict_matrix_report(system_id: str) -> dict:
+    """The §6 matrix.
+    Returns: {
+      alters: [{id, name, category, layer}…],
+      cells: [{from, to, vector, intensity, rationale}…],
+      max_pairs: [(a, b)…],   # max-intensity pairs — never co-front a scene
+      by_vector: {"anp-ep": int, "anp-anp": int, "ep-ep": int, "mirror": int},
+    }
+    """
+
+def assign_voice_to_alter(alter_id: str, voice_profile_id: str) -> dict:
+    """Mints VOICED_BY. One voice per alter (rebind replaces).
+    Returns: {alter_id, voice_profile_id, replaced_voice: <prev-or-empty>}
+    """
+
+def check_alter_recognition(
+    scene_id: str,
+    veil_chapter: int = 13,
+    veil_terms: str = "DID,Alter,Fragment,ANP,EP,TSDP",
+) -> dict:
+    """Scans scene.body for:
+      A) forbidden header/labeling patterns regardless of chapter
+         (regexes: r'\\[\\w+\\]:?\\s', r'^\\w+ spricht:', '<alter-name>:')
+      B) veil terms (csv arg) when scene.chapter < veil_chapter
+    Returns: {
+      passed: bool,
+      violations: [{kind: "header"|"veil", pattern, span: (start, end), reason}…],
+      checked_chapter: int,
+      veil_active: bool,
+    }
+    """
+
+def switching_log(system_id: str, novel_id: str) -> dict:
+    """Per scene, the inferred fronting alter (matched from VoiceProfile signature
+    against scene body) + micro-cue count (R-4: max 3 per bridge).
+    Returns: {
+      scenes: [{scene_id, chapter, inferred_alter, confidence,
+                micro_cue_count, exceeds_cue_cap: bool}…],
+      summary: {total_scenes, scenes_with_inference, ambiguous},
+    }
+    """
+
+def validate_no_fusion(system_id: str) -> dict:
+    """Resolution-discipline assertion: no alter may carry a `fused`/`eliminated`
+    flag. The KP canon end-state is plural "Wir".
+    Returns: {
+      passed: bool,
+      fused_alters: [{alter_id, name, flag}…],
+      total_alters: int,
+    }
+    """
+
+def record_mirror(alter_id: str, external_node_id: str, rationale: str = "") -> dict:
+    """Mints MIRRORS edge. Asserts alter.category == "mirror".
+    Returns: {alter_id, external_node_id, rationale}
+    """
+```
+
+## Test scaffold
+
+```text
+tests/test_novel_plural_character.py  (target ≥ 22 tests)
+  test_character_system_node_registered
+  test_alter_category_enum_validated
+  test_trauma_layer_enum_validated
+  test_phobia_vector_enum_validated
+  test_phobia_intensity_enum_validated
+  test_create_character_system_happy_path
+  test_add_alter_mints_ALTER_OF
+  test_add_alter_rejects_duplicate_name_in_system
+  test_add_alter_rejects_unknown_category
+  test_record_alter_conflict_mints_PHOBIA_OF
+  test_record_alter_conflict_rejects_self_loop
+  test_conflict_matrix_report_shape
+  test_conflict_matrix_max_pairs_surfaced
+  test_assign_voice_to_alter_one_per_alter
+  test_assign_voice_to_alter_rebind_replaces
+  test_check_alter_recognition_passes_clean_scene
+  test_check_alter_recognition_flags_header_pattern
+  test_check_alter_recognition_flags_veil_term_before_chapter
+  test_check_alter_recognition_allows_veil_term_after_chapter
+  test_switching_log_infers_voice_signature
+  test_switching_log_flags_excess_micro_cues
+  test_validate_no_fusion_passes_canonical_plural
+  test_validate_no_fusion_fails_on_fused_flag
+  test_record_mirror_requires_mirror_category
+  test_taboo_rules_field_round_trips
+```
+
+## Fixture (KP 13-alter roster)
+
+```text
+ANP (4):     Kael / Lex / Eos / Iren
+EP  (4):     Nyx / Echo / Bren / Sol
+Special(3):  Sonder, Memory-of-(name), Witness
+Mirror(2):   Spiegel-Silas, Spiegel-Oblivion
+Layer-1:     Lex, Nyx, Echo, Bren, Spiegel-Silas
+Layer-2:     Eos, Iren, Sol, Sonder, Spiegel-Oblivion
+Cross:       Kael, Memory-of-(name), Witness
+Max-pairs:   (Lex, Nyx), (Eos, Sol), (Kael, Sonder)
+```
+
 ## Open questions
 
 1. Should the Spiegel (mirror) alters get a typed edge to the *external*
@@ -105,6 +273,10 @@ DID/plural-narrator novel.
    **Recommend**: Spec 139 owns reveal-timelines; 138's
    `check_alter_recognition` reads the threshold from there when 139 ships,
    else from a verb arg.
+3. PHOBIA_OF symmetry — auto-mirror on insert, or require two calls?
+   **Recommend**: require two calls — phobic relations are NOT always
+   symmetric in the KP (Lex→Nyx is `max`/`anp-ep`; Nyx→Lex may be
+   `phobic-avoidance`/`anp-ep`); forcing symmetry would lie.
 
 ## Followup
 
