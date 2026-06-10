@@ -1,8 +1,8 @@
 ---
 spec_id: "123"
 slug: novel-worldbuilding-psychology
-status: draft
-last_updated: 2026-06-09
+status: shipped
+last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["102", "105"]
 affects:
@@ -76,6 +76,51 @@ queryable graph entities. This spec gives those skills their ontology.
    pairs sharing motif words with negation markers; judgement pass via
    `thinking.red_team` xcap.)
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done (Slice 1 — World sub-graph):**
+- 6 new ontology nodes shipped: `World`, `Culture`, `Religion`,
+  `Language`, `MagicSystem`, `WorldAxiom`.
+- 2 new edges: `PART_OF_WORLD` (Culture/Religion/Language/MagicSystem/Axiom
+  → World); `CONTRADICTS` (WorldAxiom ↔ WorldAxiom, written by
+  `find_axiom_contradictions`); plus 5 character-to-world relationship
+  edges (`BELONGS_TO`, `INHABITS`, `WORSHIPS`, `SPEAKS`, `WIELDS`).
+- `WORLD_AXIOM_SEVERITY = {"hard", "soft"}` enum on WorldAxiom.severity.
+- `_CHARACTER_WORLD_EDGES` whitelist gates `link_character_to_world`.
+- **9 verbs shipped**: `create_world`, `create_culture`, `create_religion`,
+  `create_language`, `create_magic_system`, `create_world_axiom`,
+  `list_world` (tree transform using `ctx.neighbors` PART_OF_WORLD per
+  Spec 125), `find_axiom_contradictions` (decidable scan: 2+ shared
+  motif words + exactly-one-side negation marker; writes CONTRADICTS
+  edges so the relationship is queryable), `link_character_to_world`
+  (edge-kind whitelist).
+- `find_axiom_contradictions` Open Q2 resolved: shipped decidable v1
+  (negation-XOR + motif-word overlap). Judgement pass via
+  `thinking.red_team` xcap is documented as future work.
+
+**Still (Slice 2 — deferred):**
+- **Character psychology layer**: `Character`/`PsychProfile`/`Trait`
+  nodes; `generate_psych_profile(character, lens)`;
+  `select_psych_framework(novel, genre)`;
+  `validate_dramatica_mapping(character)` reading the 8 archetypes via
+  Spec 120's `_resolve_term`.
+- **Conflict + Theme + foreshadowing**: `Conflict`/`Theme`/`PlantedElement`
+  nodes; `track_conflict`, `conflict_density_report`, `declare_theme`,
+  `check_thematic_motif_distribution`, `plant_element`, `mark_paid_off`,
+  `orphaned_foreshadowing_report`.
+- **Skill rewiring**: `character-architect` + `world-bible-architect`
+  phases bind to the Slice 1+2 effect verbs once Slice 2 lands.
+- **Cross-spec hook**: `developmental_gate` (Spec 122) extends with
+  conflict-present + orphaned-foreshadowing predicates after Slice 2.
+
+**Open Q resolutions:** Q1 — novel-scoped Conflict/Theme (per spec
+recommendation); shared World spans novels. Q2 — decidable v1 shipped
+(motif-words + negation-XOR); judgement pass deferred.
+
+**Test:** 14 new tests (`tests/test_novel_worldbuilding.py`) — node /
+enum / edge / verb registration, create_world + 4 children with
+PART_OF_WORLD edges, unknown-world rejection, axiom severity enum
+validation, `list_world` tree grouping by label, contradiction detection
+(negation-XOR true positive + clean true negative), edge-kind whitelist
+enforcement, character-world edge round-trip. 249 across novel/naming/
+install green; drift clean.
