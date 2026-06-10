@@ -1,7 +1,7 @@
 ---
 spec_id: "131"
 slug: character-knowledge-ledger
-status: draft
+status: shipped
 last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["101", "123", "128"]
@@ -72,6 +72,59 @@ this gap.
    reflections)? **Recommend**: no — the ledger is small and
    author-curated; embedding indexing would be premature.
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done:**
+- **Ontology**: `KnownFact {character, fact}` node; `KNOWS` (Character →
+  KnownFact, one-hop "what does X know") + `LEARNED_IN` (KnownFact →
+  Scene, the disclosure anchor) edges.
+- **3 verbs on novel cap**:
+  - `record_character_learns(character_id, fact, scene_id)` — mints
+    KnownFact + KNOWS + LEARNED_IN + SERVES intent. character_id
+    accepts any node id (Character ontology lands in Spec 123 Slice 2).
+  - `what_does_X_know_as_of(character_id, scene_id)` — walks KNOWS via
+    `ctx.neighbors` (Spec 125), filters by LEARNED_IN scene's chapter
+    number ≤ target scene's chapter number. Returns
+    `{facts: [{fact_id, fact, learned_in_scene}]}`.
+  - `flag_anachronistic_reference(scene_id, character_id, fact_text)` —
+    finds a KnownFact matching `fact_text`; compares LEARNED_IN chapter
+    to target chapter. Returns `{anachronism, expected_learned_in}` when
+    target precedes LEARNED_IN; `{anachronism: False, no_record: True}`
+    when the character never learned the fact (author hasn't recorded
+    the disclosure yet).
+- **Spec 127 `_compose_pov_card` upgrade**: when the scene declares
+  `pov_character_id` (optional Scene property), composer calls
+  `NovelCapability.what_does_X_know_as_of(pov_character_id, scene_id)`
+  and adds a "POV knows (as of this narrative position):" subsection
+  with bullet-rendered facts. Each contributing KnownFact node added
+  to the brief's `sources` array. Scenes without `pov_character_id`
+  keep the base pov_card (no knowledge subsection).
+- Narrative-position approximation: chapter number ordering (not
+  NarrativeBeat). NarrativeBeat-based ordering can replace this in a
+  future spec when authors adopt PRECEDES extensively; for v1 the
+  chapter ordering matches how authors naturally think about
+  manuscript progression.
+
+**Still:**
+- "POV does NOT know X" check requires the author to enumerate
+  intentionally-hidden facts (deferred per spec design notes — out of
+  v1 scope).
+- NarrativeBeat-based ordering (vs chapter.number) — Slice 2 refinement.
+- Character ontology (Spec 123 Slice 2) — KnownFact's `character` field
+  accepts any id today; will become a Character node ref when Slice 2
+  ships.
+
+**Open Q resolutions:** Q1 — Forgetting/unlearning deferred (most
+stories monotonically accumulate knowledge). Q2 — KnownFact does NOT
+participate in embedding store (ledger is small + author-curated;
+indexing would be premature).
+
+**Test:** 13 new tests (`tests/test_novel_character_knowledge.py`) —
+ontology registration (node/edges/verbs), record_character_learns
+returns fact_id + emits KNOWS + LEARNED_IN edges + unknown-scene
+rejection, what_does_X_know_as_of returns facts learned before /
+excludes future / empty-when-no-facts, flag_anachronistic_reference
+no-anachronism for known fact / fires when learned after / no-record
+for unknown, and the end-to-end `assemble_scene_brief` upgrade —
+pov_card includes the POV-knows subsection when pov_character_id is
+set. 307 across novel/prompt/naming/install green; drift clean.

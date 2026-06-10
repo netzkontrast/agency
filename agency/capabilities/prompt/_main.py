@@ -783,13 +783,35 @@ def _compose_storyform(bctx: _BriefContext, cap) -> tuple[str, list[dict]]:
 
 
 def _compose_pov_card(bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
+    """Spec 131 upgrade — adds POV-knows subsection when scene declares
+    `pov_character_id` and the character has KnownFacts learned by this
+    narrative position."""
     pov = bctx.scene.get("pov") or "unset"
     lines = [
         f"POV: {pov}",
         f"Scene slug: {bctx.scene.get('slug', '')}",
     ]
-    return "\n".join(lines), [{"node_id": bctx.scene.get("id", ""),
-                                "kind": "Scene"}]
+    sources: list[dict] = [
+        {"node_id": bctx.scene.get("id", ""), "kind": "Scene"}]
+    pov_character_id = bctx.scene.get("pov_character_id") or ""
+    scene_id = bctx.scene.get("id", "")
+    if pov_character_id and scene_id and bctx._ctx:
+        try:
+            from agency.capabilities.novel._main import NovelCapability
+            novel_cap = NovelCapability(bctx._ctx)
+            result = novel_cap.what_does_X_know_as_of(
+                character_id=pov_character_id, scene_id=scene_id)
+            facts = (getattr(result, "data", result) or {}).get("facts", [])
+        except Exception:
+            facts = []
+        if facts:
+            lines.append("")
+            lines.append("POV knows (as of this narrative position):")
+            for f in facts:
+                lines.append(f"- {f['fact']}")
+                sources.append({"node_id": f["fact_id"],
+                                 "kind": "KnownFact"})
+    return "\n".join(lines), sources
 
 
 def _compose_scene_cast(bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
