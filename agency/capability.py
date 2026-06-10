@@ -207,6 +207,36 @@ class CapabilityContext:
     def find(self, label: str, as_of: Optional[int] = None):
         return self.memory.find(label, as_of=as_of)
 
+    def neighbors(self, node_id: str, edge: str,
+                  direction: str = "in", limit: int = 100) -> list[dict]:
+        """One-hop edge traversal (Spec 125). Returns property dicts of nodes
+        connected to ``node_id`` via an ``edge``-typed relationship.
+
+        ``direction="in"`` (default) finds nodes pointing AT ``node_id``
+        (e.g. children via CHAPTER_OF). ``direction="out"`` finds nodes
+        ``node_id`` points at (e.g. parent via CHAPTER_OF from a chapter).
+
+        Closes the F4 dormant-edge advisory: declare an edge ⇒ traverse it
+        via ``ctx.neighbors``; ``find()`` + Python filter on a foreign-key
+        property is the anti-pattern this method retires.
+
+        Returns ``[]`` for unknown ids or no matching edges. ``limit`` caps
+        the row count (default 100, matches ``analyze.graph`` shape).
+        """
+        if direction not in ("in", "out"):
+            raise ValueError(
+                f"direction must be 'in' or 'out', got {direction!r}")
+        if direction == "in":
+            q = (f"MATCH (n)-[:{edge}]->(t) WHERE t.id = $id "
+                 f"RETURN n LIMIT {int(limit)}")
+            key = "n"
+        else:
+            q = (f"MATCH (n)-[:{edge}]->(t) WHERE n.id = $id "
+                 f"RETURN t LIMIT {int(limit)}")
+            key = "t"
+        rows = self.memory.g.query(q, {"id": node_id})
+        return [r[key]["properties"] for r in rows]
+
     def template(self, name: str) -> "Template":
         """Spec 060 — load a template by stem from the engine's merged
         ontology. Engine bootstrap discovers per-capability `templates/`
