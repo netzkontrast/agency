@@ -1,8 +1,8 @@
 ---
 spec_id: "120"
 slug: novel-storyform-completion
-status: draft
-last_updated: 2026-06-09
+status: shipped
+last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["103", "101"]
 affects:
@@ -85,6 +85,40 @@ Rec-2 exact-fail contract. This spec closes both.
    warning? (Recommend: warning — the fixtures themselves use el. for
    var.-level terms, so strict kind would re-break the oracle suite.)
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done:**
+- `_resolve_term(term_id) -> (entry, exact_kind_match)` shipped in
+  `agency/capabilities/novel/_main.py` — kind-agnostic ontology lookup via
+  `_ontology_by_slug` (LRU-cached); resolves `el.self-interest` →
+  `var.self-interest` and `t.past` → `type.past`. Prefix alias table
+  documents the recognized kind-prefixes (`el.`, `var.`, `t.`/`type.`,
+  `dp.`, `quad.`, `class.`, `arc.`, `pd.`, `cd.`, `th.`, `con.`).
+- **8 new decidable check verbs** shipped (rows 1, 2, 3, 6, 7, 8, 9, 10):
+  `check_dynamic_pair_reciprocity`, `check_ktad_coverage`,
+  `check_quad_completeness`, `check_crucial_element_placement`,
+  `check_resolve_outcome_judgment`, `check_approach_concern` (WARN),
+  `check_mental_sex_problem_solving`, `check_signpost_permutation`.
+- **`novel_coherence_check(ncp)` composite** with check-chaining: row 5
+  gates rows 3 + 10; row 10 gates row 2 (the Slice-2 retraction lesson
+  baked into structure). Records an `Artefact(kind="storyform-coherence-report")`
+  with SERVES edge to the intent — the provenance moat.
+- **`storyform-build` walkable skill** (6 phases) registered with
+  verb-bound phases per Spec 080's "phase-bound EXECUTES" doctrine;
+  final phase is a hard gate bound to `novel.novel_coherence_check`.
+- **Exact-fail contract** holds across ALL 11 fixtures (parametrized
+  `test_exact_fail_contract` — each `broken_work_<row>` fails EXACTLY
+  its named check under the composite, no false positives).
+- WARN-severity row 8 surfaces as `warnings: [{check, message}]`; the
+  composite still passes (Open Q1 resolved per spec recommendation).
+- `_resolve_term` with non-exact kind matches returns the slug-matched
+  entry rather than re-breaking the oracle suite (Open Q2 resolved per
+  spec recommendation).
+
+**Still:** None for v1. The check-chaining structure leaves room for a
+future row-7 strengthening (ending-type vs explicit `ending` field) when
+NCP v1.4 adds the field.
+
+**Test:** 35 new tests (`tests/test_novel_storyform_completion.py`) +
+275 across novel/naming/install/analyze — all green. Lint clean
+(docstring brief budgets tightened on quad/resolve checks).

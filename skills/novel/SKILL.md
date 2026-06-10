@@ -29,10 +29,18 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `capture_claim` | effect | Record a NovelClaim node SERVING the intent (effect). | [details](references/capture_claim.md) |
 | `capture_idea` | effect | Record an Idea node SERVING the intent (effect). | [details](references/capture_idea.md) |
 | `chapter_report` | transform | Read-only aggregate over the novel's chapters (transform). | [details](references/chapter_report.md) |
+| `check_approach_concern` | transform | Mostly-decidable check (row 8): approach ↔ class compatibility (WARN-severity). | [details](references/check_approach_concern.md) |
 | `check_content_warnings` | transform | Content-warning category scanner (transform, driver-free). | [details](references/check_content_warnings.md) |
+| `check_crucial_element_placement` | transform | Decidable check (row 6): storyform.crucial_element_id == mc.problem_id. | [details](references/check_crucial_element_placement.md) |
 | `check_dialogue_attribution` | transform | Dialogue-tag check — plain ('said') vs flowery (transform). | [details](references/check_dialogue_attribution.md) |
+| `check_dynamic_pair_reciprocity` | transform | Decidable check (row 1): mc.dynamic and os.dynamic must differ. | [details](references/check_dynamic_pair_reciprocity.md) |
 | `check_filter_words` | transform | Filter-word density check (transform, show-don't-tell). | [details](references/check_filter_words.md) |
+| `check_ktad_coverage` | transform | Decidable check (row 2): concern_id == signposts[0] (K-position). | [details](references/check_ktad_coverage.md) |
+| `check_mental_sex_problem_solving` | transform | Decidable check (row 9): mental_sex ↔ class compatibility. | [details](references/check_mental_sex_problem_solving.md) |
+| `check_quad_completeness` | transform | Decidable check (row 3): mc problem and solution are paired. | [details](references/check_quad_completeness.md) |
+| `check_resolve_outcome_judgment` | transform | Decidable check (row 7): resolve/outcome/judgment triple is legal. | [details](references/check_resolve_outcome_judgment.md) |
 | `check_show_dont_tell` | transform | Telling-verb scan — interior-monologue tells (transform). | [details](references/check_show_dont_tell.md) |
+| `check_signpost_permutation` | transform | Decidable check (row 10): signposts in canonical order per class. | [details](references/check_signpost_permutation.md) |
 | `check_slot_fill` | transform | Decidable check (row 4): no null required slots (transform). | [details](references/check_slot_fill.md) |
 | `check_storybeat_moment_refs` | transform | Decidable check (row 11): every moment.storybeat_ref resolves (transform). | [details](references/check_storybeat_moment_refs.md) |
 | `check_throughline_partition` | transform | Decidable check (row 5): 4 throughlines / 4 distinct Classes (transform). | [details](references/check_throughline_partition.md) |
@@ -47,6 +55,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `list_claims` | transform | List captured claims; optional verified-status filter (transform). | [details](references/list_claims.md) |
 | `list_ideas` | transform | List captured ideas; optional status filter (transform). | [details](references/list_ideas.md) |
 | `manuscript_coherence_check` | transform | Chapter-sequence contiguity check (transform, driver-free). | [details](references/manuscript_coherence_check.md) |
+| `novel_coherence_check` | effect | Composite gate (Spec 120): runs all 11 storyform checks with chaining. | [details](references/novel_coherence_check.md) |
 | `novel_progress` | transform | Aggregate progress (word-count + per-status counts) for a novel (transform). | [details](references/novel_progress.md) |
 | `pending_verifications` | transform | Aggregate pending claims by domain (transform). | [details](references/pending_verifications.md) |
 | `pre_draft_gate` | effect | Composite gate: storyform + research + chapters present (effect). | [details](references/pre_draft_gate.md) |
@@ -89,6 +98,8 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'novel-concept', 'inputs': {}, 'intent_id': '…'})`
 - **`scene-bridge-auditor`** (auditor): Q1-purpose → Q2-POV → Q3-stakes → Q4-conflict → Q5-payoff-and-signoff
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'scene-bridge-auditor', 'inputs': {}, 'intent_id': '…'})`
+- **`storyform-build`** (builder): throughline-partition → concern-and-signposts → elements-and-pair → dynamics-and-style → ncp-shape → composite-gate
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'storyform-build', 'inputs': {}, 'intent_id': '…'})`
 - **`world-bible-architect`** (conceptualizer): geography → cultures → religions-languages → magic-systems → canon-lock
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'world-bible-architect', 'inputs': {}, 'intent_id': '…'})`
 
