@@ -246,11 +246,63 @@ class FileNovelStateDriver:
 def production_drivers(config: NovelConfig | None = None) -> dict[str, Any]:
     """Bundle factory symmetric to music.production_drivers.
 
-    Returns a dict keyed by canonical driver name. Currently ships one
-    driver (`novel_state`); future slices may add `novel_text` /
-    `novel_format` (Spec 124) as the cluster expands.
+    Returns a dict keyed by canonical driver name. Ships `novel_state`
+    (Spec 121) + `novel_format` (Spec 124 — FakeFormatDriver in CI,
+    PandocFormatDriver in production once `[novel-format]` extra is wired).
     """
     cfg = config or NovelConfig.load()
     return {
         "novel_state": FileNovelStateDriver(cfg),
+        "novel_format": _select_format_driver(cfg),
     }
+
+
+def _select_format_driver(_cfg):
+    """Pick the production format driver based on what's importable.
+
+    Spec 124 Slice 1: returns `FakeFormatDriver` always. Slice 2 will try
+    `PandocFormatDriver` first and fall back to the fake when shell-outs
+    aren't available (typed `DEPENDENCY_MISSING` on call).
+    """
+    return FakeFormatDriver()
+
+
+class FakeFormatDriver:
+    """Deterministic in-memory FormatDriver — Spec 124.
+
+    Returns predictable paths from input hashes; records the call log so
+    tests can assert "what was exported" without writing binaries. Mirrors
+    `FakeAudioDriver`'s pattern: zero pandoc / wkhtmltopdf / weasyprint
+    required in CI.
+
+    The "fake" returns a path; tests can assert the path is shaped right
+    and that the call landed, without the file actually existing on disk.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def available_formats(self) -> list[str]:
+        return ["epub", "pdf", "docx"]
+
+    def _record(self, fmt: str, manuscript: str, meta: dict) -> str:
+        import hashlib
+        h = hashlib.sha256(manuscript.encode("utf-8")).hexdigest()[:12]
+        slug = (meta.get("slug") or meta.get("title") or "manuscript"
+                ).lower().replace(" ", "-")
+        path = f"/tmp/agency-novel-format/{slug}-{h}.{fmt}"
+        self.calls.append({
+            "format": fmt, "path": path, "meta": dict(meta),
+            "manuscript_bytes": len(manuscript),
+            "manuscript_sha256": h,
+        })
+        return path
+
+    def to_epub(self, manuscript_md: str, meta: dict) -> str:
+        return self._record("epub", manuscript_md, meta)
+
+    def to_pdf(self, manuscript_md: str, meta: dict) -> str:
+        return self._record("pdf", manuscript_md, meta)
+
+    def to_docx(self, manuscript_md: str, meta: dict) -> str:
+        return self._record("docx", manuscript_md, meta)

@@ -50,6 +50,9 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `create_novel` | effect | Record a Novel node SERVING the intent; materialise disk on production. | [details](references/create_novel.md) |
 | `create_scene` | effect | Record a Scene node + SCENE_OF the parent Chapter (effect). | [details](references/create_scene.md) |
 | `dispatch_novel_research` | effect | Mint a research lead + record NovelClaim (delegates to research cap). | [details](references/dispatch_novel_research.md) |
+| `export_docx` | effect | Render manuscript + write docx via FormatDriver (effect). | [details](references/export_docx.md) |
+| `export_epub` | effect | Render manuscript + write epub via FormatDriver (effect). | [details](references/export_epub.md) |
+| `export_pdf` | effect | Render manuscript + write PDF via FormatDriver (effect). | [details](references/export_pdf.md) |
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
 | `list_claims` | transform | List captured claims; optional verified-status filter (transform). | [details](references/list_claims.md) |
@@ -60,6 +63,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `pending_verifications` | transform | Aggregate pending claims by domain (transform). | [details](references/pending_verifications.md) |
 | `pre_draft_gate` | effect | Composite gate: storyform + research + chapters present (effect). | [details](references/pre_draft_gate.md) |
 | `promote_idea` | effect | Idea → Novel transition; records PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
+| `publication_gate` | effect | Terminal composite: publish_ready + ≥1 export + front-matter declared (effect). | [details](references/publication_gate.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
 | `record_storyform_decision` | effect | Record a contested storyform decision (effect, xcap to dogfood). | [details](references/record_storyform_decision.md) |
@@ -96,6 +100,8 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'character-architect', 'inputs': {}, 'intent_id': '…'})`
 - **`novel-concept`** (conceptualizer): premise → genre → audience → pov → setting → characters-core → dramatica-seed → outline-shape → series-hypothesis → confirmation
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'novel-concept', 'inputs': {}, 'intent_id': '…'})`
+- **`publish-prep`** (publisher): manuscript-pass → export-pass → publication-gate → sign-off
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'publish-prep', 'inputs': {}, 'intent_id': '…'})`
 - **`scene-bridge-auditor`** (auditor): Q1-purpose → Q2-POV → Q3-stakes → Q4-conflict → Q5-payoff-and-signoff
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'scene-bridge-auditor', 'inputs': {}, 'intent_id': '…'})`
 - **`storyform-build`** (builder): throughline-partition → concern-and-signposts → elements-and-pair → dynamics-and-style → ncp-shape → composite-gate

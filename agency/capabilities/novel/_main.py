@@ -395,6 +395,28 @@ SCENE_BRIDGE_AUDITOR_SKILL = {
 }
 
 
+# Spec 124 — publish-prep walkable skill. 4 phases driving the
+# publication path: render → export → publication_gate → sign-off.
+PUBLISH_PREP_SKILL = {
+    "name": "publish-prep", "kind": "publisher",
+    "phases": [
+        {"index": 1, "name": "manuscript-pass",
+         "produces": ["manuscript_rendered"],
+         "verbs": ["novel.render_manuscript"]},
+        {"index": 2, "name": "export-pass",
+         "produces": ["exports_written"],
+         "verbs": ["novel.export_epub", "novel.export_pdf",
+                   "novel.export_docx"]},
+        {"index": 3, "name": "publication-gate",
+         "produces": ["publication_ready"],
+         "verbs": ["novel.publication_gate"]},
+        {"index": 4, "name": "sign-off",
+         "produces": ["publication_signoff"],
+         "gate": "hard"},
+    ],
+}
+
+
 # ─────────────────────────── ontology ───────────────────────────
 novel_ontology = OntologyExtension(
     nodes={
@@ -433,7 +455,8 @@ novel_ontology = OntologyExtension(
             "character-architect": CHARACTER_ARCHITECT_SKILL,
             "world-bible-architect": WORLD_BIBLE_ARCHITECT_SKILL,
             "scene-bridge-auditor": SCENE_BRIDGE_AUDITOR_SKILL,
-            "storyform-build": STORYFORM_BUILD_SKILL},
+            "storyform-build": STORYFORM_BUILD_SKILL,
+            "publish-prep": PUBLISH_PREP_SKILL},
     schemas={
         # Spec 102: logline replaces `premise` in the canonical phase name;
         # both verb args + skill produce the same field set.
@@ -453,7 +476,7 @@ class NovelCapability(CapabilityBase):
     # ───────── Spec 121: lazy production-driver auto-wiring ─────────
     # AGENCY-DRIFT: novel driver set — mirror production_drivers() keys
     # and the diagnose-wanted list when adding novel drivers (text/format/etc).
-    _NOVEL_DRIVER_NAMES = ("novel_state",)
+    _NOVEL_DRIVER_NAMES = ("novel_state", "novel_format")
 
     def _production_enabled(self) -> bool:
         """Auto-wiring only fires under the production MCP runtime
@@ -493,13 +516,23 @@ class NovelCapability(CapabilityBase):
         """Return the wired novel_state driver or None when production
         isn't on. Used by verbs that have a graph-only default with an
         opportunistic disk side-effect (CLAUDE.md rule 2)."""
+        return self._maybe_driver("novel_state")
+
+    def _maybe_format_driver(self):
+        """Spec 124 — opportunistic FormatDriver. When production is on
+        (FakeFormatDriver lands by default; PandocFormatDriver in Slice 2),
+        export verbs hand the manuscript markdown to the driver. Otherwise
+        export verbs return DEPENDENCY_MISSING typed failure."""
+        return self._maybe_driver("novel_format")
+
+    def _maybe_driver(self, name: str):
         reg = self.ctx.drivers
         if reg is None or not self._production_enabled():
             return None
-        if not reg.has("novel_state"):
+        if not reg.has(name):
             self._autowire_novel_drivers()
-        if reg.has("novel_state"):
-            return reg.get("novel_state")
+        if reg.has(name):
+            return reg.get(name)
         return None
 
     def _require_novel(self, novel_id: str) -> tuple[dict | None, ToolResult | None]:
@@ -1872,6 +1905,132 @@ class NovelCapability(CapabilityBase):
                 f"publish-ready: missing {failed}; gaps={gaps}")
         return ToolResult.success(data={
             "passed": True, "checks": checks,
+        })
+
+    # ───────────────── Spec 124 — FormatDriver export verbs ─────────────────
+    # 3 export verbs (epub / pdf / docx) hand the rendered manuscript to
+    # the wired FormatDriver and record a published-manuscript Artefact.
+
+    def _export_format(self, novel_id: str, fmt: str) -> dict:
+        novel_node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return {"_fail": fail}
+        drv = self._maybe_format_driver()
+        if drv is None:
+            return {"_fail": ToolResult.failure(
+                "DEPENDENCY_MISSING",
+                "novel_format driver not wired (set engine._novel_production = True "
+                "or add the novel_format driver to Engine(drivers=...))")}
+        if fmt not in drv.available_formats():
+            return {"_fail": ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"format={fmt!r} not in driver.available_formats() "
+                f"= {drv.available_formats()}")}
+        manuscript_result = self.ctx.call("novel", "render_manuscript",
+                                            novel_id=novel_id)
+        manuscript_md = (manuscript_result or {}).get("result", "")
+        meta = {
+            "title": novel_node.get("title", ""),
+            "author": novel_node.get("author", ""),
+            "genre": novel_node.get("genre", "novel"),
+            "slug": novel_node.get("title", "").lower().replace(" ", "-"),
+        }
+        method = getattr(drv, f"to_{fmt}")
+        path = method(manuscript_md, meta)
+        aid = self.ctx.record("Artefact", {
+            "kind": "published-manuscript",
+            "format": fmt, "path": path,
+            "novel_id": novel_id,
+        })
+        self.ctx.link(aid, self.ctx.intent_id, "SERVES")
+        self.ctx.link(self.ctx.intent_id, aid, "PRODUCES")
+        return {"format": fmt, "path": path, "artefact_id": aid}
+
+    @verb(role="effect")
+    def export_epub(self, novel_id: str) -> ToolResult:
+        """Render manuscript + write epub via FormatDriver (effect).
+
+        Inputs: novel_id.
+        Returns: ``{format, path, artefact_id}``; typed DEPENDENCY_MISSING
+                 when no FormatDriver is wired (production flag off).
+        chain_next: ``novel.publication_gate``.
+        """
+        out = self._export_format(novel_id, "epub")
+        if "_fail" in out:
+            return out["_fail"]
+        return ToolResult.success(data=out)
+
+    @verb(role="effect")
+    def export_pdf(self, novel_id: str) -> ToolResult:
+        """Render manuscript + write PDF via FormatDriver (effect).
+
+        Inputs: novel_id.
+        Returns: ``{format, path, artefact_id}``; typed DEPENDENCY_MISSING
+                 when no FormatDriver is wired.
+        chain_next: ``novel.publication_gate``.
+        """
+        out = self._export_format(novel_id, "pdf")
+        if "_fail" in out:
+            return out["_fail"]
+        return ToolResult.success(data=out)
+
+    @verb(role="effect")
+    def export_docx(self, novel_id: str) -> ToolResult:
+        """Render manuscript + write docx via FormatDriver (effect).
+
+        Inputs: novel_id.
+        Returns: ``{format, path, artefact_id}``; typed DEPENDENCY_MISSING
+                 when no FormatDriver is wired.
+        chain_next: ``novel.publication_gate``.
+        """
+        out = self._export_format(novel_id, "docx")
+        if "_fail" in out:
+            return out["_fail"]
+        return ToolResult.success(data=out)
+
+    @verb(role="effect")
+    def publication_gate(self, novel_id: str) -> ToolResult:
+        """Terminal composite: publish_ready + ≥1 export + front-matter declared (effect).
+
+        Composes:
+        - ``publish_ready_gate`` (chapters contiguous + status ≥ querying)
+        - at least one ``published-manuscript`` Artefact already exists
+          (caller has run ``export_epub`` / ``export_pdf`` / ``export_docx``)
+        - novel front-matter declares ``content_warnings`` (empty string OK,
+          but the field MUST be set so reviewers see a deliberate state).
+
+        Inputs: novel_id.
+        Returns: ``{passed, checks, exports: [{format, path}]}`` or typed
+                 GATE_FAILED.
+        chain_next: terminal — call ``novel.set_novel_status('published')``.
+        """
+        novel_node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        pub_ready = self.ctx.call("novel", "publish_ready_gate",
+                                    novel_id=novel_id)
+        ready_passed = bool((pub_ready or {}).get("passed"))
+        exports = [
+            {"format": a.get("format"), "path": a.get("path")}
+            for a in self.ctx.find("Artefact")
+            if a.get("kind") == "published-manuscript"
+            and a.get("novel_id") == novel_id
+        ]
+        # `content_warnings` field must be SET (even if empty) — declares
+        # the author has thought about it.
+        cw_set = "content_warnings" in novel_node
+        checks = {
+            "publish_ready": ready_passed,
+            "has_exports": bool(exports),
+            "content_warnings_declared": cw_set,
+        }
+        if not all(checks.values()):
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"publication: missing "
+                f"{[k for k, v in checks.items() if not v]}")
+        return ToolResult.success(data={
+            "passed": True, "checks": checks, "exports": exports,
         })
 
     @verb(role="transform")

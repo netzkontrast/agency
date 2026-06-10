@@ -1,8 +1,8 @@
 ---
 spec_id: "124"
 slug: novel-format-driver
-status: draft
-last_updated: 2026-06-09
+status: shipped
+last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["107", "121"]
 affects:
@@ -59,6 +59,51 @@ in shape.
 2. EPUB metadata: minimum viable (title/author/lang) or full ONIX
    subset? (Recommend: minimum viable; ONIX is catalogue territory.)
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done (Slice 1):**
+- `FakeFormatDriver` shipped in `drivers_production.py` — `available_formats()`
+  returns `["epub", "pdf", "docx"]`; `to_epub` / `to_pdf` / `to_docx` return
+  deterministic paths (sha256 hash of the manuscript body for content-keyed
+  paths under `/tmp/agency-novel-format/`) and record a `calls` log. Zero
+  binaries; mirrors `FakeAudioDriver`'s pattern.
+- `production_drivers(cfg)` bundle extended with `novel_format` — currently
+  ships the fake; `_select_format_driver` is the swap point where Slice 2's
+  `PandocFormatDriver` lands.
+- `_NOVEL_DRIVER_NAMES` extended to `("novel_state", "novel_format")`;
+  `_maybe_format_driver()` helper added alongside `_maybe_state_driver` via
+  a new `_maybe_driver(name)` base.
+- **3 export verbs** ship (`export_epub` / `export_pdf` / `export_docx`),
+  all effects: render manuscript → hand to driver → record
+  `Artefact(kind="published-manuscript", format, path, novel_id)` with
+  SERVES intent + PRODUCES (intent → artefact) edges. Typed
+  `DEPENDENCY_MISSING` when driver not wired.
+- **`publication_gate(novel_id)`** terminal composite: combines
+  `publish_ready_gate` + ≥ 1 `published-manuscript` Artefact present +
+  `content_warnings` field declared on the Novel node (empty string OK —
+  just must be SET so reviewers see a deliberate state).
+- **`publish-prep` 4-phase walkable skill** registered: render → export →
+  publication-gate → sign-off (hard). Phases bind to the real verbs per
+  Spec 080 doctrine.
+
+**Still (Slice 2 — deferred):**
+- `PandocFormatDriver` production binding (pandoc for epub/docx; weasyprint
+  for PDF). Per Open Q1, the recommendation stands: **weasyprint** —
+  pip-installable, no system binary, stays in the Python graph.
+- `[novel-format]` extras-deps entry in `pyproject.toml` once the prod
+  driver ships.
+- 4 publication-template port from bitwize source (query-letter / synopsis /
+  blurb / back-cover) — Spec 107's existing renderers cover 3 of those
+  already; the 4th (back-cover) is the carve-out.
+
+**Open Q resolutions:** Q1 — weasyprint recommended for Slice 2 (pip-only).
+Q2 — minimum-viable EPUB metadata (title/author/lang) confirmed; ONIX is
+catalogue territory.
+
+**Test:** 12 new tests (`tests/test_novel_format_driver.py`) — fake driver
+format list + call recording + deterministic + content-keyed paths,
+production_drivers bundle wiring, bare engine typed DEPENDENCY_MISSING,
+production export writes Artefact, multi-format independence, publication
+gate block-without-exports, gate pass-with-exports-and-declarations, skill
+registration + verb registration. 247 across novel/naming/install green;
+drift clean; lint clean.
