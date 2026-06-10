@@ -23,14 +23,16 @@ Research runs a question through a lead that scopes it, specialists that gather 
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `ingest_gdoc` | transform | Compose a subagent dispatch contract that ingests a Google Doc to disk. | [details](references/ingest_gdoc.md) |
 | `lead` | act | Scope a research question + plan specialists; mints a Research node. | [details](references/lead.md) |
+| `record_ingested_source` | effect | Record an ``ingested-source`` Artefact (SERVES intent + PRODUCES edge). | [details](references/record_ingested_source.md) |
 | `specialist` | act | One bounded sub-search; records Citations under the research_id. | [details](references/specialist.md) |
 | `verify` | act | Adversarial citation check; emits a Verification node. | [details](references/verify.md) |
 
 ## Example
 
 ```bash
-await call_tool('capability_research_lead', {'intent_id': 'intent:abc'})
+await call_tool('capability_research_ingest_gdoc', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
