@@ -1,7 +1,7 @@
 ---
 spec_id: "129"
 slug: dramatica-prompt-fragments
-status: draft
+status: shipped
 last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["103", "120"]
@@ -87,6 +87,54 @@ fragments turn it into a working prompt-assembly substrate.
    we MAY need DE fragments? Recommend English-only; i18n is its own
    spec.
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done (Slice 1):**
+- `agency/capabilities/novel/data/dramatica/fragments.json` ships the
+  bootstrap set: **34 hand-authored fragments** covering 4 throughlines
+  + 4 classes + 16 types + 8 archetypes + 2 elements (morality /
+  self-interest). Each fragment is a second-person imperative ≤ 300
+  cl100k tokens — guidance the assembling agent can act on directly.
+- `prompt.fragment(slug) -> {slug, canonical_id, kind, text, tokens}` —
+  single-entry lookup. Resolves caller's slug via the novel cap's
+  `_resolve_term` (cross-cap import — novel owns the substrate, prompt
+  presents it). Returns `{error: "UNKNOWN_SLUG"}` when slug doesn't
+  resolve, `{error: "NO_FRAGMENT"}` when entry exists but no fragment
+  authored yet.
+- `prompt.fragments_for(scope, max_tokens=2000) -> {fragments, total_tokens,
+  truncated_at, skipped_no_fragment}` — multi-entry composer.
+  `scope` is a dict; the verb reads `throughline` (with `mc`/`os`/`ic`/`rs`
+  aliases mapped to canonical `throughline.{main|objective|influence|relationship}`),
+  `class_id`, `concern_id`, `crucial_element_id`, `problem_id`,
+  `solution_id`, `archetypes`. Order matters when budget binds. Returns
+  per-fragment breakdown + which ones were skipped + where truncation
+  fell.
+- `prompt.register_fragment(slug, text, overlay_path=)` — runtime-extensible
+  overlay. Writes to `.agency/dramatica-fragments-overlay.yaml` by
+  default (YAML when PyYAML available; tiny handrolled writer when not).
+  Overlay wins over vendored on read.
+- Loader is mtime-naive `lru_cache` for in-process reuse; cleared on
+  `register_fragment` write so the round-trip is immediate.
+
+**Still:** the corpus is **34 of 304** — the remaining 270 entries have
+ontology presence but no fragment yet. Per spec Open Q1 resolution
+(hybrid storage), workflows author fragments incrementally via
+`register_fragment`; lint enforcement of "fragment OR placeholder" is
+itself a follow-up (small, can ship in a 129-Slice-2 PR alongside the
+30-most-used-entry corpus push).
+
+**Test:** 15 new tests (`tests/test_dramatica_prompt_fragments.py`) —
+verb registration, canonical / kind-prefix-alias / archetype / type
+lookups, NO_FRAGMENT / UNKNOWN_SLUG paths, fragments_for basic scope +
+archetypes + budget truncation + skipped entries, register_fragment
+round-trip + overlay-override-vendored + UNKNOWN_SLUG. 235 across
+prompt/novel/naming/install green; drift clean.
+
+**Open Q resolutions:** Q1 — hybrid storage shipped (JSON canonical +
+YAML overlay). Q2 — second-person imperative voice ("Write so…", "Show
+the…"). Q3 — English-only v1; the `aliases_de` field on ontology
+entries is untouched and i18n is its own future spec.
+
+**Unblocks Spec 127** (dynamic-prompt-assembly): the brief composer can
+now call `prompt.fragments_for(scope)` and get the storyform-grounded
+guidance section directly — the foundational dependency.

@@ -30,7 +30,10 @@ Two-lineage capability:
 | `brief_render` | act | Render a ResearchBrief body from the dossier-skeleton template (act). | [details](references/brief_render.md) |
 | `catalog_list` | transform | List bundled CatalogModule entries optionally filtered by category (transform). | [details](references/catalog_list.md) |
 | `engineer` | act | Render a PromptInstance inside a token budget (act). | [details](references/engineer.md) |
+| `fragment` | transform | Look up a single Dramatica prompt fragment (transform). | [details](references/fragment.md) |
+| `fragments_for` | transform | Compose multiple fragments for a storyform scope (transform). | [details](references/fragments_for.md) |
 | `intent_capture` | act | Record a structured ResearchIntent SERVING the intent (act). | [details](references/intent_capture.md) |
+| `register_fragment` | effect | Write a fragment to the project overlay (effect; runtime-extensible). | [details](references/register_fragment.md) |
 | `token_budget_gate` | effect | Computed token-budget gate — passes iff approx_tokens ≤ max_tokens (effect). | [details](references/token_budget_gate.md) |
 
 ## Example
