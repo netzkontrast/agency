@@ -542,6 +542,15 @@ novel_ontology = OntologyExtension(
         "Language":     ["slug", "name"],
         "MagicSystem":  ["slug", "name"],
         "WorldAxiom":   ["text", "severity"],
+        # Spec 128 — story-time / narrative-time graph.
+        # StoryTimeEvent: an in-world event with a (sortable) story-time
+        # anchor + optional tags. `when_story` is a plain string by design
+        # (Open Q1) — sci-fi "Y2391.04", ISO date, "Third Age 3019" all sort
+        # lexicographically and the author owns the sortability.
+        # NarrativeBeat: a position in narrative order; one beat can be the
+        # same across parallel-POV scenes.
+        "StoryTimeEvent": ["novel", "label", "when_story"],
+        "NarrativeBeat":  ["novel", "label", "scene"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -565,6 +574,10 @@ novel_ontology = OntologyExtension(
         # Spec 123 — character ↔ world relationships. Edge kind is the
         # narrative relationship (catch-all is BELONGS_TO).
         "BELONGS_TO", "INHABITS", "WORSHIPS", "SPEAKS", "WIELDS",
+        # Spec 128 — story-time / narrative-time edges.
+        "HAPPENS_AT",   # Scene → StoryTimeEvent (this scene depicts the event)
+        "REVEALED_IN",  # StoryTimeEvent → Scene (the disclosure point)
+        "PRECEDES",     # NarrativeBeat → NarrativeBeat (narrative-order DAG)
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -2882,6 +2895,206 @@ class NovelCapability(CapabilityBase):
         return ToolResult.success(data={
             "character_id": character_id, "target_id": target_id,
             "edge_kind": edge_kind,
+        })
+
+    # ───────────────── Spec 128 — story-time / narrative-time ─────────────────
+    # StoryTimeEvent + NarrativeBeat + 6 verbs. Closes Spec 127's
+    # `_compose_continuity` placeholder; that composer now reads the event
+    # list from the graph (see prompt._main.py).
+
+    @verb(role="effect")
+    def record_story_event(self, novel_id: str, label: str,
+                            when_story: str,
+                            scene_id: str = "") -> ToolResult:
+        """Mint a StoryTimeEvent + optional HAPPENS_AT edge from a scene (effect).
+
+        ``when_story`` is a plain string by design (Open Q1) — the author
+        owns sortability. Lexicographic sort is the slice contract for
+        ``list_story_events_up_to``.
+
+        Inputs: novel_id, label (short event name), when_story (sortable
+                string), scene_id (optional — when supplied, mints
+                Scene-HAPPENS_AT->Event edge).
+        Returns: ``{event_id, label, when_story, scene_id?}``.
+        chain_next: ``novel.reveal_in_scene`` for foreshadow/payoff.
+        """
+        if self.ctx.recall(novel_id) is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+        eid = self.ctx.record("StoryTimeEvent", {
+            "novel": novel_id, "label": label, "when_story": when_story,
+        })
+        self.ctx.link(eid, self.ctx.intent_id, "SERVES")
+        out: dict = {"event_id": eid, "label": label,
+                     "when_story": when_story}
+        if scene_id:
+            if self.ctx.recall(scene_id) is None:
+                return ToolResult.failure(
+                    "NOT_FOUND", f"scene_id={scene_id!r} not found")
+            self.ctx.link(scene_id, eid, "HAPPENS_AT")
+            out["scene_id"] = scene_id
+        return ToolResult.success(data=out)
+
+    @verb(role="effect")
+    def reveal_in_scene(self, event_id: str, scene_id: str) -> ToolResult:
+        """Add the REVEALED_IN edge (event disclosed by this scene) (effect).
+
+        Inputs: event_id (existing StoryTimeEvent), scene_id (existing Scene).
+        Returns: ``{event_id, scene_id}``.
+        chain_next: ``novel.list_reveals_in(scene_id)`` to verify.
+        """
+        if self.ctx.recall(event_id) is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"event_id={event_id!r} not found")
+        if self.ctx.recall(scene_id) is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+        self.ctx.link(event_id, scene_id, "REVEALED_IN")
+        return ToolResult.success(data={
+            "event_id": event_id, "scene_id": scene_id,
+        })
+
+    @verb(role="transform")
+    def list_story_events_up_to(self, scene_id: str) -> ToolResult:
+        """Story-time slice: events with ``when_story`` ≤ this scene's anchor (transform).
+
+        The scene's anchor is the ``when_story`` of any StoryTimeEvent the
+        scene HAPPENS_AT. If the scene has multiple, takes the latest. No
+        anchor → empty list (the scene has no story-time reference frame
+        yet).
+
+        Inputs: scene_id.
+        Returns: ``{anchor_when, events: [{event_id, label, when_story}]}``.
+        chain_next: ``prompt.assemble_scene_brief`` consumes this for the
+                    continuity section.
+        """
+        scene = self.ctx.recall(scene_id)
+        if scene is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+        anchors = self.ctx.neighbors(scene_id, "HAPPENS_AT", direction="out")
+        if not anchors:
+            return ToolResult.success(data={
+                "anchor_when": None, "events": [],
+            })
+        anchor_when = max(a.get("when_story", "") for a in anchors)
+        novel_id = (self.ctx.recall(scene.get("chapter", "")) or {}
+                    ).get("novel", "")
+        events = [
+            {"event_id": ev.get("id"), "label": ev.get("label"),
+             "when_story": ev.get("when_story")}
+            for ev in self.ctx.find("StoryTimeEvent")
+            if ev.get("novel") == novel_id
+            and (ev.get("when_story") or "") <= anchor_when
+        ]
+        events.sort(key=lambda e: e["when_story"] or "")
+        return ToolResult.success(data={
+            "anchor_when": anchor_when, "events": events,
+        })
+
+    @verb(role="transform")
+    def list_reveals_in(self, scene_id: str) -> ToolResult:
+        """List events this scene discloses (transform).
+
+        Walks REVEALED_IN edges incoming on the scene (so an Event points
+        to a Scene as its reveal point).
+
+        Inputs: scene_id.
+        Returns: ``{reveals: [{event_id, label, when_story}]}``.
+        chain_next: author's checklist for "is the reveal landing here?".
+        """
+        if self.ctx.recall(scene_id) is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+        reveals = self.ctx.neighbors(scene_id, "REVEALED_IN", direction="in")
+        return ToolResult.success(data={
+            "reveals": [
+                {"event_id": r.get("id"), "label": r.get("label"),
+                 "when_story": r.get("when_story")}
+                for r in reveals
+            ],
+        })
+
+    @verb(role="effect")
+    def mark_narrative_beat(self, scene_id: str, beat_label: str,
+                             predecessor_id: str = "") -> ToolResult:
+        """Mint a NarrativeBeat + optional PRECEDES edge from a predecessor (effect).
+
+        Inputs: scene_id, beat_label (e.g. "opening-image" or
+                "inciting-incident"), predecessor_id (optional — links the
+                new beat into the narrative-order DAG).
+        Returns: ``{beat_id, scene_id, label}``.
+        chain_next: ``novel.narrative_order(novel_id)`` to read topo-sort.
+        """
+        scene = self.ctx.recall(scene_id)
+        if scene is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+        novel_id = (self.ctx.recall(scene.get("chapter", "")) or {}
+                    ).get("novel", "")
+        bid = self.ctx.record("NarrativeBeat", {
+            "novel": novel_id, "label": beat_label, "scene": scene_id,
+        })
+        self.ctx.link(bid, self.ctx.intent_id, "SERVES")
+        if predecessor_id:
+            if self.ctx.recall(predecessor_id) is None:
+                return ToolResult.failure(
+                    "NOT_FOUND",
+                    f"predecessor_id={predecessor_id!r} not found")
+            self.ctx.link(predecessor_id, bid, "PRECEDES")
+        return ToolResult.success(data={
+            "beat_id": bid, "scene_id": scene_id, "label": beat_label,
+        })
+
+    @verb(role="transform")
+    def narrative_order(self, novel_id: str) -> ToolResult:
+        """Topo-sort over PRECEDES; canonical narrative reading order (transform).
+
+        Inputs: novel_id.
+        Returns: ``{beats: [{beat_id, label, scene_id}]}`` ordered so every
+                 predecessor appears before its successor.
+        chain_next: author's checklist for the manuscript's narrative spine.
+        """
+        if self.ctx.recall(novel_id) is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+        beats = [b for b in self.ctx.find("NarrativeBeat")
+                  if b.get("novel") == novel_id]
+        # Build predecessor map by querying PRECEDES.
+        precedes_rows = self.ctx.memory.g.query(
+            "MATCH (a:NarrativeBeat)-[:PRECEDES]->(b:NarrativeBeat) "
+            "RETURN a, b")
+        edges = []
+        for r in precedes_rows:
+            a_id = r["a"]["properties"].get("id")
+            b_id = r["b"]["properties"].get("id")
+            if a_id and b_id:
+                edges.append((a_id, b_id))
+        # Kahn's algorithm over the beats of THIS novel.
+        beat_ids = {b.get("id") for b in beats}
+        in_degree = {bid: 0 for bid in beat_ids}
+        successors: dict = {bid: [] for bid in beat_ids}
+        for a, b in edges:
+            if a in beat_ids and b in beat_ids:
+                in_degree[b] += 1
+                successors[a].append(b)
+        queue = [bid for bid, d in in_degree.items() if d == 0]
+        order: list[str] = []
+        while queue:
+            n = queue.pop(0)
+            order.append(n)
+            for s in successors[n]:
+                in_degree[s] -= 1
+                if in_degree[s] == 0:
+                    queue.append(s)
+        beat_by_id = {b.get("id"): b for b in beats}
+        return ToolResult.success(data={
+            "beats": [
+                {"beat_id": bid,
+                 "label": beat_by_id[bid].get("label"),
+                 "scene_id": beat_by_id[bid].get("scene")}
+                for bid in order if bid in beat_by_id
+            ],
         })
 
     @verb(role="transform")

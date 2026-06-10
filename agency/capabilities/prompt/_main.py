@@ -715,6 +715,7 @@ class _BriefContext:
     chapter: dict
     novel: dict
     storyform_scope: dict
+    _ctx: Any = None
     error: str | None = None
 
     @classmethod
@@ -722,7 +723,7 @@ class _BriefContext:
         scene = ctx.recall(scene_id)
         if scene is None or "chapter" not in scene:
             return cls(scene={}, chapter={}, novel={}, storyform_scope={},
-                       error="NOT_FOUND")
+                       _ctx=ctx, error="NOT_FOUND")
         chapter_id = scene.get("chapter")
         chapter = ctx.recall(chapter_id) or {}
         novel_id = chapter.get("novel")
@@ -740,7 +741,7 @@ class _BriefContext:
                         pass
                     break
         return cls(scene=scene, chapter=chapter, novel=novel or {},
-                   storyform_scope=storyform_scope)
+                   storyform_scope=storyform_scope, _ctx=ctx)
 
 
 def _ncp_to_scope(ncp: dict) -> dict:
@@ -802,11 +803,29 @@ def _compose_world_rules(_bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
 
 
 def _compose_continuity(bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
+    """Spec 128 upgrade — reads StoryTimeEvent graph for the continuity slice."""
     chapter_n = bctx.chapter.get("number", "?")
-    return (f"Story-time anchor: chapter {chapter_n}. "
-            f"(StoryTimeEvent graph — Spec 128 — pending; "
-            f"narrative-order continuity only)",
-            [{"node_id": bctx.chapter.get("id", ""), "kind": "Chapter"}])
+    scene_id = bctx.scene.get("id", "")
+    sources: list[dict] = [
+        {"node_id": bctx.chapter.get("id", ""), "kind": "Chapter"}]
+    # Probe the novel cap for story-time events up to this scene's anchor.
+    try:
+        from agency.capabilities.novel._main import NovelCapability
+        novel_cap = NovelCapability(bctx._ctx)
+        result = novel_cap.list_story_events_up_to(scene_id=scene_id)
+        events = (getattr(result, "data", result) or {}).get("events", [])
+    except Exception:
+        events = []
+    if not events:
+        return (f"Story-time anchor: chapter {chapter_n}. "
+                f"(no StoryTimeEvent anchors recorded yet — author "
+                f"hasn't anchored this scene)", sources)
+    parts = [f"Story-time anchor: chapter {chapter_n}.",
+             "Events known by this scene's story-time:"]
+    for ev in events:
+        parts.append(f"- [{ev['when_story']}] {ev['label']}")
+        sources.append({"node_id": ev["event_id"], "kind": "StoryTimeEvent"})
+    return "\n".join(parts), sources
 
 
 def _compose_foreshadowing(_bctx: _BriefContext, _cap) -> tuple[str, list[dict]]:
