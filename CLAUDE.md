@@ -137,7 +137,11 @@ not prose — `analyze.graph` to read the originating reflections.
 
 - **Dormant-surface audit.** Before trusting a pipeline, count its live triggers:
   `grep` the gate predicate, count satisfiers; **zero = dead code**. (031/032 emit
-  shipped + tested but produced nothing — 0/15 caps declared `skill_doc`.)
+  shipped + tested but produced nothing — 0/15 caps declared `skill_doc`.) Extends
+  to **edges** (Spec 125): a declared edge that nothing traverses is dormant
+  surface; **declare an edge ⇒ traverse it via `ctx.neighbors(node_id, edge)`**.
+  The anti-pattern is `find(label)`+Python-filter on a foreign-key prop while the
+  edge sits idle — both are written, only the scan is read.
 - **Derivability audit.** Authored metadata that duplicates an existing source is
   drift waiting to happen — **derive it** (rule 2 applied to docstrings). SkillDocs
   derive from the module docstring (`Use when:`/`Triggers:`/`Red flags:`); the

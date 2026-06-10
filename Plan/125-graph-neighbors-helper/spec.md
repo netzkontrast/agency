@@ -1,8 +1,8 @@
 ---
 spec_id: "125"
 slug: graph-neighbors-helper
-status: draft
-last_updated: 2026-06-09
+status: shipped
+last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["002", "084"]
 affects:
@@ -62,6 +62,31 @@ shorthand, which is WHY the caps fell back to scans.
 1. Should `neighbors` paginate (limit param)? (Recommend: yes,
    `limit=100` default — same shape as analyze.graph.)
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done:**
+- `CapabilityContext.neighbors(node_id, edge, direction="in", limit=100)` shipped
+  in `agency/capability.py` (~30 LOC, one Cypher hop, returns property-dict lists
+  matching `find()` shape). Default direction "in"; explicit `out` reverses match.
+- Novel call sites migrated: **10/10** `find("Chapter")`+filter scans replaced by
+  `ctx.neighbors(novel_id, "CHAPTER_OF")` — chapter_report, render_manuscript,
+  list_chapters, novel_progress, scan_proper_nouns, check_content_warnings,
+  manuscript_coherence_check, audit_novel_provenance, render_blurb,
+  novel-progress aggregation (all 10 distinct verbs).
+- Behaviour parity asserted: `test_neighbors_parity_with_find_filter` proves
+  `neighbors(novel_id, "CHAPTER_OF") == find("Chapter")+filter`; 141 novel
+  tests green; 249 across novel+research+analyze+naming green.
+- Music audit: **AlbumClaim scans are NOT edge-traversal candidates.** They
+  filter by status (`verified == "pending"`, intent-scoped — no parent edge);
+  `neighbors()` doesn't apply. Deferred per spec's done-when carve-out.
+- Doctrine note added to `CLAUDE.md` dormant-surface heuristic: "declare an
+  edge ⇒ traverse it via ctx.neighbors; a write-only edge is dormant surface."
+
+**Still:** None. Open Q1 resolved by shipping `limit=100` default (matches
+`analyze.graph`'s row cap).
+
+**Test:** 9 substrate tests (`tests/test_context_neighbors.py`) + 141 novel
+regression all green. Substrate-tests cover: method existence, prop-dict
+return shape, direction="in" default, direction="out" reverse, empty/unknown
+returns `[]`, invalid direction raises ValueError, `limit` caps rows, and the
+parity assertion above.

@@ -437,8 +437,7 @@ class NovelCapability(CapabilityBase):
         if fail is not None:
             return fail
         # Find chapters of this novel
-        chapters = [c for c in self.ctx.find("Chapter")
-                    if c.get("novel") == novel_id]
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
         word_count = sum(len((c.get("body") or "").split())
                          for c in chapters)
         by_status: dict[str, int] = {}
@@ -464,8 +463,7 @@ class NovelCapability(CapabilityBase):
         if fail is not None:
             return fail
         chapters = sorted(
-            [c for c in self.ctx.find("Chapter")
-             if c.get("novel") == novel_id],
+            self.ctx.neighbors(novel_id, "CHAPTER_OF"),
             key=lambda c: c.get("number", 0))
         title = novel_node.get("title", "Untitled")
         author = novel_node.get("author", "")
@@ -613,8 +611,7 @@ class NovelCapability(CapabilityBase):
         if fail is not None:
             return fail
         chapters = sorted(
-            (c for c in self.ctx.find("Chapter")
-             if c.get("novel") == novel_id),
+            self.ctx.neighbors(novel_id, "CHAPTER_OF"),
             key=lambda c: c.get("number", 0))
         items = [{
             "chapter_id": c.get("id"),
@@ -702,8 +699,7 @@ class NovelCapability(CapabilityBase):
         _, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
-        chapters = [c for c in self.ctx.find("Chapter")
-                    if c.get("novel") == novel_id]
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
         word_count = sum(len((c.get("body") or "").split())
                          for c in chapters)
         by_status: dict[str, int] = {}
@@ -1144,8 +1140,7 @@ class NovelCapability(CapabilityBase):
         _, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
-        chapters = [c for c in self.ctx.find("Chapter")
-                    if c.get("novel") == novel_id]
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
         numbers = sorted({int(c.get("number", 0)) for c in chapters})
         gaps: list[int] = []
         if numbers:
@@ -1234,8 +1229,7 @@ class NovelCapability(CapabilityBase):
         if fail is not None:
             return fail
         chapters = sorted(
-            [c for c in self.ctx.find("Chapter")
-             if c.get("novel") == novel_id],
+            self.ctx.neighbors(novel_id, "CHAPTER_OF"),
             key=lambda c: c.get("number", 0))
         title = node.get("title", "Untitled")
         parts = [f"# Synopsis: {title}\n\n"]
@@ -1267,8 +1261,7 @@ class NovelCapability(CapabilityBase):
         _, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
-        chapters = [c for c in self.ctx.find("Chapter")
-                    if c.get("novel") == novel_id]
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
         claims = list(self.ctx.find("NovelClaim"))
         storyforms = [s for s in self.ctx.find("Storyform")
                       if s.get("novel") == novel_id]
@@ -1300,8 +1293,7 @@ class NovelCapability(CapabilityBase):
         _, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
-        chapters = [c for c in self.ctx.find("Chapter")
-                    if c.get("novel") == novel_id]
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
         drafted_plus = {"drafted", "revised", "final"}
         outlined = [c for c in chapters
                     if c.get("status") not in drafted_plus]
@@ -1333,8 +1325,7 @@ class NovelCapability(CapabilityBase):
         node, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
-        chapters = [c for c in self.ctx.find("Chapter")
-                    if c.get("novel") == novel_id]
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
         body = " ".join(c.get("body", "") for c in chapters)
         # Re-use the canonical CONTENT_WARNINGS scanner inline (sibling
         # verb composition stays in-process; no MCP roundtrip).
@@ -1373,8 +1364,7 @@ class NovelCapability(CapabilityBase):
         node, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
-        chapters = [c for c in self.ctx.find("Chapter")
-                    if c.get("novel") == novel_id]
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
         numbers = sorted(c.get("number") for c in chapters
                          if isinstance(c.get("number"), int))
         gaps: list[int] = []
