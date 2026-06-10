@@ -1,7 +1,7 @@
 ---
 spec_id: "130"
 slug: scene-writer-skill
-status: draft
+status: shipped
 last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["120", "127", "128", "129", "131"]
@@ -69,6 +69,61 @@ operation (`develop.skill_walk("scene-writer", scene_id=...)`).
    in `SceneBrief.draft_body` (a transient property on the Artefact);
    phase 5 promotes to Scene.body on confirmation.
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done (Slice 1):**
+- `scene-writer` 5-phase walkable skill registered on novel ontology
+  (`SCENE_WRITER_SKILL`):
+  1. **assemble** → binds to `prompt.assemble_scene_brief` (Spec 127)
+  2. **validate-constraints** → no bound verb yet (the brief's
+     `token_count` + `truncated` flags carry the validation; phase
+     output is the gate)
+  3. **generate** → no driver binding yet (FakeTextDriver + production
+     TextDriver are Slice 2 territory, gated on Spec 005)
+  4. **check** → binds to 4 verbs: `novel.check_filter_words`,
+     `novel.check_dialogue_attribution`, `novel.check_show_dont_tell`,
+     `novel.novel_coherence_check`
+  5. **integrate** (HARD GATE) → binds to new `novel.integrate_scene_body`
+- `novel.integrate_scene_body(scene_id, body)` shipped — promotes a
+  draft body onto the Scene node via `ctx.memory.update`, records
+  `Artefact(kind="scene-integration", scene_id, bytes)` with SERVES +
+  PRODUCES edges. NOT_FOUND on unknown scene_id.
+- All 5 phase names + verb bindings + hard gate on phase 5 visible
+  through `e.ontology.skills["scene-writer"]`.
+
+**Still (Slice 2 — gated on Spec 005):**
+- **FakeTextDriver** fixture for phase 3 (generate) — returns `"[stub
+  scene body]"` deterministically so the walk is binary-free + LLM-free
+  in CI. Production TextDriver Protocol is Spec 005's territory.
+- **Phase 2 validation verb** — could bind to a new `validate_brief_shape`
+  effect verb that gates on the brief's `token_count > 4000` or
+  `len(truncated) > 0`. Deferred — current walks rely on the orchestrator
+  to read the brief shape between phases.
+- **Auto-update LEARNED_IN ledger** on phase 5 — Slice 2 will extend
+  `integrate_scene_body` to call `novel.record_character_learns` for any
+  facts the scene body introduces (parsed from the generate phase's
+  metadata). Slice 1 just writes the body.
+
+**Open Q resolutions:**
+- Q1: per-scene granularity (Slice 1 default); a future `chapter-writer`
+  skill composes scene-writer N times.
+- Q2: `SceneBrief.draft_body` transient property is the carry between
+  phase 3 and phase 5 (when generate ships); phase 5 promotes to
+  `Scene.body` on confirmation.
+
+**Test:** 9 new tests (`tests/test_novel_scene_writer_skill.py`) —
+skill registration, 5-phase shape, phase 1 binds to
+`prompt.assemble_scene_brief`, phase 4 chains 4 prose/storyform checks,
+phase 5 is hard gate + binds to `integrate_scene_body`,
+integrate_scene_body writes body + records Artefact + rejects unknown
+scene + verb registered. 303 across novel/prompt/naming/install green;
+drift clean.
+
+**Closes the dynamic-prompt depth wave**: with 128 (story-time
+graph), 129 (Dramatica fragments), 131 (character knowledge), 132
+(codex entities) shipped and now this integration layer, the wave is
+complete at Slice 1. Spec 127's `assemble_scene_brief` now has all 7
+sections grounded in real graph queries (storyform via 129, continuity
+via 128, pov_card via 131, world_rules via 132; pov + voice + scene_cast
+direct from Scene properties). The scene-writer skill ties them into a
+walkable loop.
