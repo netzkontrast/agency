@@ -450,6 +450,58 @@ class NovelCapability(CapabilityBase):
     ontology = novel_ontology
     render_templates = RenderTemplates.from_module(__file__)
 
+    # ───────── Spec 121: lazy production-driver auto-wiring ─────────
+    # AGENCY-DRIFT: novel driver set — mirror production_drivers() keys
+    # and the diagnose-wanted list when adding novel drivers (text/format/etc).
+    _NOVEL_DRIVER_NAMES = ("novel_state",)
+
+    def _production_enabled(self) -> bool:
+        """Auto-wiring only fires under the production MCP runtime
+        (`agency/__main__.py` flips ``engine._novel_production = True``).
+        Unit tests build a bare Engine without the flag and keep the typed
+        ``DEPENDENCY_MISSING`` contract — bounded blast radius."""
+        return getattr(self.ctx.engine, "_novel_production", False) is True
+
+    def _autowire_novel_drivers(self) -> None:
+        """Build ``production_drivers(NovelConfig.bootstrap())`` ONCE and
+        register the bundle on first miss. ``NovelConfig.bootstrap()``
+        writes the default `.agency/novel-config.yaml` + creates the
+        content root when a fresh repo has none.
+        """
+        reg = self.ctx.drivers
+        if reg is None or not self._production_enabled():
+            return
+        if all(reg.has(n) for n in self._NOVEL_DRIVER_NAMES):
+            return
+        from .config import NovelConfig
+        from .drivers_production import production_drivers
+        bundle = production_drivers(NovelConfig.bootstrap())
+        for n, drv in bundle.items():
+            if not reg.has(n):
+                reg.register(n, drv)
+
+    def _require_drv(self, name: str):  # type: ignore[override]
+        """Auto-wire production drivers on first miss before falling
+        back to the base typed-failure resolver (Spec 121 mirrors Spec 117)."""
+        if name in self._NOVEL_DRIVER_NAMES:
+            reg = self.ctx.drivers
+            if reg is not None and not reg.has(name):
+                self._autowire_novel_drivers()
+        return super()._require_drv(name)
+
+    def _maybe_state_driver(self):
+        """Return the wired novel_state driver or None when production
+        isn't on. Used by verbs that have a graph-only default with an
+        opportunistic disk side-effect (CLAUDE.md rule 2)."""
+        reg = self.ctx.drivers
+        if reg is None or not self._production_enabled():
+            return None
+        if not reg.has("novel_state"):
+            self._autowire_novel_drivers()
+        if reg.has("novel_state"):
+            return reg.get("novel_state")
+        return None
+
     def _require_novel(self, novel_id: str) -> tuple[dict | None, ToolResult | None]:
         """NOT_FOUND guard shared by every verb taking a novel_id.
 
@@ -490,20 +542,28 @@ class NovelCapability(CapabilityBase):
         })
 
     @verb(role="effect")
-    def create_novel(self, title: str, author: str) -> ToolResult:
-        """Record a Novel node SERVING the intent (effect).
+    def create_novel(self, title: str, author: str,
+                      genre: str = "novel") -> ToolResult:
+        """Record a Novel node SERVING the intent; materialise disk on production.
 
-        Inputs: title, author.
-        Returns: ``{novel_id, title, status}``.
+        Inputs: title, author, genre (default "novel"; routes the disk
+                layout `works/{author}/works/{genre}/{slug}/`).
+        Returns: ``{novel_id, title, status, work_path?}`` — ``work_path``
+                appears when the production driver is wired (Spec 121).
         chain_next: ``novel.create_chapter`` once outline is ready.
         """
         nid = self.ctx.record("Novel", {
-            "title": title, "author": author, "status": "concept",
+            "title": title, "author": author,
+            "genre": genre, "status": "concept",
         })
         self.ctx.link(nid, self.ctx.intent_id, "SERVES")
-        return ToolResult.success(data={
-            "novel_id": nid, "title": title, "status": "concept",
-        })
+        out: dict = {"novel_id": nid, "title": title, "status": "concept"}
+        drv = self._maybe_state_driver()
+        if drv is not None:
+            disk = drv.create_work(author, genre, title)
+            out["work_path"] = disk["path"]
+            out["work_slug"] = disk["slug"]
+        return ToolResult.success(data=out)
 
     @verb(role="effect")
     def create_chapter(self, novel_id: str, number: int,
@@ -514,7 +574,7 @@ class NovelCapability(CapabilityBase):
         Returns: ``{chapter_id, novel_id, number, title, status}``.
         chain_next: ``novel.chapter_report`` to aggregate state.
         """
-        _, fail = self._require_novel(novel_id)
+        novel_node, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
         cid = self.ctx.record("Chapter", {
@@ -523,6 +583,13 @@ class NovelCapability(CapabilityBase):
         })
         self.ctx.link(cid, novel_id, "CHAPTER_OF")
         self.ctx.link(cid, self.ctx.intent_id, "SERVES")
+        drv = self._maybe_state_driver()
+        if drv is not None:
+            drv.create_chapter(
+                novel_node.get("author", ""),
+                novel_node.get("genre", "novel"),
+                novel_node.get("title", ""),
+                number, title, body=body)
         return ToolResult.success(data={
             "chapter_id": cid, "novel_id": novel_id,
             "number": number, "title": title, "status": "outlined",
