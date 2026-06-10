@@ -515,6 +515,42 @@ LINE_EDITOR_SKILL = {
 }
 
 
+# Spec 130 — scene-writer walkable skill. The integration of the
+# dynamic-prompt depth wave: assemble (127) → validate-constraints →
+# generate (driver-bound; FakeTextDriver in CI) → check (chains 4
+# prose/storyform checks) → integrate (HARD GATE — writes scene body
+# back via novel.integrate_scene_body). Phases bind to real verbs so
+# walking the skill EXECUTES the loop.
+SCENE_WRITER_SKILL = {
+    "name": "scene-writer", "kind": "writer",
+    "phases": [
+        {"index": 1, "name": "assemble",
+         "produces": ["scene_brief"],
+         "verbs": ["prompt.assemble_scene_brief"]},
+        {"index": 2, "name": "validate-constraints",
+         "produces": ["constraints_validated"],
+         # No bound verb yet — the brief's token_count + truncated
+         # flags carry the validation; phase output is the gate.
+         "verbs": []},
+        {"index": 3, "name": "generate",
+         "produces": ["draft_body"],
+         # Slice 1 ships no driver binding; FakeTextDriver + production
+         # TextDriver land in Slice 2 (Spec 005 territory).
+         "verbs": []},
+        {"index": 4, "name": "check",
+         "produces": ["check_verdict"],
+         "verbs": ["novel.check_filter_words",
+                   "novel.check_dialogue_attribution",
+                   "novel.check_show_dont_tell",
+                   "novel.novel_coherence_check"]},
+        {"index": 5, "name": "integrate",
+         "produces": ["scene_integrated"],
+         "verbs": ["novel.integrate_scene_body"],
+         "gate": "hard"},
+    ],
+}
+
+
 # ─────────────────────────── ontology ───────────────────────────
 novel_ontology = OntologyExtension(
     nodes={
@@ -595,7 +631,8 @@ novel_ontology = OntologyExtension(
             "storyform-build": STORYFORM_BUILD_SKILL,
             "publish-prep": PUBLISH_PREP_SKILL,
             "developmental-editor": DEVELOPMENTAL_EDITOR_SKILL,
-            "line-editor": LINE_EDITOR_SKILL},
+            "line-editor": LINE_EDITOR_SKILL,
+            "scene-writer": SCENE_WRITER_SKILL},
     schemas={
         # Spec 102: logline replaces `premise` in the canonical phase name;
         # both verb args + skill produce the same field set.
@@ -990,6 +1027,35 @@ class NovelCapability(CapabilityBase):
         return ToolResult.success(data={
             "scene_id": sid, "chapter_id": chapter_id,
             "slug": slug, "pov": pov,
+        })
+
+    @verb(role="effect")
+    def integrate_scene_body(self, scene_id: str, body: str) -> ToolResult:
+        """Spec 130 phase 5 — write the generated body back to the Scene (effect).
+
+        The scene-writer skill's hard-gate integrate phase: promotes a
+        draft body (from skill phase 3's generate output) onto the Scene
+        node and records a ``scene-integration`` Artefact for provenance.
+
+        Inputs: scene_id, body (the prose body to commit).
+        Returns: ``{scene_id, artefact_id, bytes}``.
+        chain_next: terminal — the manuscript advances to the next scene.
+        """
+        if self.ctx.recall(scene_id) is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+        self.ctx.memory.update(scene_id, {"body": body})
+        aid = self.ctx.record("Artefact", {
+            "kind": "scene-integration",
+            "scene_id": scene_id,
+            "bytes": len(body),
+        })
+        self.ctx.link(aid, self.ctx.intent_id, "SERVES")
+        self.ctx.link(self.ctx.intent_id, aid, "PRODUCES")
+        return ToolResult.success(data={
+            "scene_id": scene_id,
+            "artefact_id": aid,
+            "bytes": len(body),
         })
 
     @verb(role="effect")

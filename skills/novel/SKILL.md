@@ -71,6 +71,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `find_axiom_contradictions` | effect | Decidable axiom-contradiction scan + emit CONTRADICTS edges (effect). | [details](references/find_axiom_contradictions.md) |
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |
 | `flag_anachronistic_reference` | transform | Check if the character knows the fact yet (transform). | [details](references/flag_anachronistic_reference.md) |
+| `integrate_scene_body` | effect | Spec 130 phase 5 — write the generated body back to the Scene (effect). | [details](references/integrate_scene_body.md) |
 | `line_gate` | effect | Composite gate: prose-level editorial readiness (effect). | [details](references/line_gate.md) |
 | `link_character_to_world` | effect | Add a typed edge from Character → World child (effect). | [details](references/link_character_to_world.md) |
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
@@ -139,6 +140,8 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'publish-prep', 'inputs': {}, 'intent_id': '…'})`
 - **`scene-bridge-auditor`** (auditor): Q1-purpose → Q2-POV → Q3-stakes → Q4-conflict → Q5-payoff-and-signoff
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'scene-bridge-auditor', 'inputs': {}, 'intent_id': '…'})`
+- **`scene-writer`** (writer): assemble → validate-constraints → generate → check → integrate
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'scene-writer', 'inputs': {}, 'intent_id': '…'})`
 - **`storyform-build`** (builder): throughline-partition → concern-and-signposts → elements-and-pair → dynamics-and-style → ncp-shape → composite-gate
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'storyform-build', 'inputs': {}, 'intent_id': '…'})`
 - **`world-bible-architect`** (conceptualizer): geography → cultures → religions-languages → magic-systems → canon-lock
