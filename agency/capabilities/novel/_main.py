@@ -99,6 +99,41 @@ CONTENT_WARNINGS: dict[str, frozenset[str]] = {
     "self-harm": frozenset({"suicide", "cutting", "razor", "overdose"}),
 }
 
+# Spec 122 — sensitivity-topic advisory lexicon (extends content-warnings
+# with mental-health / identity / trauma-adjacent terms). Always emits as
+# `warnings`, never blocks gates (the spec's "exact-severity discipline").
+_SENSITIVITY_LEXICON: dict[str, frozenset[str]] = {
+    "mental-health": frozenset({"depression", "anxiety", "panic", "trauma",
+                                  "ptsd", "breakdown", "psychosis"}),
+    "identity":      frozenset({"queer", "trans", "nonbinary", "race",
+                                  "ethnicity", "religion"}),
+    "trauma":        frozenset({"assault", "abuse", "violence", "rape",
+                                  "harassment"}),
+}
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """Cheap Levenshtein distance for the continuity-check close-pair scan.
+
+    O(len(a)*len(b)) in space — fine for the proper-noun registry where
+    both strings are ≤ ~30 chars. Stdlib-only.
+    """
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        curr = [i]
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            curr.append(min(curr[-1] + 1, prev[j] + 1, prev[j - 1] + cost))
+        prev = curr
+    return prev[-1]
+
+
 _WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 _VOWEL_GROUP_RE = re.compile(r"[aeiouyAEIOUY]+")
 
@@ -406,6 +441,30 @@ SCENE_BRIDGE_AUDITOR_SKILL = {
 }
 
 
+# Spec 122 — developmental-editor walkable skill. 5 phases; phase 3 binds
+# to developmental_gate so the walk's pass condition IS the gate verdict.
+DEVELOPMENTAL_EDITOR_SKILL = {
+    "name": "developmental-editor", "kind": "editor",
+    "phases": [
+        {"index": 1, "name": "structure-pass",
+         "produces": ["manuscript_coherent", "chapters_contiguous"],
+         "verbs": ["novel.manuscript_coherence_check"]},
+        {"index": 2, "name": "storyform-pass",
+         "produces": ["storyform_coherent"],
+         "verbs": ["novel.novel_coherence_check"]},
+        {"index": 3, "name": "developmental-gate",
+         "produces": ["developmental_ready"],
+         "verbs": ["novel.developmental_gate"]},
+        {"index": 4, "name": "voice-pass",
+         "produces": ["voice_consistent"],
+         "verbs": ["novel.check_voice_consistency"]},
+        {"index": 5, "name": "sign-off",
+         "produces": ["developmental_signoff"],
+         "gate": "hard"},
+    ],
+}
+
+
 # Spec 124 — publish-prep walkable skill. 4 phases driving the
 # publication path: render → export → publication_gate → sign-off.
 PUBLISH_PREP_SKILL = {
@@ -423,6 +482,30 @@ PUBLISH_PREP_SKILL = {
          "verbs": ["novel.publication_gate"]},
         {"index": 4, "name": "sign-off",
          "produces": ["publication_signoff"],
+         "gate": "hard"},
+    ],
+}
+
+
+# Spec 122 — line-editor walkable skill. 4 phases; phase 3 binds to
+# line_gate so the walk's pass condition is every chapter line-clean.
+LINE_EDITOR_SKILL = {
+    "name": "line-editor", "kind": "editor",
+    "phases": [
+        {"index": 1, "name": "prose-pass",
+         "produces": ["filter_words_clean", "show_dont_tell_clean",
+                       "dialogue_attribution_clean"],
+         "verbs": ["novel.check_filter_words",
+                   "novel.check_show_dont_tell",
+                   "novel.check_dialogue_attribution"]},
+        {"index": 2, "name": "pov-pass",
+         "produces": ["pov_consistent"],
+         "verbs": ["novel.check_pov_consistency"]},
+        {"index": 3, "name": "line-gate",
+         "produces": ["line_ready"],
+         "verbs": ["novel.line_gate"]},
+        {"index": 4, "name": "sign-off",
+         "produces": ["line_signoff"],
          "gate": "hard"},
     ],
 }
@@ -488,7 +571,9 @@ novel_ontology = OntologyExtension(
             "world-bible-architect": WORLD_BIBLE_ARCHITECT_SKILL,
             "scene-bridge-auditor": SCENE_BRIDGE_AUDITOR_SKILL,
             "storyform-build": STORYFORM_BUILD_SKILL,
-            "publish-prep": PUBLISH_PREP_SKILL},
+            "publish-prep": PUBLISH_PREP_SKILL,
+            "developmental-editor": DEVELOPMENTAL_EDITOR_SKILL,
+            "line-editor": LINE_EDITOR_SKILL},
     schemas={
         # Spec 102: logline replaces `premise` in the canonical phase name;
         # both verb args + skill produce the same field set.
@@ -1624,6 +1709,339 @@ class NovelCapability(CapabilityBase):
         return ToolResult.success(data={
             "warnings": sorted(warnings),
             "hits": hits,
+        })
+
+    # ──────────────────── Spec 122 — editorial pipeline ────────────────────
+    # 5 chapter-spanning prose checks + 3 composite editorial-stage gates.
+    # The checks (voice/POV/continuity/sensitivity/chapter_report_full)
+    # run ACROSS chapter bodies; the gates compose them into
+    # developmental → line → copy progression.
+
+    @verb(role="transform")
+    def check_voice_consistency(self, bodies: list[str],
+                                  z_threshold: float = 2.0) -> ToolResult:
+        """Per-chapter voice-signature outlier check (transform).
+
+        Computes a 3-feature signature per body (avg sentence length /
+        filter-word density / flowery-attribution density), then flags
+        any chapter whose feature z-score exceeds ``z_threshold`` (default
+        2.0 — the documented tunable per spec Open Q1).
+
+        Inputs: bodies (list[str] — one per chapter, in order),
+                z_threshold (float — std deviations).
+        Returns: ``{passed, signatures, outliers: [{index, feature, z}]}``.
+        chain_next: ``novel.line_gate`` for per-chapter line-level scrutiny.
+        """
+        sigs: list[dict] = []
+        for b in bodies:
+            tokens = _word_tokens(b)
+            total = len(tokens) or 1
+            sentences = [s for s in b.split(".") if s.strip()]
+            avg_sl = (sum(len(_word_tokens(s)) for s in sentences)
+                      / max(1, len(sentences)))
+            filter_density = sum(1 for w in tokens
+                                  if w.lower() in FILTER_WORDS) / total
+            flowery_density = sum(1 for w in tokens
+                                   if w.lower() in FLOWERY_ATTRIBUTIONS) / total
+            sigs.append({
+                "avg_sentence_length": round(avg_sl, 2),
+                "filter_density": round(filter_density, 4),
+                "flowery_density": round(flowery_density, 4),
+            })
+        outliers: list[dict] = []
+        if len(sigs) >= 3:
+            for feat in ("avg_sentence_length", "filter_density",
+                         "flowery_density"):
+                vals = [s[feat] for s in sigs]
+                mean = sum(vals) / len(vals)
+                var = sum((v - mean) ** 2 for v in vals) / len(vals)
+                std = var ** 0.5
+                if std == 0:
+                    continue
+                for i, v in enumerate(vals):
+                    z = abs(v - mean) / std
+                    if z > z_threshold:
+                        outliers.append({"index": i, "feature": feat,
+                                          "z": round(z, 2)})
+        return ToolResult.success(data={
+            "passed": not outliers,
+            "signatures": sigs,
+            "outliers": outliers,
+        })
+
+    @verb(role="transform")
+    def check_pov_consistency(self, novel_id: str) -> ToolResult:
+        """Per-chapter POV uniformity check across scenes (transform).
+
+        Walks each chapter's Scene nodes via SCENE_OF and groups POV
+        values. A chapter with > 1 distinct POV (excluding scenes that
+        declare ``pov=""``) is a flagged break.
+
+        Inputs: novel_id.
+        Returns: ``{passed, per_chapter: [{chapter_id, povs, mixed}]}``.
+        chain_next: ``novel.line_gate``.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
+        per_chapter: list[dict] = []
+        any_mixed = False
+        for c in sorted(chapters, key=lambda c: c.get("number", 0)):
+            cid = c.get("id", "")
+            scenes = self.ctx.neighbors(cid, "SCENE_OF")
+            povs = sorted({s.get("pov") for s in scenes if s.get("pov")})
+            mixed = len(povs) > 1
+            if mixed:
+                any_mixed = True
+            per_chapter.append({
+                "chapter_id": cid, "number": c.get("number", 0),
+                "povs": povs, "mixed": mixed,
+            })
+        return ToolResult.success(data={
+            "passed": not any_mixed,
+            "per_chapter": per_chapter,
+        })
+
+    @verb(role="transform")
+    def check_continuity(self, novel_id: str) -> ToolResult:
+        """Cross-chapter proper-noun continuity check (transform).
+
+        Scans each chapter body for proper nouns; flags two patterns:
+        (1) names appearing in exactly ONE chapter (likely typos or
+        deleted characters), (2) close-distance spelling pairs (e.g.
+        Lara/Laura — Levenshtein ≤ 2 + both ≥ 4 chars).
+
+        Inputs: novel_id.
+        Returns: ``{passed, single_chapter: [{name, chapter}], close_pairs}``.
+        chain_next: ``novel.copy_gate``.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = sorted(
+            self.ctx.neighbors(novel_id, "CHAPTER_OF"),
+            key=lambda c: c.get("number", 0))
+        registry: dict[str, set[int]] = {}
+        for c in chapters:
+            body = c.get("body", "") or ""
+            scan_result = self.check_scan_proper_nouns_helper(body)
+            for name in scan_result:
+                registry.setdefault(name, set()).add(c.get("number", 0))
+        all_names = sorted(registry.keys())
+        single_chapter = [
+            {"name": n, "chapter": next(iter(registry[n]))}
+            for n in all_names if len(registry[n]) == 1
+        ]
+        close_pairs: list[dict] = []
+        for i, a in enumerate(all_names):
+            for b in all_names[i + 1:]:
+                if len(a) >= 4 and len(b) >= 4 and _levenshtein(a, b) <= 2:
+                    close_pairs.append({"a": a, "b": b})
+        return ToolResult.success(data={
+            "passed": not single_chapter and not close_pairs,
+            "single_chapter": single_chapter,
+            "close_pairs": close_pairs,
+        })
+
+    def check_scan_proper_nouns_helper(self, body: str) -> list[str]:
+        """Same scan as `scan_proper_nouns` verb — extracted for in-process reuse."""
+        tokens = body.split()
+        return sorted({t.strip(".,!?;:") for t in tokens
+                       if t and t[0].isupper() and t.strip(".,!?;:").isalpha()
+                       and t.strip(".,!?;:") not in _SENTENCE_STARTERS})
+
+    @verb(role="transform")
+    def check_sensitivity(self, body: str) -> ToolResult:
+        """Sensitivity-topic advisory scan (transform, WARN-severity).
+
+        Extends content-warnings with a documented sensitivity lexicon
+        covering mental-health, identity, and trauma-adjacent terms.
+        Always passes — sensitivity is informational, not blocking
+        (the spec's "exact-severity discipline" — advisory checks never
+        gate). Emits ``warnings`` array for the editorial report.
+
+        Inputs: body.
+        Returns: ``{passed: True, warnings: [{category, term}]}``.
+        chain_next: ``novel.developmental_gate`` (advisory only).
+        """
+        words = {w.lower() for w in _word_tokens(body)}
+        warnings: list[dict] = []
+        for category, terms in _SENSITIVITY_LEXICON.items():
+            for term in terms:
+                if term in words:
+                    warnings.append({"category": category, "term": term})
+        return ToolResult.success(data={
+            "passed": True, "warnings": warnings,
+        })
+
+    @verb(role="act")
+    def chapter_report_full(self, chapter_id: str) -> ToolResult:
+        """Full editorial dashboard for one chapter (act).
+
+        Runs every prose check over the chapter's body and aggregates the
+        verdicts; records a ``chapter-report`` Artefact + SERVES intent.
+
+        Inputs: chapter_id.
+        Returns: ``{chapter_id, checks: {...}, artefact_id}``.
+        chain_next: ``novel.line_gate`` to roll up to a manuscript verdict.
+        """
+        chapter = self.ctx.recall(chapter_id)
+        if chapter is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"chapter_id={chapter_id!r} not found")
+        body = chapter.get("body", "") or ""
+        checks = {
+            "readability": self.ctx.call("novel", "analyze_readability",
+                                          body=body),
+            "filter_words": self.ctx.call("novel", "check_filter_words",
+                                           body=body),
+            "show_dont_tell": self.ctx.call("novel", "check_show_dont_tell",
+                                             body=body),
+            "dialogue_attribution": self.ctx.call(
+                "novel", "check_dialogue_attribution", body=body),
+            "content_warnings": self.ctx.call(
+                "novel", "check_content_warnings", body=body),
+            "sensitivity": self.ctx.call("novel", "check_sensitivity",
+                                          body=body),
+        }
+        aid = self.ctx.record("Artefact", {
+            "kind": "chapter-report",
+            "chapter_id": chapter_id,
+        })
+        self.ctx.link(aid, self.ctx.intent_id, "SERVES")
+        return ToolResult.success(data={
+            "chapter_id": chapter_id,
+            "checks": checks,
+            "artefact_id": aid,
+        })
+
+    @verb(role="effect")
+    def developmental_gate(self, novel_id: str) -> ToolResult:
+        """Composite gate: structure-level editorial readiness (effect).
+
+        Combines storyform coherence + chapter contiguity + at-least-one
+        outlined chapter. Mirrors music's lyric-gate composition pattern.
+
+        Inputs: novel_id.
+        Returns: ``{passed, checks}`` or typed GATE_FAILED.
+        chain_next: ``novel.line_gate`` once developmental edits are done.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        coh = self.ctx.call("novel", "manuscript_coherence_check",
+                             novel_id=novel_id)
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
+        checks = {
+            "chapter_contiguity": bool(coh.get("passed")),
+            "has_chapters": bool(chapters),
+            "storyform_present": bool([
+                s for s in self.ctx.find("Storyform")
+                if s.get("novel") == novel_id
+            ]),
+        }
+        if not all(checks.values()):
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"developmental: missing "
+                f"{[k for k, v in checks.items() if not v]}")
+        return ToolResult.success(data={"passed": True, "checks": checks})
+
+    @verb(role="effect")
+    def line_gate(self, novel_id: str) -> ToolResult:
+        """Composite gate: prose-level editorial readiness (effect).
+
+        Every chapter must pass filter-word density + show-don't-tell +
+        dialogue attribution thresholds. POV consistency across scenes
+        is required too. The exact-severity discipline: advisory
+        (sensitivity) does NOT block; structural failures do.
+
+        Inputs: novel_id.
+        Returns: ``{passed, checks, per_chapter}`` or typed GATE_FAILED.
+        chain_next: ``novel.copy_gate`` once line edits are done.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        chapters = sorted(
+            self.ctx.neighbors(novel_id, "CHAPTER_OF"),
+            key=lambda c: c.get("number", 0))
+        per_chapter: list[dict] = []
+        all_pass = True
+        for c in chapters:
+            body = c.get("body", "") or ""
+            fw = self.ctx.call("novel", "check_filter_words", body=body)
+            sdt = self.ctx.call("novel", "check_show_dont_tell", body=body)
+            da = self.ctx.call("novel", "check_dialogue_attribution",
+                                body=body)
+            ok = (fw.get("passed") and sdt.get("passed")
+                  and da.get("passed"))
+            if not ok:
+                all_pass = False
+            per_chapter.append({
+                "chapter_id": c.get("id", ""),
+                "number": c.get("number", 0),
+                "filter_words": fw.get("passed"),
+                "show_dont_tell": sdt.get("passed"),
+                "dialogue_attribution": da.get("passed"),
+                "passed": ok,
+            })
+        pov = self.ctx.call("novel", "check_pov_consistency",
+                             novel_id=novel_id)
+        all_pass = all_pass and pov.get("passed", False)
+        checks = {
+            "all_chapters_line_clean": all([c["passed"] for c in per_chapter]),
+            "pov_consistent": pov.get("passed", False),
+        }
+        if not all_pass:
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"line: {[k for k, v in checks.items() if not v]}")
+        return ToolResult.success(data={
+            "passed": True, "checks": checks, "per_chapter": per_chapter,
+        })
+
+    @verb(role="effect")
+    def copy_gate(self, novel_id: str) -> ToolResult:
+        """Composite gate: surface-level editorial readiness (effect).
+
+        Continuity (proper-noun registry) + content warnings DECLARED
+        on the novel + readability in genre band (advisory). Continuity
+        + content-warning declaration are blocking; readability emits
+        warning only.
+
+        Inputs: novel_id.
+        Returns: ``{passed, checks, warnings}`` or typed GATE_FAILED.
+        chain_next: ``novel.publish_ready_gate``.
+        """
+        novel, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        cont = self.ctx.call("novel", "check_continuity", novel_id=novel_id)
+        cw_declared = bool(novel.get("content_warnings"))
+        chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
+        readability_warnings: list[str] = []
+        for c in chapters:
+            body = c.get("body", "") or ""
+            if not body:
+                continue
+            r = self.ctx.call("novel", "analyze_readability", body=body)
+            flesch = r.get("flesch_reading_ease", 60.0)
+            if flesch < 50 or flesch > 90:
+                readability_warnings.append(
+                    f"chapter {c.get('number', '?')}: flesch={flesch}")
+        checks = {
+            "continuity_clean": cont.get("passed", False),
+            "content_warnings_declared": cw_declared,
+        }
+        if not all(checks.values()):
+            return ToolResult.failure(
+                "GATE_FAILED",
+                f"copy: {[k for k, v in checks.items() if not v]}")
+        return ToolResult.success(data={
+            "passed": True, "checks": checks,
+            "readability_warnings": readability_warnings,
         })
 
     # ───────────────── Spec 105 — research cluster (graph-only) ─────────────────

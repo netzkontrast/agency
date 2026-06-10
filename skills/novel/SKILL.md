@@ -29,22 +29,28 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `capture_claim` | effect | Record a NovelClaim node SERVING the intent (effect). | [details](references/capture_claim.md) |
 | `capture_idea` | effect | Record an Idea node SERVING the intent (effect). | [details](references/capture_idea.md) |
 | `chapter_report` | transform | Read-only aggregate over the novel's chapters (transform). | [details](references/chapter_report.md) |
+| `chapter_report_full` | act | Full editorial dashboard for one chapter (act). | [details](references/chapter_report_full.md) |
 | `check_approach_concern` | transform | Mostly-decidable check (row 8): approach ↔ class compatibility (WARN-severity). | [details](references/check_approach_concern.md) |
 | `check_content_warnings` | transform | Content-warning category scanner (transform, driver-free). | [details](references/check_content_warnings.md) |
+| `check_continuity` | transform | Cross-chapter proper-noun continuity check (transform). | [details](references/check_continuity.md) |
 | `check_crucial_element_placement` | transform | Decidable check (row 6): storyform.crucial_element_id == mc.problem_id. | [details](references/check_crucial_element_placement.md) |
 | `check_dialogue_attribution` | transform | Dialogue-tag check — plain ('said') vs flowery (transform). | [details](references/check_dialogue_attribution.md) |
 | `check_dynamic_pair_reciprocity` | transform | Decidable check (row 1): mc.dynamic and os.dynamic must differ. | [details](references/check_dynamic_pair_reciprocity.md) |
 | `check_filter_words` | transform | Filter-word density check (transform, show-don't-tell). | [details](references/check_filter_words.md) |
 | `check_ktad_coverage` | transform | Decidable check (row 2): concern_id == signposts[0] (K-position). | [details](references/check_ktad_coverage.md) |
 | `check_mental_sex_problem_solving` | transform | Decidable check (row 9): mental_sex ↔ class compatibility. | [details](references/check_mental_sex_problem_solving.md) |
+| `check_pov_consistency` | transform | Per-chapter POV uniformity check across scenes (transform). | [details](references/check_pov_consistency.md) |
 | `check_quad_completeness` | transform | Decidable check (row 3): mc problem and solution are paired. | [details](references/check_quad_completeness.md) |
 | `check_resolve_outcome_judgment` | transform | Decidable check (row 7): resolve/outcome/judgment triple is legal. | [details](references/check_resolve_outcome_judgment.md) |
+| `check_sensitivity` | transform | Sensitivity-topic advisory scan (transform, WARN-severity). | [details](references/check_sensitivity.md) |
 | `check_show_dont_tell` | transform | Telling-verb scan — interior-monologue tells (transform). | [details](references/check_show_dont_tell.md) |
 | `check_signpost_permutation` | transform | Decidable check (row 10): signposts in canonical order per class. | [details](references/check_signpost_permutation.md) |
 | `check_slot_fill` | transform | Decidable check (row 4): no null required slots (transform). | [details](references/check_slot_fill.md) |
 | `check_storybeat_moment_refs` | transform | Decidable check (row 11): every moment.storybeat_ref resolves (transform). | [details](references/check_storybeat_moment_refs.md) |
 | `check_throughline_partition` | transform | Decidable check (row 5): 4 throughlines / 4 distinct Classes (transform). | [details](references/check_throughline_partition.md) |
+| `check_voice_consistency` | transform | Per-chapter voice-signature outlier check (transform). | [details](references/check_voice_consistency.md) |
 | `conceptualize` | act | Render a novel-concept document (act); the first verb of the MVN flow. | [details](references/conceptualize.md) |
+| `copy_gate` | effect | Composite gate: surface-level editorial readiness (effect). | [details](references/copy_gate.md) |
 | `count_words` | transform | Word + char counter (transform, driver-free). | [details](#count_words) |
 | `create_chapter` | effect | Record a Chapter graph node + CHAPTER_OF the parent Novel (effect). | [details](references/create_chapter.md) |
 | `create_culture` | effect | Mint a Culture under a World + PART_OF_WORLD edge (effect). | [details](references/create_culture.md) |
@@ -55,12 +61,14 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `create_scene` | effect | Record a Scene node + SCENE_OF the parent Chapter (effect). | [details](references/create_scene.md) |
 | `create_world` | effect | Mint a World node + SERVES intent (effect). | [details](references/create_world.md) |
 | `create_world_axiom` | effect | Encode a WorldAxiom (rule) under a World (effect). | [details](references/create_world_axiom.md) |
+| `developmental_gate` | effect | Composite gate: structure-level editorial readiness (effect). | [details](references/developmental_gate.md) |
 | `dispatch_novel_research` | effect | Mint a research lead + record NovelClaim (delegates to research cap). | [details](references/dispatch_novel_research.md) |
 | `export_docx` | effect | Render manuscript + write docx via FormatDriver (effect). | [details](references/export_docx.md) |
 | `export_epub` | effect | Render manuscript + write epub via FormatDriver (effect). | [details](references/export_epub.md) |
 | `export_pdf` | effect | Render manuscript + write PDF via FormatDriver (effect). | [details](references/export_pdf.md) |
 | `find_axiom_contradictions` | effect | Decidable axiom-contradiction scan + emit CONTRADICTS edges (effect). | [details](references/find_axiom_contradictions.md) |
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |
+| `line_gate` | effect | Composite gate: prose-level editorial readiness (effect). | [details](references/line_gate.md) |
 | `link_character_to_world` | effect | Add a typed edge from Character → World child (effect). | [details](references/link_character_to_world.md) |
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
 | `list_claims` | transform | List captured claims; optional verified-status filter (transform). | [details](references/list_claims.md) |
@@ -107,6 +115,10 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`character-architect`** (conceptualizer): psychology → archetype → voice → confirmation
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'character-architect', 'inputs': {}, 'intent_id': '…'})`
+- **`developmental-editor`** (editor): structure-pass → storyform-pass → developmental-gate → voice-pass → sign-off
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'developmental-editor', 'inputs': {}, 'intent_id': '…'})`
+- **`line-editor`** (editor): prose-pass → pov-pass → line-gate → sign-off
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'line-editor', 'inputs': {}, 'intent_id': '…'})`
 - **`novel-concept`** (conceptualizer): premise → genre → audience → pov → setting → characters-core → dramatica-seed → outline-shape → series-hypothesis → confirmation
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'novel-concept', 'inputs': {}, 'intent_id': '…'})`
 - **`publish-prep`** (publisher): manuscript-pass → export-pass → publication-gate → sign-off
