@@ -24,6 +24,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `analyze_readability` | transform | Flesch Reading Ease for prose (transform, driver-free). | [details](#analyze_readability) |
+| `archive_codex_entry` | effect | Flag a CodexEntry as archived (effect, soft-delete). | [details](references/archive_codex_entry.md) |
 | `audit_novel_provenance` | transform | Aggregate the provenance graph census for the serving intent (transform, xcap to analyze). | [details](references/audit_novel_provenance.md) |
 | `beta_ready_gate` | effect | Composite gate: all chapters drafted+ (effect). | [details](references/beta_ready_gate.md) |
 | `capture_claim` | effect | Record a NovelClaim node SERVING the intent (effect). | [details](references/capture_claim.md) |
@@ -53,6 +54,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `copy_gate` | effect | Composite gate: surface-level editorial readiness (effect). | [details](references/copy_gate.md) |
 | `count_words` | transform | Word + char counter (transform, driver-free). | [details](#count_words) |
 | `create_chapter` | effect | Record a Chapter graph node + CHAPTER_OF the parent Novel (effect). | [details](references/create_chapter.md) |
+| `create_codex_entry` | effect | Mint a CodexEntry + CODEX_OF edge to the Novel (effect). | [details](references/create_codex_entry.md) |
 | `create_culture` | effect | Mint a Culture under a World + PART_OF_WORLD edge (effect). | [details](references/create_culture.md) |
 | `create_language` | effect | Mint a Language under a World + PART_OF_WORLD edge (effect). | [details](references/create_language.md) |
 | `create_magic_system` | effect | Mint a MagicSystem under a World + PART_OF_WORLD edge (effect). | [details](references/create_magic_system.md) |
@@ -72,13 +74,11 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `link_character_to_world` | effect | Add a typed edge from Character → World child (effect). | [details](references/link_character_to_world.md) |
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
 | `list_claims` | transform | List captured claims; optional verified-status filter (transform). | [details](references/list_claims.md) |
+| `list_codex_entries` | transform | List CodexEntries for a novel, optionally filtered by kind (transform). | [details](references/list_codex_entries.md) |
 | `list_ideas` | transform | List captured ideas; optional status filter (transform). | [details](references/list_ideas.md) |
-| `list_reveals_in` | transform | List events this scene discloses (transform). | [details](references/list_reveals_in.md) |
-| `list_story_events_up_to` | transform | Story-time slice: events with ``when_story`` ≤ this scene's anchor (transform). | [details](references/list_story_events_up_to.md) |
 | `list_world` | transform | Render a tree of a World's contents (transform). | [details](references/list_world.md) |
 | `manuscript_coherence_check` | transform | Chapter-sequence contiguity check (transform, driver-free). | [details](references/manuscript_coherence_check.md) |
-| `mark_narrative_beat` | effect | Mint a NarrativeBeat + optional PRECEDES edge from a predecessor (effect). | [details](references/mark_narrative_beat.md) |
-| `narrative_order` | transform | Topo-sort over PRECEDES; canonical narrative reading order (transform). | [details](references/narrative_order.md) |
+| `match_codex_entries` | transform | Scan ``text`` for any registered codex trigger; return matches (transform). | [details](references/match_codex_entries.md) |
 | `novel_coherence_check` | effect | Composite gate (Spec 120): runs all 11 storyform checks with chaining. | [details](references/novel_coherence_check.md) |
 | `novel_progress` | transform | Aggregate progress (word-count + per-status counts) for a novel (transform). | [details](references/novel_progress.md) |
 | `pending_verifications` | transform | Aggregate pending claims by domain (transform). | [details](references/pending_verifications.md) |
@@ -87,7 +87,6 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `publication_gate` | effect | Terminal composite: publish_ready + ≥1 export + front-matter declared (effect). | [details](references/publication_gate.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
-| `record_story_event` | effect | Mint a StoryTimeEvent + optional HAPPENS_AT edge from a scene (effect). | [details](references/record_story_event.md) |
 | `record_storyform_decision` | effect | Record a contested storyform decision (effect, xcap to dogfood). | [details](references/record_storyform_decision.md) |
 | `rename_novel` | effect | Update a Novel's title (effect, graph-only). | [details](references/rename_novel.md) |
 | `render_blurb` | act | Render a back-cover blurb (act, driver-free). | [details](references/render_blurb.md) |
@@ -96,11 +95,11 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `render_query_letter` | act | Render an agent query letter (act, driver-free). | [details](references/render_query_letter.md) |
 | `render_synopsis` | act | Render a synopsis from chapter outline (act, driver-free). | [details](references/render_synopsis.md) |
 | `resume_session` | transform | Return the most-recently-created Novel's id + title (transform). | [details](references/resume_session.md) |
-| `reveal_in_scene` | effect | Add the REVEALED_IN edge (event disclosed by this scene) (effect). | [details](references/reveal_in_scene.md) |
 | `scan_proper_nouns` | transform | Extract proper nouns (Title-Case words, sentence-starter words filtered) (transform). | [details](references/scan_proper_nouns.md) |
 | `set_chapter_status` | effect | Flip a Chapter's lifecycle status; enum-checked (effect). | [details](references/set_chapter_status.md) |
 | `set_novel_status` | effect | Flip a Novel's lifecycle status; enum-checked (effect). | [details](references/set_novel_status.md) |
 | `storyform_critical_pass` | act | Critical-thinking pass over the storyform (act, xcap to thinking). | [details](references/storyform_critical_pass.md) |
+| `update_codex_entry` | effect | Edit a CodexEntry's body / triggers / name (effect). | [details](references/update_codex_entry.md) |
 | `validate_appreciations` | transform | Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform). | [details](references/validate_appreciations.md) |
 | `validate_narrative_functions` | transform | Row 13 hybrid: NCP narrative_functions ∈ canonical 144 (transform). | [details](references/validate_narrative_functions.md) |
 

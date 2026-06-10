@@ -1,7 +1,7 @@
 ---
 spec_id: "132"
 slug: codex-entity-tracking
-status: draft
+status: shipped
 last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["101", "127"]
@@ -69,6 +69,47 @@ sub-graph) but no equivalent "mention → inject" mechanic. Spec 127's
 2. Auto-trigger from `kind=minor-character` mentions or all kinds?
    **Recommend**: all kinds; let the author archive aggressively.
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done:**
+- **Ontology**: `CodexEntry {novel, slug, name, kind}` node;
+  `CODEX_ENTRY_KIND = {location, minor-character, artefact, concept, faction}`
+  enum on `kind`; `CODEX_OF` edge CodexEntry → Novel.
+- **5 verbs on novel cap**:
+  - `create_codex_entry(novel_id, slug, name, kind, body, triggers="")` —
+    mints + CODEX_OF; triggers defaults to `name, slug` when empty.
+  - `list_codex_entries(novel_id, kind="")` — filters; skips archived.
+  - `match_codex_entries(novel_id, text)` — case-insensitive substring
+    scan over comma-separated triggers; one match per entry; skips
+    archived. Returns `{matches: [{entry_id, slug, name, kind, body,
+    trigger_hit}]}`.
+  - `update_codex_entry(entry_id, body, triggers, name)` — partial
+    update; empty args are no-ops.
+  - `archive_codex_entry(entry_id, reason)` — soft delete via
+    `archived="yes"`; node stays in graph for provenance.
+- **Spec 127 `_compose_world_rules` upgrade**: composer gathers
+  scannable text (chapter body + title + scene slug + scene cast),
+  calls `match_codex_entries`, and renders `- **Name** (kind): body`
+  bullets. Each match adds a `CodexEntry` node to the brief's
+  `sources` array. Placeholder text retired.
+- `_BriefContext` extended with `_ctx` field (additive; backwards
+  compatible). `novel` dict gains `id` field on creation so composers
+  can read `novel_id` directly.
+
+**Still:** Word-boundary matching deferred — Slice 1 is plain
+substring (case-insensitive). A trigger of "raven" in a body about
+"ravenous appetites" would false-positive; Slice 2 should add
+`\b...\b` word-boundary regex matching.
+
+**Open Q resolutions:** Q1 — per-novel codex (CODEX_OF → Novel); shared
+codex deferred to Slice 2. Q2 — all 5 kinds auto-trigger; author uses
+archive aggressively (archived entries skip matching).
+
+**Test:** 17 new tests (`tests/test_novel_codex.py`) — ontology
+registration (node/enum/edge/verbs), create + CODEX_OF edge presence,
+unknown-kind rejection, triggers auto-default to `name, slug`,
+list + kind filter, match by trigger + case-insensitive + no-match +
+archive-skip, update changes body, archive flags archived, and the
+end-to-end `assemble_scene_brief` upgrade — world_rules section now
+injects matched codex bodies and the "pending" placeholder is gone.
+295 across novel/prompt/naming/install green; drift clean; lint clean.
