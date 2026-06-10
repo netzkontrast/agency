@@ -23,6 +23,7 @@ Two-lineage capability:
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `assemble_scene_brief` | act | Compose a Novelcrafter-style scene brief from graph state (act). | [details](references/assemble_scene_brief.md) |
 | `audit` | effect | General-case reader-test simulation for any prompt (effect). | [details](references/audit.md) |
 | `audit_gate` | effect | Computed audit gate — passes iff clarity_score ≥ min_score (effect). | [details](references/audit_gate.md) |
 | `brief_audit` | effect | Rule-based clarity audit of a ResearchBrief (effect). | [details](references/brief_audit.md) |
@@ -39,7 +40,7 @@ Two-lineage capability:
 ## Example
 
 ```bash
-await call_tool('capability_prompt_audit', {'intent_id': 'intent:abc'})
+await call_tool('capability_prompt_assemble_scene_brief', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
