@@ -1,7 +1,7 @@
 ---
 spec_id: "127"
 slug: dynamic-prompt-assembly
-status: draft
+status: shipped
 last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["109", "120", "129"]
@@ -111,6 +111,67 @@ artefact, full provenance moat.
    (heavy), or a chapter-level summary + per-scene index? Recommend the
    latter — chapter brief is for outlining, not generating.
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done (Slice 1):**
+- `prompt.assemble_scene_brief(scene_id, max_tokens=4000, section_budget=320)`
+  ships as an `act` verb in `agency/capabilities/prompt/_main.py`. Walks
+  Scene → Chapter → Novel → Storyform via `ctx.recall` + `ctx.find`; parses
+  the Storyform `body` field as NCP JSON and flattens it into a
+  fragments_for scope.
+- **All 7 sections compose**: storyform / pov_card / scene_cast /
+  world_rules / continuity / foreshadowing / voice_constraints. The
+  three with future-spec dependencies (world_rules → 132, foreshadowing
+  → 123, continuity time-graph → 128) ship as **explicit placeholders
+  that name the gating spec** — a reader sees "Spec 132 codex parity
+  pending" instead of a silent gap. Continuity does what it can today:
+  anchors to the chapter number.
+- **Storyform section composes via Spec 129**: when a Storyform body
+  is present, `_compose_storyform` calls `cap.fragments_for(scope)` and
+  renders each matched fragment as a bullet with canonical_id + kind +
+  text. The good-fixture-shaped NCP routes to throughline.main +
+  class.universe + type.past + var.self-interest + var.morality — all
+  with bootstrap fragments per 129.
+- **Section + total budgets enforced**: each section truncated to
+  ``section_budget`` (default 320 tok) with `truncated` flagging;
+  ``max_tokens`` (default 4000) caps the cumulative count and drops
+  lowest-priority sections when bound. Truncation appends `...` so the
+  cut is honest.
+- **Provenance moat**: each call records `Artefact(kind="scene-brief",
+  scene_id, token_count, section_count, truncated_count)` with SERVES
+  edge to the intent. The `sources` array tags each contributing
+  ontology fragment + Scene/Chapter node with `contributed: <section>`
+  so a future query can answer "which graph node informed THIS line of
+  the brief".
+- **Rendered output**: structured markdown — `# Scene brief` followed
+  by `## <section title>` per section, per Open Q1 (markdown for
+  agent-readability + human-readability).
+
+**Still (deferred):**
+- `prompt.assemble_chapter_brief(chapter_id)` sister verb — same shape,
+  chapter-summary-plus-per-scene-index. Slice 2 work.
+- `BRIEF_USED` edge type — current Slice 1 uses SERVES for the brief
+  Artefact + sources-array for the per-fragment trail. A typed
+  `BRIEF_USED` edge between Artefact and contributing nodes would let
+  graph queries enumerate "which briefs used THIS fragment". Slice 2.
+- `novel.render_chapter_brief` wire-up to `assemble_chapter_brief`.
+- `scene-writer` 5-phase walkable skill (Spec 130 territory).
+- Hooks: when Spec 128 (story-time graph) and Spec 131 (character
+  knowledge) ship, the `_continuity` and `_pov_card` composers gain
+  their real data sources. The placeholders already name the dependency,
+  so the upgrade is mechanical.
+
+**Test:** 16 new tests (`tests/test_dynamic_prompt_assembly.py`) — verb
+registration, brief-shape return contract, NOT_FOUND path, all-7-sections
+present, POV/voice/continuity anchoring, placeholder dependency-flagging,
+storyform fragment composition, source attribution, section budget
+truncation, total budget priority drops, Artefact + SERVES provenance,
+rendered markdown shape. 250+ across prompt/novel/naming green; drift
+clean (prompt cap surface_size warn ACCEPTED per accept-warn marker,
+documented rationale).
+
+**Open Q resolutions:** Q1 — structured markdown (agent-friendly +
+human-readable). Q2 — 4000 tok / 320 per section kept as defaults
+(configurable per-call). Q3 — chapter brief deferred to Slice 2 (the
+spec hints latter approach is better but it's a separate composer that
+warrants its own design pass).
