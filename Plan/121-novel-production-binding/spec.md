@@ -1,8 +1,8 @@
 ---
 spec_id: "121"
 slug: novel-production-binding
-status: draft
-last_updated: 2026-06-09
+status: shipped
+last_updated: 2026-06-10
 owner: "@agency"
 depends_on: ["101", "102", "115", "117"]
 affects:
@@ -74,6 +74,48 @@ from day one, not retrofitted).
 2. Should `create_scene` write separate files or sections within the
    chapter file? (Prior-spec 010 says separate `scenes/` files.)
 
-## Followup
+## Followup — Implementation Status (2026-06-10)
 
-(Populated when the PR ships.)
+**Done (Slice 1):**
+- `NovelConfig` shipped in `agency/capabilities/novel/config.py` — mirrors
+  MusicConfig: 4-level resolution (`.agency/novel-config.yaml` → `~/.agency-novel/` →
+  `$AGENCY_NOVEL_HOME` → `defaults()`), mtime-cached `load()`, idempotent
+  `bootstrap()` that writes the default config + creates `content_root`.
+  Minimal handrolled YAML parser falls back when PyYAML is missing.
+- `FileNovelStateDriver` shipped in `drivers_production.py` — disk writes per
+  prior-spec-010 layout `works/{author}/works/{genre}/{slug}/`. Render-fidelity
+  applied from day one: F3 (template field substitution: `{{author_slug}}`,
+  `{{work_slug}}`, `{{genre_slug}}`, `{{work_title}}`, `{{premise_logline}}`,
+  `{{created}}`); F4 (frontmatter `status` round-trip via
+  `_set_frontmatter_field`); F5 (template default `status: draft` matches
+  what `create_novel` records). `create_work`, `update_work_field`,
+  `create_chapter`, `list_chapters`, `update_chapter_field`, `read_ncp`,
+  `write_ncp` shipped.
+- Lazy auto-wiring mirrors Spec 117: `_production_enabled()` gates on
+  `engine._novel_production`; `_autowire_novel_drivers()` builds
+  `production_drivers(NovelConfig.bootstrap())` ONCE on first miss;
+  `_require_drv` registers the bundle. Bare unit-test engines keep typed
+  `DEPENDENCY_MISSING` contract — bounded blast radius.
+- `create_novel(title, author, genre="novel")` extended with optional
+  disk side-effect (`work_path` in return); `create_chapter` writes
+  `chapters/NN-slug.md` when driver is wired. Genre property added to
+  Novel node so chapter writes inherit the disk routing.
+- MCP entrypoint (`agency/__main__.py`) flips `engine._novel_production = True`
+  alongside the existing music flag — production runtime auto-wires both.
+
+**Still (Slice 2 carve-out per spec):** iteration-6 import/export verbs
+(`import_from_markdown`, `export_for_editor`, `reconcile_disk_with_graph`).
+Deferred — Slice 1 closes the "write the bitwize-compatible tree from the
+graph" half; Slice 2 closes the "load an existing tree back into the graph"
+half. Author of the prior-spec-010 tree on disk → `reconcile_disk_with_graph`
+in a future PR.
+
+**Test:** 14 new tests (`tests/test_novel_production.py`) — config
+defaults/load/bootstrap/mtime-cache, disk layout, template substitution,
+frontmatter round-trip, chapter creation + listing, NCP round-trip, bare-engine
+no-disk, production-engine writes-disk, bundle factory. 235 across
+novel/naming/install green. Check-drift clean.
+
+**Open Q resolutions:** Q1 — layout kept verbatim per prior-spec-010 (genre
+sub-level preserved for byte-compatibility with the-agency-system validators).
+Q2 — separate `scenes/` files (per prior-spec-010); scene verbs in Slice 2.

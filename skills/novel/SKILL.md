@@ -47,7 +47,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `conceptualize` | act | Render a novel-concept document (act); the first verb of the MVN flow. | [details](references/conceptualize.md) |
 | `count_words` | transform | Word + char counter (transform, driver-free). | [details](#count_words) |
 | `create_chapter` | effect | Record a Chapter graph node + CHAPTER_OF the parent Novel (effect). | [details](references/create_chapter.md) |
-| `create_novel` | effect | Record a Novel node SERVING the intent (effect). | [details](references/create_novel.md) |
+| `create_novel` | effect | Record a Novel node SERVING the intent; materialise disk on production. | [details](references/create_novel.md) |
 | `create_scene` | effect | Record a Scene node + SCENE_OF the parent Chapter (effect). | [details](references/create_scene.md) |
 | `dispatch_novel_research` | effect | Mint a research lead + record NovelClaim (delegates to research cap). | [details](references/dispatch_novel_research.md) |
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |

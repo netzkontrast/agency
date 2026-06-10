@@ -42,6 +42,10 @@ def main() -> None:
     # bare Engine without this flag and keep the typed-DEPENDENCY_MISSING
     # contract, so the blast radius stays bounded.
     engine._music_production = True
+    # Spec 121: same pattern for the novel capability — `_require_drv`
+    # lazy-builds `production_drivers(NovelConfig.bootstrap())` on first
+    # miss, bootstrapping a default config + content_root if none.
+    engine._novel_production = True
     mcp = engine.build_mcp(codemode=True)
     mcp.run()                    # default transport = stdio
 
