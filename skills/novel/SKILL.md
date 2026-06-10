@@ -70,6 +70,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `export_pdf` | effect | Render manuscript + write PDF via FormatDriver (effect). | [details](references/export_pdf.md) |
 | `find_axiom_contradictions` | effect | Decidable axiom-contradiction scan + emit CONTRADICTS edges (effect). | [details](references/find_axiom_contradictions.md) |
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |
+| `flag_anachronistic_reference` | transform | Check if the character knows the fact yet (transform). | [details](references/flag_anachronistic_reference.md) |
 | `line_gate` | effect | Composite gate: prose-level editorial readiness (effect). | [details](references/line_gate.md) |
 | `link_character_to_world` | effect | Add a typed edge from Character → World child (effect). | [details](references/link_character_to_world.md) |
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
@@ -91,6 +92,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `publication_gate` | effect | Terminal composite: publish_ready + ≥1 export + front-matter declared (effect). | [details](references/publication_gate.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
+| `record_character_learns` | effect | Mint a KnownFact + KNOWS + LEARNED_IN edges (effect). | [details](references/record_character_learns.md) |
 | `record_story_event` | effect | Mint a StoryTimeEvent + optional HAPPENS_AT edge from a scene (effect). | [details](references/record_story_event.md) |
 | `record_storyform_decision` | effect | Record a contested storyform decision (effect, xcap to dogfood). | [details](references/record_storyform_decision.md) |
 | `rename_novel` | effect | Update a Novel's title (effect, graph-only). | [details](references/rename_novel.md) |
@@ -108,6 +110,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `update_codex_entry` | effect | Edit a CodexEntry's body / triggers / name (effect). | [details](references/update_codex_entry.md) |
 | `validate_appreciations` | transform | Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform). | [details](references/validate_appreciations.md) |
 | `validate_narrative_functions` | transform | Row 13 hybrid: NCP narrative_functions ∈ canonical 144 (transform). | [details](references/validate_narrative_functions.md) |
+| `what_does_X_know_as_of` | transform | List facts the character has learned ≤ the scene's narrative position (transform). | [details](references/what_does_X_know_as_of.md) |
 
 ## Example
 
