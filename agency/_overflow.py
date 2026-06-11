@@ -254,27 +254,29 @@ def _grep_truncate(
             next_match_offset=total_matches,
         )
     accepted: list[str] = []
-    skipped = 0
-    last_accepted_index = offset - 1
+    oversized_skipped = False                                      # flag for `more_available`
+    next_off = total_matches                                       # default: walked the whole tail
     for i in range(offset, total_matches):
         line = matches[i]
         candidate = "\n".join(accepted + [line])
         if count(candidate) > max_tokens:
-            # Skip oversized matches — DON'T break. A later match may
-            # still fit (Codex round-3).
-            skipped += 1
+            # Distinguish "fits alone on a fresh page" (deferrable) from
+            # "individually oversized" (unfittable anywhere). Codex
+            # review (round-4) on PR #129: a fits-alone match that
+            # didn't fit on the CURRENT page must be reachable on the
+            # next call — break here so its index is the resume cursor.
+            if count(line) <= max_tokens:
+                next_off = i
+                break
+            # Individually oversized → skip; later shorter matches may
+            # still fit on the current page. The skipped match is
+            # permanently unreachable through this API (its line alone
+            # exceeds max_tokens); `more_available` flags it.
+            oversized_skipped = True
             continue
         accepted.append(line)
-        last_accepted_index = i
     body = "\n".join(accepted)
-    # Next cursor: resume AFTER the last accepted match. If no matches
-    # were accepted but some were skipped, advance to total_matches so
-    # the caller doesn't loop forever on the same unfittable matches.
-    if accepted:
-        next_off = last_accepted_index + 1
-    else:
-        next_off = total_matches
-    more = skipped > 0 or next_off < total_matches
+    more = next_off < total_matches or oversized_skipped
     return RecallSlice(
         body=body, slice_tokens=count(body),
         total_tokens=total_tokens,

@@ -363,3 +363,69 @@ def test_grep_offset_past_end_returns_empty():
     assert r.body == ""
     assert r.matches_returned == 0
     assert r.more_available is False
+
+
+# ── Codex round-4 review on PR #129 — preserve fits-alone matches ─────────
+def test_grep_deferred_match_reachable_on_next_page():
+    """Codex review: with varying-length matches, a line that fits
+    alone but doesn't fit on the current page must be REACHABLE on a
+    follow-up — not skipped past by `next_match_offset`. The 5-7-3 case:
+    the 7-token line must appear in a later page even though a 3-token
+    line could also fit on page 1."""
+    # Three matches sized ~5, ~7, ~3 tokens (4:1 proxy → 20/28/12 chars).
+    body = "\n".join([
+        "err1 " + "a" * 15,                                        # ~5 tokens
+        "err2 " + "b" * 25,                                        # ~7 tokens
+        "err3 " + "c" * 7,                                         # ~3 tokens
+    ])
+    seen: list[str] = []
+    offset = 0
+    iters = 0
+    while iters < 6:
+        iters += 1
+        r = recall_overflow_slice(body, grep="err",
+                                  offset=offset, max_tokens=9,
+                                  counter=_counter)
+        for line in r.body.split("\n"):
+            if line:
+                seen.append(line)
+        if not r.more_available:
+            break
+        if r.next_match_offset == offset:                          # safety against infinite loop
+            break
+        offset = r.next_match_offset
+    # All three matches reachable — none lost in the seam.
+    assert sum("err1" in s for s in seen) == 1
+    assert sum("err2" in s for s in seen) == 1
+    assert sum("err3" in s for s in seen) == 1
+
+
+def test_grep_oversized_skip_doesnt_block_paging_completion():
+    """An oversized middle match is permanently skipped (unfittable
+    anywhere); paging must still terminate cleanly and reach later
+    fitting matches."""
+    huge = "err " + "x" * 200                                      # ~51 tokens
+    body = "\n".join([
+        "err small1",
+        huge,
+        "err small2",
+    ])
+    seen: list[str] = []
+    offset = 0
+    iters = 0
+    while iters < 5:
+        iters += 1
+        r = recall_overflow_slice(body, grep="err",
+                                  offset=offset, max_tokens=20,
+                                  counter=_counter)
+        for line in r.body.split("\n"):
+            if line:
+                seen.append(line)
+        if not r.more_available and r.next_match_offset >= 3:      # stop signal
+            break
+        if r.next_match_offset == offset:                          # safety
+            break
+        offset = r.next_match_offset
+    assert any("small1" in s for s in seen)
+    assert any("small2" in s for s in seen)
+    assert not any("x" * 100 in s for s in seen)                   # huge dropped permanently
