@@ -283,3 +283,117 @@ def test_session_driver_pass_walks_through_archive() -> None:
     assert run.submit({"session_archived": "yes"},
                       confirmed=True)["status"] == "completed"
     e.memory.close()
+
+
+# ──────────────────── session_resume (Slice 2) ────────────────────────
+# Spec 114 Slice 2 — cross-session handoff: a new session opening the same
+# project auto-discovers the prior SessionLifecycle via Intent → SessionLifecycle
+# traversal and offers a resume option (no context re-derivation).
+
+def test_session_resume_finds_active_lifecycle_for_intent() -> None:
+    """`session_resume(intent_id)` returns the most-recent ACTIVE
+    SessionLifecycle SERVES'd by that intent."""
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    init_res, _ = _invoke(e, iid, "develop", "session_init",
+                          purpose="ship 114", mode_hint="coding")
+    expected_sid = init_res["session_lifecycle_id"]
+    res, _ = _invoke(e, iid, "develop", "session_resume", for_intent_id=iid)
+    assert res["found"] is True
+    assert res["session_lifecycle_id"] == expected_sid
+    assert res["mode"] == "coding"
+    assert res["status"] == "active"
+    assert res["purpose"] == "ship 114"
+    # `suggested_action` points the agent at the right next-verb.
+    assert isinstance(res["suggested_action"], str) and res["suggested_action"]
+    e.memory.close()
+
+
+def test_session_resume_skips_archived_lifecycles() -> None:
+    """Archived lifecycles are NOT resumable — the resume verb finds the
+    most-recent ACTIVE one (or `found=False` when there are none)."""
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    # Create a session, archive it via synthesize_session.
+    init_res, _ = _invoke(e, iid, "develop", "session_init",
+                          purpose="archived work", mode_hint="brainstorming")
+    sid = init_res["session_lifecycle_id"]
+    _invoke(e, iid, "reflect", "synthesize_session",
+            session_lifecycle_id=sid, lessons="learned", open_questions="",
+            handoff_notes="")
+    # No active lifecycle left → found=False.
+    res, _ = _invoke(e, iid, "develop", "session_resume", for_intent_id=iid)
+    assert res["found"] is False
+    assert res["session_lifecycle_id"] == ""
+    e.memory.close()
+
+
+def test_session_resume_picks_most_recent_when_multiple_active() -> None:
+    """When multiple active lifecycles SERVE the same intent (a buggy or
+    interrupted session left orphans), resume picks the most-recent
+    by vfrom — that's the one the user was most likely working on."""
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    _invoke(e, iid, "develop", "session_init",
+             purpose="first", mode_hint="brainstorming")
+    second, _ = _invoke(e, iid, "develop", "session_init",
+                         purpose="second (most recent)", mode_hint="coding")
+    res, _ = _invoke(e, iid, "develop", "session_resume", for_intent_id=iid)
+    assert res["found"] is True
+    assert res["session_lifecycle_id"] == second["session_lifecycle_id"]
+    assert res["purpose"] == "second (most recent)"
+    e.memory.close()
+
+
+def test_session_resume_without_intent_id_falls_back_to_most_recent_intent() -> None:
+    """A bare `session_resume()` (no intent_id) discovers the
+    most-recent Intent and resumes its active lifecycle."""
+    e = _fresh()
+    iid = _confirmed_iid(e, purpose="resumable")
+    init_res, _ = _invoke(e, iid, "develop", "session_init",
+                          purpose="resumable work", mode_hint="review")
+    res, _ = _invoke(e, iid, "develop", "session_resume")
+    assert res["found"] is True
+    assert res["session_lifecycle_id"] == init_res["session_lifecycle_id"]
+    assert res["intent_id"] == iid
+    e.memory.close()
+
+
+def test_session_resume_returns_mode_history() -> None:
+    """The resumed payload includes mode_history so a follow-up
+    `mode_select` can show the agent where it's been."""
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    init_res, _ = _invoke(e, iid, "develop", "session_init",
+                          purpose="multi-mode", mode_hint="brainstorming")
+    sid = init_res["session_lifecycle_id"]
+    _invoke(e, iid, "develop", "mode_select",
+             session_lifecycle_id=sid, new_mode="coding",
+             reason="ready to code")
+    res, _ = _invoke(e, iid, "develop", "session_resume", for_intent_id=iid)
+    assert any(h.get("to") == "coding" for h in res["mode_history"])
+
+
+def test_session_resume_with_unknown_intent_returns_not_found() -> None:
+    """An intent_id that has no SessionLifecycle returns found=False
+    cleanly — never raises."""
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    res, _ = _invoke(e, iid, "develop", "session_resume",
+                      for_intent_id="intent:nonexistent")
+    assert res["found"] is False
+    e.memory.close()
+
+
+def test_session_resume_suggested_action_reflects_current_mode() -> None:
+    """`suggested_action` is mode-aware so the resumed agent picks up
+    the right next verb without re-deriving context (e.g. brainstorming →
+    `develop.brainstorm` reference; coding → `develop.implement`)."""
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    _invoke(e, iid, "develop", "session_init",
+             purpose="x", mode_hint="brainstorming")
+    res_brain, _ = _invoke(e, iid, "develop", "session_resume", for_intent_id=iid)
+    assert "brain" in res_brain["suggested_action"].lower() or \
+           "develop." in res_brain["suggested_action"]
+    e.memory.close()

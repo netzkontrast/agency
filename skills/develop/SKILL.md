@@ -31,6 +31,7 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | `scaffold_capability` | act | Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton. | [details](references/scaffold_capability.md) |
 | `session_check` | transform | Read the current SessionLifecycle state (transform). | [details](references/session_check.md) |
 | `session_init` | act | Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb. | [details](references/session_init.md) |
+| `session_resume` | transform | Spec 114 Slice 2 — cross-session handoff. | [details](references/session_resume.md) |
 | `skill_walk` | act | Walk a registered skill to the first hard gate in ONE call (the atomic walker). | [details](#skill_walk) |
 | `validate_skill` | transform | Validate a capability's Agent-Skill (its SkillDoc) — lint + dry-run emit. | [details](references/validate_skill.md) |
 

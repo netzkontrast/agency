@@ -660,6 +660,88 @@ class DevelopCapability(CapabilityBase):
             "mode_history": history,
         }
 
+    @verb(role="transform")
+    def session_resume(self, for_intent_id: str = "") -> dict:
+        """Spec 114 Slice 2 — cross-session handoff.
+
+        Find the most-recent ACTIVE SessionLifecycle SERVING the given
+        intent (or the most-recent intent when `for_intent_id` is empty)
+        so a fresh session can pick up where the prior one left off — no
+        context re-derivation. Archived lifecycles are skipped; if no
+        active lifecycle exists, returns `found=False`.
+
+        Inputs: for_intent_id (optional; empty → most-recent Intent —
+                renamed from `intent_id` to avoid the Registry.invoke
+                built-in-parameter collision).
+        Returns: ``{found, session_lifecycle_id, intent_id, mode, status,
+                   purpose, mode_history, suggested_action, last_active}``.
+        chain_next: when `found=True`, walk the suggested_action verb;
+                    when `found=False`, `develop.session_init` for a
+                    fresh start.
+        """
+        # Resolve target intent (most-recent active when not specified).
+        target_iid = for_intent_id
+        if not target_iid:
+            intents = list(self.ctx.memory.find("Intent"))
+            if intents:
+                last = max(intents, key=lambda r: r.get("vfrom", 0))
+                target_iid = last.get("id", "") or ""
+        if not target_iid:
+            return {
+                "found": False, "session_lifecycle_id": "",
+                "intent_id": "", "mode": "", "status": "",
+                "purpose": "", "mode_history": [],
+                "suggested_action": "develop.session_init",
+                "last_active": 0,
+            }
+        # Find SessionLifecycles SERVING this intent via the graph edge.
+        rows = self.ctx.memory.g.query(
+            "MATCH (s:SessionLifecycle)-[:SERVES]->(i:Intent) "
+            "WHERE i.id = $iid AND s.status = $active "
+            "RETURN s",
+            {"iid": target_iid, "active": "active"})
+        candidates = [r["s"]["properties"] for r in rows]
+        if not candidates:
+            return {
+                "found": False, "session_lifecycle_id": "",
+                "intent_id": target_iid, "mode": "", "status": "",
+                "purpose": "", "mode_history": [],
+                "suggested_action": "develop.session_init",
+                "last_active": 0,
+            }
+        # Pick the most-recent by vfrom (bi-temporal valid-from).
+        winner = max(candidates, key=lambda n: n.get("vfrom", 0))
+        sid = winner.get("id", "") or ""
+        # Mode history: ModeShift nodes SERVES'd by this session.
+        shifts = list(self.ctx.memory.find("ModeShift"))
+        history = sorted(
+            [{"from": s.get("from_mode", ""), "to": s.get("to_mode", ""),
+              "reason": s.get("reason", "")} for s in shifts],
+            key=lambda h: h.get("vfrom", 0))
+        mode = winner.get("mode", "")
+        # Mode-aware suggestion — point the agent at the right next verb
+        # without re-deriving where it left off.
+        suggestion_for = {
+            "brainstorming": "develop.brainstorm (resume the brainstorm)",
+            "spec-authoring": "develop.write_spec (continue spec authoring)",
+            "coding": "develop.implement (continue coding)",
+            "review": "develop.skill_walk (continue review pass)",
+            "synthesize": "reflect.synthesize_session (close the session)",
+        }
+        suggested_action = suggestion_for.get(
+            mode, "develop.session_check (inspect state)")
+        return {
+            "found": True,
+            "session_lifecycle_id": sid,
+            "intent_id": target_iid,
+            "mode": mode,
+            "status": winner.get("status", ""),
+            "purpose": winner.get("purpose", ""),
+            "mode_history": history,
+            "suggested_action": suggested_action,
+            "last_active": winner.get("vfrom", 0),
+        }
+
     @verb(role="effect")
     def mode_select(self, session_lifecycle_id: str,
                      new_mode: str, reason: str = "") -> dict:
