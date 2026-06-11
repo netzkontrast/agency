@@ -66,7 +66,9 @@ def parse_affects(spec_path: Path) -> list[str]:
 # ── parse_collect_output ───────────────────────────────────────────────────
 # `pytest --collect-only -q` emits one line per test as
 # `tests/test_foo.py::test_bar`. Summary footers and blank lines are ignored.
-_TEST_NODE_RE = re.compile(r"^(?P<file>tests/[^:\s]+\.py)::(?P<node>\S+)$")
+# Codex review on PR #132: parametrized test IDs can carry spaces (custom
+# id like `[case a]`), so the node part is `.+` (rest of line), not `\S+`.
+_TEST_NODE_RE = re.compile(r"^(?P<file>tests/[^:\s]+\.py)::(?P<node>.+)$")
 
 
 def parse_collect_output(text: str) -> dict[str, int]:
@@ -148,6 +150,13 @@ def _collect_live_test_counts(repo_root: Path) -> dict[str, int]:
             capture_output=True, text=True, timeout=120,
         )
     except (OSError, subprocess.TimeoutExpired):
+        return {}
+    # Codex review (round 2): on a non-zero exit pytest may still emit
+    # SOME collected nodeids before the error report. Parsing that
+    # partial stdout would silently undercount affected specs; the
+    # documented behavior is empty-on-failure so a transient
+    # import/collection error doesn't quietly skew the derivation.
+    if result.returncode != 0:
         return {}
     return parse_collect_output(result.stdout)
 

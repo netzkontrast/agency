@@ -226,3 +226,50 @@ def test_collect_subprocess_uses_sys_executable():
     text = inspect.getsource(dd._collect_live_test_counts)
     assert "sys.executable" in text, \
         "subprocess must use sys.executable, not bare 'python'"
+
+
+# ── Codex round-2 review on PR #132 ───────────────────────────────────────
+def test_parse_collect_output_accepts_parametrize_with_spaces():
+    """Codex review: parametrized test IDs can carry spaces (custom
+    ids like `[case a]`). The regex must accept the rest of the nodeid
+    after `::` rather than only `\\S+`."""
+    raw = (
+        "tests/test_p.py::test_x[case a]\n"
+        "tests/test_p.py::test_x[case b with spaces]\n"
+        "tests/test_p.py::test_x[normal-case]\n"
+    )
+    assert parse_collect_output(raw) == {"tests/test_p.py": 3}
+
+
+def test_collect_subprocess_discards_partial_on_failure(monkeypatch, tmp_path):
+    """Codex review: on non-zero pytest exit, partial stdout may still
+    contain some collected nodeids — but parsing them silently
+    undercounts. The documented behavior is empty-on-failure."""
+    from scripts import derive_docs as dd
+
+    class _FakeResult:
+        returncode = 1
+        stdout = "tests/test_foo.py::test_a\ntests/test_foo.py::test_b\nERROR: collection failed\n"
+
+    def _fake_run(*args, **kw):
+        return _FakeResult()
+
+    monkeypatch.setattr(dd.subprocess, "run", _fake_run)
+    counts = dd._collect_live_test_counts(tmp_path)
+    assert counts == {}                                            # empty-on-failure
+
+
+def test_collect_subprocess_returns_counts_on_success(monkeypatch, tmp_path):
+    """Same hook on returncode=0 returns the parsed counts as before."""
+    from scripts import derive_docs as dd
+
+    class _FakeResult:
+        returncode = 0
+        stdout = "tests/test_foo.py::test_a\ntests/test_foo.py::test_b\n"
+
+    def _fake_run(*args, **kw):
+        return _FakeResult()
+
+    monkeypatch.setattr(dd.subprocess, "run", _fake_run)
+    counts = dd._collect_live_test_counts(tmp_path)
+    assert counts == {"tests/test_foo.py": 2}
