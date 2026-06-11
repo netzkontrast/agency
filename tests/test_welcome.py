@@ -110,7 +110,14 @@ def test_welcome_token_budget_under_2kb():
     # still catches BLOAT (a gist that balloons) without breaking when a
     # capability is added.
     ncaps = len(out["capabilities"])
-    budget = 150 * ncaps + 600
+    # Spec 146 Slice 1 raised the constant overhead from 600 → 1000: the
+    # prefix half of the envelope carries `schema_version` + two SHA-256
+    # hashes (`capability_set_hash`, `ontology_hash`) + the `_prefix_keys`
+    # list — ~340 bytes of fixed overhead that buys cache-friendly
+    # substrate-tool responses (the wrapping driver applies
+    # `cache_control: {type:"ephemeral"}` on the prefix). The per-cap
+    # coefficient is unchanged so the bound still catches gist BLOAT.
+    budget = 150 * ncaps + 1000
     assert len(payload) <= budget, (
-        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 600); "
+        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 1000); "
         f"trim the capability_tier gists (Spec 068), don't raise the coefficient")
