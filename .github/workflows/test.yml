@@ -68,6 +68,13 @@ jobs:
         continue-on-error: true
         run: python scripts/check-doc-drift
 
+      # Spec 149 Slice 1 — vision-goals frontmatter gate. Fails ONLY when a
+      # NEW spec lacks valid `vision_goals: [int, ...]` (Goal IDs 1..8 per
+      # GOALS.md). The 129 historical gaps are tracked in
+      # `Plan/_planning/vision-goals-baseline.txt`; backfill is a follow-up.
+      - name: Vision-goals frontmatter
+        run: python -m scripts.check_vision_goals
+
       # Spec 092 G6 — followup-grounding, ADVISORY: a Shipped spec should cite tests that
       # exist (catches a roll-up claim that overstates completeness).
       - name: Followup-grounding (advisory)
