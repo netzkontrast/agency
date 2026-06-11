@@ -1,7 +1,7 @@
 ---
 spec_id: "147"
 slug: anthropic-driver-boundary
-status: draft
+status: partial
 last_updated: 2026-06-10
 owner: "@agency"
 enhances: "002"
@@ -142,3 +142,58 @@ Then:   raises ValueError pointing at the claude-api streaming guidance
    every emitted event carries `session_id` + `agent_id` + `intent_id`
    in its payload so `analyze.graph_query` (Spec 203) can reconstruct
    the full session chain.
+
+## Followup — Implementation Status (2026-06-11, Slice 1)
+
+**Done (Slice 1 — the typed inference surface):**
+- `agency/_drivers/_anthropic.py` — `AnthropicDriver` with:
+  - `complete(messages, system, output_schema, effort, model, max_tokens)`
+    → typed `Completion{text, stop_reason, usage, model, request_id, parsed}`.
+    claude-api defaults applied on every request: `model="claude-opus-4-8"`
+    (env `AGENCY_ANTHROPIC_MODEL` override), `thinking={"type":"adaptive"}`,
+    `output_config.effort`, `output_config.format` (json_schema) when an
+    `output_schema` is supplied — `parsed` carries the decoded JSON.
+  - `count_tokens(messages, model)` — authoritative API count (never
+    tiktoken for Claude; claude-api skill).
+  - **Typed `DriverError`** with codes REFUSAL / RATE_LIMITED / OVERLOADED /
+    BAD_REQUEST / TIMEOUT / AUTH_FAILED / NETWORK. SDK exceptions map by
+    class-name (compile-time SDK-free) with a status-code fallback;
+    `stop_reason: "refusal"` raises REFUSAL carrying
+    `detail.category` (pre-output refusal semantics per claude-api skill).
+  - `max_tokens > 16000` non-streaming guard → BAD_REQUEST pointing at the
+    streaming requirement (claude-api skill).
+  - `backend()` ("anthropic"/"none", never the key) + `readiness()`
+    (`api_key_present` / `model_id_resolved` / `managed_agents_capable`).
+  - Lazy SDK import inside `_sdk()` — the module imports with no extra
+    installed; missing key raises typed AUTH_FAILED with the fix pointer.
+- **Engine wiring**: `Engine(anthropic_driver=...)` kwarg (lazy default,
+  test-stubbable); registered as the **`anthropic` Driver** on the Spec-002
+  DriverRegistry → verbs reach it via `ctx.get_driver("anthropic")`.
+- **`agency_doctor.anthropic_driver`** — the readiness dict (custom-injected
+  drivers degrade to `{"backend": "custom"}`).
+- **`[anthropic]` extra** in pyproject (the same `anthropic>=0.40` the
+  `tokens`/`publish` extras pin).
+
+**Tests:** `tests/test_anthropic_driver.py` — 17 tests, all mocked-SDK
+(no network, no extra needed in CI): backend selection ×3, model
+default/override, adaptive-thinking+effort request shape, typed
+Completion, output_schema → format + parsed, refusal→typed-code with
+category, 429/529/401 mapping, keyless AUTH_FAILED, count_tokens,
+readiness shape, Slice-2 deferred dispatch_session, engine registration,
+doctor readiness. Blast-radius slices green (driver-registry, llm-driver,
+naming-audit, doctor/install/bootstrap: 85 passed); `scripts/check-drift`
+NO DRIFT.
+
+**Still (Slice 2):**
+- Managed-Agents bridge — `dispatch_session` raises a typed deferred
+  error today; needs the create-once Agent doctrine (Spec 137 Lock for
+  agent_id+version) + MonitorEvent streaming (Spec 021).
+- `stream()` for >16K-token outputs.
+- Spec 110 `thinking.*` verb flips to `run=True` wet paths (Spec 204/226).
+- `cache_control` placement on stable prefixes (Spec 146 integration).
+- Refusal `fallbacks` parameter + Fable 5 surface (Specs 256/263).
+
+**Open Q resolutions:** Q3 (model deprecation) — default is the single
+`_DEFAULT_MODEL` constant + env override; per-call `model=` arg covers
+pinning. Q1/Q2/Q4 (Agent YAML home, vault storage, session-id
+correlation) are Slice-2 territory, unresolved by design.

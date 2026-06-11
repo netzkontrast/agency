@@ -80,6 +80,16 @@ tokens = [
 publish = [
     "anthropic>=0.40",
 ]
+# Spec 147 — the canonical AnthropicDriver boundary (`ctx.get_driver("anthropic")`).
+# Slice 1 = the typed inference surface (complete / count_tokens / DriverError /
+# readiness) with the claude-api defaults (claude-opus-4-8, adaptive thinking,
+# output_config structured outputs). Without this extra (or without
+# ANTHROPIC_API_KEY) the driver reports backend "none" and every consumer verb
+# degrades to its scaffold path — nothing crashes. agency_doctor reports
+# `anthropic_driver` readiness.
+anthropic = [
+    "anthropic>=0.40",
+]
 [project.scripts]
 # Spec 039 distribution surface — three entry points, one per consumer pattern:
 #   `agency`        — CLI for bash callers (search/get-schema/execute over argv)

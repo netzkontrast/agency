@@ -139,7 +139,8 @@ class Engine:
     def __init__(self, path: str, jules_client=None, vcs_backend=None,
                  embedder=None, web_search=None, runner=None,
                  extra_capabilities=None, surface: str | None = None,
-                 token_counter=None, skills_client=None, llm_client=None, drivers=None,
+                 token_counter=None, skills_client=None, llm_client=None,
+                 anthropic_driver=None, drivers=None,
                  _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
         # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
@@ -181,6 +182,14 @@ class Engine:
             from ._llm import LLMClient
             llm_client = LLMClient()
         self.llm_client = llm_client
+        # Spec 147 — the canonical AnthropicDriver boundary (an `anthropic` Driver):
+        # lazy default, stubbed in tests, reached via ctx.get_driver("anthropic"). The
+        # LLM-driver chain's keystone. Slice 1 = inference surface; the SDK is imported
+        # lazily so this costs nothing without the [anthropic] extra.
+        if anthropic_driver is None:
+            from ._drivers._anthropic import AnthropicDriver
+            anthropic_driver = AnthropicDriver()
+        self.anthropic_driver = anthropic_driver
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it
@@ -257,7 +266,7 @@ class Engine:
             "jules": self.jules_client, "vcs": self.vcs_backend,
             "embedder": self.embedder, "runner": self.runner,
             "token_counter": self.token_counter, "skills_client": self.skills_client,
-            "llm": self.llm_client})
+            "llm": self.llm_client, "anthropic": self.anthropic_driver})
         if drivers:
             for _name, _driver in drivers.items():
                 self.drivers.register(_name, _driver)
@@ -679,6 +688,11 @@ class Engine:
                 # Spec 092 G3 — the live LLM-decider backend (openrouter / anthropic /
                 # none), never the key. Custom-injected clients may omit backend().
                 "llm_backend": getattr(self.llm_client, "backend", lambda: "custom")(),
+                # Spec 147 — the canonical AnthropicDriver readiness (api-key-present /
+                # model-id-resolved / managed-agents-capable), never the key. Custom-
+                # injected drivers may omit readiness().
+                "anthropic_driver": getattr(
+                    self.anthropic_driver, "readiness", lambda: {"backend": "custom"})(),
                 # Spec 050 — which optional [analyze] tools are active.
                 "analyze_extras": analyze_extras,
                 # Spec 054 — drift indicators. v1 ships the
