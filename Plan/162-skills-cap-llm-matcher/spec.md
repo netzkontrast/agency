@@ -23,26 +23,74 @@ the exact blocker: "Remaining: `llm_select` Matcher (needs LLM Driver)
 free-text task via the Driver, complementing the pattern + verb_code
 Matchers already shipped.
 
-## Done When
+## Done When (measurable invariants — rule 8)
 
-- [ ] **`llm_select` Matcher** added to the `skills` cap — given a task
-      string + the candidate skill set (Spec 152 typed `Skill`s), the
-      Spec 147 Driver returns the best match with a confidence and a
-      one-line rationale (`output_config.format`).
-- [ ] **Degrades to `pattern`+`verb_code` Matchers** when no
-      `[anthropic]` extra (never hard-fails).
-- [ ] **Jules convergence micro-benchmark** — the deferred 026 task:
-      a fixture of 10 task→skill pairs; assert `llm_select` ≥ lexical
-      baseline (mocked Driver in CI; live behind a tag).
+- [ ] **Typed return shape: `MatcherResult{skill_id, confidence: float
+      in [0,1], rationale: str ≤ 200 chars, matcher: Literal["llm",
+      "pattern", "verb_code"]}`** — `output_config.format` enforces it
+      via a Pydantic schema; rejects anything else.
+- [ ] **Invariant: when `[anthropic]` absent, `matcher != "llm"`** —
+      degrades silently to `pattern` + `verb_code` (Spec 050 pattern).
+- [ ] **Invariant: `llm_select` confidence is calibrated against
+      ground truth** — on the fixture, `mean(confidence | correct) >
+      mean(confidence | incorrect)` (relationship, not a pinned
+      number).
+- [ ] **Relationship: `accuracy(llm_select) ≥ accuracy(lexical_baseline)`**
+      on the 10-pair fixture (≥, not absolute) — derived from the
+      fixture each run.
+- [ ] **Failure modes (LLM path):** Driver returns a `skill_id` not
+      in the candidate set → reject + fall through to `pattern`;
+      Driver returns confidence > 1 or < 0 → reject; Driver streams
+      stop a partial structured output → retry once, then fall
+      through; rate-limit → fall through with a `RATE_LIMITED`
+      Reflection. Never let an LLM error halt the walk.
+- [ ] **Session-scoped match cache** keyed on `(task_hash,
+      skill_set_hash)` — repeated walks of the same skill don't
+      re-call the Driver.
 - [ ] TODO row + drift clean.
+
+## Worked example (Given/When/Then)
+
+```text
+Given:  task "I need to verify my last change actually works in the
+        running app" and candidate skill set including `verify`,
+        `develop.test`, `dogfood.observe`, `branch.commit_smart`
+When:   skills.llm_select(task, candidates) runs with `[anthropic]`
+        present
+Then:   result.matcher == "llm" AND
+        result.skill_id == "verify" AND
+        result.confidence > 0.7 AND
+        result.rationale references "run the app + observe"
+
+Given:  same task, `[anthropic]` absent
+When:   skills.match(task, candidates) runs
+Then:   result.matcher in {"pattern", "verb_code"} AND
+        result is reproducible across runs (deterministic fallback)
+```
 
 ## Interconnects
 
 - **LLM-driver chain** (147).
 - Spec 152 (typed Skill/Phase) supplies the candidate type.
-- Spec 161 (discovery rank) shares the re-rank pattern.
+- Spec 161 (discovery rank) shares the re-rank structured-output
+  contract — both call the Driver with a candidate set + return a
+  ranked result.
+- Spec 170 (doctor) reports `llm_select_available` (derived from
+  `[anthropic]` + benchmark parity).
+- Spec 151 (Codes coverage) supplies `MATCHER_REJECTED_INVALID_ID`
+  + `MATCHER_RATE_LIMITED`.
+- Spec 146 (output-prefix) — the cache key includes the
+  capability-set-hash, so a new skill invalidates the per-task cache.
 
 ## Open questions
 
-1. Cache the match per (task-hash, skill-set-hash)? **Recommend**: yes,
-   session-scoped — repeated walks of the same skill shouldn't re-call.
+1. **Cache the match per (task-hash, skill-set-hash)?** **Recommend**:
+   yes, session-scoped (cache invalidates on capability-set change
+   per Spec 146 prefix hash). Repeated walks of the same skill
+   shouldn't re-call.
+2. **Fixture size — 10 pairs enough?** **Recommend**: start at 10
+   (cheap to maintain, covers the common Lifecycle templates);
+   grow only when a confusion-pair lands in production.
+3. **Live-Driver benchmark cadence?** **Recommend**: gated behind a
+   `[llm-live]` pytest mark + nightly job — keeps the merge gate
+   mock-driven (deterministic) while still catching API drift.

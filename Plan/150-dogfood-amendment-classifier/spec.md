@@ -27,29 +27,83 @@ a JSON-ops payload a human applies to a spec.
 
 ## Done When
 
-- [ ] **`dogfood.parse_amendment(scope="", since="")`** reads recent
-      `Reflection` nodes (via Spec 045 recall), classifies each as
-      `observation` / `proposal` / `refinement`, and emits a structured
-      `{spec_id, section, op, before, after, rationale, source_reflections}`
-      payload per proposal.
+- [ ] **`dogfood.parse_amendment(scope="", since="", limit=20)`**
+      reads recent `Reflection` nodes via Spec 045 semantic recall,
+      classifies each as `observation` / `proposal` / `refinement`,
+      and emits a structured payload per proposal:
+      ```python
+      ProposalPayload = {
+        "spec_id":      str,           # must exist; lint enforces
+        "section":      str,           # "Done When" | "Open questions" | "Followup" | "row"
+        "op":           Literal["add-row", "flip-status", "add-open-q",
+                                "add-done-when", "supersede"],
+        "before":       str,           # verbatim source text
+        "after":        str,           # verbatim proposed text
+        "rationale":    str,           # ≥ 40 chars; ≥ 1 source citation
+        "source_reflections": list[str],  # ≥ 1 reflection node id
+        "confidence":   float,         # 0..1; classifier-reported
+      }
+      ```
 - [ ] **Classification runs through Spec 147 AnthropicDriver** with
-      `output_config.format` (a strict JSON schema) so the payload is
-      guaranteed-parseable; degrades to a decidable keyword classifier
-      when no `[anthropic]` extra (never silently no-ops).
+      `output_config.format` (the strict ProposalPayload JSON schema)
+      so the payload is guaranteed-parseable; degrades to a decidable
+      keyword classifier when no `[anthropic]` extra (never silently
+      no-ops; the keyword path emits the same shape with
+      `confidence=0.3` flag).
 - [ ] **`dogfood.apply_amendment(payload, dry_run=True)`** renders the
-      proposed spec-edit as a diff (dry-run default — never silently
-      mutates a spec); records an `Artefact(kind="amendment-proposal")`
-      with SERVES + the `source_reflections` as PRODUCES-from edges.
+      proposed spec-edit as a unified diff (dry-run default — NEVER
+      silently mutates a spec, even with `dry_run=False` unless
+      explicit `confirm_token` matches the proposal's id-hash). Records
+      an `Artefact(kind="amendment-proposal")` with SERVES + the
+      `source_reflections` as PRODUCES-from edges.
 - [ ] **Rubric** (Managed-Agents Outcome path) — a vendored
       `amendment.rubric.md` grading: cites ≥1 reflection, names a real
-      spec_id, op is one of {add-row, flip-status, add-open-q,
-      supersede}, rationale non-empty.
+      spec_id (lookup at gradeable-time), op is one of the documented
+      enum values, rationale ≥ 40 chars, before/after are non-trivial
+      diff (not whitespace-only).
 - [ ] **`dogfood.collect` (the markdown-parse anti-pattern) fully
-      retired** behind this — Spec 017 deprecated it; this removes the
-      last caller.
+      retired** behind this — Spec 017 deprecated it; Spec 159 removes
+      the last caller. CI fails if a `collect` import resolves.
+- [ ] **Quality metric** (Spec 258 closes the loop) — proposal
+      accept-rate over time, derived (Spec 149); a regression triggers
+      a warning Reflection (the meta-loop).
+- [ ] **Failure modes**:
+      - `Codes.AMENDMENT_BAD_SPEC` when proposed spec_id doesn't exist;
+      - `Codes.AMENDMENT_NO_SOURCE` when source_reflections is empty;
+      - `Codes.AMENDMENT_VAGUE` when rationale fails the 40-char floor;
+      - `Codes.DRIVER_REFUSAL` propagated from Spec 147 when the
+        classifier refuses (rare; not retried).
+- [ ] **Acceptance invariant**: every accepted amendment must
+      trace-back through the graph to ≥ 1 named Reflection (provenance
+      moat unbroken). A reviewer running `analyze.graph_query`
+      (Spec 203) can reconstruct "this amendment came from these
+      observations" in one call.
 - [ ] Test: seed 3 Reflections, assert one `proposal` payload with a
-      valid op; assert dry-run produces a diff, not a write.
-- [ ] TODO row + drift clean.
+      valid op and ≥40-char rationale; dry-run produces a diff, not a
+      write; live-write requires `confirm_token`; reject-on-bad-spec
+      asserts the typed code.
+- [ ] **TODO row + drift clean.**
+
+## Worked example (Given/When/Then)
+
+```text
+Given:  5 Reflections about a verb returning oversized payloads
+When:   dogfood.parse_amendment(scope="output-budget") runs
+Then:   returns ≥1 ProposalPayload with
+        op="add-done-when", spec_id="146", rationale citing the 5
+        reflections, confidence ≥ 0.7
+
+Given:  ProposalPayload with confidence 0.85 and dry_run=True
+When:   apply_amendment runs
+Then:   returns {diff: "...", artefact_id: "art-..."}
+        AND no spec file modified
+        AND analyze.graph_query("Artefact{kind:amendment-proposal}
+            PRODUCES-from Reflection") returns the 5 source citations
+
+Given:  proposal cites a non-existent spec_id "999"
+When:   apply_amendment runs
+Then:   returns Codes.AMENDMENT_BAD_SPEC; no Artefact written
+```
 
 ## Interconnects
 
@@ -60,14 +114,30 @@ a JSON-ops payload a human applies to a spec.
   deltas, so an applied amendment self-updates the index.
 - Spec 045 (semantic recall) selects the candidate Reflections.
 - Spec 017 (graph-native ledgers) is the write-side this consumes.
+- Spec 159 (collect retirement) removes the last anti-pattern caller.
+- Spec 173 (reflection-link error promotion) keeps source citations
+  unbroken.
+- Spec 181 (embedder upgrade) sharpens candidate selection.
+- Spec 183 (intent-chain opportunity) feeds verb-promotion proposals.
+- Spec 199 (Skills round-trip) validates skill-promote proposals.
+- Spec 258 (quality loop) measures classifier accept-rate.
+- Spec 264 (self-improvement meta-cap) composes this into one verb.
 
 ## Open questions
 
-1. Auto-apply low-risk amendments (e.g. flip-status when the test
+1. **Auto-apply low-risk amendments** (e.g. flip-status when the test
    suite proves it) or always human-gate? **Recommend**: always
    human-gate v1 (dry-run diff); a `--auto` flag for the narrow
    flip-status-on-green case is a Slice-2 once trust is established.
-2. Managed-Agents Outcome vs single structured-output call?
+2. **Managed-Agents Outcome vs single structured-output call?**
    **Recommend**: single structured-output call v1 (cheaper, no
    session lifecycle); promote to an Outcome with iterate-to-rubric
-   when proposal quality demands it.
+   when measured proposal accept-rate < 0.5.
+3. **De-duplication** — what if the classifier proposes the same edit
+   twice across runs? **Recommend**: hash by `(spec_id, section,
+   after-text)` and skip; the existing proposal is returned with a
+   `duplicate_of` field.
+4. **Acceptance review surface.** Where does a human accept? **Recommend**:
+   a `/agency-amendments` slash command (Spec 148 family) renders
+   pending proposals; accepting opens a PR draft. Closes the loop end
+   to end.
