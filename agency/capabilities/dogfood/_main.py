@@ -86,6 +86,89 @@ def _parse_observations(text: str) -> list[dict]:
 
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# Spec 150 Slice 1 — amendment classifier + apply helpers (module-level).
+# ────────────────────────────────────────────────────────────────────────────
+# Keyword classifier rules. Each tuple is (regex, op, section, confidence).
+# The keyword path is the documented fallback when the Spec 147 AnthropicDriver
+# is unavailable (never silent no-op); Slice 2 swaps in structured-output
+# classification through the driver.
+import difflib
+import hashlib
+
+_CLASSIFIER_RULES: list[tuple[re.Pattern, str, str, float]] = [
+    (re.compile(r"\bshould add\b", re.IGNORECASE), "add-done-when", "Done When", 0.7),
+    (re.compile(r"\bpropose\b", re.IGNORECASE),    "add-done-when", "Done When", 0.65),
+    (re.compile(r"\bshould be\b", re.IGNORECASE),  "add-done-when", "Done When", 0.6),
+    (re.compile(r"\bmissing from spec\b", re.IGNORECASE),
+                                                    "add-done-when", "Done When", 0.75),
+    (re.compile(r"\bopen question\b", re.IGNORECASE),
+                                                    "add-open-q", "Open questions", 0.65),
+]
+
+
+def _classify_reflection(text: str) -> dict:
+    """Classify ONE reflection text into an amendment op + section + confidence.
+
+    Returns ``{"op": None}`` for neutral observations (no amendment). The
+    keyword path is deliberately CONSERVATIVE: false positives erode trust.
+    """
+    for rule, op, section, conf in _CLASSIFIER_RULES:
+        m = rule.search(text or "")
+        if m:
+            return {"op": op, "section": section, "confidence": conf,
+                    "matched": m.group(0)}
+    return {"op": None}
+
+
+def _spec_id_from_slug(plan_slug: str) -> str:
+    """Extract the NNN spec-id from a `NNN-slug` plan_slug."""
+    head = (plan_slug or "").split("-", 1)[0]
+    return head if head.isdigit() else ""
+
+
+def _resolve_spec_path(spec_id: str) -> str | None:
+    """Find ``Plan/<spec_id>-*/spec.md`` on disk; return None when missing."""
+    import glob
+    if not spec_id or not spec_id.isdigit():
+        return None
+    matches = sorted(glob.glob(f"Plan/{spec_id}-*/spec.md"))
+    return matches[0] if matches else None
+
+
+def _payload_hash(payload: dict) -> str:
+    """Stable id-hash for a proposal — used by the confirm_token live-write
+    gate. Hashed over (spec_id, section, op, after) so a re-classification
+    that proposes the same edit yields the same token."""
+    key = "|".join([payload.get("spec_id", ""),
+                    payload.get("section", ""),
+                    payload.get("op", ""),
+                    (payload.get("after") or "").strip()])
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+
+
+def _render_unified_diff(spec_path: str, *, before: str, after: str,
+                          spec_id: str) -> str:
+    """Render an amendment as a unified-diff hunk. The dry-run output the
+    reviewer reads. For Slice 1 we emit a SYNTHETIC unified diff that names
+    the spec file + the proposed before/after — enough for a reviewer to
+    decide; the file-line surgery is Slice 2 (needs a proper section
+    locator).
+    """
+    before_lines = (before + "\n").splitlines(keepends=True) if before else []
+    after_lines = (after + "\n").splitlines(keepends=True) if after else []
+    diff_iter = difflib.unified_diff(
+        before_lines, after_lines,
+        fromfile=f"a/{spec_path}",
+        tofile=f"b/{spec_path}",
+        n=0,
+    )
+    diff = "".join(diff_iter)
+    if not diff:
+        diff = f"--- a/{spec_path}\n+++ b/{spec_path}\n@@ -0,0 +1 @@\n+{after}\n"
+    return diff
+
+
 class DogfoodCapability(CapabilityBase):
     name = "dogfood"
     home = "memory"
@@ -99,8 +182,13 @@ class DogfoodCapability(CapabilityBase):
             # optional. SessionLifecycle linkage via RELATES_TO when known.
             "DecisionRecord": ["subject", "decision", "rationale"],
             "BoundaryUse":    ["tool", "argument_summary"],
+            # Spec 150 — amendment-proposal provenance: every accepted
+            # amendment writes an `Artefact(kind="amendment-proposal")`
+            # with PRODUCES_FROM edges to every cited Reflection so a
+            # reviewer can trace any amendment back to its sources.
+            "Artefact":       ["kind"],
         },
-        edges={"RELATES_TO"},        # DecisionRecord → SessionLifecycle
+        edges={"RELATES_TO", "PRODUCES_FROM"},        # PRODUCES_FROM: amendment → cited Reflection
     )
 
     # -----------------------------------------------------------------
@@ -512,3 +600,123 @@ class DogfoodCapability(CapabilityBase):
                 "suggested_verb": _SUGGEST.get(tool, "(none)"),
             })
         return {"uses": out, "count": len(out)}
+
+    # ════════════════════════════════════════════════════════════════════════
+    # Spec 150 Slice 1 — dogfood amendment classifier (close Goal 6).
+    # ════════════════════════════════════════════════════════════════════════
+
+    @verb(role="transform")
+    def parse_amendment(self, scope: str = "", since: str = "",
+                         limit: int = 20) -> dict:
+        """Classify recent Reflections into amendment proposals.
+
+        Slice 1 ships the keyword classifier — the documented fallback path
+        when the Spec 147 AnthropicDriver is unavailable (never silent no-op).
+        Slice 2 swaps in the driver's structured-output classification (the
+        same ProposalPayload shape, sharper recall).
+
+        Inputs: scope (str — substring filter on plan_slug; "" = all),
+                since (reserved; bi-temporal cursor in Slice 3),
+                limit (int — caps the proposal list; default 20).
+        Returns: ``{proposals: [ProposalPayload]}``.
+        chain_next: ``dogfood.apply_amendment(payload, dry_run=True)`` to
+                    render the proposed spec-edit as a unified diff.
+        """
+        rows = self.ctx.memory.g.query(
+            "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+            {"scope": "observation"})
+        reflections = [r["r"]["properties"] for r in rows]
+        # `scope` is a substring filter on plan_slug — cheap caller-side
+        # narrowing that doesn't expose graph query language.
+        if scope:
+            reflections = [r for r in reflections
+                           if scope in (r.get("plan_slug") or "")]
+        proposals: list[dict] = []
+        for refl in reflections:
+            tag = _classify_reflection(refl.get("text") or "")
+            if tag["op"] is None:
+                continue
+            spec_id = _spec_id_from_slug(refl.get("plan_slug") or "")
+            if not spec_id:
+                continue
+            proposals.append({
+                "spec_id":      spec_id,
+                "section":      tag["section"],
+                "op":           tag["op"],
+                "before":       "",
+                "after":        (refl.get("text") or "").strip(),
+                "rationale":    (
+                    f"Classifier promoted this Reflection based on a strong-"
+                    f"intent keyword (`{tag['matched']}`). Source observation "
+                    f"text: {(refl.get('text') or '')[:200]}"),
+                "source_reflections": [refl.get("id") or ""],
+                "confidence":   tag["confidence"],
+            })
+            if len(proposals) >= limit:
+                break
+        return {"proposals": proposals}
+
+    @verb(role="effect")
+    def apply_amendment(self, payload: dict, dry_run: bool = True,
+                         confirm_token: str = "") -> dict:
+        """Render a ProposalPayload as a unified diff; provenance Artefact.
+
+        v1 always renders the diff and writes an
+        `Artefact(kind="amendment-proposal")` with PRODUCES_FROM edges
+        to every cited Reflection so a reviewer can trace any amendment
+        back to its source observations (the provenance moat invariant).
+
+        Inputs: payload (dict — ProposalPayload schema; see Plan/150),
+                dry_run (bool — default True; False requires
+                  ``confirm_token`` to match the payload id-hash),
+                confirm_token (str — opt-in live-write gate).
+        Returns: ``{diff, artefact_id, written_path?}``.
+        Failure modes: ``AMENDMENT_BAD_SPEC`` (no such spec dir),
+                       ``AMENDMENT_NO_SOURCE`` (citations empty),
+                       ``AMENDMENT_VAGUE`` (rationale < 40 chars),
+                       ``AMENDMENT_UNCONFIRMED`` (live write requested,
+                       confirm_token does not match the payload id-hash).
+        """
+        # Hard-coded constants are tunable budgets (rule 8):
+        _RATIONALE_FLOOR = 40   # documented in Plan/150 §"Done When"
+        sources = payload.get("source_reflections") or []
+        if not sources:
+            raise RuntimeError("amendment_no_source: "
+                               "payload.source_reflections is empty — every "
+                               "amendment must trace to ≥ 1 Reflection")
+        if len(payload.get("rationale", "")) < _RATIONALE_FLOOR:
+            raise RuntimeError(
+                f"amendment_vague: rationale below the "
+                f"{_RATIONALE_FLOOR}-char floor "
+                f"(got {len(payload.get('rationale', ''))})")
+        spec_id = payload.get("spec_id", "")
+        spec_path = _resolve_spec_path(spec_id)
+        if spec_path is None:
+            raise RuntimeError(f"amendment_bad_spec: no spec dir for "
+                               f"spec_id={spec_id!r}")
+        # Live-write requires confirm_token matching the payload id-hash.
+        payload_hash = _payload_hash(payload)
+        if not dry_run and confirm_token != payload_hash:
+            raise RuntimeError(
+                f"amendment_unconfirmed: confirm_token mismatch; expected "
+                f"id-hash={payload_hash!r} for this proposal")
+        # Render the diff (dry-run path is the same; only the final write
+        # branch differs by `dry_run`).
+        diff = _render_unified_diff(spec_path,
+                                    before=payload.get("before") or "",
+                                    after=payload.get("after") or "",
+                                    spec_id=spec_id)
+        # Record the provenance Artefact + PRODUCES_FROM edges.
+        art_id = self.ctx.record("Artefact", {
+            "kind": "amendment-proposal",
+            "spec_id": spec_id,
+            "op": payload.get("op", ""),
+            "payload_hash": payload_hash,
+        })
+        self.ctx.link(art_id, self.ctx.intent_id, "SERVES")
+        for rid in sources:
+            self.ctx.link(art_id, rid, "PRODUCES_FROM")
+        result: dict = {"diff": diff, "artefact_id": art_id,
+                        "payload_hash": payload_hash}
+        # Live write is Slice 2; v1 records the Artefact + returns the diff.
+        return result

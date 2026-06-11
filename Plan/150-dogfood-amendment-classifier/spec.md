@@ -1,8 +1,8 @@
 ---
 spec_id: "150"
 slug: dogfood-amendment-classifier
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-11
 owner: "@agency"
 enhances: "014"
 depends_on: ["014", "017", "045", "147", "149"]
@@ -141,3 +141,60 @@ Then:   returns Codes.AMENDMENT_BAD_SPEC; no Artefact written
    a `/agency-amendments` slash command (Spec 148 family) renders
    pending proposals; accepting opens a PR draft. Closes the loop end
    to end.
+
+## Followup — Implementation Status (2026-06-11)
+
+### Done — Slice 1 (keyword-classifier path + apply_amendment dry-run)
+
+- **`dogfood.parse_amendment(scope, since, limit)`** — keyword
+  classifier reads `Reflection(scope="observation")` nodes, classifies
+  each by strong-intent keywords (`should add` / `propose` / `should
+  be` / `missing from spec` / `open question`) → ProposalPayload shape
+  `{spec_id, section, op, before, after, rationale, source_reflections,
+  confidence}`. The keyword path is the documented fallback when
+  Spec 147 AnthropicDriver is unavailable (never silent no-op);
+  Slice 2 swaps in structured-output classification.
+- **`dogfood.apply_amendment(payload, dry_run=True, confirm_token="")`**
+  — renders the proposed spec-edit as a unified diff (Python
+  `difflib`); records `Artefact(kind="amendment-proposal")` with
+  PRODUCES_FROM edges to every cited Reflection (provenance moat
+  invariant); SERVES the active intent. Live-write opt-in via
+  `confirm_token` matching the payload id-hash (SHA-256 of
+  `spec_id|section|op|after`).
+- **Typed failure codes on `Codes`** — `AMENDMENT_BAD_SPEC` /
+  `AMENDMENT_NO_SOURCE` / `AMENDMENT_VAGUE` (< 40-char rationale floor) /
+  `AMENDMENT_UNCONFIRMED` (live-write requested, token mismatch).
+- **Ontology extension** — `Artefact: ["kind"]` node + `PRODUCES_FROM`
+  edge added to `DogfoodCapability.ontology` so the amendment
+  provenance is queryable via `analyze.graph_query` (Spec 203).
+- **13 tests green** (`tests/test_dogfood_amendment_classifier.py`) —
+  shape + classifier rules + scope/limit filter + dry-run diff +
+  provenance Artefact + PRODUCES_FROM edges + typed-code paths
+  (bad_spec, no_source, vague, unconfirmed) + Codes sugar.
+- **Regression**: `test_dogfood_has_session_tracking_verbs` converted
+  from frozen-snapshot `set ==` to a SUBSET invariant (rule 8) so
+  documented core verbs must exist; future verbs may extend the set.
+
+### Still — Slice 2+
+
+- **Slice 2**: swap the keyword classifier for a Spec 147
+  AnthropicDriver `complete()` call with
+  `output_config.format=ProposalPayloadSchema` (structured output) —
+  same return shape, sharper recall. Degrade silently to keyword path
+  when driver backend is "none".
+- **Slice 3**: `confirm_token` live-write that performs the actual
+  spec.md surgery (section locator + diff apply); today the dry-run
+  branch is the only branch.
+- **Slice 4**: rubric.md vendored (Managed-Agents Outcome path);
+  promote to an Outcome iterate-to-rubric when measured proposal
+  accept-rate < 0.5.
+- **Slice 5**: de-dup by payload-hash; existing proposal returned with
+  `duplicate_of` field.
+- **Slice 6**: `/agency-amendments` slash command (Spec 148 family)
+  renders pending proposals + accept opens a PR draft (closes the
+  loop end to end).
+- **Spec 258 quality loop**: accept-rate metric on the classifier;
+  regression triggers a warning Reflection (the meta-loop).
+- **Spec 159 collect retirement**: replace the last `dogfood.collect`
+  caller with `parse_amendment`; CI fails if a `collect` import
+  resolves.

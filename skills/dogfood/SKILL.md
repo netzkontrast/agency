@@ -23,18 +23,20 @@ Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exporte
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `apply_amendment` | effect | Render a ProposalPayload as a unified diff; provenance Artefact. | [details](#apply_amendment) |
 | `boundary_use_audit` | transform | Audit BoundaryUse nodes — flag raw-tool uses where a verb exists (transform). | [details](references/boundary_use_audit.md) |
 | `collect` | transform | Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files; extract observations. | [details](references/collect.md) |
 | `export` | effect | Dump the provenance store to a portable JSON file. | [details](references/export.md) |
 | `import` | effect | Replay a JSON export into this graph, preserving ids + windows. | [details](references/import.md) |
 | `note` | act | Record an observation Reflection tagged with plan_slug. | [details](references/note.md) |
+| `parse_amendment` | transform | Classify recent Reflections into amendment proposals. | [details](references/parse_amendment.md) |
 | `record_decision` | effect | Bind a decision to the current session (effect). | [details](references/record_decision.md) |
 | `render` | transform | Project plan_slug observations into DOGFOOD-NOTES.md. | [details](references/render.md) |
 
 ## Example
 
 ```bash
-await call_tool('capability_dogfood_boundary_use_audit', {'intent_id': 'intent:abc'})
+await call_tool('capability_dogfood_apply_amendment', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
@@ -48,3 +50,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`dogfood-usage`** (usage): use-transform → use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'dogfood-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## apply_amendment
+
+Render a ProposalPayload as a unified diff; provenance Artefact.
+
+Parameters: `(payload: 'dict', dry_run: 'bool' = True, confirm_token: 'str' = '')`.
+
+_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/apply_amendment.md.)_

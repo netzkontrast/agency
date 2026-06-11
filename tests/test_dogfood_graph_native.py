@@ -158,10 +158,18 @@ def test_dogfood_has_session_tracking_verbs(engine):
     """Spec 020 v1 added `export`; Spec 020 v2 added `import`; Spec 017
     added `note` + `render`; collect was pre-existing. Spec 114 added
     `record_decision` + `boundary_use_audit` (session-tracking cluster).
-    (Toolchain execution lives in the broader `shell` capability — Spec 073.)"""
+    Spec 150 Slice 1 added `parse_amendment` + `apply_amendment` (Goal-6
+    closure). (Toolchain execution lives in the broader `shell` capability —
+    Spec 073.) Per CLAUDE.md rule 8 this is a SUBSET invariant — the
+    documented core MUST exist; future verbs may extend the set."""
     cap = engine.registry.get("dogfood")
-    assert {"note", "render", "collect", "export", "import",
-            "record_decision", "boundary_use_audit"} == set(cap.verbs)
+    documented_core = {"note", "render", "collect", "export", "import",
+                       "record_decision", "boundary_use_audit",
+                       "parse_amendment", "apply_amendment"}
+    live = set(cap.verbs)
+    missing = documented_core - live
+    assert not missing, (
+        f"dogfood lost documented core verbs: {missing} (live={sorted(live)})")
 
 
 def test_render_respects_max_tokens(engine, iid):
