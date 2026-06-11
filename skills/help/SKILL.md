@@ -68,7 +68,7 @@ agency execute --code \
 - **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, run, security
 - **branch** — assess, commit_smart, finish
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
-- **develop** — checklist, estimate, mode_select, record_authoring_outcome, reference, scaffold_capability, session_check, session_init, skill_walk, validate_skill
+- **develop** — checklist, estimate, mode_select, record_authoring_outcome, reference, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
 - **document** — explain, index_repo, render
 - **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, record_decision, render
 - **gate** — check
