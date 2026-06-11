@@ -434,20 +434,21 @@ def test_hard_gate_kind_without_predicate_returns_typed_code():
     assert "predicate" in out.message
 
 
-def test_verb_bound_phase_with_gate_computed_skips_gate_verb():
-    """Codex review: when both `invoke` and `gate: "computed"` are
-    present, `_derive_variant` returns `verb_bound` (invoke wins). The
-    pre-derive gate_verb check must not reject — the invoked verb's
-    own gate semantics take over."""
+def test_verb_bound_phase_without_gate_is_valid():
+    """Per Codex review (round 9): an invoke-bound phase must NOT carry
+    `gate` (any value) — invoke + gate is contradictory because the
+    walker invokes the verb before checking the gate, double-invoking
+    on confirmed resubmit. The valid shape is bare invoke (variant
+    `verb_bound`) — the invoked verb's own gate semantics take over."""
     out = parse_phase({
-        "name": "delegate-gate",
+        "name": "delegate",
         "produces": ["result"],
-        "gate": "computed",                                        # would normally need gate_verb
         "invoke": {"capability": "music", "verb": "verify_gate"},
-        # no gate_verb — the verb_bound variant doesn't need it
+        # NO gate field — the invoked verb owns the gate semantics
     })
     assert out.ok
     assert out.value.variant == "verb_bound"
+    assert out.value.gate == ""
 
 
 def test_phase_kind_hard_gate_with_invoke_returns_typed_code():
@@ -631,6 +632,42 @@ def test_null_gate_verb_returns_typed_code():
     out = parse_phase({"name": "x", "produces": ["r"], "gate_verb": None})
     assert not out.ok
     assert out.code == Codes.PHASE_MISSING_FIELD
+
+
+# ── Codex round-9 review fixes ────────────────────────────────────────────
+def test_null_index_returns_typed_code():
+    """Codex review: `index: null` is not absent — must fail at the
+    boundary so the round-trip invariant doesn't drop the key."""
+    out = parse_phase({"name": "x", "produces": ["r"], "index": None})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "index" in out.message and "null" in out.message.lower()
+
+
+def test_hard_gate_on_verb_bound_phase_returns_typed_code():
+    """Codex review: walker invokes the verb THEN checks gate=="hard",
+    so a hard-gate verb-bound phase double-invokes on confirmed
+    resubmit. Reject at the boundary."""
+    out = parse_phase({
+        "name": "lint", "produces": ["lint_report"],
+        "gate": "hard",                                            # contradicts invoke semantics
+        "invoke": {"capability": "plugin", "verb": "lint_skill"},
+    })
+    assert not out.ok
+    assert out.code == Codes.PHASE_UNKNOWN_KIND
+    assert "gate" in out.message and "invoke" in out.message
+
+
+def test_soft_gate_on_verb_bound_phase_returns_typed_code():
+    """Same invariant applies for soft/computed gates — invoke wins, the
+    gate field must not survive on a verb-bound phase."""
+    out = parse_phase({
+        "name": "lint", "produces": ["lint_report"],
+        "gate": "soft",
+        "invoke": {"capability": "plugin", "verb": "lint_skill"},
+    })
+    assert not out.ok
+    assert out.code == Codes.PHASE_UNKNOWN_KIND
 
 
 # ── Codes coverage ─────────────────────────────────────────────────────────

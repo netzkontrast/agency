@@ -260,9 +260,17 @@ def parse_phase(d: dict) -> ParseResult:
     inputs, err = _parse_string_list(d, "inputs", parent=f"phase `{name}`")
     if err:
         return err
-    index_raw = d.get("index")
     index: Optional[int] = None
-    if index_raw is not None:
+    if "index" in d:
+        index_raw = d["index"]
+        # Codex review (round 8): `index: null` is NOT the same as
+        # absent. `Phase.to_dict()` would drop the key on round-trip
+        # because the stored `self.index is None`.
+        if index_raw is None:
+            return ParseResult.failure(
+                Codes.PHASE_MISSING_FIELD,
+                f"phase `{name}` has `index: null` — declare an int "
+                f"or remove the key entirely")
         if not isinstance(index_raw, int) or isinstance(index_raw, bool):
             return ParseResult.failure(
                 Codes.PHASE_MISSING_FIELD,
@@ -321,6 +329,18 @@ def parse_phase(d: dict) -> ParseResult:
             f"shape derives variant={variant!r} "
             f"(invoke takes precedence over gate; a hard-gate phase must "
             f"not also carry `invoke`)")
+    # Reject `gate: "hard"` (or any gate) ON a verb-bound phase EVEN
+    # WHEN no explicit `kind` is declared (Codex review on PR #127). If
+    # the SkillDoc keeps both, to_dict() preserves them, and the existing
+    # walker invokes the verb THEN pauses on the hard gate — confirmed
+    # resubmit re-invokes the verb (double-execution bug).
+    if variant == "verb_bound" and gate:
+        return ParseResult.failure(
+            Codes.PHASE_UNKNOWN_KIND,
+            f"phase `{name}` is verb-bound (`invoke` set) but also "
+            f"declares `gate: {gate!r}` — invoke phases delegate gate "
+            f"semantics to the invoked verb; remove `gate` or convert "
+            f"to a hard/soft-gate phase without `invoke`")
     # Per-variant invariants (Codex review rounds 2-4 on PR #127):
     # - ALL parsed phases must declare non-empty `produces`. The walker
     #   (Spec 018 SkillRun.current / submit) reads `p["produces"]`
