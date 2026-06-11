@@ -8,14 +8,14 @@ generate/validate pair is half-wired.
 
 Slice 1 ships the pure audit:
 - `scripts/check_schema_coverage.py` — walks every
-  `agency/capabilities/*/schemas/*.json`, lifts `title` → label, derives
-  the (covered, uncovered, fraction) shape against the live ontology
-  labels. Typed `CoverageReport{covered, uncovered, coverage_fraction}`.
-- `priority_uncovered(engine)` — ranks uncovered labels by live
-  graph node-count so authors target the highest-traffic gaps first.
-- CLI surface + library functions; informational only (Slice 2 lights up
-  the WARN→error gate + the doctor + the round-trip invariant per
-  Spec 058 doctrine).
+  `agency/capabilities/*/schemas/*.json` AND honors inline schemas
+  declared via `OntologyExtension.schemas`. Tolerates list-form JSON.
+- Typed `CoverageReport{covered, uncovered, non_node_schemas, ...}` —
+  Codex review on PR #128: renamed `spurious` to `non_node_schemas`
+  because many schemas legitimately validate artefact / wire-payload
+  shapes (e.g. `gate-outcome.json` validates `gate.check` payload).
+- Library functions + CLI; informational only (Slice 2 lights up the
+  WARN→error gate per Spec 058 doctrine).
 """
 from __future__ import annotations
 
@@ -66,21 +66,32 @@ def test_schema_labels_extracts_title_from_each_schema(tmp_path):
     assert labels == {"Label1", "Label2"}
 
 
-def test_schema_labels_skips_schemas_without_title(tmp_path):
-    """A schema file missing `title` is malformed — surface it via the
-    audit's `malformed` count, do NOT silently include or exclude it."""
+def test_schema_labels_falls_back_to_filename_when_title_missing(tmp_path):
+    """Codex review on PR #128: a dict schema without `title` is not
+    malformed — many simple schemas omit it. Derive the label from the
+    filename (kebab-case lifted to PascalCase) rather than silently
+    dropping the schema."""
     (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
-    (tmp_path / "capabilities" / "a" / "schemas" / "ok.json").write_text(
-        '{"title": "GoodLabel"}')
-    (tmp_path / "capabilities" / "a" / "schemas" / "bad.json").write_text(
+    (tmp_path / "capabilities" / "a" / "schemas" / "repo-index.json").write_text(
         '{"description": "no title here"}')
     labels = schema_labels(tmp_path)
-    assert labels == {"GoodLabel"}                                 # bad.json silently skipped here
+    assert labels == {"RepoIndex"}                                 # filename → PascalCase
+
+
+def test_schema_labels_handles_list_form_schemas(tmp_path):
+    """Codex review on PR #128: `_load_schemas_from()` accepts any JSON
+    value, including list-form `["field"]` schemas. The audit must
+    derive the label from the filename instead of crashing on
+    `.get("title")` against a list."""
+    (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
+    (tmp_path / "capabilities" / "a" / "schemas" / "simple-record.json").write_text(
+        '["field_a", "field_b"]')
+    labels = schema_labels(tmp_path)
+    assert labels == {"SimpleRecord"}
 
 
 def test_schema_labels_ignores_unreadable_files(tmp_path):
-    """A corrupt or unreadable schema file does NOT crash the audit —
-    surface as zero contribution and let the report flag malformed."""
+    """A corrupt or unreadable schema file does NOT crash the audit."""
     (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
     (tmp_path / "capabilities" / "a" / "schemas" / "bad.json").write_text(
         "{ not valid json")
@@ -88,9 +99,31 @@ def test_schema_labels_ignores_unreadable_files(tmp_path):
     assert labels == set()
 
 
+def test_schema_labels_includes_inline_schemas(tmp_path):
+    """Codex review on PR #128: inline schemas declared via
+    `OntologyExtension.schemas` (e.g. document cap's `repo-index`) must
+    enter the audit. The CLI boots an engine to read them; library
+    callers pass them via `inline_schemas=`."""
+    # No file-based schemas in tmp_path — only inline.
+    (tmp_path / "capabilities").mkdir(parents=True, exist_ok=True)
+    inline = {"repo-index": {"required": ["path"]},
+              "intent-yaml": {"required": ["purpose"]}}
+    labels = schema_labels(tmp_path, inline_schemas=inline)
+    assert labels == {"RepoIndex", "IntentYaml"}                   # both lifted to PascalCase
+
+
+def test_schema_labels_merges_file_and_inline_sources(tmp_path):
+    (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
+    (tmp_path / "capabilities" / "a" / "schemas" / "file.json").write_text(
+        '{"title": "FromFile"}')
+    inline = {"from-inline": {}}
+    labels = schema_labels(tmp_path, inline_schemas=inline)
+    assert labels == {"FromFile", "FromInline"}
+
+
 # ── coverage report ────────────────────────────────────────────────────────
 def test_audit_schemas_returns_coverage_report(tmp_path):
-    """`audit_schemas(repo_root, ontology_labels)` returns a typed report."""
+    """`audit_schemas(repo_root, ontology_labels=...)` returns a typed report."""
     (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
     (tmp_path / "capabilities" / "a" / "schemas" / "intent.json").write_text(
         '{"title": "Intent"}')
@@ -98,7 +131,6 @@ def test_audit_schemas_returns_coverage_report(tmp_path):
     assert isinstance(rep, CoverageReport)
     assert rep.covered == {"Intent"}
     assert rep.uncovered == {"Reflection", "Artefact"}
-    # Coverage fraction relationship: covered / total ontology labels.
     assert rep.coverage_fraction == 1 / 3
 
 
@@ -110,29 +142,45 @@ def test_audit_returns_one_for_empty_ontology(tmp_path):
     assert rep.uncovered == set()
 
 
-def test_audit_records_schema_without_ontology_label(tmp_path):
-    """A Schema whose label is NOT in the ontology is a SPURIOUS schema
-    (e.g. a stale schema for a removed node type) — surface it so the
-    author can either rename or remove."""
+def test_audit_records_non_node_schema(tmp_path):
+    """Codex review on PR #128: a Schema whose label is NOT in the
+    ontology is NOT spurious — it likely validates an artefact or
+    wire-payload shape (e.g. `gate-outcome.json` validates the
+    `gate.check` payload). Surface in `non_node_schemas` so the audit
+    doesn't tell authors to remove legitimate files."""
     (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
-    (tmp_path / "capabilities" / "a" / "schemas" / "stale.json").write_text(
-        '{"title": "RemovedNode"}')
-    rep = audit_schemas(tmp_path, ontology_labels={"Intent"})
-    assert rep.spurious == {"RemovedNode"}
+    (tmp_path / "capabilities" / "a" / "schemas" / "wire.json").write_text(
+        '{"title": "GateOutcome"}')
+    rep = audit_schemas(tmp_path, ontology_labels={"Gate"})
+    assert rep.non_node_schemas == {"GateOutcome"}
+    # The non-node schema does NOT inflate covered.
+    assert rep.covered == set()
+    assert rep.coverage_fraction == 0.0
 
 
 def test_audit_subset_invariant_per_rule_8(tmp_path):
     """Per CLAUDE.md rule 8 — `covered` is the INTERSECTION of schema
-    labels and ontology labels; never inflated by spurious schemas."""
+    labels and ontology labels; non-node schemas never enter `covered`."""
     (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
     (tmp_path / "capabilities" / "a" / "schemas" / "intent.json").write_text(
         '{"title": "Intent"}')
-    (tmp_path / "capabilities" / "a" / "schemas" / "stale.json").write_text(
-        '{"title": "Removed"}')
+    (tmp_path / "capabilities" / "a" / "schemas" / "wire.json").write_text(
+        '{"title": "GateOutcome"}')
     rep = audit_schemas(tmp_path, ontology_labels={"Intent"})
-    # Spurious doesn't show up in covered (rule 8 — relationship, not count).
+    # Non-node schema doesn't show up in covered (rule 8 — relationship, not count).
     assert rep.covered == {"Intent"}
     assert rep.coverage_fraction == 1.0                            # 1 of 1 ontology labels covered
+
+
+def test_audit_honors_inline_schemas_against_ontology_labels():
+    """The CLI passes the engine's merged inline schemas; this asserts
+    `audit_schemas` honors them as covered when the lifted label matches."""
+    inline = {"repo-index": {}, "intent-yaml": {}}
+    # `RepoIndex` is in the live ontology; `IntentYaml` is not (it's an artefact form).
+    rep = audit_schemas(Path("agency"), ontology_labels={"RepoIndex"},
+                        ontology_schemas=inline)
+    assert "RepoIndex" in rep.covered
+    assert "IntentYaml" in rep.non_node_schemas
 
 
 # ── live-tree audit (informational) ────────────────────────────────────────
@@ -145,9 +193,11 @@ def test_live_tree_audit_yields_a_report():
     e = Engine(":memory:")
     try:
         ontology = set(e.ontology.nodes)
+        inline = dict(e.ontology.schemas)
     finally:
         e.memory.close()
-    rep = audit_schemas(repo / "agency", ontology_labels=ontology)
+    rep = audit_schemas(repo / "agency", ontology_labels=ontology,
+                        ontology_schemas=inline)
     assert isinstance(rep, CoverageReport)
     # Shape invariants — the audit walks the live tree without crashing.
     assert isinstance(rep.covered, set)
