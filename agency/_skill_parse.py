@@ -97,7 +97,7 @@ _PHASE_KIND_TO_VARIANT = {
 # but ALSO preserved through extras so the round trip is lossless.
 _PHASE_KNOWN_KEYS = frozenset({
     "name", "produces", "cue", "gate", "invoke", "reference",
-    "index", "verbs", "gate_verb", "kind",
+    "index", "verbs", "gate_verb", "kind", "inputs",
 })
 _SKILL_KNOWN_KEYS = frozenset({"name", "phases", "kind"})
 
@@ -121,9 +121,10 @@ class Phase:
     verbs: tuple[str, ...] = ()
     gate_verb: str = ""
     kind: str = ""                                                 # Spec 003 phase-kind shape
+    inputs: tuple[str, ...] = ()                                   # walker kwargs for verb-bound dispatch
     # Catch-all for live-registry fields the typed Phase doesn't claim
-    # (e.g. `inputs` on Jules phases, `predicate`/`text` from the Spec 003
-    # hard-gate shape). Preserved through the round trip.
+    # (e.g. `predicate`/`text` from the Spec 003 hard-gate shape).
+    # Preserved through the round trip.
     extras: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -140,6 +141,8 @@ class Phase:
             out["produces"] = list(self.produces)
         if self.verbs:
             out["verbs"] = list(self.verbs)
+        if self.inputs:
+            out["inputs"] = list(self.inputs)
         if self.cue:
             out["cue"] = self.cue
         if self.gate:
@@ -228,6 +231,13 @@ def parse_phase(d: dict) -> ParseResult:
     verbs, err = _parse_string_list(d, "verbs", parent=f"phase `{name}`")
     if err:
         return err
+    # Spec 018 `SkillRun.submit()` iterates `p.get("inputs", [])` to build
+    # kwargs for the invoked verb — Codex review on PR #127. Lift +
+    # validate as a list of strings (matches `produces` / `verbs`); a
+    # string `inputs: "source"` would otherwise split into characters.
+    inputs, err = _parse_string_list(d, "inputs", parent=f"phase `{name}`")
+    if err:
+        return err
     index_raw = d.get("index")
     index: Optional[int] = None
     if index_raw is not None:
@@ -265,6 +275,16 @@ def parse_phase(d: dict) -> ParseResult:
             Codes.PHASE_MISSING_FIELD,
             f"phase `{name}` kind='verb-bound' requires `invoke` "
             f"({{'capability': ..., 'verb': ...}})")
+    # Honor kind-only SkillDocs (spec.md form): `{"kind": "hard-gate",
+    # "predicate": "..."}` declares a hard gate WITHOUT a redundant
+    # `gate: "hard"` field. Derive the implied gate from kind so the
+    # variant derivation + kind-vs-variant agreement check below see
+    # the same effective gate the author intended (Codex review on
+    # PR #127).
+    if kind and not gate:
+        implied = _PHASE_KIND_TO_GATE.get(kind, "")
+        if implied:
+            gate = implied
     # Derive the variant so the kind/produces/predicate/gate_verb
     # checks below see the post-derivation truth, not just the raw
     # gate-vs-invoke shape (Codex review on PR #127 §"Reject phase kinds
@@ -281,25 +301,23 @@ def parse_phase(d: dict) -> ParseResult:
             f"shape derives variant={variant!r} "
             f"(invoke takes precedence over gate; a hard-gate phase must "
             f"not also carry `invoke`)")
-    # Per-variant invariants (Codex review rounds 2-3 on PR #127):
-    # - verb_bound: `invoke` set → `produces` must be non-empty (the
-    #   walker stores the verb result at `p["produces"][0]`).
+    # Per-variant invariants (Codex review rounds 2-4 on PR #127):
+    # - ALL parsed phases must declare non-empty `produces`. The walker
+    #   (Spec 018 SkillRun.current / submit) reads `p["produces"]`
+    #   unconditionally — a phase without it raises KeyError on the
+    #   first disclosure step. Reject at the parse boundary.
     # - computed_gate: requires `gate_verb` (the gate dispatches through
-    #   a verb). NOTE: when invoke ALSO present, variant is verb_bound
+    #   a verb). When `invoke` is ALSO present, variant is verb_bound
     #   and this check does NOT apply (invoke wins; the invoked verb's
     #   own gate semantics take over).
     # - hard_gate (kind="hard-gate"): MUST declare a `predicate` field.
     #   The spec.md worked failure case says this exact shape must fail.
-    if variant == "verb_bound" and not produces:
+    if not produces:
         return ParseResult.failure(
             Codes.PHASE_MISSING_FIELD,
-            f"phase `{name}` has `invoke` but no `produces` — "
-            f"verb-bound phases must declare ≥ 1 output name")
-    if variant == "verb_bound" and kind == "verb-bound" and invoke is None:
-        return ParseResult.failure(
-            Codes.PHASE_MISSING_FIELD,
-            f"phase `{name}` kind='verb-bound' requires `invoke` "
-            f"({{'capability': ..., 'verb': ...}})")
+            f"phase `{name}` is missing required field `produces` "
+            f"(the walker reads it unconditionally; ≥ 1 output name "
+            f"required per phase)")
     if variant == "computed_gate" and not gate_verb:
         return ParseResult.failure(
             Codes.PHASE_MISSING_FIELD,
@@ -325,6 +343,7 @@ def parse_phase(d: dict) -> ParseResult:
         verbs=verbs,
         gate_verb=gate_verb,
         kind=kind,
+        inputs=inputs,
         extras=extras,
     ))
 

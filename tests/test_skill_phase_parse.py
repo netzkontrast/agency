@@ -81,7 +81,7 @@ def test_computed_gate_phase_has_typed_variant():
 
 
 def test_computed_gate_without_gate_verb_returns_typed_code():
-    out = parse_phase({"name": "x", "gate": "computed"})
+    out = parse_phase({"name": "x", "gate": "computed", "produces": ["r"]})
     assert not out.ok
     assert out.code == Codes.PHASE_MISSING_FIELD
     assert "gate_verb" in out.message
@@ -98,7 +98,8 @@ def test_verb_bound_phase_has_typed_variant():
 
 
 def test_phase_carries_optional_cue_and_reference():
-    out = parse_phase({"name": "elicit", "cue": "Tell me one thing",
+    out = parse_phase({"name": "elicit", "produces": ["answer"],
+                       "cue": "Tell me one thing",
                        "reference": "see ref.md"})
     assert out.ok
     p = out.value
@@ -211,7 +212,7 @@ def test_parse_skill_propagates_phase_failure():
     out = parse_skill({
         "name": "broken",
         "phases": [
-            {"name": "good"},
+            {"name": "good", "produces": ["ok"]},
             {"produces": ["x"]},                                  # missing `name`
         ],
     })
@@ -285,9 +286,12 @@ def test_skill_preserves_applies_when_via_extras():
     assert out.value.to_dict() == s_in
 
 
-def test_phase_preserves_inputs_via_extras():
-    """Jules phases carry `inputs` (agency/capabilities/jules/skills.py:39).
-    Parser must preserve it through the round trip."""
+def test_phase_lifts_and_validates_inputs():
+    """Jules phases carry `inputs` (agency/capabilities/jules/skills.py:39);
+    SkillRun.submit() iterates `p.get("inputs", [])` to build kwargs.
+    Codex review (round 5): lift + validate as a list of strings
+    (matches produces/verbs treatment) rather than slipping it through
+    extras unchecked."""
     s_in = {
         "name": "jules-dispatch",
         "phases": [
@@ -297,24 +301,47 @@ def test_phase_preserves_inputs_via_extras():
     }
     out = parse_skill(s_in)
     assert out.ok
-    assert out.value.phases[0].extras == {"inputs": ["source"]}
+    p = out.value.phases[0]
+    assert p.inputs == ("source",)                                 # tuple — typed first-class
     # Round-trip preserves the field.
     assert out.value.to_dict() == s_in
 
 
-def test_phase_kind_hard_gate_requires_gate_hard():
-    """Spec 003 `kind: "hard-gate"` shape. Codex review: my parser
-    previously derived variant from gate only, so `{"kind": "hard-gate"}`
-    without a `gate` parsed as a normal step — the silent-skip pattern.
-    Now `kind` validates against the derived gate."""
-    out = parse_phase({"name": "approve", "kind": "hard-gate"})
+def test_phase_inputs_non_list_returns_typed_code():
+    """Codex review: `inputs: "source"` would split into characters if
+    silently accepted; reject at the boundary."""
+    out = parse_phase({"name": "x", "produces": ["r"], "inputs": "source"})
     assert not out.ok
-    assert out.code == Codes.PHASE_UNKNOWN_KIND
-    assert "hard" in out.message
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "inputs" in out.message
+
+
+def test_phase_missing_produces_returns_typed_code():
+    """Codex review: the walker reads `p["produces"]` unconditionally.
+    A phase that omits produces would raise KeyError on the first
+    disclosure step; reject at the parse boundary instead."""
+    out = parse_phase({"name": "design"})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "produces" in out.message
+
+
+def test_phase_kind_hard_gate_alone_implies_gate_hard():
+    """Codex review (round 5): Spec 003 `kind: "hard-gate"` shape (no
+    redundant `gate` field) MUST work — the kind implies the gate. The
+    SkillDoc form `{"kind": "hard-gate", "predicate": "tests_green"}`
+    is the documented spec.md example."""
+    out = parse_phase({"name": "approve", "kind": "hard-gate",
+                       "produces": ["approved"],
+                       "predicate": "tests_green"})
+    assert out.ok
+    assert out.value.variant == "hard_gate"
+    assert out.value.gate == "hard"                                # implied from kind
 
 
 def test_phase_kind_hard_gate_with_matching_gate_passes():
     out = parse_phase({"name": "approve", "kind": "hard-gate", "gate": "hard",
+                       "produces": ["approved"],
                        "predicate": "tests_green"})
     assert out.ok
     assert out.value.variant == "hard_gate"
@@ -398,7 +425,8 @@ def test_hard_gate_kind_without_predicate_returns_typed_code():
     `predicate` must fail at the parse boundary (otherwise Slice 2
     routes a typed hard gate with no predicate for the walker to
     enforce)."""
-    out = parse_phase({"name": "approve", "kind": "hard-gate", "gate": "hard"})
+    out = parse_phase({"name": "approve", "kind": "hard-gate", "gate": "hard",
+                       "produces": ["approved"]})
     assert not out.ok
     assert out.code == Codes.PHASE_MISSING_FIELD
     assert "predicate" in out.message
@@ -446,7 +474,7 @@ def test_skill_parse_codes_constants_land():
 
 # ── ParseResult shape ──────────────────────────────────────────────────────
 def test_parse_result_typed_envelope():
-    out = parse_phase({"name": "x"})
+    out = parse_phase({"name": "x", "produces": ["r"]})
     assert isinstance(out, ParseResult)
     assert out.ok is True and out.code == "" and out.message == ""
 
