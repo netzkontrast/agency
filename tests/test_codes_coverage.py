@@ -314,6 +314,41 @@ def test_invalid_argument_codes_value_matches_existing_literal():
     assert Codes.INVALID_ARGUMENT == "INVALID_ARGUMENT"            # NOT lowercase
 
 
+# ── Codex round-3 review fixes ────────────────────────────────────────────
+def test_codes_not_imported_classified_as_offender(tmp_path):
+    """Codex review: a file that imports ToolResult but FORGETS to import
+    Codes. `Codes.NOT_FOUND` raises NameError at runtime — must surface
+    as an offender, not fall back to the bare `{"Codes"}` alias set and
+    be silently counted as covered."""
+    (tmp_path / "broken.py").write_text(
+        "from agency.toolresult import ToolResult\n"            # No Codes import!
+        "def f():\n"
+        "    return ToolResult.failure(Codes.NOT_FOUND, 'gone')\n"
+    )
+    rep = audit_tree(tmp_path)
+    assert rep.covered_sites == 0
+    assert len(rep.offenders) == 1
+    assert "Codes.NOT_FOUND" in rep.offenders[0].literal
+    assert "not imported" in rep.offenders[0].literal
+
+
+def test_cli_includes_unknown_count(capsys, tmp_path):
+    """Codex review: an UNKNOWN-only tree previously printed
+    `(0/0 covered; 0 offenders; 0 computed)` hiding the call site
+    entirely. CLI breakdown must include `unknown`."""
+    from scripts.check_codes_coverage import main
+    (tmp_path / "u.py").write_text(
+        "from agency.toolresult import ToolResult\n"
+        "def f(payload): return ToolResult.failure(**payload)\n"
+    )
+    rc = main(["--root", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "1 unknown" in out                                      # breakdown surfaces it
+    # The denominator counts the unknown site.
+    assert "0/1 covered" in out
+
+
 # ── live-tree invariant (informational; Slice 2 promotes to gate) ──────────
 def test_live_tree_audit_yields_a_report():
     """Slice 1: assert the audit RUNS against the live repo and produces a

@@ -186,6 +186,11 @@ def classify_failure_call(
     `from agency.toolresult import Codes as <X>` alias. When None, the
     default `{"Codes"}` is used (the common case).
     """
+    # An explicit empty `codes_aliases` set means the audited file did not
+    # import `Codes`. Codex review on PR #126: do NOT fall back to the
+    # bare `{"Codes"}` because that hides NameErrors at runtime — surface
+    # the broken path as a STRING_LITERAL offender (see the
+    # `code_arg.value.id == "Codes"` branch below).
     if codes_aliases is None:
         codes_aliases = {"Codes"}
     code_arg: ast.AST | None = None
@@ -200,14 +205,22 @@ def classify_failure_call(
         return CallSiteClass.UNKNOWN, "", ""
     if isinstance(code_arg, ast.Constant) and isinstance(code_arg.value, str):
         return CallSiteClass.STRING_LITERAL, code_arg.value, ""
-    if isinstance(code_arg, ast.Attribute) and isinstance(code_arg.value, ast.Name) \
-            and code_arg.value.id in codes_aliases:
+    if isinstance(code_arg, ast.Attribute) and isinstance(code_arg.value, ast.Name):
+        receiver = code_arg.value.id
         attr_name = code_arg.attr
-        if codes_members is not None and attr_name not in codes_members:
-            # Typo — surface as an offender so the AttributeError doesn't
-            # hide behind an inflated "covered" count.
-            return CallSiteClass.STRING_LITERAL, f"Codes.{attr_name}", ""
-        return CallSiteClass.ATTR_REF, "", attr_name
+        if receiver in codes_aliases:
+            if codes_members is not None and attr_name not in codes_members:
+                # Typo — surface as an offender so the AttributeError doesn't
+                # hide behind an inflated "covered" count.
+                return CallSiteClass.STRING_LITERAL, f"Codes.{attr_name}", ""
+            return CallSiteClass.ATTR_REF, "", attr_name
+        # Receiver looks like the user intended `Codes.X` (literally
+        # named `Codes`) but the file did NOT import it. At runtime this
+        # raises NameError. Surface as an offender so the broken failure
+        # path is visible in the audit, not silently mis-classified as
+        # EXPR (which would understate the severity).
+        if receiver == "Codes":
+            return CallSiteClass.STRING_LITERAL, f"Codes.{attr_name} (not imported)", ""
     # Anything else (Name, BinOp, Call, conditional expr, …) is computed.
     return CallSiteClass.EXPR, "", ""
 
@@ -237,9 +250,15 @@ def audit_source(
     out: list[CallSiteResult] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and _is_toolresult_failure(node, aliases=tr_aliases):
+            # Pass the per-file `codes_aliases` set verbatim — if the
+            # file did NOT import `Codes`, the set is EMPTY and any
+            # `Codes.X` literal is reclassified as STRING_LITERAL
+            # because `Codes` is an undefined name at runtime
+            # (NameError). Codex review: do NOT replace empty with
+            # `{"Codes"}` here — that fallback hid broken failure paths.
             cls, lit, code_name = classify_failure_call(
                 node, codes_members=codes_members,
-                codes_aliases=codes_aliases or {"Codes"})
+                codes_aliases=codes_aliases)
             out.append(CallSiteResult(
                 loc=FileLoc(path=path, line=node.lineno),
                 classification=cls,
@@ -306,10 +325,16 @@ def main(argv: list[str] | None = None) -> int:
                              "Slice 2 promotes to a CI-blocking gate)")
     args = parser.parse_args(argv)
     rep = audit_tree(Path(args.root))
-    denom = rep.covered_sites + len(rep.offenders) + rep.expr_sites
+    # CLI denominator and breakdown MUST match CoverageReport.fraction's
+    # math: covered + offenders + expr + unknown. Codex review on PR #126:
+    # an UNKNOWN-only tree previously printed "0/0 covered" hiding the
+    # call sites entirely; now `unknown` appears in the breakdown.
+    denom = (rep.covered_sites + len(rep.offenders)
+             + rep.expr_sites + rep.unknown_sites)
     print(f"codes coverage: {rep.fraction:.3f}  "
           f"({rep.covered_sites}/{denom} covered; "
-          f"{len(rep.offenders)} offenders; {rep.expr_sites} computed)")
+          f"{len(rep.offenders)} offenders; {rep.expr_sites} computed; "
+          f"{rep.unknown_sites} unknown)")
     if rep.offenders:
         print(f"  offenders ({len(rep.offenders)}):")
         for o in rep.offenders[:20]:
