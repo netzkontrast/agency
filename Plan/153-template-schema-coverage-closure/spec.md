@@ -1,8 +1,8 @@
 ---
 spec_id: "153"
 slug: template-schema-coverage-closure
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-11
 owner: "@agency"
 enhances: "004"
 depends_on: ["004", "060", "032", "149"]
@@ -100,3 +100,55 @@ Then:   passes; coverage_fraction increases monotonically; floor advances
 2. Schema versioning policy — pin per spec or float? **Recommend**:
    float with a `schema_version` field in the prefix (Spec 146) so a
    schema bump invalidates the cache deliberately, never silently.
+
+## Followup — Implementation Status (2026-06-11)
+
+### Done — Slice 1 (pure schema coverage audit)
+
+- **`scripts/check_schema_coverage.py`** — pure functions walking
+  `agency/capabilities/*/schemas/*.json`:
+  - `schema_paths(root) -> list[Path]` (sorted-by-full-path,
+    deterministic per Spec 149).
+  - `schema_labels(root) -> set[str]` (extracts `title` from each
+    schema; malformed JSON / missing title silently skipped).
+  - `audit_schemas(root, ontology_labels) -> CoverageReport` (pure;
+    no engine boot).
+- **`CoverageReport` typed shape** — `{covered, uncovered, spurious,
+  total_ontology_labels}` + computed `.coverage_fraction` property
+  (= `|covered| / |ontology|`; empty ontology is 1.0 by convention).
+  `spurious` surfaces schemas whose label is NOT in the ontology
+  (e.g. stale schemas for removed node types) so they don't
+  silently inflate the covered set (rule 8 subset invariant).
+- **CLI** — `python -m scripts.check_schema_coverage [--root agency]`
+  prints fraction + uncovered head:20 + spurious. Slice 1 is
+  informational (`return 0`); Slice 2 promotes to a CI gate per
+  Spec 058 WARN→error doctrine.
+- **10 tests green** (`tests/test_template_schema_coverage.py`) —
+  deterministic discovery + non-JSON skipped + title extraction +
+  malformed json tolerated + coverage_fraction relationship + empty-
+  ontology convention + spurious detection + subset invariant +
+  live-tree shape invariant.
+
+### Still — Slice 2+
+
+- **Slice 2** — Spec 058 WARN→error promotion. Once the live tree
+  reports `fraction >= floor`, promote `check_schema_coverage` to a
+  CI-blocking gate with `--floor` enforcement (default 0.5, override
+  via `Plan/_planning/schema-coverage-floor.txt` Spec 054 drift
+  baseline). Monotone-floor invariant (a).
+- **Slice 3** — `agency_doctor.schema_coverage` reports the typed
+  payload + a `monotone_ok` bool + the `priority_uncovered` list
+  (ranked by live graph node-count so authors target the highest-
+  traffic gaps first). Needs an Engine handle on the audited DB.
+- **Slice 4** — generate→validate round-trip invariant (CORE.md
+  proven-runnable extended): for every covered label, a Template
+  renders an Artefact that the Schema validates, and the materialised
+  result round-trips back to the source dict shape. Invariant (c) —
+  `covered_schemas ⊆ template_renderable_schemas`.
+- **Slice 5** — `# AGENCY-SCHEMA-DEFERRED: <reason>` tag scan so the
+  audit subtracts deferred-but-documented gaps from the uncovered set
+  (per Spec 054 drift pattern; matches the AGENCY-RESERVED escape
+  hatch in Spec 151).
+- **Slice 6** — author schemas for the top-N highest-traffic
+  uncovered labels (driven by Slice 3 ranking); push fraction above
+  0.5 then re-floor.
