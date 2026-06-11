@@ -170,10 +170,15 @@ def recall_overflow_slice(
     count = _as_counter_fn(counter)
     total = count(body)
     if grep:
+        # Codex review on PR #129: truncate at the MATCH boundary so the
+        # returned body always contains the grep text the caller asked
+        # for. Whole matching lines drop when they don't fit; never
+        # partial lines (which previously left the start of a long line
+        # while reporting `matches_returned=1` even though the grep
+        # term was past the budget cut).
         matches = [line for line in body.split("\n") if grep in line]
-        return _truncate_to_budget(
-            "\n".join(matches), total_tokens=total,
-            matches_returned=len(matches),
+        return _grep_truncate(
+            matches, total_tokens=total,
             max_tokens=max_tokens, count=count,
         )
     if slice == "full":
@@ -195,6 +200,36 @@ def recall_overflow_slice(
     return _truncate_to_budget(
         "\n".join(selected), total_tokens=total, matches_returned=0,
         max_tokens=max_tokens, count=count,
+    )
+
+
+def _grep_truncate(
+    matches: list[str], *, total_tokens: int,
+    max_tokens: int, count: Callable[[str], int],
+) -> RecallSlice:
+    """Pack as many WHOLE matching lines as fit in `max_tokens` (joined
+    by `\\n`). The returned body always contains the grep text in full
+    for every match counted; truncation drops trailing matches rather
+    than splitting one mid-line. `more_available` flags when ANY match
+    was dropped so the caller knows to narrow the slice."""
+    total_matches = len(matches)
+    if not matches:
+        return RecallSlice(
+            body="", slice_tokens=0, total_tokens=total_tokens,
+            matches_returned=0, more_available=False,
+        )
+    accepted: list[str] = []
+    for line in matches:
+        candidate = "\n".join(accepted + [line])
+        if count(candidate) > max_tokens:
+            break
+        accepted.append(line)
+    body = "\n".join(accepted)
+    return RecallSlice(
+        body=body, slice_tokens=count(body),
+        total_tokens=total_tokens,
+        matches_returned=len(accepted),
+        more_available=len(accepted) < total_matches,
     )
 
 

@@ -241,3 +241,48 @@ def test_counter_without_call_or_count_method_raises():
     raises TypeError immediately — not on the first internal use."""
     with pytest.raises(TypeError):
         capture_overflow("body", max_tokens=10, counter=object())
+
+
+# ── Codex round-2 review on PR #129 — grep match preservation ─────────────
+def test_grep_truncates_at_match_boundary_not_mid_line():
+    """Codex review: when a matching line is too long to fit, drop the
+    WHOLE line instead of returning its start without the grep text.
+    `matches_returned` reflects FULLY-included matches only."""
+    # Three matching lines, each ~125 chars (~31 tokens via 4:1 proxy).
+    # With budget 5 tokens (≈ 20 chars), NO whole match fits.
+    long_match = "x" * 60 + " error: detail " + "y" * 50            # grep term mid-line
+    body = "\n".join([long_match, long_match, long_match])
+    r = recall_overflow_slice(body, grep="error:",
+                              max_tokens=5, counter=_counter)
+    assert r.matches_returned == 0
+    assert r.body == ""
+    assert r.more_available is True
+
+
+def test_grep_returned_body_always_contains_grep_term_when_match_count_nonzero():
+    """The body MUST contain the grep term for every match counted.
+    Previously a prefix-truncate could drop the grep text while still
+    reporting `matches_returned >= 1`."""
+    body = "\n".join([f"error: case {i}" for i in range(50)])
+    r = recall_overflow_slice(body, grep="error:",
+                              max_tokens=30, counter=_counter)
+    assert r.matches_returned > 0
+    # Body has exactly `matches_returned` occurrences of the grep term.
+    assert r.body.count("error:") == r.matches_returned
+
+
+def test_grep_more_available_flag_reflects_dropped_matches():
+    body = "\n".join([f"error: case {i}" for i in range(100)])
+    r = recall_overflow_slice(body, grep="error:",
+                              max_tokens=20, counter=_counter)
+    assert r.matches_returned < 100
+    assert r.more_available is True
+
+
+def test_grep_fits_all_matches_reports_complete():
+    body = "info: a\nerror: x\ninfo: b\nerror: y"
+    r = recall_overflow_slice(body, grep="error:",
+                              max_tokens=10_000, counter=_counter)
+    assert r.matches_returned == 2
+    assert r.more_available is False
+    assert r.body == "error: x\nerror: y"
