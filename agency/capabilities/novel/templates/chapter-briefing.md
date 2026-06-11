@@ -10,6 +10,8 @@ status: pre-draft
 template_version: 1
 ---
 
+<!-- AGENT: Render this chapter-briefing.md per chapter via `novel.render_chapter_briefing` (Spec 141). Fill the 13 sections (A–M) by aggregating the 122 / 133 / 134 / 136 / 137 / 138 / 139 / 140 stack; sections gated by an unshipped dependency render `<pending Spec NNN — see §X>`. Project overlay: `.agency/chapter-briefing-overlay.md`. -->
+
 <!-- Spec 141 — 13-section chapter-briefing template (A–M).
      Vendored. Project may override via .agency/chapter-briefing-overlay.md
      (same vendored-with-overlay pattern as Spec 129 fragments / Spec 133

@@ -177,22 +177,34 @@ def test_novel_concept_skill_terminates_in_hard_gate() -> None:
     e.memory.close()
 
 
-def test_novel_capability_ships_10_bitwize_templates_plus_ncp_json() -> None:
-    """10 markdown templates (via RenderTemplates.from_module) + ncp.json (data).
+def test_novel_capability_ships_bitwize_templates_plus_documented_extensions() -> None:
+    """The 10 bitwize-ported templates remain present (subset invariant), plus any
+    documented Spec-NNN vendoring extensions.
 
-    10 markdown + 1 JSON structural template ported verbatim from
-    `Plan/_research/novel-mvp-source/templates/`
-    per Spec 101 §"Templates (ported VERBATIM from the-agency-system)".
-    `README.md` renamed to `readme.md` for kebab-case compliance; `ncp.json` lives
-    at `data/ncp/ncp-template.json` (structural template, not a render-template).
+    Per Spec 101 §"Templates (ported VERBATIM from the-agency-system)": 10 markdown
+    templates ported verbatim from `Plan/_research/novel-mvp-source/templates/`,
+    plus `ncp.json` (structural, at `data/ncp/ncp-template.json`).
+
+    CLAUDE.md rule 8 (no hardcoded snapshots): the assertion is a relationship —
+    the bitwize set is a SUBSET of live templates, and any extras must be
+    declared as documented vendorings here. Adding a future template requires
+    naming its source spec in `documented_extensions`, which is the intended
+    audit trail.
     """
     e = _fresh()
     cap = e.registry._caps["novel"]
-    expected = {"cast", "chapter", "character", "dramatica", "outline",
-                "premise", "readme", "scene", "work", "world"}
-    assert expected == set(cap.ontology.templates), (
-        f"missing: {expected - set(cap.ontology.templates)}; "
-        f"extra: {set(cap.ontology.templates) - expected}")
+    bitwize = {"cast", "chapter", "character", "dramatica", "outline",
+               "premise", "readme", "scene", "work", "world"}
+    # Each entry: template name → source spec that vendored it.
+    documented_extensions = {
+        "chapter-briefing": "Spec 141",                             # KP wave (post-141 deepening)
+    }
+    live = set(cap.ontology.templates)
+    assert bitwize <= live, f"missing bitwize templates: {bitwize - live}"
+    extras = live - bitwize
+    assert extras <= set(documented_extensions), (
+        f"undocumented template additions: {extras - set(documented_extensions)} — "
+        "add an entry to `documented_extensions` naming the source spec")
     # ncp.json is at data/ncp/, not in templates
     from pathlib import Path
     ncp = (Path(__file__).parent.parent
