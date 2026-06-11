@@ -189,3 +189,55 @@ def test_invalid_slice_string_returns_full_body():
     r = recall_overflow_slice(body, slice="bogus",
                               max_tokens=10_000, counter=_counter)
     assert r.body == body
+
+
+# ── Codex round-1 review on PR #129 ───────────────────────────────────────
+def test_counter_with_count_method_is_accepted():
+    """Codex review: Spec 082's `TokenCounter` exposes `.count(text)`
+    rather than `__call__`. The capture/recall API must accept it via
+    the `_as_counter_fn` adapter."""
+
+    class StubCounter:
+        def count(self, text: str, model: str | None = None) -> int:
+            return max(1, len(text) // 4) if text else 0
+
+    counter = StubCounter()
+    body = "x" * 1000
+    r = capture_overflow(body, max_tokens=50, counter=counter)
+    assert r.truncated is True
+    assert r.returned_tokens <= 50
+    rs = recall_overflow_slice(body, slice="full", max_tokens=50,
+                                counter=counter)
+    assert rs.slice_tokens <= 50
+
+
+def test_capture_with_zero_budget_returns_empty_head():
+    """Codex review: `max_tokens=0` must NOT spin forever on a one-
+    character string. Capture mode yields an empty head + truncated."""
+    body = "hello world" * 100
+    r = capture_overflow(body, max_tokens=0, counter=_counter)
+    assert r.truncated is True
+    assert r.head == ""
+    assert r.full_body == body
+
+
+def test_recall_with_zero_budget_returns_empty_body():
+    body = "hello world" * 100
+    r = recall_overflow_slice(body, slice="full", max_tokens=0,
+                              counter=_counter)
+    assert r.body == ""
+    assert r.more_available is True
+
+
+def test_capture_with_negative_budget_raises_value_error():
+    """Negative budget is a programming error — reject loudly at the
+    boundary rather than silently truncating to nothing."""
+    with pytest.raises(ValueError):
+        capture_overflow("body", max_tokens=-1, counter=_counter)
+
+
+def test_counter_without_call_or_count_method_raises():
+    """A counter object that exposes neither `__call__` nor `.count`
+    raises TypeError immediately — not on the first internal use."""
+    with pytest.raises(TypeError):
+        capture_overflow("body", max_tokens=10, counter=object())

@@ -22,7 +22,28 @@ The token counter is INJECTED so tests can pin a deterministic proxy
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
+
+
+def _as_counter_fn(counter: Any) -> Callable[[str], int]:
+    """Adapt the injected `counter` to a `Callable[[str], int]`.
+
+    Spec 082's `TokenCounter` exposes `.count(text)` rather than
+    `__call__`; callers passing `engine.token_counter` or
+    `resolve_token_counter()` would otherwise hit `TypeError` on the
+    first `counter(body)` invocation (Codex review on PR #129).
+
+    Accepts:
+    - any callable `f(text) -> int` (the test-friendly form)
+    - any object with a `.count(text)` method (Spec 082 `TokenCounter`)
+    """
+    if callable(counter):
+        return counter
+    if hasattr(counter, "count"):
+        return counter.count
+    raise TypeError(
+        f"counter must be callable or expose .count(text); got "
+        f"{type(counter).__name__}")
 
 
 @dataclass(frozen=True)
@@ -65,42 +86,67 @@ class RecallSlice:
 
 
 # Type alias for the injected token counter.
-Counter = Callable[[str], int]
+Counter = Callable[[str], int]                                     # legacy alias (kept for type-hinting downstream)
 
 
-def capture_overflow(body: str, *, max_tokens: int, counter: Counter) -> OverflowResult:
+def capture_overflow(body: str, *, max_tokens: int, counter: Any) -> OverflowResult:
     """Inspect a body against `max_tokens`; either pass through or
     truncate the inline slice (`head`) while preserving the full source
     (`full_body`) for a follow-up `recall_overflow`.
 
     Truncation is monotone — `head` is a PREFIX of `full_body`. Empty
     bodies are safe. The token counter is injected so tests can pin a
-    deterministic proxy; production wires the Spec 082 `TokenCounter`.
+    deterministic proxy; production wires the Spec 082 `TokenCounter`
+    (accepted via `.count(text)` per `_as_counter_fn` adapter).
+
+    `max_tokens` must be ≥ 0. A non-positive budget yields an empty
+    head with `truncated=True` so capture-mode doesn't spin forever on
+    a degenerate budget (Codex review on PR #129).
     """
-    total = counter(body)
+    if max_tokens < 0:
+        raise ValueError(f"max_tokens must be ≥ 0, got {max_tokens}")
+    count = _as_counter_fn(counter)
+    total = count(body)
     if total <= max_tokens:
         return OverflowResult(
             head=body, full_body=body,
             total_tokens=total, returned_tokens=total,
             truncated=False,
         )
-    # Truncate by character count using the counter's per-call rate
-    # (`total / len(body)`); this preserves the monotone-prefix
-    # invariant on the head. Pick a slice that the counter scores at
-    # ≤ max_tokens by binary-searching downward from the proportional
-    # estimate (cheap; never overshoots).
-    body_len = len(body)
-    # Proportional cut: assume tokens scale ~linearly with chars.
-    estimate = max(1, (max_tokens * body_len) // max(1, total))
-    head = body[:estimate]
-    while head and counter(head) > max_tokens:
-        # Trim 10% per iteration until we fit (typically 1-2 rounds).
-        head = head[: max(1, int(len(head) * 0.9))]
+    head = _shrink_to_budget(body, max_tokens=max_tokens, count=count)
     return OverflowResult(
         head=head, full_body=body,
-        total_tokens=total, returned_tokens=counter(head),
+        total_tokens=total, returned_tokens=count(head),
         truncated=True,
     )
+
+
+def _shrink_to_budget(s: str, *, max_tokens: int, count: Callable[[str], int]) -> str:
+    """Trim `s` until `count(s) <= max_tokens`. Returns `""` for a
+    non-positive budget or when even the first character exceeds it
+    (rather than looping on a one-character string forever — Codex
+    review on PR #129)."""
+    if max_tokens <= 0:
+        return ""
+    body_len = len(s)
+    if body_len == 0:
+        return s
+    cur = count(s)
+    if cur <= max_tokens:
+        return s
+    # Proportional cut: assume tokens scale ~linearly with chars.
+    estimate = max(1, (max_tokens * body_len) // max(1, cur))
+    head = s[:estimate]
+    while head:
+        if count(head) <= max_tokens:
+            return head
+        new_len = int(len(head) * 0.9)
+        if new_len >= len(head):
+            new_len = len(head) - 1                                # force progress
+        if new_len <= 0:
+            return ""                                              # even 1 char exceeds budget
+        head = head[:new_len]
+    return ""
 
 
 def recall_overflow_slice(
@@ -108,7 +154,7 @@ def recall_overflow_slice(
     slice: str = "full",                                           # "full" | "<start>:<stop>"
     grep: str = "",
     max_tokens: int,
-    counter: Counter,
+    counter: Any,
 ) -> RecallSlice:
     """Return a typed view of `body` honouring `max_tokens`.
 
@@ -116,20 +162,24 @@ def recall_overflow_slice(
     `slice` (`"full"` or `"<start>:<stop>"`) → line-range slice. Either
     way, the returned body is then itself truncated to `max_tokens`
     so recall never spawns a recursive-overflow situation
-    (invariant c).
+    (invariant c). `counter` may be a callable or a Spec 082
+    `TokenCounter` (`.count(text)`); see `_as_counter_fn`.
     """
-    total = counter(body)
+    if max_tokens < 0:
+        raise ValueError(f"max_tokens must be ≥ 0, got {max_tokens}")
+    count = _as_counter_fn(counter)
+    total = count(body)
     if grep:
         matches = [line for line in body.split("\n") if grep in line]
         return _truncate_to_budget(
             "\n".join(matches), total_tokens=total,
             matches_returned=len(matches),
-            max_tokens=max_tokens, counter=counter,
+            max_tokens=max_tokens, count=count,
         )
     if slice == "full":
         return _truncate_to_budget(
             body, total_tokens=total, matches_returned=0,
-            max_tokens=max_tokens, counter=counter,
+            max_tokens=max_tokens, count=count,
         )
     rng = _parse_slice(slice)
     if rng is None:
@@ -137,43 +187,38 @@ def recall_overflow_slice(
         # caller asked for a view, give the safest one).
         return _truncate_to_budget(
             body, total_tokens=total, matches_returned=0,
-            max_tokens=max_tokens, counter=counter,
+            max_tokens=max_tokens, count=count,
         )
     start, stop = rng
     lines = body.split("\n")
     selected = lines[start:stop]
     return _truncate_to_budget(
         "\n".join(selected), total_tokens=total, matches_returned=0,
-        max_tokens=max_tokens, counter=counter,
+        max_tokens=max_tokens, count=count,
     )
 
 
 def _truncate_to_budget(
     body: str, *, total_tokens: int, matches_returned: int,
-    max_tokens: int, counter: Counter,
+    max_tokens: int, count: Callable[[str], int],
 ) -> RecallSlice:
     """Helper — emit a `RecallSlice` honouring `max_tokens`. The
     `more_available` flag distinguishes "fully delivered" from
     "truncated for budget"."""
-    cur = counter(body)
+    cur = count(body)
     if cur <= max_tokens:
         return RecallSlice(
             body=body, slice_tokens=cur, total_tokens=total_tokens,
             matches_returned=matches_returned, more_available=False,
         )
-    # Truncate as in `capture_overflow`. We approximate proportionally
-    # then shrink until we fit.
-    body_len = len(body)
-    estimate = max(1, (max_tokens * body_len) // max(1, cur))
-    truncated = body[:estimate]
-    while truncated and counter(truncated) > max_tokens:
-        truncated = truncated[: max(1, int(len(truncated) * 0.9))]
-    # When grep produced matches, count how many of them survived.
+    # Use the shared shrink helper so the non-positive / one-char
+    # safety branches apply uniformly with capture_overflow.
+    truncated = _shrink_to_budget(body, max_tokens=max_tokens, count=count)
     if matches_returned:
         kept = truncated.count("\n") + (1 if truncated else 0)
         matches_returned = min(matches_returned, kept)
     return RecallSlice(
-        body=truncated, slice_tokens=counter(truncated),
+        body=truncated, slice_tokens=count(truncated),
         total_tokens=total_tokens, matches_returned=matches_returned,
         more_available=True,
     )
