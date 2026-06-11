@@ -10,13 +10,7 @@
 > that ships a spec, opens a new spec, or changes a spec's status MUST
 > update the corresponding row here in the same commit. No drift.
 >
-> **Last reviewed:** 2026-06-09 (branch `claude/music-todo-flip-and-novel-start`).
-> Round 1 autonomous-loop reconciliation: Spec 010 closed → 101 + 102-108;
-> roll-up count corrected from 49 → 43 (094-099 cluster-children stay
-> Partial until per-cluster file-split lands); novel cluster Slice 1 row
-> added; "Suggested next 5" item #4 retargeted to Spec 102 (was the now-
-> closed Spec 010). Prior 2026-06-06 pass reconciled 016/019/023/059/061/
-> 062/064 → Shipped + closed Specs 008, 009 as superseded.
+> **Last reviewed:** 2026-06-11 (Wave-1 Slice 1 reconciliation: 5 chain anchors 146-150 + substrate enhancements 151 / 153 / 278 SHIPPED on main; 152 + 154 Slice 1 in PRs #127 / #129).
 
 ## Verdicts at a glance
 
@@ -44,8 +38,8 @@
 > - Skills: 53 SKILL.md docs ≠ 15 walkable workflows (intentional —
 >   bitwize SKILL.md files are advisory docs; agency walkable skills are
 >   phased workflows for the engine walker).
-| **Partially implemented** | 11 | 007, 018, 024, 025, 026, 031, 041, 046, 109, 110, 114, **117** |
-| **Not started** | 6 | 003, 004, 005, 010, 014, 051 |
+| **Partially implemented** | 19 | 007, 018, 024, 025, 026, 031, 041, 046, 109, 110, 114, **117**, **146**, **147**, **148**, **149**, **150**, **151**, **153**, **152** (PR #127), **154** (PR #129) |
+| **Not started** | 3 | 010, 014, 051 |
 | **Token-economy cluster (`intent:97534079`) — GOAL MET** | 6 | 066 master · 072 ✅ · 067 ✅ · **068 ✅ (−83% discovery)** · **074 ✅ capstone** · ~~069 cancelled~~ · 070/071 WARN-accepted (optional future) |
 | **Shipped — audit-trail (`intent:558f1bf5` / `intent:d8090aef`)** | 4 | **073 ✅ → `shell` capability** (run/filter/templates) · **018 (Wins 1+3) ✅** (`develop.skill_walk` atomic walker + implicit `intent_id` via `AGENCY_INTENT`; Win 2 = cancelled-069, skipped) · **075 ✅** (`shell.define` + `shell.templates(query)` + run resolves graph-first; common-bash seeds — definable registry per CLAUDE.md #8) · **079 ✅** (Click CLI mirrors every capability verb as `agency <cap> <verb>` for non-MCP agents; auto-generated from the live registry; code-mode stays canonical) |
 | **Shipped — substrate foundation (`intent:bd7a1b7d`)** | 1 | **076 ✅** (unified event-hook: one `hooks/dispatch` → `agency hook` → `engine.dispatch_hook`; `Event` node + open-set handler surface + `AGENCY_INTENT` provenance linkage; install emits unified hooks.json for the capture events) |
@@ -110,9 +104,9 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 |---|---|---|---|---|
 | 001 | toolresult-and-typed-errors | **Shipped (carry-over → 059)** | Internal `ToolResult` envelope (Option C) + `Registry.invoke` unwraps `.data` + records warnings/archived_to/PRODUCES from artefacts_written | Q-2 wire-contract territory superseded by Spec 019; remaining convenience-layer work (Codes, .success/.failure, trace_id stamping, "when to use" doctrine) carried over to Spec 059. Spec text + frontmatter kept verbatim per supersede pattern (GOALS.md #7) |
 | 002 | boundary-driver-protocol | **Shipped** | Boundary/Driver + DriverRegistry — 6 boundaries unified; ctx.get_driver; injectors derived | Unblocks 007's music surface (driver-fanout deferred) |
-| 003 | skill-phase-objects | Not started | Typed `Skill`/`Phase` parse/validate boundary | Wave-1 backlog; revisit when canon needs new ground |
-| 004 | template-schema-coverage | Not started | Wire generate/validate loop for uncovered kinds | Wave-1 backlog |
-| 005 | context-mode-and-token-economics | Not started | Output-overflow capture + recall | Wave-1 backlog |
+| 003 | skill-phase-objects | **Partial (Slice 1 in PR #127)** | Typed `Skill`/`Phase` parse/validate boundary | Spec 152 (typed-skill-phase-parse-boundary) Slice 1 complete, in CI iteration (Codex review rounds). Will merge post-review. |
+| 004 | template-schema-coverage | **Partial (Slice 1 in PR #128)** | Wire generate/validate loop for uncovered kinds | Spec 153 (template-schema-coverage-closure) Slice 1 SHIPPED 2026-06-11. Slice 2+ deferred. |
+| 005 | context-mode-and-token-economics | **Partial (Slice 1 in PR #129)** | Output-overflow capture + recall | Spec 154 (output-overflow-capture-recall) Slice 1 complete, in CI iteration. Will merge post-review. |
 | 006 | core-hardening | **Shipped** | All 4 red-team fixes: #1 O(1) max(vfrom) clock seed, #2 pagination exhaustion+seen_tokens guard, #3 fail-closed jules.verify, #4 API-key value never captured | `tests/test_hardening.py` (9) green |
 | 007 | music-domain-capability | **Partial → 093** | 15 verbs / 11 clusters via 5 Drivers; ToolResult + provenance moat; computed gates; sheet-music/mixing/streaming/ideas/health; 0 core edits — the **proof-of-contract slice** | The "port-on-demand" long tail is no longer notional: Spec 093 (master, drafted 2026-06-07) carries the complete port → `agency/capabilities/music/` via 7 cluster children (094–100). 007 row flips to Shipped + Superseded when 094 lands |
 | 008 | superclaude-analysts | **Closed (superseded → 042)** | SuperClaude analysis (`transmute` cluster) | Closed 2026-06-06. The `analyze` capability (Spec 042, Shipped) delivers the 4-axis decidable analysis this spec scoped via a `transmute` cluster; no separate port needed. Frontmatter flipped; spec text kept verbatim per supersede pattern (GOALS.md #7) |
@@ -219,24 +213,13 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 
 ## Suggested implementation order (next 5)
 
-Refreshed 2026-06-10 (post dynamic-prompt depth wave). Ranked by leverage —
-the pacing + character-craft wave drives 80% of the felt-value gap.
+Refreshed 2026-06-11 (post Wave-1 Slice 1 wave: 5 chain anchors + 3 substrate enhancements landed; 152 + 154 in flight). Ranked by leverage — finishing the chain anchors unblocks the rest of the Vision Charter.
 
-1. **Spec 123 Slice 2** — character psychology + Conflict/Theme/PlantedElement.
-   Already drafted in the existing 123 spec; unlocks Spec 131's typed
-   character_id and gives 134 (voice profiles) a real Character node
-   to attach to.
-2. **Spec 133** — story-structure-templates. Pacing complement to
-   Dramatica; small surface (vendored JSON + 6 verbs + 1 edge); high
-   author-felt value ("did I land my midpoint?").
-3. **Spec 134** — pov-voice-profiles. Closes scene-writer's "every POV
-   sounds the same" failure mode; extends the editorial pipeline with
-   `voice_drift_gate`.
-4. **Spec 135** — sensitivity-reader-workflow. Turns Spec 122's
-   advisory lexicon into a tracked pre-publication discipline.
-5. **Slice-2 carve-outs** of existing shipped specs (122 genre
-   readability bands, 124 PandocFormatDriver, 127 chapter brief, 132
-   word-boundary matching).
+1. **Spec 149 Slice 2** — `scripts/derive-docs` (TODO/matrix/SkillDoc/Followup auto-derivation). Single highest-leverage move: unlocks the 129-baseline `vision_goals:` backfill, makes the alignment matrix self-updating, and is a prerequisite for Spec 261's stop-condition verification.
+2. **Spec 147 Slice 2** — Managed-Agents bridge (`dispatch_session`). Turns 150/148/177's "stub" paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
+3. **Spec 146 Slice 2** — `_check_response_prefix` AST lint rule. Promotes prefix discipline to a CI gate per Spec 058 WARN→error doctrine.
+4. **Spec 150 Slice 2** — swap keyword classifier for AnthropicDriver structured-output classification (depends on 147 Slice 2).
+5. **Spec 191** — vision-alignment live matrix. Derives goal coverage from `vision_goals:` frontmatter (depends on 149 Slice 2); unblocks every retrospective.
 
 ## When to update this file
 
