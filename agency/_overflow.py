@@ -318,6 +318,20 @@ def _truncate_to_budget(
     # next_byte_offset advances by the prior byte_offset + len(truncated)
     # so callers can chain `recall_overflow_slice(..., byte_offset=
     # prev.next_byte_offset)` and reconstruct the full source.
+    #
+    # Codex review (round-5) on PR #129: when the shrink returned ""
+    # despite a non-empty remaining body (`max_tokens=0` or the first
+    # character itself exceeds budget), the cursor would STALL at the
+    # input `byte_offset` and `more_available=True` would prompt the
+    # caller to loop on the same empty page forever. Terminate the
+    # cursor (`more_available=False`) so the caller stops; the body
+    # tail is unreachable under this budget.
+    if not truncated:
+        return RecallSlice(
+            body="", slice_tokens=0, total_tokens=total_tokens,
+            matches_returned=matches_returned, more_available=False,
+            next_byte_offset=byte_offset + len(body),
+        )
     next_byte = byte_offset + len(truncated)
     return RecallSlice(
         body=truncated, slice_tokens=count(truncated),

@@ -221,12 +221,36 @@ def test_capture_with_zero_budget_returns_empty_head():
     assert r.full_body == body
 
 
-def test_recall_with_zero_budget_returns_empty_body():
+def test_recall_with_zero_budget_returns_empty_body_with_terminal_cursor():
+    """Codex review (round-5) on PR #129: zero budget on recall must
+    produce a TERMINAL cursor — `more_available=False` AND
+    `next_byte_offset` advanced past the unreachable body — so a caller
+    following the documented cursor contract doesn't loop on the same
+    empty page forever."""
     body = "hello world" * 100
     r = recall_overflow_slice(body, slice="full", max_tokens=0,
                               counter=_counter)
     assert r.body == ""
-    assert r.more_available is True
+    assert r.more_available is False                               # terminal
+    assert r.next_byte_offset >= len(body)                         # past the unreachable tail
+
+
+def test_recall_zero_budget_cursor_terminates_paging_loop():
+    """A naive paging loop on zero-budget recall must terminate via the
+    `more_available=False` signal — not spin on the stale byte_offset."""
+    body = "x" * 200
+    offset = 0
+    iters = 0
+    while iters < 5:
+        iters += 1
+        r = recall_overflow_slice(body, slice="full", byte_offset=offset,
+                                  max_tokens=0, counter=_counter)
+        if not r.more_available:
+            break
+        if r.next_byte_offset == offset:                            # safety: detect stall
+            pytest.fail("cursor stalled — paging loop would never terminate")
+        offset = r.next_byte_offset
+    assert iters < 5                                                # terminated in 1 iter
 
 
 def test_capture_with_negative_budget_raises_value_error():
