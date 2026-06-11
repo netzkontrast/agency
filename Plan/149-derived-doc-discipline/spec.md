@@ -1,17 +1,18 @@
 ---
 spec_id: "149"
 slug: derived-doc-discipline
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-11
 owner: "@agency"
 enhances: "054"
 depends_on: ["054", "080", "081", "146", "150"]
 vision_goals: [7, 6, 4]
 affects:
-  - scripts/derive-docs
-  - scripts/check-doc-drift
-  - agency/capabilities/document/_main.py
-  - tests/test_derived_doc_discipline.py
+  - scripts/check_vision_goals.py
+  - scripts/__init__.py
+  - Plan/_planning/vision-goals-baseline.txt
+  - .github/workflows/test.yml
+  - tests/test_vision_goals_validator.py
 ---
 
 # Spec 149 — Derived-doc discipline (TODO + matrix + SkillDoc self-update)
@@ -121,3 +122,42 @@ Then:   exits with Codes.DERIVE_AMBIGUOUS naming both specs;
 3. **Backwards compatibility on existing TODO.md.** **Recommend**:
    backfill the fences in a single migration commit; subsequent
    commits gate strictly. A "transitional" mode (one cycle) WARN-only.
+
+## Followup — Implementation Status (Slice 1, 2026-06-11)
+
+**Shipped (this PR):**
+- `scripts/check_vision_goals.py` — Vision-goals frontmatter validator.
+  Parses YAML frontmatter, asserts `vision_goals` is a non-empty list
+  of unique integers in `{1..8}` (per `docs/vision/GOALS.md`). Pure
+  functions (`parse_frontmatter`, `check_spec`, `check_tree`) +
+  `GoalsCheck.run()` returning a typed `CheckReport`.
+- `Plan/_planning/vision-goals-baseline.txt` — 129 existing specs that
+  lack `vision_goals:` (the historical gap). Spec 054 drift-management
+  pattern: tracked, not blocked. A baseline entry whose spec gains
+  `vision_goals:` is surfaced as `baseline_shrinkable` so the author
+  trims the baseline (closing the loop).
+- `.github/workflows/test.yml` — `Vision-goals frontmatter` step now
+  gates CI: a NEW spec (one not in the baseline) without
+  `vision_goals: [int, ...]` fails the build. Existing 129 baseline
+  specs are exempt until backfill.
+- `scripts/__init__.py` — `scripts/` is now an importable package so
+  its functions are testable without subprocessing the CLI.
+- `PyYAML>=6.0` declared in dev deps (previously transitive via
+  `jsonschema-path`).
+- 18 spec tests + 1 live-tree regression test green.
+
+**Still (Slice 2+):**
+- **Backfill** the 129 baseline specs with `vision_goals:` derived
+  from `docs/vision/SPEC-VISION-ALIGNMENT.md` (for specs already in
+  the matrix) + author judgement (for specs not in the matrix). Each
+  baseline shrink lands in its own commit so the audit trail is clean.
+- `scripts/derive-docs` — the full deriver for TODO row test counts,
+  alignment-matrix Goal column, per-spec Followup status, SkillDoc
+  bodies. Slice 1 lays the frontmatter foundation those consume.
+- HTML-comment fenced derived zones (`<!-- derived:<id> -->` …
+  `<!-- /derived:<id> -->`) — convention to be added once the
+  deriver knows what to write.
+- `check-doc-drift` extension that diffs rendered vs source.
+
+**Open Q resolutions:** Q1 — CI-gate doctrine (Spec 054 drift pattern)
+landed exactly as Recommended; pre-commit hook deferred.

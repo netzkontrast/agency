@@ -39,6 +39,11 @@ dev = [
     # suite across CPU cores; on a 4-core machine the 4-min suite drops
     # to ~1 min. Each test uses tmp_path-scoped DBs so no shared state.
     "pytest-xdist>=3.5",
+    # Spec 149 Slice 1 — `vision_goals:` frontmatter validator parses
+    # spec YAML frontmatter. PyYAML lands in CI via jsonschema-path
+    # transitively today; declaring it here makes the dependency
+    # explicit rather than relying on the transitive pull-in.
+    "PyYAML>=6.0",
 ]
 # Spec 045 — optional sentence-transformers BGE backend for the
 # semantic-recall verb. Default is the zero-dep pure-Python TF-IDF
