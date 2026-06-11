@@ -596,6 +596,43 @@ def test_empty_string_in_verbs_returns_typed_code():
     assert out.code == Codes.PHASE_MISSING_FIELD
 
 
+# ── Codex round-8 review fixes ────────────────────────────────────────────
+def test_null_cue_returns_typed_code():
+    """Codex review: `cue: null` is not absent — must fail at the
+    boundary so the round-trip invariant doesn't synthesize an empty
+    string the source didn't have."""
+    out = parse_phase({"name": "x", "produces": ["r"], "cue": None})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "cue" in out.message and "null" in out.message.lower()
+
+
+def test_null_reference_returns_typed_code():
+    out = parse_phase({"name": "x", "produces": ["r"], "reference": None})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
+def test_null_inputs_returns_typed_code():
+    """Codex review: `inputs: null` would rewrite to `[]` on round-trip,
+    breaking the invariant + letting malformed invoke contracts pass."""
+    out = parse_phase({"name": "x", "produces": ["r"], "inputs": None})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
+def test_null_verbs_returns_typed_code():
+    out = parse_phase({"name": "x", "produces": ["r"], "verbs": None})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
+def test_null_gate_verb_returns_typed_code():
+    out = parse_phase({"name": "x", "produces": ["r"], "gate_verb": None})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
 # ── Codes coverage ─────────────────────────────────────────────────────────
 def test_skill_parse_codes_constants_land():
     """The Codes namespace gains the documented `SKILL_PARSE_*` + `PHASE_*`

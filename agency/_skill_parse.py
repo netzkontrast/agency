@@ -390,10 +390,19 @@ def _parse_string_list(
     Codex review (round 7): empty-string elements (`produces: [""]`)
     are rejected by default so generated SkillDocs with blank output
     names fail fast at the boundary rather than reaching SkillRun.submit().
+
+    Codex review (round 8): when the KEY is present with a `null` value,
+    fail fast — `inputs: null` is not the same as absent and `to_dict()`
+    would later rewrite it as `[]`, breaking the round-trip invariant.
     """
     from .toolresult import Codes
-    if key not in d or d[key] is None:
+    if key not in d:
         return (), None
+    if d[key] is None:
+        return (), ParseResult.failure(
+            Codes.PHASE_MISSING_FIELD,
+            f"{parent} has `{key}: null` — declare a list (possibly "
+            f"empty) or remove the key entirely")
     raw = d[key]
     if not isinstance(raw, list):
         return (), ParseResult.failure(
@@ -418,10 +427,20 @@ def _parse_optional_string(
 ) -> tuple[str, Optional[ParseResult]]:
     """Validate `d[key]` is a string (or absent). Returns the string +
     an optional failure ParseResult. Non-string truthy values fail with
-    PHASE_MISSING_FIELD instead of slipping past `or ""` coercion."""
+    PHASE_MISSING_FIELD instead of slipping past `or ""` coercion.
+
+    Codex review (round 8): `cue: null` / `reference: null` etc. are
+    NOT the same as absent. The round-trip invariant would later rewrite
+    them as empty strings; reject at the boundary instead so
+    `to_dict()` doesn't synthesize a key the source didn't have."""
     from .toolresult import Codes
-    if key not in d or d[key] is None:
+    if key not in d:
         return "", None
+    if d[key] is None:
+        return "", ParseResult.failure(
+            Codes.PHASE_MISSING_FIELD,
+            f"{parent} has `{key}: null` — declare a string or remove "
+            f"the key entirely")
     raw = d[key]
     if not isinstance(raw, str):
         return "", ParseResult.failure(
