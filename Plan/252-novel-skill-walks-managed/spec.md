@@ -5,7 +5,7 @@ status: draft
 last_updated: 2026-06-10
 owner: "@agency"
 enhances: "142"
-depends_on: ["142", "180", "147", "150"]
+depends_on: ["142", "180", "147", "150", "021", "040", "146", "245", "247"]
 vision_goals: [8, 4]
 affects:
   - agency/capabilities/novel/_main.py

@@ -34,12 +34,52 @@ classifier.
       and `[anthropic]` present, the Spec 147 Driver classifies the note
       into a scope enum (observation/proposal/refinement) with
       `output_config.format`; degrades to the caller-supplied scope.
+      Returns typed `NoteResult{node_id: NodeId, scope: Scope,
+      scope_source: Literal["caller", "classifier", "default"],
+      confidence: float | None}`.
 - [ ] **No markdown is parsed into nodes anywhere** — the Goal-7
       violation is fully closed (assert via an architecture check, Spec
       157).
+- [ ] **Measurable invariants** (rule 8):
+      (a) `grep -rn "dogfood.collect\|from agency.*collect" agency/
+      tests/` returns zero hits on `main` — derived check, monotone;
+      (b) `set(Scope) == {"observation", "proposal", "refinement"}` —
+      classifier output ⊆ closed enum (any other value fails parse);
+      (c) classifier path falls back deterministically — when
+      `[anthropic]` missing, `scope_source == "default"` AND `confidence
+      is None` (no silent misbranding);
+      (d) the no-markdown-parse architecture rule (Spec 157) is
+      asserted across `agency/` — invariant zero parser sites.
 - [ ] Test: `collect` is gone (import-level); `note(auto_scope=True)`
-      tags scope via a mocked Driver.
+      tags scope via a mocked Driver; fallback path returns
+      `scope_source="default"` when Driver unavailable.
 - [ ] TODO row + drift clean.
+
+## Worked example (Given/When/Then)
+
+```text
+Given:  dogfood.note(text="research.fetch returned 12k tokens — should we
+        cap at 4k by default?", auto_scope=True) with `[anthropic]` installed
+When:   the Spec 147 Driver classifies via output_config.format
+Then:   NoteResult{node_id="ref_abc", scope="proposal",
+        scope_source="classifier", confidence=0.87};
+        Reflection(scope="proposal") SERVES the active intent;
+        Spec 150 ingests it as an amendment candidate
+
+Given:  same call with `[anthropic]` extra NOT installed
+When:   dogfood.note(text=..., auto_scope=True)
+Then:   NoteResult{scope="observation", scope_source="default",
+        confidence=None} — never silently mis-classified
+```
+
+## Failure modes
+
+| Mode | Trigger | Detection | Mitigation |
+|---|---|---|---|
+| Driver hallucinates a non-enum scope | classifier returns "idea" not in Scope | invariant (b) — parse rejects | typed Codes.NOTE_SCOPE_INVALID; fall back to default scope + Reflection noting the rejection |
+| Silent classifier downgrade | API quota / network hiccup | typed `scope_source` field | caller sees `scope_source != "classifier"`; can retry deliberately |
+| Cost blow-up on every note | every note hits the API | `auto_scope=True` is opt-in, never default | per-session budget; surface tokens-spent in Reflection metadata |
+| Caller passes both scope= and auto_scope=True | ambiguity | reject at parse with Codes.NOTE_SCOPE_CONFLICT | caller chooses one; classifier path requires absence of `scope=` |
 
 ## Interconnects
 
@@ -48,9 +88,18 @@ classifier.
 - **LLM-driver chain** (147): the auto-scope engine.
 - Spec 017 is the parent; Spec 157 (architecture gate) enforces the
   no-markdown-parse invariant.
+- Spec 151 (Codes coverage) supplies `Codes.NOTE_SCOPE_INVALID` and
+  `Codes.NOTE_SCOPE_CONFLICT`.
+- Spec 153 (schema coverage) — Reflection schema gains a `scope` enum
+  whose closed set this spec defines.
+- Spec 155 (red-team) — red-team Reflections land pre-classified through
+  this same path; consistent classifier across Reflection sources.
 
 ## Open questions
 
 1. Hard-remove `collect` or tombstone with a `DEPRECATED` raise?
    **Recommend**: tombstone one cycle (raise with a pointer to `note`),
    then hard-remove — matches the alias-and-deprecate doctrine.
+2. Classifier model — Haiku or Sonnet for cost? **Recommend**: Haiku
+   4.5 (classification is bounded-output; per `claude-api` skill the
+   cheapest model is correct unless rubric agreement < 0.85).
