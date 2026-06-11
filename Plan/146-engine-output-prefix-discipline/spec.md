@@ -1,8 +1,8 @@
 ---
 spec_id: "146"
 slug: engine-output-prefix-discipline
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-11
 owner: "@agency"
 enhances: "023"
 depends_on: ["023", "067", "082", "147", "149"]
@@ -110,3 +110,53 @@ Then:   response carries Codes.PREFIX_BUDGET_EXCEEDED — never silent
    by verb names + signatures? **Recommend**: names + signatures — a
    signature change is a wire-shape change (Spec 019) and should
    invalidate the cache.
+
+## Followup — Implementation Status (2026-06-11)
+
+### Done — Slice 1 (envelope split + agency_welcome wiring)
+
+- **`agency/_envelope.py` ships the typed `ResponseEnvelope`** —
+  `prefix: dict` + `body: dict` with `__post_init__` rejecting non-dict
+  halves (Spec 002 boundary typing). `to_dict()` raises
+  `ValueError("...overlap...")` when prefix/body share a key.
+  `prefix_hash()` returns SHA-256 hex of canonical-JSON prefix.
+- **`canonical_json(env)`** — prefix keys (sorted) BEFORE body keys
+  (sorted), compact JSON separators (no insignificant whitespace).
+  Two envelopes with the same content yield byte-identical output
+  regardless of dict-insertion order — the prefix-match invariant.
+- **`capability_set_hash(names, signatures=None)`** — order-invariant
+  on `names` (set semantics); when `signatures` is given, names +
+  signatures hash per Open-Q 3 (a signature change rolls the hash).
+- **`ontology_hash(nodes)`** — order-invariant on top-level + lists.
+- **`agency_welcome` rewired through the envelope** — `prefix` carries
+  `{schema_version, capability_set_hash, ontology_hash, wire_contract,
+  code_mode_example, bootstrap_example, install_example, capabilities,
+  capability_tier, discipline_skills}`; `body` carries `{state,
+  intents_count, last_intent, db_path, next}`. The merged return adds
+  `_prefix_keys` declaring the split for wrapping drivers.
+- **15 tests green** (`tests/test_response_prefix_discipline.py`) —
+  shape + canonical-JSON + hash determinism + body-isolation +
+  capability_set_hash properties + ontology_hash determinism + two
+  integration tests on the live `agency_welcome`.
+
+### Still — Slice 2+
+
+- **Slice 2**: `_check_response_prefix` AST lint rule (Spec 067 family)
+  flagging `datetime.now()`/`uuid4()`/unsorted-dict/env reads in any
+  function reachable from a substrate-tool's prefix builder. WARN one
+  cycle, then promote to error.
+- **Slice 3**: `agency_doctor.prefix_stability` reporting
+  `{stable, drift_bytes, drift_tokens, prefix_size_tokens}` across two
+  60s-separated `agency_welcome` calls. Token count via Spec 082
+  locally, Spec 201 API count with `[anthropic]` extra. Mocked Claude
+  API cache-hit invariant test asserting
+  `usage.cache_read_input_tokens > 0` on call 2.
+- **Slice 4**: `MAX_PREFIX_TOKENS` hard-fail returning
+  `Codes.PREFIX_BUDGET_EXCEEDED` (Spec 151 dep); never silent
+  truncation.
+- **Substrate parity**: Apply the same envelope split to the other
+  substrate tools (`agency_doctor`, `agency_install`, `intent_bootstrap`)
+  + the three wire-contract tools (`search`, `get_schema`, `execute`).
+- **Spec 147 integration**: the AnthropicDriver `complete()` path adds
+  `cache_control: {type:"ephemeral"}` on the rendered prefix when
+  wrapping a substrate-tool response.

@@ -777,17 +777,29 @@ class Engine:
                 "develop.implement", "develop.skill_walk",
                 "develop.session_init",
             ]
-            return {
-                "state": state,
-                "intents_count": intents_count,
-                "last_intent": last_intent,
-                # Spec CORE.md — the lean wire contract. EVERY interaction
-                # is one of these three; per-verb tools are reached via
-                # `execute` as chained call_tool() within a Python block.
+            # Spec 146 Slice 1 — output-prefix discipline. Split the welcome
+            # payload into a cache-friendly `prefix` (byte-stable across calls
+            # when the registry is unchanged) and a per-call `body`. The
+            # wrapping LLM driver applies `cache_control: {type:"ephemeral"}`
+            # on the prefix; per-call churn (state, intents_count, last_intent,
+            # db_path, next) lives in `body` and never invalidates the cache.
+            from ._envelope import (
+                ResponseEnvelope,
+                capability_set_hash,
+                ontology_hash,
+            )
+            prefix = {
+                # Per-build identity — what THIS substrate build is.
+                "schema_version": 1,
+                "capability_set_hash": capability_set_hash(caps),
+                "ontology_hash": ontology_hash(engine.ontology.nodes),
+                # CORE.md — the lean wire contract. EVERY interaction is one
+                # of these three; per-verb tools are reached via `execute` as
+                # chained call_tool() within a Python block.
                 "wire_contract": ["search", "get_schema", "execute"],
                 # CORE.md — `execute` runs ONE Python block; chained
-                # `await call_tool(...)` calls cross no extra wire hops;
-                # one return value crosses back. The example is the canon.
+                # `await call_tool(...)` calls cross no extra wire hops; one
+                # return value crosses back. The example is the canon.
                 "code_mode_example": (
                     "execute({'code': '''\n"
                     "iid = (await call_tool(\"intent_bootstrap\","
@@ -814,9 +826,21 @@ class Engine:
                 # for back-compat.
                 "capability_tier": _capability_tier(engine.registry),
                 "discipline_skills": discipline_skills,
+            }
+            body = {
+                "state": state,
+                "intents_count": intents_count,
+                "last_intent": last_intent,
                 "db_path": resolve_db_path(None),
                 "next": next_steps,
             }
+            envelope = ResponseEnvelope(prefix=prefix, body=body)
+            merged = envelope.to_dict()
+            # `_prefix_keys` declares the split so wrapping drivers can apply
+            # `cache_control` cleanly. Listed AFTER the merge so the keyset is
+            # an honest report of which keys ended up in the prefix half.
+            merged["_prefix_keys"] = sorted(prefix.keys())
+            return merged
 
         # Spec 023 Phase 3 (substrate parity): the @mcp.tool-decorated
         # substrate tools above carry their full docstrings into FastMCP's

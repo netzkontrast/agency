@@ -98,7 +98,9 @@ def test_welcome_token_budget_still_under_2kb_in_progress():
         e.memory.close()
     payload = json.dumps(out)
     # Flexible per-capability budget (CLAUDE.md no-hardcoded rule), not a frozen 2 KB.
+    # Spec 146 Slice 1 raised the constant overhead 600 → 1000 to cover the
+    # envelope-prefix fields (schema_version + 2 SHA-256 hashes + _prefix_keys).
     ncaps = len(out["capabilities"])
-    budget = 150 * ncaps + 600
+    budget = 150 * ncaps + 1000
     assert len(payload) <= budget, (
-        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 600)")
+        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 1000)")
