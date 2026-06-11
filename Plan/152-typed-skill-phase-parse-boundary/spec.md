@@ -1,8 +1,8 @@
 ---
 spec_id: "152"
 slug: typed-skill-phase-parse-boundary
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-11
 owner: "@agency"
 enhances: "003"
 depends_on: ["003", "081", "026", "149"]
@@ -101,3 +101,51 @@ Then:   Result.failure(Codes.PHASE_MISSING_PREDICATE,
 2. Variant union via `match` or `isinstance`? **Recommend**: `match`
    on `Phase` subclasses — Python 3.10+ is the floor; pattern-matching
    forces exhaustiveness (a NEW variant trips every walker).
+
+## Followup — Implementation Status (2026-06-11)
+
+### Done — Slice 1 (typed boundary module)
+
+- **`agency/_skill_parse.py`** — typed boundary module:
+  - `Phase` frozen dataclass with a `variant` discriminator
+    (`"step"` / `"hard_gate"` / `"verb_bound"`) so the walker dispatches
+    by type instead of reading `phase.get("gate")` at every callsite.
+    Carries the existing fields: `name`, `produces` (tuple — immutable),
+    `cue`, `gate`, `invoke` (cap, verb tuple), `reference`.
+  - `Skill` frozen dataclass with `phases: tuple[Phase, ...]`.
+  - `parse_phase(dict) -> ParseResult` + `parse_skill(dict) ->
+    ParseResult` — single validate/lift point. `ParseResult` is a typed
+    envelope `{ok, value | (code, message)}` (Slice 1 stays free of
+    generics; Slice 2 may upgrade to `Generic[T]`).
+  - `_derive_variant(gate, invoke)` rule: invoke wins over gate when
+    both present (verb-bound phases delegate to the verb's own gate
+    semantics).
+  - Round-trip — `Phase.to_dict()` / `Skill.to_dict()` emit only fields
+    that were present on the source dict so the invariant
+    `parse_clean(s).to_dict() == s` holds for well-formed input.
+- **Typed Codes** added (Spec 151 invariant b): `SKILL_PARSE_INVALID`,
+  `PHASE_MISSING_FIELD`, `PHASE_UNKNOWN_KIND`.
+- **14 tests green** (`tests/test_skill_phase_parse.py`) — variant
+  discriminator (step / hard_gate / verb_bound); optional cue/reference;
+  immutability (frozen); typed failure paths (missing name, missing
+  invoke.capability, unknown gate value); skill-level parse + phase-index
+  failure propagation; round-trip; Codes constant landing; ParseResult
+  envelope shape.
+
+### Still — Slice 2+
+
+- **Slice 2** — wire `develop.skill_walk` (Spec 018) through
+  `parse_skill` so phase dicts validate once at parse, not per-step.
+- **Slice 3** — `_check_ad_hoc_phase_parse` grep_ast lint (Spec 151
+  family). `phase\[` / `phase\.get\(` outside `agency/_skill_parse.py`
+  and `agency/disclosure.py` is an offender; monotone-decreasing count
+  (invariant b).
+- **Slice 4** — live-tree round-trip invariant
+  (`parse_clean(live_registry.skills) == live_registry.skills`) per
+  invariant (a). Slice 4 adds the test that walks the live registry.
+- **Slice 5** — `Skill` graph-promotion (Spec 026): write the typed
+  `Skill` as a node + edges; SkillDoc derive (Spec 081) consumes the
+  typed `Skill` instead of re-parsing.
+- **Slice 6** — Spec 147 AnthropicDriver SkillDoc validation: the LLM
+  driver synthesizes a SkillDoc; `parse_skill` rejects malformed
+  shapes at the boundary before the walker dispatches anything.

@@ -55,6 +55,10 @@ class Codes:
     AMENDMENT_NO_SOURCE = "amendment_no_source"   # source_reflections is empty (provenance break)
     AMENDMENT_VAGUE = "amendment_vague"           # rationale below the 40-char floor
     AMENDMENT_UNCONFIRMED = "amendment_unconfirmed"   # live write requested, confirm_token mismatch
+    # Spec 152 — typed Skill/Phase parse boundary failure modes.
+    SKILL_PARSE_INVALID = "skill_parse_invalid"   # top-level skill dict failed validation
+    PHASE_MISSING_FIELD = "phase_missing_field"   # phase dict missing a required field
+    PHASE_UNKNOWN_KIND = "phase_unknown_kind"     # unknown gate/variant on a phase
 
 
 @dataclass(frozen=True)
