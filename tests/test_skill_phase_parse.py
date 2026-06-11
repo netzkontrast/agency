@@ -560,6 +560,42 @@ def test_skill_mixed_indexed_un_indexed_phases_return_typed_code():
     assert out.code == Codes.SKILL_PARSE_INVALID
 
 
+# ── Codex round-7 review fixes ────────────────────────────────────────────
+def test_null_invoke_returns_typed_code():
+    """Codex review: `invoke: null` is not absent — a generated SkillDoc
+    serializing an executable phase with null invoke must fail, not be
+    silently walked as a step."""
+    out = parse_phase({"name": "x", "produces": ["r"], "invoke": None})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "null" in out.message.lower()
+
+
+def test_null_phases_returns_typed_code():
+    """Codex review: `phases: null` is not absent — must fail with
+    SKILL_PARSE_INVALID instead of being silently normalized to []."""
+    out = parse_skill({"name": "x", "kind": "discipline", "phases": None})
+    assert not out.ok
+    assert out.code == Codes.SKILL_PARSE_INVALID
+    assert "null" in out.message.lower()
+
+
+def test_empty_string_in_produces_returns_typed_code():
+    """Codex review: `produces: [""]` must fail at the boundary; an
+    empty output name reaches SkillRun.submit() and silently records
+    a blank key."""
+    out = parse_phase({"name": "x", "produces": [""]})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
+def test_empty_string_in_verbs_returns_typed_code():
+    """Same empty-string discipline applies to `verbs` and `inputs`."""
+    out = parse_phase({"name": "x", "produces": ["r"], "verbs": ["", "ok"]})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
 # ── Codes coverage ─────────────────────────────────────────────────────────
 def test_skill_parse_codes_constants_land():
     """The Codes namespace gains the documented `SKILL_PARSE_*` + `PHASE_*`

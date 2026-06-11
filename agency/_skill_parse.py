@@ -214,9 +214,17 @@ def parse_phase(d: dict) -> ParseResult:
             Codes.PHASE_UNKNOWN_KIND,
             f"phase `{name}` has unknown gate {gate!r} "
             f"(documented gates: {sorted(_KNOWN_GATES)})")
-    invoke_raw = d.get("invoke")
+    # Codex review (round 7): `"invoke": null` is NOT the same as absent
+    # — a generated SkillDoc that serializes an executable phase with a
+    # null invoke must fail fast, not silently be walked as a step.
     invoke: Optional[tuple[str, str]] = None
-    if invoke_raw is not None:
+    if "invoke" in d:
+        invoke_raw = d["invoke"]
+        if invoke_raw is None:
+            return ParseResult.failure(
+                Codes.PHASE_MISSING_FIELD,
+                f"phase `{name}` has `invoke: null` — declare a "
+                f"{{capability, verb}} dict or remove the key entirely")
         if not isinstance(invoke_raw, dict):
             return ParseResult.failure(
                 Codes.PHASE_MISSING_FIELD,
@@ -373,11 +381,16 @@ def parse_phase(d: dict) -> ParseResult:
 
 
 def _parse_string_list(
-    d: dict, key: str, *, parent: str,
+    d: dict, key: str, *, parent: str, reject_empty_strings: bool = True,
 ) -> tuple[tuple[str, ...], Optional[ParseResult]]:
     """Validate `d[key]` is a list of strings (or absent). Returns the
     tuple + an optional failure ParseResult. No `or []` truthy coercion
-    — a non-list value is a typed PHASE_MISSING_FIELD per Codex review."""
+    — a non-list value is a typed PHASE_MISSING_FIELD per Codex review.
+
+    Codex review (round 7): empty-string elements (`produces: [""]`)
+    are rejected by default so generated SkillDocs with blank output
+    names fail fast at the boundary rather than reaching SkillRun.submit().
+    """
     from .toolresult import Codes
     if key not in d or d[key] is None:
         return (), None
@@ -393,6 +406,10 @@ def _parse_string_list(
                 Codes.PHASE_MISSING_FIELD,
                 f"{parent} `{key}[{i}]` must be a string, "
                 f"got {type(v).__name__}")
+        if reject_empty_strings and not v:
+            return (), ParseResult.failure(
+                Codes.PHASE_MISSING_FIELD,
+                f"{parent} `{key}[{i}]` must be non-empty")
     return tuple(raw), None
 
 
@@ -440,11 +457,16 @@ def parse_skill(d: dict) -> ParseResult:
         return ParseResult.failure(
             Codes.SKILL_PARSE_INVALID,
             "skill is missing required field `name`")
-    # `phases` is optional (a skill may declare zero phases) but if
-    # present it MUST be a list — no `or []` truthy coercion silently
-    # erasing a malformed value (Codex review).
-    if "phases" in d and d["phases"] is not None:
+    # `phases` is optional (a skill may declare zero phases). Codex
+    # review (round 7): when the KEY is present, the value MUST be a
+    # list — `"phases": null` is malformed; do not erase it.
+    if "phases" in d:
         phases_raw = d["phases"]
+        if phases_raw is None:
+            return ParseResult.failure(
+                Codes.SKILL_PARSE_INVALID,
+                f"skill `{name}` has `phases: null` — declare a list "
+                f"(possibly empty) or remove the key entirely")
         if not isinstance(phases_raw, list):
             return ParseResult.failure(
                 Codes.SKILL_PARSE_INVALID,
