@@ -286,3 +286,80 @@ def test_grep_fits_all_matches_reports_complete():
     assert r.matches_returned == 2
     assert r.more_available is False
     assert r.body == "error: x\nerror: y"
+
+
+# ── Codex round-3 review on PR #129 — pagination cursors ────────────────
+def test_grep_pagination_via_offset_walks_all_matches():
+    """Codex review: grep with many matches must be pageable. Caller
+    passes `next_match_offset` back as `offset=` until
+    `more_available=False`."""
+    body = "\n".join([f"error: {i}" for i in range(60)])
+    seen: list[str] = []
+    offset = 0
+    iters = 0
+    while iters < 30:                                              # safety cap
+        iters += 1
+        r = recall_overflow_slice(body, grep="error:", offset=offset,
+                                  max_tokens=30, counter=_counter)
+        if not r.body and not r.more_available:
+            break
+        seen.extend(line for line in r.body.split("\n") if line)
+        if not r.more_available:
+            break
+        offset = r.next_match_offset
+    # All 60 matches eventually returned via paging.
+    assert len(seen) == 60
+    assert all("error:" in s for s in seen)
+
+
+def test_grep_skips_oversized_line_then_continues():
+    """Codex review: an early matching line longer than `max_tokens`
+    must be SKIPPED, not break the iteration — later fitting matches
+    must still be returned in the same call."""
+    huge = "error: " + "x" * 500                                   # ~127 tokens
+    body = "\n".join([huge, "error: small1", "error: small2"])
+    r = recall_overflow_slice(body, grep="error:",
+                              max_tokens=20, counter=_counter)
+    # Huge skipped; small1 + small2 should fit.
+    assert "small1" in r.body
+    assert "small2" in r.body
+    assert "x" * 100 not in r.body                                 # huge dropped
+    assert r.more_available is True                                # huge was skipped
+
+
+def test_byte_offset_reconstructs_oversized_line_byte_for_byte():
+    """Codex review on PR #129: a single line larger than max_tokens
+    must still be reconstructible byte-for-byte via the byte_offset
+    cursor (Spec 154 invariant b)."""
+    long_line = "x" * 800                                          # ~200 tokens
+    body = long_line                                               # single line
+    pieces: list[str] = []
+    byte_offset = 0
+    iters = 0
+    while iters < 30:                                              # safety cap
+        iters += 1
+        r = recall_overflow_slice(body, slice="full",
+                                  byte_offset=byte_offset,
+                                  max_tokens=50, counter=_counter)
+        pieces.append(r.body)
+        if not r.more_available:
+            break
+        byte_offset = r.next_byte_offset
+    # Concatenation reconstructs the source byte-for-byte.
+    assert "".join(pieces) == body
+
+
+def test_negative_offset_raises_value_error():
+    with pytest.raises(ValueError):
+        recall_overflow_slice("body", offset=-1, max_tokens=10, counter=_counter)
+    with pytest.raises(ValueError):
+        recall_overflow_slice("body", byte_offset=-1, max_tokens=10, counter=_counter)
+
+
+def test_grep_offset_past_end_returns_empty():
+    body = "error: 1\nerror: 2"
+    r = recall_overflow_slice(body, grep="error:", offset=10,
+                              max_tokens=100, counter=_counter)
+    assert r.body == ""
+    assert r.matches_returned == 0
+    assert r.more_available is False
