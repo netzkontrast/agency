@@ -1,8 +1,8 @@
 ---
 spec_id: "154"
 slug: output-overflow-capture-recall
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-11
 owner: "@agency"
 enhances: "005"
 depends_on: ["005", "023", "146", "082", "147"]
@@ -103,3 +103,56 @@ Then:   RecallSlice{body=<only matching lines>, matches_returned=N,
 2. Auto-recall on cursor exhaustion or always agent-driven?
    **Recommend**: agent-driven only — silent auto-recall hides the
    token cost from the budget the driver is trying to manage.
+
+## Followup — Implementation Status (2026-06-11)
+
+### Done — Slice 1 (pure capture + recall library)
+
+- **`agency/_overflow.py`** — pure capture/recall functions with an
+  injected token-counter so tests pin a deterministic proxy
+  (`4 chars ≈ 1 token`) without depending on the Spec 082 backend:
+  - `capture_overflow(body, *, max_tokens, counter)` → `OverflowResult`
+    with `head` (monotone-prefix slice ≤ budget), `full_body`
+    (preserved verbatim for follow-up recall), `total_tokens`,
+    `returned_tokens`, `truncated`.
+  - `recall_overflow_slice(body, *, slice="full", grep="",
+    max_tokens, counter)` → `RecallSlice{body, slice_tokens,
+    total_tokens, matches_returned, more_available}`. Selection
+    priority: `grep` (line filter) → `slice` (line-range
+    `"<start>:<stop>"` or `"full"`).
+- **Typed shapes**: `OverflowResult`, `OverflowHandle{recall_handle,
+  total_tokens, returned_tokens, truncated}`, `RecallSlice` —
+  frozen dataclasses; immutable.
+- **Recall honours its own budget** (invariant c): grep matches or
+  line slices are themselves truncated to `max_tokens` with
+  `more_available=True` set when truncation fires — no
+  infinite-recursion overflow.
+- **Round-trip property** (invariant b): `capture_overflow(body).full_body
+  == body` byte-for-byte; the captured body is not re-encoded or
+  lossy.
+- **14 tests green** (`tests/test_output_overflow.py`) — short-body
+  passthrough; long-body truncation; monotone-prefix invariant;
+  round-trip preservation; full-slice recall; line-range recall +
+  clamp; grep recall + no-match; recall budget honoured;
+  frozen-dataclass mutability check; `OverflowHandle` shape; empty-body
+  safety; malformed-slice defensive fallback.
+
+### Still — Slice 2+
+
+- **Slice 2** — wire `capture_overflow` into `agency/_envelope.py`
+  body half (Spec 146 invariant: prefix stays byte-stable; capture
+  only touches body). Response envelopes a typed `OverflowHandle` next
+  to the truncated body.
+- **Slice 3** — `memory.recall_overflow(handle, slice="", grep="")`
+  as a graph verb that loads the `Artefact(kind="overflow-capture")`
+  by id + dispatches to `recall_overflow_slice`. Writes the Artefact
+  + SERVES + PRODUCES edges per Spec 002.
+- **Slice 4** — `agency_doctor.overflow_capture_health` reports a
+  count of overflow Artefacts vs untracked-truncation events
+  (invariant d: every truncate has a matching Artefact).
+- **Slice 5** — Spec 082 `TokenCounter` injected at the boundary
+  (replaces the proxy when `[anthropic]` extra installed); the
+  capture/recall math becomes Anthropic-accurate.
+- **Slice 6** — `Codes.OVERFLOW_CAPTURED` (Spec 151 invariant b);
+  every truncated response carries the typed code so wrapping LLM
+  drivers (Spec 147) can branch on it.
