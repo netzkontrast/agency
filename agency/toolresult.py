@@ -40,10 +40,16 @@ class Codes:
     INTERNAL = "internal"
     UNSPECIFIED = "unspecified"   # ok=False with no structured error
     # Spec 151 Slice 1 — promoted from heavily-used literal-string call
-    # sites (e.g. novel cap argument-validation paths). Slice 2 migrates
-    # the call sites from `ToolResult.failure("INVALID_ARGUMENT", ...)`
-    # to `ToolResult.failure(Codes.INVALID_ARGUMENT, ...)`.
-    INVALID_ARGUMENT = "invalid_argument"
+    # sites (e.g. novel cap argument-validation paths). Value MUST stay
+    # uppercase "INVALID_ARGUMENT" to match the existing live convention
+    # (40+ call sites + assertions across tests/test_music_lifecycle.py,
+    # tests/test_novel_lifecycle*.py, tests/test_thinking_capability.py,
+    # tests/test_prompt_capability.py, …). Migrating call sites from the
+    # literal `"INVALID_ARGUMENT"` to `Codes.INVALID_ARGUMENT` must NOT
+    # change the emitted `TypedError.code`. Other Codes constants use a
+    # lowercase value (Spec 059 convention); this constant is the
+    # documented exception so the backfill stays a pure refactor.
+    INVALID_ARGUMENT = "INVALID_ARGUMENT"
     # Spec 150 — dogfood amendment classifier failure modes.
     AMENDMENT_BAD_SPEC = "amendment_bad_spec"     # proposal cites a non-existent spec_id
     AMENDMENT_NO_SOURCE = "amendment_no_source"   # source_reflections is empty (provenance break)

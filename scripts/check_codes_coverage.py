@@ -82,35 +82,75 @@ class CoverageReport:
     offenders: list[CallSiteResult] = field(default_factory=list)
     orphan_codes: set[str] = field(default_factory=set)
     expr_sites: int = 0                                           # opaque — IN the denominator (Codex review)
+    unknown_sites: int = 0                                        # **payload / no code arg — IN the denominator
 
     @property
     def fraction(self) -> float:
-        """Coverage fraction = covered_sites / (covered + offenders + expr).
+        """Coverage fraction = covered_sites / (covered + offenders + expr + unknown).
 
         Empty tree (`total_failure_sites == 0`) is `1.0` by convention —
-        trivially covered. An EXPR-only tree is **0.0**, not the
-        misleading `1.0` the previous "trivially covered" shortcut
-        produced — `Codes.X` typed paths must be proven, not inferred
-        from the absence of literal strings.
+        trivially covered. An EXPR-only or UNKNOWN-only tree is **0.0**,
+        not the misleading `1.0` the previous "trivially covered"
+        shortcut produced — `Codes.X` typed paths must be proven, not
+        inferred from the absence of literal strings.
+
+        UNKNOWN sites are e.g. `ToolResult.failure(**payload)` where the
+        code argument is unpacked — the runtime code value is opaque to
+        the lint, so the site is counted against coverage just like an
+        EXPR site (Codex review).
         """
-        denom = self.covered_sites + len(self.offenders) + self.expr_sites
+        denom = (self.covered_sites + len(self.offenders)
+                 + self.expr_sites + self.unknown_sites)
         if denom == 0:
             return 1.0
         return self.covered_sites / denom
 
 
 # ── AST walker ──────────────────────────────────────────────────────────────
-def _toolresult_aliases(tree: ast.Module) -> set[str]:
-    """Collect every receiver name that resolves to `ToolResult` in this
-    file. Handles `from agency.toolresult import ToolResult` and
-    `from agency.toolresult import ToolResult as TR`."""
-    aliases: set[str] = {"ToolResult"}                            # bare receiver name
+# The audit only treats a `<name>.failure(...)` call as a ToolResult
+# failure when `<name>` was IMPORTED FROM `agency.toolresult` in the same
+# file — that way a third-party / fixture class also named `ToolResult`
+# doesn't trip the audit. Same rule for `Codes` aliases so the classifier
+# honors `from agency.toolresult import Codes as C; ToolResult.failure(
+# C.NOT_FOUND, ...)`.
+_AGENCY_TOOLRESULT_MODULES = frozenset({
+    "agency.toolresult",                                          # absolute import
+    ".toolresult",                                                # relative from agency/
+    "..toolresult",                                               # nested module relative
+})
+
+
+def _module_matches_toolresult(node: ast.ImportFrom) -> bool:
+    """Recognize an ImportFrom whose source is the agency.toolresult module
+    in any of the relative / absolute forms the codebase uses."""
+    name = node.module or ""
+    if name in _AGENCY_TOOLRESULT_MODULES:
+        return True
+    # Relative imports show up with level > 0 and `module` set to the
+    # tail. `from ..toolresult import ...` → level=2, module="toolresult".
+    if node.level and name == "toolresult":
+        return True
+    return False
+
+
+def _agency_aliases(tree: ast.Module) -> tuple[set[str], set[str]]:
+    """Return `(toolresult_names, codes_names)` — the per-module names
+    that resolve to `agency.toolresult.ToolResult` and `Codes` respectively.
+
+    Only ImportFrom statements that target `agency.toolresult` count —
+    a third-party `ToolResult` (e.g. a vendored helper, an unrelated lib)
+    is no longer auto-aliased.
+    """
+    toolresult: set[str] = set()
+    codes: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
+        if isinstance(node, ast.ImportFrom) and _module_matches_toolresult(node):
             for alias in node.names:
                 if alias.name == "ToolResult":
-                    aliases.add(alias.asname or alias.name)
-    return aliases
+                    toolresult.add(alias.asname or alias.name)
+                elif alias.name == "Codes":
+                    codes.add(alias.asname or alias.name)
+    return toolresult, codes
 
 
 def _is_toolresult_failure(call: ast.Call, *, aliases: set[str]) -> bool:
@@ -127,6 +167,7 @@ def _is_toolresult_failure(call: ast.Call, *, aliases: set[str]) -> bool:
 
 def classify_failure_call(
     call: ast.Call, *, codes_members: set[str] | None = None,
+    codes_aliases: set[str] | None = None,
 ) -> tuple[CallSiteClass, str, str]:
     """Classify the FIRST positional / `code` kwarg of a failure call.
 
@@ -139,7 +180,14 @@ def classify_failure_call(
     in that set is reclassified as STRING_LITERAL — a typo like
     `Codes.NOT_FOND` raises AttributeError at runtime and must be
     surfaced as an offender, not silently counted as covered.
+
+    `codes_aliases` enumerates the per-module names that resolve to
+    `agency.toolresult.Codes` — `Codes` itself plus any
+    `from agency.toolresult import Codes as <X>` alias. When None, the
+    default `{"Codes"}` is used (the common case).
     """
+    if codes_aliases is None:
+        codes_aliases = {"Codes"}
     code_arg: ast.AST | None = None
     if call.args:
         code_arg = call.args[0]
@@ -153,7 +201,7 @@ def classify_failure_call(
     if isinstance(code_arg, ast.Constant) and isinstance(code_arg.value, str):
         return CallSiteClass.STRING_LITERAL, code_arg.value, ""
     if isinstance(code_arg, ast.Attribute) and isinstance(code_arg.value, ast.Name) \
-            and code_arg.value.id == "Codes":
+            and code_arg.value.id in codes_aliases:
         attr_name = code_arg.attr
         if codes_members is not None and attr_name not in codes_members:
             # Typo — surface as an offender so the AttributeError doesn't
@@ -171,6 +219,10 @@ def audit_source(
 
     `codes_members` defaults to the live `Codes` namespace; pass a fixed
     set in tests to keep them hermetic against namespace evolution.
+
+    Files that do not import `ToolResult` from `agency.toolresult` are
+    skipped entirely — a third-party `ToolResult.failure(...)` call site
+    no longer trips the audit and no longer inflates the offender count.
     """
     try:
         tree = ast.parse(src, filename=path)
@@ -178,11 +230,16 @@ def audit_source(
         return []
     if codes_members is None:
         codes_members = codes_namespace_members()
-    aliases = _toolresult_aliases(tree)
+    tr_aliases, codes_aliases = _agency_aliases(tree)
+    if not tr_aliases:
+        # File never imports agency.toolresult.ToolResult — skip.
+        return []
     out: list[CallSiteResult] = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and _is_toolresult_failure(node, aliases=aliases):
-            cls, lit, code_name = classify_failure_call(node, codes_members=codes_members)
+        if isinstance(node, ast.Call) and _is_toolresult_failure(node, aliases=tr_aliases):
+            cls, lit, code_name = classify_failure_call(
+                node, codes_members=codes_members,
+                codes_aliases=codes_aliases or {"Codes"})
             out.append(CallSiteResult(
                 loc=FileLoc(path=path, line=node.lineno),
                 classification=cls,
@@ -213,6 +270,8 @@ def audit_tree(root: Path) -> CoverageReport:
             rep.offenders.append(site)
         elif site.classification == CallSiteClass.EXPR:
             rep.expr_sites += 1
+        elif site.classification == CallSiteClass.UNKNOWN:
+            rep.unknown_sites += 1
     rep.total_failure_sites = len(all_sites)
     # Orphan check (invariant c): a documented Codes member is an
     # orphan iff NO ATTR_REF call site in the audited tree carries that

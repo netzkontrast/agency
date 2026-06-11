@@ -233,9 +233,11 @@ def test_codes_namespace_members_returns_all_constants():
 def test_codes_invalid_argument_constant_lands():
     """Spec 151 Slice 1 promotes the heavily-used 'INVALID_ARGUMENT' literal
     (e.g. novel cap) to the Codes namespace. Slice 2+ migrates the call
-    sites to attribute references."""
+    sites to attribute references. Value MUST stay uppercase to preserve
+    backward compat with existing assertion strings (see
+    test_invalid_argument_codes_value_matches_existing_literal)."""
     from agency.toolresult import Codes
-    assert Codes.INVALID_ARGUMENT == "invalid_argument"
+    assert Codes.INVALID_ARGUMENT == "INVALID_ARGUMENT"
 
 
 def test_orphan_codes_detected_when_no_call_site_uses_them(tmp_path):
@@ -249,6 +251,67 @@ def test_orphan_codes_detected_when_no_call_site_uses_them(tmp_path):
     # Every documented Codes member is in `orphan_codes` EXCEPT NOT_FOUND.
     assert "NOT_FOUND" not in rep.orphan_codes
     assert "VALIDATION_FAILED" in rep.orphan_codes                # unused → orphan
+
+
+# ── Codex round-2 review fixes ─────────────────────────────────────────────
+def test_third_party_toolresult_failure_is_ignored(tmp_path):
+    """A `ToolResult.failure(...)` call in a file that does NOT import
+    `agency.toolresult.ToolResult` must NOT trip the audit — the receiver
+    is a third-party / fixture class with the same name."""
+    (tmp_path / "thirdparty.py").write_text(
+        "# No import of agency.toolresult here.\n"
+        "class ToolResult:\n"
+        "    @classmethod\n"
+        "    def failure(cls, code, msg): return cls()\n"
+        "def f():\n"
+        "    return ToolResult.failure('not_an_agency_code', 'msg')\n"
+    )
+    rep = audit_tree(tmp_path)
+    # No agency import → file is skipped entirely.
+    assert rep.total_failure_sites == 0
+    assert rep.offenders == []
+
+
+def test_codes_alias_via_as_import_is_recognized(tmp_path):
+    """`from agency.toolresult import Codes as C; ToolResult.failure(
+    C.NOT_FOUND, ...)` is valid typed usage. The classifier must honor it
+    and count the site as ATTR_REF (covered), not EXPR (uncovered)."""
+    (tmp_path / "aliased.py").write_text(
+        "from agency.toolresult import ToolResult, Codes as C\n"
+        "def f():\n"
+        "    return ToolResult.failure(C.NOT_FOUND, 'gone')\n"
+    )
+    rep = audit_tree(tmp_path)
+    assert rep.covered_sites == 1
+    assert rep.offenders == []
+    assert "NOT_FOUND" not in rep.orphan_codes
+
+
+def test_unknown_sites_count_against_fraction(tmp_path):
+    """`ToolResult.failure(**payload)` returns UNKNOWN (no positional code,
+    no `code=` kwarg). The site is opaque to the lint — must NOT report 1.0."""
+    (tmp_path / "unknown.py").write_text(
+        "from agency.toolresult import ToolResult\n"
+        "def f(payload):\n"
+        "    return ToolResult.failure(**payload)\n"
+    )
+    rep = audit_tree(tmp_path)
+    assert rep.unknown_sites == 1
+    assert rep.covered_sites == 0
+    assert rep.fraction == 0.0                                     # not 1.0 (Codex finding)
+
+
+def test_invalid_argument_codes_value_matches_existing_literal():
+    """Spec 151 Slice 1 promotes the heavily-used `"INVALID_ARGUMENT"`
+    literal to `Codes.INVALID_ARGUMENT`. The constant VALUE must stay
+    uppercase to match the 40+ existing call sites + the assertion
+    strings across tests/test_music_lifecycle.py, tests/test_novel_*.py,
+    tests/test_thinking_capability.py, tests/test_prompt_capability.py —
+    otherwise migrating from literal to attr-ref changes the emitted
+    `TypedError.code` from `INVALID_ARGUMENT` to `invalid_argument` and
+    breaks every client branching on the existing error code."""
+    from agency.toolresult import Codes
+    assert Codes.INVALID_ARGUMENT == "INVALID_ARGUMENT"            # NOT lowercase
 
 
 # ── live-tree invariant (informational; Slice 2 promotes to gate) ──────────
