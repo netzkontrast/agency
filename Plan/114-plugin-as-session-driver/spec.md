@@ -640,6 +640,26 @@ cross-session handoff) deferred to follow-up PR.
 - **Adjacent test updates**: `tests/test_agency.py::test_reflect_is_the_class_form` recognizes new `synthesize_session` verb; `tests/test_dogfood_graph_native.py::test_dogfood_has_five_verbs` → renamed to `_has_session_tracking_verbs`, expects 7 verbs.
 - **Full suite Green**: 1160 passed, 6 skipped. Block-mode lint clean on develop/reflect/dogfood.
 
+### Slice 2 (partial) — cross-session handoff (2026-06-11)
+
+- **`develop.session_resume(for_intent_id="")`** — finds the most-recent
+  ACTIVE SessionLifecycle SERVING the given intent (or the most-recent
+  Intent when `for_intent_id` is empty); archived lifecycles are
+  skipped. Returns `{found, session_lifecycle_id, intent_id, mode,
+  status, purpose, mode_history, suggested_action, last_active}`. When
+  `found=False`, suggests `develop.session_init` for a fresh start;
+  when `found=True`, the `suggested_action` is mode-aware (brainstorming
+  → `develop.brainstorm`; coding → `develop.implement`; etc.) so the
+  resumed agent picks up the right next verb without re-deriving where
+  it left off.
+- **Parameter rename** — kwarg is `for_intent_id` (not `intent_id`) to
+  avoid the `Registry.invoke` built-in-parameter collision.
+- **+7 tests** in `tests/test_session_driver.py` (24 total): finds
+  active lifecycle for explicit intent / falls back to most-recent
+  intent / skips archived lifecycles / picks most-recent of multiple
+  active / returns mode history / unknown intent → found=False /
+  mode-aware suggested_action.
+
 ### Slice 2 — Still to implement
 - **Hook integration (`hooks/session-start.sh`)** — auto-invoke `develop.session_init` via the Spec 076 unified-hook substrate.
 - **BoundaryUse auto-recording** — every raw Write/Edit/Bash invocation gets a `BoundaryUse` node (via the same Spec 076 hook mechanism) so `boundary_use_audit` returns non-empty in real sessions.
