@@ -126,6 +126,86 @@ CMD_BODY = (
     "\"return await call_tool('capability_plugin_help', {'intent_id': '$iid'})\"\n"
 )
 
+# Spec 148 Slice 1 — the `/agency` slash family.
+# `/agency [query]` is the one-keystroke dispatcher: with a query it routes to
+# tiered discovery (`mcp__agency__search`, Spec 068); bare it prints the live
+# capability list via `agency_welcome` (Spec 029). The flat-family shape (vs a
+# mega-command with subcommands) is Open-Q-1's recommendation — Claude Code
+# lists each command, so discoverability wins.
+AGENCY_CMD_DESC = (
+    "Use when you want a one-keystroke entry to the agency engine — browse "
+    "capabilities, run tiered discovery on a query, or see the live onboarding "
+    "payload."
+)
+AGENCY_CMD_BODY = (
+    "## `/agency [query]` — the agency dispatcher\n\n"
+    "One-keystroke entry to the agency MCP surface (the `search` · "
+    "`get_schema` · `execute` wire contract, Spec 029 / CORE.md).\n\n"
+    "### With a query → tiered discovery\n\n"
+    "When invoked with text, route it to the live capability graph via "
+    "`mcp__agency__search` (tiered discovery, Spec 068):\n\n"
+    "```python\n"
+    "await call_tool('mcp__agency__search', "
+    "{'query': '<your query>', 'detail': 'brief'})\n"
+    "```\n\n"
+    "Then drill into a found verb with `mcp__agency__get_schema` before "
+    "calling it inside `mcp__agency__execute`.\n\n"
+    "### Bare → the welcome payload\n\n"
+    "When invoked with no argument, print the live capability list + the "
+    "bootstrap example via `agency_welcome` (the canonical first call):\n\n"
+    "```python\n"
+    "await call_tool('agency_welcome', {})\n"
+    "```\n\n"
+    "`agency_welcome` returns the wire contract, the code-mode chaining "
+    "example, the tier-0 capability map, and the resolved graph DB path — "
+    "everything you need to start a session.\n\n"
+    "### Next\n\n"
+    "If no Intent is open yet, run `/agency-onboard` to capture one through "
+    "a short describe → configure → confirm → capture interview.\n"
+)
+
+# `/agency-onboard` — the four-beat first-touch interview. Slice 1 ships the
+# static prompt-list form (the agent reads the beats + drives the interview in
+# chat, then derives intent_bootstrap fields from the answers). Slice 2 swaps
+# in the Spec 147 AnthropicDriver-powered conversational version with each turn
+# captured as an Artefact(kind="onboarding-turn") (the provenance round-trip).
+AGENCY_ONBOARD_CMD_DESC = (
+    "Use when starting fresh work in a repo and you want the agency engine to "
+    "capture your intent through a short guided interview before any verb runs."
+)
+AGENCY_ONBOARD_CMD_BODY = (
+    "## `/agency-onboard` — first-touch intent capture\n\n"
+    "A short four-beat interview that turns 'what you want to do' into a "
+    "graph-captured Intent every later capability verb SERVES against. The "
+    "user stays creative; the engine captures everything (the GOALS.md "
+    "provenance moat).\n\n"
+    "### The four beats\n\n"
+    "1. **describe** — ask the user what they want to ship in one sentence "
+    "('a novel chapter', 'a token-economy lint', …). Capture the verbatim "
+    "answer.\n"
+    "2. **configure** — ask what 'done' looks like + any constraints "
+    "(deadline, format, acceptance test). Capture it.\n"
+    "3. **confirm** — read the captured purpose + deliverable back to the "
+    "user and ask them to confirm or correct. Capture the confirmation.\n"
+    "4. **capture** — call `intent_bootstrap` with `purpose` / `deliverable` "
+    "/ `acceptance` DERIVED from the three captured answers (never invent "
+    "fields the user didn't give):\n\n"
+    "```python\n"
+    "await call_tool('intent_bootstrap', {\n"
+    "    'purpose': '<from beat 1>',\n"
+    "    'deliverable': '<from beat 2>',\n"
+    "    'acceptance': '<from beat 2/3>',\n"
+    "})\n"
+    "```\n\n"
+    "### After capture\n\n"
+    "The returned `intent_id` is the handle every capability verb takes. "
+    "Walk a discipline skill next (`develop.brainstorm` for design, "
+    "`develop.implement` for code) rather than improvising — the engine "
+    "delivers one phase at a time so context stays bounded.\n\n"
+    "If the user declines onboarding, do not re-prompt; the session can "
+    "still mint an Intent later via `intent_bootstrap` directly.\n"
+)
+
 
 def _manifest() -> dict:
     """The enriched `.claude-plugin/plugin.json` for Claude Code. Built on top of
@@ -642,6 +722,13 @@ def generate(engine: Engine) -> dict[str, str]:
             allowed_tools=HELP_ALLOWED_TOOLS,
         )["result"],
         "commands/help.md":                author_command("help", CMD_DESC, CMD_BODY)["result"],
+        # Spec 148 Slice 1 — the /agency slash family. Authored through the
+        # same plugin.author_command boundary that builds /help, so the
+        # frontmatter shape stays consistent (dogfooding the plugin cap).
+        "commands/agency.md":              author_command(
+            "agency", AGENCY_CMD_DESC, AGENCY_CMD_BODY)["result"],
+        "commands/agency-onboard.md":      author_command(
+            "agency-onboard", AGENCY_ONBOARD_CMD_DESC, AGENCY_ONBOARD_CMD_BODY)["result"],
     }
     # Spec 031 §F / Spec 032 §G — per-capability emit pipeline.
     # NOTE on cache: cache.peek operates on the filesystem, but generate()
