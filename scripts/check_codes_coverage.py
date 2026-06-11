@@ -1,14 +1,20 @@
 """Spec 151 Slice 1 — ToolResult Codes coverage audit.
 
 Pure AST-walking audit over `ToolResult.failure(code, ...)` call sites:
-classify each as ATTR_REF (Codes.X — covered), STRING_LITERAL (offender),
-EXPR (computed code — opaque to lint), or UNKNOWN. Compose into a
-`CoverageReport` with fraction + offenders + orphan-Codes detection.
+classify each as ATTR_REF (Codes.X — covered, when X is a real Codes
+member), STRING_LITERAL (offender), EXPR (computed code — opaque but
+counted against coverage), or UNKNOWN. Compose into a `CoverageReport`
+with fraction + offenders + orphan-Codes detection.
 
 The Slice 1 surface ships:
-- `classify_failure_call(call_node) -> ClassifyResult`
-- `audit_source(src, path) -> list[CallSiteResult]`
-- `audit_tree(root) -> CoverageReport`
+- `classify_failure_call(call_node) -> ClassifyResult` returning
+  `(class, literal, code_name)` where `code_name` is the attribute
+  name for ATTR_REF (e.g. `"NOT_FOUND"` for `Codes.NOT_FOUND`).
+- `audit_source(src, path) -> list[CallSiteResult]` (per-file walk with
+  alias detection for `from ... import ToolResult as TR`).
+- `audit_tree(root) -> CoverageReport` (orphan check only counts the
+  ATTR_REF code_names already classified — no re-walk that picks up
+  unrelated `Codes.X` references).
 - `codes_namespace_members() -> set[str]`
 - CLI: `python -m scripts.check_codes_coverage [--root agency] [--floor 0.5]`
 
@@ -18,6 +24,23 @@ audit for cross-capability drift, backfill of literal-string call sites.
 
 Per CLAUDE.md rule 8: the report shape carries RELATIONSHIPS (fraction,
 subset checks), not pinned counts.
+
+Codex review (PR #126):
+- EXPR sites are now in the fraction denominator so an EXPR-only tree
+  reports 0.0 (not the misleading 1.0 the original "trivially covered"
+  shortcut produced). The empty-tree convention `total_failure_sites == 0
+  → 1.0` stands.
+- `Codes.NOT_FOND` (a typo) is no longer classified as covered: ATTR_REF
+  is gated on the attribute name being a real `Codes` member; typo'd
+  attribute references fall through to STRING_LITERAL with
+  `literal = "Codes.<typo>"`.
+- `from agency.toolresult import ToolResult as TR; TR.failure(...)`
+  is now detected via a per-file ImportFrom-alias scan; the audit no
+  longer silently drops aliased call sites.
+- Orphan detection counts ONLY code_names already classified as
+  ATTR_REF — a `Codes.X == "y"` comparison or constant reference
+  elsewhere in the same file no longer rescues a dead Codes member
+  from the orphan list.
 """
 from __future__ import annotations
 
@@ -30,9 +53,9 @@ from pathlib import Path
 
 
 class CallSiteClass(str, enum.Enum):
-    ATTR_REF = "attr_ref"            # Codes.X — covered
-    STRING_LITERAL = "string_literal"  # 'literal' — offender
-    EXPR = "expr"                    # computed — opaque to lint
+    ATTR_REF = "attr_ref"            # Codes.X (where X is a real Codes member) — covered
+    STRING_LITERAL = "string_literal"  # 'literal' or Codes.<typo> — offender
+    EXPR = "expr"                    # computed — counted against coverage (not opaque-OK)
     UNKNOWN = "unknown"
 
 
@@ -47,6 +70,7 @@ class CallSiteResult:
     loc: FileLoc
     classification: CallSiteClass
     literal: str = ""                                             # filled when classification == STRING_LITERAL
+    code_name: str = ""                                           # attribute name for ATTR_REF (e.g. "NOT_FOUND")
 
 
 @dataclass
@@ -57,46 +81,64 @@ class CoverageReport:
     covered_sites: int = 0
     offenders: list[CallSiteResult] = field(default_factory=list)
     orphan_codes: set[str] = field(default_factory=set)
-    expr_sites: int = 0                                           # opaque — neither covered nor offender
+    expr_sites: int = 0                                           # opaque — IN the denominator (Codex review)
 
     @property
     def fraction(self) -> float:
-        """Coverage fraction. Empty tree (no failure sites at all) is 1.0
-        by convention — trivially covered. EXPR sites are NEITHER covered
-        nor offender; they are subtracted from the denominator (Slice 2
-        may add a sub-audit for them)."""
-        denom = self.covered_sites + len(self.offenders)
+        """Coverage fraction = covered_sites / (covered + offenders + expr).
+
+        Empty tree (`total_failure_sites == 0`) is `1.0` by convention —
+        trivially covered. An EXPR-only tree is **0.0**, not the
+        misleading `1.0` the previous "trivially covered" shortcut
+        produced — `Codes.X` typed paths must be proven, not inferred
+        from the absence of literal strings.
+        """
+        denom = self.covered_sites + len(self.offenders) + self.expr_sites
         if denom == 0:
             return 1.0
         return self.covered_sites / denom
 
 
 # ── AST walker ──────────────────────────────────────────────────────────────
-def _is_toolresult_failure(call: ast.Call) -> bool:
-    """Recognize the shape `ToolResult.failure(...)`.
+def _toolresult_aliases(tree: ast.Module) -> set[str]:
+    """Collect every receiver name that resolves to `ToolResult` in this
+    file. Handles `from agency.toolresult import ToolResult` and
+    `from agency.toolresult import ToolResult as TR`."""
+    aliases: set[str] = {"ToolResult"}                            # bare receiver name
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name == "ToolResult":
+                    aliases.add(alias.asname or alias.name)
+    return aliases
 
-    Robust to `ToolResult.failure` and aliased `TR.failure` — the
-    rightmost attr must be `failure` and the second-rightmost identifier
-    must contain `ToolResult` or end with the same. Slice 2 may widen to
-    `*.failure` and re-import-aware traversal.
-    """
+
+def _is_toolresult_failure(call: ast.Call, *, aliases: set[str]) -> bool:
+    """Recognize `<alias>.failure(...)` where `<alias>` resolves to
+    `ToolResult` in this module (via direct import or `as` alias)."""
     fn = call.func
     if not isinstance(fn, ast.Attribute) or fn.attr != "failure":
         return False
     parent = fn.value
-    # ToolResult.failure
-    if isinstance(parent, ast.Name) and "ToolResult" in parent.id:
+    if isinstance(parent, ast.Name) and parent.id in aliases:
         return True
-    # tr.failure — heuristic: any single-name receiver. We're conservative
-    # at the source level; an unused import shadow is exceedingly rare.
     return False
 
 
-def classify_failure_call(call: ast.Call) -> tuple[CallSiteClass, str]:
+def classify_failure_call(
+    call: ast.Call, *, codes_members: set[str] | None = None,
+) -> tuple[CallSiteClass, str, str]:
     """Classify the FIRST positional / `code` kwarg of a failure call.
 
-    Returns `(classification, literal)`. `literal` is the empty string
-    for everything except STRING_LITERAL.
+    Returns `(classification, literal, code_name)`. `literal` is the
+    source text for STRING_LITERAL (or `"Codes.<typo>"` for an
+    attribute that doesn't name a real `Codes` member); `code_name` is
+    the attribute name for ATTR_REF (e.g. `"NOT_FOUND"`).
+
+    When `codes_members` is given, an ATTR_REF whose attr name is NOT
+    in that set is reclassified as STRING_LITERAL — a typo like
+    `Codes.NOT_FOND` raises AttributeError at runtime and must be
+    surfaced as an offender, not silently counted as covered.
     """
     code_arg: ast.AST | None = None
     if call.args:
@@ -107,30 +149,45 @@ def classify_failure_call(call: ast.Call) -> tuple[CallSiteClass, str]:
                 code_arg = kw.value
                 break
     if code_arg is None:
-        return CallSiteClass.UNKNOWN, ""
+        return CallSiteClass.UNKNOWN, "", ""
     if isinstance(code_arg, ast.Constant) and isinstance(code_arg.value, str):
-        return CallSiteClass.STRING_LITERAL, code_arg.value
+        return CallSiteClass.STRING_LITERAL, code_arg.value, ""
     if isinstance(code_arg, ast.Attribute) and isinstance(code_arg.value, ast.Name) \
             and code_arg.value.id == "Codes":
-        return CallSiteClass.ATTR_REF, ""
+        attr_name = code_arg.attr
+        if codes_members is not None and attr_name not in codes_members:
+            # Typo — surface as an offender so the AttributeError doesn't
+            # hide behind an inflated "covered" count.
+            return CallSiteClass.STRING_LITERAL, f"Codes.{attr_name}", ""
+        return CallSiteClass.ATTR_REF, "", attr_name
     # Anything else (Name, BinOp, Call, conditional expr, …) is computed.
-    return CallSiteClass.EXPR, ""
+    return CallSiteClass.EXPR, "", ""
 
 
-def audit_source(src: str, path: str) -> list[CallSiteResult]:
-    """Walk a single source file's AST; return every failure call site."""
+def audit_source(
+    src: str, path: str, *, codes_members: set[str] | None = None,
+) -> list[CallSiteResult]:
+    """Walk a single source file's AST; return every failure call site.
+
+    `codes_members` defaults to the live `Codes` namespace; pass a fixed
+    set in tests to keep them hermetic against namespace evolution.
+    """
     try:
         tree = ast.parse(src, filename=path)
     except SyntaxError:
         return []
+    if codes_members is None:
+        codes_members = codes_namespace_members()
+    aliases = _toolresult_aliases(tree)
     out: list[CallSiteResult] = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and _is_toolresult_failure(node):
-            cls, lit = classify_failure_call(node)
+        if isinstance(node, ast.Call) and _is_toolresult_failure(node, aliases=aliases):
+            cls, lit, code_name = classify_failure_call(node, codes_members=codes_members)
             out.append(CallSiteResult(
                 loc=FileLoc(path=path, line=node.lineno),
                 classification=cls,
                 literal=lit,
+                code_name=code_name,
             ))
     return out
 
@@ -138,6 +195,7 @@ def audit_source(src: str, path: str) -> list[CallSiteResult]:
 def audit_tree(root: Path) -> CoverageReport:
     """Walk every `*.py` under `root`; compose the CoverageReport."""
     root = Path(root)
+    members = codes_namespace_members()
     rep = CoverageReport()
     all_sites: list[CallSiteResult] = []
     for py in sorted(root.rglob("*.py")):
@@ -147,7 +205,7 @@ def audit_tree(root: Path) -> CoverageReport:
             src = py.read_text(encoding="utf-8")
         except OSError:
             continue
-        all_sites.extend(audit_source(src, path=str(py)))
+        all_sites.extend(audit_source(src, path=str(py), codes_members=members))
     for site in all_sites:
         if site.classification == CallSiteClass.ATTR_REF:
             rep.covered_sites += 1
@@ -156,23 +214,17 @@ def audit_tree(root: Path) -> CoverageReport:
         elif site.classification == CallSiteClass.EXPR:
             rep.expr_sites += 1
     rep.total_failure_sites = len(all_sites)
-    # Orphan check (invariant c): a documented Codes member with no
-    # ATTR_REF call site in the audited tree is an orphan.
-    used: set[str] = set()
-    for site in all_sites:
-        if site.classification == CallSiteClass.ATTR_REF:
-            # Re-parse the file to recover the .X attribute name (cheap;
-            # rare enough that the re-walk is fine for Slice 1).
-            try:
-                tree = ast.parse(Path(site.loc.path).read_text(encoding="utf-8"))
-            except (OSError, SyntaxError):
-                continue
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Attribute) \
-                        and isinstance(node.value, ast.Name) \
-                        and node.value.id == "Codes":
-                    used.add(node.attr)
-    rep.orphan_codes = codes_namespace_members() - used
+    # Orphan check (invariant c): a documented Codes member is an
+    # orphan iff NO ATTR_REF call site in the audited tree carries that
+    # exact attribute name. The previous pass re-walked every file and
+    # picked up unrelated `Codes.X` references (e.g. `if x == Codes.Y`
+    # comparisons), so a dead member could escape detection by appearing
+    # near another covered failure path. Counting only the ATTR_REF
+    # code_names already classified above closes that hole.
+    used: set[str] = {s.code_name for s in all_sites
+                      if s.classification == CallSiteClass.ATTR_REF
+                      and s.code_name}
+    rep.orphan_codes = members - used
     return rep
 
 
@@ -195,9 +247,10 @@ def main(argv: list[str] | None = None) -> int:
                              "Slice 2 promotes to a CI-blocking gate)")
     args = parser.parse_args(argv)
     rep = audit_tree(Path(args.root))
+    denom = rep.covered_sites + len(rep.offenders) + rep.expr_sites
     print(f"codes coverage: {rep.fraction:.3f}  "
-          f"({rep.covered_sites}/{rep.covered_sites + len(rep.offenders)} typed; "
-          f"{rep.expr_sites} computed)")
+          f"({rep.covered_sites}/{denom} covered; "
+          f"{len(rep.offenders)} offenders; {rep.expr_sites} computed)")
     if rep.offenders:
         print(f"  offenders ({len(rep.offenders)}):")
         for o in rep.offenders[:20]:
