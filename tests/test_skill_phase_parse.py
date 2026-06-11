@@ -8,11 +8,17 @@ graph nodes. Every one parses phase dicts ad-hoc (see `agency/disclosure.py`
 
 Slice 1 ships the typed boundary:
 - `Skill` + `Phase` dataclasses with a `variant` discriminator
-  (`"hard_gate"` / `"verb_bound"` / `"step"`).
+  (`"hard_gate"` / `"soft_gate"` / `"computed_gate"` / `"verb_bound"` /
+  `"step"`) covering every gate kind the live capability code already
+  registers (Codex review on PR #127).
 - `parse_skill(dict) -> ParseResult[Skill]` + `parse_phase(dict) ->
   ParseResult[Phase]` returning a typed result via the Spec 059 envelope.
 - Typed failure codes on `Codes`: `SKILL_PARSE_INVALID`,
   `PHASE_MISSING_FIELD`, `PHASE_UNKNOWN_KIND`.
+- Strict validation — non-list `phases` / `produces`, non-string
+  `cue` / `reference` / `gate_verb`, non-int `index`, non-string
+  produces/verbs elements, non-string gate — all fail with typed Codes
+  rather than slipping past `or []` / `or ""` coercion (Codex review).
 
 Slice 2+ — wiring `develop.skill_walk` through it; `_check_ad_hoc_phase_parse`
 grep_ast monotone gate; live-tree round-trip invariant
@@ -51,6 +57,36 @@ def test_hard_gate_phase_has_typed_variant():
     assert out.value.gate == "hard"
 
 
+def test_soft_gate_phase_has_typed_variant():
+    """Live skills in `subagent` + `skills` caps use `gate: "soft"` —
+    Codex review: parser must accept it."""
+    out = parse_phase({"name": "spec-review", "gate": "soft",
+                       "produces": ["spec_passed"]})
+    assert out.ok
+    assert out.value.variant == "soft_gate"
+
+
+def test_computed_gate_phase_has_typed_variant():
+    """Music + prompt caps use `gate: "computed"` with `gate_verb` —
+    Codex review: parser must accept the pair, reject computed-without-verb."""
+    out = parse_phase({
+        "name": "concept-gate", "gate": "computed",
+        "gate_verb": "music.concept_gate",
+        "produces": ["concept_ok"],
+    })
+    assert out.ok
+    p = out.value
+    assert p.variant == "computed_gate"
+    assert p.gate_verb == "music.concept_gate"
+
+
+def test_computed_gate_without_gate_verb_returns_typed_code():
+    out = parse_phase({"name": "x", "gate": "computed"})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "gate_verb" in out.message
+
+
 def test_verb_bound_phase_has_typed_variant():
     out = parse_phase({"name": "lint",
                        "invoke": {"capability": "plugin",
@@ -70,6 +106,19 @@ def test_phase_carries_optional_cue_and_reference():
     assert p.reference == "see ref.md"
 
 
+def test_phase_carries_live_index_and_verbs():
+    """`derive_usage_skill()` emits {index, name, produces, verbs} per phase
+    — Codex review: parser must lift these to Phase fields, not drop them."""
+    out = parse_phase({
+        "index": 3, "name": "validate",
+        "produces": ["lint_report"], "verbs": ["lint"], "gate": "soft",
+    })
+    assert out.ok
+    p = out.value
+    assert p.index == 3
+    assert p.verbs == ("lint",)
+
+
 def test_phase_immutable_dataclass():
     out = parse_phase({"name": "design", "produces": ["plan"]})
     p = out.value
@@ -77,7 +126,7 @@ def test_phase_immutable_dataclass():
         p.name = "changed"                                       # frozen
 
 
-# ── parse_phase failure paths ──────────────────────────────────────────────
+# ── parse_phase failure paths (strict validation per Codex review) ─────────
 def test_phase_missing_name_returns_typed_code():
     out = parse_phase({"produces": ["plan"]})
     assert not out.ok
@@ -92,13 +141,51 @@ def test_phase_invoke_missing_capability_returns_typed_code():
 
 
 def test_phase_unknown_gate_value_returns_typed_code():
-    """`gate` is constrained — only "hard" today (Slice 2 may add "soft").
-    Anything else is a typed `PHASE_UNKNOWN_KIND` so a Spec 147 LLM-driver
-    that synthesizes a SkillDoc with a bogus gate value is rejected at the
-    boundary, never silently dispatched."""
+    """`gate` is constrained to documented values. Anything else is a typed
+    `PHASE_UNKNOWN_KIND` so an LLM-driver that synthesizes a SkillDoc with
+    a bogus gate is rejected at the boundary, never silently dispatched."""
     out = parse_phase({"name": "x", "gate": "bogus"})
     assert not out.ok
     assert out.code == Codes.PHASE_UNKNOWN_KIND
+
+
+def test_phase_produces_non_list_returns_typed_code():
+    """Codex review: `produces: ""` must fail, not coerce to []. The
+    previous `or []` truthy fallback silently erased malformed produces."""
+    out = parse_phase({"name": "x", "produces": ""})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "produces" in out.message
+
+
+def test_phase_produces_non_string_element_returns_typed_code():
+    """Codex review: `produces: [1]` must fail, not pass as typed tuple
+    despite the `tuple[str, ...]` declaration."""
+    out = parse_phase({"name": "x", "produces": [1, 2]})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
+def test_phase_cue_non_string_returns_typed_code():
+    """Codex review: `cue: ["text"]` must fail — disclosure.render_phase
+    later concatenates cue as text, so a list/dict cue would produce a
+    non-string prompt or fail later instead of being rejected here."""
+    out = parse_phase({"name": "x", "cue": ["concat", "would", "fail"]})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "cue" in out.message
+
+
+def test_phase_reference_non_string_returns_typed_code():
+    out = parse_phase({"name": "x", "reference": {"path": "ref.md"}})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
+def test_phase_index_non_int_returns_typed_code():
+    out = parse_phase({"name": "x", "index": "3"})                 # string, not int
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
 
 
 # ── parse_skill + round-trip ───────────────────────────────────────────────
@@ -129,8 +216,6 @@ def test_parse_skill_propagates_phase_failure():
         ],
     })
     assert not out.ok
-    # Top-level Codes.SKILL_PARSE_INVALID is the wrapping code; the
-    # message points at the offending phase index.
     assert out.code == Codes.SKILL_PARSE_INVALID
     assert "phases[1]" in out.message
 
@@ -141,15 +226,38 @@ def test_parse_skill_missing_name_returns_typed_code():
     assert out.code == Codes.SKILL_PARSE_INVALID
 
 
+def test_parse_skill_non_list_phases_returns_typed_code():
+    """Codex review: `phases: ""` previously parsed as an empty skill
+    via `or []` truthy coercion. Must fail with SKILL_PARSE_INVALID."""
+    out = parse_skill({"name": "x", "phases": ""})
+    assert not out.ok
+    assert out.code == Codes.SKILL_PARSE_INVALID
+    assert "phases" in out.message
+
+
+def test_parse_skill_preserves_top_level_kind():
+    """`derive_usage_skill()` emits `kind: "usage"`; music/prompt caps emit
+    `kind: "workflow"` / `"gate"`. Codex review: parser must preserve it
+    so the round-trip stays lossless."""
+    out = parse_skill({"name": "develop-usage", "kind": "usage", "phases": []})
+    assert out.ok
+    assert out.value.kind == "usage"
+
+
 def test_parse_skill_round_trip_yields_same_dict_shape():
     """parse_clean(s).to_dict() == s — the round-trip invariant Slice 1
     asserts on a few hand-written specs; Slice 2 asserts it across the
-    LIVE registry (`live.skills` round-trips)."""
+    LIVE registry. Now covers `kind` + `index` + `verbs` + `gate_verb`."""
     s_in = {
-        "name": "verify",
+        "name": "pre-generation",
+        "kind": "gate",
         "phases": [
-            {"name": "design", "produces": ["plan"]},
-            {"name": "implement", "produces": ["code"]},
+            {"index": 1, "name": "research-cover", "produces": ["covered"]},
+            {"index": 2, "name": "verify-sources",
+             "produces": ["verified"], "verbs": ["music.verify_sources"],
+             "gate": "computed", "gate_verb": "music.verify_gate"},
+            {"index": 3, "name": "approve",
+             "produces": ["approved"], "gate": "hard"},
         ],
     }
     out = parse_skill(s_in)
