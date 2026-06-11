@@ -314,7 +314,8 @@ def test_phase_kind_hard_gate_requires_gate_hard():
 
 
 def test_phase_kind_hard_gate_with_matching_gate_passes():
-    out = parse_phase({"name": "approve", "kind": "hard-gate", "gate": "hard"})
+    out = parse_phase({"name": "approve", "kind": "hard-gate", "gate": "hard",
+                       "predicate": "tests_green"})
     assert out.ok
     assert out.value.variant == "hard_gate"
 
@@ -345,7 +346,7 @@ def test_phase_kind_preserved_through_round_trip():
         "name": "approve-flow",
         "phases": [
             {"name": "approve", "kind": "hard-gate", "gate": "hard",
-             "produces": ["ok"]},
+             "predicate": "tests_green", "produces": ["ok"]},
         ],
     }
     out = parse_skill(s_in)
@@ -389,6 +390,49 @@ def test_phase_kind_verb_bound_without_invoke_returns_typed_code():
     assert not out.ok
     assert out.code == Codes.PHASE_MISSING_FIELD
     assert "invoke" in out.message
+
+
+# ── Codex round-4 review fixes ────────────────────────────────────────────
+def test_hard_gate_kind_without_predicate_returns_typed_code():
+    """spec.md worked failure case: `kind="hard-gate"` without a
+    `predicate` must fail at the parse boundary (otherwise Slice 2
+    routes a typed hard gate with no predicate for the walker to
+    enforce)."""
+    out = parse_phase({"name": "approve", "kind": "hard-gate", "gate": "hard"})
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "predicate" in out.message
+
+
+def test_verb_bound_phase_with_gate_computed_skips_gate_verb():
+    """Codex review: when both `invoke` and `gate: "computed"` are
+    present, `_derive_variant` returns `verb_bound` (invoke wins). The
+    pre-derive gate_verb check must not reject — the invoked verb's
+    own gate semantics take over."""
+    out = parse_phase({
+        "name": "delegate-gate",
+        "produces": ["result"],
+        "gate": "computed",                                        # would normally need gate_verb
+        "invoke": {"capability": "music", "verb": "verify_gate"},
+        # no gate_verb — the verb_bound variant doesn't need it
+    })
+    assert out.ok
+    assert out.value.variant == "verb_bound"
+
+
+def test_phase_kind_hard_gate_with_invoke_returns_typed_code():
+    """Codex review: `kind: "hard-gate"` + `invoke: ...` derives
+    variant `verb_bound` (invoke wins), so the declared kind
+    contradicts how the phase actually walks. Must fail fast instead
+    of executing the verb under a hard-gate label."""
+    out = parse_phase({
+        "name": "lint", "kind": "hard-gate", "gate": "hard",
+        "produces": ["lint_report"],
+        "invoke": {"capability": "plugin", "verb": "lint_skill"},
+    })
+    assert not out.ok
+    assert out.code == Codes.PHASE_UNKNOWN_KIND
+    assert "verb_bound" in out.message
 
 
 # ── Codes coverage ─────────────────────────────────────────────────────────
