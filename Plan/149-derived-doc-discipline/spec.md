@@ -10,9 +10,11 @@ vision_goals: [7, 6, 4]
 affects:
   - scripts/check_vision_goals.py
   - scripts/__init__.py
+  - scripts/derive_docs.py
   - Plan/_planning/vision-goals-baseline.txt
   - .github/workflows/test.yml
   - tests/test_vision_goals_validator.py
+  - tests/test_derive_docs.py
 ---
 
 # Spec 149 — Derived-doc discipline (TODO + matrix + SkillDoc self-update)

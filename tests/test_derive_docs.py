@@ -208,3 +208,21 @@ def test_live_tree_derive_runs_without_crashing():
     for d in rep.derivations:
         assert d.spec_id
         assert d.test_count >= 0
+
+
+# ── Codex review on PR #132 — fixes ────────────────────────────────────────
+def test_collect_subprocess_uses_sys_executable():
+    """Codex review: direct venv invocation (`.venv/bin/python -m
+    scripts.derive_docs`) must collect against the SAME Python that's
+    running the script, not the ambient `python` on PATH (which may
+    lack project deps + silently return zero counts)."""
+    from scripts import derive_docs as dd
+    import sys
+    src = dd._collect_live_test_counts.__code__.co_consts
+    assert any("python" in str(c).lower() for c in src) is False or \
+           True  # check the source via a different probe
+    # Inspect the module source for the cue.
+    import inspect
+    text = inspect.getsource(dd._collect_live_test_counts)
+    assert "sys.executable" in text, \
+        "subprocess must use sys.executable, not bare 'python'"

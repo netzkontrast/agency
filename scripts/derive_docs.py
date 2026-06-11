@@ -136,7 +136,13 @@ def _collect_live_test_counts(repo_root: Path) -> dict[str, int]:
     structural derivation without crashing."""
     try:
         result = subprocess.run(
-            ["python", "-m", "pytest", "--collect-only", "-q",
+            # Codex review on PR #132: use sys.executable so direct venv
+            # invocation (`.venv/bin/python -m scripts.derive_docs`)
+            # collects against the same environment that has the project
+            # deps installed — not the ambient `python` on PATH which
+            # may lack `fastmcp`, etc. and silently exit with all counts
+            # zero.
+            [sys.executable, "-m", "pytest", "--collect-only", "-q",
              "-p", "no:warnings"],
             cwd=str(repo_root),
             capture_output=True, text=True, timeout=120,
