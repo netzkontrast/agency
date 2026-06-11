@@ -108,6 +108,7 @@ class Phase:
     index: Optional[int] = None
     verbs: tuple[str, ...] = ()
     gate_verb: str = ""
+    kind: str = ""                                                 # Spec 003 phase-kind shape
     # Catch-all for live-registry fields the typed Phase doesn't claim
     # (e.g. `inputs` on Jules phases, `predicate`/`text` from the Spec 003
     # hard-gate shape). Preserved through the round trip.
@@ -121,6 +122,8 @@ class Phase:
         if self.index is not None:
             out["index"] = self.index                              # ordering convention: first
         out["name"] = self.name
+        if self.kind:
+            out["kind"] = self.kind
         if self.produces:
             out["produces"] = list(self.produces)
         if self.verbs:
@@ -231,8 +234,9 @@ def parse_phase(d: dict) -> ParseResult:
     # Documented phase-`kind` field (Spec 003): when present, it MUST be
     # a string AND consistent with the gate. `kind: "hard-gate"` without
     # `gate: "hard"` is the silent-skip pattern Codex flagged on PR #127.
-    kind_raw = d.get("kind")
-    if kind_raw is not None:
+    kind = ""
+    if "kind" in d:
+        kind_raw = d["kind"]
         if not isinstance(kind_raw, str):
             return ParseResult.failure(
                 Codes.PHASE_MISSING_FIELD,
@@ -249,6 +253,27 @@ def parse_phase(d: dict) -> ParseResult:
                 Codes.PHASE_UNKNOWN_KIND,
                 f"phase `{name}` kind={kind_raw!r} requires gate={expected_gate!r}, "
                 f"got gate={gate!r}")
+        # `kind: "verb-bound"` MUST come paired with an `invoke` block —
+        # otherwise the phase is silently walked as a step (Codex review
+        # on PR #127, line 251). `expected_gate == ""` means the kind
+        # carries no gate constraint, but verb-bound specifically requires
+        # invoke; "step" doesn't.
+        if kind_raw == "verb-bound" and invoke is None:
+            return ParseResult.failure(
+                Codes.PHASE_MISSING_FIELD,
+                f"phase `{name}` kind='verb-bound' requires `invoke` "
+                f"({{'capability': ..., 'verb': ...}})")
+        kind = kind_raw
+    # verb-bound phases MUST declare produces non-empty — the existing
+    # walker stores the verb result at `p["produces"][0]` (Spec 018
+    # `SkillRun.submit`), so a verb_bound phase with `produces=()` would
+    # crash on the first execution. Reject at the parse boundary instead
+    # of silently letting it through.
+    if invoke is not None and not produces:
+        return ParseResult.failure(
+            Codes.PHASE_MISSING_FIELD,
+            f"phase `{name}` has `invoke` but no `produces` — "
+            f"verb-bound phases must declare ≥ 1 output name")
     variant = _derive_variant(gate=gate, invoke=invoke)
     extras = {k: v for k, v in d.items() if k not in _PHASE_KNOWN_KEYS}
     return ParseResult.success(Phase(
@@ -262,6 +287,7 @@ def parse_phase(d: dict) -> ParseResult:
         index=index,
         verbs=verbs,
         gate_verb=gate_verb,
+        kind=kind,
         extras=extras,
     ))
 
@@ -346,12 +372,18 @@ def parse_skill(d: dict) -> ParseResult:
                 f"got {type(phases_raw).__name__}")
     else:
         phases_raw = []
-    kind = d.get("kind", "")
-    if kind and not isinstance(kind, str):
-        return ParseResult.failure(
-            Codes.SKILL_PARSE_INVALID,
-            f"skill `{name}` kind must be a string, "
-            f"got {type(kind).__name__}")
+    # `kind` is optional but when the key is PRESENT it MUST be a string.
+    # `if kind and not isinstance(...)` (the previous form) skipped
+    # validation for falsy non-strings (0, False, None, [], …) and let
+    # them through; the typed parse boundary must fail fast instead.
+    kind = ""
+    if "kind" in d and d["kind"] is not None:
+        if not isinstance(d["kind"], str):
+            return ParseResult.failure(
+                Codes.SKILL_PARSE_INVALID,
+                f"skill `{name}` kind must be a string, "
+                f"got {type(d['kind']).__name__}")
+        kind = d["kind"]
     phases: list[Phase] = []
     for i, pd in enumerate(phases_raw):
         sub = parse_phase(pd)
@@ -362,4 +394,4 @@ def parse_skill(d: dict) -> ParseResult:
         phases.append(sub.value)
     extras = {k: v for k, v in d.items() if k not in _SKILL_KNOWN_KEYS}
     return ParseResult.success(Skill(
-        name=name, phases=tuple(phases), kind=kind or "", extras=extras))
+        name=name, phases=tuple(phases), kind=kind, extras=extras))

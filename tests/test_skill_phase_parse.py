@@ -88,7 +88,7 @@ def test_computed_gate_without_gate_verb_returns_typed_code():
 
 
 def test_verb_bound_phase_has_typed_variant():
-    out = parse_phase({"name": "lint",
+    out = parse_phase({"name": "lint", "produces": ["lint_report"],
                        "invoke": {"capability": "plugin",
                                   "verb": "lint_skill"}})
     assert out.ok
@@ -323,6 +323,72 @@ def test_phase_unknown_kind_value_returns_typed_code():
     out = parse_phase({"name": "x", "kind": "bogus-kind"})
     assert not out.ok
     assert out.code == Codes.PHASE_UNKNOWN_KIND
+
+
+# ── Codex round-3 review fixes ────────────────────────────────────────────
+def test_skill_falsy_non_string_kind_returns_typed_code():
+    """Codex review: `kind: 0` / `kind: False` previously slipped past
+    `if kind and not isinstance(kind, str)` (the `and kind` short-circuit
+    skipped validation for falsy values), then `kind or ""` erased it.
+    Must fail fast with SKILL_PARSE_INVALID."""
+    for falsy in (0, False, [], {}):
+        out = parse_skill({"name": "x", "kind": falsy, "phases": []})
+        assert not out.ok, f"falsy kind {falsy!r} unexpectedly passed"
+        assert out.code == Codes.SKILL_PARSE_INVALID
+
+
+def test_phase_kind_preserved_through_round_trip():
+    """Codex review: phase-level `kind` parsed successfully but Phase
+    didn't store it, so to_dict() dropped it from valid SkillDocs using
+    the Spec 003 documented shape."""
+    s_in = {
+        "name": "approve-flow",
+        "phases": [
+            {"name": "approve", "kind": "hard-gate", "gate": "hard",
+             "produces": ["ok"]},
+        ],
+    }
+    out = parse_skill(s_in)
+    assert out.ok
+    assert out.value.phases[0].kind == "hard-gate"
+    assert out.value.to_dict() == s_in                              # round-trip
+
+
+def test_verb_bound_phase_without_produces_returns_typed_code():
+    """Codex review: `invoke` set + empty `produces` → walker stores at
+    `p["produces"][0]` and crashes. Must fail fast at the parse boundary."""
+    out = parse_phase({
+        "name": "lint",
+        "invoke": {"capability": "plugin", "verb": "lint_skill"},
+        # no produces
+    })
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "produces" in out.message
+
+
+def test_verb_bound_phase_with_empty_produces_returns_typed_code():
+    out = parse_phase({
+        "name": "lint",
+        "produces": [],                                            # empty list
+        "invoke": {"capability": "plugin", "verb": "lint_skill"},
+    })
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+
+
+def test_phase_kind_verb_bound_without_invoke_returns_typed_code():
+    """Codex review: `kind: "verb-bound"` MUST come paired with an `invoke`
+    block. Without it the variant defaulted to "step" and the phase was
+    silently walked as a step instead of failing fast."""
+    out = parse_phase({
+        "name": "delegate", "kind": "verb-bound",
+        "produces": ["result"],                                    # required
+        # no invoke
+    })
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "invoke" in out.message
 
 
 # ── Codes coverage ─────────────────────────────────────────────────────────
