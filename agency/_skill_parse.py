@@ -67,6 +67,28 @@ _KNOWN_GATES = frozenset({"hard", "soft", "computed"})
 _KNOWN_VARIANTS = frozenset({"step", "hard_gate", "soft_gate",
                              "computed_gate", "verb_bound"})
 
+# Documented phase-`kind` field (Spec 003 / spec.md `phases=[{"kind":
+# "hard-gate", ...}]`). When present it MUST agree with the gate-derived
+# variant — `kind: "hard-gate"` requires `gate: "hard"`. Mapping:
+_PHASE_KIND_TO_GATE = {
+    "hard-gate": "hard",
+    "soft-gate": "soft",
+    "computed-gate": "computed",
+    "step": "",
+    "verb-bound": "",                                              # `invoke` carries the binding
+}
+
+# Fields the typed Phase pulls out directly. Anything else lands in
+# `extras` so the round-trip preserves the live-registry metadata
+# (Codex review on PR #127: `applies_when` on the skill, `inputs` on
+# Jules phases, future `kind`/`predicate`/`text` from Spec 003 — all
+# survive untouched).
+_PHASE_KNOWN_KEYS = frozenset({
+    "name", "produces", "cue", "gate", "invoke", "reference",
+    "index", "verbs", "gate_verb", "kind",
+})
+_SKILL_KNOWN_KEYS = frozenset({"name", "phases", "kind"})
+
 
 @dataclass(frozen=True)
 class Phase:
@@ -86,6 +108,10 @@ class Phase:
     index: Optional[int] = None
     verbs: tuple[str, ...] = ()
     gate_verb: str = ""
+    # Catch-all for live-registry fields the typed Phase doesn't claim
+    # (e.g. `inputs` on Jules phases, `predicate`/`text` from the Spec 003
+    # hard-gate shape). Preserved through the round trip.
+    extras: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """Round-trip back to the source dict shape. Keys absent on the
@@ -109,6 +135,9 @@ class Phase:
             out["invoke"] = {"capability": self.invoke[0], "verb": self.invoke[1]}
         if self.reference:
             out["reference"] = self.reference
+        # Live-registry extras (preserved unchanged).
+        for k, v in self.extras.items():
+            out[k] = v
         return out
 
 
@@ -117,12 +146,15 @@ class Skill:
     name: str
     phases: tuple[Phase, ...] = ()
     kind: str = ""                                                 # "" | "usage" | "discipline" | "gate" | "workflow" | "conceptualizer" | …
+    extras: dict = field(default_factory=dict)                     # applies_when, etc.
 
     def to_dict(self) -> dict:
         out: dict[str, Any] = {"name": self.name}
         if self.kind:
             out["kind"] = self.kind
         out["phases"] = [p.to_dict() for p in self.phases]
+        for k, v in self.extras.items():
+            out[k] = v
         return out
 
 
@@ -196,7 +228,29 @@ def parse_phase(d: dict) -> ParseResult:
             Codes.PHASE_MISSING_FIELD,
             f"phase `{name}` has gate='computed' but is missing `gate_verb` "
             f"(computed gates dispatch through a verb)")
+    # Documented phase-`kind` field (Spec 003): when present, it MUST be
+    # a string AND consistent with the gate. `kind: "hard-gate"` without
+    # `gate: "hard"` is the silent-skip pattern Codex flagged on PR #127.
+    kind_raw = d.get("kind")
+    if kind_raw is not None:
+        if not isinstance(kind_raw, str):
+            return ParseResult.failure(
+                Codes.PHASE_MISSING_FIELD,
+                f"phase `{name}` kind must be a string, "
+                f"got {type(kind_raw).__name__}")
+        expected_gate = _PHASE_KIND_TO_GATE.get(kind_raw)
+        if expected_gate is None:
+            return ParseResult.failure(
+                Codes.PHASE_UNKNOWN_KIND,
+                f"phase `{name}` has unknown kind {kind_raw!r} "
+                f"(documented kinds: {sorted(_PHASE_KIND_TO_GATE)})")
+        if expected_gate and expected_gate != gate:
+            return ParseResult.failure(
+                Codes.PHASE_UNKNOWN_KIND,
+                f"phase `{name}` kind={kind_raw!r} requires gate={expected_gate!r}, "
+                f"got gate={gate!r}")
     variant = _derive_variant(gate=gate, invoke=invoke)
+    extras = {k: v for k, v in d.items() if k not in _PHASE_KNOWN_KEYS}
     return ParseResult.success(Phase(
         name=name,
         variant=variant,
@@ -208,6 +262,7 @@ def parse_phase(d: dict) -> ParseResult:
         index=index,
         verbs=verbs,
         gate_verb=gate_verb,
+        extras=extras,
     ))
 
 
@@ -305,4 +360,6 @@ def parse_skill(d: dict) -> ParseResult:
                 Codes.SKILL_PARSE_INVALID,
                 f"skill `{name}` phases[{i}]: {sub.message}")
         phases.append(sub.value)
-    return ParseResult.success(Skill(name=name, phases=tuple(phases), kind=kind or ""))
+    extras = {k: v for k, v in d.items() if k not in _SKILL_KNOWN_KEYS}
+    return ParseResult.success(Skill(
+        name=name, phases=tuple(phases), kind=kind or "", extras=extras))

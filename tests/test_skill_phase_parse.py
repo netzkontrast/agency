@@ -266,6 +266,65 @@ def test_parse_skill_round_trip_yields_same_dict_shape():
     assert s_out == s_in
 
 
+# ── Codex round-2 review: live extras preservation + kind validation ──────
+def test_skill_preserves_applies_when_via_extras():
+    """`skills-triage` carries `applies_when` (agency/capabilities/skills.py:29).
+    Codex review (round 2): parser must preserve it through the round trip
+    so the matcher/projection downstream of Slice 2 can consume it."""
+    s_in = {
+        "name": "skills-triage",
+        "kind": "triage",
+        "applies_when": {"kind": "pattern", "text": "ship this skill"},
+        "phases": [],
+    }
+    out = parse_skill(s_in)
+    assert out.ok
+    assert out.value.extras == {"applies_when": {"kind": "pattern",
+                                                  "text": "ship this skill"}}
+    # Round-trip preserves the field intact.
+    assert out.value.to_dict() == s_in
+
+
+def test_phase_preserves_inputs_via_extras():
+    """Jules phases carry `inputs` (agency/capabilities/jules/skills.py:39).
+    Parser must preserve it through the round trip."""
+    s_in = {
+        "name": "jules-dispatch",
+        "phases": [
+            {"index": 1, "name": "dispatch", "produces": ["session"],
+             "inputs": ["source"]},
+        ],
+    }
+    out = parse_skill(s_in)
+    assert out.ok
+    assert out.value.phases[0].extras == {"inputs": ["source"]}
+    # Round-trip preserves the field.
+    assert out.value.to_dict() == s_in
+
+
+def test_phase_kind_hard_gate_requires_gate_hard():
+    """Spec 003 `kind: "hard-gate"` shape. Codex review: my parser
+    previously derived variant from gate only, so `{"kind": "hard-gate"}`
+    without a `gate` parsed as a normal step — the silent-skip pattern.
+    Now `kind` validates against the derived gate."""
+    out = parse_phase({"name": "approve", "kind": "hard-gate"})
+    assert not out.ok
+    assert out.code == Codes.PHASE_UNKNOWN_KIND
+    assert "hard" in out.message
+
+
+def test_phase_kind_hard_gate_with_matching_gate_passes():
+    out = parse_phase({"name": "approve", "kind": "hard-gate", "gate": "hard"})
+    assert out.ok
+    assert out.value.variant == "hard_gate"
+
+
+def test_phase_unknown_kind_value_returns_typed_code():
+    out = parse_phase({"name": "x", "kind": "bogus-kind"})
+    assert not out.ok
+    assert out.code == Codes.PHASE_UNKNOWN_KIND
+
+
 # ── Codes coverage ─────────────────────────────────────────────────────────
 def test_skill_parse_codes_constants_land():
     """The Codes namespace gains the documented `SKILL_PARSE_*` + `PHASE_*`
