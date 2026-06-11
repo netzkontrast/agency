@@ -1,8 +1,8 @@
 ---
 spec_id: "151"
 slug: toolresult-code-coverage-audit
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-11
 owner: "@agency"
 enhances: "059"
 depends_on: ["001", "059", "019", "149"]
@@ -97,3 +97,57 @@ Then:   fraction increases AND the offender drops out of the list
 2. Per-capability sub-floors or a single global floor? **Recommend**:
    single global (matches naming-audit Spec 049 posture); per-cap
    sub-floors emerge only if one capability stalls.
+
+## Followup — Implementation Status (2026-06-11)
+
+### Done — Slice 1 (pure audit module + Codes.INVALID_ARGUMENT promotion)
+
+- **`scripts/check_codes_coverage.py`** — pure AST-walking audit.
+  `classify_failure_call(call_node)` per-site classifier returning
+  `(CallSiteClass, literal)`; `audit_source(src, path)` walks a single
+  module; `audit_tree(root)` composes the `CoverageReport`.
+- **Typed shapes** — `FileLoc(path, line)`; `CallSiteClass{ATTR_REF,
+  STRING_LITERAL, EXPR, UNKNOWN}`; `CallSiteResult(loc, classification,
+  literal)`; `CoverageReport{total_failure_sites, covered_sites,
+  offenders, orphan_codes, expr_sites}` with computed `.fraction`
+  property (empty-tree convention: `1.0`; EXPR sites subtracted from
+  the denominator so opaque computed codes don't skew coverage).
+- **Orphan-code detection** (invariant c) — every documented `Codes`
+  member with no ATTR_REF call site in the audited tree shows up in
+  `orphan_codes` so authors can either backfill a call site or tag the
+  constant `# AGENCY-RESERVED`.
+- **`Codes.INVALID_ARGUMENT = "invalid_argument"` lands** — promoted
+  from heavily-used literal in `novel/_main.py`. Slice 2 migrates the
+  call sites from literal-string to `Codes.INVALID_ARGUMENT` attr-ref.
+- **CLI** — `python -m scripts.check_codes_coverage [--root agency]`
+  prints fraction + offenders (head:20) + orphans. Slice 1 is
+  informational (`return 0`); Slice 2 promotes to a CI-blocking gate
+  per Spec 058 WARN→error pattern.
+- **11 tests green** (`tests/test_codes_coverage.py`) — per-class
+  classification + multi-site + tree audit + empty-tree convention +
+  orphan detection + Codes namespace subset invariant (rule 8) +
+  INVALID_ARGUMENT constant + live-tree shape invariant
+  (informational fraction).
+
+### Still — Slice 2+
+
+- **Slice 2** — Spec 058 WARN→error promotion. Once the live tree
+  reports `fraction >= 0.9`, promote `check_codes_coverage` to a
+  CI-blocking gate. Add `--floor` enforcement (default 0.9, override
+  via `Plan/_planning/codes-coverage-floor.txt` Spec 054 drift
+  baseline). Monotone-floor invariant (a) — floor advances on each
+  commit; regression requires explicit `floor_reset` (audit-trail
+  Reflection).
+- **Slice 3** — `agency_doctor.codes_coverage` reports the typed
+  payload `{covered_sites, total_failure_sites, fraction, offenders}`
+  + a `monotone_ok` bool so wrapping drivers can branch on the
+  health of the typed-error surface.
+- **Slice 4** — backfill the live offenders. Convert every
+  `ToolResult.failure("INVALID_ARGUMENT", ...)` to
+  `ToolResult.failure(Codes.INVALID_ARGUMENT, ...)` in `novel/_main.py`
+  (and any other capability the audit surfaces); push fraction toward
+  1.0.
+- **Slice 5** — `EXPR` sub-audit. A computed-code call site is opaque
+  to lint today; Slice 5 tracks call-site frequency + warns when a
+  cap accumulates > N EXPR-form failures (a signal that a `Codes.X`
+  promotion is overdue).
