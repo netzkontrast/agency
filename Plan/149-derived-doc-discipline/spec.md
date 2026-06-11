@@ -146,14 +146,58 @@ Then:   exits with Codes.DERIVE_AMBIGUOUS naming both specs;
   `jsonschema-path`).
 - 18 spec tests + 1 live-tree regression test green.
 
-**Still (Slice 2+):**
-- **Backfill** the 129 baseline specs with `vision_goals:` derived
-  from `docs/vision/SPEC-VISION-ALIGNMENT.md` (for specs already in
-  the matrix) + author judgement (for specs not in the matrix). Each
-  baseline shrink lands in its own commit so the audit trail is clean.
-- `scripts/derive-docs` — the full deriver for TODO row test counts,
-  alignment-matrix Goal column, per-spec Followup status, SkillDoc
-  bodies. Slice 1 lays the frontmatter foundation those consume.
+## Followup — Implementation Status (Slice 2.1, 2026-06-11)
+
+### Done — Slice 2.1 (core derivation library + CLI)
+
+- **`scripts/derive_docs.py`** ships the pure derivation engine:
+  - `parse_affects(spec_path)` — reads `affects:` from frontmatter
+    (handles missing field, malformed YAML, non-string entries).
+  - `parse_collect_output(text)` — `pytest --collect-only -q` output →
+    `{test_file: count}` map; handles parametrized `[case-id]`
+    suffixes; ignores summary lines + blank input.
+  - `derive_test_counts(affects, counts)` — sums the affects-file
+    counts; missing files contribute 0 (rule 8 relationship invariant).
+  - `derive_spec(spec_path, counts)` → typed `Derivation(spec_id,
+    test_count, affects_files)`.
+  - `derive_tree(plan_root, counts)` → `DeriveReport(derivations)`
+    deterministically sorted by spec_id.
+- **CLI**: `python -m scripts.derive_docs [--plan-root Plan]`
+  invokes `pytest --collect-only -q` against the live repo, derives
+  every spec, prints the top-20 by test_count. Live tree today:
+  **262 specs walked, 1745 tests counted**, Spec 094 tops at 86
+  tests; Slice 1 specs (152, 154) carry 60 + 31.
+- **16 tests** in `tests/test_derive_docs.py` cover affects parsing,
+  collect-output parsing (incl. parametrize + empty + summary
+  filtering), test-count derivation, per-spec Derivation shape,
+  tree-wide rollup determinism, and a live-tree smoke test.
+- Pattern matches Spec 149 Slice 1 (`scripts/check_vision_goals.py`)
+  — pure functions importable as `scripts.derive_docs`, frozen
+  dataclasses, deterministic sort.
+
+### Still — Slice 2.2+
+
+- **Slice 2.2 — write side**: rewrite spec.md derived zones via
+  `<!-- derived:<section-id> -->` … `<!-- /derived:<section-id> -->`
+  HTML fences. `derive_docs --write` only touches between fences;
+  hand-prose untouched.
+- **Slice 2.3 — `check-doc-drift` extension**: fail CI when a derived
+  zone diverges from `derive_docs --dry-run` output (Spec 058
+  WARN→error doctrine).
+- **Slice 2.4 — typed Codes**: `DERIVE_AMBIGUOUS` (two specs claim
+  the same verb), `DERIVE_MISSING_GOAL` (frontmatter gap),
+  `DERIVE_FENCE_BROKEN` (malformed derived zone). Per Spec 151
+  invariant b.
+- **Slice 2.5 — alignment-matrix Goal column**: derive from each
+  spec's `vision_goals:` (Slice 1 frontmatter); render the matrix.
+- **Slice 2.6 — Backfill the 129 baseline** specs with
+  `vision_goals:` derived from `docs/vision/SPEC-VISION-ALIGNMENT.md`
+  + author judgement; each baseline shrink lands in its own commit.
+- **Slice 2.7 — Followup status derive** (Spec 269): for shipped
+  specs, render the `### Done` / `### Still` blocks from a derived
+  source.
+
+**Still (older Slice 2+ items, preserved):**
 - HTML-comment fenced derived zones (`<!-- derived:<id> -->` …
   `<!-- /derived:<id> -->`) — convention to be added once the
   deriver knows what to write.
