@@ -28,6 +28,7 @@ from scripts.check_schema_coverage import (
     audit_schemas,
     schema_labels,
     schema_paths,
+    truly_inline_schemas,
 )
 
 
@@ -183,6 +184,40 @@ def test_audit_honors_inline_schemas_against_ontology_labels():
     assert "IntentYaml" in rep.non_node_schemas
 
 
+# ── truly-inline schema separation (Codex round-2) ────────────────────────
+def test_truly_inline_schemas_excludes_file_backed_keys(tmp_path):
+    """Codex review on PR #128: `e.ontology.schemas` is the MERGED dict
+    (engine loads file schemas + merges OntologyExtension.schemas). The
+    audit must split off the file-backed ones so a file with a stale
+    `title` ISN'T silently re-covered via its filename."""
+    (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
+    (tmp_path / "capabilities" / "a" / "schemas" / "repo-index.json").write_text(
+        '{"title": "RepoIndex"}')
+    merged = {
+        "repo-index": {"required": ["path"]},                      # file-backed
+        "intent-yaml": {"required": ["purpose"]},                  # inline-only
+    }
+    inline_only = truly_inline_schemas(tmp_path, merged)
+    assert set(inline_only.keys()) == {"intent-yaml"}              # file-backed excluded
+
+
+def test_audit_via_truly_inline_surfaces_title_label_drift(tmp_path):
+    """A file `repo-index.json` whose `title` is stale ("OldName")
+    should NOT be silently rescued by the filename via the merged
+    inline dict. The audit reports `OldName` only."""
+    (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
+    (tmp_path / "capabilities" / "a" / "schemas" / "repo-index.json").write_text(
+        '{"title": "OldName"}')
+    merged = {"repo-index": {"required": ["path"]}}                # file-backed key
+    inline_only = truly_inline_schemas(tmp_path, merged)            # → {}
+    # Now audit using truly-inline only:
+    rep = audit_schemas(tmp_path, ontology_labels={"RepoIndex"},
+                        ontology_schemas=inline_only)
+    # OldName surfaces as a non-node schema (drift); RepoIndex is uncovered.
+    assert "RepoIndex" in rep.uncovered
+    assert "OldName" in rep.non_node_schemas
+
+
 # ── live-tree audit (informational) ────────────────────────────────────────
 def test_live_tree_audit_yields_a_report():
     """Slice 1: assert the audit RUNS against the live repo and produces a
@@ -193,9 +228,10 @@ def test_live_tree_audit_yields_a_report():
     e = Engine(":memory:")
     try:
         ontology = set(e.ontology.nodes)
-        inline = dict(e.ontology.schemas)
+        merged = dict(e.ontology.schemas)
     finally:
         e.memory.close()
+    inline = truly_inline_schemas(repo / "agency", merged)
     rep = audit_schemas(repo / "agency", ontology_labels=ontology,
                         ontology_schemas=inline)
     assert isinstance(rep, CoverageReport)

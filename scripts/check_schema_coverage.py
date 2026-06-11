@@ -134,6 +134,22 @@ def audit_schemas(repo_root: Path, *,
 
 
 # ── CLI entry ─────────────────────────────────────────────────────────────
+def truly_inline_schemas(repo_root: Path, merged: dict) -> dict:
+    """Return only the schemas declared inline via `OntologyExtension.schemas`
+    — NOT the ones the engine loaded from `*.json` files.
+
+    Codex review on PR #128: `e.ontology.schemas` is the MERGED dict
+    (engine loads file schemas + merges OntologyExtension.schemas). If
+    the audit blindly passes it back as `inline_schemas=`, every
+    file-backed schema is re-added via its filename — so a file whose
+    `title` is stale or mismatched is still counted as covered by the
+    PascalCased filename, hiding the exact title/label drift the audit
+    is meant to surface.
+    """
+    file_keys = {p.stem for p in schema_paths(repo_root)}
+    return {k: v for k, v in merged.items() if k not in file_keys}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--root", default="agency",
@@ -141,16 +157,18 @@ def main(argv: list[str] | None = None) -> int:
                              "(default: agency)")
     args = parser.parse_args(argv)
     # Boot the engine just long enough to read the live ontology labels
-    # AND the merged inline-schema keys (so the audit sees every Schema
-    # the engine knows about, file-backed or inline-declared).
+    # AND the merged schema dict (which we then split into truly-
+    # inline-only — see `truly_inline_schemas`).
     from agency.engine import Engine
     e = Engine(":memory:")
     try:
         ontology = set(e.ontology.nodes)
-        inline = dict(e.ontology.schemas)
+        merged = dict(e.ontology.schemas)
     finally:
         e.memory.close()
-    rep = audit_schemas(Path(args.root), ontology_labels=ontology,
+    root = Path(args.root)
+    inline = truly_inline_schemas(root, merged)
+    rep = audit_schemas(root, ontology_labels=ontology,
                         ontology_schemas=inline)
     print(f"schema coverage: {rep.coverage_fraction:.3f}  "
           f"({len(rep.covered)}/{rep.total_ontology_labels} labels covered; "
