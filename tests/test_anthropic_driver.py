@@ -211,13 +211,169 @@ def test_readiness_shape(monkeypatch):
     assert r["managed_agents_capable"] is False        # Slice 2
 
 
-def test_dispatch_session_is_slice2_deferred():
-    from agency._drivers._anthropic import DriverError
-    d = _driver()
+# ── Slice 2: Managed-Agents bridge — dispatch_session ────────────────────────
+class _FakeSession:
+    """The shape of `client.beta.agents.sessions.create(...)` response."""
+
+    def __init__(self, session_id="sess_abc", status="running",
+                 status_reason=None, started_at="2026-06-11T00:00:00Z"):
+        self.id = session_id
+        self.status = status
+        self.status_reason = status_reason
+        self.started_at = started_at
+
+
+class _FakeSessions:
+    def __init__(self, response=None, raise_exc=None):
+        self._response = response or _FakeSession()
+        self._raise = raise_exc
+        self.calls: list[dict] = []
+
+    def create(self, **kw):
+        self.calls.append(kw)
+        if self._raise:
+            raise self._raise
+        return self._response
+
+
+class _FakeAgentsClient:
+    def __init__(self, sessions):
+        self.sessions = sessions
+
+
+class _FakeBeta:
+    def __init__(self, sessions):
+        self.agents = _FakeAgentsClient(sessions)
+
+
+class _FakeManagedClient:
+    def __init__(self, sessions):
+        self.beta = _FakeBeta(sessions)
+
+
+def test_dispatch_session_returns_typed_session_handle():
+    """Slice 2: `dispatch_session` returns a typed SessionHandle with the
+    session_id + status from the SDK response."""
+    from agency._drivers._anthropic import AnthropicDriver, SessionHandle
+    sessions = _FakeSessions(_FakeSession(session_id="sess_abc",
+                                            status="running"))
+    d = AnthropicDriver(client=_FakeManagedClient(sessions))
+    h = d.dispatch_session(agent_id="agent_x", env_id="env_y",
+                           kickoff="Summarize chapter 1")
+    assert isinstance(h, SessionHandle)
+    assert h.session_id == "sess_abc"
+    assert h.status == "running"
+    assert h.status_reason is None or h.status_reason == ""
+
+
+def test_dispatch_session_passes_create_once_args():
+    """Per claude-api skill: Agent FIRST, then session — NO EXCEPTIONS.
+    The SDK call MUST reference a pre-created agent_id + env_id;
+    Slice 2 does NOT create the agent itself."""
+    from agency._drivers._anthropic import AnthropicDriver
+    sessions = _FakeSessions()
+    d = AnthropicDriver(client=_FakeManagedClient(sessions))
+    d.dispatch_session(agent_id="agent_x", env_id="env_y",
+                       kickoff="kickoff text")
+    assert len(sessions.calls) == 1
+    call = sessions.calls[0]
+    # The SDK kwargs MUST carry the pre-created agent_id + env_id; the
+    # driver does NOT mint a new agent (Spec 137 Lock owns that).
+    assert call.get("agent_id") == "agent_x"
+    # env_id maps to environment_id in the SDK.
+    assert call.get("environment_id") == "env_y" or \
+           call.get("env_id") == "env_y"
+    # kickoff travels under one of these documented names.
+    kickoff_args = (call.get("kickoff_message")
+                    or call.get("kickoff")
+                    or call.get("initial_message"))
+    assert "kickoff text" in str(kickoff_args)
+
+
+def test_dispatch_session_rejects_empty_agent_id():
+    """Pre-create doctrine: dispatch needs a real agent_id, never empty."""
+    from agency._drivers._anthropic import AnthropicDriver, DriverError
+    d = AnthropicDriver(client=_FakeManagedClient(_FakeSessions()))
     with pytest.raises(DriverError) as ei:
-        d.dispatch_session("agent_x", "env_y", "kickoff")
+        d.dispatch_session(agent_id="", env_id="env_y", kickoff="x")
     assert ei.value.code == DriverError.BAD_REQUEST
-    assert "Slice 2" in str(ei.value)
+
+
+def test_dispatch_session_rejects_empty_env_id():
+    from agency._drivers._anthropic import AnthropicDriver, DriverError
+    d = AnthropicDriver(client=_FakeManagedClient(_FakeSessions()))
+    with pytest.raises(DriverError) as ei:
+        d.dispatch_session(agent_id="agent_x", env_id="", kickoff="x")
+    assert ei.value.code == DriverError.BAD_REQUEST
+
+
+def test_dispatch_session_rejects_empty_kickoff():
+    from agency._drivers._anthropic import AnthropicDriver, DriverError
+    d = AnthropicDriver(client=_FakeManagedClient(_FakeSessions()))
+    with pytest.raises(DriverError) as ei:
+        d.dispatch_session(agent_id="agent_x", env_id="env_y", kickoff="")
+    assert ei.value.code == DriverError.BAD_REQUEST
+
+
+def test_dispatch_session_carries_status_reason_when_failed():
+    """When the SDK returns a non-running status with a reason
+    (e.g. status='terminated', status_reason='unauthorized'), the
+    handle surfaces both so the engine can branch."""
+    from agency._drivers._anthropic import AnthropicDriver
+    sessions = _FakeSessions(_FakeSession(session_id="sess_x",
+                                            status="terminated",
+                                            status_reason="unauthorized"))
+    d = AnthropicDriver(client=_FakeManagedClient(sessions))
+    h = d.dispatch_session(agent_id="agent_x", env_id="env_y",
+                           kickoff="x")
+    assert h.status == "terminated"
+    assert h.status_reason == "unauthorized"
+
+
+def test_session_handle_is_frozen_dataclass():
+    from agency._drivers._anthropic import SessionHandle
+    h = SessionHandle(session_id="s", status="running")
+    with pytest.raises(Exception):
+        h.session_id = "mutated"                                   # frozen
+
+
+def test_readiness_reflects_managed_agents_capable_when_client_has_beta():
+    """`agency_doctor.anthropic_driver.managed_agents_capable` flips
+    True when the injected client exposes the .beta.agents.sessions
+    surface (Slice 2 detection signal)."""
+    from agency._drivers._anthropic import AnthropicDriver
+    d = AnthropicDriver(client=_FakeManagedClient(_FakeSessions()))
+    r = d.readiness()
+    assert r["managed_agents_capable"] is True
+
+
+def test_readiness_managed_agents_false_when_client_lacks_beta():
+    """A bare client (just messages.create) reports
+    managed_agents_capable=False."""
+
+    class _BareClient:
+        pass
+
+    from agency._drivers._anthropic import AnthropicDriver
+    d = AnthropicDriver(client=_BareClient())
+    r = d.readiness()
+    assert r["managed_agents_capable"] is False
+
+
+def test_dispatch_session_maps_sdk_auth_error_to_driver_error():
+    """SDK exceptions are mapped to typed DriverError (Spec 002 boundary)."""
+    from agency._drivers._anthropic import AnthropicDriver, DriverError
+
+    class _AuthErr(Exception):
+        pass
+
+    sessions = _FakeSessions(raise_exc=_AuthErr("AuthenticationError: bad key"))
+    d = AnthropicDriver(client=_FakeManagedClient(sessions))
+    with pytest.raises(DriverError) as ei:
+        d.dispatch_session(agent_id="agent_x", env_id="env_y", kickoff="x")
+    # Generic exception (not a recognized SDK name) maps to BAD_REQUEST or NETWORK;
+    # the contract is: it raises DriverError, never the raw SDK exception.
+    assert isinstance(ei.value, DriverError)
 
 
 # ── engine wiring ────────────────────────────────────────────────────────────
