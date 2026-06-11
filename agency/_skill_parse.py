@@ -126,32 +126,41 @@ class Phase:
     # (e.g. `predicate`/`text` from the Spec 003 hard-gate shape).
     # Preserved through the round trip.
     extras: dict = field(default_factory=dict)
+    # The set of TYPED-FIELD keys that were present on the source dict.
+    # `to_dict()` emits a known-key only when its value is truthy OR
+    # the key appeared on the source — that way `verbs: []` round-trips
+    # back to `verbs: []` (live registry has this in the scene-writer
+    # skill) and a kind-only `gate` doesn't synthesize a `gate: "hard"`
+    # field that wasn't in the source. Codex review on PR #127.
+    _source_keys: frozenset = field(default_factory=frozenset)
 
     def to_dict(self) -> dict:
-        """Round-trip back to the source dict shape. Keys absent on the
-        source dict (because they were defaults) stay absent here so the
-        round-trip invariant holds for cheap hand-written skills."""
+        """Round-trip back to the source dict shape. A key is emitted iff
+        its value is truthy OR the key was present on the source dict —
+        so `verbs: []` round-trips back to `verbs: []` and a kind-only
+        SkillDoc does NOT gain a synthesized `gate: "hard"` field."""
         out: dict[str, Any] = {}
+        src = self._source_keys
         if self.index is not None:
             out["index"] = self.index                              # ordering convention: first
         out["name"] = self.name
         if self.kind:
             out["kind"] = self.kind
-        if self.produces:
+        if self.produces or "produces" in src:
             out["produces"] = list(self.produces)
-        if self.verbs:
+        if self.verbs or "verbs" in src:
             out["verbs"] = list(self.verbs)
-        if self.inputs:
+        if self.inputs or "inputs" in src:
             out["inputs"] = list(self.inputs)
-        if self.cue:
+        if self.cue or "cue" in src:
             out["cue"] = self.cue
-        if self.gate:
+        if self.gate or "gate" in src:
             out["gate"] = self.gate
-        if self.gate_verb:
+        if self.gate_verb or "gate_verb" in src:
             out["gate_verb"] = self.gate_verb
         if self.invoke is not None:
             out["invoke"] = {"capability": self.invoke[0], "verb": self.invoke[1]}
-        if self.reference:
+        if self.reference or "reference" in src:
             out["reference"] = self.reference
         # Live-registry extras (preserved unchanged).
         for k, v in self.extras.items():
@@ -165,12 +174,17 @@ class Skill:
     phases: tuple[Phase, ...] = ()
     kind: str = ""                                                 # "" | "usage" | "discipline" | "gate" | "workflow" | "conceptualizer" | …
     extras: dict = field(default_factory=dict)                     # applies_when, etc.
+    _source_keys: frozenset = field(default_factory=frozenset)
 
     def to_dict(self) -> dict:
         out: dict[str, Any] = {"name": self.name}
         if self.kind:
             out["kind"] = self.kind
-        out["phases"] = [p.to_dict() for p in self.phases]
+        # Emit `phases` only when source had the key (Codex review on
+        # PR #127: a metadata-only `{"name": "x"}` skill must NOT gain
+        # `phases: []` on round-trip).
+        if self.phases or "phases" in self._source_keys:
+            out["phases"] = [p.to_dict() for p in self.phases]
         for k, v in self.extras.items():
             out[k] = v
         return out
@@ -277,19 +291,17 @@ def parse_phase(d: dict) -> ParseResult:
             f"({{'capability': ..., 'verb': ...}})")
     # Honor kind-only SkillDocs (spec.md form): `{"kind": "hard-gate",
     # "predicate": "..."}` declares a hard gate WITHOUT a redundant
-    # `gate: "hard"` field. Derive the implied gate from kind so the
-    # variant derivation + kind-vs-variant agreement check below see
-    # the same effective gate the author intended (Codex review on
-    # PR #127).
-    if kind and not gate:
-        implied = _PHASE_KIND_TO_GATE.get(kind, "")
-        if implied:
-            gate = implied
+    # `gate: "hard"` field. Use the effective gate (source gate OR
+    # implied from kind) for the variant derivation, but DON'T overwrite
+    # `gate` — that would synthesize a `gate: "hard"` field on
+    # round-trip (Codex review on PR #127). The Phase carries the
+    # SOURCE `gate` value verbatim.
+    effective_gate = gate or _PHASE_KIND_TO_GATE.get(kind, "")
     # Derive the variant so the kind/produces/predicate/gate_verb
     # checks below see the post-derivation truth, not just the raw
     # gate-vs-invoke shape (Codex review on PR #127 §"Reject phase kinds
     # that derive a different variant").
-    variant = _derive_variant(gate=gate, invoke=invoke)
+    variant = _derive_variant(gate=effective_gate, invoke=invoke)
     # If the author declared `kind`, it MUST agree with the derived
     # variant. `kind: "hard-gate"` + `invoke: ...` → derived variant is
     # `verb_bound`, so the declared kind contradicts how the phase
@@ -318,6 +330,17 @@ def parse_phase(d: dict) -> ParseResult:
             f"phase `{name}` is missing required field `produces` "
             f"(the walker reads it unconditionally; ≥ 1 output name "
             f"required per phase)")
+    # An invoke phase stores its verb result at `p["produces"][0]` and
+    # validates EVERY produced name (Spec 018 SkillRun.submit). >1
+    # produces entries means the second+ can never be satisfied by the
+    # invoked verb's single return — Spec 003 requires exactly one.
+    if invoke is not None and len(produces) != 1:
+        return ParseResult.failure(
+            Codes.PHASE_MISSING_FIELD,
+            f"phase `{name}` is verb-bound (`invoke` set) so it must "
+            f"declare EXACTLY one `produces` entry (got {len(produces)}: "
+            f"{list(produces)!r}); the walker stores the verb result at "
+            f"`produces[0]` and validates every name")
     if variant == "computed_gate" and not gate_verb:
         return ParseResult.failure(
             Codes.PHASE_MISSING_FIELD,
@@ -345,6 +368,7 @@ def parse_phase(d: dict) -> ParseResult:
         kind=kind,
         inputs=inputs,
         extras=extras,
+        _source_keys=frozenset(d.keys()),
     ))
 
 
@@ -428,18 +452,25 @@ def parse_skill(d: dict) -> ParseResult:
                 f"got {type(phases_raw).__name__}")
     else:
         phases_raw = []
-    # `kind` is optional but when the key is PRESENT it MUST be a string.
-    # `if kind and not isinstance(...)` (the previous form) skipped
-    # validation for falsy non-strings (0, False, None, [], …) and let
-    # them through; the typed parse boundary must fail fast instead.
-    kind = ""
-    if "kind" in d and d["kind"] is not None:
-        if not isinstance(d["kind"], str):
-            return ParseResult.failure(
-                Codes.SKILL_PARSE_INVALID,
-                f"skill `{name}` kind must be a string, "
-                f"got {type(d['kind']).__name__}")
-        kind = d["kind"]
+    # `kind` is REQUIRED. The existing walker constructs a SkillRun by
+    # reading `schema["kind"]` unconditionally; a skill without `kind`
+    # would parse here and then crash on first walk. Spec 003 lists
+    # kind as part of the required skill shape (Codex review on PR #127).
+    if "kind" not in d or d["kind"] is None:
+        return ParseResult.failure(
+            Codes.SKILL_PARSE_INVALID,
+            f"skill `{name}` is missing required field `kind` "
+            f"(e.g. \"usage\" / \"discipline\" / \"gate\" / \"workflow\")")
+    if not isinstance(d["kind"], str):
+        return ParseResult.failure(
+            Codes.SKILL_PARSE_INVALID,
+            f"skill `{name}` kind must be a string, "
+            f"got {type(d['kind']).__name__}")
+    if not d["kind"]:
+        return ParseResult.failure(
+            Codes.SKILL_PARSE_INVALID,
+            f"skill `{name}` kind must be non-empty")
+    kind = d["kind"]
     phases: list[Phase] = []
     for i, pd in enumerate(phases_raw):
         sub = parse_phase(pd)
@@ -448,6 +479,26 @@ def parse_skill(d: dict) -> ParseResult:
                 Codes.SKILL_PARSE_INVALID,
                 f"skill `{name}` phases[{i}]: {sub.message}")
         phases.append(sub.value)
+    # Phase-index contiguity invariant (Spec 003): when ANY phase declares
+    # `index`, EVERY phase must declare it AND the indices form 1..N. The
+    # walker advances by list position while exposing/recording
+    # `p["index"]`; mismatched indices produce misleading provenance.
+    indices = [p.index for p in phases]
+    has_any = any(i is not None for i in indices)
+    has_all = all(i is not None for i in indices)
+    if has_any and not has_all:
+        missing = [i for i, val in enumerate(indices) if val is None]
+        return ParseResult.failure(
+            Codes.SKILL_PARSE_INVALID,
+            f"skill `{name}` mixes indexed + un-indexed phases "
+            f"(missing index on positions {missing}); declare `index` "
+            f"on every phase or none")
+    if has_all and tuple(indices) != tuple(range(1, len(indices) + 1)):
+        return ParseResult.failure(
+            Codes.SKILL_PARSE_INVALID,
+            f"skill `{name}` phase indices must be contiguous 1..{len(indices)} "
+            f"(got {indices})")
     extras = {k: v for k, v in d.items() if k not in _SKILL_KNOWN_KEYS}
     return ParseResult.success(Skill(
-        name=name, phases=tuple(phases), kind=kind, extras=extras))
+        name=name, phases=tuple(phases), kind=kind, extras=extras,
+        _source_keys=frozenset(d.keys())))

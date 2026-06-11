@@ -192,7 +192,7 @@ def test_phase_index_non_int_returns_typed_code():
 # ── parse_skill + round-trip ───────────────────────────────────────────────
 def test_parse_skill_returns_typed_skill_with_phases():
     out = parse_skill({
-        "name": "develop",
+        "name": "develop", "kind": "discipline",
         "phases": [
             {"name": "design", "produces": ["plan"]},
             {"name": "implement", "produces": ["code"]},
@@ -210,7 +210,7 @@ def test_parse_skill_returns_typed_skill_with_phases():
 
 def test_parse_skill_propagates_phase_failure():
     out = parse_skill({
-        "name": "broken",
+        "name": "broken", "kind": "discipline",
         "phases": [
             {"name": "good", "produces": ["ok"]},
             {"produces": ["x"]},                                  # missing `name`
@@ -293,7 +293,7 @@ def test_phase_lifts_and_validates_inputs():
     (matches produces/verbs treatment) rather than slipping it through
     extras unchecked."""
     s_in = {
-        "name": "jules-dispatch",
+        "name": "jules-dispatch", "kind": "discipline",
         "phases": [
             {"index": 1, "name": "dispatch", "produces": ["session"],
              "inputs": ["source"]},
@@ -335,8 +335,10 @@ def test_phase_kind_hard_gate_alone_implies_gate_hard():
                        "produces": ["approved"],
                        "predicate": "tests_green"})
     assert out.ok
-    assert out.value.variant == "hard_gate"
-    assert out.value.gate == "hard"                                # implied from kind
+    assert out.value.variant == "hard_gate"                        # derived from kind
+    # Codex review round-6: gate stays at source value (empty) so the
+    # round-trip doesn't synthesize a `gate: "hard"` field.
+    assert out.value.gate == ""
 
 
 def test_phase_kind_hard_gate_with_matching_gate_passes():
@@ -370,7 +372,7 @@ def test_phase_kind_preserved_through_round_trip():
     didn't store it, so to_dict() dropped it from valid SkillDocs using
     the Spec 003 documented shape."""
     s_in = {
-        "name": "approve-flow",
+        "name": "approve-flow", "kind": "discipline",
         "phases": [
             {"name": "approve", "kind": "hard-gate", "gate": "hard",
              "predicate": "tests_green", "produces": ["ok"]},
@@ -461,6 +463,101 @@ def test_phase_kind_hard_gate_with_invoke_returns_typed_code():
     assert not out.ok
     assert out.code == Codes.PHASE_UNKNOWN_KIND
     assert "verb_bound" in out.message
+
+
+# ── Codex round-6 review fixes ────────────────────────────────────────────
+def test_kind_only_hard_gate_round_trips_without_synthesizing_gate():
+    """Codex review: `{"kind": "hard-gate", "predicate": "x"}` without an
+    explicit `gate` field must round-trip cleanly — `to_dict()` must NOT
+    synthesize a `gate: "hard"` key the source dict didn't have."""
+    p_in = {"name": "approve", "kind": "hard-gate",
+            "produces": ["ok"], "predicate": "tests_green"}
+    out = parse_phase(p_in)
+    assert out.ok
+    p_out = out.value.to_dict()
+    assert p_out == p_in                                           # round-trip
+    assert "gate" not in p_out                                     # not synthesized
+
+
+def test_skill_missing_kind_returns_typed_code():
+    """Codex review: walker reads `schema["kind"]` unconditionally; a
+    skill without `kind` must fail at the parse boundary."""
+    out = parse_skill({"name": "x", "phases": [
+        {"name": "p", "produces": ["r"]}]})
+    assert not out.ok
+    assert out.code == Codes.SKILL_PARSE_INVALID
+    assert "kind" in out.message
+
+
+def test_skill_with_no_phases_round_trips_without_phases_key():
+    """Codex review: a metadata-only `{"name": "x", "kind": "y"}` skill
+    must NOT gain a synthesized `phases: []` on round-trip."""
+    s_in = {"name": "metadata-only", "kind": "discipline"}
+    out = parse_skill(s_in)
+    assert out.ok
+    assert out.value.to_dict() == s_in
+    assert "phases" not in out.value.to_dict()
+
+
+def test_skill_with_empty_phases_key_preserves_it():
+    """When source declares `phases: []` explicitly, round-trip preserves
+    the empty list (vs. dropping it like the metadata-only case)."""
+    s_in = {"name": "x", "kind": "discipline", "phases": []}
+    out = parse_skill(s_in)
+    assert out.ok
+    assert out.value.to_dict() == s_in
+
+
+def test_invoke_phase_with_multiple_produces_returns_typed_code():
+    """Codex review: walker stores at p["produces"][0] and validates
+    every produced name — an invoke phase with >1 produces means the
+    second+ can never be satisfied."""
+    out = parse_phase({
+        "name": "lint", "produces": ["a", "b"],
+        "invoke": {"capability": "plugin", "verb": "lint_skill"},
+    })
+    assert not out.ok
+    assert out.code == Codes.PHASE_MISSING_FIELD
+    assert "exactly one" in out.message.lower() or "1" in out.message
+
+
+def test_phase_with_empty_verbs_key_round_trips():
+    """Codex review: live registry's scene-writer skill has `verbs: []`
+    on its validate-constraints + generate phases. Round-trip must
+    preserve the explicit empty list (vs. dropping it as a default)."""
+    p_in = {"name": "validate-constraints", "produces": ["ok"], "verbs": []}
+    out = parse_phase(p_in)
+    assert out.ok
+    p_out = out.value.to_dict()
+    assert p_out == p_in
+    assert "verbs" in p_out and p_out["verbs"] == []
+
+
+def test_skill_non_contiguous_phase_indices_return_typed_code():
+    """Codex review: walker advances by list position; phase indices
+    must form 1..N when present (Spec 003)."""
+    out = parse_skill({
+        "name": "x", "kind": "discipline",
+        "phases": [
+            {"index": 1, "name": "a", "produces": ["x"]},
+            {"index": 3, "name": "b", "produces": ["y"]},          # skip 2
+        ],
+    })
+    assert not out.ok
+    assert out.code == Codes.SKILL_PARSE_INVALID
+    assert "contiguous" in out.message.lower() or "1..2" in out.message
+
+
+def test_skill_mixed_indexed_un_indexed_phases_return_typed_code():
+    out = parse_skill({
+        "name": "x", "kind": "discipline",
+        "phases": [
+            {"index": 1, "name": "a", "produces": ["x"]},
+            {"name": "b", "produces": ["y"]},                      # no index
+        ],
+    })
+    assert not out.ok
+    assert out.code == Codes.SKILL_PARSE_INVALID
 
 
 # ── Codes coverage ─────────────────────────────────────────────────────────
