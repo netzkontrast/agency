@@ -158,6 +158,26 @@ doctrine.
       in-tree `parse_amendment` verb, breaking the close-the-loop step.
       Reflection `reflection:b2a25cfe`.
 
+## L9 — `apply_amendment` Slice 1 verb-side vs. Slice 3 file-write
+
+**Observation.** `dogfood.apply_amendment(dry_run=False,
+confirm_token=<sha>)` ran successfully on `intent:923eb6b8` —
+`artefact:73a70f67` recorded; confirm_token gate passed
+(SHA-256(spec_id|section|op|after)[:16] matched). But the
+`Plan/159-…/spec.md` file was NOT edited; `apply_res.written` is None.
+
+**Cause.** Spec 150 Slice 1's documented scope: render the unified diff
++ record the `Artefact(kind="amendment-proposal")` + write PRODUCES_FROM
+edges to every source Reflection. The actual file edit ("section
+locator + diff apply") is Spec 150 Slice 3. The verb-side closure pattern
+(parse → review → apply) IS provably executable end-to-end through the
+engine; the effect-side file write is gated on Slice 3.
+
+**Follow-up — Spec 281-F: ship Spec 150 Slice 3**. Section locator +
+atomic file write (write to `.tmp`, rename atomic) so the live-write
+demonstration produces the spec file diff in the same session, closing
+the loop fully effect-side. Owner: dogfood capability.
+
 ## L8 — MCP server version skew
 
 **Observation.** The MCP server running this session is the agency plugin
