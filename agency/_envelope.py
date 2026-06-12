@@ -46,6 +46,17 @@ class ResponseEnvelope:
         if not isinstance(self.body, dict):
             raise TypeError(
                 f"body must be dict, got {type(self.body).__name__}")
+        # JSON object keys MUST be strings (Codex review on PR #134
+        # round 4). A non-string key like `1` would coerce to `"1"` on
+        # the wire and silently collide with a string `"1"` on the
+        # other half — the body value could overwrite the prefix value
+        # (or vice versa) without the overlap check ever firing.
+        for half_name, half in (("prefix", self.prefix), ("body", self.body)):
+            for k in half:
+                if not isinstance(k, str):
+                    raise TypeError(
+                        f"{half_name} keys must be str (JSON object key "
+                        f"contract), got {type(k).__name__}={k!r}")
 
     def to_dict(self) -> dict:
         """Merge prefix + body, sorted keys within each half, prefix keys first.
@@ -73,8 +84,26 @@ def canonical_json(env: ResponseEnvelope) -> str:
     """Serialize an envelope to canonical JSON: prefix keys (sorted) before
     body keys (sorted), compact separators (no insignificant whitespace).
     Two envelopes with the same {prefix, body} content yield byte-identical
-    output regardless of how their dicts were constructed."""
-    return json.dumps(env.to_dict(), separators=(",", ":"))
+    output regardless of how their dicts were constructed.
+
+    Implementation: serialize prefix and body INDEPENDENTLY (each
+    `sort_keys=True`) and splice them so prefix bytes always precede body
+    bytes. A naive `json.dumps(env.to_dict(), sort_keys=True, ...)` would
+    re-sort prefix+body keys GLOBALLY, letting a body key like `"delta"`
+    serialize ahead of a prefix key like `"schema_version"` — breaking
+    the prefix-match cache invariant (Codex review on PR #134, P1)."""
+    overlap = set(env.prefix).intersection(env.body)
+    if overlap:
+        raise ValueError(
+            f"prefix/body key overlap: {sorted(overlap)} — Spec 146 "
+            f"contract violated; pick exactly one side per key.")
+    prefix_blob = json.dumps(env.prefix, sort_keys=True, separators=(",", ":"))
+    body_blob = json.dumps(env.body, sort_keys=True, separators=(",", ":"))
+    inner_prefix = prefix_blob[1:-1]
+    inner_body = body_blob[1:-1]
+    if inner_prefix and inner_body:
+        return "{" + inner_prefix + "," + inner_body + "}"
+    return "{" + inner_prefix + inner_body + "}"
 
 
 def capability_set_hash(
@@ -92,7 +121,7 @@ def capability_set_hash(
     payload: dict = {"names": sorted(set(names))}
     if signatures is not None:
         payload["signatures"] = {k: signatures[k] for k in sorted(signatures)}
-    blob = json.dumps(payload, separators=(",", ":"))
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
@@ -101,5 +130,5 @@ def ontology_hash(ontology: dict[str, list[str]]) -> str:
     Order-invariant on both the top-level node-type keys AND the per-type
     property lists."""
     normalized = {k: sorted(ontology[k]) for k in sorted(ontology)}
-    blob = json.dumps(normalized, separators=(",", ":"))
+    blob = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()

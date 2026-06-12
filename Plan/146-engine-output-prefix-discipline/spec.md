@@ -139,12 +139,47 @@ Then:   response carries Codes.PREFIX_BUDGET_EXCEEDED — never silent
   capability_set_hash properties + ontology_hash determinism + two
   integration tests on the live `agency_welcome`.
 
-### Still — Slice 2+
+### Done — Slice 2.1 (pure AST lint library, 2026-06-11)
 
-- **Slice 2**: `_check_response_prefix` AST lint rule (Spec 067 family)
-  flagging `datetime.now()`/`uuid4()`/unsorted-dict/env reads in any
-  function reachable from a substrate-tool's prefix builder. WARN one
-  cycle, then promote to error.
+- **`scripts/check_response_prefix.py`** — pure AST audit (Spec 067
+  family) flagging `datetime.now()` (both `datetime.datetime.now()`
+  and bare `datetime.now()` forms), `time.time()`, `uuid.uuid4()` (and
+  bare `uuid4()` after `from uuid import uuid4`), `os.environ[...]`
+  subscripts, `os.environ.get(...)`, and `os.getenv(...)`.
+- **Typed shapes**: `ViolationKind` enum (DATETIME_NOW / TIME_TIME /
+  UUID4 / OS_ENVIRON); `PrefixViolation(loc, kind, snippet)`;
+  `PrefixReport(violations, total_files)`. Sorted by `(path, line)`
+  for deterministic output.
+- **`classify_call(ast_node)`** + `audit_source(src, path)` +
+  `audit_tree(root)` — all pure; handle malformed Python safely
+  (parse error → empty violation list).
+- **Live audit**: `agency/_envelope.py` reports **0 violations**
+  (Slice 1 hand-authored clean). `agency/engine.py` reports 3
+  `OS_ENVIRON` sites — all in body-side state-aware welcome logic
+  per the Slice 1 envelope split, not in prefix builders.
+- **CLI**: `python -m scripts.check_response_prefix [--root <path>]`
+  prints violation count + per-site `path:line  kind` (head:30).
+  Slice 2.1 is informational (returns 0); Slice 2.2 promotes to
+  CI-blocking gate per Spec 056/058 WARN→error doctrine.
+- **16 tests** in `tests/test_response_prefix_lint.py` cover each
+  violation kind, both call-form variants (qualified + from-import),
+  clean source negative, file-loc capture, syntax-error tolerance,
+  tree audit + determinism + `__pycache__` skip, and the live-tree
+  envelope/engine smoke tests.
+
+### Still — Slice 2.2+
+
+- **Slice 2.2**: WARN→error promotion. Add a baseline file
+  `Plan/_planning/prefix-lint-baseline.txt` (Spec 054 pattern) for the
+  3 engine.py `OS_ENVIRON` body-side sites; CI gates on REGRESSION
+  only — a NEW violation outside the baseline fails the build.
+- **Slice 2.3**: reachability analysis — restrict the scan to functions
+  REACHABLE from substrate-tool prefix builders (Spec 067 family
+  call-graph walk). Today's audit is conservative (every file
+  contributes); Slice 2.3 narrows to the actual prefix-building
+  call chains.
+- **Slice 2.4**: `unsorted-dict` detector — flag dict literals in
+  prefix builders that aren't sorted-keys serialized.
 - **Slice 3**: `agency_doctor.prefix_stability` reporting
   `{stable, drift_bytes, drift_tokens, prefix_size_tokens}` across two
   60s-separated `agency_welcome` calls. Token count via Spec 082
