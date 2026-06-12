@@ -14,10 +14,69 @@ Red flags:
 """
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
+from typing import Literal
+
 from ..capability import CapabilityBase, verb
 from ..ontology import OntologyExtension
 
 _VALID_GATES = {"hard", "soft"}
+
+
+# ── Spec 162 Slice 1 — typed MatcherResult shape ─────────────────────────
+# `intent.suggests` ships pattern + verb_code + llm_select matchers (Spec 026).
+# Slice 1 of Spec 162 defines the typed return shape they all coerce to so
+# downstream consumers (the wet LLM path in Slice 2; the Skills-API publisher;
+# any future matcher kind) speak ONE protocol.
+MatcherKind = Literal["llm", "pattern", "verb_code", "none"]
+
+
+@dataclass(frozen=True)
+class MatcherResult:
+    """Typed return of a matcher run for ONE skill candidate.
+
+    `rationale` ≤ 200 chars (Slice 1 invariant — Spec 162 §"typed shape").
+    `confidence` in [0.0, 1.0]. `matcher` discriminates the source. When the
+    LLM driver is absent, `matcher` MUST NOT be `"llm"` — Spec 162 invariant
+    (Spec 050 graceful-degradation pattern)."""
+
+    skill_id:   str
+    confidence: float
+    rationale:  str
+    matcher:    MatcherKind
+
+    def __post_init__(self) -> None:
+        if not (0.0 <= self.confidence <= 1.0):
+            raise ValueError(
+                f"confidence must be in [0.0, 1.0]; got {self.confidence}")
+        if len(self.rationale) > 200:
+            raise ValueError(
+                f"rationale must be ≤ 200 chars; got {len(self.rationale)}")
+        if self.matcher not in ("llm", "pattern", "verb_code", "none"):
+            raise ValueError(
+                f"matcher must be one of llm/pattern/verb_code/none; "
+                f"got {self.matcher!r}")
+
+    @classmethod
+    def from_legacy(cls, legacy: dict) -> "MatcherResult":
+        """Convert the existing `intent.suggests` output (`{skill, mode,
+        confidence, cue, matched_by}`) to a typed MatcherResult. The
+        legacy `mode` maps to `matcher`; `matched_by` becomes the rationale
+        prefix (trimmed to 200 chars)."""
+        sk    = legacy.get("skill") or ""
+        mode  = legacy.get("mode") or "none"
+        if mode == "llm_select":
+            mode = "llm"
+        if mode not in ("llm", "pattern", "verb_code"):
+            mode = "none"
+        conf  = float(legacy.get("confidence", 0.0))
+        cue   = str(legacy.get("matched_by") or legacy.get("cue") or "")
+        return cls(
+            skill_id=sk, confidence=max(0.0, min(1.0, conf)),
+            rationale=cue[:200], matcher=mode)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 # Spec 026 / 081 — an AUTHORED discipline (not the derived role-cluster scaffold): a
 # real skill-triage workflow that teaches how to drive this capability's verbs toward
