@@ -280,6 +280,54 @@ def hook_self_test(ctx, plugin_root):                                  # noqa: A
     return _emit({"ok": all_ok, "results": results}, 0 if all_ok else 1)
 
 
+@hook.command(name="wrap", context_settings={"ignore_unknown_options": True})
+@click.option("--command", required=True,
+              help="The foreign hook command to run verbatim.")
+@click.pass_context
+def hook_wrap(ctx, command):                                           # noqa: ARG001
+    """Spec 280 — run a wrapped foreign hook with stdin passthrough.
+
+    This is the wrap target the install side-effect points foreign-hook
+    entries at. Behavior:
+
+    1. Spawn `bash -c "<command>"` with the parent's stdin / stdout /
+       stderr (so the foreign hook receives the Claude Code event
+       payload verbatim and writes back the same way).
+    2. Best-effort record an `Event(kind="hook-wrap-run", command,
+       exit_code)` so the provenance moat covers the wrapped hook
+       without requiring an active intent (Codex review on PR #138:
+       hooks fire OUTSIDE any agency intent context).
+    3. Exit with the wrapped command's exit code so the foreign hook's
+       block/allow semantics are preserved (a sync foreign hook that
+       used to exit 2 still blocks the tool).
+
+    The wrap is NOT a public allowlist bypass (Codex P1): it's not
+    exposed via `shell.run` and only fires for entries the install
+    side-effect rewrote (which the user authored themselves).
+    """
+    import subprocess
+    import os as _os
+    proc = subprocess.run(
+        ["bash", "-c", command],
+        stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
+
+    # Best-effort Event recording — never crash the hook on failure.
+    try:
+        db_path = _resolve_db(_db(ctx))
+        eng = Engine(db_path)
+        try:
+            eng.memory.record("Event", {
+                "name":      "hook-wrap-run",
+                "command":   command[:200],
+                "exit_code": proc.returncode,
+            })
+        finally:
+            eng.memory.close()
+    except Exception:
+        pass
+    sys.exit(proc.returncode)
+
+
 @hook.command(name="uninstall")
 @click.option("--claude-settings-path", default=None,
               help="Path to `.claude/settings.json` (default: "

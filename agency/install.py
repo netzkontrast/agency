@@ -922,7 +922,9 @@ def main(argv: list | None = None) -> int:
     parser.add_argument("--claude-settings-path",
                         default=None,
                         help="Override the path to `.claude/settings.json` "
-                             "(default: <root>/.claude/settings.json).")
+                             "(default: $CLAUDE_PROJECT_DIR/.claude/"
+                             "settings.json, or $PWD/.claude/settings.json "
+                             "when the env var is unset).")
     ns = parser.parse_args(argv)
     target = ns.root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if ns.dry_run:
@@ -948,13 +950,32 @@ def main(argv: list | None = None) -> int:
         if result["gitattributes_updated"]:
             print(os.path.join(scaffold_root, ".gitattributes"))
         return 0
-    for p in write(target):
-        print(p)
+    # Codex review on PR #138 round 2: when `--patch-claude-settings`
+    # is used WITHOUT a target root, the user wants their PROJECT
+    # settings patched — running `write(target)` would also emit
+    # `.mcp.json` / `hooks/` / `skills/` / `commands/` into the
+    # project (the overwrite scenario `--scaffold-only` already
+    # avoids). So when the user is ONLY patching settings (no
+    # explicit `<root>` AND no `--scaffold-db`), skip the plugin
+    # regen step.
+    settings_only = bool(ns.patch_claude_settings and not ns.root
+                         and not ns.scaffold_db)
+    if not settings_only:
+        for p in write(target):
+            print(p)
     if ns.patch_claude_settings:
         from agency._hooks import patch_settings_file
+        # Codex review on PR #138 round 2: the default settings path
+        # is the PROJECT's `.claude/settings.json` — `$CLAUDE_PROJECT_DIR`
+        # (set by Claude Code) or `$PWD` as a fallback. Defaulting to
+        # `<root>/.claude/settings.json` in a pipx/site-packages
+        # install would create the file under the package tree where
+        # Claude Code never reads it.
+        project_dir = (
+            os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
         settings_path = (
             ns.claude_settings_path
-            or os.path.join(target, ".claude", "settings.json"))
+            or os.path.join(project_dir, ".claude", "settings.json"))
         try:
             result = patch_settings_file(settings_path)
         except ValueError as exc:

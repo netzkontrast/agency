@@ -198,20 +198,15 @@ class ShellCapability(CapabilityBase):
 
     @verb(role="effect", inject=["runner"])
     def run(self, runner, command: str = "", template: str = "", args: str = "",
-            filter: str = "", hook_wrap: bool = False) -> dict:
+            filter: str = "") -> dict:
         """Run an ALLOWLISTED command (or a named template), FILTER its output, record it.
 
         Inputs: command (raw — its first token MUST be allowlisted) OR template (a
                 name from ``shell.templates``); args (appended); filter (output
-                slice; defaults to the template's filter, else 'tail:20');
-                hook_wrap (Spec 280 — opt-in foreign-hook wrap that BYPASSES the
-                allowlist because the user already approved the command by
-                authoring it in their `.claude/settings.json`; runs the command
-                verbatim via the shell and forwards stdin to the wrapped process
-                so a Claude Code hook stays semantically identical).
-        Returns: ``{exit_code, output, lines, run_id, template?, wrapped?}`` —
-                 the FILTERED delta (full output is bounded, never dumped); or
-                 ``{error, …}`` on a disallowed tool / unknown template.
+                slice; defaults to the template's filter, else 'tail:20').
+        Returns: ``{exit_code, output, lines, run_id, template?}`` — the FILTERED
+                 delta (full output is bounded, never dumped); or ``{error, …}`` on
+                 a disallowed tool / unknown template.
         chain_next: inspect the recorded command-run Artefact (``recall(run_id)``).
         """
         if template:
@@ -224,36 +219,6 @@ class ShellCapability(CapabilityBase):
             filter = filter or t["filter"]
         if not command:
             return {"result": {"error": "command or template required"}}
-        # Spec 280 — `hook_wrap=True` runs the literal command (with args
-        # appended) via `bash -c` so the wrapped foreign hook keeps its
-        # original semantics. Stdin is forwarded so a Claude Code hook
-        # receives the same payload it would have without the wrap.
-        # The allowlist is bypassed because the user already approved
-        # the command by authoring it in their settings; the wrap is
-        # for PROVENANCE, not sandboxing.
-        if hook_wrap:
-            full_cmd = command if not args else f"{command} {args}"
-            res = runner.run(["bash", "-c", full_cmd])
-            raw = ((res.get("stdout", "") or "") +
-                   (("\n" + res["stderr"]) if res.get("stderr") else ""))
-            filtered = _apply_filter(raw, filter or "tail:40")
-            rid = self.ctx.record("Artefact", {
-                "kind": "hook-wrap-run",
-                "tool": "bash",
-                "command": full_cmd[:200],
-                "exit_code": res.get("exit_code"),
-                "duration_s": res.get("duration_s", 0.0),
-                "tail": filtered[:_MAX_OUTPUT],
-            })
-            self.ctx.link(rid, self.ctx.intent_id, "SERVES")
-            self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
-            return {"result": {
-                "exit_code": res.get("exit_code"),
-                "output":    filtered,
-                "lines":     len(filtered.splitlines()),
-                "run_id":    rid,
-                "wrapped":   True,
-            }}
         try:
             argv = shlex.split(command) + (shlex.split(args) if args else [])
         except ValueError as e:

@@ -42,7 +42,7 @@ HOOKS_SPEC_VERSION = 1
 # hook so re-running install doesn't double-wrap. Matches the flag
 # mode of `agency shell run` (Spec 079 auto-gen surface; Spec 280
 # `shell.run(hook_wrap=True)`).
-_WRAP_SENTINEL = "agency shell run --hook-wrap"
+_WRAP_SENTINEL = "agency hook wrap"
 _AGENCY_DISPATCHER_FRAGMENT = (
     'CLAUDE_PLUGIN_ROOT')                                          # any "agency-own" dispatcher path contains this
 
@@ -275,13 +275,20 @@ def wrap_foreign_hook(foreign: ForeignHook) -> dict | None:
     except ValueError:
         return None
     quoted = shlex.quote(foreign.command)
-    # Codex review on PR #138: the wrapped command MUST be a path the
-    # CLI actually exposes. `agency shell run` (per Spec 079 auto-gen)
-    # accepts `--command` / `--hook-wrap` / `--filter`. The flag-mode
-    # carries `--intent-id` from the env (AGENCY_INTENT) so the run
-    # is recorded against the active intent when one exists.
-    wrapped_command = (
-        f"agency shell run --hook-wrap=true --command {quoted}")
+    # Codex review on PR #138 round 2: the wrap target is the dedicated
+    # `agency hook wrap` CLI subcommand, NOT `agency shell run`:
+    # - `agency shell run` requires an active intent (the registry
+    #   rejects an empty `intent_id` before the verb runs); Claude Code
+    #   fires hooks OUTSIDE any agency intent context so the wrap
+    #   would fail before reaching the verb body.
+    # - `hook_wrap` on `shell.run` was also a P1 allowlist bypass — any
+    #   MCP caller could pass `hook_wrap=true` and escape `_ALLOWED_TOOLS`.
+    # `agency hook wrap` spawns `bash -c <cmd>` with stdin/stdout/stderr
+    # passthrough so the foreign hook receives the Claude Code event
+    # payload verbatim and exits with the same code (preserves
+    # block/allow semantics — a sync foreign hook that exits 2 still
+    # blocks the tool).
+    wrapped_command = f"agency hook wrap --command {quoted}"
     return {
         "type":    foreign.type_,
         "command": wrapped_command,
@@ -380,9 +387,18 @@ def check_install(user_settings: dict,
     if plugin_root is not None:
         root = Path(plugin_root)
         plugin_root_str = str(root)
+        # Codex review on PR #138 round 2: `hooks/run-hook.cmd` is the
+        # cross-platform wrapper that every event entry in
+        # `hooks/hooks.json` invokes. Without it the dispatcher can't
+        # start at all — the prior check (only hooks.json + dispatch)
+        # could false-green a partial install.
         hooks_json = root / "hooks" / "hooks.json"
         dispatch = root / "hooks" / "dispatch"
-        hook_scripts_present = hooks_json.exists() and dispatch.exists()
+        run_hook_cmd = root / "hooks" / "run-hook.cmd"
+        hook_scripts_present = (
+            hooks_json.exists()
+            and dispatch.exists()
+            and run_hook_cmd.exists())
 
     cli_on_path = bool(cli_available) if cli_available is not None else False
 

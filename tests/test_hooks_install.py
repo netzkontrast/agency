@@ -162,7 +162,7 @@ def test_detect_skips_already_wrapped_entries():
             "PreToolUse": [{
                 "matcher": "Bash",
                 "hooks": [{"type": "command",
-                            "command": ("agency shell run --hook-wrap -- "
+                            "command": ("agency hook wrap --command "
                                         "/usr/local/bin/audit.sh"),
                             "_wrapped_from": "/usr/local/bin/audit.sh"}],
             }],
@@ -203,7 +203,7 @@ def test_wrap_records_original_command():
         async_=False)
     wrapped = wrap_foreign_hook(foreign)
     assert wrapped["_wrapped_from"] == "/usr/local/bin/audit.sh"
-    assert "agency shell run --hook-wrap" in wrapped["command"]
+    assert "agency hook wrap" in wrapped["command"]
 
 
 def test_wrap_returns_none_for_unparseable_command():
@@ -353,7 +353,7 @@ def test_patch_wraps_foreign_hooks(tmp_path):
     assert result["wrapped_count"] == 1
     content = json.loads(settings.read_text())
     entry = content["hooks"]["PreToolUse"][0]["hooks"][0]
-    assert "agency shell run --hook-wrap" in entry["command"]
+    assert "agency hook wrap" in entry["command"]
     assert entry["async"] is False                                  # preserved
     assert entry["_wrapped_from"] == "/usr/local/bin/audit.sh"
 
@@ -375,11 +375,11 @@ def test_patch_preserves_original_bak_on_second_run(tmp_path):
         "re-runs; a second install must not overwrite the original snapshot")
 
 
-def test_wrap_uses_real_cli_flag_mode(tmp_path):
-    """Codex review on PR #138: the wrapped command must be a path
-    the agency CLI actually exposes. `agency shell run --hook-wrap`
-    used positional `--` passthrough, which Click doesn't support;
-    the new wrap uses `--command` flag mode with `--hook-wrap=true`."""
+def test_wrap_uses_agency_hook_wrap_cli_subcommand(tmp_path):
+    """Codex review on PR #138 round 2: the wrap target is the
+    dedicated `agency hook wrap` CLI subcommand, NOT `agency shell run`.
+    The shell verb requires an active intent + the `hook_wrap` flag was
+    a P1 allowlist bypass."""
     settings = tmp_path / ".claude" / "settings.json"
     settings.parent.mkdir(parents=True)
     settings.write_text(json.dumps({
@@ -395,9 +395,90 @@ def test_wrap_uses_real_cli_flag_mode(tmp_path):
     content = json.loads(settings.read_text())
     entry = content["hooks"]["PreToolUse"][0]["hooks"][0]
     cmd = entry["command"]
-    assert "agency shell run" in cmd
+    assert "agency hook wrap" in cmd
     assert "--command" in cmd
-    assert "--hook-wrap=true" in cmd
+    assert "shell run" not in cmd
+    assert "--hook-wrap" not in cmd                                # removed surface
+
+
+def test_hook_wrap_cli_passes_stdin_and_returns_inner_exit_code(tmp_path):
+    """Spec 280 round 2: `agency hook wrap --command "<cmd>"` spawns
+    `bash -c <cmd>` with stdin/stdout/stderr passthrough so the
+    wrapped foreign hook receives the Claude Code event payload
+    verbatim and its exit code propagates (preserving the foreign
+    hook's block/allow semantics)."""
+    import subprocess
+    import sys as _sys
+    db = tmp_path / "session.db"
+    # The wrapped command echoes stdin to stdout + exits 42.
+    proc = subprocess.run(
+        [_sys.executable, "-m", "agency.cli", "--db", str(db),
+         "hook", "wrap", "--command",
+         "cat; exit 42"],
+        input="payload-line",
+        text=True, capture_output=True, timeout=15)
+    assert proc.returncode == 42, proc.stderr
+    assert "payload-line" in proc.stdout
+
+
+def test_hook_wrap_cli_does_not_require_active_intent(tmp_path):
+    """Foreign hooks fire OUTSIDE any agency intent (SessionStart, raw
+    user hooks). The wrap must NOT depend on `$AGENCY_INTENT` —
+    Codex review on PR #138 round 2."""
+    import subprocess
+    import sys as _sys
+    db = tmp_path / "session.db"
+    env = dict(os.environ)
+    env.pop("AGENCY_INTENT", None)
+    proc = subprocess.run(
+        [_sys.executable, "-m", "agency.cli", "--db", str(db),
+         "hook", "wrap", "--command", "true"],
+        env=env, text=True, capture_output=True, timeout=15)
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_check_install_requires_run_hook_cmd(tmp_path):
+    """Codex review on PR #138 round 2: hook_scripts_present must be
+    False when `hooks/run-hook.cmd` is missing — every hook entry
+    invokes it, so a partial install silently breaks every event."""
+    plugin_root = tmp_path / "plugin"
+    hooks_dir = plugin_root / "hooks"
+    hooks_dir.mkdir(parents=True)
+    (hooks_dir / "hooks.json").write_text("{}")
+    (hooks_dir / "dispatch").write_text("#!/usr/bin/env bash\nexit 0\n")
+    # NO run-hook.cmd
+    status = check_install({}, plugin_root=str(plugin_root))
+    assert status.hook_scripts_present is False
+    # Now add it.
+    (hooks_dir / "run-hook.cmd").write_text("@echo off\nexit /b 0\n")
+    status2 = check_install({}, plugin_root=str(plugin_root))
+    assert status2.hook_scripts_present is True
+
+
+def test_install_patch_only_skips_plugin_regen(tmp_path):
+    """Codex review on PR #138 round 2: when the user passes just
+    `--patch-claude-settings` without `<root>`, the unconditional
+    `write(target)` was emitting `.mcp.json` / `hooks/` / `skills/` /
+    `commands/` into the package tree — the overwrite scenario
+    `--scaffold-only` already avoids. Patch-only mode skips regen."""
+    import subprocess
+    import sys as _sys
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    env = dict(os.environ)
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    proc = subprocess.run(
+        [_sys.executable, "-m", "agency.install",
+         "--patch-claude-settings"],
+        env=env, text=True, capture_output=True, timeout=60)
+    assert proc.returncode == 0, proc.stderr
+    # The project's .claude/settings.json was patched.
+    assert settings.exists()
+    # And we did NOT emit a plugin tree into the project.
+    assert not (tmp_path / ".mcp.json").exists()
+    assert not (tmp_path / "hooks").exists()
+    assert not (tmp_path / "skills").exists()
+    assert not (tmp_path / "commands").exists()
 
 
 def test_patch_raises_on_invalid_json(tmp_path):

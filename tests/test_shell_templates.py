@@ -157,48 +157,19 @@ def test_define_serves_intent_for_provenance():
         e.memory.close()
 
 
-# --- Spec 280 — `hook_wrap` mode for foreign-hook wrapping ---------------------
+# --- Spec 280 — foreign-hook wrap moved out of `shell.run` --------------------
+# Codex review on PR #138 round 2: `shell.run(hook_wrap=True)` was a P1
+# allowlist bypass (any MCP/CLI caller with a valid intent could
+# escape `_ALLOWED_TOOLS`). The wrap moved to a dedicated `agency hook
+# wrap` CLI subcommand that doesn't require an intent + preserves
+# stdin/stdout/stderr. See `tests/test_hooks_install.py` for the wrap
+# behavior; this test asserts the allowlist STAYS in force on the
+# public `shell.run` surface (regression invariant).
 
-def test_shell_run_hook_wrap_bypasses_allowlist():
-    """Spec 280: a foreign hook the user authored in `.claude/settings.json`
-    runs verbatim via `bash -c`. The allowlist doesn't apply (the user
-    already approved the command); the wrap is for PROVENANCE."""
-    runner = _StubRunner(stdout="audit-output", exit_code=0)
-    e, iid = _engine(runner)
-    try:
-        out = _call(e, iid, "run",
-                     command="/usr/local/bin/audit.sh --check all",
-                     hook_wrap=True)
-        # Allowlist NOT consulted — the command runs.
-        assert "error" not in (out or {})
-        assert out.get("wrapped") is True
-        assert out.get("exit_code") == 0
-        # The runner saw `bash -c "<full>"`.
-        assert runner.calls[0][:2] == ["bash", "-c"]
-        assert runner.calls[0][2].startswith("/usr/local/bin/audit.sh")
-    finally:
-        e.memory.close()
-
-
-def test_shell_run_hook_wrap_records_artefact_with_kind():
-    """The wrap records a `hook-wrap-run` Artefact so the provenance
-    moat tells apart the wrap path from the regular run path."""
-    runner = _StubRunner(stdout="x")
-    e, iid = _engine(runner)
-    try:
-        out = _call(e, iid, "run",
-                     command="/usr/local/bin/audit.sh", hook_wrap=True)
-        art = e.memory.recall(out["run_id"])
-        assert art is not None
-        assert art["kind"] == "hook-wrap-run"
-        assert art["tool"] == "bash"
-    finally:
-        e.memory.close()
-
-
-def test_shell_run_default_path_still_allowlist_gated():
-    """Regression: without `hook_wrap=True`, the allowlist still
-    rejects non-allowlisted tools — preserving Spec 073 boundary."""
+def test_shell_run_allowlist_still_in_force_on_public_surface():
+    """Regression after the Spec 280 round-2 removal of `hook_wrap`:
+    the public `shell.run` surface remains allowlist-gated for ALL
+    callers. Non-allowlisted tools are rejected (Spec 073 boundary)."""
     runner = _StubRunner()
     e, iid = _engine(runner)
     try:
