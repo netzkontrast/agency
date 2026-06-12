@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_mark_narrative_beat
 # Mint a NarrativeBeat + optional PRECEDES edge from a predecessor (effect).
-# Usage: agency-novel-mark_narrative_beat [--intent-id ID] <scene_id> <beat_label> <predecessor_id>
+# Usage: agency-novel-mark_narrative_beat [--intent-id ID] <scene_id> <beat_label> [predecessor_id]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 3 ]; then
-  echo "error: expected 3 arg(s) (scene_id beat_label predecessor_id); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 2 ]; then
+  echo "error: expected at least 2 required arg(s) (scene_id beat_label); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,11 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "scene_id": _coerce(sys.argv[2], str), "beat_label": _coerce(sys.argv[3], str), "predecessor_id": _coerce(sys.argv[4], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["scene_id"] = _coerce(sys.argv[2], str)
+_kw["beat_label"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["predecessor_id"] = _coerce(sys.argv[4], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

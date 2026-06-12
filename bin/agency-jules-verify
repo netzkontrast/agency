@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_jules_verify
 # COMPLETED != done — verifies the branch landed on origin.
-# Usage: agency-jules-verify [--intent-id ID] <state> <branch> <remote>
+# Usage: agency-jules-verify [--intent-id ID] <state> <branch> [remote]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 3 ]; then
-  echo "error: expected 3 arg(s) (state branch remote); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 2 ]; then
+  echo "error: expected at least 2 required arg(s) (state branch); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,11 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "state": _coerce(sys.argv[2], str), "branch": _coerce(sys.argv[3], str), "remote": _coerce(sys.argv[4], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["state"] = _coerce(sys.argv[2], str)
+_kw["branch"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["remote"] = _coerce(sys.argv[4], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

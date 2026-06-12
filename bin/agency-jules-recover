@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_jules_recover
 # Promote a session to the watcher's recovery-in-flight tracker.
-# Usage: agency-jules-recover [--intent-id ID] <session> <owner> <repo> <branch> <base>
+# Usage: agency-jules-recover [--intent-id ID] <session> [owner] [repo] [branch] [base]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 5 ]; then
-  echo "error: expected 5 arg(s) (session owner repo branch base); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 1 ]; then
+  echo "error: expected at least 1 required arg(s) (session); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,13 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "session": _coerce(sys.argv[2], str), "owner": _coerce(sys.argv[3], str), "repo": _coerce(sys.argv[4], str), "branch": _coerce(sys.argv[5], str), "base": _coerce(sys.argv[6], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["session"] = _coerce(sys.argv[2], str)
+if len(sys.argv) > 3: _kw["owner"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["repo"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["branch"] = _coerce(sys.argv[5], str)
+if len(sys.argv) > 6: _kw["base"] = _coerce(sys.argv[6], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_create_album
 # Create an album root + render the canonical templates (effect).
-# Usage: agency-music-create_album [--intent-id ID] <artist> <title> <genre> <type>
+# Usage: agency-music-create_album [--intent-id ID] <artist> <title> <genre> [type]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 4 ]; then
-  echo "error: expected 4 arg(s) (artist title genre type); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 3 ]; then
+  echo "error: expected at least 3 required arg(s) (artist title genre); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,12 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "artist": _coerce(sys.argv[2], str), "title": _coerce(sys.argv[3], str), "genre": _coerce(sys.argv[4], str), "type": _coerce(sys.argv[5], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["artist"] = _coerce(sys.argv[2], str)
+_kw["title"] = _coerce(sys.argv[3], str)
+_kw["genre"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["type"] = _coerce(sys.argv[5], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

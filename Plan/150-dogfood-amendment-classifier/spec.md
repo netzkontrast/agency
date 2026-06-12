@@ -175,13 +175,47 @@ Then:   returns Codes.AMENDMENT_BAD_SPEC; no Artefact written
   from frozen-snapshot `set ==` to a SUBSET invariant (rule 8) so
   documented core verbs must exist; future verbs may extend the set.
 
-### Still — Slice 2+
+### Done — Slice 2 (LLM classifier + Spec 279 delegation, 2026-06-12)
 
-- **Slice 2**: swap the keyword classifier for a Spec 147
-  AnthropicDriver `complete()` call with
-  `output_config.format=ProposalPayloadSchema` (structured output) —
-  same return shape, sharper recall. Degrade silently to keyword path
-  when driver backend is "none".
+- **LLM classification path** — `dogfood.parse_amendment(scope, since,
+  limit, use_llm=True, prefer_delegate=False, host_completion=None)`
+  now drives the Spec 147 `AnthropicDriver.complete(...)` with
+  `output_config.format=json_schema` (per claude-api skill) when the
+  driver is wired AND capable. Schema enforces 3-digit `spec_id`,
+  enum-bound `section` + `op`, 40-char `rationale` floor, confidence
+  in [0,1]. Hallucinated `reflection_id`s are dropped (defense:
+  the LLM can only cite ids from the input set).
+- **Spec 279 delegation** — when `prefer_delegate=True` and the
+  driver backend is `"none"`, the verb returns
+  `{proposals: [], classifier: "llm-delegate", kind: "llm_delegate",
+  request: HostLLMRequest.to_dict()}` so Claude Code (the host) runs
+  inference and calls the verb again with `host_completion={text,
+  parsed}`. The resume path returns `classifier: "host"` — same
+  ProposalPayload shape.
+- **Silent keyword degrade** — default `prefer_delegate=False`:
+  when the driver backend is `"none"` AND no `host_completion` is
+  supplied, the verb falls through to the Slice 1 keyword path
+  rather than emitting an envelope the caller didn't ask for.
+  Backwards-compat invariant: existing 13 Slice 1 tests pass without
+  modification.
+- **Driver failure recovery** — any exception from
+  `driver.complete(...)` (auth / network / refusal) degrades to the
+  keyword path; the dogfood loop never crashes.
+- **`classifier` field** — every response now reports the path that
+  produced it: `"keyword"` / `"llm"` / `"host"` / `"llm-delegate"`.
+- **Module-level helpers**: `_PROPOSAL_LIST_SCHEMA` (JSON schema),
+  `_CLASSIFIER_SYSTEM` (system prompt), `_reflection_payload_for_llm`
+  (1.2K-char text cap per Spec 154 discipline),
+  `_build_classifier_messages`, `_parse_llm_proposals`.
+- **8 new tests green** (21 total Slice 1 + Slice 2):
+  capable-driver path uses LLM; no-backend silently degrades to
+  keyword; `prefer_delegate=True` emits the envelope; host_completion
+  resume parses proposals; hallucinated reflection_ids dropped;
+  `use_llm=False` forces keyword (driver never called); driver
+  exception degrades to keyword; malformed `host_completion` raises
+  `HostDelegateError(MALFORMED)`.
+
+### Still — Slice 3+
 - **Slice 3**: `confirm_token` live-write that performs the actual
   spec.md surgery (section locator + diff apply); today the dry-run
   branch is the only branch.

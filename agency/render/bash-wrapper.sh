@@ -64,7 +64,7 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({$kwargs_pairs}))
+$kwargs_block
 ' "$$iid" "$${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_prompt_intent_capture
 # Record a structured ResearchIntent SERVING the intent (act).
-# Usage: agency-prompt-intent_capture [--intent-id ID] <seed_query> <topic> <deliverable> <success_criteria>
+# Usage: agency-prompt-intent_capture [--intent-id ID] <seed_query> <topic> [deliverable] [success_criteria]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 4 ]; then
-  echo "error: expected 4 arg(s) (seed_query topic deliverable success_criteria); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 2 ]; then
+  echo "error: expected at least 2 required arg(s) (seed_query topic); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,12 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "seed_query": _coerce(sys.argv[2], str), "topic": _coerce(sys.argv[3], str), "deliverable": _coerce(sys.argv[4], str), "success_criteria": _coerce(sys.argv[5], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["seed_query"] = _coerce(sys.argv[2], str)
+_kw["topic"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["deliverable"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["success_criteria"] = _coerce(sys.argv[5], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

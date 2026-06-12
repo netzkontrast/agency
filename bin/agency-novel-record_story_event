@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_record_story_event
 # Mint a StoryTimeEvent + optional HAPPENS_AT edge from a scene (effect).
-# Usage: agency-novel-record_story_event [--intent-id ID] <novel_id> <label> <when_story> <scene_id>
+# Usage: agency-novel-record_story_event [--intent-id ID] <novel_id> <label> <when_story> [scene_id]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 4 ]; then
-  echo "error: expected 4 arg(s) (novel_id label when_story scene_id); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 3 ]; then
+  echo "error: expected at least 3 required arg(s) (novel_id label when_story); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,12 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "novel_id": _coerce(sys.argv[2], str), "label": _coerce(sys.argv[3], str), "when_story": _coerce(sys.argv[4], str), "scene_id": _coerce(sys.argv[5], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["novel_id"] = _coerce(sys.argv[2], str)
+_kw["label"] = _coerce(sys.argv[3], str)
+_kw["when_story"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["scene_id"] = _coerce(sys.argv[5], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

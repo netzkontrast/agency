@@ -50,22 +50,49 @@ def _ann_repr(annotation) -> str:
     imports them — `__builtins__` always has these). Container types
     (`list`, `dict`, `list[str]`, `dict[str, int]`) → ``list`` / ``dict``
     because runtime coercion only needs the top-level container.
-    Anything else (missing annotation, callable, Union, …) → ``str`` (the
+    Anything else (missing annotation, callable, …) → ``str`` (the
     raw argv string is safe — verbs decide how to handle).
 
     Spec 060 round 9 — when the verb's module uses ``from __future__
     import annotations``, inspect.signature returns the annotation as a
     string (`'int'`, `'list[str]'`, …) instead of the type object. Match
     those string forms before falling through to the runtime-type path.
+
+    Spec 150 Slice 2 review (round 2): unwrap ``Optional[X]`` /
+    ``X | None`` (Union with a single non-None member) to ``X``. Without
+    this, a verb param like ``host_completion: dict | None = None``
+    falls through to ``str``, and the bash wrapper coerces the JSON
+    payload to a string — breaking Spec 279 resume from the CLI surface.
     """
     if annotation is inspect.Parameter.empty:
         return "str"
     # Postponed-annotation string form: peel the typing-parametrised
-    # decoration and match on the bare head.
+    # decoration and match on the bare head. Also recognise the
+    # ``"X | None"`` Optional shorthand (PEP 604 postponed).
     if isinstance(annotation, str):
-        head = annotation.split("[", 1)[0].strip()
+        # Strip ``| None`` / ``None |`` from postponed-form unions so
+        # ``"dict | None"`` becomes ``"dict"``.
+        head = annotation.strip()
+        for trailer in (" | None", "|None"):
+            if head.endswith(trailer):
+                head = head[: -len(trailer)].strip()
+        for leader in ("None | ", "None|"):
+            if head.startswith(leader):
+                head = head[len(leader):].strip()
+        head = head.split("[", 1)[0].strip()
         if head in ("int", "bool", "float", "str", "list", "dict"):
             return head
+        return "str"
+    # Union / Optional types — pick the single non-None member.
+    import types as _types
+    import typing as _typing
+    origin = _typing.get_origin(annotation)
+    if origin is _typing.Union or (
+            hasattr(_types, "UnionType") and origin is _types.UnionType):
+        non_none = [a for a in _typing.get_args(annotation)
+                    if a is not type(None)]
+        if len(non_none) == 1:
+            return _ann_repr(non_none[0])
         return "str"
     # Strip the typing module's parametrised form: list[str] → list.
     origin = getattr(annotation, "__origin__", None)
@@ -318,6 +345,17 @@ def _user_params_with_annotations(fn, inject_list: list) -> list[tuple[str, obje
     wrapper, callers need the parameter's annotation alongside its name.
     Returns ``[(name, annotation), …]``; annotation is ``inspect.Parameter.
     empty`` when the verb didn't declare one."""
+    return [(name, ann) for name, ann, _has_default
+            in _user_params_full(fn, inject_list)]
+
+
+def _user_params_full(fn, inject_list: list) -> list[tuple[str, object, bool]]:
+    """Spec 150 Slice 2 review (round 2): the bash wrapper needs to know
+    which user-facing params have defaults so they can be omitted
+    from the positional arg list — without this, adding an optional
+    keyword param to a verb breaks every existing bash caller.
+
+    Returns ``[(name, annotation, has_default), …]``."""
     if fn is None:
         return []
     try:
@@ -325,7 +363,7 @@ def _user_params_with_annotations(fn, inject_list: list) -> list[tuple[str, obje
     except (TypeError, ValueError):
         return []
     excluded = _INJECTED_PARAMS | set(inject_list or []) | {"intent_id", "agent_id"}
-    return [(p.name, p.annotation)
+    return [(p.name, p.annotation, p.default is not inspect.Parameter.empty)
             for p in sig.parameters.values()
             if p.name not in excluded]
 
@@ -354,39 +392,65 @@ def emit_bash_wrappers(cap_name: str, verbs: dict) -> dict[str, str]:
     for verb_name in sorted(verbs):
         spec = verbs[verb_name]
         fn = spec.get("fn")
-        params_with_annotations = _user_params_with_annotations(
-            fn, spec.get("inject", []))
-        params = [name for name, _ann in params_with_annotations]
+        params_full = _user_params_full(fn, spec.get("inject", []))
+        params = [name for name, _ann, _has_default in params_full]
 
-        # Build the usage line + arg-count check + kwargs JSON pairs
+        # Build the usage line + arg-count check + kwargs JSON pairs.
+        # Spec 150 Slice 2 review (round 2): params with defaults are
+        # OPTIONAL — the wrapper omits them when not supplied so the
+        # verb's defaults apply. Required count is just the count of
+        # params before the first default (Python defaults rule).
+        required_count = sum(1 for _, _, hd in params_full if not hd)
         if params:
+            # Usage: required positional then [optional] for the rest.
+            usage_parts: list[str] = []
+            for name, _ann, has_default in params_full:
+                usage_parts.append(f"[{name}]" if has_default else f"<{name}>")
             usage = (f"agency-{cap_name}-{verb_name} [--intent-id ID] "
-                     + " ".join(f"<{p}>" for p in params))
-            arg_check = (
-                f'if [ "${{#args[@]}}" -lt {len(params)} ]; then\n'
-                f'  echo "error: expected {len(params)} arg(s) ({" ".join(params)}); '
-                f'got ${{#args[@]}}" >&2\n'
-                f'  exit 2\n'
-                f'fi'
-            )
+                     + " ".join(usage_parts))
+            req_names = " ".join(
+                n for n, _, hd in params_full if not hd)
+            if required_count > 0:
+                arg_check = (
+                    f'if [ "${{#args[@]}}" -lt {required_count} ]; then\n'
+                    f'  echo "error: expected at least {required_count} '
+                    f'required arg(s) ({req_names}); got ${{#args[@]}}" >&2\n'
+                    f'  exit 2\n'
+                    f'fi'
+                )
+            else:
+                # All user params optional — verb defaults handle the
+                # zero-arg call from the bash surface.
+                arg_check = ('# all positional args are optional; verb '
+                             'defaults apply when omitted')
             # PR review round 8 (r_skill_emit_typed): coerce argv strings
-            # to the verb's declared annotation. Without this, `analyze.run
-            # axes=quality,security` arrives as the string "quality,security"
-            # and `list(axes)` splits it into characters; `dogfood.render
-            # max_tokens=2000` arrives as "2000" and numeric arithmetic
-            # fails. The coercion is JSON-first-then-fallback: try
-            # `json.loads(raw)`; on success, accept the result iff it
-            # matches the annotation's runtime type; on failure, fall back
-            # to the raw string (str-annotated params stay verbatim).
-            kwargs_pairs = ', '.join(
-                ['"intent_id": sys.argv[1]'] +
-                [f'"{p}": _coerce(sys.argv[{i+2}], {_ann_repr(ann)})'
-                 for i, (p, ann) in enumerate(params_with_annotations)]
-            )
+            # to the verb's declared annotation. The coercion is
+            # JSON-first-then-fallback so list-typed bash callers can
+            # pass `axes=quality,security` AND JSON callers can pass
+            # `axes='["quality","security"]'`.
+            #
+            # Spec 150 Slice 2 review (round 2): build the kwargs dict
+            # incrementally so missing OPTIONAL params don't show up at
+            # all (the verb's default applies). Required params come
+            # first (no len check), optional after (conditional).
+            pair_lines: list[str] = ['_kw = {"intent_id": sys.argv[1]}']
+            for i, (p, ann, has_default) in enumerate(params_full):
+                idx = i + 2
+                ann_expr = _ann_repr(ann)
+                pair = f'_kw["{p}"] = _coerce(sys.argv[{idx}], {ann_expr})'
+                if has_default:
+                    # Conditional: only include if the caller supplied it.
+                    pair_lines.append(
+                        f'if len(sys.argv) > {idx}: {pair}')
+                else:
+                    pair_lines.append(pair)
+            pair_lines.append('print(json.dumps(_kw))')
+            kwargs_block = "\n".join(pair_lines)
         else:
             usage = f"agency-{cap_name}-{verb_name} [--intent-id ID]"
             arg_check = ('# no positional args for this verb (only --intent-id required)')
-            kwargs_pairs = '"intent_id": sys.argv[1]'
+            kwargs_block = ('_kw = {"intent_id": sys.argv[1]}\n'
+                            'print(json.dumps(_kw))')
 
         brief = _first_sentence_brief(fn) if fn else "(no brief)"
 
@@ -397,7 +461,7 @@ def emit_bash_wrappers(cap_name: str, verbs: dict) -> dict[str, str]:
             brief=brief,
             usage=usage,
             arg_check=arg_check,
-            kwargs_pairs=kwargs_pairs,
+            kwargs_block=kwargs_block,
         )
         out[f"bin/agency-{cap_name}-{verb_name}"] = rendered
     return out

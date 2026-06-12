@@ -107,6 +107,147 @@ _CLASSIFIER_RULES: list[tuple[re.Pattern, str, str, float]] = [
 ]
 
 
+# ── Spec 150 Slice 2 — LLM classifier path ────────────────────────────────
+# Documented amendment ops the LLM may emit. Kept aligned with the keyword
+# path so the downstream `apply_amendment` flow is the same.
+_LLM_OPS = ("add-done-when", "add-open-q", "edit-done-when", "edit-open-q")
+_LLM_SECTIONS = ("Done When", "Open questions", "Followup", "row")
+
+
+# JSON schema the AnthropicDriver enforces via structured outputs. Slice 2
+# uses output_config.format=json_schema (Spec 147 claude-api skill).
+_PROPOSAL_LIST_SCHEMA: dict = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["proposals"],
+    "properties": {
+        "proposals": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["reflection_id", "spec_id", "section", "op",
+                              "after", "rationale", "confidence"],
+                "properties": {
+                    "reflection_id": {"type": "string"},
+                    "spec_id":       {"type": "string", "pattern": r"^\d{3}$"},
+                    "section":       {"type": "string", "enum": list(_LLM_SECTIONS)},
+                    "op":            {"type": "string", "enum": list(_LLM_OPS)},
+                    "after":         {"type": "string", "minLength": 1},
+                    "rationale":     {"type": "string", "minLength": 40},
+                    "confidence":    {"type": "number", "minimum": 0, "maximum": 1},
+                },
+            },
+        },
+    },
+}
+
+
+_CLASSIFIER_SYSTEM = (
+    "You are the dogfood amendment classifier. You receive a JSON list of "
+    "reflection objects (each with id + plan_slug + text + scope). For "
+    "EVERY reflection whose text proposes a concrete amendment to a spec, "
+    "emit one ProposalPayload — spec_id (NNN from plan_slug, 3-digit), "
+    "section (one of Done When / Open questions / Followup / row), op (one "
+    "of add-done-when / add-open-q / edit-done-when / edit-open-q), after "
+    "(the proposed new text, 1+ chars), rationale (>= 40 chars, citing the "
+    "reflection text), confidence in [0,1]. Skip neutral reflections "
+    "(observations without an actionable proposal). Output strictly matches "
+    "the schema; do not invent spec_ids that aren't in the input plan_slugs."
+)
+
+
+def _reflection_payload_for_llm(refl: dict) -> dict:
+    """Trim a Reflection's properties to the fields the classifier needs.
+    Keeps the LLM payload small (Spec 154 output-overflow discipline)."""
+    return {
+        "id":        refl.get("id") or "",
+        "plan_slug": refl.get("plan_slug") or "",
+        "scope":     refl.get("scope") or "",
+        "text":      (refl.get("text") or "").strip()[:1200],
+    }
+
+
+def _build_classifier_messages(reflections: list[dict]) -> list[dict]:
+    """Build the messages list for `complete_or_delegate`. The user
+    message carries the reflections as JSON so the model parses
+    deterministically."""
+    payload = [_reflection_payload_for_llm(r) for r in reflections]
+    user = (
+        "Classify these reflections into ProposalPayload objects per the "
+        "schema. Emit ONLY actionable proposals; skip neutral observations.\n\n"
+        f"reflections = {json.dumps(payload, sort_keys=True)}"
+    )
+    return [{"role": "user", "content": user}]
+
+
+def _parse_llm_proposals(parsed: dict | None,
+                          reflections_by_id: dict[str, dict],
+                          limit: int) -> list[dict]:
+    """Convert the LLM's structured output into the canonical
+    ProposalPayload shape (matching the keyword path's `proposals` list).
+    Drops any proposal whose reflection_id isn't in the input set —
+    defense against the LLM hallucinating reflections."""
+    if not isinstance(parsed, dict):
+        return []
+    raw = parsed.get("proposals") or []
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    for p in raw:
+        if not isinstance(p, dict):
+            continue
+        rid = p.get("reflection_id") or ""
+        refl = reflections_by_id.get(rid)
+        if refl is None:
+            continue                                              # hallucination — drop
+        # Codex review on PR #136: host_completion bypasses the
+        # driver-side JSON-schema enforcement, so validate the same
+        # invariants HERE — enum-bound section + op, [0,1] confidence,
+        # 40-char rationale floor. Drop the proposal on any miss.
+        section = str(p.get("section") or "")
+        op = str(p.get("op") or "")
+        if section not in _LLM_SECTIONS or op not in _LLM_OPS:
+            continue
+        try:
+            confidence = float(p.get("confidence") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if not (0.0 <= confidence <= 1.0):
+            continue
+        rationale = str(p.get("rationale") or "")
+        if len(rationale) < 40:
+            continue
+        after = str(p.get("after") or "").strip()
+        if not after:
+            continue
+        # Codex review on PR #136: derive spec_id from the cited
+        # reflection's plan_slug rather than trusting the model. A
+        # classifier mistake could route apply_amendment to the wrong
+        # spec while provenance points at a different plan — silently
+        # mis-attributing the amendment. The plan_slug is the
+        # ground-truth source.
+        derived_spec_id = _spec_id_from_slug(refl.get("plan_slug") or "")
+        if not derived_spec_id:
+            continue
+        model_spec_id = str(p.get("spec_id") or "")
+        if model_spec_id and model_spec_id != derived_spec_id:
+            continue                                              # mismatch — drop
+        out.append({
+            "spec_id":            derived_spec_id,
+            "section":            section,
+            "op":                 op,
+            "before":             "",
+            "after":              after,
+            "rationale":          rationale,
+            "source_reflections": [rid],
+            "confidence":         confidence,
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _classify_reflection(text: str) -> dict:
     """Classify ONE reflection text into an amendment op + section + confidence.
 
@@ -607,30 +748,59 @@ class DogfoodCapability(CapabilityBase):
 
     @verb(role="transform")
     def parse_amendment(self, scope: str = "", since: str = "",
-                         limit: int = 20) -> dict:
+                         limit: int = 20, use_llm: bool = True,
+                         prefer_delegate: bool = False,
+                         host_completion: dict | None = None) -> dict:
         """Classify recent Reflections into amendment proposals.
 
-        Slice 1 ships the keyword classifier — the documented fallback path
-        when the Spec 147 AnthropicDriver is unavailable (never silent no-op).
-        Slice 2 swaps in the driver's structured-output classification (the
-        same ProposalPayload shape, sharper recall).
+        Slice 1 shipped the keyword classifier (the documented fallback
+        path). Slice 2 (this) swaps in Spec 147 AnthropicDriver
+        structured-output classification — same ProposalPayload shape,
+        sharper recall — wrapped through Spec 279's ``complete_or_delegate``
+        so the no-key host (Claude Code) can run inference itself
+        instead of degrading to keywords.
 
-        Inputs: scope (str — substring filter on plan_slug; "" = all),
-                since (reserved; bi-temporal cursor in Slice 3),
-                limit (int — caps the proposal list; default 20).
-        Returns: ``{proposals: [ProposalPayload]}``.
-        chain_next: ``dogfood.apply_amendment(payload, dry_run=True)`` to
-                    render the proposed spec-edit as a unified diff.
+        Three paths (resume wins):
+
+        1. ``host_completion`` supplied — the host already ran inference
+           after a prior delegation; parse the result into proposals.
+        2. ``use_llm=True`` AND an AnthropicDriver is wired AND capable:
+           structured-output ``complete()`` call.
+        3. ``use_llm=True`` AND ``prefer_delegate=True`` AND driver backend
+           is ``"none"`` → return a ``llm_delegate`` envelope so the host
+           (Claude Code) can run inference and re-call (Spec 279). When
+           ``prefer_delegate=False`` (default), backend ``"none"`` silently
+           degrades to keyword — backwards-compat default so tests +
+           non-host callers don't have to handle the envelope.
+        4. else / ``use_llm=False`` / no driver — keyword classifier
+           fallback (Slice 1 path).
+
+        Inputs: scope (substring filter on plan_slug), since (reserved
+                bi-temporal cursor), limit (caps proposals; default 20),
+                use_llm (default True; set False to force keyword path),
+                host_completion (Spec 279 resume envelope from Claude
+                Code — ``{text, parsed?}`` where ``parsed`` is the
+                ProposalPayload list).
+        Returns: ``{proposals: [ProposalPayload], classifier: str,
+                    kind?: "llm_delegate", request?: HostLLMRequest dict}``.
+        chain_next: ``dogfood.apply_amendment(payload, dry_run=True)``.
         """
         rows = self.ctx.memory.g.query(
             "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
             {"scope": "observation"})
         reflections = [r["r"]["properties"] for r in rows]
-        # `scope` is a substring filter on plan_slug — cheap caller-side
-        # narrowing that doesn't expose graph query language.
         if scope:
             reflections = [r for r in reflections
                            if scope in (r.get("plan_slug") or "")]
+
+        # ── LLM path (Slice 2) ────────────────────────────────────────
+        if use_llm and reflections:
+            llm_result = self._llm_classify(
+                reflections, limit, host_completion, prefer_delegate)
+            if llm_result is not None:
+                return llm_result
+
+        # ── Keyword fallback (Slice 1 path) ───────────────────────────
         proposals: list[dict] = []
         for refl in reflections:
             tag = _classify_reflection(refl.get("text") or "")
@@ -654,7 +824,85 @@ class DogfoodCapability(CapabilityBase):
             })
             if len(proposals) >= limit:
                 break
-        return {"proposals": proposals}
+        return {"proposals": proposals, "classifier": "keyword"}
+
+    def _llm_classify(self, reflections: list[dict], limit: int,
+                       host_completion: dict | None,
+                       prefer_delegate: bool) -> dict | None:
+        """Slice 2 LLM classification via `complete_or_delegate`. Returns:
+
+        - dict with `{proposals, classifier: "llm"}` on driver-capable
+          path or `{proposals, classifier: "host"}` on host resume.
+        - dict with `{proposals: [], classifier: "llm-delegate",
+          kind: "llm_delegate", request: …}` when ``prefer_delegate`` is
+          True AND the driver backend is "none" — Spec 279 envelope so
+          Claude Code runs inference.
+        - None when the LLM path can't run AND the keyword fallback
+          should take over (no driver wired AND no host_completion;
+          OR driver backend "none" AND `prefer_delegate=False`;
+          OR a driver failure that we recover from gracefully).
+        """
+        # Resolve the anthropic driver (None when not wired).
+        driver = None
+        try:
+            reg = getattr(self.ctx, "drivers", None)
+            if reg is not None and reg.has("anthropic"):
+                driver = reg.get("anthropic")
+        except Exception:
+            driver = None
+        # No driver AND no resume → keyword fallback.
+        if driver is None and host_completion is None:
+            return None
+        # Driver present but not capable AND not opting into delegation
+        # AND no resume → silent keyword degrade (spec contract).
+        if (driver is not None and host_completion is None
+                and not prefer_delegate
+                and driver.backend() == "none"):
+            return None
+
+        from agency._host_llm import (
+            complete_or_delegate, HostLLMRequest, HostDelegateError,
+        )
+        # Driver may be None when we have a host_completion to resume —
+        # complete_or_delegate's resume branch ignores the driver.
+        if driver is None:
+            class _NoDriver:
+                def backend(self) -> str:
+                    return "none"
+            driver = _NoDriver()
+
+        messages = _build_classifier_messages(reflections)
+        reflections_by_id = {r.get("id") or "": r for r in reflections}
+        try:
+            result = complete_or_delegate(
+                driver,
+                messages=messages,
+                system=_CLASSIFIER_SYSTEM,
+                output_schema=_PROPOSAL_LIST_SCHEMA,
+                host_completion=host_completion,
+            )
+        except HostDelegateError:
+            raise                                                  # bubble up
+        except Exception:
+            return None                                            # graceful degrade
+
+        if isinstance(result, HostLLMRequest):
+            return {
+                "proposals":  [],
+                "classifier": "llm-delegate",
+                "kind":       result.kind,
+                "request":    result.to_dict(),
+            }
+        parsed = result.parsed
+        if parsed is None and result.text:
+            try:
+                parsed = json.loads(result.text)
+            except (ValueError, TypeError):
+                parsed = None
+        proposals = _parse_llm_proposals(parsed, reflections_by_id, limit)
+        classifier = ("host" if result.stop_reason == "host_provided"
+                      else "llm")
+        return {"proposals": proposals, "classifier": classifier}
 
     @verb(role="effect")
     def apply_amendment(self, payload: dict, dry_run: bool = True,

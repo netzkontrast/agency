@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_render_query_letter
 # Render an agent query letter (act, driver-free).
-# Usage: agency-novel-render_query_letter [--intent-id ID] <novel_id> <agent_name> <comp_titles>
+# Usage: agency-novel-render_query_letter [--intent-id ID] <novel_id> <agent_name> [comp_titles]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 3 ]; then
-  echo "error: expected 3 arg(s) (novel_id agent_name comp_titles); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 2 ]; then
+  echo "error: expected at least 2 required arg(s) (novel_id agent_name); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,11 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "novel_id": _coerce(sys.argv[2], str), "agent_name": _coerce(sys.argv[3], str), "comp_titles": _coerce(sys.argv[4], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["novel_id"] = _coerce(sys.argv[2], str)
+_kw["agent_name"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["comp_titles"] = _coerce(sys.argv[4], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

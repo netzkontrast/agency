@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_dogfood_apply_amendment
 # Render a ProposalPayload as a unified diff; provenance Artefact.
-# Usage: agency-dogfood-apply_amendment [--intent-id ID] <payload> <dry_run> <confirm_token>
+# Usage: agency-dogfood-apply_amendment [--intent-id ID] <payload> [dry_run] [confirm_token]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 3 ]; then
-  echo "error: expected 3 arg(s) (payload dry_run confirm_token); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 1 ]; then
+  echo "error: expected at least 1 required arg(s) (payload); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,11 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "payload": _coerce(sys.argv[2], dict), "dry_run": _coerce(sys.argv[3], bool), "confirm_token": _coerce(sys.argv[4], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["payload"] = _coerce(sys.argv[2], dict)
+if len(sys.argv) > 3: _kw["dry_run"] = _coerce(sys.argv[3], bool)
+if len(sys.argv) > 4: _kw["confirm_token"] = _coerce(sys.argv[4], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_shell_define
 # Define a named shell template (command + output filter + doc) in the graph.
-# Usage: agency-shell-define [--intent-id ID] <name> <command> <filter> <doc> <tags>
+# Usage: agency-shell-define [--intent-id ID] <name> <command> <filter> [doc] [tags]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 5 ]; then
-  echo "error: expected 5 arg(s) (name command filter doc tags); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 3 ]; then
+  echo "error: expected at least 3 required arg(s) (name command filter); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,13 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "name": _coerce(sys.argv[2], str), "command": _coerce(sys.argv[3], str), "filter": _coerce(sys.argv[4], str), "doc": _coerce(sys.argv[5], str), "tags": _coerce(sys.argv[6], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["name"] = _coerce(sys.argv[2], str)
+_kw["command"] = _coerce(sys.argv[3], str)
+_kw["filter"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["doc"] = _coerce(sys.argv[5], str)
+if len(sys.argv) > 6: _kw["tags"] = _coerce(sys.argv[6], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

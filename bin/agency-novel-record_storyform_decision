@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_record_storyform_decision
 # Record a contested storyform decision (effect, xcap to dogfood).
-# Usage: agency-novel-record_storyform_decision [--intent-id ID] <novel_id> <decision> <rationale>
+# Usage: agency-novel-record_storyform_decision [--intent-id ID] <novel_id> <decision> [rationale]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 3 ]; then
-  echo "error: expected 3 arg(s) (novel_id decision rationale); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 2 ]; then
+  echo "error: expected at least 2 required arg(s) (novel_id decision); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,11 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "novel_id": _coerce(sys.argv[2], str), "decision": _coerce(sys.argv[3], str), "rationale": _coerce(sys.argv[4], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["novel_id"] = _coerce(sys.argv[2], str)
+_kw["decision"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["rationale"] = _coerce(sys.argv[4], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "
