@@ -184,10 +184,31 @@ doctor readiness. Blast-radius slices green (driver-registry, llm-driver,
 naming-audit, doctor/install/bootstrap: 85 passed); `scripts/check-drift`
 NO DRIFT.
 
-**Still (Slice 2):**
-- Managed-Agents bridge — `dispatch_session` raises a typed deferred
-  error today; needs the create-once Agent doctrine (Spec 137 Lock for
-  agent_id+version) + MonitorEvent streaming (Spec 021).
+**Slice 2 (partial) SHIPPED 2026-06-11:**
+- `SessionHandle{session_id, status, status_reason, started_at}` —
+  frozen dataclass returned by `dispatch_session`.
+- `dispatch_session(agent_id, env_id, kickoff) -> SessionHandle` calls
+  the SDK shape `client.beta.agents.sessions.create(agent_id=...,
+  environment_id=..., kickoff_message=...)`. References a PRE-CREATED
+  Agent (create-once doctrine; Spec 137 Lock owns the agent_id +
+  version). Rejects empty `agent_id` / `env_id` / `kickoff` with
+  `DriverError.BAD_REQUEST`. SDK exceptions map through the same
+  `_classify` boundary the `complete()` path uses, so the typed-error
+  surface stays uniform.
+- `_client_has_sessions_api(client)` capability detector — walks
+  `.beta.agents.sessions.create` and returns True when the chain is
+  reachable. `readiness().managed_agents_capable` now reflects this
+  (was hardcoded False in Slice 1).
+- 9 tests added (26 total): typed handle shape, create-once kwargs,
+  empty-input rejection (agent_id/env_id/kickoff), status_reason
+  surfacing on non-running, frozen-dataclass immutability, readiness
+  flip on capable client, readiness=False on bare client, SDK
+  exception → DriverError mapping.
+
+**Still (Slice 2.x):**
+- MonitorEvent streaming (Spec 021): events from the dispatched session
+  (`agent.tool_use`, `session.status_idle`, `session.status_terminated`)
+  become graph nodes SERVES'd by the originating Intent.
 - `stream()` for >16K-token outputs.
 - Spec 110 `thinking.*` verb flips to `run=True` wet paths (Spec 204/226).
 - `cache_control` placement on stable prefixes (Spec 146 integration).

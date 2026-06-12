@@ -60,6 +60,39 @@ class Completion:
     parsed: dict | None = None
 
 
+def _client_has_sessions_api(client) -> bool:
+    """The Managed-Agents bridge requires the SDK shape
+    ``client.beta.agents.sessions.create``. Returns True when every
+    chain attribute is reachable (anthropic >= 0.92), False otherwise.
+    Used by `readiness` + `dispatch_session` so both surfaces agree on
+    capability."""
+    if client is None:
+        return False
+    beta = getattr(client, "beta", None)
+    if beta is None:
+        return False
+    agents = getattr(beta, "agents", None)
+    if agents is None:
+        return False
+    sessions = getattr(agents, "sessions", None)
+    if sessions is None:
+        return False
+    return hasattr(sessions, "create")
+
+
+@dataclass(frozen=True)
+class SessionHandle:
+    """The Slice 2 return of ``dispatch_session``. The session_id is the
+    SDK's handle; status is one of ``"running"`` / ``"paused"`` /
+    ``"idle"`` / ``"terminated"``; ``status_reason`` carries a human-
+    readable cause when status != "running" (Anthropic SDK shape)."""
+
+    session_id: str
+    status: str
+    status_reason: str = ""
+    started_at: str = ""
+
+
 # anthropic SDK exception class-names → typed codes (matched by name so the SDK need
 # not be installed for the mapping to compile).
 _EXC_NAME_MAP = {
@@ -92,12 +125,17 @@ class AnthropicDriver:
         return "none"
 
     def readiness(self) -> dict:
-        """Structured readiness for ``agency_doctor`` (Spec 170). Slice 1:
-        Managed-Agents is not yet capable."""
+        """Structured readiness for ``agency_doctor`` (Spec 170).
+
+        Slice 2: ``managed_agents_capable`` flips True when the injected
+        client exposes the ``.beta.agents.sessions`` surface (the SDK
+        shape that ``dispatch_session`` calls into). A bare client
+        (just ``messages.create``) reports False; the engine degrades
+        to inline routing rather than session dispatch."""
         return {
             "api_key_present": bool(os.environ.get("ANTHROPIC_API_KEY")),
             "model_id_resolved": self.model,
-            "managed_agents_capable": False,           # Slice 2
+            "managed_agents_capable": _client_has_sessions_api(self._client),
         }
 
     # ── inference surface ────────────────────────────────────────────────────
@@ -147,13 +185,60 @@ class AnthropicDriver:
             raise self._classify(exc) from exc
         return int(getattr(resp, "input_tokens", 0))
 
-    def dispatch_session(self, agent_id: str, env_id: str, kickoff: str):
-        """Managed-Agents bridge — **Slice 2**. References a pre-created Agent
-        (create-once doctrine) and streams events back as MonitorEvents (Spec 021).
-        Deferred today; see ``Plan/147-anthropic-driver-boundary/spec.md``."""
-        raise DriverError(
-            DriverError.BAD_REQUEST,
-            "Managed-Agents bridge is Slice 2 — not yet implemented (Spec 147)")
+    def dispatch_session(self, agent_id: str, env_id: str,
+                          kickoff: str) -> SessionHandle:
+        """Managed-Agents bridge — Spec 147 Slice 2.
+
+        References a PRE-CREATED Agent (claude-api skill,
+        ``shared/managed-agents-core.md`` — "Agent FIRST, then session —
+        NO EXCEPTIONS"). Calls the SDK's ``beta.agents.sessions.create``
+        and returns a typed ``SessionHandle`` so the engine can:
+        - record the session_id as graph provenance (Spec 002 Driver
+          boundary + Spec 021 Monitor channel for streamed events,
+          which Slice 2.x lights up),
+        - branch on ``status`` ("running" / "terminated" / "paused" /
+          "idle") without parsing SDK-shaped objects.
+
+        Inputs: agent_id (Spec 137 Lock-stored), env_id (the
+        environment the session executes in), kickoff (the first user
+        message).
+        """
+        if not agent_id:
+            raise DriverError(
+                DriverError.BAD_REQUEST,
+                "dispatch_session requires a non-empty agent_id "
+                "(pre-create via Spec 137 Lock; create-once doctrine)")
+        if not env_id:
+            raise DriverError(
+                DriverError.BAD_REQUEST,
+                "dispatch_session requires a non-empty env_id "
+                "(the environment the session executes in)")
+        if not kickoff:
+            raise DriverError(
+                DriverError.BAD_REQUEST,
+                "dispatch_session requires a non-empty kickoff message "
+                "(the first user turn for the session)")
+        client = self._client if self._client is not None else self._sdk()
+        if not _client_has_sessions_api(client):
+            raise DriverError(
+                DriverError.BAD_REQUEST,
+                "the injected client does not expose the Managed-Agents "
+                "sessions API (.beta.agents.sessions.create); upgrade "
+                "the anthropic SDK to >= 0.92 or inject a capable client")
+        try:
+            resp = client.beta.agents.sessions.create(
+                agent_id=agent_id,
+                environment_id=env_id,
+                kickoff_message=kickoff,
+            )
+        except Exception as exc:                                   # boundary catch
+            raise self._classify(exc)                              # never falls through
+        return SessionHandle(
+            session_id=getattr(resp, "id", "") or "",
+            status=getattr(resp, "status", "") or "",
+            status_reason=getattr(resp, "status_reason", "") or "",
+            started_at=getattr(resp, "started_at", "") or "",
+        )
 
     # ── internals ────────────────────────────────────────────────────────────
     def _sdk(self):
