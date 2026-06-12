@@ -70,7 +70,7 @@ agency execute --code \
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
 - **develop** — checklist, estimate, mode_select, record_authoring_outcome, reference, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
 - **document** — explain, index_repo, render
-- **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, record_decision, render, replay_events
+- **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, recall_overflow_slice, record_decision, render, replay_events
 - **gate** — check
 - **intent** — assumptions, decompose, first_principles, inversion, premortem, second_order, steelman, suggests, tradeoffs
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch

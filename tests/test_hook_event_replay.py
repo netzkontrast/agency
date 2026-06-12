@@ -330,6 +330,83 @@ def test_replay_respects_limit(monkeypatch):
     assert rep["count"] == 2
 
 
+def _call_recall(e: Engine, iid: str, **kw):
+    res, _ = e.registry.invoke(
+        e.memory, iid, "dogfood", "recall_overflow_slice",
+        agent_id="agent:test", **kw)
+    return res
+
+
+# ─────────── Slice 3 — dogfood.recall_overflow_slice graph verb ───────
+def test_recall_overflow_slice_returns_body_when_under_budget():
+    e = _fresh()
+    iid = _intent(e)
+    rep = _call_recall(e, iid, body="hello world", max_tokens=100)
+    assert rep["body"] == "hello world"
+    assert rep["more_available"] is False
+    # Token count comes from the engine's token_counter (Spec 082) which
+    # is backend-dependent; assert the shape invariant (positive int)
+    # rather than a pinned value (rule 8).
+    assert isinstance(rep["total_tokens"], int)
+    assert rep["total_tokens"] > 0
+
+
+def test_recall_overflow_slice_grep_filters_matching_lines():
+    e = _fresh()
+    iid = _intent(e)
+    body = "alpha\nbeta\nalphabet\ngamma\n"
+    rep = _call_recall(e, iid, body=body, grep="alpha", max_tokens=100)
+    # grep matches the two `alpha`-containing lines
+    assert "alpha" in rep["body"]
+    assert "alphabet" in rep["body"]
+    assert "beta" not in rep["body"]
+    assert "gamma" not in rep["body"]
+    assert rep["matches_returned"] == 2
+
+
+def test_recall_overflow_slice_respects_max_tokens():
+    """A small budget truncates the body; more_available flags it.
+    The exact token count depends on the live Spec 082 backend; assert
+    relationships, not pinned numbers."""
+    e = _fresh()
+    iid = _intent(e)
+    big = "X" * 5000
+    rep = _call_recall(e, iid, body=big, max_tokens=20)
+    # Body fits the budget (slice_tokens <= max_tokens) AND is shorter
+    # than the source.
+    assert rep["slice_tokens"] <= 20
+    assert len(rep["body"]) < len(big)
+    assert rep["more_available"] is True
+    assert rep["total_tokens"] >= rep["slice_tokens"]
+
+
+def test_recall_overflow_slice_line_range_slice():
+    """`slice='1:3'` returns lines 1 + 2 (Python list-slice semantics)."""
+    e = _fresh()
+    iid = _intent(e)
+    body = "L0\nL1\nL2\nL3\n"
+    rep = _call_recall(e, iid, body=body, slice="1:3", max_tokens=100)
+    assert "L1" in rep["body"]
+    assert "L2" in rep["body"]
+    assert "L0" not in rep["body"]
+
+
+def test_recall_overflow_slice_grep_paging_via_offset():
+    """Successive calls with `offset=next_match_offset` paginate."""
+    e = _fresh()
+    iid = _intent(e)
+    body = "\n".join("hit-" + str(i) for i in range(10)) + "\n"
+    # First page — small budget forces only some matches
+    page1 = _call_recall(e, iid, body=body, grep="hit", max_tokens=30)
+    if not page1["more_available"]:
+        pytest.skip("budget large enough to deliver all in one page")
+    # Resume from the cursor
+    page2 = _call_recall(e, iid, body=body, grep="hit",
+                          offset=page1["next_match_offset"],
+                          max_tokens=100)
+    assert page1["body"] != page2["body"]
+
+
 def test_replay_does_not_leak_other_intents(monkeypatch):
     """Cross-intent contamination invariant — replay only returns
     Events linked to the requested intent."""

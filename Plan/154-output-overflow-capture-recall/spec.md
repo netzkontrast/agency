@@ -157,12 +157,26 @@ Then:   RecallSlice{body=<only matching lines>, matches_returned=N,
   handle carries token counts; zero-budget edge; negative budget rejected;
   handle.total matches canonical-JSON serialization size.
 
-### Still — Slice 3+
+### Done — Slice 3 (graph verb `dogfood.recall_overflow_slice`, 2026-06-12)
 
-- **Slice 3** — `memory.recall_overflow(handle, slice="", grep="")`
-  as a graph verb that loads the `Artefact(kind="overflow-capture")`
-  by id + dispatches to `recall_overflow_slice`. Writes the Artefact
-  + SERVES + PRODUCES edges per Spec 002.
+- **`dogfood.recall_overflow_slice(body, slice, grep, offset,
+  byte_offset, max_tokens)`** — the read-side graph verb. Delegates
+  to the pure `_overflow.recall_overflow_slice` library with the
+  engine's `token_counter` (Spec 082 backend; char-proxy fallback in
+  hermetic tests). Returns the typed `RecallSlice` shape: `{body,
+  slice_tokens, total_tokens, matches_returned, more_available,
+  next_match_offset, next_byte_offset}`.
+- **5 new tests** in `tests/test_hook_event_replay.py` (21 total green):
+  pass-through under budget; grep filters matching lines; max_tokens
+  truncates + sets `more_available`; line-range slice; grep paging via
+  `offset=next_match_offset`.
+
+### Still — Slice 3a+
+
+- **Slice 3a** — `Artefact(kind="overflow-capture")` write/read so
+  agents recall by Artefact id instead of resupplying the body each
+  call (SERVES + PRODUCES edges per Spec 002). Today the body comes in
+  as a verb arg; Slice 3a pulls it from the graph by handle.
 - **Slice 4** — `agency_doctor.overflow_capture_health` reports a
   count of overflow Artefacts vs untracked-truncation events
   (invariant d: every truncate has a matching Artefact).

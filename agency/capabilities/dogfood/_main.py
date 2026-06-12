@@ -861,6 +861,63 @@ class DogfoodCapability(CapabilityBase):
             "count":     len(out),
         }
 
+    @verb(role="transform")
+    def recall_overflow_slice(self,
+                                body: str = "",
+                                slice: str = "full",
+                                grep: str = "",
+                                offset: int = 0,
+                                byte_offset: int = 0,
+                                max_tokens: int = 2000) -> dict:
+        """Spec 154 Slice 3 — recall a paged view of a captured overflow body.
+
+        Slice 2 of Spec 154 wired `capture_body_overflow` through the
+        envelope; this verb is the read side. The caller supplies the
+        full body (e.g. from a previously-stored Artefact); the verb
+        delegates to the pure `_overflow.recall_overflow_slice` library
+        with the configured budget. Slice 4 will add an Artefact-id-
+        keyed lookup so the body never has to round-trip through the
+        agent.
+
+        Inputs: body (str — the full captured body the agent is paging).
+                slice (str — "full" or "<start>:<stop>" line range).
+                grep (str — pattern to filter matching lines).
+                offset (int — grep paging offset).
+                byte_offset (int — line slice intra-line cursor).
+                max_tokens (int — budget for the returned slice).
+        Returns: ``{body, slice_tokens, total_tokens, matches_returned,
+                    more_available, next_match_offset, next_byte_offset}``.
+        chain_next: ``dogfood.replay_events`` when the agent needs to
+                    find the right body to recall first.
+        """
+        from agency._overflow import recall_overflow_slice as _recall
+
+        def _proxy_counter(text: str) -> int:
+            return len(text)
+
+        # Spec 082 boundary lives on engine.token_counter; use it when
+        # available, fall back to the deterministic char-proxy otherwise
+        # (keeps tests hermetic without the Spec 082 backend).
+        counter = _proxy_counter
+        tc = getattr(self.ctx, "engine", None)
+        tc = getattr(tc, "token_counter", None) if tc else None
+        if tc is not None:
+            counter = tc
+        res = _recall(
+            body, slice=slice, grep=grep, offset=offset,
+            byte_offset=byte_offset, max_tokens=max_tokens,
+            counter=counter,
+        )
+        return {
+            "body":              res.body,
+            "slice_tokens":      res.slice_tokens,
+            "total_tokens":      res.total_tokens,
+            "matches_returned":  res.matches_returned,
+            "more_available":    res.more_available,
+            "next_match_offset": res.next_match_offset,
+            "next_byte_offset":  res.next_byte_offset,
+        }
+
     # ════════════════════════════════════════════════════════════════════════
     # Spec 150 Slice 1 — dogfood amendment classifier (close Goal 6).
     # ════════════════════════════════════════════════════════════════════════

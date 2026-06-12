@@ -30,6 +30,7 @@ Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exporte
 | `import` | effect | Replay a JSON export into this graph, preserving ids + windows. | [details](references/import.md) |
 | `note` | act | Record an observation Reflection tagged with plan_slug. | [details](references/note.md) |
 | `parse_amendment` | transform | Classify recent Reflections into amendment proposals. | [details](references/parse_amendment.md) |
+| `recall_overflow_slice` | transform | Spec 154 Slice 3 — recall a paged view of a captured overflow body. | [details](references/recall_overflow_slice.md) |
 | `record_decision` | effect | Bind a decision to the current session (effect). | [details](references/record_decision.md) |
 | `render` | transform | Project plan_slug observations into DOGFOOD-NOTES.md. | [details](references/render.md) |
 | `replay_events` | transform | Replay every Event recorded OBSERVED_DURING the given intent (Spec 195 Slice 2 — typed replay + monotonic chain). | [details](references/replay_events.md) |
