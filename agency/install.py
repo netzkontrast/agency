@@ -34,6 +34,80 @@ import os
 import sys
 
 from .capabilities.plugin import author_command, author_skill, help_map
+
+
+# Spec 148 Slice 2 — documented per-skill command cap (Open Q4). Slice 3
+# replaces the alpha-sort cap with an invocation-rank cap derived from the
+# live graph; until then the deterministic alpha sort keeps the surface
+# stable across installs.
+AGENCY_SKILL_CMD_TOP_N = 12
+
+
+def _skill_name_to_slug(name: str) -> str:
+    """`develop.skill_walk` → `develop-skill-walk`; `session-driver-pass`
+    stays the same. Filesystem-safe `[a-z0-9-]+`."""
+    import re as _re
+    s = name.lower()
+    s = _re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    return s or "unknown"
+
+
+def _generate_per_skill_commands(reg) -> dict[str, str]:
+    """Walk every capability's `ontology.skills` dict; emit one
+    `commands/agency-<slug>.md` per walkable skill, capped at the
+    documented top-N. Each command body calls `develop.skill_walk`
+    with the skill name + a short usage note.
+
+    Slice 2 ordering: alphabetic by skill name (deterministic). Slice 3
+    derives the rank from invocation count."""
+    skill_names: list[str] = []
+    for cap_name in sorted(reg.names()):
+        cap = reg.get(cap_name)
+        skills = getattr(getattr(cap, "ontology", None), "skills", {}) or {}
+        for sk_name in skills:
+            if isinstance(sk_name, str):
+                skill_names.append(sk_name)
+    skill_names = sorted(set(skill_names))
+    picks = skill_names[:AGENCY_SKILL_CMD_TOP_N]
+    out: dict[str, str] = {}
+    for sk_name in picks:
+        slug = _skill_name_to_slug(sk_name)
+        # Skip when the slug would collide with the two static Slice 1
+        # commands; doctrine: hand-authored wins (Spec 148 §"author
+        # discipline").
+        if slug in ("agency", "onboard"):
+            continue
+        path = f"commands/agency-{slug}.md"
+        desc = (
+            f"Walk the `{sk_name}` skill — `/agency-{slug}` drives "
+            f"`develop.skill_walk(name='{sk_name}')` so the engine "
+            f"delivers ONE phase at a time and records the SkillRun "
+            f"provenance (Spec 018 Win 1)."
+        )
+        body = (
+            f"## `/agency-{slug}` — walk `{sk_name}`\n\n"
+            f"Drive the `{sk_name}` skill atomically (Spec 018) so each "
+            f"phase records a `Phase` node + the SkillRun records `SERVES` "
+            f"the active Intent. The engine pauses at hard gates; resume "
+            f"with the gate's `resume_with` keys.\n\n"
+            f"### How\n\n"
+            f"```python\n"
+            f"await call_tool('capability_develop_skill_walk', {{\n"
+            f"    'name': '{sk_name}',\n"
+            f"    'inputs': {{}},\n"
+            f"}})\n"
+            f"```\n\n"
+            f"To resume after a paused gate, pass `resume_from='<skill_id>'` "
+            f"and `inputs={{<gate.resume_with keys>}}`. The walker returns "
+            f"the typed status contract: `completed | input-required | failed`.\n\n"
+            f"### Derived\n\n"
+            f"This command is auto-generated from the live capability "
+            f"registry by `install.generate()` per Spec 148 Slice 2; "
+            f"deleting it WILL NOT remove the skill, but the next install "
+            f"rewrites the file from the live ontology.\n"
+        )
+        out[path] = author_command(f"agency-{slug}", desc, body)["result"]
+    return out
 from .engine import Engine
 from . import templates
 
@@ -783,6 +857,12 @@ def generate(engine: Engine) -> dict[str, str]:
         "commands/agency-onboard.md":      author_command(
             "agency-onboard", AGENCY_ONBOARD_CMD_DESC, AGENCY_ONBOARD_CMD_BODY)["result"],
     }
+    # Spec 148 Slice 2 — per-skill /agency-<skill> shortcuts. Derived from
+    # the live capability registry's `ontology.skills`, capped at the
+    # documented top-N (Open Q4 — 60 live skills would crowd the palette).
+    # Slice 3 swaps the alpha-sort cap for an invocation-rank cap.
+    for path, content in _generate_per_skill_commands(reg).items():
+        files[path] = content
     # Spec 031 §F / Spec 032 §G — per-capability emit pipeline.
     # NOTE on cache: cache.peek operates on the filesystem, but generate()
     # doesn't have a root yet (write() does). Task 2.5 design: cache check
