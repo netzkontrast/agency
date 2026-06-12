@@ -239,3 +239,231 @@ def test_codes_amendment_constants_are_defined():
     assert Codes.AMENDMENT_BAD_SPEC == "amendment_bad_spec"
     assert Codes.AMENDMENT_NO_SOURCE == "amendment_no_source"
     assert Codes.AMENDMENT_VAGUE == "amendment_vague"
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Spec 150 Slice 2 — LLM classifier path (via Spec 147 + Spec 279)
+# ════════════════════════════════════════════════════════════════════════
+
+class _FakeCapableDriver:
+    """Stub anthropic driver — backend "anthropic" + scripted complete()."""
+
+    def __init__(self, parsed: dict):
+        self._parsed = parsed
+        self.calls: list[dict] = []
+
+    def backend(self) -> str:
+        return "anthropic"
+
+    def complete(self, **kwargs):
+        self.calls.append(kwargs)
+        from agency._drivers._anthropic import Completion
+        return Completion(
+            text=__import__("json").dumps(self._parsed),
+            stop_reason="end_turn",
+            parsed=self._parsed,
+            model="claude-test",
+        )
+
+
+def _seed_reflections(engine, iid):
+    """Seed a mix of proposal-shaped + neutral reflections."""
+    _call(engine, iid, "note", plan_slug="146-engine-output-prefix-discipline",
+          observation="The agency_welcome response should add a "
+                      "cache_control hint pointing at the prefix.")
+    _call(engine, iid, "note", plan_slug="147-anthropic-driver-boundary",
+          observation="Refine: typo in the boundary error mapping.")
+
+
+def test_parse_amendment_uses_llm_when_capable_driver_wired(engine, iid):
+    """Slice 2 invariant: with a capable AnthropicDriver, the verb calls
+    `driver.complete(...)` with the structured-output schema and parses
+    the LLM's proposals (NOT the keyword path)."""
+    _seed_reflections(engine, iid)
+    # Get the seeded reflection ids so the LLM stub can reference them.
+    rows = engine.memory.g.query(
+        "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+        {"scope": "observation"})
+    refls = [r["r"]["properties"] for r in rows]
+    rid = refls[0].get("id") or ""
+    spec_id = refls[0].get("plan_slug", "").split("-", 1)[0]
+    fake_parsed = {"proposals": [{
+        "reflection_id": rid,
+        "spec_id": spec_id,
+        "section": "Done When",
+        "op": "add-done-when",
+        "after": "Slice 2 — driver-derived classifier proposal text",
+        "rationale": "LLM classifier promoted this reflection into a "
+                     "concrete amendment over the keyword path (Spec 150 Slice 2).",
+        "confidence": 0.92,
+    }]}
+    fake = _FakeCapableDriver(parsed=fake_parsed)
+    engine.drivers.register("anthropic", fake)
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10)
+    assert r.get("classifier") == "llm", (
+        f"capable driver should drive the LLM classifier; got "
+        f"classifier={r.get('classifier')!r}")
+    assert len(r["proposals"]) == 1
+    p = r["proposals"][0]
+    assert p["spec_id"] == spec_id
+    assert p["confidence"] == 0.92
+    # And the driver was called exactly once with the schema.
+    assert len(fake.calls) == 1
+    assert fake.calls[0]["output_schema"]["properties"]["proposals"][
+        "items"]["required"]
+
+
+def test_parse_amendment_falls_back_to_keyword_when_driver_backend_none(
+        engine, iid):
+    """When the anthropic driver backend is "none" and we don't opt
+    into delegation, the verb silently degrades to the keyword
+    classifier — the documented Slice 2 fallback (existing tests
+    keep passing without explicit opt-out)."""
+    _seed_reflections(engine, iid)
+
+    class _NoBackend:
+        def backend(self) -> str:
+            return "none"
+
+    engine.drivers.register("anthropic", _NoBackend())
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10)
+    # Falls back; some proposals classified by the keyword path.
+    assert r.get("classifier") == "keyword"
+
+
+def test_parse_amendment_emits_delegate_envelope_when_prefer_delegate(
+        engine, iid):
+    """Spec 279 integration: when `prefer_delegate=True` AND the driver
+    backend is "none", the verb returns a `kind="llm_delegate"`
+    envelope so the host (Claude Code) runs inference itself."""
+    _seed_reflections(engine, iid)
+
+    class _NoBackend:
+        def backend(self) -> str:
+            return "none"
+
+    engine.drivers.register("anthropic", _NoBackend())
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10,
+              prefer_delegate=True)
+    assert r.get("classifier") == "llm-delegate"
+    assert r.get("kind") == "llm_delegate"
+    req = r.get("request") or {}
+    assert req.get("kind") == "llm_delegate"
+    assert "continuation_token" in req
+    assert "messages" in req and isinstance(req["messages"], list)
+    # The schema flows through to the envelope so Claude Code knows the
+    # expected output shape.
+    assert "output_schema" in req
+    # Proposals empty until the host resumes with `host_completion`.
+    assert r["proposals"] == []
+
+
+def test_parse_amendment_resume_via_host_completion(engine, iid):
+    """Spec 279 resume path: when `host_completion` is supplied, the
+    verb parses the host's structured output into proposals — same
+    shape as the driver path, classifier reports "host"."""
+    _seed_reflections(engine, iid)
+    rows = engine.memory.g.query(
+        "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+        {"scope": "observation"})
+    refls = [r["r"]["properties"] for r in rows]
+    rid = refls[0].get("id") or ""
+    spec_id = refls[0].get("plan_slug", "").split("-", 1)[0]
+    host_parsed = {"proposals": [{
+        "reflection_id": rid,
+        "spec_id": spec_id,
+        "section": "Open questions",
+        "op": "add-open-q",
+        "after": "Should this hint live in the prefix or the body?",
+        "rationale": "Host-LLM classified this as an open question "
+                     "(Spec 279 resume path verified through dogfood).",
+        "confidence": 0.85,
+    }]}
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10,
+              host_completion={"text": "<host-text>", "parsed": host_parsed})
+    assert r.get("classifier") == "host"
+    assert len(r["proposals"]) == 1
+    assert r["proposals"][0]["confidence"] == 0.85
+
+
+def test_parse_amendment_drops_proposals_for_hallucinated_reflection_ids(
+        engine, iid):
+    """Defense against hallucinated reflection_ids — if the LLM cites
+    an id not in the input set, the proposal is dropped."""
+    _seed_reflections(engine, iid)
+    fake_parsed = {"proposals": [{
+        "reflection_id": "ghost-id-does-not-exist",
+        "spec_id": "146",
+        "section": "Done When",
+        "op": "add-done-when",
+        "after": "Hallucinated proposal that should be filtered out",
+        "rationale": "This is the hallucination defense test — the "
+                     "classifier must drop proposals citing unknown ids.",
+        "confidence": 0.5,
+    }]}
+    fake = _FakeCapableDriver(parsed=fake_parsed)
+    engine.drivers.register("anthropic", fake)
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10)
+    assert r["proposals"] == [], (
+        f"hallucinated reflection_id must yield zero proposals; got "
+        f"{r['proposals']!r}")
+
+
+def test_parse_amendment_use_llm_false_skips_llm_path(engine, iid):
+    """`use_llm=False` forces the keyword path even when a capable
+    driver is wired — escape hatch for callers that want deterministic
+    behavior or are running offline-by-policy."""
+    _seed_reflections(engine, iid)
+    fake = _FakeCapableDriver(parsed={"proposals": [
+        {"reflection_id": "r1", "spec_id": "146", "section": "Done When",
+         "op": "add-done-when", "after": "should not surface",
+         "rationale": "This proposal must not be returned because use_llm "
+                      "is False — the keyword path runs instead.",
+         "confidence": 0.9}]})
+    engine.drivers.register("anthropic", fake)
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10,
+              use_llm=False)
+    assert r.get("classifier") == "keyword"
+    # And the driver was never called.
+    assert fake.calls == []
+
+
+def test_parse_amendment_driver_failure_falls_back_to_keyword(engine, iid):
+    """Driver-side exceptions (auth / network / refusal) degrade
+    gracefully to the keyword classifier rather than crashing the
+    dogfood loop."""
+    _seed_reflections(engine, iid)
+
+    class _AngryDriver:
+        def backend(self) -> str:
+            return "anthropic"
+
+        def complete(self, **_kwargs):
+            raise RuntimeError("network: simulated outage")
+
+    engine.drivers.register("anthropic", _AngryDriver())
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10)
+    assert r.get("classifier") == "keyword", (
+        f"driver failure should fall back to keyword; got "
+        f"{r.get('classifier')!r}")
+
+
+def test_parse_amendment_resume_malformed_raises():
+    """Slice 2 boundary: a malformed `host_completion` (missing `text`)
+    surfaces `HostDelegateError(MALFORMED)` through the verb — the
+    classifier doesn't silently swallow protocol violations."""
+    from agency._host_llm import HostDelegateError
+    import tempfile as _tf
+    eng = Engine(_tf.mktemp(suffix=".db"))
+    intent_id = eng.intent.capture_and_confirm("x", "x", "x", owner="user")
+    eng.registry.invoke(
+        eng.memory, intent_id, "dogfood", "note",
+        agent_id="agent:t",
+        plan_slug="146-foo",
+        observation="should add a thing")
+    with pytest.raises(HostDelegateError) as exc:
+        eng.registry.invoke(
+            eng.memory, intent_id, "dogfood", "parse_amendment",
+            agent_id="agent:t",
+            host_completion={"parsed": {"proposals": []}})         # no `text`
+    assert exc.value.code == HostDelegateError.MALFORMED
