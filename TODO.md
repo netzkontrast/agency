@@ -38,7 +38,7 @@
 > - Skills: 53 SKILL.md docs ≠ 15 walkable workflows (intentional —
 >   bitwize SKILL.md files are advisory docs; agency walkable skills are
 >   phased workflows for the engine walker).
-| **Partially implemented** | 19 | 007, 018, 024, 025, 026, 031, 041, 046, 109, 110, 114, **117**, **146**, **147**, **148**, **149**, **150**, **151**, **153**, **152** (PR #127), **154** (PR #129) |
+| **Partially implemented** | 22 | 007, 018, 024, 025, 026, 031, 041, 046, 109, 110, 114, **117**, **146**, **147**, **148**, **149**, **150**, **151**, **153**, **152** (PR #127), **154** (PR #129), **279** (PR pending — Slice 1: host-LLM delegation envelope) |
 | **Not started** | 3 | 010, 014, 051 |
 | **Token-economy cluster (`intent:97534079`) — GOAL MET** | 6 | 066 master · 072 ✅ · 067 ✅ · **068 ✅ (−83% discovery)** · **074 ✅ capstone** · ~~069 cancelled~~ · 070/071 WARN-accepted (optional future) |
 | **Shipped — audit-trail (`intent:558f1bf5` / `intent:d8090aef`)** | 4 | **073 ✅ → `shell` capability** (run/filter/templates) · **018 (Wins 1+3) ✅** (`develop.skill_walk` atomic walker + implicit `intent_id` via `AGENCY_INTENT`; Win 2 = cancelled-069, skipped) · **075 ✅** (`shell.define` + `shell.templates(query)` + run resolves graph-first; common-bash seeds — definable registry per CLAUDE.md #8) · **079 ✅** (Click CLI mirrors every capability verb as `agency <cap> <verb>` for non-MCP agents; auto-generated from the live registry; code-mode stays canonical) |
