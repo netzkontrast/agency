@@ -515,12 +515,22 @@ LINE_EDITOR_SKILL = {
 }
 
 
+# Spec 220 — default system prompt for the wet scene-body driver.
+# Kept SHORT so it stays on the cache prefix (Spec 146 discipline);
+# scene-specific guidance lives in the brief (Spec 127 / Spec 144).
+_DEFAULT_SCENE_SYSTEM = (
+    "You are a novelist. Write the next scene as instructed by the brief. "
+    "Show, don't tell. Avoid filter words. Attribute dialogue cleanly. "
+    "Output ONLY the scene prose — no headings, no commentary."
+)
+
+
 # Spec 130 — scene-writer walkable skill. The integration of the
 # dynamic-prompt depth wave: assemble (127) → validate-constraints →
-# generate (driver-bound; FakeTextDriver in CI) → check (chains 4
-# prose/storyform checks) → integrate (HARD GATE — writes scene body
-# back via novel.integrate_scene_body). Phases bind to real verbs so
-# walking the skill EXECUTES the loop.
+# generate (Spec 220 Slice 1: novel.generate_scene_body via Spec 147 +
+# Spec 279) → check (chains 4 prose/storyform checks) → integrate (HARD
+# GATE — writes scene body back via novel.integrate_scene_body).
+# Phases bind to real verbs so walking the skill EXECUTES the loop.
 SCENE_WRITER_SKILL = {
     "name": "scene-writer", "kind": "writer",
     "phases": [
@@ -534,9 +544,11 @@ SCENE_WRITER_SKILL = {
          "verbs": []},
         {"index": 3, "name": "generate",
          "produces": ["draft_body"],
-         # Slice 1 ships no driver binding; FakeTextDriver + production
-         # TextDriver land in Slice 2 (Spec 005 territory).
-         "verbs": []},
+         # Spec 220 Slice 1: bound to the wet generator (Spec 147
+         # AnthropicDriver + Spec 279 host-LLM delegation). The verb
+         # captures the body via Spec 154 — `body_handle` is the
+         # Artefact id; `memory.recall_overflow_slice` serves the body.
+         "verbs": ["novel.generate_scene_body"]},
         {"index": 4, "name": "check",
          "produces": ["check_verdict"],
          "verbs": ["novel.check_filter_words",
@@ -1027,6 +1039,210 @@ class NovelCapability(CapabilityBase):
         return ToolResult.success(data={
             "scene_id": sid, "chapter_id": chapter_id,
             "slug": slug, "pov": pov,
+        })
+
+    @verb(role="act")
+    def generate_scene_body(self, scene_id: str = "", brief: str = "",
+                              alter_id: str = "", system: str = "",
+                              host_completion: dict | None = None,
+                              prefer_delegate: bool = False,
+                              max_tokens: int = 8000) -> ToolResult:
+        """Spec 220 Slice 1 — wet scene-body generation via Spec 147 + Spec 279.
+
+        Drives the Spec 130 scene-writer phase 3 (generate) with a real
+        TextDriver backed by the AnthropicDriver. Three paths
+        (resume wins):
+
+        1. ``host_completion`` supplied — Claude Code already ran the
+           inference after a prior delegation; parse the result.
+        2. AnthropicDriver capable → ``driver.complete(messages,
+           system)`` direct (Spec 147 Slice 1).
+        3. Driver backend ``"none"`` AND ``prefer_delegate=True`` →
+           return a ``kind="llm_delegate"`` envelope so the host runs
+           inference and re-calls (Spec 279).
+
+        The generated body is ALWAYS captured via Spec 154
+        ``capture_overflow`` and returned through ``body_handle``
+        (Artefact id) — never inline. A wrapping LLM driver fetches
+        only the slice it needs (Spec 146 prefix discipline).
+
+        Slice 1 ships the driver-bound generate path + the typed
+        ``WetSceneResult`` shape. Slice 2+ adds the gate-driven
+        regenerate loop (the shipped prose checks gate the output).
+
+        Inputs:
+          - scene_id (str — Scene node id; the body is recorded as
+            an Artefact PRODUCES_FROM this Scene)
+          - brief (str — assembled scene brief from Spec 127; the
+            scene-writer phase 1 output)
+          - alter_id (str — when set, the scene is voice-locked via
+            Spec 144; ``voice_locked=True`` in the result)
+          - system (str — system prompt override)
+          - host_completion (dict | None — Spec 279 resume envelope)
+          - prefer_delegate (bool — when True + backend "none",
+            emit the llm_delegate envelope instead of failing)
+          - max_tokens (int — request budget for the LLM call)
+        Returns: ``WetSceneResult`` dict with ``{intent_id, scene_id,
+                 body_handle, wc, driver, voice_locked, refusal?,
+                 kind?, request?, regen_count, passes_all, checks}``.
+        chain_next: ``novel.integrate_scene_body(scene_id, body)``
+                    after fetching via ``memory.recall_overflow_slice``.
+        Failure modes: ``Codes.VOICE_BRIEF_MISSING`` (alter_id set but
+                       brief empty); ``Codes.SCENE_OVERFLOW_LOST``
+                       (capture failed); ``Codes.DRIVER_REFUSAL``
+                       (Spec 147 propagates).
+        """
+        from agency._host_llm import (
+            complete_or_delegate, HostLLMRequest, HostDelegateError,
+            make_continuation_token,
+        )
+        from agency._overflow import capture_overflow
+        from agency._tokens import count_tokens
+
+        voice_locked = bool(alter_id)
+        # Voice-lock fidelity invariant: when alter_id set, the brief
+        # must come from Spec 144 (signaled by non-empty `brief`).
+        if voice_locked and not brief.strip():
+            return ToolResult.failure(
+                "VOICE_BRIEF_MISSING",
+                f"alter_id={alter_id!r} requires a Spec 144 voice-locked "
+                f"brief; got empty brief")
+
+        # Resolve the anthropic driver (None when not wired).
+        driver = None
+        try:
+            reg = getattr(self.ctx, "drivers", None)
+            if reg is not None and reg.has("anthropic"):
+                driver = reg.get("anthropic")
+        except Exception:
+            driver = None
+
+        # No driver AND no resume → degrade to graceful failure so
+        # tests/CI without a key path don't crash. The caller can
+        # retry with prefer_delegate=True to opt into the envelope.
+        if driver is None and host_completion is None:
+            return ToolResult.failure(
+                "DEPENDENCY_MISSING",
+                "no anthropic driver wired and no host_completion "
+                "supplied; pass prefer_delegate=True for host-LLM "
+                "delegation (Spec 279) or wire an AnthropicDriver "
+                "(Spec 147)")
+
+        # When the driver isn't capable AND we're not opting into
+        # delegation AND there's no resume, refuse cleanly.
+        if (driver is not None and host_completion is None
+                and not prefer_delegate
+                and driver.backend() == "none"):
+            return ToolResult.failure(
+                "DEPENDENCY_MISSING",
+                "anthropic driver backend is 'none' (no key, no client) "
+                "and prefer_delegate=False; set ANTHROPIC_API_KEY or "
+                "pass prefer_delegate=True for host-LLM delegation")
+
+        # Build the LLM request. The brief carries the per-scene
+        # instructions; system carries the role/voice directive.
+        messages = [{"role": "user", "content": brief or ""}]
+        system_prompt = system or _DEFAULT_SCENE_SYSTEM
+        if voice_locked:
+            system_prompt = (
+                f"{system_prompt}\n\nVoice-lock active for alter "
+                f"`{alter_id}`; honour the §TABOO + §EXAMPLES "
+                f"sections of the brief verbatim.")
+
+        # Stable continuation token for the resume invariant
+        # (Spec 279 single-Invocation moat).
+        token = make_continuation_token(
+            self.ctx.intent_id or "",
+            "novel.generate_scene_body",
+            {"scene_id": scene_id, "alter_id": alter_id})
+
+        # Driver may be None when we have a host_completion to resume.
+        if driver is None:
+            class _NoDriver:
+                def backend(self) -> str:
+                    return "none"
+            driver = _NoDriver()
+
+        try:
+            result = complete_or_delegate(
+                driver,
+                messages=messages,
+                system=system_prompt,
+                host_completion=host_completion,
+                continuation_token=token,
+                max_tokens=max_tokens,
+            )
+        except HostDelegateError as exc:
+            return ToolResult.failure(
+                "HOST_DELEGATE_MALFORMED" if exc.code ==
+                HostDelegateError.MALFORMED else "HOST_DELEGATE_FAIL",
+                str(exc))
+        except Exception as exc:                                      # noqa: BLE001
+            return ToolResult.failure(
+                "DRIVER_REFUSAL",
+                f"AnthropicDriver raised on scene-body generation: {exc}")
+
+        # Branch 3: delegate envelope — return it so the wrapping host
+        # (Claude Code) recognises the kind="llm_delegate" signal.
+        if isinstance(result, HostLLMRequest):
+            return ToolResult.success(data={
+                "intent_id":      self.ctx.intent_id,
+                "scene_id":       scene_id,
+                "body_handle":    "",
+                "wc":             0,
+                "checks":         [],
+                "passes_all":     False,
+                "regen_count":    0,
+                "driver":         "delegate",
+                "voice_locked":   voice_locked,
+                "refusal":        None,
+                "kind":           result.kind,
+                "request":        result.to_dict(),
+            })
+
+        # Branches 1+2: a Completion. Capture the body via Spec 154 so
+        # it returns via handle, never inline (Spec 146 + Spec 154).
+        body_text = result.text or ""
+        try:
+            ovf = capture_overflow(
+                body_text, max_tokens=512, counter=count_tokens)
+        except Exception as exc:                                      # noqa: BLE001
+            return ToolResult.failure(
+                "SCENE_OVERFLOW_LOST",
+                f"capture_overflow failed: {exc}")
+
+        # Record the body as an Artefact so a follow-up
+        # `memory.recall_overflow_slice(handle)` serves the full body.
+        artefact_id = self.ctx.record("Artefact", {
+            "kind":             "scene-body",
+            "scene_id":         scene_id,
+            "voice_locked":     voice_locked,
+            "alter_id":         alter_id,
+            "total_tokens":     ovf.total_tokens,
+            "full_body":        ovf.full_body,
+            "stop_reason":      result.stop_reason,
+            "driver":           ("host" if result.stop_reason ==
+                                  "host_provided" else "spec147"),
+        })
+        if scene_id:
+            self.ctx.link(artefact_id, scene_id, "PRODUCES_FROM")
+        self.ctx.link(artefact_id, self.ctx.intent_id, "SERVES")
+
+        # Word count (cheap, kept on the prefix per Spec 146).
+        wc = len(body_text.split()) if body_text else 0
+
+        return ToolResult.success(data={
+            "intent_id":      self.ctx.intent_id,
+            "scene_id":       scene_id,
+            "body_handle":    artefact_id,
+            "wc":             wc,
+            "checks":         [],
+            "passes_all":     True,                                    # Slice 2 wires the gate loop
+            "regen_count":    0,
+            "driver":         ("host" if result.stop_reason ==
+                                "host_provided" else "spec147"),
+            "voice_locked":   voice_locked,
+            "refusal":        None,
         })
 
     @verb(role="effect")
