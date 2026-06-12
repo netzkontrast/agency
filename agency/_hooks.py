@@ -39,7 +39,9 @@ HOOKS_SPEC_VERSION = 1
 
 
 # Sentinel the dispatcher uses to recognise an already-wrapped foreign
-# hook so re-running install doesn't double-wrap.
+# hook so re-running install doesn't double-wrap. Matches the flag
+# mode of `agency shell run` (Spec 079 auto-gen surface; Spec 280
+# `shell.run(hook_wrap=True)`).
 _WRAP_SENTINEL = "agency shell run --hook-wrap"
 _AGENCY_DISPATCHER_FRAGMENT = (
     'CLAUDE_PLUGIN_ROOT')                                          # any "agency-own" dispatcher path contains this
@@ -63,13 +65,19 @@ ASYNC_BY_EVENT: dict[str, bool] = {
 # WHERE to fetch the plugin from. The actual hook commands live in
 # the plugin's own `hooks/hooks.json` — when the plugin is enabled,
 # Claude Code reads that automatically.
+#
+# Plugin id is `<plugin-name>@<marketplace-name>`. Both `.claude-plugin/
+# plugin.json` AND `.claude-plugin/marketplace.json` use `name="agency"`,
+# so the canonical id is `agency@agency` (Codex review on PR #138).
+AGENCY_PLUGIN_ID = "agency@agency"
+AGENCY_MARKETPLACE_NAME = "agency"
 CANONICAL_SETTINGS_PATCH: dict = {
     "_agency_version": HOOKS_SPEC_VERSION,
     "enabledPlugins": {
-        "agency@netzkontrast": True,
+        AGENCY_PLUGIN_ID: True,
     },
     "extraKnownMarketplaces": {
-        "netzkontrast": {
+        AGENCY_MARKETPLACE_NAME: {
             "source": {
                 "source": "github",
                 "repo":   "netzkontrast/agency",
@@ -267,9 +275,16 @@ def wrap_foreign_hook(foreign: ForeignHook) -> dict | None:
     except ValueError:
         return None
     quoted = shlex.quote(foreign.command)
+    # Codex review on PR #138: the wrapped command MUST be a path the
+    # CLI actually exposes. `agency shell run` (per Spec 079 auto-gen)
+    # accepts `--command` / `--hook-wrap` / `--filter`. The flag-mode
+    # carries `--intent-id` from the env (AGENCY_INTENT) so the run
+    # is recorded against the active intent when one exists.
+    wrapped_command = (
+        f"agency shell run --hook-wrap=true --command {quoted}")
     return {
         "type":    foreign.type_,
-        "command": f"agency shell run --hook-wrap -- {quoted}",
+        "command": wrapped_command,
         "async":   foreign.async_,
         "_wrapped_from":         foreign.command,
         "_wrapped_event":        foreign.event,
@@ -373,10 +388,14 @@ def check_install(user_settings: dict,
 
     next_steps: list[str] = []
     if not plugin_enabled:
+        # Codex review on PR #138: include the `--patch-claude-settings`
+        # flag — bare `agency.install` regenerates the plugin files but
+        # leaves `enabledPlugins` unchanged.
         next_steps.append(
-            "agency plugin not enabled in `.claude/settings.json` — "
-            "run `python -m agency.install` to add it (or "
-            "`/plugin install agency@netzkontrast`)")
+            f"agency plugin not enabled in `.claude/settings.json` — "
+            f"run `python -m agency.install --patch-claude-settings` "
+            f"to add `{AGENCY_PLUGIN_ID}` (or "
+            f"`/plugin install {AGENCY_PLUGIN_ID}`)")
     if not cli_on_path:
         next_steps.append(
             "`agency` CLI not on PATH — install via "
@@ -385,12 +404,13 @@ def check_install(user_settings: dict,
     if not hook_scripts_present and plugin_root is not None:
         next_steps.append(
             f"plugin hook scripts missing under {plugin_root_str!r}/hooks/ "
-            f"— reinstall the plugin or run `python -m agency.install`")
+            f"— reinstall the plugin or set `CLAUDE_PLUGIN_ROOT` to the "
+            f"plugin install dir")
     if foreign:
         next_steps.append(
             f"{len(foreign)} foreign hook(s) detected — re-run "
-            f"`python -m agency.install` to wrap them under agency's "
-            f"provenance umbrella (shell.run --hook-wrap)")
+            f"`python -m agency.install --patch-claude-settings` to wrap "
+            f"them under agency's provenance umbrella")
     for d in drift:
         next_steps.append(d)
 
@@ -444,11 +464,17 @@ def patch_settings_file(path: str | Path,
 
     p.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(merged, indent=2, sort_keys=True) + "\n"
-    # Backup the prior (raw) content before overwriting.
+    # Backup the prior (raw) content before overwriting. Codex review
+    # on PR #138: the `.bak` must preserve the USER'S ORIGINAL
+    # settings, not the previous post-install content. Only write the
+    # backup if no `.bak` exists yet — a second/idempotent install
+    # must NOT clobber the original. `agency hook uninstall` depends
+    # on this to restore foreign hooks the user authored.
     backup_path = ""
     if prior_text is not None:
         backup_path = str(p) + ".bak"
-        Path(backup_path).write_text(prior_text, encoding="utf-8")
+        if not Path(backup_path).exists():
+            Path(backup_path).write_text(prior_text, encoding="utf-8")
     p.write_text(serialized, encoding="utf-8")
 
     return {

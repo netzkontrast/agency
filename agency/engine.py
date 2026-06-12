@@ -686,8 +686,16 @@ class Engine:
                     user_settings = _json.load(_f)
             except (FileNotFoundError, _json.JSONDecodeError, OSError):
                 user_settings = {}
-            plugin_root = os.path.dirname(os.path.dirname(
-                os.path.abspath(__file__)))
+            # Codex review on PR #138: in a normal marketplace/pipx
+            # install the running `agency-mcp` code is imported from
+            # pipx/site-packages, but the hook files live in the
+            # Claude plugin tree at `${CLAUDE_PLUGIN_ROOT}/hooks`.
+            # Prefer that env var when set so the doctor reports
+            # `hook_scripts_present=True` in the actual install layout;
+            # fall back to `__file__` only for source-tree usage.
+            plugin_root = (
+                os.environ.get("CLAUDE_PLUGIN_ROOT")
+                or os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             hooks_status = check_install(
                 user_settings,
                 env={"AGENCY_SETTINGS_PATH": settings_path},

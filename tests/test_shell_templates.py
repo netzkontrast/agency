@@ -155,3 +155,56 @@ def test_define_serves_intent_for_provenance():
             {"a": tid, "i": iid})
     finally:
         e.memory.close()
+
+
+# --- Spec 280 — `hook_wrap` mode for foreign-hook wrapping ---------------------
+
+def test_shell_run_hook_wrap_bypasses_allowlist():
+    """Spec 280: a foreign hook the user authored in `.claude/settings.json`
+    runs verbatim via `bash -c`. The allowlist doesn't apply (the user
+    already approved the command); the wrap is for PROVENANCE."""
+    runner = _StubRunner(stdout="audit-output", exit_code=0)
+    e, iid = _engine(runner)
+    try:
+        out = _call(e, iid, "run",
+                     command="/usr/local/bin/audit.sh --check all",
+                     hook_wrap=True)
+        # Allowlist NOT consulted — the command runs.
+        assert "error" not in (out or {})
+        assert out.get("wrapped") is True
+        assert out.get("exit_code") == 0
+        # The runner saw `bash -c "<full>"`.
+        assert runner.calls[0][:2] == ["bash", "-c"]
+        assert runner.calls[0][2].startswith("/usr/local/bin/audit.sh")
+    finally:
+        e.memory.close()
+
+
+def test_shell_run_hook_wrap_records_artefact_with_kind():
+    """The wrap records a `hook-wrap-run` Artefact so the provenance
+    moat tells apart the wrap path from the regular run path."""
+    runner = _StubRunner(stdout="x")
+    e, iid = _engine(runner)
+    try:
+        out = _call(e, iid, "run",
+                     command="/usr/local/bin/audit.sh", hook_wrap=True)
+        art = e.memory.recall(out["run_id"])
+        assert art is not None
+        assert art["kind"] == "hook-wrap-run"
+        assert art["tool"] == "bash"
+    finally:
+        e.memory.close()
+
+
+def test_shell_run_default_path_still_allowlist_gated():
+    """Regression: without `hook_wrap=True`, the allowlist still
+    rejects non-allowlisted tools — preserving Spec 073 boundary."""
+    runner = _StubRunner()
+    e, iid = _engine(runner)
+    try:
+        out = _call(e, iid, "run", command="/usr/local/bin/audit.sh")
+        assert "error" in out
+        assert "not allowlisted" in out["error"]
+        assert runner.calls == []                                  # never ran
+    finally:
+        e.memory.close()

@@ -45,17 +45,17 @@ from agency._hooks import (
 
 # ── canonical patch shape ─────────────────────────────────────────────────
 def test_canonical_settings_patch_carries_plugin_entry():
-    """The patch enables `agency@netzkontrast` in enabledPlugins."""
+    """The patch enables `agency@agency` in enabledPlugins."""
     enabled = CANONICAL_SETTINGS_PATCH.get("enabledPlugins") or {}
-    assert "agency@netzkontrast" in enabled
+    assert "agency@agency" in enabled
 
 
 def test_canonical_settings_patch_carries_marketplace_entry():
     """The marketplace entry tells Claude Code WHERE to fetch the
     agency plugin from."""
     mkt = CANONICAL_SETTINGS_PATCH.get("extraKnownMarketplaces") or {}
-    assert "netzkontrast" in mkt
-    src = mkt["netzkontrast"].get("source", {})
+    assert "agency" in mkt
+    src = mkt["agency"].get("source", {})
     assert src.get("source") == "github"
     assert "agency" in src.get("repo", "")
 
@@ -86,7 +86,7 @@ def test_merge_preserves_other_enabled_plugins():
     merged = merge_settings(user)
     enabled = merged["enabledPlugins"]
     assert enabled.get("bitwize-music@bitwize-music") is True
-    assert enabled.get("agency@netzkontrast") is True
+    assert enabled.get("agency@agency") is True
 
 
 def test_merge_preserves_unrelated_top_level_keys():
@@ -103,7 +103,7 @@ def test_merge_preserves_unrelated_top_level_keys():
     assert merged["custom_user_key"] == "preserved"
     mkt = merged["extraKnownMarketplaces"]
     assert "other-marketplace" in mkt
-    assert "netzkontrast" in mkt
+    assert "agency" in mkt
 
 
 def test_merge_is_idempotent():
@@ -299,7 +299,7 @@ def test_patch_writes_settings_when_missing(tmp_path):
     assert result["wrote"] is True
     assert result["backup_path"] == ""                              # nothing to back up
     content = json.loads(settings.read_text())
-    assert content["enabledPlugins"]["agency@netzkontrast"] is True
+    assert content["enabledPlugins"]["agency@agency"] is True
 
 
 def test_patch_creates_bak_on_existing_file(tmp_path):
@@ -323,7 +323,7 @@ def test_patch_preserves_other_plugins_after_merge(tmp_path):
     patch_settings_file(settings)
     content = json.loads(settings.read_text())
     assert content["enabledPlugins"]["bitwize-music@bitwize-music"] is True
-    assert content["enabledPlugins"]["agency@netzkontrast"] is True
+    assert content["enabledPlugins"]["agency@agency"] is True
 
 
 def test_patch_is_idempotent(tmp_path):
@@ -356,6 +356,48 @@ def test_patch_wraps_foreign_hooks(tmp_path):
     assert "agency shell run --hook-wrap" in entry["command"]
     assert entry["async"] is False                                  # preserved
     assert entry["_wrapped_from"] == "/usr/local/bin/audit.sh"
+
+
+def test_patch_preserves_original_bak_on_second_run(tmp_path):
+    """Codex review on PR #138: a second/idempotent install must NOT
+    clobber the original `.bak`. `agency hook uninstall` depends on
+    `.bak` carrying the user's PRE-INSTALL settings, not a post-install
+    snapshot of the second-to-last state."""
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    original = {"enabledPlugins": {"bitwize-music@bitwize-music": True}}
+    settings.write_text(json.dumps(original, indent=2))
+    patch_settings_file(settings)                                  # run 1
+    patch_settings_file(settings)                                  # run 2
+    backup = json.loads((tmp_path / ".claude" / "settings.json.bak").read_text())
+    assert backup == original, (
+        "`.bak` must preserve the user's ORIGINAL settings across "
+        "re-runs; a second install must not overwrite the original snapshot")
+
+
+def test_wrap_uses_real_cli_flag_mode(tmp_path):
+    """Codex review on PR #138: the wrapped command must be a path
+    the agency CLI actually exposes. `agency shell run --hook-wrap`
+    used positional `--` passthrough, which Click doesn't support;
+    the new wrap uses `--command` flag mode with `--hook-wrap=true`."""
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    settings.write_text(json.dumps({
+        "hooks": {
+            "PreToolUse": [{
+                "matcher": "Bash",
+                "hooks": [{"type": "command",
+                            "command": "/usr/local/bin/audit.sh"}],
+            }],
+        },
+    }))
+    patch_settings_file(settings)
+    content = json.loads(settings.read_text())
+    entry = content["hooks"]["PreToolUse"][0]["hooks"][0]
+    cmd = entry["command"]
+    assert "agency shell run" in cmd
+    assert "--command" in cmd
+    assert "--hook-wrap=true" in cmd
 
 
 def test_patch_raises_on_invalid_json(tmp_path):
