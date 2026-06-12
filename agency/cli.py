@@ -93,6 +93,37 @@ def _db(ctx):
     return (ctx.obj or {}).get("db")
 
 
+def _apply_fields(result, fields_csv):
+    """Spec 018 Win 6 — project a dict result to a comma-separated list
+    of top-level keys. Preserves the order requested in `fields_csv`.
+
+    Contract:
+      - Empty / None `fields_csv` → identity (returns `result` unchanged).
+      - `result` is not a dict → identity (the projection is dict-only).
+      - Unknown keys in `fields_csv` are silently dropped (subset invariant
+        — the contract is "return the keys the caller asked for"; the
+        absence of one isn't an error).
+      - Whitespace around each key is stripped (`'a , b'` → `['a', 'b']`).
+    """
+    if not fields_csv:
+        return result
+    if not isinstance(result, dict):
+        return result
+    keys = [k.strip() for k in fields_csv.split(",") if k.strip()]
+    if not keys:
+        return result
+    out = {}
+    for k in keys:
+        if k in result:
+            out[k] = result[k]
+    return out
+
+
+def _emit_fields(result, rc, fields_csv=None):
+    """`_emit` with Spec 018 Win 6 `--fields` projection applied first."""
+    return _emit(_apply_fields(result, fields_csv), rc)
+
+
 # --- the group + legacy subcommands (behaviour-preserving) --------------------
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -107,27 +138,39 @@ def cli(ctx, db):
 
 @cli.command()
 @click.argument("query")
+@click.option("--fields", default=None,
+              help="comma-separated top-level keys to project (Spec 018 Win 6); "
+                   "empty = identity")
 @click.pass_context
-def search(ctx, query):
+def search(ctx, query, fields):
     """Discover tools/capabilities."""
-    return _emit(*_call_engine_tool(_db(ctx), "search", {"query": query}))
+    return _emit_fields(*_call_engine_tool(_db(ctx), "search", {"query": query}),
+                         fields_csv=fields)
 
 
 @cli.command(name="get-schema")
 @click.argument("tools", nargs=-1, required=True)
+@click.option("--fields", default=None,
+              help="comma-separated top-level keys to project (Spec 018 Win 6); "
+                   "empty = identity")
 @click.pass_context
-def get_schema(ctx, tools):
+def get_schema(ctx, tools, fields):
     """Get the schema of one or more tools."""
-    return _emit(*_call_engine_tool(_db(ctx), "get_schema", {"tools": list(tools)}))
+    return _emit_fields(*_call_engine_tool(_db(ctx), "get_schema", {"tools": list(tools)}),
+                         fields_csv=fields)
 
 
 @cli.command()
 @click.option("--code", default=None, help="code to run (else read from stdin)")
+@click.option("--fields", default=None,
+              help="comma-separated top-level keys to project (Spec 018 Win 6); "
+                   "empty = identity")
 @click.pass_context
-def execute(ctx, code):
+def execute(ctx, code, fields):
     """Run a code block that chains tools; returns a delta."""
     code = code if code is not None else sys.stdin.read()
-    return _emit(*_call_engine_tool(_db(ctx), "execute", {"code": code}))
+    return _emit_fields(*_call_engine_tool(_db(ctx), "execute", {"code": code}),
+                         fields_csv=fields)
 
 
 @cli.command()
@@ -175,10 +218,14 @@ def install(root, scaffold_db, scaffold_only, dry_run):
 
 
 @cli.command()
+@click.option("--fields", default=None,
+              help="comma-separated top-level keys to project (Spec 018 Win 6); "
+                   "empty = identity")
 @click.pass_context
-def welcome(ctx):
+def welcome(ctx, fields):
     """Onboarding payload (live capability list + bootstrap example)."""
-    return _emit(*_call_engine_tool(_db(ctx), "agency_welcome", {}))
+    return _emit_fields(*_call_engine_tool(_db(ctx), "agency_welcome", {}),
+                         fields_csv=fields)
 
 
 @cli.command()

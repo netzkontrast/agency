@@ -100,3 +100,12 @@ Then:   F-C verdict trips Codes.FRAGMENT_POINTER_STALE — the live verb
    queryable by drift, doctrine rule 2.
 3. Audit cadence? **Recommend**: on every spec-touching commit (CI hook,
    Spec 149) + on demand via the `analyze fragments` verb.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+The typed shape this spec carries was shipped as part of the wave-1+2
+batch (intents trackable in graph). See TODO.md row + the corresponding
+test module under `tests/`.
+

@@ -9,7 +9,7 @@ depends_on: ["041", "081", "156", "147"]
 vision_goals: [4, 6]
 affects:
   - agency/capabilities/develop/_main.py
-  - tests/test_implementation_discipline_wet.py
+  - tests/test_wet_verify_result.py   # Slice 1 SHIPPED 2026-06-12 (replaces planned test_implementation_discipline_wet.py)
 ---
 
 # Spec 164 — Implementation-discipline skills, wet phases
@@ -112,3 +112,12 @@ Then:   matcher=="scaffold" AND walk proceeds with scaffold-check (no
    session-scoped only; invalidates on capability-set-hash change
    (Spec 146 prefix). A re-walk of the same plan shouldn't re-pay the
    Driver call within a session.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+The typed shape this spec carries was shipped as part of the wave-1+2
+batch (intents trackable in graph). See TODO.md row + the corresponding
+test module under `tests/`.
+

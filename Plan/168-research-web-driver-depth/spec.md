@@ -115,3 +115,39 @@ Then:   backend=="duckduckgo" for every Citation (deterministic,
 3. Hybrid mode — both backends per query and reconcile? **Recommend**:
    no by default (doubles cost); opt-in `verify_with=["duckduckgo"]`
    for high-stakes citations.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+Engine-driven end-to-end (intent:8fc460e1; skill:19b30acd tdd walk
+completed; 5 Reflections via dogfood.note; branch.commit_smart
+composed the commit message).
+
+### Done — Slice 1 (typed Citation + deterministic backend selector)
+
+- **`agency/_research_citation.py`**:
+  - `CitationBackend = Literal['anthropic_web', 'duckduckgo']`
+  - `Citation{url, title, snippet, retrieved_at, backend, hash}` frozen
+    dataclass with `__post_init__` rejecting empty url / hash / invalid
+    backend.
+  - `compute_citation_hash(url, snippet)` → 16-char hex (SHA-256[:16])
+    deterministic dedup hash; includes snippet so a page that updates
+    its content surfaces as a NEW citation.
+  - `select_backend(env)` pure selector. Invariant: `ANTHROPIC_API_KEY`
+    present AND `AGENCY_RESEARCH_ANTHROPIC != "0"` ⇒ `"anthropic_web"`;
+    else `"duckduckgo"`. No silent fallback at runtime.
+
+- **10 tests** in `tests/test_research_citation.py`.
+
+### Still — Slice 2+
+
+- **Slice 2** — `research.fetch` verb routes through `select_backend`
+  + the anthropic_web boundary (Spec 147 driver) when applicable;
+  DuckDuckGo path stays as today.
+- **Slice 3** — Spec 154 overflow capture wraps long citation lists
+  so the agent's context stays bounded.
+- **Slice 4** — citation verify path uses the typed Citation across
+  backends (Spec 044 contract); a deterministic re-fetch reproduces
+  the hash.
+

@@ -104,3 +104,63 @@ Then:   LoopDetectedEvent fires through Spec 076 hooks once;
 2. Loop-signature granularity — tool name only, or tool+args hash?
    **Recommend**: tool+args hash (catches "same retry with same args";
    tool-name-only over-fires on legitimate poll loops).
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+Driven through the engine surface end-to-end (intent:35628643;
+skill:0a66a56e tdd walk; 5 Reflections recorded via `dogfood.note`).
+
+### Done — Slice 1 (typed LoopEvent + pure detect_loops)
+
+- **`agency/_loop_events.py`**:
+  - `LoopEvent{event_id, kind: Literal["loop_detected", "loop_resolved"],
+    detected_at, evidence: tuple[event_id], intent_id}` frozen dataclass.
+    `__post_init__` rejects invalid kind + empty evidence (no causal trail).
+  - `detect_loops(events, window=5) → list[LoopEvent]` pure detector
+    walking a sliding window flagging `(tool, target)` tuples seen ≥ 3
+    times. Single-emit per logical repetition (no duplicate LoopEvents
+    as the agent keeps repeating). Events missing `tool` or `target`
+    are skipped (not loop candidates).
+
+- **10 tests** in `tests/test_loop_events.py`:
+  - LoopEvent shape (typed; rejects invalid kind + empty evidence)
+  - detects 3 identical Bash commits → loop_detected
+  - empty on a diverse stream
+  - respects window size
+  - empty input → empty
+  - threshold is 3 (2 doesn't trigger, 3 does)
+  - tolerates missing tool/target
+  - preserves evidence event-id order (oldest first)
+  - empty-evidence rejection
+
+### Still — Slice 2+
+
+- **Slice 2** — wire `detect_loops` into the live engine's
+  `_default_hook_handler`: after recording each Event, run the
+  detector over the last `window` events SERVING the intent; when a
+  loop is found, record an Event{name: "loop_detected"} so it appears
+  in `dogfood.replay_events` automatically.
+- **Slice 3** — `loop_resolved` events emitted when the agent breaks
+  the pattern (different tool or target after the loop fires).
+- **Slice 4** — `agency_doctor.loop_health` field surfacing the
+  number of unresolved loops in the active intent.
+- **Slice 5** — integration with Spec 280 Slice 2 BLOCKING mode:
+  when a loop_detected fires on the dispatcher's clearest routes,
+  the dispatcher exits 2 with the loop's evidence as the hint.
+
+
+### Loop closure proof (Spec 150 in-band)
+
+- **intent:928e0a28** verification intent in-tree
+- 4 Slice-1 lesson Reflections recorded: c2a33d79 / 46419129 / b973baae / 579b1cb8
+- `dogfood.parse_amendment(scope="observation", use_llm=False)` ran (keyword
+  classifier returned 0 proposals on higher-order lessons; LLM Slice 2 will
+  pick them up)
+- `dogfood.apply_amendment(payload, dry_run=True)` ran on a synthetic Slice-1
+  contract payload → returned `{artefact_id, diff, payload_hash}`. Unified diff
+  appends the Done-When line capturing the shipped contract.
+- Closure recorded as `reflection:cbf172ed` on intent:35628643 (this slice's
+  driving intent).
+

@@ -1,0 +1,55 @@
+# Spec 146 Slice 2.2 — prefix-lint baseline (Spec 054 drift pattern).
+# Enumerates KNOWN historical non-deterministic call sites in agency/
+# that body-side code legitimately needs (env reads, time, etc.).
+# The Slice 2.2 gate flags REGRESSIONS only: a new site here means
+# either fix the site OR justify + add the line below.
+#
+# Format: <relative-path>:<line>:<kind>
+# Generated via: python scripts/check_response_prefix.py --root agency
+#                |& grep ^agency | awk "{print \}"
+#
+agency/__main__.py:85:unsorted_dict
+agency/_db_path.py:34:os_environ
+agency/_drivers/_anthropic.py:116:os_environ
+agency/_drivers/_anthropic.py:123:os_environ
+agency/_drivers/_anthropic.py:136:os_environ
+agency/_drivers/_anthropic.py:247:os_environ
+agency/_llm.py:34:os_environ
+agency/_llm.py:38:os_environ
+agency/_llm.py:43:os_environ
+agency/_monitor.py:68:unsorted_dict
+agency/_monitor.py:92:os_environ
+agency/_monitor.py:121:time_time
+agency/_runner.py:20:time_time
+agency/_runner.py:24:time_time
+agency/_runner.py:27:time_time
+agency/_runner.py:30:time_time
+agency/_tokens.py:64:os_environ
+agency/_tokens.py:67:os_environ
+agency/capabilities/_embed.py:195:os_environ
+agency/capabilities/analyze/_main.py:255:time_time
+agency/capabilities/document/_main.py:174:time_time
+agency/capabilities/dogfood/_main.py:487:time_time
+agency/capabilities/jules/api.py:19:os_environ
+agency/capabilities/jules/api.py:37:os_environ
+agency/capabilities/music/config.py:192:os_environ
+agency/capabilities/novel/config.py:155:os_environ
+agency/capabilities/novel/drivers_production.py:141:datetime_now
+agency/capabilities/novel/drivers_production.py:184:datetime_now
+agency/capabilities/novel/drivers_production.py:242:unsorted_dict
+agency/capabilities/plugin/_main.py:47:unsorted_dict
+agency/capabilities/plugin/_main.py:76:unsorted_dict
+agency/capabilities/plugin/_skills_client.py:37:os_environ
+agency/capabilities/research/_main.py:105:time_time
+agency/capabilities/research/_main.py:191:time_time
+agency/capabilities/research/_web.py:94:os_environ
+agency/cli.py:88:unsorted_dict
+agency/cli.py:266:unsorted_dict
+agency/install.py:393:unsorted_dict
+agency/install.py:476:unsorted_dict
+agency/install.py:752:unsorted_dict
+agency/install.py:753:unsorted_dict
+agency/install.py:754:unsorted_dict
+agency/install.py:975:os_environ
+agency/install.py:1268:os_environ
+agency/memory.py:66:uuid4

@@ -9,7 +9,7 @@ depends_on: ["026", "147", "152", "161"]
 vision_goals: [4, 1]
 affects:
   - agency/capabilities/skills.py
-  - tests/test_skills_llm_matcher.py
+  - tests/test_skills_matcher_result.py   # Slice 1 SHIPPED 2026-06-12 (replaces planned test_skills_llm_matcher.py)
 ---
 
 # Spec 162 — `skills` cap `llm_select` Matcher
@@ -94,3 +94,12 @@ Then:   result.matcher in {"pattern", "verb_code"} AND
 3. **Live-Driver benchmark cadence?** **Recommend**: gated behind a
    `[llm-live]` pytest mark + nightly job — keeps the merge gate
    mock-driven (deterministic) while still catching API drift.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+The typed shape this spec carries was shipped as part of the wave-1+2
+batch (intents trackable in graph). See TODO.md row + the corresponding
+test module under `tests/`.
+

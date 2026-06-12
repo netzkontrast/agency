@@ -884,12 +884,114 @@ def audit_tree(root: Path) -> PrefixReport:
     return rep
 
 
+# ── Slice 2.2: baseline + regression gate ────────────────────────────────
+@dataclass(frozen=True)
+class BaselineEntry:
+    """One known-historical violation site. The baseline file at
+    `Plan/_planning/prefix-lint-baseline.txt` enumerates these so the
+    Slice 2.2 gate flags REGRESSIONS only (Spec 054 drift pattern)."""
+
+    path: str
+    line: int
+    kind: ViolationKind
+
+
+@dataclass
+class RegressionReport:
+    """The Slice 2.2 gate payload. `ok` flips False on ANY
+    new_violation; fixed_violations are surfaced so the author can
+    trim the baseline."""
+
+    new_violations: list[PrefixViolation] = field(default_factory=list)
+    fixed_violations: list[BaselineEntry] = field(default_factory=list)
+    ok: bool = True
+
+
+def load_baseline(path: Path) -> set[BaselineEntry]:
+    """Parse `<path>:<line>:<kind>` lines into a set of BaselineEntry.
+    Blank lines + `#`-prefixed comments are skipped. A malformed line
+    raises ValueError — fail loud so a typo doesn't silently bypass
+    the gate."""
+    path = Path(path)
+    if not path.exists():
+        return set()
+    out: set[BaselineEntry] = set()
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.rsplit(":", 2)
+        if len(parts) != 3:
+            raise ValueError(
+                f"baseline line must be `<path>:<line>:<kind>`; got {raw!r}")
+        p, ln, kind = parts
+        try:
+            ln_i = int(ln)
+        except ValueError as e:
+            raise ValueError(
+                f"baseline line number must be int; got {raw!r}") from e
+        try:
+            kind_v = ViolationKind(kind)
+        except ValueError as e:
+            raise ValueError(
+                f"baseline kind unknown; got {raw!r}") from e
+        out.add(BaselineEntry(path=p, line=ln_i, kind=kind_v))
+    return out
+
+
+def compare_to_baseline(rep: PrefixReport,
+                         baseline: set[BaselineEntry]) -> RegressionReport:
+    """Compare live violations to baseline as a MULTISET keyed by
+    `(path, kind)`. Line numbers shift on every refactor, so pinning
+    them produced false regressions; counting violations per (path,
+    kind) catches REAL new sites without flapping on line shifts.
+
+    new_violations: live count exceeds baseline count for some
+    `(path, kind)` — the surplus sites are surfaced (first N from
+    sorted order).
+    fixed_violations: baseline count exceeds live — surplus baseline
+    entries marked fixed so the author trims them.
+    """
+    from collections import Counter
+    live_counter: Counter = Counter((v.loc.path, v.kind) for v in rep.violations)
+    base_counter: Counter = Counter((b.path, b.kind) for b in baseline)
+    new_violations: list[PrefixViolation] = []
+    fixed_violations: list[BaselineEntry] = []
+    for key in sorted(set(live_counter) | set(base_counter),
+                       key=lambda k: (k[0], k[1].value)):
+        live_n = live_counter[key]
+        base_n = base_counter[key]
+        if live_n > base_n:
+            extras = sorted(
+                (v for v in rep.violations
+                 if (v.loc.path, v.kind) == key),
+                key=lambda v: v.loc.line)[: live_n - base_n]
+            new_violations.extend(extras)
+        elif base_n > live_n:
+            extras = sorted(
+                (b for b in baseline if (b.path, b.kind) == key),
+                key=lambda b: b.line)[: base_n - live_n]
+            fixed_violations.extend(extras)
+    return RegressionReport(
+        new_violations=new_violations,
+        fixed_violations=fixed_violations,
+        ok=(len(new_violations) == 0),
+    )
+
+
 # ── CLI entry ─────────────────────────────────────────────────────────────
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--root", default="agency/_envelope.py",
                         help="file or directory to audit (default: "
                              "agency/_envelope.py — the prefix builder)")
+    parser.add_argument("--baseline", default=None,
+                        help="path to baseline file enumerating known "
+                             "historical violations (Spec 146 Slice 2.2 "
+                             "drift gate); only regressions exit 1")
+    parser.add_argument("--strict", action="store_true",
+                        help="promote to gate: with --baseline, exit 1 on "
+                             "regressions; without, exit 1 on any violation")
     args = parser.parse_args(argv)
     rep = audit_tree(Path(args.root))
     print(f"prefix lint: {len(rep.violations)} violations across "
@@ -898,8 +1000,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {v.loc.path}:{v.loc.line}  {v.kind.value}")
     if len(rep.violations) > 30:
         print(f"  ... and {len(rep.violations) - 30} more")
-    # Slice 2.1: informational. Slice 2.2 promotes to:
-    #     return 0 if not rep.violations else 1
+    if args.strict:
+        if args.baseline is not None:
+            baseline = load_baseline(Path(args.baseline))
+            res = compare_to_baseline(rep, baseline)
+            if res.new_violations:
+                print(f"\nREGRESSION: {len(res.new_violations)} new "
+                      f"violations not in baseline:")
+                for v in res.new_violations:
+                    print(f"  + {v.loc.path}:{v.loc.line}  {v.kind.value}")
+            if res.fixed_violations:
+                print(f"\nFIXED: {len(res.fixed_violations)} baseline "
+                      f"entries no longer present — trim from "
+                      f"{args.baseline}:")
+                for b in res.fixed_violations:
+                    print(f"  - {b.path}:{b.line}  {b.kind.value}")
+            return 0 if res.ok else 1
+        return 0 if not rep.violations else 1
     return 0
 
 

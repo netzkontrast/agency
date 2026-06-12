@@ -83,3 +83,68 @@ def test_authored_triage_discipline_overrides_derived_and_walks(engine, iid):
                                     name="skills-triage", inputs={})
     out = res["result"] if isinstance(res, dict) and "result" in res else res
     assert out.get("status") in ("completed", "input-required", "blocked", "failed")
+
+
+# ─────────── Spec 161 Slice 1 — `skills.rank(query)` deterministic ─────────
+def test_rank_empty_query_lists_all_skills(engine, iid):
+    """`skills.rank()` with no query falls through to alphabetic listing
+    (same as find), with `score: 0.0` on every candidate."""
+    out = _call(engine, iid, "skills", "rank", query="")
+    assert out["total"] >= 1
+    assert out["scorer"] == "keyword"
+    # Every candidate carries a numeric score field.
+    for c in out["candidates"]:
+        assert c["score"] == 0.0
+
+
+def test_rank_with_query_ranks_matches_above_non_matches(engine, iid):
+    """A query 'tdd' should place the `tdd` skill (exact name match)
+    above unrelated skills."""
+    out = _call(engine, iid, "skills", "rank", query="tdd")
+    names = [c["name"] for c in out["candidates"]]
+    assert names[0] == "tdd", (
+        f"`tdd` should rank first for query='tdd'; got {names[:5]}")
+    # The matched candidate has a positive score; non-matches score 0.0.
+    first = out["candidates"][0]
+    assert first["score"] >= 2.0
+
+
+def test_rank_multi_token_query_combines_scores(engine, iid):
+    """A multi-token query weights all matching tokens; a skill that hits
+    on MULTIPLE tokens scores above one that hits on a single."""
+    out = _call(engine, iid, "skills", "rank", query="tdd test")
+    # The `tdd` skill should still rank first — it matches both tokens
+    # (name exact 'tdd' + substring 'test' in phase/cap names if present).
+    assert out["candidates"][0]["name"] == "tdd"
+    # The top score is greater than any single-token hit elsewhere.
+    top = out["candidates"][0]["score"]
+    other_scores = [c["score"] for c in out["candidates"][1:]]
+    if other_scores:
+        assert top >= max(other_scores)
+
+
+def test_rank_returns_typed_shape(engine, iid):
+    """The shape is `{candidates: [{name, kind, capability, phases,
+    phase_count, score}], total, scorer}`."""
+    out = _call(engine, iid, "skills", "rank", query="brainstorm")
+    assert set(out.keys()) >= {"candidates", "total", "scorer"}
+    assert out["scorer"] == "keyword"
+    for c in out["candidates"][:3]:
+        assert set(c.keys()) >= {"name", "kind", "capability",
+                                  "phases", "phase_count", "score"}
+
+
+def test_rank_is_deterministic(engine, iid):
+    """Two calls with the same query yield byte-identical candidate
+    ordering (rule 8 — derived, not stochastic)."""
+    out1 = _call(engine, iid, "skills", "rank", query="agency walker")
+    out2 = _call(engine, iid, "skills", "rank", query="agency walker")
+    assert [(c["name"], c["score"]) for c in out1["candidates"]] == \
+           [(c["name"], c["score"]) for c in out2["candidates"]]
+
+
+def test_rank_ignores_case(engine, iid):
+    """`TDD` ranks the same as `tdd` (lowercase normalization)."""
+    a = _call(engine, iid, "skills", "rank", query="TDD")
+    b = _call(engine, iid, "skills", "rank", query="tdd")
+    assert a["candidates"][0]["name"] == b["candidates"][0]["name"]

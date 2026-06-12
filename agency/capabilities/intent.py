@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """intent — critical-thinking methods that reason about the serving intent (Spec 026/091).
 
 Intent is the reasoning capability: it turns the human-owned goal into structured critical-thinking scaffolds — decomposition, assumption-surfacing, premortem, first-principles, inversion, steelman, second-order, and trade-off analysis — each a deterministic method an agent fills in against the current intent.

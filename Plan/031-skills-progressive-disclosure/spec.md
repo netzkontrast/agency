@@ -32,8 +32,8 @@ affects:
   - tests/test_skill_doc_validation.py        # NEW — bootstrap validation; lint_skill_doc rules
   - tests/test_skill_emit.py                  # NEW — emit_skill/emit_references/emit_bash_wrappers
   - tests/test_skill_cache_atomic.py          # NEW — TEST-3 atomic-kill survival
-  - tests/test_skill_contract_e2e.py          # NEW — TEST-2 subagent end-to-end discipline
-  - tests/test_skill_mcp_surface.py           # NEW — skill_list / capability_skill_*
+  # tests/test_skill_contract_e2e.py          # deferred to Spec 163 (progressive-disclosure-closure); subagent E2E discipline
+  # tests/test_skill_mcp_surface.py           # deferred to Spec 163; skill_list / capability_skill_*
 estimated_jules_sessions: 0
 domain: substrate
 wave: 4
@@ -161,3 +161,28 @@ See `affects:` list above.
 - **Hand-authored skill content for `superpowers:writing-skills`-style external skills.** Those live in their own plugin marketplace; this spec only owns the agency-plugin's auto-generated content.
 - **A full skill graph (skills as first-class nodes with edges to verbs).** Out of scope. Skills stay dict-in-`OntologyExtension`-merged-from-`WalkerSkills`. A future spec could promote.
 - **Cross-skill composition** (e.g. one skill embedding another's phases). Composition is via `**REQUIRED SUB-SKILL:**` markers in the body — Fed-by-Markdown, not by mechanism.
+
+## Followup — Implementation Status (2026-06-12)
+
+**Verdict:** Shipped (largely superseded → Spec 080 + Spec 081).
+
+The progressive-disclosure surface is delivered by Spec 080 (every cap
+drops in a complete Agent Skill; SkillDoc DERIVED from the module
+docstring) + Spec 081 (walkable usage-skill per cap; phase-graph
+clusters verbs by role). The remaining closure of the original 031
+scope is tracked by Spec 163 (progressive-disclosure-closure, wave-2).
+
+### Done
+
+- **A. Capability core extension** — `SkillDoc` + `WalkerSkills` exist on
+  every shipped capability (Spec 080).
+- **B–H. Lint + Templates + Emit + Cache + Install + Engine substrate +
+  skill capability folder** — surface delivered via Spec 080/081
+  pipeline (the discipline-via-derived-content path won over the
+  hand-authored skill-as-folder path).
+
+### Still (absent; superseded by Spec 163)
+
+- `tests/test_skill_contract_e2e.py` — absent; subagent end-to-end discipline test not yet written; superseded by Spec 163.
+- `tests/test_skill_mcp_surface.py` — absent; `skill_list` / `capability_skill_*` surface coverage not yet written; superseded by Spec 163.
+

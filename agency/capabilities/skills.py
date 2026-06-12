@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """skills — the first-class registry over every capability's walkable skills (Spec 026).
 
 Skills makes the skill surface itself a capability: one home to find, render, and lint the phase-graph skills each capability ships on its ontology, instead of reaching them only through the merged ontology dict or the walker.
@@ -13,10 +14,69 @@ Red flags:
 """
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
+from typing import Literal
+
 from ..capability import CapabilityBase, verb
 from ..ontology import OntologyExtension
 
 _VALID_GATES = {"hard", "soft"}
+
+
+# ── Spec 162 Slice 1 — typed MatcherResult shape ─────────────────────────
+# `intent.suggests` ships pattern + verb_code + llm_select matchers (Spec 026).
+# Slice 1 of Spec 162 defines the typed return shape they all coerce to so
+# downstream consumers (the wet LLM path in Slice 2; the Skills-API publisher;
+# any future matcher kind) speak ONE protocol.
+MatcherKind = Literal["llm", "pattern", "verb_code", "none"]
+
+
+@dataclass(frozen=True)
+class MatcherResult:
+    """Typed return of a matcher run for ONE skill candidate.
+
+    `rationale` ≤ 200 chars (Slice 1 invariant — Spec 162 §"typed shape").
+    `confidence` in [0.0, 1.0]. `matcher` discriminates the source. When the
+    LLM driver is absent, `matcher` MUST NOT be `"llm"` — Spec 162 invariant
+    (Spec 050 graceful-degradation pattern)."""
+
+    skill_id:   str
+    confidence: float
+    rationale:  str
+    matcher:    MatcherKind
+
+    def __post_init__(self) -> None:
+        if not (0.0 <= self.confidence <= 1.0):
+            raise ValueError(
+                f"confidence must be in [0.0, 1.0]; got {self.confidence}")
+        if len(self.rationale) > 200:
+            raise ValueError(
+                f"rationale must be ≤ 200 chars; got {len(self.rationale)}")
+        if self.matcher not in ("llm", "pattern", "verb_code", "none"):
+            raise ValueError(
+                f"matcher must be one of llm/pattern/verb_code/none; "
+                f"got {self.matcher!r}")
+
+    @classmethod
+    def from_legacy(cls, legacy: dict) -> "MatcherResult":
+        """Convert the existing `intent.suggests` output (`{skill, mode,
+        confidence, cue, matched_by}`) to a typed MatcherResult. The
+        legacy `mode` maps to `matcher`; `matched_by` becomes the rationale
+        prefix (trimmed to 200 chars)."""
+        sk    = legacy.get("skill") or ""
+        mode  = legacy.get("mode") or "none"
+        if mode == "llm_select":
+            mode = "llm"
+        if mode not in ("llm", "pattern", "verb_code"):
+            mode = "none"
+        conf  = float(legacy.get("confidence", 0.0))
+        cue   = str(legacy.get("matched_by") or legacy.get("cue") or "")
+        return cls(
+            skill_id=sk, confidence=max(0.0, min(1.0, conf)),
+            rationale=cue[:200], matcher=mode)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 # Spec 026 / 081 — an AUTHORED discipline (not the derived role-cluster scaffold): a
 # real skill-triage workflow that teaches how to drive this capability's verbs toward
@@ -155,6 +215,73 @@ class SkillsCapability(CapabilityBase):
                 v.append(f"phase {p.get('name', i)!r} has invalid gate {gate!r} "
                          f"(want one of {sorted(_VALID_GATES)})")
         return {"ok": not v, "violations": v}
+
+    @verb(role="transform")
+    def rank(self, query: str = "") -> dict:
+        """Rank walkable skills against a free-text query (Spec 161 Slice 1).
+
+        Slice 1 is a deterministic keyword scorer: tokenize the query,
+        normalise to lowercase, count substring hits across each skill's
+        `name`, `capability`, `kind`, and phase names. Ties broken by
+        `(capability, name)` for stability. Slice 2 swaps in an LLM
+        ranker via the Spec 147 AnthropicDriver behind the same shape.
+
+        An empty query falls through to the `find`-style listing (no
+        ranking applied; same alphabetic sort).
+
+        Inputs: query (free text; empty = list all).
+        Returns: ``{candidates: [{name, kind, capability, phases,
+                  phase_count, score}], total, scorer}``.
+        chain_next: ``skills.render`` the top candidate, then
+                    ``develop.skill_walk`` it.
+        """
+        skills = list(_all_skills(self.ctx.registry).values())
+        if not query.strip():
+            skills.sort(key=lambda m: (m["capability"], m["name"]))
+            return {
+                "candidates": [
+                    {k: m[k] for k in ("name", "kind", "capability",
+                                        "phases", "phase_count")}
+                    | {"score": 0.0}
+                    for m in skills
+                ],
+                "total":  len(skills),
+                "scorer": "keyword",
+            }
+        tokens = [t for t in query.lower().split() if t]
+        scored: list[tuple[float, dict]] = []
+        for m in skills:
+            phase_names = " ".join(
+                p.get("name", "") if isinstance(p, dict) else str(p)
+                for p in m.get("phases", []))
+            hay = " ".join([
+                str(m["name"]), str(m["capability"]),
+                str(m["kind"]), phase_names,
+            ]).lower()
+            score = 0.0
+            for tok in tokens:
+                if not tok:
+                    continue
+                # Bigger boost for exact word match on the skill name; a
+                # plain substring elsewhere still scores.
+                if tok == m["name"].lower():
+                    score += 2.0
+                elif tok in m["name"].lower():
+                    score += 1.0
+                if tok in hay:
+                    score += 0.5
+            scored.append((score, m))
+        scored.sort(key=lambda t: (-t[0], t[1]["capability"], t[1]["name"]))
+        return {
+            "candidates": [
+                {k: m[k] for k in ("name", "kind", "capability",
+                                    "phases", "phase_count")}
+                | {"score": round(s, 3)}
+                for s, m in scored
+            ],
+            "total":  len(scored),
+            "scorer": "keyword",
+        }
 
     @verb(role="effect")
     def index(self) -> dict:

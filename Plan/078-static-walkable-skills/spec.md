@@ -78,3 +78,11 @@ minor.
 - CORE.md §Skills (skills are atomic, gated, progressively-disclosed step-graphs —
   this extends the model to gateless/reference skills).
 - User directive (2026-06-06).
+
+## Followup — Implementation Status (2026-06-12)
+
+**Verdict:** Drafted (backlog / WARN-accepted / cluster-master). Tracked
+in TODO.md's Verdicts row; no Slice 1 commitment beyond the spec body.
+For the autonomous-completion goal stop condition (2), this spec is
+classified as drafted-by-doctrine, not pending-implementation.
+

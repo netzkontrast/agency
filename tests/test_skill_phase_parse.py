@@ -687,3 +687,68 @@ def test_parse_result_typed_envelope():
 
     bad = parse_phase({})
     assert bad.ok is False and bad.code != ""
+
+
+# ─────────────── Slice 2 — wire `develop.skill_walk` through the parser ────
+# Spec 152 Slice 2 makes `SkillRun` validate its schema through `parse_skill`
+# at construction time (raises ValueError carrying the typed code). The
+# walker (`develop.skill_walk`) returns a typed failure on parse errors
+# instead of crashing mid-walk on an ad-hoc dict access.
+# Live-invariant: every skill registered on the live ontology parses clean.
+def test_skill_run_validates_schema_through_parse_skill():
+    """A malformed schema raises ValueError at SkillRun construction;
+    the message carries the typed Codes.SKILL_PARSE_INVALID or related
+    code so callers can branch on it without parsing text."""
+    import tempfile
+    import pytest as _pytest
+    from agency.engine import Engine
+    from agency.skill import SkillRun
+    e = Engine(tempfile.mktemp(suffix=".db"))
+    iid = e.intent.capture("p", "d", "a")
+    e.intent.confirm(iid)
+    # Phase missing required `name` → parse fails.
+    bad = {"name": "x", "kind": "workflow", "phases": [{}]}
+    with _pytest.raises(ValueError) as ei:
+        SkillRun(e.memory, iid, bad)
+    msg = str(ei.value)
+    # The typed code is embedded in the message so callers don't have
+    # to parse free text.
+    assert any(code in msg for code in
+                (Codes.SKILL_PARSE_INVALID, Codes.PHASE_MISSING_FIELD))
+    e.memory.close()
+
+
+def test_skill_run_passes_valid_schema_through():
+    """Valid schemas walk normally — the parse gate is non-invasive."""
+    import tempfile
+    from agency.engine import Engine
+    from agency.skill import SkillRun
+    e = Engine(tempfile.mktemp(suffix=".db"))
+    iid = e.intent.capture("p", "d", "a")
+    e.intent.confirm(iid)
+    schema = {"name": "tiny", "kind": "workflow",
+              "phases": [{"index": 1, "name": "p1", "produces": ["r"]}]}
+    run = SkillRun(e.memory, iid, schema)
+    assert run.current()["name"] == "p1"
+    e.memory.close()
+
+
+def test_live_ontology_skills_all_parse_clean():
+    """Every skill in the live ontology MUST parse clean — invariant
+    that protects the walker from drift. A new skill that doesn't
+    parse fails this test, forcing the author to fix the shape (NOT
+    add to a baseline; this is the bedrock invariant)."""
+    import tempfile
+    from agency.engine import Engine
+    e = Engine(tempfile.mktemp(suffix=".db"))
+    skills = getattr(e.ontology, "skills", {}) or {}
+    assert skills, "live ontology should expose registered skills"
+    failures: list[tuple[str, str, str]] = []
+    for name, sk in skills.items():
+        res = parse_skill(sk)
+        if not res.ok:
+            failures.append((name, res.code, res.message[:200]))
+    e.memory.close()
+    assert failures == [], (
+        f"live skills failed parse_skill validation:\n"
+        + "\n".join(f"  {n}  {c}  {m}" for n, c, m in failures))

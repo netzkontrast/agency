@@ -109,3 +109,100 @@ def test_command_set_includes_documented_core(files):
 def test_generated_commands_are_nonempty(files):
     for path in ("commands/agency.md", "commands/agency-onboard.md"):
         assert files[path].strip(), f"{path} must not be empty"
+
+
+# ─────────── Slice 2 — per-skill /agency-<skill> shortcuts ────────────
+# Slice 2 generates `commands/agency-<skill>.md` for the top-N walkable
+# skills on the live registry. Each command body invokes
+# `develop.skill_walk(name=<skill>)`. Slice 3 swaps the ordering for a
+# derived rank (invocation count); Slice 2 uses deterministic alpha sort.
+def test_per_skill_commands_generated(files):
+    """At least one `commands/agency-<skill>.md` lands when the live
+    ontology has registered walkable skills."""
+    skill_cmds = [k for k in files
+                   if k.startswith("commands/agency-")
+                   and k.endswith(".md")
+                   and k != "commands/agency-onboard.md"]
+    assert skill_cmds, (
+        "Slice 2 must generate at least one /agency-<skill> command; "
+        "registry currently has registered walkable skills")
+
+
+def test_per_skill_commands_capped(files):
+    """Open Q4 — 60 live skills would crowd the palette. Cap the
+    derived set so the command surface stays manageable. Slice 2 uses
+    a documented cap; Slice 3 will switch to invocation-rank ordering."""
+    from agency import install
+    skill_cmds = [k for k in files
+                   if k.startswith("commands/agency-")
+                   and k.endswith(".md")
+                   and k != "commands/agency-onboard.md"]
+    # The cap is documented on the install module so tests don't pin
+    # a magic number (CLAUDE.md rule 8). The set size MUST be <= cap.
+    cap = install.AGENCY_SKILL_CMD_TOP_N
+    assert len(skill_cmds) <= cap, (
+        f"per-skill command count {len(skill_cmds)} exceeds the "
+        f"documented cap {cap}")
+
+
+def test_per_skill_commands_invoke_skill_walk(files):
+    """Each `agency-<skill>.md` body invokes `develop.skill_walk` with
+    the skill name — that's the contract that makes the command actually
+    do something (drive the skill)."""
+    import re as _re
+    skill_cmds = [k for k in files
+                   if k.startswith("commands/agency-")
+                   and k.endswith(".md")
+                   and k != "commands/agency-onboard.md"]
+    for path in skill_cmds:
+        body = files[path]
+        # Skill name encoded in the filename (commands/agency-<slug>.md);
+        # verify the body references `develop.skill_walk` AND mentions the
+        # skill name verbatim.
+        slug = path[len("commands/agency-"):-3]
+        assert "develop.skill_walk" in body, (
+            f"{path} must invoke develop.skill_walk; body did not contain it")
+        # Slug is sanitized; original skill name may have hyphens converted.
+        # Body must include the slug somewhere as evidence of derivation.
+        assert slug in body, (
+            f"{path} body must mention the skill slug {slug!r} for traceability")
+
+
+def test_per_skill_command_set_is_deterministic():
+    """Generating the install dict twice yields the same per-skill command
+    set + the same contents (rule 8 invariant — derived, no time leak)."""
+    e1 = Engine(":memory:")
+    e2 = Engine(":memory:")
+    try:
+        a = install.generate(e1)
+        b = install.generate(e2)
+    finally:
+        e1.memory.close()
+        e2.memory.close()
+    a_skills = {k: v for k, v in a.items()
+                if k.startswith("commands/agency-")
+                and k != "commands/agency-onboard.md"}
+    b_skills = {k: v for k, v in b.items()
+                if k.startswith("commands/agency-")
+                and k != "commands/agency-onboard.md"}
+    assert a_skills == b_skills
+
+
+def test_per_skill_command_slug_is_filesystem_safe():
+    """Skill names like `verification-before-completion` map to
+    filesystem-safe slugs (no slashes, dots, spaces, uppercase). The
+    install dict's keys are written to disk verbatim."""
+    import re as _re
+    e = Engine(":memory:")
+    try:
+        files = install.generate(e)
+    finally:
+        e.memory.close()
+    skill_cmds = [k for k in files
+                   if k.startswith("commands/agency-")
+                   and k.endswith(".md")
+                   and k != "commands/agency-onboard.md"]
+    for path in skill_cmds:
+        slug = path[len("commands/agency-"):-3]
+        assert _re.fullmatch(r"[a-z0-9-]+", slug), (
+            f"slug {slug!r} is not filesystem-safe; must match [a-z0-9-]+")

@@ -1,0 +1,51 @@
+{
+  "agency_doctor_hooks_keys": [
+    "cli_on_path",
+    "drift",
+    "foreign_hooks",
+    "hook_scripts_present",
+    "installed_version",
+    "next_steps",
+    "plugin_enabled",
+    "plugin_root",
+    "settings_path",
+    "shadowed_by_user",
+    "wrapped_count"
+  ],
+  "apply_amendment_dry_run": {
+    "artefact_kind": null,
+    "confirm_token_hash": "ab0aeb11e12c85df...",
+    "diff_present": true
+  },
+  "boundary_use_audit": {
+    "by_tool": {
+      "Bash": 7,
+      "Edit": 1
+    },
+    "bypass_count": 8,
+    "verb_shadows": [
+      "branch.commit_smart",
+      "branch.finish_branch",
+      "develop.test",
+      "dogfood.observe"
+    ]
+  },
+  "parse_amendment": {
+    "classifier": "keyword",
+    "proposal_count": 0
+  },
+  "replay_events": {
+    "chain_complete": true,
+    "count": 8
+  },
+  "session_intent": "intent:6d30df25",
+  "spec_281_reflections_recorded": [
+    "reflection:22b622b4",
+    "reflection:8be5ffdd",
+    "reflection:322d7431",
+    "reflection:c87a8b9a",
+    "reflection:dcb6535a",
+    "reflection:8f9dd99d"
+  ],
+  "verification_intent": "intent:a35a4316"
+}

@@ -955,3 +955,152 @@ def test_canonical_json_preserves_prefix_before_body_when_body_sorts_first():
     assert keys == ["schema_version", "delta"], (
         f"canonical_json must keep prefix keys before body keys even when "
         f"body keys sort earlier alphabetically; got {keys!r}")
+
+
+# ─────────────── Slice 2.2 — baseline + WARN→error gate ───────────────────
+# Spec 146 Slice 2.2 ships:
+#   - `BaselineEntry(path, line, kind)` + `load_baseline(path)` parser
+#   - `compare_to_baseline(report, baseline)` → RegressionReport
+#   - CLI `--baseline PATH --strict` gates: only regressions exit 1
+#   - `Plan/_planning/prefix-lint-baseline.txt` enumerates the live set
+#     so the gate flags REGRESSIONS only (Spec 054 drift pattern).
+def test_load_baseline_parses_path_line_kind(tmp_path):
+    """Baseline lines are `<path>:<line>:<kind>` — deterministic, one
+    per known violation. Whitespace + blank/comment lines tolerated."""
+    from scripts.check_response_prefix import load_baseline
+    f = tmp_path / "baseline.txt"
+    f.write_text(
+        "# header\n"
+        "\n"
+        "agency/engine.py:42:os_environ\n"
+        "agency/_runner.py:20:time_time\n"
+    )
+    entries = load_baseline(f)
+    assert {(e.path, e.line, e.kind.value) for e in entries} == {
+        ("agency/engine.py", 42, "os_environ"),
+        ("agency/_runner.py", 20, "time_time"),
+    }
+
+
+def test_load_baseline_missing_file_returns_empty(tmp_path):
+    """A missing baseline → empty set (no regression target)."""
+    from scripts.check_response_prefix import load_baseline
+    entries = load_baseline(tmp_path / "nope.txt")
+    assert entries == set()
+
+
+def test_load_baseline_rejects_malformed_line(tmp_path):
+    """A line with the wrong shape (`path:line:kind`) is a doctrine
+    error — fail loud so a typo doesn't silently bypass the gate."""
+    from scripts.check_response_prefix import load_baseline
+    f = tmp_path / "baseline.txt"
+    f.write_text("agency/engine.py:not-a-number:os_environ\n")
+    with pytest.raises(ValueError):
+        load_baseline(f)
+
+
+def test_compare_to_baseline_ok_when_report_matches_baseline():
+    """No new violations, no fixed → `RegressionReport.ok == True`."""
+    from scripts.check_response_prefix import (
+        BaselineEntry, compare_to_baseline, FileLoc, PrefixReport)
+    rep = PrefixReport(violations=[
+        PrefixViolation(loc=FileLoc("a.py", 10), kind=ViolationKind.TIME_TIME)
+    ])
+    baseline = {BaselineEntry("a.py", 10, ViolationKind.TIME_TIME)}
+    res = compare_to_baseline(rep, baseline)
+    assert res.ok is True
+    assert res.new_violations == []
+    assert res.fixed_violations == []
+
+
+def test_compare_to_baseline_flags_new_violation_as_regression():
+    """A violation NOT in the baseline is a regression — gate flag."""
+    from scripts.check_response_prefix import (
+        BaselineEntry, compare_to_baseline, FileLoc, PrefixReport)
+    rep = PrefixReport(violations=[
+        PrefixViolation(loc=FileLoc("a.py", 10), kind=ViolationKind.TIME_TIME),
+        PrefixViolation(loc=FileLoc("b.py", 22), kind=ViolationKind.UUID4),
+    ])
+    baseline = {BaselineEntry("a.py", 10, ViolationKind.TIME_TIME)}
+    res = compare_to_baseline(rep, baseline)
+    assert res.ok is False
+    assert len(res.new_violations) == 1
+    new = res.new_violations[0]
+    assert (new.loc.path, new.loc.line, new.kind) == (
+        "b.py", 22, ViolationKind.UUID4)
+
+
+def test_compare_to_baseline_surfaces_fixed_violations():
+    """A baseline entry with no matching live violation = fix → trim
+    baseline. fixed_violations carries them so the gate prompts the
+    author to update the baseline file."""
+    from scripts.check_response_prefix import (
+        BaselineEntry, compare_to_baseline, PrefixReport)
+    rep = PrefixReport(violations=[])
+    baseline = {BaselineEntry("a.py", 10, ViolationKind.TIME_TIME)}
+    res = compare_to_baseline(rep, baseline)
+    assert res.ok is True                              # fewer is fine
+    assert res.fixed_violations == [
+        BaselineEntry("a.py", 10, ViolationKind.TIME_TIME)]
+
+
+def test_cli_strict_without_baseline_fails_on_any_violation(tmp_path, capsys):
+    """`--strict` without `--baseline` → any violation exits 1."""
+    from scripts.check_response_prefix import main
+    src = tmp_path / "x.py"
+    src.write_text("import time\ndef f(): return time.time()\n")
+    rc = main(["--root", str(src), "--strict"])
+    assert rc == 1
+
+
+def test_cli_strict_with_matching_baseline_exits_0(tmp_path):
+    """`--strict --baseline` ignores known sites; only regressions fail."""
+    from scripts.check_response_prefix import main
+    src = tmp_path / "x.py"
+    src.write_text("import time\ndef f(): return time.time()\n")
+    baseline = tmp_path / "baseline.txt"
+    baseline.write_text(f"{src!s}:2:time_time\n")
+    rc = main(["--root", str(src), "--strict", "--baseline", str(baseline)])
+    assert rc == 0
+
+
+def test_cli_strict_with_baseline_exits_1_on_new_violation(tmp_path):
+    """An unknown site with `--strict --baseline` → exit 1."""
+    from scripts.check_response_prefix import main
+    src = tmp_path / "x.py"
+    src.write_text(
+        "import time\n"
+        "import uuid\n"
+        "def f(): return time.time()\n"
+        "def g(): return uuid.uuid4()\n"
+    )
+    # Baseline knows only the time.time() site
+    baseline = tmp_path / "baseline.txt"
+    baseline.write_text(f"{src!s}:3:time_time\n")
+    rc = main(["--root", str(src), "--strict", "--baseline", str(baseline)])
+    assert rc == 1
+
+
+def test_live_baseline_file_matches_live_substrate_violations():
+    """The committed `Plan/_planning/prefix-lint-baseline.txt` MUST
+    enumerate every current live `agency/` violation — invariant: the
+    set of audited violations equals the baseline set. A new
+    violation forces a baseline update (drift gate), and a fix forces
+    a removal."""
+    from scripts.check_response_prefix import (
+        audit_tree, load_baseline, compare_to_baseline)
+    rep = audit_tree(Path("agency"))
+    baseline = load_baseline(Path("Plan/_planning/prefix-lint-baseline.txt"))
+    res = compare_to_baseline(rep, baseline)
+    assert res.new_violations == [], (
+        "the live `agency/` audit produced violations NOT in "
+        "`Plan/_planning/prefix-lint-baseline.txt`. Either fix the "
+        "regression OR add the new site to the baseline (and the "
+        "fix should follow soon). New sites:\n"
+        + "\n".join(f"  {v.loc.path}:{v.loc.line}  {v.kind.value}"
+                    for v in res.new_violations))
+    assert res.fixed_violations == [], (
+        "the baseline lists violations that no longer exist — trim them "
+        "from `Plan/_planning/prefix-lint-baseline.txt`. Fixed sites:\n"
+        + "\n".join(f"  {e.path}:{e.line}  {e.kind.value}"
+                    for e in res.fixed_violations))

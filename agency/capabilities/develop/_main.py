@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """develop — the development-workflow capability.
 
 Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance.

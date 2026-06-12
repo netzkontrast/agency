@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """gate — a reusable, programmatic gate predicate.
 
 Gate evaluates a reusable predicate and records the outcome as a Gate node edged into the lifecycle and intent, so a pass or block is auditable provenance.

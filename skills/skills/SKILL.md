@@ -26,6 +26,7 @@ Skills makes the skill surface itself a capability: one home to find, render, an
 | `find` | transform | Enumerate the walkable skills across all capabilities, with light filters. | [details](references/find.md) |
 | `index` | effect | Promote walkable skills into the graph as Skill + Phase nodes (Spec 026). | [details](references/index.md) |
 | `lint` | transform | Validate a skill's phase-graph shape — the structural contract a walk relies on. | [details](references/lint.md) |
+| `rank` | transform | Rank walkable skills against a free-text query (Spec 161 Slice 1). | [details](references/rank.md) |
 | `render` | transform | Render one skill to markdown at a chosen depth (progressive disclosure). | [details](references/render.md) |
 
 ## Example

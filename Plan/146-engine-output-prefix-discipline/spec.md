@@ -167,12 +167,34 @@ Then:   response carries Codes.PREFIX_BUDGET_EXCEEDED — never silent
   tree audit + determinism + `__pycache__` skip, and the live-tree
   envelope/engine smoke tests.
 
-### Still — Slice 2.2+
+### Done — Slice 2.2 (WARN→error gate + baseline, 2026-06-12)
 
-- **Slice 2.2**: WARN→error promotion. Add a baseline file
-  `Plan/_planning/prefix-lint-baseline.txt` (Spec 054 pattern) for the
-  3 engine.py `OS_ENVIRON` body-side sites; CI gates on REGRESSION
-  only — a NEW violation outside the baseline fails the build.
+- **`BaselineEntry(path, line, kind)`** frozen dataclass + `load_baseline(path)`
+  parses `<path>:<line>:<kind>` lines (blank/`#`-comment lines tolerated;
+  malformed lines raise `ValueError` — fail loud).
+- **`compare_to_baseline(report, baseline)` → `RegressionReport{new_violations,
+  fixed_violations, ok}`** — pure set-difference: live − baseline is
+  REGRESSIONS (gate-fail); baseline − live is FIXED (author trims).
+- **CLI flags** `--baseline PATH --strict`:
+  - `--strict` without baseline: any violation → exit 1.
+  - `--strict --baseline`: only `new_violations` → exit 1; `fixed_violations`
+    are surfaced so the baseline can be trimmed in the same PR.
+- **`Plan/_planning/prefix-lint-baseline.txt`** — enumerates the 45 live
+  `agency/` sites (set: 20 OS_ENVIRON + 12 unsorted_dict + 10 time_time +
+  2 datetime_now + 1 uuid4). Generated from `audit_tree('agency')`; the
+  gate flags any REGRESSION beyond this set.
+- **CI step `Response-prefix lint`** in `.github/workflows/test.yml` runs
+  the gate on every push + PR (`--root agency --baseline … --strict`).
+- **10 new tests** in `tests/test_response_prefix_lint.py` cover:
+  baseline parse + comment/blank handling + malformed-line ValueError +
+  no-regression OK + new-site regression + fixed-site surfaced + CLI
+  strict-without-baseline / strict-with-baseline-OK / strict-with-baseline-fail
+  + a **live invariant** asserting the committed baseline equals the live
+  `agency/` audit (drift gate on the baseline itself — a fix must trim;
+  a regression must justify or fix).
+
+### Still — Slice 2.3+
+
 - **Slice 2.3**: reachability analysis — restrict the scan to functions
   REACHABLE from substrate-tool prefix builders (Spec 067 family
   call-graph walk). Today's audit is conservative (every file

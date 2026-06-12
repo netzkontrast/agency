@@ -315,14 +315,104 @@ def codes_namespace_members() -> set[str]:
             and isinstance(getattr(Codes, n), str)}
 
 
+# ── Slice 2: offender baseline + WARN→error gate ──────────────────────────
+@dataclass(frozen=True)
+class OffenderBaselineEntry:
+    """One known-historical STRING_LITERAL offender. The Slice 2 gate
+    flags REGRESSIONS only (Spec 054 drift pattern; mirrors Spec 146
+    Slice 2.2 baseline structure)."""
+
+    path: str
+    line: int
+    literal: str
+
+
+@dataclass
+class OffenderRegressionReport:
+    """Slice 2 gate payload — `ok` flips False on ANY new offender;
+    fixed offenders surfaced so the baseline can be trimmed."""
+
+    new_offenders: list[CallSiteResult] = field(default_factory=list)
+    fixed_offenders: list[OffenderBaselineEntry] = field(default_factory=list)
+    ok: bool = True
+
+
+def load_codes_baseline(path: Path) -> set[OffenderBaselineEntry]:
+    """Parse `<path>:<line>:<literal>` lines into a set. Blank +
+    `#`-comment lines are skipped. Malformed line → ValueError so a
+    typo can't silently bypass the gate."""
+    path = Path(path)
+    if not path.exists():
+        return set()
+    out: set[OffenderBaselineEntry] = set()
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(":", 2)
+        if len(parts) != 3:
+            raise ValueError(
+                f"baseline line must be `<path>:<line>:<literal>`; got {raw!r}")
+        p, ln, lit = parts
+        try:
+            ln_i = int(ln)
+        except ValueError as e:
+            raise ValueError(
+                f"baseline line number must be int; got {raw!r}") from e
+        out.add(OffenderBaselineEntry(path=p, line=ln_i, literal=lit))
+    return out
+
+
+def compare_offenders_to_baseline(
+    rep: CoverageReport,
+    baseline: set[OffenderBaselineEntry],
+) -> OffenderRegressionReport:
+    """Compare live offenders to baseline as a MULTISET keyed by
+    `(path, literal)`. Line numbers shift on every refactor; counting
+    offenders per (path, literal) catches REAL new sites without
+    flapping on line shifts (mirrors Spec 146 Slice 2.2 behavior)."""
+    from collections import Counter
+    live_counter: Counter = Counter((o.loc.path, o.literal)
+                                      for o in rep.offenders)
+    base_counter: Counter = Counter((b.path, b.literal) for b in baseline)
+    new_offenders: list[CallSiteResult] = []
+    fixed_offenders: list[OffenderBaselineEntry] = []
+    for key in sorted(set(live_counter) | set(base_counter)):
+        live_n = live_counter[key]
+        base_n = base_counter[key]
+        if live_n > base_n:
+            extras = sorted(
+                (o for o in rep.offenders
+                 if (o.loc.path, o.literal) == key),
+                key=lambda o: o.loc.line)[: live_n - base_n]
+            new_offenders.extend(extras)
+        elif base_n > live_n:
+            extras = sorted(
+                (b for b in baseline if (b.path, b.literal) == key),
+                key=lambda b: b.line)[: base_n - live_n]
+            fixed_offenders.extend(extras)
+    return OffenderRegressionReport(
+        new_offenders=new_offenders,
+        fixed_offenders=fixed_offenders,
+        ok=(len(new_offenders) == 0),
+    )
+
+
 # ── CLI entry ──────────────────────────────────────────────────────────────
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--root", default="agency",
                         help="root directory to walk for *.py (default: agency)")
     parser.add_argument("--floor", type=float, default=0.0,
-                        help="minimum coverage fraction (Slice 1: informational; "
-                             "Slice 2 promotes to a CI-blocking gate)")
+                        help="minimum coverage fraction (informational; "
+                             "Slice 2 uses --baseline + --strict for the gate)")
+    parser.add_argument("--baseline", default=None,
+                        help="path to baseline file enumerating known "
+                             "historical STRING_LITERAL offenders (Spec 151 "
+                             "Slice 2 drift gate); only regressions exit 1")
+    parser.add_argument("--strict", action="store_true",
+                        help="promote to gate: with --baseline, exit 1 on "
+                             "new offenders; without, exit 1 on any offender")
     args = parser.parse_args(argv)
     rep = audit_tree(Path(args.root))
     # CLI denominator and breakdown MUST match CoverageReport.fraction's
@@ -344,8 +434,23 @@ def main(argv: list[str] | None = None) -> int:
     if rep.orphan_codes:
         print(f"  orphan Codes ({len(rep.orphan_codes)}): "
               f"{', '.join(sorted(rep.orphan_codes))}")
-    # Slice 1: informational. Slice 2 promotes to:
-    #     return 0 if rep.fraction >= args.floor else 1
+    if args.strict:
+        if args.baseline is not None:
+            baseline = load_codes_baseline(Path(args.baseline))
+            res = compare_offenders_to_baseline(rep, baseline)
+            if res.new_offenders:
+                print(f"\nREGRESSION: {len(res.new_offenders)} new "
+                      f"offenders not in baseline:")
+                for o in res.new_offenders:
+                    print(f"  + {o.loc.path}:{o.loc.line}  {o.literal!r}")
+            if res.fixed_offenders:
+                print(f"\nFIXED: {len(res.fixed_offenders)} baseline "
+                      f"entries no longer present — trim from "
+                      f"{args.baseline}:")
+                for b in res.fixed_offenders:
+                    print(f"  - {b.path}:{b.line}  {b.literal!r}")
+            return 0 if res.ok else 1
+        return 0 if not rep.offenders else 1
     return 0
 
 

@@ -119,3 +119,23 @@ Then:   the prior README is still intact (tempfile + atomic rename);
    regens? **Recommend**: a CI step regenerates + commits the README
    on every merge to main; the merge-time render is the canonical
    public view.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion` as part of
+the typed-shape wave-1 batch (intent:ba14917e tdd walk).
+
+### Done — Slice 1
+
+Typed frozen dataclass + `__post_init__` invariants — see
+`agency/_link_finding.py` (Spec 173) and `agency/_typed_shapes_wave1.py`
+(Specs 171/175/176). 19 tests in `tests/test_link_finding.py` +
+`tests/test_typed_shapes_wave1.py`. The data shape is the Slice 1
+contract; Slice 2 wires it into the live verb / gate / hook layer.
+
+### Still — Slice 2+
+
+See the spec's main "Done When" + "Still" sections. The Slice 2
+wiring path (graph query, CI gate, sessionstart hook, install
+generator) is the next step.
+

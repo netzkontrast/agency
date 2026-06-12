@@ -116,3 +116,50 @@ Then:   the drift section returns ready=False + hint="another agency
 3. Cache doctor result? **Recommend**: 60s session-scoped TTL keyed on
    (DB hash + env hash + pyproject hash); a re-call within the TTL
    returns the cached report (Spec 146 prefix stability).
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+Engine-driven end-to-end (intent:6f3cebfa; skill:2a2d5429 tdd walk;
+5 Reflections; branch.commit_smart composed the commit message).
+
+### Done — Slice 1 (typed Field/Section/Report shapes)
+
+- **`agency/_doctor_shapes.py`**:
+  - `FieldSource = Literal['env', 'extra', 'graph', 'registry']`
+  - `DoctorField{key, value, ready, hint, source}` frozen dataclass
+    with `__post_init__` invariants:
+    - `key` is non-empty string
+    - `source` ∈ documented set
+    - `ready=False` ⇒ `hint` is non-empty (pipx-HINT pattern; Spec 065
+      generalised)
+  - `DoctorSection{name, fields: tuple[DoctorField, ...]}`
+  - `DoctorReport{sections: tuple[DoctorSection, ...]}` with
+    `.to_dict()` round-trip + `.invariant_violations()` walker
+    (re-audit after JSON round-trip).
+
+- **10 tests** in `tests/test_doctor_shapes.py`:
+  - field typed shape
+  - ready=False ⇒ hint non-empty (raises on empty)
+  - ready=True allows empty hint
+  - source must be valid
+  - section typed shape
+  - section rejects empty name
+  - report typed shape
+  - to_dict preserves order
+  - invariant walker clean on a valid report
+  - documented source set equals `{env, extra, graph, registry}`
+
+### Still — Slice 2+
+
+- **Slice 2** — wire `agency_doctor` verb to emit `DoctorReport`
+  instead of the ad-hoc nested dict. Hand-encode each existing
+  section as `DoctorSection` with the new invariants enforced.
+- **Slice 3** — CLI `--strict` gate: exit 1 when any documented
+  `ready=False` field's hint is the empty string.
+- **Slice 4** — `agency_doctor.format=human|json` flag; human-form
+  surfaces hints inline.
+- **Slice 5** — Spec 280 Slice 4 `--repair-user-settings` flag that
+  ALSO applies hints automatically (pipx install agency, etc.).
+

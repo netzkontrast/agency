@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """The plugin-development capability — everything needed to develop a good plugin:
 
 Plugin ports the plugin-development craft into compute: scaffolds, skill and command authoring, marketplace entries, and the lint rules that enforce the authoring doctrine.

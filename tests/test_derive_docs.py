@@ -273,3 +273,101 @@ def test_collect_subprocess_returns_counts_on_success(monkeypatch, tmp_path):
     monkeypatch.setattr(dd.subprocess, "run", _fake_run)
     counts = dd._collect_live_test_counts(tmp_path)
     assert counts == {"tests/test_foo.py": 2}
+
+
+# ─────────────── Slice 2.2 — HTML-comment fence rewrite ────────────────
+def test_find_fence_locates_single_fence():
+    from scripts.derive_docs import find_fence
+    src = (
+        "# title\n"
+        "before\n"
+        "<!-- derived:test-count -->\n"
+        "old content\n"
+        "<!-- /derived:test-count -->\n"
+        "after\n"
+    )
+    span = find_fence(src, "test-count")
+    assert span is not None
+    inner = src[span[0]:span[1]]
+    assert "old content" in inner
+    assert "before" not in inner and "after" not in inner
+
+
+def test_find_fence_returns_none_when_absent():
+    from scripts.derive_docs import find_fence
+    assert find_fence("nothing here", "test-count") is None
+
+
+def test_rewrite_fence_replaces_only_between_markers():
+    from scripts.derive_docs import rewrite_fence
+    src = (
+        "head\n"
+        "<!-- derived:test-count -->\n"
+        "OLD\n"
+        "<!-- /derived:test-count -->\n"
+        "tail\n"
+    )
+    out = rewrite_fence(src, "test-count", "NEW\n")
+    assert "head\n" in out and "tail\n" in out
+    assert "OLD" not in out and "NEW" in out
+    assert "<!-- derived:test-count -->" in out
+    assert "<!-- /derived:test-count -->" in out
+
+
+def test_rewrite_fence_idempotent():
+    from scripts.derive_docs import rewrite_fence
+    src = "<!-- derived:x -->\nOLD\n<!-- /derived:x -->\n"
+    once = rewrite_fence(src, "x", "NEW\n")
+    assert rewrite_fence(once, "x", "NEW\n") == once
+
+
+def test_rewrite_fence_no_marker_returns_unchanged():
+    from scripts.derive_docs import rewrite_fence
+    assert rewrite_fence("no fences here\n", "x", "y") == "no fences here\n"
+
+
+def test_rewrite_fence_multiple_ids_independent():
+    from scripts.derive_docs import rewrite_fence
+    src = (
+        "<!-- derived:a -->\nA-OLD\n<!-- /derived:a -->\n"
+        "<!-- derived:b -->\nB-OLD\n<!-- /derived:b -->\n"
+    )
+    out = rewrite_fence(src, "a", "A-NEW\n")
+    assert "A-OLD" not in out and "B-OLD" in out
+
+
+def test_rewrite_fence_raises_on_unclosed_marker():
+    from scripts.derive_docs import rewrite_fence
+    with pytest.raises(ValueError):
+        rewrite_fence(
+            "<!-- derived:x -->\nstuff with no close marker\n", "x", "new")
+
+
+def test_render_test_count_fence_content_carries_count():
+    from scripts.derive_docs import (
+        Derivation, render_fence_content)
+    d = Derivation(spec_id="149", test_count=42,
+                   affects_files=("tests/test_a.py",))
+    out = render_fence_content("test-count", d)
+    assert "42" in out
+    assert "tests/test_a.py" in out
+
+
+def test_apply_derivations_uses_known_fences():
+    from scripts.derive_docs import (
+        Derivation, apply_derivations_to_spec_text)
+    d = Derivation(spec_id="149", test_count=7,
+                   affects_files=("tests/test_x.py",))
+    src = (
+        "## Plan\n"
+        "<!-- derived:test-count -->\n"
+        "OLD\n"
+        "<!-- /derived:test-count -->\n"
+        "trailing\n"
+    )
+    out = apply_derivations_to_spec_text(src, d)
+    assert "7" in out
+    assert "OLD" not in out
+    assert "trailing" in out
+    # Round-trip: applying twice is byte-identical.
+    assert apply_derivations_to_spec_text(out, d) == out

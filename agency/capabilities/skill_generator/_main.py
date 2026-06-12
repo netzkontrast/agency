@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """skill_generator — generate a deploy-ready skill in one call.
 
 Skill_generator produces a deploy-ready skill in a single call, emitting a CSO-clean SKILL.md from a name and description.

@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """dogfood — graph-native observation ledgers (Spec 017).
 
 Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exported and imported as JSON preserving ids and validity windows, and rendered to markdown on demand.
@@ -786,6 +787,136 @@ class DogfoodCapability(CapabilityBase):
             "by_tool":      dict(sorted(by_tool.items())),
             "samples":      samples,
             "count":        sum(by_tool.values()),                 # legacy alias
+        }
+
+    @verb(role="transform")
+    def replay_events(self, for_intent_id: str = "",
+                       tool: str = "", limit: int = 100) -> dict:
+        """Replay every Event recorded OBSERVED_DURING the given intent
+        (Spec 195 Slice 2 — typed replay + monotonic chain).
+
+        Returns the sequence of typed event rows in record order, each
+        linked to its `prior_event_id` (the previous event in the same
+        intent's replay; empty for the first). Slice 1 BoundaryUse nodes
+        are joined in via the RECORDED_BY edge so the replay surface
+        carries the moat metadata when present.
+
+        Inputs: for_intent_id (str — required; the SERVES anchor).
+                tool (str — optional filter; "" = every tool).
+                limit (int — bound the row count; default 100).
+        Returns: ``{intent_id, events: [{event_id, prior_event_id, name,
+                  tool, session, target, verb_shadow, summary}], count}``.
+        chain_next: ``dogfood.parse_amendment`` reads the replay when the
+                    classifier needs the recent-event window.
+        """
+        intent_id = for_intent_id
+        if not intent_id:
+            return {"intent_id": "", "events": [], "count": 0}
+        # Walk Event nodes that OBSERVED_DURING the intent; preserve
+        # record-creation order (the in-graph id is a stable monotone
+        # sequence per Spec 002 substrate guarantees).
+        rows = self.ctx.memory.g.query(
+            "MATCH (e:Event)-[:OBSERVED_DURING]->(i:Intent) "
+            "WHERE i.id = $iid RETURN e",
+            {"iid": intent_id})
+        events = [r["e"]["properties"] for r in rows]
+        # Stable order by created_at if present, else by id (record-order
+        # convention). The graph appends in insertion order; we sort the
+        # list explicitly to stay deterministic across query backends.
+        events.sort(key=lambda p: (
+            p.get("created_at", ""), str(p.get("id", ""))))
+        if tool:
+            events = [p for p in events if p.get("tool") == tool]
+        events = events[: max(0, int(limit))]
+        # Join BoundaryUse via the RECORDED_BY edge — collect every
+        # BoundaryUse for this intent in one query, then index by the
+        # Event id it references.
+        bu_rows = self.ctx.memory.g.query(
+            "MATCH (b:BoundaryUse)-[:RECORDED_BY]->(e:Event) "
+            "MATCH (b)-[:SERVES]->(i:Intent) "
+            "WHERE i.id = $iid RETURN b, e",
+            {"iid": intent_id})
+        bu_by_event: dict[str, dict] = {}
+        for r in bu_rows:
+            eid = str(r["e"]["properties"].get("id", ""))
+            bu_by_event[eid] = r["b"]["properties"]
+        out: list[dict] = []
+        prev_id = ""
+        for p in events:
+            eid = str(p.get("id", ""))
+            bu = bu_by_event.get(eid, {})
+            out.append({
+                "event_id":       eid,
+                "prior_event_id": prev_id,
+                "name":           p.get("name", ""),
+                "tool":           p.get("tool", ""),
+                "session":        p.get("session", ""),
+                "summary":        p.get("summary", ""),
+                "target":         bu.get("target", ""),
+                "verb_shadow":    bu.get("verb_shadow", ""),
+            })
+            prev_id = eid
+        return {
+            "intent_id": intent_id,
+            "events":    out,
+            "count":     len(out),
+        }
+
+    @verb(role="transform")
+    def recall_overflow_slice(self,
+                                body: str = "",
+                                slice: str = "full",
+                                grep: str = "",
+                                offset: int = 0,
+                                byte_offset: int = 0,
+                                max_tokens: int = 2000) -> dict:
+        """Spec 154 Slice 3 — recall a paged view of a captured overflow body.
+
+        Slice 2 of Spec 154 wired `capture_body_overflow` through the
+        envelope; this verb is the read side. The caller supplies the
+        full body (e.g. from a previously-stored Artefact); the verb
+        delegates to the pure `_overflow.recall_overflow_slice` library
+        with the configured budget. Slice 4 will add an Artefact-id-
+        keyed lookup so the body never has to round-trip through the
+        agent.
+
+        Inputs: body (str — the full captured body the agent is paging).
+                slice (str — "full" or "<start>:<stop>" line range).
+                grep (str — pattern to filter matching lines).
+                offset (int — grep paging offset).
+                byte_offset (int — line slice intra-line cursor).
+                max_tokens (int — budget for the returned slice).
+        Returns: ``{body, slice_tokens, total_tokens, matches_returned,
+                    more_available, next_match_offset, next_byte_offset}``.
+        chain_next: ``dogfood.replay_events`` when the agent needs to
+                    find the right body to recall first.
+        """
+        from agency._overflow import recall_overflow_slice as _recall
+
+        def _proxy_counter(text: str) -> int:
+            return len(text)
+
+        # Spec 082 boundary lives on engine.token_counter; use it when
+        # available, fall back to the deterministic char-proxy otherwise
+        # (keeps tests hermetic without the Spec 082 backend).
+        counter = _proxy_counter
+        tc = getattr(self.ctx, "engine", None)
+        tc = getattr(tc, "token_counter", None) if tc else None
+        if tc is not None:
+            counter = tc
+        res = _recall(
+            body, slice=slice, grep=grep, offset=offset,
+            byte_offset=byte_offset, max_tokens=max_tokens,
+            counter=counter,
+        )
+        return {
+            "body":              res.body,
+            "slice_tokens":      res.slice_tokens,
+            "total_tokens":      res.total_tokens,
+            "matches_returned":  res.matches_returned,
+            "more_available":    res.more_available,
+            "next_match_offset": res.next_match_offset,
+            "next_byte_offset":  res.next_byte_offset,
         }
 
     # ════════════════════════════════════════════════════════════════════════

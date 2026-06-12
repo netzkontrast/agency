@@ -127,3 +127,86 @@ def test_unknown_verb_is_a_clean_error(tmp_path, capsys):
     never a raw traceback."""
     rc = cli_main(["shell", "no-such-verb"])
     assert rc != 0
+
+
+# ─────────── Spec 018 Win 6 — `--fields` key1,key2 projection ─────────
+# Filter the result dict to the named top-level keys; preserves the order
+# specified in the comma-separated list. Missing keys are silently dropped
+# (the contract is "give me the fields I asked for"; the absence of one
+# isn't an error). Empty `--fields` = identity (Slice 1 backwards-compat).
+def test_fields_filter_projects_dict_to_named_keys(tmp_path, capsys):
+    """`agency welcome --fields capabilities,db_path` returns only those keys."""
+    rc = cli_main(["--db", str(tmp_path / "g.db"),
+                    "welcome", "--fields", "capabilities,db_path"])
+    out = json.loads(_out(capsys))
+    assert rc == 0
+    # Only the requested keys appear (subset invariant — rule 8)
+    assert set(out.keys()) <= {"capabilities", "db_path"}
+    assert "capabilities" in out and "db_path" in out
+    # Sibling keys that exist in the full welcome payload are filtered out.
+    assert "state" not in out
+    assert "intents_count" not in out
+
+
+def test_fields_filter_preserves_order_from_csv(tmp_path, capsys):
+    """The output dict keys appear in the order the user requested,
+    not alphabetic or insertion order."""
+    rc = cli_main(["--db", str(tmp_path / "g.db"),
+                    "welcome", "--fields", "db_path,capabilities"])
+    keys = list(json.loads(_out(capsys)).keys())
+    assert rc == 0
+    assert keys == ["db_path", "capabilities"], (
+        f"--fields order must be preserved; got {keys}")
+
+
+def test_fields_filter_silently_drops_missing_key(tmp_path, capsys):
+    """An unknown key in --fields is silently dropped (the contract is
+    SUBSET; absence isn't an error)."""
+    rc = cli_main(["--db", str(tmp_path / "g.db"),
+                    "welcome", "--fields", "capabilities,not_a_real_key"])
+    out = json.loads(_out(capsys))
+    assert rc == 0
+    assert "capabilities" in out
+    assert "not_a_real_key" not in out
+
+
+def test_fields_filter_empty_is_identity(tmp_path, capsys):
+    """`--fields ""` (empty) is a no-op: full welcome payload returned.
+    Backwards-compat for sessions that pass the flag with no value."""
+    rc = cli_main(["--db", str(tmp_path / "g.db"),
+                    "welcome", "--fields", ""])
+    out = json.loads(_out(capsys))
+    assert rc == 0
+    # Full payload has multiple keys; --fields "" returns ≥ 5 of them.
+    assert len(out.keys()) >= 5
+
+
+def test_fields_filter_handles_whitespace_in_csv(tmp_path, capsys):
+    """`--fields ' capabilities , db_path '` strips whitespace per key."""
+    rc = cli_main(["--db", str(tmp_path / "g.db"),
+                    "welcome", "--fields", " capabilities , db_path "])
+    out = json.loads(_out(capsys))
+    assert rc == 0
+    assert set(out.keys()) == {"capabilities", "db_path"}
+
+
+def test_fields_filter_on_execute_result(tmp_path, capsys):
+    """`agency execute --code ... --fields ...` filters the execute
+    result (proves the helper applies to ANY command's output, not
+    just `welcome`)."""
+    rc = cli_main(["--db", str(tmp_path / "g.db"),
+                    "execute", "--code", "return {'a': 1, 'b': 2, 'c': 3}",
+                    "--fields", "a,c"])
+    out = json.loads(_out(capsys))
+    assert rc == 0
+    assert out == {"a": 1, "c": 3}
+
+
+def test_fields_filter_passes_through_non_dict_results(tmp_path, capsys):
+    """Non-dict results (int, list, str) pass through unchanged when
+    --fields is supplied — the projection only applies to dicts."""
+    rc = cli_main(["--db", str(tmp_path / "g.db"),
+                    "execute", "--code", "return 42",
+                    "--fields", "anything"])
+    assert rc == 0
+    assert json.loads(_out(capsys)) == 42

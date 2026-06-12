@@ -10,7 +10,7 @@ vision_goals: [4]
 affects:
   - agency/capabilities/*/  (scaffold markers)
   - scripts/check-drift
-  - tests/test_scaffold_sweep.py
+  - tests/test_scaffold_markers.py   # Slice 1 SHIPPED 2026-06-12 (replaces planned test_scaffold_sweep.py)
 ---
 
 # Spec 158 — Capability scaffold + fixture sweep
@@ -96,3 +96,12 @@ Then:   ScaffoldReport.orphan_fixtures contains the path;
 2. Where does the orphan-fixture inventory live? **Recommend**: derived
    per-run from `glob(tests/fixtures/*) - live capability set`; never a
    checked-in allowlist.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+The typed shape this spec carries was shipped as part of the wave-1+2
+batch (intents trackable in graph). See TODO.md row + the corresponding
+test module under `tests/`.
+

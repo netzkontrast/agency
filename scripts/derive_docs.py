@@ -130,6 +130,86 @@ def derive_tree(plan_root: Path, *, counts: dict[str, int]) -> DeriveReport:
         derivations=[derive_spec(p, counts=counts) for p in paths])
 
 
+# ── Slice 2.2 — HTML-comment fence rewrite ────────────────────────────────
+# `<!-- derived:<id> -->` … `<!-- /derived:<id> -->` HTML-comment markers
+# delimit a derived zone in spec.md. `rewrite_fence` replaces ONLY the
+# content between the markers; everything outside is byte-preserved. An
+# opening marker without a matching close raises ValueError (Slice 2.4
+# promotes to `Codes.DERIVE_FENCE_BROKEN`).
+def _fence_markers(fence_id: str) -> tuple[str, str]:
+    return (f"<!-- derived:{fence_id} -->", f"<!-- /derived:{fence_id} -->")
+
+
+def find_fence(text: str, fence_id: str) -> tuple[int, int] | None:
+    """Return `(inner_start, inner_end)` byte offsets for the FIRST
+    fence with the given id; None when the opening marker is absent.
+    Raises ValueError when the opening marker exists but is unclosed."""
+    open_m, close_m = _fence_markers(fence_id)
+    open_at = text.find(open_m)
+    if open_at < 0:
+        return None
+    # Inner content begins on the line AFTER the opening marker.
+    inner_start = open_at + len(open_m)
+    # Skip the newline that terminates the marker line, if any.
+    if inner_start < len(text) and text[inner_start] == "\n":
+        inner_start += 1
+    close_at = text.find(close_m, inner_start)
+    if close_at < 0:
+        raise ValueError(
+            f"unclosed fence: `<!-- derived:{fence_id} -->` opened at "
+            f"byte {open_at} has no matching `<!-- /derived:{fence_id} -->`")
+    return inner_start, close_at
+
+
+def rewrite_fence(text: str, fence_id: str, new_content: str) -> str:
+    """Replace the content between the fence's open + close markers with
+    `new_content`. When the fence is absent, return text unchanged.
+    When the opening marker is unclosed, raises ValueError.
+
+    `new_content` SHOULD end in a newline so the closing marker stays on
+    its own line; callers passing a string without a trailing newline get
+    one synthesized for them (idempotence convenience)."""
+    span = find_fence(text, fence_id)
+    if span is None:
+        return text
+    inner_start, inner_end = span
+    if new_content and not new_content.endswith("\n"):
+        new_content = new_content + "\n"
+    return text[:inner_start] + new_content + text[inner_end:]
+
+
+def render_fence_content(fence_id: str, derivation: "Derivation") -> str:
+    """Render the canonical content for a known fence id from a typed
+    Derivation. Slice 2.2 ships ONE fence kind (`test-count`); future
+    slices add more (`vision-goals`, `followup-status`, …)."""
+    if fence_id == "test-count":
+        affects_str = ", ".join(derivation.affects_files) or "(none)"
+        return (
+            f"_test_count: **{derivation.test_count}** "
+            f"(derived from `affects:` {affects_str})_\n"
+        )
+    return ""
+
+
+_KNOWN_FENCES = ("test-count",)
+
+
+def apply_derivations_to_spec_text(text: str, derivation: "Derivation") -> str:
+    """Walk every known fence id; rewrite the ones present in `text`.
+    Unknown fence ids are left alone — the author opts in by adding a
+    marker pair for the fence kinds they want derived."""
+    out = text
+    for fid in _KNOWN_FENCES:
+        try:
+            content = render_fence_content(fid, derivation)
+        except Exception:
+            content = ""
+        if not content:
+            continue
+        out = rewrite_fence(out, fid, content)
+    return out
+
+
 # ── CLI entry ──────────────────────────────────────────────────────────────
 def _collect_live_test_counts(repo_root: Path) -> dict[str, int]:
     """Run `pytest --collect-only -q` and parse its output into a
@@ -165,9 +245,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--plan-root", default="Plan",
                         help="root directory holding `<id>-slug/spec.md` (default: Plan)")
-    parser.add_argument("--dry-run", action="store_true", default=True,
-                        help="print derived payload without rewriting spec.md "
-                             "(Slice 2.2 ships --write)")
+    parser.add_argument("--write", action="store_true",
+                        help="rewrite spec.md derived zones in-place via "
+                             "`<!-- derived:<id> -->` HTML fences (Slice 2.2)")
     parser.add_argument("--repo-root", default=".",
                         help="repo root (for the pytest collect call)")
     args = parser.parse_args(argv)
@@ -182,9 +262,28 @@ def main(argv: list[str] | None = None) -> int:
         if not d.test_count:
             continue
         print(f"  {d.spec_id}  {d.test_count:>4}  ({len(d.affects_files)} affects)")
-    # Slice 2.1: informational only. Slice 2.3 will gate via
-    # check-doc-drift; for now always returns 0 unless `--repo-root`
-    # was misconfigured.
+    if args.write:
+        # Slice 2.2 — write side: rewrite derived zones in every spec.md
+        # that DECLARES a fence. Hand-prose untouched; specs without
+        # fences are no-op.
+        plan_root = Path(args.plan_root)
+        touched: list[str] = []
+        per_spec = {d.spec_id: d for d in rep.derivations}
+        for sp in sorted(plan_root.glob("*/spec.md")):
+            spec_id = _spec_id_from_dir(sp)
+            d = per_spec.get(spec_id)
+            if d is None:
+                continue
+            src = sp.read_text(encoding="utf-8")
+            try:
+                out = apply_derivations_to_spec_text(src, d)
+            except ValueError as e:
+                print(f"  ! {sp}: {e}")
+                continue
+            if out != src:
+                sp.write_text(out, encoding="utf-8")
+                touched.append(str(sp))
+        print(f"  wrote {len(touched)} spec.md files")
     return 0
 
 

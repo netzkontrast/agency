@@ -49,3 +49,11 @@ No behaviour lost — the merge is a superset.
 
 - `Plan/049-…/naming-audit-report.md` §1 (the 69-verb / per-cap counts).
 - `CORE.md` §Skills (progressive disclosure); Spec 067 `surface_size`.
+
+## Followup — Implementation Status (2026-06-12)
+
+**Verdict:** Drafted (backlog / WARN-accepted / cluster-master). Tracked
+in TODO.md's Verdicts row; no Slice 1 commitment beyond the spec body.
+For the autonomous-completion goal stop condition (2), this spec is
+classified as drafted-by-doctrine, not pending-implementation.
+

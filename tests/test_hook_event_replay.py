@@ -248,3 +248,185 @@ def test_audit_empty_when_no_bypasses(monkeypatch):
     assert rep["bypass_count"] == 0
     assert rep["by_tool"] == {}
     assert rep["samples"] == []
+
+
+# ─────────── Slice 2 — dogfood.replay_events + monotonic chain ─────────
+def _call_replay(e: Engine, iid: str, **kw):
+    kw.setdefault("for_intent_id", iid)
+    res, _ = e.registry.invoke(
+        e.memory, iid, "dogfood", "replay_events",
+        agent_id="agent:test", **kw)
+    return res
+
+
+def test_replay_empty_for_unknown_intent():
+    e = _fresh()
+    rep = _call_replay(e, _intent(e), for_intent_id="intent:no-such")
+    assert rep["events"] == []
+    assert rep["count"] == 0
+
+
+def test_replay_returns_events_in_record_order(monkeypatch):
+    """A sequence of three hook events lands in record order with
+    prior_event_id linking each to its predecessor."""
+    e = _fresh()
+    iid = _intent(e)
+    monkeypatch.setenv("AGENCY_INTENT", iid)
+    cmds = ["git commit -m a", "pytest tests/", "git push"]
+    for cmd in cmds:
+        _fire_hook(e, {
+            "hook_event_name": "PreToolUse",
+            "tool_name":       "Bash",
+            "session_id":      "s",
+            "tool_input":      {"command": cmd},
+        })
+    rep = _call_replay(e, iid)
+    assert rep["count"] == 3
+    # Monotonic chain: first event has empty prior; each subsequent
+    # event's prior is the previous event's id.
+    evs = rep["events"]
+    assert evs[0]["prior_event_id"] == ""
+    for i in range(1, 3):
+        assert evs[i]["prior_event_id"] == evs[i - 1]["event_id"]
+    # The replay attaches the BoundaryUse `verb_shadow` to the Event
+    # via the RECORDED_BY join (Slice 1 invariant).
+    shadows = [ev["verb_shadow"] for ev in evs]
+    assert "branch.commit_smart" in shadows
+    assert "develop.test" in shadows
+    assert "branch.finish_branch" in shadows
+
+
+def test_replay_filters_by_tool(monkeypatch):
+    """`tool='Bash'` returns only Bash events; reads (Edit on a spec)
+    drop out."""
+    e = _fresh()
+    iid = _intent(e)
+    monkeypatch.setenv("AGENCY_INTENT", iid)
+    _fire_hook(e, {
+        "hook_event_name": "PreToolUse", "tool_name": "Bash",
+        "session_id": "s", "tool_input": {"command": "git commit -m x"},
+    })
+    _fire_hook(e, {
+        "hook_event_name": "PreToolUse", "tool_name": "Edit",
+        "session_id": "s",
+        "tool_input": {"file_path": "Plan/195-foo/spec.md"},
+    })
+    rep = _call_replay(e, iid, tool="Bash")
+    assert rep["count"] == 1
+    assert rep["events"][0]["tool"] == "Bash"
+
+
+def test_replay_respects_limit(monkeypatch):
+    """`limit=2` returns the first 2 events; count matches."""
+    e = _fresh()
+    iid = _intent(e)
+    monkeypatch.setenv("AGENCY_INTENT", iid)
+    for cmd in ["git commit -m a", "git commit -m b", "git commit -m c"]:
+        _fire_hook(e, {
+            "hook_event_name": "PreToolUse", "tool_name": "Bash",
+            "session_id": "s", "tool_input": {"command": cmd},
+        })
+    rep = _call_replay(e, iid, limit=2)
+    assert rep["count"] == 2
+
+
+def _call_recall(e: Engine, iid: str, **kw):
+    res, _ = e.registry.invoke(
+        e.memory, iid, "dogfood", "recall_overflow_slice",
+        agent_id="agent:test", **kw)
+    return res
+
+
+# ─────────── Slice 3 — dogfood.recall_overflow_slice graph verb ───────
+def test_recall_overflow_slice_returns_body_when_under_budget():
+    e = _fresh()
+    iid = _intent(e)
+    rep = _call_recall(e, iid, body="hello world", max_tokens=100)
+    assert rep["body"] == "hello world"
+    assert rep["more_available"] is False
+    # Token count comes from the engine's token_counter (Spec 082) which
+    # is backend-dependent; assert the shape invariant (positive int)
+    # rather than a pinned value (rule 8).
+    assert isinstance(rep["total_tokens"], int)
+    assert rep["total_tokens"] > 0
+
+
+def test_recall_overflow_slice_grep_filters_matching_lines():
+    e = _fresh()
+    iid = _intent(e)
+    body = "alpha\nbeta\nalphabet\ngamma\n"
+    rep = _call_recall(e, iid, body=body, grep="alpha", max_tokens=100)
+    # grep matches the two `alpha`-containing lines
+    assert "alpha" in rep["body"]
+    assert "alphabet" in rep["body"]
+    assert "beta" not in rep["body"]
+    assert "gamma" not in rep["body"]
+    assert rep["matches_returned"] == 2
+
+
+def test_recall_overflow_slice_respects_max_tokens():
+    """A small budget truncates the body; more_available flags it.
+    The exact token count depends on the live Spec 082 backend; assert
+    relationships, not pinned numbers."""
+    e = _fresh()
+    iid = _intent(e)
+    big = "X" * 5000
+    rep = _call_recall(e, iid, body=big, max_tokens=20)
+    # Body fits the budget (slice_tokens <= max_tokens) AND is shorter
+    # than the source.
+    assert rep["slice_tokens"] <= 20
+    assert len(rep["body"]) < len(big)
+    assert rep["more_available"] is True
+    assert rep["total_tokens"] >= rep["slice_tokens"]
+
+
+def test_recall_overflow_slice_line_range_slice():
+    """`slice='1:3'` returns lines 1 + 2 (Python list-slice semantics)."""
+    e = _fresh()
+    iid = _intent(e)
+    body = "L0\nL1\nL2\nL3\n"
+    rep = _call_recall(e, iid, body=body, slice="1:3", max_tokens=100)
+    assert "L1" in rep["body"]
+    assert "L2" in rep["body"]
+    assert "L0" not in rep["body"]
+
+
+def test_recall_overflow_slice_grep_paging_via_offset():
+    """Successive calls with `offset=next_match_offset` paginate."""
+    e = _fresh()
+    iid = _intent(e)
+    body = "\n".join("hit-" + str(i) for i in range(10)) + "\n"
+    # First page — small budget forces only some matches
+    page1 = _call_recall(e, iid, body=body, grep="hit", max_tokens=30)
+    if not page1["more_available"]:
+        pytest.skip("budget large enough to deliver all in one page")
+    # Resume from the cursor
+    page2 = _call_recall(e, iid, body=body, grep="hit",
+                          offset=page1["next_match_offset"],
+                          max_tokens=100)
+    assert page1["body"] != page2["body"]
+
+
+def test_replay_does_not_leak_other_intents(monkeypatch):
+    """Cross-intent contamination invariant — replay only returns
+    Events linked to the requested intent."""
+    e = _fresh()
+    iid_a = _intent(e)
+    iid_b = e.intent.capture("other", "x", "y")
+    e.intent.confirm(iid_b)
+    monkeypatch.setenv("AGENCY_INTENT", iid_a)
+    _fire_hook(e, {
+        "hook_event_name": "PreToolUse", "tool_name": "Bash",
+        "session_id": "s", "tool_input": {"command": "git commit -m a"},
+    })
+    monkeypatch.setenv("AGENCY_INTENT", iid_b)
+    _fire_hook(e, {
+        "hook_event_name": "PreToolUse", "tool_name": "Bash",
+        "session_id": "s", "tool_input": {"command": "git push"},
+    })
+    rep_a = _call_replay(e, iid_a)
+    assert rep_a["count"] == 1
+    assert rep_a["events"][0]["verb_shadow"] == "branch.commit_smart"
+    rep_b = _call_replay(e, iid_b)
+    assert rep_b["count"] == 1
+    assert rep_b["events"][0]["verb_shadow"] == "branch.finish_branch"

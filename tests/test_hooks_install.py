@@ -511,14 +511,22 @@ def test_hooks_json_has_correct_async_flags():
 
 
 # ── live dispatcher: routing-advice integration ───────────────────────────
-def _dispatch_with(payload: dict) -> subprocess.CompletedProcess:
-    """Run the live `hooks/dispatch` script with a synthetic payload."""
+def _dispatch_with(payload: dict, *, env: dict | None = None
+                    ) -> subprocess.CompletedProcess:
+    """Run the live `hooks/dispatch` script with a synthetic payload.
+    `env` augments the subprocess environment (e.g. AGENCY_HOOK_BLOCKING=1
+    for Slice 2 blocking-mode tests)."""
     repo = Path(__file__).parent.parent
     dispatcher = repo / "hooks" / "dispatch"
+    subprocess_env = None
+    if env is not None:
+        import os
+        subprocess_env = {**os.environ, **env}
     return subprocess.run(
         ["bash", str(dispatcher)],
         input=json.dumps(payload),
-        text=True, capture_output=True, timeout=10)
+        text=True, capture_output=True, timeout=10,
+        env=subprocess_env)
 
 
 def test_dispatch_routes_git_commit_to_branch_commit_smart():
@@ -596,3 +604,5 @@ def test_dispatch_ignores_unrelated_bash():
     })
     assert proc.returncode == 0
     assert "agency hook |" not in proc.stderr
+
+

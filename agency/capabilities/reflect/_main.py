@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """reflect — durable, scope-tagged cross-session memory.
 
 Reflect is the cross-session memory surface: scope-tagged notes recorded as graph nodes, recalled by scope or by semantic similarity against prior observations.

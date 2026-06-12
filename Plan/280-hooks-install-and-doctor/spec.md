@@ -448,7 +448,9 @@ entry.async`.
 - **Slice 2 — promote clearest routes to BLOCKING** (Spec 058
   WARN→error doctrine): flip `git commit` / `git push` / `pytest`
   to exit 2 once the bypass-rate baseline lands. Requires Spec
-  195 BoundaryUse capture for the baseline.
+  195 BoundaryUse capture for the baseline. (Spec 195 Slice 1+2
+  delivered the baseline 2026-06-12; the dispatcher hook script
+  intentionally stays advisory pending user direction.)
 - **Slice 3 — MCP-aware suggestions**: the dispatcher queries
   `mcp__agency__search` to derive routing hints from the live
   registry (renames don't drift the hints).

@@ -111,3 +111,50 @@ Then:   flake_count=1; verdict="fail"; CI surfaces the flaky test
 3. Flake quarantine policy? **Recommend**: a flaky test fails the gate
    (no quarantine list); Spec 169 ships a `pytest --flake-bisect`
    helper that bisects the seed for repro.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+Engine-driven end-to-end (intent:4bbf459c; skill:028ed07e tdd walk;
+5 Reflections; branch.commit_smart composed the commit message).
+
+### Done — Slice 1 (typed GateResult + pure evaluate())
+
+- **`agency/_coverage_gate.py`**:
+  - `Verdict = Literal['pass', 'fail']` + `DEFAULT_EPSILON = 0.005`
+    (0.5% flutter allowance)
+  - `GateResult{capability, baseline_coverage, current_coverage, delta,
+    flake_count, missing_tests, verdict}` frozen dataclass with
+    `__post_init__` invariants (non-empty capability; verdict ∈
+    {pass, fail}; coverage ∈ [0,1]; flake_count ≥ 0).
+  - `evaluate(*, capability, baseline, current, missing, flakes, epsilon)`
+    pure helper:
+    - verdict='fail' iff (current < baseline - epsilon) OR (flakes > 0)
+      OR (missing non-empty)
+    - else 'pass' (incl. bootstrap: baseline=0 + current>0)
+
+- **10 tests** in `tests/test_coverage_gate.py`:
+  - typed shape
+  - pass when coverage grows
+  - fail when coverage drops past epsilon
+  - pass when coverage drops within epsilon (flutter)
+  - fail on any flake
+  - fail on any missing test
+  - bootstrap case (baseline=0)
+  - rejects invalid verdict
+  - rejects coverage out of range
+  - rejects empty capability
+
+### Still — Slice 2+
+
+- **Slice 2** — wire `evaluate()` into the CI workflow; baseline
+  persisted in `Plan/_planning/coverage-baseline.json` (Spec 054 drift
+  pattern); refreshed per merged commit on `main`.
+- **Slice 3** — flake-detection by re-running failed tests N times
+  (the only way to distinguish a genuine fail from a flake).
+- **Slice 4** — `agency_doctor.coverage_gate` field reports per-cap
+  delta + verdict so the operator sees regressions before they reach CI.
+- **Slice 5** — Spec 156 loop-detection integration (a capability
+  whose tests keep flaking surfaces as a `loop_detected` Event).
+

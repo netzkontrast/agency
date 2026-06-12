@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """branch — finish a development branch: detect state, then merge / open a PR /
 
 Branch inspects the working tree and remote state and finishes the branch the appropriate way — merge when clean, a PR when review is needed, or a clear report of what blocks completion.

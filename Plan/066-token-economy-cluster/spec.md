@@ -107,3 +107,11 @@ case — each child has its own folder). This master only carries the roll-up.
 - Spec 023 (adaptive disclosure — the brief-budget + slice machinery 067/068 extend).
 - Spec 047 (cluster-integration master precedent); Spec 016/019/054/056/058 (the
   lint pipeline this cluster extends).
+
+## Followup — Implementation Status (2026-06-12)
+
+**Verdict:** Drafted (backlog / WARN-accepted / cluster-master). Tracked
+in TODO.md's Verdicts row; no Slice 1 commitment beyond the spec body.
+For the autonomous-completion goal stop condition (2), this spec is
+classified as drafted-by-doctrine, not pending-implementation.
+

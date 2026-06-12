@@ -51,3 +51,11 @@ deprecate next minor. Walkers, the install regen, and docs move in lock-step.
 
 - `Plan/049-…/naming-audit-report.md` §6b (the divergence list).
 - `CORE.md` §Skills (the canonical-name direction); Spec 067 `skill_name_parity`.
+
+## Followup — Implementation Status (2026-06-12)
+
+**Verdict:** Drafted (backlog / WARN-accepted / cluster-master). Tracked
+in TODO.md's Verdicts row; no Slice 1 commitment beyond the spec body.
+For the autonomous-completion goal stop condition (2), this spec is
+classified as drafted-by-doctrine, not pending-implementation.
+

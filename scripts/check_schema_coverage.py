@@ -150,11 +150,59 @@ def truly_inline_schemas(repo_root: Path, merged: dict) -> dict:
     return {k: v for k, v in merged.items() if k not in file_keys}
 
 
+# ── Slice 2: uncovered baseline + WARN→error gate ─────────────────────────
+@dataclass
+class SchemaRegressionReport:
+    """Slice 2 gate payload — `ok` flips False on ANY new uncovered
+    label not present in the baseline. `fixed_uncovered` lists labels
+    that are now covered (or removed from ontology) so author trims
+    the baseline."""
+
+    new_uncovered: set[str] = field(default_factory=set)
+    fixed_uncovered: set[str] = field(default_factory=set)
+    ok: bool = True
+
+
+def load_schema_baseline(path: Path) -> set[str]:
+    """Parse one label per line; blank + `#`-comment lines tolerated."""
+    path = Path(path)
+    if not path.exists():
+        return set()
+    out: set[str] = set()
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        out.add(line)
+    return out
+
+
+def compare_uncovered_to_baseline(rep: CoverageReport,
+                                    baseline: set[str]) -> SchemaRegressionReport:
+    """Set difference. live − baseline = REGRESSIONS (gate-fail).
+    baseline − live = FIXED (label is now covered, trim baseline)."""
+    new_uncovered = rep.uncovered - baseline
+    fixed_uncovered = baseline - rep.uncovered
+    return SchemaRegressionReport(
+        new_uncovered=new_uncovered,
+        fixed_uncovered=fixed_uncovered,
+        ok=(len(new_uncovered) == 0),
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--root", default="agency",
                         help="repo subdirectory holding `capabilities/` "
                              "(default: agency)")
+    parser.add_argument("--baseline", default=None,
+                        help="path to baseline file listing KNOWN-uncovered "
+                             "labels; Slice 2 gate flags only NEW uncovered "
+                             "labels (Spec 054 drift pattern)")
+    parser.add_argument("--strict", action="store_true",
+                        help="promote to gate: with --baseline, exit 1 on "
+                             "new uncovered labels; without, exit 1 on any "
+                             "uncovered label")
     args = parser.parse_args(argv)
     # Boot the engine just long enough to read the live ontology labels
     # AND the merged schema dict (which we then split into truly-
@@ -184,6 +232,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  non-node schemas ({len(rep.non_node_schemas)}; "
               f"validate artefact/wire-payload shapes): "
               f"{', '.join(sorted(rep.non_node_schemas)[:10])}")
+    if args.strict:
+        if args.baseline is not None:
+            baseline = load_schema_baseline(Path(args.baseline))
+            res = compare_uncovered_to_baseline(rep, baseline)
+            if res.new_uncovered:
+                print(f"\nREGRESSION: {len(res.new_uncovered)} new "
+                      f"uncovered labels not in baseline:")
+                for label in sorted(res.new_uncovered):
+                    print(f"  + {label}")
+            if res.fixed_uncovered:
+                print(f"\nFIXED: {len(res.fixed_uncovered)} baseline "
+                      f"entries now covered — trim from {args.baseline}:")
+                for label in sorted(res.fixed_uncovered):
+                    print(f"  - {label}")
+            return 0 if res.ok else 1
+        return 0 if not rep.uncovered else 1
     return 0
 
 
