@@ -443,12 +443,31 @@ entry.async`.
   unrelated bash; `agency_doctor.hooks` carries the documented
   shape.
 
-### Still — Slice 2+
+### Done — Slice 2 (opt-in blocking mode, 2026-06-12)
 
-- **Slice 2 — promote clearest routes to BLOCKING** (Spec 058
-  WARN→error doctrine): flip `git commit` / `git push` / `pytest`
-  to exit 2 once the bypass-rate baseline lands. Requires Spec
-  195 BoundaryUse capture for the baseline.
+- **`AGENCY_HOOK_BLOCKING=1`** env opts a session into BLOCKING mode
+  on the three routes the live registry covers unambiguously:
+  - `git commit` → blocks (exit 2) with `branch.commit_smart` route.
+  - `git push` → blocks with `branch.finish_branch` route.
+  - `pytest` / `python -m pytest` → blocks with `develop.test` route.
+- **Default stays advisory** (Slice 1 behaviour) so existing sessions
+  aren't silently blocked — opt-in is the user's choice.
+- **Spec edits** (`Plan/NNN-*/spec.md`) stay advisory even in blocking
+  mode — `dogfood.observe` is a complement, not a replacement, so a
+  hard block would over-fire.
+- **Now unblocked by Spec 195 Slice 1+2**: the BoundaryUse capture +
+  replay gives the dogfood loop the bypass-rate baseline + provenance
+  needed to verify the doctrine.
+- **6 new tests** in `tests/test_hooks_install.py`:
+  - git commit blocks (exit 2 + verb hint in stderr)
+  - git push blocks
+  - pytest blocks
+  - spec edit stays advisory in blocking mode
+  - blocking-mode-unset default (advisory; exit 0)
+  - unrelated bash never blocks even in blocking mode
+
+### Still — Slice 3+
+
 - **Slice 3 — MCP-aware suggestions**: the dispatcher queries
   `mcp__agency__search` to derive routing hints from the live
   registry (renames don't drift the hints).
