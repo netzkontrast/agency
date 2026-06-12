@@ -193,10 +193,30 @@ Then:   monotonic == False; the consumer must surface this as a
   - Audit filters by `for_intent_id` (no cross-intent leak).
   - Empty audit returns zero counts cleanly.
 
-### Still — Slice 2+
+### Done — Slice 2 (event replay + monotonic chain, 2026-06-12)
 
-- **Event replay** (`dogfood.replay_events(intent_id)`) with the
-  typed `ReplayResult` shape + monotonic `prior_event_id` chain.
+- **`dogfood.replay_events(for_intent_id, tool="", limit=100)`** —
+  walks every Event OBSERVED_DURING the named intent (Spec 076 hook
+  surface), joins each row to its BoundaryUse via the Slice 1
+  RECORDED_BY edge so the replay carries `verb_shadow` + `target`
+  when capture fired.
+- **Monotonic chain**: each row's `prior_event_id` points at the
+  previous event's id (first event gets `""`). Slice 3 promotes this
+  to a verified monotone invariant (clock-skew check + integrity
+  assertion).
+- **Typed return shape** — `{intent_id, events: [{event_id,
+  prior_event_id, name, tool, session, target, verb_shadow,
+  summary}], count}`. Cross-intent contamination prevented by the
+  `OBSERVED_DURING` traversal anchor.
+- **Filters**: `tool=` narrows to a single tool family (e.g. all
+  `Bash` events); `limit=` bounds the row count for token-budget
+  awareness (default 100).
+- **5 new tests** in `tests/test_hook_event_replay.py` (16 total green):
+  empty replay for unknown intent; record-order chain with verb_shadow
+  joined from BoundaryUse; tool filter; limit; cross-intent isolation.
+
+### Still — Slice 3+
+
 - **Live `verb_shadow` derivation** via Spec 188 `suggest_drill`
   (registry-aware so renames don't drift the shadow strings).
 - **Loop-detection event records** (Spec 156) appear in replay.
