@@ -197,19 +197,164 @@ def provenance(ctx, intent_id):
                                     {"intent_id": intent_id}))
 
 
-@cli.command()
+@cli.group(invoke_without_command=True)
 @click.pass_context
 def hook(ctx):
-    """Route a Claude Code hook event (JSON on stdin) to its handler (Spec 076).
+    """Hook surface: Spec 076 event dispatch + Spec 280 self-test/uninstall.
 
-    The unified `hooks/dispatch` entry pipes every event's stdin JSON to this
-    command; the engine records it as provenance. No intent required."""
+    Default (no subcommand): route a Claude Code hook event (JSON on stdin)
+    to the engine's handler. The unified `hooks/dispatch` entry pipes every
+    event's stdin JSON to this command; the engine records it as provenance.
+    No intent required.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
     raw = sys.stdin.read()
     try:
         event = json.loads(raw) if raw.strip() else {}
     except ValueError as e:
         return _emit({"error": "JSONDecodeError", "message": str(e)}, 1)
     return _emit(*_call_engine_tool(_db(ctx), "hook_event", {"event": event}))
+
+
+@hook.command(name="self-test")
+@click.option("--plugin-root", default=None,
+              help="Plugin root containing hooks/. Default: derived from the "
+                   "agency package location.")
+@click.pass_context
+def hook_self_test(ctx, plugin_root):                                  # noqa: ARG001
+    """Spec 280 Slice 1.5 — verify the hook dispatcher path end-to-end.
+
+    Runs each event with a synthetic JSON payload against `hooks/dispatch`
+    + reports per-event {ok, stderr_hint?, exit_code}. Best-effort: a
+    missing CLI or unparseable payload doesn't crash the test — we report
+    the failure mode."""
+    import subprocess
+    if plugin_root is None:
+        plugin_root = os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__)))
+    dispatcher = os.path.join(plugin_root, "hooks", "dispatch")
+    if not os.path.exists(dispatcher):
+        return _emit(
+            {"ok": False, "error": "DISPATCHER_MISSING",
+             "path": dispatcher}, 2)
+    cases: list[tuple[str, dict, str]] = [
+        ("SessionStart",
+         {"hook_event_name": "SessionStart", "session_id": "self-test"},
+         ""),
+        ("PreToolUse-Bash-git-commit",
+         {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+          "tool_input": {"command": "git commit -m x"}},
+         "branch.commit_smart"),
+        ("PreToolUse-Bash-pytest",
+         {"hook_event_name": "PreToolUse", "tool_name": "Bash",
+          "tool_input": {"command": "pytest tests/"}},
+         "develop.test"),
+        ("PreToolUse-Edit-spec",
+         {"hook_event_name": "PreToolUse", "tool_name": "Edit",
+          "tool_input": {"file_path": "Plan/280-foo/spec.md"}},
+         "dogfood.observe"),
+        ("PostToolUse",
+         {"hook_event_name": "PostToolUse", "tool_name": "Bash"},
+         ""),
+    ]
+    results = []
+    all_ok = True
+    for name, payload, want_hint in cases:
+        proc = subprocess.run(
+            ["bash", dispatcher],
+            input=json.dumps(payload),
+            text=True, capture_output=True, timeout=10)
+        ok = proc.returncode == 0
+        hint_seen = want_hint in proc.stderr if want_hint else True
+        case_ok = ok and hint_seen
+        all_ok = all_ok and case_ok
+        results.append({
+            "case":      name,
+            "exit_code": proc.returncode,
+            "want_hint": want_hint,
+            "hint_seen": hint_seen,
+            "stderr":    (proc.stderr or "")[:240],
+            "ok":        case_ok,
+        })
+    return _emit({"ok": all_ok, "results": results}, 0 if all_ok else 1)
+
+
+@hook.command(name="wrap", context_settings={"ignore_unknown_options": True})
+@click.option("--command", required=True,
+              help="The foreign hook command to run verbatim.")
+@click.pass_context
+def hook_wrap(ctx, command):                                           # noqa: ARG001
+    """Spec 280 — run a wrapped foreign hook with stdin passthrough.
+
+    This is the wrap target the install side-effect points foreign-hook
+    entries at. Behavior:
+
+    1. Spawn `bash -c "<command>"` with the parent's stdin / stdout /
+       stderr (so the foreign hook receives the Claude Code event
+       payload verbatim and writes back the same way).
+    2. Best-effort record an `Event(kind="hook-wrap-run", command,
+       exit_code)` so the provenance moat covers the wrapped hook
+       without requiring an active intent (Codex review on PR #138:
+       hooks fire OUTSIDE any agency intent context).
+    3. Exit with the wrapped command's exit code so the foreign hook's
+       block/allow semantics are preserved (a sync foreign hook that
+       used to exit 2 still blocks the tool).
+
+    The wrap is NOT a public allowlist bypass (Codex P1): it's not
+    exposed via `shell.run` and only fires for entries the install
+    side-effect rewrote (which the user authored themselves).
+    """
+    import subprocess
+    import os as _os
+    proc = subprocess.run(
+        ["bash", "-c", command],
+        stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
+
+    # Best-effort Event recording — never crash the hook on failure.
+    try:
+        db_path = _resolve_db(_db(ctx))
+        eng = Engine(db_path)
+        try:
+            eng.memory.record("Event", {
+                "name":      "hook-wrap-run",
+                "command":   command[:200],
+                "exit_code": proc.returncode,
+            })
+        finally:
+            eng.memory.close()
+    except Exception:
+        pass
+    sys.exit(proc.returncode)
+
+
+@hook.command(name="uninstall")
+@click.option("--claude-settings-path", default=None,
+              help="Path to `.claude/settings.json` (default: "
+                   "$PWD/.claude/settings.json).")
+@click.pass_context
+def hook_uninstall(ctx, claude_settings_path):                         # noqa: ARG001
+    """Spec 280 Slice 5 — restore `.claude/settings.json` from `.bak`.
+
+    Reverses the install side-effect by moving `.bak` back to
+    `settings.json`. Best-effort unwrap of foreign hooks (we ignored
+    them on install if they had no `.bak`).
+    """
+    import shutil
+    settings_path = (
+        claude_settings_path
+        or os.path.join(os.getcwd(), ".claude", "settings.json"))
+    backup = settings_path + ".bak"
+    if not os.path.exists(backup):
+        return _emit(
+            {"ok": False, "error": "NO_BACKUP",
+             "path": backup,
+             "hint": ("no .bak found — install was never run on this "
+                      "settings file, or the .bak was deleted")},
+            2)
+    shutil.copyfile(backup, settings_path)
+    return _emit({"ok": True, "restored_from": backup,
+                   "settings_path": settings_path}, 0)
 
 
 # --- Spec 079: auto-generated per-verb commands (mirror the live registry) -----

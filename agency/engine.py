@@ -669,6 +669,47 @@ class Engine:
                 else:
                     analyze_extras[tool] = "missing"
 
+            # Spec 280 Slice 1 — hooks install verification + foreign-hook
+            # wrapping. Reads `.claude/settings.json` (project-level) and
+            # reports plugin-enabled, CLI-on-PATH, hook-scripts-present,
+            # any foreign hooks detected. `next_steps` aggregates repair
+            # pointers.
+            from ._hooks import check_install
+            import json as _json
+            settings_path = (
+                os.path.join(project_dir, ".claude", "settings.json")
+                if project_dir
+                else os.path.join(os.getcwd(), ".claude", "settings.json"))
+            user_settings: dict = {}
+            try:
+                with open(settings_path) as _f:
+                    user_settings = _json.load(_f)
+            except (FileNotFoundError, _json.JSONDecodeError, OSError):
+                user_settings = {}
+            # Codex review on PR #138: in a normal marketplace/pipx
+            # install the running `agency-mcp` code is imported from
+            # pipx/site-packages, but the hook files live in the
+            # Claude plugin tree at `${CLAUDE_PLUGIN_ROOT}/hooks`.
+            # Prefer that env var when set so the doctor reports
+            # `hook_scripts_present=True` in the actual install layout;
+            # fall back to `__file__` only for source-tree usage.
+            plugin_root = (
+                os.environ.get("CLAUDE_PLUGIN_ROOT")
+                or os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            hooks_status = check_install(
+                user_settings,
+                env={"AGENCY_SETTINGS_PATH": settings_path},
+                plugin_root=plugin_root,
+                cli_available=bool(agency_on_path),
+            )
+            # Hook next-steps stay on `doctor.hooks.next_steps` —
+            # informational surface for users who want hooks to fire.
+            # They are NOT rolled into the doctor's top-level `next_steps`
+            # because plugin-enabled / cli-on-path are USER concerns
+            # (a maintainer working in the agency repo intentionally has
+            # neither in CI); flipping the `ok` invariant on them would
+            # erode the doctor's health contract (Spec 030).
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -678,6 +719,8 @@ class Engine:
                     "JULES_API_KEY": jules_status,
                     "CLAUDE_PROJECT_DIR": project_dir,
                 },
+                # Spec 280 — hooks install verification.
+                "hooks": hooks_status.to_dict(),
                 # Spec 045 — the live semantic-recall backend (so users
                 # can confirm whether AGENCY_EMBEDDER took effect, or
                 # whether the BGE fallback to TF-IDF happened silently).
