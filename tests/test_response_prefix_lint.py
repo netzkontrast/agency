@@ -348,3 +348,121 @@ def test_classify_flags_aliased_json_dumps():
     )
     violations = audit_source(src, path="x.py")
     assert any(v.kind == ViolationKind.UNSORTED_DICT for v in violations)
+
+
+# ── Codex review on PR #134 round 2 ───────────────────────────────────────
+def test_classify_flags_bare_os_environ_passed_as_value():
+    """Codex review (P2): `dict(os.environ)` reads the live env at
+    request time; bare-attribute reads were missed before — only
+    chained forms (`.copy()` / `["X"]`) were flagged."""
+    src = (
+        "import os\n"
+        "def f():\n"
+        "    return dict(os.environ)\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.OS_ENVIRON for v in violations), \
+        f"bare `os.environ` passed as a value must be flagged; got {violations!r}"
+
+
+def test_classify_flags_bare_os_environ_assigned_to_local():
+    """A direct assignment `env = os.environ` is still a request-time
+    read of the env at prefix-build time."""
+    src = (
+        "import os\n"
+        "def f():\n"
+        "    env = os.environ\n"
+        "    return env.get('HOME')\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.OS_ENVIRON for v in violations)
+
+
+def test_classify_flags_bare_environ_from_os_import_as_value():
+    """`from os import environ; len(environ)` reads via the bare name."""
+    src = (
+        "from os import environ\n"
+        "def f():\n"
+        "    return len(environ)\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.OS_ENVIRON for v in violations)
+
+
+def test_classify_handles_dotted_import_top_level_binding():
+    """Codex review (P2): `import os.path` binds the top-level `os` per
+    Python semantics; a later `os.environ` read must still resolve to
+    the canonical module and get flagged."""
+    src = (
+        "import os.path\n"
+        "def f():\n"
+        "    return os.environ['HOME']\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.OS_ENVIRON for v in violations), \
+        f"`import os.path` should still resolve `os.environ`; got {violations!r}"
+
+
+def test_classify_respects_parameter_shadowing_for_bare_time():
+    """Codex review (P2): `from time import time; def render(time):
+    return time()` — the parameter shadows the import; the inner call
+    is to the PARAMETER, not stdlib `time.time()`. The classifier MUST
+    NOT flag this once the lint is promoted to a CI gate (Slice 2.2)."""
+    src = (
+        "from time import time\n"
+        "def render(time):\n"
+        "    return time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.TIME_TIME for v in violations), \
+        f"parameter `time` shadows import; bare call must not classify as TIME_TIME; got {violations!r}"
+
+
+def test_classify_respects_local_assignment_shadowing():
+    """A local rebinding (`time = something_else`) shadows the import
+    too — subsequent calls to `time()` reference the local."""
+    src = (
+        "import time\n"
+        "def f(clock):\n"
+        "    time = clock\n"
+        "    return time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.TIME_TIME for v in violations)
+
+
+def test_classify_still_flags_outer_scope_when_inner_shadows():
+    """Scope is hierarchical: an inner function's parameter shadows the
+    import within its body, but the outer scope still resolves the
+    import. The classifier MUST flag the outer call site."""
+    src = (
+        "import time\n"
+        "def outer():\n"
+        "    def inner(time):\n"
+        "        return time()\n"
+        "    return time.time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    time_hits = [v for v in violations if v.kind == ViolationKind.TIME_TIME]
+    assert len(time_hits) == 1, \
+        f"outer `time.time()` must still be flagged; got {violations!r}"
+
+
+def test_canonical_json_preserves_prefix_before_body_when_body_sorts_first():
+    """Codex review (P1): `json.dumps(env.to_dict(), sort_keys=True)`
+    re-sorted the merged dict GLOBALLY, so a body key like `"delta"`
+    would serialize ahead of a prefix key like `"schema_version"` —
+    breaking the prompt-cache prefix invariant."""
+    import json
+    from agency._envelope import ResponseEnvelope, canonical_json
+    env = ResponseEnvelope(
+        prefix={"schema_version": 1},                                      # 's' > 'd'
+        body={"delta": "x"},                                               # would sort first
+    )
+    blob = canonical_json(env)
+    decoded = json.loads(blob, object_pairs_hook=list)
+    keys = [k for k, _ in decoded]
+    # prefix bytes MUST precede body bytes regardless of key ordering.
+    assert keys == ["schema_version", "delta"], (
+        f"canonical_json must keep prefix keys before body keys even when "
+        f"body keys sort earlier alphabetically; got {keys!r}")

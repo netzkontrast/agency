@@ -64,8 +64,16 @@ def _build_alias_map(tree: ast.Module) -> AliasMap:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                bound = alias.asname or alias.name
-                am.modules[bound] = alias.name
+                if alias.asname:
+                    # `import os as o` → bind `o` to canonical `os`.
+                    am.modules[alias.asname] = alias.name
+                else:
+                    # `import os.path` binds the TOP-LEVEL `os` per Python
+                    # semantics (a later `os.environ` is resolved against
+                    # that), not the dotted `os.path` string (Codex review
+                    # on PR #134).
+                    top = alias.name.split(".", 1)[0]
+                    am.modules[top] = top
         elif isinstance(node, ast.ImportFrom) and node.module:
             for alias in node.names:
                 bound = alias.asname or alias.name
@@ -125,10 +133,11 @@ def _attr_chain_is(value: ast.AST, expected_module: str, expected_attr: str,
 
 
 def _is_environ_chain(node: ast.AST, am: AliasMap) -> bool:
-    """Recognize ANY read of os.environ — subscript, attribute access
-    (.copy / .items / .keys / .values), call (.get), or being passed as
-    an argument (e.g. `dict(os.environ)`). Codex review on PR #134:
-    Subscript + .get were the only forms flagged before."""
+    """Recognize ANY read of os.environ — the bare attribute itself
+    (e.g. `dict(os.environ)`), subscript (`os.environ["X"]`), attribute
+    access (`.copy` / `.items` / `.keys` / `.values`), call (`.get`).
+    Codex review on PR #134: bare reads passed as values were missed
+    before (only Subscript + chained Attribute flagged)."""
     # `os.environ` (qualified) or `environ` (from-import) name match.
     def _names_environ(n: ast.AST) -> bool:
         if isinstance(n, ast.Attribute):
@@ -138,13 +147,17 @@ def _is_environ_chain(node: ast.AST, am: AliasMap) -> bool:
             return tup == ("os", "environ")
         return False
 
+    # The node IS os.environ itself — bare attribute read passed as a
+    # value (e.g. `dict(os.environ)`, `env = os.environ`, `len(environ)`).
+    # Without this, only chained reads like `os.environ.copy()` matched.
+    if isinstance(node, ast.Attribute) and _attr_chain_is(node, "os", "environ", am):
+        return True
+    if isinstance(node, ast.Name) and am.bare_attrs.get(node.id) == ("os", "environ"):
+        return True
     # Subscript: os.environ["X"] / environ["X"]
     if isinstance(node, ast.Subscript) and _names_environ(node.value):
         return True
     # Attribute access on os.environ (.copy / .items / .keys / .values / etc.)
-    # Note: this matches `<environ>.<anything>` as a read; sufficient since
-    # there's no write surface on `os.environ` we want to allow at prefix
-    # build time.
     if isinstance(node, ast.Attribute) and _names_environ(node.value):
         return True
     return False
@@ -247,10 +260,207 @@ def classify_call(node: ast.AST, am: AliasMap | None = None) -> ViolationKind | 
         # .copy / .items / .keys / .values / .get).
         if _is_environ_chain(node, am):
             return ViolationKind.OS_ENVIRON
-    if isinstance(node, (ast.Subscript, ast.Attribute)):
+    if isinstance(node, (ast.Subscript, ast.Attribute, ast.Name)):
         if _is_environ_chain(node, am):
             return ViolationKind.OS_ENVIRON
     return None
+
+
+# ── scope-shadow tracking (Codex review on PR #134) ───────────────────────
+def _add_assignment_target(tgt: ast.AST, names: set[str]) -> None:
+    """Collect names bound by an assignment target (Name / Tuple / List /
+    Starred). Attribute / Subscript targets don't bind new names."""
+    if isinstance(tgt, ast.Name):
+        names.add(tgt.id)
+    elif isinstance(tgt, (ast.Tuple, ast.List)):
+        for elt in tgt.elts:
+            _add_assignment_target(elt, names)
+    elif isinstance(tgt, ast.Starred):
+        _add_assignment_target(tgt.value, names)
+
+
+def _collect_function_locals(fn: ast.AST) -> set[str]:
+    """Collect names bound LOCALLY in this function's scope (parameters
+    + assignment targets + for / with / except / walrus / comprehension
+    targets), WITHOUT recursing into nested function or class scopes —
+    those have their own scope. Used to detect when an inner reference
+    SHADOWS a module-level import.
+
+    Codex review on PR #134: `from time import time; def render(time):
+    return time()` must NOT classify the bare `time()` as `time.time` —
+    the parameter shadows the import."""
+    names: set[str] = set()
+    if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        args = fn.args
+        for a in args.posonlyargs + args.args + args.kwonlyargs:
+            names.add(a.arg)
+        if args.vararg:
+            names.add(args.vararg.arg)
+        if args.kwarg:
+            names.add(args.kwarg.arg)
+
+    class _LocalCollector(ast.NodeVisitor):
+        def visit_Assign(self, node: ast.Assign) -> None:                  # noqa: N802
+            for tgt in node.targets:
+                _add_assignment_target(tgt, names)
+            self.generic_visit(node)
+
+        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:            # noqa: N802
+            _add_assignment_target(node.target, names)
+            self.generic_visit(node)
+
+        def visit_AugAssign(self, node: ast.AugAssign) -> None:            # noqa: N802
+            _add_assignment_target(node.target, names)
+            self.generic_visit(node)
+
+        def visit_NamedExpr(self, node: ast.NamedExpr) -> None:            # noqa: N802
+            _add_assignment_target(node.target, names)
+            self.generic_visit(node)
+
+        def visit_For(self, node: ast.For) -> None:                        # noqa: N802
+            _add_assignment_target(node.target, names)
+            self.generic_visit(node)
+
+        visit_AsyncFor = visit_For
+
+        def visit_With(self, node: ast.With) -> None:                      # noqa: N802
+            for item in node.items:
+                if item.optional_vars:
+                    _add_assignment_target(item.optional_vars, names)
+            self.generic_visit(node)
+
+        visit_AsyncWith = visit_With
+
+        def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:    # noqa: N802
+            if node.name:
+                names.add(node.name)
+            self.generic_visit(node)
+
+        def visit_comprehension(self, node: ast.comprehension) -> None:
+            _add_assignment_target(node.target, names)
+            self.generic_visit(node)
+
+        # Do NOT recurse into nested scopes — those have their own
+        # locals collected by their own _collect_function_locals call.
+        def visit_FunctionDef(self, _node: ast.FunctionDef) -> None:       # noqa: N802
+            return
+
+        visit_AsyncFunctionDef = visit_FunctionDef
+
+        def visit_Lambda(self, _node: ast.Lambda) -> None:                 # noqa: N802
+            return
+
+        def visit_ClassDef(self, _node: ast.ClassDef) -> None:             # noqa: N802
+            return
+
+    body: list[ast.AST]
+    if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        body = list(fn.body)
+    elif isinstance(fn, ast.Lambda):
+        body = [fn.body]
+    else:                                                                  # ast.Module
+        body = list(getattr(fn, "body", []))
+    for stmt in body:
+        _LocalCollector().visit(stmt)
+    return names
+
+
+def _top_name(node: ast.AST) -> str | None:
+    """Return the top-level Name id used by `node` (the receiver of an
+    attribute / subscript / call chain), for shadowing detection.
+    Returns None when the chain doesn't bottom out at a Name (e.g.
+    method-chains starting from a literal or a Call)."""
+    if isinstance(node, ast.Call):
+        return _top_name(node.func)
+    if isinstance(node, ast.Attribute):
+        return _top_name(node.value)
+    if isinstance(node, ast.Subscript):
+        return _top_name(node.value)
+    if isinstance(node, ast.Name):
+        return node.id
+    return None
+
+
+class _ScopedAuditor(ast.NodeVisitor):
+    """AST walk that classifies prefix-poison call sites WHILE tracking
+    function-scope shadowing. When the receiver name of a node is bound
+    locally in an enclosing function scope (parameter / local
+    assignment / for-target / with-as / except-as / comprehension
+    target), the node's classification is SUPPRESSED — the local mask
+    the import alias."""
+
+    def __init__(self, am: AliasMap, path: str) -> None:
+        self.am = am
+        self.path = path
+        # scopes[0] is the module scope; module-level imports are the
+        # alias map's source of truth, so we don't track module-level
+        # rebindings as shadowing. Inner scopes shadow the alias map.
+        self.scopes: list[set[str]] = []
+        self.violations: list[PrefixViolation] = []
+        self.seen: set[tuple[int, int]] = set()
+
+    def _enter(self, locals_: set[str]) -> None:
+        self.scopes.append(locals_)
+
+    def _exit(self) -> None:
+        self.scopes.pop()
+
+    def _is_shadowed(self, name: str | None) -> bool:
+        if name is None:
+            return False
+        for scope in self.scopes:
+            if name in scope:
+                return True
+        return False
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:            # noqa: N802
+        self._enter(_collect_function_locals(node))
+        self.generic_visit(node)
+        self._exit()
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:                      # noqa: N802
+        self._enter(_collect_function_locals(node))
+        self.generic_visit(node)
+        self._exit()
+
+    def visit_Call(self, node: ast.Call) -> None:                          # noqa: N802
+        self._maybe_record(node)
+        self.generic_visit(node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:                # noqa: N802
+        self._maybe_record(node)
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:                # noqa: N802
+        self._maybe_record(node)
+        self.generic_visit(node)
+
+    def visit_Name(self, node: ast.Name) -> None:                          # noqa: N802
+        # Only Name nodes that resolve via the alias map (e.g. bare
+        # `environ` from `from os import environ`) classify; everything
+        # else short-circuits inside `classify_call`.
+        self._maybe_record(node)
+        self.generic_visit(node)
+
+    def _maybe_record(self, node: ast.AST) -> None:
+        if self._is_shadowed(_top_name(node)):
+            return
+        kind = classify_call(node, self.am)
+        if kind is None:
+            return
+        # De-dup: outer Call may wrap an inner Attribute that BOTH match
+        # (e.g. `os.environ.get(...)` is both a Call AND walks an
+        # Attribute on os.environ). Pin by (line, col).
+        key = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
+        if key in self.seen:
+            return
+        self.seen.add(key)
+        self.violations.append(PrefixViolation(
+            loc=FileLoc(path=self.path, line=getattr(node, "lineno", 0)),
+            kind=kind,
+        ))
 
 
 def audit_source(src: str, path: str) -> list[PrefixViolation]:
@@ -258,30 +468,17 @@ def audit_source(src: str, path: str) -> list[PrefixViolation]:
 
     Builds the per-file alias map first so import aliases
     (`import time as t`, `from uuid import uuid4 as make_id`) resolve
-    against canonical names. Malformed Python yields an empty list."""
+    against canonical names. Tracks function-scope shadowing so a
+    parameter or local that masks an import doesn't falsely classify
+    (Codex review on PR #134). Malformed Python yields an empty list."""
     try:
         tree = ast.parse(src, filename=path)
     except SyntaxError:
         return []
     am = _build_alias_map(tree)
-    out: list[PrefixViolation] = []
-    seen: set[tuple[int, int]] = set()                             # de-dup nested matches
-    for node in ast.walk(tree):
-        kind = classify_call(node, am)
-        if kind is None:
-            continue
-        # De-dup: outer Call may wrap an inner Attribute that BOTH match
-        # (e.g. `os.environ.get(...)` is both a Call AND walks an
-        # Attribute on os.environ). Pin by (line, col).
-        key = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(PrefixViolation(
-            loc=FileLoc(path=path, line=getattr(node, "lineno", 0)),
-            kind=kind,
-        ))
-    return out
+    auditor = _ScopedAuditor(am, path)
+    auditor.visit(tree)
+    return auditor.violations
 
 
 class PrefixAuditError(Exception):

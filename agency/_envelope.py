@@ -73,8 +73,26 @@ def canonical_json(env: ResponseEnvelope) -> str:
     """Serialize an envelope to canonical JSON: prefix keys (sorted) before
     body keys (sorted), compact separators (no insignificant whitespace).
     Two envelopes with the same {prefix, body} content yield byte-identical
-    output regardless of how their dicts were constructed."""
-    return json.dumps(env.to_dict(), sort_keys=True, separators=(",", ":"))
+    output regardless of how their dicts were constructed.
+
+    Implementation: serialize prefix and body INDEPENDENTLY (each
+    `sort_keys=True`) and splice them so prefix bytes always precede body
+    bytes. A naive `json.dumps(env.to_dict(), sort_keys=True, ...)` would
+    re-sort prefix+body keys GLOBALLY, letting a body key like `"delta"`
+    serialize ahead of a prefix key like `"schema_version"` — breaking
+    the prefix-match cache invariant (Codex review on PR #134, P1)."""
+    overlap = set(env.prefix).intersection(env.body)
+    if overlap:
+        raise ValueError(
+            f"prefix/body key overlap: {sorted(overlap)} — Spec 146 "
+            f"contract violated; pick exactly one side per key.")
+    prefix_blob = json.dumps(env.prefix, sort_keys=True, separators=(",", ":"))
+    body_blob = json.dumps(env.body, sort_keys=True, separators=(",", ":"))
+    inner_prefix = prefix_blob[1:-1]
+    inner_body = body_blob[1:-1]
+    if inner_prefix and inner_body:
+        return "{" + inner_prefix + "," + inner_body + "}"
+    return "{" + inner_prefix + inner_body + "}"
 
 
 def capability_set_hash(
