@@ -113,9 +113,9 @@ independently useful and reverts cleanly.**
     `skill.walk` verb (decision in Open Question 1).
   - `agency/capability.py` — implicit-intent-id default helper.
 - **Create:**
-  - `tests/test_cli_token_efficiency.py` — the measurement test.
-  - `tests/test_skill_walk.py` — coverage of the new walker.
-  - `tests/test_chain_compiler.py` — YAML → Python compilation.
+  - `tests/test_cli_token_efficiency.py` — the measurement test (absent; superseded by Spec 160).
+  - `tests/test_skill_walk.py` — coverage of the new walker (SHIPPED).
+  - `tests/test_chain_compiler.py` — YAML → Python compilation (absent; superseded by Spec 160 cli-yaml-chain-and-fields-closure).
 - **Documentation:** update `AGENTS.md` "Running the engine from bash
   only" section with the new compact forms. Update `CLAUDE.md` rule 1
   to cite Spec 018's skill.walk + chain syntax as the first-instinct
@@ -225,7 +225,7 @@ Per-item checklist:
 - **Win 2 — capability-prefix elision** ✗ — `agency/engine.py:_wire` registers tools only as `capability_<cap>_<verb>` (e.g. `capability_jules_dispatch`); no short-form alias (e.g. `jules.dispatch`) is registered. No aliasing logic exists in `engine.py`.
 - **Win 3 — implicit `intent_id` via `AGENCY_INTENT` env** ✗ — No `AGENCY_INTENT` env var or `agency intent --set` subcommand. Every CLI/registry call still requires explicit `intent_id` in kwargs.
 - **Win 4 — compact `get_schema` rendering** ✗ — `get_schema` is FastMCP's built-in; no compact renderer was added. The spec's 5× compression (signature DSL + one-liner return + `chain_next:` hint) does not exist.
-- **Win 5 — YAML chain compiler (`agency exec --chain`)** ✗ — Not in `agency/cli.py`. No `--chain` flag. No `tests/test_chain_compiler.py`.
+- **Win 5 — YAML chain compiler (`agency exec --chain`)** ✗ — Not in `agency/cli.py`. No `--chain` flag. `tests/test_chain_compiler.py` is absent (superseded by Spec 160).
 - **Win 6 — `--fields key1,key2`** ✗ — Not in `agency/cli.py`. No `--fields` flag.
 - **Win 7 — Traceback wrapper for `ToolError`** ✓ — `agency/cli.py:103-104` catches all exceptions and emits `{"error": type(e).__name__, "message": str(e)}` — never a raw Python traceback. Ships as a side-effect of the CLI's error handling, not a named "Win 7" feature, but functionally identical.
 

@@ -16,7 +16,7 @@ affects:
   - agency/capability.py                # at registration, promote Capability.ontology.skills → Skill graph nodes; cycle-check deciders
   - tests/test_skills_capability.py     # registry, render, backward-compat
   - tests/test_intent_suggests_skill.py # the three dispatch modes — REAL examples from the existing 17
-  - tests/test_jules_workflow_dispatch.py  # convergence benchmark (§F7)
+  # tests/test_jules_workflow_dispatch.py  # deferred to Spec 162 (skills-cap-llm-matcher); convergence benchmark requires the wet LLM driver
 estimated_jules_sessions: 0
 domain: meta / dispatch
 wave: 3
@@ -292,7 +292,7 @@ benchmark; ships only if it reduces orchestrator hardcoding by ≥50%.
 
 ### Still to implement
 - **P0 ✗** — `agency/capabilities/skills.py` (registry + render + lint capability, ~150 LOC): `skills.find`, `skills.render`, `skills.lint` verbs; `Skill`/`Phase`/`Gate`/`Matcher` node types; `Matcher` JSON Schema pinned in `OntologyExtension.schemas`. This is the unblock gate for Spec 024 PR-C.
-- **P0 ✗** — `tests/test_jules_workflow_dispatch.py` baseline measurement (status-quo numbers) — the convergence gate has no baseline yet; further phases of both Spec 025 and 026 are blocked without it.
+- **P0 ✗** — `tests/test_jules_workflow_dispatch.py` baseline measurement (status-quo numbers) — absent; the convergence gate has no baseline yet (superseded by Spec 162 skills-cap-llm-matcher); further phases of both Spec 025 and 026 are blocked without it.
 - **P1 ✗** — `intent.suggests_skill(intent_id, ...)` verb on `agency/capabilities/intent.py` (new file).
 - **P1 ✗** — Three-mode `Matcher` dispatch (pattern / verb_code / llm_select) with failure semantics, budget_ms, cache, DFS cycle-check.
 - **P1 ✗** — Three real reference examples wired with `applies_when` matchers (`plugin.skill-creation`, `delegate.dispatch-decision`, Jules fanout/dispatch).
