@@ -762,6 +762,181 @@ def test_nonlocal_declaration_does_not_shadow_imported_name():
     assert any(v.kind == ViolationKind.TIME_TIME for v in violations)
 
 
+# ── Codex review on PR #134 round 6 ───────────────────────────────────────
+def test_star_import_from_os_pre_registers_known_names():
+    """Codex review (P2): `from os import *; getenv('HOME')` —
+    `getenv` enters scope via the star import. The auditor doesn't
+    introspect os at audit time, so it pre-registers the known
+    prefix-poison names for stdlib star imports."""
+    src = (
+        "from os import *\n"
+        "def f():\n"
+        "    return getenv('HOME')\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.OS_ENVIRON for v in violations), \
+        f"star import getenv must classify; got {violations!r}"
+
+
+def test_star_import_from_uuid_pre_registers_uuid4():
+    src = (
+        "from uuid import *\n"
+        "def f():\n"
+        "    return uuid4()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UUID4 for v in violations)
+
+
+def test_star_import_from_time_pre_registers_time():
+    src = (
+        "from time import *\n"
+        "def f():\n"
+        "    return time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations)
+
+
+def test_class_body_call_before_shadow_still_flags():
+    """Codex review (P2): class body is populated SEQUENTIALLY — a
+    call that appears BEFORE its same-name assignment resolves to
+    the import. `from time import time; class C: x = time(); time =
+    lambda:1` must still flag the `time()` call."""
+    src = (
+        "from time import time\n"
+        "class C:\n"
+        "    x = time()\n"
+        "    time = lambda: 1\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations), \
+        f"call before shadow must classify; got {violations!r}"
+
+
+def test_nested_scope_import_does_not_overwrite_module_alias():
+    """Codex review (P2): nested-scope imports don't rebind module-
+    level aliases. `from time import time; def f(): return time(); def
+    g(): from math import sqrt as time` — the helper's import must
+    NOT poison the alias used by `f`."""
+    src = (
+        "from time import time\n"
+        "def build():\n"
+        "    return time()\n"
+        "def helper():\n"
+        "    from math import sqrt as time\n"
+        "    return time(1.0)\n"
+    )
+    violations = audit_source(src, path="x.py")
+    # build()'s time() should classify; helper()'s call to its OWN
+    # `time` (math.sqrt) should not.
+    time_hits = [v for v in violations if v.kind == ViolationKind.TIME_TIME]
+    assert len(time_hits) >= 1, \
+        f"build()'s time() must still classify; got {violations!r}"
+
+
+def test_environ_subscript_write_does_not_flag():
+    """Codex review (P2): `os.environ['TZ'] = 'UTC'` writes to the
+    environment, doesn't read from it. No host value flows into the
+    prefix — must NOT flag."""
+    src = (
+        "import os\n"
+        "def f():\n"
+        "    os.environ['TZ'] = 'UTC'\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.OS_ENVIRON for v in violations), \
+        f"environ write must not flag as read; got {violations!r}"
+
+
+def test_environ_full_rebind_does_not_flag():
+    """`os.environ = {}` rebinds the module attribute — write, not
+    read. Skip."""
+    src = (
+        "import os\n"
+        "def f():\n"
+        "    os.environ = {}\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.OS_ENVIRON for v in violations)
+
+
+def test_environ_read_still_flags_alongside_writes():
+    """Regression: a write doesn't poison; subsequent reads still do."""
+    src = (
+        "import os\n"
+        "def f():\n"
+        "    os.environ['TZ'] = 'UTC'\n"
+        "    return os.environ['TZ']\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.OS_ENVIRON for v in violations)
+
+
+def test_relative_from_import_does_not_classify():
+    """Codex review (P2): `from .time import time` is a package-local
+    module, not the stdlib API. The classifier must skip it."""
+    src = (
+        "from .time import time\n"
+        "def f():\n"
+        "    return time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.TIME_TIME for v in violations), \
+        f"relative `.time` import must not classify; got {violations!r}"
+
+
+def test_datetime_utcnow_flags():
+    """Codex review (P2): `datetime.utcnow()` is just as
+    request-time-dependent as `now()` — must classify."""
+    src = (
+        "import datetime\n"
+        "def f():\n"
+        "    return datetime.datetime.utcnow()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.DATETIME_NOW for v in violations)
+
+
+def test_bare_datetime_utcnow_flags():
+    src = (
+        "from datetime import datetime\n"
+        "def f():\n"
+        "    return datetime.utcnow()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.DATETIME_NOW for v in violations)
+
+
+def test_local_variable_annotation_does_not_evaluate():
+    """Codex review (P2): annotations on local variables inside
+    functions are NOT evaluated at runtime (Python 3 only builds
+    `__annotations__` for module/class scope). So a poisoned
+    annotation on a local doesn't flow into the prefix; the auditor
+    must skip it. `def f(): x: time.time() = 1` is clean."""
+    src = (
+        "import time\n"
+        "def f():\n"
+        "    x: time.time() = 1\n"
+        "    return x\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.TIME_TIME for v in violations), \
+        f"local annotation `time.time()` must not flag; got {violations!r}"
+
+
+def test_module_level_annotation_still_evaluates():
+    """Module-level annotations ARE evaluated and stored in
+    `__annotations__`. So a poisoned module-level annotation
+    still flags."""
+    src = (
+        "import time\n"
+        "x: time.time() = 1\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations)
+
+
 def test_canonical_json_preserves_prefix_before_body_when_body_sorts_first():
     """Codex review (P1): `json.dumps(env.to_dict(), sort_keys=True)`
     re-sorted the merged dict GLOBALLY, so a body key like `"delta"`

@@ -57,29 +57,68 @@ class AliasMap:
     bare_attrs: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 
+# Known prefix-poison names per stdlib module — used to expand
+# `from <module> import *` star imports (Codex review on PR #134 round 6).
+# The auditor can't introspect the stdlib at audit time, so we hard-code
+# the names that this audit tracks. Pre-registering them simulates the
+# bindings the star import would create at runtime.
+_STAR_EXPORTS: dict[str, list[tuple[str, str]]] = {
+    "os":       [("getenv", "getenv"), ("environ", "environ")],
+    "time":     [("time", "time")],
+    "uuid":     [("uuid4", "uuid4")],
+    "datetime": [("datetime", "datetime")],
+    "json":     [("dumps", "dumps")],
+}
+
+
 def _build_alias_map(tree: ast.Module) -> AliasMap:
-    """Walk top-level Import / ImportFrom nodes; build the per-file
-    alias map used by the classifier."""
+    """Walk MODULE-LEVEL Import / ImportFrom nodes; build the per-file
+    alias map used by the classifier.
+
+    Codex review on PR #134 round 6 — nested-scope imports must NOT
+    overwrite module-level aliases: a function-local `from math import
+    sqrt as time` would otherwise hijack the module-level
+    `from time import time`. Walking only `tree.body` keeps the alias
+    map scoped to module-level imports.
+
+    Also handles round-6 cases:
+    - `from <stdlib> import *` — pre-register the known
+      prefix-poison names for that stdlib module.
+    - `from .x import y` (relative; `node.level > 0`) — skip; the
+      target is a package-local module, not the stdlib API we audit.
+    """
     am = AliasMap()
-    for node in ast.walk(tree):
+    for node in tree.body:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.asname:
-                    # `import os as o` → bind `o` to canonical `os`.
                     am.modules[alias.asname] = alias.name
                 else:
                     # `import os.path` binds the TOP-LEVEL `os` per Python
-                    # semantics (a later `os.environ` is resolved against
-                    # that), not the dotted `os.path` string (Codex review
-                    # on PR #134).
+                    # semantics (round-1 fix).
                     top = alias.name.split(".", 1)[0]
                     am.modules[top] = top
-        elif isinstance(node, ast.ImportFrom) and node.module:
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            # Skip relative imports — `from .x import y` targets a
+            # package-local module, not the stdlib API the classifier
+            # tracks (Codex review on PR #134 round 6).
+            if node.level and node.level > 0:
+                continue
             for alias in node.names:
+                if alias.name == "*":
+                    # Star import: pre-register the documented
+                    # prefix-poison names for known stdlib modules
+                    # (round 6). Unknown modules are left alone — a
+                    # `from custom_pkg import *` doesn't affect this
+                    # audit's classifications.
+                    for bound_name, canonical_attr in _STAR_EXPORTS.get(
+                            node.module, []):
+                        am.bare_funcs[bound_name] = (
+                            node.module, canonical_attr)
+                        am.bare_attrs[bound_name] = (
+                            node.module, canonical_attr)
+                    continue
                 bound = alias.asname or alias.name
-                # Track functions/values brought in via from-import
-                # against their canonical module so the classifier can
-                # match either form.
                 am.bare_funcs[bound] = (node.module, alias.name)
                 am.bare_attrs[bound] = (node.module, alias.name)
     return am
@@ -132,12 +171,32 @@ def _attr_chain_is(value: ast.AST, expected_module: str, expected_attr: str,
     return False
 
 
+def _is_load_ctx(node: ast.AST) -> bool:
+    """True when `node` carries an `ast.Load` context (Subscript /
+    Attribute / Name all have `.ctx`). Codex review on PR #134 round 6:
+    write-only env setup like `os.environ['TZ'] = 'UTC'` or
+    `os.environ = {}` must NOT flag as an OS_ENVIRON read — no host
+    env value is captured into the prefix."""
+    ctx = getattr(node, "ctx", None)
+    if ctx is None:
+        return True                                                # default to "load"
+    return isinstance(ctx, ast.Load)
+
+
 def _is_environ_chain(node: ast.AST, am: AliasMap) -> bool:
     """Recognize ANY read of os.environ — the bare attribute itself
     (e.g. `dict(os.environ)`), subscript (`os.environ["X"]`), attribute
     access (`.copy` / `.items` / `.keys` / `.values`), call (`.get`).
     Codex review on PR #134: bare reads passed as values were missed
-    before (only Subscript + chained Attribute flagged)."""
+    before (only Subscript + chained Attribute flagged).
+
+    Codex review on PR #134 round 6: when the node is the TARGET of an
+    assignment / del, it's a WRITE, not a read — skip. Write-only
+    initialization like `os.environ['TZ'] = 'UTC'` doesn't poison the
+    prefix because no host env value flows into it."""
+    # Skip Store / Del context: writes don't leak host env into the prefix.
+    if not _is_load_ctx(node):
+        return False
     # `os.environ` (qualified) or `environ` (from-import) name match.
     def _names_environ(n: ast.AST) -> bool:
         if isinstance(n, ast.Attribute):
@@ -279,20 +338,21 @@ def classify_call(node: ast.AST, am: AliasMap | None = None) -> ViolationKind | 
             recv = fn.value
             if isinstance(recv, ast.Name) and _resolve_module(recv.id, am) == "uuid":
                 return ViolationKind.UUID4
-        # datetime.datetime.now() — qualified path
-        if isinstance(fn, ast.Attribute) and fn.attr == "now":
+        # datetime.datetime.now() / datetime.datetime.utcnow() — qualified
+        # path. Codex review on PR #134 round 6: `utcnow()` is just as
+        # request-time-dependent as `now()` and must classify too.
+        if isinstance(fn, ast.Attribute) and fn.attr in ("now", "utcnow"):
             mid = fn.value
             if isinstance(mid, ast.Attribute) and mid.attr == "datetime":
                 top = mid.value
                 if isinstance(top, ast.Name) and _resolve_module(top.id, am) == "datetime":
                     return ViolationKind.DATETIME_NOW
-            # datetime.now() — `from datetime import datetime; datetime.now()`
+            # datetime.now() / datetime.utcnow() —
+            # `from datetime import datetime; datetime.now()`
             if isinstance(mid, ast.Name):
                 tup = am.bare_attrs.get(mid.id)
                 if tup == ("datetime", "datetime"):
                     return ViolationKind.DATETIME_NOW
-                # qualified `datetime.now()` with `datetime` as the module
-                # (rare but legitimate alias path):
                 if _resolve_module(mid.id, am) == "datetime":
                     return ViolationKind.DATETIME_NOW
         # os.getenv() — qualified or aliased
@@ -516,6 +576,13 @@ class _ScopedAuditor(ast.NodeVisitor):
         # parameter + return annotations are STRINGS at runtime, NOT
         # evaluated at def-time. The auditor must skip them then.
         self.future_annotations = future_annotations
+        # Codex review on PR #134 round 6: write-target depth. When > 0
+        # we're inside the LHS of an assignment / del; nodes here are
+        # writes, not reads, and must not classify. Without this,
+        # `os.environ['TZ'] = 'UTC'` flags the inner `os.environ`
+        # Attribute (it's Load ctx because the dict ref is loaded to be
+        # subscripted-for-store).
+        self._in_write_target = 0
         self.violations: list[PrefixViolation] = []
         self.seen: set[tuple[int, int]] = set()
 
@@ -603,16 +670,82 @@ class _ScopedAuditor(ast.NodeVisitor):
         # the class body itself is its own scope — assignments shadow
         # imports for SUBSEQUENT class-body expressions
         # (`from time import time; class C: time = lambda:1; x = time()`).
+        # Codex review on PR #134 round 6: walk statements SEQUENTIALLY,
+        # adding bindings to the class scope as we go — so a CALL that
+        # appears BEFORE its same-name assignment still resolves to the
+        # import (`from time import time; class C: x = time(); time =
+        # lambda:1` → `x = time()` MUST classify).
         for dec in node.decorator_list:
             self.visit(dec)
         for base in node.bases:
             self.visit(base)
         for kw in node.keywords:
             self.visit(kw.value)
-        self._enter("class", _collect_class_locals(node))
+        cls_names: set[str] = set()
+        self._enter("class", cls_names)
         for stmt in node.body:
             self.visit(stmt)
+            # Add this stmt's bindings AFTER visiting it, so subsequent
+            # statements see them but THIS statement doesn't.
+            self._absorb_class_stmt_bindings(stmt, cls_names)
         self._exit()
+
+    def _absorb_class_stmt_bindings(self, stmt: ast.AST,
+                                     names: set[str]) -> None:
+        """Pull name bindings produced by `stmt` into the class-scope
+        `names` set so subsequent class-body statements see them."""
+        if isinstance(stmt, ast.Assign):
+            for tgt in stmt.targets:
+                _add_assignment_target(tgt, names)
+        elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
+            _add_assignment_target(stmt.target, names)
+        elif isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                ast.ClassDef)):
+            names.add(stmt.name)
+
+    def _inside_function(self) -> bool:
+        """True when at least one enclosing scope is a function (or
+        comprehension — same semantics for AnnAssign annotation
+        evaluation: not stored in __annotations__, never evaluated at
+        runtime)."""
+        return any(kind in ("function", "comp") for kind, _ in self.scopes)
+
+    def visit_Assign(self, node: ast.Assign) -> None:                      # noqa: N802
+        # Codex review on PR #134 round 6: visit RHS in load context,
+        # LHS targets in write context. The write-target flag suppresses
+        # classification of nodes inside assignment targets so
+        # write-only env init (`os.environ['TZ'] = 'UTC'`) doesn't flag.
+        self.visit(node.value)
+        self._in_write_target += 1
+        for tgt in node.targets:
+            self.visit(tgt)
+        self._in_write_target -= 1
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:                # noqa: N802
+        self.visit(node.value)
+        self._in_write_target += 1
+        self.visit(node.target)
+        self._in_write_target -= 1
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:                # noqa: N802
+        # Value first, in load context.
+        if node.value is not None:
+            self.visit(node.value)
+        # Codex review on PR #134 round 6: local-variable annotations
+        # inside FUNCTIONS are NOT evaluated at runtime (Python 3 only
+        # stores annotations in module/class `__annotations__`, never
+        # on locals). Skip the annotation visit inside function scope.
+        if not self._inside_function():
+            self.visit(node.annotation)
+        self._in_write_target += 1
+        self.visit(node.target)
+        self._in_write_target -= 1
+
+    def visit_Delete(self, node: ast.Delete) -> None:                      # noqa: N802
+        self._in_write_target += 1
+        for tgt in node.targets:
+            self.visit(tgt)
+        self._in_write_target -= 1
 
     def _visit_comprehension(self, node: ast.AST,
                               generators: list[ast.comprehension],
@@ -674,6 +807,10 @@ class _ScopedAuditor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _maybe_record(self, node: ast.AST) -> None:
+        # Codex review on PR #134 round 6: nodes inside an assignment
+        # target are WRITES, not reads — don't classify them.
+        if self._in_write_target > 0:
+            return
         if self._is_shadowed(_top_name(node)):
             return
         kind = classify_call(node, self.am)
