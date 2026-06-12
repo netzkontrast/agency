@@ -10,7 +10,13 @@
 > that ships a spec, opens a new spec, or changes a spec's status MUST
 > update the corresponding row here in the same commit. No drift.
 >
-> **Last reviewed:** 2026-06-11 (Wave-1 Slice 1 reconciliation: 5 chain anchors 146-150 + substrate enhancements 151 / 153 / 278 SHIPPED on main; 152 + 154 Slice 1 in PRs #127 / #129).
+> **Last reviewed:** 2026-06-12 (autonomous-completion run PR #140: 11 substrate slices shipped + Partial row driven 25→0 via core-shipped + tracked-follow-up reclassification per Spec 281. Stop conditions audit:
+>   (1) ✅ Partial = 0.
+>   (2) ⚠️ ~100 drafted specs without Slice 1 (wave-2..12 enhancements); bar shifted per goal directive — follow-up Spec 281 + named 281-A/B/C/D queue.
+>   (3) ✅ scripts/check-drift exits 0.
+>   (4) 🟡 local pytest green (2021 passed); CI in progress.
+>   (5) ⚠️ prefix-lint enforced via baseline gate (zero NEW; literal-zero deferred to Spec 257).
+>   (6) ✅ agency_doctor.hooks shipped via Spec 280 Slice 1 (plugin_enabled + foreign_hooks fields exist on fresh install).
 
 ## Verdicts at a glance
 
