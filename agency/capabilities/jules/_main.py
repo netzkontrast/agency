@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """jules — the agent capability. An agent IS a Lifecycle parameterization that
 
 Jules drives remote agent sessions end-to-end: dispatch, plan approval, follow-ups, and verification that a session reporting completed actually pushed a branch.

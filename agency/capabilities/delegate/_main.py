@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """delegate — agent orchestration: fan-out + quota + join.
 
 Delegate weighs the token-economics and safety signals of dispatching, fans a task out to one or more drivers, and reduces their results back into a single answer.

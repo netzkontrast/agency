@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """dogfood — graph-native observation ledgers (Spec 017).
 
 Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exported and imported as JSON preserving ids and validity windows, and rendered to markdown on demand.

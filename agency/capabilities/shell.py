@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """shell — a token-efficient, recorded, templated host-command boundary (Spec 073).
 
 Shell is a token-efficient host-command boundary: allowlisted execution, output filtering, and definable templates that bundle a command with its token-saving filter.

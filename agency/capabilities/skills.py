@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """skills — the first-class registry over every capability's walkable skills (Spec 026).
 
 Skills makes the skill surface itself a capability: one home to find, render, and lint the phase-graph skills each capability ships on its ontology, instead of reaching them only through the merged ontology dict or the walker.

@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """subagent — subagent-driven-development as a composition.
 
 Subagent composes subagent-driven development: a self-contained task is dispatched into a clean context and its verified result returns to the orchestrator.

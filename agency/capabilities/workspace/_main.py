@@ -1,3 +1,4 @@
+# agency-scaffold: v1
 """workspace — isolate work in a git worktree + record a green baseline.
 
 Workspace isolates work in a git worktree and records a green baseline, so risky changes start from a clean, provably-green point that recovery can return to.
