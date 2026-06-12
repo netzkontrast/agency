@@ -7,7 +7,7 @@ Spec 220 Slice 1 — wet scene-body generation via Spec 147 + Spec 279.
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `scene_id` | str — Scene node id; the body is recorded as an Artefact PRODUCES_FROM this Scene) - brief (str — assembled scene brief from Spec 127; the scene-writer phase 1 output) - alter_id (str — when set, the scene is voice-locked via Spec 144; ``voice_locked=True`` in the result) - system (str — system prompt override) - host_completion (dict | None — Spec 279 resume envelope) - prefer_delegate (bool — when True + backend "none", emit the llm_delegate envelope instead of failing) - max_tokens (int — request budget for the LLM call |  |
+| `scene_id` | str — Scene node id; the body is recorded as an Artefact PRODUCES_FROM this Scene) - scene_brief (str — assembled scene brief from Spec 127; the scene-writer phase 1 output. Named to match the phase's produces key so the skill walker's input mapping forwards it verbatim.) - alter_id (str — when set, the scene is voice-locked via Spec 144; ``voice_locked=True`` in the result) - system (str — system prompt override) - host_completion (dict | None — Spec 279 resume envelope) - prefer_delegate (bool — when True + backend "none", emit the llm_delegate envelope instead of failing) - max_tokens (int — request budget for the LLM call |  |
 
 ## Returns
 

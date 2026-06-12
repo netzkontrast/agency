@@ -94,7 +94,7 @@ def test_generate_scene_body_uses_capable_driver_and_returns_handle():
     driver = _FakeCapableDriver(body="The rain hammered the slate.")
     e.drivers.register("anthropic", driver)
     data, _ = _invoke(e, iid, "generate_scene_body",
-                       scene_id="", brief="Open on a storm at dusk.")
+                       scene_id="", scene_brief="Open on a storm at dusk.")
     assert data is not None, "verb must succeed"
     assert data["driver"] == "spec147"
     assert data["wc"] == 5
@@ -116,7 +116,7 @@ def test_generate_scene_body_forwards_brief_to_driver():
     driver = _FakeCapableDriver()
     e.drivers.register("anthropic", driver)
     _invoke(e, iid, "generate_scene_body",
-            scene_id="", brief="Brief X under storm.")
+            scene_id="", scene_brief="Brief X under storm.")
     assert len(driver.calls) == 1
     messages = driver.calls[0]["messages"]
     assert messages[0]["content"] == "Brief X under storm."
@@ -133,7 +133,7 @@ def test_generate_scene_body_voice_locked_marks_artefact():
     driver = _FakeCapableDriver(body="Locked-voice draft.")
     e.drivers.register("anthropic", driver)
     data, _ = _invoke(e, iid, "generate_scene_body",
-                       scene_id="", brief="Voice-locked brief body.",
+                       scene_id="", scene_brief="Voice-locked brief body.",
                        alter_id="kira-pov")
     assert data is not None
     assert data["voice_locked"] is True
@@ -149,7 +149,7 @@ def test_voice_locked_requires_brief():
     driver = _FakeCapableDriver()
     e.drivers.register("anthropic", driver)
     data, inv = _invoke(e, iid, "generate_scene_body",
-                         scene_id="", brief="", alter_id="kira-pov")
+                         scene_id="", scene_brief="", alter_id="kira-pov")
     assert data is None
     assert "VOICE_BRIEF_MISSING" in _err_code(e, inv)
 
@@ -163,7 +163,7 @@ def test_generate_scene_body_emits_delegate_envelope_when_prefer_delegate():
     iid = _iid(e)
     e.drivers.register("anthropic", _NoBackendDriver())
     data, _ = _invoke(e, iid, "generate_scene_body",
-                       scene_id="", brief="Brief.",
+                       scene_id="", scene_brief="Brief.",
                        prefer_delegate=True)
     assert data is not None
     assert data["driver"] == "delegate"
@@ -184,7 +184,7 @@ def test_generate_scene_body_typed_fail_when_no_driver_no_delegate():
     # The default AnthropicDriver auto-registered by Engine has
     # backend "none" (no key). With prefer_delegate=False we refuse.
     data, inv = _invoke(e, iid, "generate_scene_body",
-                         scene_id="", brief="x")
+                         scene_id="", scene_brief="x")
     assert data is None
     assert "DEPENDENCY_MISSING" in _err_code(e, inv)
 
@@ -197,7 +197,7 @@ def test_generate_scene_body_resume_from_host_completion():
     iid = _iid(e)
     e.drivers.register("anthropic", _NoBackendDriver())
     data, _ = _invoke(e, iid, "generate_scene_body",
-                       scene_id="", brief="x",
+                       scene_id="", scene_brief="x",
                        host_completion={"text":
                                           "Host-generated scene body."})
     assert data is not None
@@ -214,7 +214,7 @@ def test_generate_scene_body_resume_wins_over_capable_driver():
     driver = _FakeCapableDriver(body="never-fetched")
     e.drivers.register("anthropic", driver)
     data, _ = _invoke(e, iid, "generate_scene_body",
-                       scene_id="", brief="x",
+                       scene_id="", scene_brief="x",
                        host_completion={"text": "Host text wins."})
     assert data is not None
     assert data["driver"] == "host"
@@ -227,7 +227,7 @@ def test_generate_scene_body_resume_malformed_returns_typed_code():
     iid = _iid(e)
     e.drivers.register("anthropic", _NoBackendDriver())
     data, inv = _invoke(e, iid, "generate_scene_body",
-                         scene_id="", brief="x",
+                         scene_id="", scene_brief="x",
                          host_completion={"parsed": {}})            # no text
     assert data is None
     assert "HOST_DELEGATE_MALFORMED" in _err_code(e, inv)
@@ -247,7 +247,7 @@ def test_generate_scene_body_records_scene_body_artefact_with_provenance():
     driver = _FakeCapableDriver(body="One sentence draft.")
     e.drivers.register("anthropic", driver)
     data, _ = _invoke(e, iid, "generate_scene_body",
-                       scene_id=scene_id, brief="x")
+                       scene_id=scene_id, scene_brief="x")
     aid = data["body_handle"]
     artefact = e.memory.recall(aid)
     assert artefact is not None
@@ -266,7 +266,7 @@ def test_generate_scene_body_returns_not_found_for_unknown_scene():
     driver = _FakeCapableDriver()
     e.drivers.register("anthropic", driver)
     data, inv = _invoke(e, iid, "generate_scene_body",
-                         scene_id="scene:not-a-real-id", brief="x")
+                         scene_id="scene:not-a-real-id", scene_brief="x")
     assert data is None
     assert "NOT_FOUND" in _err_code(e, inv)
     # Driver must NOT have been invoked — that's the whole point.
@@ -283,7 +283,7 @@ def test_fetch_scene_body_returns_full_body_for_handle():
     driver = _FakeCapableDriver(body="The full scene body text.")
     e.drivers.register("anthropic", driver)
     data, _ = _invoke(e, iid, "generate_scene_body",
-                       scene_id="", brief="x")
+                       scene_id="", scene_brief="x")
     handle = data["body_handle"]
     fetched, _ = _invoke(e, iid, "fetch_scene_body", body_handle=handle)
     assert fetched is not None
@@ -300,7 +300,7 @@ def test_fetch_scene_body_honors_max_chars_cap():
     iid = _iid(e)
     driver = _FakeCapableDriver(body="x" * 2000)
     e.drivers.register("anthropic", driver)
-    data, _ = _invoke(e, iid, "generate_scene_body", brief="x")
+    data, _ = _invoke(e, iid, "generate_scene_body", scene_brief="x")
     fetched, _ = _invoke(e, iid, "fetch_scene_body",
                           body_handle=data["body_handle"], max_chars=500)
     assert fetched["truncated"] is True
@@ -340,7 +340,7 @@ def test_generate_scene_body_response_carries_no_inline_body():
     driver = _FakeCapableDriver(body=big)
     e.drivers.register("anthropic", driver)
     data, _ = _invoke(e, iid, "generate_scene_body",
-                       scene_id="", brief="x")
+                       scene_id="", scene_brief="x")
     # The response data must NOT contain the body text.
     assert big.strip() not in str(data), \
         "the full body must not appear inline in the response"

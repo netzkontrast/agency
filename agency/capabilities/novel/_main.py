@@ -543,16 +543,24 @@ SCENE_WRITER_SKILL = {
          # flags carry the validation; phase output is the gate.
          "verbs": []},
         {"index": 3, "name": "generate",
-         "inputs":   ["scene_id", "brief", "alter_id"],
-         "produces": ["draft_body"],
+         # Codex review on PR #137 round 2: phase 1's output key is
+         # `scene_brief`; the verb accepts it under the same name so
+         # the skill walker's `args = {k: outputs[k] for k in inputs}`
+         # mapping forwards the assembled brief without renaming.
+         "inputs":   ["scene_id", "scene_brief", "alter_id"],
+         # The verb returns the typed `WetSceneResult` envelope (dict),
+         # NOT a body string — the body itself lives in the Artefact
+         # behind `body_handle`. Naming the produce slot
+         # `wet_scene_result` is honest about the shape so downstream
+         # phases know to fetch the body via
+         # `novel.fetch_scene_body(body_handle)` rather than treating
+         # it as ready-to-integrate prose (Slice 2 wires the prose
+         # checks against the fetched body).
+         "produces": ["wet_scene_result"],
          # Spec 220 Slice 1: bound to the wet generator (Spec 147
          # AnthropicDriver + Spec 279 host-LLM delegation). The
-         # `invoke` block EXECUTES the verb (Codex review on PR #137:
-         # `verbs` alone is advisory metadata; `invoke` is the binding
-         # the skill walker actually runs). The verb captures the
-         # body via Spec 154 — `body_handle` is the Artefact id;
-         # `novel.fetch_scene_body(body_handle)` serves it back to
-         # the public MCP/CLI surface.
+         # `invoke` block EXECUTES the verb (Codex review on PR #137
+         # round 1: `verbs` alone is advisory metadata).
          "invoke":   {"capability": "novel",
                        "verb":       "generate_scene_body"},
          "verbs":    ["novel.generate_scene_body"]},
@@ -1049,7 +1057,7 @@ class NovelCapability(CapabilityBase):
         })
 
     @verb(role="act")
-    def generate_scene_body(self, scene_id: str = "", brief: str = "",
+    def generate_scene_body(self, scene_id: str = "", scene_brief: str = "",
                               alter_id: str = "", system: str = "",
                               host_completion: dict | None = None,
                               prefer_delegate: bool = False,
@@ -1080,8 +1088,10 @@ class NovelCapability(CapabilityBase):
         Inputs:
           - scene_id (str — Scene node id; the body is recorded as
             an Artefact PRODUCES_FROM this Scene)
-          - brief (str — assembled scene brief from Spec 127; the
-            scene-writer phase 1 output)
+          - scene_brief (str — assembled scene brief from Spec 127;
+            the scene-writer phase 1 output. Named to match the
+            phase's produces key so the skill walker's input mapping
+            forwards it verbatim.)
           - alter_id (str — when set, the scene is voice-locked via
             Spec 144; ``voice_locked=True`` in the result)
           - system (str — system prompt override)
@@ -1109,25 +1119,30 @@ class NovelCapability(CapabilityBase):
         voice_locked = bool(alter_id)
         # Voice-lock fidelity invariant: when alter_id set, the brief
         # must come from Spec 144 (signaled by non-empty `brief`).
-        if voice_locked and not brief.strip():
+        if voice_locked and not scene_brief.strip():
             return ToolResult.failure(
                 "VOICE_BRIEF_MISSING",
                 f"alter_id={alter_id!r} requires a Spec 144 voice-locked "
-                f"brief; got empty brief")
+                f"scene_brief; got empty scene_brief")
 
         # Codex review (P2): validate scene_id BEFORE spending LLM work.
         # A mistyped scene_id would otherwise burn a real Anthropic /
         # host generation and produce prose whose `body_handle` can't
         # be integrated downstream because the Scene doesn't exist.
         # Empty scene_id is allowed for stateless probe calls (tests).
+        # Codex review on PR #137 round 2: use `recall_typed("Scene", …)`
+        # (Spec 056 — <label>_id params must be label-checked). Passing
+        # a Chapter or Intent id previously slipped past the bare
+        # `recall` guard and would mis-attribute the body.
         if scene_id:
-            scene_node = self.ctx.recall(scene_id)
+            scene_node = self.ctx.memory.recall_typed(scene_id, "Scene")
             if scene_node is None:
                 return ToolResult.failure(
                     "NOT_FOUND",
-                    f"scene_id={scene_id!r} not found — cannot route the "
-                    f"generated body to a Scene that doesn't exist; create "
-                    f"the Scene with novel.create_scene first")
+                    f"scene_id={scene_id!r} not found as a Scene node — "
+                    f"cannot route the generated body to a non-existent "
+                    f"or wrong-label node; create the Scene with "
+                    f"novel.create_scene first")
 
         # Resolve the anthropic driver (None when not wired).
         driver = None
@@ -1162,7 +1177,7 @@ class NovelCapability(CapabilityBase):
 
         # Build the LLM request. The brief carries the per-scene
         # instructions; system carries the role/voice directive.
-        messages = [{"role": "user", "content": brief or ""}]
+        messages = [{"role": "user", "content": scene_brief or ""}]
         system_prompt = system or _DEFAULT_SCENE_SYSTEM
         if voice_locked:
             system_prompt = (
