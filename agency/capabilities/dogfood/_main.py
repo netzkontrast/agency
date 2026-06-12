@@ -322,6 +322,11 @@ class DogfoodCapability(CapabilityBase):
             # `rationale` required for grounded decisions; `next_action`
             # optional. SessionLifecycle linkage via RELATES_TO when known.
             "DecisionRecord": ["subject", "decision", "rationale"],
+            # Spec 195 Slice 1 — BoundaryUse carries the raw-tool
+            # bypass info: `tool` (Write/Edit/Bash), `argument_summary`
+            # (trimmed), `target` (full path/command), `verb_shadow`
+            # (the capability verb that SHOULD have served the same
+            # intent), `intent_id` (SERVES which Intent), `session`.
             "BoundaryUse":    ["tool", "argument_summary"],
             # Spec 150 — amendment-proposal provenance: every accepted
             # amendment writes an `Artefact(kind="amendment-proposal")`
@@ -329,7 +334,9 @@ class DogfoodCapability(CapabilityBase):
             # reviewer can trace any amendment back to its sources.
             "Artefact":       ["kind"],
         },
-        edges={"RELATES_TO", "PRODUCES_FROM"},        # PRODUCES_FROM: amendment → cited Reflection
+        # PRODUCES_FROM: amendment → cited Reflection
+        # RECORDED_BY: Spec 195 — BoundaryUse → originating Event
+        edges={"RELATES_TO", "PRODUCES_FROM", "RECORDED_BY"},
     )
 
     # -----------------------------------------------------------------
@@ -709,38 +716,77 @@ class DogfoodCapability(CapabilityBase):
 
     @verb(role="transform")
     def boundary_use_audit(self,
+                            for_intent_id: str = "",
                             session_lifecycle_id: str = "") -> dict:
         """Audit BoundaryUse nodes — flag raw-tool uses where a verb exists (transform).
 
-        Reads all BoundaryUse nodes in the graph (recorded by Spec 076's
-        unified hook layer when a raw Write/Edit/Bash fires) and lists each
-        with a suggestion: did a capability verb exist for that boundary?
-        The Spec 076 hook integration ships in Slice 2; this verb is the
-        read-side that future-sessions will consult.
+        Reads BoundaryUse nodes (Spec 195 Slice 1: recorded by the
+        engine's default hook handler when a raw Write/Edit/Bash fires
+        under an active intent) and aggregates them into a typed audit
+        report.
 
-        Inputs: session_lifecycle_id (optional; if given, filters to uses
-                related to that session).
-        Returns: ``{uses: [{tool, argument_summary, suggested_verb}], count}``.
-        chain_next: walk the verbs surfaced in `suggested_verb` for the next session.
+        Spec 195 invariants:
+        - `bypass_count` is the sum of `by_tool` counts (no double-count).
+        - When `for_intent_id` is given, only uses SERVING that intent
+          are included (cross-intent contamination caught by the SERVES
+          edge filter).
+        - `samples` shows up to 5 representative records per tool (a
+          paged audit reader can chain `dogfood.recall_overflow_slice`
+          for the full set).
+
+        Inputs: for_intent_id (str — filter to BoundaryUses serving
+                this intent; "" = global).
+                session_lifecycle_id (legacy alias; ignored when
+                for_intent_id is set).
+        Returns: ``{intent_id, bypass_count, by_tool: {Write, Edit, Bash, …},
+                 samples: [{tool, target, verb_shadow, argument_summary,
+                 session}], count}``.
+        chain_next: ``dogfood.parse_amendment`` reads the bypass rate
+                    when the dogfood loop classifies amendments.
         """
-        uses = self.ctx.find("BoundaryUse")
-        # Suggestion mapping (Pillar 2 of Spec 114 — capability-first routing)
+        # Suggestion mapping (Pillar 2 of Spec 114 — capability-first
+        # routing). Spec 195 carries the live `verb_shadow` from the
+        # BoundaryUse node; this dict is only a fallback for legacy
+        # records (Slice 0 BoundaryUse nodes that pre-date Slice 1).
         _SUGGEST = {
-            "Write": "develop.scaffold_capability OR edit_spec (future)",
-            "Edit":  "develop.edit_spec (future) OR direct verb call",
-            "Bash":  "shell.run (Spec 075) or branch.commit_smart",
+            "Write":    "develop.scaffold_capability OR dogfood.observe",
+            "Edit":     "dogfood.observe (spec edit) OR direct verb call",
+            "Bash":     "shell.run OR branch.commit_smart OR develop.test",
             "WebFetch": "research.fetch (future)",
-            "Grep":  "analyze.search (future)",
+            "Grep":     "analyze.search (future)",
         }
-        out = []
+        uses = self.ctx.find("BoundaryUse")
+        # Filter by intent_id when requested. The BoundaryUse node
+        # carries `intent_id` as a property; we use it directly rather
+        # than walking SERVES edges to keep the filter O(N).
+        if for_intent_id:
+            uses = [u for u in uses
+                    if u.get("intent_id") == for_intent_id]
+        by_tool: dict[str, int] = {}
+        samples_per_tool: dict[str, list[dict]] = {}
         for u in uses:
-            tool = u.get("tool", "")
-            out.append({
-                "tool": tool,
-                "argument_summary": u.get("argument_summary", ""),
-                "suggested_verb": _SUGGEST.get(tool, "(none)"),
-            })
-        return {"uses": out, "count": len(out)}
+            tool = str(u.get("tool", ""))
+            by_tool[tool] = by_tool.get(tool, 0) + 1
+            bucket = samples_per_tool.setdefault(tool, [])
+            if len(bucket) < 5:
+                bucket.append({
+                    "tool":             tool,
+                    "target":           u.get("target", ""),
+                    "verb_shadow":      u.get("verb_shadow")
+                                          or _SUGGEST.get(tool, "(none)"),
+                    "argument_summary": u.get("argument_summary", ""),
+                    "session":          u.get("session", ""),
+                })
+        samples: list[dict] = []
+        for tool in sorted(samples_per_tool):
+            samples.extend(samples_per_tool[tool])
+        return {
+            "intent_id":    for_intent_id,
+            "bypass_count": sum(by_tool.values()),
+            "by_tool":      dict(sorted(by_tool.items())),
+            "samples":      samples,
+            "count":        sum(by_tool.values()),                 # legacy alias
+        }
 
     # ════════════════════════════════════════════════════════════════════════
     # Spec 150 Slice 1 — dogfood amendment classifier (close Goal 6).

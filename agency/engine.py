@@ -110,13 +110,47 @@ def _capability_tier(registry) -> list:
     return tier
 
 
+def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
+    """Spec 195 Slice 1 — derive the capability verb a raw tool call
+    BYPASSED, plus a short argument summary for the BoundaryUse node.
+
+    Hard-coded routing for the most common bypass patterns (mirrors the
+    Spec 280 dispatcher advisory hints). Slice 2 derives this from the
+    live registry via Spec 188 `suggest_drill`."""
+    if tool == "Bash":
+        cmd = str(payload.get("command") or "").strip()
+        head = cmd.split()[0] if cmd else ""
+        if cmd.startswith("git commit"):
+            return "branch.commit_smart", cmd[:200]
+        if cmd.startswith("git push"):
+            return "branch.finish_branch", cmd[:200]
+        if (cmd.startswith("pytest") or cmd.startswith("python -m pytest")
+                or cmd.startswith("python3 -m pytest")):
+            return "develop.test", cmd[:200]
+        return f"shell.run({head!r})", cmd[:200]
+    if tool in ("Write", "Edit"):
+        import re as _re
+        path = str(payload.get("file_path") or "")
+        if _re.search(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$", path):
+            return "dogfood.observe", path[:200]
+        return f"capability_verb_for({path!r})", path[:200]
+    return "", ""
+
+
 def _default_hook_handler(engine, event: dict) -> dict:
     """Spec 076 — the default event handler: record an `Event` node (substrate
     provenance, no intent required) and, for tool events, capture a trimmed
     payload via the shell filter. Links the Event OBSERVED_DURING the active
     intent (``AGENCY_INTENT`` — Spec 018 Win 3) when one is set, so events during
     an intent become its provenance. The handler surface is an OPEN SET; register
-    a per-event override via ``engine.register_hook_handler``."""
+    a per-event override via ``engine.register_hook_handler``.
+
+    Spec 195 Slice 1 — when the event is a `PreToolUse` on raw
+    Write/Edit/Bash AND an active intent is set, ALSO record a typed
+    `BoundaryUse{tool, target, verb_shadow, argument_summary, intent_id,
+    session}` node so `dogfood.boundary_use_audit` can surface the
+    bypass rate. SERVES the intent so a single graph traversal recovers
+    the full audit."""
     import json as _json
     import os as _os
     name = (event or {}).get("hook_event_name") or "unknown"
@@ -132,6 +166,24 @@ def _default_hook_handler(engine, event: dict) -> dict:
     iid = _os.environ.get("AGENCY_INTENT", "")
     if iid and engine.memory.recall_typed(iid, "Intent") is not None:
         engine.memory.link(eid, iid, "OBSERVED_DURING")
+        # Spec 195 Slice 1 — BoundaryUse capture for raw mutating tools.
+        # PreToolUse is when the bypass actually happens; reads + post
+        # events don't poison the moat (Open Q1: mutating-only).
+        if name == "PreToolUse" and tool in ("Write", "Edit", "Bash"):
+            tin = event.get("tool_input") or {}
+            verb_shadow, summary = _verb_shadow_for(tool, tin)
+            target = (str(tin.get("command") or "")
+                       or str(tin.get("file_path") or ""))[:200]
+            bid = engine.memory.record("BoundaryUse", {
+                "tool":             tool,
+                "argument_summary": summary,
+                "target":           target,
+                "verb_shadow":      verb_shadow,
+                "intent_id":        iid,
+                "session":          session,
+            })
+            engine.memory.link(bid, iid, "SERVES")
+            engine.memory.link(bid, eid, "RECORDED_BY")
     return {"recorded": eid, "event": name}
 
 

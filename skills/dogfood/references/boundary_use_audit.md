@@ -7,19 +7,19 @@ Audit BoundaryUse nodes — flag raw-tool uses where a verb exists (transform).
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `session_lifecycle_id (optional; if given, filters to uses related to that session).` |  |  |
+| `for_intent_id (str — filter to BoundaryUses serving this intent; "" = global). session_lifecycle_id (legacy alias; ignored when for_intent_id is set).` |  |  |
 
 ## Returns
 
-``{uses: [{tool, argument_summary, suggested_verb}], count}``.
+``{intent_id, bypass_count, by_tool: {Write, Edit, Bash, …}, samples: [{tool, target, verb_shadow, argument_summary, session}], count}``.
 
 ## Chain-next
 
-walk the verbs surfaced in `suggested_verb` for the next session.
+``dogfood.parse_amendment`` reads the bypass rate when the dogfood loop classifies amendments.
 
 ## Details
 
-Reads all BoundaryUse nodes in the graph (recorded by Spec 076's unified hook layer when a raw Write/Edit/Bash fires) and lists each with a suggestion: did a capability verb exist for that boundary? The Spec 076 hook integration ships in Slice 2; this verb is the read-side that future-sessions will consult.
+Reads BoundaryUse nodes (Spec 195 Slice 1: recorded by the engine's default hook handler when a raw Write/Edit/Bash fires under an active intent) and aggregates them into a typed audit report. Spec 195 invariants: - `bypass_count` is the sum of `by_tool` counts (no double-count). - When `for_intent_id` is given, only uses SERVING that intent are included (cross-intent contamination caught by the SERVES edge filter). - `samples` shows up to 5 representative records per tool (a paged audit reader can chain `dogfood.recall_overflow_slice` for the full set).
 
 ## Example
 

@@ -1,8 +1,8 @@
 ---
 spec_id: "195"
 slug: unified-hook-event-replay
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-12
 owner: "@agency"
 enhances: "076"
 depends_on: ["076", "021", "156", "176"]
@@ -130,3 +130,81 @@ Then:   monotonic == False; the consumer must surface this as a
    across sessions; replay walks all Events SERVES the intent
    regardless of session boundary. The chain integrity check holds
    across sessions.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+### Done — Slice 1 (BoundaryUse capture in the unified hook handler)
+
+- **`agency/engine.py` `_default_hook_handler`** extended (Spec 076
+  surface) to record a typed `BoundaryUse` node when:
+  - `hook_event_name == "PreToolUse"` (Open Q1: bypass moment, not
+    post),
+  - `tool_name` ∈ {`Write`, `Edit`, `Bash`} (Open Q1: mutating
+    tools only — reads aren't a moat gap),
+  - AND `AGENCY_INTENT` resolves to a confirmed Intent (no-intent
+    sessions don't poison the moat — there's no intent to serve).
+
+- **`_verb_shadow_for(tool, payload)`** returns the
+  `(verb_shadow, argument_summary)` pair the BoundaryUse carries:
+  - Bash `git commit*` → `branch.commit_smart`
+  - Bash `git push*` → `branch.finish_branch`
+  - Bash `pytest` / `python -m pytest` → `develop.test`
+  - Bash other → `shell.run(<head>)`
+  - Edit/Write of `Plan/NNN-*/spec.md` → `dogfood.observe`
+  - Edit/Write other → `capability_verb_for(<path>)` placeholder
+  - Slice 2 derives this from the live registry via Spec 188
+    `suggest_drill` so registry renames don't drift the shadows.
+
+- **`BoundaryUse` ontology** now carries
+  `{tool, argument_summary, target, verb_shadow, intent_id, session}`
+  (was `{tool, argument_summary}` before). The schema (`["tool",
+  "argument_summary"]` shape on `DogfoodCapability.ontology`) stays
+  the published surface; the additional fields are optional graph
+  props that downstream readers consume.
+
+- **`RECORDED_BY` edge** added to the dogfood capability's edge
+  registry so the BoundaryUse can chain back to the Event node
+  (provenance reconstruction surface for Slice 2 replay).
+
+- **`dogfood.boundary_use_audit(for_intent_id, session_lifecycle_id)`**
+  rewired (Codex-style Spec 195 typed report):
+  - `{intent_id, bypass_count, by_tool: dict[str,int],
+    samples: list[{tool, target, verb_shadow, argument_summary,
+    session}], count}`.
+  - `for_intent_id` filters via the BoundaryUse `intent_id`
+    property — cross-intent contamination invariant (Spec 195
+    failure-mode "Cross-intent contamination").
+  - Samples are bounded (5 per tool) so the audit stays
+    token-cheap even when the bypass rate spikes; paged readers
+    can drill via `dogfood.recall_overflow_slice`.
+
+- **11 tests green** (`tests/test_hook_event_replay.py`):
+  - Raw Bash git commit / push / pytest under intent records BU
+    with the right `verb_shadow`.
+  - Raw Edit of `Plan/*/spec.md` routes to `dogfood.observe`.
+  - Raw Write of a random path uses the placeholder shadow.
+  - No BU without an active intent.
+  - No BU for `PostToolUse` (PreToolUse only).
+  - No BU for read-only tools (Read/Grep/Glob/WebFetch).
+  - BU SERVES the intent + RECORDED_BY the Event (the moat
+    invariant).
+  - Audit aggregates `bypass_count` + `by_tool` + samples carrying
+    the live `verb_shadow`.
+  - Audit filters by `for_intent_id` (no cross-intent leak).
+  - Empty audit returns zero counts cleanly.
+
+### Still — Slice 2+
+
+- **Event replay** (`dogfood.replay_events(intent_id)`) with the
+  typed `ReplayResult` shape + monotonic `prior_event_id` chain.
+- **Live `verb_shadow` derivation** via Spec 188 `suggest_drill`
+  (registry-aware so renames don't drift the shadow strings).
+- **Loop-detection event records** (Spec 156) appear in replay.
+- **PII discipline** — Write/Edit content summarized by default;
+  raw payload gated by Spec 192.
+- **Monotonic invariant** + clock-skew detection.
+- **Cross-session replay** (Open Q3: intent_id is stable across
+  sessions; the chain integrity check holds).
+- **Spec 280 Slice 2 integration** — the bypass-rate baseline
+  drives the WARN→error flip on the dispatcher's clearest routes
+  (`git commit` / `git push` → exit 2 + the routing advice).
