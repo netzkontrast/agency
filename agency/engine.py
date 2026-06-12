@@ -176,7 +176,7 @@ def _default_hook_handler(engine, event: dict) -> dict:
                        or str(tin.get("file_path") or ""))[:200]
             bid = engine.memory.record("BoundaryUse", {
                 "tool":             tool,
-                "argument_summary": summary,
+                "argument_summary": summary or f"<{tool} no payload>",
                 "target":           target,
                 "verb_shadow":      verb_shadow,
                 "intent_id":        iid,

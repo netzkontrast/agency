@@ -222,20 +222,21 @@ def test_decision_record_requires_subject_decision_rationale_enum() -> None:
 # ─────────────────────────── dogfood.boundary_use_audit ───────────────────────
 
 def test_boundary_use_audit_returns_empty_when_no_uses_recorded() -> None:
-    """Spec 076 unified-hook integration that records BoundaryUse nodes is
-    deferred to Spec 114 Slice 2; without it, the audit reads zero."""
+    """Spec 195 Slice 1 shape: empty audit yields zero counts + no samples."""
     e = _fresh()
     iid = _confirmed_iid(e)
     data, _ = _invoke(e, iid, "dogfood", "boundary_use_audit")
-    assert data["uses"] == []
-    assert data["count"] == 0
+    assert data["samples"] == []
+    assert data["bypass_count"] == 0
+    assert data["by_tool"] == {}
     e.memory.close()
 
 
-def test_boundary_use_audit_suggests_verbs_for_recorded_uses() -> None:
+def test_boundary_use_audit_surfaces_tool_breakdown_for_recorded_uses() -> None:
+    """Spec 195 Slice 1 shape: bypass_count + by_tool + samples carry the
+    typed audit shape (verb_shadow / argument_summary / session)."""
     e = _fresh()
     iid = _confirmed_iid(e)
-    # Hand-record some BoundaryUse nodes (Slice 2 will do this via hooks)
     e.memory.record("BoundaryUse",
                      {"tool": "Bash",
                       "argument_summary": "git commit -m '…'"})
@@ -243,12 +244,11 @@ def test_boundary_use_audit_suggests_verbs_for_recorded_uses() -> None:
                      {"tool": "Write",
                       "argument_summary": "Plan/200-foo/spec.md"})
     data, _ = _invoke(e, iid, "dogfood", "boundary_use_audit")
-    assert data["count"] == 2
-    tools = {u["tool"] for u in data["uses"]}
+    assert data["bypass_count"] == 2
+    assert data["by_tool"]["Bash"] == 1
+    assert data["by_tool"]["Write"] == 1
+    tools = {s["tool"] for s in data["samples"]}
     assert tools == {"Bash", "Write"}
-    # Each suggestion points at a known verb hint
-    for u in data["uses"]:
-        assert u["suggested_verb"]
     e.memory.close()
 
 
