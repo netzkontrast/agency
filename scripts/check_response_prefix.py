@@ -165,19 +165,26 @@ def _is_environ_chain(node: ast.AST, am: AliasMap) -> bool:
 
 def _payload_could_be_dict(node: ast.AST) -> bool:
     """True when a `json.dumps(payload)` payload COULD evaluate to a
-    dict (or any value with key-order-sensitive serialization). False
-    for definitively non-dict expressions: list/tuple/set/genexp
-    literals, list/set/gen comprehensions, atomic constants.
+    dict OR CONTAIN a dict at any nesting depth (i.e. its
+    serialization is key-order-sensitive). False only when EVERY
+    leaf is provably non-dict.
 
-    Codex review on PR #134 (P2 round 3): `json.dumps(["a", "b"])`
-    must NOT flag — lists have no key-order leak. Only flag the
-    UNSORTED_DICT kind when the payload could actually be order-
-    sensitive."""
-    if isinstance(node, (ast.List, ast.Tuple, ast.Set,
-                          ast.ListComp, ast.SetComp, ast.GeneratorExp)):
-        return False
+    Codex review on PR #134 round 3: `json.dumps(["a", "b"])` must
+    NOT flag — lists with non-dict leaves have no key-order leak.
+
+    Codex review on PR #134 round 4: `json.dumps([{"a": 1}])` MUST
+    flag — the outer is a list, but the inner dict still leaks
+    key-order into the prefix. Recurse into List / Tuple / Set /
+    comprehension elements before clearing."""
     if isinstance(node, ast.Constant):
         return False
+    # Containers: clear only if EVERY element is provably non-dict.
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return any(_payload_could_be_dict(elt) for elt in node.elts)
+    if isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+        # Only the element expression ends up in the dumped output;
+        # generators' iter / ifs / targets are evaluated but discarded.
+        return _payload_could_be_dict(node.elt)
     # Dict / DictComp / Name / Call / Attribute / Subscript / arithmetic —
     # could be a dict (Name / Call etc. are opaque; conservative-flag).
     return True
@@ -466,13 +473,19 @@ class _ScopedAuditor(ast.NodeVisitor):
         return False
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:            # noqa: N802
-        # Defaults + decorators evaluate in the ENCLOSING scope, BEFORE
-        # parameters are bound (Codex review on PR #134 round 3):
-        # `import time; def f(now=time.time()): ...` — the default
-        # `time.time()` runs at def-time in the module scope; the `now`
-        # parameter doesn't shadow it. Visit them BEFORE entering the
+        # Defaults + decorators + annotations evaluate in the ENCLOSING
+        # scope, BEFORE parameters are bound (Codex review on PR #134
+        # round 3 + round 4):
+        #   `import time; def f(now=time.time()): ...` — default runs
+        #   at def-time in the module scope (round 3).
+        #   `def build(x: time.time()): ...` — parameter annotations
+        #   also run at def-time (round 4), unless `from __future__
+        #   import annotations` is active (then they're strings and
+        #   our AST sees the unevaluated expression as dead code; that
+        #   case is rarer and harmless to flag).
+        # Visit defaults / decorators / annotations BEFORE entering the
         # function scope; manually walk the body to avoid generic_visit
-        # double-walking the defaults.
+        # double-walking them.
         for default in node.args.defaults:
             self.visit(default)
         for default in node.args.kw_defaults:
@@ -482,6 +495,16 @@ class _ScopedAuditor(ast.NodeVisitor):
             self.visit(dec)
         if node.returns is not None:
             self.visit(node.returns)
+        # Parameter annotations on every arg family (positional / kwarg /
+        # *args / **kwargs).
+        for arg in (list(node.args.posonlyargs) + list(node.args.args)
+                    + list(node.args.kwonlyargs)):
+            if arg.annotation is not None:
+                self.visit(arg.annotation)
+        if node.args.vararg is not None and node.args.vararg.annotation is not None:
+            self.visit(node.args.vararg.annotation)
+        if node.args.kwarg is not None and node.args.kwarg.annotation is not None:
+            self.visit(node.args.kwarg.annotation)
         self._enter(_collect_function_locals(node))
         for stmt in node.body:
             self.visit(stmt)

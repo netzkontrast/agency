@@ -568,6 +568,104 @@ def test_comprehension_target_shadows_inside_comprehension():
         f"inside-comp call to comp target `time` must not classify; got {violations!r}"
 
 
+# ── Codex review on PR #134 round 4 ───────────────────────────────────────
+def test_json_dumps_list_with_inner_dict_still_flagged():
+    """Codex review (P2): `json.dumps([{"a": 1}])` — outer is a list,
+    but the inner dict still leaks key-order. The detector must
+    recurse into container elements before clearing them."""
+    src = (
+        "import json\n"
+        "def f():\n"
+        "    return json.dumps([{'a': 1, 'b': 2}])\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UNSORTED_DICT for v in violations), \
+        f"list-of-dict payload must still flag UNSORTED_DICT; got {violations!r}"
+
+
+def test_json_dumps_nested_list_of_lists_of_constants_not_flagged():
+    """Recursion bottoms out: a list of lists of constants has no
+    dict at any depth — clean."""
+    src = (
+        "import json\n"
+        "def f():\n"
+        "    return json.dumps([['a', 'b'], ['c']])\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.UNSORTED_DICT for v in violations)
+
+
+def test_json_dumps_tuple_with_inner_dict_flagged():
+    """Recursion works on Tuple containers too."""
+    src = (
+        "import json\n"
+        "def f():\n"
+        "    return json.dumps(({'a': 1}, 'x'))\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UNSORTED_DICT for v in violations)
+
+
+def test_json_dumps_listcomp_with_dict_element_flagged():
+    """`json.dumps([{"x": v} for v in xs])` — the comprehension's
+    element IS a dict, so the payload is order-sensitive."""
+    src = (
+        "import json\n"
+        "def f(xs):\n"
+        "    return json.dumps([{'x': v} for v in xs])\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UNSORTED_DICT for v in violations)
+
+
+def test_parameter_annotation_evaluated_in_enclosing_scope():
+    """Codex review (P2): `def f(x: time.time()): ...` — the
+    annotation runs at def-time in the ENCLOSING scope when no
+    `from __future__ import annotations`. The poisoned annotation
+    leaks request-time into the prefix across process starts."""
+    src = (
+        "import time\n"
+        "def f(x: time.time()):\n"
+        "    return x\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations), \
+        f"poisoned annotation `time.time()` must flag; got {violations!r}"
+
+
+def test_kwarg_annotation_with_poison_call_flagged():
+    """*args / **kwargs annotations get visited too."""
+    src = (
+        "import uuid\n"
+        "def f(**kw: uuid.uuid4()):\n"
+        "    return kw\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UUID4 for v in violations)
+
+
+def test_envelope_rejects_non_string_prefix_keys():
+    """Codex review (P2): non-string keys (e.g. int `1`) silently
+    collide with their stringified form across prefix/body halves
+    once JSON is emitted. The overlap check sees the raw Python keys
+    and misses the collision. ResponseEnvelope must reject non-str
+    keys at construction time."""
+    from agency._envelope import ResponseEnvelope
+    with pytest.raises(TypeError, match="keys must be str"):
+        ResponseEnvelope(prefix={1: "stable"}, body={"per-call": True})
+    with pytest.raises(TypeError, match="keys must be str"):
+        ResponseEnvelope(prefix={"stable": 1}, body={1: "per-call"})
+
+
+def test_envelope_rejects_collision_via_int_string_coercion():
+    """The motivating case: `prefix={1: "stable"}`, `body={"1":
+    "per-call"}` — both serialize as the JSON key `"1"`. Must
+    reject before the silent overwrite can happen."""
+    from agency._envelope import ResponseEnvelope
+    with pytest.raises(TypeError, match="keys must be str"):
+        ResponseEnvelope(prefix={1: "stable"}, body={"1": "per-call"})
+
+
 def test_canonical_json_preserves_prefix_before_body_when_body_sorts_first():
     """Codex review (P1): `json.dumps(env.to_dict(), sort_keys=True)`
     re-sorted the merged dict GLOBALLY, so a body key like `"delta"`

@@ -46,6 +46,17 @@ class ResponseEnvelope:
         if not isinstance(self.body, dict):
             raise TypeError(
                 f"body must be dict, got {type(self.body).__name__}")
+        # JSON object keys MUST be strings (Codex review on PR #134
+        # round 4). A non-string key like `1` would coerce to `"1"` on
+        # the wire and silently collide with a string `"1"` on the
+        # other half — the body value could overwrite the prefix value
+        # (or vice versa) without the overlap check ever firing.
+        for half_name, half in (("prefix", self.prefix), ("body", self.body)):
+            for k in half:
+                if not isinstance(k, str):
+                    raise TypeError(
+                        f"{half_name} keys must be str (JSON object key "
+                        f"contract), got {type(k).__name__}={k!r}")
 
     def to_dict(self) -> dict:
         """Merge prefix + body, sorted keys within each half, prefix keys first.
