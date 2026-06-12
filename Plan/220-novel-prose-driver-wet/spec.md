@@ -1,11 +1,11 @@
 ---
 spec_id: "220"
 slug: novel-prose-driver-wet
-status: draft
-last_updated: 2026-06-11
+status: partial
+last_updated: 2026-06-12
 owner: "@agency"
 enhances: "104"
-depends_on: ["104", "147", "130", "144", "146", "154", "217", "219"]
+depends_on: ["104", "147", "130", "144", "146", "154", "217", "219", "279"]
 vision_goals: [4, 1]
 affects:
   - agency/capabilities/novel/_main.py
@@ -149,3 +149,77 @@ caller bug, not a degradation surface.
 4. Surface failing-prose Artefacts to the author UI? **Recommend**:
    yes — `kind="prose-rejected"` Artefacts SERVES intent so the
    catalogue (Spec 222) can list them for hand-edit.
+
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+### Done — Slice 1 (driver-bound generate phase + Spec 279 delegation)
+
+- **`novel.generate_scene_body(scene_id, brief, alter_id, system,
+  host_completion, prefer_delegate, max_tokens)`** verb ships:
+  - Drives Spec 147 AnthropicDriver via Spec 279
+    `complete_or_delegate` — three paths (resume wins):
+    1. `host_completion` supplied → parse text → `driver="host"`.
+    2. driver capable → `complete()` → `driver="spec147"`.
+    3. driver backend "none" AND `prefer_delegate=True` → emit
+       `kind="llm_delegate"` envelope (`driver="delegate"`).
+  - Body ALWAYS captured via Spec 154 `capture_overflow` (512-token
+    head budget); response carries `body_handle` (Artefact id), NEVER
+    the body inline (Spec 146 prefix discipline; Spec 154 budget).
+  - Voice-lock fidelity: `alter_id` requires non-empty `brief` from
+    Spec 144 — empty brief → `VOICE_BRIEF_MISSING` typed code.
+  - System prompt includes voice-lock directive when alter is bound.
+  - Continuation token derived deterministically via Spec 279
+    `make_continuation_token(intent_id, verb, {scene_id, alter_id})`.
+
+- **Scene-writer phase 3 wired** — `SCENE_WRITER_SKILL` phase 3
+  `verbs: []` → `verbs: ["novel.generate_scene_body"]`. The deferred
+  Slice-1 stub is lifted; walking the scene-writer skill now
+  EXECUTES the generate phase end-to-end.
+
+- **Typed failure codes** — `VOICE_BRIEF_MISSING`,
+  `DEPENDENCY_MISSING`, `SCENE_OVERFLOW_LOST`, `DRIVER_REFUSAL`,
+  `HOST_DELEGATE_MALFORMED`. The default Engine-created driver has
+  backend "none"; without `prefer_delegate=True` the verb refuses
+  cleanly rather than crashing the loop.
+
+- **Provenance moat** — every generated body records an
+  `Artefact(kind="scene-body", scene_id, voice_locked, alter_id,
+  total_tokens, full_body, stop_reason, driver)` with PRODUCES_FROM
+  the Scene + SERVES the active intent.
+
+- **13 tests green** (`tests/test_novel_prose_wet.py`):
+  registration + scene-writer-phase-3 binding; capable-driver
+  Completion → handle; brief forwarded; voice-lock marks artefact
+  + requires brief; delegate envelope when `prefer_delegate=True`;
+  silent typed fail when no driver/delegate; resume from
+  host_completion + wins over driver + malformed code; Artefact
+  provenance shape + body never inline (3KB body still carried via
+  handle).
+
+- **Install drift clean** — `python -m agency.install` regenerates
+  `bin/agency-novel-generate_scene_body` +
+  `skills/novel/references/generate_scene_body.md`; test_agency
+  install-self-hosted invariant green.
+
+### Still — Slice 2+
+
+- **Slice 2 — gate-driven regenerate loop**: wire `check_filter_words`
+  / `check_dialogue_attribution` / `check_show_dont_tell` /
+  `novel_coherence_check` against the captured body; on failure,
+  call the driver again with the prior-round evidence as feedback;
+  bounded by `MAX_PROSE_REGEN` (default 4); on exhaustion return
+  `Codes.PROSE_GATE_NONCONVERGENT` with the failing-check set +
+  preserve the last failing body as `Artefact(kind="prose-rejected")`.
+- **Slice 3 — voice-drift evidence references alter_id**: when
+  `voice_locked=True`, the voice-drift check evidence must cite the
+  Spec 144 alter id (the spec invariant).
+- **Slice 4 — streaming**: long scenes overflow the non-streaming
+  16K guard; stream via Spec 147 Slice 2.x `stream()` into the Spec
+  154 capture so `body_handle` always serves.
+- **Slice 5 — refusal Artefacts visible**: surface `prose-rejected` /
+  `refusal` Artefacts via Spec 222 catalogue so the author can
+  hand-edit.
+- **Spec 252 integration**: managed-agents path wraps this verb on
+  the long-form session boundary.
+
