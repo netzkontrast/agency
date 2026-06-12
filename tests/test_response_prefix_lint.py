@@ -666,6 +666,102 @@ def test_envelope_rejects_collision_via_int_string_coercion():
         ResponseEnvelope(prefix={1: "stable"}, body={"1": "per-call"})
 
 
+# ── Codex review on PR #134 round 5 ───────────────────────────────────────
+def test_class_body_assignment_shadows_imported_name():
+    """Codex review (P2): `from time import time; class C: time =
+    lambda:1; x = time()` — the class-body assignment shadows the
+    import for subsequent class-body expressions. Must NOT classify."""
+    src = (
+        "from time import time\n"
+        "class C:\n"
+        "    time = lambda: 1\n"
+        "    x = time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.TIME_TIME for v in violations), \
+        f"class-body shadow must suppress TIME_TIME; got {violations!r}"
+
+
+def test_class_body_shadow_does_not_leak_into_methods():
+    """Class-body bindings are NOT visible inside method bodies —
+    they're accessed via `self.` or the class name. A method calling
+    `time.time()` must still classify."""
+    src = (
+        "import time\n"
+        "class C:\n"
+        "    time = 'shadow'\n"
+        "    def m(self):\n"
+        "        return time.time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations), \
+        f"class shadow must NOT leak into methods; got {violations!r}"
+
+
+def test_future_annotations_skips_parameter_annotation_visits():
+    """Codex review (P2): with `from __future__ import annotations`
+    (PEP 563), parameter + return annotations are STRINGS at runtime
+    — NOT evaluated at def-time. The auditor must skip them."""
+    src = (
+        "from __future__ import annotations\n"
+        "import time\n"
+        "import uuid\n"
+        "def f(x: time.time()) -> uuid.uuid4():\n"
+        "    return x\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.TIME_TIME for v in violations)
+    assert all(v.kind != ViolationKind.UUID4 for v in violations)
+
+
+def test_future_annotations_does_not_skip_default_values():
+    """Defaults are STILL evaluated at def-time even with future
+    annotations — only annotations are deferred."""
+    src = (
+        "from __future__ import annotations\n"
+        "import time\n"
+        "def f(x=time.time()):\n"
+        "    return x\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations)
+
+
+def test_global_declaration_does_not_shadow_imported_name():
+    """Codex review (P2): `import time; def f(): global time; x =
+    time.time(); time = None` — the `global time` declaration means
+    `time` is NOT local; the assignment writes to the global binding
+    (= the import). `time.time()` still resolves to the imported
+    module and must classify."""
+    src = (
+        "import time\n"
+        "def f():\n"
+        "    global time\n"
+        "    x = time.time()\n"
+        "    time = None\n"
+        "    return x\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations), \
+        f"global-declared name must NOT suppress classification; got {violations!r}"
+
+
+def test_nonlocal_declaration_does_not_shadow_imported_name():
+    """`nonlocal` declarations behave like `global` for shadowing —
+    the name refers to an enclosing binding, not a fresh local."""
+    src = (
+        "import time\n"
+        "def outer():\n"
+        "    time_val = 0\n"
+        "    def inner():\n"
+        "        nonlocal time_val\n"
+        "        return time.time()\n"
+        "    return inner\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations)
+
+
 def test_canonical_json_preserves_prefix_before_body_when_body_sorts_first():
     """Codex review (P1): `json.dumps(env.to_dict(), sort_keys=True)`
     re-sorted the merged dict GLOBALLY, so a body key like `"delta"`

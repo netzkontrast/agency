@@ -328,15 +328,22 @@ def _add_assignment_target(tgt: ast.AST, names: set[str]) -> None:
 
 def _collect_function_locals(fn: ast.AST) -> set[str]:
     """Collect names bound LOCALLY in this function's scope (parameters
-    + assignment targets + for / with / except / walrus / comprehension
-    targets), WITHOUT recursing into nested function or class scopes —
-    those have their own scope. Used to detect when an inner reference
+    + assignment targets + for / with / except / walrus targets),
+    WITHOUT recursing into nested function or class scopes — those
+    have their own scope. Used to detect when an inner reference
     SHADOWS a module-level import.
 
     Codex review on PR #134: `from time import time; def render(time):
     return time()` must NOT classify the bare `time()` as `time.time` —
-    the parameter shadows the import."""
+    the parameter shadows the import.
+
+    Codex review on PR #134 round 5: `global x` / `nonlocal x` declarations
+    make the name NOT-local even if it's assigned to inside the function.
+    Names declared with `global` / `nonlocal` are removed from the
+    collected set so the global/enclosing binding (typically an import)
+    still classifies."""
     names: set[str] = set()
+    nonlocal_names: set[str] = set()
     if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
         args = fn.args
         for a in args.posonlyargs + args.args + args.kwonlyargs:
@@ -347,6 +354,14 @@ def _collect_function_locals(fn: ast.AST) -> set[str]:
             names.add(args.kwarg.arg)
 
     class _LocalCollector(ast.NodeVisitor):
+        def visit_Global(self, node: ast.Global) -> None:                  # noqa: N802
+            for n in node.names:
+                nonlocal_names.add(n)
+
+        def visit_Nonlocal(self, node: ast.Nonlocal) -> None:              # noqa: N802
+            for n in node.names:
+                nonlocal_names.add(n)
+
         def visit_Assign(self, node: ast.Assign) -> None:                  # noqa: N802
             for tgt in node.targets:
                 _add_assignment_target(tgt, names)
@@ -421,7 +436,46 @@ def _collect_function_locals(fn: ast.AST) -> set[str]:
         body = list(getattr(fn, "body", []))
     for stmt in body:
         _LocalCollector().visit(stmt)
+    # global / nonlocal: the name is NOT local even if assigned to —
+    # the global/enclosing binding (typically an import) still resolves.
+    return names - nonlocal_names
+
+
+def _collect_class_locals(cls: ast.ClassDef) -> set[str]:
+    """Collect names bound at the CLASS body level (top-level assignments
+    + nested FunctionDef / ClassDef names). Used by `_ScopedAuditor` to
+    shadow imports for subsequent class-body expressions
+    (`from time import time; class C: time = lambda: 1; x = time()`).
+
+    Codex review on PR #134 round 5: this case was previously reported
+    as TIME_TIME even though the class-body call resolves to the
+    class-local binding."""
+    names: set[str] = set()
+    for stmt in cls.body:
+        if isinstance(stmt, ast.Assign):
+            for tgt in stmt.targets:
+                _add_assignment_target(tgt, names)
+        elif isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
+            _add_assignment_target(stmt.target, names)
+        elif isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                ast.ClassDef)):
+            names.add(stmt.name)
     return names
+
+
+def _module_has_future_annotations(tree: ast.Module) -> bool:
+    """True when the module declares `from __future__ import annotations`.
+
+    Codex review on PR #134 round 5: with PEP 563 active, parameter
+    annotations + return annotation are STRINGS (not evaluated at
+    def-time), so the auditor must NOT walk them in the enclosing
+    scope — they don't run."""
+    for stmt in tree.body:
+        if isinstance(stmt, ast.ImportFrom) and stmt.module == "__future__":
+            for alias in stmt.names:
+                if alias.name == "annotations":
+                    return True
+    return False
 
 
 def _top_name(node: ast.AST) -> str | None:
@@ -448,18 +502,25 @@ class _ScopedAuditor(ast.NodeVisitor):
     target), the node's classification is SUPPRESSED — the local mask
     the import alias."""
 
-    def __init__(self, am: AliasMap, path: str) -> None:
+    def __init__(self, am: AliasMap, path: str,
+                  future_annotations: bool = False) -> None:
         self.am = am
         self.path = path
-        # scopes[0] is the module scope; module-level imports are the
-        # alias map's source of truth, so we don't track module-level
-        # rebindings as shadowing. Inner scopes shadow the alias map.
-        self.scopes: list[set[str]] = []
+        # Each scope is (kind, names). kind ∈ {"function", "comp", "class"}.
+        # function + comp scopes shadow visible from inside; class scopes
+        # only shadow when the call is in the class body (i.e. no
+        # function/comp scope is between us and the class — Python
+        # class-body semantics: methods can't see class attrs by name).
+        self.scopes: list[tuple[str, set[str]]] = []
+        # `from __future__ import annotations` (PEP 563) — when True,
+        # parameter + return annotations are STRINGS at runtime, NOT
+        # evaluated at def-time. The auditor must skip them then.
+        self.future_annotations = future_annotations
         self.violations: list[PrefixViolation] = []
         self.seen: set[tuple[int, int]] = set()
 
-    def _enter(self, locals_: set[str]) -> None:
-        self.scopes.append(locals_)
+    def _enter(self, kind: str, locals_: set[str]) -> None:
+        self.scopes.append((kind, locals_))
 
     def _exit(self) -> None:
         self.scopes.pop()
@@ -467,9 +528,21 @@ class _ScopedAuditor(ast.NodeVisitor):
     def _is_shadowed(self, name: str | None) -> bool:
         if name is None:
             return False
-        for scope in self.scopes:
-            if name in scope:
-                return True
+        # Walk scopes from innermost to outermost.
+        # - function / comp scope: name shadows if it's there.
+        # - class scope: only shadows when we HAVEN'T crossed a
+        #   function/comp scope yet (Codex review on PR #134 round 5
+        #   — class-body expressions see class-local bindings, but
+        #   nested methods don't).
+        crossed_function = False
+        for kind, scope in reversed(self.scopes):
+            if kind in ("function", "comp"):
+                if name in scope:
+                    return True
+                crossed_function = True
+            else:                                                  # "class"
+                if not crossed_function and name in scope:
+                    return True
         return False
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:            # noqa: N802
@@ -479,10 +552,9 @@ class _ScopedAuditor(ast.NodeVisitor):
         #   `import time; def f(now=time.time()): ...` — default runs
         #   at def-time in the module scope (round 3).
         #   `def build(x: time.time()): ...` — parameter annotations
-        #   also run at def-time (round 4), unless `from __future__
-        #   import annotations` is active (then they're strings and
-        #   our AST sees the unevaluated expression as dead code; that
-        #   case is rarer and harmless to flag).
+        #   also run at def-time (round 4), UNLESS `from __future__
+        #   import annotations` is active (round 5: PEP 563 makes
+        #   annotations strings, not evaluated).
         # Visit defaults / decorators / annotations BEFORE entering the
         # function scope; manually walk the body to avoid generic_visit
         # double-walking them.
@@ -493,19 +565,21 @@ class _ScopedAuditor(ast.NodeVisitor):
                 self.visit(default)
         for dec in node.decorator_list:
             self.visit(dec)
-        if node.returns is not None:
-            self.visit(node.returns)
-        # Parameter annotations on every arg family (positional / kwarg /
-        # *args / **kwargs).
-        for arg in (list(node.args.posonlyargs) + list(node.args.args)
-                    + list(node.args.kwonlyargs)):
-            if arg.annotation is not None:
-                self.visit(arg.annotation)
-        if node.args.vararg is not None and node.args.vararg.annotation is not None:
-            self.visit(node.args.vararg.annotation)
-        if node.args.kwarg is not None and node.args.kwarg.annotation is not None:
-            self.visit(node.args.kwarg.annotation)
-        self._enter(_collect_function_locals(node))
+        if not self.future_annotations:
+            if node.returns is not None:
+                self.visit(node.returns)
+            # Parameter annotations on every arg family.
+            for arg in (list(node.args.posonlyargs) + list(node.args.args)
+                        + list(node.args.kwonlyargs)):
+                if arg.annotation is not None:
+                    self.visit(arg.annotation)
+            if (node.args.vararg is not None
+                    and node.args.vararg.annotation is not None):
+                self.visit(node.args.vararg.annotation)
+            if (node.args.kwarg is not None
+                    and node.args.kwarg.annotation is not None):
+                self.visit(node.args.kwarg.annotation)
+        self._enter("function", _collect_function_locals(node))
         for stmt in node.body:
             self.visit(stmt)
         self._exit()
@@ -519,8 +593,25 @@ class _ScopedAuditor(ast.NodeVisitor):
         for default in node.args.kw_defaults:
             if default is not None:
                 self.visit(default)
-        self._enter(_collect_function_locals(node))
+        self._enter("function", _collect_function_locals(node))
         self.visit(node.body)
+        self._exit()
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:                  # noqa: N802
+        # Decorators + bases + keyword args evaluate in the ENCLOSING
+        # scope BEFORE the class body. Codex review on PR #134 round 5:
+        # the class body itself is its own scope — assignments shadow
+        # imports for SUBSEQUENT class-body expressions
+        # (`from time import time; class C: time = lambda:1; x = time()`).
+        for dec in node.decorator_list:
+            self.visit(dec)
+        for base in node.bases:
+            self.visit(base)
+        for kw in node.keywords:
+            self.visit(kw.value)
+        self._enter("class", _collect_class_locals(node))
+        for stmt in node.body:
+            self.visit(stmt)
         self._exit()
 
     def _visit_comprehension(self, node: ast.AST,
@@ -539,7 +630,7 @@ class _ScopedAuditor(ast.NodeVisitor):
         names: set[str] = set()
         for gen in generators:
             _add_assignment_target(gen.target, names)
-        self._enter(names)
+        self._enter("comp", names)
         # Subsequent generators' iters + every generator's ifs are in
         # the comp scope.
         for i, gen in enumerate(generators):
@@ -614,7 +705,8 @@ def audit_source(src: str, path: str) -> list[PrefixViolation]:
     except SyntaxError:
         return []
     am = _build_alias_map(tree)
-    auditor = _ScopedAuditor(am, path)
+    future_annotations = _module_has_future_annotations(tree)
+    auditor = _ScopedAuditor(am, path, future_annotations=future_annotations)
     auditor.visit(tree)
     return auditor.violations
 
