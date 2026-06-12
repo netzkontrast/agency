@@ -132,10 +132,27 @@ Then:   Result.failure(Codes.PHASE_MISSING_PREDICATE,
   failure propagation; round-trip; Codes constant landing; ParseResult
   envelope shape.
 
-### Still — Slice 2+
+### Done — Slice 2 (SkillRun parse-gate + live-tree invariant, 2026-06-12)
 
-- **Slice 2** — wire `develop.skill_walk` (Spec 018) through
-  `parse_skill` so phase dicts validate once at parse, not per-step.
+- **`SkillRun.__init__` validates via `parse_skill`**: a malformed schema
+  raises `ValueError` carrying the typed `Codes.SKILL_PARSE_INVALID` /
+  `PHASE_MISSING_FIELD` in the message. Callers (Spec 018 walker,
+  `develop.skill_walk`, future Skills-API consumers) get the typed
+  failure at the boundary instead of crashing mid-walk on
+  `phase["produces"]` ad-hoc dict access.
+- **Slice 4 invariant promoted to live test**: every skill registered
+  on the live ontology MUST `parse_skill` clean (60/60 today). A new
+  skill that fails parse now breaks CI immediately — no baseline
+  tolerated for the bedrock invariant.
+- **3 new tests** in `tests/test_skill_phase_parse.py` (77 total green):
+  - `test_skill_run_validates_schema_through_parse_skill` — broken
+    phase raises ValueError + typed code embedded in message
+  - `test_skill_run_passes_valid_schema_through` — clean schemas walk
+  - `test_live_ontology_skills_all_parse_clean` — bedrock invariant
+    enumerates every registered skill, ALL must parse
+
+### Still — Slice 3+
+
 - **Slice 3** — `_check_ad_hoc_phase_parse` grep_ast lint (Spec 151
   family). `phase\[` / `phase\.get\(` outside `agency/_skill_parse.py`
   and `agency/disclosure.py` is an offender; monotone-decreasing count

@@ -23,6 +23,14 @@ from .memory import Memory
 
 class SkillRun:
     def __init__(self, memory: Memory, intent_id: str, schema: dict, registry=None):
+        # Spec 152 Slice 2 — validate the schema at the parse boundary so
+        # malformed phases fail fast at SkillRun construction with a typed
+        # `Codes.*` instead of crashing mid-walk on `phase["produces"]`.
+        from ._skill_parse import parse_skill
+        _res = parse_skill(schema)
+        if not _res.ok:
+            raise ValueError(
+                f"skill schema invalid ({_res.code}): {_res.message}")
         self.memory = memory
         self.intent_id = intent_id
         self.schema = schema
