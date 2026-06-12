@@ -694,9 +694,13 @@ class Engine:
                 plugin_root=plugin_root,
                 cli_available=bool(agency_on_path),
             )
-            # Roll hook next-steps into the doctor's top-level next_steps.
-            for step in hooks_status.next_steps:
-                next_steps.append(step)
+            # Hook next-steps stay on `doctor.hooks.next_steps` —
+            # informational surface for users who want hooks to fire.
+            # They are NOT rolled into the doctor's top-level `next_steps`
+            # because plugin-enabled / cli-on-path are USER concerns
+            # (a maintainer working in the agency repo intentionally has
+            # neither in CI); flipping the `ok` invariant on them would
+            # erode the doctor's health contract (Spec 030).
 
             return {
                 "ok": len(next_steps) == 0,
