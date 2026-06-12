@@ -20,15 +20,25 @@ LLM driver can apply `cache_control: {"type": "ephemeral"}` to the prefix
 prefix-match cleanly.
 
 Subsequent slices add:
-- Slice 2 — `_check_response_prefix` AST lint rule (Spec 067 family)
+- Slice 2.1 — `_check_response_prefix` AST lint rule (Spec 067 family)
+- Slice 2.2 — prefix-lint baseline + WARN→error CI gate (shipped)
 - Slice 3 — `agency_doctor.prefix_stability` + Claude-API cache-hit invariant
 - Slice 4 — `PREFIX_BUDGET_EXCEEDED` hard-fail at MAX_PREFIX_TOKENS
+
+Spec 154 Slice 2 — `capture_body_overflow(env, max_body_tokens, counter)`
+wires the pure `agency/_overflow.py` capture library through the envelope.
+The PREFIX is never touched (Spec 146 byte-stability invariant); only the
+BODY half is summarised when its canonical serialization exceeds the
+budget. The returned envelope's body becomes
+`{_overflow_preview: head_blob, _overflow_handle: {...}}` and the wrapping
+driver / agent can call `recall_overflow` (Slice 3) on the handle.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 from dataclasses import dataclass
+from typing import Any, Optional
 
 
 @dataclass
@@ -132,3 +142,56 @@ def ontology_hash(ontology: dict[str, list[str]]) -> str:
     normalized = {k: sorted(ontology[k]) for k in sorted(ontology)}
     blob = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+# ── Spec 154 Slice 2 — body-half overflow capture ────────────────────────
+@dataclass(frozen=True)
+class BodyOverflowResult:
+    """Typed return of `capture_body_overflow`. `envelope` is the
+    (possibly-summarised) envelope ready to wire; `handle` is the typed
+    OverflowHandle when capture fired, else None."""
+
+    envelope: "ResponseEnvelope"
+    handle: Optional[Any]                                         # OverflowHandle | None
+
+
+def capture_body_overflow(
+    env: ResponseEnvelope, *,
+    max_body_tokens: int,
+    counter: Any,
+) -> BodyOverflowResult:
+    """Inspect the envelope's BODY against `max_body_tokens`; either pass
+    the envelope through unchanged OR return a new envelope whose body
+    is the summary shape `{_overflow_preview: head, _overflow_handle:
+    {...}}`. The PREFIX is byte-identical (Spec 146 invariant).
+
+    `counter` is anything `agency/_overflow.py:_as_counter_fn` accepts
+    (callable `(text) -> int` OR Spec 082 `TokenCounter.count(text)`).
+    `max_body_tokens` MUST be ≥ 0; negative raises ValueError."""
+    if max_body_tokens < 0:
+        raise ValueError(f"max_body_tokens must be ≥ 0, got {max_body_tokens}")
+    from ._overflow import capture_overflow, OverflowHandle
+    body_blob = json.dumps(env.body, sort_keys=True, separators=(",", ":"))
+    res = capture_overflow(body_blob, max_tokens=max_body_tokens,
+                            counter=counter)
+    if not res.truncated:
+        return BodyOverflowResult(envelope=env, handle=None)
+    handle = OverflowHandle(
+        recall_handle="",                                          # Slice 3 wires to Artefact id
+        total_tokens=res.total_tokens,
+        returned_tokens=res.returned_tokens,
+        truncated=True,
+    )
+    summarised = {
+        "_overflow_preview": res.head,
+        "_overflow_handle": {
+            "recall_handle": handle.recall_handle,
+            "total_tokens": handle.total_tokens,
+            "returned_tokens": handle.returned_tokens,
+            "truncated": handle.truncated,
+        },
+    }
+    return BodyOverflowResult(
+        envelope=ResponseEnvelope(prefix=env.prefix, body=summarised),
+        handle=handle,
+    )

@@ -198,3 +198,114 @@ def _find_tool(mcp, name):
                 # raw dict return (no JSON-RPC envelope on the unit path).
                 return getattr(tool, "fn", tool)
     raise AssertionError(f"tool {name!r} not found in mcp providers")
+
+
+# ─────────────── Spec 154 Slice 2 — body-half overflow capture ───────────
+# Wires the pure `agency/_overflow.py` library through `agency/_envelope.py`:
+# `capture_body_overflow(env, max_body_tokens, counter)` returns a NEW
+# ResponseEnvelope whose body is summarised when the body's canonical
+# serialization exceeds the budget. The PREFIX is byte-identical (Spec 146
+# invariant). When the body fits, the envelope is returned unchanged.
+def _char_counter(text: str) -> int:
+    """Test-friendly proxy: 1 char ≈ 1 token (deterministic; Spec 082-free)."""
+    return len(text)
+
+
+def test_capture_body_overflow_returns_envelope_unchanged_under_budget():
+    """Body that fits the budget: same envelope returned, no overflow handle."""
+    from agency._envelope import ResponseEnvelope, capture_body_overflow
+    env = ResponseEnvelope(
+        prefix={"schema_version": 1, "wire_contract": "search/get_schema/execute"},
+        body={"intents": 3, "last_intent": "intent:x"})
+    out = capture_body_overflow(env, max_body_tokens=10_000,
+                                 counter=_char_counter)
+    assert out.envelope.body == env.body
+    assert out.handle is None
+    # Byte-stability invariant: prefix dict is untouched.
+    assert out.envelope.prefix == env.prefix
+
+
+def test_capture_body_overflow_truncates_body_over_budget():
+    """Body whose canonical JSON exceeds the budget: returned envelope's
+    body is the captured shape `{_overflow_preview, _overflow_handle}`
+    and `handle.truncated == True`."""
+    from agency._envelope import ResponseEnvelope, capture_body_overflow
+    env = ResponseEnvelope(
+        prefix={"schema_version": 1},
+        body={"transcript": "X" * 500})
+    out = capture_body_overflow(env, max_body_tokens=80,
+                                 counter=_char_counter)
+    assert out.handle is not None
+    assert out.handle.truncated is True
+    # The body half is replaced by a summary shape that still serializes
+    # under the budget.
+    assert "_overflow_preview" in out.envelope.body
+    assert "_overflow_handle" in out.envelope.body
+
+
+def test_capture_body_overflow_prefix_is_byte_identical():
+    """Spec 146 invariant: prefix bytes don't move regardless of body
+    capture. canonical_json on the prefix-only sub-envelope yields the
+    same bytes before and after."""
+    import json
+    from agency._envelope import (
+        ResponseEnvelope, canonical_json, capture_body_overflow)
+    prefix = {"capability_set_hash": "h", "schema_version": 1,
+              "wire_contract": "search/get_schema/execute"}
+    env = ResponseEnvelope(prefix=prefix, body={"large": "Y" * 10_000})
+    blob_before = canonical_json(ResponseEnvelope(prefix=prefix, body={}))
+    out = capture_body_overflow(env, max_body_tokens=120,
+                                 counter=_char_counter)
+    # Prefix dict object-equal AND its canonical-json bytes are unchanged.
+    assert out.envelope.prefix == prefix
+    blob_after = canonical_json(ResponseEnvelope(prefix=out.envelope.prefix,
+                                                  body={}))
+    assert blob_after == blob_before
+
+
+def test_capture_body_overflow_handle_carries_token_counts():
+    """The OverflowHandle on the envelope carries `total_tokens`,
+    `returned_tokens`, `truncated` — wrapping driver uses them to
+    decide whether to call `recall_overflow`."""
+    from agency._envelope import ResponseEnvelope, capture_body_overflow
+    env = ResponseEnvelope(prefix={"a": 1}, body={"big": "Z" * 400})
+    out = capture_body_overflow(env, max_body_tokens=80,
+                                 counter=_char_counter)
+    assert out.handle.total_tokens > 80
+    assert out.handle.returned_tokens <= 80
+    assert out.handle.truncated is True
+
+
+def test_capture_body_overflow_zero_budget_yields_empty_preview():
+    """Edge: max_body_tokens=0 still returns a valid envelope (no crash);
+    handle.truncated=True, preview is empty."""
+    from agency._envelope import ResponseEnvelope, capture_body_overflow
+    env = ResponseEnvelope(prefix={"a": 1}, body={"k": "v"})
+    out = capture_body_overflow(env, max_body_tokens=0,
+                                 counter=_char_counter)
+    assert out.handle is not None
+    assert out.handle.truncated is True
+    assert out.envelope.body["_overflow_preview"] == ""
+
+
+def test_capture_body_overflow_rejects_negative_budget():
+    """A negative budget is a programming error — fail loud."""
+    from agency._envelope import ResponseEnvelope, capture_body_overflow
+    env = ResponseEnvelope(prefix={"a": 1}, body={"k": "v"})
+    with pytest.raises(ValueError):
+        capture_body_overflow(env, max_body_tokens=-1, counter=_char_counter)
+
+
+def test_capture_body_overflow_handle_total_matches_full_serialization():
+    """`handle.total_tokens` MUST equal `counter(canonical_body_json)` so
+    the wrapping driver can compute the recall delta without re-walking
+    the source body."""
+    import json
+    from agency._envelope import ResponseEnvelope, capture_body_overflow
+    body = {"chapters": [f"C{i}" * 50 for i in range(20)]}
+    expected_total = _char_counter(
+        json.dumps(body, sort_keys=True, separators=(",", ":")))
+    env = ResponseEnvelope(prefix={"a": 1}, body=body)
+    out = capture_body_overflow(env, max_body_tokens=200,
+                                 counter=_char_counter)
+    assert out.handle.total_tokens == expected_total
