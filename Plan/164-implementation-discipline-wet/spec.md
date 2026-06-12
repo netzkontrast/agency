@@ -9,7 +9,7 @@ depends_on: ["041", "081", "156", "147"]
 vision_goals: [4, 6]
 affects:
   - agency/capabilities/develop/_main.py
-  - tests/test_implementation_discipline_wet.py
+  - tests/test_wet_verify_result.py   # Slice 1 SHIPPED 2026-06-12 (replaces planned test_implementation_discipline_wet.py)
 ---
 
 # Spec 164 — Implementation-discipline skills, wet phases

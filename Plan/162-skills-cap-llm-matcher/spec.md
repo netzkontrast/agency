@@ -9,7 +9,7 @@ depends_on: ["026", "147", "152", "161"]
 vision_goals: [4, 1]
 affects:
   - agency/capabilities/skills.py
-  - tests/test_skills_llm_matcher.py
+  - tests/test_skills_matcher_result.py   # Slice 1 SHIPPED 2026-06-12 (replaces planned test_skills_llm_matcher.py)
 ---
 
 # Spec 162 — `skills` cap `llm_select` Matcher

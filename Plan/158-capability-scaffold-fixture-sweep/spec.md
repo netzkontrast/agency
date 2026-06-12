@@ -10,7 +10,7 @@ vision_goals: [4]
 affects:
   - agency/capabilities/*/  (scaffold markers)
   - scripts/check-drift
-  - tests/test_scaffold_sweep.py
+  - tests/test_scaffold_markers.py   # Slice 1 SHIPPED 2026-06-12 (replaces planned test_scaffold_sweep.py)
 ---
 
 # Spec 158 — Capability scaffold + fixture sweep
