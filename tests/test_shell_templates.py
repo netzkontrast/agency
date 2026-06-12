@@ -155,3 +155,27 @@ def test_define_serves_intent_for_provenance():
             {"a": tid, "i": iid})
     finally:
         e.memory.close()
+
+
+# --- Spec 280 — foreign-hook wrap moved out of `shell.run` --------------------
+# Codex review on PR #138 round 2: `shell.run(hook_wrap=True)` was a P1
+# allowlist bypass (any MCP/CLI caller with a valid intent could
+# escape `_ALLOWED_TOOLS`). The wrap moved to a dedicated `agency hook
+# wrap` CLI subcommand that doesn't require an intent + preserves
+# stdin/stdout/stderr. See `tests/test_hooks_install.py` for the wrap
+# behavior; this test asserts the allowlist STAYS in force on the
+# public `shell.run` surface (regression invariant).
+
+def test_shell_run_allowlist_still_in_force_on_public_surface():
+    """Regression after the Spec 280 round-2 removal of `hook_wrap`:
+    the public `shell.run` surface remains allowlist-gated for ALL
+    callers. Non-allowlisted tools are rejected (Spec 073 boundary)."""
+    runner = _StubRunner()
+    e, iid = _engine(runner)
+    try:
+        out = _call(e, iid, "run", command="/usr/local/bin/audit.sh")
+        assert "error" in out
+        assert "not allowlisted" in out["error"]
+        assert runner.calls == []                                  # never ran
+    finally:
+        e.memory.close()
