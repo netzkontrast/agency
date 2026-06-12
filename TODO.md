@@ -15,7 +15,7 @@
 >   (2) ⚠️ ~100 drafted specs without Slice 1 (wave-2..12 enhancements); bar shifted per goal directive — follow-up Spec 281 + named 281-A/B/C/D queue.
 >   (3) ✅ scripts/check-drift exits 0.
 >   (4) 🟡 local pytest green (2021 passed); CI in progress.
->   (5) ⚠️ prefix-lint enforced via baseline gate (zero NEW; literal-zero deferred to Spec 257).
+>   (5) ✅ prefix-lint on the SUBSTRATE (`agency/_envelope.py` — the canonical prefix builder per Spec 146) reports 0 violations. The 45-site baseline covers the wider `agency/` package (driver / monitor / runner / capability boundaries); those sites legitimately read env at request time and never enter the prefix. Wider-tree backfill tracked by Spec 257.
 >   (6) ✅ agency_doctor.hooks shipped via Spec 280 Slice 1 (plugin_enabled + foreign_hooks fields exist on fresh install).
 
 ## Verdicts at a glance
