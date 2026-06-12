@@ -103,3 +103,47 @@ Then:   NoteResult{scope="observation", scope_source="default",
 2. Classifier model — Haiku or Sonnet for cost? **Recommend**: Haiku
    4.5 (classification is bounded-output; per `claude-api` skill the
    cheapest model is correct unless rubric agreement < 0.85).
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+Driven through the engine surface end-to-end (intent:11e7f576;
+skill:90c00b85 tdd walk; 4 Reflections recorded via dogfood.note;
+branch.commit_smart composed the commit's conventional-commit
+type+scope).
+
+### Done — Slice 1 (typed CollectCallersReport + audit)
+
+- **`scripts/check_collect_callers.py`**:
+  - `CallerSite{file, line, text}` frozen dataclass.
+  - `CollectCallersReport{callers}` + `caller_count` property.
+  - `audit_collect_callers(root)` walks `<root>/**/*.py`, regex-matches
+    `dogfood.collect(` call syntax (NOT import lines or comment/docstring
+    mentions), skips `__pycache__` + `tests/` (fixtures legitimately
+    reference the deprecated verb). Output sorted by file:line.
+  - CLI `--strict` exits 1 when any caller remains (Slice 2 promotes
+    to the deprecation gate).
+
+- **7 tests** in `tests/test_collect_callers.py`:
+  - typed CallerSite shape
+  - empty-tree returns 0
+  - explicit caller surfaced
+  - comments/docstrings NOT counted
+  - import lines NOT counted
+  - __pycache__ + tests/ skipped
+  - live-tree audit (shape invariant; no pinned count per rule 8)
+
+### Still — Slice 2+
+
+- **Slice 2** — wire CI gate: `caller_count` monotonically decreasing
+  across PRs. Baseline tracked in
+  `Plan/_planning/collect-callers-baseline.txt`.
+- **Slice 3** — `dogfood.note(auto_scope=True)` so the migration path
+  is a single-arg swap.
+- **Slice 4** — final caller removal + deprecation warning on
+  `dogfood.collect` itself.
+- **Slice 5** — LLM-classifier pass turning the remaining caller
+  intents into structured `dogfood.note(scope=...)` calls
+  (Spec 147 wet driver).
+
