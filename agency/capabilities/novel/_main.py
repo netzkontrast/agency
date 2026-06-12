@@ -543,12 +543,19 @@ SCENE_WRITER_SKILL = {
          # flags carry the validation; phase output is the gate.
          "verbs": []},
         {"index": 3, "name": "generate",
+         "inputs":   ["scene_id", "brief", "alter_id"],
          "produces": ["draft_body"],
          # Spec 220 Slice 1: bound to the wet generator (Spec 147
-         # AnthropicDriver + Spec 279 host-LLM delegation). The verb
-         # captures the body via Spec 154 — `body_handle` is the
-         # Artefact id; `memory.recall_overflow_slice` serves the body.
-         "verbs": ["novel.generate_scene_body"]},
+         # AnthropicDriver + Spec 279 host-LLM delegation). The
+         # `invoke` block EXECUTES the verb (Codex review on PR #137:
+         # `verbs` alone is advisory metadata; `invoke` is the binding
+         # the skill walker actually runs). The verb captures the
+         # body via Spec 154 — `body_handle` is the Artefact id;
+         # `novel.fetch_scene_body(body_handle)` serves it back to
+         # the public MCP/CLI surface.
+         "invoke":   {"capability": "novel",
+                       "verb":       "generate_scene_body"},
+         "verbs":    ["novel.generate_scene_body"]},
         {"index": 4, "name": "check",
          "produces": ["check_verdict"],
          "verbs": ["novel.check_filter_words",
@@ -1108,6 +1115,20 @@ class NovelCapability(CapabilityBase):
                 f"alter_id={alter_id!r} requires a Spec 144 voice-locked "
                 f"brief; got empty brief")
 
+        # Codex review (P2): validate scene_id BEFORE spending LLM work.
+        # A mistyped scene_id would otherwise burn a real Anthropic /
+        # host generation and produce prose whose `body_handle` can't
+        # be integrated downstream because the Scene doesn't exist.
+        # Empty scene_id is allowed for stateless probe calls (tests).
+        if scene_id:
+            scene_node = self.ctx.recall(scene_id)
+            if scene_node is None:
+                return ToolResult.failure(
+                    "NOT_FOUND",
+                    f"scene_id={scene_id!r} not found — cannot route the "
+                    f"generated body to a Scene that doesn't exist; create "
+                    f"the Scene with novel.create_scene first")
+
         # Resolve the anthropic driver (None when not wired).
         driver = None
         try:
@@ -1237,12 +1258,70 @@ class NovelCapability(CapabilityBase):
             "body_handle":    artefact_id,
             "wc":             wc,
             "checks":         [],
-            "passes_all":     True,                                    # Slice 2 wires the gate loop
+            # Codex review (P2): empty `checks` means no gate was applied
+            # — `passes_all=True` would be misleading. Slice 1 hasn't
+            # wired the regenerate loop; report `unchecked` so callers
+            # don't integrate the body assuming the gate ran.
+            "passes_all":     False,
+            "unchecked":      True,
             "regen_count":    0,
             "driver":         ("host" if result.stop_reason ==
                                 "host_provided" else "spec147"),
             "voice_locked":   voice_locked,
             "refusal":        None,
+        })
+
+    @verb(role="transform")
+    def fetch_scene_body(self, body_handle: str = "",
+                          max_chars: int = 0) -> ToolResult:
+        """Spec 220 Slice 1.5 — public retrieval for a scene-body Artefact.
+
+        ``novel.generate_scene_body`` returns the body via ``body_handle``
+        (an Artefact id) instead of inlining the prose (Spec 146 prefix
+        discipline + Spec 154 budget). This verb resolves the handle back
+        to the body so the MCP/CLI surface has a documented fetch path —
+        Codex review on PR #137 surfaced that ``memory.recall_overflow_slice``
+        isn't registered as a verb, leaving the body stranded behind a
+        graph-internal field.
+
+        Inputs: body_handle (Artefact id), max_chars (0 = full body;
+                positive = head-slice cap).
+        Returns: ``{body, total_chars, total_tokens, voice_locked,
+                 alter_id, scene_id, driver, stop_reason, truncated}``.
+        chain_next: ``novel.integrate_scene_body(scene_id, body)``.
+        Failure modes: ``NOT_FOUND`` (body_handle missing),
+                       ``BAD_REQUEST`` (handle resolves to a non-scene-
+                       body Artefact).
+        """
+        if not body_handle:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT", "body_handle is required")
+        art = self.ctx.recall(body_handle)
+        if art is None:
+            return ToolResult.failure(
+                "NOT_FOUND", f"body_handle={body_handle!r} not found")
+        if art.get("kind") != "scene-body":
+            return ToolResult.failure(
+                "BAD_REQUEST",
+                f"body_handle={body_handle!r} is "
+                f"kind={art.get('kind')!r}, not 'scene-body'")
+        full = str(art.get("full_body") or "")
+        truncated = False
+        if max_chars and max_chars > 0 and len(full) > max_chars:
+            body = full[:max_chars]
+            truncated = True
+        else:
+            body = full
+        return ToolResult.success(data={
+            "body":          body,
+            "total_chars":   len(full),
+            "total_tokens":  int(art.get("total_tokens") or 0),
+            "voice_locked":  bool(art.get("voice_locked")),
+            "alter_id":      str(art.get("alter_id") or ""),
+            "scene_id":      str(art.get("scene_id") or ""),
+            "driver":        str(art.get("driver") or ""),
+            "stop_reason":   str(art.get("stop_reason") or ""),
+            "truncated":     truncated,
         })
 
     @verb(role="effect")

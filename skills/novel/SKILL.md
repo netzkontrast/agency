@@ -68,6 +68,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `export_docx` | effect | Render manuscript + write docx via FormatDriver (effect). | [details](references/export_docx.md) |
 | `export_epub` | effect | Render manuscript + write epub via FormatDriver (effect). | [details](references/export_epub.md) |
 | `export_pdf` | effect | Render manuscript + write PDF via FormatDriver (effect). | [details](references/export_pdf.md) |
+| `fetch_scene_body` | transform | Spec 220 Slice 1.5 — public retrieval for a scene-body Artefact. | [details](references/fetch_scene_body.md) |
 | `find_axiom_contradictions` | effect | Decidable axiom-contradiction scan + emit CONTRADICTS edges (effect). | [details](references/find_axiom_contradictions.md) |
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |
 | `flag_anachronistic_reference` | transform | Check if the character knows the fact yet (transform). | [details](references/flag_anachronistic_reference.md) |
