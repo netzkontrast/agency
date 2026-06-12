@@ -177,12 +177,32 @@ Then:   exits with Codes.DERIVE_AMBIGUOUS naming both specs;
   — pure functions importable as `scripts.derive_docs`, frozen
   dataclasses, deterministic sort.
 
-### Still — Slice 2.2+
+### Done — Slice 2.2 (HTML-comment fence rewrite, 2026-06-12)
 
-- **Slice 2.2 — write side**: rewrite spec.md derived zones via
-  `<!-- derived:<section-id> -->` … `<!-- /derived:<section-id> -->`
-  HTML fences. `derive_docs --write` only touches between fences;
-  hand-prose untouched.
+- **`find_fence(text, fence_id) → (inner_start, inner_end) | None`**:
+  locates the FIRST `<!-- derived:<id> -->` … `<!-- /derived:<id> -->`
+  fence. Returns None when the opening marker is absent; raises
+  ValueError when opened-but-unclosed (Slice 2.4 promotes to
+  `Codes.DERIVE_FENCE_BROKEN`).
+- **`rewrite_fence(text, fence_id, new_content) → str`**: replaces ONLY
+  the content between markers; hand-prose outside the fence is byte-
+  preserved. Idempotent: `rewrite_fence(rewrite_fence(t, id, x), id, x)
+  == rewrite_fence(t, id, x)`.
+- **`render_fence_content(fence_id, derivation) → str`**: canonical
+  content for a known fence kind. Slice 2.2 ships ONE kind: `test-count`
+  (renders test count + affects list). Future slices add more kinds.
+- **`apply_derivations_to_spec_text(text, derivation) → str`**: walks
+  every known fence kind, rewrites the ones the spec opts into. Unknown
+  fence ids in the source are left alone.
+- **CLI `--write`**: iterates `Plan/*/spec.md`, applies the derivations
+  to specs that DECLARE fences, writes them back. Specs without fences
+  are no-op (opt-in).
+- **8 new tests** in `tests/test_derive_docs.py` (29 total green): find /
+  not-found / rewrite / idempotent / no-marker / multiple-ids / unclosed
+  raises / render_test_count / apply round-trip.
+
+### Still — Slice 2.3+
+
 - **Slice 2.3 — `check-doc-drift` extension**: fail CI when a derived
   zone diverges from `derive_docs --dry-run` output (Spec 058
   WARN→error doctrine).
