@@ -19,7 +19,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" dispatch",
-            "async": true
+            "async": false
           }
         ]
       }
@@ -54,7 +54,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" dispatch",
-            "async": true
+            "async": false
           }
         ]
       }

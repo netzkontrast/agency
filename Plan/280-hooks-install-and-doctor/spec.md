@@ -363,4 +363,111 @@ entry.async`.
 
 ## Followup — Implementation Status (Slice 1, 2026-06-12)
 
-To be filled when Slice 1 ships.
+### Done — Slice 1
+
+- **`agency/_hooks.py` ships** as the single source of truth:
+  - `CANONICAL_SETTINGS_PATCH` — enables `agency@netzkontrast` in
+    `enabledPlugins` + the `extraKnownMarketplaces` entry.
+  - `ASYNC_BY_EVENT` — doctrine table (sync for SessionStart /
+    PreToolUse / UserPromptSubmit; async for PostToolUse / Stop /
+    SessionEnd / SubagentStop).
+  - `merge_settings(user, canonical)` — preservation + idempotent;
+    dict-merges `enabledPlugins` and `extraKnownMarketplaces`,
+    preserves every other top-level key.
+  - `detect_foreign_hooks(user)` — finds hook entries the user
+    authored at `.claude/settings.json` (NOT routed via agency's
+    dispatcher). Skips agency-own entries + already-wrapped entries
+    (no double-wrap).
+  - `wrap_foreign_hook(entry)` → shell-wrapped entry whose command
+    is `agency shell run --hook-wrap -- <quoted-original>`.
+    PRESERVES the original `async` + `type` flags (a sync-blocking
+    foreign hook STAYS sync). Carries `_wrapped_from` so the user
+    can audit + Slice 5 uninstall can restore. Returns None when
+    the original is unquotable.
+  - `apply_foreign_wraps(user)` — sweeps the user's `hooks` block,
+    rewriting every foreign entry. Idempotent.
+  - `check_install(user, env, plugin_root, cli_available)` →
+    `InstallStatus{plugin_enabled, cli_on_path,
+    hook_scripts_present, foreign_hooks, drift, next_steps,
+    installed_version, shadowed_by_user}`.
+  - `patch_settings_file(path)` — install side-effect. Reads,
+    backs up to `.bak`, merges canonical + wraps foreign,
+    rewrites with `sort_keys=True` (byte-stable). Raises
+    `ValueError("HOOKS_INVALID_JSON: ...")` on unparseable prior.
+
+- **`agency.install --patch-claude-settings`** wires the install
+  side-effect. New flag `--claude-settings-path` overrides the
+  default `<root>/.claude/settings.json`.
+
+- **`hooks/hooks.json` async flags corrected** per `ASYNC_BY_EVENT`:
+  `PreToolUse` + `UserPromptSubmit` are now `async=false` (so the
+  Slice 2 blocking routes + intent-context injection can land).
+  `_build_hooks_json` reads `ASYNC_BY_EVENT` so the install
+  generator stays the source of truth.
+
+- **`hooks/dispatch` extended with routing advice** (Spec 280
+  Slice 1):
+  - PreToolUse on Bash `git commit` / `git push` →
+    `branch.commit_smart` / `branch.finish_branch` hint.
+  - PreToolUse on Bash `pytest` / `python -m pytest` →
+    `develop.test` hint.
+  - PreToolUse on Edit/Write of `Plan/NNN-*/spec.md` →
+    `dogfood.observe` hint.
+  - Advisory ONLY (stderr; exit 0). Slice 2 flips clearest routes
+    to exit 2.
+
+- **`agency_doctor.hooks`** field returns the
+  `InstallStatus.to_dict()`. Roll the `next_steps` into the
+  doctor's top-level `next_steps` so existing UX patterns surface
+  the same fixes.
+
+- **`agency hook self-test`** runs each documented event with a
+  synthetic JSON payload against the live dispatcher. Verifies:
+  - Each PreToolUse case shows the expected verb hint.
+  - Exit code is 0 (advisory invariant).
+  - Returns `{ok, results: [{case, exit_code, want_hint,
+    hint_seen, stderr, ok}]}`.
+
+- **`agency hook uninstall`** copies `.bak` back over
+  `settings.json` (Slice 5 reversibility minimum).
+
+- **32 tests green** (`tests/test_hooks_install.py`):
+  canonical-patch shape; async table; merge preservation +
+  idempotence; detect-foreign skips agency + wrapped; wrap
+  preserves async / records original / refuses unquotable;
+  apply_foreign_wraps no-double-wrap; check_install reports
+  plugin/cli/foreign states; patch creates `.bak`, preserves
+  other plugins, idempotent, wraps foreign, raises on invalid
+  JSON; `hooks/hooks.json` async-flag doctrine match;
+  live-dispatch routes git commit / pytest / spec edit; ignores
+  unrelated bash; `agency_doctor.hooks` carries the documented
+  shape.
+
+### Still — Slice 2+
+
+- **Slice 2 — promote clearest routes to BLOCKING** (Spec 058
+  WARN→error doctrine): flip `git commit` / `git push` / `pytest`
+  to exit 2 once the bypass-rate baseline lands. Requires Spec
+  195 BoundaryUse capture for the baseline.
+- **Slice 3 — MCP-aware suggestions**: the dispatcher queries
+  `mcp__agency__search` to derive routing hints from the live
+  registry (renames don't drift the hints).
+- **Slice 4 — user-level fallback repair**: `agency_doctor.hooks`
+  surfaces a `--repair-user-settings` flag that patches
+  `~/.claude/settings.json` when the repo-level block is shadowed.
+- **Slice 5+ — uninstall hardening**: extend `agency hook
+  uninstall` to ALSO unwrap foreign hooks (restore from
+  `_wrapped_from`) when no `.bak` is available. Today the basic
+  Slice 5 verb only does the .bak restore.
+- **Slice 6 — Spec 047 cluster pre-amble integration**: the
+  SessionStart routing hint becomes the pre-amble for every
+  walkable skill.
+- **Spec 151 Codes wire-up**: register `HOOKS_FILE_UNWRITABLE` /
+  `HOOKS_INVALID_JSON` / `HOOKS_FOREIGN_UNWRAPPABLE` in the
+  central enum.
+- **Improve adjacent partial/draft hook specs** (per user
+  directive): Spec 148 Slice 2 SessionStart Intent capture
+  (Spec 176); Spec 170 deepening to use `check_install`; Spec
+  195 BoundaryUse recording wires through the Slice 1 advice;
+  Spec 229 cross-session handoff lands on the upgraded Event
+  chain.

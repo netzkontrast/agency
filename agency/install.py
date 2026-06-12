@@ -369,41 +369,94 @@ _DISPATCH_PLAIN_EVENTS = ("UserPromptSubmit", "Stop", "SessionEnd")
 
 
 def _build_hooks_json() -> str:
+    """Build hooks/hooks.json. Spec 280 sets per-event async flags per
+    the doctrine table (sync for SessionStart / PreToolUse /
+    UserPromptSubmit; async for the rest)."""
+    from agency._hooks import ASYNC_BY_EVENT
     hooks: dict = {
         "SessionStart": [
             {
                 "matcher": "startup|resume|clear",
                 "hooks": [{"type": "command", "command": _SESSION_START_CMD,
-                           "async": False}],
+                           "async": ASYNC_BY_EVENT.get("SessionStart", False)}],
             }
         ]
     }
-    dispatch_entry = {"type": "command", "command": _DISPATCH_CMD, "async": True}
     for ev in _DISPATCH_MATCHER_EVENTS:
-        hooks[ev] = [{"matcher": "*", "hooks": [dict(dispatch_entry)]}]
+        entry = {"type": "command", "command": _DISPATCH_CMD,
+                 "async": ASYNC_BY_EVENT.get(ev, True)}
+        hooks[ev] = [{"matcher": "*", "hooks": [entry]}]
     for ev in _DISPATCH_PLAIN_EVENTS:
-        hooks[ev] = [{"hooks": [dict(dispatch_entry)]}]
+        entry = {"type": "command", "command": _DISPATCH_CMD,
+                 "async": ASYNC_BY_EVENT.get(ev, True)}
+        hooks[ev] = [{"hooks": [entry]}]
     return json.dumps({"hooks": hooks}, indent=2) + "\n"
 
 
 _SESSION_START_HOOKS_JSON = _build_hooks_json()
 
 
-# Spec 076 — the dispatcher script (extensionless, run via run-hook.cmd dispatch).
-# Reads the hook event JSON on stdin and pipes it to `agency hook`, which records
-# it as provenance. Non-blocking + never fails the session.
+# Spec 076 + Spec 280 — the dispatcher script (extensionless, run via
+# run-hook.cmd dispatch). Reads the hook event JSON on stdin and:
+#   1. forwards it to `agency hook` so an Event node lands in the graph
+#      (Spec 076), and
+#   2. emits Slice 1 routing-advice hints on stderr when the payload is
+#      a PreToolUse on Bash with a verb-equivalent command (`git commit`
+#      -> `branch.commit_smart`, `pytest` -> `develop.test`) or an
+#      Edit/Write on `Plan/*/spec.md` (-> `dogfood.observe`). Advisory
+#      only (exit 0); Slice 2 flips the clearest routes to exit 2.
+# Best-effort throughout: a missing CLI or python3 must NEVER break
+# the session.
 _DISPATCH_HOOK_SCRIPT = """\
 #!/usr/bin/env bash
-# agency unified event dispatcher (Spec 076).
-#
-# Claude Code pipes each hook event's payload (JSON) to this script on stdin.
-# We forward it to `agency hook`, which routes it by hook_event_name to the
-# engine's handler surface (records an Event node; links it to the active
-# AGENCY_INTENT when set). Capture is best-effort: a missing CLI or a handler
-# error must NEVER break the session, so we swallow failures.
+# agency unified event dispatcher (Spec 076 + Spec 280 Slice 1 routing).
+set -u
+
+PAYLOAD="$(cat || true)"
+
+# Best-effort Event recording (Spec 076).
 if command -v agency >/dev/null 2>&1; then
-  agency hook >/dev/null 2>&1 || true
+  printf '%s' "${PAYLOAD}" | agency hook >/dev/null 2>&1 || true
 fi
+
+# Routing advice (Spec 280 Slice 1) — parse the payload via Python so
+# we don't pull in jq as a dependency.
+if command -v python3 >/dev/null 2>&1; then
+  printf '%s' "${PAYLOAD}" | python3 -c '
+import json, re, sys
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+event = str(payload.get("hook_event_name") or "")
+tool  = str(payload.get("tool_name") or "")
+tin   = payload.get("tool_input") or {}
+def hint(msg):
+    print("agency hook | " + msg, file=sys.stderr)
+if event == "PreToolUse" and tool == "Bash":
+    cmd = str(tin.get("command") or "").strip()
+    head = cmd.split()[0] if cmd else ""
+    if cmd.startswith("git commit") or cmd.startswith("git push"):
+        verb = ("branch.commit_smart" if cmd.startswith("git commit")
+                else "branch.finish_branch")
+        hint("raw `" + head + "` bypasses provenance — prefer "
+             "`mcp__agency__execute` calling `" + verb + "(...)` so the "
+             "commit/push records an Invocation + SERVES the active intent.")
+    elif (cmd.startswith("pytest") or cmd.startswith("python -m pytest")
+          or cmd.startswith("python3 -m pytest")):
+        hint("raw `pytest` bypasses provenance — prefer "
+             "`develop.test(scope=...)` so the run records an Invocation. "
+             "For fast iteration use `scripts/test-cap <marker>`.")
+if event == "PreToolUse" and tool in ("Edit", "Write"):
+    path = str(tin.get("file_path") or "")
+    if re.search(r"(^|/)Plan/\\d{3}-[^/]+/spec\\.md$", path):
+        hint("editing a spec file directly (" + path + ") leaves no "
+             "provenance trail — pair with `dogfood.observe(scope=\\"spec\\", "
+             "text=\\"what changed and why\\")` so the amendment is "
+             "traceable via Spec 150 amendment-classifier.")
+' || true
+fi
+
 exit 0
 """
 
@@ -860,6 +913,16 @@ def main(argv: list | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true",
                         help="Print the would-write paths + per-file lint result; "
                              "touch nothing on disk. Exit 0 iff all lints pass.")
+    parser.add_argument("--patch-claude-settings",
+                        action="store_true",
+                        help="Spec 280 — write/merge the agency plugin entry "
+                             "into the user's `.claude/settings.json` (and "
+                             "wrap foreign hooks via shell.run). Idempotent; "
+                             "creates `.bak` on first run.")
+    parser.add_argument("--claude-settings-path",
+                        default=None,
+                        help="Override the path to `.claude/settings.json` "
+                             "(default: <root>/.claude/settings.json).")
     ns = parser.parse_args(argv)
     target = ns.root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if ns.dry_run:
@@ -887,6 +950,21 @@ def main(argv: list | None = None) -> int:
         return 0
     for p in write(target):
         print(p)
+    if ns.patch_claude_settings:
+        from agency._hooks import patch_settings_file
+        settings_path = (
+            ns.claude_settings_path
+            or os.path.join(target, ".claude", "settings.json"))
+        try:
+            result = patch_settings_file(settings_path)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        print(f"patched: {result['settings_path']}")
+        if result.get("backup_path"):
+            print(f"backup: {result['backup_path']}")
+        if result.get("wrapped_count"):
+            print(f"wrapped {result['wrapped_count']} foreign hook(s)")
     if ns.scaffold_db:
         # The DB lives in the PROJECT, not the plugin root — scaffold there.
         scaffold_root = _scaffold_target(target)
