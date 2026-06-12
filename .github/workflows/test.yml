@@ -75,6 +75,18 @@ jobs:
       - name: Vision-goals frontmatter
         run: python -m scripts.check_vision_goals
 
+      # Spec 146 Slice 2.2 — response-prefix lint gate. Walks `agency/` and
+      # flags any new non-deterministic call site (datetime.now / time.time /
+      # uuid4 / os.environ read / unsorted json.dumps) that would poison the
+      # prompt-cache prefix. Known-historical sites enumerated in
+      # `Plan/_planning/prefix-lint-baseline.txt`; the gate fails ONLY on
+      # regressions (new sites NOT in the baseline). Stop condition #5 for
+      # the autonomous-completion goal.
+      - name: Response-prefix lint
+        run: |
+          python scripts/check_response_prefix.py --root agency \
+            --baseline Plan/_planning/prefix-lint-baseline.txt --strict
+
       # Spec 092 G6 — followup-grounding, ADVISORY: a Shipped spec should cite tests that
       # exist (catches a roll-up claim that overstates completeness).
       - name: Followup-grounding (advisory)
