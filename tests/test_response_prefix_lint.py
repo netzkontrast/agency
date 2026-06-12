@@ -448,6 +448,126 @@ def test_classify_still_flags_outer_scope_when_inner_shadows():
         f"outer `time.time()` must still be flagged; got {violations!r}"
 
 
+# ── Codex review on PR #134 round 3 ───────────────────────────────────────
+def test_json_dumps_list_payload_not_flagged_as_unsorted_dict():
+    """Codex review (P2): `json.dumps(["a", "b"])` has no key-order
+    leak — lists serialize positionally. UNSORTED_DICT should only
+    fire when the payload could be dict-like."""
+    src = (
+        "import json\n"
+        "def f():\n"
+        "    return json.dumps(['a', 'b'])\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.UNSORTED_DICT for v in violations), \
+        f"list payload to json.dumps must not flag UNSORTED_DICT; got {violations!r}"
+
+
+def test_json_dumps_string_constant_payload_not_flagged():
+    """Atomic constants (str/int/None) have no order. Don't flag."""
+    src = (
+        "import json\n"
+        "def f():\n"
+        "    return json.dumps('hello')\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.UNSORTED_DICT for v in violations)
+
+
+def test_json_dumps_dict_literal_still_flagged():
+    """A dict literal IS order-sensitive — must still flag without
+    sort_keys=True."""
+    src = (
+        "import json\n"
+        "def f():\n"
+        "    return json.dumps({'a': 1, 'b': 2})\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UNSORTED_DICT for v in violations)
+
+
+def test_json_dumps_opaque_name_flagged_conservatively():
+    """When the payload is a Name (e.g. a dict variable), the lint
+    can't prove it's not a dict — flag conservatively."""
+    src = (
+        "import json\n"
+        "def f(d):\n"
+        "    return json.dumps(d)\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UNSORTED_DICT for v in violations)
+
+
+def test_default_expressions_evaluated_in_enclosing_scope():
+    """Codex review (P2): `def f(now=time.time()): ...` — the default
+    runs at def-time in the ENCLOSING scope, BEFORE the parameter is
+    bound. The poisoned default leaks request-time into the prefix."""
+    src = (
+        "import time\n"
+        "def f(now=time.time()):\n"
+        "    return now\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations), \
+        f"poisoned default `time.time()` must flag; got {violations!r}"
+
+
+def test_default_expression_with_self_shadowing_name_still_flags():
+    """`from uuid import uuid4; def f(uuid4=uuid4()): ...` — the
+    default `uuid4()` evaluates in enclosing scope BEFORE the
+    parameter `uuid4` exists. Still flag."""
+    src = (
+        "from uuid import uuid4\n"
+        "def f(uuid4=uuid4()):\n"
+        "    return uuid4\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UUID4 for v in violations), \
+        f"poisoned default `uuid4()` must flag; got {violations!r}"
+
+
+def test_comprehension_target_does_not_leak_into_function_scope():
+    """Codex review (P2): comprehension loop vars are scoped to the
+    comprehension in Python 3 — `[t for t in xs]` does NOT pollute
+    the enclosing function. A later `time.time()` must classify."""
+    src = (
+        "import time\n"
+        "def f(xs):\n"
+        "    _ = [t for t in xs]\n"
+        "    return time.time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations)
+
+
+def test_comprehension_target_does_not_leak_even_when_named_same():
+    """`[time for time in xs]` doesn't leak the comp target. After
+    the comprehension ends, `time` reverts to the import."""
+    src = (
+        "import time\n"
+        "def f(xs):\n"
+        "    _ = [time for time in xs]\n"
+        "    return time.time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations), \
+        f"comp target `time` must not leak; got {violations!r}"
+
+
+def test_comprehension_target_shadows_inside_comprehension():
+    """Conversely, INSIDE the comprehension body the target DOES
+    shadow — `[time() for time in xs]` calls the comp target, not
+    stdlib `time()`. Must NOT classify."""
+    src = (
+        "from time import time\n"
+        "def f(xs):\n"
+        "    return [time() for time in xs]\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.TIME_TIME for v in violations), \
+        f"inside-comp call to comp target `time` must not classify; got {violations!r}"
+
+
 def test_canonical_json_preserves_prefix_before_body_when_body_sorts_first():
     """Codex review (P1): `json.dumps(env.to_dict(), sort_keys=True)`
     re-sorted the merged dict GLOBALLY, so a body key like `"delta"`

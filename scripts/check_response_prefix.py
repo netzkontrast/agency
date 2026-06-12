@@ -163,23 +163,63 @@ def _is_environ_chain(node: ast.AST, am: AliasMap) -> bool:
     return False
 
 
+def _payload_could_be_dict(node: ast.AST) -> bool:
+    """True when a `json.dumps(payload)` payload COULD evaluate to a
+    dict (or any value with key-order-sensitive serialization). False
+    for definitively non-dict expressions: list/tuple/set/genexp
+    literals, list/set/gen comprehensions, atomic constants.
+
+    Codex review on PR #134 (P2 round 3): `json.dumps(["a", "b"])`
+    must NOT flag — lists have no key-order leak. Only flag the
+    UNSORTED_DICT kind when the payload could actually be order-
+    sensitive."""
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set,
+                          ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+        return False
+    if isinstance(node, ast.Constant):
+        return False
+    # Dict / DictComp / Name / Call / Attribute / Subscript / arithmetic —
+    # could be a dict (Name / Call etc. are opaque; conservative-flag).
+    return True
+
+
+def _dumps_payload(call: ast.Call) -> ast.AST | None:
+    """Return the first-arg payload of a `json.dumps(...)` call (or
+    the `obj=` kwarg form). None when neither is present."""
+    if call.args:
+        return call.args[0]
+    for kw in call.keywords:
+        if kw.arg == "obj":
+            return kw.value
+    return None
+
+
 def _is_unsorted_dumps(node: ast.Call, am: AliasMap) -> bool:
     """`json.dumps(...)` without `sort_keys=True` — hash-order leak.
-    Recognizes both `json.dumps` (canonical) and aliased forms."""
+    Recognizes both `json.dumps` (canonical) and aliased forms. Only
+    flags when the payload could be a dict (Codex review on PR #134
+    round 3); list/constant payloads have no key-order leak."""
     fn = node.func
+    matches_json_dumps = False
     # Qualified `json.dumps(...)`
     if isinstance(fn, ast.Attribute) and fn.attr == "dumps":
         recv = fn.value
         if isinstance(recv, ast.Name):
             canonical = _resolve_module(recv.id, am)
             if canonical == "json":
-                return not _has_sort_keys_true(node)
+                matches_json_dumps = True
     # Bare `dumps(...)` from `from json import dumps`
     if isinstance(fn, ast.Name):
         tup = am.bare_funcs.get(fn.id)
         if tup and tup[0] == "json" and tup[1] == "dumps":
-            return not _has_sort_keys_true(node)
-    return False
+            matches_json_dumps = True
+    if not matches_json_dumps:
+        return False
+    # Suppress when the payload is provably non-dict-like.
+    payload = _dumps_payload(node)
+    if payload is not None and not _payload_could_be_dict(payload):
+        return False
+    return not _has_sort_keys_true(node)
 
 
 def _has_sort_keys_true(call: ast.Call) -> bool:
@@ -336,12 +376,12 @@ def _collect_function_locals(fn: ast.AST) -> set[str]:
                 names.add(node.name)
             self.generic_visit(node)
 
-        def visit_comprehension(self, node: ast.comprehension) -> None:
-            _add_assignment_target(node.target, names)
-            self.generic_visit(node)
-
         # Do NOT recurse into nested scopes — those have their own
         # locals collected by their own _collect_function_locals call.
+        # Comprehensions (List/Set/Dict/Generator) are scoped to the
+        # comprehension itself in Python 3 (Codex review on PR #134
+        # round 3) — their targets do NOT leak into the function
+        # scope, so don't collect them here either.
         def visit_FunctionDef(self, _node: ast.FunctionDef) -> None:       # noqa: N802
             return
 
@@ -351,6 +391,18 @@ def _collect_function_locals(fn: ast.AST) -> set[str]:
             return
 
         def visit_ClassDef(self, _node: ast.ClassDef) -> None:             # noqa: N802
+            return
+
+        def visit_ListComp(self, _node: ast.ListComp) -> None:             # noqa: N802
+            return
+
+        def visit_SetComp(self, _node: ast.SetComp) -> None:               # noqa: N802
+            return
+
+        def visit_DictComp(self, _node: ast.DictComp) -> None:             # noqa: N802
+            return
+
+        def visit_GeneratorExp(self, _node: ast.GeneratorExp) -> None:     # noqa: N802
             return
 
     body: list[ast.AST]
@@ -414,16 +466,79 @@ class _ScopedAuditor(ast.NodeVisitor):
         return False
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:            # noqa: N802
+        # Defaults + decorators evaluate in the ENCLOSING scope, BEFORE
+        # parameters are bound (Codex review on PR #134 round 3):
+        # `import time; def f(now=time.time()): ...` — the default
+        # `time.time()` runs at def-time in the module scope; the `now`
+        # parameter doesn't shadow it. Visit them BEFORE entering the
+        # function scope; manually walk the body to avoid generic_visit
+        # double-walking the defaults.
+        for default in node.args.defaults:
+            self.visit(default)
+        for default in node.args.kw_defaults:
+            if default is not None:
+                self.visit(default)
+        for dec in node.decorator_list:
+            self.visit(dec)
+        if node.returns is not None:
+            self.visit(node.returns)
         self._enter(_collect_function_locals(node))
-        self.generic_visit(node)
+        for stmt in node.body:
+            self.visit(stmt)
         self._exit()
 
     visit_AsyncFunctionDef = visit_FunctionDef
 
     def visit_Lambda(self, node: ast.Lambda) -> None:                      # noqa: N802
+        # Lambda defaults also evaluate in the enclosing scope.
+        for default in node.args.defaults:
+            self.visit(default)
+        for default in node.args.kw_defaults:
+            if default is not None:
+                self.visit(default)
         self._enter(_collect_function_locals(node))
-        self.generic_visit(node)
+        self.visit(node.body)
         self._exit()
+
+    def _visit_comprehension(self, node: ast.AST,
+                              generators: list[ast.comprehension],
+                              parts: list[ast.AST]) -> None:
+        """Comprehensions (List/Set/Dict/Generator) have their OWN scope
+        in Python 3 (Codex review on PR #134 round 3). The first
+        generator's `iter` is evaluated in the ENCLOSING scope; every
+        subsequent `iter`, every `if` clause, and the element / key /
+        value expressions evaluate inside the comprehension scope with
+        all generator targets bound."""
+        if not generators:
+            return
+        # First generator's iter evaluates in the enclosing scope.
+        self.visit(generators[0].iter)
+        names: set[str] = set()
+        for gen in generators:
+            _add_assignment_target(gen.target, names)
+        self._enter(names)
+        # Subsequent generators' iters + every generator's ifs are in
+        # the comp scope.
+        for i, gen in enumerate(generators):
+            if i > 0:
+                self.visit(gen.iter)
+            for cond in gen.ifs:
+                self.visit(cond)
+        for part in parts:
+            self.visit(part)
+        self._exit()
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:                  # noqa: N802
+        self._visit_comprehension(node, node.generators, [node.elt])
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:                    # noqa: N802
+        self._visit_comprehension(node, node.generators, [node.elt])
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:          # noqa: N802
+        self._visit_comprehension(node, node.generators, [node.elt])
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:                  # noqa: N802
+        self._visit_comprehension(node, node.generators, [node.key, node.value])
 
     def visit_Call(self, node: ast.Call) -> None:                          # noqa: N802
         self._maybe_record(node)
