@@ -98,6 +98,16 @@ jobs:
           python scripts/check_codes_coverage.py --root agency \
             --baseline Plan/_planning/codes-coverage-baseline.txt --strict
 
+      # Spec 153 Slice 2 — template/schema coverage gate. Walks ontology
+      # labels vs. authored schemas and flags any new uncovered label.
+      # Known-uncovered labels enumerated in
+      # `Plan/_planning/schema-coverage-baseline.txt`; the gate fails ONLY
+      # on regressions (new uncovered labels NOT in the baseline).
+      - name: Schema-coverage lint
+        run: |
+          python scripts/check_schema_coverage.py --root agency \
+            --baseline Plan/_planning/schema-coverage-baseline.txt --strict
+
       # Spec 092 G6 — followup-grounding, ADVISORY: a Shipped spec should cite tests that
       # exist (catches a roll-up claim that overstates completeness).
       - name: Followup-grounding (advisory)

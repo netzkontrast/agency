@@ -129,13 +129,34 @@ Then:   passes; coverage_fraction increases monotonically; floor advances
   ontology convention + spurious detection + subset invariant +
   live-tree shape invariant.
 
-### Still — Slice 2+
+### Done — Slice 2 (uncovered baseline + WARN→error CI gate, 2026-06-12)
 
-- **Slice 2** — Spec 058 WARN→error promotion. Once the live tree
-  reports `fraction >= floor`, promote `check_schema_coverage` to a
-  CI-blocking gate with `--floor` enforcement (default 0.5, override
-  via `Plan/_planning/schema-coverage-floor.txt` Spec 054 drift
-  baseline). Monotone-floor invariant (a).
+Adopts the Spec 146 Slice 2.2 / Spec 151 Slice 2 baseline-drift pattern
+(0.232 coverage; the floor approach is uninformative, the uncovered
+set captures REGRESSIONS directly).
+
+- **`load_schema_baseline(path)`** — one-label-per-line parser, blank
+  + `#`-comment lines tolerated.
+- **`compare_uncovered_to_baseline(report, baseline)` →
+  `SchemaRegressionReport{new_uncovered, fixed_uncovered, ok}`** — pure
+  set diff: live − baseline = REGRESSIONS (gate-fail); baseline − live =
+  FIXED (label is now covered, trim baseline).
+- **CLI flags** `--baseline PATH --strict`:
+  - `--strict` without baseline: any uncovered label → exit 1.
+  - `--strict --baseline`: only NEW labels → exit 1; FIXED entries are
+    surfaced so the baseline can be trimmed in the same PR.
+- **`Plan/_planning/schema-coverage-baseline.txt`** — enumerates the 53
+  currently-uncovered labels. Slice 6 backfill (per the followup) will
+  author schemas for the highest-traffic ones and monotonically reduce.
+- **CI step `Schema-coverage lint`** in `.github/workflows/test.yml`.
+- **7 new tests** in `tests/test_template_schema_coverage.py`:
+  load_schema_baseline parse + missing-file empty;
+  compare_uncovered_to_baseline OK / new / fixed; CLI strict-without
+  baseline fails; CLI strict-with baseline passes on the committed set;
+  LIVE INVARIANT (committed baseline = live uncovered set).
+
+### Still — Slice 3+
+
 - **Slice 3** — `agency_doctor.schema_coverage` reports the typed
   payload + a `monotone_ok` bool + the `priority_uncovered` list
   (ranked by live graph node-count so authors target the highest-

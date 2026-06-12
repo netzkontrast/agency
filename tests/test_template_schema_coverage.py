@@ -241,3 +241,100 @@ def test_live_tree_audit_yields_a_report():
     assert 0.0 <= rep.coverage_fraction <= 1.0
     # The covered set is a subset of the ontology labels (rule 8 invariant).
     assert rep.covered <= ontology
+
+
+# ─────────────── Slice 2 — uncovered baseline + WARN→error gate ───────────
+# Spec 153 Slice 2 ships:
+#   - `load_schema_baseline(path)` → set[str] of KNOWN-uncovered labels
+#   - `compare_uncovered_to_baseline(report, baseline)` → SchemaRegressionReport
+#   - CLI `--baseline PATH --strict` — only NEW uncovered labels fail
+#   - `Plan/_planning/schema-coverage-baseline.txt` enumerates current 53
+#     uncovered labels so the gate flags REGRESSIONS only (Spec 054 pattern).
+def test_load_schema_baseline_parses_labels_per_line(tmp_path):
+    from scripts.check_schema_coverage import load_schema_baseline
+    f = tmp_path / "baseline.txt"
+    f.write_text("# header\n\nReflection\nEvent\n")
+    assert load_schema_baseline(f) == {"Reflection", "Event"}
+
+
+def test_load_schema_baseline_missing_file_returns_empty(tmp_path):
+    from scripts.check_schema_coverage import load_schema_baseline
+    assert load_schema_baseline(tmp_path / "missing.txt") == set()
+
+
+def test_compare_uncovered_ok_when_uncovered_subset_of_baseline():
+    from scripts.check_schema_coverage import (
+        compare_uncovered_to_baseline, CoverageReport)
+    rep = CoverageReport(uncovered={"Reflection"})
+    baseline = {"Reflection", "Event"}                            # we KNOW these
+    res = compare_uncovered_to_baseline(rep, baseline)
+    assert res.ok is True
+    assert res.new_uncovered == set()
+    # 'Event' is in baseline but no longer uncovered → covered. Surface
+    # as fixed (author should trim baseline).
+    assert res.fixed_uncovered == {"Event"}
+
+
+def test_compare_uncovered_flags_new_label_as_regression():
+    """A label uncovered AND not in baseline = a new schema gap."""
+    from scripts.check_schema_coverage import (
+        compare_uncovered_to_baseline, CoverageReport)
+    rep = CoverageReport(uncovered={"Reflection", "BrandNewLabel"})
+    baseline = {"Reflection"}
+    res = compare_uncovered_to_baseline(rep, baseline)
+    assert res.ok is False
+    assert res.new_uncovered == {"BrandNewLabel"}
+
+
+def test_cli_strict_without_baseline_fails_on_any_uncovered(tmp_path,
+                                                              monkeypatch):
+    """`--strict` without `--baseline` → any uncovered label exits 1."""
+    from scripts.check_schema_coverage import main
+    monkeypatch.chdir(Path(__file__).parent.parent)
+    rc = main(["--root", "agency", "--strict"])
+    # Live tree has 53 uncovered → must fail.
+    assert rc == 1
+
+
+def test_cli_strict_with_matching_baseline_exits_0(tmp_path, monkeypatch):
+    """`--strict --baseline` over the committed baseline must pass on
+    the live tree — invariant: committed baseline = live uncovered set."""
+    from scripts.check_schema_coverage import main
+    monkeypatch.chdir(Path(__file__).parent.parent)
+    rc = main(["--root", "agency", "--strict",
+                "--baseline",
+                "Plan/_planning/schema-coverage-baseline.txt"])
+    assert rc == 0
+
+
+def test_live_schema_baseline_matches_live_uncovered(monkeypatch):
+    """The committed `Plan/_planning/schema-coverage-baseline.txt` MUST
+    enumerate every current live uncovered label — invariant: the set
+    of uncovered labels equals the baseline set."""
+    from agency.engine import Engine
+    from scripts.check_schema_coverage import (
+        audit_schemas, truly_inline_schemas, load_schema_baseline,
+        compare_uncovered_to_baseline)
+    monkeypatch.chdir(Path(__file__).parent.parent)
+    e = Engine(":memory:")
+    try:
+        ontology = set(e.ontology.nodes)
+        merged = dict(e.ontology.schemas)
+    finally:
+        e.memory.close()
+    root = Path("agency")
+    inline = truly_inline_schemas(root, merged)
+    rep = audit_schemas(root, ontology_labels=ontology,
+                        ontology_schemas=inline)
+    baseline = load_schema_baseline(
+        Path("Plan/_planning/schema-coverage-baseline.txt"))
+    res = compare_uncovered_to_baseline(rep, baseline)
+    assert res.new_uncovered == set(), (
+        "the live audit produced uncovered labels NOT in the baseline. "
+        "Either author a schema for them OR add to "
+        "`Plan/_planning/schema-coverage-baseline.txt`.\n"
+        "New labels:\n" + "\n".join(f"  {l}" for l in sorted(res.new_uncovered)))
+    assert res.fixed_uncovered == set(), (
+        "the baseline lists labels that are now covered — trim them.\n"
+        "Fixed labels:\n"
+        + "\n".join(f"  {l}" for l in sorted(res.fixed_uncovered)))

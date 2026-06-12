@@ -1,0 +1,60 @@
+# Spec 153 Slice 2 — schema-coverage baseline (Spec 054 drift pattern).
+# Enumerates KNOWN-uncovered ontology labels in agency/.
+# The Slice 2 gate flags REGRESSIONS only: a new label here means
+# either author a schema for it OR add to this baseline.
+#
+# Format: one label per line
+#
+Agent
+Album
+Analysis
+AntiPattern
+Artefact
+BoundaryUse
+BriefAudit
+CatalogModule
+Chapter
+CodexEntry
+Command
+Culture
+DecisionRecord
+Event
+Finding
+Gate
+Genre
+Idea
+Intent
+Invocation
+JulesAlias
+KnownFact
+Language
+Lifecycle
+MagicSystem
+ModeShift
+NarrativeBeat
+Novel
+NovelClaim
+OptimizationPass
+Phase
+Plugin
+PromptOutput
+PromptVariant
+Reference
+Religion
+Research
+ResearchBrief
+ResearchClaim
+ResearchIntent
+Scene
+Schema
+SessionLifecycle
+Skill
+StoryTimeEvent
+Storyform
+Template
+ThinkingMethod
+Tool
+Track
+Tweet
+World
+WorldAxiom
