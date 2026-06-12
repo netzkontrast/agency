@@ -941,23 +941,37 @@ def load_baseline(path: Path) -> set[BaselineEntry]:
 
 def compare_to_baseline(rep: PrefixReport,
                          baseline: set[BaselineEntry]) -> RegressionReport:
-    """Compute the set difference: live violations NOT in baseline are
-    REGRESSIONS (gate-fail); baseline entries with no matching live
-    site are FIXES (author should trim the baseline)."""
-    live: set[tuple[str, int, ViolationKind]] = {
-        (v.loc.path, v.loc.line, v.kind) for v in rep.violations}
-    base: set[tuple[str, int, ViolationKind]] = {
-        (b.path, b.line, b.kind) for b in baseline}
-    new_keys = live - base
-    fixed_keys = base - live
-    new_violations = sorted(
-        (v for v in rep.violations
-         if (v.loc.path, v.loc.line, v.kind) in new_keys),
-        key=lambda v: (v.loc.path, v.loc.line, v.kind.value))
-    fixed_violations = sorted(
-        (b for b in baseline
-         if (b.path, b.line, b.kind) in fixed_keys),
-        key=lambda b: (b.path, b.line, b.kind.value))
+    """Compare live violations to baseline as a MULTISET keyed by
+    `(path, kind)`. Line numbers shift on every refactor, so pinning
+    them produced false regressions; counting violations per (path,
+    kind) catches REAL new sites without flapping on line shifts.
+
+    new_violations: live count exceeds baseline count for some
+    `(path, kind)` — the surplus sites are surfaced (first N from
+    sorted order).
+    fixed_violations: baseline count exceeds live — surplus baseline
+    entries marked fixed so the author trims them.
+    """
+    from collections import Counter
+    live_counter: Counter = Counter((v.loc.path, v.kind) for v in rep.violations)
+    base_counter: Counter = Counter((b.path, b.kind) for b in baseline)
+    new_violations: list[PrefixViolation] = []
+    fixed_violations: list[BaselineEntry] = []
+    for key in sorted(set(live_counter) | set(base_counter),
+                       key=lambda k: (k[0], k[1].value)):
+        live_n = live_counter[key]
+        base_n = base_counter[key]
+        if live_n > base_n:
+            extras = sorted(
+                (v for v in rep.violations
+                 if (v.loc.path, v.kind) == key),
+                key=lambda v: v.loc.line)[: live_n - base_n]
+            new_violations.extend(extras)
+        elif base_n > live_n:
+            extras = sorted(
+                (b for b in baseline if (b.path, b.kind) == key),
+                key=lambda b: b.line)[: base_n - live_n]
+            fixed_violations.extend(extras)
     return RegressionReport(
         new_violations=new_violations,
         fixed_violations=fixed_violations,

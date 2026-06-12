@@ -788,6 +788,79 @@ class DogfoodCapability(CapabilityBase):
             "count":        sum(by_tool.values()),                 # legacy alias
         }
 
+    @verb(role="transform")
+    def replay_events(self, for_intent_id: str = "",
+                       tool: str = "", limit: int = 100) -> dict:
+        """Replay every Event recorded OBSERVED_DURING the given intent
+        (Spec 195 Slice 2 — typed replay + monotonic chain).
+
+        Returns the sequence of typed event rows in record order, each
+        linked to its `prior_event_id` (the previous event in the same
+        intent's replay; empty for the first). Slice 1 BoundaryUse nodes
+        are joined in via the RECORDED_BY edge so the replay surface
+        carries the moat metadata when present.
+
+        Inputs: for_intent_id (str — required; the SERVES anchor).
+                tool (str — optional filter; "" = every tool).
+                limit (int — bound the row count; default 100).
+        Returns: ``{intent_id, events: [{event_id, prior_event_id, name,
+                  tool, session, target, verb_shadow, summary}], count}``.
+        chain_next: ``dogfood.parse_amendment`` reads the replay when the
+                    classifier needs the recent-event window.
+        """
+        intent_id = for_intent_id
+        if not intent_id:
+            return {"intent_id": "", "events": [], "count": 0}
+        # Walk Event nodes that OBSERVED_DURING the intent; preserve
+        # record-creation order (the in-graph id is a stable monotone
+        # sequence per Spec 002 substrate guarantees).
+        rows = self.ctx.memory.g.query(
+            "MATCH (e:Event)-[:OBSERVED_DURING]->(i:Intent) "
+            "WHERE i.id = $iid RETURN e",
+            {"iid": intent_id})
+        events = [r["e"]["properties"] for r in rows]
+        # Stable order by created_at if present, else by id (record-order
+        # convention). The graph appends in insertion order; we sort the
+        # list explicitly to stay deterministic across query backends.
+        events.sort(key=lambda p: (
+            p.get("created_at", ""), str(p.get("id", ""))))
+        if tool:
+            events = [p for p in events if p.get("tool") == tool]
+        events = events[: max(0, int(limit))]
+        # Join BoundaryUse via the RECORDED_BY edge — collect every
+        # BoundaryUse for this intent in one query, then index by the
+        # Event id it references.
+        bu_rows = self.ctx.memory.g.query(
+            "MATCH (b:BoundaryUse)-[:RECORDED_BY]->(e:Event) "
+            "MATCH (b)-[:SERVES]->(i:Intent) "
+            "WHERE i.id = $iid RETURN b, e",
+            {"iid": intent_id})
+        bu_by_event: dict[str, dict] = {}
+        for r in bu_rows:
+            eid = str(r["e"]["properties"].get("id", ""))
+            bu_by_event[eid] = r["b"]["properties"]
+        out: list[dict] = []
+        prev_id = ""
+        for p in events:
+            eid = str(p.get("id", ""))
+            bu = bu_by_event.get(eid, {})
+            out.append({
+                "event_id":       eid,
+                "prior_event_id": prev_id,
+                "name":           p.get("name", ""),
+                "tool":           p.get("tool", ""),
+                "session":        p.get("session", ""),
+                "summary":        p.get("summary", ""),
+                "target":         bu.get("target", ""),
+                "verb_shadow":    bu.get("verb_shadow", ""),
+            })
+            prev_id = eid
+        return {
+            "intent_id": intent_id,
+            "events":    out,
+            "count":     len(out),
+        }
+
     # ════════════════════════════════════════════════════════════════════════
     # Spec 150 Slice 1 — dogfood amendment classifier (close Goal 6).
     # ════════════════════════════════════════════════════════════════════════

@@ -367,22 +367,30 @@ def compare_offenders_to_baseline(
     rep: CoverageReport,
     baseline: set[OffenderBaselineEntry],
 ) -> OffenderRegressionReport:
-    """Set difference: live offenders not in baseline = REGRESSION;
-    baseline entries with no matching live offender = FIXED."""
-    live: set[tuple[str, int, str]] = {
-        (o.loc.path, o.loc.line, o.literal) for o in rep.offenders}
-    base: set[tuple[str, int, str]] = {
-        (b.path, b.line, b.literal) for b in baseline}
-    new_keys = live - base
-    fixed_keys = base - live
-    new_offenders = sorted(
-        (o for o in rep.offenders
-         if (o.loc.path, o.loc.line, o.literal) in new_keys),
-        key=lambda o: (o.loc.path, o.loc.line, o.literal))
-    fixed_offenders = sorted(
-        (b for b in baseline
-         if (b.path, b.line, b.literal) in fixed_keys),
-        key=lambda b: (b.path, b.line, b.literal))
+    """Compare live offenders to baseline as a MULTISET keyed by
+    `(path, literal)`. Line numbers shift on every refactor; counting
+    offenders per (path, literal) catches REAL new sites without
+    flapping on line shifts (mirrors Spec 146 Slice 2.2 behavior)."""
+    from collections import Counter
+    live_counter: Counter = Counter((o.loc.path, o.literal)
+                                      for o in rep.offenders)
+    base_counter: Counter = Counter((b.path, b.literal) for b in baseline)
+    new_offenders: list[CallSiteResult] = []
+    fixed_offenders: list[OffenderBaselineEntry] = []
+    for key in sorted(set(live_counter) | set(base_counter)):
+        live_n = live_counter[key]
+        base_n = base_counter[key]
+        if live_n > base_n:
+            extras = sorted(
+                (o for o in rep.offenders
+                 if (o.loc.path, o.literal) == key),
+                key=lambda o: o.loc.line)[: live_n - base_n]
+            new_offenders.extend(extras)
+        elif base_n > live_n:
+            extras = sorted(
+                (b for b in baseline if (b.path, b.literal) == key),
+                key=lambda b: b.line)[: base_n - live_n]
+            fixed_offenders.extend(extras)
     return OffenderRegressionReport(
         new_offenders=new_offenders,
         fixed_offenders=fixed_offenders,

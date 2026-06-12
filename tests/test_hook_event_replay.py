@@ -248,3 +248,108 @@ def test_audit_empty_when_no_bypasses(monkeypatch):
     assert rep["bypass_count"] == 0
     assert rep["by_tool"] == {}
     assert rep["samples"] == []
+
+
+# ─────────── Slice 2 — dogfood.replay_events + monotonic chain ─────────
+def _call_replay(e: Engine, iid: str, **kw):
+    kw.setdefault("for_intent_id", iid)
+    res, _ = e.registry.invoke(
+        e.memory, iid, "dogfood", "replay_events",
+        agent_id="agent:test", **kw)
+    return res
+
+
+def test_replay_empty_for_unknown_intent():
+    e = _fresh()
+    rep = _call_replay(e, _intent(e), for_intent_id="intent:no-such")
+    assert rep["events"] == []
+    assert rep["count"] == 0
+
+
+def test_replay_returns_events_in_record_order(monkeypatch):
+    """A sequence of three hook events lands in record order with
+    prior_event_id linking each to its predecessor."""
+    e = _fresh()
+    iid = _intent(e)
+    monkeypatch.setenv("AGENCY_INTENT", iid)
+    cmds = ["git commit -m a", "pytest tests/", "git push"]
+    for cmd in cmds:
+        _fire_hook(e, {
+            "hook_event_name": "PreToolUse",
+            "tool_name":       "Bash",
+            "session_id":      "s",
+            "tool_input":      {"command": cmd},
+        })
+    rep = _call_replay(e, iid)
+    assert rep["count"] == 3
+    # Monotonic chain: first event has empty prior; each subsequent
+    # event's prior is the previous event's id.
+    evs = rep["events"]
+    assert evs[0]["prior_event_id"] == ""
+    for i in range(1, 3):
+        assert evs[i]["prior_event_id"] == evs[i - 1]["event_id"]
+    # The replay attaches the BoundaryUse `verb_shadow` to the Event
+    # via the RECORDED_BY join (Slice 1 invariant).
+    shadows = [ev["verb_shadow"] for ev in evs]
+    assert "branch.commit_smart" in shadows
+    assert "develop.test" in shadows
+    assert "branch.finish_branch" in shadows
+
+
+def test_replay_filters_by_tool(monkeypatch):
+    """`tool='Bash'` returns only Bash events; reads (Edit on a spec)
+    drop out."""
+    e = _fresh()
+    iid = _intent(e)
+    monkeypatch.setenv("AGENCY_INTENT", iid)
+    _fire_hook(e, {
+        "hook_event_name": "PreToolUse", "tool_name": "Bash",
+        "session_id": "s", "tool_input": {"command": "git commit -m x"},
+    })
+    _fire_hook(e, {
+        "hook_event_name": "PreToolUse", "tool_name": "Edit",
+        "session_id": "s",
+        "tool_input": {"file_path": "Plan/195-foo/spec.md"},
+    })
+    rep = _call_replay(e, iid, tool="Bash")
+    assert rep["count"] == 1
+    assert rep["events"][0]["tool"] == "Bash"
+
+
+def test_replay_respects_limit(monkeypatch):
+    """`limit=2` returns the first 2 events; count matches."""
+    e = _fresh()
+    iid = _intent(e)
+    monkeypatch.setenv("AGENCY_INTENT", iid)
+    for cmd in ["git commit -m a", "git commit -m b", "git commit -m c"]:
+        _fire_hook(e, {
+            "hook_event_name": "PreToolUse", "tool_name": "Bash",
+            "session_id": "s", "tool_input": {"command": cmd},
+        })
+    rep = _call_replay(e, iid, limit=2)
+    assert rep["count"] == 2
+
+
+def test_replay_does_not_leak_other_intents(monkeypatch):
+    """Cross-intent contamination invariant — replay only returns
+    Events linked to the requested intent."""
+    e = _fresh()
+    iid_a = _intent(e)
+    iid_b = e.intent.capture("other", "x", "y")
+    e.intent.confirm(iid_b)
+    monkeypatch.setenv("AGENCY_INTENT", iid_a)
+    _fire_hook(e, {
+        "hook_event_name": "PreToolUse", "tool_name": "Bash",
+        "session_id": "s", "tool_input": {"command": "git commit -m a"},
+    })
+    monkeypatch.setenv("AGENCY_INTENT", iid_b)
+    _fire_hook(e, {
+        "hook_event_name": "PreToolUse", "tool_name": "Bash",
+        "session_id": "s", "tool_input": {"command": "git push"},
+    })
+    rep_a = _call_replay(e, iid_a)
+    assert rep_a["count"] == 1
+    assert rep_a["events"][0]["verb_shadow"] == "branch.commit_smart"
+    rep_b = _call_replay(e, iid_b)
+    assert rep_b["count"] == 1
+    assert rep_b["events"][0]["verb_shadow"] == "branch.finish_branch"
