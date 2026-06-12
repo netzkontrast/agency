@@ -201,15 +201,47 @@ def _parse_llm_proposals(parsed: dict | None,
         refl = reflections_by_id.get(rid)
         if refl is None:
             continue                                              # hallucination — drop
+        # Codex review on PR #136: host_completion bypasses the
+        # driver-side JSON-schema enforcement, so validate the same
+        # invariants HERE — enum-bound section + op, [0,1] confidence,
+        # 40-char rationale floor. Drop the proposal on any miss.
+        section = str(p.get("section") or "")
+        op = str(p.get("op") or "")
+        if section not in _LLM_SECTIONS or op not in _LLM_OPS:
+            continue
+        try:
+            confidence = float(p.get("confidence") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if not (0.0 <= confidence <= 1.0):
+            continue
+        rationale = str(p.get("rationale") or "")
+        if len(rationale) < 40:
+            continue
+        after = str(p.get("after") or "").strip()
+        if not after:
+            continue
+        # Codex review on PR #136: derive spec_id from the cited
+        # reflection's plan_slug rather than trusting the model. A
+        # classifier mistake could route apply_amendment to the wrong
+        # spec while provenance points at a different plan — silently
+        # mis-attributing the amendment. The plan_slug is the
+        # ground-truth source.
+        derived_spec_id = _spec_id_from_slug(refl.get("plan_slug") or "")
+        if not derived_spec_id:
+            continue
+        model_spec_id = str(p.get("spec_id") or "")
+        if model_spec_id and model_spec_id != derived_spec_id:
+            continue                                              # mismatch — drop
         out.append({
-            "spec_id":            str(p.get("spec_id") or ""),
-            "section":            str(p.get("section") or ""),
-            "op":                 str(p.get("op") or ""),
+            "spec_id":            derived_spec_id,
+            "section":            section,
+            "op":                 op,
             "before":             "",
-            "after":              str(p.get("after") or "").strip(),
-            "rationale":          str(p.get("rationale") or ""),
+            "after":              after,
+            "rationale":          rationale,
             "source_reflections": [rid],
-            "confidence":         float(p.get("confidence") or 0.0),
+            "confidence":         confidence,
         })
         if len(out) >= limit:
             break

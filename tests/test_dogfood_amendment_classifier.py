@@ -467,3 +467,161 @@ def test_parse_amendment_resume_malformed_raises():
             agent_id="agent:t",
             host_completion={"parsed": {"proposals": []}})         # no `text`
     assert exc.value.code == HostDelegateError.MALFORMED
+
+
+# ── Codex review on PR #136 round 2 — host/LLM proposal validation ────────
+def test_parse_amendment_drops_proposals_with_invalid_op(engine, iid):
+    """Codex review (P2): host_completion bypasses driver-side JSON
+    schema, so the verb MUST validate enum-bound `op` itself."""
+    _seed_reflections(engine, iid)
+    rows = engine.memory.g.query(
+        "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+        {"scope": "observation"})
+    rid = (rows[0]["r"]["properties"].get("id") or "")
+    spec_id = rows[0]["r"]["properties"].get("plan_slug", "").split("-", 1)[0]
+    host_parsed = {"proposals": [{
+        "reflection_id": rid,
+        "spec_id": spec_id,
+        "section": "Done When",
+        "op": "delete-everything",                                 # not in _LLM_OPS
+        "after": "Should not pass",
+        "rationale": "A malformed op must be dropped by the local "
+                     "validator even when sent via host_completion.",
+        "confidence": 0.9,
+    }]}
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10,
+              host_completion={"text": "<host-text>", "parsed": host_parsed})
+    assert r["proposals"] == [], (
+        f"invalid op must be dropped; got {r['proposals']!r}")
+
+
+def test_parse_amendment_drops_proposals_with_invalid_section(engine, iid):
+    """`section` must be in the documented enum set."""
+    _seed_reflections(engine, iid)
+    rows = engine.memory.g.query(
+        "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+        {"scope": "observation"})
+    rid = (rows[0]["r"]["properties"].get("id") or "")
+    spec_id = rows[0]["r"]["properties"].get("plan_slug", "").split("-", 1)[0]
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10,
+              host_completion={"text": "<host-text>",
+                                 "parsed": {"proposals": [{
+                                     "reflection_id": rid,
+                                     "spec_id": spec_id,
+                                     "section": "Random Made Up Section",
+                                     "op": "add-done-when",
+                                     "after": "x",
+                                     "rationale":
+                                         "Rationale long enough to satisfy "
+                                         "the 40-char floor for validation.",
+                                     "confidence": 0.9}]}})
+    assert r["proposals"] == []
+
+
+def test_parse_amendment_drops_proposals_with_confidence_outside_unit_interval(
+        engine, iid):
+    """`confidence` must be in [0, 1]."""
+    _seed_reflections(engine, iid)
+    rows = engine.memory.g.query(
+        "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+        {"scope": "observation"})
+    rid = (rows[0]["r"]["properties"].get("id") or "")
+    spec_id = rows[0]["r"]["properties"].get("plan_slug", "").split("-", 1)[0]
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10,
+              host_completion={"text": "<host-text>",
+                                 "parsed": {"proposals": [{
+                                     "reflection_id": rid,
+                                     "spec_id": spec_id,
+                                     "section": "Done When",
+                                     "op": "add-done-when",
+                                     "after": "x",
+                                     "rationale":
+                                         "Rationale long enough to satisfy "
+                                         "the 40-char floor for validation.",
+                                     "confidence": 5.0}]}})       # out of range
+    assert r["proposals"] == []
+
+
+def test_parse_amendment_drops_proposals_with_short_rationale(engine, iid):
+    """`rationale` must meet the 40-char floor — symmetric with the
+    `apply_amendment` AMENDMENT_VAGUE gate (Slice 1)."""
+    _seed_reflections(engine, iid)
+    rows = engine.memory.g.query(
+        "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+        {"scope": "observation"})
+    rid = (rows[0]["r"]["properties"].get("id") or "")
+    spec_id = rows[0]["r"]["properties"].get("plan_slug", "").split("-", 1)[0]
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10,
+              host_completion={"text": "<host-text>",
+                                 "parsed": {"proposals": [{
+                                     "reflection_id": rid,
+                                     "spec_id": spec_id,
+                                     "section": "Done When",
+                                     "op": "add-done-when",
+                                     "after": "x",
+                                     "rationale": "too short",     # < 40
+                                     "confidence": 0.5}]}})
+    assert r["proposals"] == []
+
+
+def test_parse_amendment_overrides_spec_id_from_reflections_plan_slug(
+        engine, iid):
+    """Codex review (P2): even with a valid reflection_id, the model
+    could return a spec_id that doesn't match the reflection's
+    plan_slug — routing the amendment to the WRONG spec while
+    provenance points elsewhere. The verb MUST derive spec_id from
+    the cited reflection's plan_slug and drop mismatches."""
+    _seed_reflections(engine, iid)
+    rows = engine.memory.g.query(
+        "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+        {"scope": "observation"})
+    # Pick the 146 reflection but have the model claim spec_id=999.
+    refls = [r["r"]["properties"] for r in rows]
+    refl_146 = next(r for r in refls
+                    if r.get("plan_slug", "").startswith("146"))
+    rid = refl_146.get("id") or ""
+    fake_parsed = {"proposals": [{
+        "reflection_id": rid,
+        "spec_id": "999",                                          # mismatch!
+        "section": "Done When",
+        "op": "add-done-when",
+        "after": "Mis-attributed amendment that should be dropped",
+        "rationale": "Even with a valid reflection_id, a spec_id that "
+                     "doesn't match the reflection's plan_slug must be "
+                     "dropped — provenance integrity invariant.",
+        "confidence": 0.8,
+    }]}
+    fake = _FakeCapableDriver(parsed=fake_parsed)
+    engine.drivers.register("anthropic", fake)
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10)
+    assert r["proposals"] == [], (
+        f"spec_id mismatch must drop the proposal; got {r['proposals']!r}")
+
+
+def test_parse_amendment_derives_spec_id_when_model_omits_it(engine, iid):
+    """When the model leaves spec_id empty but supplies a valid
+    reflection_id, the verb derives spec_id from the reflection's
+    plan_slug — the slug is the ground-truth source."""
+    _seed_reflections(engine, iid)
+    rows = engine.memory.g.query(
+        "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
+        {"scope": "observation"})
+    refls = [r["r"]["properties"] for r in rows]
+    refl_146 = next(r for r in refls
+                    if r.get("plan_slug", "").startswith("146"))
+    rid = refl_146.get("id") or ""
+    fake_parsed = {"proposals": [{
+        "reflection_id": rid,
+        "spec_id": "",                                             # omitted!
+        "section": "Done When",
+        "op": "add-done-when",
+        "after": "Derived-spec-id proposal text",
+        "rationale": "The verb derives spec_id from the cited "
+                     "reflection's plan_slug when the model omits it.",
+        "confidence": 0.75,
+    }]}
+    fake = _FakeCapableDriver(parsed=fake_parsed)
+    engine.drivers.register("anthropic", fake)
+    r = _call(engine, iid, "parse_amendment", scope="", limit=10)
+    assert len(r["proposals"]) == 1
+    assert r["proposals"][0]["spec_id"] == "146"
