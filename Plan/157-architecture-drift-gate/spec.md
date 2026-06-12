@@ -106,3 +106,47 @@ Then:   len(cycles) < baseline_cycles; the script ADVANCES the baseline
    **Recommend**: graph Reflection (rule 2 — graph is the store);
    `scripts/check-architecture` reads the latest, writes a new one
    on advance, no file to merge-conflict.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+Driven through the engine surface end-to-end (intent:d97934cf;
+skill:67543f63 tdd walk; 5 Reflections recorded via `dogfood.note`:
+plan, RED, GREEN, REFACTOR, VERIFY — all phase events SERVE the
+intent in the graph).
+
+### Done — Slice 1 (typed ArchitectureReport + wire-verb audit)
+
+- **`scripts/check_architecture.py`**:
+  - `ArchitectureReport{wire_verbs, wire_verb_count, invariant_ok}`
+    dataclass (Slice 2 extends with import_violations, cycles,
+    fan_in, fan_out, drift_against_baseline).
+  - `audit_wire_verbs(engine)` walks `engine.build_mcp(codemode=True)`
+    + `.list_tools()`, filters to the documented `{search, get_schema,
+    execute}` set, returns the typed report. Subset invariant: the 3
+    documented wire verbs MUST be in the audited tool list; an
+    intentionally-shipped 4th doesn't break it; removing one does.
+  - CLI `--strict` exits 1 when the invariant is broken.
+
+- **Discovery captured in-band**: the 3 wire verbs are CODEMODE-mode
+  tools (`build_mcp(codemode=True)` exposes EXACTLY them; `codemode=False`
+  exposes 332 `capability_<cap>_<verb>` tools). Documented as a
+  reflection AND inline in the audit function.
+
+- **6 tests** in `tests/test_architecture_drift.py`:
+  - typed shape; invariant_ok flag; live-engine audit returns typed
+    report with the 3 wire verbs; subset invariant; drift case;
+    empty-engine graceful handling.
+
+### Still — Slice 2+
+
+- **Slice 2** — `import_violations: list[(src, dst, file, line)]` via
+  AST walk + the documented import doctrine (e.g. capabilities don't
+  import each other directly; everything goes through `ctx.call`).
+- **Slice 3** — cycle detection (Tarjan / networkx) on the import graph
+  — overlaps with Spec 167 (analyze-architecture-networkx-impl).
+- **Slice 4** — fan-in / fan-out per module + the threshold gate.
+- **Slice 5** — baseline drift comparison (Spec 054 pattern).
+- **Slice 6** — `agency_doctor.architecture_drift` field.
+
