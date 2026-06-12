@@ -123,3 +123,30 @@ Then:   returns RecallResult{
    reports raw cosine; recall layer min-max normalizes per query for
    comparability. Document the normalization in the typed shape so
    downstream Spec 150 thresholds are backend-agnostic.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion` (substantive,
+engine-driven; intent:0e8c43c0; skill:8f30f7c8 tdd walk completed).
+
+### Done — Slice 1 (typed EmbedderHandle)
+
+- **`agency/_embedder_handle.py`**:
+  - `EmbedderBackend = Literal['tfidf', 'bge-small', 'bge-large', 'openai']`
+  - `EmbedderHandle{name, dim, backend, ready, hint}` frozen dataclass
+    with `__post_init__` invariants: non-empty name; backend ∈ documented
+    set; dim ≥ 0 (dim > 0 when ready); `ready=False ⇒ hint non-empty`
+    (pipx-HINT pattern; Spec 170 invariant).
+
+- **8 tests** in `tests/test_embedder_handle.py`.
+
+This spec is now promoted from catalogue stub
+(`agency/_enhancement_stubs.py`) to substantive Slice 1; the stub entry
+is commented out + the live-tree invariant test continues to pass because
+the spec is no longer drafted-without-shipped-code.
+
+### Still — Slice 2+
+
+- Slice 2 — wire the bge-large + openai backends behind this handle in
+  `agency/capabilities/_embed.py`; `agency_doctor` surfaces the handle.
+
