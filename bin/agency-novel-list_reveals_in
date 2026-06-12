@@ -20,7 +20,7 @@ if [ -z "$iid" ]; then
 fi
 
 if [ "${#args[@]}" -lt 1 ]; then
-  echo "error: expected 1 arg(s) (scene_id); got ${#args[@]}" >&2
+  echo "error: expected at least 1 required arg(s) (scene_id); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,9 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "scene_id": _coerce(sys.argv[2], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["scene_id"] = _coerce(sys.argv[2], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

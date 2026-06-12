@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_gate_check
 # Record a gate outcome on a Lifecycle: PASSED, or BLOCKED_ON + an input-required pause on failure.
-# Usage: agency-gate-check [--intent-id ID] <lifecycle_id> <name> <passed> <evidence>
+# Usage: agency-gate-check [--intent-id ID] <lifecycle_id> <name> <passed> [evidence]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 4 ]; then
-  echo "error: expected 4 arg(s) (lifecycle_id name passed evidence); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 3 ]; then
+  echo "error: expected at least 3 required arg(s) (lifecycle_id name passed); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,12 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "lifecycle_id": _coerce(sys.argv[2], str), "name": _coerce(sys.argv[3], str), "passed": _coerce(sys.argv[4], bool), "evidence": _coerce(sys.argv[5], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["lifecycle_id"] = _coerce(sys.argv[2], str)
+_kw["name"] = _coerce(sys.argv[3], str)
+_kw["passed"] = _coerce(sys.argv[4], bool)
+if len(sys.argv) > 5: _kw["evidence"] = _coerce(sys.argv[5], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

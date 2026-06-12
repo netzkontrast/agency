@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_jules_lint_prompt
 # Lint a dispatch prompt against the canonical must-name tool list.
-# Usage: agency-jules-lint_prompt [--intent-id ID] <text> <must_name>
+# Usage: agency-jules-lint_prompt [--intent-id ID] <text> [must_name]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 2 ]; then
-  echo "error: expected 2 arg(s) (text must_name); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 1 ]; then
+  echo "error: expected at least 1 required arg(s) (text); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,10 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "text": _coerce(sys.argv[2], str), "must_name": _coerce(sys.argv[3], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["text"] = _coerce(sys.argv[2], str)
+if len(sys.argv) > 3: _kw["must_name"] = _coerce(sys.argv[3], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

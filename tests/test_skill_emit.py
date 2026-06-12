@@ -307,6 +307,101 @@ def test_emit_bash_wrappers_skips_injected_params():
     # The wrapper's arg-count check should reflect 2 user args, not 4
 
 
+# ── Spec 150 Slice 2 review (round 2) — optional args + dict coercion ─────
+def test_emit_bash_wrappers_optional_params_omitted_from_required_count():
+    """Codex review on PR #136: params with defaults are OPTIONAL —
+    the wrapper must NOT require them or existing callers passing
+    only the required args break."""
+    import inspect
+
+    def fn(scope: str = "", since: str = "", limit: int = 20,
+           use_llm: bool = True, prefer_delegate: bool = False,
+           host_completion: dict | None = None): pass
+    fn.__signature__ = inspect.Signature([
+        inspect.Parameter("scope", inspect.Parameter.KEYWORD_ONLY,
+                           annotation=str, default=""),
+        inspect.Parameter("since", inspect.Parameter.KEYWORD_ONLY,
+                           annotation=str, default=""),
+        inspect.Parameter("limit", inspect.Parameter.KEYWORD_ONLY,
+                           annotation=int, default=20),
+        inspect.Parameter("use_llm", inspect.Parameter.KEYWORD_ONLY,
+                           annotation=bool, default=True),
+        inspect.Parameter("prefer_delegate", inspect.Parameter.KEYWORD_ONLY,
+                           annotation=bool, default=False),
+        inspect.Parameter("host_completion", inspect.Parameter.KEYWORD_ONLY,
+                           annotation=dict | None, default=None),
+    ])
+    verbs = {"v": {"role": "transform", "fn": fn, "inject": []}}
+    out = emit_bash_wrappers("dogfood", verbs)
+    body = out["bin/agency-dogfood-v"]
+    # All params have defaults → 0 required; arg_check should accept zero.
+    assert "expected at least 0" not in body, (
+        "noisy zero-required error message should be suppressed when "
+        "all params have defaults")
+    # Optional params are conditional on len(sys.argv).
+    assert 'if len(sys.argv) > 2: _kw["scope"]' in body
+    assert 'if len(sys.argv) > 7: _kw["host_completion"]' in body
+    # host_completion is dict | None — must coerce as dict, NOT str.
+    assert '_kw["host_completion"] = _coerce(sys.argv[7], dict)' in body, (
+        "Optional[dict] / dict|None must coerce as dict so JSON payloads "
+        "reach the verb as a dict; otherwise the resume path breaks.")
+
+
+def test_emit_bash_wrappers_optional_dict_param_uses_dict_coercion():
+    """A standalone `dict | None` param coerces as `dict` (not the
+    fallthrough `str`) so the bash surface can pass a JSON object."""
+    import inspect
+
+    def fn(payload: dict | None = None): pass
+    fn.__signature__ = inspect.Signature([
+        inspect.Parameter("payload", inspect.Parameter.KEYWORD_ONLY,
+                           annotation=dict | None, default=None),
+    ])
+    verbs = {"v": {"role": "act", "fn": fn, "inject": []}}
+    out = emit_bash_wrappers("x", verbs)
+    body = out["bin/agency-x-v"]
+    assert 'if len(sys.argv) > 2: _kw["payload"] = _coerce(sys.argv[2], dict)' in body
+
+
+def test_emit_bash_wrappers_required_args_still_enforced():
+    """Required params (no defaults) still must be supplied — the
+    arg_check guards them. Regression on the optional refactor."""
+    import inspect
+
+    def fn(required_arg: str): pass
+    fn.__signature__ = inspect.Signature([
+        inspect.Parameter("required_arg", inspect.Parameter.KEYWORD_ONLY,
+                           annotation=str),
+    ])
+    verbs = {"v": {"role": "act", "fn": fn, "inject": []}}
+    out = emit_bash_wrappers("x", verbs)
+    body = out["bin/agency-x-v"]
+    # 1 required arg → guarded by `-lt 1`.
+    assert '-lt 1' in body, (
+        "required params must still be enforced; got body without -lt 1")
+    assert 'required_arg' in body
+
+
+def test_ann_repr_unwraps_optional_dict():
+    """`dict | None` / `Optional[dict]` → ``dict`` (round 2 fix)."""
+    from agency.skill_emit import _ann_repr
+    import typing
+    assert _ann_repr(dict | None) == "dict"
+    assert _ann_repr(typing.Optional[dict]) == "dict"
+    assert _ann_repr(typing.Optional[list]) == "list"
+    assert _ann_repr(typing.Optional[int]) == "int"
+
+
+def test_ann_repr_unwraps_postponed_optional_dict():
+    """Postponed `from __future__ import annotations` form: the
+    annotation is a string like `'dict | None'` — strip the union
+    trailer."""
+    from agency.skill_emit import _ann_repr
+    assert _ann_repr("dict | None") == "dict"
+    assert _ann_repr("list | None") == "list"
+    assert _ann_repr("None | dict") == "dict"
+
+
 from agency.skill_emit import _capability_hash
 
 

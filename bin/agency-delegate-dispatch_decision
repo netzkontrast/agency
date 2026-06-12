@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_delegate_dispatch_decision
 # Apply the dispatch-vs-inline heuristic and return a recommendation.
-# Usage: agency-delegate-dispatch_decision [--intent-id ID] <file_count> <exploration_needed> <parallelism> <est_duration_min> <expected_return_tokens> <mutates> <read_only> <driver_hint> <context_overlap> <cache_warmth> <local_budget_relevant>
+# Usage: agency-delegate-dispatch_decision [--intent-id ID] [file_count] [exploration_needed] [parallelism] [est_duration_min] [expected_return_tokens] [mutates] [read_only] [driver_hint] [context_overlap] [cache_warmth] [local_budget_relevant]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,10 +19,7 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 11 ]; then
-  echo "error: expected 11 arg(s) (file_count exploration_needed parallelism est_duration_min expected_return_tokens mutates read_only driver_hint context_overlap cache_warmth local_budget_relevant); got ${#args[@]}" >&2
-  exit 2
-fi
+# all positional args are optional; verb defaults apply when omitted
 
 kwargs=$(python3 -c '
 import json, sys
@@ -67,7 +64,19 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "file_count": _coerce(sys.argv[2], int), "exploration_needed": _coerce(sys.argv[3], bool), "parallelism": _coerce(sys.argv[4], int), "est_duration_min": _coerce(sys.argv[5], int), "expected_return_tokens": _coerce(sys.argv[6], int), "mutates": _coerce(sys.argv[7], bool), "read_only": _coerce(sys.argv[8], bool), "driver_hint": _coerce(sys.argv[9], str), "context_overlap": _coerce(sys.argv[10], float), "cache_warmth": _coerce(sys.argv[11], float), "local_budget_relevant": _coerce(sys.argv[12], bool)}))
+_kw = {"intent_id": sys.argv[1]}
+if len(sys.argv) > 2: _kw["file_count"] = _coerce(sys.argv[2], int)
+if len(sys.argv) > 3: _kw["exploration_needed"] = _coerce(sys.argv[3], bool)
+if len(sys.argv) > 4: _kw["parallelism"] = _coerce(sys.argv[4], int)
+if len(sys.argv) > 5: _kw["est_duration_min"] = _coerce(sys.argv[5], int)
+if len(sys.argv) > 6: _kw["expected_return_tokens"] = _coerce(sys.argv[6], int)
+if len(sys.argv) > 7: _kw["mutates"] = _coerce(sys.argv[7], bool)
+if len(sys.argv) > 8: _kw["read_only"] = _coerce(sys.argv[8], bool)
+if len(sys.argv) > 9: _kw["driver_hint"] = _coerce(sys.argv[9], str)
+if len(sys.argv) > 10: _kw["context_overlap"] = _coerce(sys.argv[10], float)
+if len(sys.argv) > 11: _kw["cache_warmth"] = _coerce(sys.argv[11], float)
+if len(sys.argv) > 12: _kw["local_budget_relevant"] = _coerce(sys.argv[12], bool)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

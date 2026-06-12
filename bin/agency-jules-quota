@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_jules_quota
 # Count sessions created today (UTC).
-# Usage: agency-jules-quota [--intent-id ID] <daily_limit>
+# Usage: agency-jules-quota [--intent-id ID] [daily_limit]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,10 +19,7 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 1 ]; then
-  echo "error: expected 1 arg(s) (daily_limit); got ${#args[@]}" >&2
-  exit 2
-fi
+# all positional args are optional; verb defaults apply when omitted
 
 kwargs=$(python3 -c '
 import json, sys
@@ -67,7 +64,9 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "daily_limit": _coerce(sys.argv[2], int)}))
+_kw = {"intent_id": sys.argv[1]}
+if len(sys.argv) > 2: _kw["daily_limit"] = _coerce(sys.argv[2], int)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

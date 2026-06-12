@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_document_render
 # Project graph state to markdown; deterministic.
-# Usage: agency-document-render [--intent-id ID] <scope> <for_intent_id> <format>
+# Usage: agency-document-render [--intent-id ID] <scope> [for_intent_id] [format]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 3 ]; then
-  echo "error: expected 3 arg(s) (scope for_intent_id format); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 1 ]; then
+  echo "error: expected at least 1 required arg(s) (scope); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,11 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "scope": _coerce(sys.argv[2], str), "for_intent_id": _coerce(sys.argv[3], str), "format": _coerce(sys.argv[4], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["scope"] = _coerce(sys.argv[2], str)
+if len(sys.argv) > 3: _kw["for_intent_id"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["format"] = _coerce(sys.argv[4], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "

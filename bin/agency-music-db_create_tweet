@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_db_create_tweet
 # Insert a tweet row via the DBDriver (effect); produces tweet-record artefact.
-# Usage: agency-music-db_create_tweet [--intent-id ID] <album> <body> <scheduled_at> <platform>
+# Usage: agency-music-db_create_tweet [--intent-id ID] <album> <body> <scheduled_at> [platform]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 4 ]; then
-  echo "error: expected 4 arg(s) (album body scheduled_at platform); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 3 ]; then
+  echo "error: expected at least 3 required arg(s) (album body scheduled_at); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -67,7 +67,12 @@ def _coerce(raw, ann):
             return parsed
         return {}
     return raw
-print(json.dumps({"intent_id": sys.argv[1], "album": _coerce(sys.argv[2], str), "body": _coerce(sys.argv[3], str), "scheduled_at": _coerce(sys.argv[4], str), "platform": _coerce(sys.argv[5], str)}))
+_kw = {"intent_id": sys.argv[1]}
+_kw["album"] = _coerce(sys.argv[2], str)
+_kw["body"] = _coerce(sys.argv[3], str)
+_kw["scheduled_at"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["platform"] = _coerce(sys.argv[5], str)
+print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "
