@@ -129,15 +129,35 @@ Then:   fraction increases AND the offender drops out of the list
   INVALID_ARGUMENT constant + live-tree shape invariant
   (informational fraction).
 
-### Still — Slice 2+
+### Done — Slice 2 (offender baseline + WARN→error CI gate, 2026-06-12)
 
-- **Slice 2** — Spec 058 WARN→error promotion. Once the live tree
-  reports `fraction >= 0.9`, promote `check_codes_coverage` to a
-  CI-blocking gate. Add `--floor` enforcement (default 0.9, override
-  via `Plan/_planning/codes-coverage-floor.txt` Spec 054 drift
-  baseline). Monotone-floor invariant (a) — floor advances on each
-  commit; regression requires explicit `floor_reset` (audit-trail
-  Reflection).
+Adopts the Spec 146 Slice 2.2 baseline-drift pattern instead of a
+fraction-floor (fraction is 0.0 on a 95-offender backlog so the floor
+is uninformative — the baseline set captures REGRESSIONS directly).
+
+- **`OffenderBaselineEntry(path, line, literal)`** frozen dataclass +
+  `load_codes_baseline(path)` parser (blank/comment-tolerant; malformed
+  line → ValueError; fail loud).
+- **`compare_offenders_to_baseline(report, baseline)` →
+  `OffenderRegressionReport{new_offenders, fixed_offenders, ok}`** —
+  pure set difference: live − baseline = REGRESSIONS (gate-fail);
+  baseline − live = FIXED (author trims).
+- **CLI flags** `--baseline PATH --strict`:
+  - `--strict` without baseline: any offender → exit 1.
+  - `--strict --baseline`: only `new_offenders` → exit 1; `fixed_offenders`
+    surfaced so the baseline can be trimmed in the same PR.
+- **`Plan/_planning/codes-coverage-baseline.txt`** — enumerates the 95
+  live offenders. The gate flags any REGRESSION beyond this set,
+  enabling Slice 4 backfill to monotonically reduce.
+- **CI step `Codes-coverage lint`** in `.github/workflows/test.yml` runs
+  the gate on every push + PR.
+- **9 new tests** in `tests/test_codes_coverage.py`: load_codes_baseline
+  parse / missing / malformed; compare_offenders_to_baseline ok / new /
+  fixed; CLI strict-without-baseline / strict-with-baseline OK + fail;
+  LIVE INVARIANT (committed baseline = live offender set).
+
+### Still — Slice 3+
+
 - **Slice 3** — `agency_doctor.codes_coverage` reports the typed
   payload `{covered_sites, total_failure_sites, fraction, offenders}`
   + a `monotone_ok` bool so wrapping drivers can branch on the

@@ -87,6 +87,17 @@ jobs:
           python scripts/check_response_prefix.py --root agency \
             --baseline Plan/_planning/prefix-lint-baseline.txt --strict
 
+      # Spec 151 Slice 2 — ToolResult.failure Codes-coverage gate. Walks
+      # `agency/` and flags any new STRING_LITERAL offender (the runtime
+      # AttributeError waiting to happen — should be `Codes.X`). Known-
+      # historical offenders enumerated in
+      # `Plan/_planning/codes-coverage-baseline.txt`; the gate fails ONLY
+      # on regressions (new offenders NOT in the baseline).
+      - name: Codes-coverage lint
+        run: |
+          python scripts/check_codes_coverage.py --root agency \
+            --baseline Plan/_planning/codes-coverage-baseline.txt --strict
+
       # Spec 092 G6 — followup-grounding, ADVISORY: a Shipped spec should cite tests that
       # exist (catches a roll-up claim that overstates completeness).
       - name: Followup-grounding (advisory)

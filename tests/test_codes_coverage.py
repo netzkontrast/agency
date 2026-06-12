@@ -362,3 +362,171 @@ def test_live_tree_audit_yields_a_report():
     assert 0.0 <= rep.fraction <= 1.0
     # The members the audit knows about EQUAL the live Codes namespace.
     assert isinstance(rep.orphan_codes, set)
+
+
+# ────────────── Slice 2 — offender baseline + WARN→error gate ──────────────
+# Spec 151 Slice 2 ships:
+#   - `OffenderBaselineEntry(path, line, literal)` + `load_codes_baseline`
+#   - `compare_offenders_to_baseline(report, baseline)` → RegressionReport
+#   - CLI `--baseline PATH --strict` — only NEW offenders fail
+#   - `Plan/_planning/codes-coverage-baseline.txt` enumerates the live set
+#     so the gate flags REGRESSIONS only (same pattern as Spec 146 Slice 2.2).
+def test_load_codes_baseline_parses_path_line_literal(tmp_path):
+    from scripts.check_codes_coverage import load_codes_baseline
+    f = tmp_path / "baseline.txt"
+    f.write_text(
+        "# header\n"
+        "\n"
+        "agency/capabilities/music/_main.py:86:INVALID_ARGUMENT\n"
+        "agency/capabilities/music/_main.py:316:Codes.NOT_FOND\n"
+    )
+    entries = load_codes_baseline(f)
+    assert {(e.path, e.line, e.literal) for e in entries} == {
+        ("agency/capabilities/music/_main.py", 86, "INVALID_ARGUMENT"),
+        ("agency/capabilities/music/_main.py", 316, "Codes.NOT_FOND"),
+    }
+
+
+def test_load_codes_baseline_missing_file_returns_empty(tmp_path):
+    from scripts.check_codes_coverage import load_codes_baseline
+    assert load_codes_baseline(tmp_path / "missing.txt") == set()
+
+
+def test_load_codes_baseline_rejects_malformed_line(tmp_path):
+    from scripts.check_codes_coverage import load_codes_baseline
+    f = tmp_path / "baseline.txt"
+    f.write_text("path.py:not-a-number:LITERAL\n")
+    with pytest.raises(ValueError):
+        load_codes_baseline(f)
+
+
+def test_compare_offenders_ok_when_report_matches_baseline():
+    from scripts.check_codes_coverage import (
+        OffenderBaselineEntry,
+        compare_offenders_to_baseline,
+        CoverageReport,
+        CallSiteResult,
+        CallSiteClass,
+        FileLoc,
+    )
+    rep = CoverageReport(
+        offenders=[CallSiteResult(
+            loc=FileLoc("a.py", 10),
+            classification=CallSiteClass.STRING_LITERAL,
+            literal="OOPS")],
+    )
+    baseline = {OffenderBaselineEntry("a.py", 10, "OOPS")}
+    res = compare_offenders_to_baseline(rep, baseline)
+    assert res.ok is True
+    assert res.new_offenders == []
+    assert res.fixed_offenders == []
+
+
+def test_compare_offenders_flags_new_offender_as_regression():
+    from scripts.check_codes_coverage import (
+        OffenderBaselineEntry,
+        compare_offenders_to_baseline,
+        CoverageReport,
+        CallSiteResult,
+        CallSiteClass,
+        FileLoc,
+    )
+    rep = CoverageReport(offenders=[
+        CallSiteResult(loc=FileLoc("a.py", 10),
+                       classification=CallSiteClass.STRING_LITERAL,
+                       literal="OOPS"),
+        CallSiteResult(loc=FileLoc("b.py", 22),
+                       classification=CallSiteClass.STRING_LITERAL,
+                       literal="NEW"),
+    ])
+    baseline = {OffenderBaselineEntry("a.py", 10, "OOPS")}
+    res = compare_offenders_to_baseline(rep, baseline)
+    assert res.ok is False
+    assert len(res.new_offenders) == 1
+    new = res.new_offenders[0]
+    assert (new.loc.path, new.loc.line, new.literal) == ("b.py", 22, "NEW")
+
+
+def test_compare_offenders_surfaces_fixed_offenders():
+    """A baseline entry no longer matching a live offender = the literal
+    was migrated to Codes.X (or removed) — surface so author trims the
+    baseline."""
+    from scripts.check_codes_coverage import (
+        OffenderBaselineEntry,
+        compare_offenders_to_baseline,
+        CoverageReport,
+    )
+    rep = CoverageReport(offenders=[])                            # everything migrated
+    baseline = {OffenderBaselineEntry("a.py", 10, "OOPS")}
+    res = compare_offenders_to_baseline(rep, baseline)
+    assert res.ok is True                                          # fewer is fine
+    assert res.fixed_offenders == [
+        OffenderBaselineEntry("a.py", 10, "OOPS")]
+
+
+def test_cli_strict_without_baseline_fails_on_any_offender(tmp_path):
+    """`--strict` without `--baseline` → any offender exits 1."""
+    from scripts.check_codes_coverage import main
+    (tmp_path / "x.py").write_text(
+        "from agency.toolresult import ToolResult\n"
+        "def f(): return ToolResult.failure('OOPS', summary='x')\n"
+    )
+    rc = main(["--root", str(tmp_path), "--strict"])
+    assert rc == 1
+
+
+def test_cli_strict_with_matching_baseline_exits_0(tmp_path):
+    from scripts.check_codes_coverage import main
+    src = tmp_path / "x.py"
+    src.write_text(
+        "from agency.toolresult import ToolResult\n"
+        "def f(): return ToolResult.failure('OOPS', summary='x')\n"
+    )
+    baseline = tmp_path / "baseline.txt"
+    baseline.write_text(f"{src!s}:2:OOPS\n")
+    rc = main(["--root", str(tmp_path),
+                "--strict", "--baseline", str(baseline)])
+    assert rc == 0
+
+
+def test_cli_strict_with_baseline_exits_1_on_new_offender(tmp_path):
+    from scripts.check_codes_coverage import main
+    src = tmp_path / "x.py"
+    src.write_text(
+        "from agency.toolresult import ToolResult\n"
+        "def f(): return ToolResult.failure('OLD', summary='x')\n"
+        "def g(): return ToolResult.failure('NEW', summary='y')\n"
+    )
+    baseline = tmp_path / "baseline.txt"
+    baseline.write_text(f"{src!s}:2:OLD\n")
+    rc = main(["--root", str(tmp_path),
+                "--strict", "--baseline", str(baseline)])
+    assert rc == 1
+
+
+def test_live_codes_baseline_matches_live_offenders(monkeypatch):
+    """The committed `Plan/_planning/codes-coverage-baseline.txt` MUST
+    enumerate every current live `agency/` offender — invariant: the
+    set of audited offenders equals the baseline set.
+
+    The audit is run from the repo root with a RELATIVE `agency` root
+    so baseline paths stay relative + portable across machines."""
+    from scripts.check_codes_coverage import (
+        audit_tree, load_codes_baseline, compare_offenders_to_baseline)
+    repo = Path(__file__).parent.parent
+    monkeypatch.chdir(repo)
+    rep = audit_tree(Path("agency"))
+    baseline = load_codes_baseline(
+        Path("Plan") / "_planning" / "codes-coverage-baseline.txt")
+    res = compare_offenders_to_baseline(rep, baseline)
+    assert res.new_offenders == [], (
+        "the live audit produced offenders NOT in the baseline. Either "
+        "migrate the literal to a Codes.X member, or add the new site "
+        "to `Plan/_planning/codes-coverage-baseline.txt`.\nNew offenders:\n"
+        + "\n".join(f"  {o.loc.path}:{o.loc.line}  {o.literal!r}"
+                    for o in res.new_offenders))
+    assert res.fixed_offenders == [], (
+        "the baseline lists offenders that no longer exist — trim them. "
+        "Fixed sites:\n"
+        + "\n".join(f"  {e.path}:{e.line}  {e.literal!r}"
+                    for e in res.fixed_offenders))
