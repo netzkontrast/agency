@@ -150,3 +150,17 @@ skill:0a66a56e tdd walk; 5 Reflections recorded via `dogfood.note`).
   when a loop_detected fires on the dispatcher's clearest routes,
   the dispatcher exits 2 with the loop's evidence as the hint.
 
+
+### Loop closure proof (Spec 150 in-band)
+
+- **intent:928e0a28** verification intent in-tree
+- 4 Slice-1 lesson Reflections recorded: c2a33d79 / 46419129 / b973baae / 579b1cb8
+- `dogfood.parse_amendment(scope="observation", use_llm=False)` ran (keyword
+  classifier returned 0 proposals on higher-order lessons; LLM Slice 2 will
+  pick them up)
+- `dogfood.apply_amendment(payload, dry_run=True)` ran on a synthetic Slice-1
+  contract payload → returned `{artefact_id, diff, payload_hash}`. Unified diff
+  appends the Done-When line capturing the shipped contract.
+- Closure recorded as `reflection:cbf172ed` on intent:35628643 (this slice's
+  driving intent).
+
