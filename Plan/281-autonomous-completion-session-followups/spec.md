@@ -151,6 +151,47 @@ doctrine.
       a second test file hits the same brittleness.
 - [ ] **L5** Spec 281-D authored (long-lived-branch doctrine) on the next
       AGENCY_PROTOCOL.md amendment pass.
+- [ ] **L8** Spec 281-E authored (MCP version skew — `agency_doctor.mcp_
+      version` + auto-refresh on plugin update). Surfaced during the
+      Spec 195 Slice 3 engine-driven ship: the installed MCP server held
+      the pre-Spec-150-Slice-1 dogfood capability + couldn't reach the
+      in-tree `parse_amendment` verb, breaking the close-the-loop step.
+      Reflection `reflection:b2a25cfe`.
+
+## L8 — MCP server version skew
+
+**Observation.** The MCP server running this session is the agency plugin
+INSTALLED in `~/.claude/plugins/agency/`, not the working copy of this
+repo. Spec 150 Slice 1 (`dogfood.parse_amendment` + `dogfood.apply_amendment`)
+shipped in main weeks ago, but the installed MCP server still exposes
+ONLY the older `dogfood.{note, collect, render, export, import}` verbs.
+Spec 195 Slice 2's `dogfood.replay_events` + `dogfood.boundary_use_audit`
++ Spec 280 Slice 1's `agency_doctor.hooks` are present in the in-tree
+code but NOT in the live MCP — they only become reachable when the
+plugin is reinstalled.
+
+**Real-time impact.** The Spec 195 Slice 3 engine-driven ship recorded
+4 per-phase Reflections via `dogfood.note` against intent:9517b48e in the
+MCP's DB, then needed to close the Spec 150 loop via
+`parse_amendment → apply_amendment(dry_run=True)`. The MCP didn't expose
+either verb. Falling back to the in-tree CLI failed because the in-tree
+Engine's view of the project DB (`.agency/session.db` per
+`CLAUDE_PROJECT_DIR`) doesn't see the intents/reflections the MCP wrote
+(the MCP's DB path resolution diverges — likely it uses a different env
+chain or its own copy of the .agency/ directory).
+
+**Fix shipped.** L8 recorded as Reflection `reflection:b2a25cfe`. The
+verification artifact (parse → apply dry-run) was demonstrated earlier
+this session in `Plan/281-…/verification-evidence.json` against
+`intent:a35a4316` (the in-tree-bootstrapped intent), so the loop pattern
+IS proven; what's NOT proven is the loop closure WITHIN one MCP-server
+session because of the version skew.
+
+**Follow-up — Spec 281-E**: `agency_doctor.mcp_version` field reporting
+the installed-plugin SHA + the in-tree SHA + the delta. When they differ,
+the doctor surfaces a `next_step: "reinstall plugin to refresh MCP
+verbs"`. Optional: the MCP server SIGHUP-reloads when the plugin marker
+file changes (advanced; deferred). Owner: substrate.
 
 ## Open Q
 
