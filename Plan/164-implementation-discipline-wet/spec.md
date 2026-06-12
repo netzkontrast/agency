@@ -112,3 +112,12 @@ Then:   matcher=="scaffold" AND walk proceeds with scaffold-check (no
    session-scoped only; invalidates on capability-set-hash change
    (Spec 146 prefix). A re-walk of the same plan shouldn't re-pay the
    Driver call within a session.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+The typed shape this spec carries was shipped as part of the wave-1+2
+batch (intents trackable in graph). See TODO.md row + the corresponding
+test module under `tests/`.
+

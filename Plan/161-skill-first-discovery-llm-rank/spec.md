@@ -89,3 +89,12 @@ Then:   the two result orderings are byte-identical (deterministic
 3. **Cache the re-rank verdict?** **Recommend**: session-scoped
    `(query_hash, candidate_set_hash) → ordering` — repeat searches
    in a walk shouldn't re-pay the Driver call.
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion`.
+
+The typed shape this spec carries was shipped as part of the wave-1+2
+batch (intents trackable in graph). See TODO.md row + the corresponding
+test module under `tests/`.
+

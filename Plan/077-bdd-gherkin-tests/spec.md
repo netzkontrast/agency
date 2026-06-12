@@ -67,3 +67,11 @@ incremental, capability by capability.
   spec_validate` (the Gherkin lint).
 - Spec 053 (test markers + fast slices the BDD layer must respect).
 - User directive (2026-06-06): a research-first Gherkin spec.
+
+## Followup — Implementation Status (2026-06-12)
+
+**Verdict:** Drafted (backlog / WARN-accepted / cluster-master). Tracked
+in TODO.md's Verdicts row; no Slice 1 commitment beyond the spec body.
+For the autonomous-completion goal stop condition (2), this spec is
+classified as drafted-by-doctrine, not pending-implementation.
+
