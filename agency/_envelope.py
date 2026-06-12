@@ -74,7 +74,7 @@ def canonical_json(env: ResponseEnvelope) -> str:
     body keys (sorted), compact separators (no insignificant whitespace).
     Two envelopes with the same {prefix, body} content yield byte-identical
     output regardless of how their dicts were constructed."""
-    return json.dumps(env.to_dict(), separators=(",", ":"))
+    return json.dumps(env.to_dict(), sort_keys=True, separators=(",", ":"))
 
 
 def capability_set_hash(
@@ -92,7 +92,7 @@ def capability_set_hash(
     payload: dict = {"names": sorted(set(names))}
     if signatures is not None:
         payload["signatures"] = {k: signatures[k] for k in sorted(signatures)}
-    blob = json.dumps(payload, separators=(",", ":"))
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
@@ -101,5 +101,5 @@ def ontology_hash(ontology: dict[str, list[str]]) -> str:
     Order-invariant on both the top-level node-type keys AND the per-type
     property lists."""
     normalized = {k: sorted(ontology[k]) for k in sorted(ontology)}
-    blob = json.dumps(normalized, separators=(",", ":"))
+    blob = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()

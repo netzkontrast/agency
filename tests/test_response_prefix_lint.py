@@ -204,3 +204,147 @@ def test_live_tree_audit_walks_engine_module():
     # are BODY-side (Slice 1 envelope split). Slice 2.2 will refine the
     # audit to track reachability from prefix builders only.
     assert isinstance(rep, PrefixReport)
+
+
+# ── Codex review on PR #134 — fixes ────────────────────────────────────────
+def test_classify_resolves_import_alias_for_time():
+    """Codex review: `import time as t; t.time()` must be flagged. The
+    classifier compares against the canonical module via an alias map."""
+    src = (
+        "import time as t\n"
+        "def f():\n"
+        "    return t.time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations)
+
+
+def test_classify_resolves_from_import_for_time():
+    """`from time import time; time()` is the from-import form."""
+    src = (
+        "from time import time\n"
+        "def f():\n"
+        "    return time()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.TIME_TIME for v in violations)
+
+
+def test_classify_resolves_aliased_from_import_for_uuid4():
+    """`from uuid import uuid4 as make_id; make_id()` aliases the call."""
+    src = (
+        "from uuid import uuid4 as make_id\n"
+        "def f():\n"
+        "    return make_id()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UUID4 for v in violations)
+
+
+def test_classify_resolves_from_os_import_getenv():
+    """`from os import getenv; getenv("X")` is the bare-name form."""
+    src = (
+        "from os import getenv\n"
+        "def f():\n"
+        "    return getenv('HOME')\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.OS_ENVIRON for v in violations)
+
+
+def test_classify_resolves_from_os_import_environ():
+    """`from os import environ; environ["X"]` reads via the bare name."""
+    src = (
+        "from os import environ\n"
+        "def f():\n"
+        "    return environ['HOME']\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.OS_ENVIRON for v in violations)
+
+
+def test_classify_flags_os_environ_copy_and_items():
+    """Codex review: direct reads like .copy() / .items() were missed
+    before. All `os.environ.<anything>` is a request-time env read."""
+    src = (
+        "import os\n"
+        "def f():\n"
+        "    return os.environ.copy()\n"
+        "def g():\n"
+        "    return os.environ.items()\n"
+        "def h():\n"
+        "    return os.environ.keys()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    # All three should be flagged.
+    assert sum(1 for v in violations if v.kind == ViolationKind.OS_ENVIRON) >= 3
+
+
+def test_classify_flags_datetime_now_via_from_import():
+    """`from datetime import datetime; datetime.now()` is the most common
+    form — classifier resolves the bare `datetime` name."""
+    src = (
+        "from datetime import datetime\n"
+        "def f():\n"
+        "    return datetime.now()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.DATETIME_NOW for v in violations)
+
+
+def test_classify_flags_aliased_datetime_now():
+    """`import datetime as dt; dt.datetime.now()` aliases the module."""
+    src = (
+        "import datetime as dt\n"
+        "def f():\n"
+        "    return dt.datetime.now()\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.DATETIME_NOW for v in violations)
+
+
+def test_audit_tree_raises_on_missing_root(tmp_path):
+    """Codex review: a typo'd or moved path must NOT silently report
+    zero violations. Slice 2.2's gate depends on this signaling."""
+    from scripts.check_response_prefix import PrefixAuditError
+    missing = tmp_path / "does-not-exist"
+    with pytest.raises(PrefixAuditError):
+        audit_tree(missing)
+
+
+# ── UNSORTED_DICT — json.dumps without sort_keys=True ─────────────────────
+def test_classify_flags_json_dumps_without_sort_keys():
+    """Codex review: Spec 146's lint checklist includes unsorted-dict
+    prefix builders. `json.dumps(d)` without `sort_keys=True` lets
+    hash-order leak into the prefix across runs."""
+    src = (
+        "import json\n"
+        "def f(d):\n"
+        "    return json.dumps(d)\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UNSORTED_DICT for v in violations)
+
+
+def test_classify_passes_json_dumps_with_sort_keys():
+    """The canonical-JSON form (sort_keys=True) is fine and must NOT
+    flag — it's exactly the discipline Spec 146 Slice 1 ships in
+    `agency/_envelope.py`'s `canonical_json`."""
+    src = (
+        "import json\n"
+        "def f(d):\n"
+        "    return json.dumps(d, sort_keys=True, separators=(',', ':'))\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert all(v.kind != ViolationKind.UNSORTED_DICT for v in violations)
+
+
+def test_classify_flags_aliased_json_dumps():
+    """`from json import dumps; dumps(d)` is the bare-name form."""
+    src = (
+        "from json import dumps\n"
+        "def f(d):\n"
+        "    return dumps(d)\n"
+    )
+    violations = audit_source(src, path="x.py")
+    assert any(v.kind == ViolationKind.UNSORTED_DICT for v in violations)
