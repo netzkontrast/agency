@@ -101,3 +101,22 @@ Then:   gate PASSES + the baseline is re-derived as {} (monotone shrink
 3. Cycle-detection algorithm — strongly-connected components or
    simple-cycles? **Recommend**: SCC for the gate (O(V+E), faster on
    large graphs); simple-cycles for the report (richer detail, opt-in).
+
+## Followup — Implementation Status (Slice 1, 2026-06-12)
+
+**Verdict:** Slice 1 SHIPPED on `claude/autonomous-completion` as part of
+the wave-1 typed-shape batch-2 (intent:2219e694; engine-driven tdd walk).
+
+### Done — Slice 1 (typed shape)
+
+Typed frozen dataclass + `__post_init__` invariants in
+`agency/_typed_shapes_wave1_part2.py`; tests in
+`tests/test_typed_shapes_wave1_part2.py` (17 tests total across the
+8-spec batch). Slice 2 wires each shape into its consuming runtime
+(red-team rerunner, CLI projection, derive audit, wrapper modules,
+networkx metric, axis registry, migration walker, ref audit).
+
+### Still — Slice 2+
+
+See the spec's main "Done When" + "Still" sections.
+
