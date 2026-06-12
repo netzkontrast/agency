@@ -157,6 +157,73 @@ class SkillsCapability(CapabilityBase):
                          f"(want one of {sorted(_VALID_GATES)})")
         return {"ok": not v, "violations": v}
 
+    @verb(role="transform")
+    def rank(self, query: str = "") -> dict:
+        """Rank walkable skills against a free-text query (Spec 161 Slice 1).
+
+        Slice 1 is a deterministic keyword scorer: tokenize the query,
+        normalise to lowercase, count substring hits across each skill's
+        `name`, `capability`, `kind`, and phase names. Ties broken by
+        `(capability, name)` for stability. Slice 2 swaps in an LLM
+        ranker via the Spec 147 AnthropicDriver behind the same shape.
+
+        An empty query falls through to the `find`-style listing (no
+        ranking applied; same alphabetic sort).
+
+        Inputs: query (free text; empty = list all).
+        Returns: ``{candidates: [{name, kind, capability, phases,
+                  phase_count, score}], total, scorer}``.
+        chain_next: ``skills.render`` the top candidate, then
+                    ``develop.skill_walk`` it.
+        """
+        skills = list(_all_skills(self.ctx.registry).values())
+        if not query.strip():
+            skills.sort(key=lambda m: (m["capability"], m["name"]))
+            return {
+                "candidates": [
+                    {k: m[k] for k in ("name", "kind", "capability",
+                                        "phases", "phase_count")}
+                    | {"score": 0.0}
+                    for m in skills
+                ],
+                "total":  len(skills),
+                "scorer": "keyword",
+            }
+        tokens = [t for t in query.lower().split() if t]
+        scored: list[tuple[float, dict]] = []
+        for m in skills:
+            phase_names = " ".join(
+                p.get("name", "") if isinstance(p, dict) else str(p)
+                for p in m.get("phases", []))
+            hay = " ".join([
+                str(m["name"]), str(m["capability"]),
+                str(m["kind"]), phase_names,
+            ]).lower()
+            score = 0.0
+            for tok in tokens:
+                if not tok:
+                    continue
+                # Bigger boost for exact word match on the skill name; a
+                # plain substring elsewhere still scores.
+                if tok == m["name"].lower():
+                    score += 2.0
+                elif tok in m["name"].lower():
+                    score += 1.0
+                if tok in hay:
+                    score += 0.5
+            scored.append((score, m))
+        scored.sort(key=lambda t: (-t[0], t[1]["capability"], t[1]["name"]))
+        return {
+            "candidates": [
+                {k: m[k] for k in ("name", "kind", "capability",
+                                    "phases", "phase_count")}
+                | {"score": round(s, 3)}
+                for s, m in scored
+            ],
+            "total":  len(scored),
+            "scorer": "keyword",
+        }
+
     @verb(role="effect")
     def index(self) -> dict:
         """Promote walkable skills into the graph as Skill + Phase nodes (Spec 026).

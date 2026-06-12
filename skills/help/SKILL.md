@@ -82,7 +82,7 @@ agency execute --code \
 - **research** — ingest_gdoc, lead, record_ingested_source, specialist, verify
 - **shell** — define, filter, run, templates
 - **skill_generator** — generate
-- **skills** — find, index, lint, render
+- **skills** — find, index, lint, rank, render
 - **subagent** — develop
 - **thinking** — apply_full_review, assumptions, decompose, first_principles, inversion, premortem, red_team, second_order, socratic, steelman, tradeoffs
 - **workspace** — baseline, isolate
