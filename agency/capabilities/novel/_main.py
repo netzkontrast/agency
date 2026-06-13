@@ -654,6 +654,7 @@ novel_ontology = OntologyExtension(
         "CHAPTER_OF",       # Chapter → Novel (mirror of music's RECORDED_FOR)
         "PROMOTED_TO",      # Idea → Novel (mirror of music's PROMOTED_TO)
         "SCENE_OF",         # Spec 102 Slice 2 — Scene → Chapter
+        "STORYFORM_OF",     # Spec 103 Slice 2 (Workstream D) — Storyform → Novel
         # Spec 123 — World sub-graph edges.
         "PART_OF_WORLD",    # Culture/Religion/Language/MagicSystem/Axiom → World
         "CONTRADICTS",      # WorldAxiom → WorldAxiom (find_axiom_contradictions)
@@ -1495,6 +1496,71 @@ class NovelCapability(CapabilityBase):
     # Slice 2 ships the remaining 9 decidable + 2 hybrid verbs + the
     # `novel_coherence_check` composite gate verb + the storyform-build
     # walkable skill (6 phases per Spec 103 design).
+
+    @verb(role="effect")
+    def create_storyform(self, novel_id: str, body: dict | None = None) -> ToolResult:
+        """Mint the Storyform node for a novel + STORYFORM_OF edge (effect).
+
+        Spec 103 Slice 2 (Workstream D) — closes the documented ENGINE GAP:
+        the storyform gates + checks read a ``Storyform`` node, but no verb
+        minted one (it had to be inserted surgically). This verb records it
+        properly, carrying the NCP payload as a JSON ``body`` and wiring the
+        STORYFORM_OF edge to the parent Novel. Idempotent per novel: a second
+        call updates the existing Storyform's body rather than minting a
+        duplicate.
+
+        Inputs: novel_id (parent Novel), body (the NCP v1.3.0 storyform dict —
+                stored JSON-serialised; optional, defaults to empty).
+        Returns: ``{storyform_id, novel_id, has_body}``.
+        chain_next: ``novel.pre_draft_gate`` (now satisfiable) or the
+                    ``storyform-build`` skill which fills the body.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        body_json = json.dumps(body) if body else ""
+        # Idempotent: one Storyform per novel — update the existing body.
+        existing = next((s for s in self.ctx.find("Storyform")
+                         if s.get("novel") == novel_id), None)
+        if existing is not None:
+            sid = existing["id"]
+            if body_json:
+                self.ctx.memory.update(sid, {"body": body_json})
+            return ToolResult.success(data={
+                "storyform_id": sid, "novel_id": novel_id,
+                "has_body": bool(body_json or existing.get("body")),
+            })
+        sid = self.ctx.record("Storyform", {"novel": novel_id, "body": body_json})
+        self.ctx.link(sid, novel_id, "STORYFORM_OF")
+        self.ctx.link(sid, self.ctx.intent_id, "SERVES")
+        return ToolResult.success(data={
+            "storyform_id": sid, "novel_id": novel_id, "has_body": bool(body_json),
+        })
+
+    @verb(role="transform")
+    def get_storyform(self, novel_id: str) -> ToolResult:
+        """Return a novel's Storyform node + parsed NCP body (transform).
+
+        Inputs: novel_id (parent Novel).
+        Returns: ``{storyform_id, novel_id, body}`` (``body`` is the parsed
+                 NCP dict, or ``{}`` when unset); ``found=False`` when the
+                 novel has no Storyform yet.
+        chain_next: feed ``body`` into ``novel.novel_coherence_check`` or any
+                    decidable ``check_*`` verb.
+        """
+        sf = next((s for s in self.ctx.find("Storyform")
+                   if s.get("novel") == novel_id), None)
+        if sf is None:
+            return ToolResult.success(data={"found": False, "novel_id": novel_id})
+        raw = sf.get("body") or ""
+        try:
+            body = json.loads(raw) if raw else {}
+        except (ValueError, TypeError):
+            body = {}
+        return ToolResult.success(data={
+            "found": True, "storyform_id": sf["id"],
+            "novel_id": novel_id, "body": body,
+        })
 
     @verb(role="transform")
     def check_throughline_partition(self, ncp: dict) -> ToolResult:

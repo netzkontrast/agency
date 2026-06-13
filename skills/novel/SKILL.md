@@ -61,6 +61,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `create_novel` | effect | Record a Novel node SERVING the intent; materialise disk on production. | [details](references/create_novel.md) |
 | `create_religion` | effect | Mint a Religion under a World + PART_OF_WORLD edge (effect). | [details](references/create_religion.md) |
 | `create_scene` | effect | Record a Scene node + SCENE_OF the parent Chapter (effect). | [details](references/create_scene.md) |
+| `create_storyform` | effect | Mint the Storyform node for a novel + STORYFORM_OF edge (effect). | [details](references/create_storyform.md) |
 | `create_world` | effect | Mint a World node + SERVES intent (effect). | [details](references/create_world.md) |
 | `create_world_axiom` | effect | Encode a WorldAxiom (rule) under a World (effect). | [details](references/create_world_axiom.md) |
 | `developmental_gate` | effect | Composite gate: structure-level editorial readiness (effect). | [details](references/developmental_gate.md) |
@@ -73,6 +74,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |
 | `flag_anachronistic_reference` | transform | Check if the character knows the fact yet (transform). | [details](references/flag_anachronistic_reference.md) |
 | `generate_scene_body` | act | Spec 220 Slice 1 — wet scene-body generation via Spec 147 + Spec 279. | [details](references/generate_scene_body.md) |
+| `get_storyform` | transform | Return a novel's Storyform node + parsed NCP body (transform). | [details](references/get_storyform.md) |
 | `integrate_scene_body` | effect | Spec 130 phase 5 — write the generated body back to the Scene (effect). | [details](references/integrate_scene_body.md) |
 | `line_gate` | effect | Composite gate: prose-level editorial readiness (effect). | [details](references/line_gate.md) |
 | `link_character_to_world` | effect | Add a typed edge from Character → World child (effect). | [details](references/link_character_to_world.md) |
