@@ -94,7 +94,7 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    `scripts/check-drift` BEFORE commit. Failure to do so is a doctrine
    violation; future audits flag it.
    - **Doc drift.** The engineering docs live in [`docs/`](docs/) (start at
-     `docs/README.md`; `docs/architecture/` is the module-by-module
+     `docs/README.md`; `docs/vision/reference/` is the module-by-module
      reference). Hand-written docs carry a `<!-- doc-source: … -->` marker
      naming the code/specs they describe; `scripts/check-doc-drift` hashes
      those sources and flags any doc gone stale (`--update` re-stamps,

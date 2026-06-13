@@ -57,5 +57,5 @@ Anthropic Skills API (Spec 083).
 
 ## Related
 
-- The walker discipline lives in the `develop` capability ([../guide/capabilities.md]).
+- The walker discipline lives in the `develop` capability ([../../guide/capabilities.md]).
 - The token budget the emission respects: [token-economy.md](token-economy.md).

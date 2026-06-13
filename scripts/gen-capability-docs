@@ -65,7 +65,7 @@ def main() -> int:
             "",
             f"**{len(names)} core capabilities.** Domain capabilities (e.g. `music`) load "
             "out-of-tree via `Engine(..., extra_capabilities=[…])` — see "
-            "`examples/music.py` + [../architecture/drivers.md](../architecture/drivers.md).",
+            "`examples/music.py` + [../vision/reference/drivers.md](../vision/reference/drivers.md).",
             "",
             "The wire contract is always the same three substrate tools — **`search` · "
             "`get_schema` · `execute`** — plus a few bootstrap tools; every verb below is "

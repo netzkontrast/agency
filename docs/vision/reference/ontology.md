@@ -45,7 +45,7 @@ never silently redefine the same type. Enums are closed value sets enforced on w
 The graph is the store; strict merge is what lets the engine trust the data without a
 schema migration step. A capability that wants a new field on `Album` declares the full
 field list in its extension; the merge validates compatibility. This is the substrate
-that makes the [drop-in bar](../guide/extending.md) safe.
+that makes the [drop-in bar](../../guide/extending.md) safe.
 
 ## Related
 

@@ -112,21 +112,25 @@ Concepts: `intent`, `capability`, `lifecycle`, `memory`. Tool names
 injects the `mcp__` prefix. The serializer detail (skill/code-mode forms) is not
 a top-level concern.
 
-## What v0.1 proves
+## What the running engine proves
 
 The installable plugin proves the moat and falsifies the risks: it
-records an Intent, opens an agent Lifecycle, runs two genuinely different
+records an Intent, opens an agent Lifecycle, runs genuinely different
 capabilities (a `transform` and an agent), passes a gate via `elicit`, chains
 tools in code-mode (one delta out), and answers the cross-concern provenance
-query end-to-end. 56 passing on `graphqlite` + `fastmcp`. See the `agency/`
-package and `tests/`.
+query end-to-end — exercised by the full test suite on `graphqlite` +
+`fastmcp` (run it; the pass-count is a moving target, not a frozen badge). See
+the `agency/` package and `tests/`.
 
 ## Scope
 
-The canon DOCUMENTS the full four-concept model. **v0.1** (the `agency/` package,
-56 passing) ships the engine, ten core capabilities (`plugin` · `skill_generator` ·
-`develop` · `delegate` · `subagent` · `gate` · `workspace` · `branch` · `jules` ·
-`reflect`), the reflection-based self-registration, the extensible ontology, and the
-self-hosted install; domain capabilities load as example extensions (`examples/`).
-Further capabilities are specced — see
+The canon DOCUMENTS the full four-concept model, and the aim is that each
+concept becomes a **complete suite of code + tools** — write *and* read (CORE.md
+§"Four complete pillars"). The `agency/` package ships the engine, the
+self-registering **core capabilities** (discover the live set via `search`; the
+count grows as files are dropped in, so it is deliberately not pinned here),
+reflection-based self-registration, the extensible ontology, and the
+self-hosted install; domain capabilities load as example extensions
+(`examples/`). The module-by-module reference lives under
+[reference/](reference/); further capabilities are mapped in
 [CAPABILITY-CLUSTERS.md](CAPABILITY-CLUSTERS.md).

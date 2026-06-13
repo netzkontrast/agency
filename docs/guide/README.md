@@ -1,7 +1,7 @@
 # Guide — using agency
 
 Task-oriented docs for driving the engine. (For *how it's built*, see
-[../architecture/](../architecture/); for *why*, see [../vision/](../vision/).)
+[../vision/reference/](../vision/reference/); for *why*, see [../vision/](../vision/).)
 
 | Page | Read it to… |
 |---|---|

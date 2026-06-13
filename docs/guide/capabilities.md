@@ -4,7 +4,7 @@
 
 > **Generated** from the live registry by `scripts/gen-capability-docs`. Every capability self-registers from `agency/capabilities/`; this page is rendered from the running engine, so it is always current. Per-capability deep docs (the L1/L2/L3 Agent Skill) live in `skills/<capability>/SKILL.md`.
 
-**17 core capabilities.** Domain capabilities (e.g. `music`) load out-of-tree via `Engine(..., extra_capabilities=[…])` — see `examples/music.py` + [../architecture/drivers.md](../architecture/drivers.md).
+**17 core capabilities.** Domain capabilities (e.g. `music`) load out-of-tree via `Engine(..., extra_capabilities=[…])` — see `examples/music.py` + [../vision/reference/drivers.md](../vision/reference/drivers.md).
 
 The wire contract is always the same three substrate tools — **`search` · `get_schema` · `execute`** — plus a few bootstrap tools; every verb below is reached through `execute` (code-mode) or its `agency <cap> <verb>` CLI mirror.
 

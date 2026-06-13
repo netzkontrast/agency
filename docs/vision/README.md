@@ -48,3 +48,13 @@ self-hosted install — proving the moat (cross-concern provenance in one traver
 code-mode tool-chaining, and gate/elicitation. Domain capabilities load as example
 extensions (`examples/`). Further capabilities are specced — see
 [CAPABILITY-CLUSTERS.md](CAPABILITY-CLUSTERS.md).
+
+## Module-by-module reference
+
+The engine's per-module reference (engine · capability-system · ontology ·
+memory · intent-lifecycle-gate · skills · drivers · toolresult · token-economy ·
+helpers · install-cli) now lives under this canon at
+[reference/](reference/) — start at [reference/overview.md](reference/overview.md).
+It was merged in from the former top-level `docs/architecture/` so the design
+canon (the *why*) and its module reference (the *how, in detail*) are **one
+layer**, not two overlapping ones.

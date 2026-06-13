@@ -3,7 +3,7 @@
 <!-- doc-source: docs/vision/CORE.md agency/engine.py agency/capability.py -->
 <!-- doc-hash: 3d6d55d6818462b2 -->
 
-The authoritative model is [../vision/CORE.md](../vision/CORE.md). This page is the
+The authoritative model is [../CORE.md](../CORE.md). This page is the
 engineering-level summary: what the pieces are and how a call flows through them.
 
 ## The four concepts (one substrate)
@@ -67,4 +67,4 @@ The whole architecture is in service of one test: **add a folder under
 *derives* its Agent Skill — **and nothing else**, and agency gains a complete,
 discoverable, walkable, CLI-exposed, MCP-wired, publishable capability. If adding a
 capability needs an edit anywhere else, that coupling is the bug. See
-[../guide/extending.md](../guide/extending.md).
+[../../guide/extending.md](../../guide/extending.md).

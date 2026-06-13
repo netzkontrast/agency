@@ -53,6 +53,34 @@ thing the SDK-native rival cannot match:** cross-concern provenance is a *single
 traversal* — "every action that `SERVES` intent Q1, the agent that ran it, the
 gate it passed."
 
+## Four complete pillars — each concept a complete suite of code + tools
+
+> **Core Vision (owner directive, 2026-06-13).** The four concepts are not just
+> substrate *primitives* — the vision is that each becomes a **complete,
+> first-class suite of code + tools** an agent (or human) can drive end to end.
+> A pillar is "complete" when its **whole** surface — write *and* read, author
+> *and* observe — is reachable through capability verbs, never hand-written
+> graph queries. Today the **write/act** sides are mature; the **read/manage**
+> sides are the least complete, and completing them is the current priority.
+
+| Pillar | Write/act suite (mature) | Read/manage suite (the completion target) |
+|---|---|---|
+| **Intent** | `capture · confirm · supersede · chain` (parent/sub) · owners + the 8 critical-thinking methods (Spec 091) | query open intents, their acceptance status, the whole `SERVES` tree — "what are we trying to do, and are we there yet?" |
+| **Capability** | author · `@verb` · the ontology + skill + verb triad · `discover()` | introspect the live registry — which verbs/skills/enums exist, their schemas, drift against the docs |
+| **Lifecycle** | `open · move · close` · gates · phases · `skill_walk` · resume | **a management suite** — every in-flight task / skill / gate, what's blocked, what's next against acceptance |
+| **Memory** | `record · link · supersede · project` | **a Management read-API over EVERY graph node type** — current state · open intents · research & claims · artefacts · reflections — *an API for all graph nodes*, no Cypher by hand |
+
+**The Management capability** is the read-API the four pillars converge on: it
+answers *"what is the current state — open intents, lifecycle status, research,
+artefacts — across the whole graph?"* without an agent writing a single query.
+It is how **Lifecycle + Memory** grow from substrate primitives into a complete
+suite, and it generalizes today's partial surfaces — `analyze.graph` (census),
+`memory.provenance` (one-intent traversal), and the planned `navigate`
+read-projection — into **one coherent management API over all graph nodes**.
+*Distance: those three partial surfaces exist; the unified, complete read-API
+does not yet. Building it is the priority for completing the Memory + Lifecycle
+pillars (see [`CAPABILITY-CLUSTERS.md`](CAPABILITY-CLUSTERS.md) `navigate`/management).*
+
 ## CapabilityContext — the verb's typed handle
 
 Every verb that takes `ctx` (the default for class-form `CapabilityBase`

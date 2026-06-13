@@ -9,7 +9,7 @@ This folder is organised in four layers — pick your depth:
 | Layer | Folder | For… |
 |---|---|---|
 | **Guides** | [guide/](guide/) + [getting-started.md](getting-started.md) | humans driving the engine (start here) |
-| **Architecture** | [architecture/](architecture/) | contributors — how it's built, module by module |
+| **Architecture** | [vision/reference/](vision/reference/) | contributors — how it's built, module by module |
 | **Specs** | [specs/](specs/) | the spec system + the binding status index |
 | **Operations** | [operations/](operations/) | dev loop, testing, CI, the two drift gates |
 | **Vision (canon)** | [vision/](vision/) | the authoritative model — *why* it's shaped this way |
@@ -26,8 +26,8 @@ This folder is organised in four layers — pick your depth:
 
 ## Architecture (engineering reference)
 
-[architecture/](architecture/) documents the engine module by module —
-[overview.md](architecture/overview.md) (the four concepts, the wire contract, the
+[vision/reference/](vision/reference/) documents the engine module by module —
+[overview.md](vision/reference/overview.md) (the four concepts, the wire contract, the
 bootstrap flow) then one page per part: engine · capability-system · ontology · memory ·
 intent/lifecycle/gate · toolresult · skills · drivers · token-economy · install/cli ·
 helpers. Each page carries a **doc-drift marker** naming the source it documents.

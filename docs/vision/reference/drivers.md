@@ -50,4 +50,4 @@ The music capability ships five Driver protocols — `State` · `Text` · `Audio
 domain runs with no ffmpeg / Postgres / R2 / network. The host passes real drivers via
 `Engine(..., drivers={"music_audio": RealAudioDriver(), …})`. This proves the drop-in
 claim: the music capability edits **no** file under `agency/`. See
-[../guide/capabilities.md](../guide/capabilities.md) (`music`) + Spec 007.
+[../../guide/capabilities.md](../../guide/capabilities.md) (`music`) + Spec 007.

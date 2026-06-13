@@ -36,4 +36,4 @@ convenience that previously-scattered helpers now route through (DRY).
 ## Related
 
 - Where briefs/skills are emitted under budget: [skills.md](skills.md).
-- The drift gate that runs the lint: [../operations/README.md](../operations/README.md).
+- The drift gate that runs the lint: [../../operations/README.md](../../operations/README.md).
