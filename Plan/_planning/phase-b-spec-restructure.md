@@ -38,7 +38,7 @@ Plan/
       develop.md  gate.md  delegate.md  subagent.md  jules.md
       workspace.md  branch.md
     memory/                 # ── Memory pillar
-      reflect.md  research.md  management.md   # management = Spec 289
+      reflect.md  research.md  management.md   # management = Spec 290
     substrate/              # the Engine + the four-concept substrate modules
       engine.md  memory-store.md  ontology.md  intent-core.md
       lifecycle-core.md  capability.md  skill.md  toolresult.md
@@ -96,7 +96,7 @@ into a `scripts/gen-living-spec` pass (rule 2: derive, don't duplicate). The
   planning skill) — a *later* convergence of Phase B + Spec 287; flagged to the
   286 agent on PR #141. Phase B keeps specs as files (rendered/generated docs);
   the graph-backed move is its own step.
-- Building the Management capability (Spec 289) — feature work, not this restructure.
+- Building the Management capability (Spec 290) — feature work, not this restructure.
 
 ## Risks
 
