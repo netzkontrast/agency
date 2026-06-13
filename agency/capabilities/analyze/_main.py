@@ -355,11 +355,7 @@ class AnalyzeCapability(CapabilityBase):
 
     def _findings_of(self, analysis_id: str, axes) -> list[dict]:
         """Reconstruct findings of an Analysis from its HAS_FINDING edges."""
-        rows = self.ctx.memory.g.query(
-            "MATCH (a:Analysis)-[:HAS_FINDING]->(f:Finding) "
-            "WHERE a.id = $id RETURN f",
-            {"id": analysis_id})
-        out = [r["f"]["properties"] for r in rows]
+        out = self.ctx.neighbors(analysis_id, "HAS_FINDING", direction="out")
         if axes:
             allow = set(axes)
             # Spec 057 — filter by the rule-axis registry (each analyzer module

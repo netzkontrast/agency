@@ -418,19 +418,16 @@ class DelegateCapability(CapabilityBase):
         Writes a REDUCES_INTO reduction (so it is an ``act``, not a pure
         read).
         """
-        if not self.ctx.memory.g.query(                        # no cross-intent reductions
-                "MATCH (d:Delegation)-[:SERVES]->(i:Intent) WHERE d.id = $d AND i.id = $i RETURN i",
-                {"d": delegation, "i": self.ctx.intent_id}):
+        if not self.ctx.has_edge(delegation, self.ctx.intent_id, "SERVES",  # no cross-intent reductions
+                                 src_label="Delegation", dst_label="Intent"):
             return {"result": {"error": "delegation does not serve the current intent",
                                "delegation": delegation}}
-        rows = self.ctx.memory.g.query(
-            "MATCH (d:Delegation)-[:DELEGATES_TO]->(lc:Lifecycle) WHERE d.id = $id RETURN lc",
-            {"id": delegation})
+        child_lcs = self.ctx.neighbors(delegation, "DELEGATES_TO", direction="out")
         states: dict[str, int] = {}
-        for r in rows:
-            s = r["lc"]["properties"].get("state", "?")
+        for lc in child_lcs:
+            s = lc.get("state", "?")
             states[s] = states.get(s, 0) + 1
-        children = len(rows)
+        children = len(child_lcs)
         done = children > 0 and states.get("completed", 0) == children
         red = self.ctx.record("Artefact", {"kind": "reduction", "children": children})
         self.ctx.link(delegation, red, "REDUCES_INTO")

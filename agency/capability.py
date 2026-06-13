@@ -207,6 +207,11 @@ class CapabilityContext:
     def recall(self, node_id: str, as_of: Optional[int] = None):
         return self.memory.recall(node_id, as_of=as_of)
 
+    def recall_typed(self, node_id: str, label: str):
+        """Properties of a node iff it exists AND carries ``label`` (Spec 056).
+        Delegates to ``Memory.recall_typed`` — the type-safe id guard."""
+        return self.memory.recall_typed(node_id, label)
+
     def update(self, node_id: str, props: dict) -> None:
         """Update a node's mutable properties — graph-canonical write
         (Spec 048 bi-temporal: a new revision, NOT a destructive overwrite).
@@ -231,22 +236,53 @@ class CapabilityContext:
         via ``ctx.neighbors``; ``find()`` + Python filter on a foreign-key
         property is the anti-pattern this method retires.
 
-        Returns ``[]`` for unknown ids or no matching edges. ``limit`` caps
-        the row count (default 100, matches ``analyze.graph`` shape).
+        Spec 286 A1 — delegates to ``Memory.neighbors`` (the GraphStore read
+        surface); raw Cypher lives only in ``memory.py``.
         """
-        if direction not in ("in", "out"):
-            raise ValueError(
-                f"direction must be 'in' or 'out', got {direction!r}")
-        if direction == "in":
-            q = (f"MATCH (n)-[:{edge}]->(t) WHERE t.id = $id "
-                 f"RETURN n LIMIT {int(limit)}")
-            key = "n"
-        else:
-            q = (f"MATCH (n)-[:{edge}]->(t) WHERE n.id = $id "
-                 f"RETURN t LIMIT {int(limit)}")
-            key = "t"
-        rows = self.memory.g.query(q, {"id": node_id})
-        return [r[key]["properties"] for r in rows]
+        return self.memory.neighbors(node_id, edge, direction=direction, limit=limit)
+
+    def query_nodes(self, label: str, where: Optional[dict] = None) -> list[dict]:
+        """Labeled nodes filtered by exact property match (Spec 286 A1).
+        Delegates to ``Memory.query_nodes``."""
+        return self.memory.query_nodes(label, where=where)
+
+    def nodes_serving(self, intent_id, label: Optional[str] = None,
+                      where: Optional[dict] = None) -> list[dict]:
+        """Nodes with a SERVES edge to an intent (Spec 286 A1).
+        Delegates to ``Memory.nodes_serving``."""
+        return self.memory.nodes_serving(intent_id, label=label, where=where)
+
+    def sources_via_edge(self, edge: str, target_id, target_label: str,
+                         label: Optional[str] = None,
+                         where: Optional[dict] = None) -> list[dict]:
+        """Nodes pointing at ``target_id`` via ``edge`` (Spec 286 A1).
+        Delegates to ``Memory.sources_via_edge``."""
+        return self.memory.sources_via_edge(edge, target_id, target_label,
+                                            label=label, where=where)
+
+    def edge_pairs(self, edge: str, src_label: Optional[str] = None,
+                   dst_label: Optional[str] = None) -> list[tuple[dict, dict]]:
+        """Every ``edge`` relationship as (src, dst) property-dict pairs
+        (Spec 286 A1). Delegates to ``Memory.edge_pairs``."""
+        return self.memory.edge_pairs(edge, src_label=src_label, dst_label=dst_label)
+
+    def has_edge(self, src_id: str, dst_id, edge: str,
+                 src_label: Optional[str] = None,
+                 dst_label: Optional[str] = None) -> bool:
+        """True iff ``src_id`` --``edge``--> ``dst_id`` exists (Spec 286 A1).
+        Delegates to ``Memory.has_edge``."""
+        return self.memory.has_edge(src_id, dst_id, edge,
+                                    src_label=src_label, dst_label=dst_label)
+
+    def artefacts_produced_under(self, intent_id) -> list[dict]:
+        """Artefacts PRODUCED by an Invocation serving ``intent_id`` (Spec 286
+        A1). Delegates to ``Memory.artefacts_produced_under``."""
+        return self.memory.artefacts_produced_under(intent_id)
+
+    def labels_of(self, node_id: str) -> list[str]:
+        """The label set of a node (Spec 286 A1).
+        Delegates to ``Memory.labels_of``."""
+        return self.memory.labels_of(node_id)
 
     def template(self, name: str) -> "Template":
         """Spec 060 — load a template by stem from the engine's merged

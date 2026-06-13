@@ -3410,10 +3410,7 @@ class NovelCapability(CapabilityBase):
         for c in children:
             # The child's "labels" aren't on the props dict; look up the
             # node to discover its label set.
-            node = self.ctx.memory.g.get_node(c.get("id", ""))
-            if node is None:
-                continue
-            for label in (node.get("labels") or []):
+            for label in self.ctx.labels_of(c.get("id", "")):
                 if label in label_to_key:
                     groups[label_to_key[label]].append(c)
                     break
@@ -3668,13 +3665,11 @@ class NovelCapability(CapabilityBase):
         beats = [b for b in self.ctx.find("NarrativeBeat")
                   if b.get("novel") == novel_id]
         # Build predecessor map by querying PRECEDES.
-        precedes_rows = self.ctx.memory.g.query(
-            "MATCH (a:NarrativeBeat)-[:PRECEDES]->(b:NarrativeBeat) "
-            "RETURN a, b")
         edges = []
-        for r in precedes_rows:
-            a_id = r["a"]["properties"].get("id")
-            b_id = r["b"]["properties"].get("id")
+        for a_props, b_props in self.ctx.edge_pairs(
+                "PRECEDES", "NarrativeBeat", "NarrativeBeat"):
+            a_id = a_props.get("id")
+            b_id = b_props.get("id")
             if a_id and b_id:
                 edges.append((a_id, b_id))
         # Kahn's algorithm over the beats of THIS novel.

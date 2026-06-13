@@ -17,11 +17,7 @@ _CONTRADICTION_DISSIMILARITY = 0.7
 
 
 def _citations_for_research(memory, research_id: str) -> list[dict]:
-    rows = memory.g.query(
-        "MATCH (r:Research)-[:CITES]->(c:Citation) "
-        "WHERE r.id = $rid RETURN c",
-        {"rid": research_id})
-    return [r["c"]["properties"] for r in rows]
+    return memory.neighbors(research_id, "CITES", direction="out")
 
 
 def check_evidence_supports_claim(memory, research_id: str,

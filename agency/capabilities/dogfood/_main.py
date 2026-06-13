@@ -383,11 +383,8 @@ class DogfoodCapability(CapabilityBase):
         # Query observation-scoped reflections matching plan_slug.
         # Both literals parametrized for parametrize-once-injection-
         # always-safe discipline (sc:sc-analyze F1 review finding).
-        rows = self.ctx.memory.g.query(
-            "MATCH (r:Reflection) WHERE r.plan_slug = $slug "
-            "AND r.scope = $scope RETURN r",
-            {"slug": plan_slug, "scope": "observation"})
-        notes = [r["r"]["properties"] for r in rows]
+        notes = self.ctx.query_nodes(
+            "Reflection", {"plan_slug": plan_slug, "scope": "observation"})
         notes.sort(key=lambda r: r.get("vfrom", 0))
         # Spec 060 — render via `ctx.template('dogfood-notes')` so the
         # markdown shape lives as a file and iterating it is a markdown
@@ -514,19 +511,7 @@ class DogfoodCapability(CapabilityBase):
         review finding + the merge-recovery use case). The MATCH (n)
         pattern returns superseded nodes alongside current ones, which
         is exactly what replay needs to reconstruct the timeline."""
-        rows = self.ctx.memory.g.query("MATCH (n) RETURN n")
-        out: list[dict] = []
-        for r in rows:
-            n = r["n"]
-            props = n.get("properties", {})
-            label = n.get("label") or n.get("labels", [""])[0] \
-                if isinstance(n.get("labels"), list) else n.get("label", "")
-            out.append({
-                "id": props.get("id", ""),
-                "label": label,
-                "properties": {k: v for k, v in props.items() if k != "id"},
-            })
-        return out
+        return self.ctx.memory.all_nodes()
 
     # -----------------------------------------------------------------
     # Spec 020 v2 — JSON replay (the matching reverse of export).
@@ -568,19 +553,16 @@ class DogfoodCapability(CapabilityBase):
         edges = payload.get("edges", [])
 
         max_tick = 0
-        existing = {
-            r["n"].get("properties", {}).get("id")
-            for r in self.ctx.memory.g.query("MATCH (n) RETURN n")
-        }
+        existing = self.ctx.memory.node_ids()
         for n in nodes:
             nid = n.get("id")
             if not nid or nid in existing:
                 continue
             label = n.get("label") or "Entity"
             props = dict(n.get("properties", {}))
-            # Direct upsert — bypass record()'s clock tick + ontology
+            # Direct replay — bypass record()'s clock tick + ontology
             # gate so the original vfrom/vto window survives intact.
-            self.ctx.memory.g.upsert_node(nid, props, label=label)
+            self.ctx.memory.replay_node(nid, props, label=label)
             for k in ("vfrom", "vto"):
                 v = props.get(k)
                 if isinstance(v, int) and v != OPEN and v > max_tick:
@@ -592,7 +574,7 @@ class DogfoodCapability(CapabilityBase):
             rel = e.get("type") or "RELATED"
             if not src or not dst:
                 continue
-            self.ctx.memory.g.upsert_edge(
+            self.ctx.memory.replay_edge(
                 src, dst, dict(e.get("properties") or {}), rel_type=rel)
             v = e.get("properties", {}).get("vfrom")
             if isinstance(v, int) and v != OPEN and v > max_tick:
@@ -601,9 +583,7 @@ class DogfoodCapability(CapabilityBase):
 
         # Advance the logical clock past every imported tick so a
         # subsequent record()/link() can't reuse a stale vfrom.
-        with self.ctx.memory._lock:
-            if max_tick >= self.ctx.memory._tick:
-                self.ctx.memory._tick = max_tick
+        self.ctx.memory.advance_clock(max_tick)
 
         return {
             "imported_nodes": sum(
@@ -615,23 +595,7 @@ class DogfoodCapability(CapabilityBase):
 
     def _collect_all_edges(self) -> list[dict]:
         """Every edge in the graph with type + endpoints + properties."""
-        rows = self.ctx.memory.g.query("MATCH (a)-[e]->(b) RETURN a, e, b")
-        out: list[dict] = []
-        for r in rows:
-            edge = r["e"]
-            props = edge.get("properties", {}) if isinstance(edge, dict) else {}
-            edge_type = (
-                edge.get("type") or edge.get("rel_type")
-                or (edge.get("relationship") if isinstance(edge, dict) else "")
-                or ""
-            )
-            out.append({
-                "from": r["a"].get("properties", {}).get("id", ""),
-                "to": r["b"].get("properties", {}).get("id", ""),
-                "type": edge_type,
-                "properties": props,
-            })
-        return out
+        return self.ctx.memory.all_edges()
 
     # -----------------------------------------------------------------
     # Spec 017 — collect kept for backward-compat (Spec 014 pipeline).
@@ -815,11 +779,8 @@ class DogfoodCapability(CapabilityBase):
         # Walk Event nodes that OBSERVED_DURING the intent; preserve
         # record-creation order (the in-graph id is a stable monotone
         # sequence per Spec 002 substrate guarantees).
-        rows = self.ctx.memory.g.query(
-            "MATCH (e:Event)-[:OBSERVED_DURING]->(i:Intent) "
-            "WHERE i.id = $iid RETURN e",
-            {"iid": intent_id})
-        events = [r["e"]["properties"] for r in rows]
+        events = self.ctx.sources_via_edge(
+            "OBSERVED_DURING", intent_id, "Intent", label="Event")
         # Stable order by created_at if present, else by id (record-order
         # convention). The graph appends in insertion order; we sort the
         # list explicitly to stay deterministic across query backends.
@@ -829,17 +790,13 @@ class DogfoodCapability(CapabilityBase):
             events = [p for p in events if p.get("tool") == tool]
         events = events[: max(0, int(limit))]
         # Join BoundaryUse via the RECORDED_BY edge — collect every
-        # BoundaryUse for this intent in one query, then index by the
-        # Event id it references.
-        bu_rows = self.ctx.memory.g.query(
-            "MATCH (b:BoundaryUse)-[:RECORDED_BY]->(e:Event) "
-            "MATCH (b)-[:SERVES]->(i:Intent) "
-            "WHERE i.id = $iid RETURN b, e",
-            {"iid": intent_id})
+        # BoundaryUse serving this intent, then index each by the Event id
+        # it RECORDED_BY (one-hop out from the BoundaryUse).
         bu_by_event: dict[str, dict] = {}
-        for r in bu_rows:
-            eid = str(r["e"]["properties"].get("id", ""))
-            bu_by_event[eid] = r["b"]["properties"]
+        for bu in self.ctx.nodes_serving(intent_id, label="BoundaryUse"):
+            for ev in self.ctx.neighbors(bu.get("id", ""), "RECORDED_BY",
+                                         direction="out"):
+                bu_by_event[str(ev.get("id", ""))] = bu
         out: list[dict] = []
         prev_id = ""
         for p in events:
@@ -962,10 +919,7 @@ class DogfoodCapability(CapabilityBase):
                     kind?: "llm_delegate", request?: HostLLMRequest dict}``.
         chain_next: ``dogfood.apply_amendment(payload, dry_run=True)``.
         """
-        rows = self.ctx.memory.g.query(
-            "MATCH (r:Reflection) WHERE r.scope = $scope RETURN r",
-            {"scope": "observation"})
-        reflections = [r["r"]["properties"] for r in rows]
+        reflections = self.ctx.query_nodes("Reflection", {"scope": "observation"})
         if scope:
             reflections = [r for r in reflections
                            if scope in (r.get("plan_slug") or "")]

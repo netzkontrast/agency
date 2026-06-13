@@ -166,6 +166,153 @@ class Memory:
                 out.append(p)
         return out
 
+    def labels_of(self, node_id: str) -> list[str]:
+        """The label set of a node (Spec 286 A1 — GraphStore read surface).
+
+        A capability that has a property dict (from ``find``/``neighbors``)
+        but needs the node's TYPE asks here rather than reaching into
+        ``g.get_node``. Returns ``[]`` for a missing/empty id.
+        """
+        if not node_id:
+            return []
+        node = self.g.get_node(node_id)
+        if node is None:
+            return []
+        return list(node.get("labels") or [])
+
+    # --- GraphStore read surface (Spec 286 A1) -------------------------------
+    # Typed, edge-aware reads so capabilities never hand-write Cypher. Each
+    # returns property dicts (or lists of them), never a raw CypherResult/row.
+    # Raw `.g.query`/`.g.get_node` lives ONLY here. The Management read-API
+    # builds on this surface.
+
+    def neighbors(self, node_id: str, edge: str, direction: str = "in",
+                  limit: int = 100) -> list[dict]:
+        """One-hop edge traversal (Spec 125, promoted from CapabilityContext).
+
+        Returns property dicts of nodes connected to ``node_id`` via an
+        ``edge``-typed relationship. ``direction="in"`` (default) finds nodes
+        pointing AT ``node_id`` (e.g. children via CHAPTER_OF); ``"out"`` finds
+        nodes ``node_id`` points at (e.g. the parent). Returns ``[]`` for
+        unknown ids or no matching edges; ``limit`` caps the row count.
+        """
+        if direction not in ("in", "out"):
+            raise ValueError(
+                f"direction must be 'in' or 'out', got {direction!r}")
+        if direction == "in":
+            q = (f"MATCH (n)-[:{edge}]->(t) WHERE t.id = $id "
+                 f"RETURN n LIMIT {int(limit)}")
+            key = "n"
+        else:
+            q = (f"MATCH (n)-[:{edge}]->(t) WHERE n.id = $id "
+                 f"RETURN t LIMIT {int(limit)}")
+            key = "t"
+        return [r[key]["properties"] for r in self.g.query(q, {"id": node_id})]
+
+    def query_nodes(self, label: str, where: Optional[dict] = None) -> list[dict]:
+        """Labeled nodes filtered by exact property match (Spec 286 A1).
+
+        ``where`` maps property name → required exact value; ``None`` / empty
+        returns every node carrying ``label`` (full history, like the raw
+        ``MATCH (n:Label)`` — NOT current-version-filtered; use ``find`` for the
+        valid-now slice). Returns a list of property dicts.
+        """
+        rows = self.g.query(f"MATCH (n:{label}) RETURN n")
+        out = [r["n"]["properties"] for r in rows]
+        if where:
+            out = [p for p in out
+                   if all(p.get(k) == v for k, v in where.items())]
+        return out
+
+    def nodes_serving(self, intent_id: str, label: Optional[str] = None,
+                      where: Optional[dict] = None) -> list[dict]:
+        """Nodes with a SERVES edge to an intent (Spec 286 A1).
+
+        The provenance read every concern shares: Invocations, Lifecycles,
+        SessionLifecycles, JulesSessions, Artefacts that SERVE an intent. With
+        ``label`` set, restricts to that source label; ``where`` adds exact
+        property filters on the source node. ``intent_id`` may be a single id
+        or a collection of ids (the SUPERSEDED_BY chain) — pass the chain to
+        keep amended-intent provenance whole. Returns source property dicts.
+        """
+        return self._sources_via_edge("SERVES", intent_id, "Intent",
+                                       label=label, where=where)
+
+    def sources_via_edge(self, edge: str, target_id, target_label: str,
+                          label: Optional[str] = None,
+                          where: Optional[dict] = None) -> list[dict]:
+        """Nodes that point at ``target_id`` via ``edge`` (Spec 286 A1).
+
+        Generalizes ``nodes_serving`` to any edge type: ``HAS_FINDING`` from an
+        Analysis, ``CITES`` from a Research, ``OBSERVED_DURING`` to an Intent,
+        ``DELEGATES_TO`` from a Delegation. ``target_id`` may be one id or a
+        collection (matched with ``IN``). ``label``/``where`` filter the SOURCE
+        node. Returns source property dicts.
+        """
+        return self._sources_via_edge(edge, target_id, target_label,
+                                      label=label, where=where)
+
+    def _sources_via_edge(self, edge: str, target_id, target_label: str,
+                          label: Optional[str], where: Optional[dict]) -> list[dict]:
+        src_pat = f"(s:{label})" if label else "(s)"
+        ids = list(target_id) if isinstance(target_id, (list, set, tuple)) else [target_id]
+        q = (f"MATCH {src_pat}-[:{edge}]->(t:{target_label}) "
+             f"WHERE t.id IN $ids RETURN s")
+        out = [r["s"]["properties"] for r in self.g.query(q, {"ids": ids})]
+        if where:
+            out = [p for p in out
+                   if all(p.get(k) == v for k, v in where.items())]
+        return out
+
+    def edge_pairs(self, edge: str, src_label: Optional[str] = None,
+                   dst_label: Optional[str] = None) -> list[tuple[dict, dict]]:
+        """Every ``edge``-typed relationship as (src_props, dst_props) pairs.
+
+        Spec 286 A1 — for global edge reads that aren't anchored to a single
+        node (e.g. the PRECEDES graph for a topo-sort). ``src_label`` /
+        ``dst_label`` optionally constrain the endpoints. Returns a list of
+        (source-property-dict, destination-property-dict) tuples.
+        """
+        sp = f"(a:{src_label})" if src_label else "(a)"
+        dp = f"(b:{dst_label})" if dst_label else "(b)"
+        q = f"MATCH {sp}-[:{edge}]->{dp} RETURN a, b"
+        return [(r["a"]["properties"], r["b"]["properties"])
+                for r in self.g.query(q)]
+
+    def artefacts_produced_under(self, intent_id) -> list[dict]:
+        """Artefacts PRODUCED by an Invocation that SERVES ``intent_id``
+        (Spec 286 A1 — the two-hop provenance read).
+
+        The standard registry path: every ``effect`` verb records an
+        Invocation SERVING the intent and a PRODUCES edge to its Artefact.
+        Distinct from ``nodes_serving(intent, "Artefact")`` which is the
+        DIRECT Artefact-SERVES-Intent path (delegations/reductions). Callers
+        that want both union the two (mirrors ``provenance``). ``intent_id``
+        may be one id or a collection (the SUPERSEDED_BY chain).
+        """
+        ids = list(intent_id) if isinstance(intent_id, (list, set, tuple)) else [intent_id]
+        q = ("MATCH (it:Intent)<-[:SERVES]-(:Invocation)-[:PRODUCES]->(a:Artefact) "
+             "WHERE it.id IN $ids RETURN a")
+        return [r["a"]["properties"] for r in self.g.query(q, {"ids": ids})]
+
+    def has_edge(self, src_id: str, dst_id, edge: str,
+                 src_label: Optional[str] = None,
+                 dst_label: Optional[str] = None) -> bool:
+        """True iff a ``src_id`` --``edge``--> ``dst_id`` relationship exists.
+
+        Spec 286 A1 — the boolean guard several verbs run before recording a
+        cross-edge (delegate.join's "serves the current intent", gate's
+        lifecycle-serves-intent). ``dst_id`` may be one id or a collection
+        (e.g. the SUPERSEDED_BY chain). Optional endpoint labels tighten the
+        match.
+        """
+        sp = f"(a:{src_label})" if src_label else "(a)"
+        dp = f"(b:{dst_label})" if dst_label else "(b)"
+        ids = list(dst_id) if isinstance(dst_id, (list, set, tuple)) else [dst_id]
+        q = (f"MATCH {sp}-[:{edge}]->{dp} "
+             f"WHERE a.id = $src AND b.id IN $dst RETURN b LIMIT 1")
+        return bool(self.g.query(q, {"src": src_id, "dst": ids}))
+
     def validate(self, node_id: str, predicate) -> bool:
         props = self.recall(node_id)
         return bool(props) and bool(predicate(props))
@@ -300,6 +447,79 @@ class Memory:
         gates += collect("MATCH (i:Intent)<-[:SERVES]-(:Lifecycle)-[:BLOCKED_ON]->(g:Gate) "
                          "WHERE i.id = $iid RETURN g", "g")
         return {"serves": serves, "agents": agents, "artefacts": artefacts, "gates": gates}
+
+    # --- whole-graph surgery (Spec 286 A1 — the dogfood export/import surface)
+    # These expose the FULL bi-temporal graph (every label, every version) +
+    # bi-temporal-EXACT writes that bypass record()'s clock tick. Used only by
+    # dogfood.export/import for merge-conflict recovery; raw `.g` access for
+    # them lives here, not in the capability.
+
+    def all_nodes(self) -> list[dict]:
+        """Every node in the graph as ``{id, label, properties}`` (Spec 286 A1).
+
+        FULL bi-temporal history — superseded versions alongside current ones,
+        which is what replay needs to reconstruct the timeline. ``properties``
+        excludes the redundant ``id`` key (it's lifted to the top level).
+        """
+        out: list[dict] = []
+        for r in self.g.query("MATCH (n) RETURN n"):
+            n = r["n"]
+            props = n.get("properties", {})
+            labels = n.get("labels")
+            label = (labels[0] if isinstance(labels, list) and labels
+                     else n.get("label", ""))
+            out.append({
+                "id": props.get("id", ""),
+                "label": label,
+                "properties": {k: v for k, v in props.items() if k != "id"},
+            })
+        return out
+
+    def all_edges(self) -> list[dict]:
+        """Every edge as ``{from, to, type, properties}`` (Spec 286 A1)."""
+        out: list[dict] = []
+        for r in self.g.query("MATCH (a)-[e]->(b) RETURN a, e, b"):
+            edge = r["e"]
+            props = edge.get("properties", {}) if isinstance(edge, dict) else {}
+            edge_type = (edge.get("type") or edge.get("rel_type")
+                         or (edge.get("relationship") if isinstance(edge, dict) else "")
+                         or "")
+            out.append({
+                "from": r["a"].get("properties", {}).get("id", ""),
+                "to": r["b"].get("properties", {}).get("id", ""),
+                "type": edge_type,
+                "properties": props,
+            })
+        return out
+
+    def node_ids(self) -> set[str]:
+        """The set of every node id present (Spec 286 A1 — the import
+        de-dup probe)."""
+        return {r["n"].get("properties", {}).get("id")
+                for r in self.g.query("MATCH (n) RETURN n")}
+
+    def replay_node(self, node_id: str, props: dict, label: str = "Entity") -> None:
+        """Direct node write preserving id + bi-temporal window (Spec 286 A1).
+
+        Bypasses ``record()``'s clock tick + ontology gate so an imported
+        ``vfrom``/``vto`` survives intact. Replay-only — ordinary writes go
+        through ``record``/``update``/``supersede``.
+        """
+        self.g.upsert_node(node_id, dict(props), label=label)
+
+    def replay_edge(self, src: str, dst: str, props: dict,
+                    rel_type: str = "RELATED") -> None:
+        """Direct edge write preserving the imported window (Spec 286 A1).
+        Replay-only; ordinary edges go through ``link``."""
+        self.g.upsert_edge(src, dst, dict(props), rel_type=rel_type)
+
+    def advance_clock(self, tick: int) -> None:
+        """Advance the logical clock so it never falls at/behind ``tick``
+        (Spec 286 A1). Called after a replay so a subsequent ``record``/``link``
+        can't reuse an imported ``vfrom``. Serialized on the same lock."""
+        with self._lock:
+            if tick >= self._tick:
+                self._tick = tick
 
     def close(self) -> None:
         self.g.close()

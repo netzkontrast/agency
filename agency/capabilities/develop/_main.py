@@ -924,12 +924,8 @@ class DevelopCapability(CapabilityBase):
                 "last_active": 0,
             }
         # Find SessionLifecycles SERVING this intent via the graph edge.
-        rows = self.ctx.memory.g.query(
-            "MATCH (s:SessionLifecycle)-[:SERVES]->(i:Intent) "
-            "WHERE i.id = $iid AND s.status = $active "
-            "RETURN s",
-            {"iid": target_iid, "active": "active"})
-        candidates = [r["s"]["properties"] for r in rows]
+        candidates = self.ctx.nodes_serving(
+            target_iid, label="SessionLifecycle", where={"status": "active"})
         if not candidates:
             return {
                 "found": False, "session_lifecycle_id": "",
