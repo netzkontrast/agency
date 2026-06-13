@@ -5,7 +5,9 @@ Degrades silently when ruff isn't on PATH (Spec 050 §"compose, don't
 replace" — internal Q001-Q004 still fire in that case).
 
 Subprocess + JSON; no Python-level ruff import (ruff is a Rust binary
-anyway). Timeout 30s. Failure → empty list.
+anyway). Timeout 30s. Failure → empty list. The which-guard / run /
+returncode / JSON-parse scaffold lives in ``SubprocessAnalyzer`` (Spec 286);
+this module supplies only the argv + payload mapping.
 """
 from __future__ import annotations
 
@@ -15,12 +17,8 @@ AXIS_PREFIXES: dict[str, frozenset[str]] = {
                           "PL", "PT", "RUF", "SIM", "RET", "TRY"}),
 }
 
-import json
-import shutil
-import subprocess
-import sys
-
 from ._findings import Finding, make_finding
+from ._subprocess_analyzer import SubprocessAnalyzer
 
 
 # Ruff doesn't emit per-rule severity; we apply a fixed table.
@@ -44,7 +42,47 @@ _RUFF_SEVERITY: dict[str, str] = {
     "UP001": "info",
 }
 
-_SUBPROCESS_TIMEOUT = 30.0
+
+class _RuffAnalyzer(SubprocessAnalyzer):
+    tool = "ruff"
+
+    def argv(self, root: str) -> list[str]:
+        # Explicit --select so we don't rely on the user's pyproject.toml
+        # ruff config (which may disable everything). E + F = pycodestyle
+        # errors + pyflakes (the core code-quality baseline).
+        # --line-length=100 matches our Q002 threshold so findings stay
+        # consistent across paths. --isolated ignores user config →
+        # deterministic findings (Spec 042).
+        return ["ruff", "check", "--output-format=json",
+                "--select", "E,F,W",
+                "--line-length", "100",
+                "--isolated",
+                root]
+
+    def ok_returncode(self, rc: int) -> bool:
+        # ruff exits 0 (no findings) or 1 (findings present). Both OK;
+        # only exit codes > 1 indicate a real error.
+        return rc <= 1
+
+    def empty_payload(self):
+        return []
+
+    def map_payload(self, payload) -> list[Finding]:
+        out: list[Finding] = []
+        for item in payload:
+            code = item.get("code") or "RUF"
+            severity = _RUFF_SEVERITY.get(code, "warn")
+            location = item.get("location") or {}
+            line = int(location.get("row", 1))
+            out.append(make_finding(
+                rule=code,
+                severity=severity,
+                file=item.get("filename", ""),
+                line=line,
+                message=item.get("message", ""),
+                evidence=item.get("url", "") or code,
+            ))
+        return out
 
 
 def scan(root: str) -> list[Finding]:
@@ -57,49 +95,4 @@ def scan(root: str) -> list[Finding]:
     ``--line-length=100``. Users who want to customize ruff should
     run it standalone outside the analyze capability.
     """
-    if shutil.which("ruff") is None:
-        return []
-    try:
-        # Explicit --select so we don't rely on the user's
-        # pyproject.toml ruff config (which may disable everything).
-        # E + F = pycodestyle errors + pyflakes (the core code-quality
-        # baseline). --line-length=100 matches our Q002 threshold so
-        # findings stay consistent across paths.
-        result = subprocess.run(
-            ["ruff", "check", "--output-format=json",
-             "--select", "E,F,W",
-             "--line-length", "100",
-             "--isolated",   # ignore user config; deterministic findings
-             root],
-            capture_output=True, text=True,
-            timeout=_SUBPROCESS_TIMEOUT,
-        )
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        print(f"ruff: subprocess failed ({exc!r})", file=sys.stderr)
-        return []
-    # ruff exits 0 (no findings) or 1 (findings present). Both are OK;
-    # only exit codes > 1 indicate a real error.
-    if result.returncode > 1:
-        print(f"ruff: exited {result.returncode}: {result.stderr[:200]}",
-              file=sys.stderr)
-        return []
-    try:
-        payload = json.loads(result.stdout) if result.stdout else []
-    except json.JSONDecodeError as exc:
-        print(f"ruff: JSON parse failed ({exc})", file=sys.stderr)
-        return []
-    out: list[Finding] = []
-    for item in payload:
-        code = item.get("code") or "RUF"
-        severity = _RUFF_SEVERITY.get(code, "warn")
-        location = item.get("location") or {}
-        line = int(location.get("row", 1))
-        out.append(make_finding(
-            rule=code,
-            severity=severity,
-            file=item.get("filename", ""),
-            line=line,
-            message=item.get("message", ""),
-            evidence=item.get("url", "") or code,
-        ))
-    return out
+    return _RuffAnalyzer().run(root)
