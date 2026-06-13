@@ -638,7 +638,15 @@ class Registry:
         try:
             result = spec["fn"](**call)
         except Exception as e:
-            memory.update(inv, {"outcome": "failed", "error": f"{type(e).__name__}: {e}"})
+            # Spec 282: classify the raising exception so provenance carries
+            # the retry-semantics axis. The known graph-contention error
+            # ("Failed to set property 'vfrom' on edge N") → transient; an
+            # unexpected type → fatal.
+            from .toolresult import classify_severity
+            sev = classify_severity("", exc=e, message=str(e))
+            memory.update(inv, {"outcome": "failed",
+                                "error": f"{type(e).__name__}: {e}",
+                                "error_severity": sev})
             raise
         # ToolResult unwrap (Spec 001, Option C): when a verb returns the in-sandbox
         # envelope, record its metadata as Invocation side-effects (typed error,
@@ -664,6 +672,14 @@ class Registry:
             if result.error is not None:                         # TypedError, when attached, carries the message
                 updates["outcome"] = "failed"
                 updates["error"] = f"{result.error.code}: {result.error.message}"
+                # Spec 282: record the orthogonal severity so a census can
+                # separate permanent retries from real signal. Re-classify if
+                # the verb attached a TypedError without a severity.
+                from .toolresult import classify_severity
+                updates["error_severity"] = (
+                    result.error.severity
+                    or classify_severity(result.error.code,
+                                         message=result.error.message))
             if result.warnings:
                 updates["warnings"] = list(result.warnings)
             if result.archived_to:

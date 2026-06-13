@@ -356,10 +356,42 @@ class Engine:
             return {"recorded": None, "event": name, "skipped": True}
         return handler(self, event)
 
+    def _shape_wire_result(self, result, inv: str) -> dict:
+        """Spec 282 — shape the registry return into the wire dict.
+
+        On a FAILED invocation, surface a TYPED error envelope carrying the
+        severity (compat break, authorized): a bare ``null`` told the caller
+        nothing, so the ingest driver retried every impossible call ~34×.
+        Now the caller can branch on ``error.severity`` / ``error.retryable``
+        and stop retrying ``permanent`` failures.
+
+        On success, the lean code-mode contract is unchanged (Spec 001/019):
+        an inner dict crosses as-is; a scalar is re-wrapped as
+        ``{"result": <scalar>}`` because MCP returns must be JSON objects.
+        """
+        from .toolresult import Severity, classify_severity
+        node = self.memory.recall(inv) or {}
+        if node.get("outcome") == "failed":
+            err = node.get("error", "") or ""
+            code, sep, msg = err.partition(": ")
+            if not sep:                       # error string had no "code: msg" split
+                code, msg = "", err
+            sev = node.get("error_severity") or classify_severity(code, message=msg)
+            return {"ok": False, "error": {
+                "code": code, "message": msg, "severity": sev,
+                "retryable": sev == Severity.TRANSIENT, "trace_id": inv}}
+        out = result["result"] if isinstance(result, dict) and "result" in result else result
+        return out if isinstance(out, dict) else {"result": out}
+
     def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
         """Auto-wire ONE MCP tool for a capability verb from its fn signature.
         Injected params (`inject`) are resolved by the Registry, so they are not
-        exposed in the tool's schema."""
+        exposed in the tool's schema.
+
+        Spec 001 + Spec 019 — wire-shape contract. Internal verbs return either
+        a bare rich dict OR ``{"result": <delta>}``; the failure path now
+        returns the Spec 282 typed error envelope. The shaping lives in
+        ``_shape_wire_result`` so it is unit-testable without a live MCP."""
         reg, mem = self.registry, self.memory
         fn, inject = spec["fn"], list(spec.get("inject", []))
         user_params = [p for n, p in inspect.signature(fn).parameters.items() if n not in inject]
@@ -373,20 +405,8 @@ class Engine:
             import os as _os
             intent_id = kwargs.pop("intent_id", "") or _os.environ.get("AGENCY_INTENT", "")
             agent_id = kwargs.pop("agent_id", "") or None
-            result, _ = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
-            # Spec 001 + Spec 019 — wire-shape contract.
-            # Internal verbs return either a bare rich dict (e.g.
-            # ``{status, session, url}``) OR ``{"result": <delta>}`` for
-            # ok-path detection at the engine boundary. The wire shape
-            # crossing to the code-mode caller strips that envelope IFF
-            # the inner value is itself a dict (the lean code-mode
-            # contract per CORE.md "search · get_schema · execute" +
-            # GOALS.md goal #5). Scalar inner values get re-wrapped
-            # because MCP tool returns must be JSON objects.
-            # `plugin.lint_capability` enforces docstrings describe the
-            # wire shape, not the internal envelope.
-            out = result["result"] if isinstance(result, dict) and "result" in result else result
-            return out if isinstance(out, dict) else {"result": out}
+            result, inv = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
+            return self._shape_wire_result(result, inv)
 
         params = []
         for p in user_params:
