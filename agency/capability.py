@@ -18,13 +18,17 @@ from typing import Any, Callable, ClassVar, Optional, Protocol, runtime_checkabl
 
 from .memory import Memory
 from .ontology import OntologyExtension
+from ._verb import Verb
 
 
 @dataclass
 class Capability:
     name: str
     home: str                       # which concept it primarily is
-    verbs: dict[str, dict]          # verb -> {"role": str, "fn": callable, "inject": [...]}
+    # Spec 286-A4 — verbs are typed `Verb` value objects (verb name -> Verb).
+    # `Verb` is a drop-in for the former untyped dict via its Mapping bridge,
+    # so subscript readers (`spec["fn"]`) still work during the transition.
+    verbs: dict[str, Verb]
     # the capability's OWN ontology fragment (node types, edges, enums, skills,
     # template-schemas) — merged onto the core by the engine. Empty = core only.
     ontology: OntologyExtension = field(default_factory=OntologyExtension)
@@ -43,7 +47,7 @@ class Capability:
     walker_skills: Optional["WalkerSkills"] = None
 
     def role(self, verb: str) -> str:
-        return self.verbs[verb]["role"]
+        return self.verbs[verb].role
 
 
 class DriverMissing(LookupError):
@@ -376,7 +380,8 @@ def verb(role: str, inject: Optional[list] = None,
     return deco
 
 
-def _wrap_method(cls: type, mname: str, member: Callable, meta: dict) -> dict:
+def _wrap_method(cls: type, public: str, mname: str, member: Callable,
+                 meta: dict) -> Verb:
     # user params = the method's signature minus `self` (ctx is injected, not user-facing)
     params = [p for n, p in inspect.signature(member).parameters.items() if n != "self"]
 
@@ -391,8 +396,12 @@ def _wrap_method(cls: type, mname: str, member: Callable, meta: dict) -> dict:
     # in — the closure above otherwise hides it behind capability.py.
     fn.__capability_cls__ = cls
     fn.__capability_method__ = member
-    return {"role": meta["role"], "fn": fn, "inject": ["ctx"] + meta["inject"],
-            "param_enums": dict(meta.get("param_enums") or {})}
+    # Spec 286-A4 — a typed Verb, not a free dict. `tags` defaults to an empty
+    # set; `Registry.register` strips manual `skill:*` tags and `_wire_skill_tags`
+    # appends the legitimate ones post-registration.
+    return Verb(name=public, role=meta["role"], fn=fn,
+                inject=["ctx"] + meta["inject"],
+                param_enums=dict(meta.get("param_enums") or {}))
 
 
 @dataclass
@@ -591,7 +600,7 @@ class CapabilityBase:
             if not meta:
                 continue
             public = meta.get("name") or mname
-            verbs[public] = _wrap_method(cls, mname, member, meta)
+            verbs[public] = _wrap_method(cls, public, mname, member, meta)
         # Spec 060 fix: deepcopy the ontology so capability instances
         # don't share dict references via the class-level default
         # `CapabilityBase.ontology = OntologyExtension()`. Bootstrap
@@ -649,16 +658,19 @@ class Registry:
         self._processor = ResultProcessor()  # holds the post-invocation hook seam
 
     def register(self, cap: Capability) -> None:
-        # Spec 025 Phase 1: every verb spec carries a `tags` set. Manual
-        # `skill:*` tags are stripped — only phase-invoke wiring (below,
-        # in `_wire_skill_tags`) legitimately creates them. This preserves
-        # the discovery invariant: `tags=["skill:X"]` filters to exactly
-        # the verbs that participate in skill X's phase graph.
-        for verb_name, spec in cap.verbs.items():
-            raw = spec.get("tags") or set()
-            if not isinstance(raw, set):
-                raw = set(raw)
-            spec["tags"] = {t for t in raw if not t.startswith("skill:")}
+        # Spec 286-A4 — normalise functional-form verbs (raw `{role, fn, ...}`
+        # dicts passed to `Capability(verbs={...})`) into typed `Verb` value
+        # objects. Class-form caps already arrive as `Verb`s from
+        # `as_capability`; `Verb.from_spec` passes those through unchanged.
+        cap.verbs = {name: Verb.from_spec(name, spec)
+                     for name, spec in cap.verbs.items()}
+        # Spec 025 Phase 1: every verb carries a `tags` set. Manual `skill:*`
+        # tags are stripped — only phase-invoke wiring (below, in
+        # `_wire_skill_tags`) legitimately creates them. This preserves the
+        # discovery invariant: `tags=["skill:X"]` filters to exactly the verbs
+        # that participate in skill X's phase graph.
+        for verb in cap.verbs.values():
+            verb.tags = {t for t in verb.tags if not t.startswith("skill:")}
         self._caps[cap.name] = cap
         self._wire_skill_tags(cap)
 
@@ -685,7 +697,7 @@ class Registry:
                     target_verb = target_cap.verbs.get(invoke.get("verb"))
                     if target_verb is None:
                         continue
-                    target_verb.setdefault("tags", set()).add(f"skill:{skill_name}")
+                    target_verb.tags.add(f"skill:{skill_name}")
 
     def get(self, name: str) -> Capability:
         return self._caps[name]
@@ -715,11 +727,11 @@ class Registry:
         # 3. record — open the Invocation (+ SERVES, agent upsert + PERFORMED_BY)
         #    BEFORE calling, so a verb that raises still leaves an auditable run.
         inv = self._recorder.open(memory, intent_id, cap_name, verb,
-                                  spec["role"], agent_id)
+                                  spec.role, agent_id)
         # 4. call — invoke the verb; on exception stamp outcome=failed + the
         #    Spec 282 severity, then re-raise.
         try:
-            result = spec["fn"](**call)
+            result = spec.fn(**call)
         except Exception as e:
             self._recorder.record_exception(memory, inv, e)
             raise

@@ -80,13 +80,14 @@ class ParameterInjector:
         # and test injection still apply).
         self._registry = registry
 
-    def build_call(self, spec: dict, memory: Memory, intent_id: str,
+    def build_call(self, spec: "Any", memory: Memory, intent_id: str,
                    agent_id: Optional[str], depth: int, args: dict) -> dict:
+        # `spec` is a `Verb` (Spec 286-A4); read `inject` as an attribute.
         # Local import avoids an import cycle (capability imports this module).
         from .capability import CapabilityContext
         reg = self._registry
         call = dict(args)
-        for name in spec.get("inject", []):
+        for name in spec.inject:
             if name in call:                              # an explicit arg always wins
                 continue
             if name == "ctx":
