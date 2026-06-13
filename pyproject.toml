@@ -44,6 +44,8 @@ dev = [
     # transitively today; declaring it here makes the dependency
     # explicit rather than relying on the transitive pull-in.
     "PyYAML>=6.0",
+    # Phase C — behaviour-only Gherkin acceptance suite (owner directive 2026-06-13).
+    "pytest-bdd>=7.0",
 ]
 # Spec 045 — optional sentence-transformers BGE backend for the
 # semantic-recall verb. Default is the zero-dep pure-Python TF-IDF
