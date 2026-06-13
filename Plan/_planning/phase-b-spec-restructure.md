@@ -96,7 +96,7 @@ into a `scripts/gen-living-spec` pass (rule 2: derive, don't duplicate). The
   planning skill) — a *later* convergence of Phase B + Spec 287; flagged to the
   286 agent on PR #141. Phase B keeps specs as files (rendered/generated docs);
   the graph-backed move is its own step.
-- Building the Management capability (Spec 288) — feature work, not this restructure.
+- Building the Management capability (Spec 289) — feature work, not this restructure.
 
 ## Risks
 
