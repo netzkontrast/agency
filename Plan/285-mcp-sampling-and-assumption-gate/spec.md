@@ -1,7 +1,7 @@
 ---
 spec: 285
 title: mcp-sampling-and-assumption-gate
-status: Design
+status: Design-reviewed
 depends_on: [114, 279]
 clusters: [core]
 vision_goals: [1, 3, 8]
@@ -9,9 +9,8 @@ vision_goals: [1, 3, 8]
 
 # Spec 285 — MCP sampling + enforced assumption-gate (skill-walk)
 
-> Status: **Design — awaiting user review** (user directive 2026-06-13:
-> "design spec only, then pause"; assumption-rule = "enforce via elicit").
-> No code ships until this design is signed off.
+> Status: **Design reviewed — OQ1–OQ4 resolved with the user (2026-06-13);
+> ready for Slice 1 on go.** Assumption-rule = "enforce via elicit".
 > Branch: `claude/agency-error-enum-fixes-13tpnf`
 
 ## Why
@@ -125,29 +124,44 @@ preserving the bounded one-phase-at-a-time contract.
 ### B1. A phase declares what it must NOT assume
 
 Extend `_phase(...)` with `requires_input: [keys]` (distinct from `produces`):
-values the phase needs but the engine **cannot derive**. When the walker
-reaches the phase:
+values the phase needs but the engine **cannot derive**. A `requires_input`
+phase ALSO declares how to source the choices — **not** hardcoded option lists
+in phase metadata, but a binding to a **FastMCP-annotated capability verb in the
+skill's own capability** (user decision, OQ2): `resolve_via: {capability, verb}`
+(the same shape as the existing `invoke:` phase binding, which `render_phase`
+already delegates to). That resolver verb computes the structured options /
+default for the missing key; because it is a real registered `@verb`, the
+resolution is itself a discoverable, **provenance-recording Invocation** (not
+ad-hoc walker code) — consistent with the moat. Constraint: the resolver MUST
+belong to the same capability that owns the skill (no cross-capability option
+sourcing at the gate).
+
+When the walker reaches the phase:
 
 ```
 missing = [k for k in phase.requires_input
            if accumulated.get(k) in (None, "")
            and inputs.get(k) in (None, "")]
 if missing:
+    # 1. source structured choices from the bound, FastMCP-annotated verb
+    options = ctx.call(phase.resolve_via.capability, phase.resolve_via.verb,
+                       keys=missing, context=accumulated)   # an Invocation
     if ctx.host.can_elicit():
-        answer = ctx.host.elicit(  # ask-in-the-flow, mid-walk
-            f"Phase {phase.name!r} needs: {missing}. …", schema=…)
-        accumulated.update(answer)         # proceed with the USER's value
+        # 2. ask the user IN THE FLOW, structured (options) — never guess
+        answer = ctx.host.elicit(
+            f"Phase {phase.name!r} needs {missing}.", options=options)
+        accumulated.update(answer)
     else:
         return {status: "input-required", blocked_on: f"assumption:{missing}",
-                resume_with: missing, …}    # pause, never guess
+                resume_with: missing, options: options, …}  # pause, never guess
 ```
 
 The walk **cannot advance past a `requires_input` phase on an assumed value** —
-either the user answers via `elicit`, or it pauses for resume. This is the hard
-guardrail the user asked for. It reuses the existing `input-required` /
-`resume_from` machinery (so non-elicit clients degrade gracefully) and the
-`Gate`/`BLOCKED_ON` provenance (the elicited answer records as the gate's
-evidence — an audit trail of "asked, here's what the user said").
+either the user picks from the resolver-sourced options via `elicit`, or it
+pauses for resume (non-elicit clients degrade gracefully; the options ride the
+pause envelope). This is the hard guardrail. The `Gate`/`BLOCKED_ON` provenance
+records the elicited answer as the gate's evidence — an audit trail of "asked,
+here's the resolver's options, here's what the user chose".
 
 ### B2. Doctrine ↔ enforcement parity
 
@@ -155,13 +169,23 @@ Rule 0 in the CLAUDE.md snippet (already shipped) now has teeth: the snippet's
 "hard skill-gates pause for sign-off / verbs fail LOUD" lines become literally
 true for `requires_input` phases. No snippet change needed beyond what shipped.
 
+## Sampling cost control (OQ3 — resolved: yes)
+
+A `sampling_enabled` config flag (default **on**) gates server-initiated
+sampling, since `ctx.sample` spends the user's tokens. When off,
+`HostBridge.can_sample()` returns False regardless of client capability, so
+`complete_or_delegate` falls back to the Spec 279 envelope (host runs inference
+under its own visible control). Resolution order for the flag: explicit
+`Engine(..., sampling_enabled=)` kwarg → `AGENCY_SAMPLING_ENABLED` env →
+default True. Surfaced in `agency_doctor.host`.
+
 ## Surfacing (no new wire tools)
 
-`agency_doctor` gains a `host` block: `{sampling: bool, elicitation: bool}`
-(probed from the bound Context's client capabilities) so a session can SEE
-whether it's in sample/elicit-capable mode or envelope-fallback mode — closes
-the "why did it round-trip?" debugging gap. `agency_welcome` notes the mode in
-`body` (per-call, cache-safe).
+`agency_doctor` gains a `host` block: `{sampling: bool, elicitation: bool,
+sampling_enabled: bool}` (client capability ∧ the config flag) so a session can
+SEE whether it's in sample/elicit-capable mode or envelope-fallback mode —
+closes the "why did it round-trip?" debugging gap. `agency_welcome` notes the
+mode in `body` (per-call, cache-safe).
 
 ## Tests (plan — written at implement time, RED first)
 
@@ -183,8 +207,13 @@ the "why did it round-trip?" debugging gap. `agency_welcome` notes the mode in
 8. a `requires_input` phase with a missing key + elicit-capable fake Context →
    walker elicits, applies the answer, advances; records the gate evidence.
 9. same phase, no elicit support → `input-required` with
-   `blocked_on="assumption:…"`; never advances on a guess.
-10. `requires_input` satisfied by `inputs` up front → no elicit, advances.
+   `blocked_on="assumption:…"` AND the resolver-sourced `options`; never
+   advances on a guess.
+10. `requires_input` satisfied by `inputs` up front → no resolver call, no
+    elicit, advances.
+11. the `resolve_via` binding invokes a real FastMCP-annotated verb in the
+    skill's own capability → records an Invocation (provenance), and a
+    cross-capability `resolve_via` is rejected at registration/lint.
 
 `agency_doctor` test: `host` block reports `{sampling, elicitation}` booleans.
 
@@ -202,35 +231,33 @@ the "why did it round-trip?" debugging gap. `agency_welcome` notes the mode in
   forwards it to `lifecycle_gate` today — to confirm at implement time;
   **OQ1**).
 
-## Open questions (for the review)
+## Resolved decisions (user review, 2026-06-13)
 
-- **OQ1 — Context under code-mode.** Confirm the CodeMode/Monty sandbox path
-  still injects the FastMCP Context into wired tool `impl`s (it does for the
-  non-codemode `lifecycle_gate`; needs a code-mode probe). If NOT, sampling
-  works only on the per-verb (`codemode=False`) surface + substrate tools, and
-  skill-walk sampling needs the walker promoted to a substrate `@mcp.tool`.
-- **OQ2 — elicit UX shape.** `ctx.elicit` supports a typed `response_type`
-  (str / list-of-options / dict-schema). Do we want `requires_input` phases to
-  offer **structured options** (like `AskUserQuestion`) where the phase can
-  enumerate them, falling back to free-text otherwise? Recommend: yes, when the
-  phase declares `options`.
-- **OQ3 — sampling cost/consent.** Server-initiated sampling spends the user's
-  tokens. MCP says the client gates/approves sampling; should agency ALSO add a
-  per-session cap or a `sampling_enabled` config flag (default on) for
-  budget-conscious users? Recommend: a config flag, default on, surfaced in
-  `agency_doctor`.
-- **OQ4 — scope of A2 adoption.** Which existing walkable skills get `sample:`
-  phases in Slice 1? Recommend: none — ship the mechanism + tests in Slice 1;
-  adopt per-skill in follow-ups (drop-in-phase bar), so the substrate lands
-  before any skill depends on it.
+- **OQ1 — Context under code-mode → RESOLVED YES (probed).** A wired tool
+  declaring `ctx: Context` receives a live Context **with `.sample`** even when
+  called through the code-mode `execute` sandbox (probe: `ctx_present=True`,
+  `has_sample=True`). So the ContextVar-capture seam works under code-mode; the
+  `skill_walk` walker stays a normal capability verb — **no substrate-tool
+  promotion needed.** This was the load-bearing unknown; it's clear.
+- **OQ2 — elicit shape → RESOLVED: structured, sourced from a bound verb.**
+  Options are NOT hardcoded in phase metadata; a `requires_input` phase binds a
+  `resolve_via: {capability, verb}` to a FastMCP-annotated verb **in the
+  skill's own capability** that computes the choices (provenance-recording
+  Invocation; mirrors the existing `invoke:` binding). See §B1.
+- **OQ3 — sampling cost → RESOLVED: yes.** `sampling_enabled` config flag,
+  default on, surfaced in `agency_doctor`. See §"Sampling cost control".
+- **OQ4 — Slice-1 adoption → RESOLVED: brainstorm + scene-writer now.** Slice 1
+  proves the mechanism on those two skills (not seam-only, not all skills).
 
-## Suggested slicing (when approved)
+## Slicing
 
-- **Slice 1 — the seam.** `HostBridge` + ContextVar capture in `_wire` +
-  `complete_or_delegate` sample branch + `agency_doctor.host` + tests 1–5.
-  Pure substrate; no skill changes. (This alone retires the Spec 279
-  round-trip for sample-capable hosts.)
-- **Slice 2 — the walk.** `sample:` + `requires_input:` phase fields in the
-  walker + the elicit assumption-gate + tests 6–10.
-- **Slice 3 — adoption.** Add `sample:`/`requires_input:` to chosen skills
-  (per OQ4), one skill at a time.
+- **Slice 1 — seam + walk + two proving skills (this spec's deliverable).**
+  `HostBridge` + ContextVar capture in `_wire` + `complete_or_delegate` sample
+  branch + `sampling_enabled` flag + `agency_doctor.host` + the `sample:` /
+  `requires_input:`+`resolve_via:` phase fields in the walker + the elicit
+  assumption-gate. Adopt the new phase fields in **`develop.brainstorm`**
+  (a `sample:` drafting phase) and **`scene-writer`** (a `requires_input:`
+  assumption-gate phase with a novel-capability `resolve_via` verb). All tests
+  1–10 + the doctor `host`-block test.
+- **Slice 2 — wider adoption.** Roll `sample:` / `requires_input:` into the
+  remaining generative skills, one at a time (drop-in-phase bar).
