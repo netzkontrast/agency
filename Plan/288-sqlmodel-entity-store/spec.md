@@ -1,7 +1,7 @@
 ---
 spec: 288
 title: sqlmodel-entity-store
-status: Implementing (Slice 1 shipped)
+status: Implementing (Slices 1-2 shipped)
 depends_on: [048, 286]
 clusters: [core, substrate]
 vision_goals: [4, 5, 7]
@@ -90,8 +90,16 @@ Memory.record(label, props)  ── validate via EntityModels ──▶ graph no
   per ontology label and validates with parity to `ontology.violations`; tests
   green. Not yet wired into `Memory` (additive — zero behaviour change to the
   live record path this slice).
-- **Slice 2/3 next:** canonical `table=True` store on graphqlite's shared
-  connection + `Memory` wiring + inline `entity_join`; then the FastAPI surface.
+- **Slice 2 shipped:** `agency/_entity_store.py` — `EntityRecord(table=True)`
+  (`id` PK = graph node id · `label` · `data` JSON · bi-temporal window) +
+  `EntityStore` (OOP: `upsert`/`get`/`by_label`/`count`). Binds to graphqlite's
+  EXACT `sqlite3.Connection` via `creator=`+`StaticPool` → genuinely ONE `.db`
+  (proven: a graph node + its entity row coexist; the `agency_entity` table is
+  visible on the graph's own connection — inline-join ready). Additive: `Memory`
+  not yet wired (zero change to the live record path). 10 tests green.
+- **Slice 2b next:** wire `Memory.record`/`update` to dual-write the entity row
+  (same id) + add `entity_join(node_ids)` for inline content query.
+- **Slice 3:** FastAPI read surface over `EntityStore` (`[api]` extra).
 - **Doctrine note:** "graph is the store" (CORE.md) holds — the graph stays
   complete; SQLModel adds a typed, SQL-queryable, FastAPI-ready projection of
   the SAME entities in the SAME `.db`, keyed by the graph node id.
