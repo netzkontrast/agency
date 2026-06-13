@@ -1,8 +1,8 @@
-"""Spec 288 Slice 2 — the canonical SQLite-backed entity store.
+"""Spec 289 Slice 2 — the canonical SQLite-backed entity store.
 
 Every graph data entity also persists as a typed row in a SQLModel
 (``table=True``) table that shares graphqlite's ONE ``.db`` file. The advice
-that makes this clean (Spec 288): graphqlite is a SQLite *extension* on a
+that makes this clean (Spec 289): graphqlite is a SQLite *extension* on a
 standard ``sqlite3.Connection``, so a SQLAlchemy engine bound to that SAME
 connection (``creator=``) writes the entity table alongside the graph's
 extension tables — one database, no second store, no cross-process sync, and

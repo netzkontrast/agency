@@ -1,5 +1,5 @@
 ---
-spec: 288
+spec: 289
 title: sqlmodel-entity-store
 status: Implementing (Slices 1-2 shipped)
 depends_on: [048, 286]
@@ -9,7 +9,7 @@ vision_goals: [4, 5, 7]
 
 <!-- doc-source: agency/memory.py agency/ontology.py agency/_entities.py -->
 
-# Spec 288 — SQLModel typed entities for every graph data object
+# Spec 289 — SQLModel typed entities for every graph data object
 
 > User directive (2026-06-13): integrate **SQLModel** for **all data entities**,
 > **linked to the graph entities**, in **core dependencies**, **all OOP**.
@@ -48,7 +48,7 @@ Checked `agency/memory.py`, `agency/ontology.py`, and the `graphqlite` package:
 Ontology (schema authority: nodes + enums + schemas)
    │  derive (rule 2)
    ▼
-EntityModels  ──build──▶  one SQLModel class per label  (Spec 288)
+EntityModels  ──build──▶  one SQLModel class per label  (Spec 289)
    │                          ├─ Slice 1: table=False → Pydantic VALIDATION
    │                          │           (required-present + enum-membership,
    │                          │            FastAPI-ready typed surface)

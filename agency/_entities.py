@@ -1,4 +1,4 @@
-"""Spec 288 — SQLModel typed entities derived from the graph ontology.
+"""Spec 289 — SQLModel typed entities derived from the graph ontology.
 
 The ontology (`Ontology.nodes` = label→required fields, `Ontology.enums` =
 (label,field)→allowed set) is the schema authority. This module DERIVES a

@@ -1,4 +1,4 @@
-"""Spec 288 Slice 2 — the canonical SQLite-backed entity store.
+"""Spec 289 Slice 2 — the canonical SQLite-backed entity store.
 
 Proves the store round-trips entities AND coexists with the graph in ONE
 SQLite database (shared connection), so the graph node id links to a typed,

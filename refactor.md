@@ -109,7 +109,7 @@ describe phase layout → review → build).
 > `Plan`/`PlanStep` ontology, 8 tests green, install regenerated. Slice 2
 > (write/execute split, `requires_input`, `render_plan`) still open for review.
 
-## Spec 288 — SQLModel typed entities (user directive 2026-06-13)
+## Spec 289 — SQLModel typed entities (user directive 2026-06-13)
 
 Directive: SQLModel for **every data entity**, derived from the **established
 ontology + schemas**, **linked to graph entities**, **core dep**, **all OOP**;

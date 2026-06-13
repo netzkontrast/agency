@@ -1,4 +1,4 @@
-"""Spec 288 Slice 1 — SQLModel entity models derived from the graph ontology.
+"""Spec 289 Slice 1 — SQLModel entity models derived from the graph ontology.
 
 The derived models are the typed surface; validation has parity with
 `Ontology.violations` (the established schema semantics) so wiring it into
