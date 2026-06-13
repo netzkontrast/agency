@@ -46,6 +46,17 @@ Execution steps (gated): scaffold+exemplar → archive move → generate → dis
 4 sonnet subagents (per pillar) → index + guardrails. **Resume after the
 refactor settles + owner confirms the target structure.**
 
+> **Owner directive (2026-06-13) — resume Phase B once 286 is DONE, generate
+> from the REFACTORED code.** The living specs are derived from code; running
+> Phase B *after* the 286 refactor lands means the generated surface (verbs,
+> ontology, skills) reflects the clean four-pillar OOP architecture — cluster
+> mixins, typed `Verb`, `DriverRegistry`, `Memory` typed read methods,
+> `@requires_driver`, capability-per-folder, the SQLModel graph-authoritative
+> projection — not the pre-refactor shape. **Base the Phase-B branch on the
+> merged/refactored `#141` code** (rebase/retarget after #141 lands) so the
+> ~29 living specs describe what actually exists post-refactor. Do NOT run the
+> generator against pre-refactor code.
+
 ### Phase C — Tests  ·  **NOT STARTED**
 Cluster the 193 flat `tests/test_*.py` files onto the code architecture (the
 four pillars + per-capability), aligning with `tests/conftest.py`
