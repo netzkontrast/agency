@@ -40,6 +40,9 @@
 | `b22c350` | **P3 #2 — `Finding` value object** | `Finding` TypedDict → `@dataclass(frozen=True)` + `FindingSeverity(str,Enum)` (primitive-obsession → value object) | **wire byte-identical**: `Finding.to_dict()` (severity as `.value`) serialises at the 5 verb-return boundaries + the Finding-node record path; `_findings_of` graph-dict path unchanged | full non-e2e suite |
 | `36fa80a` | welcome budget | owner directive: loosen fixed base `1000→2000` (Spec 282/284/285 envelope growth) | per-cap coefficient (150) unchanged → still guards gist bloat | `test_welcome*` |
 | `b1b8b9e` | reconcile `test_intent_path_analysis` | wire-safety: verbs emit dicts (proven: `json.dumps(dataclass)` raises), so the test stays dict-subscript | n/a | green; **CI green** |
+| `e678f83` | renumber sqlmodel 288→289 | clear the Management-cap-288 collision (Vision-reserved) | n/a | imports |
+| `3f75770`+ | **Spec 289 SQLModel entity layer** | `EntityModels` (ontology-derived validation, `table=False`) + `EntityStore` (`table=True` canonical rows on graphqlite's ONE shared `.db`); FastAPI-ready read surface for the Management API | parity with `Ontology.violations`; one shared sqlite connection (proven) | 15 entity tests |
+| `e57d7b7` | **P0 A1 — `GraphStore` port** | ~14 typed read methods on `Memory` (`neighbors` promoted, `query_nodes`/`nodes_serving`/`sources_via_edge`/`artefacts_produced_under`/`edge_pairs`/`has_edge`/`all_nodes`/`replay_*`/`advance_clock`); swept 30 raw-`.g` sites across 12 capability files | **INVARIANT: no `.g.query`/`.g.get_node` in `agency/capabilities` (grep empty)**; reads return same rows | 192+ focused; **CI workflow disabled (`3df7937`) — Review Partner is the test net** |
 
 > Note on the parallel `5a9d50c` (Vision side): it migrated the test to
 > attribute access, which implies dataclasses on the wire — not serialisable.
