@@ -1057,6 +1057,7 @@ class DogfoodCapability(CapabilityBase):
                 system=_CLASSIFIER_SYSTEM,
                 output_schema=_PROPOSAL_LIST_SCHEMA,
                 host_completion=host_completion,
+                host=self.ctx.host,        # Spec 285 — real MCP sampling when available
             )
         except HostDelegateError:
             raise                                                  # bubble up

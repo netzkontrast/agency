@@ -124,6 +124,17 @@ class CapabilityContext:
             raise DriverMissing(f"no DriverRegistry on this context (name={name!r})")
         return self.drivers.get(name)
 
+    @property
+    def host(self) -> Any:
+        """Spec 285 — the request-scoped `HostBridge` to the host LLM (sampling)
+        and the user (elicitation). Reads the live FastMCP Context bound by
+        `engine._wire` for this call, plus the engine's `sampling_enabled` flag.
+        With no bound Context (CLI / bare tests), the bridge's `can_*()` report
+        False and callers fall back (Spec 279 envelope / input-required pause)."""
+        from ._host_bridge import HostBridge, current_host_context
+        return HostBridge(current_host_context(),
+                          sampling_enabled=getattr(self.engine, "sampling_enabled", None))
+
     def spawn(self, cap: str, verb: str, **args) -> tuple:
         """Invoke a sibling capability and return BOTH its result and the recorded
         Invocation id (so a caller can edge to it). Depth-guarded against cycles."""

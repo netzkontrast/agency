@@ -1236,6 +1236,7 @@ class NovelCapability(CapabilityBase):
                 host_completion=host_completion,
                 continuation_token=token,
                 max_tokens=max_tokens,
+                host=self.ctx.host,        # Spec 285 — real MCP sampling when available
             )
         except HostDelegateError as exc:
             return ToolResult.failure(

@@ -193,8 +193,15 @@ class Engine:
                  extra_capabilities=None, surface: str | None = None,
                  token_counter=None, skills_client=None, llm_client=None,
                  anthropic_driver=None, drivers=None,
+                 sampling_enabled: bool | None = None,
                  _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
+        # Spec 285 OQ3 — server-initiated sampling cost control. Explicit kwarg
+        # wins; else AGENCY_SAMPLING_ENABLED env; else on. Read by HostBridge
+        # (via CapabilityContext.host) + surfaced in agency_doctor.
+        from ._host_bridge import sampling_enabled_default
+        self.sampling_enabled = (sampling_enabled if sampling_enabled is not None
+                                 else sampling_enabled_default())
         # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
         from ._runner import SubprocessRunner
         self.runner = runner or SubprocessRunner()
@@ -403,10 +410,21 @@ class Engine:
             # repeat it on every call. With neither, the empty id flows to the
             # SERVES guard, which raises its helpful bootstrap error.
             import os as _os
-            intent_id = kwargs.pop("intent_id", "") or _os.environ.get("AGENCY_INTENT", "")
-            agent_id = kwargs.pop("agent_id", "") or None
-            result, inv = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
-            return self._shape_wire_result(result, inv)
+            # Spec 285 — capture the live FastMCP Context (FastMCP injects it as
+            # the `_host_ctx` kwarg, excluded from the tool schema because it is
+            # annotated `Context`). Bind it request-scoped so capability verbs
+            # reach `ctx.host` (sampling / elicitation); reset in `finally` so a
+            # Context never outlives its call. None when no client is attached.
+            from ._host_bridge import bind_host_context, reset_host_context
+            host_ctx = kwargs.pop("_host_ctx", None)
+            token = bind_host_context(host_ctx)
+            try:
+                intent_id = kwargs.pop("intent_id", "") or _os.environ.get("AGENCY_INTENT", "")
+                agent_id = kwargs.pop("agent_id", "") or None
+                result, inv = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
+                return self._shape_wire_result(result, inv)
+            finally:
+                reset_host_context(token)
 
         # Spec 284 — projected-enum surfacing. A verb may declare
         # `param_enums={param: members}`; we wrap that param's annotation so the
@@ -433,6 +451,10 @@ class Engine:
         # omit it and resolve via the AGENCY_INTENT env (see impl above).
         params.append(inspect.Parameter("intent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str, default=""))
         params.append(inspect.Parameter("agent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str, default=""))
+        # Spec 285: a `Context`-annotated param FastMCP injects + excludes from
+        # the tool's user-facing schema (same mechanism as lifecycle_gate's
+        # `ctx`). Bound request-scoped in impl so verbs reach `ctx.host`.
+        params.append(inspect.Parameter("_host_ctx", inspect.Parameter.KEYWORD_ONLY, annotation=Context, default=None))
 
         impl.__signature__ = inspect.Signature(params)
         impl.__name__ = f"capability_{cap_name}_{verb}"
@@ -644,7 +666,7 @@ class Engine:
             return install_op(target or None)
 
         @mcp.tool
-        def agency_doctor() -> dict:
+        def agency_doctor(_host_ctx: Context = None) -> dict:
             """Health-check substrate tool — diagnose silent-failure modes.
 
             Reports python version, dep imports, DB reachability, and the
@@ -656,10 +678,22 @@ class Engine:
             Covers F2 (Jules-key inheritance) + F5 (system python3 vs
             plugin venv) from the KP Fehlerbericht.
 
+            Spec 285 — the ``host`` block reports whether the live client
+            supports MCP sampling / elicitation and whether the
+            ``sampling_enabled`` cost flag is on, so a session can see if it's
+            in sample/elicit mode or envelope-fallback mode.
+
             Inputs: none.
-            Returns: ``{ok, python_version, deps, db, env, next_steps}``.
+            Returns: ``{ok, python_version, deps, db, env, host, next_steps}``.
             chain_next: ``next_steps`` are literal calls/commands.
             """
+            from ._host_bridge import HostBridge
+            _bridge = HostBridge(_host_ctx, sampling_enabled=engine.sampling_enabled)
+            host_block = {
+                "sampling": _bridge.can_sample(),
+                "elicitation": _bridge.can_elicit(),
+                "sampling_enabled": engine.sampling_enabled,
+            }
             import os, sys, importlib.metadata as _md
             from ._db_path import resolve_db_path
 
@@ -845,6 +879,7 @@ class Engine:
                 "install_method": install_method,
                 "agency_mcp_path": agency_mcp_on_path or "",
                 "agency_path": agency_on_path or "",
+                "host": host_block,
                 "next_steps": next_steps,
             }
 
