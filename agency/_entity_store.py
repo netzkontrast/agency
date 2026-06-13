@@ -1,6 +1,6 @@
-"""Spec 289 Slice 2 — the canonical SQLite-backed entity store.
+"""Spec 289 Slice 2 — the graph-authoritative typed projection.
 
-Every graph data entity also persists as a typed row in a SQLModel
+Every graph data entity is MIRRORED into a typed row in a SQLModel
 (``table=True``) table that shares graphqlite's ONE ``.db`` file. The advice
 that makes this clean (Spec 289): graphqlite is a SQLite *extension* on a
 standard ``sqlite3.Connection``, so a SQLAlchemy engine bound to that SAME
@@ -10,8 +10,11 @@ the entity rows are JOIN-able to graph nodes inline (the node id IS the entity
 PK). This store is the FastAPI-ready read surface (Slice 3); validation derives
 from the ontology via ``EntityModels`` (Slice 1).
 
-This slice is ADDITIVE — ``Memory`` is not yet wired to it (Slice 2b), so the
-live record path is unchanged.
+The graph node stays write-authoritative (provenance, bi-temporal history,
+ontology enforcement); this projection is a ONE-WAY mirror FROM the graph
+(graph → entity row, never the inverse) — re-derivable, never a parallel
+tracking system. ``Memory`` mirrors here AFTER each authoritative graph write
+(Slice 2b); a projection failure never fails the graph write.
 """
 from __future__ import annotations
 
@@ -31,9 +34,10 @@ _SUBSTRATE = ("id", "vfrom", "vto", "labels")
 
 
 class EntityRecord(SQLModel, table=True):
-    """One canonical row per graph data entity. ``id`` == the graph node id
-    (the link); ``data`` holds the validated user props as JSON; the
-    bi-temporal window mirrors the node's. FastAPI models read this row."""
+    """One projected row per graph data entity (mirrored from the authoritative
+    graph node). ``id`` == the graph node id (the link); ``data`` holds the
+    validated user props as JSON; the bi-temporal window mirrors the node's.
+    FastAPI models read this row."""
 
     __tablename__ = "agency_entity"
 
@@ -45,9 +49,11 @@ class EntityRecord(SQLModel, table=True):
 
 
 class EntityStore:
-    """OOP handle over the canonical entity table. Bind it to the SAME SQLite
-    database as the graph — pass ``sqlite_connection=memory.g._conn.sqlite_connection``
-    for one shared DB (incl. ``:memory:``), or a ``path`` for a standalone file.
+    """OOP handle over the graph-authoritative typed projection. Bind it to the
+    SAME SQLite database as the graph — pass
+    ``sqlite_connection=memory.g._conn.sqlite_connection`` for one shared DB
+    (incl. ``:memory:``), or a ``path`` for a standalone file. Rows are mirrored
+    FROM the graph (one-way); the graph node is authoritative.
     """
 
     def __init__(self, path: Optional[str] = None, *,

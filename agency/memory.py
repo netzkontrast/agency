@@ -16,6 +16,7 @@ from typing import Any, Optional
 from graphqlite import Graph, connect
 
 from . import ontology
+from ._entity_store import EntityStore
 
 OPEN = 10 ** 12  # sentinel valid_to for the currently-valid version
 
@@ -36,6 +37,14 @@ class Memory:
         # across reopens (the bash CLI opens a fresh Engine per call).
         self._lock = threading.Lock()
         self._tick = self._max_persisted_tick()
+        # Spec 289 Slice 2b — the graph-authoritative typed projection. EntityStore
+        # binds to the graph's EXACT raw sqlite3 connection (one shared `.db`, even
+        # for `:memory:`), so the entity rows live in the same database as the graph
+        # nodes and are JOIN-able by node id. One-way mirror (graph → row): every
+        # authoritative write below mirrors AFTER the graph upsert succeeds. sqlmodel
+        # is a core dep, so no optional guard.
+        self.entities = EntityStore(
+            sqlite_connection=self.g._conn.sqlite_connection)
 
     def _max_persisted_tick(self) -> int:
         # Spec 006 #1 — O(1) clock seed: NO unconstrained full scan. Every tick ever
@@ -59,14 +68,33 @@ class Memory:
             self._tick += 1
             return self._tick
 
+    def _mirror(self, node_id: str, label: str, props: dict[str, Any],
+                vfrom: int, vto: int = OPEN) -> None:
+        """Mirror one authoritative graph node into the typed projection
+        (Spec 289 Slice 2b). One-way: graph → entity row, keyed by node id.
+
+        The graph is the source of truth and is ALWAYS written first; this is
+        a derived, re-derivable view, so a projection failure must NEVER fail
+        the authoritative write that already succeeded. Best-effort: swallow
+        any error (the row can be re-derived from the graph)."""
+        try:
+            self.entities.upsert(node_id, label, props, vfrom=vfrom, vto=vto)
+        except Exception:                                   # noqa: BLE001
+            # projection is re-derivable from the authoritative graph; never
+            # let a mirror error escape the graph write. (Optionally observable
+            # via a monitor; no hard dependency added here.)
+            pass
+
     # --- write axis: record · link · supersede -------------------------------
     def record(self, label: str, props: dict[str, Any], node_id: Optional[str] = None) -> str:
         bad = self.ont.violations(label, props)
         if bad:
             raise ValueError(f"{label} record violates ontology: {bad}")
         nid = node_id or f"{label.lower()}:{uuid.uuid4().hex[:8]}"
-        data = {**props, "vfrom": self._now(), "vto": OPEN}
-        self.g.upsert_node(nid, data, label=label)
+        tick = self._now()
+        data = {**props, "vfrom": tick, "vto": OPEN}
+        self.g.upsert_node(nid, data, label=label)         # graph is authoritative
+        self._mirror(nid, label, props, vfrom=tick, vto=OPEN)
         return nid
 
     def link(self, src: str, dst: str, rel: str, props: Optional[dict] = None) -> None:
@@ -102,7 +130,11 @@ class Memory:
                                           if k not in ("vfrom", "vto", "id")})
         if bad:
             raise ValueError(f"{label} update violates ontology: {bad}")
-        self.g.upsert_node(node_id, merged, label=label)
+        self.g.upsert_node(node_id, merged, label=label)   # graph is authoritative
+        # mirror the merged user props; preserve the node's bi-temporal window
+        # (update is in-place — id + window are stable).
+        self._mirror(node_id, label, merged,
+                     vfrom=merged.get("vfrom", 0), vto=merged.get("vto", OPEN))
 
     def supersede(self, node_id: str, changes: dict[str, Any]) -> str:
         node = self.g.get_node(node_id)
@@ -117,11 +149,16 @@ class Memory:
             raise ValueError(f"{label} supersede violates ontology: {bad}")   # history intact
         now = self._now()
         # close the old version (append-only: it keeps its valid window)
-        self.g.upsert_node(node_id, {**old, "vto": now}, label=label)
+        closed_old = {**old, "vto": now}
+        self.g.upsert_node(node_id, closed_old, label=label)   # graph authoritative
         new_id = f"{node_id}#{now}"
         new_props.update({"vfrom": now, "vto": OPEN})
         self.g.upsert_node(new_id, new_props, label=label)
         self.link(node_id, new_id, "SUPERSEDED_BY")
+        # mirror BOTH: close the old row's window, then project the new version.
+        self._mirror(node_id, label, closed_old,
+                     vfrom=closed_old.get("vfrom", 0), vto=now)
+        self._mirror(new_id, label, new_props, vfrom=now, vto=OPEN)
         return new_id
 
     # --- read axis: recall · find · validate ---------------------------------
