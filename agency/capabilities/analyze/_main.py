@@ -15,7 +15,6 @@ Red flags:
 from __future__ import annotations
 
 import time
-from dataclasses import asdict
 
 from agency.capability import (
     CapabilityBase, RenderTemplates, verb,
@@ -138,7 +137,7 @@ class AnalyzeCapability(CapabilityBase):
         if lang != "py":
             return {"findings": [], "counts": {"info": 0, "warn": 0, "fail": 0}}
         findings = _quality.scan(path)
-        return {"findings": findings,
+        return {"findings": [f.to_dict() for f in findings],
                 "counts": _findings.count_by_severity(findings)}
 
     @verb(role="transform")
@@ -152,7 +151,7 @@ class AnalyzeCapability(CapabilityBase):
         if lang != "py":
             return {"findings": [], "counts": {"info": 0, "warn": 0, "fail": 0}}
         findings = _security.scan(path)
-        return {"findings": findings,
+        return {"findings": [f.to_dict() for f in findings],
                 "counts": _findings.count_by_severity(findings)}
 
     @verb(role="transform")
@@ -201,7 +200,7 @@ class AnalyzeCapability(CapabilityBase):
         if lang != "py":
             return {"findings": [], "counts": {"info": 0, "warn": 0, "fail": 0}}
         findings = _performance.scan(path)
-        return {"findings": findings,
+        return {"findings": [f.to_dict() for f in findings],
                 "counts": _findings.count_by_severity(findings)}
 
     @verb(role="transform")
@@ -213,7 +212,7 @@ class AnalyzeCapability(CapabilityBase):
         chain_next: ``analyze.run``.
         """
         findings = _architecture.scan(path)
-        return {"findings": findings,
+        return {"findings": [f.to_dict() for f in findings],
                 "counts": _findings.count_by_severity(findings)}
 
     @verb(role="transform")
@@ -229,7 +228,7 @@ class AnalyzeCapability(CapabilityBase):
         findings = _paths.scan(self.ctx.memory,
                                 root_intent_id=root_intent_id,
                                 max_paths=max_paths)
-        return {"findings": findings,
+        return {"findings": [f.to_dict() for f in findings],
                 "counts": _findings.count_by_severity(findings)}
 
     # ---------------------------------------------------------------
@@ -278,7 +277,7 @@ class AnalyzeCapability(CapabilityBase):
                 findings = scanner(path)
             totals[axis] = _findings.count_by_severity(findings)
             for fnd in findings:
-                fid = self.ctx.record("Finding", asdict(fnd))
+                fid = self.ctx.record("Finding", fnd.to_dict())
                 self.ctx.link(analysis_id, fid, "HAS_FINDING")
                 self.ctx.link(fid, self.ctx.intent_id, "OBSERVED_DURING")
         return {"analysis_id": analysis_id, "totals": totals}

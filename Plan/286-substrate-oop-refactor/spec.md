@@ -1,3 +1,12 @@
+---
+spec: 286
+title: substrate-oop-refactor
+status: Implementing (Phase 3 leaves)
+depends_on: [040, 047, 053, 054]
+clusters: [core, meta]
+vision_goals: [4, 5, 6, 7]
+---
+
 <!-- doc-source: agency/engine.py agency/capability.py agency/memory.py agency/ontology.py -->
 
 # Spec 286 — Substrate OOP Refactor (behavior-preserving)

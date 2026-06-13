@@ -40,6 +40,20 @@ class Finding:
     message: str
     evidence: str
 
+    def to_dict(self) -> dict:
+        """The wire/graph representation: a plain dict with severity as its
+        string value — the exact shape this was before Spec 286 (a TypedDict).
+        Verbs that surface findings over the wire, and the Finding-node record
+        path, serialise through this so the contract is unchanged."""
+        return {
+            "rule": self.rule,
+            "severity": self.severity.value,
+            "file": self.file,
+            "line": self.line,
+            "message": self.message,
+            "evidence": self.evidence,
+        }
+
 
 def make_finding(rule: str, severity: str, file: str, line: int,
                  message: str, evidence: str) -> Finding:
