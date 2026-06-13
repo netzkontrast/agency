@@ -36,6 +36,10 @@ def _phase(index, name, produces, gate=None, verbs=None,
     return p
 
 
+# Spec 287 — PlanStep execution states (closed enum; ontology-enforced).
+PLAN_STEP_STATES = frozenset({"pending", "done", "blocked", "skipped"})
+
+
 DEV_SKILLS = {
     # Spec 092 G4 — the `intent` critical-thinking methods are surfaced as phase cues
     # at the step that needs them, so reasoning fires in the workflow instead of staying
@@ -104,6 +108,26 @@ DEV_SKILLS = {
         _phase(2, "execute", ["step_results"]),
         _phase(3, "checkpoint", ["reviewed"], gate="hard"),
         _phase(4, "verify", ["all_pass"], gate="hard"),
+    ]},
+    # Spec 287 — first-class plan-authoring → execution-with-checkpoints
+    # (superpowers writing-plans + executing-plans + subagent-driven-development;
+    # superclaude sc-workflow + sc-task). The plan is graph provenance, not a
+    # file (rule 2): the draft-plan phase is BOUND to develop.draft_plan, which
+    # mints a Plan + PlanStep nodes SERVING the intent. Hard gates: plan
+    # sign-off, the per-run checkpoint, and final synthesis. The execute-step
+    # phase cues delegate.dispatch_decision (Spec 040) — delegate vs. inline per
+    # the 11 signals.
+    "plan-execute": {"name": "plan-execute", "kind": "discipline", "phases": [
+        _phase(1, "frame", ["requirements"],
+               verbs=["intent.decompose", "intent.assumptions"]),
+        {"index": 2, "name": "draft-plan", "produces": ["plan"],
+         "invoke": {"capability": "develop", "verb": "draft_plan"},
+         "inputs": ["title", "steps"]},
+        _phase(3, "plan-signoff", ["user_confirmed"], gate="hard"),
+        _phase(4, "execute-step", ["step_results"],
+               verbs=["delegate.dispatch_decision"]),
+        _phase(5, "checkpoint", ["reviewed"], gate="hard"),
+        _phase(6, "synthesize", ["summary"], gate="hard"),
     ]},
     # Plan/024 PR-A — capability authoring: scaffold then lint behind a
     # hard gate. Phase 2 + 4 are BOUND (the walker runs the verbs, not
@@ -381,16 +405,22 @@ SESSION_DRIVER_SKILL = {
 
 develop_ontology = OntologyExtension(
     skills={**DEV_SKILLS, "session-driver-pass": SESSION_DRIVER_SKILL},
+    edges={"HAS_STEP"},                          # Spec 287 — Plan → PlanStep
     nodes={
         "SessionLifecycle": ["mode", "status"],
         "ModeShift": ["from_mode", "to_mode"],   # optional: reason
         # DecisionRecord lives on dogfood (Spec 114 §"Session-tracking cluster")
+        # Spec 287 — plan provenance (rule 2: the plan is graph nodes, rendered
+        # to markdown on demand, never a parsed file).
+        "Plan": ["title"],                       # optional: status
+        "PlanStep": ["plan", "index", "description"],   # optional: state, evidence
     },
     enums={
         ("SessionLifecycle", "mode"): SESSION_MODE,
         ("SessionLifecycle", "status"): SESSION_STATUS,
         ("ModeShift", "from_mode"): SESSION_MODE,
         ("ModeShift", "to_mode"): SESSION_MODE,
+        ("PlanStep", "state"): PLAN_STEP_STATES,        # Spec 287
     },
     # session-reflection schema lives on reflect (the producing cap)
 )
@@ -569,6 +599,90 @@ class DevelopCapability(CapabilityBase):
     home = "lifecycle"
     render_templates = RenderTemplates.from_module(__file__)
     ontology = develop_ontology
+
+    # ---- Spec 287 — plan authoring + execution provenance -----------------
+
+    @verb(role="act")
+    def draft_plan(self, title: str, steps: str = "") -> dict:
+        """Author a bite-sized plan as graph provenance (Spec 287; rule 2).
+
+        ``steps`` is a JSON array of step descriptions OR a newline-separated
+        list. Mints a ``Plan{title}`` + one ``PlanStep{index, description,
+        state:pending}`` per step, the Plan SERVING the intent and ``HAS_STEP``
+        each PlanStep. The plan markdown is rendered on demand from these nodes —
+        never a parsed file. The ``plan-execute`` discipline's draft-plan phase
+        binds to this verb.
+
+        Inputs: title, steps (JSON list or newlines).
+        Returns: ``{plan_id, step_ids, count}``.
+        chain_next: walk ``plan-execute``, or sign off then ``record_step_outcome``
+                    per step + ``plan_status`` to roll up.
+        """
+        import json as _json
+        parsed = None
+        if steps:
+            try:
+                parsed = _json.loads(steps)
+            except (ValueError, TypeError):
+                parsed = list(steps.splitlines())
+        if not isinstance(parsed, list):
+            parsed = [parsed] if parsed not in (None, "") else []
+        descriptions = [str(s).strip() for s in parsed if str(s).strip()]
+        plan_id = self.ctx.record("Plan", {"title": title, "status": "drafted"})
+        self.ctx.link(plan_id, self.ctx.intent_id, "SERVES")
+        step_ids = []
+        for i, desc in enumerate(descriptions, start=1):
+            sid = self.ctx.record("PlanStep", {
+                "plan": plan_id, "index": i, "description": desc, "state": "pending"})
+            self.ctx.link(plan_id, sid, "HAS_STEP")
+            step_ids.append(sid)
+        return {"plan_id": plan_id, "step_ids": step_ids, "count": len(step_ids)}
+
+    @verb(role="act")
+    def record_step_outcome(self, step_id: str, outcome: str,
+                            evidence: str = "") -> dict:
+        """Mark a PlanStep's execution outcome (Spec 287).
+
+        ``outcome`` ∈ {done, blocked, skipped}. Bi-temporal update of the step's
+        ``state`` + ``evidence`` (a new revision, not a destructive overwrite).
+
+        Inputs: step_id (from ``draft_plan``), outcome, evidence.
+        Returns: ``{step_id, state}`` — or ``{error}`` for a bad outcome / unknown step.
+        chain_next: ``plan_status(plan_id)`` to roll up; ``delegate.dispatch_decision``
+                    before the next step.
+        """
+        if outcome not in ("done", "blocked", "skipped"):
+            return {"error": f"outcome must be done|blocked|skipped, got {outcome!r}"}
+        node = self.ctx.recall(step_id)
+        if node is None:
+            return {"error": f"no node {step_id!r}"}
+        self.ctx.update(step_id, {"state": outcome, "evidence": evidence[:200]})
+        return {"step_id": step_id, "state": outcome}
+
+    @verb(role="transform")
+    def plan_status(self, plan_id: str) -> dict:
+        """Roll up a Plan's steps + completion (Spec 287) — the render-on-demand
+        read side (rule 2). Traverses the declared ``HAS_STEP`` edge (declare an
+        edge ⇒ traverse it; no find()+filter on the foreign key).
+
+        Inputs: plan_id.
+        Returns: ``{title, status, steps:[{index, description, state}], complete}``
+                 — ``complete`` is True iff every step is done|skipped. ``{error}``
+                 for an unknown plan.
+        chain_next: render the plan markdown from this, or continue the walk.
+        """
+        plan = self.ctx.recall(plan_id)
+        if plan is None:
+            return {"error": f"no Plan {plan_id!r}"}
+        steps = self.ctx.neighbors(plan_id, "HAS_STEP", direction="out")
+        steps_sorted = sorted(steps, key=lambda s: int(s.get("index", 0)))
+        items = [{"index": int(s.get("index", 0)),
+                  "description": s.get("description", ""),
+                  "state": s.get("state", "pending")} for s in steps_sorted]
+        complete = bool(items) and all(
+            i["state"] in ("done", "skipped") for i in items)
+        return {"title": plan.get("title", ""), "status": plan.get("status", ""),
+                "steps": items, "complete": complete}
 
     @verb(role="transform")
     def validate_skill(self, name: str = "") -> dict:
