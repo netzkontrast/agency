@@ -1518,7 +1518,7 @@ class NovelCapability(CapabilityBase):
         _, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
-        body_json = json.dumps(body) if body else ""
+        body_json = json.dumps(body, sort_keys=True) if body else ""
         # Idempotent: one Storyform per novel — update the existing body.
         existing = next((s for s in self.ctx.find("Storyform")
                          if s.get("novel") == novel_id), None)
