@@ -202,53 +202,64 @@ class Engine:
         from ._host_bridge import sampling_enabled_default
         self.sampling_enabled = (sampling_enabled if sampling_enabled is not None
                                  else sampling_enabled_default())
-        # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
-        from ._runner import SubprocessRunner
-        self.runner = runner or SubprocessRunner()
-        self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
-        self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
-        # Spec 045 — semantic-recall backend. Default is TF-IDF (zero-dep);
-        # AGENCY_EMBEDDER=bge-small-en + [recall] extra activates BGE.
-        # Tests inject a stub. `agency_doctor` reports `embedder.name`.
-        if embedder is None:
-            from .capabilities._embed import resolve_embedder
-            embedder = resolve_embedder()
-        self.embedder = embedder
-        # Spec 044 + Spec 052 — web-search boundary. v1 default is the
-        # DuckDuckGo zero-config client (resolve_web_search()); env
-        # AGENCY_WEB_BACKEND can pick alternatives. Tests stub via
-        # Engine(web_search=...).
-        if web_search is None:
-            from .capabilities.research._web import resolve_web_search
-            web_search = resolve_web_search()
-        self.web_search = web_search
-        # Spec 082 — the token-count boundary (count_tokens → tiktoken → proxy),
-        # stubbable like embedder/web_search; agency_doctor reports its backend.
-        if token_counter is None:
-            from ._tokens import resolve_token_counter
-            token_counter = resolve_token_counter()
-        self.token_counter = token_counter
-        # Spec 083 — the Anthropic Skills API boundary (plugin.publish_skill);
-        # lazy default, stubbed in tests, injected on ctx as `skills_client`.
-        if skills_client is None:
-            from .capabilities.plugin._skills_client import SkillsClient
-            skills_client = SkillsClient()
-        self.skills_client = skills_client
-        # Spec 092 G3 — the LLM-decider boundary (an `llm` Driver): lazy default,
-        # stubbed in tests, reached via ctx.get_driver("llm") (e.g. intent.suggests's
-        # llm_select Matcher).
-        if llm_client is None:
-            from ._llm import LLMClient
-            llm_client = LLMClient()
-        self.llm_client = llm_client
-        # Spec 147 — the canonical AnthropicDriver boundary (an `anthropic` Driver):
-        # lazy default, stubbed in tests, reached via ctx.get_driver("anthropic"). The
-        # LLM-driver chain's keystone. Slice 1 = inference surface; the SDK is imported
-        # lazily so this costs nothing without the [anthropic] extra.
-        if anthropic_driver is None:
-            from ._drivers._anthropic import AnthropicDriver
-            anthropic_driver = AnthropicDriver()
-        self.anthropic_driver = anthropic_driver
+        # Spec 286-A2 — the engine's boundary objects live in ONE place: the
+        # DriverRegistry (`self.drivers`). The former triplication — bespoke
+        # `self.<boundary>` attrs + a `DriverRegistry({...})` + a parallel
+        # `injectors` lambda dict — collapses here:
+        #   * an explicitly-injected boundary (the constructor kwarg, for test
+        #     injection) registers as a CONCRETE driver and wins;
+        #   * otherwise the per-boundary lazy DEFAULT registers as a FACTORY
+        #     and is constructed on first `ctx.get_driver(name)`/`inject=[…]`
+        #     use (the old `if x is None: import…; x=…()` resolution moves
+        #     verbatim into the factory closure).
+        # The bespoke `self.jules_client` / `.embedder` / … attributes are now
+        # thin read-through properties over the registry (see below) so any
+        # external code / test reading `engine.embedder` still resolves.
+        from .capability import DriverRegistry
+        self.drivers = DriverRegistry()
+
+        def _factory(import_path, attr, *args):
+            def make():
+                mod = __import__(import_path, fromlist=[attr])
+                return getattr(mod, attr)(*args)
+            return make
+
+        # name -> (injected boundary | None, lazy default factory). Spec 073 /
+        # 045 / 044+052 / 082 / 083 / 092 / 147 rationale preserved per-boundary.
+        _boundary_defaults = {
+            # Spec 073 — toolchain runner (stubbable; default shells out).
+            "runner":       (runner, _factory("agency._runner", "SubprocessRunner")),
+            # boundary: the real Jules backend by default.
+            "jules":        (jules_client, JulesClient),
+            # boundary: real git/gh for workspace + branch.
+            "vcs":          (vcs_backend, GitClient),
+            # Spec 045 — semantic-recall backend. Default TF-IDF (zero-dep);
+            # AGENCY_EMBEDDER=bge-small-en + [recall] extra activates BGE.
+            "embedder":     (embedder, _factory("agency.capabilities._embed", "resolve_embedder")),
+            # Spec 044 + 052 — web-search boundary. v1 default is the DuckDuckGo
+            # zero-config client; env AGENCY_WEB_BACKEND can pick alternatives.
+            "web_search":   (web_search, _factory("agency.capabilities.research._web", "resolve_web_search")),
+            # Spec 082 — token-count boundary (count_tokens → tiktoken → proxy).
+            "token_counter": (token_counter, _factory("agency._tokens", "resolve_token_counter")),
+            # Spec 083 — Anthropic Skills API boundary (plugin.publish_skill).
+            "skills_client": (skills_client, _factory("agency.capabilities.plugin._skills_client", "SkillsClient")),
+            # Spec 092 G3 — the LLM-decider boundary (an `llm` Driver).
+            "llm":          (llm_client, _factory("agency._llm", "LLMClient")),
+            # Spec 147 — the canonical AnthropicDriver boundary. The SDK imports
+            # lazily so this costs nothing without the [anthropic] extra.
+            "anthropic":    (anthropic_driver, _factory("agency._drivers._anthropic", "AnthropicDriver")),
+        }
+        for _name, (_injected, _default_factory) in _boundary_defaults.items():
+            if _injected is not None:
+                self.drivers.register(_name, _injected)
+            else:
+                self.drivers.register_factory(_name, _default_factory)
+        # Host-supplied extra drivers (Engine(..., drivers={...})) override the
+        # defaults under the same name (e.g. music_state).
+        if drivers:
+            for _name, _driver in drivers.items():
+                self.drivers.register(_name, _driver)
+
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it
@@ -312,29 +323,23 @@ class Engine:
                     f"the verbs — see any agency/capabilities/<cap>/_main.py), and "
                     f"validate via `develop.validate_skill('<cap>')`."
                 )
-        # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
-        # injected per-call by the Registry itself, and the registry is on ctx.
-        # Spec 002 — the six ad-hoc boundaries (jules/vcs/embedder/runner/
-        # token_counter/skills_client) unify into ONE named DriverRegistry. A
-        # future boundary registers a driver under a name and needs no new Engine
-        # kwarg + no new injectors key. The injectors table is now DERIVED from
-        # the registry (one source of truth); `inject=[...]` + `ctx.client` keep
-        # working unchanged, and verbs reach drivers via `ctx.get_driver(name)`.
-        from .capability import DriverRegistry
-        self.drivers = DriverRegistry({
-            "jules": self.jules_client, "vcs": self.vcs_backend,
-            "embedder": self.embedder, "runner": self.runner,
-            "token_counter": self.token_counter, "skills_client": self.skills_client,
-            "llm": self.llm_client, "anthropic": self.anthropic_driver})
-        if drivers:
-            for _name, _driver in drivers.items():
-                self.drivers.register(_name, _driver)
+        # Spec 002 / 286-A2 — the boundary table (built above) IS the source of
+        # truth. The Registry's `inject=[...]` table is DERIVED from it: each
+        # injector NAME maps to a driver NAME, and the lambda reads the live
+        # registry (lazy default materialized on first use). `ctx.client` (the
+        # `client` injector) resolves to the Jules driver, exactly as before.
+        # A future boundary needs no new injectors key; verbs reach any driver
+        # via `ctx.get_driver(name)`. The map is the ONLY place an injector
+        # alias diverges from its driver name (`client` -> `jules`).
         self.registry.drivers = self.drivers
-        self.registry.injectors = {"client": lambda: self.drivers.get("jules"),
-                                   "vcs": lambda: self.drivers.get("vcs"),
-                                   "embedder": lambda: self.drivers.get("embedder"),
-                                   "runner": lambda: self.drivers.get("runner"),
-                                   "skills_client": lambda: self.drivers.get("skills_client")}
+        _INJECTOR_TO_DRIVER = {
+            "client": "jules", "vcs": "vcs", "embedder": "embedder",
+            "runner": "runner", "skills_client": "skills_client",
+        }
+        self.registry.injectors = {
+            inj: (lambda d=drv: self.drivers.get(d))
+            for inj, drv in _INJECTOR_TO_DRIVER.items()
+        }
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)
@@ -345,6 +350,49 @@ class Engine:
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
         self._hook_handlers = {"*": _default_hook_handler}
+
+    # Spec 286-A2 — the bespoke boundary attributes are now thin read-through
+    # properties over the DriverRegistry (`self.drivers`), the single source of
+    # truth. External code / tests that read `engine.embedder` / `.jules_client`
+    # / … still resolve (and materialize the lazy default on first read), but the
+    # boundary lives in exactly one place. The property NAME maps to the driver
+    # NAME (`jules_client` -> "jules", `vcs_backend` -> "vcs", `llm_client` ->
+    # "llm", `anthropic_driver` -> "anthropic"; the rest are 1:1).
+    @property
+    def runner(self):
+        return self.drivers.get("runner")
+
+    @property
+    def jules_client(self):
+        return self.drivers.get("jules")
+
+    @property
+    def vcs_backend(self):
+        return self.drivers.get("vcs")
+
+    @property
+    def embedder(self):
+        return self.drivers.get("embedder")
+
+    @property
+    def web_search(self):
+        return self.drivers.get("web_search")
+
+    @property
+    def token_counter(self):
+        return self.drivers.get("token_counter")
+
+    @property
+    def skills_client(self):
+        return self.drivers.get("skills_client")
+
+    @property
+    def llm_client(self):
+        return self.drivers.get("llm")
+
+    @property
+    def anthropic_driver(self):
+        return self.drivers.get("anthropic")
 
     def register_hook_handler(self, event_name: str, fn) -> None:
         """Spec 076 — register a per-event hook handler (open set). ``fn(engine,
@@ -849,21 +897,22 @@ class Engine:
                 },
                 # Spec 280 — hooks install verification.
                 "hooks": hooks_status.to_dict(),
-                # Spec 045 — the live semantic-recall backend (so users
-                # can confirm whether AGENCY_EMBEDDER took effect, or
-                # whether the BGE fallback to TF-IDF happened silently).
-                "embedder": self.embedder.name,
-                # Spec 082 — the live token-count backend (count_tokens / tiktoken /
-                # proxy), so a silent fallback to the inaccurate proxy is visible.
-                "token_backend": self.token_counter.backend,
-                # Spec 092 G3 — the live LLM-decider backend (openrouter / anthropic /
-                # none), never the key. Custom-injected clients may omit backend().
-                "llm_backend": getattr(self.llm_client, "backend", lambda: "custom")(),
-                # Spec 147 — the canonical AnthropicDriver readiness (api-key-present /
-                # model-id-resolved / managed-agents-capable), never the key. Custom-
-                # injected drivers may omit readiness().
-                "anthropic_driver": getattr(
-                    self.anthropic_driver, "readiness", lambda: {"backend": "custom"})(),
+                # Spec 045 / 286-A2 — the live semantic-recall backend, read
+                # uniformly from the DriverRegistry (so users can confirm whether
+                # AGENCY_EMBEDDER took effect, or the BGE→TF-IDF fallback fired).
+                # The embedder reports its identity via `.name`, not `.backend`.
+                "embedder": self.drivers.get("embedder").name,
+                # Spec 082 / 286-A2 — the live token-count backend (count_tokens /
+                # tiktoken / proxy), so a silent fallback to the proxy is visible.
+                "token_backend": self.drivers.backend("token_counter"),
+                # Spec 092 G3 / 286-A2 — the live LLM-decider backend (openrouter /
+                # anthropic / none), never the key. Custom-injected clients may
+                # omit backend() — the registry returns "custom".
+                "llm_backend": self.drivers.backend("llm"),
+                # Spec 147 / 286-A2 — the canonical AnthropicDriver readiness
+                # (api-key-present / model-id-resolved / managed-agents-capable),
+                # never the key. Custom-injected drivers may omit readiness().
+                "anthropic_driver": self.drivers.readiness("anthropic"),
                 # Spec 050 — which optional [analyze] tools are active.
                 "analyze_extras": analyze_extras,
                 # Spec 054 — drift indicators. v1 ships the

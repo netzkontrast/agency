@@ -139,8 +139,13 @@ class ResearchCapability(CapabilityBase):
                 self.ctx.memory, self.ctx, research_id, query,
                 docs_root=docs_root, max_hits=k)
         if role == "web":
-            web = getattr(self.ctx.registry.engine, "web_search", None) \
-                if self.ctx.registry.engine else None
+            # Spec 286-A2 — web_search is now a first-class registered Driver;
+            # reach it by name (lazy default materializes on first use). Falls
+            # back to None in bare unit tests with no DriverRegistry.
+            try:
+                web = self.ctx.get_driver("web_search")
+            except Exception:
+                web = None
             return _specialist.run_web(
                 self.ctx.memory, self.ctx, research_id, query,
                 web_search=web, k=k)

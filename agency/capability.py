@@ -72,31 +72,78 @@ class Driver(Boundary, Protocol):
 
 
 class DriverRegistry:
-    """Spec 002 — ``Registry.injectors`` generalized to a named table. A domain
-    tool-cluster plugs in by registering a driver under a name and needs NO new
-    ``Engine`` kwarg and NO new ``injectors`` key. Named lookup + a uniform result
-    type (via the wrapping verb) is the whole value."""
+    """Spec 002 / Spec 286-A2 — the engine's ONE boundary home. ``Registry.injectors``
+    generalized to a named table: a domain tool-cluster plugs in by registering a
+    driver under a name and needs NO new ``Engine`` kwarg and NO new ``injectors``
+    key. Named lookup + a uniform result type (via the wrapping verb) is the value.
+
+    Spec 286-A2 — the registry now also owns the *lazy default* for each boundary.
+    Register a zero-arg factory via :meth:`register_factory`; the boundary is not
+    constructed until first :meth:`get`, and an explicitly-registered driver (test
+    injection) always wins over its factory. This collapses the engine's former
+    triplication (bespoke ``self.<boundary>`` attrs + a ``DriverRegistry({...})``
+    + a parallel ``injectors`` lambda dict) into this single table.
+    """
 
     def __init__(self, drivers: Optional[dict[str, Any]] = None):
         self._drivers: dict[str, Any] = dict(drivers or {})
+        # lazy zero-arg factories; consulted by get() only when no concrete
+        # driver is already registered under the name. Materialized on first
+        # use and then cached in _drivers (so a factory runs at most once).
+        self._factories: dict[str, Callable[[], Any]] = {}
 
     def register(self, name: str, driver: Any) -> None:
-        """Register (or replace) the driver under ``name``."""
+        """Register (or replace) a concrete driver under ``name``. An explicit
+        driver always shadows any factory for the same name."""
         self._drivers[name] = driver
 
+    def register_factory(self, name: str, factory: Callable[[], Any]) -> None:
+        """Spec 286-A2 — register a lazy zero-arg factory for ``name``. The driver
+        is constructed on first :meth:`get` (and cached). A concrete driver already
+        registered under ``name`` (e.g. a test-injected stub) wins — the factory is
+        never called."""
+        self._factories[name] = factory
+
     def get(self, name: str) -> Any:
-        try:
+        if name in self._drivers:
             return self._drivers[name]
-        except KeyError:
-            raise DriverMissing(
-                f"no driver registered under {name!r}; have {sorted(self._drivers)}"
-            ) from None
+        factory = self._factories.get(name)
+        if factory is not None:
+            driver = factory()
+            self._drivers[name] = driver        # cache: factory runs at most once
+            return driver
+        raise DriverMissing(
+            f"no driver registered under {name!r}; have {sorted(self.names())}"
+        )
 
     def has(self, name: str) -> bool:
-        return name in self._drivers
+        return name in self._drivers or name in self._factories
 
     def names(self) -> list[str]:
-        return sorted(self._drivers)
+        """All known boundary names — concrete + lazily-registered factories."""
+        return sorted(set(self._drivers) | set(self._factories))
+
+    # Spec 286-A2 — uniform readiness probes so `agency_doctor` reads boundary
+    # health from ONE place (the registry) instead of N bespoke getattr lambdas.
+    def backend(self, name: str, default: Any = "custom") -> Any:
+        """The boundary's backend identity. Reads a ``.backend`` attribute (str)
+        or callable, falling back to ``default`` for custom-injected drivers that
+        omit it. Materializes the lazy default on first probe."""
+        drv = self.get(name)
+        attr = getattr(drv, "backend", None)
+        if attr is None:
+            return default
+        return attr() if callable(attr) else attr
+
+    def readiness(self, name: str, default: Optional[dict] = None) -> dict:
+        """The boundary's readiness dict (e.g. AnthropicDriver's api-key-present /
+        model-id-resolved). Falls back to ``{"backend": "custom"}`` for custom-
+        injected drivers that omit ``readiness()``."""
+        drv = self.get(name)
+        fn = getattr(drv, "readiness", None)
+        if fn is None:
+            return dict(default or {"backend": "custom"})
+        return fn()
 
 
 @dataclass
