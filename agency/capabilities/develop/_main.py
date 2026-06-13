@@ -336,9 +336,15 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
                     "error": f"{type(e).__name__}: {e}",
                     "skill_id": run.skill_id, "completed_phases": completed}
         if res["status"] == "input-required":
+            # Spec 282 Workstream H — propagate the resume hint (the exact
+            # resume_from PHASE NAME + the missing outputs) so the caller
+            # isn't left guessing how to continue a paused walk.
             return {"status": "input-required", "phase": res["phase"],
                     "blocked_on": res["blocked_on"],
+                    "resume_from": res.get("resume_from", res["phase"]),
                     "resume_with": list(phase["produces"]),
+                    "hint": res.get("hint",
+                                    f"resume with resume_from={res['phase']!r}"),
                     "skill_id": run.skill_id,
                     "partial_outputs": accumulated}
         accumulated.update(res.get("outputs", {}))

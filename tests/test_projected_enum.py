@@ -113,3 +113,45 @@ def test_rich_pov_flows_through_wire_unrejected() -> None:
     assert sc["pov"] == "third-omniscient"
     assert sc["pov_detail"] == "auktorialer Erzähler (allwissend)"
     eng.memory.close()
+
+
+# ─────────────────── B audit: every named closed enum is surfaced ───────────────────
+
+
+def test_evidence_enums_surface_in_get_schema() -> None:
+    """Spec 284 / Workstream B audit — the closed enums named in the error
+    report (the failure buckets: capture_claim.domain 60×, create_codex_entry.kind
+    49×, plus statuses/severity/scope) must surface their members in get_schema,
+    so a caller discovers the valid set instead of learning it by failing."""
+    import tempfile
+    from agency.engine import Engine
+    from agency.capabilities.novel._main import (
+        RESEARCH_DOMAINS, CODEX_ENTRY_KIND, NOVEL_STATUS, CHAPTER_STATUS,
+        WORLD_AXIOM_SEVERITY,
+    )
+    from agency.capabilities.reflect._main import REFLECT_SCOPES
+
+    eng = Engine(tempfile.mktemp(suffix=".db"))
+    mcp = eng.build_mcp(codemode=True)
+
+    def _params(tool_name):
+        for provider in getattr(mcp, "providers", ()):
+            for key, tool in getattr(provider, "_components", {}).items():
+                if key.startswith("tool:") and getattr(tool, "name", "") == tool_name:
+                    return tool.parameters["properties"], (tool.description or "")
+        return None, ""
+
+    cases = [
+        ("capability_novel_capture_claim", "domain", RESEARCH_DOMAINS),
+        ("capability_novel_create_codex_entry", "kind", CODEX_ENTRY_KIND),
+        ("capability_novel_set_novel_status", "status", NOVEL_STATUS),
+        ("capability_novel_set_chapter_status", "status", CHAPTER_STATUS),
+        ("capability_novel_create_world_axiom", "severity", WORLD_AXIOM_SEVERITY),
+        ("capability_reflect_note", "scope", REFLECT_SCOPES),
+    ]
+    for tool_name, param, members in cases:
+        props, desc = _params(tool_name)
+        assert props is not None, tool_name
+        assert set(props[param]["enum"]) == set(members), tool_name
+        assert "Enums:" in desc, tool_name
+    eng.memory.close()

@@ -1220,6 +1220,14 @@ Plus four engine-substrate onboarding tools:
 inside crosses NO extra wire hops; ONE value crosses back. Chain instead
 of per-call — it's the headline win of the substrate.
 
+**Sandbox constraints (Spec 282 G — know them before batching):**
+- **≤ 50 `call_tool` per `execute` block** — batch at ≤ 45; split larger
+  work across blocks or use the CLI lane (`python -m agency.cli execute`).
+- **No file I/O** — the sandbox has no `open()`; persist via capability
+  verbs, never the filesystem. `try/except`, `import json`, loops are fine.
+- A failed `call_tool` aborts the REST of the block, but writes already
+  made **persist** (not rolled back) — make batch scripts idempotent.
+
 ```python
 await call_tool('execute', {{'code': '''
     # 1. mint the intent every cap verb will SERVE

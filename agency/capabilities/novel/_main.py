@@ -1101,7 +1101,7 @@ class NovelCapability(CapabilityBase):
                 })
         return ToolResult.success(data={"novels": hits, "count": len(hits)})
 
-    @verb(role="effect")
+    @verb(role="effect", param_enums={"status": NOVEL_STATUS})
     def set_novel_status(self, novel_id: str, status: str) -> ToolResult:
         """Flip a Novel's lifecycle status; enum-checked (effect).
 
@@ -1521,7 +1521,7 @@ class NovelCapability(CapabilityBase):
             "bytes": len(body),
         })
 
-    @verb(role="effect")
+    @verb(role="effect", param_enums={"status": CHAPTER_STATUS})
     def set_chapter_status(self, chapter_id: str,
                             status: str) -> ToolResult:
         """Flip a Chapter's lifecycle status; enum-checked (effect).
@@ -2668,7 +2668,7 @@ class NovelCapability(CapabilityBase):
     # in Slice 2 once the wiring against agency.research is exercised on
     # a research-bearing novel intent.
 
-    @verb(role="effect")
+    @verb(role="effect", param_enums={"domain": RESEARCH_DOMAINS})
     def capture_claim(self, text: str, source_uri: str,
                        domain: str) -> ToolResult:
         """Record a NovelClaim node SERVING the intent (effect).
@@ -3353,7 +3353,7 @@ class NovelCapability(CapabilityBase):
             "slug": slug, "name": name,
         })
 
-    @verb(role="effect")
+    @verb(role="effect", param_enums={"severity": WORLD_AXIOM_SEVERITY})
     def create_world_axiom(self, world_id: str, text: str,
                             severity: str = "hard") -> ToolResult:
         """Encode a WorldAxiom (rule) under a World (effect).
@@ -3709,7 +3709,7 @@ class NovelCapability(CapabilityBase):
     # placeholder; that composer now scans the scene's text against
     # registered triggers and injects matched bodies.
 
-    @verb(role="effect")
+    @verb(role="effect", param_enums={"kind": CODEX_ENTRY_KIND})
     def create_codex_entry(self, novel_id: str, slug: str, name: str,
                             kind: str, body: str,
                             triggers: str = "") -> ToolResult:

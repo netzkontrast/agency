@@ -120,8 +120,17 @@ class SkillRun:
             })
             self.memory.link(self.skill_id, blocked_id, "BLOCKED_ON")
             self.memory.link(blocked_id, self.intent_id, "SERVES")
+            # Spec 282 Workstream H — the pause must tell the caller HOW to
+            # resume: the exact `resume_from` value (the PHASE NAME, not the
+            # gate node id) + the outputs to supply. The bare `blocked_on:
+            # gate-id` left callers guessing (the ingest hit this).
             return {"status": "input-required", "phase": p["name"], "gate": "hard",
-                    "blocked_on": blocked_id}
+                    "blocked_on": blocked_id,
+                    "resume_from": p["name"],
+                    "resume_with": list(p["produces"]),
+                    "hint": (f"resume with resume_from={p['name']!r} and supply "
+                             f"{list(p['produces'])} (resume_from is the PHASE "
+                             f"NAME, not the gate id {blocked_id!r})")}
         if p.get("gate") == "hard" and confirmed:
             passed_id = self.memory.record("Gate", {
                 "name": p["name"], "passed": True, "paused": False,

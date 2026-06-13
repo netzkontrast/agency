@@ -965,6 +965,19 @@ class Engine:
                 "schema_version": 1,
                 "capability_set_hash": capability_set_hash(caps),
                 "ontology_hash": ontology_hash(engine.ontology.nodes),
+                # Spec 282 Workstream G — sandbox constraints surfaced up front
+                # so an agent batches correctly instead of discovering the
+                # limits by failing mid-ingest (the KP run hit both).
+                "sandbox_constraints": {
+                    "max_call_tool_per_execute_block": 50,
+                    "no_file_io": ("the code-mode sandbox (Monty) has NO file "
+                                   "I/O — no open(); use capability verbs for "
+                                   "persistence, not the filesystem"),
+                    "supported": "try/except, import json, loops, comprehensions",
+                    "guidance": ("batch at <=45 call_tool per execute block; for "
+                                 "larger work split across blocks or use the CLI "
+                                 "lane (python -m agency.cli execute)"),
+                },
                 # CORE.md — the lean wire contract. EVERY interaction is one
                 # of these three; per-verb tools are reached via `execute` as
                 # chained call_tool() within a Python block.

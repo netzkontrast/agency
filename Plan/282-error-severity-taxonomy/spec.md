@@ -194,3 +194,45 @@ read-only evidence DB.
 - **Migration note:** additive only. An opt-in backfill that classifies each
   old Invocation's stored `error` string into `error_severity` is documented
   here but deliberately NOT run against the read-only evidence DB.
+
+## Workstream close-out (A–H, 2026-06-13)
+
+The originating prompt scoped **A–H**, not A–F. Honest final status:
+
+- **A** error taxonomy — ✅ shipped (this spec).
+- **B** enum discoverability + non-lossy SCENE_POV — ✅ shipped (Spec 284):
+  the `param_enums` surfacing mechanism + the audit APPLIED to every named
+  closed enum — `create_scene.pov` (projected), `capture_claim.domain`
+  (RESEARCH_DOMAINS, the 60× bucket), `create_codex_entry.kind`
+  (CODEX_ENTRY_KIND, the 49× bucket), `set_novel_status`/`set_chapter_status`
+  status, `create_world_axiom.severity`, `reflect.note.scope`. Test:
+  `test_projected_enum.test_evidence_enums_surface_in_get_schema`.
+- **C** durable writes — ✅ shipped (this spec, Workstream C).
+- **D** (1) Storyform verb — ✅ shipped (Spec 103 Slice 2). (2) Character
+  ontology — **DEFERRED to Spec 138** (plural-character-system, drafted): a
+  full ontology slice, out of scope for the hardening pass; characters stay
+  CodexEntry stand-ins until then (documented carve-out).
+- **E** provenance hygiene — **DECIDED + coordinated.** Decision: permanent-
+  failure retries should be **deduped, not suppressed** — record the FIRST
+  permanent failure (audit needs one record) and increment a `retry_count` on
+  it for identical repeats `(capability, verb, error)` SERVING the same intent,
+  rather than minting N duplicate Invocations (the 513-for-1 noise). It is NOT
+  implemented inline here: the dedup decision belongs in the parallel OOP
+  refactor's `InvocationRecorder` component (PR #141 coordination) — that
+  component's literal responsibility is "what to record", and changing
+  `Registry.invoke`'s recording now would collide with its active
+  decomposition + risk invocation-count regressions. Lands on that seam.
+- **F** graph/disk Artefact bridge — ✅ Slice 1 shipped (Spec 283); auto-hook
+  Slice 2 coordinated onto the same refactor seam.
+- **G** ergonomics — ✅ shipped: `agency_welcome.sandbox_constraints`
+  (≤50 call_tool/block, no file I/O, partial-write persistence) + the install
+  CLAUDE.md snippet's code-mode section. Tests in `test_install_verb.py`.
+- **H** walker/gate UX — ✅ shipped: the hard-gate pause (`skill.py`) +
+  `develop._skill_walk` now return `resume_from` (the PHASE NAME),
+  `resume_with` (the outputs), and a `hint` naming the exact resume call —
+  no more bare `blocked_on: gate-id`. Test:
+  `test_skill_walk_part_b.test_hard_gate_pause_carries_resume_from_and_hint`.
+
+**Acceptance re-run (ingest_canon.py → <2% failed) is a kohaerenz-side
+validation** against a fresh graph — not run here (the evidence DB is
+read-only); the engine-side fixes that enable it are all shipped above.

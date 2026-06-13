@@ -161,3 +161,29 @@ def test_requires_input_satisfied_by_inputs_skips_elicit() -> None:
             if n.get("capability") == "probewalk" and n.get("verb") == "choices"]
     assert not invs
     e.memory.close()
+
+
+# ─────────────────── Workstream H — gate pause names the resume path ───────────────────
+
+
+def test_hard_gate_pause_carries_resume_from_and_hint() -> None:
+    """Workstream H — a hard-gate pause must tell the caller the exact
+    `resume_from` value (the PHASE NAME) + the outputs to supply, not just a
+    bare gate-id blocked_on (the ingest hit this)."""
+    import tempfile
+    e = Engine(tempfile.mktemp(suffix=".db"))
+    iid = e.intent.capture("h", "gate ux", "ok")
+    e.intent.confirm(iid)
+    raw, _ = e.registry.invoke(e.memory, iid, "develop", "skill_walk",
+                               name="tdd", inputs={
+                                   "failing_test": "test_x asserts behaviour",
+                                   "implementation": "def x(): ...",
+                                   "refactored": "tidy",
+                                   "tests_pass": "12 passed"})
+    out = raw["result"] if isinstance(raw, dict) and "result" in raw else raw
+    assert out["status"] == "input-required"
+    assert out["phase"] == "verify"
+    assert out["resume_from"] == out["phase"]          # the phase name, not a gate id
+    assert "resume_from" in out["hint"]
+    assert out["resume_with"]                           # the outputs to supply
+    e.memory.close()
