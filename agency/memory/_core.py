@@ -15,8 +15,8 @@ from typing import Any, Optional
 
 from graphqlite import Graph, connect
 
-from . import ontology
-from ._entity_store import EntityStore
+from .. import ontology
+from .._entity_store import EntityStore
 
 OPEN = 10 ** 12  # sentinel valid_to for the currently-valid version
 
@@ -106,7 +106,7 @@ class Memory:
         # N`, which silently dropped 85 of 97 PRECEDES edges in the evidence run.
         # Retry the TRANSIENT contention (Spec 282 classifies it) with a fresh
         # tick each attempt; a non-transient error still fails fast (no storm).
-        from .toolresult import Severity, classify_severity
+        from ..toolresult import Severity, classify_severity
         attempts = 4
         for i in range(attempts):
             try:

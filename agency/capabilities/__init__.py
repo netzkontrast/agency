@@ -19,16 +19,32 @@ from ..capability import Capability, CapabilityBase
 
 def discover() -> list[Capability]:
     """Every `Capability` (instance) or `CapabilityBase` subclass defined at the
-    top level of any non-private module in this package, in stable order."""
+    top level of any non-private module in this package OR in a Spec-291 pillar
+    package (agency/<pillar>/), in stable order."""
     found: list[Capability] = []
-    for info in sorted(pkgutil.iter_modules(__path__), key=lambda i: i.name):
-        if info.name.startswith("_"):
+    # Legacy `capabilities/` + the pillar packages. A pillar package only exists
+    # once its caps are reorg'd into it (Spec 291); until then `agency.<pillar>`
+    # is the plain substrate module (no `__path__`) and is skipped. This keeps
+    # discovery correct at every incremental step of the reorg.
+    packages = [(list(__path__), __name__)]
+    for pillar in ("intent", "capability", "lifecycle", "memory"):
+        try:
+            mod = importlib.import_module(f"agency.{pillar}")
+        except Exception:
             continue
-        module = importlib.import_module(f"{__name__}.{info.name}")
-        for value in vars(module).values():
-            if isinstance(value, Capability) and value not in found:
-                found.append(value)
-            elif (inspect.isclass(value) and issubclass(value, CapabilityBase)
-                  and value is not CapabilityBase):
-                found.append(value.as_capability())
+        if hasattr(mod, "__path__"):          # a package (reorg'd), not the substrate module
+            packages.append((list(mod.__path__), mod.__name__))
+    for path, pkg_name in packages:
+        for info in sorted(pkgutil.iter_modules(path), key=lambda i: i.name):
+            if info.name.startswith("_"):
+                continue
+            module = importlib.import_module(f"{pkg_name}.{info.name}")
+            for value in vars(module).values():
+                if isinstance(value, Capability) and value not in found:
+                    found.append(value)
+                elif (inspect.isclass(value) and issubclass(value, CapabilityBase)
+                      and value is not CapabilityBase):
+                    cap = value.as_capability()
+                    if cap not in found:
+                        found.append(cap)
     return found
