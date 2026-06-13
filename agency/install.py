@@ -1266,6 +1266,27 @@ Raw `Bash`/`Edit` actions don't. Prefer:
 
 When in doubt, call `agency_welcome` first — sub-1KB, pure introspection,
 state-aware (fresh-graph → bootstrap; populated → discovery + provenance).
+
+### Rule 0 — never assume; ask
+
+Whenever a decision would otherwise rest on an **assumption** — a domain
+fact, an enum value, which source wins on conflict, scope, a name, or any
+ambiguous requirement — **STOP and ask the user** with the `AskUserQuestion`
+tool instead of guessing. A wrong assumption baked into work is expensive to
+unwind; a question is cheap. This is a hard rule, not a soft preference.
+
+The engine reinforces it so the discipline survives a forgetful session:
+
+- **Hard skill-gates pause for explicit sign-off.** A `develop.skill_walk`
+  phase marked `gate: hard` returns `input-required` and blocks until you
+  confirm — resume with `resume_from=<PHASE>`. Do not self-approve; surface
+  the gate to the user.
+- **Verbs fail LOUD, never invent.** A verb that cannot resolve a required
+  value returns a PERMANENT typed error (Spec 282) listing the legal options
+  rather than picking one. Read the error; ask if the choice is the user's.
+- **Discover, don't guess, the surface.** `search` / `get_schema` return the
+  real verbs + their enum members (Spec 284 surfaces closed-enum values up
+  front) — consult them before assuming a parameter or value exists.
 {_CLAUDE_MD_MARKER_END}
 """
 

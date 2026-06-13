@@ -48,7 +48,12 @@ def test_agency_install_creates_dot_agency_dir(tmp_path):
     assert (tmp_path / ".gitattributes").exists()
     assert out["claude_md_path"] == str(tmp_path / "CLAUDE.md")
     assert (tmp_path / "CLAUDE.md").exists()
-    assert "agency_welcome" in (tmp_path / "CLAUDE.md").read_text()
+    body = (tmp_path / "CLAUDE.md").read_text()
+    assert "agency_welcome" in body
+    # The no-assumptions doctrine is written into the onboarding snippet so
+    # every repo set up with the plugin carries Rule 0 (ask, don't assume).
+    assert "Rule 0 — never assume; ask" in body
+    assert "AskUserQuestion" in body
 
 
 def test_agency_install_idempotent(tmp_path):
