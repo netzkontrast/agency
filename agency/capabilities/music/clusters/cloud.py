@@ -11,7 +11,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 """
 from __future__ import annotations
 
-from agency.capability import verb
+from agency.capability import requires_driver, verb
 from agency.toolresult import ToolResult
 
 from ._base import _MusicBase
@@ -20,7 +20,9 @@ from ._base import _MusicBase
 class CloudCluster(_MusicBase):
     # ───────── cloud cluster (effect via CloudDriver) ─────────
     @verb(role="effect")
-    def publish_asset(self, album: str, key: str, body: str = "") -> ToolResult:
+    @requires_driver("music_cloud", as_="cloud")
+    def publish_asset(self, album: str, key: str, body: str = "",
+                      *, cloud) -> ToolResult:
         """Publish an album asset to object storage via the CloudDriver (effect).
 
         Returns ``DEPENDENCY_MISSING`` (typed) when the cloud backend is
@@ -29,8 +31,6 @@ class CloudCluster(_MusicBase):
         Returns: ``{key, bytes}`` on success.
         chain_next: ``music.verify_streaming`` once distributor links propagate.
         """
-        cloud, _fail = self._require_drv("music_cloud")
-        if _fail: return _fail
         res = cloud.r2_put(key, body.encode())
         if not res.get("ok"):
             return ToolResult.failure(res.get("error", "INTERNAL"),

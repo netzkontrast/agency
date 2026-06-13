@@ -12,7 +12,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 """
 from __future__ import annotations
 
-from agency.capability import DriverMissing, verb
+from agency.capability import DriverMissing, requires_driver, verb
 from agency.toolresult import ToolResult
 
 from ..ontology import IDEA_STATUS, TRACK_STATUS
@@ -171,15 +171,14 @@ class LifecycleCluster(_MusicBase):
                                         "title": title})
 
     @verb(role="transform")
-    def find_album(self, query: str = "") -> ToolResult:
+    @requires_driver("music_state", as_="state")
+    def find_album(self, query: str = "", *, state) -> ToolResult:
         """Find albums by slug / fuzzy match via the StateDriver (transform).
 
         Inputs: query (slug-exact wins; substring then; ``""`` returns all).
         Returns: ``{albums: […], count, query}``.
         chain_next: ``music.album_progress`` on a found slug.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
         albums = state.find_album(query=query)
         return ToolResult.success(data={"albums": albums,
                                         "count": len(albums),
@@ -205,15 +204,14 @@ class LifecycleCluster(_MusicBase):
         return ToolResult.success(data=result)
 
     @verb(role="transform")
-    def album_progress(self, album: str) -> ToolResult:
+    @requires_driver("music_state", as_="state")
+    def album_progress(self, album: str, *, state) -> ToolResult:
         """Album progress aggregate via the StateDriver (transform).
 
         Inputs: album (slug).
         Returns: ``{album_slug, track_count, tracks_completed, completion_percentage, tracks_by_status}``.
         chain_next: ``music.release_check`` once completion_percentage = 100.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
         return ToolResult.success(data=state.album_progress(album=album))
 
     # ───────── 094 Slice 2: track lifecycle ─────────
@@ -265,15 +263,14 @@ class LifecycleCluster(_MusicBase):
                                         "title": title})
 
     @verb(role="transform")
-    def list_tracks(self, album: str) -> ToolResult:
+    @requires_driver("music_state", as_="state")
+    def list_tracks(self, album: str, *, state) -> ToolResult:
         """List tracks for an album via the StateDriver (transform).
 
         Inputs: album (slug).
         Returns: ``{album, tracks: [{slug, title, status, …}], count}``.
         chain_next: ``music.album_progress`` for the aggregate view.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
         tracks = state.list_tracks(album=album)
         return ToolResult.success(data={"album": album, "tracks": tracks,
                                         "count": len(tracks)})
@@ -321,13 +318,12 @@ class LifecycleCluster(_MusicBase):
 
     # ───────── 094 Slice 2: session ─────────
     @verb(role="transform")
-    def resume_session(self) -> ToolResult:
+    @requires_driver("music_state", as_="state")
+    def resume_session(self, *, state) -> ToolResult:
         """Restore the last-album context via the StateDriver (transform).
 
         Inputs: none.
         Returns: ``{session: {last_album?, last_track?, last_phase?, pending_actions?}}``.
         chain_next: ``music.album_progress`` on ``session.last_album`` if set.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
         return ToolResult.success(data={"session": state.get_session()})

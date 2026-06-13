@@ -10,7 +10,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 """
 from __future__ import annotations
 
-from agency.capability import verb
+from agency.capability import requires_driver, verb
 from agency.toolresult import ToolResult
 
 from ._base import _MusicBase
@@ -89,8 +89,9 @@ class PromoCluster(_MusicBase):
             "max_length": max_length, "platform": platform})
 
     @verb(role="effect")
+    @requires_driver("music_cloud", as_="cloud")
     def publish_sheet_music(self, album: str, key: str,
-                              body: bytes = b"") -> ToolResult:
+                              body: bytes = b"", *, cloud) -> ToolResult:
         """Publish a sheet-music PDF to object storage (effect).
 
         Sheet-music-specific wrapper around ``publish_asset`` that records a
@@ -100,8 +101,6 @@ class PromoCluster(_MusicBase):
         Returns: ``{result, artefact}`` published-asset artefact.
         chain_next: ``music.r2_signed_url`` to share.
         """
-        cloud, _fail = self._require_drv("music_cloud")
-        if _fail: return _fail
         res = cloud.r2_put(key, body or b"\x00")
         if not res.get("ok"):
             return ToolResult.failure(res.get("error", "INTERNAL"),
@@ -114,8 +113,9 @@ class PromoCluster(_MusicBase):
                                             "asset_kind": "sheet-music"}})
 
     @verb(role="effect")
+    @requires_driver("music_cloud", as_="cloud")
     def upload_promo_video(self, album: str, key: str,
-                            body: bytes = b"") -> ToolResult:
+                            body: bytes = b"", *, cloud) -> ToolResult:
         """Upload a promo video to object storage (effect).
 
         Promo-video-specific wrapper that records a ``published-asset``
@@ -125,8 +125,6 @@ class PromoCluster(_MusicBase):
         Returns: ``{result, artefact}`` published-asset artefact.
         chain_next: ``music.r2_signed_url`` to share.
         """
-        cloud, _fail = self._require_drv("music_cloud")
-        if _fail: return _fail
         res = cloud.r2_put(key, body or b"\x00")
         if not res.get("ok"):
             return ToolResult.failure(res.get("error", "INTERNAL"),
@@ -139,15 +137,14 @@ class PromoCluster(_MusicBase):
                                             "asset_kind": "promo-video"}})
 
     @verb(role="effect")
-    def r2_delete(self, key: str) -> ToolResult:
+    @requires_driver("music_cloud", as_="cloud")
+    def r2_delete(self, key: str, *, cloud) -> ToolResult:
         """Retract a published asset from object storage (effect).
 
         Inputs: key.
         Returns: ``{key, deleted}``.
         chain_next: ``music.r2_list`` to verify.
         """
-        cloud, _fail = self._require_drv("music_cloud")
-        if _fail: return _fail
         res = cloud.r2_delete(key)
         if not res.get("ok"):
             return ToolResult.failure(res.get("error", "INTERNAL"),
@@ -156,15 +153,14 @@ class PromoCluster(_MusicBase):
                                         "deleted": res.get("deleted", False)})
 
     @verb(role="transform")
-    def r2_list(self, prefix: str = "") -> ToolResult:
+    @requires_driver("music_cloud", as_="cloud")
+    def r2_list(self, prefix: str = "", *, cloud) -> ToolResult:
         """List published assets by key prefix (transform).
 
         Inputs: prefix.
         Returns: ``{prefix, objects: [{key, bytes}], count}``.
         chain_next: ``music.r2_delete`` for cleanup.
         """
-        cloud, _fail = self._require_drv("music_cloud")
-        if _fail: return _fail
         objects = cloud.r2_list(prefix=prefix)
         return ToolResult.success(data={"prefix": prefix,
                                         "objects": objects,

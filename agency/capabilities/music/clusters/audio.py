@@ -10,7 +10,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 """
 from __future__ import annotations
 
-from agency.capability import verb
+from agency.capability import requires_driver, verb
 from agency.toolresult import ToolResult
 
 from ._base import STREAMING_TARGET_LUFS, _MusicBase
@@ -19,7 +19,8 @@ from ._base import STREAMING_TARGET_LUFS, _MusicBase
 class AudioCluster(_MusicBase):
     # ───────── audio/mastering cluster (effect via AudioDriver) ─────────
     @verb(role="effect")
-    def master_album(self, album: str, path: str, target_lufs: float = STREAMING_TARGET_LUFS) -> ToolResult:
+    @requires_driver("music_audio", as_="audio")
+    def master_album(self, album: str, path: str, target_lufs: float = STREAMING_TARGET_LUFS, *, audio) -> ToolResult:
         """Master an audio file to a target loudness via the AudioDriver (effect).
 
         Reads measured loudness, applies the gain via ffmpeg (both through the
@@ -28,8 +29,6 @@ class AudioCluster(_MusicBase):
         Returns: ``{result, artefact}`` where artefact.kind = ``mastering-report`` with measured_lufs, target_lufs, gain_db.
         chain_next: ``music.publish_asset``.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         measured = audio.read_loudness(path)
         gain = target_lufs - measured
         audio.run_ffmpeg(["-i", path, "-af", f"volume={gain}dB"])
@@ -41,7 +40,8 @@ class AudioCluster(_MusicBase):
 
     # ───────── sheet-music cluster (act via AudioDriver) ─────────
     @verb(role="act")
-    def transcribe_sheet(self, album: str, path: str) -> ToolResult:
+    @requires_driver("music_audio", as_="audio")
+    def transcribe_sheet(self, album: str, path: str, *, audio) -> ToolResult:
         """Transcribe audio → sheet music via AudioDriver (act); produces sheet-music artefact.
 
         The transcription tool (AnthemScore-class) runs behind the driver, never inline.
@@ -49,8 +49,6 @@ class AudioCluster(_MusicBase):
         Returns: ``{result, artefact}`` where artefact.kind = ``sheet-music`` with source path.
         chain_next: ``music.publish_asset``.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         audio.run_ffmpeg(["-i", path, "-f", "musicxml", f"{album}.musicxml"])
         body = f"# Sheet music: {album}\nsource: {path}\nformat: musicxml\n"
         return ToolResult.success(data={"result": body, "artefact": {
@@ -58,15 +56,14 @@ class AudioCluster(_MusicBase):
 
     # ───────── mixing cluster (transform via AudioDriver) ─────────
     @verb(role="transform")
-    def analyze_mix(self, album: str, path: str) -> ToolResult:
+    @requires_driver("music_audio", as_="audio")
+    def analyze_mix(self, album: str, path: str, *, audio) -> ToolResult:
         """Analyse a mix for loudness issues via the AudioDriver (transform).
 
         Inputs: album, path.
         Returns: ``{album, measured_lufs, findings}`` — decidable findings (too hot > -9, too quiet < -16).
         chain_next: ``music.master_album``.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         loud = audio.read_loudness(path)
         findings = []
         if loud > -9:
@@ -82,17 +79,16 @@ class AudioCluster(_MusicBase):
     # ════════════════════════════════════════════════════════════════════════
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="audio")
     def master_audio(self, album: str, path: str,
                      target_lufs: float = STREAMING_TARGET_LUFS,
-                     preset: str = "") -> ToolResult:
+                     preset: str = "", *, audio) -> ToolResult:
         """Single-track master via AudioDriver (effect); produces mastering-report.
 
         Inputs: album, path, target_lufs, preset.
         Returns: ``{result, artefact}`` with input/output paths + gain.
         chain_next: ``music.qc_audio`` to verify.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         rep = audio.master(path=path, target_lufs=target_lufs, preset=preset)
         body = (f"# Mastered: {album}\ninput: {path}\noutput: {rep['output']}\n"
                 f"target: {target_lufs} LUFS\nmeasured: {rep['measured_lufs']} LUFS\n"
@@ -102,16 +98,15 @@ class AudioCluster(_MusicBase):
             **rep}})
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="audio")
     def master_with_reference(self, album: str, path: str,
-                               reference: str) -> ToolResult:
+                               reference: str, *, audio) -> ToolResult:
         """Master `path` to match `reference` album loudness (effect).
 
         Inputs: album, path, reference (the reference WAV path).
         Returns: ``{result, artefact}`` mastering-report.
         chain_next: ``music.album_coherence_check`` to verify match.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         rep = audio.master_to_reference(path=path, reference=reference)
         body = (f"# Mastered to reference: {album}\ninput: {path}\n"
                 f"reference: {reference}\noutput: {rep['output']}\n"
@@ -121,44 +116,41 @@ class AudioCluster(_MusicBase):
             **rep}})
 
     @verb(role="effect")
-    def polish_audio(self, album: str, path: str) -> ToolResult:
+    @requires_driver("music_audio", as_="audio")
+    def polish_audio(self, album: str, path: str, *, audio) -> ToolResult:
         """Per-track polish pass via AudioDriver (effect).
 
         Inputs: album, path.
         Returns: ``{album, input, output}``.
         chain_next: ``music.master_audio`` once polished.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         out = audio.polish_full(path=path)
         return ToolResult.success(data={"album": album, "input": path,
                                         "output": out})
 
     @verb(role="effect")
-    def polish_album(self, album: str, paths: list[str]) -> ToolResult:
+    @requires_driver("music_audio", as_="audio")
+    def polish_album(self, album: str, paths: list[str], *, audio) -> ToolResult:
         """Album-wide polish pass — applies polish to every track (effect).
 
         Inputs: album, paths (list of track WAV paths).
         Returns: ``{album, polished: [...], count}``.
         chain_next: ``music.polish_and_master_album`` or per-track master.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         polished = [audio.polish_full(p) for p in paths]
         return ToolResult.success(data={"album": album, "polished": polished,
                                         "count": len(polished)})
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="audio")
     def polish_and_master_album(self, album: str, paths: list[str],
-                                  target_lufs: float = STREAMING_TARGET_LUFS) -> ToolResult:
+                                  target_lufs: float = STREAMING_TARGET_LUFS, *, audio) -> ToolResult:
         """Combined polish + master pipeline (effect); produces mastering-report.
 
         Inputs: album, paths, target_lufs.
         Returns: ``{result, artefact}`` with per-track gain summary.
         chain_next: ``music.qc_audio`` per output.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         outputs = []
         for p in paths:
             polished = audio.polish_full(p)
@@ -174,22 +166,22 @@ class AudioCluster(_MusicBase):
             "outputs": outputs}})
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="audio")
     def fix_dynamic_track(self, album: str, path: str,
-                          target_dr: float = 8.0) -> ToolResult:
+                          target_dr: float = 8.0, *, audio) -> ToolResult:
         """Dynamic range fixer — applies compression/expansion (effect).
 
         Inputs: album, path, target_dr (default 8.0).
         Returns: ``{album, path, measured_dr, target_dr, applied, output}``.
         chain_next: ``music.qc_audio`` to verify.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.dynamic_fix(path,
                                                             target_dr=target_dr)})
 
     @verb(role="effect")
-    def reset_mastering(self, album: str) -> ToolResult:
+    @requires_driver("music_state", as_="state")
+    def reset_mastering(self, album: str, *, state) -> ToolResult:
         """Revert all master/polish state for an album (effect).
 
         Delegates to ``music.set_track_status`` per track so each flip records
@@ -201,8 +193,6 @@ class AudioCluster(_MusicBase):
         Returns: ``{album, reset, tracks_reset}``.
         chain_next: re-run ``music.polish_and_master_album``.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
         reset = 0
         for t in state.list_tracks(album):
             if t.get("status") == "mastered":
@@ -215,114 +205,106 @@ class AudioCluster(_MusicBase):
                                         "tracks_reset": reset})
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="audio")
     def render_codec_preview(self, album: str, path: str,
-                              codec: str = "aac") -> ToolResult:
+                              codec: str = "aac", *, audio) -> ToolResult:
         """Render a streaming-codec preview via AudioDriver (effect).
 
         Inputs: album, path, codec (one of aac/opus/mp3).
         Returns: ``{album, path, codec, output, bitrate_kbps}``.
         chain_next: ``music.publish_asset`` the preview.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.codec_preview(path, codec=codec)})
 
     @verb(role="transform")
+    @requires_driver("music_audio", as_="audio")
     def measure_album_signature(self, album: str,
-                                  paths: list[str]) -> ToolResult:
+                                  paths: list[str], *, audio) -> ToolResult:
         """Spectral signatures for an album's tracks via AudioDriver (transform).
 
         Inputs: album, paths.
         Returns: ``{album, signatures: [{path, centroid_hz, …}], count}``.
         chain_next: ``music.album_coherence_check``.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         sigs = [audio.measure_signature(p) for p in paths]
         return ToolResult.success(data={"album": album, "signatures": sigs,
                                         "count": len(sigs)})
 
     @verb(role="transform")
+    @requires_driver("music_audio", as_="audio")
     def album_coherence_check(self, album: str,
-                               paths: list[str]) -> ToolResult:
+                               paths: list[str], *, audio) -> ToolResult:
         """Cross-track tonal coherence report via AudioDriver (transform).
 
         Inputs: album, paths.
         Returns: ``{album, coherent, avg_distance, outliers, track_count}``.
         chain_next: ``music.album_coherence_correct`` if outliers found.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.coherence_report(paths)})
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="audio")
     def album_coherence_correct(self, album: str, paths: list[str],
-                                  target: dict | None = None) -> ToolResult:
+                                  target: dict | None = None, *, audio) -> ToolResult:
         """Apply coherence corrections to bring outliers in line (effect).
 
         Inputs: album, paths, target (e.g. ``{centroid_hz: 2500}``).
         Returns: ``{album, applied_to, target, ok}``.
         chain_next: ``music.album_coherence_check`` to verify.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.apply_coherence(
                                             paths, target=target or {})})
 
     @verb(role="transform")
-    def analyze_audio(self, album: str, path: str) -> ToolResult:
+    @requires_driver("music_audio", as_="audio")
+    def analyze_audio(self, album: str, path: str, *, audio) -> ToolResult:
         """General spectral + loudness probe via AudioDriver (transform).
 
         Inputs: album, path.
         Returns: ``{album, loudness_lufs, signature: {…}}``.
         chain_next: ``music.qc_audio`` for the full QC pass.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         "loudness_lufs": audio.read_loudness(path),
                                         "signature": audio.measure_signature(path)})
 
     @verb(role="transform")
-    def qc_audio(self, album: str, path: str) -> ToolResult:
+    @requires_driver("music_audio", as_="audio")
+    def qc_audio(self, album: str, path: str, *, audio) -> ToolResult:
         """7-point QC checklist via AudioDriver (transform).
 
         Inputs: album, path.
         Returns: ``{album, path, rows: {…}, summary}``.
         chain_next: ``music.qc_gate`` for the gating composite.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.qc_checklist(path)})
 
     @verb(role="transform")
-    def mono_fold_check(self, album: str, path: str) -> ToolResult:
+    @requires_driver("music_audio", as_="audio")
+    def mono_fold_check(self, album: str, path: str, *, audio) -> ToolResult:
         """Phase-cancellation check via AudioDriver (transform).
 
         Inputs: album, path.
         Returns: ``{album, path, cancellation_db, phase_safe}``.
         chain_next: rebalance the mix on phase_safe=False.
         """
-        audio, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         return ToolResult.success(data={"album": album,
                                         **audio.mono_fold(path)})
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="drv")
     def generate_promo_videos(self, album: str, audio: str, art: str,
-                               template: str = "") -> ToolResult:
+                               template: str = "", *, drv) -> ToolResult:
         """Render a vertical promo video via AudioDriver (effect).
 
         Inputs: album, audio (track path), art (cover-art path), template.
         Returns: ``{result, artefact}`` promo-video artefact.
         chain_next: ``music.publish_asset`` the video.
         """
-        drv, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         out = drv.render_promo_video(audio=audio, art=art, template=template)
         body = f"# Promo video: {album}\noutput: {out}\ntemplate: {template or 'default'}\n"
         return ToolResult.success(data={"result": body, "artefact": {
@@ -330,16 +312,15 @@ class AudioCluster(_MusicBase):
             "output_path": out, "body": body}})
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="drv")
     def create_songbook(self, album: str,
-                         tracks: list[str]) -> ToolResult:
+                         tracks: list[str], *, drv) -> ToolResult:
         """LilyPond → PDF songbook render via AudioDriver (effect).
 
         Inputs: album, tracks (list of track titles or musicxml paths).
         Returns: ``{result, artefact}`` sheet-music artefact (PDF stub).
         chain_next: ``music.publish_asset`` the songbook.
         """
-        drv, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         out = drv.render_songbook(tracks=tracks)
         body = f"# Songbook: {album}\noutput: {out}\ntrack count: {len(tracks)}\n"
         return ToolResult.success(data={"result": body, "artefact": {
@@ -349,9 +330,10 @@ class AudioCluster(_MusicBase):
     # ── 2 composite gate verbs — called by the mastering skill ──
 
     @verb(role="effect")
+    @requires_driver("music_audio", as_="drv")
     def measure_gate(self, lifecycle_id: str, path: str,
                       min_lufs: float = -20.0,
-                      max_lufs: float = -8.0) -> ToolResult:
+                      max_lufs: float = -8.0, *, drv) -> ToolResult:
         """Computed measure gate — composes loudness probe + range check (effect).
 
         Passes iff measured loudness ∈ [min_lufs, max_lufs] (i.e. within the
@@ -361,8 +343,6 @@ class AudioCluster(_MusicBase):
         Returns: ``{gate, passed, measured_lufs}`` or typed GATE_FAILED.
         chain_next: on failure, ``music.master_audio`` to adjust.
         """
-        drv, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         measured = drv.read_loudness(path)
         passed = min_lufs <= measured <= max_lufs
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
@@ -376,7 +356,8 @@ class AudioCluster(_MusicBase):
                                         "measured_lufs": measured})
 
     @verb(role="effect")
-    def qc_gate(self, lifecycle_id: str, path: str) -> ToolResult:
+    @requires_driver("music_audio", as_="drv")
+    def qc_gate(self, lifecycle_id: str, path: str, *, drv) -> ToolResult:
         """Computed QC gate — composes 7-point QC checklist (effect).
 
         Passes iff zero ``fail`` rows in the 7-point checklist.
@@ -386,8 +367,6 @@ class AudioCluster(_MusicBase):
         Returns: ``{gate, passed, summary, rows}`` or typed GATE_FAILED.
         chain_next: on failure, fix the failing rows + re-check.
         """
-        drv, _fail = self._require_drv("music_audio")
-        if _fail: return _fail
         report = drv.qc_checklist(path)
         failed_rows = [r for r, s in report["rows"].items() if s == "fail"]
         warned = [r for r, s in report["rows"].items() if s == "warn"]

@@ -11,7 +11,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 """
 from __future__ import annotations
 
-from agency.capability import verb
+from agency.capability import requires_driver, verb
 from agency.toolresult import ToolResult
 
 from ..ontology import ALBUM_STATUS
@@ -79,8 +79,9 @@ class StateCluster(_MusicBase):
                                         "body": candidate.read_text(encoding="utf-8")})
 
     @verb(role="transform")
+    @requires_driver("music_state", as_="state")
     def get_reference(self, slug: str,
-                       kind: str = "reference") -> ToolResult:
+                       kind: str = "reference", *, state) -> ToolResult:
         """Read a bundled reference / data file by slug (transform).
 
         Resolves from ``agency/capabilities/music/data/<kind>/<slug>``.
@@ -94,9 +95,6 @@ class StateCluster(_MusicBase):
         # `_require_drv` is on CapabilityBase — the prior `hasattr` guard was
         # unreachable. Always route via StateDriver.read_data (both
         # FakeStateDriver and FileStateDriver implement it).
-        state, _fail = self._require_drv("music_state")
-        if _fail:
-            return _fail
         return ToolResult.success(data=state.read_data(kind=kind, slug=slug))
 
     @verb(role="transform")

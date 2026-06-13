@@ -380,6 +380,94 @@ def verb(role: str, inject: Optional[list] = None,
     return deco
 
 
+def requires_driver(name: str, as_: Optional[str] = None) -> Callable:
+    """Spec 286 P3 #4 — a ``CapabilityBase`` verb decorator that owns the
+    fetch-or-fail idiom so the verb body never repeats it.
+
+    Replaces the 2-line guard that was copy-pasted at ~70 single-driver verb
+    sites::
+
+        # before
+        @verb(role="effect")
+        def publish_asset(self, album, key, body=""):
+            cloud, _fail = self._require_drv("music_cloud")
+            if _fail: return _fail
+            ...use cloud...
+
+        # after
+        @verb(role="effect")
+        @requires_driver("music_cloud", as_="cloud")
+        def publish_asset(self, album, key, body="", *, cloud):
+            ...use cloud...   # cloud is guaranteed present
+
+    At call time the wrapper runs ``self._require_drv(name)`` (so the
+    capability's own override — e.g. ``_MusicBase``'s lazy production-driver
+    auto-wiring — still fires) and:
+
+    * on success injects the driver as a keyword argument under ``as_`` (or
+      ``name`` when ``as_`` is omitted) and calls the verb body;
+    * on a ``DriverMissing`` miss SHORT-CIRCUITS to the EXACT same typed
+      ``DEPENDENCY_MISSING`` ``ToolResult`` ``_require_drv`` returns today —
+      so the failure shape (code / message / severity) is byte-identical.
+
+    The injected parameter is HIDDEN from the verb's public signature (it is
+    not a user-facing input), so ``get_schema`` / the wire contract are
+    unchanged. The verb body declares the injected name as a (keyword-only)
+    parameter and assumes the driver is present.
+
+    Decorator order — apply ``@requires_driver`` BELOW ``@verb`` (i.e.
+    ``@verb`` outermost). Both orders are MADE TO WORK: ``requires_driver``
+    propagates any ``_verb`` metadata it finds on the wrapped function up to
+    the wrapper, and ``verb`` overwrites ``_verb`` on whatever it decorates —
+    so ``@verb`` / ``@requires_driver`` and ``@requires_driver`` / ``@verb``
+    both register the verb correctly. The recommended, documented order is
+    ``@verb`` then ``@requires_driver`` (verb on top), matching the migrated
+    call sites.
+
+    Stack the decorator twice for a 2-driver verb (each injects its own
+    kwarg); verbs needing a more bespoke multi-driver dance stay on the raw
+    ``_require_drv`` 2-tuple helper.
+    """
+    import functools
+
+    kw_name = as_ or name
+
+    def deco(fn: Callable) -> Callable:
+        # The verb's user-facing signature is the wrapped fn's params MINUS
+        # the injected driver param (and minus `self`, handled by _wrap_method).
+        # We compute it here so __signature__ on the wrapper hides `kw_name`.
+        try:
+            sig = inspect.signature(fn)
+            visible = [p for n, p in sig.parameters.items() if n != kw_name]
+            hidden_sig = inspect.Signature(visible)
+        except (ValueError, TypeError):
+            hidden_sig = None
+
+        @functools.wraps(fn)
+        def wrapper(self, *args, **kw):
+            driver, fail = self._require_drv(name)
+            if fail:
+                return fail
+            kw[kw_name] = driver
+            return fn(self, *args, **kw)
+
+        # Propagate verb metadata regardless of decorator order: if @verb ran
+        # first (below us), carry its `_verb` up; if @verb runs after (above
+        # us) it overwrites this wrapper's `_verb` — either order registers.
+        meta = getattr(fn, "_verb", None)
+        if meta is not None:
+            wrapper._verb = meta
+        if hidden_sig is not None:
+            wrapper.__signature__ = hidden_sig
+        # Stamp the injected name so a second stacked @requires_driver / future
+        # introspection can see what this layer injects.
+        wrapper.__requires_driver__ = getattr(fn, "__requires_driver__", ()) + (
+            (name, kw_name),)
+        return wrapper
+
+    return deco
+
+
 def _wrap_method(cls: type, public: str, mname: str, member: Callable,
                  meta: dict) -> Verb:
     # user params = the method's signature minus `self` (ctx is injected, not user-facing)

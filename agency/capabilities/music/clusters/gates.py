@@ -12,7 +12,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 """
 from __future__ import annotations
 
-from agency.capability import verb
+from agency.capability import requires_driver, verb
 from agency.toolresult import ToolResult
 
 from ._base import _MusicBase
@@ -46,7 +46,8 @@ class GatesCluster(_MusicBase):
         return ToolResult.success(data={"gate": "pre-generation", "passed": True})
 
     @verb(role="effect")
-    def release_check(self, lifecycle_id: str, album: str = "") -> ToolResult:
+    @requires_driver("music_db", as_="db")
+    def release_check(self, lifecycle_id: str, album: str = "", *, db) -> ToolResult:
         """Computed `release-qa` gate: every track mastered (read via the DBDriver).
         Records PASSED/BLOCKED_ON on the lifecycle via ``gate.check``; returns a typed
         ``GATE_FAILED`` + pauses the lifecycle when not ready.
@@ -56,8 +57,6 @@ class GatesCluster(_MusicBase):
         chain_next: on PASSED, ``music.publish_asset`` the release; on fail, master the
         blocking tracks then re-check.
         """
-        db, _fail = self._require_drv("music_db")
-        if _fail: return _fail
         cur = db.cursor()
         cur.execute("SELECT slug, status FROM tracks WHERE album = %s", (album,))
         rows = cur.fetchall()
@@ -78,15 +77,14 @@ class GatesCluster(_MusicBase):
     # ════════════════════════════════════════════════════════════════════════
 
     @verb(role="transform")
-    def validate_album(self, album: str) -> ToolResult:
+    @requires_driver("music_state", as_="state")
+    def validate_album(self, album: str, *, state) -> ToolResult:
         """Validate album file presence + mirror-path consistency via StateDriver (transform).
 
         Inputs: album (slug).
         Returns: ``{album, files_present, mirror_paths_ok, issues}``.
         chain_next: ``music.validate_sections`` for per-track structure.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
         found = state.find_album(query=album)
         issues = []
         if not found:
@@ -102,8 +100,9 @@ class GatesCluster(_MusicBase):
                                         "issues": issues})
 
     @verb(role="transform")
+    @requires_driver("music_text", as_="text")
     def validate_sections(self, album: str,
-                           lyrics: str = "") -> ToolResult:
+                           lyrics: str = "", *, text) -> ToolResult:
         """Validate lyric section structure across an album (transform).
 
         Delegates to the 095 TextDriver `validate_sections`. Aggregates
@@ -112,9 +111,12 @@ class GatesCluster(_MusicBase):
         Inputs: album, lyrics (optional — empty = read all album tracks).
         Returns: ``{album, ok, findings, track_count}``.
         chain_next: revise bad-tagged sections.
+
+        ``music_text`` is decorator-injected (always required). The
+        ``music_state`` driver is fetched inline only on the empty-lyrics
+        branch (a conditional second dependency), so it stays on the raw
+        ``_require_drv`` 2-tuple helper.
         """
-        text, _fail = self._require_drv("music_text")
-        if _fail: return _fail
         if lyrics:
             report = text.validate_sections(lyrics)
             return ToolResult.success(data={"album": album,
@@ -163,7 +165,8 @@ class GatesCluster(_MusicBase):
     # ── 5 composite gate verbs — called by pre-generation-full + release-qa-full skills ──
 
     @verb(role="effect")
-    def concept_gate(self, lifecycle_id: str, album: str) -> ToolResult:
+    @requires_driver("music_state", as_="state")
+    def concept_gate(self, lifecycle_id: str, album: str, *, state) -> ToolResult:
         """Pre-generation gate: concept exists for the album (effect).
 
         Passes iff the album's slug resolves AND a concept artefact has been
@@ -175,8 +178,6 @@ class GatesCluster(_MusicBase):
         Returns: ``{gate, passed, evidence}`` or typed GATE_FAILED.
         chain_next: ``music.conceptualize`` if no concept yet.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
         found = state.find_album(query=album)
         passed = bool(found)
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
@@ -250,8 +251,9 @@ class GatesCluster(_MusicBase):
                                         "sub_gates": results})
 
     @verb(role="effect")
+    @requires_driver("music_state", as_="state")
     def audio_release_gate(self, lifecycle_id: str,
-                            album: str) -> ToolResult:
+                            album: str, *, state) -> ToolResult:
         """Composite audio-release gate — every track QC-passed (effect).
 
         Passes iff every track in the album has status=mastered (per the
@@ -261,8 +263,6 @@ class GatesCluster(_MusicBase):
         Returns: ``{gate, passed, mastered_count, qc_failures}`` or GATE_FAILED.
         chain_next: master the unmastered + fix QC fails.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
         tracks = state.list_tracks(album)
         unmastered = [t["slug"] for t in tracks
                       if t.get("status") != "mastered"]
@@ -281,21 +281,23 @@ class GatesCluster(_MusicBase):
                                         "qc_failures": []})
 
     @verb(role="effect")
+    @requires_driver("music_state", as_="state")
+    @requires_driver("music_db", as_="db")
     def catalogue_gate(self, lifecycle_id: str,
-                        album: str) -> ToolResult:
+                        album: str, *, state, db) -> ToolResult:
         """Catalogue-synced gate — streaming URLs + tweets ready (effect).
 
         Passes iff at least 1 streaming URL is recorded AND at least 1
         scheduled tweet exists for the album.
 
+        Both drivers are decorator-injected (stacked ``@requires_driver``).
+        ``music_state`` is the OUTER decorator so its DEPENDENCY_MISSING is
+        returned first — preserving the prior state-then-db check order.
+
         Inputs: lifecycle_id, album.
         Returns: ``{gate, passed, streaming_urls, scheduled_tweets}``.
         chain_next: ``music.update_streaming_url`` and ``music.db_create_tweet``.
         """
-        state, _fail = self._require_drv("music_state")
-        if _fail: return _fail
-        db, _fail2 = self._require_drv("music_db")
-        if _fail2: return _fail2
         url_count = len(state.list_keys(prefix=f"streaming:{album}:"))
         scheduled = db.list_tweets(album=album, status="scheduled")
         passed = url_count > 0 and len(scheduled) > 0
@@ -314,8 +316,9 @@ class GatesCluster(_MusicBase):
                                         "scheduled_tweets": len(scheduled)})
 
     @verb(role="effect")
+    @requires_driver("music_cloud", as_="cloud")
     def promo_gate(self, lifecycle_id: str,
-                    album: str) -> ToolResult:
+                    album: str, *, cloud) -> ToolResult:
         """Promo-drafted gate — at least 1 promo asset exists (effect).
 
         Passes iff at least 1 published-asset is recorded for the album in
@@ -325,8 +328,6 @@ class GatesCluster(_MusicBase):
         Returns: ``{gate, passed, asset_count}`` or typed GATE_FAILED.
         chain_next: ``music.publish_asset`` or ``music.upload_promo_video``.
         """
-        cloud, _fail = self._require_drv("music_cloud")
-        if _fail: return _fail
         assets = cloud.r2_list(prefix=f"{album}/")
         passed = len(assets) > 0
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
