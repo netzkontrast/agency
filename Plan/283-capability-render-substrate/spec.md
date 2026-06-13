@@ -1,7 +1,7 @@
 ---
 spec: 283
 title: capability-render-substrate
-status: Drafting
+status: Implementing (Slice 1 shipped)
 depends_on: [020, 124, 149, 278]
 clusters: [core, render, observability]
 vision_goals: [2, 4, 7]
@@ -183,3 +183,33 @@ baseline gate) extends it. **Build 278 + 283 together or 278 first.**
   per-cap output convention). Scope decided with user (rendered view · shared
   substrate · auto-on-mutation). Awaiting user review of this spec before the
   implementation plan + TDD.
+
+## Followup — Implementation Status (2026-06-13)
+
+**Slice 1 SHIPPED (non-colliding, on-demand)** — closes Workstream F's core
+(graph→disk view + per-file Artefact provenance + drift closure) WITHOUT
+touching `Registry.invoke`, so it does not collide with the parallel OOP
+refactor (`claude/system-refactoring-plan-62wvba`, PR #141 coordination):
+
+- `agency/_frontmatter.py` — minimal Spec-278 frontmatter `emit`/`parse`/
+  `frontmatter_hash` (int + str + bool + json scalars; round-trips). 278's
+  schema-per-kind discipline extends this when it lands.
+- `agency/_render.py` — `RenderRule` / `RenderSpec` + `RenderDriver` protocol +
+  `FakeRenderDriver` (in-memory, test) + `FileRenderDriver` (idempotent disk) +
+  pure `render_node(rule, node)`.
+- Novel reference ruleset `NOVEL_RENDER_SPEC` (Novel → `work.md`, Chapter →
+  `chapters/NN-slug.md`; frontmatter carries node id + parent edge) +
+  `novel.render_all(novel_id)` — full-rebuild verb: writes via the wired
+  `render` driver (graph-only when none), mints ONE `Artefact{kind, path,
+  entity_id, frontmatter_hash}` + `PRODUCES` per entity. Replaces
+  `scripts/materialize_manuscript.py`.
+- 10 tests (`tests/test_render_substrate.py`): frontmatter round-trip,
+  rule/driver units, **drift-closure** (#Artefacts == #files, the inverse of
+  the 2-for-41 evidence), driver write-through, idempotent hashes.
+
+**Slice 2 DEFERRED (coordinated)** — the auto-render-on-every-mutation hook in
+`Registry.invoke` (§4) is the part that collides with the refactor's `invoke`
+decomposition AND carries OQ1 (render-cost coalescing per execute-block). It
+lands on the refactor's post-invocation `ResultProcessor` seam (my PR #141
+Q2 recommendation (a)); `_render_entity` is already factored to be the hook's
+body. OQ1 resolves there (lean: coalesce per block).

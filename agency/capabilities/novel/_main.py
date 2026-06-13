@@ -21,8 +21,11 @@ from functools import lru_cache
 from pathlib import Path
 
 from agency._enums import project_enum
+from agency._frontmatter import frontmatter_hash
+from agency._render import RenderRule, RenderSpec
 from agency.capability import CapabilityBase, RenderTemplates, verb
 from agency.ontology import OntologyExtension
+from ._slug import slugify
 from agency.toolresult import ToolResult
 
 
@@ -318,6 +321,46 @@ CODEX_ENTRY_KIND: frozenset[str] = frozenset({
 _CHARACTER_WORLD_EDGES: frozenset[str] = frozenset({
     "BELONGS_TO", "INHABITS", "WORSHIPS", "SPEAKS", "WIELDS",
 })
+
+
+# Spec 283 Slice 1 (Workstream F) — the novel render ruleset (graph → markdown
+# view). The REFERENCE RenderSpec: Novel → work.md, Chapter →
+# chapters/NN-slug.md. Each rule's frontmatter carries the node id + parent
+# edge so a re-render is byte-identical and round-trips. `render_all` walks
+# these to re-materialise the tree + mint one Artefact per file.
+def _novel_fm(node: dict) -> dict:
+    return {"id": node.get("id", ""), "kind": "novel",
+            "title": node.get("title", ""), "author": node.get("author", ""),
+            "status": node.get("status", "")}
+
+
+def _novel_body(node: dict) -> str:
+    return f"# {node.get('title', 'Untitled')}\n\nby {node.get('author', '')}\n"
+
+
+def _chapter_path(node: dict) -> str:
+    return (f"chapters/{int(node.get('number', 0)):02d}-"
+            f"{slugify(node.get('title', '') or 'untitled')}.md")
+
+
+def _chapter_fm(node: dict) -> dict:
+    return {"id": node.get("id", ""), "kind": "chapter",
+            "novel": node.get("novel", ""), "number": int(node.get("number", 0)),
+            "title": node.get("title", ""), "status": node.get("status", "")}
+
+
+def _chapter_body(node: dict) -> str:
+    return node.get("body", "") or ""
+
+
+NOVEL_RENDER_SPEC = RenderSpec(rules=[
+    RenderRule(label="Novel", kind="novel",
+               output_path=lambda n: "work.md",
+               frontmatter=_novel_fm, body=_novel_body),
+    RenderRule(label="Chapter", kind="chapter",
+               output_path=_chapter_path,
+               frontmatter=_chapter_fm, body=_chapter_body),
+])
 
 
 # ─────────────────────────── walkable skill ───────────────────────────
@@ -906,6 +949,63 @@ class NovelCapability(CapabilityBase):
                          "chapter_count": len(chapters),
                          "body": body},
         })
+
+    @verb(role="effect")
+    def render_all(self, novel_id: str) -> ToolResult:
+        """Re-materialise a novel's full markdown tree from graph ground truth (effect).
+
+        Spec 283 Slice 1 (Workstream F) — the on-demand full-rebuild path. Walks
+        the novel `RenderSpec` (Novel → work.md, each Chapter →
+        chapters/NN-slug.md), writes each file via the wired `render` driver
+        (graph-only when none is wired — bare engines are unaffected), and mints
+        ONE `Artefact{kind, path, entity_id, frontmatter_hash}` + `PRODUCES`
+        edge per rendered entity. Closes the graph/disk provenance split (the
+        evidence's 2-Artefacts-for-41-files drift): now #Artefacts == #files.
+        Idempotent. Replaces the out-of-band `scripts/materialize_manuscript.py`.
+
+        Inputs: novel_id.
+        Returns: ``{novel_id, count, rendered: [{path, entity_id, artefact_id}],
+                   wrote_disk}``.
+        chain_next: ``novel.audit_novel_provenance`` to see the new Artefacts;
+                    or any editorial gate.
+        """
+        novel_node, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        reg = self.ctx.drivers
+        driver = reg.get("render") if (reg is not None and reg.has("render")) else None
+        rendered: list[dict] = []
+        # Novel (work.md), then each chapter in number order.
+        self._render_entity(NOVEL_RENDER_SPEC.rule_for("Novel"), novel_node, driver, rendered)
+        chapters = sorted(self.ctx.neighbors(novel_id, "CHAPTER_OF"),
+                          key=lambda c: c.get("number", 0))
+        crule = NOVEL_RENDER_SPEC.rule_for("Chapter")
+        for c in chapters:
+            self._render_entity(crule, c, driver, rendered)
+        return ToolResult.success(data={
+            "novel_id": novel_id, "count": len(rendered),
+            "rendered": rendered, "wrote_disk": driver is not None,
+        })
+
+    def _render_entity(self, rule, node: dict, driver, rendered: list) -> None:
+        """Render one node via its RenderRule: write (if a driver is wired) +
+        mint the Artefact + PRODUCES edge. Shared by render_all (and, Slice 2,
+        the auto-render hook)."""
+        if rule is None or not node:
+            return
+        path = rule.output_path(node)
+        fm = rule.frontmatter(node)
+        body = rule.body(node)
+        if driver is not None:
+            driver.write(path, fm, body)
+        aid = self.ctx.record("Artefact", {
+            "kind": rule.kind, "path": path,
+            "entity_id": node.get("id", ""),
+            "frontmatter_hash": frontmatter_hash(fm),
+        })
+        self.ctx.link(self.ctx.intent_id, aid, "PRODUCES")
+        rendered.append({"path": path, "entity_id": node.get("id", ""),
+                         "artefact_id": aid})
 
     # ───────────────── Spec 102 — lifecycle delta ─────────────────
     # Idea capture/promotion + novel discovery/status flip. Graph-only
