@@ -82,14 +82,13 @@ class AssemblyMixin:
 
         prompt_body = _render_brief(sections)
         # Provenance: record the brief Artefact + SERVES intent.
-        aid = self.ctx.record("Artefact", {
+        aid = self.ctx.record_and_serve("Artefact", {
             "kind": "scene-brief",
             "scene_id": scene_id,
             "token_count": running_total,
             "section_count": len(sections),
             "truncated_count": len(truncated),
         })
-        self.ctx.link(aid, self.ctx.intent_id, "SERVES")
         return ToolResult.success(data={
             "prompt": prompt_body,
             "sections": sections,

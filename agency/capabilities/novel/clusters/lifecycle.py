@@ -55,11 +55,10 @@ class LifecycleMixin:
                 appears when the production driver is wired (Spec 121).
         chain_next: ``novel.create_chapter`` once outline is ready.
         """
-        nid = self.ctx.record("Novel", {
+        nid = self.ctx.record_and_serve("Novel", {
             "title": title, "author": author,
             "genre": genre, "status": "concept",
         })
-        self.ctx.link(nid, self.ctx.intent_id, "SERVES")
         out: dict = {"novel_id": nid, "title": title, "status": "concept"}
         drv = self._maybe_state_driver()
         if drv is not None:
@@ -80,12 +79,10 @@ class LifecycleMixin:
         novel_node, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
-        cid = self.ctx.record("Chapter", {
+        cid = self.ctx.record_and_serve("Chapter", {
             "novel": novel_id, "number": number, "title": title,
             "status": "outlined", "body": body,
-        })
-        self.ctx.link(cid, novel_id, "CHAPTER_OF")
-        self.ctx.link(cid, self.ctx.intent_id, "SERVES")
+        }, parent=novel_id, edge="CHAPTER_OF")
         drv = self._maybe_state_driver()
         if drv is not None:
             drv.create_chapter(
@@ -222,8 +219,7 @@ class LifecycleMixin:
         Returns: ``{idea_id, text, status}``.
         chain_next: ``novel.promote_idea`` once the premise hardens.
         """
-        iid = self.ctx.record("Idea", {"text": text, "status": "new"})
-        self.ctx.link(iid, self.ctx.intent_id, "SERVES")
+        iid = self.ctx.record_and_serve("Idea", {"text": text, "status": "new"})
         return ToolResult.success(data={
             "idea_id": iid, "text": text, "status": "new",
         })
@@ -261,10 +257,9 @@ class LifecycleMixin:
         if node is None:
             return ToolResult.failure(
                 "NOT_FOUND", f"idea_id={idea_id!r} not found")
-        nid = self.ctx.record("Novel", {
+        nid = self.ctx.record_and_serve("Novel", {
             "title": title, "author": author, "status": "concept",
         })
-        self.ctx.link(nid, self.ctx.intent_id, "SERVES")
         self.ctx.link(idea_id, nid, "PROMOTED_TO")
         self.ctx.update(idea_id, {"status": "promoted"})
         return ToolResult.success(data={
@@ -380,9 +375,7 @@ class LifecycleMixin:
         props = {"chapter": chapter_id, "slug": slug, "pov": canonical}
         if detail:
             props["pov_detail"] = detail
-        sid = self.ctx.record("Scene", props)
-        self.ctx.link(sid, chapter_id, "SCENE_OF")
-        self.ctx.link(sid, self.ctx.intent_id, "SERVES")
+        sid = self.ctx.record_and_serve("Scene", props, parent=chapter_id, edge="SCENE_OF")
         out = {"scene_id": sid, "chapter_id": chapter_id,
                "slug": slug, "pov": canonical}
         if detail:

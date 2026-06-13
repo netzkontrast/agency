@@ -85,12 +85,11 @@ class ResearchCluster(_MusicBase):
             return ToolResult.failure(
                 "INVALID_ARGUMENT",
                 f"domain={domain!r} not in {sorted(RESEARCH_DOMAINS)}")
-        cid = self.ctx.record("AlbumClaim", {
+        cid = self.ctx.record_and_serve("AlbumClaim", {
             "text": text, "source_uri": source_uri,
             "domain": domain, "verified": "pending",
             "confidence": confidence,
         })
-        self.ctx.link(cid, self.ctx.intent_id, "SERVES")
         return ToolResult.success(data={"claim_id": cid, "text": text,
                                         "domain": domain,
                                         "verified": "pending",
@@ -165,12 +164,11 @@ class ResearchCluster(_MusicBase):
         Returns: ``{album, signoff_id, reviewer}``.
         chain_next: lyric writing / drafting can proceed.
         """
-        sid = self.ctx.record("AlbumVerification", {
+        sid = self.ctx.record_and_serve("AlbumVerification", {
             "claim": f"album:{album}",
             "verdict": "confirmed",
             "verified_by": reviewer,
         })
-        self.ctx.link(sid, self.ctx.intent_id, "SERVES")
         return ToolResult.success(data={"album": album,
                                         "signoff_id": sid,
                                         "reviewer": reviewer})

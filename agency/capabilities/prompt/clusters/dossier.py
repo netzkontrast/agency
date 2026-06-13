@@ -53,12 +53,11 @@ class DossierMixin:
             return ToolResult.failure(
                 "INVALID_ARGUMENT",
                 f"deliverable={deliverable!r} not in {sorted(DELIVERABLE_KIND)}")
-        rid = self.ctx.record("ResearchIntent", {
+        rid = self.ctx.record_and_serve("ResearchIntent", {
             "seed_query": seed_query, "topic": topic,
             "deliverable": deliverable,
             "success_criteria": success_criteria,
         })
-        self.ctx.link(rid, self.ctx.intent_id, "SERVES")
         return ToolResult.success(data={
             "intent_id": rid, "deliverable": deliverable,
         })
@@ -116,11 +115,9 @@ class DossierMixin:
             body = body.replace(
                 "- [Catalog modules drawn from `prompt.catalog_list`]",
                 "\n".join(f"- {m.strip()}" for m in module_ids.split(",")))
-        brief_id = self.ctx.record("ResearchBrief", {
+        brief_id = self.ctx.record_and_serve("ResearchBrief", {
             "intent": research_intent_id, "body": body,
-        })
-        self.ctx.link(brief_id, research_intent_id, "RENDERS_FROM")
-        self.ctx.link(brief_id, self.ctx.intent_id, "SERVES")
+        }, parent=research_intent_id, edge="RENDERS_FROM")
         return ToolResult.success(data={
             "result": body,
             "artefact": {"kind": "research-dossier",
@@ -150,11 +147,9 @@ class DossierMixin:
         body = brief_node.get("body", "")
         score, findings = _score_brief(body)
         status = "passed" if score >= min_score else "failed"
-        audit_id = self.ctx.record("BriefAudit", {
+        audit_id = self.ctx.record_and_serve("BriefAudit", {
             "brief": brief_id, "clarity_score": score, "status": status,
-        })
-        self.ctx.link(audit_id, brief_id, "AUDITS")
-        self.ctx.link(audit_id, self.ctx.intent_id, "SERVES")
+        }, parent=brief_id, edge="AUDITS")
         return ToolResult.success(data={
             "audit_id": audit_id, "clarity_score": score,
             "status": status,

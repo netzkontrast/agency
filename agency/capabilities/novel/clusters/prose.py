@@ -372,11 +372,10 @@ class ProseMixin:
             "sensitivity": self.ctx.call("novel", "check_sensitivity",
                                           body=body),
         }
-        aid = self.ctx.record("Artefact", {
+        aid = self.ctx.record_and_serve("Artefact", {
             "kind": "chapter-report",
             "chapter_id": chapter_id,
         })
-        self.ctx.link(aid, self.ctx.intent_id, "SERVES")
         return ToolResult.success(data={
             "chapter_id": chapter_id,
             "checks": checks,

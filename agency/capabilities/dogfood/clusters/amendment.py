@@ -455,13 +455,12 @@ class AmendmentMixin:
                                     after=payload.get("after") or "",
                                     spec_id=spec_id)
         # Record the provenance Artefact + PRODUCES_FROM edges.
-        art_id = self.ctx.record("Artefact", {
+        art_id = self.ctx.record_and_serve("Artefact", {
             "kind": "amendment-proposal",
             "spec_id": spec_id,
             "op": payload.get("op", ""),
             "payload_hash": payload_hash,
         })
-        self.ctx.link(art_id, self.ctx.intent_id, "SERVES")
         for rid in sources:
             self.ctx.link(art_id, rid, "PRODUCES_FROM")
         result: dict = {"diff": diff, "artefact_id": art_id,

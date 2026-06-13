@@ -20,6 +20,7 @@ from agency.capability import (
     CapabilityBase, RenderTemplates, verb,
 )
 from agency.ontology import OntologyExtension
+from agency.skill import phase as _phase  # Spec 286 — shared phase() builder
 
 from . import (_architecture, _findings, _paths, _performance, _quality,
                 _security)
@@ -70,13 +71,6 @@ def _rule_axis(rule: str) -> str:
         if axis:
             return axis
     return ""
-
-
-def _phase(idx: int, name: str, produces: list[str], gate: str = "") -> dict:
-    p: dict = {"index": idx, "name": name, "produces": produces}
-    if gate:
-        p["gate"] = gate
-    return p
 
 
 _CODE_ANALYSIS_SKILL = {
@@ -249,12 +243,11 @@ class AnalyzeCapability(CapabilityBase):
         """
         chosen = list(axes) if axes else list(_AXES)
         chosen = [a for a in chosen if a in _AXES]
-        analysis_id = self.ctx.record("Analysis", {
+        analysis_id = self.ctx.record_and_serve("Analysis", {
             "path": path,
             "axes": ",".join(chosen),
             "started_at": int(time.time()),
         })
-        self.ctx.link(analysis_id, self.ctx.intent_id, "SERVES")
         totals: dict[str, dict[str, int]] = {}
         for axis in chosen:
             if axis == "paths":
@@ -297,13 +290,12 @@ class AnalyzeCapability(CapabilityBase):
         items = [{"rule": f["rule"], "file": f["file"], "line": f["line"],
                   "message": f["message"], "severity": f["severity"]}
                  for f in findings]
-        plan_id = self.ctx.record("Reflection", {
+        plan_id = self.ctx.record_and_serve("Reflection", {
             "scope": "technical",
             "kind": "improvement-plan",
             "analysis_id": analysis_id,
             "text": f"improvement plan for {analysis_id}: {len(items)} items",
         })
-        self.ctx.link(plan_id, self.ctx.intent_id, "SERVES")
         self.ctx.link(plan_id, self.ctx.intent_id, "OBSERVED_DURING")  # Spec 058 — intent-scoped view
         self.ctx.link(plan_id, analysis_id, "IMPROVES")
         # v1 apply path: NOT IMPLEMENTED (Open Question 3). Refusing
@@ -331,12 +323,11 @@ class AnalyzeCapability(CapabilityBase):
         chain_next: ``gate.check`` before writes (v2).
         """
         findings = [f for f in _quality.scan(path) if f.rule == "Q001"]
-        plan_id = self.ctx.record("Reflection", {
+        plan_id = self.ctx.record_and_serve("Reflection", {
             "scope": "technical",
             "kind": "improvement-plan",
             "text": f"cleanup plan for {path}: {len(findings)} dead-code items",
         })
-        self.ctx.link(plan_id, self.ctx.intent_id, "SERVES")
         self.ctx.link(plan_id, self.ctx.intent_id, "OBSERVED_DURING")  # Spec 058 — intent-scoped view
         summary = (
             f"{len(findings)} dead-code findings; dry_run=True (v1)."

@@ -21,6 +21,38 @@ from typing import Optional
 from .memory import Memory
 
 
+def phase(index, name, produces, gate=None, verbs=None,
+          sample=None, requires_input=None, resolve_via=None) -> dict:
+    """Canonical skill-phase dict builder (Spec 286 Phase 3 — one shared
+    helper, formerly three near-identical ``_phase`` copies in
+    develop/analyze/delegate ``_main.py``).
+
+    Builds the ``{index, name, produces, gate?, verbs?, sample?,
+    requires_input?, resolve_via?}`` phase spec the `SkillRun` walker
+    consumes. The signature is the SUPERSET (the develop copy, which
+    carried all the Spec-285 generative + assumption-gate fields); the
+    narrower analyze/delegate callers simply never pass the extra
+    keywords, so their phase dicts stay byte-identical.
+
+    Optional fields are only inserted when truthy, so a caller passing
+    just `(idx, name, produces)` yields exactly `{"index", "name",
+    "produces"}` — preserving the legacy 3-arg shape.
+    """
+    p = {"index": index, "name": name, "produces": list(produces)}
+    if gate:
+        p["gate"] = gate
+    if verbs:                       # Spec 092 G4 — reasoning-method cues for this phase
+        p["verbs"] = list(verbs)
+    # Spec 285 Part B — generative + assumption-gate phase fields.
+    if sample:                      # {system, prompt, produces_key} — host-sample to advance
+        p["sample"] = dict(sample)
+    if requires_input:              # keys the phase must NOT assume (elicit-or-pause)
+        p["requires_input"] = list(requires_input)
+    if resolve_via:                 # {capability, verb} sourcing structured options for them
+        p["resolve_via"] = dict(resolve_via)
+    return p
+
+
 class SkillRun:
     def __init__(self, memory: Memory, intent_id: str, schema: dict, registry=None):
         # Spec 152 Slice 2 — validate the schema at the parse boundary so

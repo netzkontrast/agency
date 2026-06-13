@@ -51,8 +51,7 @@ class LifecycleCluster(_MusicBase):
         """
         if not text.strip():
             return ToolResult.failure("INVALID_ARGUMENT", "idea text is required")
-        idea_id = self.ctx.record("Idea", {"text": text, "status": "new"})
-        self.ctx.link(idea_id, self.ctx.intent_id, "SERVES")
+        idea_id = self.ctx.record_and_serve("Idea", {"text": text, "status": "new"})
         self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
             state = self.ctx.get_driver("music_state")
@@ -82,12 +81,11 @@ class LifecycleCluster(_MusicBase):
             return ToolResult.failure(
                 "NOT_FOUND", f"idea_id={idea_id!r} not found")
         slug = _slugify(title)
-        album_id = self.ctx.record("Album", {
+        album_id = self.ctx.record_and_serve("Album", {
             "artist": artist, "title": title, "type": type,
             "status": "draft", "genre": genre, "slug": slug,
             "target_lufs": STREAMING_TARGET_LUFS,
         })
-        self.ctx.link(album_id, self.ctx.intent_id, "SERVES")
         self.ctx.link(idea_id, album_id, "PROMOTED_TO")
         # Graph-canonical status flip (CLAUDE.md rule 2) — the StateDriver
         # mirror below is the disk projection; the graph is the truth.
@@ -142,12 +140,11 @@ class LifecycleCluster(_MusicBase):
         if _fail: return _fail
         slug = _slugify(title)
         # Graph-canonical record FIRST (CLAUDE.md rule 2).
-        album_id = self.ctx.record("Album", {
+        album_id = self.ctx.record_and_serve("Album", {
             "artist": artist, "title": title, "type": type,
             "status": "draft", "genre": genre, "slug": slug,
             "target_lufs": STREAMING_TARGET_LUFS,
         })
-        self.ctx.link(album_id, self.ctx.intent_id, "SERVES")
         # Driver maintains the on-disk mirror (production); fake stores in-memory.
         root = state.create_album_root(artist=artist, genre=genre, slug=slug,
                                        title=title, type=type)
@@ -231,10 +228,9 @@ class LifecycleCluster(_MusicBase):
         if track_number > 0:
             slug = f"{track_number:02d}-{slug}"
         # Graph node first (CLAUDE.md rule 2)
-        track_id = self.ctx.record("Track", {
+        track_id = self.ctx.record_and_serve("Track", {
             "title": title, "status": "draft", "slug": slug,
         })
-        self.ctx.link(track_id, self.ctx.intent_id, "SERVES")
         # Resolve the album graph node by slug so the RECORDED_FOR edge
         # actually lands (review finding: declared edge was dormant-surface).
         # `ctx.find(label)` returns properties dicts where ``id`` is the

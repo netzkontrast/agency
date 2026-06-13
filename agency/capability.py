@@ -252,6 +252,29 @@ class CapabilityContext:
     def record(self, label: str, props: dict, node_id: Optional[str] = None) -> str:
         return self.memory.record(label, props, node_id)
 
+    def record_and_serve(self, label: str, props: dict, *,
+                         parent: str = "", edge: str = "") -> str:
+        """Spec 286 — record a node and link it ``SERVES`` the serving intent
+        in one call, optionally edging it to a ``parent`` first.
+
+        Collapses the ubiquitous ``act``-verb boilerplate::
+
+            nid = self.ctx.record(label, {...})
+            self.ctx.link(nid, self.ctx.intent_id, "SERVES")
+
+        into ``nid = self.ctx.record_and_serve(label, {...})``. When
+        ``parent`` and ``edge`` are given, the node is first linked to the
+        parent (``link(nid, parent, edge)``) — matching the
+        record→parent-edge→SERVES shape (e.g. novel ``CHAPTER_OF`` /
+        ``SCENE_OF``). The parent edge is recorded BEFORE the SERVES edge,
+        preserving the existing call order. Returns the new node id.
+        """
+        nid = self.memory.record(label, props)
+        if parent and edge:
+            self.memory.link(nid, parent, edge)
+        self.memory.link(nid, self.intent_id, "SERVES")
+        return nid
+
     def link(self, src: str, dst: str, rel: str, props: Optional[dict] = None) -> None:
         self.memory.link(src, dst, rel, props)
 

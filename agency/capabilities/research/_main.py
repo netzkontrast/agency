@@ -99,13 +99,12 @@ class ResearchCapability(CapabilityBase):
         if depth not in ("brief", "standard", "deep"):
             depth = "standard"
         specialists, plan_text = _lead.plan(question, depth)
-        rid = self.ctx.record("Research", {
+        rid = self.ctx.record_and_serve("Research", {
             "question": question,
             "depth": depth,
             "started_at": int(time.time()),
             "status": "planning",
         })
-        self.ctx.link(rid, self.ctx.intent_id, "SERVES")
         return {
             "research_id": rid,
             "specialists": specialists,

@@ -36,11 +36,10 @@ class SessionMixin:
         Returns: ``{decision_id, subject, decision}``.
         chain_next: act on `next_action`, or `reflect.note` the rationale.
         """
-        did = self.ctx.record("DecisionRecord", {
+        did = self.ctx.record_and_serve("DecisionRecord", {
             "subject": subject, "decision": decision,
             "rationale": rationale, "next_action": next_action,
         })
-        self.ctx.link(did, self.ctx.intent_id, "SERVES")
         if session_lifecycle_id:
             self.ctx.link(did, session_lifecycle_id, "RELATES_TO")
         return {"decision_id": did, "subject": subject,

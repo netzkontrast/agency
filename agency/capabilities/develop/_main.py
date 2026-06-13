@@ -16,24 +16,7 @@ from __future__ import annotations
 
 from ...capability import RenderTemplates, CapabilityBase, verb
 from ...ontology import OntologyExtension
-from ...skill import SkillRun
-
-
-def _phase(index, name, produces, gate=None, verbs=None,
-           sample=None, requires_input=None, resolve_via=None):
-    p = {"index": index, "name": name, "produces": list(produces)}
-    if gate:
-        p["gate"] = gate
-    if verbs:                       # Spec 092 G4 — reasoning-method cues for this phase
-        p["verbs"] = list(verbs)
-    # Spec 285 Part B — generative + assumption-gate phase fields.
-    if sample:                      # {system, prompt, produces_key} — host-sample to advance
-        p["sample"] = dict(sample)
-    if requires_input:              # keys the phase must NOT assume (elicit-or-pause)
-        p["requires_input"] = list(requires_input)
-    if resolve_via:                 # {capability, verb} sourcing structured options for them
-        p["resolve_via"] = dict(resolve_via)
-    return p
+from ...skill import SkillRun, phase as _phase  # Spec 286 — shared phase() builder
 
 
 # Spec 287 — PlanStep execution states (closed enum; ontology-enforced).
@@ -628,8 +611,7 @@ class DevelopCapability(CapabilityBase):
         if not isinstance(parsed, list):
             parsed = [parsed] if parsed not in (None, "") else []
         descriptions = [str(s).strip() for s in parsed if str(s).strip()]
-        plan_id = self.ctx.record("Plan", {"title": title, "status": "drafted"})
-        self.ctx.link(plan_id, self.ctx.intent_id, "SERVES")
+        plan_id = self.ctx.record_and_serve("Plan", {"title": title, "status": "drafted"})
         step_ids = []
         for i, desc in enumerate(descriptions, start=1):
             sid = self.ctx.record("PlanStep", {
@@ -837,12 +819,11 @@ class DevelopCapability(CapabilityBase):
                     ``develop.mode_select`` to switch.
         """
         mode = mode_hint if mode_hint in SESSION_MODE else self._detect_mode()
-        sid = self.ctx.record("SessionLifecycle", {
+        sid = self.ctx.record_and_serve("SessionLifecycle", {
             "mode": mode, "status": "active",
             "purpose": purpose or "session", "deliverable": deliverable,
             "acceptance": acceptance,
         })
-        self.ctx.link(sid, self.ctx.intent_id, "SERVES")
         suggested = {
             "brainstorming": "develop.brainstorm",
             "spec-authoring": "develop.checklist",   # → write_spec
@@ -1037,10 +1018,9 @@ class DevelopCapability(CapabilityBase):
         text = (f"Authored capability {name!r} (kind={kind}) via the "
                 f"authoring-capabilities discipline. Scaffold + lint cleanly "
                 f"passed; reflection recorded for the self-improvement loop.")
-        rid = self.ctx.record("Reflection", {
+        rid = self.ctx.record_and_serve("Reflection", {
             "scope": "observation",
             "text": text,
         })
-        self.ctx.link(rid, self.ctx.intent_id, "SERVES")           # Spec 058 — provenance traversal
         self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
         return {"result": rid}

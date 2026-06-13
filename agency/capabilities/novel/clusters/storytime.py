@@ -31,10 +31,9 @@ class StoryTimeMixin:
         if self.ctx.recall(novel_id) is None:
             return ToolResult.failure(
                 "NOT_FOUND", f"novel_id={novel_id!r} not found")
-        eid = self.ctx.record("StoryTimeEvent", {
+        eid = self.ctx.record_and_serve("StoryTimeEvent", {
             "novel": novel_id, "label": label, "when_story": when_story,
         })
-        self.ctx.link(eid, self.ctx.intent_id, "SERVES")
         out: dict = {"event_id": eid, "label": label,
                      "when_story": when_story}
         if scene_id:
@@ -150,10 +149,9 @@ class StoryTimeMixin:
                 f"predecessor_id={predecessor_id!r} not found")
         novel_id = (self.ctx.recall(scene.get("chapter", "")) or {}
                     ).get("novel", "")
-        bid = self.ctx.record("NarrativeBeat", {
+        bid = self.ctx.record_and_serve("NarrativeBeat", {
             "novel": novel_id, "label": beat_label, "scene": scene_id,
         })
-        self.ctx.link(bid, self.ctx.intent_id, "SERVES")
         if predecessor_id:
             self.ctx.link(predecessor_id, bid, "PRECEDES")
         return ToolResult.success(data={

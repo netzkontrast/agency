@@ -16,6 +16,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from agency._overflow import budget_take
 from agency.capability import verb
 from agency.toolresult import ToolResult
 
@@ -95,10 +96,13 @@ class FragmentsMixin:
         for arc in scope.get("archetypes") or []:
             looked_up.append(("archetype", arc))
 
-        fragments: list[dict] = []
+        # Resolve every candidate to a fragment dict first (recording the
+        # no-fragment skips), then let the shared budget_take loop perform
+        # the priority-ordered, accumulate-and-stop-on-overshoot truncation
+        # (Spec 286 P3 — the char-proxy lives in `_approx_tokens`, injected
+        # as the per-item counter).
         skipped: list[str] = []
-        total = 0
-        truncated_at: int | None = None
+        candidates: list[dict] = []
         store = _load_fragments()
         for _key, slug in looked_up:
             canonical_id, kind = _resolve_to_canonical(slug)
@@ -109,15 +113,14 @@ class FragmentsMixin:
             if not text:
                 skipped.append(slug)
                 continue
-            tokens = _approx_tokens(text)
-            if total + tokens > max_tokens:
-                truncated_at = len(fragments)
-                break
-            fragments.append({
+            candidates.append({
                 "slug": slug, "canonical_id": canonical_id,
-                "kind": kind, "text": text, "tokens": tokens,
+                "kind": kind, "text": text, "tokens": _approx_tokens(text),
             })
-            total += tokens
+        fragments, over_budget = budget_take(
+            candidates, lambda f: f["tokens"], max_tokens)
+        total = sum(f["tokens"] for f in fragments)
+        truncated_at: int | None = len(fragments) if over_budget else None
         return ToolResult.success(data={
             "fragments": fragments,
             "total_tokens": total,

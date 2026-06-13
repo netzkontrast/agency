@@ -55,10 +55,9 @@ class EngineeringMixin:
                 "INVALID_ARGUMENT",
                 f"engineered prompt {tokens} tokens > budget {max_tokens}; "
                 f"reduce context or relax constraints")
-        instance_id = self.ctx.record("PromptInstance", {
+        instance_id = self.ctx.record_and_serve("PromptInstance", {
             "builder_kind": builder_kind, "rendered_body": body,
         })
-        self.ctx.link(instance_id, self.ctx.intent_id, "SERVES")
         return ToolResult.success(data={
             "result": body,
             "artefact": {"kind": "prompt-instance",
