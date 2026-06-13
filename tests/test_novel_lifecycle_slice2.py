@@ -108,6 +108,8 @@ def test_create_scene_records_node_and_scene_of_edge() -> None:
     assert data["scene_id"].startswith("scene:")
     assert data["chapter_id"] == chap["chapter_id"]
     assert data["pov"] == "third-limited"
+    # Spec 284 — an exact canonical member records no lossy detail.
+    assert "pov_detail" not in data
     rows = e.memory.g.query(
         "MATCH (s)-[r:SCENE_OF]->(c) WHERE s.id = $sid AND c.id = $cid RETURN r",
         {"sid": data["scene_id"], "cid": chap["chapter_id"]})
@@ -115,7 +117,29 @@ def test_create_scene_records_node_and_scene_of_edge() -> None:
     e.memory.close()
 
 
-def test_create_scene_rejects_invalid_pov() -> None:
+def test_create_scene_projects_rich_pov_and_preserves_original() -> None:
+    # Spec 284 — a rich voice description carrying a POV signal projects onto a
+    # canonical member; the original is preserved in pov_detail (non-lossy).
+    e = _fresh()
+    iid = _confirmed_iid(e)
+    novel, _ = _invoke(e, iid, "create_novel", title="X", author="Y")
+    chap, _ = _invoke(e, iid, "create_chapter",
+                      novel_id=novel["novel_id"], number=1, title="A")
+    data, _ = _invoke(e, iid, "create_scene",
+                      chapter_id=chap["chapter_id"],
+                      slug="rich-pov", pov="auktorialer Erzähler")
+    assert data["pov"] == "third-omniscient"
+    assert data["pov_detail"] == "auktorialer Erzähler"
+    # The recorded Scene node carries the enum-valid canonical pov.
+    scene = e.memory.recall(data["scene_id"])
+    assert scene["pov"] == "third-omniscient"
+    assert scene["pov_detail"] == "auktorialer Erzähler"
+    e.memory.close()
+
+
+def test_create_scene_rejects_pov_with_no_signal() -> None:
+    # Spec 284 — input carrying no POV signal at all still fails PERMANENT,
+    # listing the canonical members (forgiving on signal, strict on noise).
     e = _fresh()
     iid = _confirmed_iid(e)
     novel, _ = _invoke(e, iid, "create_novel", title="X", author="Y")
@@ -123,7 +147,7 @@ def test_create_scene_rejects_invalid_pov() -> None:
                       novel_id=novel["novel_id"], number=1, title="A")
     data, inv = _invoke(e, iid, "create_scene",
                         chapter_id=chap["chapter_id"],
-                        slug="bad-pov", pov="omniscient-but-spelt-wrong")
+                        slug="bad-pov", pov="left-handed narration")
     assert data is None
     assert "INVALID_ARGUMENT" in e.memory.recall(inv).get("error", "")
     e.memory.close()

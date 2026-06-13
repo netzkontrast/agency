@@ -262,13 +262,22 @@ class CapabilityContext:
 
 
 def verb(role: str, inject: Optional[list] = None,
-         name: Optional[str] = None) -> Callable:
+         name: Optional[str] = None,
+         param_enums: Optional[dict] = None) -> Callable:
     """Mark a CapabilityBase method as a verb (its role, + any extra injects beyond
     the always-injected `ctx`). `name` lets a verb register under a different
     public name than its Python method (e.g. `import_` → `import` when the
-    natural verb name collides with a Python keyword)."""
+    natural verb name collides with a Python keyword).
+
+    Spec 284 — `param_enums` maps a parameter name to its canonical member set
+    (an iterable, typically the same module constant the ontology enum
+    references — single source). `engine._wire` surfaces those members in
+    `get_schema` (JSON `enum` + a description hint) without forcing wire-level
+    rejection, so a *projected enum* param can accept rich free text and project
+    it in the verb body. See `agency/_enums.py::project_enum`."""
     def deco(fn: Callable) -> Callable:
-        fn._verb = {"role": role, "inject": list(inject or []), "name": name}
+        fn._verb = {"role": role, "inject": list(inject or []), "name": name,
+                    "param_enums": dict(param_enums or {})}
         return fn
     return deco
 
@@ -288,7 +297,8 @@ def _wrap_method(cls: type, mname: str, member: Callable, meta: dict) -> dict:
     # in — the closure above otherwise hides it behind capability.py.
     fn.__capability_cls__ = cls
     fn.__capability_method__ = member
-    return {"role": meta["role"], "fn": fn, "inject": ["ctx"] + meta["inject"]}
+    return {"role": meta["role"], "fn": fn, "inject": ["ctx"] + meta["inject"],
+            "param_enums": dict(meta.get("param_enums") or {})}
 
 
 @dataclass

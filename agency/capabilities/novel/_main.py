@@ -20,6 +20,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from agency._enums import project_enum
 from agency.capability import CapabilityBase, RenderTemplates, verb
 from agency.ontology import OntologyExtension
 from agency.toolresult import ToolResult
@@ -274,6 +275,24 @@ NOVEL_STATUS = {"concept", "outlining", "drafting", "revising",
 CHAPTER_STATUS = {"outlined", "drafted", "revised", "final"}
 # Spec 102 Slice 2 — Scene POV (canonical narrative-craft set).
 SCENE_POV = {"first", "second", "third-limited", "third-omniscient"}
+# Spec 284 — POV projection alias map (the domain half of the projected-enum
+# substrate; the primitive lives in agency/_enums.py). Keys are matched as
+# lowercased substrings of the normalized input, longest first — so a specific
+# signal (``omniscient``) beats a generic one (``third``). Rich descriptions
+# project onto a canonical member; the original is preserved in ``pov_detail``.
+# English + German signals (this engine drafts German novels — see kohaerenz).
+_POV_ALIASES = {
+    "first": "first", "1st": "first", "ich-": "first",
+    "ich erzähler": "first", "erste person": "first", "first-person": "first",
+    "second": "second", "2nd": "second", "du-": "second",
+    "zweite person": "second", "second-person": "second",
+    "omniscient": "third-omniscient", "auktorial": "third-omniscient",
+    "allwissend": "third-omniscient", "omni": "third-omniscient",
+    "third-limited": "third-limited", "limited": "third-limited",
+    "personal": "third-limited", "limitiert": "third-limited",
+    "vermittler": "third-limited", "third": "third-limited",
+    "dritte person": "third-limited", "er-perspektive": "third-limited",
+}
 # Spec 102 — Idea lifecycle (mirrors music's IDEA_STATUS).
 IDEA_STATUS = {"new", "promoted", "dropped"}
 # Spec 105 — research-claim verification + domain enums (mirrors 099's
@@ -1027,34 +1046,44 @@ class NovelCapability(CapabilityBase):
         } for c in chapters]
         return ToolResult.success(data={"chapters": items, "count": len(items)})
 
-    @verb(role="effect")
+    @verb(role="effect", param_enums={"pov": SCENE_POV})
     def create_scene(self, chapter_id: str, slug: str,
                       pov: str) -> ToolResult:
         """Record a Scene node + SCENE_OF the parent Chapter (effect).
 
-        Inputs: chapter_id, slug (scene-local short name), pov (one of
-                ``SCENE_POV``).
-        Returns: ``{scene_id, chapter_id, slug, pov}``.
+        Spec 284 — ``pov`` is a *projected enum*: it accepts rich free text
+        (e.g. ``"auktorialer Erzähler"``) and projects it onto a canonical
+        ``SCENE_POV`` member, preserving the original in ``pov_detail`` (the
+        non-lossy contract). Input carrying no POV signal still fails
+        PERMANENT, listing the members.
+
+        Inputs: chapter_id, slug (scene-local short name), pov (a ``SCENE_POV``
+                member or rich text projected onto one).
+        Returns: ``{scene_id, chapter_id, slug, pov, pov_detail?}``.
         chain_next: ``novel.create_scene`` for next beat or back to
                     ``novel.set_chapter_status`` once the chapter's
                     scene set is complete.
         """
-        if pov not in SCENE_POV:
+        canonical, detail = project_enum(pov, SCENE_POV, aliases=_POV_ALIASES)
+        if canonical is None:
             return ToolResult.failure(
                 "INVALID_ARGUMENT",
-                f"pov={pov!r} not in {sorted(SCENE_POV)}")
+                f"pov={pov!r} carries no POV signal — not projectable onto "
+                f"{sorted(SCENE_POV)}")
         _, fail = self._require_chapter(chapter_id)
         if fail is not None:
             return fail
-        sid = self.ctx.record("Scene", {
-            "chapter": chapter_id, "slug": slug, "pov": pov,
-        })
+        props = {"chapter": chapter_id, "slug": slug, "pov": canonical}
+        if detail:
+            props["pov_detail"] = detail
+        sid = self.ctx.record("Scene", props)
         self.ctx.link(sid, chapter_id, "SCENE_OF")
         self.ctx.link(sid, self.ctx.intent_id, "SERVES")
-        return ToolResult.success(data={
-            "scene_id": sid, "chapter_id": chapter_id,
-            "slug": slug, "pov": pov,
-        })
+        out = {"scene_id": sid, "chapter_id": chapter_id,
+               "slug": slug, "pov": canonical}
+        if detail:
+            out["pov_detail"] = detail
+        return ToolResult.success(data=out)
 
     @verb(role="act")
     def generate_scene_body(self, scene_id: str = "", scene_brief: str = "",

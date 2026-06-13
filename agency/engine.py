@@ -408,10 +408,26 @@ class Engine:
             result, inv = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
             return self._shape_wire_result(result, inv)
 
+        # Spec 284 — projected-enum surfacing. A verb may declare
+        # `param_enums={param: members}`; we wrap that param's annotation so the
+        # tool's JSON inputSchema carries `enum` (surfaced by get_schema full
+        # detail + raw MCP clients), and we fold a concise hint into the
+        # description (the one field the code-mode `detailed` renderer shows).
+        # `json_schema_extra` is schema-only — pydantic does NOT validate against
+        # it, so rich free text still reaches the verb to be projected.
+        param_enums = spec.get("param_enums") or {}
+        enum_hints: list[str] = []
         params = []
         for p in user_params:
             ann = p.annotation if p.annotation is not inspect.Parameter.empty else str
             default = p.default if p.default is not inspect.Parameter.empty else inspect.Parameter.empty
+            members = param_enums.get(p.name)
+            if members:
+                from typing import Annotated
+                from pydantic import Field
+                members_sorted = sorted(members)
+                ann = Annotated[ann, Field(json_schema_extra={"enum": members_sorted})]
+                enum_hints.append(f"{p.name} ∈ {{{', '.join(members_sorted)}}}")
             params.append(inspect.Parameter(p.name, inspect.Parameter.KEYWORD_ONLY, annotation=ann, default=default))
         # Spec 018 Win 3: intent_id is wire-optional (default "") so a call may
         # omit it and resolve via the AGENCY_INTENT env (see impl above).
@@ -425,7 +441,13 @@ class Engine:
         # catalog tokens; full doc remains reachable via get_schema.
         raw = (fn.__doc__ or "").strip()
         brief = parse_slices(raw)["brief"]
-        impl.__doc__ = brief or raw or f"{cap_name}.{verb} ({spec['role']})"
+        doc = brief or raw or f"{cap_name}.{verb} ({spec['role']})"
+        # Spec 284 — append the projected-enum members so they reach the
+        # default code-mode `detailed`/`brief` view (which renders only the
+        # description, not per-param enum/description).
+        if enum_hints:
+            doc = f"{doc} Enums: {'; '.join(enum_hints)}."
+        impl.__doc__ = doc
         impl.__annotations__ = {p.name: p.annotation for p in params}
         impl.__annotations__["return"] = dict
         # Spec 025 R2 (Codex): propagate the verb's `tags` to FastMCP's Tool

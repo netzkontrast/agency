@@ -91,10 +91,13 @@ def test_invoke_records_permanent_for_bad_pov() -> None:
     e = _fresh()
     iid = _iid(e)
     cid = _novel_with_chapter(e, iid)
+    # Spec 284 — a rich pov *carrying a POV signal* now PROJECTS (e.g.
+    # "Vermittler" → third-limited) instead of failing; the permanent path is
+    # exercised by a value with NO POV signal at all.
     data, inv = e.registry.invoke(
         e.memory, iid, "novel", "create_scene",
         chapter_id=cid, slug="s1",
-        pov="Erzähler (Vermittler-Stimme, hypotaktisch-philosophisch)")
+        pov="left-handed narration with no POV signal")
     assert data is None  # internal convention unchanged
     node = e.memory.recall(inv)
     assert node.get("outcome") == "failed"
