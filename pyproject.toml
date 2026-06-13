@@ -44,6 +44,19 @@ dev = [
     # transitively today; declaring it here makes the dependency
     # explicit rather than relying on the transitive pull-in.
     "PyYAML>=6.0",
+    # Spec 282 (setup ergonomics, user directive 2026-06-13): the DEFAULT
+    # dev setup pulls every LIGHTWEIGHT runtime extra so `pip install -e
+    # ".[dev]"` (and `scripts/setup`) yields a fully-functional engine with
+    # ZERO silently-skipped capability tests — no more "deps missing" friction.
+    # The only opt-out is the heavy `recall` torch backend (~2GB), which stays
+    # behind `.[all]`. Self-references resolve via the project name.
+    "agency[analyze,tokens,anthropic,publish]",
+]
+# Spec 282 — `.[all]` is the everything install, INCLUDING the heavy
+# sentence-transformers/torch `recall` backend. Use when you want the BGE
+# semantic-recall embedder; otherwise `.[dev]` is the fast, complete default.
+all = [
+    "agency[dev,recall]",
 ]
 # Spec 045 — optional sentence-transformers BGE backend for the
 # semantic-recall verb. Default is the zero-dep pure-Python TF-IDF
