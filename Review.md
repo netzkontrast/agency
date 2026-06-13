@@ -86,10 +86,39 @@ Refactor the **complete codebase into a clean OOP architecture** where
   `vision_goals: [4, 5]` (open-set maintainability + upholds the code-mode
   contract). CI goes green once it lands.
 
+### `b22c350` + `b1b8b9e` + `36fa80a` — Finding wire-shape reconcile + budget + 286 frontmatter — ✅ Approve
+- **What:** the refactor agent reconciled the `Finding` value-object so the
+  **wire contract is preserved**, rather than migrating every consumer to
+  attribute access:
+  - `b22c350` — `Finding` stays a frozen dataclass **and** gains `to_dict()`
+    returning the exact pre-286 plain-dict shape (`severity` → its string
+    value). Verbs that surface findings over the wire + the Finding-node record
+    path serialise through it. Also **added the `Plan/286` `vision_goals`
+    frontmatter** — resolving the CI red I flagged.
+  - `b1b8b9e` — reverted `test_intent_path_analysis` back to `f["rule"]` dict
+    subscript, because that verb returns findings **over the wire (dicts)**,
+    not as in-process `Finding` objects. This **supersedes the reviewer's
+    `5a9d50c`** `.rule` change — and it's the **better fix**: it corrects the
+    layer (the wire boundary emits dicts via `to_dict`) instead of bending the
+    test to an object that only exists in-process.
+  - `36fa80a` — loosened the welcome fixed-overhead budget `1000 → 2000` per
+    owner directive (supersedes the reviewer's interim `1300`); applied
+    consistently to **both** `test_welcome.py` + `test_welcome_state.py` (no
+    drift between the two constants — checked).
+- **Self-consistency (the thing I was watching for):** the two finding access
+  styles now map to two genuinely different paths — `test_analyze_architecture`
+  gets `Finding` objects in-process (`f.rule` ✓); `test_intent_path_analysis`
+  gets wire dicts (`f["rule"]` ✓). No contradiction. ✅
+- **Rubric:** behavior-preserving ✅ (wire shape restored — *more*
+  contract-faithful than the reviewer's fix); the blast-radius lesson is
+  applied (the fix moved to the seam).
+- **Reviewer note:** my `5a9d50c` is now superseded, and that's correct — the
+  agent found the right layer. No action needed; the supersession is clean.
+
 ---
 
-## Branch CI snapshot (as of reviewer's last check, 2026-06-13 ~11:33 UTC)
-- HEAD `5a9d50c`: **1 failed, 2322 passed.** Sole failure =
-  `test_vision_goals_validator` (the `Plan/286` frontmatter above). All other
-  buckets green after the reviewer's 3 fixes (welcome budget ×2, Finding test
-  migration ×6).
+## Branch CI snapshot (2026-06-13 ~12:05 UTC)
+- HEAD `b1b8b9e`: **GREEN** (pytest success, run 27466219677). The branch went
+  red → green: welcome-budget ×2 + Finding-migration ×6 (reviewer) + the
+  Finding wire-shape reconcile + `Plan/286` frontmatter (refactor agent) closed
+  all 9 prior failures. **PR #141 is mergeable on CI.**
