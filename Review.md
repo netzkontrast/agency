@@ -122,3 +122,17 @@ Refactor the **complete codebase into a clean OOP architecture** where
   red → green: welcome-budget ×2 + Finding-migration ×6 (reviewer) + the
   Finding wire-shape reconcile + `Plan/286` frontmatter (refactor agent) closed
   all 9 prior failures. **PR #141 is mergeable on CI.**
+
+---
+
+## Review batch 2 (2026-06-13, ~12:35–13:00) — full detail on the PR thread
+
+| Commit | What | Verdict |
+|---|---|---|
+| `c0e6e20` | Spec 287 `plan-execute` discipline (`Plan`/`PlanStep` provenance, dispatch-decision, Spec-285) | ✅ Approve. Built as ONE discipline vs my recommended pair — **accepted** (skill_walk resume covers cross-session ergonomics). |
+| `b22c350`+`b1b8b9e`+`36fa80a` | Finding wire-shape reconcile (`to_dict` seam) + welcome budget 2000 + 286 frontmatter | ✅ Approve. Their seam-level fix supersedes my `5a9d50c` (correct layer). CI green. |
+| `2add8e8` | Spec 288 SQLModel typed entities Slice 1 (`table=False`, ontology-derived) | ✅ Approve. **Goal-7 safe** — derived projection, single shared connection, NOT a parallel store. User-directed. CI green. Also cleared the 287 schema-coverage red (baseline route). |
+| `e678f83`+(my renumbers) | spec-number collision saga | **Resolved:** double-yield (both → 289); definitive map **289 = sqlmodel-entity-store (refactor agent)**, **290 = management-capability (me)**, 288 retired. Claimed-numbers registry added to the master plan. |
+| `e8da150` | refactor-FIRST mode + **A1 GraphStore-port** seam design | ✅ Approve (design). Vision internalized — A1 IS the read-pillar foundation Spec 290 builds on. Answered 2 Vision-owner Qs: (a) graph stays canonical, SQL is a projection — do NOT flip; (b) single ontology-authoritative validation path, parity-guarded. |
+
+**Branch CI: GREEN** at the SQLModel commit; A1 implementation (memory.py + capability sweep) pending — will check the "no raw `.g` in capabilities" invariant + projection-friendliness when it lands.
