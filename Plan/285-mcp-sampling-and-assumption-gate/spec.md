@@ -1,7 +1,7 @@
 ---
 spec: 285
 title: mcp-sampling-and-assumption-gate
-status: Design-reviewed
+status: Implementing (Slice 1 shipped)
 depends_on: [114, 279]
 clusters: [core]
 vision_goals: [1, 3, 8]
@@ -261,3 +261,29 @@ mode in `body` (per-call, cache-safe).
   1–10 + the doctor `host`-block test.
 - **Slice 2 — wider adoption.** Roll `sample:` / `requires_input:` into the
   remaining generative skills, one at a time (drop-in-phase bar).
+
+## Followup — Implementation Status (2026-06-13)
+
+**Slice 1 SHIPPED (Part A seam + Part B walk).**
+
+- **Part A — the seam** (commit `feat(285): Slice 1 Part A`): `agency/_host_bridge.py`
+  (`HostBridge` sync `sample`/`elicit` bridged via `anyio.from_thread`; `bind/
+  reset/current_host_context` ContextVar) + `_wire` `_host_ctx` capture →
+  `CapabilityContext.host` + `complete_or_delegate` sample branch (driver >
+  sample > Spec-279 envelope; `host_sampled`) + `Engine(sampling_enabled=)` +
+  `agency_doctor.host`. 13 tests.
+- **Part B — the walk**: `_phase` gains `sample` / `requires_input` /
+  `resolve_via`; the `develop._skill_walk` walker runs `_assumption_gate`
+  (elicit-or-pause; options sourced from a FastMCP verb in the skill's own
+  capability via `resolve_via` — a provenance Invocation) then `_sample_phase`
+  (host-sample to advance, else pause) before each `submit`. Adopted in
+  `develop.brainstorm` (`explore` samples `questions`) + the novel
+  `scene-writer` skill (`validate-constraints` `requires_input=["pov_choice"]`
+  → `resolve_via novel.pov_options`). New `novel.pov_options` resolver verb.
+  5 tests (`test_skill_walk_part_b.py`): sample advances / pauses; requires_input
+  elicits+advances (+records the resolver Invocation) / pauses with options /
+  is skipped when supplied. Existing brainstorm/scene-writer walks unaffected
+  (the `input-required` status is already in their accepted set).
+
+**Slice 2 (wider adoption)** — roll `sample:`/`requires_input:` into the
+remaining generative skills one at a time (drop-in-phase bar).

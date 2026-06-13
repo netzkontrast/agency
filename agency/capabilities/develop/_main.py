@@ -19,12 +19,20 @@ from ...ontology import OntologyExtension
 from ...skill import SkillRun
 
 
-def _phase(index, name, produces, gate=None, verbs=None):
+def _phase(index, name, produces, gate=None, verbs=None,
+           sample=None, requires_input=None, resolve_via=None):
     p = {"index": index, "name": name, "produces": list(produces)}
     if gate:
         p["gate"] = gate
     if verbs:                       # Spec 092 G4 — reasoning-method cues for this phase
         p["verbs"] = list(verbs)
+    # Spec 285 Part B — generative + assumption-gate phase fields.
+    if sample:                      # {system, prompt, produces_key} — host-sample to advance
+        p["sample"] = dict(sample)
+    if requires_input:              # keys the phase must NOT assume (elicit-or-pause)
+        p["requires_input"] = list(requires_input)
+    if resolve_via:                 # {capability, verb} sourcing structured options for them
+        p["resolve_via"] = dict(resolve_via)
     return p
 
 
@@ -33,8 +41,18 @@ DEV_SKILLS = {
     # at the step that needs them, so reasoning fires in the workflow instead of staying
     # a dormant capability (the methods default their subject to the serving intent).
     "brainstorm": {"name": "brainstorm", "kind": "discipline", "phases": [
+        # Spec 285 Part B — `explore` is a generative phase: when a
+        # sampling-capable host is bound, the engine drafts the opening
+        # `questions` via MCP sampling instead of pausing for the agent to
+        # supply them (graceful pause when no host). `assumptions` is still
+        # the agent's to fill (the design judgement the walk preserves).
         _phase(1, "explore", ["questions", "assumptions"],
-               verbs=["intent.decompose", "intent.assumptions", "intent.first_principles"]),
+               verbs=["intent.decompose", "intent.assumptions", "intent.first_principles"],
+               sample={"produces_key": "questions",
+                       "system": "You are a rigorous design partner. List the "
+                                 "sharpest open questions for the stated intent.",
+                       "prompt": "Enumerate the key open questions to resolve "
+                                 "before designing this. One per line."}),
         _phase(2, "present", ["design", "tradeoffs"],
                verbs=["intent.tradeoffs", "intent.steelman", "intent.second_order"]),
         _phase(3, "confirm", ["user_confirmed"], gate="hard"),
@@ -172,6 +190,86 @@ def checklist(discipline: str) -> dict:
     return {"result": {"discipline": discipline, "steps": steps}}
 
 
+def _assumption_gate(ctx, raw_phase: dict, call_outputs: dict, accumulated: dict):
+    """Spec 285 Part B — enforced no-assumption gate.
+
+    A `requires_input` phase must not advance on an assumed value. When a
+    required key is missing from both the call inputs and the accumulated
+    outputs, source structured options from the phase's `resolve_via` verb (a
+    FastMCP-annotated verb in the skill's OWN capability — a provenance-recording
+    Invocation), then ELICIT the user in the flow. Mutates `call_outputs` with
+    the answer and returns None to proceed; returns an input-required dict to
+    ABORT the walk when no elicit-capable host is bound (pause, never assume)."""
+    requires = raw_phase.get("requires_input") or []
+    if not requires:
+        return None
+
+    def _missing():
+        return [k for k in requires
+                if call_outputs.get(k) in (None, "") and accumulated.get(k) in (None, "")]
+
+    missing = _missing()
+    if not missing:
+        return None
+    options = None
+    rv = raw_phase.get("resolve_via")
+    if rv:
+        try:
+            res = ctx.call(rv["capability"], rv["verb"], keys=",".join(missing))
+            options = res.get("options") if isinstance(res, dict) else res
+        except Exception:
+            options = None
+    host = ctx.host
+    if host.can_elicit():
+        from agency._host_bridge import HostUnavailable
+        try:
+            outcome = host.elicit(
+                f"Phase {raw_phase['name']!r} needs {missing} — choose (no assumptions).",
+                options=options if isinstance(options, list) else None)
+        except HostUnavailable:
+            outcome = None
+        if outcome is not None and outcome.accepted:
+            data = outcome.data
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if v not in (None, ""):
+                        call_outputs[k] = v
+            elif len(missing) == 1 and data not in (None, ""):
+                call_outputs[missing[0]] = data
+            missing = _missing()
+    if missing:
+        return {"status": "input-required", "phase": raw_phase["name"],
+                "blocked_on": f"assumption:{','.join(missing)}",
+                "resume_with": missing, "options": options}
+    return None
+
+
+def _sample_phase(ctx, raw_phase: dict, call_outputs: dict):
+    """Spec 285 Part B — a `sample` phase generates its `produces_key` via host
+    sampling when a sampling-capable host is bound; otherwise returns an
+    input-required dict so the host supplies it on resume (graceful fallback)."""
+    sample = raw_phase.get("sample")
+    if not sample:
+        return None
+    pk = sample.get("produces_key")
+    if not pk or call_outputs.get(pk) not in (None, ""):
+        return None
+    host = ctx.host
+    if host.can_sample():
+        from agency._host_bridge import HostUnavailable
+        try:
+            comp = host.sample(sample.get("prompt") or sample.get("system") or "",
+                               system=sample.get("system"))
+            if getattr(comp, "text", ""):
+                call_outputs[pk] = comp.text
+        except HostUnavailable:
+            pass
+    if call_outputs.get(pk) in (None, ""):
+        return {"status": "input-required", "phase": raw_phase["name"],
+                "blocked_on": f"sample:{pk}", "resume_with": [pk]}
+    return None
+
+
 def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
     """The atomic walker (Spec 018 Win 1). Walk a registered skill to the first
     hard gate in ONE call, returning the documented status contract. Composes
@@ -199,9 +297,19 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
     completed: list = []
     while not run.done:
         phase = run.current()
+        raw_phase = run.phases[run.i]          # full dict (sample/requires_input/resolve_via)
         is_gate = phase.get("gate") == "hard"
         confirmed = is_gate and confirm_gate
         call_outputs = {k: v for k, v in inputs.items() if v not in (None, "")}
+        # Spec 285 Part B — enforced assumption-gate (elicit-or-pause), then
+        # host-sample to advance. Both abort the walk with input-required when
+        # the host can't satisfy them; otherwise they mutate call_outputs.
+        _ag = _assumption_gate(ctx, raw_phase, call_outputs, accumulated)
+        if _ag is not None:
+            return {**_ag, "skill_id": run.skill_id, "partial_outputs": accumulated}
+        _sg = _sample_phase(ctx, raw_phase, call_outputs)
+        if _sg is not None:
+            return {**_sg, "skill_id": run.skill_id, "partial_outputs": accumulated}
         if is_gate and not confirmed:
             # The gate's produces are what the caller supplies on RESUME
             # (resume_with), not what's needed to REACH the pause. Fill any

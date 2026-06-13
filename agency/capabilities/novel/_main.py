@@ -603,7 +603,14 @@ SCENE_WRITER_SKILL = {
          "produces": ["constraints_validated"],
          # No bound verb yet — the brief's token_count + truncated
          # flags carry the validation; phase output is the gate.
-         "verbs": []},
+         "verbs": [],
+         # Spec 285 Part B — the scene's POV must not be ASSUMED. The walker
+         # elicits a choice from the canonical SCENE_POV set (sourced from the
+         # in-capability `novel.pov_options` verb) when the caller hasn't
+         # supplied `pov_choice`; with no elicit-capable host it pauses rather
+         # than guessing. Demonstrates the enforced no-assumption gate.
+         "requires_input": ["pov_choice"],
+         "resolve_via": {"capability": "novel", "verb": "pov_options"}},
         {"index": 3, "name": "generate",
          # Codex review on PR #137 round 2: phase 1's output key is
          # `scene_brief`; the verb accepts it under the same name so
@@ -1146,6 +1153,21 @@ class NovelCapability(CapabilityBase):
             "status": c.get("status"),
         } for c in chapters]
         return ToolResult.success(data={"chapters": items, "count": len(items)})
+
+    @verb(role="transform")
+    def pov_options(self, keys: str = "") -> ToolResult:
+        """Structured POV choices for an assumption-gate (transform).
+
+        Spec 285 Part B — the `resolve_via` target for the `scene-writer`
+        skill's `requires_input` POV gate: a FastMCP-annotated verb in the
+        novel capability that sources the canonical `SCENE_POV` members so the
+        walker can elicit a CHOICE from the user instead of assuming a POV.
+
+        Inputs: keys (the missing requires_input keys, comma-joined; advisory).
+        Returns: ``{options: [<SCENE_POV members>], keys}``.
+        chain_next: the walker presents ``options`` via an elicit gate.
+        """
+        return ToolResult.success(data={"options": sorted(SCENE_POV), "keys": keys})
 
     @verb(role="effect", param_enums={"pov": SCENE_POV})
     def create_scene(self, chapter_id: str, slug: str,
