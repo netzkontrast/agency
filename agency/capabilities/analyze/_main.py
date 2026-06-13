@@ -15,6 +15,7 @@ Red flags:
 from __future__ import annotations
 
 import time
+from dataclasses import asdict
 
 from agency.capability import (
     CapabilityBase, RenderTemplates, verb,
@@ -277,7 +278,7 @@ class AnalyzeCapability(CapabilityBase):
                 findings = scanner(path)
             totals[axis] = _findings.count_by_severity(findings)
             for fnd in findings:
-                fid = self.ctx.record("Finding", dict(fnd))
+                fid = self.ctx.record("Finding", asdict(fnd))
                 self.ctx.link(analysis_id, fid, "HAS_FINDING")
                 self.ctx.link(fid, self.ctx.intent_id, "OBSERVED_DURING")
         return {"analysis_id": analysis_id, "totals": totals}
@@ -330,7 +331,7 @@ class AnalyzeCapability(CapabilityBase):
         Returns: ``{improvement_plan_id, item_count, summary}``.
         chain_next: ``gate.check`` before writes (v2).
         """
-        findings = [f for f in _quality.scan(path) if f["rule"] == "Q001"]
+        findings = [f for f in _quality.scan(path) if f.rule == "Q001"]
         plan_id = self.ctx.record("Reflection", {
             "scope": "technical",
             "kind": "improvement-plan",

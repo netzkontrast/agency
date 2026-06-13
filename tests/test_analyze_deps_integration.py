@@ -43,11 +43,12 @@ def test_ruff_finds_long_line_when_present(tmp_path):
     _write(str(tmp_path), "L.py", long_line + "\n")
     findings = _ruff.scan(str(tmp_path))
     # Expect at least one E501 (line-too-long).
-    assert any(f["rule"] == "E501" for f in findings)
+    assert any(f.rule == "E501" for f in findings)
     # Shape matches agency Finding contract.
     f = findings[0]
-    assert "severity" in f and f["severity"] in ("info", "warn", "fail")
-    assert "file" in f and "line" in f and "message" in f and "evidence" in f
+    assert hasattr(f, "severity") and f.severity in ("info", "warn", "fail")
+    assert (hasattr(f, "file") and hasattr(f, "line")
+            and hasattr(f, "message") and hasattr(f, "evidence"))
 
 
 def test_ruff_finds_unused_import_when_present(tmp_path):
@@ -55,7 +56,7 @@ def test_ruff_finds_unused_import_when_present(tmp_path):
         pytest.skip("ruff not installed")
     _write(str(tmp_path), "u.py", "import sys\nx = 1\n")
     findings = _ruff.scan(str(tmp_path))
-    assert any(f["rule"] == "F401" for f in findings)
+    assert any(f.rule == "F401" for f in findings)
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +77,7 @@ def test_bandit_finds_eval_when_present(tmp_path):
     _write(str(tmp_path), "e.py", "def run(x): return eval(x)\n")
     findings = _bandit.scan(str(tmp_path))
     # B307 is bandit's code for use of eval.
-    assert any(f["rule"].startswith("B") for f in findings)
+    assert any(f.rule.startswith("B") for f in findings)
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +103,7 @@ def test_radon_finds_high_complexity_when_present(tmp_path):
     _write(str(tmp_path), "c.py", body)
     findings = _radon.cyclomatic(str(tmp_path))
     assert findings, "expected cyclomatic finding for 15-branch function"
-    assert any(f["rule"].startswith("Q005") for f in findings)
+    assert any(f.rule.startswith("Q005") for f in findings)
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +121,7 @@ def test_quality_scan_composes_internal_plus_external(tmp_path):
             "import sys\n"
             "x = " + "1 + " * 30 + "1\n")
     findings = _quality.scan(str(tmp_path))
-    rules = {f["rule"] for f in findings}
+    rules = {f.rule for f in findings}
     # internal:
     assert "Q001" in rules or "Q002" in rules
     # ruff:
@@ -134,9 +135,9 @@ def test_quality_scan_silent_external_fallback(tmp_path):
     with mock.patch("shutil.which", return_value=None):
         findings = _quality.scan(str(tmp_path))
     # Internal Q001 still fires.
-    assert any(f["rule"] == "Q001" for f in findings)
+    assert any(f.rule == "Q001" for f in findings)
     # No ruff codes.
-    assert not any(f["rule"].startswith(("E", "F", "W")) for f in findings)
+    assert not any(f.rule.startswith(("E", "F", "W")) for f in findings)
 
 
 def test_agency_doctor_reports_analyze_extras():

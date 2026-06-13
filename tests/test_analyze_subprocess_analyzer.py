@@ -70,7 +70,7 @@ def test_findings_present_returncode_is_ok(monkeypatch):
         "subprocess.run",
         _fake_run(stdout='[{"rule": "X1", "file": "a.py"}]', returncode=1))
     out = _StubAnalyzer().run(".")
-    assert len(out) == 1 and out[0]["rule"] == "X1"
+    assert len(out) == 1 and out[0].rule == "X1"
 
 
 def test_bad_json_returns_empty(monkeypatch):
