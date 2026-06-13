@@ -58,7 +58,14 @@
 | `72c9436` | **289 Slice 2b — Memory→EntityStore mirror** | `Memory` binds `EntityStore` on the shared conn; `_mirror()` projects user props after each authoritative `upsert_node` (record/update/supersede), one-way, non-fatal | **graph stays write-authoritative**; dual-observable (`recall` + `entities.get`); projection failure never fails the graph write | 15 mirror green |
 | `0d4f383` | **P3 Goal 4 — capability-per-folder** | `intent`(9)/`shell`(4)/`skills`(5) bare modules → folders (`git mv`); `__init__.py` re-export shims | verb-set/count/ontology/skill_doc unchanged; `discover()` finds each once | 68 focused green |
 
-> **Milestone: spine A1·A2·A3·A4·A5·A7 + ALL 5 leaf splits + #8 + capability-per-folder + 289 (entities/store/mirror) done.** Full Engine build clean: 21 caps / 332 verbs (+7 substrate), wire byte-identical, graph-authoritative entity projection live. **Remaining: `@requires_driver` decorator (#4) + cross-cap dedup (`_phase`/`SkillBuilder`/`record_and_serve`/`budget_take`).** (Deferred/optional: A4 metadata-dataclass consolidation; A8 soft per CORE v4.)
+> **🏁 MILESTONE — Spec 286 + 289 are CODE-COMPLETE.** Every planned slice landed, behaviour-preserving, wire byte-identical (full Engine build: 21 caps / 332 verbs + 7 substrate, graph-authoritative entity projection live):
+> - **Ports** A1 GraphStore (`e57d7b7`) · A2 DriverRegistry (`5221430`)
+> - **Spine** A3 invoke→4 collaborators+hook (`8f239d4`) · A4 typed Verb (`e63efc9`)
+> - **Cleanup** A5 substrate-tools-as-set (`91acb43`) · A7 WireEnvelope (`2e55472`) · #8 StrEnum (`18bf40d`)
+> - **Leaves** music/novel/plugin/dogfood/prompt splits · capability-per-folder (`0d4f383`) · `@requires_driver` (`0c34669`) · SubprocessAnalyzer+Finding · dedup phase()/record_and_serve()/budget_take() (`9b1aae4`)
+> - **Data (289)** EntityModels + EntityStore + Memory→graph-authoritative mirror
+>
+> **Now the Review Partner's gate:** Gherkin acceptance suite green + clean-OOP review across the refactor → then Phases A/B/C merge + CI re-enabled = Shipped. **Accumulated test-rewrites handed off** (internal-coupling breaks, NOT behaviour): plugin lint-internals (`test_lint_token_economy`/`reflection_link`/`document_scope_guards`/`recall_typed`); A4 `Verb`-value-object item-assignment (`test_error_severity` contention, `test_music_lyrics`/`test_music_gates` sub-gate `verbs[x]["fn"]=`). Deferred/optional: A4 metadata-dataclass consolidation; A8 (soft per CORE v4); #5 BoundaryConfig; 289 FastAPI Slice 3.
 
 ### A3 post-invocation hook seam (for Spec 283 render + 282-E dedup)
 `ResultProcessor.register_post_invocation(hook)` (the processor is at `registry._processor`). Signature: **`hook(memory, invocation_id, intent_id, label, result) -> None`** — `label: Optional[str]` (currently `None`, reserved for 283's render hook to fill from the produced node); `result` is the **unwrapped** data the caller receives. Fires AFTER all side-effects are recorded, in registration order, return ignored. Default list is empty (zero behaviour change). Spec 283's renderer + Spec 282-E's `retry_count` dedup attach here without re-touching `invoke`.
