@@ -147,3 +147,11 @@ def _doctor(engine):
 @then("a non-empty health report is returned")
 def _health_ok(health):
     assert isinstance(health, dict) and health, "doctor returned no health report"
+
+
+@then(parsers.parse('the "{cap}" capability exposes a full clustered verb suite'))
+def _clustered_suite_intact(verb_names, cap):
+    # relationship guard (rule 8): a clustered god-class (music ~103, novel ~91)
+    # split into mixins must keep a large, contiguous verb suite — not a frozen count.
+    n = len([v for v in verb_names if v.startswith(f"capability_{cap}_")])
+    assert n > 80, f"capability {cap!r} verb suite collapsed to {n} after the cluster split"
