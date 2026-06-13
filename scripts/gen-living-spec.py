@@ -21,15 +21,11 @@ from pathlib import Path
 
 from agency.engine import Engine
 
-# cap -> pillar (primary concept it completes; CORE.md §"Four complete pillars").
-PILLAR = {
-    "intent": "intent", "thinking": "intent", "dogfood": "intent",
-    "reflect": "memory", "analyze": "memory", "research": "memory", "document": "memory",
-    "plugin": "capability", "skill_generator": "capability", "skills": "capability",
-    "prompt": "capability", "music": "capability", "novel": "capability",
-    "develop": "lifecycle", "gate": "lifecycle", "delegate": "lifecycle",
-    "subagent": "lifecycle", "jules": "lifecycle", "workspace": "lifecycle", "branch": "lifecycle",
-}
+# The pillar a capability completes is the home concept it ALREADY declares
+# (`CapabilityBase.home` — capability / lifecycle / memory). We derive it from
+# the live capability rather than hand-maintain a map that drifts; the Intent
+# pillar is represented by the substrate `intent` spec (no capability is
+# home-Intent — Intent is the root every capability SERVES). Rule 2.
 _SKIP = {"self", "ctx", "intent_id", "agent_id"}
 
 
@@ -66,7 +62,7 @@ def _cap_purpose(cap) -> str:
 
 def gen(cap_name: str, reg) -> str:
     cap = reg.get(cap_name)
-    pillar = PILLAR.get(cap_name, "capability")
+    pillar = cap.home
     ont = cap.ontology
     nodes = getattr(ont, "nodes", {}) or {}
     edges = getattr(ont, "edges", set()) or set()
@@ -125,8 +121,7 @@ def main() -> None:
     names = sorted(reg.names()) if arg == "--all" else [arg]
     root = Path("Plan/living")
     for name in names:
-        pillar = PILLAR.get(name, "capability")
-        out = root / pillar / f"{name}.md"
+        out = root / reg.get(name).home / f"{name}.md"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(gen(name, reg))
         print(f"wrote {out}")
