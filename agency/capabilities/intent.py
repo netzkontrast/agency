@@ -251,3 +251,63 @@ class IntentCapability(CapabilityBase):
             "Weight the remaining criteria; the highest weighted-score wins.",
             "Name the tie-breaker you'd use, and the option you'd pick if forced now.",
         ], "output": "a scored options × criteria matrix with a decision + tie-breaker"}
+
+    # ── ported from the former `thinking` cap (Spec 291 dedup — one critical-
+    #    thinking surface on the intent pillar). Same dict-return convention.
+    @verb(role="transform")
+    def red_team(self, subject: str = "", n_attacks: int = 5) -> dict:
+        """Adversarial review — adopt an attacker's stance + find failure paths.
+
+        Distinct from steelman (strongest argument AGAINST your position);
+        red_team finds the strongest path to your SYSTEM's failure.
+        Inputs: subject (defaults to the serving intent), n_attacks (default 5).
+        chain_next: prioritise the highest-severity attack + design mitigation.
+        """
+        s = self._subject(subject)
+        return {"method": "red_team", "subject": s, "n_attacks": n_attacks, "steps": [
+            f"Adopt the stance of an attacker who wants '{s}' to fail.",
+            f"Identify {n_attacks} distinct attack vectors — technical, social, supply-chain.",
+            "For each: weakness exploited, exploit path, severity (low/medium/high/critical).",
+            "Rank by severity × ease; address the top one BEFORE shipping.",
+        ], "output": "{attacks: [{name, weakness, exploit_path, severity}], top_recommendation}"}
+
+    @verb(role="transform")
+    def socratic(self, subject: str = "", n_questions: int = 5) -> dict:
+        """Five-whys-deeper Socratic questioning — surface the root assumption.
+
+        Inputs: subject (defaults to the serving intent), n_questions (default 5).
+        chain_next: ``intent.assumptions`` on the surfaced root.
+        """
+        s = self._subject(subject)
+        return {"method": "socratic", "subject": s, "n_questions": n_questions, "steps": [
+            f"Start with: 'why {s!r}?'",
+            "Take the answer, then ask 'why that?' OR 'what does that assume?'",
+            f"Continue for {n_questions} levels of recursion.",
+            "The final-level answer surfaces the root assumption — examine it directly.",
+        ], "output": "{question_chain: [{level, question, answer}], root_assumption}"}
+
+    @verb(role="act")
+    def apply_full_review(self, subject: str = "", depth: str = "standard") -> dict:
+        """Run the founding critical-thinking methods in sequence; produce a
+        critical-analysis artefact (act).
+
+        Inputs: subject (defaults to the serving intent), depth
+                (shallow|standard|deep — the rigor level).
+        chain_next: ``intent.tradeoffs`` if recommendations compete.
+        """
+        if depth not in {"shallow", "standard", "deep"}:
+            return {"error": "INVALID_ARGUMENT",
+                    "message": f"depth={depth!r} not in shallow|standard|deep"}
+        s = self._subject(subject)
+        subject_methods = ["decompose", "assumptions", "premortem", "first_principles",
+                           "inversion", "steelman", "second_order"]
+        scaffolds = [{"method": m, "scaffold": getattr(self, m)(subject=s)}
+                     for m in subject_methods]
+        scaffolds.append({"method": "tradeoffs", "scaffold": self.tradeoffs()})
+        methods = subject_methods + ["tradeoffs"]
+        body = (f"# Critical analysis: {s}\n\nDepth: {depth}\n"
+                f"Methods applied: {', '.join(methods)}\n")
+        return {"result": body, "artefact": {
+            "kind": "thinking-analysis", "subject": s, "methods": methods,
+            "depth": depth, "scaffolds": scaffolds,
+            "recommendation": "(agent fills based on scaffolds)", "body": body}}

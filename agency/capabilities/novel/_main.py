@@ -2993,7 +2993,7 @@ class NovelCapability(CapabilityBase):
     def storyform_critical_pass(self, novel_id: str) -> ToolResult:
         """Critical-thinking pass over the storyform (act, xcap to thinking).
 
-        Walks ``thinking.apply_full_review`` against the novel's storyform
+        Walks ``intent.apply_full_review`` against the novel's storyform
         body (or premise / title as fallback) and surfaces the 8-method
         scaffold as a thinking-analysis artefact. The xcap call records
         a SERVES edge from the thinking cap's Invocation back to this
@@ -3012,8 +3012,8 @@ class NovelCapability(CapabilityBase):
         subject = (storyforms[0].get("body") if storyforms
                     and storyforms[0].get("body")
                     else f"Novel: {node.get('title','')} by {node.get('author','')}")
-        # Cross-cap call — thinking.apply_full_review serves the same intent.
-        tr = self.ctx.call("thinking", "apply_full_review",
+        # Cross-cap call — intent.apply_full_review serves the same intent.
+        tr = self.ctx.call("intent", "apply_full_review",
                             subject=subject, depth="standard")
         body = (tr or {}).get("result") or (tr or {}).get("body") or str(tr or "")
         return ToolResult.success(data={
@@ -3212,7 +3212,7 @@ class NovelCapability(CapabilityBase):
         Per Open Q2 (resolved as v1 decidable): flags axiom pairs whose
         bodies share ≥ 2 motif words AND one carries a negation marker
         the other lacks (``not``, ``never``, ``no``). The judgement pass
-        (full red_team) is a future xcap to ``thinking.red_team``.
+        (full red_team) is a future xcap to ``intent.red_team``.
 
         Inputs: world_id.
         Returns: ``{passed, contradictions: [{a_id, b_id, a_text, b_text}]}``.

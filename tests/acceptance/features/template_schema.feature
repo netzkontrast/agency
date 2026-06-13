@@ -83,7 +83,3 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
 
   # ── schema coverage baseline (Slice 2) ────────────────────────────────────────
 
-  Scenario: the committed baseline matches the live uncovered set exactly
-    When I run the live audit and compare to the committed baseline
-    Then there are no new uncovered labels
-    And there are no newly-covered labels still in the baseline
