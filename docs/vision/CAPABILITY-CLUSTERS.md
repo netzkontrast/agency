@@ -20,7 +20,7 @@ fragment.
 | `transmute` | transform | Engine · Capability | pure functions over artefacts: views, indexes, summaries, tool-list shaping | the open `transform` set |
 | `commit-effect` | effect | Lifecycle · Memory | mutate external state (fs, git, cloud), verify the world reached the intended terminal state | the open `effect` set |
 | `research` | agent, transform | Capability · Memory | a lead agent fans out to specialists; a verifier gate admits only cited claims | composition (delegate + craft + gate) |
-| `navigate` | transform | Lifecycle · Memory · Intent | read-projections: "where am I, what's blocked, what's next" against acceptance | `project` / `provenance` |
+| `navigate` / **`manage`** | transform | Lifecycle · Memory · Intent | **the Management read-API** — a coherent API over EVERY graph node type (open intents · lifecycle status · research & claims · artefacts · reflections): "where am I, what's blocked, what's next, what do we know" against acceptance, with no hand-written Cypher | `project` / `provenance` / `analyze.graph` — **the completion target for the Memory + Lifecycle pillars** (see CORE.md §"Four complete pillars") |
 | `wire-handlers` | Engine | Engine · Memory | the substrate: reflection-based discovery + auto-wiring, the extensible ontology | the engine itself |
 
 ## The verdict (why so few primitives)
@@ -41,6 +41,17 @@ net-new primitive, `delegate`, is built and proven (fan-out under a quota + join
 recorded as a connected provenance subgraph) — the same falsification bar every
 shipped capability met. The residual 0.1: `research`'s composition is unproven
 until built.
+
+## Four complete pillars (Core Vision)
+
+The cluster table above is the *surface* view. The deeper aim (CORE.md §"Four
+complete pillars", owner directive 2026-06-13): **each of Intent · Capability ·
+Lifecycle · Memory is a complete suite of code + tools** — write *and* read,
+author *and* observe — drivable end to end through verbs, never raw queries.
+The write/act sides are mature; the **read/management** side is the gap, and
+the **`navigate`/`manage` Management capability** (the read-API over all graph
+nodes) is its keystone. A capability lands in a pillar's suite, not in a
+vacuum; when proposing one, ask *which pillar's suite does this complete?*
 
 ## SC + Superpowers cluster overlay (2026-06-02 audit)
 
