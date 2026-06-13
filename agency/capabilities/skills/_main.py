@@ -17,8 +17,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Literal
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
+from ...capability import CapabilityBase, verb
+from ...ontology import OntologyExtension
 
 _VALID_GATES = {"hard", "soft"}
 
