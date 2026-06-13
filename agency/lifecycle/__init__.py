@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from .memory import Memory
-from .ontology import LifecycleState
+from ..memory import Memory
+from ..ontology import LifecycleState
 
 # A2A-aligned task states. Spec 286 #8 — `LifecycleState` (ontology.py) is the
 # single source; these module-level names are its `.value` (plain strings) so

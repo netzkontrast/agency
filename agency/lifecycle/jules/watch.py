@@ -3,8 +3,8 @@ import random
 import time
 from typing import Any
 
-from agency.capabilities.jules import api as _jules_api
-from agency.capabilities._vcs import GitClient
+from . import api as _jules_api
+from .._vcs import GitClient
 
 # Spec 013 Phase 11 update: every instruction names the Jules-side tool the
 # agent must call EXPLICITLY (per AGENCY_PROTOCOL.md §2 — prose alone leaves
@@ -296,7 +296,7 @@ class Watcher:
 
                 if st["attempt"] >= 3:
                     try:
-                        from agency.capabilities.jules import patch as _jules_patch
+                        from . import patch as _jules_patch
                         # Fetch outputs + source-derived owner/repo for the
                         # recovery plan (build_recovery_plan signature landed
                         # in PR #9: (outputs, branch, base, owner, repo, sid)).

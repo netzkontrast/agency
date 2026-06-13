@@ -40,8 +40,8 @@ def _sandbox_limits() -> dict:
     }
 
 from .capabilities import discover
-from .capabilities._vcs import GitClient
-from .capabilities.jules import JulesClient
+from .lifecycle._vcs import GitClient
+from .lifecycle.jules import JulesClient
 from .capability import Registry
 from .intent import Intent
 from .lifecycle import Lifecycle
@@ -537,7 +537,7 @@ class Engine:
 
         @asynccontextmanager
         async def lifespan(server):
-            from agency.capabilities.jules import watch as _jules_watch
+            from agency.lifecycle.jules import watch as _jules_watch
             engine.monitor.maybe_rotate()           # Spec 021 — bound the SLOG on session enter
             _jules_watch.start(engine)              # attaches engine._jules_watcher + starts poll loop
             try:
