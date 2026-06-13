@@ -7,7 +7,7 @@ last_generated: 2026-06-13
 sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
-# analyze — the craft (the open concept). Verbs are capability-defined and (memory pillar)
+# analyze — Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions (memory pillar)
 
 ## Why
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the

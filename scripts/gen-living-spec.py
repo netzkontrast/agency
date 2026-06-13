@@ -53,17 +53,15 @@ def _purpose(fn) -> str:
 
 
 def _cap_purpose(cap) -> str:
-    """The capability's one-line purpose, from its module docstring (the
-    `<name> — <desc>` header or the first sentence), NOT the dataclass repr."""
-    mod = inspect.getmodule(cap.__class__)
-    doc = (getattr(mod, "__doc__", "") or "").strip()
-    lines = [ln.strip() for ln in doc.splitlines() if ln.strip()]
-    if not lines:
-        return cap.name
-    head = lines[0]
-    if "—" in head:                       # "reflect — durable, scope-tagged …"
-        return head.split("—", 1)[1].strip().rstrip(".")
-    return (lines[1] if len(lines) > 1 else head).rstrip(".")
+    """The capability's one-line purpose, from its derived ``skill_doc`` (which
+    is itself derived from the capability's module docstring — rule 2), NOT the
+    compiled ``Capability`` dataclass repr."""
+    sd = getattr(cap, "skill_doc", None)
+    if sd and getattr(sd, "overview", ""):
+        return sd.overview.split(". ")[0].strip().rstrip(".")
+    if sd and getattr(sd, "description", ""):
+        return sd.description.strip().rstrip(".")
+    return cap.name
 
 
 def gen(cap_name: str, reg) -> str:
