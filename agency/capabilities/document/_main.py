@@ -134,14 +134,13 @@ class DocumentCapability(CapabilityBase):
             out = _explain.explain(target, depth=depth)
         except (ValueError, FileNotFoundError) as exc:
             return {"error": str(exc), "target": target, "depth": depth}
-        rid = self.ctx.record("Reflection", {
+        rid = self.ctx.record_and_serve("Reflection", {
             "scope": "technical",
             "kind": "explanation",
             "target": target,
             "depth": depth,
             "text": out["content"],
         })
-        self.ctx.link(rid, self.ctx.intent_id, "SERVES")
         # Parity with reflect.note: also link OBSERVED_DURING so the
         # explanation surfaces in intent-scoped reflection views
         # (document.render(scope='reflections', for_intent_id=...) +
@@ -167,13 +166,12 @@ class DocumentCapability(CapabilityBase):
             path, self.ctx.memory, intent_id=self.ctx.intent_id,
             max_tokens=max_tokens)
         sha = _index_repo.content_sha(content)
-        index_id = self.ctx.record("RepoIndex", {
+        index_id = self.ctx.record_and_serve("RepoIndex", {
             "path": os.path.abspath(path),
             "content_sha": sha,
             "token_count": tokens,
             "generated_at": int(time.time()),
         })
-        self.ctx.link(index_id, self.ctx.intent_id, "SERVES")
         writeup = "planning-only"
         if apply:
             target = os.path.join(os.path.abspath(path), "PROJECT_INDEX.md")

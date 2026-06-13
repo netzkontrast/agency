@@ -40,7 +40,7 @@ class ReflectCapability(CapabilityBase):
                                           "open_questions"]},
     )
 
-    @verb(role="act")
+    @verb(role="act", param_enums={"scope": REFLECT_SCOPES})
     def note(self, scope: str, text: str) -> dict:
         """Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent.
 

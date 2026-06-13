@@ -61,6 +61,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `create_novel` | effect | Record a Novel node SERVING the intent; materialise disk on production. | [details](references/create_novel.md) |
 | `create_religion` | effect | Mint a Religion under a World + PART_OF_WORLD edge (effect). | [details](references/create_religion.md) |
 | `create_scene` | effect | Record a Scene node + SCENE_OF the parent Chapter (effect). | [details](references/create_scene.md) |
+| `create_storyform` | effect | Mint the Storyform node for a novel + STORYFORM_OF edge (effect). | [details](references/create_storyform.md) |
 | `create_world` | effect | Mint a World node + SERVES intent (effect). | [details](references/create_world.md) |
 | `create_world_axiom` | effect | Encode a WorldAxiom (rule) under a World (effect). | [details](references/create_world_axiom.md) |
 | `developmental_gate` | effect | Composite gate: structure-level editorial readiness (effect). | [details](references/developmental_gate.md) |
@@ -73,6 +74,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `find_novel` | transform | Substring-match novel titles (transform, driver-free). | [details](references/find_novel.md) |
 | `flag_anachronistic_reference` | transform | Check if the character knows the fact yet (transform). | [details](references/flag_anachronistic_reference.md) |
 | `generate_scene_body` | act | Spec 220 Slice 1 — wet scene-body generation via Spec 147 + Spec 279. | [details](references/generate_scene_body.md) |
+| `get_storyform` | transform | Return a novel's Storyform node + parsed NCP body (transform). | [details](references/get_storyform.md) |
 | `integrate_scene_body` | effect | Spec 130 phase 5 — write the generated body back to the Scene (effect). | [details](references/integrate_scene_body.md) |
 | `line_gate` | effect | Composite gate: prose-level editorial readiness (effect). | [details](references/line_gate.md) |
 | `link_character_to_world` | effect | Add a typed edge from Character → World child (effect). | [details](references/link_character_to_world.md) |
@@ -90,6 +92,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `novel_coherence_check` | effect | Composite gate (Spec 120): runs all 11 storyform checks with chaining. | [details](references/novel_coherence_check.md) |
 | `novel_progress` | transform | Aggregate progress (word-count + per-status counts) for a novel (transform). | [details](references/novel_progress.md) |
 | `pending_verifications` | transform | Aggregate pending claims by domain (transform). | [details](references/pending_verifications.md) |
+| `pov_options` | transform | Structured POV choices for an assumption-gate (transform). | [details](references/pov_options.md) |
 | `pre_draft_gate` | effect | Composite gate: storyform + research + chapters present (effect). | [details](references/pre_draft_gate.md) |
 | `promote_idea` | effect | Idea → Novel transition; records PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
 | `publication_gate` | effect | Terminal composite: publish_ready + ≥1 export + front-matter declared (effect). | [details](references/publication_gate.md) |
@@ -99,6 +102,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `record_story_event` | effect | Mint a StoryTimeEvent + optional HAPPENS_AT edge from a scene (effect). | [details](references/record_story_event.md) |
 | `record_storyform_decision` | effect | Record a contested storyform decision (effect, xcap to dogfood). | [details](references/record_storyform_decision.md) |
 | `rename_novel` | effect | Update a Novel's title (effect, graph-only). | [details](references/rename_novel.md) |
+| `render_all` | effect | Re-materialise a novel's full markdown tree from graph ground truth (effect). | [details](references/render_all.md) |
 | `render_blurb` | act | Render a back-cover blurb (act, driver-free). | [details](references/render_blurb.md) |
 | `render_chapter_brief` | act | Produce a research-dossier brief tied to a chapter (act, xcap to prompt). | [details](references/render_chapter_brief.md) |
 | `render_manuscript` | act | Concatenate chapters into a manuscript artefact (act). | [details](references/render_manuscript.md) |

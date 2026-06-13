@@ -26,6 +26,102 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 
+class Severity:
+    """Spec 282 — the retry-semantics axis of a failure, ORTHOGONAL to the
+    free-string ``TypedError.code``. ``code`` stays free per Spec 001's ADR
+    ("closed enums fragment across capabilities"); severity is a SMALL FIXED
+    engine-level vocabulary that classifies *whether retrying can ever help*,
+    so it does not partition the capability surface and cannot fragment.
+
+    Evidence (kohaerenzprotokoll/.agency/session.db, one ingest run): 513
+    ``create_scene`` calls failed PERMANENTLY on a closed ``pov`` enum yet the
+    driver retried each ~34× because the failure was indistinguishable from a
+    TRANSIENT graph-contention error. Severity is the bit that tells them
+    apart."""
+
+    PERMANENT = "permanent"   # validation / enum / schema / not-found / gate — retry NEVER helps
+    TRANSIENT = "transient"   # contention / IO / timeout / boundary — retry MAY help
+    FATAL = "fatal"           # internal invariant violation / unexpected crash — abort the batch
+
+
+# Substrings that mark a TRANSIENT failure when found in a code/message or the
+# str() of a raising exception. The graph-contention string is the exact one
+# observed under concurrent MCP+CLI writes (CLAUDE.md gotcha + Spec 282 §1).
+_TRANSIENT_MARKERS = (
+    "failed to set property",        # graphqlite edge-write contention
+    "database is locked",
+    "operationalerror",
+    "timeout",
+    "timed out",
+    "connection",
+    "temporarily unavailable",
+    "resource temporarily",
+)
+
+# Exception TYPES that are transient regardless of message.
+_TRANSIENT_EXC_TYPES = (
+    "TimeoutError", "ConnectionError", "OSError", "IOError",
+    "OperationalError", "BlockingIOError",
+)
+
+# Substrings that mark a PERMANENT (caller-fixable) failure.
+_PERMANENT_MARKERS = (
+    "not in", "invalid", "unknown", "required", "missing",
+    "enum", "not found", "does not exist", "not an intent",
+)
+
+
+def classify_severity(code: str, *, exc: BaseException | None = None,
+                      message: str = "") -> str:
+    """Map a free-string failure ``code`` (and optionally the raising
+    exception / message) to a :class:`Severity`. Spec 282 §3.
+
+    Resolution order:
+      1. An exception present → inspect its type then its text.
+      2. The ``code`` against the known :class:`Codes` partition.
+      3. The ``code`` / ``message`` text against marker substrings.
+      4. Default → PERMANENT (we are fixing OVER-retrying, so an unclassified
+         failure is conservatively *not* retried; a genuinely transient code
+         should be added to ``_TRANSIENT_MARKERS``).
+    """
+    blob = f"{code} {message}".lower()
+
+    if exc is not None:
+        exc_name = type(exc).__name__
+        if exc_name in _TRANSIENT_EXC_TYPES:
+            return Severity.TRANSIENT
+        exc_text = str(exc).lower()
+        if any(m in exc_text for m in _TRANSIENT_MARKERS):
+            return Severity.TRANSIENT
+        if any(m in blob for m in _TRANSIENT_MARKERS):
+            return Severity.TRANSIENT
+        # An unexpected exception type that is NOT a known transient is an
+        # engine bug, not a caller-fixable input → FATAL.
+        return Severity.FATAL
+
+    # No exception: classify by code/message.
+    if any(m in blob for m in _TRANSIENT_MARKERS):
+        return Severity.TRANSIENT
+
+    code_l = code.lower()
+    permanent_codes = {
+        Codes.VALIDATION_FAILED, Codes.GATE_FAILED, Codes.NOT_FOUND,
+        Codes.UNSUPPORTED, Codes.UNSPECIFIED, Codes.INVALID_ARGUMENT.lower(),
+        Codes.AMENDMENT_BAD_SPEC, Codes.AMENDMENT_NO_SOURCE,
+        Codes.AMENDMENT_VAGUE, Codes.AMENDMENT_UNCONFIRMED,
+        Codes.SKILL_PARSE_INVALID, Codes.PHASE_MISSING_FIELD,
+        Codes.PHASE_UNKNOWN_KIND,
+    }
+    if code_l in permanent_codes or code == Codes.INVALID_ARGUMENT:
+        return Severity.PERMANENT
+    if code_l in {Codes.INTERNAL}:
+        return Severity.FATAL
+    if any(m in blob for m in _PERMANENT_MARKERS):
+        return Severity.PERMANENT
+    # Spec 282 §3 documented default.
+    return Severity.PERMANENT
+
+
 class Codes:
     """Non-binding string-constant sugar for common failure codes
     (Spec 059). ``TypedError.code`` accepts ANY string by Spec 001's
@@ -66,11 +162,22 @@ class TypedError:
     """A failure record a verb may attach to its `ToolResult`. `code` is a
     free-string (per `the-agency-system`'s ADR — closed enums fragment across
     capabilities); `trace_id` is wired by `Registry.invoke` to the recorded
-    Invocation id so the failure is traceable in one provenance hop."""
+    Invocation id so the failure is traceable in one provenance hop.
+
+    Spec 282: ``severity`` is the ORTHOGONAL retry-semantics axis (one of
+    :class:`Severity`). It is derived from ``code`` by ``classify_severity``
+    when not supplied explicitly. An empty severity means "unclassified" and
+    is treated as non-retryable by ``retryable`` (conservative)."""
     code: str
     message: str
     trace_id: str = ""
     context: dict = field(default_factory=dict)
+    severity: str = ""
+
+    @property
+    def retryable(self) -> bool:
+        """Only a TRANSIENT failure is worth retrying. Spec 282."""
+        return self.severity == Severity.TRANSIENT
 
 
 @dataclass(frozen=True)
@@ -108,12 +215,20 @@ class ToolResult:
     @classmethod
     def failure(cls, code: str, message: str, *,
                 warnings: Optional[list] = None,
-                trace_id: str = "") -> "ToolResult":
+                trace_id: str = "",
+                severity: Optional[str] = None) -> "ToolResult":
         """Spec 059 — convenience ctor for the failure path. Builds the
         attached ``TypedError`` in-place. ``trace_id`` is left as-is when
-        supplied; otherwise ``Registry.invoke`` stamps it post-call."""
+        supplied; otherwise ``Registry.invoke`` stamps it post-call.
+
+        Spec 282 — ``severity`` is derived from ``code``/``message`` via
+        ``classify_severity`` when not given; an explicit value wins. So
+        EVERY ``ToolResult.failure`` carries a retry-semantics classification
+        without touching the 40+ existing call sites."""
+        sev = severity if severity is not None else classify_severity(code, message=message)
         return cls(
             data=None, ok=False,
             warnings=list(warnings or []),
-            error=TypedError(code=code, message=message, trace_id=trace_id),
+            error=TypedError(code=code, message=message, trace_id=trace_id,
+                             severity=sev),
         )

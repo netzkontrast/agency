@@ -582,14 +582,12 @@ class JulesCapability(CapabilityBase):
         # NOT the graph's internal numeric id at row["i"]["id"].
         iid = for_intent
         if not iid and session:
-            mem = self.ctx.memory
-            rows = mem.g.query(
-                "MATCH (js:JulesSession)-[:SERVES]->(i:Intent) "
-                "WHERE js.sid = $sid RETURN i",
-                {"sid": session},
-            )
-            if rows:
-                iid = rows[0]["i"]["properties"].get("id", "")
+            for js in self.ctx.query_nodes("JulesSession", {"sid": session}):
+                served = self.ctx.neighbors(js.get("id", ""), "SERVES",
+                                            direction="out")
+                if served:
+                    iid = served[0].get("id", "")
+                    break
             if not iid:
                 iid = self.ctx.intent_id   # fall back to the calling intent
 

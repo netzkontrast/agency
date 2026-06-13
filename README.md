@@ -126,16 +126,20 @@ MCP server, and `/agency:help` lists the live capability set.
 ```bash
 git clone https://github.com/netzkontrast/agency.git
 cd agency
+
+# One-shot default (Spec 282): venv + .[dev] = everything but the heavy torch backend.
+scripts/setup
+
+# Manual equivalent:
 python -m venv .venv && . .venv/bin/activate
-
-# Core dev (pytest + xdist + tiktoken):
 pip install -e ".[dev]"
+#   .[dev] self-references [analyze] (ruff/bandit/radon) + [tokens] + [anthropic]
+#   + [publish], so the full suite runs with ZERO skipped capability tests.
 
-# All optional extras (recommended for full local capability):
-pip install -e ".[dev,analyze,recall]"
-#   [analyze] → ruff, bandit, radon (Spec 050 composed lint/security/metric findings)
-#   [recall]  → sentence-transformers BGE embedder (Spec 045 — optional;
-#               TF-IDF is the zero-dep default)
+# Everything, INCLUDING the heavy sentence-transformers/torch recall backend (~2GB):
+scripts/setup --all          # or: pip install -e ".[all]"
+#   [recall] → sentence-transformers BGE embedder (Spec 045 — optional;
+#              TF-IDF is the zero-dep default)
 
 # Run tests (parallel; Spec 053):
 python -m pytest -q -n auto -m "not e2e"   # full suite, ~2:43

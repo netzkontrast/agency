@@ -15,8 +15,8 @@ Red flags:
 """
 from __future__ import annotations
 
-from ..capability import CapabilityBase, verb
-from ..ontology import OntologyExtension
+from ...capability import CapabilityBase, verb
+from ...ontology import OntologyExtension
 
 # An AUTHORED walkable discipline (overrides the derived <cap>-usage, Spec 081): a real
 # critical-thinking pass — frame the problem, decompose it, surface assumptions,
@@ -184,7 +184,7 @@ class IntentCapability(CapabilityBase):
         """
         import re
 
-        from .skills import _all_skills          # reuse the registry-scan helper (DRY)
+        from ..skills import _all_skills          # reuse the registry-scan helper (DRY)
         parts = [called_capability, called_verb, called_state]
         node = self.ctx.memory.recall(self.ctx.intent_id) or {}
         parts += [node.get("purpose", ""), node.get("deliverable", ""),
@@ -214,7 +214,7 @@ class IntentCapability(CapabilityBase):
                     matched, conf = False, 0.0
             elif kind == "llm_select":
                 # Spec 092 G3 — ask the LLM-decider Driver whether this skill applies.
-                from ..capability import DriverMissing
+                from ...capability import DriverMissing
                 try:
                     llm = self.ctx.get_driver("llm")
                 except DriverMissing:

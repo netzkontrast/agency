@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 import shlex
 
-from ..capability import CapabilityBase, verb
+from ...capability import CapabilityBase, verb
 
 # AGENCY-DRIFT: shell-allowlist — the tools shell.run may invoke (command's first
 # token). Extend deliberately; wire input is NEVER executed unless its tool is here.

@@ -24,9 +24,12 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `checklist` | transform | Project a discipline (skill walk) into a step-by-step checklist. | [details](references/checklist.md) |
+| `draft_plan` | act | Author a bite-sized plan as graph provenance (Spec 287; rule 2). | [details](references/draft_plan.md) |
 | `estimate` | transform | Decidable effort estimate from change-size inputs (Spec 046 F-D — sc-estimate, DECIDABLE only: no LLM, a transparent formula over the inputs you can count). | [details](references/estimate.md) |
 | `mode_select` | effect | Switch session mode + record a ModeShift node (effect). | [details](references/mode_select.md) |
+| `plan_status` | transform | Roll up a Plan's steps + completion (Spec 287) — the render-on-demand read side (rule 2). | [details](references/plan_status.md) |
 | `record_authoring_outcome` | act | Record a Reflection at the end of an authoring-capabilities walk. | [details](references/record_authoring_outcome.md) |
+| `record_step_outcome` | act | Mark a PlanStep's execution outcome (Spec 287). | [details](references/record_step_outcome.md) |
 | `reference` | transform | Fetch a discipline's heavy how-to on demand (T3 disclosure). | [details](references/reference.md) |
 | `scaffold_capability` | act | Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton. | [details](references/scaffold_capability.md) |
 | `session_check` | transform | Read the current SessionLifecycle state (transform). | [details](references/session_check.md) |
@@ -60,6 +63,8 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'execute', 'inputs': {}, 'intent_id': '…'})`
 - **`plan`** (discipline): map → self-review → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan', 'inputs': {}, 'intent_id': '…'})`
+- **`plan-execute`** (discipline): frame → draft-plan → plan-signoff → execute-step → checkpoint → synthesize
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan-execute', 'inputs': {}, 'intent_id': '…'})`
 - **`review`** (discipline): request → dispatch → resolve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'review', 'inputs': {}, 'intent_id': '…'})`
 - **`session-driver-pass`** (workflow): init → mode-select → work-loop → synthesize → archive

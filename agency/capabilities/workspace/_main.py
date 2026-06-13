@@ -41,8 +41,7 @@ class WorkspaceCapability(CapabilityBase):
         if not wt.get("ok", True):                             # don't record a phantom worktree
             return {"result": {"error": "worktree creation failed", "branch": branch,
                                "detail": wt.get("detail", "")}}
-        w = self.ctx.record("Workspace", {"path": wt["path"], "branch": wt["branch"], "base": base})
-        self.ctx.link(w, self.ctx.intent_id, "SERVES")
+        w = self.ctx.record_and_serve("Workspace", {"path": wt["path"], "branch": wt["branch"], "base": base})
         return {"result": {"workspace": w, "path": wt["path"], "branch": wt["branch"], "base": base}}
 
     @verb(role="effect", inject=["vcs"])

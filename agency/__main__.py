@@ -95,11 +95,11 @@ def _call_doctor(mcp) -> dict:
     async def _go():
         async with Client(mcp) as client:
             result = await client.call_tool("agency_doctor", {})
+            # Spec 286-A7: strip-`{result}` half of the wire rule via the one owner.
+            from ._wire_envelope import WireEnvelope
             sc = result.structured_content
-            if isinstance(sc, dict) and "result" in sc:
-                return sc["result"]
             if isinstance(sc, dict):
-                return sc
+                return WireEnvelope.strip(sc)
             if result.content:
                 try:
                     return json.loads(result.content[0].text)

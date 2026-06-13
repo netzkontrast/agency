@@ -37,9 +37,14 @@ from .engine import Engine
 
 
 def _structured(result):
+    # Spec 286-A7: the strip-`{result}` half of the wire rule lives in ONE
+    # place (`WireEnvelope`). The CLI runs on the engine's ALREADY-shaped
+    # `structured_content`, so it strips the scalar re-wrap back off (and
+    # prints the bare value) — `strip`, not `unwrap` (no re-wrap).
+    from ._wire_envelope import WireEnvelope
     sc = result.structured_content
     if isinstance(sc, dict):
-        return sc.get("result", sc)
+        return WireEnvelope.strip(sc)
     if sc is not None:
         return sc
     # scalar returns (e.g. execute returning an int) arrive as text content
