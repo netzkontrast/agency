@@ -61,7 +61,7 @@ _DEEP_RESEARCH_SKILL = {
 
 class ResearchCapability(CapabilityBase):
     name = "research"
-    home = "capability"
+    home = "intent"
     render_templates = RenderTemplates.from_module(__file__)
     artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(

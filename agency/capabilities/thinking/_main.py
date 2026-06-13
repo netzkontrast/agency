@@ -86,7 +86,7 @@ def _subject_or_default(ctx, subject: str) -> str:
 
 class ThinkingCapability(CapabilityBase):
     name = "thinking"
-    home = "capability"
+    home = "intent"
     ontology = thinking_ontology
 
     # ════════════════════════════════════════════════════════════════════════

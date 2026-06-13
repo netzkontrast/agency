@@ -102,7 +102,7 @@ _IMPROVEMENT_PLAN_SCHEMA = {
 
 class AnalyzeCapability(CapabilityBase):
     name = "analyze"
-    home = "capability"
+    home = "intent"
     render_templates = RenderTemplates.from_module(__file__)
     ontology = OntologyExtension(
         nodes={

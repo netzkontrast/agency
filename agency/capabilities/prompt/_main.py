@@ -77,7 +77,7 @@ _SEED_CATALOG: list[dict] = [
 
 class PromptCapability(CapabilityBase):
     name = "prompt"
-    home = "capability"
+    home = "intent"
     ontology = prompt_ontology
     render_templates = RenderTemplates.from_module(__file__)
 

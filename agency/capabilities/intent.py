@@ -39,7 +39,7 @@ _CRITICAL_THINKING_SKILL = {
 
 class IntentCapability(CapabilityBase):
     name = "intent"
-    home = "capability"
+    home = "intent"
     ontology = OntologyExtension(skills={"critical-thinking": _CRITICAL_THINKING_SKILL})
 
     # ── the subject defaults to the serving intent (ambient), so a bare call reasons
