@@ -967,16 +967,20 @@ class Engine:
                 "ontology_hash": ontology_hash(engine.ontology.nodes),
                 # Spec 282 Workstream G — sandbox constraints surfaced up front
                 # so an agent batches correctly instead of discovering the
-                # limits by failing mid-ingest (the KP run hit both).
+                # limits by failing mid-ingest (the KP run hit both). The
+                # welcome budget was loosened (user directive 2026-06-13) so
+                # this onboarding field can read clearly rather than cramped.
                 "sandbox_constraints": {
                     "max_call_tool_per_execute_block": 50,
-                    "no_file_io": ("the code-mode sandbox (Monty) has NO file "
-                                   "I/O — no open(); use capability verbs for "
-                                   "persistence, not the filesystem"),
-                    "supported": "try/except, import json, loops, comprehensions",
-                    "guidance": ("batch at <=45 call_tool per execute block; for "
-                                 "larger work split across blocks or use the CLI "
-                                 "lane (python -m agency.cli execute)"),
+                    "no_file_io": ("no open() in the code-mode sandbox — persist "
+                                   "via capability verbs, not the filesystem"),
+                    "partial_writes_persist": ("a failed call_tool aborts the rest "
+                                               "of the block, but prior graph writes "
+                                               "are NOT rolled back — make batches "
+                                               "idempotent against ground truth"),
+                    "guidance": ("batch <=45 call_tool per block; split larger work "
+                                 "across blocks or use the CLI lane "
+                                 "(python -m agency.cli execute)"),
                 },
                 # CORE.md — the lean wire contract. EVERY interaction is one
                 # of these three; per-verb tools are reached via `execute` as

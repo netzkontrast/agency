@@ -117,7 +117,12 @@ def test_welcome_token_budget_under_2kb():
     # substrate-tool responses (the wrapping driver applies
     # `cache_control: {type:"ephemeral"}` on the prefix). The per-cap
     # coefficient is unchanged so the bound still catches gist BLOAT.
-    budget = 150 * ncaps + 1000
+    # Spec 282 G + user directive (2026-06-13): constant overhead 1000 → 1300
+    # to carry the `sandbox_constraints` onboarding field (≤50 call_tool/block,
+    # no-file-IO, partial-write persistence) — a CONSTANT-size, high-value field
+    # that prevented the ingest's batching failures. The per-cap coefficient
+    # (150) is unchanged, so the bound still catches gist BLOAT.
+    budget = 150 * ncaps + 1300
     assert len(payload) <= budget, (
-        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 1000); "
+        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 1300); "
         f"trim the capability_tier gists (Spec 068), don't raise the coefficient")

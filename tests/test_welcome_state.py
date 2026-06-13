@@ -100,7 +100,10 @@ def test_welcome_token_budget_still_under_2kb_in_progress():
     # Flexible per-capability budget (CLAUDE.md no-hardcoded rule), not a frozen 2 KB.
     # Spec 146 Slice 1 raised the constant overhead 600 → 1000 to cover the
     # envelope-prefix fields (schema_version + 2 SHA-256 hashes + _prefix_keys).
+    # Spec 282 G + user directive (2026-06-13): constant overhead 1000 → 1300
+    # for the `sandbox_constraints` onboarding field (constant-size; per-cap
+    # coefficient 150 unchanged so bloat is still caught).
     ncaps = len(out["capabilities"])
-    budget = 150 * ncaps + 1000
+    budget = 150 * ncaps + 1300
     assert len(payload) <= budget, (
-        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 1000)")
+        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 1300)")
