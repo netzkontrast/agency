@@ -18,7 +18,7 @@ concurrency:
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -37,16 +37,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,analyze]"
 
-      - name: Run non-E2E suite (parallel)
-        # Spec 053 §"Parallel execution" — pytest-xdist shards across
-        # CPU cores. Non-E2E filter excludes the JSON-RPC stdio + pipx
-        # tests (Spec 039 marker) which run only on tagged builds.
-        run: pytest -q -n auto -m "not e2e"
-
-      - name: Run E2E suite (tagged builds only)
-        # Spec 039 §"E2E test platform coverage" — Linux on tag.
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: pytest -q -m "e2e"
+      - name: Run Gherkin acceptance suite (the behaviour gate)
+        # Phase C (docs/vision/TESTING.md) — the behaviour-only Gherkin
+        # acceptance suite (tests/acceptance/, pytest-bdd) IS the CI gate.
+        # The flat implementation-coupled tests were converted/superseded.
+        run: pytest -q -n auto tests/acceptance/
 
       - name: Verify self-hosted install is up to date
         run: |
