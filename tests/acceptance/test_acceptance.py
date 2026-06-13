@@ -155,3 +155,23 @@ def _clustered_suite_intact(verb_names, cap):
     # split into mixins must keep a large, contiguous verb suite — not a frozen count.
     n = len([v for v in verb_names if v.startswith(f"capability_{cap}_")])
     assert n > 80, f"capability {cap!r} verb suite collapsed to {n} after the cluster split"
+
+
+@when("a client lists all tools without code-mode", target_fixture="all_tools")
+def _list_all_tools(engine):
+    from fastmcp import Client
+
+    mcp = engine.build_mcp(codemode=False)
+
+    async def _l():
+        async with Client(mcp) as c:
+            return {t.name for t in await c.list_tools()}
+
+    return asyncio.run(_l())
+
+
+@then("the onboarding tools are all exposed")
+def _onboarding_exposed(all_tools):
+    expected = {"agency_welcome", "agency_install", "agency_doctor", "intent_bootstrap"}
+    missing = expected - all_tools
+    assert not missing, f"substrate onboarding tools missing: {missing}"

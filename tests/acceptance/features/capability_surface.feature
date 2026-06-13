@@ -13,6 +13,13 @@ Feature: A working capability surface and engine health
     When I ask the engine doctor for a health report
     Then a non-empty health report is returned
 
+  Scenario: The substrate onboarding tools are exposed
+    # Guards A5 (substrate-tools-as-a-registered-set): the onboarding surface a
+    # client reaches must stay complete after de-closuring build_mcp.
+    Given a fresh agency engine in code-mode
+    When a client lists all tools without code-mode
+    Then the onboarding tools are all exposed
+
   Scenario Outline: A clustered capability keeps its full verb suite after splitting
     # Guards the P3 god-class splits — a cluster mixin split must not drop verbs.
     # Behaviour: the capability still offers its whole feature set.
