@@ -6,9 +6,19 @@
 >
 > **Role:** this session is the **refactor agent** on
 > `claude/agency-error-enum-fixes-13tpnf` — full **Spec 286** OOP refactor
-> (spine + ports + leaf decomposition + capability-per-folder), behavior-
-> preserving (zero contract / wire / verb-name change), formal spec lifecycle.
+> (spine + ports + leaf decomposition + capability-per-folder).
 > Spec: `Plan/286-substrate-oop-refactor/spec.md`.
+>
+> **Mode (owner directive 2026-06-13): refactor-FIRST, hardcore.** The refactor
+> may **break internal structure + tests** where the new design needs it; I do
+> **not** gate on green. **The Review Partner rewrites tests** to the refactored
+> design + new Vision — `refactor.md` carries my structural intent per slice as
+> the contract to test against. **Still sacred:** the `search`/`get_schema`/
+> `execute` wire contract + wire verb-names (alias-and-deprecate, Goal 5).
+> **Aligned to CORE.md v4 "Four complete pillars"** — each pillar a complete
+> write+read suite; the **read/manage side is the priority**, converging on the
+> Management read-API (no hand-written Cypher). The refactor leaves the
+> `GraphStore` / `InvocationRecorder` read seams clean for that.
 
 ## Working discipline (lessons folded in)
 
@@ -143,3 +153,34 @@ typed projection (my lean), vs. flip SQL→canonical/graph→index; (b) when Sli
 wires `Memory`, replace `ontology.violations` with `EntityModels.validate` (one
 validation path) or keep both behind a parity test? Leaning: single path, guarded
 by the Slice-1 parity test.
+
+## A1 — `GraphStore` port (NEXT spine slice; seam design for test pre-staging)
+
+**Why now:** CORE.md v4 makes "no hand-written Cypher / no raw graph queries"
+the read-pillar invariant. Today ~18 capability sites call `ctx.memory.g.query(
+…)` / `ctx.memory.g.get_node(…)` directly (the anti-pattern). A1 routes them
+through typed `Memory` methods so the read surface is clean + the Management
+read-API has one place to build on.
+
+**Seam shape (what the Review Partner should test against):**
+- **`Memory` grows typed read methods** (the `GraphStore` surface), e.g.
+  `nodes_serving(intent_id, label=None)`, `neighbors(node_id, edge, direction)`
+  (promoted from `CapabilityContext`), `query_nodes(label, where=…)` — each
+  returns property dicts, never a `CypherResult`. Raw Cypher stays **inside
+  `memory.py`** only.
+- **`CapabilityContext` delegates** its graph reads to these (it already wraps
+  `record`/`link`/`recall`/`find`/`neighbors`); `ctx.memory.g.query` from a
+  capability becomes a typed `ctx.<method>` call.
+- **Invariant (the test to assert):** `grep -rn "\.g\.query\|\.g\.get_node" agency/capabilities`
+  → **zero hits**; raw `.g` access exists only in `agency/memory.py` (+ the one
+  documented `_entity_store` shared-connection reach). The behaviour of each
+  migrated read is unchanged (same rows), so the rewrite is mechanical: assert
+  the typed method returns what the old Cypher returned.
+- **Expect breakage:** tests that monkeypatch or assert on `ctx.memory.g.query`
+  call shapes will need rewriting to the typed methods. New tests should target
+  the `Memory` read methods directly + the "no raw `.g` in capabilities"
+  invariant.
+
+I'll land A1 in `memory.py` + sweep the capability sites, then ping here. Spec
+283's render hook + 282-E dedup ride on the later `invoke` decomposition (A3),
+not A1.
