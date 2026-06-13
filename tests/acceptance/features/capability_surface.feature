@@ -13,9 +13,14 @@ Feature: A working capability surface and engine health
     When I ask the engine doctor for a health report
     Then a non-empty health report is returned
 
-  Scenario: A clustered capability keeps its full verb suite after splitting
-    # Guards the P3 god-class splits (music, novel) — a cluster mixin split must
-    # not drop verbs. Behaviour: the capability still offers its whole feature set.
+  Scenario Outline: A clustered capability keeps its full verb suite after splitting
+    # Guards the P3 god-class splits — a cluster mixin split must not drop verbs.
+    # Behaviour: the capability still offers its whole feature set.
     Given a fresh agency engine in code-mode
     When a client lists the capability verbs
-    Then the "music" capability exposes a full clustered verb suite
+    Then the "<cap>" capability exposes a full clustered verb suite
+
+    Examples:
+      | cap   |
+      | music |
+      | novel |
