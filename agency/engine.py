@@ -423,20 +423,21 @@ class Engine:
         On success, the lean code-mode contract is unchanged (Spec 001/019):
         an inner dict crosses as-is; a scalar is re-wrapped as
         ``{"result": <scalar>}`` because MCP returns must be JSON objects.
+
+        Spec 286-A7: the shape rule lives in one place — :class:`WireEnvelope`.
+        The engine only reads the recorded Invocation node (outcome / error /
+        severity) and hands the parts to ``WireEnvelope.shape``; the envelope
+        owns the strip/re-wrap + failure-envelope logic.
         """
-        from .toolresult import Severity, classify_severity
+        from ._wire_envelope import WireEnvelope
         node = self.memory.recall(inv) or {}
-        if node.get("outcome") == "failed":
-            err = node.get("error", "") or ""
-            code, sep, msg = err.partition(": ")
-            if not sep:                       # error string had no "code: msg" split
-                code, msg = "", err
-            sev = node.get("error_severity") or classify_severity(code, message=msg)
-            return {"ok": False, "error": {
-                "code": code, "message": msg, "severity": sev,
-                "retryable": sev == Severity.TRANSIENT, "trace_id": inv}}
-        out = result["result"] if isinstance(result, dict) and "result" in result else result
-        return out if isinstance(out, dict) else {"result": out}
+        return WireEnvelope.shape(
+            result,
+            outcome=node.get("outcome"),
+            error=node.get("error", "") or "",
+            error_severity=node.get("error_severity") or "",
+            trace_id=inv,
+        )
 
     def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
         """Auto-wire ONE MCP tool for a capability verb from its fn signature.
