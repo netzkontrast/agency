@@ -48,10 +48,8 @@ def render_reflections(memory, intent_id: str = "") -> tuple[str, int]:
         # OBSERVED_DURING from Reflection → Intent. The graph query is
         # the authoritative filter; Reflection properties don't carry
         # intent_id (provenance lives on edges, not nodes).
-        rows = [r["r"]["properties"] for r in memory.g.query(
-            "MATCH (r:Reflection)-[:OBSERVED_DURING]->(i:Intent) "
-            "WHERE i.id = $id RETURN r",
-            {"id": intent_id})]
+        rows = memory.sources_via_edge(
+            "OBSERVED_DURING", intent_id, "Intent", label="Reflection")
     else:
         rows = list(memory.find("Reflection"))
     rows.sort(key=lambda r: r.get("vfrom", 0), reverse=True)
@@ -86,10 +84,7 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
     parts.append(acceptance + "\n")
     # Invocations table — provenance lives on SERVES edges from
     # Invocation → Intent. Use the graph query, not a property filter.
-    inv_rows = [r["i"]["properties"] for r in memory.g.query(
-        "MATCH (i:Invocation)-[:SERVES]->(it:Intent) WHERE it.id IN $ids "
-        "RETURN i",
-        {"ids": chain})]
+    inv_rows = memory.nodes_serving(chain, label="Invocation")
     inv_rows.sort(key=lambda r: r.get("vfrom", 0))
     parts.append(h2("Invocations"))
     if inv_rows:
@@ -107,14 +102,8 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
     # registry path used by every effect verb). Memory.provenance()
     # already merges these two — mirror it here so the markdown shows
     # both kinds of artefact.
-    art_direct = [r["a"]["properties"] for r in memory.g.query(
-        "MATCH (a:Artefact)-[:SERVES]->(it:Intent) WHERE it.id IN $ids "
-        "RETURN a",
-        {"ids": chain})]
-    art_via_inv = [r["a"]["properties"] for r in memory.g.query(
-        "MATCH (it:Intent)<-[:SERVES]-(inv:Invocation)-[:PRODUCES]->(a:Artefact) "
-        "WHERE it.id IN $ids RETURN a",
-        {"ids": chain})]
+    art_direct = memory.nodes_serving(chain, label="Artefact")
+    art_via_inv = memory.artefacts_produced_under(chain)
     seen_ids: set[str] = set()
     art_rows: list[dict] = []
     for r in art_direct + art_via_inv:
@@ -127,10 +116,8 @@ def render_provenance(memory, intent_id: str) -> tuple[str, int]:
     # walk; capped at 2 levels for the default provenance render).
     # Walk the chain (PR review round 7) so amended intents' sub-tree
     # is fully visible.
-    sub_rows = [r["c"]["properties"] for r in memory.g.query(
-        "MATCH (c:Intent)-[:PARENT_INTENT]->(p:Intent) "
-        "WHERE p.id IN $ids RETURN c",
-        {"ids": chain})]
+    sub_rows = memory.sources_via_edge("PARENT_INTENT", chain, "Intent",
+                                       label="Intent")
     parts.append(h2("Artefacts"))
     if art_rows:
         parts.append(table(
@@ -199,24 +186,17 @@ def render_research_report(memory, research_id: str) -> tuple[str, int]:
         return (h1("Research report") +
                 "\n_no research_id supplied — call "
                 "`research.lead` then pass its id here._\n"), 0
-    rows = memory.g.query(
-        "MATCH (r:Research) WHERE r.id = $rid RETURN r",
-        {"rid": research_id})
-    if not rows:
+    r = memory.recall_typed(research_id, "Research")
+    if not r:
         return (h1("Research report") +
                 f"\n_no Research record found for `{research_id}`._\n"), 0
-    r = rows[0]["r"]["properties"]
     parts = [h1(f"Research: {r.get('question', '(no question)')}")]
     meta = (f"_status: {r.get('status', '?')}_ · "
             f"_verdict: {r.get('verdict', '?')}_ · "
             f"_ok: {r.get('ok', '?')}_\n\n")
     parts.append(meta)
     # Citations
-    cit_rows = memory.g.query(
-        "MATCH (r:Research)-[:CITES]->(c:Citation) "
-        "WHERE r.id = $rid RETURN c",
-        {"rid": research_id})
-    citations = [row["c"]["properties"] for row in cit_rows]
+    citations = memory.neighbors(research_id, "CITES", direction="out")
     parts.append(h2("Citations"))
     if citations:
         for c in citations:
@@ -234,14 +214,11 @@ def render_research_report(memory, research_id: str) -> tuple[str, int]:
     # (`research.verify` records `link(vid, research_id, "VERIFIES")`),
     # so the query must MATCH the actual direction or the renderer
     # silently treats verified research as unverified.
-    ver_rows = memory.g.query(
-        "MATCH (v:Verification)-[:VERIFIES]->(r:Research) "
-        "WHERE r.id = $rid RETURN v",
-        {"rid": research_id})
+    ver_rows = memory.sources_via_edge(
+        "VERIFIES", research_id, "Research", label="Verification")
     if ver_rows:
         parts.append(h2("Verification"))
-        for row in ver_rows:
-            v = row["v"]["properties"]
+        for v in ver_rows:
             # The Verification node carries rolled-up `status` + a
             # comma-joined per-check summary (e.g. "evidence-supports-
             # claim:pass,contradiction-cluster:warn"). Render the

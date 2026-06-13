@@ -48,7 +48,12 @@ def test_agency_install_creates_dot_agency_dir(tmp_path):
     assert (tmp_path / ".gitattributes").exists()
     assert out["claude_md_path"] == str(tmp_path / "CLAUDE.md")
     assert (tmp_path / "CLAUDE.md").exists()
-    assert "agency_welcome" in (tmp_path / "CLAUDE.md").read_text()
+    body = (tmp_path / "CLAUDE.md").read_text()
+    assert "agency_welcome" in body
+    # The no-assumptions doctrine is written into the onboarding snippet so
+    # every repo set up with the plugin carries Rule 0 (ask, don't assume).
+    assert "Rule 0 — never assume; ask" in body
+    assert "AskUserQuestion" in body
 
 
 def test_agency_install_idempotent(tmp_path):
@@ -238,3 +243,29 @@ def test_agency_provenance_cli_subcommand(tmp_path, capsys):
     # Memory.provenance returns {serves, agents, artefacts, gates}.
     assert "serves" in out
     assert "agents" in out
+
+
+def test_agency_welcome_surfaces_sandbox_constraints(tmp_path):
+    """Workstream G — the ≤50 call_tool limit + no-file-IO constraint are
+    surfaced in agency_welcome so agents batch correctly instead of learning
+    the limits by failing."""
+    e = Engine(tempfile.mktemp(suffix=".db"))
+    mcp = e.build_mcp(codemode=False)
+    try:
+        async def main():
+            async with Client(mcp) as client:
+                return _sc(await client.call_tool("agency_welcome", {}))
+        out = asyncio.run(main())
+    finally:
+        e.memory.close()
+    sc = out["sandbox_constraints"]
+    assert sc["max_call_tool_per_execute_block"] == 50
+    assert "open()" in sc["no_file_io"]
+
+
+def test_install_snippet_documents_sandbox_limits(tmp_path):
+    """Workstream G — the onboarding snippet written to a repo names the
+    ≤50 call_tool limit + the no-file-IO constraint."""
+    from agency.install import _CLAUDE_MD_SNIPPET
+    assert "50 `call_tool`" in _CLAUDE_MD_SNIPPET
+    assert "No file I/O" in _CLAUDE_MD_SNIPPET

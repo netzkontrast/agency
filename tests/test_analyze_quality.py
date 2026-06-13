@@ -29,10 +29,10 @@ def test_unused_imports_detected(tmp_path):
     )
     path = _write(str(tmp_path), "u.py", body)
     findings = _quality.scan(str(tmp_path))
-    rules = [f["rule"] for f in findings if f["file"].endswith("u.py")]
+    rules = [f.rule for f in findings if f.file.endswith("u.py")]
     assert rules.count("Q001") == 2     # Q001 = unused-import
-    sys_finding = next(f for f in findings if f["evidence"].startswith("import sys"))
-    assert sys_finding["severity"] == "warn"   # quality.unused: warn per Wiegers
+    sys_finding = next(f for f in findings if f.evidence.startswith("import sys"))
+    assert sys_finding.severity == "warn"   # quality.unused: warn per Wiegers
 
 
 def test_long_line_flagged(tmp_path):
@@ -40,9 +40,9 @@ def test_long_line_flagged(tmp_path):
     body = f"{long}\n"
     _write(str(tmp_path), "L.py", body)
     findings = _quality.scan(str(tmp_path))
-    long_hits = [f for f in findings if f["rule"] == "Q002"]
+    long_hits = [f for f in findings if f.rule == "Q002"]
     assert len(long_hits) == 1
-    assert long_hits[0]["severity"] == "warn"
+    assert long_hits[0].severity == "warn"
 
 
 def test_long_function_flagged(tmp_path):
@@ -51,18 +51,18 @@ def test_long_function_flagged(tmp_path):
         body_lines.append(f"    x{i} = {i}\n")
     _write(str(tmp_path), "f.py", "".join(body_lines))
     findings = _quality.scan(str(tmp_path))
-    long_func = [f for f in findings if f["rule"] == "Q003"]
+    long_func = [f for f in findings if f.rule == "Q003"]
     assert len(long_func) >= 1
-    assert long_func[0]["severity"] == "warn"
+    assert long_func[0].severity == "warn"
 
 
 def test_long_file_flagged(tmp_path):
     body = "\n".join(f"x{i} = {i}" for i in range(550)) + "\n"
     _write(str(tmp_path), "big.py", body)
     findings = _quality.scan(str(tmp_path))
-    file_hits = [f for f in findings if f["rule"] == "Q004"]
+    file_hits = [f for f in findings if f.rule == "Q004"]
     assert len(file_hits) == 1
-    assert file_hits[0]["severity"] == "warn"
+    assert file_hits[0].severity == "warn"
 
 
 def test_severity_assignment_quality_axis():
@@ -87,7 +87,7 @@ def test_future_annotations_not_flagged(tmp_path):
     )
     _write(str(tmp_path), "future.py", body)
     findings = _quality.scan(str(tmp_path))
-    assert not [f for f in findings if f["rule"] == "Q001"]
+    assert not [f for f in findings if f.rule == "Q001"]
 
 
 def test_dunder_all_export_not_flagged(tmp_path):
@@ -99,7 +99,7 @@ def test_dunder_all_export_not_flagged(tmp_path):
     )
     _write(str(tmp_path), "init.py", body)
     findings = _quality.scan(str(tmp_path))
-    assert not [f for f in findings if f["rule"] == "Q001"]
+    assert not [f for f in findings if f.rule == "Q001"]
 
 
 def test_finding_shape_contract():
@@ -109,8 +109,8 @@ def test_finding_shape_contract():
     assert findings
     for fnd in findings:
         for key in ("rule", "severity", "file", "line", "message", "evidence"):
-            assert key in fnd, f"missing {key}"
-        assert fnd["severity"] in ("info", "warn", "fail")
-        assert isinstance(fnd["line"], int) and fnd["line"] >= 1
-        assert len(fnd["message"]) <= 120
-        assert len(fnd["evidence"]) <= 200
+            assert hasattr(fnd, key), f"missing {key}"
+        assert fnd.severity in ("info", "warn", "fail")
+        assert isinstance(fnd.line, int) and fnd.line >= 1
+        assert len(fnd.message) <= 120
+        assert len(fnd.evidence) <= 200

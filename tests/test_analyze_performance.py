@@ -28,9 +28,9 @@ def test_nested_loop_on_growing_list_flagged(tmp_path):
     )
     _write(str(tmp_path), "n.py", body)
     findings = _performance.scan(str(tmp_path))
-    nested = [f for f in findings if f["rule"] == "P001"]
+    nested = [f for f in findings if f.rule == "P001"]
     assert len(nested) >= 1
-    assert nested[0]["severity"] == "warn"
+    assert nested[0].severity == "warn"
 
 
 def test_int_counter_not_flagged(tmp_path):
@@ -45,7 +45,7 @@ def test_int_counter_not_flagged(tmp_path):
     )
     _write(str(tmp_path), "c.py", body)
     findings = _performance.scan(str(tmp_path))
-    assert not [f for f in findings if f["rule"] == "P002"]
+    assert not [f for f in findings if f.rule == "P002"]
 
 
 def test_string_concat_in_loop_flagged(tmp_path):
@@ -58,9 +58,9 @@ def test_string_concat_in_loop_flagged(tmp_path):
     )
     _write(str(tmp_path), "c.py", body)
     findings = _performance.scan(str(tmp_path))
-    concat = [f for f in findings if f["rule"] == "P002"]
+    concat = [f for f in findings if f.rule == "P002"]
     assert len(concat) == 1
-    assert concat[0]["severity"] == "info"
+    assert concat[0].severity == "info"
 
 
 def test_unbounded_while_true_flagged(tmp_path):
@@ -71,7 +71,7 @@ def test_unbounded_while_true_flagged(tmp_path):
     )
     _write(str(tmp_path), "u.py", body)
     findings = _performance.scan(str(tmp_path))
-    while_hits = [f for f in findings if f["rule"] == "P003"]
+    while_hits = [f for f in findings if f.rule == "P003"]
     assert len(while_hits) == 1
 
 
@@ -86,4 +86,4 @@ def test_well_formed_loops_are_silent(tmp_path):
     _write(str(tmp_path), "g.py", body)
     findings = _performance.scan(str(tmp_path))
     # No P001 (no nested loops); no P002 (.join instead of +=).
-    assert not [f for f in findings if f["rule"] in ("P001", "P002")]
+    assert not [f for f in findings if f.rule in ("P001", "P002")]

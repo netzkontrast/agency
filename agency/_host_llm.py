@@ -174,6 +174,14 @@ class HostDelegateError(Exception):
         super().__init__(f"{code}: {message}" if message else code)
 
 
+def _messages_to_sample_input(messages: list[dict]) -> list[str]:
+    """Flatten anthropic-style ``[{role, content}]`` to the ``str`` sequence
+    ``ctx.sample`` accepts (system is passed separately). Slice 1 keeps it
+    simple: the non-system message contents, in order."""
+    return [str(m.get("content", "")) for m in messages
+            if m.get("role") != "system"]
+
+
 def complete_or_delegate(
     driver: Any,
     *,
@@ -184,9 +192,11 @@ def complete_or_delegate(
     model_hint: str | None = None,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     continuation_token: str | None = None,
+    host: Any = None,
 ) -> Completion | HostLLMRequest:
-    """The boundary helper every LLM-using verb wraps. Three branches
-    (the resume path always wins):
+    """The boundary helper every LLM-using verb wraps. Four branches
+    (the resume path always wins; then driver, then host sampling, then the
+    delegate envelope):
 
     1. ``host_completion`` is given — the host already ran inference
        and called the verb again. Wrap as ``Completion(text=…,
@@ -228,7 +238,8 @@ def complete_or_delegate(
             parsed=host_completion.get("parsed"),
         )
 
-    # Branch 2 (driver capable) — Spec 147 Slice 1 direct path.
+    # Branch 2 (driver capable) — Spec 147 Slice 1 direct path. An explicitly
+    # wired API-key driver wins (deterministic + testable) over sampling.
     if driver.backend() != "none":
         return driver.complete(
             messages=messages,
@@ -237,7 +248,24 @@ def complete_or_delegate(
             max_tokens=max_tokens,
         )
 
-    # Branch 3 (delegate) — emit the envelope.
+    # Branch 3 (host sampling) — Spec 285: real MCP sampling when a capable
+    # host Context is bound + sampling_enabled. Returns a Completion with
+    # stop_reason="host_sampled" (the third inference path, distinct from
+    # host_provided/host_sampled-vs-delegate in provenance). Falls THROUGH to
+    # the envelope when the host can't sample (HostUnavailable) — Spec 279 is
+    # the capability-negotiated fallback, not removed.
+    if host is not None and host.can_sample():
+        from ._host_bridge import HostUnavailable
+        try:
+            return host.sample(
+                _messages_to_sample_input(messages),
+                system=system or None,
+                max_tokens=max_tokens,
+            )
+        except HostUnavailable:
+            pass
+
+    # Branch 4 (delegate) — emit the envelope.
     token = continuation_token or _derive_fallback_token(
         messages=messages, system=system, model_hint=model_hint)
     return HostLLMRequest(

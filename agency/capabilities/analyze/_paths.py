@@ -41,11 +41,9 @@ def _walk_descendants(memory, root_id: str, max_depth: int = 32) -> list[str]:
     frontier = [root_id]
     depth = 0
     while frontier and depth < max_depth:
-        rows = memory.g.query(
-            "MATCH (c:Intent)-[:PARENT_INTENT]->(p:Intent) "
-            "WHERE p.id IN $ids RETURN c",
-            {"ids": frontier})
-        next_frontier = [r["c"]["properties"]["id"] for r in rows]
+        children = memory.sources_via_edge("PARENT_INTENT", frontier, "Intent",
+                                           label="Intent")
+        next_frontier = [c["id"] for c in children]
         if not next_frontier:
             break
         out.extend(next_frontier)
@@ -64,12 +62,9 @@ def _chain_depth(memory, root_id: str) -> int:
     frontier = [root_id]
     visited = {root_id}
     while frontier:
-        rows = memory.g.query(
-            "MATCH (c:Intent)-[:PARENT_INTENT]->(p:Intent) "
-            "WHERE p.id IN $ids RETURN c",
-            {"ids": frontier})
-        next_frontier = [r["c"]["properties"]["id"]
-                          for r in rows if r["c"]["properties"]["id"] not in visited]
+        children = memory.sources_via_edge("PARENT_INTENT", frontier, "Intent",
+                                           label="Intent")
+        next_frontier = [c["id"] for c in children if c["id"] not in visited]
         if not next_frontier:
             break
         visited.update(next_frontier)
@@ -80,21 +75,13 @@ def _chain_depth(memory, root_id: str) -> int:
 
 def _invocations_for(memory, intent_id: str) -> list[dict]:
     """All Invocation nodes whose SERVES edge points to this intent."""
-    rows = memory.g.query(
-        "MATCH (inv:Invocation)-[:SERVES]->(i:Intent) "
-        "WHERE i.id = $iid RETURN inv",
-        {"iid": intent_id})
-    return [r["inv"]["properties"] for r in rows]
+    return memory.nodes_serving(intent_id, label="Invocation")
 
 
 def _user_root_intents(memory) -> list[dict]:
     """User-owned intents with no PARENT_INTENT edge OUT — the session roots."""
-    rows = memory.g.query(
-        "MATCH (i:Intent) WHERE i.owner = $o RETURN i",
-        {"o": "user"})
     out: list[dict] = []
-    for r in rows:
-        props = r["i"]["properties"]
+    for props in memory.query_nodes("Intent", {"owner": "user"}):
         # Filter to roots: those whose parent_intent_id is empty or absent.
         if not props.get("parent_intent_id"):
             out.append(props)

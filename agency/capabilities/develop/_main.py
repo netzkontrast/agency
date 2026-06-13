@@ -16,16 +16,11 @@ from __future__ import annotations
 
 from ...capability import RenderTemplates, CapabilityBase, verb
 from ...ontology import OntologyExtension
-from ...skill import SkillRun
+from ...skill import SkillRun, phase as _phase  # Spec 286 — shared phase() builder
 
 
-def _phase(index, name, produces, gate=None, verbs=None):
-    p = {"index": index, "name": name, "produces": list(produces)}
-    if gate:
-        p["gate"] = gate
-    if verbs:                       # Spec 092 G4 — reasoning-method cues for this phase
-        p["verbs"] = list(verbs)
-    return p
+# Spec 287 — PlanStep execution states (closed enum; ontology-enforced).
+PLAN_STEP_STATES = frozenset({"pending", "done", "blocked", "skipped"})
 
 
 DEV_SKILLS = {
@@ -33,8 +28,18 @@ DEV_SKILLS = {
     # at the step that needs them, so reasoning fires in the workflow instead of staying
     # a dormant capability (the methods default their subject to the serving intent).
     "brainstorm": {"name": "brainstorm", "kind": "discipline", "phases": [
+        # Spec 285 Part B — `explore` is a generative phase: when a
+        # sampling-capable host is bound, the engine drafts the opening
+        # `questions` via MCP sampling instead of pausing for the agent to
+        # supply them (graceful pause when no host). `assumptions` is still
+        # the agent's to fill (the design judgement the walk preserves).
         _phase(1, "explore", ["questions", "assumptions"],
-               verbs=["intent.decompose", "intent.assumptions", "intent.first_principles"]),
+               verbs=["intent.decompose", "intent.assumptions", "intent.first_principles"],
+               sample={"produces_key": "questions",
+                       "system": "You are a rigorous design partner. List the "
+                                 "sharpest open questions for the stated intent.",
+                       "prompt": "Enumerate the key open questions to resolve "
+                                 "before designing this. One per line."}),
         _phase(2, "present", ["design", "tradeoffs"],
                verbs=["intent.tradeoffs", "intent.steelman", "intent.second_order"]),
         _phase(3, "confirm", ["user_confirmed"], gate="hard"),
@@ -86,6 +91,26 @@ DEV_SKILLS = {
         _phase(2, "execute", ["step_results"]),
         _phase(3, "checkpoint", ["reviewed"], gate="hard"),
         _phase(4, "verify", ["all_pass"], gate="hard"),
+    ]},
+    # Spec 287 — first-class plan-authoring → execution-with-checkpoints
+    # (superpowers writing-plans + executing-plans + subagent-driven-development;
+    # superclaude sc-workflow + sc-task). The plan is graph provenance, not a
+    # file (rule 2): the draft-plan phase is BOUND to develop.draft_plan, which
+    # mints a Plan + PlanStep nodes SERVING the intent. Hard gates: plan
+    # sign-off, the per-run checkpoint, and final synthesis. The execute-step
+    # phase cues delegate.dispatch_decision (Spec 040) — delegate vs. inline per
+    # the 11 signals.
+    "plan-execute": {"name": "plan-execute", "kind": "discipline", "phases": [
+        _phase(1, "frame", ["requirements"],
+               verbs=["intent.decompose", "intent.assumptions"]),
+        {"index": 2, "name": "draft-plan", "produces": ["plan"],
+         "invoke": {"capability": "develop", "verb": "draft_plan"},
+         "inputs": ["title", "steps"]},
+        _phase(3, "plan-signoff", ["user_confirmed"], gate="hard"),
+        _phase(4, "execute-step", ["step_results"],
+               verbs=["delegate.dispatch_decision"]),
+        _phase(5, "checkpoint", ["reviewed"], gate="hard"),
+        _phase(6, "synthesize", ["summary"], gate="hard"),
     ]},
     # Plan/024 PR-A — capability authoring: scaffold then lint behind a
     # hard gate. Phase 2 + 4 are BOUND (the walker runs the verbs, not
@@ -172,6 +197,86 @@ def checklist(discipline: str) -> dict:
     return {"result": {"discipline": discipline, "steps": steps}}
 
 
+def _assumption_gate(ctx, raw_phase: dict, call_outputs: dict, accumulated: dict):
+    """Spec 285 Part B — enforced no-assumption gate.
+
+    A `requires_input` phase must not advance on an assumed value. When a
+    required key is missing from both the call inputs and the accumulated
+    outputs, source structured options from the phase's `resolve_via` verb (a
+    FastMCP-annotated verb in the skill's OWN capability — a provenance-recording
+    Invocation), then ELICIT the user in the flow. Mutates `call_outputs` with
+    the answer and returns None to proceed; returns an input-required dict to
+    ABORT the walk when no elicit-capable host is bound (pause, never assume)."""
+    requires = raw_phase.get("requires_input") or []
+    if not requires:
+        return None
+
+    def _missing():
+        return [k for k in requires
+                if call_outputs.get(k) in (None, "") and accumulated.get(k) in (None, "")]
+
+    missing = _missing()
+    if not missing:
+        return None
+    options = None
+    rv = raw_phase.get("resolve_via")
+    if rv:
+        try:
+            res = ctx.call(rv["capability"], rv["verb"], keys=",".join(missing))
+            options = res.get("options") if isinstance(res, dict) else res
+        except Exception:
+            options = None
+    host = ctx.host
+    if host.can_elicit():
+        from agency._host_bridge import HostUnavailable
+        try:
+            outcome = host.elicit(
+                f"Phase {raw_phase['name']!r} needs {missing} — choose (no assumptions).",
+                options=options if isinstance(options, list) else None)
+        except HostUnavailable:
+            outcome = None
+        if outcome is not None and outcome.accepted:
+            data = outcome.data
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if v not in (None, ""):
+                        call_outputs[k] = v
+            elif len(missing) == 1 and data not in (None, ""):
+                call_outputs[missing[0]] = data
+            missing = _missing()
+    if missing:
+        return {"status": "input-required", "phase": raw_phase["name"],
+                "blocked_on": f"assumption:{','.join(missing)}",
+                "resume_with": missing, "options": options}
+    return None
+
+
+def _sample_phase(ctx, raw_phase: dict, call_outputs: dict):
+    """Spec 285 Part B — a `sample` phase generates its `produces_key` via host
+    sampling when a sampling-capable host is bound; otherwise returns an
+    input-required dict so the host supplies it on resume (graceful fallback)."""
+    sample = raw_phase.get("sample")
+    if not sample:
+        return None
+    pk = sample.get("produces_key")
+    if not pk or call_outputs.get(pk) not in (None, ""):
+        return None
+    host = ctx.host
+    if host.can_sample():
+        from agency._host_bridge import HostUnavailable
+        try:
+            comp = host.sample(sample.get("prompt") or sample.get("system") or "",
+                               system=sample.get("system"))
+            if getattr(comp, "text", ""):
+                call_outputs[pk] = comp.text
+        except HostUnavailable:
+            pass
+    if call_outputs.get(pk) in (None, ""):
+        return {"status": "input-required", "phase": raw_phase["name"],
+                "blocked_on": f"sample:{pk}", "resume_with": [pk]}
+    return None
+
+
 def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
     """The atomic walker (Spec 018 Win 1). Walk a registered skill to the first
     hard gate in ONE call, returning the documented status contract. Composes
@@ -199,9 +304,19 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
     completed: list = []
     while not run.done:
         phase = run.current()
+        raw_phase = run.phases[run.i]          # full dict (sample/requires_input/resolve_via)
         is_gate = phase.get("gate") == "hard"
         confirmed = is_gate and confirm_gate
         call_outputs = {k: v for k, v in inputs.items() if v not in (None, "")}
+        # Spec 285 Part B — enforced assumption-gate (elicit-or-pause), then
+        # host-sample to advance. Both abort the walk with input-required when
+        # the host can't satisfy them; otherwise they mutate call_outputs.
+        _ag = _assumption_gate(ctx, raw_phase, call_outputs, accumulated)
+        if _ag is not None:
+            return {**_ag, "skill_id": run.skill_id, "partial_outputs": accumulated}
+        _sg = _sample_phase(ctx, raw_phase, call_outputs)
+        if _sg is not None:
+            return {**_sg, "skill_id": run.skill_id, "partial_outputs": accumulated}
         if is_gate and not confirmed:
             # The gate's produces are what the caller supplies on RESUME
             # (resume_with), not what's needed to REACH the pause. Fill any
@@ -228,9 +343,15 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
                     "error": f"{type(e).__name__}: {e}",
                     "skill_id": run.skill_id, "completed_phases": completed}
         if res["status"] == "input-required":
+            # Spec 282 Workstream H — propagate the resume hint (the exact
+            # resume_from PHASE NAME + the missing outputs) so the caller
+            # isn't left guessing how to continue a paused walk.
             return {"status": "input-required", "phase": res["phase"],
                     "blocked_on": res["blocked_on"],
+                    "resume_from": res.get("resume_from", res["phase"]),
                     "resume_with": list(phase["produces"]),
+                    "hint": res.get("hint",
+                                    f"resume with resume_from={res['phase']!r}"),
                     "skill_id": run.skill_id,
                     "partial_outputs": accumulated}
         accumulated.update(res.get("outputs", {}))
@@ -267,16 +388,22 @@ SESSION_DRIVER_SKILL = {
 
 develop_ontology = OntologyExtension(
     skills={**DEV_SKILLS, "session-driver-pass": SESSION_DRIVER_SKILL},
+    edges={"HAS_STEP"},                          # Spec 287 — Plan → PlanStep
     nodes={
         "SessionLifecycle": ["mode", "status"],
         "ModeShift": ["from_mode", "to_mode"],   # optional: reason
         # DecisionRecord lives on dogfood (Spec 114 §"Session-tracking cluster")
+        # Spec 287 — plan provenance (rule 2: the plan is graph nodes, rendered
+        # to markdown on demand, never a parsed file).
+        "Plan": ["title"],                       # optional: status
+        "PlanStep": ["plan", "index", "description"],   # optional: state, evidence
     },
     enums={
         ("SessionLifecycle", "mode"): SESSION_MODE,
         ("SessionLifecycle", "status"): SESSION_STATUS,
         ("ModeShift", "from_mode"): SESSION_MODE,
         ("ModeShift", "to_mode"): SESSION_MODE,
+        ("PlanStep", "state"): PLAN_STEP_STATES,        # Spec 287
     },
     # session-reflection schema lives on reflect (the producing cap)
 )
@@ -456,6 +583,89 @@ class DevelopCapability(CapabilityBase):
     render_templates = RenderTemplates.from_module(__file__)
     ontology = develop_ontology
 
+    # ---- Spec 287 — plan authoring + execution provenance -----------------
+
+    @verb(role="act")
+    def draft_plan(self, title: str, steps: str = "") -> dict:
+        """Author a bite-sized plan as graph provenance (Spec 287; rule 2).
+
+        ``steps`` is a JSON array of step descriptions OR a newline-separated
+        list. Mints a ``Plan{title}`` + one ``PlanStep{index, description,
+        state:pending}`` per step, the Plan SERVING the intent and ``HAS_STEP``
+        each PlanStep. The plan markdown is rendered on demand from these nodes —
+        never a parsed file. The ``plan-execute`` discipline's draft-plan phase
+        binds to this verb.
+
+        Inputs: title, steps (JSON list or newlines).
+        Returns: ``{plan_id, step_ids, count}``.
+        chain_next: walk ``plan-execute``, or sign off then ``record_step_outcome``
+                    per step + ``plan_status`` to roll up.
+        """
+        import json as _json
+        parsed = None
+        if steps:
+            try:
+                parsed = _json.loads(steps)
+            except (ValueError, TypeError):
+                parsed = list(steps.splitlines())
+        if not isinstance(parsed, list):
+            parsed = [parsed] if parsed not in (None, "") else []
+        descriptions = [str(s).strip() for s in parsed if str(s).strip()]
+        plan_id = self.ctx.record_and_serve("Plan", {"title": title, "status": "drafted"})
+        step_ids = []
+        for i, desc in enumerate(descriptions, start=1):
+            sid = self.ctx.record("PlanStep", {
+                "plan": plan_id, "index": i, "description": desc, "state": "pending"})
+            self.ctx.link(plan_id, sid, "HAS_STEP")
+            step_ids.append(sid)
+        return {"plan_id": plan_id, "step_ids": step_ids, "count": len(step_ids)}
+
+    @verb(role="act")
+    def record_step_outcome(self, step_id: str, outcome: str,
+                            evidence: str = "") -> dict:
+        """Mark a PlanStep's execution outcome (Spec 287).
+
+        ``outcome`` ∈ {done, blocked, skipped}. Bi-temporal update of the step's
+        ``state`` + ``evidence`` (a new revision, not a destructive overwrite).
+
+        Inputs: step_id (from ``draft_plan``), outcome, evidence.
+        Returns: ``{step_id, state}`` — or ``{error}`` for a bad outcome / unknown step.
+        chain_next: ``plan_status(plan_id)`` to roll up; ``delegate.dispatch_decision``
+                    before the next step.
+        """
+        if outcome not in ("done", "blocked", "skipped"):
+            return {"error": f"outcome must be done|blocked|skipped, got {outcome!r}"}
+        node = self.ctx.recall(step_id)
+        if node is None:
+            return {"error": f"no node {step_id!r}"}
+        self.ctx.update(step_id, {"state": outcome, "evidence": evidence[:200]})
+        return {"step_id": step_id, "state": outcome}
+
+    @verb(role="transform")
+    def plan_status(self, plan_id: str) -> dict:
+        """Roll up a Plan's steps + completion (Spec 287) — the render-on-demand
+        read side (rule 2). Traverses the declared ``HAS_STEP`` edge (declare an
+        edge ⇒ traverse it; no find()+filter on the foreign key).
+
+        Inputs: plan_id.
+        Returns: ``{title, status, steps:[{index, description, state}], complete}``
+                 — ``complete`` is True iff every step is done|skipped. ``{error}``
+                 for an unknown plan.
+        chain_next: render the plan markdown from this, or continue the walk.
+        """
+        plan = self.ctx.recall(plan_id)
+        if plan is None:
+            return {"error": f"no Plan {plan_id!r}"}
+        steps = self.ctx.neighbors(plan_id, "HAS_STEP", direction="out")
+        steps_sorted = sorted(steps, key=lambda s: int(s.get("index", 0)))
+        items = [{"index": int(s.get("index", 0)),
+                  "description": s.get("description", ""),
+                  "state": s.get("state", "pending")} for s in steps_sorted]
+        complete = bool(items) and all(
+            i["state"] in ("done", "skipped") for i in items)
+        return {"title": plan.get("title", ""), "status": plan.get("status", ""),
+                "steps": items, "complete": complete}
+
     @verb(role="transform")
     def validate_skill(self, name: str = "") -> dict:
         """Validate a capability's Agent-Skill (its SkillDoc) — lint + dry-run emit.
@@ -609,12 +819,11 @@ class DevelopCapability(CapabilityBase):
                     ``develop.mode_select`` to switch.
         """
         mode = mode_hint if mode_hint in SESSION_MODE else self._detect_mode()
-        sid = self.ctx.record("SessionLifecycle", {
+        sid = self.ctx.record_and_serve("SessionLifecycle", {
             "mode": mode, "status": "active",
             "purpose": purpose or "session", "deliverable": deliverable,
             "acceptance": acceptance,
         })
-        self.ctx.link(sid, self.ctx.intent_id, "SERVES")
         suggested = {
             "brainstorming": "develop.brainstorm",
             "spec-authoring": "develop.checklist",   # → write_spec
@@ -696,12 +905,8 @@ class DevelopCapability(CapabilityBase):
                 "last_active": 0,
             }
         # Find SessionLifecycles SERVING this intent via the graph edge.
-        rows = self.ctx.memory.g.query(
-            "MATCH (s:SessionLifecycle)-[:SERVES]->(i:Intent) "
-            "WHERE i.id = $iid AND s.status = $active "
-            "RETURN s",
-            {"iid": target_iid, "active": "active"})
-        candidates = [r["s"]["properties"] for r in rows]
+        candidates = self.ctx.nodes_serving(
+            target_iid, label="SessionLifecycle", where={"status": "active"})
         if not candidates:
             return {
                 "found": False, "session_lifecycle_id": "",
@@ -813,10 +1018,9 @@ class DevelopCapability(CapabilityBase):
         text = (f"Authored capability {name!r} (kind={kind}) via the "
                 f"authoring-capabilities discipline. Scaffold + lint cleanly "
                 f"passed; reflection recorded for the self-improvement loop.")
-        rid = self.ctx.record("Reflection", {
+        rid = self.ctx.record_and_serve("Reflection", {
             "scope": "observation",
             "text": text,
         })
-        self.ctx.link(rid, self.ctx.intent_id, "SERVES")           # Spec 058 — provenance traversal
         self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
         return {"result": rid}

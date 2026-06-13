@@ -18,13 +18,17 @@ from typing import Any, Callable, ClassVar, Optional, Protocol, runtime_checkabl
 
 from .memory import Memory
 from .ontology import OntologyExtension
+from ._verb import Verb
 
 
 @dataclass
 class Capability:
     name: str
     home: str                       # which concept it primarily is
-    verbs: dict[str, dict]          # verb -> {"role": str, "fn": callable, "inject": [...]}
+    # Spec 286-A4 — verbs are typed `Verb` value objects (verb name -> Verb).
+    # `Verb` is a drop-in for the former untyped dict via its Mapping bridge,
+    # so subscript readers (`spec["fn"]`) still work during the transition.
+    verbs: dict[str, Verb]
     # the capability's OWN ontology fragment (node types, edges, enums, skills,
     # template-schemas) — merged onto the core by the engine. Empty = core only.
     ontology: OntologyExtension = field(default_factory=OntologyExtension)
@@ -43,7 +47,7 @@ class Capability:
     walker_skills: Optional["WalkerSkills"] = None
 
     def role(self, verb: str) -> str:
-        return self.verbs[verb]["role"]
+        return self.verbs[verb].role
 
 
 class DriverMissing(LookupError):
@@ -72,31 +76,78 @@ class Driver(Boundary, Protocol):
 
 
 class DriverRegistry:
-    """Spec 002 — ``Registry.injectors`` generalized to a named table. A domain
-    tool-cluster plugs in by registering a driver under a name and needs NO new
-    ``Engine`` kwarg and NO new ``injectors`` key. Named lookup + a uniform result
-    type (via the wrapping verb) is the whole value."""
+    """Spec 002 / Spec 286-A2 — the engine's ONE boundary home. ``Registry.injectors``
+    generalized to a named table: a domain tool-cluster plugs in by registering a
+    driver under a name and needs NO new ``Engine`` kwarg and NO new ``injectors``
+    key. Named lookup + a uniform result type (via the wrapping verb) is the value.
+
+    Spec 286-A2 — the registry now also owns the *lazy default* for each boundary.
+    Register a zero-arg factory via :meth:`register_factory`; the boundary is not
+    constructed until first :meth:`get`, and an explicitly-registered driver (test
+    injection) always wins over its factory. This collapses the engine's former
+    triplication (bespoke ``self.<boundary>`` attrs + a ``DriverRegistry({...})``
+    + a parallel ``injectors`` lambda dict) into this single table.
+    """
 
     def __init__(self, drivers: Optional[dict[str, Any]] = None):
         self._drivers: dict[str, Any] = dict(drivers or {})
+        # lazy zero-arg factories; consulted by get() only when no concrete
+        # driver is already registered under the name. Materialized on first
+        # use and then cached in _drivers (so a factory runs at most once).
+        self._factories: dict[str, Callable[[], Any]] = {}
 
     def register(self, name: str, driver: Any) -> None:
-        """Register (or replace) the driver under ``name``."""
+        """Register (or replace) a concrete driver under ``name``. An explicit
+        driver always shadows any factory for the same name."""
         self._drivers[name] = driver
 
+    def register_factory(self, name: str, factory: Callable[[], Any]) -> None:
+        """Spec 286-A2 — register a lazy zero-arg factory for ``name``. The driver
+        is constructed on first :meth:`get` (and cached). A concrete driver already
+        registered under ``name`` (e.g. a test-injected stub) wins — the factory is
+        never called."""
+        self._factories[name] = factory
+
     def get(self, name: str) -> Any:
-        try:
+        if name in self._drivers:
             return self._drivers[name]
-        except KeyError:
-            raise DriverMissing(
-                f"no driver registered under {name!r}; have {sorted(self._drivers)}"
-            ) from None
+        factory = self._factories.get(name)
+        if factory is not None:
+            driver = factory()
+            self._drivers[name] = driver        # cache: factory runs at most once
+            return driver
+        raise DriverMissing(
+            f"no driver registered under {name!r}; have {sorted(self.names())}"
+        )
 
     def has(self, name: str) -> bool:
-        return name in self._drivers
+        return name in self._drivers or name in self._factories
 
     def names(self) -> list[str]:
-        return sorted(self._drivers)
+        """All known boundary names — concrete + lazily-registered factories."""
+        return sorted(set(self._drivers) | set(self._factories))
+
+    # Spec 286-A2 — uniform readiness probes so `agency_doctor` reads boundary
+    # health from ONE place (the registry) instead of N bespoke getattr lambdas.
+    def backend(self, name: str, default: Any = "custom") -> Any:
+        """The boundary's backend identity. Reads a ``.backend`` attribute (str)
+        or callable, falling back to ``default`` for custom-injected drivers that
+        omit it. Materializes the lazy default on first probe."""
+        drv = self.get(name)
+        attr = getattr(drv, "backend", None)
+        if attr is None:
+            return default
+        return attr() if callable(attr) else attr
+
+    def readiness(self, name: str, default: Optional[dict] = None) -> dict:
+        """The boundary's readiness dict (e.g. AnthropicDriver's api-key-present /
+        model-id-resolved). Falls back to ``{"backend": "custom"}`` for custom-
+        injected drivers that omit ``readiness()``."""
+        drv = self.get(name)
+        fn = getattr(drv, "readiness", None)
+        if fn is None:
+            return dict(default or {"backend": "custom"})
+        return fn()
 
 
 @dataclass
@@ -123,6 +174,17 @@ class CapabilityContext:
         if self.drivers is None:
             raise DriverMissing(f"no DriverRegistry on this context (name={name!r})")
         return self.drivers.get(name)
+
+    @property
+    def host(self) -> Any:
+        """Spec 285 — the request-scoped `HostBridge` to the host LLM (sampling)
+        and the user (elicitation). Reads the live FastMCP Context bound by
+        `engine._wire` for this call, plus the engine's `sampling_enabled` flag.
+        With no bound Context (CLI / bare tests), the bridge's `can_*()` report
+        False and callers fall back (Spec 279 envelope / input-required pause)."""
+        from ._host_bridge import HostBridge, current_host_context
+        return HostBridge(current_host_context(),
+                          sampling_enabled=getattr(self.engine, "sampling_enabled", None))
 
     def spawn(self, cap: str, verb: str, **args) -> tuple:
         """Invoke a sibling capability and return BOTH its result and the recorded
@@ -190,11 +252,39 @@ class CapabilityContext:
     def record(self, label: str, props: dict, node_id: Optional[str] = None) -> str:
         return self.memory.record(label, props, node_id)
 
+    def record_and_serve(self, label: str, props: dict, *,
+                         parent: str = "", edge: str = "") -> str:
+        """Spec 286 — record a node and link it ``SERVES`` the serving intent
+        in one call, optionally edging it to a ``parent`` first.
+
+        Collapses the ubiquitous ``act``-verb boilerplate::
+
+            nid = self.ctx.record(label, {...})
+            self.ctx.link(nid, self.ctx.intent_id, "SERVES")
+
+        into ``nid = self.ctx.record_and_serve(label, {...})``. When
+        ``parent`` and ``edge`` are given, the node is first linked to the
+        parent (``link(nid, parent, edge)``) — matching the
+        record→parent-edge→SERVES shape (e.g. novel ``CHAPTER_OF`` /
+        ``SCENE_OF``). The parent edge is recorded BEFORE the SERVES edge,
+        preserving the existing call order. Returns the new node id.
+        """
+        nid = self.memory.record(label, props)
+        if parent and edge:
+            self.memory.link(nid, parent, edge)
+        self.memory.link(nid, self.intent_id, "SERVES")
+        return nid
+
     def link(self, src: str, dst: str, rel: str, props: Optional[dict] = None) -> None:
         self.memory.link(src, dst, rel, props)
 
     def recall(self, node_id: str, as_of: Optional[int] = None):
         return self.memory.recall(node_id, as_of=as_of)
+
+    def recall_typed(self, node_id: str, label: str):
+        """Properties of a node iff it exists AND carries ``label`` (Spec 056).
+        Delegates to ``Memory.recall_typed`` — the type-safe id guard."""
+        return self.memory.recall_typed(node_id, label)
 
     def update(self, node_id: str, props: dict) -> None:
         """Update a node's mutable properties — graph-canonical write
@@ -220,22 +310,53 @@ class CapabilityContext:
         via ``ctx.neighbors``; ``find()`` + Python filter on a foreign-key
         property is the anti-pattern this method retires.
 
-        Returns ``[]`` for unknown ids or no matching edges. ``limit`` caps
-        the row count (default 100, matches ``analyze.graph`` shape).
+        Spec 286 A1 — delegates to ``Memory.neighbors`` (the GraphStore read
+        surface); raw Cypher lives only in ``memory.py``.
         """
-        if direction not in ("in", "out"):
-            raise ValueError(
-                f"direction must be 'in' or 'out', got {direction!r}")
-        if direction == "in":
-            q = (f"MATCH (n)-[:{edge}]->(t) WHERE t.id = $id "
-                 f"RETURN n LIMIT {int(limit)}")
-            key = "n"
-        else:
-            q = (f"MATCH (n)-[:{edge}]->(t) WHERE n.id = $id "
-                 f"RETURN t LIMIT {int(limit)}")
-            key = "t"
-        rows = self.memory.g.query(q, {"id": node_id})
-        return [r[key]["properties"] for r in rows]
+        return self.memory.neighbors(node_id, edge, direction=direction, limit=limit)
+
+    def query_nodes(self, label: str, where: Optional[dict] = None) -> list[dict]:
+        """Labeled nodes filtered by exact property match (Spec 286 A1).
+        Delegates to ``Memory.query_nodes``."""
+        return self.memory.query_nodes(label, where=where)
+
+    def nodes_serving(self, intent_id, label: Optional[str] = None,
+                      where: Optional[dict] = None) -> list[dict]:
+        """Nodes with a SERVES edge to an intent (Spec 286 A1).
+        Delegates to ``Memory.nodes_serving``."""
+        return self.memory.nodes_serving(intent_id, label=label, where=where)
+
+    def sources_via_edge(self, edge: str, target_id, target_label: str,
+                         label: Optional[str] = None,
+                         where: Optional[dict] = None) -> list[dict]:
+        """Nodes pointing at ``target_id`` via ``edge`` (Spec 286 A1).
+        Delegates to ``Memory.sources_via_edge``."""
+        return self.memory.sources_via_edge(edge, target_id, target_label,
+                                            label=label, where=where)
+
+    def edge_pairs(self, edge: str, src_label: Optional[str] = None,
+                   dst_label: Optional[str] = None) -> list[tuple[dict, dict]]:
+        """Every ``edge`` relationship as (src, dst) property-dict pairs
+        (Spec 286 A1). Delegates to ``Memory.edge_pairs``."""
+        return self.memory.edge_pairs(edge, src_label=src_label, dst_label=dst_label)
+
+    def has_edge(self, src_id: str, dst_id, edge: str,
+                 src_label: Optional[str] = None,
+                 dst_label: Optional[str] = None) -> bool:
+        """True iff ``src_id`` --``edge``--> ``dst_id`` exists (Spec 286 A1).
+        Delegates to ``Memory.has_edge``."""
+        return self.memory.has_edge(src_id, dst_id, edge,
+                                    src_label=src_label, dst_label=dst_label)
+
+    def artefacts_produced_under(self, intent_id) -> list[dict]:
+        """Artefacts PRODUCED by an Invocation serving ``intent_id`` (Spec 286
+        A1). Delegates to ``Memory.artefacts_produced_under``."""
+        return self.memory.artefacts_produced_under(intent_id)
+
+    def labels_of(self, node_id: str) -> list[str]:
+        """The label set of a node (Spec 286 A1).
+        Delegates to ``Memory.labels_of``."""
+        return self.memory.labels_of(node_id)
 
     def template(self, name: str) -> "Template":
         """Spec 060 — load a template by stem from the engine's merged
@@ -262,18 +383,116 @@ class CapabilityContext:
 
 
 def verb(role: str, inject: Optional[list] = None,
-         name: Optional[str] = None) -> Callable:
+         name: Optional[str] = None,
+         param_enums: Optional[dict] = None) -> Callable:
     """Mark a CapabilityBase method as a verb (its role, + any extra injects beyond
     the always-injected `ctx`). `name` lets a verb register under a different
     public name than its Python method (e.g. `import_` → `import` when the
-    natural verb name collides with a Python keyword)."""
+    natural verb name collides with a Python keyword).
+
+    Spec 284 — `param_enums` maps a parameter name to its canonical member set
+    (an iterable, typically the same module constant the ontology enum
+    references — single source). `engine._wire` surfaces those members in
+    `get_schema` (JSON `enum` + a description hint) without forcing wire-level
+    rejection, so a *projected enum* param can accept rich free text and project
+    it in the verb body. See `agency/_enums.py::project_enum`."""
     def deco(fn: Callable) -> Callable:
-        fn._verb = {"role": role, "inject": list(inject or []), "name": name}
+        fn._verb = {"role": role, "inject": list(inject or []), "name": name,
+                    "param_enums": dict(param_enums or {})}
         return fn
     return deco
 
 
-def _wrap_method(cls: type, mname: str, member: Callable, meta: dict) -> dict:
+def requires_driver(name: str, as_: Optional[str] = None) -> Callable:
+    """Spec 286 P3 #4 — a ``CapabilityBase`` verb decorator that owns the
+    fetch-or-fail idiom so the verb body never repeats it.
+
+    Replaces the 2-line guard that was copy-pasted at ~70 single-driver verb
+    sites::
+
+        # before
+        @verb(role="effect")
+        def publish_asset(self, album, key, body=""):
+            cloud, _fail = self._require_drv("music_cloud")
+            if _fail: return _fail
+            ...use cloud...
+
+        # after
+        @verb(role="effect")
+        @requires_driver("music_cloud", as_="cloud")
+        def publish_asset(self, album, key, body="", *, cloud):
+            ...use cloud...   # cloud is guaranteed present
+
+    At call time the wrapper runs ``self._require_drv(name)`` (so the
+    capability's own override — e.g. ``_MusicBase``'s lazy production-driver
+    auto-wiring — still fires) and:
+
+    * on success injects the driver as a keyword argument under ``as_`` (or
+      ``name`` when ``as_`` is omitted) and calls the verb body;
+    * on a ``DriverMissing`` miss SHORT-CIRCUITS to the EXACT same typed
+      ``DEPENDENCY_MISSING`` ``ToolResult`` ``_require_drv`` returns today —
+      so the failure shape (code / message / severity) is byte-identical.
+
+    The injected parameter is HIDDEN from the verb's public signature (it is
+    not a user-facing input), so ``get_schema`` / the wire contract are
+    unchanged. The verb body declares the injected name as a (keyword-only)
+    parameter and assumes the driver is present.
+
+    Decorator order — apply ``@requires_driver`` BELOW ``@verb`` (i.e.
+    ``@verb`` outermost). Both orders are MADE TO WORK: ``requires_driver``
+    propagates any ``_verb`` metadata it finds on the wrapped function up to
+    the wrapper, and ``verb`` overwrites ``_verb`` on whatever it decorates —
+    so ``@verb`` / ``@requires_driver`` and ``@requires_driver`` / ``@verb``
+    both register the verb correctly. The recommended, documented order is
+    ``@verb`` then ``@requires_driver`` (verb on top), matching the migrated
+    call sites.
+
+    Stack the decorator twice for a 2-driver verb (each injects its own
+    kwarg); verbs needing a more bespoke multi-driver dance stay on the raw
+    ``_require_drv`` 2-tuple helper.
+    """
+    import functools
+
+    kw_name = as_ or name
+
+    def deco(fn: Callable) -> Callable:
+        # The verb's user-facing signature is the wrapped fn's params MINUS
+        # the injected driver param (and minus `self`, handled by _wrap_method).
+        # We compute it here so __signature__ on the wrapper hides `kw_name`.
+        try:
+            sig = inspect.signature(fn)
+            visible = [p for n, p in sig.parameters.items() if n != kw_name]
+            hidden_sig = inspect.Signature(visible)
+        except (ValueError, TypeError):
+            hidden_sig = None
+
+        @functools.wraps(fn)
+        def wrapper(self, *args, **kw):
+            driver, fail = self._require_drv(name)
+            if fail:
+                return fail
+            kw[kw_name] = driver
+            return fn(self, *args, **kw)
+
+        # Propagate verb metadata regardless of decorator order: if @verb ran
+        # first (below us), carry its `_verb` up; if @verb runs after (above
+        # us) it overwrites this wrapper's `_verb` — either order registers.
+        meta = getattr(fn, "_verb", None)
+        if meta is not None:
+            wrapper._verb = meta
+        if hidden_sig is not None:
+            wrapper.__signature__ = hidden_sig
+        # Stamp the injected name so a second stacked @requires_driver / future
+        # introspection can see what this layer injects.
+        wrapper.__requires_driver__ = getattr(fn, "__requires_driver__", ()) + (
+            (name, kw_name),)
+        return wrapper
+
+    return deco
+
+
+def _wrap_method(cls: type, public: str, mname: str, member: Callable,
+                 meta: dict) -> Verb:
     # user params = the method's signature minus `self` (ctx is injected, not user-facing)
     params = [p for n, p in inspect.signature(member).parameters.items() if n != "self"]
 
@@ -288,7 +507,12 @@ def _wrap_method(cls: type, mname: str, member: Callable, meta: dict) -> dict:
     # in — the closure above otherwise hides it behind capability.py.
     fn.__capability_cls__ = cls
     fn.__capability_method__ = member
-    return {"role": meta["role"], "fn": fn, "inject": ["ctx"] + meta["inject"]}
+    # Spec 286-A4 — a typed Verb, not a free dict. `tags` defaults to an empty
+    # set; `Registry.register` strips manual `skill:*` tags and `_wire_skill_tags`
+    # appends the legitimate ones post-registration.
+    return Verb(name=public, role=meta["role"], fn=fn,
+                inject=["ctx"] + meta["inject"],
+                param_enums=dict(meta.get("param_enums") or {}))
 
 
 @dataclass
@@ -487,7 +711,7 @@ class CapabilityBase:
             if not meta:
                 continue
             public = meta.get("name") or mname
-            verbs[public] = _wrap_method(cls, mname, member, meta)
+            verbs[public] = _wrap_method(cls, public, mname, member, meta)
         # Spec 060 fix: deepcopy the ontology so capability instances
         # don't share dict references via the class-level default
         # `CapabilityBase.ontology = OntologyExtension()`. Bootstrap
@@ -533,18 +757,31 @@ class Registry:
         self.injectors: dict[str, Callable[[], Any]] = {}
         self.drivers: Any = None        # Spec 002 — the engine's DriverRegistry (named boundary table)
         self.ontology: Any = None       # the effective Ontology; set by the engine (for ctx)
+        # Spec 286-A3 — `invoke` is now an orchestrator over four single-purpose
+        # collaborators (guard → inject → record → call → process). The Registry
+        # holds them; the wire contract + provenance are byte-identical.
+        from ._invoke import (
+            IntentGuard, ParameterInjector, InvocationRecorder, ResultProcessor,
+        )
+        self._guard = IntentGuard()
+        self._injector = ParameterInjector(self)
+        self._recorder = InvocationRecorder()
+        self._processor = ResultProcessor()  # holds the post-invocation hook seam
 
     def register(self, cap: Capability) -> None:
-        # Spec 025 Phase 1: every verb spec carries a `tags` set. Manual
-        # `skill:*` tags are stripped — only phase-invoke wiring (below,
-        # in `_wire_skill_tags`) legitimately creates them. This preserves
-        # the discovery invariant: `tags=["skill:X"]` filters to exactly
-        # the verbs that participate in skill X's phase graph.
-        for verb_name, spec in cap.verbs.items():
-            raw = spec.get("tags") or set()
-            if not isinstance(raw, set):
-                raw = set(raw)
-            spec["tags"] = {t for t in raw if not t.startswith("skill:")}
+        # Spec 286-A4 — normalise functional-form verbs (raw `{role, fn, ...}`
+        # dicts passed to `Capability(verbs={...})`) into typed `Verb` value
+        # objects. Class-form caps already arrive as `Verb`s from
+        # `as_capability`; `Verb.from_spec` passes those through unchanged.
+        cap.verbs = {name: Verb.from_spec(name, spec)
+                     for name, spec in cap.verbs.items()}
+        # Spec 025 Phase 1: every verb carries a `tags` set. Manual `skill:*`
+        # tags are stripped — only phase-invoke wiring (below, in
+        # `_wire_skill_tags`) legitimately creates them. This preserves the
+        # discovery invariant: `tags=["skill:X"]` filters to exactly the verbs
+        # that participate in skill X's phase graph.
+        for verb in cap.verbs.values():
+            verb.tags = {t for t in verb.tags if not t.startswith("skill:")}
         self._caps[cap.name] = cap
         self._wire_skill_tags(cap)
 
@@ -571,7 +808,7 @@ class Registry:
                     target_verb = target_cap.verbs.get(invoke.get("verb"))
                     if target_verb is None:
                         continue
-                    target_verb.setdefault("tags", set()).add(f"skill:{skill_name}")
+                    target_verb.tags.add(f"skill:{skill_name}")
 
     def get(self, name: str) -> Capability:
         return self._caps[name]
@@ -581,106 +818,37 @@ class Registry:
 
     def invoke(self, memory: Memory, intent_id: str, cap_name: str, verb: str,
                agent_id: Optional[str] = None, _depth: int = 0, **args) -> tuple[Any, str]:
+        """Spec 286-A3 — orchestrate the four invocation collaborators:
+        **guard → inject → record → call(try/except) → process**. Each step's
+        logic lives in a single-purpose class (`agency/_invoke.py`); this method
+        only sequences them. Behaviour — provenance nodes/edges, error messages,
+        Spec 282 severity, the ToolResult unwrap to `.data`, the
+        `(result, invocation_id)` return — is identical to the former inline
+        body (the moat's chokepoint stays byte-stable).
+        """
         cap = self._caps[cap_name]
         spec = cap.verbs[verb]
-        call = dict(args)
-        for name in spec.get("inject", []):
-            if name in call:                              # an explicit arg always wins
-                continue
-            if name == "ctx":
-                call["ctx"] = CapabilityContext(
-                    memory=memory, ontology=self.ontology, registry=self,
-                    intent_id=intent_id, agent_id=agent_id,
-                    client=(self.injectors["client"]() if "client" in self.injectors else None),
-                    depth=_depth, engine=getattr(self, "engine", None),
-                    drivers=getattr(self, "drivers", None))
-            elif name == "memory":
-                call["memory"] = memory
-            elif name == "intent_id":
-                call["intent_id"] = intent_id
-            elif name in self.injectors:
-                call[name] = self.injectors[name]()
-        # C5 (Codex review 6059c74 / capability.py:169): the SERVES edge IS
-        # the moat's foundation; reject any invocation whose intent_id does not
-        # resolve to a labeled Intent BEFORE recording side effects. A
-        # mistyped/forged intent_id would otherwise produce an orphan
-        # Invocation that the provenance traversal cannot see, while real
-        # `effect` verbs still mutate the world.
-        intent_node = memory.g.get_node(intent_id)
-        if intent_node is None or "Intent" not in (intent_node.get("labels") or []):
-            # Spec 029 §B (F6): the previous message dead-ended on a fresh
-            # MCP client — every verb needs an intent, no message named the
-            # bootstrap path. Now we point at the substrate tool that mints
-            # one AND keep the bash side-pipe acknowledged.
-            raise ValueError(
-                f"intent_id {intent_id!r} is not an Intent node. "
-                f"Mint one with the `intent_bootstrap` MCP substrate tool "
-                f"(purpose, deliverable, acceptance) or "
-                f"`python -m agency.cli intent ...` (bash side-pipe). "
-                f"Call `agency_welcome` for the full onboarding payload."
-            )
-        # record the Invocation BEFORE calling, so a verb that raises still leaves a
-        # SERVES invocation in provenance (a failed run must be auditable too).
-        inv = memory.record("Invocation", {
-            "capability": cap_name, "verb": verb, "role": spec["role"],
-        })
-        memory.link(inv, intent_id, "SERVES")
-        if agent_id:
-            # Ensure the agent_id resolves to a labeled Agent node so
-            # `memory.provenance()`'s `MATCH ->(a:Agent)` picks it up (Codex
-            # review d5758b2 / capability.py:171). When the caller passes
-            # agent_id directly (e.g. MCP/CLI `jules.dispatch(agent_id=…)`)
-            # without first opening a Lifecycle, this idempotent upsert keeps
-            # the performer visible in audits.
-            if memory.recall(agent_id) is None:
-                memory.record("Agent", {"runtime": "external"}, node_id=agent_id)
-            memory.link(inv, agent_id, "PERFORMED_BY")  # 'BY' is a Cypher reserved word
+        # 1. inject — build the verb call kwargs (ctx / memory / intent_id +
+        #    derived injectors). Pure construction; no side-effects.
+        call = self._injector.build_call(spec, memory, intent_id, agent_id,
+                                         _depth, args)
+        # 2. guard — reject a non-Intent intent_id BEFORE any side-effect (the
+        #    SERVES edge is the moat's foundation). Raises the same ValueError.
+        self._guard.require_intent(memory, intent_id)
+        # 3. record — open the Invocation (+ SERVES, agent upsert + PERFORMED_BY)
+        #    BEFORE calling, so a verb that raises still leaves an auditable run.
+        inv = self._recorder.open(memory, intent_id, cap_name, verb,
+                                  spec.role, agent_id)
+        # 4. call — invoke the verb; on exception stamp outcome=failed + the
+        #    Spec 282 severity, then re-raise.
         try:
-            result = spec["fn"](**call)
+            result = spec.fn(**call)
         except Exception as e:
-            memory.update(inv, {"outcome": "failed", "error": f"{type(e).__name__}: {e}"})
+            self._recorder.record_exception(memory, inv, e)
             raise
-        # ToolResult unwrap (Spec 001, Option C): when a verb returns the in-sandbox
-        # envelope, record its metadata as Invocation side-effects (typed error,
-        # warnings, archived_to) and replace `result` with the unwrapped `.data` so
-        # the wire shape stays the lean code-mode contract (CORE.md:9-18). Plain-dict
-        # returns are unchanged. The auxiliary fields are opt-in for verbs that need
-        # them (esp. spec 005's context-mode middleware which writes archived_to).
-        from .toolresult import ToolResult
-        if isinstance(result, ToolResult):
-            # Spec 059: stamp error.trace_id = inv when the verb didn't
-            # supply one. Both ToolResult and TypedError are frozen, so
-            # the stamp is `dataclasses.replace` (rebuild, not mutate).
-            # The caller's explicit trace_id wins — we only fill the
-            # empty case.
-            if (result.error is not None
-                    and not result.error.trace_id):
-                from dataclasses import replace
-                new_error = replace(result.error, trace_id=inv)
-                result = replace(result, error=new_error)
-            updates: dict = {}
-            if not result.ok:                                    # ok=False alone marks the run failed
-                updates["outcome"] = "failed"                   # (Codex review d5758b2 / capability.py:188)
-            if result.error is not None:                         # TypedError, when attached, carries the message
-                updates["outcome"] = "failed"
-                updates["error"] = f"{result.error.code}: {result.error.message}"
-            if result.warnings:
-                updates["warnings"] = list(result.warnings)
-            if result.archived_to:
-                updates["archived_to"] = result.archived_to
-            if updates:
-                memory.update(inv, updates)
-            # C4 (Codex review 6059c74 / capability.py:202): convert
-            # `artefacts_written` into Artefact nodes + PRODUCES edges, the
-            # envelope's documented purpose. Each entry is a file path the
-            # verb produced; recorded so provenance shows the file-writing
-            # effect, not just a clean Invocation with the path silently
-            # dropped.
-            for path in (result.artefacts_written or []):
-                art = memory.record("Artefact", {"kind": "file", "path": str(path)})
-                memory.link(inv, art, "PRODUCES")
-            result = result.data
-        if isinstance(result, dict) and result.get("artefact"):
-            art = memory.record("Artefact", dict(result["artefact"]))
-            memory.link(inv, art, "PRODUCES")
+        # 5. process — ToolResult unwrap + side-effect recording (trace_id stamp,
+        #    outcome/error/warnings/archived_to, artefacts → Artefact+PRODUCES,
+        #    the {artefact} dict path), then the post-invocation hook seam. Returns
+        #    the unwrapped `.data`.
+        result = self._processor.process(memory, inv, intent_id, result)
         return result, inv

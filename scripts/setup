@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# scripts/setup — Spec 282 — one-shot dev environment.
+#
+# Creates the venv (if missing) and installs agency with EVERY lightweight
+# runtime extra (analyze · tokens · anthropic · publish) plus the dev tools,
+# so the full test suite runs with zero silently-skipped capability tests.
+#
+#   scripts/setup          # fast, complete default (.[dev]) — recommended
+#   scripts/setup --all    # also install the heavy torch recall backend (.[all], ~2GB)
+#
+# Idempotent: re-running just re-resolves the install.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+EXTRA="dev"
+if [[ "${1:-}" == "--all" ]]; then
+  EXTRA="all"
+fi
+
+if [[ ! -d .venv ]]; then
+  echo "==> creating .venv"
+  python3 -m venv .venv
+fi
+
+# shellcheck disable=SC1091
+. .venv/bin/activate
+
+echo "==> pip install -e \".[$EXTRA]\""
+python -m pip install --quiet --upgrade pip
+python -m pip install -e ".[$EXTRA]"
+
+echo "==> agency-doctor (live backend report)"
+python -m agency.__main__ doctor || true
+
+echo
+echo "Done. Activate with: . .venv/bin/activate"
+echo "Run the suite with:  python -m pytest -q -n auto -m \"not e2e\""

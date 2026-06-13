@@ -19,7 +19,7 @@ revise bad-tagged sections.
 
 ## Details
 
-Delegates to the 095 TextDriver `validate_sections`. Aggregates findings across all track bodies if `lyrics` is empty.
+Delegates to the 095 TextDriver `validate_sections`. Aggregates findings across all track bodies if `lyrics` is empty. ``music_text`` is decorator-injected (always required). The ``music_state`` driver is fetched inline only on the empty-lyrics branch (a conditional second dependency), so it stays on the raw ``_require_drv`` 2-tuple helper.
 
 ## Example
 

@@ -19,7 +19,7 @@ Catalogue-synced gate — streaming URLs + tweets ready (effect).
 
 ## Details
 
-Passes iff at least 1 streaming URL is recorded AND at least 1 scheduled tweet exists for the album.
+Passes iff at least 1 streaming URL is recorded AND at least 1 scheduled tweet exists for the album. Both drivers are decorator-injected (stacked ``@requires_driver``). ``music_state`` is the OUTER decorator so its DEPENDENCY_MISSING is returned first — preserving the prior state-then-db check order.
 
 ## Example
 

@@ -247,12 +247,19 @@ and the session is one-shot.
 ## Dev
 
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -e ".[dev]"
+scripts/setup                # Spec 282 — venv + .[dev] (everything but torch); the default
+scripts/setup --all          # also install the heavy sentence-transformers/torch recall backend (~2GB)
+. .venv/bin/activate
 python -m pytest -q          # full default suite (slow — ~4 min sequential)
 python -m pytest -q -n auto  # parallel via pytest-xdist (Spec 053; ~1 min on 4 cores)
 python -m agency.install     # regen the plugin install when capabilities change
 ```
+
+`.[dev]` now self-references every LIGHTWEIGHT runtime extra
+(`analyze` · `tokens` · `anthropic` · `publish`), so the default setup runs the
+full suite with ZERO silently-skipped capability tests (Spec 282, user directive
+2026-06-13). Only the heavy `recall` torch backend is opt-in via `.[all]`.
+Manual equivalent: `python -m venv .venv && . .venv/bin/activate && pip install -e ".[dev]"`.
 
 Spec 053 — fast local feedback:
 ```bash

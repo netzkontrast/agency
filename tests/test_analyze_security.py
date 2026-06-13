@@ -23,20 +23,20 @@ def test_eval_call_flagged_as_fail(tmp_path):
     )
     _write(str(tmp_path), "e.py", body)
     findings = _security.scan(str(tmp_path))
-    eval_hits = [f for f in findings if f["rule"] == "S001"]
+    eval_hits = [f for f in findings if f.rule == "S001"]
     assert len(eval_hits) == 1
-    assert eval_hits[0]["severity"] == "fail"
+    assert eval_hits[0].severity == "fail"
 
 
 def test_hardcoded_api_key_flagged_as_fail(tmp_path):
     body = 'API_KEY = "sk-1234567890abcdef1234567890abcdef"\n'
     _write(str(tmp_path), "secret.py", body)
     findings = _security.scan(str(tmp_path))
-    key_hits = [f for f in findings if f["rule"] == "S002"]
+    key_hits = [f for f in findings if f.rule == "S002"]
     assert len(key_hits) >= 1
-    assert key_hits[0]["severity"] == "fail"
+    assert key_hits[0].severity == "fail"
     # The KEY VALUE must NOT be in the message (only the pattern + location).
-    assert "sk-1234567890abcdef" not in key_hits[0]["message"]
+    assert "sk-1234567890abcdef" not in key_hits[0].message
 
 
 def test_pickle_load_flagged_as_warn(tmp_path):
@@ -47,9 +47,9 @@ def test_pickle_load_flagged_as_warn(tmp_path):
     )
     _write(str(tmp_path), "p.py", body)
     findings = _security.scan(str(tmp_path))
-    p_hits = [f for f in findings if f["rule"] == "S003"]
+    p_hits = [f for f in findings if f.rule == "S003"]
     assert len(p_hits) == 1
-    assert p_hits[0]["severity"] == "warn"
+    assert p_hits[0].severity == "warn"
 
 
 def test_shell_true_flagged(tmp_path):
@@ -59,7 +59,7 @@ def test_shell_true_flagged(tmp_path):
     )
     _write(str(tmp_path), "sh.py", body)
     findings = _security.scan(str(tmp_path))
-    sh_hits = [f for f in findings if f["rule"] == "S004"]
+    sh_hits = [f for f in findings if f.rule == "S004"]
     assert len(sh_hits) == 1
 
 
@@ -73,7 +73,7 @@ def test_shell_true_not_flagged_outside_subprocess(tmp_path):
     )
     _write(str(tmp_path), "ok.py", body)
     findings = _security.scan(str(tmp_path))
-    assert not [f for f in findings if f["rule"] == "S004"]
+    assert not [f for f in findings if f.rule == "S004"]
 
 
 def test_two_fail_severity_fixture(tmp_path):
@@ -85,5 +85,5 @@ def test_two_fail_severity_fixture(tmp_path):
     )
     _write(str(tmp_path), "k.py", body)
     findings = _security.scan(str(tmp_path))
-    fails = [f for f in findings if f["severity"] == "fail"]
+    fails = [f for f in findings if f.severity == "fail"]
     assert len(fails) == 2

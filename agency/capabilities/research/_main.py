@@ -99,13 +99,12 @@ class ResearchCapability(CapabilityBase):
         if depth not in ("brief", "standard", "deep"):
             depth = "standard"
         specialists, plan_text = _lead.plan(question, depth)
-        rid = self.ctx.record("Research", {
+        rid = self.ctx.record_and_serve("Research", {
             "question": question,
             "depth": depth,
             "started_at": int(time.time()),
             "status": "planning",
         })
-        self.ctx.link(rid, self.ctx.intent_id, "SERVES")
         return {
             "research_id": rid,
             "specialists": specialists,
@@ -139,8 +138,13 @@ class ResearchCapability(CapabilityBase):
                 self.ctx.memory, self.ctx, research_id, query,
                 docs_root=docs_root, max_hits=k)
         if role == "web":
-            web = getattr(self.ctx.registry.engine, "web_search", None) \
-                if self.ctx.registry.engine else None
+            # Spec 286-A2 — web_search is now a first-class registered Driver;
+            # reach it by name (lazy default materializes on first use). Falls
+            # back to None in bare unit tests with no DriverRegistry.
+            try:
+                web = self.ctx.get_driver("web_search")
+            except Exception:
+                web = None
             return _specialist.run_web(
                 self.ctx.memory, self.ctx, research_id, query,
                 web_search=web, k=k)
@@ -160,8 +164,7 @@ class ResearchCapability(CapabilityBase):
         # Verification — Memory.link doesn't validate endpoints, so
         # without this guard we'd record an orphan Verification linked
         # to a non-Research id (PR review r3343808276 pattern).
-        res_node = self.ctx.memory.g.get_node(research_id)
-        if res_node is None or "Research" not in (res_node.get("labels") or []):
+        if self.ctx.recall_typed(research_id, "Research") is None:
             return {"ok": False, "checks": {},
                     "error": f"unknown research_id {research_id!r}"}
 
@@ -298,16 +301,13 @@ class ResearchCapability(CapabilityBase):
         return {"artefact_id": aid, "idempotent": False}
 
     def _find_ingested_source(self, intent_id: str, sha256: str) -> str | None:
-        rows = self.ctx.memory.g.query(
-            "MATCH (i:Intent)-[:PRODUCES]->(a:Artefact) "
-            "WHERE i.id = $iid AND a.kind = 'ingested-source' "
-            "AND a.sha256 = $sha RETURN a",
-            {"iid": intent_id, "sha": sha256})
-        if not rows:
+        produced = self.ctx.neighbors(intent_id, "PRODUCES", direction="out")
+        matches = [a for a in produced
+                   if a.get("kind") == "ingested-source"
+                   and a.get("sha256") == sha256]
+        if not matches:
             return None
-        # graphqlite's row["a"]["id"] is its internal int; the agency-level
-        # node id lives in properties["id"] (see _checks.py:59 comment).
-        return rows[0]["a"]["properties"].get("id")
+        return matches[0].get("id")
 
 
 def _resolve_gdoc_id(source: str) -> str | None:
