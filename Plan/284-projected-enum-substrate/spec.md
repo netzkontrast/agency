@@ -1,3 +1,12 @@
+---
+spec: 284
+title: projected-enum-substrate
+status: Shipped
+depends_on: [282]
+clusters: [core]
+vision_goals: [4, 5, 6]
+---
+
 # Spec 284 — projected-enum substrate (Workstream B)
 
 > Status: **Implementing** · Parent: Spec 282 (error-severity-taxonomy) §"Still — B"
