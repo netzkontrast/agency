@@ -11,11 +11,20 @@ from __future__ import annotations
 from typing import Optional
 
 from .memory import Memory
+from .ontology import LifecycleState
 
-# A2A-aligned task states
-SUBMITTED, WORKING, INPUT_REQUIRED, COMPLETED, FAILED, CANCELED = (
-    "submitted", "working", "input-required", "completed", "failed", "canceled",
-)
+# A2A-aligned task states. Spec 286 #8 — `LifecycleState` (ontology.py) is the
+# single source; these module-level names are its `.value` (plain strings) so
+# graph storage `{"state": WORKING}` stays a plain string — zero storage/wire
+# change. `LifecycleState` carries the 7th state (`auth-required`) which this
+# module's state-machine doesn't currently emit; the 6 names below are the
+# states this module writes.
+SUBMITTED = LifecycleState.SUBMITTED.value
+WORKING = LifecycleState.WORKING.value
+INPUT_REQUIRED = LifecycleState.INPUT_REQUIRED.value
+COMPLETED = LifecycleState.COMPLETED.value
+FAILED = LifecycleState.FAILED.value
+CANCELED = LifecycleState.CANCELED.value
 
 
 class Lifecycle:

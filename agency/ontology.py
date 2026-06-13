@@ -13,6 +13,7 @@ owned by the capability, not hard-wired centrally.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 # --- the CORE: base node types (label -> strict required fields) ------------
 NODE_SCHEMAS: dict[str, list[str]] = {
@@ -39,18 +40,55 @@ NODE_SCHEMAS: dict[str, list[str]] = {
 }
 
 # --- core closed enums ------------------------------------------------------
-ROLES = {"act", "transform", "effect"}              # how-verb roles
-LIFECYCLE_STATES = {                                # A2A-aligned task states
-    "submitted", "working", "input-required", "auth-required",
-    "completed", "failed", "canceled",
-}
-# Spec 048 — Intent owner closed enum.
-#   user     — originated from a user prompt (the default for top-level)
-#   agent    — the running agent minted this sub-intent to scope its work
-#   subagent — a dispatched local subagent minted this
-#   jules    — a remote Jules session minted this and reported back
-#   system   — engine-internal (install/doctor/scaffold substrate)
-INTENT_OWNERS = {"user", "agent", "subagent", "jules", "system"}
+# Spec 286 #8 — each closed set has ONE StrEnum as its single source of truth;
+# the legacy plain-string sets below DERIVE from it (`{m.value for m in …}`).
+# `str, Enum` (== StrEnum on 3.11) means every member IS its string value, so
+# graph storage / wire payloads stay byte-identical (a member compares equal to
+# and json-serialises as its value). `FIELD_ENUMS`, `Ontology.violations`, and
+# `EntityModels` consume the derived sets and are unaffected.
+
+
+class Role(str, Enum):
+    """How-verb roles (the `Invocation.role` closed enum)."""
+    ACT = "act"
+    TRANSFORM = "transform"
+    EFFECT = "effect"
+
+
+class LifecycleState(str, Enum):
+    """A2A-aligned task states (the `Lifecycle.state` closed enum)."""
+    SUBMITTED = "submitted"
+    WORKING = "working"
+    INPUT_REQUIRED = "input-required"
+    AUTH_REQUIRED = "auth-required"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELED = "canceled"
+
+
+class IntentOwner(str, Enum):
+    """Spec 048 — who minted an Intent (the `Intent.owner` closed enum).
+
+    user     — originated from a user prompt (the default for top-level)
+    agent    — the running agent minted this sub-intent to scope its work
+    subagent — a dispatched local subagent minted this
+    jules    — a remote Jules session minted this and reported back
+    system   — engine-internal (install/doctor/scaffold substrate)
+    """
+    USER = "user"
+    AGENT = "agent"
+    SUBAGENT = "subagent"
+    JULES = "jules"
+    SYSTEM = "system"
+
+
+# Plain-string sets DERIVED from the enums above (single source of truth). The
+# `.value` extraction keeps these byte-identical to the historical literals, so
+# every downstream consumer (FIELD_ENUMS, Ontology.violations, EntityModels'
+# `Literal[...]`) sees the same plain strings it always did.
+ROLES = {m.value for m in Role}                     # how-verb roles
+LIFECYCLE_STATES = {m.value for m in LifecycleState}  # A2A-aligned task states
+INTENT_OWNERS = {m.value for m in IntentOwner}       # Spec 048 — Intent owners
 
 # --- core edge types (enumerated; link() rejects anything else) -------------
 EDGE_TYPES = {
