@@ -3415,6 +3415,14 @@ class NovelCapability(CapabilityBase):
         if scene is None:
             return ToolResult.failure(
                 "NOT_FOUND", f"scene_id={scene_id!r} not found")
+        # Spec 282 Workstream C — validate ALL preconditions BEFORE any write,
+        # so a bad predecessor never leaves an orphan NarrativeBeat node (the
+        # create-node-then-fail-edge partial write). The node + its PRECEDES
+        # edge land together or not at all.
+        if predecessor_id and self.ctx.recall(predecessor_id) is None:
+            return ToolResult.failure(
+                "NOT_FOUND",
+                f"predecessor_id={predecessor_id!r} not found")
         novel_id = (self.ctx.recall(scene.get("chapter", "")) or {}
                     ).get("novel", "")
         bid = self.ctx.record("NarrativeBeat", {
@@ -3422,10 +3430,6 @@ class NovelCapability(CapabilityBase):
         })
         self.ctx.link(bid, self.ctx.intent_id, "SERVES")
         if predecessor_id:
-            if self.ctx.recall(predecessor_id) is None:
-                return ToolResult.failure(
-                    "NOT_FOUND",
-                    f"predecessor_id={predecessor_id!r} not found")
             self.ctx.link(predecessor_id, bid, "PRECEDES")
         return ToolResult.success(data={
             "beat_id": bid, "scene_id": scene_id, "label": beat_label,

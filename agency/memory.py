@@ -9,6 +9,7 @@ cannot answer in one hop.
 from __future__ import annotations
 
 import threading
+import time
 import uuid
 from typing import Any, Optional
 
@@ -71,7 +72,23 @@ class Memory:
     def link(self, src: str, dst: str, rel: str, props: Optional[dict] = None) -> None:
         if not self.ont.is_known_edge(rel):
             raise ValueError(f"unknown edge type {rel!r}; not in the effective ontology's edge set")
-        self.g.upsert_edge(src, dst, {**(props or {}), "vfrom": self._now()}, rel_type=rel)
+        # Spec 282 Workstream C — durable edge write. graphqlite's upsert_edge is
+        # NON-atomic (MERGE then a separate SET r.vfrom); under concurrent
+        # MCP+CLI writes the SET raises `Failed to set property 'vfrom' on edge
+        # N`, which silently dropped 85 of 97 PRECEDES edges in the evidence run.
+        # Retry the TRANSIENT contention (Spec 282 classifies it) with a fresh
+        # tick each attempt; a non-transient error still fails fast (no storm).
+        from .toolresult import Severity, classify_severity
+        attempts = 4
+        for i in range(attempts):
+            try:
+                self.g.upsert_edge(src, dst, {**(props or {}), "vfrom": self._now()}, rel_type=rel)
+                return
+            except Exception as e:                          # noqa: BLE001
+                sev = classify_severity("", exc=e, message=str(e))
+                if sev != Severity.TRANSIENT or i == attempts - 1:
+                    raise
+                time.sleep(0.05 * (2 ** i))
 
     def update(self, node_id: str, changes: dict[str, Any]) -> None:
         """In-place mutation (keeps id + edges stable). For mutable state like a
