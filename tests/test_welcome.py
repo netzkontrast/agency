@@ -115,14 +115,17 @@ def test_welcome_token_budget_under_2kb():
     # hashes (`capability_set_hash`, `ontology_hash`) + the `_prefix_keys`
     # list — ~340 bytes of fixed overhead that buys cache-friendly
     # substrate-tool responses (the wrapping driver applies
-    # `cache_control: {type:"ephemeral"}` on the prefix). The per-cap
-    # coefficient is unchanged so the bound still catches gist BLOAT.
-    # Spec 282 G + user directive (2026-06-13): constant overhead 1000 → 1300
-    # to carry the `sandbox_constraints` onboarding field (≤50 call_tool/block,
-    # no-file-IO, partial-write persistence) — a CONSTANT-size, high-value field
-    # that prevented the ingest's batching failures. The per-cap coefficient
-    # (150) is unchanged, so the bound still catches gist BLOAT.
-    budget = 150 * ncaps + 1300
+    # `cache_control: {type:"ephemeral"}` on the prefix).
+    # Owner directive (2026-06-13): raise the constant overhead to 2000.
+    # Both parallel sessions bumped this base — 1300 for Spec 282 G's
+    # `sandbox_constraints` field, and here to 2000 for the wider fixed-envelope
+    # growth (Spec 282 typed error envelope + Spec 284 projected-enum hints +
+    # Spec 285 `host` sampling block). Take the higher value so the bound stops
+    # re-breaking on each fixed-field add. The per-cap coefficient stays 150, so
+    # the bound STILL catches a ballooning gist; only the documented fixed base
+    # is loosened (rule 8: a named, tunable budget with a rationale, not a frozen
+    # snapshot).
+    budget = 150 * ncaps + 2000
     assert len(payload) <= budget, (
-        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 1300); "
-        f"trim the capability_tier gists (Spec 068), don't raise the coefficient")
+        f"welcome payload {len(payload)} bytes exceeds {budget} ({ncaps} caps × 150 + 2000); "
+        f"trim the capability_tier gists (Spec 068) — the per-cap coefficient is the bloat guard")
