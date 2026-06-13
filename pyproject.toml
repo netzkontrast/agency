@@ -12,6 +12,11 @@ dependencies = [
     "graphqlite>=0.5.0",
     "fastmcp[code-mode]>=3.3.0",
     "pysqlite3-binary",
+    # Spec 288 — SQLModel is the typed definition for every graph data entity
+    # (validation models derived from the ontology; later the canonical
+    # SQLite-backed entity store sharing graphqlite's one DB file, FastAPI-ready).
+    # Core dep per user directive (2026-06-13): used for every data object.
+    "sqlmodel>=0.0.14",
     "httpx",
     # Spec 079 — the bash CLI (agency/cli.py) is built on Click: it mirrors every
     # capability verb as `agency <cap> <verb>` so non-MCP agents reach the

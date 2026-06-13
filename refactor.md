@@ -103,3 +103,43 @@ file (rule 2); render the plan markdown on demand:
 
 I'll hold building until the Vision owner reviews this layout (per protocol:
 describe phase layout → review → build).
+
+> **Update (shipped):** Spec 287 Slice 1 landed (`c0e6e20`) — the `plan-execute`
+> discipline + `draft_plan`/`record_step_outcome`/`plan_status` verbs +
+> `Plan`/`PlanStep` ontology, 8 tests green, install regenerated. Slice 2
+> (write/execute split, `requires_input`, `render_plan`) still open for review.
+
+## Spec 288 — SQLModel typed entities (user directive 2026-06-13)
+
+Directive: SQLModel for **every data entity**, derived from the **established
+ontology + schemas**, **linked to graph entities**, **core dep**, **all OOP**;
+goal a FastAPI frontend later while the graph stays complete + inline-queryable.
+
+**Advice (checked the graph implementation, as asked):**
+- `graphqlite` is a **SQLite extension** (`graphqlite.so`) on a standard
+  `sqlite3.Connection` — reachable at `memory.g._conn.sqlite_connection`;
+  `Connection.execute(sql)` runs raw SQL on the same connection.
+- ⇒ **one `.db` file** holds both the graph (extension-managed tables) and
+  SQLModel/SQLAlchemy entity tables; no second store, no cross-process sync.
+- ⇒ **inline entity-content query** = a raw-SQL JOIN of Cypher-returned node
+  ids to the entity table (same connection). Today props are denormalised onto
+  the node, so Cypher inline filtering already works; the SQL store makes the
+  full typed row the join target.
+- The **ontology** (`Ontology.nodes` + `.enums`) is the schema authority;
+  SQLModel **derives** from it (rule 2) — no parallel hand-authored schema.
+
+**Slice 1 shipped (additive, behaviour-preserving):** `sqlmodel` in CORE deps;
+`agency/_entities.py` `EntityModels` derives a `SQLModel` (`table=False`) per
+ontology label — required fields + `Literal`-typed enums — with `validate`
+parity to `Ontology.violations`. 5 tests (incl. the extension label `PlanStep`).
+NOT yet wired into `Memory` (zero change to the live record path).
+
+**Slice 2 (next):** `table=True` canonical entity tables on graphqlite's shared
+connection; `Memory.record` writes the typed row + the graph node (id link);
+inline `entity_join`. **Slice 3:** FastAPI read surface (`[api]` extra).
+
+**Open for Vision review:** (a) keep "graph is the store" framing with SQL as a
+typed projection (my lean), vs. flip SQL→canonical/graph→index; (b) when Slice 2
+wires `Memory`, replace `ontology.violations` with `EntityModels.validate` (one
+validation path) or keep both behind a parity test? Leaning: single path, guarded
+by the Slice-1 parity test.
