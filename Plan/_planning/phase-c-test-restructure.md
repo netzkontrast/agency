@@ -38,13 +38,19 @@ Moves preserve `conftest.py` marker behaviour (update `_AUTO_MARKER_PATTERNS`
 to the new layout). Restructuring test files is reading TESTS, not his impl —
 within the constraint.
 
-## Constraint: proposals, not code
-- Reviews read `refactor.md` + PR comments; **never `git show` his diffs**.
-- Contract tests target the **public API + the proposed invariants**, computed
-  from the live tree/registry (rule 8 — relationships, not frozen snapshots).
-- I may **run** tests against his branch (black-box pass/fail); I do not read
-  the implementation to write or debug them — if a test is ambiguous, I refine
-  the *contract* with him on the thread.
+## Working model (refined, owner directive 2026-06-13)
+- **READ his code** — review his actual diffs (the earlier "proposals-only"
+  rule is reversed), and write substantive reviews on the PR thread + `Review.md`.
+- **Run tests in the BACKGROUND** on every push — an isolated git worktree
+  (`/home/user/agency-review`, its own venv, pinned to #141) runs
+  `tests/contract/` on each new commit and reports, so foreground work is never
+  clobbered. Runner: `agency-review/run-contract-loop.sh`; contract tests staged
+  at `/home/user/contract-tests/`.
+- **CO-EVOLVE tests with the code:** when a change is valid and good but moves a
+  contract a test pinned, UPDATE the test to the evolved contract; when a change
+  breaks behaviour or the Vision, leave the test red and flag it. Guards stay
+  green; targets flip green only when genuinely met. Invariants over snapshots
+  (rule 8).
 
 ## Acceptance (the standing /goal)
 The refactor is "done" (per the goal) when, on the agent's branch:
