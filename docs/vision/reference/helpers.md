@@ -24,5 +24,5 @@ The modules that support the core but aren't themselves a concept. Pointers, not
 - `discover()` → [engine.md](engine.md) (bootstrap).
 - `_runner` / `_vcs` / `_embed` → [drivers.md](drivers.md) (the boundaries).
 - `_predicates` / `_checks` / `_pressure` → the `develop`/agentic capabilities
-  ([../guide/capabilities.md]).
+  ([../../guide/capabilities.md]).
 - `templates` → [install-cli.md](install-cli.md) (emission).

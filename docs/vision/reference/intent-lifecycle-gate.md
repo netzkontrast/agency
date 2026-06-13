@@ -13,7 +13,7 @@ The human-owned root. `why` and `what` are merged — a deliverable held with a 
   the `agency intent` CLI side-pipe.
 
 Every verb call `SERVES` an Intent; `Registry.invoke` rejects calls whose `intent_id`
-is not a confirmed Intent node. The **`intent` capability** ([../guide/capabilities.md])
+is not a confirmed Intent node. The **`intent` capability** ([../../guide/capabilities.md])
 adds critical-thinking *methods* over the goal (decompose, premortem, …) — distinct from
 this core class, which owns capture/confirm.
 
