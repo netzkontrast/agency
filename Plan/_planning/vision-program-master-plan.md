@@ -55,7 +55,10 @@ four pillars + per-capability), aligning with `tests/conftest.py`
 - **282** error-severity taxonomy · **283** render substrate · **284** projected-enum · **285** MCP sampling — shipped on #141 (the prior error-enum work).
 - **286** OOP refactor (umbrella) — in progress, refactor agent.
 - **287** `develop` plan-execute skill — shipped Slice 1 on #141 (CI red on schema-coverage of new `Plan`/`PlanStep` labels — refactor agent's fix).
-- **288** Management capability — drafted (Phase A), build deferred (feature work).
+- **288** sqlmodel-entity-store — built Slice 1 on #141 (refactor agent, user-directed; typed entities derived from the ontology, `table=False`).
+- **289** Management capability — drafted (Phase A, renumbered from 288 after the collision with 288-sqlmodel), build deferred (feature work).
+
+**Claimed spec numbers (collision guard):** 282–286 error-enum + refactor · 287 plan-execute skill · 288 sqlmodel-entity-store · 289 management-capability. Claim the next free number here BEFORE creating a Plan/NNN folder on either branch.
 
 ## Out of scope / later (coordinated)
 - **`/plans` migration** — open specs → graph-backed Plans via Spec 287's planning architecture, rendered under `/plans`, old `Plan/` deleted after. A *later* convergence of Phase B + Spec 287. Flagged to the refactor agent on PR #141. Currently a non-goal.

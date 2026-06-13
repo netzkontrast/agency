@@ -38,7 +38,7 @@ Plan/
       develop.md  gate.md  delegate.md  subagent.md  jules.md
       workspace.md  branch.md
     memory/                 # ── Memory pillar
-      reflect.md  research.md  management.md   # management = Spec 288
+      reflect.md  research.md  management.md   # management = Spec 289
     substrate/              # the Engine + the four-concept substrate modules
       engine.md  memory-store.md  ontology.md  intent-core.md
       lifecycle-core.md  capability.md  skill.md  toolresult.md
