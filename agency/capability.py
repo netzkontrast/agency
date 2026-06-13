@@ -637,6 +637,16 @@ class Registry:
         self.injectors: dict[str, Callable[[], Any]] = {}
         self.drivers: Any = None        # Spec 002 — the engine's DriverRegistry (named boundary table)
         self.ontology: Any = None       # the effective Ontology; set by the engine (for ctx)
+        # Spec 286-A3 — `invoke` is now an orchestrator over four single-purpose
+        # collaborators (guard → inject → record → call → process). The Registry
+        # holds them; the wire contract + provenance are byte-identical.
+        from ._invoke import (
+            IntentGuard, ParameterInjector, InvocationRecorder, ResultProcessor,
+        )
+        self._guard = IntentGuard()
+        self._injector = ParameterInjector(self)
+        self._recorder = InvocationRecorder()
+        self._processor = ResultProcessor()  # holds the post-invocation hook seam
 
     def register(self, cap: Capability) -> None:
         # Spec 025 Phase 1: every verb spec carries a `tags` set. Manual
@@ -685,122 +695,37 @@ class Registry:
 
     def invoke(self, memory: Memory, intent_id: str, cap_name: str, verb: str,
                agent_id: Optional[str] = None, _depth: int = 0, **args) -> tuple[Any, str]:
+        """Spec 286-A3 — orchestrate the four invocation collaborators:
+        **guard → inject → record → call(try/except) → process**. Each step's
+        logic lives in a single-purpose class (`agency/_invoke.py`); this method
+        only sequences them. Behaviour — provenance nodes/edges, error messages,
+        Spec 282 severity, the ToolResult unwrap to `.data`, the
+        `(result, invocation_id)` return — is identical to the former inline
+        body (the moat's chokepoint stays byte-stable).
+        """
         cap = self._caps[cap_name]
         spec = cap.verbs[verb]
-        call = dict(args)
-        for name in spec.get("inject", []):
-            if name in call:                              # an explicit arg always wins
-                continue
-            if name == "ctx":
-                call["ctx"] = CapabilityContext(
-                    memory=memory, ontology=self.ontology, registry=self,
-                    intent_id=intent_id, agent_id=agent_id,
-                    client=(self.injectors["client"]() if "client" in self.injectors else None),
-                    depth=_depth, engine=getattr(self, "engine", None),
-                    drivers=getattr(self, "drivers", None))
-            elif name == "memory":
-                call["memory"] = memory
-            elif name == "intent_id":
-                call["intent_id"] = intent_id
-            elif name in self.injectors:
-                call[name] = self.injectors[name]()
-        # C5 (Codex review 6059c74 / capability.py:169): the SERVES edge IS
-        # the moat's foundation; reject any invocation whose intent_id does not
-        # resolve to a labeled Intent BEFORE recording side effects. A
-        # mistyped/forged intent_id would otherwise produce an orphan
-        # Invocation that the provenance traversal cannot see, while real
-        # `effect` verbs still mutate the world.
-        intent_node = memory.g.get_node(intent_id)
-        if intent_node is None or "Intent" not in (intent_node.get("labels") or []):
-            # Spec 029 §B (F6): the previous message dead-ended on a fresh
-            # MCP client — every verb needs an intent, no message named the
-            # bootstrap path. Now we point at the substrate tool that mints
-            # one AND keep the bash side-pipe acknowledged.
-            raise ValueError(
-                f"intent_id {intent_id!r} is not an Intent node. "
-                f"Mint one with the `intent_bootstrap` MCP substrate tool "
-                f"(purpose, deliverable, acceptance) or "
-                f"`python -m agency.cli intent ...` (bash side-pipe). "
-                f"Call `agency_welcome` for the full onboarding payload."
-            )
-        # record the Invocation BEFORE calling, so a verb that raises still leaves a
-        # SERVES invocation in provenance (a failed run must be auditable too).
-        inv = memory.record("Invocation", {
-            "capability": cap_name, "verb": verb, "role": spec["role"],
-        })
-        memory.link(inv, intent_id, "SERVES")
-        if agent_id:
-            # Ensure the agent_id resolves to a labeled Agent node so
-            # `memory.provenance()`'s `MATCH ->(a:Agent)` picks it up (Codex
-            # review d5758b2 / capability.py:171). When the caller passes
-            # agent_id directly (e.g. MCP/CLI `jules.dispatch(agent_id=…)`)
-            # without first opening a Lifecycle, this idempotent upsert keeps
-            # the performer visible in audits.
-            if memory.recall(agent_id) is None:
-                memory.record("Agent", {"runtime": "external"}, node_id=agent_id)
-            memory.link(inv, agent_id, "PERFORMED_BY")  # 'BY' is a Cypher reserved word
+        # 1. inject — build the verb call kwargs (ctx / memory / intent_id +
+        #    derived injectors). Pure construction; no side-effects.
+        call = self._injector.build_call(spec, memory, intent_id, agent_id,
+                                         _depth, args)
+        # 2. guard — reject a non-Intent intent_id BEFORE any side-effect (the
+        #    SERVES edge is the moat's foundation). Raises the same ValueError.
+        self._guard.require_intent(memory, intent_id)
+        # 3. record — open the Invocation (+ SERVES, agent upsert + PERFORMED_BY)
+        #    BEFORE calling, so a verb that raises still leaves an auditable run.
+        inv = self._recorder.open(memory, intent_id, cap_name, verb,
+                                  spec["role"], agent_id)
+        # 4. call — invoke the verb; on exception stamp outcome=failed + the
+        #    Spec 282 severity, then re-raise.
         try:
             result = spec["fn"](**call)
         except Exception as e:
-            # Spec 282: classify the raising exception so provenance carries
-            # the retry-semantics axis. The known graph-contention error
-            # ("Failed to set property 'vfrom' on edge N") → transient; an
-            # unexpected type → fatal.
-            from .toolresult import classify_severity
-            sev = classify_severity("", exc=e, message=str(e))
-            memory.update(inv, {"outcome": "failed",
-                                "error": f"{type(e).__name__}: {e}",
-                                "error_severity": sev})
+            self._recorder.record_exception(memory, inv, e)
             raise
-        # ToolResult unwrap (Spec 001, Option C): when a verb returns the in-sandbox
-        # envelope, record its metadata as Invocation side-effects (typed error,
-        # warnings, archived_to) and replace `result` with the unwrapped `.data` so
-        # the wire shape stays the lean code-mode contract (CORE.md:9-18). Plain-dict
-        # returns are unchanged. The auxiliary fields are opt-in for verbs that need
-        # them (esp. spec 005's context-mode middleware which writes archived_to).
-        from .toolresult import ToolResult
-        if isinstance(result, ToolResult):
-            # Spec 059: stamp error.trace_id = inv when the verb didn't
-            # supply one. Both ToolResult and TypedError are frozen, so
-            # the stamp is `dataclasses.replace` (rebuild, not mutate).
-            # The caller's explicit trace_id wins — we only fill the
-            # empty case.
-            if (result.error is not None
-                    and not result.error.trace_id):
-                from dataclasses import replace
-                new_error = replace(result.error, trace_id=inv)
-                result = replace(result, error=new_error)
-            updates: dict = {}
-            if not result.ok:                                    # ok=False alone marks the run failed
-                updates["outcome"] = "failed"                   # (Codex review d5758b2 / capability.py:188)
-            if result.error is not None:                         # TypedError, when attached, carries the message
-                updates["outcome"] = "failed"
-                updates["error"] = f"{result.error.code}: {result.error.message}"
-                # Spec 282: record the orthogonal severity so a census can
-                # separate permanent retries from real signal. Re-classify if
-                # the verb attached a TypedError without a severity.
-                from .toolresult import classify_severity
-                updates["error_severity"] = (
-                    result.error.severity
-                    or classify_severity(result.error.code,
-                                         message=result.error.message))
-            if result.warnings:
-                updates["warnings"] = list(result.warnings)
-            if result.archived_to:
-                updates["archived_to"] = result.archived_to
-            if updates:
-                memory.update(inv, updates)
-            # C4 (Codex review 6059c74 / capability.py:202): convert
-            # `artefacts_written` into Artefact nodes + PRODUCES edges, the
-            # envelope's documented purpose. Each entry is a file path the
-            # verb produced; recorded so provenance shows the file-writing
-            # effect, not just a clean Invocation with the path silently
-            # dropped.
-            for path in (result.artefacts_written or []):
-                art = memory.record("Artefact", {"kind": "file", "path": str(path)})
-                memory.link(inv, art, "PRODUCES")
-            result = result.data
-        if isinstance(result, dict) and result.get("artefact"):
-            art = memory.record("Artefact", dict(result["artefact"]))
-            memory.link(inv, art, "PRODUCES")
+        # 5. process — ToolResult unwrap + side-effect recording (trace_id stamp,
+        #    outcome/error/warnings/archived_to, artefacts → Artefact+PRODUCES,
+        #    the {artefact} dict path), then the post-invocation hook seam. Returns
+        #    the unwrapped `.data`.
+        result = self._processor.process(memory, inv, intent_id, result)
         return result, inv
