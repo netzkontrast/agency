@@ -56,6 +56,8 @@ dev = [
     # The only opt-out is the heavy `recall` torch backend (~2GB), which stays
     # behind `.[all]`. Self-references resolve via the project name.
     "agency[analyze,tokens,anthropic,publish]",
+    # Phase C — behaviour-only Gherkin acceptance suite (owner directive 2026-06-13).
+    "pytest-bdd>=7.0",
 ]
 # Spec 282 — `.[all]` is the everything install, INCLUDING the heavy
 # sentence-transformers/torch `recall` backend. Use when you want the BGE
