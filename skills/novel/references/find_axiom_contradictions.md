@@ -19,7 +19,7 @@ walk pairs; refine wording; rerun.
 
 ## Details
 
-Per Open Q2 (resolved as v1 decidable): flags axiom pairs whose bodies share ≥ 2 motif words AND one carries a negation marker the other lacks (``not``, ``never``, ``no``). The judgement pass (full red_team) is a future xcap to ``thinking.red_team``.
+Per Open Q2 (resolved as v1 decidable): flags axiom pairs whose bodies share ≥ 2 motif words AND one carries a negation marker the other lacks (``not``, ``never``, ``no``). The judgement pass (full red_team) is a future xcap to ``intent.red_team``.
 
 ## Example
 

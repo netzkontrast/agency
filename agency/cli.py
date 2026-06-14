@@ -422,7 +422,7 @@ def _ann_kind(ann) -> str:
     return "str"
 
 
-def _make_verb_command(cap_name, verb_name, spec):
+def _make_verb_command(cap_name, verb_name, spec, home="capability"):
     """Build a Click command that mirrors ONE capability verb. Options come from
     the verb's signature (minus injected params — the same elision `engine._wire`
     does); `--intent-id`/`--agent-id` are the wire params; dict/list params + a
@@ -491,7 +491,7 @@ def _make_verb_command(cap_name, verb_name, spec):
             call["intent_id"] = intent_id
         if agent_id:
             call["agent_id"] = agent_id
-        name = f"capability_{cap_name}_{verb_name}"
+        name = f"{home}_{cap_name}_{verb_name}"
         return _emit(*_call_engine_tool(_db(ctx), name, call, codemode=False))
 
     return click.Command(name=verb_name, params=options, callback=callback,
@@ -510,7 +510,7 @@ def _add_capability_commands(group):
         cap_group = click.Group(name=cap.name,
                                 help=f"{cap.name} capability — {len(cap.verbs)} verb(s)")
         for verb_name, spec in sorted(cap.verbs.items()):
-            cap_group.add_command(_make_verb_command(cap.name, verb_name, spec))
+            cap_group.add_command(_make_verb_command(cap.name, verb_name, spec, cap.home))
         group.add_command(cap_group)
 
 

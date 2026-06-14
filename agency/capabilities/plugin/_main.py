@@ -145,7 +145,7 @@ def lint_skill_doc(cap_name: str, doc: "_SkillDoc", verbs: dict) -> dict:
         v.append({"rule": "triggers-count",
                   "message": f"triggers list has {len(triggers)} items; want 2-5"})
     canonical_verbs = set(verbs)
-    if not any(f"capability_{cap_name}_{vb}" in (doc.canonical_example or "")
+    if not any(f"_{cap_name}_{vb}" in (doc.canonical_example or "")
                or f"agency-{cap_name}-{vb}" in (doc.canonical_example or "")
                for vb in canonical_verbs):
         v.append({"rule": "example-uses-real-verb",
@@ -310,7 +310,7 @@ def _check_consumer_contract(cap):
         e.memory.close()
     out = []
     for verb_name in cap.verbs:
-        expected = f"capability_{cap.name}_{verb_name}"
+        expected = f"{cap.home}_{cap.name}_{verb_name}"
         if expected not in tool_names:
             out.append({
                 "verb": verb_name, "kind": "consumer_contract",
@@ -631,7 +631,7 @@ def _check_name_token_budget(cap):
     enc = tiktoken.get_encoding("cl100k_base")
     out = []
     for verb_name in cap.verbs:
-        wire = f"capability_{cap.name}_{verb_name}"
+        wire = f"{cap.home}_{cap.name}_{verb_name}"
         n = len(enc.encode(wire))
         if n > _WIRE_NAME_BUDGET:
             out.append({

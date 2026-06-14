@@ -524,6 +524,16 @@ class CapabilityBase:
             walker_skills=getattr(cls, "walker_skills", None))
 
 
+_PILLARS = ("intent", "capability", "lifecycle", "memory")
+
+
+def is_cap_tool(name: str) -> bool:
+    """A capability verb's wire name is ``<pillar>_<cap>_<verb>`` (Spec 291).
+    Distinct from the wire verbs (search/get_schema/execute) and the substrate
+    onboarding tools (agency_*, intent_bootstrap — <2 segments after a pillar)."""
+    return any(name.startswith(p + "_") for p in _PILLARS) and name.count("_") >= 2
+
+
 class Registry:
     def __init__(self) -> None:
         self._caps: dict[str, Capability] = {}
@@ -575,6 +585,10 @@ class Registry:
 
     def get(self, name: str) -> Capability:
         return self._caps[name]
+
+    def tool_name(self, cap_name: str, verb: str) -> str:
+        """Wire tool name <pillar>_<cap>_<verb> — pillar = the cap's home (Spec 291)."""
+        return f"{self.get(cap_name).home}_{cap_name}_{verb}"
 
     def names(self) -> list[str]:
         return sorted(self._caps)

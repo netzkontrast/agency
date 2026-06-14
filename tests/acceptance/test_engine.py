@@ -238,7 +238,7 @@ def _wire_recall(eng_iid):
     eng.registry.invoke(eng.memory, iid, "reflect", "note",
                          agent_id="agent:test", scope="observation", text="x")
     return asyncio.run(_wire_call(
-        eng, "capability_reflect_recall", intent_id=iid, scope=""))
+        eng, "memory_reflect_recall", intent_id=iid, scope=""))
 
 
 @then("the wire result has a result key containing a list")
@@ -251,7 +251,7 @@ def _recall_shape(wire_recall):
 def _wire_note(eng_iid):
     eng, iid = eng_iid
     return asyncio.run(_wire_call(
-        eng, "capability_reflect_note", intent_id=iid,
+        eng, "memory_reflect_note", intent_id=iid,
         scope="observation", text="hello"))
 
 
@@ -266,7 +266,7 @@ def _note_shape(wire_note):
 def _wire_dogfood_note(eng_iid):
     eng, iid = eng_iid
     return asyncio.run(_wire_call(
-        eng, "capability_dogfood_note", intent_id=iid,
+        eng, "memory_dogfood_note", intent_id=iid,
         observation="x", plan_slug="019"))
 
 

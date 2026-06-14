@@ -6,6 +6,7 @@ and the shared Given steps. Behaviour only.
 from pytest_bdd import parsers, scenarios, then, when
 
 from conftest import call_tool, invoke, served, tool_names
+from agency.capability import is_cap_tool
 
 scenarios("features/wire_contract.feature")
 scenarios("features/provenance.feature")
@@ -25,8 +26,8 @@ def _three_verbs(tools, a, b, c):
 
 @then("no capability verb is exposed directly at the wire")
 def _no_leak(tools):
-    leaked = {n for n in tools if n.startswith("capability_")}
-    assert not leaked, f"capability verbs leaked: {sorted(leaked)[:5]}"
+    leaked = {n for n in tools if is_cap_tool(n)}
+    assert not leaked, f"capability verbs leaked to the wire: {sorted(leaked)[:5]}"
 
 
 @then("the execute verb is available to run capability code")
@@ -59,7 +60,7 @@ def _no_served(engine, confirmed_intent):
 # ── capability surface ──────────────────────────────────────────────────────────
 @when("a client lists the capability verbs", target_fixture="verbs")
 def _list_verbs(engine):
-    return {n for n in tool_names(engine, codemode=False) if n.startswith("capability_")}
+    return {n for n in tool_names(engine, codemode=False) if is_cap_tool(n)}
 
 
 @then("many capability verbs are available")

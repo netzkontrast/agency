@@ -42,7 +42,7 @@ def _sandbox_limits() -> dict:
 from .capabilities import discover
 from .capabilities._vcs import GitClient
 from .capabilities.jules import JulesClient
-from .capability import Registry
+from .capability import Registry, is_cap_tool
 from .intent import Intent
 from .lifecycle import Lifecycle
 from .memory import Memory
@@ -399,7 +399,7 @@ class Engine:
         params.append(inspect.Parameter("agent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str, default=""))
 
         impl.__signature__ = inspect.Signature(params)
-        impl.__name__ = f"capability_{cap_name}_{verb}"
+        impl.__name__ = self.registry.tool_name(cap_name, verb)
         # Spec 023 Phase 3: tighten the FastMCP tool description to the BRIEF
         # slice (first-sentence) instead of the full docstring. Cuts ~58% of
         # catalog tokens; full doc remains reachable via get_schema.
@@ -948,7 +948,7 @@ class Engine:
                 if not key.startswith("tool:"):
                     continue
                 name = getattr(tool, "name", "") or ""
-                if name.startswith("capability_"):
+                if is_cap_tool(name):
                     continue   # already tightened in _wire
                 raw = (getattr(tool, "description", "") or "").strip()
                 if not raw:

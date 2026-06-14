@@ -71,13 +71,13 @@ def _no_env(monkeypatch):
 @when("I call a verb without supplying an intent_id", target_fixture="wire_result")
 def _call_no_iid(env_intent):
     e = env_intent["engine"]
-    return _call_wire(e, "capability_develop_checklist", {"discipline": "tdd"})
+    return _call_wire(e, "lifecycle_develop_checklist", {"discipline": "tdd"})
 
 
 @when("I call a verb with the second intent_id explicitly", target_fixture="wire_result2")
 def _call_explicit(env_intent, second_intent):
     e = env_intent["engine"]
-    return _call_wire(e, "capability_develop_checklist",
+    return _call_wire(e, "lifecycle_develop_checklist",
                       {"discipline": "tdd", "intent_id": second_intent})
 
 

@@ -24,12 +24,15 @@ Intent is the reasoning capability: it turns the human-owned goal into structure
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `apply_full_review` | act | Run the founding critical-thinking methods in sequence; produce a critical-analysis artefact (act). | [details](#apply_full_review) |
 | `assumptions` | transform | Surface + classify the implicit assumptions a goal rests on (load-bearing vs not). | [details](references/assumptions.md) |
 | `decompose` | transform | Decompose a goal into MECE sub-problems — the structured break-down method. | [details](references/decompose.md) |
 | `first_principles` | transform | Strip a goal to fundamental truths and rebuild — bypassing inherited assumptions. | [details](references/first_principles.md) |
 | `inversion` | transform | Invert the goal — ask what would GUARANTEE failure, then avoid exactly that. | [details](references/inversion.md) |
 | `premortem` | transform | Premortem — assume the goal FAILED, reason backward to causes + mitigations. | [details](references/premortem.md) |
+| `red_team` | transform | Adversarial review — adopt an attacker's stance + find failure paths. | [details](#red_team) |
 | `second_order` | transform | Trace second- and third-order consequences — 'and then what?' past the first effect. | [details](references/second_order.md) |
+| `socratic` | transform | Five-whys-deeper Socratic questioning — surface the root assumption. | [details](#socratic) |
 | `steelman` | transform | Build the STRONGEST version of the opposing or alternative position. | [details](references/steelman.md) |
 | `suggests` | transform | Project the serving intent + the last verb's state to the next applicable skill (Spec 026 Part B — Intent owns the intent→skill projection; a RECOMMENDATION, not a dispatch). | [details](references/suggests.md) |
 | `tradeoffs` | transform | Build an explicit trade-off matrix — options × criteria — for a decision. | [details](references/tradeoffs.md) |
@@ -37,7 +40,7 @@ Intent is the reasoning capability: it turns the human-owned goal into structure
 ## Example
 
 ```bash
-await call_tool('capability_intent_assumptions', {'intent_id': 'intent:abc'})
+await call_tool('capability_intent_apply_full_review', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
@@ -51,3 +54,27 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`critical-thinking`** (discipline): frame → surface → stress-test → weigh → decide
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'critical-thinking', 'inputs': {}, 'intent_id': '…'})`
+
+## apply_full_review
+
+Run the founding critical-thinking methods in sequence; produce a critical-analysis artefact (act).
+
+Parameters: `(subject: 'str' = '', depth: 'str' = 'standard')`.
+
+_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/apply_full_review.md.)_
+
+## red_team
+
+Adversarial review — adopt an attacker's stance + find failure paths.
+
+Parameters: `(subject: 'str' = '', n_attacks: 'int' = 5)`.
+
+_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/red_team.md.)_
+
+## socratic
+
+Five-whys-deeper Socratic questioning — surface the root assumption.
+
+Parameters: `(subject: 'str' = '', n_questions: 'int' = 5)`.
+
+_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/socratic.md.)_

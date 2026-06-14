@@ -61,7 +61,7 @@ LEGACY_DOC = (
     "recommended doctrine shape."
 )
 
-NAME = "capability_jules_review_comment"
+NAME = "lifecycle_jules_review_comment"
 ROLE = "effect"
 
 _CHAR_COUNTER = len  # 1 char ≈ 1 token for envelope tests
@@ -283,7 +283,7 @@ def _list_cap_tools(render_engine):
 def _descriptions_are_brief(cap_tools_info):
     tools, eng = cap_tools_info
     from agency.disclosure import parse_slices
-    heavy = "capability_jules_dispatch"
+    heavy = "lifecycle_jules_dispatch"
     assert heavy in tools, f"verb {heavy} not registered"
     described = tools[heavy].description or ""
     src_doc = eng.registry.get("jules").verbs["dispatch"]["fn"].__doc__ or ""
@@ -295,7 +295,8 @@ def _descriptions_are_brief(cap_tools_info):
 @then("the cumulative tight descriptions are less than half the legacy full-docstring total")
 def _descriptions_save_tokens(cap_tools_info):
     tools, eng = cap_tools_info
-    cap_tools = {n: t for n, t in tools.items() if n.startswith("capability_")}
+    from agency.capability import is_cap_tool
+    cap_tools = {n: t for n, t in tools.items() if is_cap_tool(n)}
     tight = sum(len(t.description or "") for t in cap_tools.values())
     legacy = 0
     for cap_name in eng.registry.names():

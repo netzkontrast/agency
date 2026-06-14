@@ -365,7 +365,7 @@ def render_phase(phase: dict, *, depth: str, registry: Any = None) -> str:
             cap = registry.get(invoke["capability"])
             verb_name = invoke["verb"]
             spec = cap.verbs[verb_name]
-            mcp_name = f"capability_{invoke['capability']}_{verb_name}"
+            mcp_name = f"{cap.home}_{invoke['capability']}_{verb_name}"
             return render_verb(
                 mcp_name, spec.get("role", "act"),
                 (spec["fn"].__doc__ or ""),
