@@ -63,8 +63,12 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    `## Followup — Implementation Status (…)` section. No drift between
    the two; `TODO.md` rolls up, the Followup section grounds.
 
-7. **Regression testing lives in CI, not locally.** Per Spec 053 + user
-   directive (2026-06-03):
+7. **Test behaviour, not implementation** — Gherkin acceptance scenarios
+   (`tests/acceptance/`, `pytest-bdd`) are the contract; no unit tests on
+   internals; structural cleanliness is a review concern. Canon:
+   [`docs/vision/TESTING.md`](docs/vision/TESTING.md). Regression runs in CI,
+   not locally (Spec 053; CI may be disabled during a large refactor while the
+   reviewer gates via the acceptance suite). Per user directive (2026-06-03):
    - Locally, run **only** focused slices (`scripts/test-cap <marker>`,
      `scripts/test-changed`) — typically < 30 seconds. Full-suite
      wall-clock is too expensive in a tight TDD loop.

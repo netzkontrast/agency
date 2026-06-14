@@ -49,6 +49,8 @@ dev = [
     # transitively today; declaring it here makes the dependency
     # explicit rather than relying on the transitive pull-in.
     "PyYAML>=6.0",
+    # Phase C — behaviour-only Gherkin acceptance suite (owner directive 2026-06-13).
+    "pytest-bdd>=7.0",
     # Spec 282 (setup ergonomics, user directive 2026-06-13): the DEFAULT
     # dev setup pulls every LIGHTWEIGHT runtime extra so `pip install -e
     # ".[dev]"` (and `scripts/setup`) yields a fully-functional engine with
