@@ -1,5 +1,5 @@
 ---
-spec_id: "288"
+spec_id: "290"
 slug: management-capability
 status: draft
 last_updated: 2026-06-13
@@ -8,7 +8,7 @@ vision_goals: [1, 2, 4]
 depends_on: ["020", "042", "045", "048"]
 ---
 
-# Spec 288 — Management capability (the four-pillars read-API)
+# Spec 290 — Management capability (the four-pillars read-API)
 
 > Born from the Core Vision addition (`docs/vision/CORE.md` §"Four complete
 > pillars", owner directive 2026-06-13): each of Intent · Capability ·
@@ -16,8 +16,9 @@ depends_on: ["020", "042", "045", "048"]
 > read. The write/act sides are mature; the **read/manage** side is the gap.
 > This spec is the keystone that closes it — the first "complete a pillar" build.
 >
-> Spec number **288** chosen to clear the live PR #141 range (282–286) and the
-> planning-skill reservation (287).
+> Spec number **290**: 288 then 289 both collided with the refactor agent’s
+> `sqlmodel-entity-store` (a double-yield); 289 is theirs, this is 290. See the
+> claimed-numbers registry in `Plan/_planning/vision-program-master-plan.md`.
 
 ## Why (evidence + doctrine)
 
