@@ -143,11 +143,17 @@ Feature: Novel capability — observable behaviour
     And the scene pov is "third-limited"
     And a SCENE_OF edge links the scene to the chapter
 
-  Scenario: create_scene rejects an invalid pov with INVALID_ARGUMENT
+  Scenario: create_scene rejects a pov with no POV signal with INVALID_ARGUMENT
     Given a novel with a chapter
-    When I create a scene with pov "omniscient-but-spelt-wrong"
+    When I create a scene with pov "qwerty gibberish nonsense"
     Then the result is None
     And the invocation error contains "INVALID_ARGUMENT"
+
+  Scenario: create_scene projects a rich pov onto the canonical enum
+    Given a novel with a chapter
+    When I create a scene with a rich pov "omniscient-but-spelt-wrong"
+    Then the scene pov is the canonical "third-omniscient"
+    And the scene pov_detail preserves "omniscient-but-spelt-wrong"
 
   Scenario: set_chapter_status flips the chapter status and persists it
     Given a novel with a chapter

@@ -373,57 +373,57 @@ def _quality_scan(source_dir):
 
 @then("the findings include at least 2 entries with rule \"Q001\"")
 def _q001_count(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "Q001"]
+    hits = [f for f in scan_findings if f.rule == "Q001"]
     assert len(hits) >= 2
 
 
 @then("those findings have severity \"warn\"")
 def _q001_severity(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "Q001"]
-    assert all(f["severity"] == "warn" for f in hits)
+    hits = [f for f in scan_findings if f.rule == "Q001"]
+    assert all(f.severity == "warn" for f in hits)
 
 
 @then("the findings include a Q002 entry with severity \"warn\"")
 def _q002_warn(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "Q002"]
+    hits = [f for f in scan_findings if f.rule == "Q002"]
     assert len(hits) >= 1
-    assert hits[0]["severity"] == "warn"
+    assert hits[0].severity == "warn"
 
 
 @then("no Q001 finding is produced")
 def _no_q001(scan_findings):
-    assert not [f for f in scan_findings if f.get("rule") == "Q001"]
+    assert not [f for f in scan_findings if f.rule == "Q001"]
 
 
 @then("every finding has keys rule, severity, file, line, message, and evidence")
 def _finding_keys(scan_findings):
     for f in scan_findings:
         for key in ("rule", "severity", "file", "line", "message", "evidence"):
-            assert key in f, f"finding missing key {key!r}"
+            assert hasattr(f, key), f"finding missing key {key!r}"
 
 
 @then("severity is one of info, warn, or fail")
 def _severity_enum(scan_findings):
     for f in scan_findings:
-        assert f["severity"] in ("info", "warn", "fail")
+        assert f.severity in ("info", "warn", "fail")
 
 
 @then("line is a positive integer")
 def _line_positive(scan_findings):
     for f in scan_findings:
-        assert isinstance(f["line"], int) and f["line"] >= 1
+        assert isinstance(f.line, int) and f.line >= 1
 
 
 @then("message is at most 120 characters")
 def _message_len(scan_findings):
     for f in scan_findings:
-        assert len(f["message"]) <= 120
+        assert len(f.message) <= 120
 
 
 @then("evidence is at most 200 characters")
 def _evidence_len(scan_findings):
     for f in scan_findings:
-        assert len(f["evidence"]) <= 200
+        assert len(f.evidence) <= 200
 
 
 # ── security scanner steps ─────────────────────────────────────────────────────
@@ -436,32 +436,32 @@ def _security_scan(source_dir):
 
 @then("a S001 finding with severity \"fail\" is produced")
 def _s001_fail(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "S001"]
-    assert len(hits) >= 1 and hits[0]["severity"] == "fail"
+    hits = [f for f in scan_findings if f.rule == "S001"]
+    assert len(hits) >= 1 and hits[0].severity == "fail"
 
 
 @then("a S002 finding with severity \"fail\" is produced")
 def _s002_fail(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "S002"]
-    assert len(hits) >= 1 and hits[0]["severity"] == "fail"
+    hits = [f for f in scan_findings if f.rule == "S002"]
+    assert len(hits) >= 1 and hits[0].severity == "fail"
 
 
 @then("the finding message does not contain the literal key value")
 def _key_not_in_message(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "S002"]
+    hits = [f for f in scan_findings if f.rule == "S002"]
     assert hits
-    assert "sk-1234567890abcdef" not in hits[0]["message"]
+    assert "sk-1234567890abcdef" not in hits[0].message
 
 
 @then("a S003 finding with severity \"warn\" is produced")
 def _s003_warn(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "S003"]
-    assert len(hits) >= 1 and hits[0]["severity"] == "warn"
+    hits = [f for f in scan_findings if f.rule == "S003"]
+    assert len(hits) >= 1 and hits[0].severity == "warn"
 
 
 @then("no S004 finding is produced")
 def _no_s004(scan_findings):
-    assert not [f for f in scan_findings if f.get("rule") == "S004"]
+    assert not [f for f in scan_findings if f.rule == "S004"]
 
 
 # ── performance scanner steps ──────────────────────────────────────────────────
@@ -474,19 +474,19 @@ def _performance_scan(source_dir):
 
 @then("a P001 finding with severity \"warn\" is produced")
 def _p001_warn(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "P001"]
-    assert len(hits) >= 1 and hits[0]["severity"] == "warn"
+    hits = [f for f in scan_findings if f.rule == "P001"]
+    assert len(hits) >= 1 and hits[0].severity == "warn"
 
 
 @then("a P002 finding with severity \"info\" is produced")
 def _p002_info(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "P002"]
-    assert len(hits) >= 1 and hits[0]["severity"] == "info"
+    hits = [f for f in scan_findings if f.rule == "P002"]
+    assert len(hits) >= 1 and hits[0].severity == "info"
 
 
 @then("no P002 finding is produced")
 def _no_p002(scan_findings):
-    assert not [f for f in scan_findings if f.get("rule") == "P002"]
+    assert not [f for f in scan_findings if f.rule == "P002"]
 
 
 # ── architecture scanner steps ─────────────────────────────────────────────────
@@ -499,13 +499,13 @@ def _architecture_scan(source_dir):
 
 @then("an A001 finding with severity \"fail\" is produced")
 def _a001_fail(scan_findings):
-    hits = [f for f in scan_findings if f.get("rule") == "A001"]
-    assert len(hits) >= 1 and hits[0]["severity"] == "fail"
+    hits = [f for f in scan_findings if f.rule == "A001"]
+    assert len(hits) >= 1 and hits[0].severity == "fail"
 
 
 @then("no A001 finding is produced")
 def _no_a001(scan_findings):
-    assert not [f for f in scan_findings if f.get("rule") == "A001"]
+    assert not [f for f in scan_findings if f.rule == "A001"]
 
 
 # ── agency_doctor steps ────────────────────────────────────────────────────────

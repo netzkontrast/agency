@@ -185,14 +185,25 @@ def _next_steps_in_progress(welcome_result):
 
 # ── Then steps — token budget ─────────────────────────────────────────────────
 
-@then("the payload byte size is within 150 bytes per capability plus 1000")
+# Per-capability marginal cost (capability name in the list + its
+# capability_tier entry) — measured ~115 B/cap, budgeted at 150 with headroom.
+WELCOME_PERCAP_BUDGET = 150
+# Fixed onboarding scaffolding that does NOT scale with cap count: wire
+# contract, code-mode example, sandbox constraints, discipline-skills roster,
+# bootstrap/install examples. Measured ~2055 B; budgeted at 2500 to leave
+# headroom for onboarding-doc evolution. (Documented tunable, not a snapshot —
+# CLAUDE.md rule 8: bound the per-cap relationship, allow the fixed overhead.)
+WELCOME_FIXED_OVERHEAD = 2500
+
+
+@then("the payload byte size is within 150 bytes per capability plus the fixed onboarding overhead")
 def _token_budget(welcome_result):
     payload = json.dumps(welcome_result)
     ncaps = len(welcome_result["capabilities"])
-    budget = 150 * ncaps + 1000
+    budget = WELCOME_PERCAP_BUDGET * ncaps + WELCOME_FIXED_OVERHEAD
     assert len(payload) <= budget, (
         f"welcome payload {len(payload)} bytes > budget {budget} "
-        f"({ncaps} caps × 150 + 1000)")
+        f"({ncaps} caps × {WELCOME_PERCAP_BUDGET} + {WELCOME_FIXED_OVERHEAD} fixed)")
 
 
 # ── Then steps — missing DB ───────────────────────────────────────────────────

@@ -452,15 +452,38 @@ def _when_create_scene(engine, confirmed_intent, ctx):
     return r, inv
 
 
-@when("I create a scene with pov \"omniscient-but-spelt-wrong\"",
+@when("I create a scene with pov \"qwerty gibberish nonsense\"",
       target_fixture="scene_result")
 def _when_create_scene_bad_pov(engine, confirmed_intent, ctx):
     r, inv = invoke(engine, confirmed_intent, "novel", "create_scene",
                     chapter_id=ctx["chapter_id"],
-                    slug="bad-pov", pov="omniscient-but-spelt-wrong")
+                    slug="bad-pov", pov="qwerty gibberish nonsense")
     ctx["result"] = r
     ctx["inv"] = inv
     return r, inv
+
+
+@when("I create a scene with a rich pov \"omniscient-but-spelt-wrong\"",
+      target_fixture="scene_result")
+def _when_create_scene_rich_pov(engine, confirmed_intent, ctx):
+    # Spec 284 — pov is a projected enum: rich free text projects onto a
+    # canonical SCENE_POV member, preserving the original in pov_detail.
+    r, inv = invoke(engine, confirmed_intent, "novel", "create_scene",
+                    chapter_id=ctx["chapter_id"],
+                    slug="rich-pov", pov="omniscient-but-spelt-wrong")
+    ctx["result"] = r
+    ctx["inv"] = inv
+    return r, inv
+
+
+@then("the scene pov is the canonical \"third-omniscient\"")
+def _then_scene_pov_canonical(ctx):
+    assert ctx["result"]["pov"] == "third-omniscient"
+
+
+@then("the scene pov_detail preserves \"omniscient-but-spelt-wrong\"")
+def _then_scene_pov_detail(ctx):
+    assert ctx["result"]["pov_detail"] == "omniscient-but-spelt-wrong"
 
 
 @when("I set the chapter status to \"drafted\"",
