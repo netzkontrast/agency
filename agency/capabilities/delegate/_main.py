@@ -16,13 +16,7 @@ from __future__ import annotations
 
 from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
-
-
-def _phase(idx: int, name: str, produces: list[str], gate: str = "") -> dict:
-    p: dict = {"index": idx, "name": name, "produces": produces}
-    if gate:
-        p["gate"] = gate
-    return p
+from ...skill import phase as _phase  # Spec 286 — shared phase() builder
 
 
 # The dispatch-decision skill: the token-economics heuristic, walked as a
@@ -386,16 +380,14 @@ class DelegateCapability(CapabilityBase):
             return {"result": {"error": "every item must be a mapping of driver kwargs",
                                "offending": nonmap[:3]}}
         admitted = items[:quota]
-        d = self.ctx.record("Delegation", {"driver": driver, "driver_verb": driver_verb,
-                                            "count": len(admitted), "quota": quota})
-        self.ctx.link(d, self.ctx.intent_id, "SERVES")
+        d = self.ctx.record_and_serve("Delegation", {"driver": driver, "driver_verb": driver_verb,
+                                                      "count": len(admitted), "quota": quota})
         aid = f"agent:{driver}"
         if self.ctx.recall(aid) is None:
             self.ctx.record("Agent", {"runtime": "delegated"}, node_id=aid)
         children = []
         for item in admitted:
-            lc = self.ctx.record("Lifecycle", {"state": "working", "phase": 0})
-            self.ctx.link(lc, self.ctx.intent_id, "SERVES")
+            lc = self.ctx.record_and_serve("Lifecycle", {"state": "working", "phase": 0})
             self.ctx.link(lc, aid, "DISPATCHED_TO")        # an agent IS a Lifecycle parameterization
             self.ctx.link(d, lc, "DELEGATES_TO")
             result, inv = self.ctx.spawn(driver, driver_verb, **item)
@@ -418,19 +410,16 @@ class DelegateCapability(CapabilityBase):
         Writes a REDUCES_INTO reduction (so it is an ``act``, not a pure
         read).
         """
-        if not self.ctx.memory.g.query(                        # no cross-intent reductions
-                "MATCH (d:Delegation)-[:SERVES]->(i:Intent) WHERE d.id = $d AND i.id = $i RETURN i",
-                {"d": delegation, "i": self.ctx.intent_id}):
+        if not self.ctx.has_edge(delegation, self.ctx.intent_id, "SERVES",  # no cross-intent reductions
+                                 src_label="Delegation", dst_label="Intent"):
             return {"result": {"error": "delegation does not serve the current intent",
                                "delegation": delegation}}
-        rows = self.ctx.memory.g.query(
-            "MATCH (d:Delegation)-[:DELEGATES_TO]->(lc:Lifecycle) WHERE d.id = $id RETURN lc",
-            {"id": delegation})
+        child_lcs = self.ctx.neighbors(delegation, "DELEGATES_TO", direction="out")
         states: dict[str, int] = {}
-        for r in rows:
-            s = r["lc"]["properties"].get("state", "?")
+        for lc in child_lcs:
+            s = lc.get("state", "?")
             states[s] = states.get(s, 0) + 1
-        children = len(rows)
+        children = len(child_lcs)
         done = children > 0 and states.get("completed", 0) == children
         red = self.ctx.record("Artefact", {"kind": "reduction", "children": children})
         self.ctx.link(delegation, red, "REDUCES_INTO")

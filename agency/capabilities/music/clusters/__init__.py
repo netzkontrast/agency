@@ -1,9 +1,32 @@
-"""music clusters — per-cluster verb modules.
+# agency-scaffold: v1
+"""music clusters — per-cluster verb mixin modules (Spec 094 / Spec 286 P3).
 
-Spec 094 mandates this folder; the 14 lifecycle verbs land in
-``lifecycle.py`` in a subsequent slice (Slice 2). Spec 094's first slice
-(this PR) is the migration only — the 11 verbs ported VERBATIM from
-``examples/music.py`` live on ``_main.py`` for now and migrate into
-their cluster homes (lifecycle / lyrics / audio / catalogue / promo /
-gates) as Specs 094-100 land.
+The ``MusicCapability`` god-class splits into one mixin class per domain
+cluster, composed into the single registered capability via multiple
+inheritance (``_main.py``). Each mixin holds the ``@verb`` methods of its
+section verbatim; the shared driver-wiring + helpers live on ``_base``.
+
+The verb-name set, ontology, skill_doc, and wire contract are unchanged — the
+split is a pure behaviour-frozen relocation.
 """
+from .audio import AudioCluster
+from .catalogue import CatalogueCluster
+from .cloud import CloudCluster
+from .gates import GatesCluster
+from .lifecycle import LifecycleCluster
+from .lyrics import LyricsCluster
+from .promo import PromoCluster
+from .research import ResearchCluster
+from .state import StateCluster
+
+__all__ = [
+    "AudioCluster",
+    "CatalogueCluster",
+    "CloudCluster",
+    "GatesCluster",
+    "LifecycleCluster",
+    "LyricsCluster",
+    "PromoCluster",
+    "ResearchCluster",
+    "StateCluster",
+]

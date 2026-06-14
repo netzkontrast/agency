@@ -102,6 +102,41 @@ class RecallSlice:
 Counter = Callable[[str], int]                                     # legacy alias (kept for type-hinting downstream)
 
 
+def budget_take(items: list, counter: Callable[[Any], int], max_tokens: int) -> tuple[list, list]:
+    """Spec 286 P3 — the shared "accumulate token total, stop on overshoot"
+    loop, factored out of the prompt clusters' duplicated char-proxy loops.
+
+    Walk ``items`` in order, summing ``counter(item)`` per item; ``kept``
+    collects every item that fits under the running ``max_tokens`` ceiling,
+    ``skipped`` collects the remainder once the budget binds. The split is
+    monotone — the FIRST item whose inclusion would exceed ``max_tokens``
+    stops the accumulation, and it plus every later item lands in
+    ``skipped`` (priority-ordered truncation: callers pass items
+    highest-priority-first).
+
+    ``counter`` maps an item to its token cost; callers inject their own
+    proxy (e.g. the prompt clusters' ``_approx_tokens`` over the item's
+    text) so the char-per-token magic lives in ONE place per cap, not
+    inlined at each loop. Returns ``(kept, skipped)``.
+    """
+    kept: list = []
+    skipped: list = []
+    total = 0
+    binding = False
+    for item in items:
+        if binding:
+            skipped.append(item)
+            continue
+        cost = counter(item)
+        if total + cost > max_tokens:
+            binding = True
+            skipped.append(item)
+            continue
+        kept.append(item)
+        total += cost
+    return kept, skipped
+
+
 def capture_overflow(body: str, *, max_tokens: int, counter: Any) -> OverflowResult:
     """Inspect a body against `max_tokens`; either pass through or
     truncate the inline slice (`head`) while preserving the full source

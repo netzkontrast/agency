@@ -193,55 +193,73 @@ class Engine:
                  extra_capabilities=None, surface: str | None = None,
                  token_counter=None, skills_client=None, llm_client=None,
                  anthropic_driver=None, drivers=None,
+                 sampling_enabled: bool | None = None,
                  _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
-        # Spec 073 — the toolchain runner boundary (stubbable; default shells out).
-        from ._runner import SubprocessRunner
-        self.runner = runner or SubprocessRunner()
-        self.jules_client = jules_client or JulesClient()       # boundary: the real Jules backend by default
-        self.vcs_backend = vcs_backend or GitClient()           # boundary: real git/gh for workspace + branch
-        # Spec 045 — semantic-recall backend. Default is TF-IDF (zero-dep);
-        # AGENCY_EMBEDDER=bge-small-en + [recall] extra activates BGE.
-        # Tests inject a stub. `agency_doctor` reports `embedder.name`.
-        if embedder is None:
-            from .capabilities._embed import resolve_embedder
-            embedder = resolve_embedder()
-        self.embedder = embedder
-        # Spec 044 + Spec 052 — web-search boundary. v1 default is the
-        # DuckDuckGo zero-config client (resolve_web_search()); env
-        # AGENCY_WEB_BACKEND can pick alternatives. Tests stub via
-        # Engine(web_search=...).
-        if web_search is None:
-            from .capabilities.research._web import resolve_web_search
-            web_search = resolve_web_search()
-        self.web_search = web_search
-        # Spec 082 — the token-count boundary (count_tokens → tiktoken → proxy),
-        # stubbable like embedder/web_search; agency_doctor reports its backend.
-        if token_counter is None:
-            from ._tokens import resolve_token_counter
-            token_counter = resolve_token_counter()
-        self.token_counter = token_counter
-        # Spec 083 — the Anthropic Skills API boundary (plugin.publish_skill);
-        # lazy default, stubbed in tests, injected on ctx as `skills_client`.
-        if skills_client is None:
-            from .capabilities.plugin._skills_client import SkillsClient
-            skills_client = SkillsClient()
-        self.skills_client = skills_client
-        # Spec 092 G3 — the LLM-decider boundary (an `llm` Driver): lazy default,
-        # stubbed in tests, reached via ctx.get_driver("llm") (e.g. intent.suggests's
-        # llm_select Matcher).
-        if llm_client is None:
-            from ._llm import LLMClient
-            llm_client = LLMClient()
-        self.llm_client = llm_client
-        # Spec 147 — the canonical AnthropicDriver boundary (an `anthropic` Driver):
-        # lazy default, stubbed in tests, reached via ctx.get_driver("anthropic"). The
-        # LLM-driver chain's keystone. Slice 1 = inference surface; the SDK is imported
-        # lazily so this costs nothing without the [anthropic] extra.
-        if anthropic_driver is None:
-            from ._drivers._anthropic import AnthropicDriver
-            anthropic_driver = AnthropicDriver()
-        self.anthropic_driver = anthropic_driver
+        # Spec 285 OQ3 — server-initiated sampling cost control. Explicit kwarg
+        # wins; else AGENCY_SAMPLING_ENABLED env; else on. Read by HostBridge
+        # (via CapabilityContext.host) + surfaced in agency_doctor.
+        from ._host_bridge import sampling_enabled_default
+        self.sampling_enabled = (sampling_enabled if sampling_enabled is not None
+                                 else sampling_enabled_default())
+        # Spec 286-A2 — the engine's boundary objects live in ONE place: the
+        # DriverRegistry (`self.drivers`). The former triplication — bespoke
+        # `self.<boundary>` attrs + a `DriverRegistry({...})` + a parallel
+        # `injectors` lambda dict — collapses here:
+        #   * an explicitly-injected boundary (the constructor kwarg, for test
+        #     injection) registers as a CONCRETE driver and wins;
+        #   * otherwise the per-boundary lazy DEFAULT registers as a FACTORY
+        #     and is constructed on first `ctx.get_driver(name)`/`inject=[…]`
+        #     use (the old `if x is None: import…; x=…()` resolution moves
+        #     verbatim into the factory closure).
+        # The bespoke `self.jules_client` / `.embedder` / … attributes are now
+        # thin read-through properties over the registry (see below) so any
+        # external code / test reading `engine.embedder` still resolves.
+        from .capability import DriverRegistry
+        self.drivers = DriverRegistry()
+
+        def _factory(import_path, attr, *args):
+            def make():
+                mod = __import__(import_path, fromlist=[attr])
+                return getattr(mod, attr)(*args)
+            return make
+
+        # name -> (injected boundary | None, lazy default factory). Spec 073 /
+        # 045 / 044+052 / 082 / 083 / 092 / 147 rationale preserved per-boundary.
+        _boundary_defaults = {
+            # Spec 073 — toolchain runner (stubbable; default shells out).
+            "runner":       (runner, _factory("agency._runner", "SubprocessRunner")),
+            # boundary: the real Jules backend by default.
+            "jules":        (jules_client, JulesClient),
+            # boundary: real git/gh for workspace + branch.
+            "vcs":          (vcs_backend, GitClient),
+            # Spec 045 — semantic-recall backend. Default TF-IDF (zero-dep);
+            # AGENCY_EMBEDDER=bge-small-en + [recall] extra activates BGE.
+            "embedder":     (embedder, _factory("agency.capabilities._embed", "resolve_embedder")),
+            # Spec 044 + 052 — web-search boundary. v1 default is the DuckDuckGo
+            # zero-config client; env AGENCY_WEB_BACKEND can pick alternatives.
+            "web_search":   (web_search, _factory("agency.capabilities.research._web", "resolve_web_search")),
+            # Spec 082 — token-count boundary (count_tokens → tiktoken → proxy).
+            "token_counter": (token_counter, _factory("agency._tokens", "resolve_token_counter")),
+            # Spec 083 — Anthropic Skills API boundary (plugin.publish_skill).
+            "skills_client": (skills_client, _factory("agency.capabilities.plugin._skills_client", "SkillsClient")),
+            # Spec 092 G3 — the LLM-decider boundary (an `llm` Driver).
+            "llm":          (llm_client, _factory("agency._llm", "LLMClient")),
+            # Spec 147 — the canonical AnthropicDriver boundary. The SDK imports
+            # lazily so this costs nothing without the [anthropic] extra.
+            "anthropic":    (anthropic_driver, _factory("agency._drivers._anthropic", "AnthropicDriver")),
+        }
+        for _name, (_injected, _default_factory) in _boundary_defaults.items():
+            if _injected is not None:
+                self.drivers.register(_name, _injected)
+            else:
+                self.drivers.register_factory(_name, _default_factory)
+        # Host-supplied extra drivers (Engine(..., drivers={...})) override the
+        # defaults under the same name (e.g. music_state).
+        if drivers:
+            for _name, _driver in drivers.items():
+                self.drivers.register(_name, _driver)
+
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self.ontology = Ontology.core()                         # the base, then each capability extends it
@@ -305,29 +323,23 @@ class Engine:
                     f"the verbs — see any agency/capabilities/<cap>/_main.py), and "
                     f"validate via `develop.validate_skill('<cap>')`."
                 )
-        # the boundary object surfaced on ctx.client; `memory`/`intent_id` are
-        # injected per-call by the Registry itself, and the registry is on ctx.
-        # Spec 002 — the six ad-hoc boundaries (jules/vcs/embedder/runner/
-        # token_counter/skills_client) unify into ONE named DriverRegistry. A
-        # future boundary registers a driver under a name and needs no new Engine
-        # kwarg + no new injectors key. The injectors table is now DERIVED from
-        # the registry (one source of truth); `inject=[...]` + `ctx.client` keep
-        # working unchanged, and verbs reach drivers via `ctx.get_driver(name)`.
-        from .capability import DriverRegistry
-        self.drivers = DriverRegistry({
-            "jules": self.jules_client, "vcs": self.vcs_backend,
-            "embedder": self.embedder, "runner": self.runner,
-            "token_counter": self.token_counter, "skills_client": self.skills_client,
-            "llm": self.llm_client, "anthropic": self.anthropic_driver})
-        if drivers:
-            for _name, _driver in drivers.items():
-                self.drivers.register(_name, _driver)
+        # Spec 002 / 286-A2 — the boundary table (built above) IS the source of
+        # truth. The Registry's `inject=[...]` table is DERIVED from it: each
+        # injector NAME maps to a driver NAME, and the lambda reads the live
+        # registry (lazy default materialized on first use). `ctx.client` (the
+        # `client` injector) resolves to the Jules driver, exactly as before.
+        # A future boundary needs no new injectors key; verbs reach any driver
+        # via `ctx.get_driver(name)`. The map is the ONLY place an injector
+        # alias diverges from its driver name (`client` -> `jules`).
         self.registry.drivers = self.drivers
-        self.registry.injectors = {"client": lambda: self.drivers.get("jules"),
-                                   "vcs": lambda: self.drivers.get("vcs"),
-                                   "embedder": lambda: self.drivers.get("embedder"),
-                                   "runner": lambda: self.drivers.get("runner"),
-                                   "skills_client": lambda: self.drivers.get("skills_client")}
+        _INJECTOR_TO_DRIVER = {
+            "client": "jules", "vcs": "vcs", "embedder": "embedder",
+            "runner": "runner", "skills_client": "skills_client",
+        }
+        self.registry.injectors = {
+            inj: (lambda d=drv: self.drivers.get(d))
+            for inj, drv in _INJECTOR_TO_DRIVER.items()
+        }
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
         self.lifecycle = Lifecycle(self.memory)
@@ -338,6 +350,49 @@ class Engine:
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
         self._hook_handlers = {"*": _default_hook_handler}
+
+    # Spec 286-A2 — the bespoke boundary attributes are now thin read-through
+    # properties over the DriverRegistry (`self.drivers`), the single source of
+    # truth. External code / tests that read `engine.embedder` / `.jules_client`
+    # / … still resolve (and materialize the lazy default on first read), but the
+    # boundary lives in exactly one place. The property NAME maps to the driver
+    # NAME (`jules_client` -> "jules", `vcs_backend` -> "vcs", `llm_client` ->
+    # "llm", `anthropic_driver` -> "anthropic"; the rest are 1:1).
+    @property
+    def runner(self):
+        return self.drivers.get("runner")
+
+    @property
+    def jules_client(self):
+        return self.drivers.get("jules")
+
+    @property
+    def vcs_backend(self):
+        return self.drivers.get("vcs")
+
+    @property
+    def embedder(self):
+        return self.drivers.get("embedder")
+
+    @property
+    def web_search(self):
+        return self.drivers.get("web_search")
+
+    @property
+    def token_counter(self):
+        return self.drivers.get("token_counter")
+
+    @property
+    def skills_client(self):
+        return self.drivers.get("skills_client")
+
+    @property
+    def llm_client(self):
+        return self.drivers.get("llm")
+
+    @property
+    def anthropic_driver(self):
+        return self.drivers.get("anthropic")
 
     def register_hook_handler(self, event_name: str, fn) -> None:
         """Spec 076 — register a per-event hook handler (open set). ``fn(engine,
@@ -356,10 +411,43 @@ class Engine:
             return {"recorded": None, "event": name, "skipped": True}
         return handler(self, event)
 
+    def _shape_wire_result(self, result, inv: str) -> dict:
+        """Spec 282 — shape the registry return into the wire dict.
+
+        On a FAILED invocation, surface a TYPED error envelope carrying the
+        severity (compat break, authorized): a bare ``null`` told the caller
+        nothing, so the ingest driver retried every impossible call ~34×.
+        Now the caller can branch on ``error.severity`` / ``error.retryable``
+        and stop retrying ``permanent`` failures.
+
+        On success, the lean code-mode contract is unchanged (Spec 001/019):
+        an inner dict crosses as-is; a scalar is re-wrapped as
+        ``{"result": <scalar>}`` because MCP returns must be JSON objects.
+
+        Spec 286-A7: the shape rule lives in one place — :class:`WireEnvelope`.
+        The engine only reads the recorded Invocation node (outcome / error /
+        severity) and hands the parts to ``WireEnvelope.shape``; the envelope
+        owns the strip/re-wrap + failure-envelope logic.
+        """
+        from ._wire_envelope import WireEnvelope
+        node = self.memory.recall(inv) or {}
+        return WireEnvelope.shape(
+            result,
+            outcome=node.get("outcome"),
+            error=node.get("error", "") or "",
+            error_severity=node.get("error_severity") or "",
+            trace_id=inv,
+        )
+
     def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
         """Auto-wire ONE MCP tool for a capability verb from its fn signature.
         Injected params (`inject`) are resolved by the Registry, so they are not
-        exposed in the tool's schema."""
+        exposed in the tool's schema.
+
+        Spec 001 + Spec 019 — wire-shape contract. Internal verbs return either
+        a bare rich dict OR ``{"result": <delta>}``; the failure path now
+        returns the Spec 282 typed error envelope. The shaping lives in
+        ``_shape_wire_result`` so it is unit-testable without a live MCP."""
         reg, mem = self.registry, self.memory
         fn, inject = spec["fn"], list(spec.get("inject", []))
         user_params = [p for n, p in inspect.signature(fn).parameters.items() if n not in inject]
@@ -371,32 +459,51 @@ class Engine:
             # repeat it on every call. With neither, the empty id flows to the
             # SERVES guard, which raises its helpful bootstrap error.
             import os as _os
-            intent_id = kwargs.pop("intent_id", "") or _os.environ.get("AGENCY_INTENT", "")
-            agent_id = kwargs.pop("agent_id", "") or None
-            result, _ = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
-            # Spec 001 + Spec 019 — wire-shape contract.
-            # Internal verbs return either a bare rich dict (e.g.
-            # ``{status, session, url}``) OR ``{"result": <delta>}`` for
-            # ok-path detection at the engine boundary. The wire shape
-            # crossing to the code-mode caller strips that envelope IFF
-            # the inner value is itself a dict (the lean code-mode
-            # contract per CORE.md "search · get_schema · execute" +
-            # GOALS.md goal #5). Scalar inner values get re-wrapped
-            # because MCP tool returns must be JSON objects.
-            # `plugin.lint_capability` enforces docstrings describe the
-            # wire shape, not the internal envelope.
-            out = result["result"] if isinstance(result, dict) and "result" in result else result
-            return out if isinstance(out, dict) else {"result": out}
+            # Spec 285 — capture the live FastMCP Context (FastMCP injects it as
+            # the `_host_ctx` kwarg, excluded from the tool schema because it is
+            # annotated `Context`). Bind it request-scoped so capability verbs
+            # reach `ctx.host` (sampling / elicitation); reset in `finally` so a
+            # Context never outlives its call. None when no client is attached.
+            from ._host_bridge import bind_host_context, reset_host_context
+            host_ctx = kwargs.pop("_host_ctx", None)
+            token = bind_host_context(host_ctx)
+            try:
+                intent_id = kwargs.pop("intent_id", "") or _os.environ.get("AGENCY_INTENT", "")
+                agent_id = kwargs.pop("agent_id", "") or None
+                result, inv = reg.invoke(mem, intent_id, cap_name, verb, agent_id=agent_id, **kwargs)
+                return self._shape_wire_result(result, inv)
+            finally:
+                reset_host_context(token)
 
+        # Spec 284 — projected-enum surfacing. A verb may declare
+        # `param_enums={param: members}`; we wrap that param's annotation so the
+        # tool's JSON inputSchema carries `enum` (surfaced by get_schema full
+        # detail + raw MCP clients), and we fold a concise hint into the
+        # description (the one field the code-mode `detailed` renderer shows).
+        # `json_schema_extra` is schema-only — pydantic does NOT validate against
+        # it, so rich free text still reaches the verb to be projected.
+        param_enums = spec.get("param_enums") or {}
+        enum_hints: list[str] = []
         params = []
         for p in user_params:
             ann = p.annotation if p.annotation is not inspect.Parameter.empty else str
             default = p.default if p.default is not inspect.Parameter.empty else inspect.Parameter.empty
+            members = param_enums.get(p.name)
+            if members:
+                from typing import Annotated
+                from pydantic import Field
+                members_sorted = sorted(members)
+                ann = Annotated[ann, Field(json_schema_extra={"enum": members_sorted})]
+                enum_hints.append(f"{p.name} ∈ {{{', '.join(members_sorted)}}}")
             params.append(inspect.Parameter(p.name, inspect.Parameter.KEYWORD_ONLY, annotation=ann, default=default))
         # Spec 018 Win 3: intent_id is wire-optional (default "") so a call may
         # omit it and resolve via the AGENCY_INTENT env (see impl above).
         params.append(inspect.Parameter("intent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str, default=""))
         params.append(inspect.Parameter("agent_id", inspect.Parameter.KEYWORD_ONLY, annotation=str, default=""))
+        # Spec 285: a `Context`-annotated param FastMCP injects + excludes from
+        # the tool's user-facing schema (same mechanism as lifecycle_gate's
+        # `ctx`). Bound request-scoped in impl so verbs reach `ctx.host`.
+        params.append(inspect.Parameter("_host_ctx", inspect.Parameter.KEYWORD_ONLY, annotation=Context, default=None))
 
         impl.__signature__ = inspect.Signature(params)
         impl.__name__ = f"capability_{cap_name}_{verb}"
@@ -405,7 +512,13 @@ class Engine:
         # catalog tokens; full doc remains reachable via get_schema.
         raw = (fn.__doc__ or "").strip()
         brief = parse_slices(raw)["brief"]
-        impl.__doc__ = brief or raw or f"{cap_name}.{verb} ({spec['role']})"
+        doc = brief or raw or f"{cap_name}.{verb} ({spec['role']})"
+        # Spec 284 — append the projected-enum members so they reach the
+        # default code-mode `detailed`/`brief` view (which renders only the
+        # description, not per-param enum/description).
+        if enum_hints:
+            doc = f"{doc} Enums: {'; '.join(enum_hints)}."
+        impl.__doc__ = doc
         impl.__annotations__ = {p.name: p.annotation for p in params}
         impl.__annotations__["return"] = dict
         # Spec 025 R2 (Codex): propagate the verb's `tags` to FastMCP's Tool
@@ -467,7 +580,6 @@ class Engine:
         transforms = ([CodeMode(sandbox_provider=MontySandboxProvider(limits=_sandbox_limits()))]
                       if (codemode and HAVE_CODEMODE) else [])
         mcp = FastMCP("agency", transforms=transforms, lifespan=self._make_lifespan())
-        mem = self.memory
 
         # every capability verb -> one MCP tool, by reflection (no hand-wiring)
         for cap_name in self.registry.names():
@@ -475,467 +587,20 @@ class Engine:
             for verb, spec in cap.verbs.items():
                 self._wire(mcp, cap_name, verb, spec)
 
-        # engine-substrate tools (not capabilities): a human-in-the-loop gate that
-        # needs `ctx.elicit`, and the provenance traversal over the graph.
-        @mcp.tool
-        async def lifecycle_gate(question: str, intent_id: str, lifecycle_id: str, ctx: Context) -> dict:
-            "An intent-verification gate that ELICITS a human/agent decision mid-flow "
-            "(askuser-in-the-flow): a tiny prompt streams out, the answer resumes the chain. "
-            "Records the outcome to the provenance graph."
-            # guard: the lifecycle must SERVE the given intent (no cross-intent gates)
-            if not mem.g.query("MATCH (l:Lifecycle)-[:SERVES]->(i:Intent) "
-                               "WHERE l.id = $lid AND i.id = $iid RETURN i",
-                               {"lid": lifecycle_id, "iid": intent_id}):
-                return {"approved": False, "error": "lifecycle does not serve the given intent"}
-            res = await ctx.elicit(question, response_type=["approve", "reject"])
-            approved = getattr(res, "data", None) == "approve"
-            g = mem.record("Gate", {"name": "human-confirm", "question": question, "passed": approved})
-            mem.link(lifecycle_id, g, "PASSED" if approved else "BLOCKED_ON")
-            if not approved:                              # a rejected gate pauses the lifecycle for re-entry
-                mem.update(lifecycle_id, {"state": "input-required"})
-            return {"approved": approved, "gate_id": g}
-
-        @mcp.tool
-        def memory_graph_provenance(intent_id: str) -> dict:
-            "Cross-concern provenance for an intent — one graph traversal."
-            return mem.provenance(intent_id)
-
-        @mcp.tool
-        def hook_event(event: dict) -> dict:
-            """Route ONE Claude Code hook event to its handler (Spec 076).
-
-            Substrate — NO intent required (like intent_bootstrap). The single
-            `hooks/dispatch` entry pipes every event's stdin JSON here; the engine
-            routes by ``hook_event_name`` to a registered handler (open set),
-            recording an Event node and linking it OBSERVED_DURING the active
-            AGENCY_INTENT when set.
-
-            Inputs: event (the hook payload dict — carries hook_event_name,
-                    session_id, and event-specific fields).
-            Returns: ``{recorded: <event_id|None>, event: <name>, …}``.
-            chain_next: terminal — the event is provenance in the graph.
-            """
-            return engine.dispatch_hook(event or {})
-
-        # Spec 029 §A — engine-substrate bootstrap tools. Substrate, not capability:
-        # they live outside the per-capability auto-wire because intent_bootstrap
-        # mints the FIRST Intent (no existing intent_id to SERVES against) and
-        # agency_welcome / agency_install are pure introspection / scaffold ops.
-        # Naming follows the existing substrate convention (lifecycle_gate /
-        # memory_graph_provenance) — flat names, no capability_ prefix.
-        engine = self
-
-        @mcp.tool
-        def intent_bootstrap(purpose: str, deliverable: str, acceptance: str,
-                             parent_intent_id: str = "",
-                             owner: str = "") -> dict:
-            """Mint AND confirm an Intent — the canonical MCP bootstrap.
-
-            The ONLY substrate tool that does not require an existing
-            ``intent_id`` (every capability verb does — see the SERVES guard
-            in ``capability.py``). Returns ``{intent_id, status, owner,
-            parent_intent_id, next}``. Isomorphic with ``python -m
-            agency.cli intent …``.
-
-            Spec 048 — Intent chaining + owners:
-              - ``parent_intent_id`` (optional) — link this intent back to
-                an existing parent via PARENT_INTENT, so a complete session
-                traces to the root user-prompt intent.
-              - ``owner`` (optional) — closed enum: user / agent / subagent
-                / jules / system. Default-by-presence: 'user' when no
-                parent; 'agent' when a parent is supplied.
-
-            Inputs:
-              - ``purpose`` (str, required) — non-empty: the why
-              - ``deliverable`` (str, required) — non-empty: the what
-              - ``acceptance`` (str, required) — non-empty: how to verify
-              - ``parent_intent_id`` (str, optional) — Spec 048 chain anchor
-              - ``owner`` (str, optional) — Spec 048 owner enum override
-            Returns: ``{intent_id, status: "confirmed", owner,
-            parent_intent_id, next: <example>}``
-            chain_next: pass ``intent_id`` to any ``capability_*_*`` verb.
-            """
-            # Spec 029 §A error contract (Wiegers/Nygard): name the field
-            # in the message so the caller can fix the call without grep.
-            for field, value in (("purpose", purpose),
-                                  ("deliverable", deliverable),
-                                  ("acceptance", acceptance)):
-                if not value or not value.strip():
-                    raise ValueError(
-                        f"intent_bootstrap: {field!r} must be non-empty")
-            iid = engine.intent.capture_and_confirm(
-                purpose, deliverable, acceptance,
-                parent_intent_id=parent_intent_id, owner=owner)
-            # Read back the resolved owner (default-by-presence may have
-            # applied) so the caller sees the truth, not their hint.
-            resolved = engine.memory.recall(iid) or {}
-            example = (
-                "await call_tool('capability_plugin_help', "
-                f"{{'intent_id': '{iid}'}})"
-            )
-            return {
-                "intent_id": iid,
-                "status": "confirmed",
-                "owner": resolved.get("owner", "user"),
-                "parent_intent_id": resolved.get("parent_intent_id", ""),
-                "next": example,
-            }
-
-        @mcp.tool
-        def agency_install(target: str = "") -> dict:
-            """Scaffold .agency/ + a CLAUDE.md onboarding snippet in the target repo.
-
-            Closes the missing MCP install path: previously only available
-            via ``python -m agency.install --scaffold-db``. Idempotent —
-            re-running on a populated tree is a no-op for any file already
-            present. The CLAUDE.md snippet is bounded by explicit markers,
-            so user content outside the markers is never touched.
-
-            Inputs:
-              - ``target`` (str, optional) — default = ``CLAUDE_PROJECT_DIR``
-                env → cwd (mirrors the Spec 020 scaffold target).
-            Returns: ``{target, scaffolded, gitattributes_updated,
-                       claude_md_path, claude_md_updated, next}``.
-            chain_next: ``intent_bootstrap`` to mint the first Intent.
-            """
-            from .install import install_op
-            return install_op(target or None)
-
-        @mcp.tool
-        def agency_doctor() -> dict:
-            """Health-check substrate tool — diagnose silent-failure modes.
-
-            Reports python version, dep imports, DB reachability, and the
-            two env vars users hit problems with (JULES_API_KEY,
-            CLAUDE_PROJECT_DIR). The KEY VALUE is NEVER in the report —
-            only its presence/absence. ``next_steps`` carries
-            copy-pasteable fixes for any issue found.
-
-            Covers F2 (Jules-key inheritance) + F5 (system python3 vs
-            plugin venv) from the KP Fehlerbericht.
-
-            Inputs: none.
-            Returns: ``{ok, python_version, deps, db, env, next_steps}``.
-            chain_next: ``next_steps`` are literal calls/commands.
-            """
-            import os, sys, importlib.metadata as _md
-            from ._db_path import resolve_db_path
-
-            deps: dict = {}
-            for name in ("fastmcp", "graphqlite", "tiktoken"):
-                try:
-                    deps[name] = _md.version(name)
-                except _md.PackageNotFoundError:
-                    deps[name] = "missing"
-
-            db_path = resolve_db_path(None)
-            db_exists = os.path.exists(db_path)
-            try:
-                parent = os.path.dirname(db_path) or "."
-                db_writable = (
-                    os.access(parent, os.W_OK) if os.path.isdir(parent)
-                    else (os.access(os.path.dirname(parent) or ".", os.W_OK))
-                )
-            except OSError:
-                db_writable = False
-
-            jules_status = "set" if os.environ.get("JULES_API_KEY") else "missing"
-            project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
-
-            next_steps: list = []
-            if deps.get("graphqlite") == "missing":
-                next_steps.append(
-                    "graphqlite missing — install the plugin venv: "
-                    "`pip install -e .[dev]` from the agency repo "
-                    "(F5: system python3 silent-fail)"
-                )
-            if deps.get("fastmcp") == "missing":
-                next_steps.append(
-                    "fastmcp missing — `pip install 'fastmcp[code-mode]>=3.3.0'`"
-                )
-            if not db_writable:
-                next_steps.append(
-                    f"DB path {db_path!r} parent not writable — "
-                    f"call `agency_install` to scaffold .agency/ or fix perms"
-                )
-            if jules_status == "missing":
-                next_steps.append(
-                    "JULES_API_KEY missing — set `user_config.jules_api_key` "
-                    "in the plugin's Claude Code config, then RELOAD the "
-                    "plugin (the server reads the value at start time only). "
-                    "For Jules / no-MCP: `export JULES_API_KEY=...` before "
-                    "launching."
-                )
-            # Spec 055 (pipx-only doctrine, 2026-06-03): the install
-            # method is exactly one of {pipx-or-pip-on-path, degraded}.
-            # Legacy enums (marketplace-venv, marketplace-shim) were
-            # removed alongside bin/agency-install + .venv bootstrap.
-            import shutil
-            agency_mcp_on_path = shutil.which("agency-mcp")
-            agency_on_path = shutil.which("agency")
-            if agency_mcp_on_path:
-                install_method = "pipx-or-pip-on-path"
-            else:
-                install_method = "degraded"
-                next_steps.append(
-                    "agency-mcp not on PATH — install via "
-                    "`pipx install git+https://github.com/netzkontrast/agency`."
-                )
-
-            # Spec 045 §"agency_doctor reports embedder": surface a silent
-            # fallback. Differentiate the two failure modes — known backend
-            # with missing dep (actionable: install) vs. unknown backend
-            # name (actionable: fix the env var). Single source of truth
-            # for the known set lives in _embed.KNOWN_EMBEDDERS.
-            requested_emb = os.environ.get("AGENCY_EMBEDDER", "").strip()
-            if requested_emb and requested_emb != self.embedder.name:
-                from .capabilities._embed import KNOWN_EMBEDDERS
-                if requested_emb == "bge-small-en":
-                    next_steps.append(
-                        "AGENCY_EMBEDDER='bge-small-en' requested but "
-                        "sentence-transformers is not installed — "
-                        "`pip install -e .[recall]` to enable."
-                    )
-                elif requested_emb not in KNOWN_EMBEDDERS:
-                    valid = ", ".join(repr(b) for b in sorted(KNOWN_EMBEDDERS))
-                    next_steps.append(
-                        f"AGENCY_EMBEDDER={requested_emb!r} is not a known "
-                        f"backend; resolved to {self.embedder.name!r}. "
-                        f"Valid values: {valid}."
-                    )
-
-            # Spec 050 — report which `[analyze]` extras are
-            # installed. Each wrapper degrades silently, but users
-            # benefit from knowing whether ruff/bandit/radon are
-            # active.
-            # AGENCY-DRIFT: analyze-extras-list — keep this tuple
-            #   synced with pyproject [analyze] extras AND the
-            #   wrapper modules in agency/capabilities/analyze/.
-            analyze_extras: dict[str, str] = {}
-            for tool in ("ruff", "bandit", "radon"):
-                if shutil.which(tool):
-                    try:
-                        analyze_extras[tool] = _md.version(tool)
-                    except _md.PackageNotFoundError:
-                        analyze_extras[tool] = "on-path"
-                else:
-                    analyze_extras[tool] = "missing"
-
-            # Spec 280 Slice 1 — hooks install verification + foreign-hook
-            # wrapping. Reads `.claude/settings.json` (project-level) and
-            # reports plugin-enabled, CLI-on-PATH, hook-scripts-present,
-            # any foreign hooks detected. `next_steps` aggregates repair
-            # pointers.
-            from ._hooks import check_install
-            import json as _json
-            settings_path = (
-                os.path.join(project_dir, ".claude", "settings.json")
-                if project_dir
-                else os.path.join(os.getcwd(), ".claude", "settings.json"))
-            user_settings: dict = {}
-            try:
-                with open(settings_path) as _f:
-                    user_settings = _json.load(_f)
-            except (FileNotFoundError, _json.JSONDecodeError, OSError):
-                user_settings = {}
-            # Codex review on PR #138: in a normal marketplace/pipx
-            # install the running `agency-mcp` code is imported from
-            # pipx/site-packages, but the hook files live in the
-            # Claude plugin tree at `${CLAUDE_PLUGIN_ROOT}/hooks`.
-            # Prefer that env var when set so the doctor reports
-            # `hook_scripts_present=True` in the actual install layout;
-            # fall back to `__file__` only for source-tree usage.
-            plugin_root = (
-                os.environ.get("CLAUDE_PLUGIN_ROOT")
-                or os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            hooks_status = check_install(
-                user_settings,
-                env={"AGENCY_SETTINGS_PATH": settings_path},
-                plugin_root=plugin_root,
-                cli_available=bool(agency_on_path),
-            )
-            # Hook next-steps stay on `doctor.hooks.next_steps` —
-            # informational surface for users who want hooks to fire.
-            # They are NOT rolled into the doctor's top-level `next_steps`
-            # because plugin-enabled / cli-on-path are USER concerns
-            # (a maintainer working in the agency repo intentionally has
-            # neither in CI); flipping the `ok` invariant on them would
-            # erode the doctor's health contract (Spec 030).
-
-            return {
-                "ok": len(next_steps) == 0,
-                "python_version": ".".join(str(v) for v in sys.version_info[:3]),
-                "deps": deps,
-                "db": {"path": db_path, "exists": db_exists, "writable": db_writable},
-                "env": {
-                    "JULES_API_KEY": jules_status,
-                    "CLAUDE_PROJECT_DIR": project_dir,
-                },
-                # Spec 280 — hooks install verification.
-                "hooks": hooks_status.to_dict(),
-                # Spec 045 — the live semantic-recall backend (so users
-                # can confirm whether AGENCY_EMBEDDER took effect, or
-                # whether the BGE fallback to TF-IDF happened silently).
-                "embedder": self.embedder.name,
-                # Spec 082 — the live token-count backend (count_tokens / tiktoken /
-                # proxy), so a silent fallback to the inaccurate proxy is visible.
-                "token_backend": self.token_counter.backend,
-                # Spec 092 G3 — the live LLM-decider backend (openrouter / anthropic /
-                # none), never the key. Custom-injected clients may omit backend().
-                "llm_backend": getattr(self.llm_client, "backend", lambda: "custom")(),
-                # Spec 147 — the canonical AnthropicDriver readiness (api-key-present /
-                # model-id-resolved / managed-agents-capable), never the key. Custom-
-                # injected drivers may omit readiness().
-                "anthropic_driver": getattr(
-                    self.anthropic_driver, "readiness", lambda: {"backend": "custom"})(),
-                # Spec 050 — which optional [analyze] tools are active.
-                "analyze_extras": analyze_extras,
-                # Spec 054 — drift indicators. v1 ships the
-                # capabilities_without_tests check (cheap; just file
-                # lookup); install-regen-drift defers to the
-                # scripts/check-drift script (would require a heavy
-                # subprocess otherwise).
-                "drift": self._drift_signals(),
-                # Spec 039 §"Distribution" line 101-102: which install
-                # method is the running server using? Helps users debug
-                # pipx-vs-marketplace mismatches and the install-
-                # collision guard (line 86-91 — silent shadow detection).
-                "install_method": install_method,
-                "agency_mcp_path": agency_mcp_on_path or "",
-                "agency_path": agency_on_path or "",
-                "next_steps": next_steps,
-            }
-
-        @mcp.tool
-        def agency_welcome() -> dict:
-            """One-shot onboarding payload — the canonical first call.
-
-            Replaces the "read three files to know how to start" tax on
-            fresh MCP clients. Returns the wire contract, code-mode
-            chaining example, the bootstrap example, the live capability
-            map, the walkable discipline-skills roster, and the resolved
-            graph DB path. No ``intent_id`` required (pure introspection —
-            no graph writes regardless of caller state).
-
-            Inputs: none.
-            Returns: ``{wire_contract, code_mode_example, bootstrap_example,
-                       install_example, capabilities, capability_tier,
-                       discipline_skills, docs, db_path, next}``.
-            ``wire_contract`` (CORE.md) names the 3 lean substrate tools —
-            ``search`` · ``get_schema`` · ``execute`` — every other call
-            travels through ``execute`` as a chained Python block (one
-            return crosses the wire, no per-call overhead). ``code_mode_example``
-            shows the canonical chain: bootstrap an intent, call a verb,
-            note a reflection — all in one block. ``capability_tier``
-            (Spec 068) is the tier-0 discovery payload (one line per
-            capability — browse it, then drill into ONE via
-            ``search('<capability>')`` instead of dumping every verb).
-            ``discipline_skills`` (Spec 114) lists the walkable skills
-            that should be walked rather than improvised on every
-            session: brainstorm / implement / skill_walk / session_init.
-            chain_next: call ``execute`` with the code_mode_example as
-            template; substitute the verb names for your task.
-            """
-            from ._db_path import resolve_db_path
-            # Spec 029 OQ-3: token budget bit. Names-only keeps the welcome
-            # payload under 1 KB regardless of how many verbs each capability
-            # carries; agents discover verbs by calling capability_plugin_help
-            # or search('<keyword>') with the intent_id from intent_bootstrap.
-            caps = sorted(engine.registry.names())
-            # Spec 030 §C — state-aware onboarding. The welcome doubles as a
-            # session-resumption tool: a fresh graph leads with bootstrap,
-            # a populated one leads with discovery + provenance.
-            intents = list(engine.memory.find("Intent"))
-            intents_count = len(intents)
-            last_intent = ""
-            if intents:
-                # newest first by valid-from (graphqlite's bi-temporal stamp)
-                last = max(intents, key=lambda r: r.get("vfrom", 0))
-                last_intent = last.get("id", "") or ""
-            state = "in_progress" if intents_count > 0 else "fresh"
-            if state == "fresh":
-                next_steps = [
-                    "agency_install — scaffold .agency/ if missing",
-                    "intent_bootstrap — mint the intent every verb SERVES",
-                    "execute(code_mode_example) — chain verbs in one block",
-                ]
-            else:
-                next_steps = [
-                    f"search('<keyword>') — discover a capability_*_* verb",
-                    f"memory_graph_provenance('{last_intent}') — see what served the last intent",
-                    "execute(code_mode_example) — chain verbs in one block",
-                ]
-            # Spec 114 §"verb-first action routing" — walkable skills
-            # bounding session work. Names only; drill via `search`.
-            discipline_skills = [
-                "develop.brainstorm", "develop.write_spec",
-                "develop.implement", "develop.skill_walk",
-                "develop.session_init",
-            ]
-            # Spec 146 Slice 1 — output-prefix discipline. Split the welcome
-            # payload into a cache-friendly `prefix` (byte-stable across calls
-            # when the registry is unchanged) and a per-call `body`. The
-            # wrapping LLM driver applies `cache_control: {type:"ephemeral"}`
-            # on the prefix; per-call churn (state, intents_count, last_intent,
-            # db_path, next) lives in `body` and never invalidates the cache.
-            from ._envelope import (
-                ResponseEnvelope,
-                capability_set_hash,
-                ontology_hash,
-            )
-            prefix = {
-                # Per-build identity — what THIS substrate build is.
-                "schema_version": 1,
-                "capability_set_hash": capability_set_hash(caps),
-                "ontology_hash": ontology_hash(engine.ontology.nodes),
-                # CORE.md — the lean wire contract. EVERY interaction is one
-                # of these three; per-verb tools are reached via `execute` as
-                # chained call_tool() within a Python block.
-                "wire_contract": ["search", "get_schema", "execute"],
-                # CORE.md — `execute` runs ONE Python block; chained
-                # `await call_tool(...)` calls cross no extra wire hops; one
-                # return value crosses back. The example is the canon.
-                "code_mode_example": (
-                    "execute({'code': '''\n"
-                    "iid = (await call_tool(\"intent_bootstrap\","
-                    " {\"purpose\":\"<why>\",\"deliverable\":\"<what>\","
-                    "\"acceptance\":\"<verify>\"}))[\"intent_id\"]\n"
-                    "r = await call_tool(\"capability_<cap>_<verb>\","
-                    " {\"intent_id\": iid, \"agent_id\":\"agent:me\"})\n"
-                    "await call_tool(\"capability_reflect_note\","
-                    " {\"intent_id\": iid, \"agent_id\":\"agent:me\","
-                    " \"scope\":\"observation\",\"text\":\"<lesson>\"})\n"
-                    "return r\n'''})"
-                ),
-                "bootstrap_example": (
-                    "call_tool('intent_bootstrap', "
-                    "{'purpose': '<why>', 'deliverable': '<what>', "
-                    "'acceptance': '<verify>'})"
-                ),
-                "install_example": "call_tool('agency_install', {})",
-                "capabilities": caps,
-                # Spec 068 — tier-0 discovery: browse the capability tier here,
-                # then drill into one via search('<capability>') / get_schema,
-                # instead of dumping every verb (progressive disclosure at the
-                # discovery layer; CORE.md §Skills). `capabilities` (names) kept
-                # for back-compat.
-                "capability_tier": _capability_tier(engine.registry),
-                "discipline_skills": discipline_skills,
-            }
-            body = {
-                "state": state,
-                "intents_count": intents_count,
-                "last_intent": last_intent,
-                "db_path": resolve_db_path(None),
-                "next": next_steps,
-            }
-            envelope = ResponseEnvelope(prefix=prefix, body=body)
-            merged = envelope.to_dict()
-            # `_prefix_keys` declares the split so wrapping drivers can apply
-            # `cache_control` cleanly. Listed AFTER the merge so the keyset is
-            # an honest report of which keys ended up in the prefix half.
-            merged["_prefix_keys"] = sorted(prefix.keys())
-            return merged
+        # engine-substrate tools (not capabilities) — Spec 286 Phase 2 / A5.
+        # Previously ~6-7 nested `@mcp.tool` closures over `self`/`mem`; now a
+        # registered set of `SubstrateTool` objects (agency/_substrate_tools.py),
+        # each `flagged requires_intent=False` — they legitimately bypass the
+        # SERVES intent-guard (they mint/inspect; they don't SERVE an intent),
+        # unlike every `capability_*_*` verb wired above. Each tool's `bind`
+        # returns a function carrying the EXACT wire name/signature/docstring/
+        # return shape it had inline, so FastMCP introspects an identical schema.
+        from ._substrate_tools import SUBSTRATE_TOOLS
+        for substrate_tool in SUBSTRATE_TOOLS:
+            assert substrate_tool.requires_intent is False, (
+                f"{substrate_tool.name}: substrate tools must bypass the "
+                f"SERVES intent-guard (requires_intent=False)")
+            mcp.tool(substrate_tool.bind(self))
 
         # Spec 023 Phase 3 (substrate parity): the @mcp.tool-decorated
         # substrate tools above carry their full docstrings into FastMCP's

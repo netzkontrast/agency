@@ -36,6 +36,8 @@ Novel
 NovelClaim
 OptimizationPass
 Phase
+Plan
+PlanStep
 Plugin
 PromptOutput
 PromptVariant

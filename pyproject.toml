@@ -12,6 +12,11 @@ dependencies = [
     "graphqlite>=0.5.0",
     "fastmcp[code-mode]>=3.3.0",
     "pysqlite3-binary",
+    # Spec 289 — SQLModel is the typed definition for every graph data entity
+    # (validation models derived from the ontology; later the canonical
+    # SQLite-backed entity store sharing graphqlite's one DB file, FastAPI-ready).
+    # Core dep per user directive (2026-06-13): used for every data object.
+    "sqlmodel>=0.0.14",
     "httpx",
     # Spec 079 — the bash CLI (agency/cli.py) is built on Click: it mirrors every
     # capability verb as `agency <cap> <verb>` so non-MCP agents reach the
@@ -46,6 +51,19 @@ dev = [
     "PyYAML>=6.0",
     # Phase C — behaviour-only Gherkin acceptance suite (owner directive 2026-06-13).
     "pytest-bdd>=7.0",
+    # Spec 282 (setup ergonomics, user directive 2026-06-13): the DEFAULT
+    # dev setup pulls every LIGHTWEIGHT runtime extra so `pip install -e
+    # ".[dev]"` (and `scripts/setup`) yields a fully-functional engine with
+    # ZERO silently-skipped capability tests — no more "deps missing" friction.
+    # The only opt-out is the heavy `recall` torch backend (~2GB), which stays
+    # behind `.[all]`. Self-references resolve via the project name.
+    "agency[analyze,tokens,anthropic,publish]",
+]
+# Spec 282 — `.[all]` is the everything install, INCLUDING the heavy
+# sentence-transformers/torch `recall` backend. Use when you want the BGE
+# semantic-recall embedder; otherwise `.[dev]` is the fast, complete default.
+all = [
+    "agency[dev,recall]",
 ]
 # Spec 045 — optional sentence-transformers BGE backend for the
 # semantic-recall verb. Default is the zero-dep pure-Python TF-IDF

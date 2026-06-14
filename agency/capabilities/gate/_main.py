@@ -43,10 +43,8 @@ class GateCapability(CapabilityBase):
         ``SUPERSEDED_BY`` chain via ``memory._intent_chain``.
         """
         chain = list(self.ctx.memory._intent_chain(self.ctx.intent_id))
-        if not self.ctx.memory.g.query(
-                "MATCH (l:Lifecycle)-[:SERVES]->(i:Intent) "
-                "WHERE l.id = $l AND i.id IN $ids RETURN i",
-                {"l": lifecycle_id, "ids": chain}):
+        if not self.ctx.has_edge(lifecycle_id, chain, "SERVES",
+                                 src_label="Lifecycle", dst_label="Intent"):
             return {"result": {"error": "lifecycle does not serve the current intent (or its amended chain)",
                                "lifecycle_id": lifecycle_id}}
         g = self.ctx.record("Gate", {"name": name, "passed": bool(passed), "evidence": evidence})

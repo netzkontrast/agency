@@ -132,10 +132,8 @@ def _recent_reflections(memory, intent_id: str, limit: int = 5) -> list[dict]:
     filtered to a given intent via the OBSERVED_DURING edge (NOT a
     property — provenance lives on edges in the bi-temporal graph)."""
     if intent_id:
-        rows = [r["r"]["properties"] for r in memory.g.query(
-            "MATCH (r:Reflection)-[:OBSERVED_DURING]->(i:Intent) "
-            "WHERE i.id = $id RETURN r",
-            {"id": intent_id})]
+        rows = memory.sources_via_edge(
+            "OBSERVED_DURING", intent_id, "Intent", label="Reflection")
     else:
         rows = list(memory.find("Reflection"))
     rows = [r for r in rows if r.get("scope") in ("technical", "project")]

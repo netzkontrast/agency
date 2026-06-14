@@ -106,8 +106,7 @@ class BranchCapability(CapabilityBase):
             return {"result": {"error": f"unknown action {action!r}", "actions": sorted(_ACTIONS)}}
         res = (vcs or GitClient()).finish(branch=branch, action=action, base=base)
         ok = bool(res.get("ok", True))
-        o = self.ctx.record("BranchOutcome", {"branch": branch, "action": action, "ok": ok,
-                                              "detail": (res.get("detail") or "")[:2000]})
-        self.ctx.link(o, self.ctx.intent_id, "SERVES")
+        o = self.ctx.record_and_serve("BranchOutcome", {"branch": branch, "action": action, "ok": ok,
+                                                        "detail": (res.get("detail") or "")[:2000]})
         return {"result": {"outcome": o, "branch": branch, "action": action, "ok": ok,
                            "detail": res.get("detail", "")}}
