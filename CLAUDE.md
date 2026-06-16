@@ -20,11 +20,26 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    only the return crosses back. Don't write code that bypasses the
    substrate.
 
-2. **The graph is the store; files are a rendered view.** If you find yourself
-   writing markdown that downstream code will parse, you have it backwards:
-   `reflect.note(scope, text)` writes to the graph; render markdown on demand.
-   Exceptions: canon/doctrine docs (CORE / AGENTS / AGENCY_PROTOCOL) serve
-   external readers and stay as files.
+2. **Graph and files are interconnected peers — the Document is where they
+   meet (Spec 292).** The graph is the queryable spine; markdown files are an
+   editable PEER surface that round-trips back into it. Edits flow BOTH ways:
+   `document.render` projects graph→file; `document.ingest` / `document.sync`
+   flow file→graph as append-only `DocRevision`s. Reconciliation is
+   **keep-both, bi-temporal** — a graph-authored and a file-authored version
+   coexist; latest `recorded_at` wins on read, history is retained (nothing is
+   overwritten). The binding is a stable anchor — `<!-- agency-node: <id> -->`
+   on the file's first line — naming the `Document` node that IS the file's
+   identity. The **Document is the universal convergence artefact**: the point
+   where the substrate's layers come together — datalayer (it's a graph node),
+   templates + schemas + ontology (a Document binds its `template`/`schema` and
+   `CONFORMS_TO` a Schema), **prompt** (every file is also a prompt —
+   `ingest` scores the body via `prompt.audit`), and the four concepts
+   (`document.session` renders Intent · Capability · Lifecycle · Memory for a
+   Session). So: still prefer `reflect.note` over hand-writing parse-bait
+   markdown — but a file edited on disk is no longer lost; `document.sync` it
+   back. Canon/doctrine docs (CORE / AGENTS / AGENCY_PROTOCOL) remain
+   file-authoritative — under keep-both that just means their file edits are
+   always the latest valid fact.
 
 3. **Decide before dispatching.** Walk the `dispatch-decision` skill
    (`skills/dispatch-decision/` + `delegate.ontology.skills`) before any

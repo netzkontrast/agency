@@ -25,7 +25,11 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 |------|------|-------|-----------|
 | `explain` | act | Deterministic code → markdown explanation; emits a Reflection. | [details](references/explain.md) |
 | `index_repo` | effect | 94%-reduction repo briefing — deterministic; ≤ max_tokens. | [details](references/index_repo.md) |
+| `ingest` | effect | Round-trip a markdown file INTO the graph (file → graph; Spec 292). | [details](references/ingest.md) |
 | `render` | transform | Project graph state to markdown; deterministic. | [details](references/render.md) |
+| `revisions` | act | Read a Document's keep-both revision history (Spec 292). | [details](references/revisions.md) |
+| `session` | effect | Render a Session as a Document — the four concepts converge (Spec 292). | [details](references/session.md) |
+| `sync` | effect | Ingest every CHANGED markdown file under ``path`` (Spec 292). | [details](references/sync.md) |
 
 ## Example
 

@@ -18,6 +18,8 @@ CodexEntry
 Command
 Culture
 DecisionRecord
+DocRevision
+Document
 Event
 Finding
 Gate

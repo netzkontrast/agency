@@ -53,6 +53,29 @@ thing the SDK-native rival cannot match:** cross-concern provenance is a *single
 traversal* — "every action that `SERVES` intent Q1, the agent that ran it, the
 gate it passed."
 
+### The Document — where everything comes together (Spec 292)
+
+The graph is the queryable spine; **files are an editable peer surface**, not a
+one-way rendered view. A markdown file edited on disk round-trips back into the
+graph via `document.ingest` / `document.sync`; the graph projects back out via
+`document.render`. Reconciliation is **keep-both, bi-temporal** — graph- and
+file-authored versions coexist as append-only `DocRevision`s, latest wins on
+read, nothing is overwritten. A stable anchor (`<!-- agency-node: <id> -->`)
+binds a file to the `Document` node that is its identity.
+
+A **Document is the universal convergence artefact** — the single node where
+the substrate's layers meet:
+
+- **Datalayer** — a Document is an ordinary graph node, queryable like any other.
+- **Templates · Schemas · Ontology** — a Document binds its `template` and
+  `schema` and `CONFORMS_TO` a `Schema` node; its structure is typed by the
+  ontology like every other artefact.
+- **Prompt** — *every file is also a prompt*: `ingest` scores the body through
+  `prompt.audit`, recording a clarity score on the revision.
+- **The four concepts** — `document.session` renders **Intent · Capability ·
+  Lifecycle · Memory** for a Session into one Document, so a session itself
+  becomes a readable, round-trippable artefact.
+
 ## Four complete pillars — each concept a complete suite of code + tools
 
 > **Core Vision (owner directive, 2026-06-13).** The four concepts are not just

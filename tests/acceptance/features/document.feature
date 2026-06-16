@@ -188,3 +188,51 @@ Feature: document capability — render, index_repo, explain, and scope guards (
     Then a new Reflection node is added to the graph
     And that Reflection node has kind "explanation"
     And that Reflection node targets "agency.capabilities.reflect"
+
+  # ── graph↔markdown interconnect — ingest, sync, revisions (Spec 290) ─────────
+
+  Scenario: ingesting an un-anchored markdown file mints a Document and stamps the anchor
+    Given an un-anchored markdown file "note.md" with body "# Title\nSome body."
+    When I call document.ingest on that file
+    Then the ingest action is "created"
+    And the ingest result carries a document_id
+    And the file now begins with an agency-node anchor for that document_id
+    And a DocRevision with source "file" is linked to the Document
+
+  Scenario: re-ingesting an unchanged file is idempotent
+    Given an un-anchored markdown file "stable.md" with body "unchanged content"
+    When I call document.ingest on that file
+    And I call document.ingest on that file again
+    Then the second ingest action is "unchanged"
+    And the Document has exactly one revision
+
+  Scenario: ingesting a changed file keeps both versions bi-temporally
+    Given a Document seeded with a graph-authored revision and an anchored file
+    When I call document.ingest on that anchored file
+    Then the ingest action is "revised"
+    And the Document has exactly two revisions
+    And the latest revision has source "file"
+    And the earliest revision has source "graph"
+
+  Scenario: every ingested file is audited as a prompt
+    Given an un-anchored markdown file "prompt.md" with body "Write a haiku about the sea."
+    When I call document.ingest on that file
+    Then the ingest result carries a clarity_score
+    And the latest revision carries that clarity_score
+
+  Scenario: sync ingests every changed markdown file under a directory
+    Given a directory with two un-anchored markdown files
+    When I call document.sync on that directory
+    Then the sync result reports two ingested files
+    And a second sync on that directory reports zero ingested files
+
+  Scenario: a session renders as a Document gathering the four concepts
+    When I render the current session as a Document
+    Then the session document covers Intent, Capability, Lifecycle, and Memory
+    And the session result carries a document_id
+    And the session Document has a graph-authored revision
+
+  Scenario: a session is archived into the dedicated past-sessions directory
+    When I render the current session as a Document
+    Then the session is written under a "sessions" directory
+    And the archived session file carries the document anchor

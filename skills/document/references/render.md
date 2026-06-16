@@ -15,7 +15,7 @@ Project graph state to markdown; deterministic.
 
 ## Chain-next
 
-caller writes to disk (graph stays canonical).
+caller writes to disk — and a disk edit round-trips back via ``document.ingest`` (graph↔file are peers now; Spec 292).
 
 ## Details
 
