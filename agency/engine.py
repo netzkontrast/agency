@@ -195,6 +195,24 @@ def _default_hook_handler(engine, event: dict) -> dict:
     return {"recorded": eid, "event": name}
 
 
+def _active_intent(engine, *, fallback_latest: bool = False):
+    """The session's active intent as ``(intent_id, props)`` — the env-bound
+    ``AGENCY_INTENT`` when valid, else (with ``fallback_latest``) the most
+    recently recorded Intent. ``("", None)`` when none applies. Shared by the
+    hook handlers (Spec 292)."""
+    import os as _os
+    iid = _os.environ.get("AGENCY_INTENT", "")
+    props = engine.memory.recall_typed(iid, "Intent") if iid else None
+    if props is not None:
+        return iid, props
+    if fallback_latest:
+        intents = engine.memory.find("Intent")
+        if intents:
+            latest = max(intents, key=lambda n: n.get("vfrom", 0))
+            return latest["id"], latest
+    return "", None
+
+
 def _user_prompt_submit_handler(engine, event: dict) -> dict:
     """Spec 292 — UserPromptSubmit injection (sync, blocking by doctrine).
 
@@ -205,9 +223,7 @@ def _user_prompt_submit_handler(engine, event: dict) -> dict:
     cheapest place to stop an agent acting on an unstated assumption is before
     the turn runs."""
     base = _default_hook_handler(engine, event)
-    import os as _os
-    iid = _os.environ.get("AGENCY_INTENT", "")
-    intent = engine.memory.recall_typed(iid, "Intent") if iid else None
+    _, intent = _active_intent(engine)
     guard = (
         "[agency] Before acting, AVOID ASSUMPTIONS: list your load-bearing "
         "assumptions (intent.assumptions) and, if any are ambiguous or the "
@@ -231,11 +247,7 @@ def _session_end_handler(engine, event: dict) -> dict:
     session is durable, not ephemeral. Best-effort: a missing intent or an
     archive failure never raises (a hook must never break session teardown)."""
     base = _default_hook_handler(engine, event)
-    import os as _os
-    iid = _os.environ.get("AGENCY_INTENT", "")
-    if not (iid and engine.memory.recall_typed(iid, "Intent")):
-        intents = engine.memory.find("Intent")
-        iid = max(intents, key=lambda n: n.get("vfrom", 0))["id"] if intents else ""
+    iid, _ = _active_intent(engine, fallback_latest=True)
     if not iid:
         return {**base, "archived": None}
     try:

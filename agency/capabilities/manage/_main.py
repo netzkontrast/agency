@@ -22,8 +22,12 @@ from __future__ import annotations
 import json
 
 from ...capability import CapabilityBase, verb
+from ...memory import OPEN as _OPEN  # the substrate's bi-temporal "currently-valid" sentinel
 
-_OPEN = 10 ** 12  # bi-temporal sentinel for the currently-valid version
+
+def _strip_temporal(props: dict) -> dict:
+    """A node's user properties without the bi-temporal window fields."""
+    return {k: v for k, v in props.items() if k not in ("vfrom", "vto")}
 
 
 def _parse_props(props) -> dict:
@@ -71,11 +75,9 @@ class ManageCapability(CapabilityBase):
         props = self.ctx.recall(node_id)
         if props is None:
             return {"error": f"no node {node_id!r}", "id": node_id}
-        live = props.get("vto", 10 ** 12) >= 10 ** 12
+        live = props.get("vto", _OPEN) >= _OPEN
         return {"id": node_id, "labels": self.ctx.labels_of(node_id),
-                "live": live,
-                "props": {k: v for k, v in props.items()
-                          if k not in ("vfrom", "vto")}}
+                "live": live, "props": _strip_temporal(props)}
 
     @verb(role="act")
     def list(self, label: str, where=None, live_only: bool = True) -> dict:
@@ -90,9 +92,8 @@ class ManageCapability(CapabilityBase):
         w = _parse_props(where) or None
         rows = self.ctx.query_nodes(label, where=w)
         if live_only:
-            rows = [r for r in rows if r.get("vto", 10 ** 12) >= 10 ** 12]
-        clean = [{k: v for k, v in r.items() if k not in ("vfrom", "vto")}
-                 for r in rows]
+            rows = [r for r in rows if r.get("vto", _OPEN) >= _OPEN]
+        clean = [_strip_temporal(r) for r in rows]
         return {"label": label, "count": len(clean), "rows": clean}
 
     @verb(role="effect")
@@ -229,6 +230,5 @@ class ManageCapability(CapabilityBase):
             return {"error": f"{for_intent_id!r} is not an Intent id",
                     "intent_id": for_intent_id, "count": 0, "artefacts": []}
         arts = self.ctx.artefacts_produced_under(for_intent_id)
-        clean = [{k: v for k, v in a.items() if k not in ("vfrom", "vto")}
-                 for a in arts]
+        clean = [_strip_temporal(a) for a in arts]
         return {"intent_id": for_intent_id, "count": len(clean), "artefacts": clean}

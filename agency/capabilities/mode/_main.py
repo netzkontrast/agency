@@ -19,7 +19,6 @@ Red flags:
 """
 from __future__ import annotations
 
-import re
 
 from ...capability import CapabilityBase, verb
 from ...ontology import OntologyExtension
@@ -99,8 +98,7 @@ class ModeCapability(CapabilityBase):
         low = context.lower()
         scored = []
         for m in _MODES:
-            n = sum(1 for t in m["triggers"] if t in low)
-            n += sum(1 for f in m["flags"] if f in low)
+            n = sum(1 for t in (*m["triggers"], *m["flags"]) if t in low)
             if n:
                 scored.append((n, m))
         scored.sort(key=lambda x: -x[0])

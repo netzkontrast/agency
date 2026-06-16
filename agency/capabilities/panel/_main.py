@@ -124,10 +124,10 @@ class PanelCapability(CapabilityBase):
             return list(_EXPERTS)
         low = text.lower()
         scored = [(sum(1 for t in e["triggers"] if t in low), e) for e in _EXPERTS]
-        relevant = [e for n, e in scored if n > 0]
+        relevant = sorted((pair for pair in scored if pair[0] > 0),
+                          key=lambda pair: -pair[0])
         if len(relevant) >= 3:
-            relevant.sort(key=lambda e: -sum(1 for t in e["triggers"] if t in low))
-            return relevant[:5]
+            return [e for _, e in relevant[:5]]
         # too little signal → the balanced default set
         return [e for e in _EXPERTS if e["name"] in _BALANCED]
 
