@@ -39,6 +39,7 @@ Novel
 NovelClaim
 OptimizationPass
 Panel
+PersonaBrief
 Phase
 Plan
 PlanStep

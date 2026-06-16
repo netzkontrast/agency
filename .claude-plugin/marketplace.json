@@ -8,7 +8,7 @@
       "name": "agency",
       "source": "./",
       "version": "0.1.0",
-      "description": "Harness-in-harness agency engine: 25 self-registering capabilities (analyze, branch, delegate, develop, document, dogfood, gate\u2026) over one provenance graph. Code-mode IS the contract.",
+      "description": "Harness-in-harness agency engine: 26 self-registering capabilities (analyze, branch, delegate, develop, document, dogfood, gate\u2026) over one provenance graph. Code-mode IS the contract.",
       "homepage": "https://github.com/netzkontrast/agency",
       "license": "MIT"
     }
