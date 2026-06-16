@@ -53,6 +53,7 @@ ResearchClaim
 ResearchIntent
 Scene
 Schema
+Selection
 Session
 SessionLifecycle
 Skill

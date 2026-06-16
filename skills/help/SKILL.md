@@ -83,6 +83,7 @@ agency execute --code \
 - **prompt** — assemble_scene_brief, audit, audit_gate, brief_audit, brief_finalize, brief_render, catalog_list, engineer, fragment, fragments_for, intent_capture, register_fragment, token_budget_gate
 - **reflect** — batch_note, note, recall, recall_semantic, search, synthesize_session
 - **research** — ingest_gdoc, lead, record_ingested_source, specialist, verify
+- **select** — archetypes, route
 - **shell** — define, filter, run, templates
 - **skill_generator** — generate
 - **skills** — find, index, lint, rank, render
