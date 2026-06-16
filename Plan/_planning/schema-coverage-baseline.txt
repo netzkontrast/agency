@@ -37,6 +37,7 @@ NarrativeBeat
 Novel
 NovelClaim
 OptimizationPass
+Panel
 Phase
 Plan
 PlanStep

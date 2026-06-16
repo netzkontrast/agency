@@ -374,8 +374,8 @@ class DocumentCapability(CapabilityBase):
         clarity = self._audit_as_prompt(body) if audit else None
 
         if existing is None:
-            # Mint a Document and (unless porting an external/read-only file)
-            # stamp the stable anchor back into the file.
+            # Mint a Document and (unless write_anchor=False for a read-only
+            # source) stamp the stable anchor back into the file.
             document_id = self.ctx.record_and_serve("Document", doc_props)
             if bound_schema:
                 self.ctx.link(document_id, f"schema:{bound_schema}", "CONFORMS_TO")

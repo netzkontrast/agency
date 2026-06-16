@@ -29,7 +29,6 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | `index` | effect | Index a repo as a token-cheap briefing — the development-workflow entry to the indexer (Spec 292). | [details](references/index.md) |
 | `mode_select` | effect | Switch session mode + record a ModeShift node (effect). | [details](references/mode_select.md) |
 | `plan_status` | transform | Roll up a Plan's steps + completion (Spec 287) — the render-on-demand read side (rule 2). | [details](references/plan_status.md) |
-| `port_plugin` | effect | Port an external plugin's prompt surface INTO agency as Documents, with a coverage gap-map (Spec 293/292). | [details](references/port_plugin.md) |
 | `record_authoring_outcome` | act | Record a Reflection at the end of an authoring-capabilities walk. | [details](references/record_authoring_outcome.md) |
 | `record_step_outcome` | act | Mark a PlanStep's execution outcome (Spec 287). | [details](references/record_step_outcome.md) |
 | `reference` | transform | Fetch a discipline's heavy how-to on demand (T3 disclosure). | [details](references/reference.md) |
