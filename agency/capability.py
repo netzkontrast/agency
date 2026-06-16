@@ -294,6 +294,17 @@ class CapabilityContext:
         """
         self.memory.update(node_id, props)
 
+    def supersede(self, node_id: str, changes: dict) -> str:
+        """Append-only amend (Spec 293): close the old version + create a new
+        one linked ``SUPERSEDED_BY``. Returns the new node id. The write-side
+        twin of ``update`` for entities that must keep full history."""
+        return self.memory.supersede(node_id, changes)
+
+    def retract(self, node_id: str) -> int:
+        """Bi-temporal soft delete (Spec 293): close the node's valid window so
+        current reads drop it while history is retained. Returns the close tick."""
+        return self.memory.retract(node_id)
+
     def find(self, label: str, as_of: Optional[int] = None):
         return self.memory.find(label, as_of=as_of)
 

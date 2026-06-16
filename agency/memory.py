@@ -161,6 +161,25 @@ class Memory:
         self._mirror(new_id, label, new_props, vfrom=now, vto=OPEN)
         return new_id
 
+    def retract(self, node_id: str) -> int:
+        """Bi-temporal SOFT delete (Spec 293): close the node's valid window
+        (``vto = now``) so as-of/`find` reads drop it, while history is retained
+        — the append-only graph never destructively deletes. Returns the close
+        tick. Idempotent-ish: re-retracting just re-closes at a later tick.
+        Raises ``KeyError`` for an unknown id."""
+        node = self.g.get_node(node_id)
+        if node is None:
+            raise KeyError(node_id)
+        props = dict(node["properties"])
+        label = node["labels"][0] if node.get("labels") else "Entity"
+        now = self._now()
+        props["vto"] = now
+        self.g.upsert_node(node_id, props, label=label)        # graph authoritative
+        self._mirror(node_id, label,
+                     {k: v for k, v in props.items() if k not in ("vfrom", "vto", "id")},
+                     vfrom=props.get("vfrom", 0), vto=now)
+        return now
+
     # --- read axis: recall · find · validate ---------------------------------
     def recall(self, node_id: str, as_of: Optional[int] = None) -> Optional[dict]:
         node = self.g.get_node(node_id)
