@@ -23,6 +23,8 @@ import json
 
 from ...capability import CapabilityBase, verb
 
+_OPEN = 10 ** 12  # bi-temporal sentinel for the currently-valid version
+
 
 def _parse_props(props) -> dict:
     """Accept a dict or a JSON string (the CLI/wire passes strings)."""
@@ -138,3 +140,95 @@ class ManageCapability(CapabilityBase):
         except KeyError as exc:
             return {"error": str(exc), "id": node_id}
         return {"id": node_id, "retracted": True, "as_of": tick}
+
+    # ── Spec 290 read-API, folded onto manage (read + write, one capability) ──
+
+    def _live(self, rows: list[dict]) -> list[dict]:
+        return [r for r in rows if r.get("vto", _OPEN) >= _OPEN]
+
+    @verb(role="act")
+    def state(self, for_intent_id: str = "") -> dict:
+        """STATE rollup — the "where are we" dashboard (Spec 290, on manage).
+
+        Cross-pillar current state: live counts of Intents / Reflections /
+        Artefacts and Lifecycles grouped by state. With ``intent_id``, also the
+        size of its ``SERVES`` subtree + artefacts produced under it.
+
+        Returns: ``{intents, reflections, artefacts, lifecycles_by_state, …}``.
+        chain_next: manage.open_intents / manage.timeline to drill in.
+        """
+        lc_by_state: dict = {}
+        for lc in self._live(self.ctx.find("Lifecycle")):
+            st = lc.get("state", "?")
+            lc_by_state[st] = lc_by_state.get(st, 0) + 1
+        out = {
+            "intents": len(self._live(self.ctx.find("Intent"))),
+            "reflections": len(self._live(self.ctx.find("Reflection"))),
+            "artefacts": len(self._live(self.ctx.find("Artefact"))),
+            "lifecycles_by_state": lc_by_state,
+        }
+        if for_intent_id and self.ctx.recall_typed(for_intent_id, "Intent") is not None:
+            out["intent_id"] = for_intent_id
+            out["serves_count"] = len(self.ctx.nodes_serving(for_intent_id))
+            out["artefacts_under"] = len(self.ctx.artefacts_produced_under(for_intent_id))
+        return out
+
+    @verb(role="act")
+    def open_intents(self, top: int = 20) -> dict:
+        """OPEN-INTENTS — live intents + acceptance + SERVES subtree size,
+        busiest first (Spec 290, Intent pillar).
+
+        Returns: ``{count, intents: [{id, purpose, acceptance, status,
+                   serves_count}]}``.
+        chain_next: manage.timeline(intent_id) for an intent's event order.
+        """
+        rows = []
+        for i in self._live(self.ctx.find("Intent")):
+            iid = i["id"]
+            rows.append({"id": iid, "purpose": i.get("purpose", ""),
+                         "acceptance": i.get("acceptance", ""),
+                         "status": i.get("status", ""),
+                         "serves_count": len(self.ctx.nodes_serving(iid))})
+        rows.sort(key=lambda r: r["serves_count"], reverse=True)
+        return {"count": len(rows), "intents": rows[:top]}
+
+    @verb(role="act")
+    def timeline(self, for_intent_id: str, limit: int = 100) -> dict:
+        """TIMELINE — the ordered Event + Invocation history for an intent
+        (Spec 290, Lifecycle · Memory).
+
+        Returns: ``{intent_id, count, timeline: [{kind, name, at}]}`` ordered
+        by valid-time.
+        chain_next: manage.artefacts(intent_id) for what it produced.
+        """
+        if self.ctx.recall_typed(for_intent_id, "Intent") is None:
+            return {"error": f"{for_intent_id!r} is not an Intent id",
+                    "intent_id": for_intent_id, "count": 0, "timeline": []}
+        items = []
+        for e in self.ctx.sources_via_edge("OBSERVED_DURING", for_intent_id,
+                                           "Intent", label="Event"):
+            items.append({"kind": "event", "name": e.get("name", ""),
+                          "tool": e.get("tool", ""), "at": e.get("vfrom", 0)})
+        for v in self.ctx.nodes_serving(for_intent_id, "Invocation"):
+            items.append({"kind": "invocation",
+                          "name": f"{v.get('capability', '')}.{v.get('verb', '')}",
+                          "at": v.get("vfrom", 0)})
+        items.sort(key=lambda x: x["at"])
+        return {"intent_id": for_intent_id, "count": len(items),
+                "timeline": items[:limit]}
+
+    @verb(role="act")
+    def artefacts(self, for_intent_id: str) -> dict:
+        """ARTEFACTS produced under an intent + their source invocations
+        (Spec 290, Memory pillar).
+
+        Returns: ``{intent_id, count, artefacts: [props]}``.
+        chain_next: manage.read(id) for one artefact's full state.
+        """
+        if self.ctx.recall_typed(for_intent_id, "Intent") is None:
+            return {"error": f"{for_intent_id!r} is not an Intent id",
+                    "intent_id": for_intent_id, "count": 0, "artefacts": []}
+        arts = self.ctx.artefacts_produced_under(for_intent_id)
+        clean = [{k: v for k, v in a.items() if k not in ("vfrom", "vto")}
+                 for a in arts]
+        return {"intent_id": for_intent_id, "count": len(clean), "artefacts": clean}

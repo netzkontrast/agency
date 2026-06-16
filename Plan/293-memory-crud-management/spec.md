@@ -52,10 +52,12 @@ ever destructively deleted.
   excludes it.
 - [x] Auto-registers (drop-in); 5 acceptance scenarios green; substrate naming /
   welcome / capability-set invariants still green.
+- [x] **Spec 290 read-API folded onto `manage`** — `state` (cross-pillar
+  rollup), `open_intents` (live intents + SERVES subtree size), `timeline`
+  (ordered Event + Invocation history), `artefacts` (produced-under an intent).
+  Read + write now share one capability (the complete Memory pillar).
 - [ ] **Follow-up:** wire `manage.list`/`read` through `project(query, budget)`
   for token-budgeted reads on large labels (Goal 1).
-- [ ] **Follow-up:** fold Spec 290's read-API verbs (`state`, `open_intents`,
-  `timeline`, …) onto `manage` so read + write share one capability.
 
 ## Followup — Implementation Status (2026-06-16)
 

@@ -30,3 +30,18 @@ Feature: manage capability — generic CRUD over every graph node type (Spec 293
   Scenario: create rejects an ontology violation by naming it
     When I manage.create a "Document" with no required props
     Then the create result carries an error
+
+  Scenario: state rolls up live counts across the pillars
+    Given a managed "Document" node exists
+    When I ask manage.state
+    Then the state rollup reports at least one intent and the document count
+
+  Scenario: open_intents lists live intents with their SERVES subtree size
+    Given a managed "Document" node exists
+    When I ask manage.open_intents
+    Then open_intents includes the confirmed intent with a positive serves_count
+
+  Scenario: timeline orders an intent's events and invocations
+    Given a managed "Document" node exists
+    When I ask manage.timeline for the confirmed intent
+    Then the timeline lists the create invocation

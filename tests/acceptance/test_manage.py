@@ -89,3 +89,40 @@ def _create_bad(engine, confirmed_intent):
 @then("the create result carries an error")
 def _create_error(create_result):
     assert "error" in create_result and "Document" in create_result["error"]
+
+
+# ── Spec 290 read-API folded onto manage ──────────────────────────────────────
+
+@when("I ask manage.state", target_fixture="state_result")
+def _state(engine, confirmed_intent, managed_id):
+    return _m(engine, confirmed_intent, "state", for_intent_id=confirmed_intent)
+
+
+@then("the state rollup reports at least one intent and the document count")
+def _state_rollup(state_result):
+    assert state_result["intents"] >= 1, state_result
+    assert state_result["artefacts"] >= 0 and "lifecycles_by_state" in state_result
+    assert state_result["serves_count"] >= 1
+
+
+@when("I ask manage.open_intents", target_fixture="open_result")
+def _open(engine, confirmed_intent, managed_id):
+    return _m(engine, confirmed_intent, "open_intents")
+
+
+@then("open_intents includes the confirmed intent with a positive serves_count")
+def _open_includes(open_result, confirmed_intent):
+    row = next((r for r in open_result["intents"] if r["id"] == confirmed_intent), None)
+    assert row is not None and row["serves_count"] >= 1, open_result
+
+
+@when("I ask manage.timeline for the confirmed intent", target_fixture="timeline_result")
+def _timeline(engine, confirmed_intent, managed_id):
+    return _m(engine, confirmed_intent, "timeline", for_intent_id=confirmed_intent)
+
+
+@then("the timeline lists the create invocation")
+def _timeline_invocation(timeline_result):
+    assert timeline_result["count"] >= 1, timeline_result
+    assert any(it["kind"] == "invocation" and "manage.create" in it["name"]
+               for it in timeline_result["timeline"]), timeline_result
