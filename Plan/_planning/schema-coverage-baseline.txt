@@ -32,6 +32,7 @@ KnownFact
 Language
 Lifecycle
 MagicSystem
+ModeActivation
 ModeShift
 NarrativeBeat
 Novel
