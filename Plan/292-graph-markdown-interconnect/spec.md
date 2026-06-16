@@ -1,3 +1,12 @@
+---
+spec: 292
+title: graph-markdown-interconnect
+status: Partial (Slice 1 shipped)
+depends_on: [043, 109]
+clusters: [memory, document]
+vision_goals: [6, 7, 9]
+---
+
 # Spec 292 — Graph↔Markdown Interconnect · the Document as convergence artefact
 
 **Status:** Partial (Slice 1 shipped — bi-directional round-trip + keep-both +
