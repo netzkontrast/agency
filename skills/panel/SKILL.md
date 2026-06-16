@@ -41,8 +41,8 @@ await call_tool('capability_panel_convene', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`panel-usage`** (usage): use-effect → use-act → confirm
-  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'panel-usage', 'inputs': {}, 'intent_id': '…'})`
+- **`strategic-analysis`** (discipline): frame → convene → challenge → synthesize
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'strategic-analysis', 'inputs': {}, 'intent_id': '…'})`
 
 ## experts
 

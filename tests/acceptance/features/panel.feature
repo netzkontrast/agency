@@ -28,3 +28,7 @@ Feature: panel capability — multi-expert business analysis (Spec 294)
   Scenario: full focus convenes all nine experts
     When I convene the full panel on "our market expansion plan"
     Then the panel includes all nine experts
+
+  Scenario: panel exposes a walkable strategic-analysis discipline (superpowers pattern)
+    When I walk the "strategic-analysis" discipline to its gate
+    Then the discipline pauses at a hard gate

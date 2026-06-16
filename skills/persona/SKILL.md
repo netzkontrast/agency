@@ -42,8 +42,8 @@ await call_tool('capability_persona_list', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`persona-usage`** (usage): use-effect → use-act → confirm
-  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'persona-usage', 'inputs': {}, 'intent_id': '…'})`
+- **`specialist-dispatch`** (discipline): match → brief → dispatch → verify
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'specialist-dispatch', 'inputs': {}, 'intent_id': '…'})`
 
 ## list
 

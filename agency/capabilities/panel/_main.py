@@ -77,12 +77,27 @@ _SOCRATIC_TRIGGERS = ("learn", "understand", "develop", "capability", "how", "wh
 _BALANCED = {"Christensen", "Porter", "Drucker", "Taleb", "Meadows"}
 
 
+# Spec 301 — extend with the superpowers signature: a walkable DISCIPLINE skill
+# (phases + a hard gate), so panel is a guided multi-phase analysis, not just
+# flat verbs. Mirrors superpowers' brainstorming/writing-plans shape.
+_STRATEGIC_ANALYSIS_SKILL = {
+    "name": "strategic-analysis", "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "frame", "produces": ["subject", "mode"]},
+        {"index": 2, "name": "convene", "produces": ["experts", "analysis"]},
+        {"index": 3, "name": "challenge", "produces": ["tensions"]},
+        {"index": 4, "name": "synthesize", "produces": ["synthesis"], "gate": "hard"},
+    ],
+}
+
+
 class PanelCapability(CapabilityBase):
     name = "panel"
     home = "memory"   # produces strategic-analysis provenance
     ontology = OntologyExtension(
         nodes={"Panel": ["subject", "mode"]},
         enums={("Panel", "mode"): {"discussion", "debate", "socratic"}},
+        skills={"strategic-analysis": _STRATEGIC_ANALYSIS_SKILL},
     )
 
     @verb(role="act")

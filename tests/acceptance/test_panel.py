@@ -60,3 +60,18 @@ def _prompts(panel):
 @then("the panel includes all nine experts")
 def _all_nine(panel):
     assert len(panel["experts"]) == 9
+
+
+@when(parsers.parse('I walk the "{name}" discipline to its gate'), target_fixture="walk")
+def _walk(engine, confirmed_intent, name):
+    r, _ = invoke(engine, confirmed_intent, "develop", "skill_walk",
+                  agent_id="agent:test", name=name,
+                  inputs={"subject": "x", "mode": "debate", "experts": ["Porter"],
+                          "analysis": [{"a": 1}], "tensions": ["a vs b"],
+                          "synthesis": "done"})
+    return r
+
+
+@then("the discipline pauses at a hard gate")
+def _gate(walk):
+    assert walk.get("status") == "input-required", walk

@@ -74,12 +74,27 @@ _PERSONAS = [
 _BY_NAME = {p["name"]: p for p in _PERSONAS}
 
 
+# Spec 301 — extend with the superpowers pattern: a walkable DISCIPLINE that
+# wraps specialist dispatch in subagent-driven-development + verification
+# (recommend → summon → dispatch → verify[hard gate]).
+_SPECIALIST_DISPATCH_SKILL = {
+    "name": "specialist-dispatch", "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "match", "produces": ["persona", "task"]},
+        {"index": 2, "name": "brief", "produces": ["brief"]},
+        {"index": 3, "name": "dispatch", "produces": ["child"]},
+        {"index": 4, "name": "verify", "produces": ["verified"], "gate": "hard"},
+    ],
+}
+
+
 class PersonaCapability(CapabilityBase):
     name = "persona"
     home = "lifecycle"   # a persona parameterizes a dispatched agent's role
     ontology = OntologyExtension(
         nodes={"PersonaBrief": ["persona", "task"]},
         enums={("PersonaBrief", "persona"): set(_BY_NAME)},
+        skills={"specialist-dispatch": _SPECIALIST_DISPATCH_SKILL},
     )
 
     @verb(role="act")
