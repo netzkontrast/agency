@@ -778,6 +778,66 @@ class DevelopCapability(CapabilityBase):
         return self.ctx.call("document", "index_repo", path=path,
                              apply=apply, max_tokens=max_tokens)
 
+    @verb(role="effect")
+    def port_plugin(self, source: str, origin: str = "", kind: str = "command",
+                    glob: str = "*.md", limit: int = 300) -> dict:
+        """Port an external plugin's prompt surface INTO agency as Documents,
+        with a coverage gap-map (Spec 293/292).
+
+        Every command/agent markdown file IS a prompt — so a plugin ports into
+        agency by ingesting each file as a `Document` (prompt-audited, NOT
+        anchor-stamped — the external source is left untouched) and mapping each
+        against agency's live capability/verb/skill vocabulary. The gap-map says
+        what's already mirrored vs. what still needs a native verb, so the
+        remaining port work is scoped rather than guessed.
+
+        Inputs: source (dir to walk), origin (label for provenance; defaults to
+                the dir name), kind (command|agent|…), glob (file pattern),
+                limit (max files).
+        Returns: ``{source, origin, kind, ported_count, covered, gaps, ported}``.
+        chain_next: turn each `gaps` entry into a native capability/verb.
+        """
+        import glob as _glob
+        import os
+        import re
+        root = os.path.abspath(source)
+        if not os.path.isdir(root):
+            return {"error": f"not a directory: {source!r}", "source": source}
+        origin = origin or os.path.basename(root.rstrip("/")) or "external"
+        # agency's live vocabulary: capability names + verb names + skill names.
+        surface: set[str] = set()
+        for cap_name in self.ctx.registry.names():
+            surface.add(cap_name)
+            cap = self.ctx.registry.get(cap_name)
+            surface.update(getattr(cap, "verbs", {}) or {})
+            skills = getattr(getattr(cap, "ontology", None), "skills", {}) or {}
+            for sk in skills:
+                surface.update(re.split(r"[-_ ]", str(sk).lower()))
+        files = sorted(_glob.glob(os.path.join(root, "**", glob), recursive=True))[:limit]
+        ported, covered, gaps = [], [], []
+        for f in files:
+            stem = os.path.splitext(os.path.basename(f))[0]
+            tokens = [t for t in re.split(r"[-_ ]", stem.lower().replace("sc-", ""))
+                      if t and t not in ("sc", "agency", "the", "a")]
+            r = self.ctx.call("document", "ingest", path=f, audit=True,
+                              write_anchor=False)
+            doc_id = r.get("document_id", "")
+            if doc_id:
+                try:
+                    self.ctx.update(doc_id, {"origin": origin, "doc_kind": kind})
+                except Exception:                               # noqa: BLE001
+                    pass
+            match = next((t for t in tokens if t in surface), None)
+            ported.append({"name": stem, "document_id": doc_id,
+                           "clarity": r.get("clarity_score")})
+            if match:
+                covered.append({"name": stem, "matched": match})
+            else:
+                gaps.append(stem)
+        return {"source": root, "origin": origin, "kind": kind,
+                "ported_count": len(ported), "covered": covered, "gaps": gaps,
+                "ported": ported}
+
     @verb(role="act")
     def scaffold_capability(self, name: str, kind: str = "light",
                             base_dir: str = "") -> dict:

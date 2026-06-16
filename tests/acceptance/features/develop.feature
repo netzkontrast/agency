@@ -120,3 +120,10 @@ Feature: develop capability — scaffolding, linting, authoring walk, discipline
     When I call develop.index on the agency repo
     Then the develop index result carries an index_id
     And the develop index token count is positive
+
+  Scenario: port_plugin ingests an external plugin's prompts and maps coverage
+    Given an external plugin directory with command files "analyze", "brainstorm", and "frobnicate"
+    When I call develop.port_plugin on that directory
+    Then the port result ingests three Documents
+    And the port gap-map covers "analyze" and flags "frobnicate" as a gap
+    And the external files are left without an anchor

@@ -243,7 +243,7 @@ class DocumentCapability(CapabilityBase):
 
     @verb(role="effect")
     def ingest(self, path: str, audit: bool = True,
-               template: str = "", schema: str = "") -> dict:
+               template: str = "", schema: str = "", write_anchor: bool = True) -> dict:
         """Round-trip a markdown file INTO the graph (file → graph; Spec 292).
 
         Inverts the old premise (files were a one-way rendered view): an
@@ -305,16 +305,19 @@ class DocumentCapability(CapabilityBase):
         clarity = self._audit_as_prompt(body) if audit else None
 
         if existing is None:
-            # Mint a Document and stamp the stable anchor back into the file.
+            # Mint a Document and (unless porting an external/read-only file)
+            # stamp the stable anchor back into the file.
             document_id = self.ctx.record_and_serve("Document", doc_props)
             if bound_schema:
                 self.ctx.link(document_id, f"schema:{bound_schema}", "CONFORMS_TO")
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(_interconnect.stamp_anchor(body, document_id))
+            if write_anchor:
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(_interconnect.stamp_anchor(body, document_id))
             rev_id = self._append_revision(document_id, source="file", sha=sha,
                                            body=body, clarity_score=clarity)
             return {"document_id": document_id, "revision_id": rev_id,
-                    "action": "created", "content_sha": sha, "anchored": True,
+                    "action": "created", "content_sha": sha,
+                    "anchored": write_anchor,
                     "clarity_score": clarity, "path": doc_props["path"]}
 
         document_id = anchor_id
