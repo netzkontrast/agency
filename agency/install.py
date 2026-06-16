@@ -634,6 +634,20 @@ _SESSION_START_HOOK_SCRIPT = """\
 #    .agency/ dir + .gitattributes binary marker, nothing else.
 set -e
 
+# --- Spec 292: refresh the repo index as a Document on session start ---
+# Regenerates PROJECT_INDEX.md (a RepoIndex graph node — the 94%-reduction
+# briefing) via the ported `develop index` verb, so every session opens with a
+# fresh, token-cheap map of the repo. BACKGROUNDED + non-fatal: never blocks
+# session start; deterministic + content-hash stable, so it does not churn git
+# when nothing changed. AGENCY_INDEX_ON_START=0 opts out.
+_agency_index_on_start() {
+  [ "${AGENCY_INDEX_ON_START:-1}" = "0" ] && return 0
+  [ -n "${CLAUDE_PROJECT_DIR:-}" ] && command -v agency >/dev/null 2>&1 || return 0
+  ( cd "${CLAUDE_PROJECT_DIR}" && agency execute --code "iid = (await call_tool('intent_bootstrap', {'purpose':'session-start repo index','deliverable':'PROJECT_INDEX.md','acceptance':'RepoIndex node recorded'}))['intent_id']
+await call_tool('capability_develop_index', {'intent_id': iid, 'agent_id':'agent:session-start', 'path':'.', 'apply': True})
+return 'ok'" >/dev/null 2>&1 & ) || true
+}
+
 # --- Scaffold the project's .agency/ (idempotent; runs every session) ---
 # Only reachable if agency-mcp is already installed; the post-install
 # block below covers the first-run case.
@@ -644,6 +658,7 @@ fi
 
 # --- Idempotent install guard: bail if agency-mcp is already on PATH. ---
 if command -v agency-mcp >/dev/null 2>&1; then
+  _agency_index_on_start
   exit 0
 fi
 
@@ -705,6 +720,9 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
   agency install --scaffold-only "${CLAUDE_PROJECT_DIR}" >&2 || \\
     echo "agency: .agency/ scaffold failed (non-fatal)" >&2
 fi
+
+# Refresh the repo index now that the CLI is installed (Spec 292).
+_agency_index_on_start
 
 exit 0
 """

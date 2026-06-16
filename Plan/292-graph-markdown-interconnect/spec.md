@@ -87,6 +87,11 @@ is retained history.
 - [x] **C5** opt-in pre-commit hook `hooks/pre-commit-doc-sync.sh` + `agency
   install` now OFFERS the `--patch-claude-settings` one-liner when the plugin
   isn't enabled.
+- [x] **Indexer ported + auto-run.** `develop.index` ports the repo indexer to
+  the development-workflow surface (delegates to `document.index_repo`, DRY);
+  the SessionStart hook (generated from `install.py`) runs it backgrounded each
+  session so every session opens with a fresh `PROJECT_INDEX.md` / `RepoIndex`
+  node (`AGENCY_INDEX_ON_START=0` opts out).
 - [ ] **Follow-up:** `render` mirrors into a graph-sourced `DocRevision` so the
   graph→file direction is also event-sourced (today render returns content;
   the caller writes — only `session`/`ingest`/`reopen` append revisions).
