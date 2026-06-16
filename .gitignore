@@ -14,6 +14,9 @@ __pycache__/
 .agency/sources/
 # Spec 129 — per-project Dramatica fragment overlay (author-extensible).
 .agency/dramatica-fragments-overlay.yaml
+# Spec 292 — past-session Documents (durable provenance is the Document +
+# DocRevision nodes in the graph; the rendered .md mirror is session-local).
+.agency/sessions/
 # SQLite WAL/journal files (transient — never commit)
 *.db-journal
 *.db-wal
