@@ -112,3 +112,21 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     When I call agency_doctor
     Then the result contains a hooks field
     And the hooks field has plugin_enabled cli_on_path hook_scripts_present and next_steps
+
+  Scenario: SessionEnd auto-archives the session as a Document (Spec 292)
+    Given a confirmed intent set as AGENCY_INTENT
+    When a SessionEnd hook event fires
+    Then the hook result archives a session Document
+    And that session Document exists in the graph
+
+  Scenario: UserPromptSubmit injects the assumption-guard wiring in intent and thinking
+    Given a confirmed intent set as AGENCY_INTENT
+    When a UserPromptSubmit hook event fires with session s1
+    Then the hook injects an assumption-guard naming intent and thinking
+    And the injected guard names the active intent purpose
+
+  Scenario: the Session Graph makes a complete session restorable (Spec 292)
+    Given a confirmed intent set as AGENCY_INTENT
+    When a UserPromptSubmit then a PostToolUse event fire in session s9
+    And a SessionEnd event fires in session s9
+    Then restoring session s9 reports a closed session with events and a Document

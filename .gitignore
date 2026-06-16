@@ -14,9 +14,9 @@ __pycache__/
 .agency/sources/
 # Spec 129 — per-project Dramatica fragment overlay (author-extensible).
 .agency/dramatica-fragments-overlay.yaml
-# Spec 292 — past-session Documents (durable provenance is the Document +
-# DocRevision nodes in the graph; the rendered .md mirror is session-local).
-.agency/sessions/
+# Spec 292 — `.agency/sessions/` is COMMITTED (user directive 2026-06-16): the
+# session graph + archived session Documents are durable provenance, like the
+# graph DB itself (Spec 020), so a session restores across clones.
 # SQLite WAL/journal files (transient — never commit)
 *.db-journal
 *.db-wal

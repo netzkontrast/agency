@@ -163,6 +163,14 @@ def _default_hook_handler(engine, event: dict) -> dict:
         from .capabilities.shell import _apply_filter
         props["summary"] = _apply_filter(_json.dumps(payload, default=str), "head:5")[:500]
     eid = engine.memory.record("Event", props)
+    # Spec 292 — the Session Graph: link every event into a Session node keyed
+    # by session_id, so the complete session is restorable from the graph.
+    if session and session != "unknown":
+        sid = f"session:{session}"
+        if engine.memory.recall(sid) is None:
+            engine.memory.record("Session", {"session_id": session,
+                                              "status": "open"}, node_id=sid)
+        engine.memory.link(eid, sid, "IN_SESSION")
     iid = _os.environ.get("AGENCY_INTENT", "")
     if iid and engine.memory.recall_typed(iid, "Intent") is not None:
         engine.memory.link(eid, iid, "OBSERVED_DURING")
@@ -185,6 +193,67 @@ def _default_hook_handler(engine, event: dict) -> dict:
             engine.memory.link(bid, iid, "SERVES")
             engine.memory.link(bid, eid, "RECORDED_BY")
     return {"recorded": eid, "event": name}
+
+
+def _user_prompt_submit_handler(engine, event: dict) -> dict:
+    """Spec 292 — UserPromptSubmit injection (sync, blocking by doctrine).
+
+    Records the Event AND returns an ``inject`` context block (surfaced to the
+    prompt by the dispatcher) that wires in the ``intent`` + ``thinking``
+    capabilities so the agent STARTS by surfacing assumptions and asking
+    clarifying questions instead of guessing. This is the assumption-guard: the
+    cheapest place to stop an agent acting on an unstated assumption is before
+    the turn runs."""
+    base = _default_hook_handler(engine, event)
+    import os as _os
+    iid = _os.environ.get("AGENCY_INTENT", "")
+    intent = engine.memory.recall_typed(iid, "Intent") if iid else None
+    guard = (
+        "[agency] Before acting, AVOID ASSUMPTIONS: list your load-bearing "
+        "assumptions (intent.assumptions) and, if any are ambiguous or the "
+        "request is underspecified, ASK clarifying questions FIRST "
+        "(thinking.socratic / AskUserQuestion) rather than guessing.")
+    if intent:
+        ctx = (f"[agency] Active intent: {intent.get('purpose', '')} "
+               f"— deliverable: {intent.get('deliverable', '')}; "
+               f"acceptance: {intent.get('acceptance', '')}.")
+        inject = ctx + "\n" + guard
+    else:
+        inject = ("[agency] No active intent — consider intent_bootstrap to "
+                  "anchor this work.\n" + guard)
+    return {**base, "inject": inject}
+
+
+def _session_end_handler(engine, event: dict) -> dict:
+    """Spec 292 — on SessionEnd, record the Event AND auto-archive the session
+    as a Document (``document.session``): the four concepts — Intent · Capability
+    · Lifecycle · Memory — are rendered into ``.agency/sessions/`` so a closed
+    session is durable, not ephemeral. Best-effort: a missing intent or an
+    archive failure never raises (a hook must never break session teardown)."""
+    base = _default_hook_handler(engine, event)
+    import os as _os
+    iid = _os.environ.get("AGENCY_INTENT", "")
+    if not (iid and engine.memory.recall_typed(iid, "Intent")):
+        intents = engine.memory.find("Intent")
+        iid = max(intents, key=lambda n: n.get("vfrom", 0))["id"] if intents else ""
+    if not iid:
+        return {**base, "archived": None}
+    try:
+        res, _ = engine.registry.invoke(
+            engine.memory, iid, "document", "session",
+            agent_id="agent:session-end", for_intent_id=iid)
+        doc_id = res.get("document_id")
+        # Attach the archived Document to the Session node + close the session,
+        # so the Session Graph holds the restorable session-end snapshot.
+        session = (event or {}).get("session_id") or "unknown"
+        if doc_id and session != "unknown":
+            sid = f"session:{session}"
+            if engine.memory.recall(sid) is not None:
+                engine.memory.link(doc_id, sid, "IN_SESSION")
+                engine.memory.update(sid, {"status": "closed"})
+        return {**base, "archived": doc_id, "written": res.get("written")}
+    except Exception:                                           # noqa: BLE001
+        return {**base, "archived": None}
 
 
 class Engine:
@@ -349,7 +418,9 @@ class Engine:
         self.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
-        self._hook_handlers = {"*": _default_hook_handler}
+        self._hook_handlers = {"*": _default_hook_handler,
+                               "UserPromptSubmit": _user_prompt_submit_handler,
+                               "SessionEnd": _session_end_handler}
 
     # Spec 286-A2 — the bespoke boundary attributes are now thin read-through
     # properties over the DriverRegistry (`self.drivers`), the single source of

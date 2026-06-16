@@ -63,11 +63,17 @@ class DocumentCapability(CapabilityBase):
             # An append-only revision; `source` tags graph- vs file-authored so
             # both coexist (keep-both, bi-temporal — latest recorded_at wins).
             "DocRevision": ["source", "content_sha"],
+            # The Session Graph (Spec 292): a node keyed by the Claude Code
+            # session_id that every hook event links into, so the COMPLETE
+            # session — its event timeline + archived Document — is restorable
+            # from the graph by session_id alone.
+            "Session":     ["session_id"],
         },
         edges={
             "INDEXES",
             "REVISION_OF",   # DocRevision → Document (append-only history)
             "CONFORMS_TO",   # Document    → Schema   (datalayer/schema binding)
+            "IN_SESSION",    # Event/Document → Session (the session timeline)
         },
         enums={("DocRevision", "source"): {"graph", "file"}},
         # Spec 060: `explanation` schema migrated to
@@ -387,6 +393,39 @@ class DocumentCapability(CapabilityBase):
         except Exception:                                       # noqa: BLE001
             pass
         return os.path.join(base, "sessions")
+
+    @verb(role="act")
+    def restore_session(self, session_id: str) -> dict:
+        """Restore a complete session from the Session Graph (Spec 292).
+
+        The hooks build a `Session` node (keyed by Claude Code's session_id)
+        that every Event links ``IN_SESSION``, with the session-end Document
+        attached. This verb walks that node to reconstruct the whole session
+        from the graph alone — its event timeline + the archived four-concept
+        Document — so a session is never lost when its process ends.
+
+        Inputs: session_id (str — the Claude Code session id, bare or
+                ``session:``-prefixed).
+        Returns: ``{session_id, status, event_count, events, document_id}``.
+        chain_next: ``document.reopen`` the document_id's file to read the
+                    four concepts, or ``dogfood.replay_events`` for detail.
+        """
+        sid = session_id if session_id.startswith("session:") else f"session:{session_id}"
+        sess = self.ctx.recall_typed(sid, "Session")
+        if sess is None:
+            return {"error": f"{sid!r} is not a Session id", "session_id": session_id,
+                    "event_count": 0, "events": []}
+        members = self.ctx.neighbors(sid, "IN_SESSION", direction="in")
+        events = sorted(
+            (m for m in members if "name" in m and "content_sha" not in m),
+            key=lambda e: e.get("vfrom", 0))
+        doc = next((m for m in members if "content_sha" in m), None)
+        return {"session_id": sess.get("session_id"),
+                "status": sess.get("status", ""),
+                "event_count": len(events),
+                "events": [{"name": e.get("name"), "tool": e.get("tool", "")}
+                           for e in events],
+                "document_id": doc.get("id") if doc else None}
 
     @verb(role="effect")
     def reopen(self, path: str) -> dict:

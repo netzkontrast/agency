@@ -29,6 +29,7 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 | `ingest` | effect | Round-trip a markdown file INTO the graph (file → graph; Spec 292). | [details](references/ingest.md) |
 | `render` | transform | Project graph state to markdown; deterministic. | [details](references/render.md) |
 | `reopen` | effect | Reopen an archived session Document — reconstruct the four concepts (Spec 292 C4). | [details](references/reopen.md) |
+| `restore_session` | act | Restore a complete session from the Session Graph (Spec 292). | [details](references/restore_session.md) |
 | `revisions` | act | Read a Document's keep-both revision history (Spec 292). | [details](references/revisions.md) |
 | `session` | effect | Render a Session as a Document — the four concepts converge (Spec 292). | [details](references/session.md) |
 | `sync` | effect | Ingest every CHANGED markdown file under ``path`` (Spec 292). | [details](references/sync.md) |

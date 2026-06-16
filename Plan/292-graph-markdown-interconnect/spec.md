@@ -92,6 +92,15 @@ is retained history.
   the SessionStart hook (generated from `install.py`) runs it backgrounded each
   session so every session opens with a fresh `PROJECT_INDEX.md` / `RepoIndex`
   node (`AGENCY_INDEX_ON_START=0` opts out).
+- [x] **Hooks drive core mechanics.** (1) **UserPromptSubmit injection** (sync,
+  per directive) returns an assumption-guard wiring in `intent.assumptions` +
+  `thinking`/`AskUserQuestion` so the agent surfaces assumptions and asks
+  questions before acting; `agency hook` prints it to stdout, the dispatcher
+  passes it to the prompt. (2) **SessionEnd → `document.session`** auto-archives
+  the four-concept Document. (3) **Session Graph** — every hook event links
+  `IN_SESSION` a `Session` node (keyed by `session_id`); `document.restore_session`
+  reconstructs the complete session (event timeline + archived Document) from
+  the graph alone, so a session survives its process ending.
 - [ ] **Follow-up:** `render` mirrors into a graph-sourced `DocRevision` so the
   graph→file direction is also event-sourced (today render returns content;
   the caller writes — only `session`/`ingest`/`reopen` append revisions).

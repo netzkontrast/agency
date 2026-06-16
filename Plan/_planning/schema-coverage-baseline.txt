@@ -51,6 +51,7 @@ ResearchClaim
 ResearchIntent
 Scene
 Schema
+Session
 SessionLifecycle
 Skill
 StoryTimeEvent

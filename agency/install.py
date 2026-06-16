@@ -488,9 +488,13 @@ set -u
 
 PAYLOAD="$(cat || true)"
 
-# Best-effort Event recording (Spec 076).
+# Best-effort Event recording (Spec 076) + injection (Spec 292). `agency hook`
+# prints an `inject` context block to STDOUT for UserPromptSubmit (the
+# assumption-guard that wires in intent + thinking) and nothing for other
+# events — so passing STDOUT through is safe and surfaces the guard to the
+# prompt. Provenance noise stays on STDERR (dropped).
 if command -v agency >/dev/null 2>&1; then
-  printf '%s' "${PAYLOAD}" | agency hook >/dev/null 2>&1 || true
+  printf '%s' "${PAYLOAD}" | agency hook 2>/dev/null || true
 fi
 
 # Routing advice (Spec 280 Slice 1) — parse the payload via Python so

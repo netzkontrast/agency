@@ -74,9 +74,10 @@ operational docs ([`../../AGENTS.md`](../../AGENTS.md),
    four-concept provenance; (4) closing a session writes a Document, reopening
    reconstructs it; (5) `agency install` + SessionStart yield a working
    substrate with zero manual steps, `agency_doctor` green or naming the gap.
-   *Missing in setup today:* a `.gitignore`/commit policy for `.agency/sessions/`;
-   the opt-in pre-commit `document.sync` hook; a schema-conformance gate on
-   `ingest`; install auto-offering the `plugin_enabled` fix.
+   *Setup status:* `.agency/sessions/` is committed (durable session graph); the
+   opt-in pre-commit `document.sync` hook, the schema-conformance gate on
+   `ingest`, and install auto-offering the `plugin_enabled` fix all shipped in
+   Slice 1. Remaining: the render→`DocRevision` graph→file mirror.
 
 ## Non-goals
 
