@@ -583,3 +583,33 @@ def _restore_s9(hook_engine, active_intent):
     assert r["status"] == "closed", r
     assert r["event_count"] >= 3, r          # 2 events + the SessionEnd event
     assert r["document_id"], r
+
+
+# ── Session Graph analytics (Spec 292) ────────────────────────────────────────
+
+def _analytics(eng, intent, **kw):
+    r, _ = eng.registry.invoke(eng.memory, intent, "document", "session_analytics",
+                               agent_id="agent:test", **kw)
+    return r
+
+
+@then("session analytics for s9 report the event-type and tool breakdown")
+def _analytics_single(hook_engine, active_intent):
+    a = _analytics(hook_engine, active_intent, session_id="s9")
+    assert a["found"] and a["event_count"] >= 3, a
+    names = {row["name"] for row in a["events_by_type"]}
+    assert {"UserPromptSubmit", "PostToolUse", "SessionEnd"} <= names, a
+    assert any(row["tool"] == "Bash" for row in a["tools_used"]), a
+
+
+@then("session analytics for s9 attach the archived Document")
+def _analytics_doc(hook_engine, active_intent):
+    a = _analytics(hook_engine, active_intent, session_id="s9")
+    assert a["documents"] and a["documents"][0]["id"].startswith("document:"), a
+
+
+@then("cross-session analytics report a positive session count and a busiest list")
+def _analytics_cross(hook_engine, active_intent):
+    a = _analytics(hook_engine, active_intent)
+    assert a["session_count"] >= 1, a
+    assert any(row["session_id"] == "s9" for row in a["busiest_sessions"]), a

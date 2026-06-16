@@ -32,6 +32,7 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 | `restore_session` | act | Restore a complete session from the Session Graph (Spec 292). | [details](references/restore_session.md) |
 | `revisions` | act | Read a Document's keep-both revision history (Spec 292). | [details](references/revisions.md) |
 | `session` | effect | Render a Session as a Document — the four concepts converge (Spec 292). | [details](references/session.md) |
+| `session_analytics` | act | Cypher analytics over the Session Graph (Spec 292). | [details](references/session_analytics.md) |
 | `sync` | effect | Ingest every CHANGED markdown file under ``path`` (Spec 292). | [details](references/sync.md) |
 
 ## Example

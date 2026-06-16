@@ -130,3 +130,15 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     When a UserPromptSubmit then a PostToolUse event fire in session s9
     And a SessionEnd event fires in session s9
     Then restoring session s9 reports a closed session with events and a Document
+
+  Scenario: session analytics summarise a single session via cypher (Spec 292)
+    Given a confirmed intent set as AGENCY_INTENT
+    When a UserPromptSubmit then a PostToolUse event fire in session s9
+    And a SessionEnd event fires in session s9
+    Then session analytics for s9 report the event-type and tool breakdown
+    And session analytics for s9 attach the archived Document
+
+  Scenario: cross-session analytics aggregate every session (Spec 292)
+    Given a confirmed intent set as AGENCY_INTENT
+    When a UserPromptSubmit then a PostToolUse event fire in session s9
+    Then cross-session analytics report a positive session count and a busiest list

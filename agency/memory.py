@@ -332,6 +332,82 @@ class Memory:
              "WHERE it.id IN $ids RETURN a")
         return [r["a"]["properties"] for r in self.g.query(q, {"ids": ids})]
 
+    def session_analytics(self, session_id: str = "", top: int = 10) -> dict:
+        """Spec 292 — extensive Cypher analytics over the Session Graph.
+
+        ``session_id`` set → a DEEP single-session report (event timeline
+        breakdown, tool usage, raw-tool bypass profile, attached Documents,
+        intents touched, tick-span). Empty → a CROSS-session aggregate
+        (session counts by status, busiest sessions, top tools/events,
+        bypass totals). Raw Cypher lives here per the Management read-API
+        doctrine (capability verbs delegate to this method).
+        """
+        g = self.g
+
+        def q(cypher: str, params: Optional[dict] = None) -> list[dict]:
+            try:
+                return g.query(cypher, params or {})
+            except Exception:                                   # noqa: BLE001
+                return []
+
+        if session_id:
+            sid = session_id if session_id.startswith("session:") else f"session:{session_id}"
+            sess = q("MATCH (s:Session) WHERE s.id=$id "
+                     "RETURN s.session_id AS sid, s.status AS status", {"id": sid})
+            if not sess:
+                return {"session_id": session_id, "found": False}
+            bare = sess[0]["sid"]
+            total = q("MATCH (e:Event)-[:IN_SESSION]->(s:Session) WHERE s.id=$id "
+                      "RETURN count(e) AS n", {"id": sid})
+            by_event = q("MATCH (e:Event)-[:IN_SESSION]->(s:Session) WHERE s.id=$id "
+                         "RETURN e.name AS name, count(e) AS n ORDER BY n DESC", {"id": sid})
+            by_tool = q("MATCH (e:Event)-[:IN_SESSION]->(s:Session) "
+                        "WHERE s.id=$id AND e.tool IS NOT NULL "
+                        "RETURN e.tool AS tool, count(e) AS n ORDER BY n DESC", {"id": sid})
+            span = q("MATCH (e:Event)-[:IN_SESSION]->(s:Session) WHERE s.id=$id "
+                     "RETURN min(e.vfrom) AS lo, max(e.vfrom) AS hi", {"id": sid})
+            bypass = q("MATCH (b:BoundaryUse) WHERE b.session=$s "
+                       "RETURN b.verb_shadow AS verb_shadow, count(b) AS n ORDER BY n DESC",
+                       {"s": bare})
+            docs = q("MATCH (d:Document)-[:IN_SESSION]->(s:Session) WHERE s.id=$id "
+                     "RETURN d.id AS id, d.path AS path", {"id": sid})
+            intents = q("MATCH (e:Event)-[:IN_SESSION]->(s:Session) WHERE s.id=$id "
+                        "MATCH (e)-[:OBSERVED_DURING]->(i:Intent) "
+                        "RETURN DISTINCT i.id AS id, i.purpose AS purpose", {"id": sid})
+            sp = span[0] if span else {}
+            lo, hi = sp.get("lo") or 0, sp.get("hi") or 0
+            return {
+                "session_id": bare, "status": sess[0]["status"], "found": True,
+                "event_count": total[0]["n"] if total else 0,
+                "events_by_type": by_event, "tools_used": by_tool,
+                "bypass_by_verb_shadow": bypass,
+                "bypass_count": sum(r["n"] for r in bypass),
+                "documents": docs, "intents": intents,
+                "tick_span": {"first": lo, "last": hi, "ticks": hi - lo},
+            }
+
+        # cross-session aggregate
+        sessions = q("MATCH (s:Session) RETURN s.status AS status, count(s) AS n ORDER BY n DESC")
+        busiest = q("MATCH (e:Event)-[:IN_SESSION]->(s:Session) "
+                    "RETURN s.session_id AS session_id, count(e) AS n ORDER BY n DESC "
+                    f"LIMIT {int(top)}")
+        top_tools = q("MATCH (e:Event) WHERE e.tool IS NOT NULL "
+                      "RETURN e.tool AS tool, count(e) AS n ORDER BY n DESC "
+                      f"LIMIT {int(top)}")
+        by_event = q("MATCH (e:Event) RETURN e.name AS name, count(e) AS n ORDER BY n DESC")
+        total_bypass = q("MATCH (b:BoundaryUse) RETURN count(b) AS n")
+        bypass_by_tool = q("MATCH (b:BoundaryUse) WHERE b.tool IS NOT NULL "
+                           "RETURN b.tool AS tool, count(b) AS n ORDER BY n DESC")
+        return {
+            "session_id": "", "scope": "all-sessions",
+            "session_count": sum(r["n"] for r in sessions),
+            "sessions_by_status": sessions,
+            "busiest_sessions": busiest,
+            "top_tools": top_tools, "events_by_type": by_event,
+            "total_bypasses": total_bypass[0]["n"] if total_bypass else 0,
+            "bypass_by_tool": bypass_by_tool,
+        }
+
     def has_edge(self, src_id: str, dst_id, edge: str,
                  src_label: Optional[str] = None,
                  dst_label: Optional[str] = None) -> bool:

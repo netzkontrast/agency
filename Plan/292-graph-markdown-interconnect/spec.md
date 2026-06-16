@@ -100,7 +100,12 @@ is retained history.
   the four-concept Document. (3) **Session Graph** — every hook event links
   `IN_SESSION` a `Session` node (keyed by `session_id`); `document.restore_session`
   reconstructs the complete session (event timeline + archived Document) from
-  the graph alone, so a session survives its process ending.
+  the graph alone, so a session survives its process ending. (4) **Session
+  Graph analytics** — `Memory.session_analytics` (extensive Cypher per the
+  Management read-API doctrine) + `document.session_analytics`: single-session
+  report (event-type + tool breakdown, raw-tool bypass profile, attached
+  Documents, intents, tick-span) and cross-session aggregate (status counts,
+  busiest sessions, top tools/events, bypass totals).
 - [ ] **Follow-up:** `render` mirrors into a graph-sourced `DocRevision` so the
   graph→file direction is also event-sourced (today render returns content;
   the caller writes — only `session`/`ingest`/`reopen` append revisions).

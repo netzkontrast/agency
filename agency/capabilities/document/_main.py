@@ -395,6 +395,24 @@ class DocumentCapability(CapabilityBase):
         return os.path.join(base, "sessions")
 
     @verb(role="act")
+    def session_analytics(self, session_id: str = "", top: int = 10) -> dict:
+        """Cypher analytics over the Session Graph (Spec 292).
+
+        ``session_id`` set → a deep single-session report (event-type +
+        tool-usage breakdown, raw-tool bypass profile, attached Documents,
+        intents touched, tick-span). Empty → a cross-session aggregate
+        (counts by status, busiest sessions, top tools/events, bypass totals).
+        Delegates to ``Memory.session_analytics`` (raw Cypher lives in
+        ``memory.py`` per the Management read-API doctrine).
+
+        Inputs: session_id (str — bare or ``session:``-prefixed; empty = all),
+                top (int — leaderboard cap for the cross-session view).
+        Returns: the analytics report dict.
+        chain_next: ``document.restore_session`` to rebuild a flagged session.
+        """
+        return self.ctx.memory.session_analytics(session_id, top=top)
+
+    @verb(role="act")
     def restore_session(self, session_id: str) -> dict:
         """Restore a complete session from the Session Graph (Spec 292).
 
