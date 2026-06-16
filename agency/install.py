@@ -1074,7 +1074,27 @@ def main(argv: list | None = None) -> int:
             print(p)
         if result["gitattributes_updated"]:
             print(os.path.join(scaffold_root, ".gitattributes"))
+    # Spec 292 C5 (config completeness): after a plain install, if the plugin
+    # isn't enabled in the project's settings, OFFER the one-liner fix instead
+    # of leaving the user to discover `--patch-claude-settings`. Skipped when the
+    # user already passed it (the patch ran above).
+    if not ns.patch_claude_settings:
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+        settings_path = os.path.join(project_dir, ".claude", "settings.json")
+        if not _plugin_enabled_in_settings(settings_path):
+            print("\nNEXT: enable the agency plugin in this project — run:")
+            print("  python -m agency.install --patch-claude-settings")
     return 0
+
+
+def _plugin_enabled_in_settings(settings_path: str) -> bool:
+    """True iff the project's `.claude/settings.json` already references the
+    agency plugin (so install can offer the one-liner fix only when needed)."""
+    try:
+        with open(settings_path, encoding="utf-8") as f:
+            return "agency" in f.read()
+    except OSError:
+        return False
 
 
 _AGENCY_README = """# .agency/ — central graph DB

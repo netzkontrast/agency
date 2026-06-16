@@ -236,3 +236,36 @@ Feature: document capability — render, index_repo, explain, and scope guards (
     When I render the current session as a Document
     Then the session is written under a "sessions" directory
     And the archived session file carries the document anchor
+
+  # ── C3: convergence proof + schema-conformance gate (Spec 292) ──────────────
+
+  Scenario: ingesting against a bound schema fails when required fields are missing
+    Given an un-anchored markdown file "nofm.md" with body "no frontmatter here"
+    When I call document.ingest on that file bound to schema "repo-index"
+    Then the ingest result carries an error naming the missing fields
+
+  Scenario: ingesting against a bound schema passes when frontmatter satisfies it
+    Given a markdown file "withfm.md" whose frontmatter satisfies schema "repo-index"
+    When I call document.ingest on that file bound to schema "repo-index"
+    Then the ingest action is "created"
+    And the Document conforms to schema "repo-index"
+
+  Scenario: the convergence audit flags a Document carrying no convergence facets
+    Given a bare Document node with no revisions
+    When I audit that Document's convergence
+    Then the convergence audit marks it a defect
+
+  Scenario: an ingested file is not a convergence defect
+    Given an un-anchored markdown file "conv.md" with body "Summarise the quarter."
+    When I call document.ingest on that file
+    When I audit the ingested Document's convergence
+    Then the convergence audit does not mark it a defect
+    And the convergence audit reports a clarity facet
+
+  # ── C4: a session Document reopens and reconstructs the four concepts ────────
+
+  Scenario: reopening an archived session reconstructs the four concepts
+    Given a session has been archived to disk
+    When I reopen that archived session file
+    Then the reopened session restores the Document into the graph
+    And the reopened session reconstructs Intent, Capability, Lifecycle, and Memory

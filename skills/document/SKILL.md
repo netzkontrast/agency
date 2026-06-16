@@ -23,10 +23,12 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `convergence` | act | Audit a Document's convergence facets (Spec 292 C3). | [details](references/convergence.md) |
 | `explain` | act | Deterministic code → markdown explanation; emits a Reflection. | [details](references/explain.md) |
 | `index_repo` | effect | 94%-reduction repo briefing — deterministic; ≤ max_tokens. | [details](references/index_repo.md) |
 | `ingest` | effect | Round-trip a markdown file INTO the graph (file → graph; Spec 292). | [details](references/ingest.md) |
 | `render` | transform | Project graph state to markdown; deterministic. | [details](references/render.md) |
+| `reopen` | effect | Reopen an archived session Document — reconstruct the four concepts (Spec 292 C4). | [details](references/reopen.md) |
 | `revisions` | act | Read a Document's keep-both revision history (Spec 292). | [details](references/revisions.md) |
 | `session` | effect | Render a Session as a Document — the four concepts converge (Spec 292). | [details](references/session.md) |
 | `sync` | effect | Ingest every CHANGED markdown file under ``path`` (Spec 292). | [details](references/sync.md) |
@@ -34,7 +36,7 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 ## Example
 
 ```bash
-await call_tool('capability_document_explain', {'intent_id': 'intent:abc'})
+await call_tool('capability_document_convergence', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill

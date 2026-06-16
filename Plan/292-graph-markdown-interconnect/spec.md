@@ -78,13 +78,21 @@ is retained history.
 - [x] `sync` ingests every changed `.md`; a second run reports zero.
 - [x] `session` renders Intent · Capability · Lifecycle · Memory as a Document.
 - [x] Doctrine flipped: CLAUDE.md rule 2 + CORE.md canon section.
+- [x] **C1** schema-conformance + all document verbs name the missing field on error.
+- [x] **C3** schema-conformance gate on `ingest` (validates frontmatter against the
+  bound Schema, names missing fields) + `document.convergence` audit (flags a
+  Document carrying none of template/schema/clarity/four-concepts as a defect).
+- [x] **C4** `document.reopen` ingests an archived session Document and
+  reconstructs the four `## Intent/Capability/Lifecycle/Memory` sections.
+- [x] **C5** opt-in pre-commit hook `hooks/pre-commit-doc-sync.sh` + `agency
+  install` now OFFERS the `--patch-claude-settings` one-liner when the plugin
+  isn't enabled.
 - [ ] **Follow-up:** `render` mirrors into a graph-sourced `DocRevision` so the
   graph→file direction is also event-sourced (today render returns content;
-  the caller writes — only `session`/`ingest` append revisions).
-- [ ] **Follow-up:** opt-in pre-commit hook calling `document.sync` on changed
-  `.md` (the "hook later" half of the trigger decision).
-- [ ] **Follow-up:** schema-conformance check on `ingest` when a Document
-  `CONFORMS_TO` a Schema (validate front-matter against the bound schema).
+  the caller writes — only `session`/`ingest`/`reopen` append revisions).
+- [ ] **Follow-up:** the wire-layer "Missing required keyword only argument"
+  (pydantic validation at the MCP boundary, e.g. `skill_walk`) still doesn't
+  name the field — a substrate-wide envelope improvement.
 
 ## Followup — Implementation Status (2026-06-16)
 

@@ -267,8 +267,33 @@ class DocumentCapability(CapabilityBase):
         doc_props = {"path": os.path.abspath(path), "content_sha": sha}
         if template:
             doc_props["template"] = template
-        if schema:
-            doc_props["schema"] = schema
+
+        # Schema-conformance gate (Spec 292 C3): a Document bound to a Schema
+        # (param, or already CONFORMS_TO one) must satisfy its required fields —
+        # declared in the file's frontmatter. A miss fails the ingest by NAMING
+        # the absent fields (C1: every error names the missing field).
+        bound_schema = schema or (
+            (self.ctx.recall_typed(anchor_id, "Document") or {}).get("schema", "")
+            if anchor_id else "")
+        if bound_schema:
+            doc_props["schema"] = bound_schema
+            # Schemas register in two shapes (Spec 060): a bare list of required
+            # fields, or a dict `{name, required: [...]}`. Normalise to the list.
+            sch = self.ctx.ontology.schemas.get(bound_schema)
+            if isinstance(sch, dict):
+                required = sch.get("required", [])
+            elif isinstance(sch, list):
+                required = list(sch)
+            else:
+                required = []
+            if required:
+                declared = _interconnect.parse_frontmatter(body)
+                missing = [f for f in required if not declared.get(f)]
+                if missing:
+                    return {"error": f"schema {bound_schema!r} conformance failed: "
+                                     f"missing required fields {missing}",
+                            "path": doc_props["path"], "schema": bound_schema,
+                            "missing": missing}
 
         existing = self.ctx.recall_typed(anchor_id, "Document") if anchor_id else None
         clarity = self._audit_as_prompt(body) if audit else None
@@ -276,8 +301,8 @@ class DocumentCapability(CapabilityBase):
         if existing is None:
             # Mint a Document and stamp the stable anchor back into the file.
             document_id = self.ctx.record_and_serve("Document", doc_props)
-            if schema:
-                self.ctx.link(document_id, f"schema:{schema}", "CONFORMS_TO")
+            if bound_schema:
+                self.ctx.link(document_id, f"schema:{bound_schema}", "CONFORMS_TO")
             with open(path, "w", encoding="utf-8") as f:
                 f.write(_interconnect.stamp_anchor(body, document_id))
             rev_id = self._append_revision(document_id, source="file", sha=sha,
@@ -362,6 +387,77 @@ class DocumentCapability(CapabilityBase):
         except Exception:                                       # noqa: BLE001
             pass
         return os.path.join(base, "sessions")
+
+    @verb(role="effect")
+    def reopen(self, path: str) -> dict:
+        """Reopen an archived session Document — reconstruct the four concepts
+        (Spec 292 C4).
+
+        Closes the durability loop: ``session`` archives a Document to
+        ``.agency/sessions/``; ``reopen`` ingests that file back (restoring the
+        Document into the graph) and parses its ``## Intent / Capability /
+        Lifecycle / Memory`` sections so the session is reconstructable, not
+        ephemeral.
+
+        Inputs: path (str — an archived session .md).
+        Returns: ``{document_id, action, concepts}`` where concepts maps each
+                of the four concept headings to its rendered section text.
+        chain_next: re-`session` to refresh, or diff against the live graph.
+        """
+        ingested = self.ingest(path, audit=False)
+        if "error" in ingested:
+            return ingested
+        try:
+            with open(path, encoding="utf-8") as f:
+                _, body = _interconnect.extract_anchor(f.read())
+        except OSError as exc:
+            return {"error": f"cannot read {path!r}: {exc}", "path": path}
+        # Split the markdown into its `## <Concept>` sections.
+        concepts: dict = {}
+        current = None
+        for line in body.splitlines():
+            if line.startswith("## "):
+                current = line[3:].strip()
+                concepts[current] = []
+            elif current is not None:
+                concepts[current].append(line)
+        concepts = {k: "\n".join(v).strip() for k, v in concepts.items()
+                    if k in ("Intent", "Capability", "Lifecycle", "Memory")}
+        return {"document_id": ingested["document_id"],
+                "action": ingested["action"], "concepts": concepts}
+
+    @verb(role="act")
+    def convergence(self, document_id: str) -> dict:
+        """Audit a Document's convergence facets (Spec 292 C3).
+
+        The Document is the artefact where the substrate converges. This audit
+        reports which facets a Document carries — ``template``, ``schema``
+        (CONFORMS_TO), prompt ``clarity_score`` (on any revision), and
+        four-concept session provenance (a `# Session —` render). A Document
+        carrying NONE of these is a **defect** (``is_defect=True``).
+
+        Inputs: document_id (str).
+        Returns: ``{document_id, has_template, has_schema, has_clarity,
+                   has_four_concepts, is_defect, facets}``.
+        chain_next: bind a schema/template or re-ingest to clear a defect.
+        """
+        doc = self.ctx.recall_typed(document_id, "Document")
+        if doc is None:
+            return {"error": f"{document_id!r} is not a Document id",
+                    "document_id": document_id, "is_defect": True}
+        revs = self._doc_revisions(document_id)
+        has_template = bool(doc.get("template"))
+        has_schema = bool(doc.get("schema")) or self.ctx.has_edge(
+            document_id, f"schema:{doc.get('schema', '')}", "CONFORMS_TO")
+        has_clarity = any(isinstance(r.get("clarity_score"), int) for r in revs)
+        has_four_concepts = any(
+            (r.get("text", "").startswith("# Session —")) for r in revs)
+        facets = {"template": has_template, "schema": has_schema,
+                  "clarity": has_clarity, "four_concepts": has_four_concepts}
+        return {"document_id": document_id,
+                "has_template": has_template, "has_schema": has_schema,
+                "has_clarity": has_clarity, "has_four_concepts": has_four_concepts,
+                "facets": facets, "is_defect": not any(facets.values())}
 
     @verb(role="effect")
     def session(self, for_intent_id: str = "", apply_path: str = "",

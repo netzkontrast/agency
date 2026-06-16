@@ -681,3 +681,100 @@ def _session_in_dir(session_result, dirname):
 def _archived_anchor(session_result):
     text = open(session_result["written"], encoding="utf-8").read()
     assert text.startswith(f"<!-- agency-node: {session_result['document_id']} -->")
+
+
+# ── C3 convergence + schema-conformance steps (Spec 292) ──────────────────────
+
+def _convergence(engine, confirmed_intent, document_id):
+    r, _ = invoke(engine, confirmed_intent, "document", "convergence",
+                  agent_id="agent:test", document_id=document_id)
+    return r
+
+
+@when("I call document.ingest on that file bound to schema \"repo-index\"",
+      target_fixture="ingest_result")
+def _ingest_bound_schema(engine, confirmed_intent, md_file):
+    return _ingest(engine, confirmed_intent, path=str(md_file), schema="repo-index")
+
+
+@then("the ingest result carries an error naming the missing fields")
+def _error_names_fields(ingest_result):
+    err = ingest_result.get("error", "")
+    assert "schema" in err and "path" in err and "content_sha" in err, err
+
+
+@given('a markdown file "withfm.md" whose frontmatter satisfies schema "repo-index"',
+       target_fixture="md_file")
+def _file_with_frontmatter(tmp_path):
+    p = tmp_path / "withfm.md"
+    p.write_text("---\npath: x\ncontent_sha: abc\ntoken_count: 5\n---\n# Body\n",
+                 encoding="utf-8")
+    return p
+
+
+@then(parsers.parse('the Document conforms to schema "{schema}"'))
+def _conforms_to(engine, confirmed_intent, ingest_result, schema):
+    conv = _convergence(engine, confirmed_intent, ingest_result["document_id"])
+    assert conv["has_schema"], conv
+
+
+@given("a bare Document node with no revisions", target_fixture="bare_doc_id")
+def _bare_document(engine):
+    from agency.capabilities.document import _interconnect as _ic
+    return engine.memory.record("Document", {
+        "path": "/tmp/bare.md", "content_sha": _ic.content_sha("")})
+
+
+@when("I audit that Document's convergence", target_fixture="convergence_result")
+def _audit_bare(engine, confirmed_intent, bare_doc_id):
+    return _convergence(engine, confirmed_intent, bare_doc_id)
+
+
+@then("the convergence audit marks it a defect")
+def _is_defect(convergence_result):
+    assert convergence_result["is_defect"] is True
+
+
+@when("I audit the ingested Document's convergence", target_fixture="convergence_result")
+def _audit_ingested(engine, confirmed_intent, ingest_result):
+    return _convergence(engine, confirmed_intent, ingest_result["document_id"])
+
+
+@then("the convergence audit does not mark it a defect")
+def _not_defect(convergence_result):
+    assert convergence_result["is_defect"] is False
+
+
+@then("the convergence audit reports a clarity facet")
+def _has_clarity_facet(convergence_result):
+    assert convergence_result["has_clarity"] is True
+
+
+# ── C4 session reopen steps (Spec 292) ────────────────────────────────────────
+
+@given("a session has been archived to disk", target_fixture="archived_session")
+def _archive_session(engine, confirmed_intent, tmp_path):
+    path = str(tmp_path / "past-session.md")
+    r, _ = invoke(engine, confirmed_intent, "document", "session",
+                  agent_id="agent:test", apply_path=path)
+    return {"path": path, "document_id": r["document_id"]}
+
+
+@when("I reopen that archived session file", target_fixture="reopen_result")
+def _reopen(engine, confirmed_intent, archived_session):
+    r, _ = invoke(engine, confirmed_intent, "document", "reopen",
+                  agent_id="agent:test", path=archived_session["path"])
+    return r
+
+
+@then("the reopened session restores the Document into the graph")
+def _reopened_doc(engine, confirmed_intent, reopen_result, archived_session):
+    assert reopen_result["document_id"] == archived_session["document_id"]
+    assert engine.memory.recall_typed(reopen_result["document_id"], "Document")
+
+
+@then("the reopened session reconstructs Intent, Capability, Lifecycle, and Memory")
+def _reopened_concepts(reopen_result):
+    concepts = reopen_result.get("concepts", {})
+    for c in ("Intent", "Capability", "Lifecycle", "Memory"):
+        assert c in concepts, f"missing reconstructed concept {c}"

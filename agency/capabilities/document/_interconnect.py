@@ -53,6 +53,23 @@ def extract_anchor(raw: str) -> tuple[str | None, str]:
     return node_id, body
 
 
+def parse_frontmatter(body: str) -> dict:
+    """Parse a leading ``---\\n…\\n---`` YAML frontmatter block; ``{}`` if absent
+    or unparseable. The convergence layer reads a Document's declared fields
+    here to validate them against its bound Schema (CONFORMS_TO)."""
+    if not body.startswith("---\n"):
+        return {}
+    end = body.find("\n---", 4)
+    if end == -1:
+        return {}
+    try:
+        import yaml
+        loaded = yaml.safe_load(body[4:end])
+    except Exception:                                           # noqa: BLE001
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
 def stamp_anchor(body: str, node_id: str) -> str:
     """Return ``body`` with the anchor for ``node_id`` on its first line.
 
