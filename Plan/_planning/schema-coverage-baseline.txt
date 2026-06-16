@@ -46,6 +46,7 @@ PlanStep
 Plugin
 PromptOutput
 PromptVariant
+Recommendation
 Reference
 Religion
 Research
