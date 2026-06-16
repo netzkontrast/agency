@@ -106,9 +106,11 @@ is retained history.
   report (event-type + tool breakdown, raw-tool bypass profile, attached
   Documents, intents, tick-span) and cross-session aggregate (status counts,
   busiest sessions, top tools/events, bypass totals).
-- [ ] **Follow-up:** `render` mirrors into a graph-sourced `DocRevision` so the
-  graph→file direction is also event-sourced (today render returns content;
-  the caller writes — only `session`/`ingest`/`reopen` append revisions).
+- [x] **`document.mirror`** — `render`'s effect twin: projects graph→file,
+  writes the anchored markdown, and appends a **graph-sourced** `DocRevision`,
+  so the graph→file direction is event-sourced + symmetric with `ingest`. A
+  mirrored file + a later on-disk edit coexist as keep-both revisions — the
+  bi-directional loop is closed.
 - [ ] **Follow-up:** the wire-layer "Missing required keyword only argument"
   (pydantic validation at the MCP boundary, e.g. `skill_walk`) still doesn't
   name the field — a substrate-wide envelope improvement.

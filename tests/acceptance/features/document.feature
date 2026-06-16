@@ -269,3 +269,18 @@ Feature: document capability — render, index_repo, explain, and scope guards (
     When I reopen that archived session file
     Then the reopened session restores the Document into the graph
     And the reopened session reconstructs Intent, Capability, Lifecycle, and Memory
+
+  # ── render→file mirror closes the bi-directional loop (Spec 292) ────────────
+
+  Scenario: mirror event-sources the graph→file direction
+    Given three technical reflections are recorded in order first, second, third
+    When I mirror the "reflections" scope to a file
+    Then the mirror action is "created"
+    And the mirrored file begins with an agency-node anchor
+    And the mirrored Document has a graph-authored revision
+
+  Scenario: a mirrored file edited on disk keeps both directions bi-temporally
+    Given three technical reflections are recorded in order first, second, third
+    When I mirror the "reflections" scope to a file
+    And a human edits that mirrored file and I ingest it
+    Then the Document has both a graph-authored and a file-authored revision

@@ -141,6 +141,29 @@ class DocumentCapability(CapabilityBase):
             "scope": scope,
         }
 
+    @verb(role="effect")
+    def mirror(self, scope: str, apply_path: str, for_intent_id: str = "") -> dict:
+        """Project graph→file AND event-source it (Spec 292 — closes the loop).
+
+        ``render`` is a pure projection; ``mirror`` is its effect twin: it
+        renders ``scope``, writes the markdown to ``apply_path`` with a stable
+        anchor, and appends a **graph-sourced** ``DocRevision`` to the Document
+        keyed by that file. This makes the graph→file direction event-sourced
+        and symmetric with ``ingest`` (file→graph) — a rendered file and a
+        later on-disk edit now coexist as keep-both revisions. Idempotent:
+        re-mirroring identical content appends no new revision.
+
+        Inputs: scope (str — a render scope), apply_path (str — target .md),
+                for_intent_id (str — render filter, as in ``render``).
+        Returns: ``{scope, document_id, revision_id, action, written, tokens}``.
+        chain_next: ``document.ingest`` the file after a human edits it.
+        """
+        rendered = self.render(scope, for_intent_id=for_intent_id)
+        if rendered.get("error"):
+            return rendered
+        emit = self._emit_graph_document(rendered["content"], apply_path)
+        return {"scope": scope, "tokens": rendered.get("tokens", 0), **emit}
+
     @verb(role="act")
     def explain(self, target: str, depth: str = "standard") -> dict:
         """Deterministic code → markdown explanation; emits a Reflection.
@@ -240,6 +263,52 @@ class DocumentCapability(CapabilityBase):
             return None
         score = (res or {}).get("clarity_score") if isinstance(res, dict) else None
         return score if isinstance(score, int) else None
+
+    def _emit_graph_document(self, content: str, apply_path: str) -> dict:
+        """Spec 292 — the graph→file mirror, symmetric with ``ingest``.
+
+        Projects ``content`` to ``apply_path`` AND appends a graph-sourced
+        ``DocRevision`` to the Document keyed by that file (minting it + writing
+        the stable anchor on first emit). Idempotent: identical content (same
+        sha) appends no new revision. Returns
+        ``{document_id, revision_id, written, action}``.
+        """
+        sha = _interconnect.content_sha(content)
+        anchor_id = None
+        if apply_path and os.path.exists(apply_path):
+            try:
+                with open(apply_path, encoding="utf-8") as f:
+                    anchor_id, _ = _interconnect.extract_anchor(f.read())
+            except OSError:
+                anchor_id = None
+        existing = self.ctx.recall_typed(anchor_id, "Document") if anchor_id else None
+        if existing is None:
+            document_id = self.ctx.record_and_serve("Document", {
+                "path": os.path.abspath(apply_path) if apply_path else f"render:{sha}",
+                "content_sha": sha})
+            action = "created"
+        else:
+            document_id = anchor_id
+            action = "unchanged" if existing.get("content_sha") == sha else "revised"
+        rev_id = ""
+        if action != "unchanged":
+            rev_id = self._append_revision(document_id, source="graph", sha=sha,
+                                           body=content, clarity_score=None)
+            if action == "revised":
+                self.ctx.update(document_id, {"content_sha": sha})
+        written = ""
+        if apply_path:
+            try:
+                d = os.path.dirname(os.path.abspath(apply_path))
+                if d:
+                    os.makedirs(d, exist_ok=True)
+                with open(apply_path, "w", encoding="utf-8") as f:
+                    f.write(_interconnect.stamp_anchor(content, document_id))
+                written = os.path.abspath(apply_path)
+            except OSError as exc:
+                written = f"write failed: {exc}"
+        return {"document_id": document_id, "revision_id": rev_id,
+                "written": written, "action": action}
 
     @verb(role="effect")
     def ingest(self, path: str, audit: bool = True,

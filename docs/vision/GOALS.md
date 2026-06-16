@@ -76,8 +76,9 @@ operational docs ([`../../AGENTS.md`](../../AGENTS.md),
    substrate with zero manual steps, `agency_doctor` green or naming the gap.
    *Setup status:* `.agency/sessions/` is committed (durable session graph); the
    opt-in pre-commit `document.sync` hook, the schema-conformance gate on
-   `ingest`, and install auto-offering the `plugin_enabled` fix all shipped in
-   Slice 1. Remaining: the render→`DocRevision` graph→file mirror.
+   `ingest`, install auto-offering the `plugin_enabled` fix, and the
+   `document.mirror` render→`DocRevision` graph→file mirror (closing the
+   bi-directional loop) all shipped in Slice 1.
 
 ## Non-goals
 
@@ -100,7 +101,7 @@ operational docs ([`../../AGENTS.md`](../../AGENTS.md),
 | 6 — Dogfood loop | `dogfood.collect` + `reflect.batch_note` | **Partial — fold-back is manual; Spec 014 unbuilt** |
 | 7 — Graph↔file peers | `document.ingest`/`sync` + `DocRevision` keep-both | Realized (Spec 292 Slice 1) |
 | 8 — Harness-in-harness | `jules.dispatch` + the watcher; `delegate.fan_out` | Realized |
-| 9 — Document convergence | `document.{ingest,sync,revisions,session}` + `Document`/`DocRevision` | **Partial — Slice 1 shipped; render-mirror + hook + schema-gate pending** |
+| 9 — Document convergence | `document.{ingest,mirror,sync,revisions,session,…}` + `Document`/`DocRevision` | Realized (Slice 1 — bi-directional loop closed) |
 
 If a proposed change weakens one of these goals, it needs an explicit
 trade-off argument in the spec body and panel review.

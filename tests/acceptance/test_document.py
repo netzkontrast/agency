@@ -778,3 +778,50 @@ def _reopened_concepts(reopen_result):
     concepts = reopen_result.get("concepts", {})
     for c in ("Intent", "Capability", "Lifecycle", "Memory"):
         assert c in concepts, f"missing reconstructed concept {c}"
+
+
+# ── render→file mirror (Spec 292) ─────────────────────────────────────────────
+
+@when('I mirror the "reflections" scope to a file', target_fixture="mirror_result")
+def _mirror(engine, confirmed_intent, tmp_path):
+    path = str(tmp_path / "mirror.md")
+    r, _ = invoke(engine, confirmed_intent, "document", "mirror",
+                  agent_id="agent:test", scope="reflections",
+                  apply_path=path, for_intent_id=confirmed_intent)
+    r["_path"] = path
+    return r
+
+
+@then(parsers.parse('the mirror action is "{action}"'))
+def _mirror_action(mirror_result, action):
+    assert mirror_result["action"] == action, mirror_result
+
+
+@then("the mirrored file begins with an agency-node anchor")
+def _mirror_anchor(mirror_result):
+    text = open(mirror_result["written"], encoding="utf-8").read()
+    assert text.startswith(f"<!-- agency-node: {mirror_result['document_id']} -->")
+
+
+@then("the mirrored Document has a graph-authored revision")
+def _mirror_graph_rev(engine, confirmed_intent, mirror_result):
+    r, _ = invoke(engine, confirmed_intent, "document", "revisions",
+                  agent_id="agent:test", document_id=mirror_result["document_id"])
+    assert any(rev["source"] == "graph" for rev in r["history"]), r
+
+
+@when("a human edits that mirrored file and I ingest it")
+def _edit_and_ingest(engine, confirmed_intent, mirror_result):
+    path = mirror_result["written"]
+    with open(path, "a", encoding="utf-8") as f:
+        f.write("\n\nHuman note appended on disk.\n")
+    invoke(engine, confirmed_intent, "document", "ingest",
+           agent_id="agent:test", path=path)
+
+
+@then("the Document has both a graph-authored and a file-authored revision")
+def _both_sources(engine, confirmed_intent, mirror_result):
+    r, _ = invoke(engine, confirmed_intent, "document", "revisions",
+                  agent_id="agent:test", document_id=mirror_result["document_id"])
+    sources = {rev["source"] for rev in r["history"]}
+    assert {"graph", "file"} <= sources, r
