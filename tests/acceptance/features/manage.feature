@@ -61,3 +61,9 @@ Feature: manage capability — generic CRUD over every graph node type (Spec 293
     When I ask manage.render for the confirmed intent
     Then the dashboard markdown has a heading and an open-intents section
     And the dashboard echoes the intent acceptance and a next action
+
+  Scenario: project returns a query-ranked, token-budgeted slice of a label
+    Given five managed "Document" nodes exist
+    When I project "Document" matching "needle" under a tiny token budget
+    Then the projection is truncated under the budget
+    And the matching document ranks first in the projection

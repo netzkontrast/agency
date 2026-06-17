@@ -134,7 +134,11 @@ human-readable "where are we" view the spec's `state` row describes. Read-only
 (calls the sibling read verbs; the read-only invariant test covers it). +1
 acceptance scenario.
 
+**Slice 3 (shipped 2026-06-17):** `manage.project(label, query, budget)` —
+the token-budgeted read primitive the spec's Decisions called for
+(`project(query, budget)`). Ranks a label's live nodes by query overlap then
+returns the budget-fitting prefix via the shared `budget_take` split + Spec 082
+`count_tokens`. Additive (existing verbs keep `top`/`limit`); read-only.
+
 **Still (optional):** `whats_next` could cross-check against a built `navigate`
-projection once that lands (today it IS the navigate core); a real
-`project(query, budget)` token-budgeting primitive (specced-but-unbuilt) would
-replace the `top`/`limit` bound across the read-suite.
+projection once that lands (today it IS the navigate core).

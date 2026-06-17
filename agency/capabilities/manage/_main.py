@@ -23,6 +23,13 @@ import json
 
 from ...capability import CapabilityBase, verb
 from ...memory import OPEN as _OPEN  # the substrate's bi-temporal "currently-valid" sentinel
+from ..._overflow import budget_take  # Spec 286 P3 — shared priority-ordered token-budget split
+from ..._tokens import count_tokens   # Spec 082 — the one TokenCounter boundary
+
+
+def _query_tokens(text: str) -> set:
+    import re
+    return {t for t in re.split(r"[^a-z0-9]+", (text or "").lower()) if t}
 
 
 def _strip_temporal(props: dict) -> dict:
@@ -220,6 +227,43 @@ class ManageCapability(CapabilityBase):
         items.sort(key=lambda x: x["at"])
         return {"intent_id": for_intent_id, "count": len(items),
                 "timeline": items[:limit]}
+
+    @verb(role="act")
+    def project(self, label: str, query: str = "", budget: int = 2000) -> dict:
+        """PROJECT — a query-ranked, token-budgeted slice of a label's live nodes
+        (Spec 290/293: the `project(query, budget)` read primitive, Goal 1).
+
+        Ranks live ``label`` nodes by overlap with ``query`` (most-relevant
+        first; recency breaks ties), then returns the highest-priority prefix
+        that fits under ``budget`` tokens — a bounded delta, never a raw dump
+        (rule 2). Read-only; composes the shared ``budget_take`` split + the
+        Spec 082 token counter.
+
+        Inputs: label (str — ontology label), query (str — optional relevance
+                terms), budget (int — max tokens of returned rows).
+        Returns: ``{label, query, budget, total, returned, returned_tokens,
+                   truncated, rows}``.
+        chain_next: manage.read(id) for one row's full state.
+        """
+        rows = [_strip_temporal(r) for r in self._live(self.ctx.find(label))]
+        qt = _query_tokens(query)
+        if qt:
+            def _overlap(r):
+                blob = " ".join(str(v) for v in r.values())
+                return len(qt & _query_tokens(blob))
+            rows.sort(key=lambda r: (-_overlap(r), -int(r.get("vfrom", 0) or 0)))
+        else:
+            rows.sort(key=lambda r: -int(r.get("vfrom", 0) or 0))
+
+        def _cost(r):
+            return count_tokens(json.dumps(r, default=str, sort_keys=True))
+
+        kept, skipped = budget_take(rows, _cost, budget)
+        returned_tokens = sum(_cost(r) for r in kept)
+        return {"label": label, "query": query, "budget": budget,
+                "total": len(rows), "returned": len(kept),
+                "returned_tokens": returned_tokens,
+                "truncated": bool(skipped), "rows": kept}
 
     @verb(role="act")
     def render(self, for_intent_id: str = "", top: int = 5) -> dict:

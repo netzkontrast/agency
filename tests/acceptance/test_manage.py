@@ -200,6 +200,42 @@ def _render_intent(render_result):
     assert "Next" in md, md
 
 
+# ── Spec 290/293: project(query, budget) — the token-budgeted read primitive ──
+
+@given('five managed "Document" nodes exist', target_fixture="projected_ids")
+def _five_docs(engine, confirmed_intent):
+    ids = []
+    for i in range(4):
+        r = _m(engine, confirmed_intent, "create", label="Document",
+               props={"path": f"/hay-{i}.md", "content_sha": f"sha{i}"})
+        ids.append(r["id"])
+    # the needle: a document whose path carries the query term
+    r = _m(engine, confirmed_intent, "create", label="Document",
+           props={"path": "/needle.md", "content_sha": "deadbeef"})
+    ids.append(r["id"])
+    return {"needle": r["id"], "all": ids}
+
+
+@when(parsers.parse('I project "{label}" matching "{query}" under a tiny token budget'),
+      target_fixture="project_result")
+def _project(engine, confirmed_intent, projected_ids, label, query):
+    return _m(engine, confirmed_intent, "project", label=label, query=query, budget=40)
+
+
+@then("the projection is truncated under the budget")
+def _project_truncated(project_result):
+    assert project_result["truncated"] is True, project_result
+    assert project_result["returned"] < project_result["total"], project_result
+    assert project_result["returned_tokens"] <= project_result["budget"], project_result
+
+
+@then("the matching document ranks first in the projection")
+def _project_ranks(project_result):
+    rows = project_result["rows"]
+    assert rows, project_result
+    assert "needle" in rows[0].get("path", ""), rows[0]
+
+
 # ── Spec 290 invariant: the read-API is read-only ────────────────────────────
 # Invoking any read verb records an Invocation (the provenance moat) but must add
 # NO domain node — it reads the graph, never mutates it. Asserted against the
@@ -224,7 +260,8 @@ def test_manage_read_api_adds_no_domain_node(engine):
                      ("open_intents", {}),
                      ("timeline", {"for_intent_id": iid}),
                      ("artefacts", {"for_intent_id": iid}),
-                     ("render", {"for_intent_id": iid})):
+                     ("render", {"for_intent_id": iid}),
+                     ("project", {"label": "Intent"})):
         invoke(engine, iid, "manage", verb, agent_id="agent:test", **kw)
     assert census() == before
 
