@@ -41,15 +41,15 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     And the verb_shadow is branch.commit_smart
     And the BoundaryUse tool is Bash
 
-  Scenario: raw Bash pytest under active intent records BoundaryUse with verb_shadow develop.test
+  Scenario: raw Bash pytest under active intent records BoundaryUse with a shell.run shadow
     Given a confirmed intent set as AGENCY_INTENT
     When a PreToolUse Bash event fires with command pytest tests/
-    Then the verb_shadow is develop.test
+    Then the verb_shadow is shell.run('pytest')
 
-  Scenario: raw Edit on a spec under active intent records BoundaryUse with verb_shadow dogfood.observe
+  Scenario: raw Edit on a spec under active intent records BoundaryUse with verb_shadow dogfood.note
     Given a confirmed intent set as AGENCY_INTENT
     When a PreToolUse Edit event fires with file_path Plan/280-foo/spec.md
-    Then the verb_shadow is dogfood.observe
+    Then the verb_shadow is dogfood.note
 
   Scenario: PostToolUse Bash does not record BoundaryUse — bypass detection fires only at PreToolUse
     Given a confirmed intent set as AGENCY_INTENT

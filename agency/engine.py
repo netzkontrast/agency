@@ -123,16 +123,16 @@ def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
         if cmd.startswith("git commit"):
             return "branch.commit_smart", cmd[:200]
         if cmd.startswith("git push"):
-            return "branch.finish_branch", cmd[:200]
-        if (cmd.startswith("pytest") or cmd.startswith("python -m pytest")
-                or cmd.startswith("python3 -m pytest")):
-            return "develop.test", cmd[:200]
+            return "branch.finish", cmd[:200]
+        # NB: no dedicated test-runner verb exists; the truthful shadow is to
+        # run the command under provenance via shell.run (not a fictional
+        # `develop.test`). Falls through to the generic shell.run shadow below.
         return f"shell.run({head!r})", cmd[:200]
     if tool in ("Write", "Edit"):
         import re as _re
         path = str(payload.get("file_path") or "")
         if _re.search(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$", path):
-            return "dogfood.observe", path[:200]
+            return "dogfood.note", path[:200]
         return f"capability_verb_for({path!r})", path[:200]
     return "", ""
 
@@ -143,36 +143,46 @@ def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
 # the action has a capability equivalent, the PreToolUse handler returns the MCP
 # function(s) + their schema so the agent calls the verb (Goal 2 — dogfood the
 # moat). Each entry is `(suggestion, why)`; `@<name>` denotes a substrate tool.
+# Every suggestion target this handler can emit, keyed for readability. Each
+# value is `(suggestion, why)`; `@<name>` denotes a substrate tool. EVERY target
+# MUST resolve to a live MCP tool — `test_every_suggestion_resolves_to_a_live_verb`
+# iterates this table as the dormant-surface guard (CLAUDE.md "Dormant-surface
+# audit"). Targets without a real verb yet (a test-runner, a URL fetch) are
+# deliberately NOT listed rather than pointing at a fiction.
+_SUGGESTIONS: dict[str, tuple[str, str]] = {
+    "commit":   ("branch.commit_smart",
+                 "commit through the verb — records the Artefact + provenance"),
+    "push":     ("branch.finish",
+                 "push + open the PR through the verb"),
+    "search":   ("@search",
+                 "discover capabilities + code via the agency search surface"),
+    "subagent": ("subagent.develop",
+                 "dispatch a subagent through the verb — records the sub-intent"),
+    "observe":  ("dogfood.note",
+                 "record a spec observation instead of hand-editing the file"),
+}
+_ALL_SUGGESTIONS: list[tuple[str, str]] = list(_SUGGESTIONS.values())
+
+
 def _suggest_mcp_calls(event: dict) -> list[tuple[str, str]]:
     tool = (event or {}).get("tool_name") or ""
     tin = (event or {}).get("tool_input") or {}
     if tool == "Bash":
         cmd = str(tin.get("command") or "").strip()
         if cmd.startswith("git commit"):
-            return [("branch.commit_smart",
-                     "commit through the verb — records the Artefact + provenance")]
+            return [_SUGGESTIONS["commit"]]
         if cmd.startswith("git push"):
-            return [("branch.finish_branch",
-                     "push + open the PR through the verb")]
-        if (cmd.startswith("pytest") or cmd.startswith("python -m pytest")
-                or cmd.startswith("python3 -m pytest")):
-            return [("develop.test", "run tests through the verb — records the run")]
+            return [_SUGGESTIONS["push"]]
         return []
     if tool in ("Grep", "Glob"):
-        return [("@search",
-                 "discover capabilities + code via the agency search surface")]
-    if tool in ("WebFetch", "WebSearch"):
-        return [("research.fetch",
-                 "fetch through research so the source lands as a Citation")]
+        return [_SUGGESTIONS["search"]]
     if tool in ("Task", "Agent"):
-        return [("subagent.dispatch",
-                 "dispatch through the verb — records the sub-intent + provenance")]
+        return [_SUGGESTIONS["subagent"]]
     if tool in ("Write", "Edit"):
         import re as _re
         path = str(tin.get("file_path") or "")
         if _re.search(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$", path):
-            return [("dogfood.observe",
-                     "record a spec observation instead of hand-editing the file")]
+            return [_SUGGESTIONS["observe"]]
         return []
     return []
 
@@ -214,6 +224,9 @@ def _verb_input_schema(engine, cap: str, verb: str) -> dict | None:
     for name, p in inspect.signature(fn).parameters.items():
         if name in ("self", "intent_id", "agent_id") or name in inject:
             continue
+        if p.kind in (inspect.Parameter.VAR_POSITIONAL,
+                      inspect.Parameter.VAR_KEYWORD):
+            continue        # *args/**kwargs aren't wire params (mirrors _wire)
         props[name] = {"type": _ann_to_json_type(p.annotation)}
         if p.default is inspect.Parameter.empty:
             required.append(name)

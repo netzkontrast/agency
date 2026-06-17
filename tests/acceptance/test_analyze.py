@@ -589,7 +589,8 @@ def _god_module(tmp_path):
     for i in range(8):
         _write(d, f"d{i}.py", "VALUE = 1\n")
     body = "".join(f"from . import d{i}\n" for i in range(8))
-    body += "".join(f"X{j} = {j}\n" for j in range(420))   # > _GOD_LOC
+    from agency.capabilities.analyze._architecture import _GOD_LOC
+    body += "".join(f"X{j} = {j}\n" for j in range(_GOD_LOC + 20))  # > _GOD_LOC
     _write(d, "god.py", body)
     for i in range(10):
         _write(d, f"u{i}.py", "from . import god\n")

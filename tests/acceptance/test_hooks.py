@@ -253,16 +253,16 @@ def _bu_tool(hook_engine):
     assert bu["tool"] == "Bash"
 
 
-@then("the verb_shadow is develop.test")
+@then("the verb_shadow is shell.run('pytest')")
 def _shadow_test(hook_engine):
     bu = hook_engine.memory.find("BoundaryUse")[0]
-    assert bu["verb_shadow"] == "develop.test"
+    assert bu["verb_shadow"] == "shell.run('pytest')"
 
 
-@then("the verb_shadow is dogfood.observe")
+@then("the verb_shadow is dogfood.note")
 def _shadow_observe(hook_engine):
     bu = hook_engine.memory.find("BoundaryUse")[0]
-    assert bu["verb_shadow"] == "dogfood.observe"
+    assert bu["verb_shadow"] == "dogfood.note"
 
 
 @then("no BoundaryUse node is created")
@@ -663,3 +663,16 @@ def _additional_context(hook_result):
 @then("the hook returns no agency_suggestion")
 def _no_suggestion(hook_result):
     assert not hook_result.get("agency_suggestion"), hook_result
+
+
+def test_every_suggestion_resolves_to_a_live_verb():
+    """Dormant-surface guard (CLAUDE.md): every PreToolUse suggestion target must
+    resolve to a real MCP tool against the live registry — no dead branch."""
+    from agency.engine import _ALL_SUGGESTIONS, _resolve_mcp_suggestion
+    eng = Engine(tempfile.mktemp(suffix=".db"))
+    try:
+        for suggestion, _why in _ALL_SUGGESTIONS:
+            assert _resolve_mcp_suggestion(eng, suggestion) is not None, \
+                f"dead suggestion target: {suggestion!r}"
+    finally:
+        eng.memory.close()
