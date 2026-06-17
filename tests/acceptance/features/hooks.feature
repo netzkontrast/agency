@@ -145,17 +145,17 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
 
   # ── Spec 195 Slice 2 — PreToolUse returns the agency MCP call + schema ──────
 
-  Scenario: a PreToolUse on git commit returns the agency MCP call and schema
-    Given a confirmed intent set as AGENCY_INTENT
-    When a PreToolUse event fires for a "git commit -m x" Bash command
-    Then the hook returns an agency_suggestion for "capability_branch_commit_smart"
-    And the suggestion carries a JSON object schema for the call
-    And the additionalContext names the MCP call and its schema
-
-  Scenario: a PreToolUse on a Grep suggests the agency search surface
+  Scenario: a PreToolUse on a Grep returns the agency MCP call and schema
     Given a confirmed intent set as AGENCY_INTENT
     When a PreToolUse event fires for a Grep tool
     Then the hook returns an agency_suggestion for "mcp__agency__search"
+    And the suggestion carries a JSON object schema for the call
+    And the additionalContext names the MCP call and its schema
+
+  Scenario: git commit is a non-equivalent verb — shadowed for provenance, not suggested
+    Given a confirmed intent set as AGENCY_INTENT
+    When a PreToolUse event fires for a "git commit -m x" Bash command
+    Then the hook returns no agency_suggestion
 
   Scenario: a PreToolUse on a tool with no agency equivalent suggests nothing
     Given a confirmed intent set as AGENCY_INTENT

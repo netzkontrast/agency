@@ -657,7 +657,7 @@ def _suggestion_schema(hook_result):
 @then("the additionalContext names the MCP call and its schema")
 def _additional_context(hook_result):
     ctx = hook_result.get("hookSpecificOutput", {}).get("additionalContext", "")
-    assert "capability_branch_commit_smart" in ctx and "schema" in ctx, ctx
+    assert "mcp__agency__search" in ctx and "schema" in ctx, ctx
 
 
 @then("the hook returns no agency_suggestion")

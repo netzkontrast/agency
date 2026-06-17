@@ -194,8 +194,22 @@ def _build_graph(root: str) -> tuple[dict[str, set[str]], dict[str, str], dict[s
 
 
 def _scc_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
-    """Tarjan's SCC; return every strongly-connected component with
-    > 1 node (those are the cycles)."""
+    """Strongly-connected components with > 1 node (those carry the cycles).
+
+    Prefers networkx's battle-tested `strongly_connected_components` (Spec 051,
+    polynomial — safe on dense graphs, unlike cycle enumeration); falls back to
+    the hand-rolled Tarjan below when networkx is absent."""
+    if _HAS_NX:
+        import networkx as nx
+
+        g = nx.DiGraph()
+        g.add_nodes_from(graph)
+        for node, succs in graph.items():
+            for s in succs:
+                if s in graph:
+                    g.add_edge(node, s)
+        return [sorted(c) for c in nx.strongly_connected_components(g)
+                if len(c) > 1]
     index_counter = [0]
     stack: list[str] = []
     lowlinks: dict[str, int] = {}
@@ -264,21 +278,15 @@ def _bfs_shortest_cycle(graph: dict[str, set[str]], scc: list[str]) -> list[str]
 
 
 def _cycle_path(graph: dict[str, set[str]], scc: list[str]) -> list[str]:
-    """The shortest elementary cycle path for an SCC. Prefers networkx's
-    `simple_cycles` (Spec 051) when available; falls back to BFS."""
-    if _HAS_NX:
-        import networkx as nx
+    """The shortest elementary cycle path for an SCC, via the BOUNDED BFS.
 
-        sub = nx.DiGraph()
-        nodes = set(scc)
-        for m in scc:
-            for s in graph.get(m, ()):
-                if s in nodes:
-                    sub.add_edge(m, s)
-        cycles = [c for c in nx.simple_cycles(sub) if len(c) > 1]
-        if cycles:
-            shortest = min(cycles, key=len)
-            return shortest + [shortest[0]]
+    Codex review (#154): the prior `networkx.simple_cycles` enumerated EVERY
+    elementary cycle just to pick the shortest — and the count grows
+    exponentially in a dense SCC, so on exactly the cyclic graphs A001 reports
+    it could hang / exhaust memory. The BFS finds the shortest cycle directly
+    (polynomial, bounded — it stops at the first `a → b → a`), so we never
+    materialize the full cycle set. networkx still backs the (polynomial) SCC
+    detection in `_scc_cycles`."""
     return _bfs_shortest_cycle(graph, scc)
 
 

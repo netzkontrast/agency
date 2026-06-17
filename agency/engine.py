@@ -115,39 +115,47 @@ _SPEC_MD_RE = re.compile(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$")
 
 # ONE source of truth for raw-tool → agency-verb routing, read by BOTH the
 # BoundaryUse shadow (Slice 1 provenance, mutating tools) AND the PreToolUse
-# suggestion (Slice 2 live nudge, all tools) so the two cannot drift. Each row:
-# (predicate(tool, tool_input) -> bool, verb, why); `@<name>` denotes a
-# substrate tool. EVERY verb MUST resolve to a live MCP tool —
-# `test_every_suggestion_resolves_to_a_live_verb` iterates this table as the
-# dormant-surface guard (CLAUDE.md). Targets without a real verb yet (a
-# test-runner, a URL fetch) are deliberately omitted, not pointed at a fiction.
+# suggestion (Slice 2 live nudge) so the two cannot drift. Each row:
+# (predicate(tool, tool_input) -> bool, verb, why, suggest). `@<name>` denotes a
+# substrate tool.
+#
+# `suggest` is the KEY correctness gate (Codex review #154): a route is only
+# SUGGESTED ("call this instead") when the verb performs the SAME effect the raw
+# tool would, with all required args known up-front. The git commit/push routes
+# are shadow-ONLY provenance — `branch.commit_smart` merely composes a message
+# and `branch.finish` does merge/pr, neither replaces the raw VCS op — so they
+# are NOT suggested. `subagent.develop` needs post-work gate results, so Task has
+# no valid pre-dispatch suggestion and is omitted entirely. Suggested verbs MUST
+# resolve to a live MCP tool — `test_every_suggestion_resolves_to_a_live_verb`
+# guards it (CLAUDE.md dormant-surface).
 # AGENCY-DRIFT: raw-tool-routes — follow-up: derive via recommend.route / Spec
-# 188 suggest_drill so the surface is discovered, not memorized (the
-# command-prefix matcher differs from token overlap — its own slice).
+# 188 suggest_drill so the surface is discovered, not memorized.
 _RAW_ROUTES: list[tuple] = [
     (lambda t, tin: t == "Bash"
         and str(tin.get("command") or "").strip().startswith("git commit"),
      "branch.commit_smart",
-     "commit through the verb — records the Artefact + provenance"),
+     "compose a conventional-commit message via the verb (then commit with it)",
+     False),
     (lambda t, tin: t == "Bash"
         and str(tin.get("command") or "").strip().startswith("git push"),
-     "branch.finish", "push + open the PR through the verb"),
+     "branch.finish", "finish the branch (merge/pr) through the verb when done",
+     False),
     (lambda t, tin: t in ("Grep", "Glob"),
-     "@search", "discover capabilities + code via the agency search surface"),
-    (lambda t, tin: t in ("Task", "Agent"),
-     "subagent.develop", "dispatch a subagent through the verb — records the sub-intent"),
+     "@search", "discover capabilities + code via the agency search surface",
+     True),
     (lambda t, tin: t in ("Write", "Edit")
         and bool(_SPEC_MD_RE.search(str(tin.get("file_path") or ""))),
-     "dogfood.note", "record a spec observation instead of hand-editing the file"),
+     "dogfood.note", "record a spec observation instead of hand-editing the file",
+     True),
 ]
-# The guard's inventory of every emittable target (verb, why).
-_ALL_SUGGESTIONS: list[tuple[str, str]] = [(v, w) for _p, v, w in _RAW_ROUTES]
+# The guard's inventory of every SUGGESTED target (verb, why).
+_ALL_SUGGESTIONS: list[tuple[str, str]] = [(v, w) for _p, v, w, s in _RAW_ROUTES if s]
 
 
 def _route_for(tool: str, tool_input: dict):
     """The first `_RAW_ROUTES` row whose predicate matches → `(verb, why)`, or
-    None. The single matcher behind both the shadow and the suggestion."""
-    for pred, verb, why in _RAW_ROUTES:
+    None. Used by the BoundaryUse SHADOW (provenance — any matching route)."""
+    for pred, verb, why, _suggest in _RAW_ROUTES:
         if pred(tool, tool_input or {}):
             return verb, why
     return None
@@ -176,10 +184,14 @@ def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
 
 def _suggest_mcp_calls(event: dict) -> list[tuple[str, str]]:
     """Spec 195 Slice 2 — the agency MCP call a raw tool should use INSTEAD,
-    read from the shared `_RAW_ROUTES` table (advisory; covers read tools too)."""
-    route = _route_for((event or {}).get("tool_name") or "",
-                       (event or {}).get("tool_input") or {})
-    return [route] if route is not None else []
+    from `_RAW_ROUTES`. Only `suggest=True` rows are emitted (true effect-
+    equivalents whose args are known up-front — Codex review #154)."""
+    tool = (event or {}).get("tool_name") or ""
+    tin = (event or {}).get("tool_input") or {}
+    for pred, verb, why, suggest in _RAW_ROUTES:
+        if suggest and pred(tool, tin):
+            return [(verb, why)]
+    return []
 
 
 def _ann_to_json_type(annotation) -> str:
@@ -235,6 +247,12 @@ def _verb_input_schema(engine, cap: str, verb: str) -> dict | None:
         props[name] = {"type": _ann_to_json_type(p.annotation)}
         if p.default is inspect.Parameter.empty:
             required.append(name)
+    # The wire auto-injects intent_id from AGENCY_INTENT, but when that env var
+    # is unset (or the agent must target a specific intent) the call hits the
+    # SERVES guard. Surface intent_id as an OPTIONAL param so the agent can pass
+    # it (Codex review #154); it stays out of `required` (the env default wins).
+    props["intent_id"] = {"type": "string",
+                          "description": "optional — defaults from AGENCY_INTENT"}
     return {"type": "object", "properties": props, "required": required}
 
 
