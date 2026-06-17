@@ -166,10 +166,13 @@ def _imports(tree: ast.AST, current_module: str,
     return out
 
 
-def _build_graph(root: str) -> tuple[dict[str, set[str]], dict[str, str]]:
-    """Return (graph: module → imports, mod_to_path: module → file)."""
+def _build_graph(root: str) -> tuple[dict[str, set[str]], dict[str, str], dict[str, str]]:
+    """Return (graph: module → imports, mod_to_path: module → file,
+    src_by_path: file → source). The source is returned so ``scan`` runs its
+    size checks on the SAME read — no second walk/read of the tree."""
     graph: dict[str, set[str]] = {}
     mod_to_path: dict[str, str] = {}
+    src_by_path: dict[str, str] = {}
     # The root package name lets _imports resolve absolute intra-tree
     # imports (e.g. `from agency.foo import bar`) against the same dotted
     # naming the SCC walker uses.
@@ -178,15 +181,16 @@ def _build_graph(root: str) -> tuple[dict[str, set[str]], dict[str, str]]:
         src = _read(path)
         if src is None:
             continue
+        src_by_path[path] = src
         try:
             tree = ast.parse(src, filename=path)
         except SyntaxError:
-            continue
+            continue       # unparseable — still size-checked via src_by_path
         mod = _module_name(root, path)
         mod_to_path[mod] = path
         is_init = os.path.basename(path) == "__init__.py"
         graph[mod] = _imports(tree, mod, root_pkg=root_pkg, is_init=is_init)
-    return graph, mod_to_path
+    return graph, mod_to_path, src_by_path
 
 
 def _scc_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
@@ -362,15 +366,12 @@ def _check_file_size(path: str, src: str) -> list[Finding]:
 
 def scan(root: str) -> list[Finding]:
     findings: list[Finding] = []
-    # Cycles + structural metrics run once over the import graph.
-    graph, mod_to_path = _build_graph(root)
+    # Cycles + structural metrics run once over the import graph. `_build_graph`
+    # already read every source; reuse it for the size checks (no second read).
+    graph, mod_to_path, src_by_path = _build_graph(root)
     findings.extend(_check_cycles(graph, mod_to_path))
-    # Per-file size walks (also collect LOC for the A006 god-module check).
     loc_by_path: dict[str, int] = {}
-    for path in _python_files(root):
-        src = _read(path)
-        if src is None:
-            continue
+    for path, src in src_by_path.items():
         loc_by_path[path] = src.count("\n") + (0 if src.endswith("\n") else 1)
         findings.extend(_check_file_size(path, src))
     findings.extend(_check_structure(graph, mod_to_path, loc_by_path))

@@ -236,13 +236,18 @@ should be an MCP call, return the MCP functions + schema").** Spec 195 Slice 1's
 `_verb_shadow_for` flagged "Slice 2 derives this from the live registry"; this
 delivers it as a returning suggestion:
 
-- **`_suggest_mcp_calls(event)`** (`agency/engine.py`) maps a raw tool +
-  payload to the agency capability call(s) that should be used instead — incl.
-  read tools (advisory, unlike the mutating-only BoundaryUse): Bash `git commit`
-  → `branch.commit_smart`, `git push` → `branch.finish_branch`, `pytest` →
-  `develop.test`; Grep/Glob → `mcp__agency__search`; WebFetch/WebSearch →
-  `research.fetch`; Task → `subagent.dispatch`; Write/Edit on a spec.md →
-  `dogfood.observe`.
+- **One shared `_RAW_ROUTES` table** (`agency/engine.py`) maps a raw tool +
+  payload to the agency call — read by BOTH `_verb_shadow_for` (the Slice-1
+  BoundaryUse shadow) and `_suggest_mcp_calls` (the Slice-2 suggestion) so they
+  cannot drift (the /simplify review caught the prior two-table duplication).
+  Live, registry-resolved targets (advisory; read tools included): Bash
+  `git commit` → `branch.commit_smart`, `git push` → `branch.finish`; Grep/Glob
+  → `mcp__agency__search`; Task/Agent → `subagent.develop`; Write/Edit on a
+  spec.md → `dogfood.note`. (A test-runner and a URL-fetch route are
+  deliberately omitted — no `develop.test` / `research.fetch` verb exists yet;
+  pointing at a fiction would be dormant surface. Follow-up
+  `# AGENCY-DRIFT: raw-tool-routes`: derive via `recommend.route` once a
+  command-prefix matcher exists.)
 - **`_verb_input_schema(engine, cap, verb)`** derives the call's JSON schema
   from the LIVE registry verb signature (intent_id/agent_id omitted — auto-
   injected); substrate tools (`mcp__agency__search`) carry an explicit schema.

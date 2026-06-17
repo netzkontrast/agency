@@ -17,6 +17,7 @@ list (e.g. `client`, `caps`) are supplied by the engine, not the caller.
 from __future__ import annotations
 
 import inspect
+import re
 from contextlib import asynccontextmanager
 
 from fastmcp import Context, FastMCP
@@ -110,94 +111,98 @@ def _capability_tier(registry) -> list:
     return tier
 
 
-def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
-    """Spec 195 Slice 1 — derive the capability verb a raw tool call
-    BYPASSED, plus a short argument summary for the BoundaryUse node.
+_SPEC_MD_RE = re.compile(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$")
 
-    Hard-coded routing for the most common bypass patterns (mirrors the
-    Spec 280 dispatcher advisory hints). Slice 2 derives this from the
-    live registry via Spec 188 `suggest_drill`."""
+# ONE source of truth for raw-tool → agency-verb routing, read by BOTH the
+# BoundaryUse shadow (Slice 1 provenance, mutating tools) AND the PreToolUse
+# suggestion (Slice 2 live nudge, all tools) so the two cannot drift. Each row:
+# (predicate(tool, tool_input) -> bool, verb, why); `@<name>` denotes a
+# substrate tool. EVERY verb MUST resolve to a live MCP tool —
+# `test_every_suggestion_resolves_to_a_live_verb` iterates this table as the
+# dormant-surface guard (CLAUDE.md). Targets without a real verb yet (a
+# test-runner, a URL fetch) are deliberately omitted, not pointed at a fiction.
+# AGENCY-DRIFT: raw-tool-routes — follow-up: derive via recommend.route / Spec
+# 188 suggest_drill so the surface is discovered, not memorized (the
+# command-prefix matcher differs from token overlap — its own slice).
+_RAW_ROUTES: list[tuple] = [
+    (lambda t, tin: t == "Bash"
+        and str(tin.get("command") or "").strip().startswith("git commit"),
+     "branch.commit_smart",
+     "commit through the verb — records the Artefact + provenance"),
+    (lambda t, tin: t == "Bash"
+        and str(tin.get("command") or "").strip().startswith("git push"),
+     "branch.finish", "push + open the PR through the verb"),
+    (lambda t, tin: t in ("Grep", "Glob"),
+     "@search", "discover capabilities + code via the agency search surface"),
+    (lambda t, tin: t in ("Task", "Agent"),
+     "subagent.develop", "dispatch a subagent through the verb — records the sub-intent"),
+    (lambda t, tin: t in ("Write", "Edit")
+        and bool(_SPEC_MD_RE.search(str(tin.get("file_path") or ""))),
+     "dogfood.note", "record a spec observation instead of hand-editing the file"),
+]
+# The guard's inventory of every emittable target (verb, why).
+_ALL_SUGGESTIONS: list[tuple[str, str]] = [(v, w) for _p, v, w in _RAW_ROUTES]
+
+
+def _route_for(tool: str, tool_input: dict):
+    """The first `_RAW_ROUTES` row whose predicate matches → `(verb, why)`, or
+    None. The single matcher behind both the shadow and the suggestion."""
+    for pred, verb, why in _RAW_ROUTES:
+        if pred(tool, tool_input or {}):
+            return verb, why
+    return None
+
+
+def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
+    """Spec 195 Slice 1 — the capability verb a raw MUTATING tool call BYPASSED
+    (for the BoundaryUse node) + a short argument summary. Reads the shared
+    `_RAW_ROUTES` table; falls back to a generic shell.run / capability_verb_for
+    shadow for an unmatched mutating tool. Only Write/Edit/Bash reach here (see
+    `_default_hook_handler`)."""
+    route = _route_for(tool, payload)
     if tool == "Bash":
         cmd = str(payload.get("command") or "").strip()
+        if route is not None:
+            return route[0], cmd[:200]
         head = cmd.split()[0] if cmd else ""
-        if cmd.startswith("git commit"):
-            return "branch.commit_smart", cmd[:200]
-        if cmd.startswith("git push"):
-            return "branch.finish", cmd[:200]
-        # NB: no dedicated test-runner verb exists; the truthful shadow is to
-        # run the command under provenance via shell.run (not a fictional
-        # `develop.test`). Falls through to the generic shell.run shadow below.
         return f"shell.run({head!r})", cmd[:200]
     if tool in ("Write", "Edit"):
-        import re as _re
         path = str(payload.get("file_path") or "")
-        if _re.search(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$", path):
-            return "dogfood.note", path[:200]
+        if route is not None:
+            return route[0], path[:200]
         return f"capability_verb_for({path!r})", path[:200]
     return "", ""
 
 
-# Spec 195 Slice 2 — raw tool → the agency MCP call that should be used instead.
-# Unlike the BoundaryUse shadow (mutating-only, moat-provenance), the SUGGESTION
-# is advisory and covers read tools too: when a hook fires and the plugin detects
-# the action has a capability equivalent, the PreToolUse handler returns the MCP
-# function(s) + their schema so the agent calls the verb (Goal 2 — dogfood the
-# moat). Each entry is `(suggestion, why)`; `@<name>` denotes a substrate tool.
-# Every suggestion target this handler can emit, keyed for readability. Each
-# value is `(suggestion, why)`; `@<name>` denotes a substrate tool. EVERY target
-# MUST resolve to a live MCP tool — `test_every_suggestion_resolves_to_a_live_verb`
-# iterates this table as the dormant-surface guard (CLAUDE.md "Dormant-surface
-# audit"). Targets without a real verb yet (a test-runner, a URL fetch) are
-# deliberately NOT listed rather than pointing at a fiction.
-_SUGGESTIONS: dict[str, tuple[str, str]] = {
-    "commit":   ("branch.commit_smart",
-                 "commit through the verb — records the Artefact + provenance"),
-    "push":     ("branch.finish",
-                 "push + open the PR through the verb"),
-    "search":   ("@search",
-                 "discover capabilities + code via the agency search surface"),
-    "subagent": ("subagent.develop",
-                 "dispatch a subagent through the verb — records the sub-intent"),
-    "observe":  ("dogfood.note",
-                 "record a spec observation instead of hand-editing the file"),
-}
-_ALL_SUGGESTIONS: list[tuple[str, str]] = list(_SUGGESTIONS.values())
-
-
 def _suggest_mcp_calls(event: dict) -> list[tuple[str, str]]:
-    tool = (event or {}).get("tool_name") or ""
-    tin = (event or {}).get("tool_input") or {}
-    if tool == "Bash":
-        cmd = str(tin.get("command") or "").strip()
-        if cmd.startswith("git commit"):
-            return [_SUGGESTIONS["commit"]]
-        if cmd.startswith("git push"):
-            return [_SUGGESTIONS["push"]]
-        return []
-    if tool in ("Grep", "Glob"):
-        return [_SUGGESTIONS["search"]]
-    if tool in ("Task", "Agent"):
-        return [_SUGGESTIONS["subagent"]]
-    if tool in ("Write", "Edit"):
-        import re as _re
-        path = str(tin.get("file_path") or "")
-        if _re.search(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$", path):
-            return [_SUGGESTIONS["observe"]]
-        return []
-    return []
+    """Spec 195 Slice 2 — the agency MCP call a raw tool should use INSTEAD,
+    read from the shared `_RAW_ROUTES` table (advisory; covers read tools too)."""
+    route = _route_for((event or {}).get("tool_name") or "",
+                       (event or {}).get("tool_input") or {})
+    return [route] if route is not None else []
 
 
 def _ann_to_json_type(annotation) -> str:
-    """Best-effort Python annotation → JSON-schema type for a verb param."""
+    """Best-effort Python annotation → JSON-schema type for a verb param.
+
+    Handles BOTH real types and STRING annotations: capability verbs use
+    `from __future__ import annotations`, so `inspect.signature` yields strings
+    ('str', 'dict', 'int | None'); comparing those against real type objects
+    would mistype every param as 'string' (the bug cli._ann_kind also guards)."""
     import typing
-    mapping = {str: "string", int: "integer", float: "number",
-               bool: "boolean", dict: "object", list: "array"}
-    if annotation in mapping:
-        return mapping[annotation]
+    name = (annotation if isinstance(annotation, str)
+            else getattr(annotation, "__name__", ""))
+    by_name = {"str": "string", "int": "integer", "float": "number",
+               "bool": "boolean", "dict": "object", "list": "array",
+               "Dict": "object", "List": "array"}
+    # A `str | None` string annotation starts with the base type name.
+    base = name.split("|", 1)[0].split("[", 1)[0].strip()
+    if base in by_name:
+        return by_name[base]
     origin = typing.get_origin(annotation)
-    if origin in (dict,):
+    if origin is dict:
         return "object"
-    if origin in (list,):
+    if origin is list:
         return "array"
     return "string"
 
@@ -233,25 +238,21 @@ def _verb_input_schema(engine, cap: str, verb: str) -> dict | None:
     return {"type": "object", "properties": props, "required": required}
 
 
-# Substrate-tool schemas (not capability verbs) — kept small + explicit.
-_SUBSTRATE_SCHEMAS: dict[str, tuple[str, dict]] = {
-    "@search": ("mcp__agency__search", {
+# Non-verb (substrate) targets resolve straight to `{mcp_tool, schema}`.
+_STATIC_SCHEMAS: dict[str, dict] = {
+    "@search": {"mcp_tool": "mcp__agency__search", "schema": {
         "type": "object",
         "properties": {"query": {"type": "string"},
                        "detail": {"type": "string",
                                   "enum": ["brief", "detailed", "full"]}},
-        "required": ["query"]}),
+        "required": ["query"]}},
 }
 
 
 def _resolve_mcp_suggestion(engine, suggestion: str) -> dict | None:
     """Resolve a `(cap.verb | @substrate)` suggestion to `{mcp_tool, schema}`."""
-    if suggestion.startswith("@"):
-        entry = _SUBSTRATE_SCHEMAS.get(suggestion)
-        if entry is None:
-            return None
-        mcp_tool, schema = entry
-        return {"mcp_tool": mcp_tool, "schema": schema}
+    if suggestion in _STATIC_SCHEMAS:
+        return _STATIC_SCHEMAS[suggestion]
     if "." not in suggestion:
         return None
     cap, verb = suggestion.split(".", 1)
