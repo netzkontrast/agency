@@ -37,6 +37,17 @@ class RecommendCapability(CapabilityBase):
     home = "capability"   # reads the registry to route a request
     ontology = OntologyExtension(nodes={"Recommendation": ["request", "capability"]})
 
+    def _usage_counts(self) -> dict:
+        """Per-capability invocation frequency from the provenance graph (Spec
+        298 follow-up) — how often each capability has actually been used. A
+        live signal read from the Invocation nodes, not a static weight."""
+        counts: dict = {}
+        for inv in self.ctx.find("Invocation"):
+            cap = inv.get("capability")
+            if cap:
+                counts[cap] = counts.get(cap, 0) + 1
+        return counts
+
     def _vocab(self) -> dict:
         """Per-capability token vocabulary from names + verbs + skills + gist."""
         vocab = {}
@@ -67,13 +78,18 @@ class RecommendCapability(CapabilityBase):
         own name best matches; records a ``Recommendation`` node SERVING the
         intent.
 
+        Scored capabilities are ranked by relevance first, then by graph usage
+        frequency (the follow-up signal): among equally-relevant capabilities,
+        the more-used one wins — the live provenance graph breaks ties.
+
         Inputs: request (str — what you want to do), top (int — how many).
         Returns: ``{request, top, recommendations: [{capability, verb, score,
-                   why}]}``.
+                   usage, why}]}``.
         chain_next: call the recommended ``capability.verb`` via execute.
         """
         req = _tokens(request)
         vocab = self._vocab()
+        usage = self._usage_counts()
         scored = []
         for cap_name, v in vocab.items():
             overlap = req & v["tokens"]
@@ -87,9 +103,10 @@ class RecommendCapability(CapabilityBase):
                     best_verb, best_n = vn, n
             why = (v["gist"].split(".")[0] or cap_name)[:100]
             scored.append({"capability": cap_name, "verb": best_verb,
-                           "score": len(overlap), "why": why,
-                           "_matched": sorted(overlap)})
-        scored.sort(key=lambda r: -r["score"])
+                           "score": len(overlap), "usage": usage.get(cap_name, 0),
+                           "why": why, "_matched": sorted(overlap)})
+        # relevance is primary; graph usage frequency breaks ties (Spec 298 f/u).
+        scored.sort(key=lambda r: (-r["score"], -r["usage"], r["capability"]))
         scored = scored[:top]
         top_cap = scored[0]["capability"] if scored else ""
         if top_cap:
