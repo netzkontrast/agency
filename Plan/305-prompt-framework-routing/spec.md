@@ -131,3 +131,22 @@ Done:
 
 Still: 306 functional profiles (`skilldoc`/`tool-desc`/`template`) +
 `role_padding` flag + `develop.optimize_skilldoc`.
+
+### Hardening pass (improvement pipeline, 2026-06-17)
+
+analyze (security/correctness/coverage) → panel.convene (debate) → implement → simplify:
+- `register_framework` now **fails fast**: an out-of-enum `intent_category`/
+  `complexity_tier`/`audience` returns `INVALID_ARGUMENT` (with the offending
+  fields) at register time instead of crashing later at `render` when the
+  `PromptFramework` node is recorded (`_invalid_enum_fields`).
+- `_detect_category` tie-break is now **deterministic** (highest score, ties by
+  category name) — same draft always routes the same way regardless of dict order.
+- `route_framework` docstring gained a **trigger-vocabulary overview** (which
+  words route to which intent) so an agent can phrase a draft / pick an
+  `intent_hint`; it points to `frameworks.json` as the live source (no drift).
+- New acceptance scenarios for previously-untested shipped behavior: register
+  fail-fast, overlay override of a vendored slug, functional `render` `[TODO]`
+  slots, `route_framework` alternates, `optimize_skilldoc` kind=`tool-desc`/
+  `template`. Deferred (panel verdict): path-traversal guards on
+  `overlay_path`/`target_ref` — acceptable for a local tool, matches the
+  existing `register_fragment` pattern; revisit if remote dispatch lands.

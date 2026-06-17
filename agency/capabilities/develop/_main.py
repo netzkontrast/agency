@@ -806,11 +806,12 @@ class DevelopCapability(CapabilityBase):
                 "status": evald.get("status"), "source": source, "kind": kind}
 
     def _resolve_doc_text(self, target_ref: str) -> tuple[str, str]:
-        """Resolve a ``target_ref`` to (text, source-label). A live capability
-        name → its authored module docstring (the Spec 080 grammar the SkillDoc
-        derives from — folder-form ``<name>._main`` or single-file ``<name>``);
-        an existing file path → its contents; else the ref is literal text.
-        Read-only — never writes."""
+        """Resolve a ``target_ref`` to (text, source-label), tried IN ORDER:
+        (1) a live capability name → its authored module docstring (the Spec 080
+        grammar the SkillDoc derives from — folder-form ``<name>._main`` or
+        single-file ``<name>``); (2) an existing file path → its contents;
+        (3) otherwise the ref is literal text. A capability name therefore wins
+        over a same-named file on disk. Read-only — never writes."""
         import importlib
         import inspect
         from pathlib import Path

@@ -136,3 +136,11 @@ Feature: develop capability — scaffolding, linting, authoring walk, discipline
   Scenario: optimize_skilldoc rejects an unknown kind
     When I optimize capability "recommend" with kind "bogus"
     Then the optimization result has an error
+
+  Scenario: optimize_skilldoc authors a tool-desc candidate
+    When I optimize capability "recommend" with kind "tool-desc"
+    Then the candidate carries the tool-desc grammar
+
+  Scenario: optimize_skilldoc authors a template candidate
+    When I optimize capability "recommend" with kind "template"
+    Then the candidate carries the template grammar

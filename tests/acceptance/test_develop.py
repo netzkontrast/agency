@@ -662,3 +662,31 @@ def _optimize_bad_kind(engine, confirmed_intent, cap, kind):
 @then("the optimization result has an error")
 def _opt_error(optimized):
     assert "error" in optimized
+
+
+# ── optimize_skilldoc functional kinds (improvement pass) ─────────────────────
+
+@when(parsers.parse('I optimize capability "{cap}" with kind "tool-desc"'),
+      target_fixture="optimized")
+def _optimize_tool_desc(engine, confirmed_intent, cap):
+    return _call(engine, confirmed_intent, "develop", "optimize_skilldoc",
+                 target_ref=cap, kind="tool-desc")
+
+
+@then("the candidate carries the tool-desc grammar")
+def _cand_tool_desc(optimized):
+    body = optimized["candidate"].upper()
+    assert "WHAT_IT_DOES:" in body and "INPUTS:" in body
+
+
+@when(parsers.parse('I optimize capability "{cap}" with kind "template"'),
+      target_fixture="optimized")
+def _optimize_template(engine, confirmed_intent, cap):
+    return _call(engine, confirmed_intent, "develop", "optimize_skilldoc",
+                 target_ref=cap, kind="template")
+
+
+@then("the candidate carries the template grammar")
+def _cand_template(optimized):
+    body = optimized["candidate"].upper()
+    assert "SLOTS:" in body and "INVARIANTS:" in body

@@ -1,0 +1,12 @@
+bad-cat:
+  audience: user
+  complexity_tier: medium
+  components: []
+  discriminators: []
+  full_name: Bad Cat
+  intent_category: nonsense
+  name: Bad Cat
+  slug: bad-cat
+  source_ref: overlay:bad-cat
+  template: 'X: [y]'
+  when_to_use: ''

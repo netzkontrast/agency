@@ -110,8 +110,26 @@ class FrameworksMixin:
         framework plus ≤ 1 alt, never the whole library.** Records a
         ``Recommendation`` node SERVING the intent (298 parity).
 
+        Trigger vocabulary — which words route to which intent (a SUMMARY so you
+        can phrase a draft or pick an ``intent_hint``; the live, authoritative
+        signals live in ``data/frameworks.json`` → ``intent_signals`` +
+        per-framework ``discriminators``):
+
+        - **recover**  ← "reverse engineer", "recover prompt", "what prompt produced"
+        - **clarify**  ← "not sure what I need", "help me figure out", "interview me"
+        - **create**   ← "write", "create", "draft", "generate", "build", "design"
+        - **transform**← "rewrite", "refactor", "improve", "summarize", "convert"
+        - **reason**   ← "calculate", "solve", "analyze", "compare options", "should I"
+        - **critique** ← "review", "stress test", "find flaws", "risks", "what could go wrong"
+        - **agentic**  ← "use tools", "search and", "run code", "query a database"
+
+        When a draft is ambiguous or the words straddle two intents, pass
+        ``intent_hint`` to pin the category; the discriminators then pick the
+        framework within it.
+
         Inputs: draft (str — the rough prompt/goal), intent_hint (str —
-                override category detection), top (int — ranked candidates).
+                override category detection), top (int — how many ALTERNATES to
+                return beyond the best; ``top=1`` ⇒ best + ≤ 1 alt).
         Returns: ``{intent, framework: {slug, name, complexity_tier},
                  alts: [...], rationale, scaffold}``.
         chain_next: ``prompt.render(framework_slug, fields)`` to fill it.
@@ -208,16 +226,25 @@ class FrameworksMixin:
 
         Inputs: slug (str), payload (dict — at minimum ``template``; any of
                 name/intent_category/complexity_tier/audience/components/
-                when_to_use/discriminators override the vendored defaults),
+                when_to_use/discriminators override the vendored defaults).
+                ``intent_category``/``complexity_tier``/``audience`` must be
+                valid ontology enum values (validated HERE so a bad overlay
+                fails fast, not later at ``render`` time when the
+                ``PromptFramework`` node is recorded).
                 overlay_path (str — defaults to the project overlay).
         Returns: ``{slug, name, intent_category, audience, overlay_path}`` OR
-                 ``{slug, error: 'INVALID_ARGUMENT'}`` when no template is given.
+                 ``{slug, error: 'INVALID_ARGUMENT', invalid: {...}}`` when the
+                 template is missing or an enum field is out of range.
         chain_next: ``prompt.framework(slug)`` to verify the round-trip.
         """
         if not isinstance(payload, dict) or not payload.get("template"):
             return ToolResult.success(data={
                 "slug": slug, "error": "INVALID_ARGUMENT"})
         entry = _normalise_framework(slug, payload)
+        invalid = _invalid_enum_fields(entry)
+        if invalid:
+            return ToolResult.success(data={
+                "slug": slug, "error": "INVALID_ARGUMENT", "invalid": invalid})
         path = overlay_path or _DEFAULT_FW_OVERLAY_PATH
         _write_overlay_framework(path, slug, entry)
         _load_frameworks.cache_clear()
@@ -257,7 +284,9 @@ def _detect_category(draft: str) -> str:
                  if kw and kw.lower() in low)
         for cat, discs in agg.items()
     }
-    best = max(scores, key=lambda c: scores[c]) if scores else "create"
+    # Deterministic tie-break: highest score, ties broken by category name —
+    # so the same draft always routes the same way regardless of dict order.
+    best = max(scores, key=lambda c: (scores[c], c)) if scores else "create"
     return best if scores.get(best, 0) > 0 else "create"
 
 
@@ -295,6 +324,21 @@ def _fill_template(entry: dict, fields: dict) -> str:
 
 
 # ─────────────────────────── framework loader (Spec 304 / 129 parity) ───────
+
+
+def _invalid_enum_fields(entry: dict) -> dict:
+    """Enum fields of a framework entry whose value is out of ontology range —
+    ``{field: bad_value}``. Empty dict ⇒ valid. Lets ``register_framework``
+    reject a bad overlay at write time instead of crashing at ``render`` time
+    (when the ``PromptFramework`` node would fail the enum check)."""
+    from ..ontology import AUDIENCE, COMPLEXITY_TIER, INTENT_CATEGORY
+    checks = {
+        "intent_category": INTENT_CATEGORY,
+        "complexity_tier": COMPLEXITY_TIER,
+        "audience": AUDIENCE,
+    }
+    return {f: entry[f] for f, allowed in checks.items()
+            if entry.get(f) not in allowed}
 
 
 def _normalise_framework(slug: str, payload: dict) -> dict:

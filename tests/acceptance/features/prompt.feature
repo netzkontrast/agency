@@ -261,3 +261,24 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
   Scenario: functional frameworks are held out of user routing
     When I list frameworks for every user intent category
     Then no functional framework slug appears in any candidate list
+
+  # ── Improvement pass (analyze→panel→implement) ────────────────────────────
+
+  Scenario: register_framework rejects an out-of-enum intent_category (fail-fast)
+    When I register a custom framework "bad-cat" with intent_category "nonsense"
+    Then the framework error is "INVALID_ARGUMENT"
+
+  Scenario: register_framework overlay overrides a vendored framework slug
+    When I register an override of vendored framework "co-star" named "Overridden CO-STAR"
+    And I look up framework "co-star"
+    Then the framework name is "Overridden CO-STAR"
+
+  Scenario: render marks unfilled functional slots with TODO
+    When I render framework "skilldoc" with only a use_when field
+    Then the rendered body fills the use_when slot
+    And the rendered body marks the red_flags slot as TODO
+
+  Scenario: route_framework returns populated alternates when more are requested
+    When I route the draft "Write a blog post about machine learning" asking for 2 alternates
+    Then the route alternates are populated
+    And each alternate has a slug and a name

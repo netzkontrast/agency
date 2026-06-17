@@ -910,3 +910,69 @@ def _no_functional_in_routing(all_candidates):
     assert functional, "expected at least one functional framework"
     for intent, slugs in all_candidates.items():
         assert not (functional & set(slugs)), f"{intent} leaked functional: {slugs}"
+
+
+# ── Improvement pass (analyze→panel→implement) ────────────────────────────────
+
+@when(parsers.parse('I register a custom framework "{slug}" with intent_category "{cat}"'),
+      target_fixture="fw")
+def _register_fw_bad_cat(engine, confirmed_intent, slug, cat):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "register_framework",
+                    slug=slug,
+                    payload={"name": "Bad Cat", "intent_category": cat,
+                             "template": "X: [y]"})
+    return res
+
+
+@when(parsers.parse('I register an override of vendored framework "{slug}" named "{name}"'),
+      target_fixture="reg_fw")
+def _register_override(engine, confirmed_intent, slug, name, tmp_path):
+    overlay = str(tmp_path / "fw-overlay.yaml")
+    res, _ = invoke(engine, confirmed_intent, "prompt", "register_framework",
+                    slug=slug,
+                    payload={"name": name, "intent_category": "create",
+                             "template": "CTX: [x]"},
+                    overlay_path=overlay)
+    from agency.capabilities.prompt import clusters
+    clusters.frameworks._DEFAULT_FW_OVERLAY_PATH = overlay
+    clusters.frameworks._load_frameworks.cache_clear()
+    return res
+
+
+@when("I render framework \"skilldoc\" with only a use_when field",
+      target_fixture="rendered_partial")
+def _render_partial_functional(engine, confirmed_intent):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "render",
+                    framework_slug="skilldoc",
+                    fields={"use_when": "routing a request to a verb"})
+    return res
+
+
+@then("the rendered body fills the use_when slot")
+def _partial_filled(rendered_partial):
+    assert "routing a request to a verb" in rendered_partial["result"]
+
+
+@then("the rendered body marks the red_flags slot as TODO")
+def _partial_todo(rendered_partial):
+    body = rendered_partial["result"]
+    assert "RED_FLAGS: [TODO]" in body
+
+
+@when(parsers.parse('I route the draft "{draft}" asking for 2 alternates'),
+      target_fixture="route")
+def _route_top2(engine, confirmed_intent, draft):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "route_framework",
+                    draft=draft, top=2)
+    return res
+
+
+@then("the route alternates are populated")
+def _alts_populated(route):
+    assert len(route["alts"]) > 0
+
+
+@then("each alternate has a slug and a name")
+def _alts_shape(route):
+    for a in route["alts"]:
+        assert a.get("slug") and a.get("name")
