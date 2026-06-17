@@ -45,3 +45,25 @@ Feature: manage capability — generic CRUD over every graph node type (Spec 293
     Given a managed "Document" node exists
     When I ask manage.timeline for the confirmed intent
     Then the timeline lists the create invocation
+
+  Scenario: whats_next surfaces the intent's acceptance as the next action
+    When I ask manage.whats_next for the confirmed intent
+    Then whats_next echoes the intent acceptance and lists at least one next action
+
+  Scenario: research_state groups leads with their citations
+    Given a research lead with one citation exists
+    When I ask manage.research_state
+    Then research_state totals report at least one lead and one citation
+    And research_state lists the lead as pending
+
+  Scenario: render projects the read-API as a markdown dashboard
+    Given a managed "Document" node exists
+    When I ask manage.render for the confirmed intent
+    Then the dashboard markdown has a heading and an open-intents section
+    And the dashboard echoes the intent acceptance and a next action
+
+  Scenario: project returns a query-ranked, token-budgeted slice of a label
+    Given five managed "Document" nodes exist
+    When I project "Document" matching "needle" under a tiny token budget
+    Then the projection is truncated under the budget
+    And the matching document ranks first in the projection

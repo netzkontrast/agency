@@ -1,7 +1,7 @@
 ---
 spec: 293
 title: memory-crud-management
-status: Partial (Slice 1 shipped)
+status: Shipped
 depends_on: [048, 286, 290]
 clusters: [memory, navigate]
 vision_goals: [2, 4]
@@ -56,13 +56,22 @@ ever destructively deleted.
   rollup), `open_intents` (live intents + SERVES subtree size), `timeline`
   (ordered Event + Invocation history), `artefacts` (produced-under an intent).
   Read + write now share one capability (the complete Memory pillar).
-- [ ] **Follow-up:** wire `manage.list`/`read` through `project(query, budget)`
-  for token-budgeted reads on large labels (Goal 1).
+- [x] **Follow-up:** `project(query, budget)` for token-budgeted reads on large
+  labels (Goal 1) — shipped 2026-06-17 as the additive `manage.project` verb.
 
-## Followup — Implementation Status (2026-06-16)
+## Followup — Implementation Status (2026-06-17)
 
 **Done.** `agency/capabilities/manage/` (`create`/`read`/`list`/`update`/
 `amend`/`retract`); `Memory.retract` + `ctx.supersede`/`ctx.retract`. 5
-acceptance scenarios; 54 substrate-invariant tests still green.
+acceptance scenarios; 54 substrate-invariant tests still green. The Spec 290
+read verbs are folded in (`state`/`open_intents`/`whats_next`/`research_state`/
+`artefacts`/`timeline`/`render`).
 
-**Still.** Token-budgeted projection wiring + folding the Spec 290 read verbs in.
+**Token-budgeted projection shipped (2026-06-17):** `manage.project(label,
+query, budget)` realizes the `project(query, budget)` primitive — ranks a
+label's live nodes by query overlap (recency breaks ties), then returns the
+highest-priority prefix that fits under `budget` tokens via the shared
+`budget_take` split + the Spec 082 `count_tokens` boundary. Added as an
+ADDITIVE read verb (existing `list`/`read` keep their behaviour — no truncation
+surprise for current callers); read-only invariant test extended to cover it.
++1 acceptance scenario (truncated-under-budget + query-match-ranks-first).

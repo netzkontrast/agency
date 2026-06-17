@@ -29,7 +29,7 @@ class NovelBase:
         (`agency/__main__.py` flips ``engine._novel_production = True``).
         Unit tests build a bare Engine without the flag and keep the typed
         ``DEPENDENCY_MISSING`` contract — bounded blast radius."""
-        return getattr(self.ctx.engine, "_novel_production", False) is True
+        return self.ctx.production_enabled("novel")
 
     def _autowire_novel_drivers(self) -> None:
         """Build ``production_drivers(NovelConfig.bootstrap())`` ONCE and

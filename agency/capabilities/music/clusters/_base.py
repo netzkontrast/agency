@@ -159,7 +159,7 @@ class _MusicBase(CapabilityBase):
         the driver-backed verbs keep their typed ``DEPENDENCY_MISSING`` contract
         (the enforcement blast-radius stays bounded; CLAUDE.md heuristic).
         """
-        return getattr(self.ctx.engine, "_music_production", False) is True
+        return self.ctx.production_enabled("music")
 
     def _autowire_music_drivers(self) -> None:
         """Build ``production_drivers(MusicConfig.bootstrap())`` ONCE and register

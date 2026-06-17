@@ -238,6 +238,100 @@ def _render_unified_diff(spec_path: str, *, before: str, after: str,
     return diff
 
 
+def _norm_heading(text: str) -> str:
+    """Normalise a heading/section name for tolerant matching:
+    ``## Done-When (if built)`` and ``Done When`` both → ``done when``."""
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def _find_section_bounds(lines: list, section: str):
+    """Locate ``## <section>`` in markdown ``lines`` (tolerant of case,
+    punctuation, and heading suffixes). Returns ``(heading_idx, end_idx)``
+    where ``end_idx`` is the next same-or-higher-level heading (or EOF), or
+    ``None`` when no heading matches — so the caller NEVER blind-writes."""
+    target = _norm_heading(section)
+    heading_re = re.compile(r"^(#{1,6})\s+(.*)$")
+    start = level = None
+    for i, line in enumerate(lines):
+        m = heading_re.match(line.rstrip("\n"))
+        if not m:
+            continue
+        if start is None:
+            if target and target in _norm_heading(m.group(2)):
+                start, level = i, len(m.group(1))
+            continue
+        # past the section heading — the section ends at the next heading of
+        # the same or a higher level (fewer/equal '#').
+        if len(m.group(1)) <= level:
+            return start, i
+    if start is None:
+        return None
+    return start, len(lines)
+
+
+def _format_bullet(section: str, after: str) -> str:
+    """A new bullet for an ``add-*`` op. ``after`` already authored as a bullet
+    (starts with ``-``/``*``) keeps its own marker; otherwise a checkbox bullet
+    is used for a Done-When section, a plain bullet elsewhere. A multi-line
+    ``after`` stays inside ONE list item: only the first line carries the
+    marker, continuation lines are indented (2 spaces) so they never land bare
+    at the list margin (self-review fix)."""
+    rows = after.rstrip("\n").split("\n")
+    first = rows[0]
+    if first.lstrip().startswith(("-", "*")):
+        head = first
+    elif "done" in _norm_heading(section):
+        head = f"- [ ] {first}"
+    else:
+        head = f"- {first}"
+    out = [head]
+    for ln in rows[1:]:
+        out.append(("  " + ln) if ln.strip() else ln)
+    return "\n".join(out) + "\n"
+
+
+def apply_amendment_to_text(text: str, *, section: str, op: str,
+                            before: str = "", after: str = "") -> str:
+    """Fold an amendment into a spec.md body, returning the NEW text — the
+    decidable live-write that closes Goal 6 (Spec 150). Pure: no I/O.
+
+    ``add-*`` appends a bullet at the end of the named section (before the
+    section's trailing blank lines / the next heading). ``edit-*`` replaces the
+    first line in the section containing ``before`` with ``after`` (indentation
+    preserved). Raises ``ValueError('amendment_no_section: …')`` when the
+    section heading is absent and ``amendment_before_absent`` when an ``edit``
+    target is not found — the spec file is never corrupted by a blind write."""
+    lines = text.splitlines(keepends=True)
+    bounds = _find_section_bounds(lines, section)
+    if bounds is None:
+        raise ValueError(
+            f"amendment_no_section: no heading matching '{section}' in the spec")
+    start, end = bounds
+    if op.startswith("add-"):
+        insert_at = end
+        while insert_at - 1 > start and lines[insert_at - 1].strip() == "":
+            insert_at -= 1
+        bullet = _format_bullet(section, after)
+        head = lines[:insert_at]
+        # Guard the EOF/no-trailing-newline case: the bullet must start on its
+        # own line, never fuse onto the section's last line (self-review fix).
+        if head and not head[-1].endswith("\n"):
+            head = head[:-1] + [head[-1] + "\n"]
+        return "".join(head + [bullet] + lines[insert_at:])
+    if op.startswith("edit-"):
+        needle = before.strip()
+        if not needle:
+            raise ValueError("amendment_before_absent: edit op needs `before`")
+        for i in range(start + 1, end):
+            if needle in lines[i]:
+                indent = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
+                lines[i] = f"{indent}{after.rstrip()}\n"
+                return "".join(lines)
+        raise ValueError(
+            f"amendment_before_absent: {before!r} not found in the section")
+    raise ValueError(f"amendment_unknown_op: {op!r}")
+
+
 from agency.capability import verb
 
 
@@ -467,5 +561,29 @@ class AmendmentMixin:
             self.ctx.link(art_id, rid, "PRODUCES_FROM")
         result: dict = {"diff": diff, "artefact_id": art_id,
                         "payload_hash": payload_hash}
-        # Live write is Slice 2; v1 records the Artefact + returns the diff.
+        # Live write (Spec 150 — closes Goal 6's fold-back loop). The
+        # confirm_token already matched the payload id-hash above; now fold the
+        # amendment into the spec file via the pure section-surgery helper and
+        # write it back. A section/edit-target miss raises (never blind-writes).
+        if not dry_run:
+            import pathlib
+            path = pathlib.Path(spec_path)
+            original = path.read_text(encoding="utf-8")
+            try:
+                new_text = apply_amendment_to_text(
+                    original,
+                    section=payload.get("section", ""),
+                    op=payload.get("op", ""),
+                    before=payload.get("before") or "",
+                    after=payload.get("after") or "")
+            except ValueError as exc:
+                raise RuntimeError(str(exc))
+            path.write_text(new_text, encoding="utf-8")
+            result["written_path"] = spec_path
+            # The recorded diff is now the REAL file change, not the synthetic
+            # preview — the Artefact's provenance matches what landed on disk.
+            result["diff"] = "".join(difflib.unified_diff(
+                original.splitlines(keepends=True),
+                new_text.splitlines(keepends=True),
+                fromfile=f"a/{spec_path}", tofile=f"b/{spec_path}"))
         return result

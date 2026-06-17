@@ -19,6 +19,7 @@ Command
 Culture
 DecisionRecord
 DocRevision
+DoctrineCitation
 Document
 Event
 Finding

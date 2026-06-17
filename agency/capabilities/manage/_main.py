@@ -23,6 +23,13 @@ import json
 
 from ...capability import CapabilityBase, verb
 from ...memory import OPEN as _OPEN  # the substrate's bi-temporal "currently-valid" sentinel
+from ..._overflow import budget_take  # Spec 286 P3 — shared priority-ordered token-budget split
+from ..._tokens import count_tokens   # Spec 082 — the one TokenCounter boundary
+
+
+def _query_tokens(text: str) -> set:
+    import re
+    return {t for t in re.split(r"[^a-z0-9]+", (text or "").lower()) if t}
 
 
 def _strip_temporal(props: dict) -> dict:
@@ -220,6 +227,215 @@ class ManageCapability(CapabilityBase):
         items.sort(key=lambda x: x["at"])
         return {"intent_id": for_intent_id, "count": len(items),
                 "timeline": items[:limit]}
+
+    @verb(role="act")
+    def project(self, label: str, query: str = "", budget: int = 2000) -> dict:
+        """PROJECT — a query-ranked, token-budgeted slice of a label's live nodes
+        (Spec 290/293: the `project(query, budget)` read primitive, Goal 1).
+
+        Ranks live ``label`` nodes by overlap with ``query`` (most-relevant
+        first; recency breaks ties), then returns the highest-priority prefix
+        that fits under ``budget`` tokens — a bounded delta, never a raw dump
+        (rule 2). Read-only; composes the shared ``budget_take`` split + the
+        Spec 082 token counter.
+
+        A budget smaller than the single highest-ranked row yields ``rows: []``
+        with ``truncated: True`` (the bounded-delta contract — the caller raises
+        the budget or reads the row by id); it never partial-writes a node.
+
+        Inputs: label (str — ontology label), query (str — optional relevance
+                terms), budget (int — max tokens of returned rows).
+        Returns: ``{label, query, budget, total, returned, returned_tokens,
+                   truncated, rows}``.
+        chain_next: manage.read(id) for one row's full state.
+        """
+        rows = [_strip_temporal(r) for r in self._live(self.ctx.find(label))]
+        qt = _query_tokens(query)
+        if qt:
+            def _overlap(r):
+                blob = " ".join(str(v) for v in r.values())
+                return len(qt & _query_tokens(blob))
+            rows.sort(key=lambda r: (-_overlap(r), -int(r.get("vfrom", 0) or 0)))
+        else:
+            rows.sort(key=lambda r: -int(r.get("vfrom", 0) or 0))
+
+        def _cost(r):
+            return count_tokens(json.dumps(r, default=str, sort_keys=True))
+
+        kept, skipped = budget_take(rows, _cost, budget)
+        returned_tokens = sum(_cost(r) for r in kept)
+        return {"label": label, "query": query, "budget": budget,
+                "total": len(rows), "returned": len(kept),
+                "returned_tokens": returned_tokens,
+                "truncated": bool(skipped), "rows": kept}
+
+    @verb(role="act")
+    def render(self, for_intent_id: str = "", top: int = 5) -> dict:
+        """RENDER the read-API as a compact markdown dashboard — the "where are
+        we" view, rule-2 graph→markdown on demand (Spec 290 Slice 2).
+
+        Composes ``state`` + ``open_intents`` (and, when an intent is named,
+        ``whats_next``) into one human-readable projection. Read-only: it calls
+        the sibling read verbs, never writes.
+
+        Inputs: for_intent_id (str — optional; adds the intent's next/blocked
+                section), top (int — open-intents rows to list).
+        Returns: ``{view, markdown}``.
+        chain_next: manage.timeline(intent_id) / manage.artefacts(intent_id).
+        """
+        st = self.state(for_intent_id=for_intent_id)
+        lc = st.get("lifecycles_by_state", {})
+        lc_line = ", ".join(f"{k}: {v}" for k, v in sorted(lc.items())) or "none"
+        lines = [
+            "# Agency Dashboard",
+            "",
+            f"**State:** {st['intents']} intents · {st['reflections']} "
+            f"reflections · {st['artefacts']} artefacts",
+            f"**Lifecycles:** {lc_line}",
+            "",
+            f"## Open intents (top {top})",
+        ]
+        opened = self.open_intents(top=top)
+        if opened["intents"]:
+            for i in opened["intents"]:
+                purpose = i.get("purpose", "") or "(no purpose)"
+                lines.append(f"- `{i['id']}` — {purpose} "
+                             f"(serves {i['serves_count']})")
+        else:
+            lines.append("- (none)")
+
+        if for_intent_id and self.ctx.recall_typed(for_intent_id, "Intent") is not None:
+            nxt = self.whats_next(for_intent_id=for_intent_id)
+            lines += ["", f"## Intent `{for_intent_id}`",
+                      f"**Acceptance:** {nxt.get('acceptance', '')}",
+                      f"**Status:** {nxt.get('status', '')} · "
+                      f"done: {nxt.get('done', False)}", "", "**Next:**"]
+            actions = nxt.get("next", [])
+            if actions:
+                for a in actions:
+                    lines.append(f"- {a.get('action') or a.get('phase') or a.get('state') or a}")
+            else:
+                lines.append("- (nothing pending)")
+            blocked = nxt.get("blocked", [])
+            if blocked:
+                lines.append("")
+                lines.append("**Blocked:**")
+                for b in blocked:
+                    lines.append(f"- {b.get('name') or b.get('state') or b.get('kind')}")
+        return {"view": "dashboard", "markdown": "\n".join(lines)}
+
+    @verb(role="act")
+    def whats_next(self, for_intent_id: str) -> dict:
+        """WHATS-NEXT — blocked items + the next actions against an intent's
+        acceptance (Spec 290, Lifecycle pillar; the navigate core).
+
+        Reads the Lifecycles + Gates serving the intent: anything awaiting
+        input/auth or failed (or an explicit ``BLOCKED_ON`` dependency) is
+        ``blocked``; anything still submitted/working is in flight; with
+        neither and the acceptance unmet, the acceptance itself is surfaced as
+        the next action.
+
+        Inputs: for_intent_id (str — the Intent id).
+        Returns: ``{intent_id, acceptance, status, done, blocked, next}``.
+        chain_next: manage.timeline(intent_id) for the full event order.
+        """
+        intent = self.ctx.recall_typed(for_intent_id, "Intent")
+        if intent is None:
+            return {"error": f"{for_intent_id!r} is not an Intent id",
+                    "intent_id": for_intent_id, "blocked": [], "next": []}
+        lifecycles = self._live(self.ctx.nodes_serving(for_intent_id, "Lifecycle"))
+        gates = self._live(self.ctx.nodes_serving(for_intent_id, "Gate"))
+
+        blocked_states = {"input-required", "auth-required", "failed"}
+        active_states = {"submitted", "working"}
+        done_states = {"completed", "canceled"}
+
+        blocked: list = []
+        for lc in lifecycles:
+            if lc.get("state") in blocked_states:
+                blocked.append({"kind": "lifecycle", "id": lc.get("id"),
+                                "state": lc.get("state"), "phase": lc.get("phase", "")})
+        for g in gates:
+            if not g.get("passed"):
+                blocked.append({"kind": "gate", "id": g.get("id"),
+                                "name": g.get("name", "")})
+        for dep in self.ctx.neighbors(for_intent_id, "BLOCKED_ON", direction="out"):
+            blocked.append({"kind": "dependency", "id": dep.get("id")})
+
+        nxt: list = []
+        for lc in lifecycles:
+            if lc.get("state") in active_states:
+                nxt.append({"kind": "lifecycle", "id": lc.get("id"),
+                            "state": lc.get("state"), "phase": lc.get("phase", "")})
+
+        done = intent.get("status") in done_states or (
+            bool(lifecycles) and all(lc.get("state") in done_states for lc in lifecycles))
+
+        if not nxt and not done:
+            acc = intent.get("acceptance", "")
+            nxt.append({"kind": "acceptance",
+                        "action": f"satisfy acceptance: {acc}" if acc
+                        else "define acceptance for this intent"})
+
+        return {"intent_id": for_intent_id,
+                "acceptance": intent.get("acceptance", ""),
+                "status": intent.get("status", ""),
+                "done": done, "blocked": blocked, "next": nxt}
+
+    @verb(role="act")
+    def research_state(self, domain: str = "", top: int = 20) -> dict:
+        """RESEARCH-STATE — open research leads with their claims, citations and
+        verification status, grouped (Spec 290, Memory pillar).
+
+        Composes the research sub-graph (`Research` · `ResearchClaim` ·
+        `Citation` · `Verification`) into one rollup. ``pending`` lists leads
+        not yet ``ready``/``published`` — the verifications still owed.
+
+        Inputs: domain (str — optional case-insensitive filter on a lead's
+                question; scopes the children too), top (int — leads returned).
+        Returns: ``{domain, totals, leads: [{research_id, question, status,
+                   claims, citations, verifications}], pending}``.
+        chain_next: manage.read(research_id) for one lead's full props.
+        """
+        leads = self._live(self.ctx.find("Research"))
+        if domain:
+            d = domain.lower()
+            leads = [r for r in leads if d in r.get("question", "").lower()]
+        claims = self._live(self.ctx.find("ResearchClaim"))
+        citations = self._live(self.ctx.find("Citation"))
+        verifications = self._live(self.ctx.find("Verification"))
+
+        if domain:
+            lead_ids = {lead["id"] for lead in leads}
+            claims = [c for c in claims if c.get("research_id") in lead_ids]
+            citations = [c for c in citations if c.get("research_id") in lead_ids]
+            verifications = [v for v in verifications if v.get("research_id") in lead_ids]
+
+        def _for(rid, rows):
+            return [r for r in rows if r.get("research_id") == rid]
+
+        done_statuses = {"ready", "published"}
+        rows: list = []
+        pending: list = []
+        for lead in leads:
+            rid = lead["id"]
+            status = lead.get("status", "")
+            vsummary: dict = {}
+            for v in _for(rid, verifications):
+                st = v.get("status", "?")
+                vsummary[st] = vsummary.get(st, 0) + 1
+            rows.append({"research_id": rid, "question": lead.get("question", ""),
+                         "status": status, "claims": len(_for(rid, claims)),
+                         "citations": len(_for(rid, citations)),
+                         "verifications": vsummary})
+            if status not in done_statuses:
+                pending.append(rid)
+        rows.sort(key=lambda r: r["citations"], reverse=True)
+        return {"domain": domain,
+                "totals": {"leads": len(leads), "claims": len(claims),
+                           "citations": len(citations),
+                           "verifications": len(verifications)},
+                "leads": rows[:top], "pending": pending}
 
     @verb(role="act")
     def artefacts(self, for_intent_id: str) -> dict:

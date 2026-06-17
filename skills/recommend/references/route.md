@@ -11,7 +11,7 @@ Recommend the capability + verb best matched to a free-text ``request`` (Spec 29
 
 ## Returns
 
-``{request, top, recommendations: [{capability, verb, score, why}]}``.
+``{request, top, recommendations: [{capability, verb, score, usage, why}]}``.
 
 ## Chain-next
 
@@ -19,7 +19,7 @@ call the recommended ``capability.verb`` via execute.
 
 ## Details
 
-Scores every live capability by token overlap between the request and its (name + verbs + skills + gist) vocabulary; suggests the verb whose own name best matches; records a ``Recommendation`` node SERVING the intent.
+Scores every live capability by token overlap between the request and its (name + verbs + skills + gist) vocabulary; suggests the verb whose own name best matches; records a ``Recommendation`` node SERVING the intent. Scored capabilities are ranked by relevance first, then by graph usage frequency (the follow-up signal): among equally-relevant capabilities, the more-used one wins — the live provenance graph breaks ties.
 
 ## Example
 

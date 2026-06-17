@@ -1,7 +1,7 @@
 ---
 spec: 303
 title: doctrine-capability
-status: Drafted (spec only — the last SuperClaude port aspect)
+status: Shipped
 depends_on: [294, 295, 299, 301]
 clusters: [thinking, develop]
 vision_goals: [4]
@@ -68,11 +68,49 @@ it as dormant surface would be the over-engineering `/simplify` warns against.
 
 ## Done-When (if built)
 
-- [ ] `doctrine.principles`/`rules`/`resolve`/`cite` + a `DoctrineCitation` node.
-- [ ] A **real caller**: `gate.check` (or `develop`) consults `doctrine.resolve`
-  on a conflicting decision — no dormant surface.
-- [ ] Acceptance scenarios (priority filter, conflict resolution, citation
-  provenance).
+- [x] `doctrine.principles`/`rules`/`resolve`/`cite` + a `DoctrineCitation` node.
+- [x] A **real caller**: `gate.adjudicate(a, b)` consults `doctrine.resolve` on a
+  conflicting decision (recording a `doctrine.resolve` Invocation that SERVES
+  the intent) — no dormant surface.
+- [x] Acceptance scenarios (priority filter, conflict resolution, citation
+  provenance, gate-adjudication integration).
+
+## Followup — Implementation Status (2026-06-17)
+
+- **Status: Shipped.** Built behind the spec-panel gate (a real consumer
+  exists), so this is not the dormant surface `/simplify` warns against.
+
+**Done (`agency/capabilities/doctrine/_main.py`):**
+- `principles()` — 5-entry engineering-principles roster (SOLID, evidence-based,
+  task-first, context-awareness, derive-dont-duplicate).
+- `rules(priority="")` — 7 behavioral rules with the SuperClaude priority system
+  (critical/important/recommended), each carrying its hierarchy `category` +
+  `triggers`; filterable by priority.
+- `resolve(a, b)` — the conflict-resolution hierarchy (the highest-leverage part
+  per the Meadows lens): classifies each concern (rule name / category /
+  free-text like "ship fast") into `safety > correctness > maintainability >
+  speed` and names the winner; equal categories → `tie` (caller decides).
+- `cite(name, rationale="")` — records a `DoctrineCitation` node SERVING the
+  intent (provenance); rejects an unknown principle/rule by naming it.
+- `DoctrineCitation` ontology node (`["name"]` required) registered via
+  `OntologyExtension`.
+
+**Real caller (non-dormancy gate satisfied):** `gate.adjudicate(a, b,
+lifecycle_id="")` in `agency/capabilities/gate/_main.py` delegates to
+`doctrine.resolve` via `ctx.call` — recording a `doctrine.resolve` Invocation
+that SERVES the intent — and persists the verdict as a Gate node. The
+acceptance suite asserts that Invocation is recorded (proving the surface is
+exercised by a non-test consumer).
+
+**Tests** — `tests/acceptance/features/doctrine.feature` (7 scenarios) +
+`tests/acceptance/test_doctrine.py`: roster lookup, priority filter, hierarchy
+resolution, citation provenance, unknown-name rejection, and the gate→doctrine
+integration. The doctrine config is a small named/overridable set (like `mode`'s
+`_MODES`), not a frozen snapshot of live state — rule 8 compliant.
+
+**Decisions:** the spec's draft named `gate.check` as the consumer; shipped as a
+dedicated `gate.adjudicate` verb instead (additive, non-invasive — `gate.check`'s
+subtle SUPERSEDED_BY-chain guard stays untouched).
 
 ## Audit conclusion (the goal's answer)
 

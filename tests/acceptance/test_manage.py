@@ -128,11 +128,143 @@ def _timeline_invocation(timeline_result):
                for it in timeline_result["timeline"]), timeline_result
 
 
+# ── Spec 290 read-API completion: whats_next + research_state ─────────────────
+
+@when("I ask manage.whats_next for the confirmed intent", target_fixture="next_result")
+def _whats_next(engine, confirmed_intent):
+    return _m(engine, confirmed_intent, "whats_next", for_intent_id=confirmed_intent)
+
+
+@then("whats_next echoes the intent acceptance and lists at least one next action")
+def _whats_next_acceptance(next_result):
+    assert next_result["acceptance"] == "verified", next_result
+    assert next_result["done"] is False, next_result
+    assert len(next_result["next"]) >= 1, next_result
+
+
+@given("a research lead with one citation exists", target_fixture="research_ids")
+def _research_lead(engine, confirmed_intent):
+    lead = _m(engine, confirmed_intent, "create", label="Research",
+              props={"question": "what is the state of X", "depth": "standard",
+                     "started_at": 0, "status": "planning"})
+    rid = lead["id"]
+    _m(engine, confirmed_intent, "create", label="Citation",
+       props={"source_kind": "codebase", "source_url_or_path": "agency/x.py",
+              "evidence_text": "found", "confidence": 0.5,
+              "claim_supported": "X holds", "research_id": rid})
+    return {"research_id": rid}
+
+
+@when("I ask manage.research_state", target_fixture="research_state_result")
+def _research_state(engine, confirmed_intent, research_ids):
+    return _m(engine, confirmed_intent, "research_state")
+
+
+@then("research_state totals report at least one lead and one citation")
+def _research_totals(research_state_result):
+    t = research_state_result["totals"]
+    assert t["leads"] >= 1 and t["citations"] >= 1, research_state_result
+
+
+@then("research_state lists the lead as pending")
+def _research_pending(research_state_result, research_ids):
+    assert research_ids["research_id"] in research_state_result["pending"], \
+        research_state_result
+
+
 # ── wire-schema regression (Spec 293): dict params must cross the MCP wire ─────
 # The acceptance scenarios above use the in-process registry path, which bypasses
 # the wire schema. This guards the bug the CLI system test caught: a `props`
 # param with no type annotation was typed as STRING on the wire, so a dict was
 # rejected. Exercises build_mcp's per-verb schema directly.
+
+# ── Spec 290 Slice 2: the markdown dashboard projection (rule 2) ─────────────
+
+@when("I ask manage.render for the confirmed intent", target_fixture="render_result")
+def _render(engine, confirmed_intent, managed_id):
+    return _m(engine, confirmed_intent, "render", for_intent_id=confirmed_intent)
+
+
+@then("the dashboard markdown has a heading and an open-intents section")
+def _render_structure(render_result):
+    md = render_result["markdown"]
+    assert md.lstrip().startswith("#"), render_result
+    assert "Open intents" in md, md
+    assert render_result["view"] == "dashboard", render_result
+
+
+@then("the dashboard echoes the intent acceptance and a next action")
+def _render_intent(render_result):
+    md = render_result["markdown"]
+    assert "verified" in md, md          # the confirmed intent's acceptance
+    assert "Next" in md, md
+
+
+# ── Spec 290/293: project(query, budget) — the token-budgeted read primitive ──
+
+@given('five managed "Document" nodes exist', target_fixture="projected_ids")
+def _five_docs(engine, confirmed_intent):
+    ids = []
+    for i in range(4):
+        r = _m(engine, confirmed_intent, "create", label="Document",
+               props={"path": f"/hay-{i}.md", "content_sha": f"sha{i}"})
+        ids.append(r["id"])
+    # the needle: a document whose path carries the query term
+    r = _m(engine, confirmed_intent, "create", label="Document",
+           props={"path": "/needle.md", "content_sha": "deadbeef"})
+    ids.append(r["id"])
+    return {"needle": r["id"], "all": ids}
+
+
+@when(parsers.parse('I project "{label}" matching "{query}" under a tiny token budget'),
+      target_fixture="project_result")
+def _project(engine, confirmed_intent, projected_ids, label, query):
+    return _m(engine, confirmed_intent, "project", label=label, query=query, budget=40)
+
+
+@then("the projection is truncated under the budget")
+def _project_truncated(project_result):
+    assert project_result["truncated"] is True, project_result
+    assert project_result["returned"] < project_result["total"], project_result
+    assert project_result["returned_tokens"] <= project_result["budget"], project_result
+
+
+@then("the matching document ranks first in the projection")
+def _project_ranks(project_result):
+    rows = project_result["rows"]
+    assert rows, project_result
+    assert "needle" in rows[0].get("path", ""), rows[0]
+
+
+# ── Spec 290 invariant: the read-API is read-only ────────────────────────────
+# Invoking any read verb records an Invocation (the provenance moat) but must add
+# NO domain node — it reads the graph, never mutates it. Asserted against the
+# live domain labels the read-suite touches, not a frozen total (rule 8).
+
+def test_manage_read_api_adds_no_domain_node(engine):
+    from conftest import invoke
+
+    iid = engine.intent.capture("p", "d", "a")
+    engine.intent.confirm(iid)
+
+    domain_labels = ("Intent", "Lifecycle", "Gate", "Research", "Citation",
+                     "ResearchClaim", "Verification", "Artefact", "Reflection")
+
+    def census():
+        return {lbl: len(engine.memory.find(lbl)) for lbl in domain_labels}
+
+    before = census()
+    for verb, kw in (("whats_next", {"for_intent_id": iid}),
+                     ("research_state", {}),
+                     ("state", {"for_intent_id": iid}),
+                     ("open_intents", {}),
+                     ("timeline", {"for_intent_id": iid}),
+                     ("artefacts", {"for_intent_id": iid}),
+                     ("render", {"for_intent_id": iid}),
+                     ("project", {"label": "Intent"})):
+        invoke(engine, iid, "manage", verb, agent_id="agent:test", **kw)
+    assert census() == before
+
 
 def test_manage_create_accepts_a_dict_props_through_the_wire(engine):
     from conftest import call_tool

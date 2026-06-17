@@ -215,10 +215,26 @@ Then:   returns Codes.AMENDMENT_BAD_SPEC; no Artefact written
   exception degrades to keyword; malformed `host_completion` raises
   `HostDelegateError(MALFORMED)`.
 
-### Still — Slice 3+
-- **Slice 3**: `confirm_token` live-write that performs the actual
-  spec.md surgery (section locator + diff apply); today the dry-run
-  branch is the only branch.
+### Done — Slice 3 (live-write — closes Goal 6's fold-back loop, 2026-06-17)
+- **`confirm_token` live-write SHIPPED.** `apply_amendment(payload,
+  dry_run=False, confirm_token=<id-hash>)` now performs the actual spec.md
+  surgery and returns `written_path` (+ the REAL unified diff of the file
+  change, so the recorded Artefact matches what landed on disk). The
+  decidable core is the pure, I/O-free `apply_amendment_to_text(text, *,
+  section, op, before, after)` helper: `_find_section_bounds` locates the
+  `## <section>` heading tolerant of case/punctuation/suffixes
+  (`## Done-When (if built)` matches "Done When"); `add-*` appends a bullet
+  at the end of the section (checkbox bullet for Done-When, plain elsewhere);
+  `edit-*` replaces the first line containing `before` (indentation
+  preserved). **Never blind-writes** — a missing section raises
+  `amendment_no_section`, a missing edit target raises
+  `amendment_before_absent`, so a misclassification cannot corrupt a spec.
+  This mechanizes Goal 6's "fold back into the specs" behind the human
+  `confirm_token` gate. Tests: 1 live-write acceptance scenario (folds a
+  bullet into a temp spec, returns `written_path`) + 3 pure-function
+  invariants (append-in-section / missing-section-raises / edit-replaces).
+
+### Still — Slice 4+
 - **Slice 4**: rubric.md vendored (Managed-Agents Outcome path);
   promote to an Outcome iterate-to-rubric when measured proposal
   accept-rate < 0.5.
