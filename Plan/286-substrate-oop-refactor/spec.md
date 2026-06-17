@@ -125,21 +125,33 @@ Each migration runs the FULL non-e2e suite (repo-wide invariant/inventory tests)
   re-touching `invoke`.
 - No magic numbers / frozen snapshots introduced (rule 8).
 
-## Followup — Implementation Status (2026-06-13)
+## Followup — Implementation Status (2026-06-17)
 
-- **Status: Implementing (Phase 3 started — non-colliding leaves first).**
-- **Phase 3 / #1 — `SubprocessAnalyzer` Template Method: SHIPPED.**
-  `agency/capabilities/analyze/_subprocess_analyzer.py` owns the
-  which-guard → `subprocess.run(timeout)` → returncode-tolerance → json-parse →
-  payload→Finding scaffold + one shared `_SUBPROCESS_TIMEOUT` (was 3×); ruff/
-  bandit/radon became small subclasses. Public `scan`/`cyclomatic`/
-  `maintainability` + `AXIS_PREFIXES` unchanged → composers + `_build_axis_registry`
-  untouched. 63 analyze + 7 scaffold tests green; drift clean. (commit `5ad2655`)
-- **Phase 3 / #2 — `Finding` value object: in progress** (`FindingSeverity`
-  StrEnum + frozen dataclass; wire dict at `_main.py` preserved exactly).
-- **Phases 0-2 (spine): NOT STARTED — gated** on #141's 284/285/103 spine work
-  settling (see Decisions). Will flag on the #141 thread before touching
-  `capability.py`/`engine.py`/`memory.py`.
-- Incidental branch-health fixes while driving the shared branch: `dc7c370`
-  (285-A `_host_bridge.py:53` baseline), `061fd30`'s `fix(103)` (deterministic
-  Storyform `json.dumps(sort_keys=True)`).
+- **Status: CODE-COMPLETE (acceptance + merge pending).** All four phases have
+  landed behavior-preserving (the 2026-06-13 "spine NOT STARTED" note below is
+  superseded — the spine work settled via #141 and merged to `main`). The
+  binding cross-spec roll-up in `TODO.md` carries the per-phase commit ledger.
+  Verified on this branch: full `pytest -n auto -m "not e2e"` → **1009 passed**
+  (exit 0); `scripts/check-drift` exit 0; the 3-tool wire contract + capability
+  surface byte-stable; A1 invariant holds (no raw `.g.query` in capabilities).
+- **Phase 0** — A1 `GraphStore` port (no raw `.g` in capabilities), A2
+  `DriverRegistry` single-source. **Phase 1** — A3 `Registry.invoke` → 4
+  collaborators (`IntentGuard`/`ParameterInjector`/`InvocationRecorder`/
+  `ResultProcessor`), A4 typed `Verb` value object. **Phase 2** — A5
+  substrate-tools-as-set (`build_mcp` ~500→~96 LOC, `agency_doctor`/`welcome`
+  extracted to `_substrate_tools.py`), A7 `WireEnvelope`, #8 closed-sets →
+  `StrEnum`. **Phase 3** — all five god-classes split into cluster mixins
+  (music/novel/plugin/dogfood/prompt), `@requires_driver`, `SubprocessAnalyzer`,
+  `Finding`/`FindingSeverity` value object, cross-cap dedup.
+- **A8 (soft per CORE v4) — escape-hatch closed in capabilities (2026-06-17,
+  this branch).** The only ad-hoc `ctx.engine` reaches in capabilities were the
+  two identical `getattr(self.ctx.engine, "_<domain>_production", False)` calls
+  (novel + music cluster bases). Replaced with ONE typed
+  `CapabilityContext.production_enabled(domain)` accessor; the remaining
+  `ctx.engine` uses are the documented-legitimate ones (the long-lived
+  `engine._jules_watcher` singleton, `develop.reload`). Behavior-preserving:
+  241 music/novel/engine scenarios green post-change.
+- **Deferred / optional (not gating Shipped):** A4 metadata-dataclass
+  consolidation toward one `CapabilitySkillProfile`; #5 `BoundaryConfig`
+  parameter object for `Engine.__init__`. **Done-When for Shipped:**
+  Review-Partner Gherkin acceptance + clean-OOP review, then merge + CI green.

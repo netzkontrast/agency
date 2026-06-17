@@ -175,6 +175,17 @@ class CapabilityContext:
             raise DriverMissing(f"no DriverRegistry on this context (name={name!r})")
         return self.drivers.get(name)
 
+    def production_enabled(self, domain: str) -> bool:
+        """True iff the production MCP runtime flipped ``domain``'s auto-wiring
+        flag on the engine (Spec 286 A8 — ONE typed accessor instead of each
+        cluster base reaching into ``ctx.engine._<domain>_production``).
+
+        ``agency/__main__.py`` sets ``engine._<domain>_production = True`` for the
+        live server; a bare ``Engine`` built by a unit test has no flag, so
+        driver-backed verbs keep their typed ``DEPENDENCY_MISSING`` contract
+        (the enforcement blast-radius stays bounded — CLAUDE.md heuristic)."""
+        return getattr(self.engine, f"_{domain}_production", False) is True
+
     @property
     def host(self) -> Any:
         """Spec 285 — the request-scoped `HostBridge` to the host LLM (sampling)
