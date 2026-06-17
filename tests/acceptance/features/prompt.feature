@@ -158,3 +158,127 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
   Scenario: fragments_for skips unknown slugs and unauthored entries
     When I call fragments_for with an unknown class_id
     Then the unknown slug appears in skipped_no_fragment
+
+  # ── Prompt-framework library (Spec 304) ──────────────────────────────────
+
+  Scenario: framework lookup returns a template and metadata for a known slug
+    When I look up framework "co-star"
+    Then the framework name is "CO-STAR"
+    And the framework template is non-empty
+    And the framework intent_category is "create"
+    And the framework has a positive token count
+
+  Scenario: framework lookup returns NO_FRAMEWORK for an unknown slug
+    When I look up framework "does-not-exist"
+    Then the framework error is "NO_FRAMEWORK"
+
+  Scenario: the library covers every user intent category
+    When I list every framework intent category present
+    Then every user intent category has at least one framework
+
+  Scenario: frameworks_for returns only frameworks for the requested intent
+    When I list frameworks for intent "reason"
+    Then every returned framework belongs to intent "reason"
+    And the frameworks_for total_tokens is positive
+
+  Scenario: frameworks_for truncates on a tight token budget
+    When I list frameworks for intent "create" with a tight budget
+    Then the frameworks_for truncated_at field is set
+
+  Scenario: register_framework round-trips through the overlay
+    When I register a custom framework "my-fw" with a template
+    And I look up framework "my-fw"
+    Then the framework name is "My Framework"
+    And the framework template is non-empty
+
+  Scenario: register_framework rejects a payload with no template
+    When I register a custom framework "bad-fw" with no template
+    Then the framework error is "INVALID_ARGUMENT"
+
+  # ── Framework routing + render + evaluate (Spec 305) ─────────────────────
+
+  Scenario: route_framework returns one framework with a scaffold and rationale
+    When I route the draft "Write a blog post about machine learning for a non-technical audience"
+    Then the routed intent is "create"
+    And the routed framework is present
+    And the route scaffold is non-empty
+    And the route rationale is non-empty
+
+  Scenario: route_framework honors an explicit intent hint
+    When I route the draft "do the thing" with intent hint "reason"
+    Then the routed intent is "reason"
+
+  Scenario: route_framework is token-efficient versus the candidate list
+    When I route the draft "Calculate the payback period for CAC 1200 and MRR 150"
+    Then the route returns at most two frameworks total
+    And that is fewer than the frameworks_for candidate list for intent "reason"
+
+  Scenario: route_framework records a Recommendation serving the intent
+    When I route the draft "Rewrite this email to sound more professional"
+    Then a Recommendation node serves the intent
+
+  Scenario: render fills a framework template into a PromptInstance
+    When I render framework "ape" with action, purpose and expectation fields
+    Then the rendered body mentions the field values
+    And a FILLS_FRAMEWORK edge links the instance to a PromptFramework node
+
+  Scenario: render refuses an over-budget body
+    When I render framework "co-star" with a huge field and a tight budget
+    Then the render result is null with error "INVALID_ARGUMENT"
+
+  Scenario: render returns NO_FRAMEWORK for an unknown slug
+    When I render framework "nope" with empty fields
+    Then the render error is "NO_FRAMEWORK"
+
+  Scenario: evaluate scores a user prompt across five dimensions
+    When I evaluate a well-formed user prompt
+    Then the evaluation has five dimension scores
+    And the evaluation has a status and an overall score
+
+  Scenario: evaluate returns UNKNOWN_TARGET for an unregistered target
+    When I evaluate with target "bogus-target"
+    Then the evaluation error is "UNKNOWN_TARGET"
+
+  Scenario: evaluate scores a vague prompt below a clear one
+    When I evaluate a vague user prompt
+    And I evaluate a clear user prompt
+    Then the vague overall is below the clear overall
+
+  # ── Functional-doc evaluation (Spec 306) ─────────────────────────────────
+
+  Scenario: evaluate flags role_padding on a functional doc with a Role
+    When I evaluate a role-framed functional doc with target "skilldoc"
+    Then the evaluation flags include "role_padding"
+
+  Scenario: evaluate does not flag role_padding on a clean functional doc
+    When I evaluate a clean functional doc with target "skilldoc"
+    Then the evaluation flags exclude "role_padding"
+
+  Scenario: the tool-desc profile flags missing routing signals
+    When I evaluate a bare verb name with target "tool-desc"
+    Then the evaluation flags include "no_routing_signal"
+
+  Scenario: functional frameworks are held out of user routing
+    When I list frameworks for every user intent category
+    Then no functional framework slug appears in any candidate list
+
+  # ── Improvement pass (analyze→panel→implement) ────────────────────────────
+
+  Scenario: register_framework rejects an out-of-enum intent_category (fail-fast)
+    When I register a custom framework "bad-cat" with intent_category "nonsense"
+    Then the framework error is "INVALID_ARGUMENT"
+
+  Scenario: register_framework overlay overrides a vendored framework slug
+    When I register an override of vendored framework "co-star" named "Overridden CO-STAR"
+    And I look up framework "co-star"
+    Then the framework name is "Overridden CO-STAR"
+
+  Scenario: render marks unfilled functional slots with TODO
+    When I render framework "skilldoc" with only a use_when field
+    Then the rendered body fills the use_when slot
+    And the rendered body marks the red_flags slot as TODO
+
+  Scenario: route_framework returns populated alternates when more are requested
+    When I route the draft "Write a blog post about machine learning" asking for 2 alternates
+    Then the route alternates are populated
+    And each alternate has a slug and a name

@@ -32,6 +32,28 @@ OPTIMIZATION_KIND = {
 }
 AUDIT_STATUS = {"pending", "passed", "failed"}
 
+# ─── Spec 304 — prompt-framework library enums ───
+# The 7 user intent categories (prompt-architect A-G) + the held-out
+# ``functional`` meta category (Spec 306). The 7 are the user-facing set routing
+# ranks over; ``functional`` is the 8th, meta member — frameworks carrying it are
+# additionally marked ``audience=functional`` and held out of every routing
+# surface by the audience filter (`frameworks_for` / `route_framework`), so a
+# functional meta-framework is never offered as a user-prompt pick.
+USER_INTENT_CATEGORY = {
+    "recover", "clarify", "create", "transform",
+    "reason", "critique", "agentic",
+}
+INTENT_CATEGORY = USER_INTENT_CATEGORY | {"functional"}
+# Complexity/kind tiers — the upstream SKILL.md "Quick Reference" grouping.
+COMPLEXITY_TIER = {
+    "simple", "medium", "comprehensive",
+    "reasoning", "structure", "critique", "meta",
+}
+# Who the framework serves: a human authoring a prompt (``user``) vs. agency's
+# own functional surface — docstrings / SkillDocs / tool-descs (``functional``,
+# Spec 306).
+AUDIENCE = {"user", "functional"}
+
 
 # ─────────────────────────── skills ───────────────────────────
 DOSSIER_AUTHOR_SKILL = {
@@ -85,6 +107,9 @@ prompt_ontology = OntologyExtension(
         "PromptOutput":     ["instance", "response_body"],
         "AntiPattern":      ["kind", "body"],
         "OptimizationPass": ["slug", "kind"],
+        # Spec 304 — a framework node is recorded only when a framework is
+        # actually used (305 ``render``), keeping install light (129's model).
+        "PromptFramework":  ["slug", "name", "intent_category", "complexity_tier"],
     },
     enums={
         ("ResearchIntent", "deliverable"):   DELIVERABLE_KIND,
@@ -94,6 +119,10 @@ prompt_ontology = OntologyExtension(
         ("AntiPattern",    "kind"):          ANTI_PATTERN_KIND,
         ("OptimizationPass", "kind"):        OPTIMIZATION_KIND,
         ("BriefAudit",     "status"):        AUDIT_STATUS,
+        # Spec 304 — framework taxonomy enums.
+        ("PromptFramework", "intent_category"): INTENT_CATEGORY,
+        ("PromptFramework", "complexity_tier"): COMPLEXITY_TIER,
+        ("PromptFramework", "audience"):        AUDIENCE,
     },
     edges={
         "RENDERS_FROM",      # ResearchBrief → ResearchIntent
@@ -102,6 +131,7 @@ prompt_ontology = OntologyExtension(
         "PRODUCED_BY",       # PromptOutput  → PromptInstance
         "FLAGS_ANTI",        # PromptOutput  → AntiPattern
         "APPLIES_PASS",      # PromptInstance → OptimizationPass
+        "FILLS_FRAMEWORK",   # PromptInstance → PromptFramework (Spec 304/305 render)
     },
     skills={
         "dossier-author":            DOSSIER_AUTHOR_SKILL,

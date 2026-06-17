@@ -120,3 +120,27 @@ Feature: develop capability — scaffolding, linting, authoring walk, discipline
     When I call develop.index on the agency repo
     Then the develop index result carries an index_id
     And the develop index token count is positive
+
+  # ── optimize_skilldoc — functional-doc self-improvement (Spec 306) ────────
+
+  Scenario: optimize_skilldoc dogfoods a real capability docstring
+    When I optimize the skilldoc of capability "recommend"
+    Then the optimization returns flags, a candidate and an artefact id
+    And the optimization artefact serves the intent
+
+  Scenario: optimize_skilldoc writes no source against a file target
+    When I optimize a functional doc file as a skilldoc
+    Then the optimization returns a candidate
+    And the source file is left unchanged
+
+  Scenario: optimize_skilldoc rejects an unknown kind
+    When I optimize capability "recommend" with kind "bogus"
+    Then the optimization result has an error
+
+  Scenario: optimize_skilldoc authors a tool-desc candidate
+    When I optimize capability "recommend" with kind "tool-desc"
+    Then the candidate carries the tool-desc grammar
+
+  Scenario: optimize_skilldoc authors a template candidate
+    When I optimize capability "recommend" with kind "template"
+    Then the candidate carries the template grammar

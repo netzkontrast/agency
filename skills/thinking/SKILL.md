@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: thinking
-description: Use when structured rigor needed before commit; binding decisions need tradeoff + premortem + red-team; an assumption stack needs surfacing.
+description: "10 method verbs (8 founding + 2 net-new: red_team + socratic) + 1 composite (apply_full_review) + 1 walkable skill (critical-thinking). Use when structured rigor needed before commit; binding decisions need tradeoff + premortem + red-team; an assumption stack needs surfacing."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # thinking capability
 

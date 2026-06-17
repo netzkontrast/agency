@@ -68,7 +68,7 @@ agency execute --code \
 - **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, run, security
 - **branch** — assess, commit_smart, finish
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
-- **develop** — checklist, draft_plan, estimate, index, mode_select, plan_status, record_authoring_outcome, record_step_outcome, reference, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
+- **develop** — checklist, draft_plan, estimate, index, mode_select, optimize_skilldoc, plan_status, record_authoring_outcome, record_step_outcome, reference, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
 - **document** — convergence, explain, index_repo, ingest, mirror, render, reopen, restore_session, revisions, session, session_analytics, sync
 - **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, recall_overflow_slice, record_decision, render, replay_events
 - **gate** — check
@@ -81,7 +81,7 @@ agency execute --code \
 - **panel** — convene, experts
 - **persona** — list, recommend, summon
 - **plugin** — author_command, author_skill, help, lint_capability, lint_explain, lint_skill, marketplace_entry, publish_skill, scaffold, step_doc
-- **prompt** — assemble_scene_brief, audit, audit_gate, brief_audit, brief_finalize, brief_render, catalog_list, engineer, fragment, fragments_for, intent_capture, register_fragment, token_budget_gate
+- **prompt** — assemble_scene_brief, audit, audit_gate, brief_audit, brief_finalize, brief_render, catalog_list, engineer, evaluate, fragment, fragments_for, framework, frameworks_for, intent_capture, register_fragment, register_framework, render, route_framework, token_budget_gate
 - **recommend** — route
 - **reflect** — batch_note, note, recall, recall_semantic, search, synthesize_session
 - **research** — ingest_gdoc, lead, record_ingested_source, specialist, verify

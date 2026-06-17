@@ -428,6 +428,56 @@ def _pascalcase(name: str) -> str:
     return "".join(p[:1].upper() + p[1:] for p in parts) + "Capability"
 
 
+def _grab_section(text: str, *headers: str) -> str:
+    """Best-effort pull of a labelled section's body from a docstring/doc.
+    Matches ``Header:`` (Spec 080 grammar) case-insensitively and returns the
+    rest of that line + any indented/bulleted continuation lines."""
+    import re
+    lines = text.splitlines()
+    pat = re.compile(r"^\s*(?:%s)\s*:\s*(.*)$"
+                     % "|".join(re.escape(h) for h in headers), re.IGNORECASE)
+    for i, ln in enumerate(lines):
+        m = pat.match(ln)
+        if not m:
+            continue
+        body = [m.group(1).strip()] if m.group(1).strip() else []
+        for cont in lines[i + 1:]:
+            if cont.strip().startswith(("-", "•", "*")) or (
+                    cont.startswith((" ", "\t")) and cont.strip()):
+                body.append(cont.strip())
+            elif not cont.strip():
+                continue
+            else:
+                break
+        return " ".join(body).strip()
+    return ""
+
+
+def _functional_fields(text: str, kind: str) -> dict:
+    """Extract the functional framework's slot values from an existing doc
+    (Spec 306 — derive the candidate from the source's own content; rule 2)."""
+    if kind == "skilldoc":
+        # Reuse the canonical Spec 080 skill-grammar parser (disclosure.py) —
+        # the single source SkillDocs already derive from — rather than
+        # re-parsing Use-when/Triggers/Red-flags here.
+        from agency.disclosure import parse_module_skill
+        parsed = parse_module_skill(text, "", []) or {}
+        return {
+            "use_when": parsed.get("description", "").removeprefix("Use when ").strip(),
+            "triggers": "; ".join(parsed.get("triggers", [])),
+            "red_flags": "; ".join(parsed.get("red_flags", [])),
+        }
+    if kind == "tool-desc":
+        return {
+            "inputs": _grab_section(text, "Inputs", "Args", "Arguments"),
+            "chain_next": _grab_section(text, "chain_next", "chain next", "Next"),
+            "failure_modes": _grab_section(text, "Returns", "Raises", "Errors"),
+            "what_it_does": (text.strip().splitlines() or [""])[0].strip(),
+        }
+    # template
+    return {"slots": _grab_section(text, "Slots", "Fields")}
+
+
 def _skill_docstring_src(name: str) -> str:
     """Spec 080 — the Agent-Skill sections for a scaffolded (ping-only)
     capability, emitted INTO the module docstring (the single source). `as_
@@ -713,6 +763,76 @@ class DevelopCapability(CapabilityBase):
                                  "violations": violations}
         return {"result": {"ok": all(r["ok"] for r in results.values()) if results else True,
                            "results": results}}
+
+    @verb(role="act")
+    def optimize_skilldoc(self, target_ref: str, kind: str = "skilldoc") -> dict:
+        """Author an optimized functional doc — flags + candidate, NO rewrite (act).
+
+        The metaprompt loop (Spec 306): agency uses its own framework substrate
+        to enrich its own documentation. A capability docstring / SkillDoc /
+        tool-description / template is a FUNCTIONAL prompt — its job is correct
+        routing + invocation, not persuasion — so it is scored against the
+        functional framework family (304), not CO-STAR. Resolves ``target_ref``
+        → text, evaluates it (305 functional profile → goal-keyed flags incl.
+        the load-bearing ``role_padding`` — a function needs no Role), renders
+        the functional framework into an optimized CANDIDATE, and records a
+        ``doc-optimization`` Artefact. **Advisory: returns the candidate, writes
+        no source** (a human or a later ``branch.commit_smart`` applies it).
+
+        Inputs: target_ref (a capability name, a file path, or literal text),
+                kind (``skilldoc`` | ``tool-desc`` | ``template``).
+        Returns: ``{flags, candidate, rationale, artefact_id, scores, status,
+                 source, kind}`` OR ``{error}``.
+        chain_next: ``develop.validate_skill`` (the 080 gate) on the applied doc.
+        """
+        if kind not in ("skilldoc", "tool-desc", "template"):
+            return {"error": f"kind must be skilldoc|tool-desc|template, got {kind!r}"}
+        text, source = self._resolve_doc_text(target_ref)
+        if not text.strip():
+            return {"error": "EMPTY_TARGET", "source": source}
+        evald = self.ctx.call("prompt", "evaluate", prompt_body=text, target=kind)
+        evald = evald if isinstance(evald, dict) else {}
+        flags = list(evald.get("flags", []))
+        rendered = self.ctx.call("prompt", "render", framework_slug=kind,
+                                 fields=_functional_fields(text, kind))
+        candidate = rendered.get("result", "") if isinstance(rendered, dict) else ""
+        artefact_id = self.ctx.record_and_serve("Artefact", {
+            "kind": "doc-optimization", "path": source})
+        rationale = (f"{kind}: " + (", ".join(flags) if flags else "no goal violations")
+                     + " — candidate restructured to the functional grammar "
+                     "(advisory; source unchanged)")
+        return {"flags": flags, "candidate": candidate, "rationale": rationale[:300],
+                "artefact_id": artefact_id, "scores": evald.get("scores", {}),
+                "status": evald.get("status"), "source": source, "kind": kind}
+
+    def _resolve_doc_text(self, target_ref: str) -> tuple[str, str]:
+        """Resolve a ``target_ref`` to (text, source-label), tried IN ORDER:
+        (1) a live capability name → its authored module docstring (the Spec 080
+        grammar the SkillDoc derives from — folder-form ``<name>._main`` or
+        single-file ``<name>``); (2) an existing file path → its contents;
+        (3) otherwise the ref is literal text. A capability name therefore wins
+        over a same-named file on disk. Read-only — never writes."""
+        import importlib
+        import inspect
+        from pathlib import Path
+        if target_ref in self.ctx.registry.names():
+            for modpath in (f"agency.capabilities.{target_ref}._main",
+                            f"agency.capabilities.{target_ref}"):
+                try:
+                    mod = importlib.import_module(modpath)
+                except ImportError:
+                    continue
+                doc = inspect.getdoc(mod)
+                if doc:
+                    return doc, f"capability:{target_ref}"
+            return "", f"capability:{target_ref}"
+        try:
+            p = Path(target_ref)
+            if p.is_file():
+                return p.read_text(), f"file:{target_ref}"
+        except (OSError, ValueError):
+            pass
+        return target_ref, "literal"
 
     @verb(role="transform")
     def checklist(self, discipline: str) -> dict:

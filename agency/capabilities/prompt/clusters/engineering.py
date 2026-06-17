@@ -17,6 +17,7 @@ from ._base import (
     _approx_tokens,
     _score_brief,
 )
+from ._profiles import PROFILES, _DEFAULT_EVAL_MIN_SCORE, overall
 
 
 class EngineeringMixin:
@@ -81,4 +82,38 @@ class EngineeringMixin:
         return ToolResult.success(data={
             "clarity_score": score, "status": status,
             "findings": findings,
+        })
+
+    @verb(role="effect")
+    def evaluate(self, prompt_body: str, target: str = "user-prompt",
+                 min_score: float = _DEFAULT_EVAL_MIN_SCORE) -> ToolResult:
+        """Goal-aware multi-dimension evaluation of a prompt body (effect).
+
+        The richer successor to ``audit`` (kept unchanged — Spec 292's
+        ``document.ingest`` depends on its ``clarity_score`` contract):
+        ``evaluate`` scores against a criteria PROFILE selected by ``target``.
+        ``user-prompt`` runs the 5-dimension grid (clarity /
+        specificity / context / completeness / structure). Spec 306 adds the
+        ``skilldoc`` / ``tool-desc`` / ``template`` functional profiles whose
+        flags name the target goal they violate.
+
+        Inputs: prompt_body (str), target (str — a registered profile;
+                ``user-prompt`` default), min_score (float — 0-10 pass line).
+        Returns: ``{target, scores: {dim: 0-10, ...}, overall, flags: [...],
+                 status: 'passed'|'failed'}`` OR
+                 ``{target, error: 'UNKNOWN_TARGET', available: [...]}``.
+        chain_next: revise + re-evaluate; ``develop.optimize_skilldoc`` for a
+                    functional target (306).
+        """
+        profile = PROFILES.get(target)
+        if profile is None:
+            return ToolResult.success(data={
+                "target": target, "error": "UNKNOWN_TARGET",
+                "available": sorted(PROFILES),
+            })
+        scores, flags = profile(prompt_body)
+        ov = overall(scores)
+        return ToolResult.success(data={
+            "target": target, "scores": scores, "overall": ov,
+            "flags": flags, "status": "passed" if ov >= min_score else "failed",
         })

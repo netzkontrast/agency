@@ -114,3 +114,32 @@ top-level capability — the drop-in-capability bar).
 3. The `hybrid` template (modular section assembly) — port as a framework, or
    defer to 305's `render` (which already composes sections)? **Recommend
    defer** — hybrid IS what `render` does; don't duplicate.
+
+## Followup — Implementation Status (2026-06-17)
+
+**Shipped** on `claude/spec-304-306-impl-wrfzvb`.
+
+Done:
+- `agency/capabilities/prompt/data/frameworks.json` — 28 frameworks vendored
+  from prompt-architect (`rise` split into `rise-ie`/`rise-ix`; `hybrid`
+  deferred per Q3 → `render` composes). Each entry: slug · name · full_name ·
+  intent_category · complexity_tier · audience · components · template ·
+  discriminators · when_to_use · source_ref. Plus a top-level `intent_signals`
+  map (category keywords, vendored from upstream `INTENT_SIGNALS`) for 305's
+  first-level routing. Components DERIVED from template section headers.
+- Reference prose preserved: `references/frameworks/*.md` (28, one per slug),
+  `LICENSE` (MIT) + `NOTICE.md` — attribution intact (Q-attribution).
+- Ontology (`prompt/ontology.py`): `PromptFramework` node + `INTENT_CATEGORY`,
+  `COMPLEXITY_TIER`, `AUDIENCE` enums + `FILLS_FRAMEWORK` edge.
+- `clusters/frameworks.py` (`FrameworksMixin`, composed into `PromptCapability`):
+  `framework(slug)`, `frameworks_for(intent, max_tokens)`,
+  `register_framework(slug, payload, overlay_path)`. Loader is `@lru_cache`d,
+  vendored + overlay merge (overlay wins), cache invalidated on write — Spec 129
+  parity. `frameworks_for` reuses `budget_take`; functional frameworks held out.
+- 7 acceptance scenarios in `tests/acceptance/{features/prompt.feature,test_prompt.py}`.
+  Counts DERIVED from the live JSON + enum (rule 8) — no `27`/`28` literal.
+- Decisions: Q1 → 129's lazy-node model (JSON is the store; nodes record only on
+  305 `render`). Q2 → two slugs `rise-ie`/`rise-ix`. Q3 → `hybrid` deferred.
+
+Still (later slices): 305 `route_framework`/`render`/`evaluate`; 306 functional
+family + `optimize_skilldoc`.

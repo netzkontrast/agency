@@ -1,5 +1,5 @@
 # agency-scaffold: v1
-# agency-accept-warn: surface_size — Spec 109 ships 9 founding verbs (research-dossier + engineering lineages); Spec 129 adds 3 fragment verbs (fragment/fragments_for/register_fragment) for the Dramatica-as-prompts substrate; Spec 127 adds assemble_scene_brief for graph-driven brief assembly. 13 total > 12 budget by design — each verb pulls a distinct primitive; consolidating would re-grow the function signatures (kw-arg explosion). Tier discovery via Spec 068 not warranted while the cluster is still landing.
+# agency-accept-warn: surface_size — Spec 109 ships 9 founding verbs (research-dossier + engineering lineages); Spec 129 adds 3 fragment verbs (fragment/fragments_for/register_fragment) for the Dramatica-as-prompts substrate; Spec 127 adds assemble_scene_brief for graph-driven brief assembly; Spec 304 adds 3 framework verbs (framework/frameworks_for/register_framework) for the 27-framework library; Spec 305 adds 3 (route_framework/render/evaluate) for token-efficient routing + template render + goal-aware evaluation. 19 total > 12 budget by design — each verb pulls a distinct primitive; consolidating would re-grow the function signatures (kw-arg explosion). Tier discovery via Spec 068 not warranted while the cluster is still landing.
 """prompt — prompt-engineering capability (Spec 109 Slice 1).
 
 Two-lineage capability:
@@ -45,6 +45,7 @@ from .clusters import (
     GatesMixin,
     AssemblyMixin,
     FragmentsMixin,
+    FrameworksMixin,
 )
 
 # ─── Re-exports for back-compat (symbols imported elsewhere or test-referenced) ───
@@ -79,6 +80,12 @@ from .clusters.assembly import (  # noqa: F401
     _render_brief,
     _truncate_to_tokens,
 )
+from .clusters.frameworks import (  # noqa: F401
+    _DEFAULT_FW_OVERLAY_PATH,
+    _FRAMEWORKS_FILE,
+    _load_frameworks,
+    _load_intent_signals,
+)
 
 
 class PromptCapability(
@@ -87,6 +94,7 @@ class PromptCapability(
     GatesMixin,
     AssemblyMixin,
     FragmentsMixin,
+    FrameworksMixin,
     PromptBase,
     CapabilityBase,
 ):

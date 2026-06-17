@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: skills
-description: Use when discovering which walkable skills exist, reading one skill's phases at a chosen depth, or validating a skill's phase-graph shape — before walking, emitting, or authoring a skill.
+description: "Skills makes the skill surface itself a capability: one home to find, render, and lint the phase-graph skills each capability ships on its ontology, instead of reaching them only through the merged ontology dict or the walker. Use when discovering which walkable skills exist, reading one skill's phases at a chosen depth, or validating a skill's phase-graph shape — before walking, emitting, or authoring a skill."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # skills capability
 

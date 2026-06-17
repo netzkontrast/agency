@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: prompt
-description: Use when authoring research dossiers, engineering structured prompts that honor a token budget, auditing prompts for clarity / anti-patterns.
+description: "Use when authoring research dossiers, engineering structured prompts that honor a token budget, auditing prompts for clarity / anti-patterns."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # prompt capability
 
@@ -31,10 +31,16 @@ Two-lineage capability:
 | `brief_render` | act | Render a ResearchBrief body from the dossier-skeleton template (act). | [details](references/brief_render.md) |
 | `catalog_list` | transform | List bundled CatalogModule entries optionally filtered by category (transform). | [details](references/catalog_list.md) |
 | `engineer` | act | Render a PromptInstance inside a token budget (act). | [details](references/engineer.md) |
+| `evaluate` | effect | Goal-aware multi-dimension evaluation of a prompt body (effect). | [details](references/evaluate.md) |
 | `fragment` | transform | Look up a single Dramatica prompt fragment (transform). | [details](references/fragment.md) |
 | `fragments_for` | transform | Compose multiple fragments for a storyform scope (transform). | [details](references/fragments_for.md) |
+| `framework` | transform | Look up a single prompt-engineering framework by slug (transform). | [details](references/framework.md) |
+| `frameworks_for` | transform | Budget-aware candidate list for a known intent category (transform). | [details](references/frameworks_for.md) |
 | `intent_capture` | act | Record a structured ResearchIntent SERVING the intent (act). | [details](references/intent_capture.md) |
 | `register_fragment` | effect | Write a fragment to the project overlay (effect; runtime-extensible). | [details](references/register_fragment.md) |
+| `register_framework` | effect | Write a custom framework to the project overlay (effect; extensible). | [details](references/register_framework.md) |
+| `render` | act | Fill a framework's template with ``fields`` → a PromptInstance (act). | [details](references/render.md) |
+| `route_framework` | effect | Route a free-text ``draft`` to the ONE right framework (effect). | [details](references/route_framework.md) |
 | `token_budget_gate` | effect | Computed token-budget gate — passes iff approx_tokens ≤ max_tokens (effect). | [details](references/token_budget_gate.md) |
 
 ## Example

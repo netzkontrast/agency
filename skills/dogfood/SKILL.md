@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: dogfood
-description: Use when recording or rendering observation ledgers in the graph — capturing a development note, exporting the graph for merge-recovery, or importing it back.
+description: "Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exported and imported as JSON preserving ids and validity windows, and rendered to markdown on demand. Use when recording or rendering observation ledgers in the graph — capturing a development note, exporting the graph for merge-recovery, or importing it back."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # dogfood capability
 

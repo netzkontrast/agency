@@ -1,4 +1,3 @@
-<!-- agency-generated: v$gen_version -->
 ---
 name: $cap_name
 description: $description
@@ -8,6 +7,7 @@ allowed-tools:
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v$gen_version -->
 
 # $cap_name capability
 
