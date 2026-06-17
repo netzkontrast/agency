@@ -19,7 +19,7 @@ revise + re-evaluate; ``develop.optimize_skilldoc`` for a functional target (306
 
 ## Details
 
-Supersedes ``audit`` (which stays a back-compat alias with its own contract): ``evaluate`` scores against a criteria PROFILE selected by ``target``. ``user-prompt`` runs the 5-dimension grid (clarity / specificity / context / completeness / structure). Spec 306 adds the ``skilldoc`` / ``tool-desc`` / ``template`` functional profiles whose flags name the target goal they violate.
+The richer successor to ``audit`` (kept unchanged — Spec 292's ``document.ingest`` depends on its ``clarity_score`` contract): ``evaluate`` scores against a criteria PROFILE selected by ``target``. ``user-prompt`` runs the 5-dimension grid (clarity / specificity / context / completeness / structure). Spec 306 adds the ``skilldoc`` / ``tool-desc`` / ``template`` functional profiles whose flags name the target goal they violate.
 
 ## Example
 

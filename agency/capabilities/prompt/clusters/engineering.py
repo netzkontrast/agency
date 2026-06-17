@@ -89,9 +89,10 @@ class EngineeringMixin:
                  min_score: float = _DEFAULT_EVAL_MIN_SCORE) -> ToolResult:
         """Goal-aware multi-dimension evaluation of a prompt body (effect).
 
-        Supersedes ``audit`` (which stays a back-compat alias with its own
-        contract): ``evaluate`` scores against a criteria PROFILE selected by
-        ``target``. ``user-prompt`` runs the 5-dimension grid (clarity /
+        The richer successor to ``audit`` (kept unchanged — Spec 292's
+        ``document.ingest`` depends on its ``clarity_score`` contract):
+        ``evaluate`` scores against a criteria PROFILE selected by ``target``.
+        ``user-prompt`` runs the 5-dimension grid (clarity /
         specificity / context / completeness / structure). Spec 306 adds the
         ``skilldoc`` / ``tool-desc`` / ``template`` functional profiles whose
         flags name the target goal they violate.

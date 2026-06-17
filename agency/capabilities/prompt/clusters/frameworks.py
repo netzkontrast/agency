@@ -79,14 +79,12 @@ class FrameworksMixin:
         chain_next: ``prompt.route_framework`` to pick ONE (305); or
                     ``prompt.render(slug, fields)``.
         """
-        store = _load_frameworks()
         candidates = [
             {"slug": e["slug"], "name": e["name"],
              "complexity_tier": e["complexity_tier"],
              "tokens": _approx_tokens(e.get("template", ""))}
-            for e in store.values()
-            if e.get("audience", "user") == "user"
-            and e.get("intent_category") == intent
+            for e in _user_frameworks()
+            if e.get("intent_category") == intent
         ]
         taken, over_budget = budget_take(
             candidates, lambda f: f["tokens"], max_tokens)
@@ -119,9 +117,9 @@ class FrameworksMixin:
         chain_next: ``prompt.render(framework_slug, fields)`` to fill it.
         """
         store = _load_frameworks()
-        intent = (intent_hint if intent_hint in _user_intents(store)
-                  else _detect_category(draft, store))
-        ranked = _rank_in_category(draft, intent, store)
+        intent = (intent_hint if intent_hint in _user_intents()
+                  else _detect_category(draft))
+        ranked = _rank_in_category(draft, intent)
         if not ranked:
             return ToolResult.success(data={
                 "intent": intent, "framework": None, "alts": [],
@@ -237,41 +235,40 @@ class FrameworksMixin:
 from agency.capabilities.recommend._main import _tokens  # noqa: E402
 
 
-def _user_intents(store: dict) -> set[str]:
+def _user_intents() -> set[str]:
     """The intent categories that carry at least one user-facing framework."""
-    return {e["intent_category"] for e in store.values()
-            if e.get("audience", "user") == "user"}
+    return {e["intent_category"] for e in _user_frameworks()}
 
 
-def _detect_category(draft: str, store: dict) -> str:
+def _detect_category(draft: str) -> str:
     """First-level routing: score each intent category by substring hits of its
     vendored signals + member-framework discriminators against ``draft``.
     Falls back to ``create`` (the most common) when nothing matches — upstream
     parity."""
     low = draft.lower()
     signals = _load_intent_signals()
-    # Aggregate per-category discriminators from the library (derived, rule 8).
+    # Aggregate per-category discriminators from the library (derived, rule 8);
+    # the agg keys ARE the user intent categories.
     agg: dict[str, list[str]] = {}
-    for e in store.values():
-        if e.get("audience", "user") != "user":
-            continue
+    for e in _user_frameworks():
         agg.setdefault(e["intent_category"], []).extend(e.get("discriminators", []))
-    scores: dict[str, int] = {}
-    for cat in _user_intents(store):
-        kws = list(signals.get(cat, [])) + agg.get(cat, [])
-        scores[cat] = sum(1 for kw in kws if kw and kw.lower() in low)
+    scores = {
+        cat: sum(1 for kw in list(signals.get(cat, [])) + discs
+                 if kw and kw.lower() in low)
+        for cat, discs in agg.items()
+    }
     best = max(scores, key=lambda c: scores[c]) if scores else "create"
     return best if scores.get(best, 0) > 0 else "create"
 
 
-def _rank_in_category(draft: str, intent: str, store: dict) -> list[dict]:
+def _rank_in_category(draft: str, intent: str) -> list[dict]:
     """Second-level routing: rank the category's user frameworks by
     discriminator substring hits + token overlap against ``draft``."""
     toks = _tokens(draft)
     low = draft.lower()
     ranked = []
-    for e in store.values():
-        if e.get("audience", "user") != "user" or e["intent_category"] != intent:
+    for e in _user_frameworks():
+        if e["intent_category"] != intent:
             continue
         discs = e.get("discriminators", [])
         disc_hits = sum(1 for d in discs if d and d.lower() in low)
@@ -319,35 +316,41 @@ def _normalise_framework(slug: str, payload: dict) -> dict:
 
 
 @lru_cache(maxsize=1)
-def _load_frameworks() -> dict:
-    """Merged store keyed by slug: vendored bootstrap + overlay (overlay wins)."""
-    base: dict = {}
+def _load_raw() -> dict:
+    """Parse the vendored ``frameworks.json`` once (frameworks + intent_signals).
+    Both the framework store and the intent-signal map derive from this single
+    cached read, so the file is parsed once per session no matter who asks."""
     if _FRAMEWORKS_FILE.is_file():
-        raw = json.loads(_FRAMEWORKS_FILE.read_text())
-        for entry in raw.get("frameworks") or []:
-            base[entry["slug"]] = entry
-    for slug, entry in _load_fw_overlay(_DEFAULT_FW_OVERLAY_PATH).items():
-        base[slug] = entry
-    return base
-
-
-@lru_cache(maxsize=1)
-def _load_intent_signals() -> dict:
-    """Category-level routing keywords vendored alongside the frameworks
-    (Spec 305 first-level routing). Slug→keyword data, not a magic table."""
-    if _FRAMEWORKS_FILE.is_file():
-        raw = json.loads(_FRAMEWORKS_FILE.read_text())
-        return dict(raw.get("intent_signals") or {})
+        return json.loads(_FRAMEWORKS_FILE.read_text())
     return {}
 
 
-def _load_fw_overlay(path: str) -> dict:
-    """Read the per-project overlay → ``{slug: full_entry}``. The overlay is a
-    YAML/JSON mapping of slug → payload; each payload is normalised."""
-    p = Path(os.path.expanduser(path))
-    if not p.is_file():
-        return {}
-    text = p.read_text()
+@lru_cache(maxsize=1)
+def _load_frameworks() -> dict:
+    """Merged store keyed by slug: vendored bootstrap + overlay (overlay wins)."""
+    base = {e["slug"]: e for e in _load_raw().get("frameworks") or []}
+    base.update(_load_fw_overlay(_DEFAULT_FW_OVERLAY_PATH))
+    return base
+
+
+def _load_intent_signals() -> dict:
+    """Category-level routing keywords vendored alongside the frameworks
+    (Spec 305 first-level routing). Slug→keyword data, not a magic table."""
+    return dict(_load_raw().get("intent_signals") or {})
+
+
+def _user_frameworks() -> list[dict]:
+    """The user-facing frameworks. The functional family (Spec 306,
+    ``audience=functional``) is held out of routing HERE, in one place, so a new
+    routing reader cannot forget the filter (altitude: the filter is
+    infrastructure, not per-call policy)."""
+    return [e for e in _load_frameworks().values()
+            if e.get("audience", "user") == "user"]
+
+
+def _read_mapping(text: str) -> dict:
+    """Parse a YAML (preferred) or JSON mapping; ``{}`` on parse failure. Shared
+    by both overlay read paths (load + write-merge)."""
     try:
         import yaml  # type: ignore
         loaded = yaml.safe_load(text) or {}
@@ -356,31 +359,25 @@ def _load_fw_overlay(path: str) -> dict:
             loaded = json.loads(text)
         except json.JSONDecodeError:
             return {}
-    out: dict = {}
-    if isinstance(loaded, dict):
-        for slug, payload in loaded.items():
-            if isinstance(payload, dict):
-                out[str(slug)] = _normalise_framework(str(slug), payload)
-    return out
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def _load_fw_overlay(path: str) -> dict:
+    """Read the per-project overlay → ``{slug: full_entry}``. The overlay is a
+    YAML/JSON mapping of slug → payload; each payload is normalised."""
+    p = Path(os.path.expanduser(path))
+    if not p.is_file():
+        return {}
+    return {str(slug): _normalise_framework(str(slug), payload)
+            for slug, payload in _read_mapping(p.read_text()).items()
+            if isinstance(payload, dict)}
 
 
 def _write_overlay_framework(path: str, slug: str, entry: dict) -> None:
     """Append-or-replace a single framework in the overlay file."""
     p = Path(os.path.expanduser(path))
     p.parent.mkdir(parents=True, exist_ok=True)
-    existing: dict = {}
-    if p.is_file():
-        text = p.read_text()
-        try:
-            import yaml  # type: ignore
-            existing = yaml.safe_load(text) or {}
-        except ImportError:
-            try:
-                existing = json.loads(text)
-            except json.JSONDecodeError:
-                existing = {}
-    if not isinstance(existing, dict):
-        existing = {}
+    existing = _read_mapping(p.read_text()) if p.is_file() else {}
     existing[slug] = entry
     try:
         import yaml  # type: ignore

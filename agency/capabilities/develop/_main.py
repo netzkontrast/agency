@@ -457,10 +457,15 @@ def _functional_fields(text: str, kind: str) -> dict:
     """Extract the functional framework's slot values from an existing doc
     (Spec 306 — derive the candidate from the source's own content; rule 2)."""
     if kind == "skilldoc":
+        # Reuse the canonical Spec 080 skill-grammar parser (disclosure.py) —
+        # the single source SkillDocs already derive from — rather than
+        # re-parsing Use-when/Triggers/Red-flags here.
+        from agency.disclosure import parse_module_skill
+        parsed = parse_module_skill(text, "", []) or {}
         return {
-            "use_when": _grab_section(text, "Use when", "Use"),
-            "triggers": _grab_section(text, "Triggers"),
-            "red_flags": _grab_section(text, "Red flags", "Red-flags"),
+            "use_when": parsed.get("description", "").removeprefix("Use when ").strip(),
+            "triggers": "; ".join(parsed.get("triggers", [])),
+            "red_flags": "; ".join(parsed.get("red_flags", [])),
         }
     if kind == "tool-desc":
         return {
