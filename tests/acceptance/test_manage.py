@@ -178,6 +178,28 @@ def _research_pending(research_state_result, research_ids):
 # param with no type annotation was typed as STRING on the wire, so a dict was
 # rejected. Exercises build_mcp's per-verb schema directly.
 
+# ── Spec 290 Slice 2: the markdown dashboard projection (rule 2) ─────────────
+
+@when("I ask manage.render for the confirmed intent", target_fixture="render_result")
+def _render(engine, confirmed_intent, managed_id):
+    return _m(engine, confirmed_intent, "render", for_intent_id=confirmed_intent)
+
+
+@then("the dashboard markdown has a heading and an open-intents section")
+def _render_structure(render_result):
+    md = render_result["markdown"]
+    assert md.lstrip().startswith("#"), render_result
+    assert "Open intents" in md, md
+    assert render_result["view"] == "dashboard", render_result
+
+
+@then("the dashboard echoes the intent acceptance and a next action")
+def _render_intent(render_result):
+    md = render_result["markdown"]
+    assert "verified" in md, md          # the confirmed intent's acceptance
+    assert "Next" in md, md
+
+
 # ── Spec 290 invariant: the read-API is read-only ────────────────────────────
 # Invoking any read verb records an Invocation (the provenance moat) but must add
 # NO domain node — it reads the graph, never mutates it. Asserted against the
@@ -201,7 +223,8 @@ def test_manage_read_api_adds_no_domain_node(engine):
                      ("state", {"for_intent_id": iid}),
                      ("open_intents", {}),
                      ("timeline", {"for_intent_id": iid}),
-                     ("artefacts", {"for_intent_id": iid})):
+                     ("artefacts", {"for_intent_id": iid}),
+                     ("render", {"for_intent_id": iid})):
         invoke(engine, iid, "manage", verb, agent_id="agent:test", **kw)
     assert census() == before
 

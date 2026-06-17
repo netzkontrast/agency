@@ -127,6 +127,14 @@ against a live census, not a frozen count, per rule 8).
   rather than a `project(query, budget)` call — the draft table was "scope,
   not the frozen surface".
 
-**Still (Slice 2, optional):** `whats_next` could cross-check against a built
-`navigate` projection once that lands (today it IS the navigate core); a
-markdown `manage.render` projection (rule 2) for the dashboard view.
+**Slice 2 (shipped 2026-06-17):** `manage.render(for_intent_id="", top=5)` —
+the markdown dashboard projection (rule 2: graph→markdown on demand). Composes
+`state` + `open_intents` (+ `whats_next` when an intent is named) into the
+human-readable "where are we" view the spec's `state` row describes. Read-only
+(calls the sibling read verbs; the read-only invariant test covers it). +1
+acceptance scenario.
+
+**Still (optional):** `whats_next` could cross-check against a built `navigate`
+projection once that lands (today it IS the navigate core); a real
+`project(query, budget)` token-budgeting primitive (specced-but-unbuilt) would
+replace the `top`/`limit` bound across the read-suite.

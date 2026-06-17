@@ -55,3 +55,9 @@ Feature: manage capability — generic CRUD over every graph node type (Spec 293
     When I ask manage.research_state
     Then research_state totals report at least one lead and one citation
     And research_state lists the lead as pending
+
+  Scenario: render projects the read-API as a markdown dashboard
+    Given a managed "Document" node exists
+    When I ask manage.render for the confirmed intent
+    Then the dashboard markdown has a heading and an open-intents section
+    And the dashboard echoes the intent acceptance and a next action

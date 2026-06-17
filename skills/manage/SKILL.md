@@ -29,6 +29,7 @@ The write/read management surface that completes the Memory pillar: a single, ca
 | `list` | act | LIST nodes of a ``label``, optionally filtered by exact-match ``where`` (Spec 293). | [details](references/list.md) |
 | `open_intents` | act | OPEN-INTENTS — live intents + acceptance + SERVES subtree size, busiest first (Spec 290, Intent pillar). | [details](references/open_intents.md) |
 | `read` | act | READ a node by id — its current properties + a ``live`` flag (False once retracted; Spec 293). | [details](references/read.md) |
+| `render` | act | RENDER the read-API as a compact markdown dashboard — the "where are we" view, rule-2 graph→markdown on demand (Spec 290 Slice 2). | [details](references/render.md) |
 | `research_state` | act | RESEARCH-STATE — open research leads with their claims, citations and verification status, grouped (Spec 290, Memory pillar). | [details](references/research_state.md) |
 | `retract` | effect | RETRACT — bi-temporal SOFT delete: close the node's valid window so current reads drop it, history retained (Spec 293). | [details](references/retract.md) |
 | `state` | act | STATE rollup — the "where are we" dashboard (Spec 290, on manage). | [details](references/state.md) |

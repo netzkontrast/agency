@@ -222,6 +222,61 @@ class ManageCapability(CapabilityBase):
                 "timeline": items[:limit]}
 
     @verb(role="act")
+    def render(self, for_intent_id: str = "", top: int = 5) -> dict:
+        """RENDER the read-API as a compact markdown dashboard — the "where are
+        we" view, rule-2 graph→markdown on demand (Spec 290 Slice 2).
+
+        Composes ``state`` + ``open_intents`` (and, when an intent is named,
+        ``whats_next``) into one human-readable projection. Read-only: it calls
+        the sibling read verbs, never writes.
+
+        Inputs: for_intent_id (str — optional; adds the intent's next/blocked
+                section), top (int — open-intents rows to list).
+        Returns: ``{view, markdown}``.
+        chain_next: manage.timeline(intent_id) / manage.artefacts(intent_id).
+        """
+        st = self.state(for_intent_id=for_intent_id)
+        lc = st.get("lifecycles_by_state", {})
+        lc_line = ", ".join(f"{k}: {v}" for k, v in sorted(lc.items())) or "none"
+        lines = [
+            "# Agency Dashboard",
+            "",
+            f"**State:** {st['intents']} intents · {st['reflections']} "
+            f"reflections · {st['artefacts']} artefacts",
+            f"**Lifecycles:** {lc_line}",
+            "",
+            f"## Open intents (top {top})",
+        ]
+        opened = self.open_intents(top=top)
+        if opened["intents"]:
+            for i in opened["intents"]:
+                purpose = i.get("purpose", "") or "(no purpose)"
+                lines.append(f"- `{i['id']}` — {purpose} "
+                             f"(serves {i['serves_count']})")
+        else:
+            lines.append("- (none)")
+
+        if for_intent_id and self.ctx.recall_typed(for_intent_id, "Intent") is not None:
+            nxt = self.whats_next(for_intent_id=for_intent_id)
+            lines += ["", f"## Intent `{for_intent_id}`",
+                      f"**Acceptance:** {nxt.get('acceptance', '')}",
+                      f"**Status:** {nxt.get('status', '')} · "
+                      f"done: {nxt.get('done', False)}", "", "**Next:**"]
+            actions = nxt.get("next", [])
+            if actions:
+                for a in actions:
+                    lines.append(f"- {a.get('action') or a.get('phase') or a.get('state') or a}")
+            else:
+                lines.append("- (nothing pending)")
+            blocked = nxt.get("blocked", [])
+            if blocked:
+                lines.append("")
+                lines.append("**Blocked:**")
+                for b in blocked:
+                    lines.append(f"- {b.get('name') or b.get('state') or b.get('kind')}")
+        return {"view": "dashboard", "markdown": "\n".join(lines)}
+
+    @verb(role="act")
     def whats_next(self, for_intent_id: str) -> dict:
         """WHATS-NEXT — blocked items + the next actions against an intent's
         acceptance (Spec 290, Lifecycle pillar; the navigate core).
