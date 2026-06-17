@@ -1,8 +1,8 @@
 ---
 spec_id: "051"
 slug: analyze-architecture-networkx
-status: draft
-last_updated: 2026-06-03
+status: Shipped
+last_updated: 2026-06-17
 owner: "@agency"
 depends_on: [042, 050]
 informs: [044, 048]
@@ -134,3 +134,27 @@ should be split.
 
 **Verdict:** Not started — drafted as part of user's deps-extension
 push.
+
+## Followup — Implementation Status (2026-06-17)
+
+**Status: Shipped.** `agency/capabilities/analyze/_architecture.py`:
+- **A001 shortest cycle path** — `_cycle_path` prefers `networkx.simple_cycles`
+  (shortest elementary cycle per SCC) when networkx is present; pure-Python
+  `_bfs_shortest_cycle` is the always-available fallback. The A001 message now
+  renders the closing path `a → b → … → a`, not the SCC dump.
+- **A004 fan-out** (warn ≥ 8, fail ≥ 15), **A005 fan-in** (info ≥ 10),
+  **A006 god-module** (fan-in ≥ 10 ∧ fan-out ≥ 8 ∧ LOC ≥ 400) — implemented
+  via `_degrees` (plain intra-tree edge counting; no library needed, so the
+  rules always fire). Thresholds are named tunable budgets (rule 8; Open-Q 1's
+  heuristic-vs-measured note stands).
+- **networkx graduated to a DEFAULT dependency** (2026-06-17 user directive),
+  alongside ruff/bandit/radon; `[analyze]` is now an empty back-compat alias.
+  `agency_doctor.analyze_extras` reports the live `networkx` version (library,
+  not CLI → resolved via `importlib.metadata`).
+- **Tests** — 4 new acceptance scenarios in `tests/acceptance/features/analyze.feature`
+  (shortest-path / A004 / A005 / A006) with fixtures that build the import
+  topology in `tmp_path`. The `analyze_extras` doctor assertion relaxed from a
+  frozen `==` to a subset invariant (rule 8).
+
+**Deferred (per spec Open-Qs):** threshold measurement against a SuperClaude-
+sized project (v2); A007 maintainability-trend via gitpython (v3).

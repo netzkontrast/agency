@@ -379,6 +379,13 @@ class AgencyDoctor(SubstrateTool):
                         analyze_extras[tool] = "on-path"
                 else:
                     analyze_extras[tool] = "missing"
+            # networkx (Spec 051) backs analyze.architecture's cycle enumeration
+            # + degree metrics. It is a LIBRARY, not a CLI, so report by
+            # distribution version rather than `which`.
+            try:
+                analyze_extras["networkx"] = _md.version("networkx")
+            except _md.PackageNotFoundError:
+                analyze_extras["networkx"] = "missing"
 
             # Spec 280 Slice 1 — hooks install verification + foreign-hook
             # wrapping. Reads `.claude/settings.json` (project-level) and

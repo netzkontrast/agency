@@ -1,14 +1,20 @@
-"""Spec 042 — analyze.architecture axis (dependency graph + structural).
+"""Spec 042 / Spec 051 — analyze.architecture axis (dependency graph + structural).
 
-Rules shipped (v1):
-  A001 — circular import (fail). Detected by Tarjan's SCC on the
-         file→imports graph.
+Rules shipped:
+  A001 — circular import (fail). SCCs on the file→imports graph; the message
+         renders the SHORTEST elementary cycle path (a → b → c → a).
   A002 — large file (warn). File LOC > 600.
   A003 — medium file (info). File LOC > 400 (Spec 042 thresholds).
+  A004 — high fan-out (warn ≥ 8 / fail ≥ 15). A module imports too many
+         intra-tree siblings — split into cohesive units (Spec 051).
+  A005 — high fan-in (info ≥ 10). Many modules import this one — a core
+         utility; surfaced, not a defect (Spec 051).
+  A006 — god-module (warn). fan-in ≥ 10 AND fan-out ≥ 8 AND LOC ≥ 400 —
+         the trifecta-of-smell (Spec 051).
 
-NO project-context smells beyond cycles + LOC; package fan-in/fan-out
-is computed but not surfaced as a finding in v1 (too noisy without
-project-specific thresholds).
+networkx (Spec 051) backs the cycle enumeration when present (the canonical
+`simple_cycles`); a pure-Python BFS is the always-available fallback. The
+fan-in/out degree metrics are plain edge counting — no library needed.
 """
 from __future__ import annotations
 
@@ -16,20 +22,36 @@ from __future__ import annotations
 AXIS_PREFIXES: dict[str, frozenset[str]] = {"architecture": frozenset({"A"})}
 
 import ast
+import importlib.util
 import os
+from collections import deque
 
 from ._findings import Finding, make_finding
 from ._walk import python_files as _python_files, read_text as _read
+
+# networkx is a default dependency (Spec 051 / 2026-06-17 user directive); the
+# find_spec guard keeps the pure-Python fallback honest if it is ever absent.
+_HAS_NX = importlib.util.find_spec("networkx") is not None
 
 
 SEVERITY: dict[str, str] = {
     "A001": "fail",
     "A002": "warn",
     "A003": "info",
+    "A004": "warn",     # fail at ≥ _FANOUT_FAIL (set inline)
+    "A005": "info",
+    "A006": "warn",
 }
 
 _LARGE_LOC = 600
 _MEDIUM_LOC = 400
+
+# Tunable structural budgets (rule 8 — documented config, not a frozen snapshot;
+# Open-Q 1 in Plan/051 flags these as heuristic v1 defaults pending measurement).
+_FANOUT_WARN = 8
+_FANOUT_FAIL = 15
+_FANIN_INFO = 10
+_GOD_LOC = 400
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +230,54 @@ def _scc_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
     return result
 
 
+def _bfs_shortest_cycle(graph: dict[str, set[str]], scc: list[str]) -> list[str]:
+    """Shortest elementary cycle within an SCC node set, as an ordered path that
+    returns to its start (``[a, b, …, a]``). Pure-Python BFS fallback used when
+    networkx is absent."""
+    nodes = set(scc)
+    best: list[str] | None = None
+    for start in sorted(nodes):
+        queue: deque[list[str]] = deque([[start]])
+        while queue:
+            path = queue.popleft()
+            if best is not None and len(path) >= len(best):
+                continue
+            for nxt in graph.get(path[-1], ()):
+                if nxt not in nodes:
+                    continue
+                if nxt == start and len(path) >= 2:
+                    cand = path + [start]
+                    if best is None or len(cand) < len(best):
+                        best = cand
+                elif nxt not in path:
+                    queue.append(path + [nxt])
+        if best is not None and len(best) == 3:
+            break        # a → b → a is the shortest possible in a multi-node SCC
+    if best is None:                       # pathological; never expected for an SCC
+        ordered = sorted(nodes)
+        return ordered + [ordered[0]]
+    return best
+
+
+def _cycle_path(graph: dict[str, set[str]], scc: list[str]) -> list[str]:
+    """The shortest elementary cycle path for an SCC. Prefers networkx's
+    `simple_cycles` (Spec 051) when available; falls back to BFS."""
+    if _HAS_NX:
+        import networkx as nx
+
+        sub = nx.DiGraph()
+        nodes = set(scc)
+        for m in scc:
+            for s in graph.get(m, ()):
+                if s in nodes:
+                    sub.add_edge(m, s)
+        cycles = [c for c in nx.simple_cycles(sub) if len(c) > 1]
+        if cycles:
+            shortest = min(cycles, key=len)
+            return shortest + [shortest[0]]
+    return _bfs_shortest_cycle(graph, scc)
+
+
 def _check_cycles(graph: dict[str, set[str]],
                   mod_to_path: dict[str, str]) -> list[Finding]:
     out: list[Finding] = []
@@ -217,12 +287,57 @@ def _check_cycles(graph: dict[str, set[str]],
         anchor_path = mod_to_path.get(anchor_mod, "")
         if not anchor_path:
             continue
+        path = _cycle_path(graph, cycle)
         out.append(make_finding(
             rule="A001", severity=SEVERITY["A001"],
             file=anchor_path, line=1,
-            message=f"circular import: {' → '.join(sorted(cycle))} → ...",
+            message=f"circular import: {' → '.join(path)}",
             evidence=" ↔ ".join(sorted(cycle)),
         ))
+    return out
+
+
+def _degrees(graph: dict[str, set[str]]) -> tuple[dict[str, int], dict[str, int]]:
+    """(fan_in, fan_out) per module, counting only intra-tree edges (both
+    endpoints in the graph). Plain edge counting — no graph library needed."""
+    fan_out: dict[str, int] = {}
+    fan_in: dict[str, int] = {m: 0 for m in graph}
+    for m, succ in graph.items():
+        intra = [s for s in succ if s in graph]
+        fan_out[m] = len(intra)
+        for s in intra:
+            fan_in[s] = fan_in.get(s, 0) + 1
+    return fan_in, fan_out
+
+
+def _check_structure(graph: dict[str, set[str]], mod_to_path: dict[str, str],
+                     loc_by_path: dict[str, int]) -> list[Finding]:
+    """A004 fan-out / A005 fan-in / A006 god-module (Spec 051)."""
+    fan_in, fan_out = _degrees(graph)
+    out: list[Finding] = []
+    for mod, path in mod_to_path.items():
+        fo = fan_out.get(mod, 0)
+        fi = fan_in.get(mod, 0)
+        loc = loc_by_path.get(path, 0)
+        if fo >= _FANOUT_WARN:
+            sev = "fail" if fo >= _FANOUT_FAIL else "warn"
+            out.append(make_finding(
+                rule="A004", severity=sev, file=path, line=1,
+                message=(f"high fan-out: imports {fo} intra-tree modules "
+                         f"(≥ {_FANOUT_WARN}) — split into cohesive units"),
+                evidence=f"fan_out={fo}"))
+        if fi >= _FANIN_INFO:
+            out.append(make_finding(
+                rule="A005", severity=SEVERITY["A005"], file=path, line=1,
+                message=(f"high fan-in: imported by {fi} intra-tree modules "
+                         f"(≥ {_FANIN_INFO}) — a core utility"),
+                evidence=f"fan_in={fi}"))
+        if fi >= _FANIN_INFO and fo >= _FANOUT_WARN and loc >= _GOD_LOC:
+            out.append(make_finding(
+                rule="A006", severity=SEVERITY["A006"], file=path, line=1,
+                message=(f"god-module: fan-in {fi} + fan-out {fo} + LOC {loc} "
+                         f"— imports lots, imported by lots, and big"),
+                evidence=f"fan_in={fi},fan_out={fo},loc={loc}"))
     return out
 
 
@@ -247,13 +362,16 @@ def _check_file_size(path: str, src: str) -> list[Finding]:
 
 def scan(root: str) -> list[Finding]:
     findings: list[Finding] = []
-    # Cycles run once over the import graph.
+    # Cycles + structural metrics run once over the import graph.
     graph, mod_to_path = _build_graph(root)
     findings.extend(_check_cycles(graph, mod_to_path))
-    # Per-file size walks.
+    # Per-file size walks (also collect LOC for the A006 god-module check).
+    loc_by_path: dict[str, int] = {}
     for path in _python_files(root):
         src = _read(path)
         if src is None:
             continue
+        loc_by_path[path] = src.count("\n") + (0 if src.endswith("\n") else 1)
         findings.extend(_check_file_size(path, src))
+    findings.extend(_check_structure(graph, mod_to_path, loc_by_path))
     return findings
