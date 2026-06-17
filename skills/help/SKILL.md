@@ -81,7 +81,7 @@ agency execute --code \
 - **panel** — convene, experts
 - **persona** — list, recommend, summon
 - **plugin** — author_command, author_skill, help, lint_capability, lint_explain, lint_skill, marketplace_entry, publish_skill, scaffold, step_doc
-- **prompt** — assemble_scene_brief, audit, audit_gate, brief_audit, brief_finalize, brief_render, catalog_list, engineer, fragment, fragments_for, intent_capture, register_fragment, token_budget_gate
+- **prompt** — assemble_scene_brief, audit, audit_gate, brief_audit, brief_finalize, brief_render, catalog_list, engineer, fragment, fragments_for, framework, frameworks_for, intent_capture, register_fragment, register_framework, token_budget_gate
 - **recommend** — route
 - **reflect** — batch_note, note, recall, recall_semantic, search, synthesize_session
 - **research** — ingest_gdoc, lead, record_ingested_source, specialist, verify

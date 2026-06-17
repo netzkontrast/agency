@@ -158,3 +158,39 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
   Scenario: fragments_for skips unknown slugs and unauthored entries
     When I call fragments_for with an unknown class_id
     Then the unknown slug appears in skipped_no_fragment
+
+  # ── Prompt-framework library (Spec 304) ──────────────────────────────────
+
+  Scenario: framework lookup returns a template and metadata for a known slug
+    When I look up framework "co-star"
+    Then the framework name is "CO-STAR"
+    And the framework template is non-empty
+    And the framework intent_category is "create"
+    And the framework has a positive token count
+
+  Scenario: framework lookup returns NO_FRAMEWORK for an unknown slug
+    When I look up framework "does-not-exist"
+    Then the framework error is "NO_FRAMEWORK"
+
+  Scenario: the library covers every user intent category
+    When I list every framework intent category present
+    Then every user intent category has at least one framework
+
+  Scenario: frameworks_for returns only frameworks for the requested intent
+    When I list frameworks for intent "reason"
+    Then every returned framework belongs to intent "reason"
+    And the frameworks_for total_tokens is positive
+
+  Scenario: frameworks_for truncates on a tight token budget
+    When I list frameworks for intent "create" with a tight budget
+    Then the frameworks_for truncated_at field is set
+
+  Scenario: register_framework round-trips through the overlay
+    When I register a custom framework "my-fw" with a template
+    And I look up framework "my-fw"
+    Then the framework name is "My Framework"
+    And the framework template is non-empty
+
+  Scenario: register_framework rejects a payload with no template
+    When I register a custom framework "bad-fw" with no template
+    Then the framework error is "INVALID_ARGUMENT"

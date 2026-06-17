@@ -1,0 +1,841 @@
+{
+  "_source": "prompt-architect by ckelsoe (https://github.com/ckelsoe/prompt-architect), MIT. Vendored per Spec 304; frameworks.json is the source of truth thereafter.",
+  "intent_signals": {
+    "recover": [
+      "lost prompt",
+      "prompt that produced",
+      "reconstruct prompt",
+      "recover prompt",
+      "reverse engineer",
+      "template from output",
+      "what prompt"
+    ],
+    "clarify": [
+      "ask me questions",
+      "help me figure out",
+      "interview me",
+      "not sure how to start",
+      "not sure what i need",
+      "unclear requirements",
+      "what do i need"
+    ],
+    "create": [
+      "build",
+      "compose",
+      "create",
+      "design",
+      "develop",
+      "draft",
+      "generate",
+      "make",
+      "produce",
+      "write"
+    ],
+    "transform": [
+      "change",
+      "clean up",
+      "compress",
+      "convert",
+      "densify",
+      "edit",
+      "expand",
+      "fix",
+      "improve",
+      "refactor",
+      "rephrase",
+      "restructure",
+      "revise",
+      "rewrite",
+      "summarize",
+      "transform",
+      "update"
+    ],
+    "reason": [
+      "analyze",
+      "calculate",
+      "compare options",
+      "compute",
+      "derive",
+      "determine",
+      "evaluate",
+      "figure out",
+      "logic",
+      "math",
+      "proof",
+      "reason",
+      "should i",
+      "solve",
+      "which is better"
+    ],
+    "critique": [
+      "attack",
+      "challenge",
+      "check",
+      "critique",
+      "evaluate",
+      "failure modes",
+      "find flaws",
+      "problems with",
+      "review",
+      "risks",
+      "stress test",
+      "validate",
+      "verify",
+      "weaknesses",
+      "what could go wrong"
+    ],
+    "agentic": [
+      "agent",
+      "automate",
+      "execute",
+      "fetch",
+      "look up",
+      "multi-step with tools",
+      "query database",
+      "run code",
+      "search and",
+      "use tools"
+    ]
+  },
+  "frameworks": [
+    {
+      "slug": "ape",
+      "name": "APE",
+      "full_name": "Action, Purpose, Expectation",
+      "intent_category": "create",
+      "complexity_tier": "simple",
+      "audience": "user",
+      "components": [
+        "Action",
+        "Purpose",
+        "Expectation"
+      ],
+      "template": "ACTION: [What to do — one clear verb-driven instruction]\n\nPURPOSE: [Why it's needed — one sentence on how it will be used or who needs it]\n\nEXPECTATION: [What a good result looks like — format, length, quality bar, or tone]",
+      "discriminators": [
+        "brief",
+        "just",
+        "quickly",
+        "simple"
+      ],
+      "when_to_use": "short prompt; one-off; simple action",
+      "source_ref": "prompt-architect:ape (MIT, ckelsoe)"
+    },
+    {
+      "slug": "bab",
+      "name": "BAB",
+      "full_name": "Before, After, Bridge",
+      "intent_category": "transform",
+      "complexity_tier": "medium",
+      "audience": "user",
+      "components": [
+        "Before",
+        "After",
+        "Bridge"
+      ],
+      "template": "BEFORE:\n[Describe the current state — what exists now, what's wrong with it, what needs to change.\nBe specific: quote actual content, describe current problems, name limitations.]\n\nAFTER:\n[Describe the desired end state — what it should look like once transformed.\nInclude: qualities it should have, audience/consumer of the result, success criteria.]\n\nBRIDGE:\n[Define the transformation rules — how to get from Before to After.\nInclude:\n- What must be preserved (do not change)\n- What should change\n- Any constraints on approach or style\n- Tone, length, or format requirements for the result]",
+      "discriminators": [
+        "change this to",
+        "convert",
+        "migrate",
+        "refactor",
+        "rewrite",
+        "transform",
+        "turn into",
+        "update to"
+      ],
+      "when_to_use": "existing content → new form",
+      "source_ref": "prompt-architect:bab (MIT, ckelsoe)"
+    },
+    {
+      "slug": "broke",
+      "name": "BROKE",
+      "full_name": "Background, Role, Objective, Key Results, Evolve",
+      "intent_category": "create",
+      "complexity_tier": "medium",
+      "audience": "user",
+      "components": [
+        "Background",
+        "Role",
+        "Objective",
+        "Key Results",
+        "Evolve"
+      ],
+      "template": "BACKGROUND:\n[Current situation, why this task exists, relevant history and constraints]\n\nROLE:\n[Professional persona and expertise to embody]\n\nOBJECTIVE:\n[The specific task and deliverable]\n\nKEY RESULTS:\n[Measurable outcomes this output should help achieve — how success is defined in business terms]\n\nEVOLVE:\nAfter completing your response, provide 3 specific suggestions for improving\nthis output or approach in a follow-up iteration.",
+      "discriminators": [
+        "conversion",
+        "goal",
+        "increase by",
+        "kpi",
+        "measure",
+        "metric",
+        "objective",
+        "reduce",
+        "revenue",
+        "target"
+      ],
+      "when_to_use": "business KPIs exist; self-critique loop desired",
+      "source_ref": "prompt-architect:broke (MIT, ckelsoe)"
+    },
+    {
+      "slug": "cai-critique-revise",
+      "name": "CAI Critique-Revise",
+      "full_name": "Principle-based critique and revision",
+      "intent_category": "critique",
+      "complexity_tier": "critique",
+      "audience": "user",
+      "components": [
+        "Principle",
+        "Initial Output",
+        "Critique",
+        "Revision"
+      ],
+      "template": "PRINCIPLE:\n[State the specific standard the output must satisfy — be precise and measurable]\n\nINITIAL OUTPUT:\n[The output to evaluate — AI-generated or human-written]\n\nCRITIQUE:\nIdentify specific ways the output above violates or falls short of the\nprinciple stated above.\n- Quote the specific passages that are problematic\n- Explain precisely why each passage violates the principle\n- Focus only on failures against the principle (not general quality)\n\nREVISION:\nRewrite the output to fully satisfy the principle.\n- Address every critique point identified above\n- Preserve all content that already satisfies the principle\n- Do not introduce new violations of the principle",
+      "discriminators": [
+        "against",
+        "align to",
+        "comply",
+        "enforce",
+        "plain language",
+        "policy",
+        "principle",
+        "standard",
+        "violates"
+      ],
+      "when_to_use": "align output to explicit stated principle/standard",
+      "source_ref": "prompt-architect:cai-critique-revise (MIT, ckelsoe)"
+    },
+    {
+      "slug": "care",
+      "name": "CARE",
+      "full_name": "Context, Ask, Rules, Examples",
+      "intent_category": "create",
+      "complexity_tier": "medium",
+      "audience": "user",
+      "components": [
+        "Context",
+        "Ask",
+        "Rules",
+        "Examples"
+      ],
+      "template": "CONTEXT:\n[Who you are, the situation you're in, and why this task exists]\n\nASK:\n[The specific request and deliverable]\n\nRULES:\n[Explicit constraints governing the output:\n- What must be included\n- What must be avoided\n- Format and length requirements\n- Tone and reading level standards\n- Quality bar or compliance requirements]\n\nEXAMPLES:\n[1-3 examples showing the desired output format, tone, or quality standard]",
+      "discriminators": [
+        "accessibility",
+        "compliance",
+        "grade level",
+        "guideline",
+        "must not",
+        "plain language",
+        "required",
+        "rule",
+        "standard"
+      ],
+      "when_to_use": "explicit rules + examples (combined), not separate do/don't lists",
+      "source_ref": "prompt-architect:care (MIT, ckelsoe)"
+    },
+    {
+      "slug": "chain-of-density",
+      "name": "Chain of Density",
+      "full_name": "Iterative compression and densification",
+      "intent_category": "transform",
+      "complexity_tier": "structure",
+      "audience": "user",
+      "components": [
+        "Source Content",
+        "Optimization Goal",
+        "Number Of Iterations",
+        "Iteration Instructions",
+        "Output Format",
+        "Note"
+      ],
+      "template": "=== CHAIN OF DENSITY (CoD) TEMPLATE ===\n\nUse when: iterative compression or quality improvement is the goal —\n          summarization, explanation optimization, content densification.\n\n─────────────────────────────────────────────\nSOURCE CONTENT:\n[Paste the content to be refined/compressed here]\n\n─────────────────────────────────────────────\nOPTIMIZATION GOAL:\n[What should improve with each pass?]\nExamples:\n- \"Reduce word count by 20% each pass while retaining all key information\"\n- \"Increase information density — remove filler, make every sentence earn its place\"\n- \"Improve clarity — each pass should be more direct and easier to understand\"\n\n─────────────────────────────────────────────\nNUMBER OF ITERATIONS:\n[How many refinement passes? Typical: 2-4]\nIteration 1: [First pass — initial improvement]\nIteration 2: [Second pass — tighten further]\nIteration 3: [Optional — final polish]\n\n─────────────────────────────────────────────\nITERATION INSTRUCTIONS:\nFor each iteration:\n1. Identify what can be cut, compressed, or clarified\n2. Apply the changes\n3. Verify: does this version better meet the optimization goal than the previous?\n4. Stop when: [define your stopping criterion]\n   Examples: \"length < 150 words\", \"no filler words remain\", \"3 iterations complete\"\n\n─────────────────────────────────────────────\nOUTPUT FORMAT:\n[What format should the final result be in?]\nExamples: paragraph, bullet list, 1-sentence summary, structured sections\n\n─────────────────────────────────────────────\nOPTIONAL — SHOW INTERMEDIATE VERSIONS:\nSet to YES if you want to see each iteration's output.\nSet to NO if you only want the final result.\n\n─────────────────────────────────────────────\nNOTE: Use Self-Refine when the improvement goal is multi-dimensional quality\n(e.g., accuracy + tone + completeness). CoD is specifically for density/compression.",
+      "discriminators": [
+        "compress",
+        "condense",
+        "densify",
+        "shorten",
+        "summarize",
+        "tighten"
+      ],
+      "when_to_use": "compress/densify content into tighter form",
+      "source_ref": "prompt-architect:chain-of-density (MIT, ckelsoe)"
+    },
+    {
+      "slug": "chain-of-thought",
+      "name": "Chain of Thought",
+      "full_name": "Step-by-step linear reasoning",
+      "intent_category": "reason",
+      "complexity_tier": "reasoning",
+      "audience": "user",
+      "components": [
+        "Problem / Question",
+        "Reasoning Instruction",
+        "Steps",
+        "Verification",
+        "Final Answer",
+        "Note"
+      ],
+      "template": "=== CHAIN OF THOUGHT (CoT) TEMPLATE ===\n\nUse when: step-by-step reasoning is needed, logic must be shown,\n          or intermediate conclusions feed into the final answer.\n\n─────────────────────────────────────────────\nPROBLEM / QUESTION:\n[State the problem clearly. Include all relevant numbers, conditions,\nor constraints — everything needed to reason from.]\n\n─────────────────────────────────────────────\nREASONING INSTRUCTION:\nSolve this step-by-step. For each step:\n1. State what you're doing and why\n2. Show your work / intermediate calculation / intermediate conclusion\n3. Verify it before moving to the next step\n\n─────────────────────────────────────────────\nSTEPS:\nStep 1: [First reasoning step]\n→ Result: [intermediate conclusion or value]\n\nStep 2: [Next reasoning step, building on Step 1]\n→ Result: [intermediate conclusion or value]\n\nStep 3: [Continue as needed...]\n→ Result: [...]\n\n─────────────────────────────────────────────\nVERIFICATION:\nBefore finalizing: check that each step follows logically,\nno conditions were overlooked, and the conclusion matches the question asked.\n\n─────────────────────────────────────────────\nFINAL ANSWER:\n[State the answer clearly after the reasoning chain is complete]\n\n─────────────────────────────────────────────\nTRIGGER VARIANTS (zero-shot alternatives):\n\nSimple:     \"Think step by step.\"\nExplicit:   \"Solve this step-by-step, showing your reasoning at each stage.\"\nVerified:   \"Work through this step-by-step, verify each step before continuing,\n             then state your final answer.\"\nFew-shot:   Prefix with 1-2 worked examples before the actual problem.\n\nNOTE: For numerical/calculation problems, prefer Plan-and-Solve (PS+).\n      For multi-hop problems with dependencies, prefer Least-to-Most.\n      CoT is best for linear step-by-step reasoning on a single problem.",
+      "discriminators": [
+        "debug",
+        "how does",
+        "logic",
+        "reason",
+        "solve",
+        "step by step",
+        "think through",
+        "why"
+      ],
+      "when_to_use": "linear step-by-step reasoning",
+      "source_ref": "prompt-architect:chain-of-thought (MIT, ckelsoe)"
+    },
+    {
+      "slug": "co-star",
+      "name": "CO-STAR",
+      "full_name": "Context, Objective, Style, Tone, Audience, Response",
+      "intent_category": "create",
+      "complexity_tier": "comprehensive",
+      "audience": "user",
+      "components": [
+        "Context",
+        "Objective",
+        "Style",
+        "Tone",
+        "Audience",
+        "Response Format"
+      ],
+      "template": "CONTEXT:\n[Provide background information, situation, and any relevant constraints. What's the setting? What's happened before? What limitations exist?]\n\nOBJECTIVE:\n[State the clear, specific goal you want to achieve. What exactly do you want accomplished? What does success look like?]\n\nSTYLE:\n[Specify the writing style, format preferences, and structural approach. Should it follow a particular style guide? What format is needed?]\n\nTONE:\n[Define the emotional quality and attitude. Should it be professional, casual, urgent, friendly, authoritative, empathetic, etc.?]\n\nAUDIENCE:\n[Identify who will consume this output. What's their expertise level? What do they care about? What are their characteristics?]\n\nRESPONSE FORMAT:\n[Specify the expected output structure. How long? What sections? What level of detail? Any specific format requirements?]",
+      "discriminators": [
+        "article",
+        "audience",
+        "blog",
+        "content",
+        "create",
+        "email",
+        "message",
+        "post",
+        "style",
+        "tone",
+        "voice",
+        "write"
+      ],
+      "when_to_use": "audience/tone/style are critical factors",
+      "source_ref": "prompt-architect:co-star (MIT, ckelsoe)"
+    },
+    {
+      "slug": "crispe",
+      "name": "CRISPE",
+      "full_name": "Capacity+Role, Insight, Instructions, Personality, Experiment",
+      "intent_category": "create",
+      "complexity_tier": "medium",
+      "audience": "user",
+      "components": [
+        "Capacity And Role",
+        "Insight",
+        "Instructions",
+        "Experiment"
+      ],
+      "template": "CAPACITY AND ROLE:\n[Define the expertise level and professional role to embody — be specific about domain and level]\n\nINSIGHT:\n[Background context, relevant data, constraints, and situational knowledge the AI needs]\n\nINSTRUCTIONS:\n[What exactly needs to be done — the specific task and deliverable]\n\nPERSONALITY (STYLE):\n[Tone, voice, communication style, persona — how the output should sound and feel]\n\nEXPERIMENT:\n[Request N variants along a specific dimension — e.g., \"Provide 3 versions: one [X], one [Y], one [Z]\"]",
+      "discriminators": [
+        "alternatives",
+        "different approaches",
+        "options",
+        "variants",
+        "versions"
+      ],
+      "when_to_use": "multiple output variants needed; A/B options",
+      "source_ref": "prompt-architect:crispe (MIT, ckelsoe)"
+    },
+    {
+      "slug": "ctf",
+      "name": "CTF",
+      "full_name": "Context, Task, Format",
+      "intent_category": "create",
+      "complexity_tier": "simple",
+      "audience": "user",
+      "components": [
+        "Context",
+        "Task",
+        "Format"
+      ],
+      "template": "CONTEXT:\n[Describe the situation, background, or circumstances surrounding this task.\nInclude relevant details like: current state, constraints, what's already been done,\nwhy this is needed, and any important background the AI should know.]\n\nTASK:\n[State clearly and specifically what needs to be done. Be explicit about the deliverable.]\n\nFORMAT:\n[Specify exactly how the output should be structured:\n- Overall format (document, code, list, table, etc.)\n- Required sections or components\n- Length constraints\n- Style requirements\n- Any specific formatting rules]",
+      "discriminators": [
+        "background",
+        "because of",
+        "currently",
+        "given that",
+        "in this situation",
+        "mid-project"
+      ],
+      "when_to_use": "situation/background more important than expertise",
+      "source_ref": "prompt-architect:ctf (MIT, ckelsoe)"
+    },
+    {
+      "slug": "devils-advocate",
+      "name": "Devil's Advocate",
+      "full_name": "Strongest opposing argument generation",
+      "intent_category": "critique",
+      "complexity_tier": "critique",
+      "audience": "user",
+      "components": [
+        "Position To Attack",
+        "Attack Instructions",
+        "Attack Dimensions",
+        "Severity Ranking"
+      ],
+      "template": "You are a rigorous devil's advocate. Your task is NOT to give a balanced view —\nyour task is to generate the strongest possible case against the following position.\n\nPOSITION TO ATTACK:\n[State the position, plan, decision, or proposal clearly]\n\nATTACK INSTRUCTIONS:\n- Do not acknowledge positives or offer a balanced view\n- Attack every assumption the position depends on\n- Identify every logical gap or unsupported claim\n- Surface every significant risk or failure mode\n- Point out what better alternatives are being ignored\n- Be as forceful and specific as possible\n\nATTACK DIMENSIONS:\nFocus on:\n1. Core assumptions (what must be true for this to work?)\n2. Internal logic (where does the reasoning break down?)\n3. Execution risks (what makes this fail in practice?)\n4. Overlooked alternatives (what better options exist?)\n5. [Add domain-specific dimensions as needed]\n\nSEVERITY RANKING:\nAfter the full attack, list the THREE MOST FATAL flaws — the ones that,\nif unaddressed, would cause this to fail regardless of execution quality.",
+      "discriminators": [
+        "argue against",
+        "challenge",
+        "counterargument",
+        "devil's advocate",
+        "find flaws",
+        "opposition",
+        "push back",
+        "steelman"
+      ],
+      "when_to_use": "find strongest opposing argument against a position",
+      "source_ref": "prompt-architect:devils-advocate (MIT, ckelsoe)"
+    },
+    {
+      "slug": "least-to-most",
+      "name": "Least-to-Most",
+      "full_name": "Decompose into ordered subproblems, solve sequentially",
+      "intent_category": "reason",
+      "complexity_tier": "reasoning",
+      "audience": "user",
+      "components": [
+        "Problem",
+        "Decompose",
+        "Solve Sequentially"
+      ],
+      "template": "PROBLEM:\n[The full, complex problem to solve]\n\nDECOMPOSE:\nBreak this problem into ordered subproblems, from simplest prerequisite to most complex.\nEach later subproblem should build on the answer to the previous.\n\nSubproblem 1: [Simplest prerequisite — must be answered first]\nSubproblem 2: [Builds on #1]\nSubproblem 3: [Builds on #1-2]\n[Add subproblems as needed]\nFinal: [The original problem, now solvable using all prior answers]\n\nSOLVE SEQUENTIALLY:\nSolve each subproblem in order. Use prior answers explicitly as context\nfor each subsequent subproblem. Show each solution before moving to the next.",
+      "discriminators": [
+        "building on",
+        "chain of",
+        "depends on",
+        "first need to know",
+        "multi-step",
+        "requires knowing"
+      ],
+      "when_to_use": "multi-hop with ordered dependencies (A needed before B)",
+      "source_ref": "prompt-architect:least-to-most (MIT, ckelsoe)"
+    },
+    {
+      "slug": "plan-and-solve",
+      "name": "Plan-and-Solve (PS+)",
+      "full_name": "Plan first, extract variables, calculate step by step",
+      "intent_category": "reason",
+      "complexity_tier": "reasoning",
+      "audience": "user",
+      "components": [
+        "Problem"
+      ],
+      "template": "PROBLEM:\n[Your question, calculation, or reasoning problem]\n\nLet's first understand the problem, extract relevant variables and their\ncorresponding numerals, and devise a complete plan. Then, let's carry out\nthe plan, calculate intermediate values, pay attention to computation,\nand solve the problem step by step.",
+      "discriminators": [
+        "$",
+        "%",
+        "calculate",
+        "compute",
+        "formula",
+        "how many",
+        "how much",
+        "math",
+        "percentage",
+        "rate",
+        "sum",
+        "total"
+      ],
+      "when_to_use": "numerical/calculation, zero-shot",
+      "source_ref": "prompt-architect:plan-and-solve (MIT, ckelsoe)"
+    },
+    {
+      "slug": "pre-mortem",
+      "name": "Pre-Mortem",
+      "full_name": "Assume failure, work backwards to causes",
+      "intent_category": "critique",
+      "complexity_tier": "critique",
+      "audience": "user",
+      "components": [
+        "Project/Decision",
+        "Failure Assumption",
+        "Failure Narrative",
+        "Failure Causes",
+        "Priority Assessment"
+      ],
+      "template": "PRE-MORTEM ANALYSIS\n\nPROJECT/DECISION:\n[Describe the project, plan, or decision being analyzed — include team size,\ntimeline, resources, key goals, and any relevant constraints]\n\nFAILURE ASSUMPTION:\nIt is [DATE — e.g., 12 months from now] and [project/decision] has completely\nand catastrophically failed. It did not achieve [primary goal].\n\nFAILURE NARRATIVE:\nDescribe the failure in 2-3 sentences from the perspective of someone\nlooking back on it.\n\nFAILURE CAUSES:\nIdentify [8-12] specific reasons this failed. For each:\n- CAUSE: [What specifically went wrong — be specific, not generic]\n- DOMAIN: [Technical / People / Market / Financial / External / Timeline]\n- WARNING SIGN: [What was the earliest observable indicator this was happening?]\n\nCover these domains: technical/product, team/organizational, market/adoption,\nfinancial/resource, external dependencies, timeline/scope.\n\nPRIORITY ASSESSMENT:\n1. The 3 most LIKELY failure causes given our specific situation\n2. The 3 most PREVENTABLE causes where action now would help most\n3. Any single point of failure that could kill the project alone",
+      "discriminators": [
+        "before launch",
+        "failure",
+        "failure modes",
+        "potential problems",
+        "pre-mortem",
+        "risks",
+        "what could go wrong"
+      ],
+      "when_to_use": "identify failure modes before they happen",
+      "source_ref": "prompt-architect:pre-mortem (MIT, ckelsoe)"
+    },
+    {
+      "slug": "race",
+      "name": "RACE",
+      "full_name": "Role, Action, Context, Expectation",
+      "intent_category": "create",
+      "complexity_tier": "medium",
+      "audience": "user",
+      "components": [
+        "Role",
+        "Action",
+        "Context",
+        "Expectation"
+      ],
+      "template": "ROLE:\n[Define the expertise or persona needed — who should do this task and at what level]\n\nACTION:\n[State clearly what needs to be done — the task and deliverable]\n\nCONTEXT:\n[Provide the situational background:\n- What's the current state / situation?\n- Who is the audience or recipient of the output?\n- Any relevant constraints or prior decisions?\n- What has already been done?]\n\nEXPECTATION:\n[Define what a successful output looks like:\n- Format and structure requirements\n- Quality bar or success criteria\n- What should be prioritized\n- Length or scope constraints]",
+      "discriminators": [
+        "assess",
+        "evaluate with context",
+        "recommend",
+        "review"
+      ],
+      "when_to_use": "role + context + explicit outcome all needed",
+      "source_ref": "prompt-architect:race (MIT, ckelsoe)"
+    },
+    {
+      "slug": "rcot",
+      "name": "RCoT",
+      "full_name": "Reverse Chain-of-Thought (verify by reconstruction)",
+      "intent_category": "reason",
+      "complexity_tier": "reasoning",
+      "audience": "user",
+      "components": [
+        "Question"
+      ],
+      "template": "STEP 1 — INITIAL ANSWER:\nAnswer the following question using step-by-step reasoning. Show your work.\n\nQUESTION:\n[Your question with all conditions and constraints]\n\n---\n\nSTEP 2 — QUESTION RECONSTRUCTION:\nLooking only at your answer above (do not re-read the original question),\nreconstruct the question that would produce this answer.\nList every condition, constraint, and piece of information the question\nmust have contained.\n\n---\n\nSTEP 3 — CROSS-CHECK:\nNow compare your reconstructed question to the actual original question.\nIdentify:\n- Conditions in the ORIGINAL question MISSING from your reconstruction\n  (these are conditions you overlooked in your reasoning)\n- Conditions in your RECONSTRUCTION not in the original question\n  (assumptions you made that weren't stated)\n- Conditions present in both but interpreted differently\n\n---\n\nSTEP 4 — CORRECTION:\nIf discrepancies were found, generate a corrected answer that addresses\nevery condition in the original question.\nIf no discrepancies, confirm the original answer is correct.",
+      "discriminators": [
+        "check reasoning",
+        "conditions",
+        "missed anything",
+        "multi-constraint",
+        "overlook",
+        "verify"
+      ],
+      "when_to_use": "verify reasoning didn't overlook conditions",
+      "source_ref": "prompt-architect:rcot (MIT, ckelsoe)"
+    },
+    {
+      "slug": "react",
+      "name": "ReAct",
+      "full_name": "Reasoning + Acting (Thought-Action-Observation)",
+      "intent_category": "agentic",
+      "complexity_tier": "medium",
+      "audience": "user",
+      "components": [
+        "Goal",
+        "Available Tools",
+        "Constraints",
+        "Approach"
+      ],
+      "template": "GOAL:\n[Define the end state to achieve — what does success look like?]\n\nAVAILABLE TOOLS:\n- [tool_name]: [What it does and how to invoke it]\n- [tool_name]: [What it does and how to invoke it]\n- [tool_name]: [What it does and how to invoke it]\n\nCONSTRAINTS:\n- [Rules, limits, or guardrails on actions]\n- [Stop condition: when to stop and deliver Final Answer]\n- [Optional: max iterations or tool call limit]\n\nAPPROACH:\nUse the Thought → Action → Observation cycle until the goal is reached:\n\nThought: [Reason about current state and what to do next]\nAction: [tool_name] — [specific query or operation]\nObservation: [Result of the action]\n\nThought: [Reason about the observation — what does it mean? what to do next?]\nAction: [tool_name] — [next operation]\nObservation: [Result]\n\n[Continue cycling until goal is achieved or stop condition is met]\n\nFinal Answer: [Deliver the result once goal is reached]",
+      "discriminators": [
+        "agent",
+        "api call",
+        "database",
+        "execute",
+        "fetch",
+        "look up",
+        "query",
+        "run code",
+        "search",
+        "use tools"
+      ],
+      "when_to_use": "task requires tools; each result informs next step",
+      "source_ref": "prompt-architect:react (MIT, ckelsoe)"
+    },
+    {
+      "slug": "reverse-role",
+      "name": "Reverse Role Prompting",
+      "full_name": "AI-Led Interview (FATA)",
+      "intent_category": "clarify",
+      "complexity_tier": "meta",
+      "audience": "user",
+      "components": [
+        "AI-Led Interview (FATA)"
+      ],
+      "template": "You are an expert [DOMAIN] consultant / specialist.\n\nMy goal: [1-2 sentence description of what you want to achieve]\n\nBefore you begin, interview me to understand my specific context, constraints,\ngoals, and any relevant background. Ask your questions [one at a time / all at once].\nOnly proceed with [the task / generating the full prompt] once you are confident\nyou have everything you need.\n\n[Optional: After the interview, synthesize my responses into a complete structured\nprompt using the most appropriate framework, then confirm before executing.]",
+      "discriminators": [
+        "ask me",
+        "don't know how to start",
+        "help me figure out",
+        "interview",
+        "not sure",
+        "unclear",
+        "what do i need"
+      ],
+      "when_to_use": "gather information before executing",
+      "source_ref": "prompt-architect:reverse-role (MIT, ckelsoe)"
+    },
+    {
+      "slug": "rise-ie",
+      "name": "RISE-IE",
+      "full_name": "Role, Input, Steps, Expectation (Input-Expectation)",
+      "intent_category": "create",
+      "complexity_tier": "structure",
+      "audience": "user",
+      "components": [
+        "Role",
+        "Input",
+        "Steps",
+        "Expectation"
+      ],
+      "template": "ROLE:\n[Define the perspective or expertise needed for this task]\n\nINPUT:\n[Specify what data/content is being provided:\n- Format and structure (CSV, JSON, text, etc.)\n- Key characteristics and fields\n- Any quirks or special considerations\n- What to expect in the data]\n\nSTEPS:\n1. [How to process the input - first action]\n2. [Processing step 2 - transformation or analysis]\n3. [Processing step 3 - continue with methodology]\n4. [Add more processing/analysis steps as needed...]\n\nEXPECTATION:\n[Define what the output should look like:\n- Format and structure\n- Required elements and sections\n- Level of detail needed\n- Length or size constraints\n- Specific deliverables]",
+      "discriminators": [
+        "analyze",
+        "convert",
+        "csv",
+        "data",
+        "extract",
+        "file",
+        "input",
+        "json",
+        "parse",
+        "process",
+        "transform"
+      ],
+      "when_to_use": "clear input → output transformation",
+      "source_ref": "prompt-architect:rise-ie (MIT, ckelsoe)"
+    },
+    {
+      "slug": "rise-ix",
+      "name": "RISE-IX",
+      "full_name": "Role, Instructions, Steps, Examples (Instructions-Examples)",
+      "intent_category": "create",
+      "complexity_tier": "structure",
+      "audience": "user",
+      "components": [
+        "Role",
+        "Instructions",
+        "Steps",
+        "Examples"
+      ],
+      "template": "ROLE:\n[Define who the AI should embody - persona or expertise level]\n\nINSTRUCTIONS:\n[Specify the main task or directive:\n- What to create or accomplish\n- Core requirements\n- Key guidelines to follow\n- Specific constraints or considerations]\n\nSTEPS:\n1. [Approach or methodology step 1]\n2. [Step 2 - how to execute the task]\n3. [Step 3 - continue with workflow]\n4. [Add more steps as needed for the creative/instruction process...]\n\nEXAMPLES:\n[Provide positive examples showing desired output:\n- Reference materials that demonstrate the style\n- Format examples to emulate\n- Successful outputs from similar tasks\n- 2-3 concrete examples recommended]\n\nExample 1: [First reference example demonstrating desired output]\n\nExample 2: [Second reference example showing format/style to match]\n\n[Optional] Example 3: [Third example if additional clarity needed]",
+      "discriminators": [
+        "example",
+        "format like",
+        "like this",
+        "match this",
+        "replicate",
+        "similar to",
+        "style"
+      ],
+      "when_to_use": "content creation with reference examples",
+      "source_ref": "prompt-architect:rise-ix (MIT, ckelsoe)"
+    },
+    {
+      "slug": "risen",
+      "name": "RISEN",
+      "full_name": "Role, Instructions, Steps, End goal, Narrowing",
+      "intent_category": "create",
+      "complexity_tier": "comprehensive",
+      "audience": "user",
+      "components": [
+        "Role",
+        "Instructions",
+        "Steps",
+        "End Goal",
+        "Narrowing"
+      ],
+      "template": "ROLE:\n[Define the expertise level, persona, or perspective to adopt. What knowledge should be demonstrated?]\n\nINSTRUCTIONS:\n[Provide high-level guidance, principles, and overarching direction. What methodology or approach should guide this work?]\n\nSTEPS:\n1. [First specific action or stage]\n2. [Second specific action or stage]\n3. [Third specific action or stage]\n[Continue with detailed, sequential steps...]\n\nEND GOAL:\n[Define success criteria and final desired outcome. What should be true when complete? How will we know it's done correctly?]\n\nNARROWING:\n- Do NOT: [Specific thing to avoid]\n- Avoid: [Approach or pattern to avoid]\n- Out of scope: [What's not included]\n- Stay within: [Boundaries and constraints]\n- Constraints: [Limitations to respect]",
+      "discriminators": [
+        "checklist",
+        "guide",
+        "methodology",
+        "procedure",
+        "process",
+        "steps",
+        "systematic",
+        "workflow"
+      ],
+      "when_to_use": "multi-step with constraints and methodology",
+      "source_ref": "prompt-architect:risen (MIT, ckelsoe)"
+    },
+    {
+      "slug": "rpef",
+      "name": "RPEF",
+      "full_name": "Reverse Prompt Engineering Framework",
+      "intent_category": "recover",
+      "complexity_tier": "meta",
+      "audience": "user",
+      "components": [
+        "Task",
+        "Output Sample",
+        "Analysis Instructions",
+        "Recovered Prompt"
+      ],
+      "template": "You are an expert Prompt Engineer performing reverse prompt engineering.\n\nTASK:\nAnalyze the following [input and] output. Reconstruct the prompt that would\nconsistently produce this type of output. Your recovered prompt should be\nreusable — replace specific details with clearly marked [PLACEHOLDER] variables.\n\n[INPUT DATA (if applicable — omit if output-only):]\n[Paste the input that produced the output, or remove this section]\n\nOUTPUT SAMPLE:\n[Paste the output you want to reverse-engineer]\n\nANALYSIS INSTRUCTIONS:\nExamine the output for:\n- Implied role or persona\n- Tone and voice\n- Structural and formatting patterns\n- Level of detail and scope\n- Implicit constraints (what it did NOT do)\n- Reasoning style\n\nRECOVERED PROMPT:\nGenerate a reusable prompt template that reliably reproduces this type of output.\nUse [PLACEHOLDER] for variable elements.\nOnly proceed when at least 80% confident in the reconstruction.",
+      "discriminators": [
+        "prompt template from",
+        "reconstruct",
+        "recover prompt",
+        "reverse engineer",
+        "what prompt created"
+      ],
+      "when_to_use": "reconstruct a prompt from an existing output",
+      "source_ref": "prompt-architect:rpef (MIT, ckelsoe)"
+    },
+    {
+      "slug": "rtf",
+      "name": "RTF",
+      "full_name": "Role, Task, Format",
+      "intent_category": "create",
+      "complexity_tier": "simple",
+      "audience": "user",
+      "components": [
+        "Role",
+        "Task",
+        "Format"
+      ],
+      "template": "ROLE:\n[Define the expertise or perspective needed for this task]\n\nTASK:\n[State clearly and specifically what needs to be done. Be explicit about the deliverable.]\n\nFORMAT:\n[Specify exactly how the output should be structured:\n- Overall format (document, code, list, table, etc.)\n- Required sections or components\n- Length constraints\n- Style requirements\n- Any specific formatting rules]",
+      "discriminators": [
+        "as a",
+        "format",
+        "quick",
+        "simple",
+        "structure",
+        "template"
+      ],
+      "when_to_use": "expertise framing matters; simple task",
+      "source_ref": "prompt-architect:rtf (MIT, ckelsoe)"
+    },
+    {
+      "slug": "self-refine",
+      "name": "Self-Refine",
+      "full_name": "Generate → Feedback → Refine",
+      "intent_category": "transform",
+      "complexity_tier": "critique",
+      "audience": "user",
+      "components": [
+        "Initial Output",
+        "Feedback Dimensions",
+        "Refinement"
+      ],
+      "template": "INITIAL OUTPUT:\n[Paste the output to improve, or ask the AI to generate a first draft here]\n\nFEEDBACK DIMENSIONS:\nReview the output above for:\n1. [Dimension 1 — e.g., \"Clarity: Are there any ambiguous or hard-to-parse sentences?\"]\n2. [Dimension 2 — e.g., \"Completeness: What important points are missing?\"]\n3. [Dimension 3 — e.g., \"Tone: Is the voice appropriate for the audience?\"]\n4. [Dimension 4 — add or remove as needed]\n\nFor each dimension: quote specific problematic passages, explain the issue,\nand suggest a concrete improvement.\n\nREFINEMENT:\nRewrite the output addressing every point of your feedback above.\nShow the refined version only.",
+      "discriminators": [
+        "enhance",
+        "improve",
+        "iterate",
+        "make better",
+        "quality check",
+        "refine",
+        "review and fix"
+      ],
+      "when_to_use": "iterative quality improvement of any output",
+      "source_ref": "prompt-architect:self-refine (MIT, ckelsoe)"
+    },
+    {
+      "slug": "skeleton-of-thought",
+      "name": "Skeleton of Thought",
+      "full_name": "Skeleton-first then expand (parallel)",
+      "intent_category": "transform",
+      "complexity_tier": "structure",
+      "audience": "user",
+      "components": [
+        "Topic / Question"
+      ],
+      "template": "PHASE 1 — SKELETON:\nGenerate a skeleton outline for the following topic or question.\nList only the key points — one per line — in this format:\nN. [Point name] | [One-sentence description of what this point covers]\nDo not expand yet. Skeleton only.\n\nTOPIC / QUESTION:\n[Your topic or question]\n\n---\n\nPHASE 2 — EXPAND:\nNow expand each skeleton point into [2-4 sentences / a paragraph / detailed coverage].\nEach point should be self-contained and complete.\n[Optional: expand points in parallel by sending each as a separate API call]",
+      "discriminators": [
+        "comprehensive",
+        "document",
+        "organized",
+        "outline",
+        "report",
+        "sections",
+        "structure"
+      ],
+      "when_to_use": "outline-first then expand each section",
+      "source_ref": "prompt-architect:skeleton-of-thought (MIT, ckelsoe)"
+    },
+    {
+      "slug": "step-back",
+      "name": "Step-Back",
+      "full_name": "Abstract to underlying principles, then answer",
+      "intent_category": "reason",
+      "complexity_tier": "reasoning",
+      "audience": "user",
+      "components": [
+        "Original Question",
+        "Step-Back",
+        "Principle Application"
+      ],
+      "template": "ORIGINAL QUESTION:\n[The specific question you want answered]\n\nSTEP-BACK:\nBefore answering directly, first answer this higher-level question:\n[Rephrase the original into a more abstract question about underlying principles, concepts, or rules]\n\nPRINCIPLE APPLICATION:\nUsing the principles/concepts you just described, now answer the original question:\n[Restate original question here]",
+      "discriminators": [
+        "chemistry",
+        "first principles",
+        "fundamentally",
+        "physics",
+        "underlying",
+        "what principle",
+        "what rule",
+        "why does"
+      ],
+      "when_to_use": "needs first-principles reasoning before answering",
+      "source_ref": "prompt-architect:step-back (MIT, ckelsoe)"
+    },
+    {
+      "slug": "tidd-ec",
+      "name": "TIDD-EC",
+      "full_name": "Task type, Instructions, Do, Don't, Examples, Context",
+      "intent_category": "create",
+      "complexity_tier": "comprehensive",
+      "audience": "user",
+      "components": [
+        "Task Type",
+        "Instructions",
+        "Do",
+        "Don'T",
+        "Examples",
+        "Context"
+      ],
+      "template": "TASK TYPE:\n[Clear indication of the activity type - e.g., Data Analysis, Customer Support Response, Technical Documentation, Content Translation]\n\nINSTRUCTIONS:\n[Specific steps and guidelines to accomplish the task]\n1. [First step or action]\n2. [Second step or action]\n3. [Continue with methodology and sequence]\n4. [Add more steps as needed...]\n\nDO:\n[Specify actions, language, structures, and information that MUST be included]\n- [Required action or element #1]\n- [Language or tone to use]\n- [Structure or format to follow]\n- [Information that must be present]\n- [Add more as needed...]\n\nDON'T:\n[Highlight actions, elements, or approaches to AVOID]\n- [Error or mistake to prevent #1]\n- [Inappropriate language or approach to avoid]\n- [Common pitfall to prevent]\n- [Limitation or boundary not to cross]\n- [Add more as needed...]\n\nEXAMPLES:\n[Provide concrete examples of desired outcomes]\n\nExample 1 (Good):\n[Detailed example showing desired output, format, tone, and structure]\n\nExample 2 (Optional - Additional Good Example):\n[Another example demonstrating quality and approach]\n\n[Optional] Example 3 (What to Avoid):\n[Counter-example showing what NOT to do, if helpful]\n\nCONTEXT:\n[Background information and user-provided content that affects the task]\n- [Relevant background information]\n- [Business or domain constraints]\n- [User-provided data or content to reference]\n- [Situational factors affecting the task]\n- [Standards or guidelines that apply]",
+      "discriminators": [
+        "always",
+        "avoid",
+        "boundary",
+        "compliance",
+        "do not",
+        "don't",
+        "must",
+        "never",
+        "requirement",
+        "shouldn't",
+        "support"
+      ],
+      "when_to_use": "explicit separate DO and DON'T lists needed",
+      "source_ref": "prompt-architect:tidd-ec (MIT, ckelsoe)"
+    },
+    {
+      "slug": "tree-of-thought",
+      "name": "Tree of Thought",
+      "full_name": "Branching exploration of multiple solution paths",
+      "intent_category": "reason",
+      "complexity_tier": "reasoning",
+      "audience": "user",
+      "components": [
+        "Problem",
+        "Explore These Branches",
+        "Evaluation Criteria",
+        "Conclusion"
+      ],
+      "template": "PROBLEM:\n[Define what needs to be solved:\n- What decision or problem are we addressing?\n- What constraints apply?\n- What does a good solution need to achieve?]\n\nEXPLORE THESE BRANCHES:\nBranch 1: [Name of approach/strategy]\nBranch 2: [Name of approach/strategy]\nBranch 3: [Name of approach/strategy]\n[Add or remove branches as needed — 2 to 5 is optimal]\n\nFor each branch, analyze:\n- Describe the approach\n- Work through the core reasoning\n- Identify key strengths\n- Identify key weaknesses or risks\n- Note any edge cases or assumptions\n\nEVALUATION CRITERIA:\n[Define how branches will be compared:\n- What matters most? (list in priority order)\n- Any hard constraints that eliminate certain branches?\n- Is there one best answer, or does it depend on context?]\n\nCONCLUSION:\n[Synthesize the analysis:\n- Select the best branch with clear reasoning\n- OR explain trade-offs if the answer is context-dependent\n- State the single biggest assumption that could change the recommendation]",
+      "discriminators": [
+        "alternatives",
+        "choose between",
+        "compare",
+        "options",
+        "pros and cons",
+        "should we use",
+        "trade-offs",
+        "which approach"
+      ],
+      "when_to_use": "multiple distinct approaches to compare",
+      "source_ref": "prompt-architect:tree-of-thought (MIT, ckelsoe)"
+    }
+  ]
+}

@@ -33,8 +33,11 @@ Two-lineage capability:
 | `engineer` | act | Render a PromptInstance inside a token budget (act). | [details](references/engineer.md) |
 | `fragment` | transform | Look up a single Dramatica prompt fragment (transform). | [details](references/fragment.md) |
 | `fragments_for` | transform | Compose multiple fragments for a storyform scope (transform). | [details](references/fragments_for.md) |
+| `framework` | transform | Look up a single prompt-engineering framework by slug (transform). | [details](references/framework.md) |
+| `frameworks_for` | transform | Budget-aware candidate list for a known intent category (transform). | [details](references/frameworks_for.md) |
 | `intent_capture` | act | Record a structured ResearchIntent SERVING the intent (act). | [details](references/intent_capture.md) |
 | `register_fragment` | effect | Write a fragment to the project overlay (effect; runtime-extensible). | [details](references/register_fragment.md) |
+| `register_framework` | effect | Write a custom framework to the project overlay (effect; extensible). | [details](references/register_framework.md) |
 | `token_budget_gate` | effect | Computed token-budget gate — passes iff approx_tokens ≤ max_tokens (effect). | [details](references/token_budget_gate.md) |
 
 ## Example

@@ -564,3 +564,120 @@ def _frags_unknown(engine, confirmed_intent):
 @then("the unknown slug appears in skipped_no_fragment")
 def _skipped_unknown(frags_unknown):
     assert "class.bogus" in frags_unknown["skipped_no_fragment"]
+
+
+# ── Prompt-framework library (Spec 304) ──────────────────────────────────────
+
+@pytest.fixture(autouse=True)
+def _reset_framework_cache():
+    from agency.capabilities.prompt import _main as p
+    from agency.capabilities.prompt.clusters import frameworks as fw
+    saved = fw._DEFAULT_FW_OVERLAY_PATH
+    p._load_frameworks.cache_clear()
+    yield
+    fw._DEFAULT_FW_OVERLAY_PATH = saved
+    p._load_frameworks.cache_clear()
+
+
+@when(parsers.parse('I look up framework "{slug}"'), target_fixture="fw")
+def _framework(engine, confirmed_intent, slug):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "framework", slug=slug)
+    return res
+
+
+@then(parsers.parse('the framework name is "{name}"'))
+def _fw_name(fw, name):
+    assert fw["name"] == name
+
+
+@then("the framework template is non-empty")
+def _fw_template(fw):
+    assert fw.get("template")
+
+
+@then(parsers.parse('the framework intent_category is "{cat}"'))
+def _fw_intent(fw, cat):
+    assert fw["intent_category"] == cat
+
+
+@then("the framework has a positive token count")
+def _fw_tokens(fw):
+    assert fw["tokens"] > 0
+
+
+@then(parsers.parse('the framework error is "{err}"'))
+def _fw_error(fw, err):
+    assert fw.get("error") == err
+
+
+@when("I list every framework intent category present", target_fixture="cat_coverage")
+def _cat_coverage(engine, confirmed_intent):
+    from agency.capabilities.prompt._main import _load_frameworks
+    from agency.capabilities.prompt.ontology import INTENT_CATEGORY
+    store = _load_frameworks()
+    present = {e["intent_category"] for e in store.values()
+               if e.get("audience", "user") == "user"}
+    return present, INTENT_CATEGORY
+
+
+@then("every user intent category has at least one framework")
+def _every_cat_covered(cat_coverage):
+    present, expected = cat_coverage
+    # Derived from the live enum + JSON (rule 8) — no hardcoded count.
+    assert expected <= present, f"uncovered: {expected - present}"
+
+
+@when(parsers.parse('I list frameworks for intent "{intent}"'), target_fixture="ffor")
+def _ffor(engine, confirmed_intent, intent):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "frameworks_for", intent=intent)
+    return res
+
+
+@then(parsers.parse('every returned framework belongs to intent "{intent}"'))
+def _ffor_all(engine, confirmed_intent, ffor, intent):
+    from agency.capabilities.prompt._main import _load_frameworks
+    store = _load_frameworks()
+    for f in ffor["frameworks"]:
+        assert store[f["slug"]]["intent_category"] == intent
+
+
+@then("the frameworks_for total_tokens is positive")
+def _ffor_tokens(ffor):
+    assert ffor["total_tokens"] > 0
+
+
+@when(parsers.parse('I list frameworks for intent "{intent}" with a tight budget'),
+      target_fixture="ffor_tight")
+def _ffor_tight(engine, confirmed_intent, intent):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "frameworks_for",
+                    intent=intent, max_tokens=40)
+    return res
+
+
+@then("the frameworks_for truncated_at field is set")
+def _ffor_truncated(ffor_tight):
+    assert ffor_tight["truncated_at"] is not None
+
+
+@when(parsers.parse('I register a custom framework "{slug}" with a template'),
+      target_fixture="reg_fw")
+def _register_fw(engine, confirmed_intent, slug, tmp_path):
+    overlay = str(tmp_path / "fw-overlay.yaml")
+    res, _ = invoke(engine, confirmed_intent, "prompt", "register_framework",
+                    slug=slug,
+                    payload={"name": "My Framework", "intent_category": "create",
+                             "template": "GOAL: [x]\nCONTEXT: [y]"},
+                    overlay_path=overlay)
+    # Point the loader at the same overlay for the subsequent lookup.
+    from agency.capabilities.prompt import clusters
+    clusters.frameworks._DEFAULT_FW_OVERLAY_PATH = overlay
+    clusters.frameworks._load_frameworks.cache_clear()
+    return res
+
+
+@when(parsers.parse('I register a custom framework "{slug}" with no template'),
+      target_fixture="fw")
+def _register_fw_bad(engine, confirmed_intent, slug):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "register_framework",
+                    slug=slug, payload={"name": "Bad"})
+    return res

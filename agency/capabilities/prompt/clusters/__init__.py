@@ -13,6 +13,7 @@ from .engineering import EngineeringMixin
 from .gates import GatesMixin
 from .assembly import AssemblyMixin
 from .fragments import FragmentsMixin
+from .frameworks import FrameworksMixin
 
 __all__ = [
     "PromptBase",
@@ -21,4 +22,5 @@ __all__ = [
     "GatesMixin",
     "AssemblyMixin",
     "FragmentsMixin",
+    "FrameworksMixin",
 ]
