@@ -1,6 +1,6 @@
 ---
 name: mode
-description: "A native reimplementation of SuperClaude's behavioral modes: postures that change HOW the agent operates. Use when the way of working should shift for the task at hand — discovery,"
+description: "Use when the way of working should shift for the task at hand — discovery,"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

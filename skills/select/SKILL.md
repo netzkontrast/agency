@@ -1,6 +1,6 @@
 ---
 name: select
-description: "A native, generalized reimplementation of SuperClaude's `sc-select-tool`: score an operation's complexity and route it to the right approach archetype — `semantic` (structure-aware, accurate), `pattern` (fast bulk edits), or `native` (safe default). Use when an operation could be done several ways and the right approach depends"
+description: "Use when an operation could be done several ways and the right approach depends"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

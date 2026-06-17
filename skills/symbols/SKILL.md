@@ -1,6 +1,6 @@
 ---
 name: symbols
-description: "A native reimplementation of SuperClaude's Token-Efficiency symbol system (`MODE_Token_Efficiency` + `BUSINESS_SYMBOLS`): a decidable phrase↔symbol substitution that compresses prose for dense communication and expands it back. Use when output must be compact without losing meaning — large-scale results,"
+description: "Use when output must be compact without losing meaning — large-scale results,"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

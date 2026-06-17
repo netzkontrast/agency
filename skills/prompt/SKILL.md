@@ -1,6 +1,6 @@
 ---
 name: prompt
-description: "Author research dossiers, engineer token-budgeted prompts, route a draft to the right one of 27 research-backed frameworks, and score prompts — and agency's own functional docs — for clarity and anti-patterns. Use when authoring a research dossier, engineering a token-budgeted prompt,"
+description: "Use when authoring a research dossier, engineering a token-budgeted prompt,"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

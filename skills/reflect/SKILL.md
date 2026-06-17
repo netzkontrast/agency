@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: "Reflect is the cross-session memory surface: scope-tagged notes recorded as graph nodes, recalled by scope or by semantic similarity against prior observations. Use when durable, scope-tagged memory must cross sessions — recording an insight, or recalling prior observations by scope or semantic similarity."
+description: "Use when durable, scope-tagged memory must cross sessions — recording an insight, or recalling prior observations by scope or semantic similarity."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

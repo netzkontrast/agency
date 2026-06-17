@@ -1,6 +1,6 @@
 ---
 name: branch
-description: "Branch inspects the working tree and remote state and finishes the branch the appropriate way — merge when clean, a PR when review is needed, or a clear report of what blocks completion. Use when a development branch is ready to wrap up and its state must be detected to merge, open a PR, or report what blocks completion."
+description: "Use when a development branch is ready to wrap up and its state must be detected to merge, open a PR, or report what blocks completion."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

@@ -1,6 +1,6 @@
 ---
 name: novel
-description: "Five-verb path from premise to manuscript: conceptualize → create_novel → create_chapter → chapter_report → render_manuscript, plus the novel-concept gated planning skill. Use when authoring a novel — turning a premise into a structured manuscript through gated concept → chapters → report → render."
+description: "Use when authoring a novel — turning a premise into a structured manuscript through gated concept → chapters → report → render."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

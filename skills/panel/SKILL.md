@@ -1,6 +1,6 @@
 ---
 name: panel
-description: "A native reimplementation of SuperClaude's Business Panel: nine strategic thinkers, three interaction modes (discussion · debate · socratic), decidable content-based mode selection. Use when a strategy / plan / business decision needs stress-testing through"
+description: "Use when a strategy / plan / business decision needs stress-testing through"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

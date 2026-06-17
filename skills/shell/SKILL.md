@@ -1,6 +1,6 @@
 ---
 name: shell
-description: "Shell is a token-efficient host-command boundary: allowlisted execution, output filtering, and definable templates that bundle a command with its token-saving filter. Use when running a host CLI command whose output should be token-filtered and recorded — an allowlisted command, a reusable template, or a pure output filter."
+description: "Use when running a host CLI command whose output should be token-filtered and recorded — an allowlisted command, a reusable template, or a pure output filter."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

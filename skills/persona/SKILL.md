@@ -1,6 +1,6 @@
 ---
 name: persona
-description: "A native reimplementation of SuperClaude's specialist agents (architects, engineers, analysts, mentors) as a built-in, dispatchable persona registry — NOT ingested prompt files. Use when a task needs a specific engineering specialist's lens — architecture,"
+description: "Use when a task needs a specific engineering specialist's lens — architecture,"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

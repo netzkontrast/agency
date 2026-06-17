@@ -28,11 +28,13 @@ TOKEN_BUDGET: keep the whole doc lean (≤ 600 tokens)
 
 ## The rules
 
-1. **Lead with what it does, then when to use it.** The first sentence is a
-   verb-first summary of the capability's job ("Author research dossiers, route a
-   draft to the right framework, score prompts for clarity…"); the `Use when:`
-   line follows. The skill selector shows this composed paragraph — so the first
-   sentence must stand alone as "what this is."
+1. **Trigger-first — the description starts with "Use when…".** This is canon
+   (SKILL-CONTRACT.md §1 / Spec 023/029 + Anthropic's CSO rule, enforced by
+   `plugin.lint_skill`): the frontmatter `description` MUST open with `Use when`
+   and MUST NOT lead with a workflow summary. Name the activities so the trigger
+   itself conveys what the skill does ("Use when authoring a research dossier,
+   routing a draft to the right framework, scoring a prompt for clarity"). The
+   "what it does" prose belongs in the body overview, not the description.
 2. **No Role, no persuasion.** Strip `you are`, `act as`, tone, audience, and
    adjectives. State the mechanism, not a personality. (Fires `role_padding`.)
 3. **Triggers are observable signals, not restated purpose.** Each trigger is a

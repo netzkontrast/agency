@@ -468,11 +468,12 @@ def _functional_fields(text: str, kind: str) -> dict:
             "red_flags": "; ".join(parsed.get("red_flags", [])),
         }
     if kind == "tool-desc":
+        # Spec 023 verb-docstring grammar: brief + Inputs + Returns + chain_next.
         return {
+            "brief": (text.strip().splitlines() or [""])[0].strip(),
             "inputs": _grab_section(text, "Inputs", "Args", "Arguments"),
+            "returns": _grab_section(text, "Returns", "Return"),
             "chain_next": _grab_section(text, "chain_next", "chain next", "Next"),
-            "failure_modes": _grab_section(text, "Returns", "Raises", "Errors"),
-            "what_it_does": (text.strip().splitlines() or [""])[0].strip(),
         }
     # template
     return {"slots": _grab_section(text, "Slots", "Fields")}

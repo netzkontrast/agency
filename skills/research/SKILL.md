@@ -1,6 +1,6 @@
 ---
 name: research
-description: "Research runs a question through a lead that scopes it, specialists that gather evidence, and a verifier that adversarially checks claims before publishing. Use when an open question needs cited evidence from multiple sources — driving a research question through a lead, fan-out specialists, and an adversarial verifier."
+description: "Use when an open question needs cited evidence from multiple sources — driving a research question through a lead, fan-out specialists, and an adversarial verifier."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
