@@ -114,9 +114,11 @@ def test_invoke_records_transient_for_contention_exception() -> None:
     def _boom(ctx):  # noqa: ANN001
         raise RuntimeError("Failed to set property 'vfrom' on edge 7")
 
-    cap.verbs["_probe_contention"] = {
-        "role": "effect", "fn": _boom, "inject": ["ctx"],
-    }
+    # Spec 286-A4 — verbs are typed `Verb` objects (the invoke path reads
+    # `spec.inject`/`spec.fn` as attributes), not raw dicts.
+    from agency.capability import Verb
+    cap.verbs["_probe_contention"] = Verb(
+        name="_probe_contention", role="effect", fn=_boom, inject=["ctx"])
     try:
         e.registry.invoke(e.memory, iid, "novel", "_probe_contention")
     except RuntimeError:
