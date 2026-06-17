@@ -126,3 +126,19 @@ def _timeline_invocation(timeline_result):
     assert timeline_result["count"] >= 1, timeline_result
     assert any(it["kind"] == "invocation" and "manage.create" in it["name"]
                for it in timeline_result["timeline"]), timeline_result
+
+
+# ── wire-schema regression (Spec 293): dict params must cross the MCP wire ─────
+# The acceptance scenarios above use the in-process registry path, which bypasses
+# the wire schema. This guards the bug the CLI system test caught: a `props`
+# param with no type annotation was typed as STRING on the wire, so a dict was
+# rejected. Exercises build_mcp's per-verb schema directly.
+
+def test_manage_create_accepts_a_dict_props_through_the_wire(engine):
+    from conftest import call_tool
+    iid = call_tool(engine, "intent_bootstrap",
+                    {"purpose": "w", "deliverable": "w", "acceptance": "w"})["intent_id"]
+    r = call_tool(engine, "capability_manage_create",
+                  {"intent_id": iid, "agent_id": "a", "label": "Document",
+                   "props": {"path": "/w.md", "content_sha": "abc"}})
+    assert r["id"].startswith("document:"), r

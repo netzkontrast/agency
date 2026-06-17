@@ -48,7 +48,7 @@ class ManageCapability(CapabilityBase):
     home = "memory"   # reads/writes the existing graph; no new node types
 
     @verb(role="effect")
-    def create(self, label: str, props=None) -> dict:
+    def create(self, label: str, props: dict | None = None) -> dict:
         """CREATE a node of any ontology ``label``; SERVES the intent (Spec 293).
 
         Inputs: label (str — an ontology node label), props (dict|json-str —
@@ -80,7 +80,7 @@ class ManageCapability(CapabilityBase):
                 "live": live, "props": _strip_temporal(props)}
 
     @verb(role="act")
-    def list(self, label: str, where=None, live_only: bool = True) -> dict:
+    def list(self, label: str, where: dict | None = None, live_only: bool = True) -> dict:
         """LIST nodes of a ``label``, optionally filtered by exact-match
         ``where`` (Spec 293). ``live_only`` drops retracted/closed versions.
 
@@ -97,7 +97,7 @@ class ManageCapability(CapabilityBase):
         return {"label": label, "count": len(clean), "rows": clean}
 
     @verb(role="effect")
-    def update(self, node_id: str, props=None) -> dict:
+    def update(self, node_id: str, props: dict | None = None) -> dict:
         """UPDATE a node in place — a bi-temporal revision, stable id (Spec 293).
 
         Inputs: node_id (str), props (dict|json-str — merged onto the node).
@@ -112,7 +112,7 @@ class ManageCapability(CapabilityBase):
         return {"id": node_id, "updated": sorted(p)}
 
     @verb(role="effect")
-    def amend(self, node_id: str, changes=None) -> dict:
+    def amend(self, node_id: str, changes: dict | None = None) -> dict:
         """AMEND append-only — close the old version, create a new one linked
         ``SUPERSEDED_BY`` (Spec 293). For entities that must keep full history.
 
