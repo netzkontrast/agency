@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: develop
-description: Use when building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, or running a skill to its first hard gate.
+description: "Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance. Use when building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, or running a skill to its first hard gate."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # develop capability
 

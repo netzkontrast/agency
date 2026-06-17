@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: manage
-description: Use when an agent must directly create / read / update / amend / soft-delete a
+description: "The write/read management surface that completes the Memory pillar: a single, capability-AGNOSTIC CRUD over EVERY ontology label, so every aspect of the graph — Document, Intent, Track, Novel, Reflection, Session, … — has Create, Read, Update, Amend and Retract without per-capability code. Use when an agent must directly create / read / update / amend / soft-delete a"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # manage capability
 

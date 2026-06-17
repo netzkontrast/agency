@@ -173,6 +173,32 @@ def _render_walk_section(skills: dict) -> str:
             + "\n".join(rows) + "\n")
 
 
+def _selector_description(doc) -> str:
+    """The frontmatter ``description`` Claude Code shows in the skill selector.
+
+    Leads with WHAT the skill does (the first sentence of the overview), then
+    WHEN to use it (the ``Use when …`` description) — so the selector paragraph
+    reads "<does X>. Use when <Y>." Derived entirely from the SkillDoc (no new
+    authored text). Falls back to the bare ``Use when …`` description when the
+    overview is a fragment (e.g. ends with ':') or already echoed by it."""
+    desc = (doc.description or "").strip()
+    overview = (doc.overview or "").strip()
+    lead = overview.split(". ")[0].strip() if overview else ""
+    if lead and not lead.endswith((".", ":", "!", "?")):
+        lead += "."
+    if (lead and not lead.endswith(":") and len(lead) > 20
+            and lead.lower() not in desc.lower()):
+        return f"{lead} {desc}"
+    return desc
+
+
+def _yaml_quote(s: str) -> str:
+    """Double-quote a YAML scalar so a colon / '#' / special char in the value
+    (now possible since the description leads with the overview prose) can't
+    break frontmatter parsing."""
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def emit_skill(cap_name: str, doc, verbs: dict, skills: dict | None = None) -> dict[str, str]:
     """Render skills/<cap_name>/SKILL.md from the SkillDoc + verb registry.
 
@@ -219,7 +245,7 @@ def emit_skill(cap_name: str, doc, verbs: dict, skills: dict | None = None) -> d
     rendered = _CAPABILITY_SKILL_TEMPLATE.substitute(
         gen_version=str(GEN_VERSION),
         cap_name=_skill_name(cap_name),                 # Spec 080 — spec-legal name (hyphens)
-        description=doc.description,
+        description=_yaml_quote(_selector_description(doc)),
         overview=doc.overview,
         triggers_bulleted="\n".join(f"- {t}" for t in doc.triggers),
         verb_table="\n".join(table_rows),

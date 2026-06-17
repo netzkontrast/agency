@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: recommend
-description: Use when you have a goal in words and want the right agency verb to reach for,
+description: "A native reimplementation of SuperClaude's `sc-recommend`: given a free-text request, recommend the most suitable agency capability + verb to use. Use when you have a goal in words and want the right agency verb to reach for,"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # recommend capability
 

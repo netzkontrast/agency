@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: prompt
-description: Use when authoring research dossiers, engineering structured prompts that honor a token budget, auditing prompts for clarity / anti-patterns.
+description: "Use when authoring research dossiers, engineering structured prompts that honor a token budget, auditing prompts for clarity / anti-patterns."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # prompt capability
 

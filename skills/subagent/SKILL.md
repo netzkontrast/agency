@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: subagent
-description: Use when a unit of work should be composed as subagent-driven development — isolating a task to a dispatched subagent that returns a verified result.
+description: "Subagent composes subagent-driven development: a self-contained task is dispatched into a clean context and its verified result returns to the orchestrator. Use when a unit of work should be composed as subagent-driven development — isolating a task to a dispatched subagent that returns a verified result."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # subagent capability
 

@@ -1,13 +1,13 @@
-<!-- agency-generated: v1 -->
 ---
 name: workspace
-description: Use when work should be isolated in a git worktree with a recorded green baseline — a clean, provably-green starting point before risky changes.
+description: "Workspace isolates work in a git worktree and records a green baseline, so risky changes start from a clean, provably-green point that recovery can return to. Use when work should be isolated in a git worktree with a recorded green baseline — a clean, provably-green starting point before risky changes."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
   - mcp__plugin_agency_agency__execute
   - Bash
 ---
+<!-- agency-generated: v1 -->
 
 # workspace capability
 
