@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # skill_generator.generate
 
-Author a SKILL.md and lint it against the CSO rules; flag if not deploy-ready.
+Author a SKILL.md and lint it against the CSO rules, flagging if not deploy-ready.
 
 ## Inputs
 

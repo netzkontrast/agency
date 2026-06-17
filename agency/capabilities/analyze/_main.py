@@ -231,7 +231,7 @@ class AnalyzeCapability(CapabilityBase):
 
     @verb(role="act")
     def run(self, path: str = ".", axes: list = None, lang: str = "py") -> dict:
-        """Run the requested axes; record an Analysis + per-Finding nodes.
+        """Run the requested analysis axes and record an Analysis + per-Finding nodes.
 
         Inputs: path (str), axes (list[str] — default: all four),
                 lang (str — only 'py' in v1).

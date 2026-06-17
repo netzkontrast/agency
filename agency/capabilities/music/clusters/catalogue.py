@@ -67,7 +67,7 @@ class CatalogueCluster(_MusicBase):
     @requires_driver("music_db", as_="db")
     def db_create_tweet(self, album: str, body: str, scheduled_at: str,
                          platform: str = "x", *, db) -> ToolResult:
-        """Insert a tweet row via the DBDriver (effect); produces tweet-record artefact.
+        """Insert a tweet row via the DBDriver, producing a tweet-record artefact (effect).
 
         Inputs: album, body, scheduled_at (ISO), platform (default ``x``).
         Returns: ``{result, artefact}`` tweet-record artefact with tweet_id.

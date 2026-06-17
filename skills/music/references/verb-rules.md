@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## music verb audit — 6 of 103 verbs need work
+## music verb audit — 0 of 103 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -37,12 +37,12 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `music.check_streaming_lyrics` | transform | ✓ clean |
 | `music.check_voice_tells` | transform | ✓ clean |
 | `music.concept_gate` | effect | ✓ clean |
-| `music.conceptualize` | act | `long_brief` |
+| `music.conceptualize` | act | ✓ clean |
 | `music.count_syllables` | transform | ✓ clean |
 | `music.create_album` | effect | ✓ clean |
 | `music.create_songbook` | effect | ✓ clean |
 | `music.create_track` | effect | ✓ clean |
-| `music.db_create_tweet` | effect | `long_brief` |
+| `music.db_create_tweet` | effect | ✓ clean |
 | `music.db_delete_tweet` | effect | ✓ clean |
 | `music.db_get_tweet_stats` | transform | ✓ clean |
 | `music.db_list_tweets` | transform | ✓ clean |
@@ -73,7 +73,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `music.lyric_report` | act | ✓ clean |
 | `music.lyrics_pregen_gate` | effect | ✓ clean |
 | `music.master_album` | effect | ✓ clean |
-| `music.master_audio` | effect | `long_brief` |
+| `music.master_audio` | effect | ✓ clean |
 | `music.master_with_reference` | effect | ✓ clean |
 | `music.measure_album_signature` | transform | ✓ clean |
 | `music.measure_gate` | effect | ✓ clean |
@@ -82,14 +82,14 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `music.name_exposure_gate` | effect | ✓ clean |
 | `music.pending_verifications` | transform | ✓ clean |
 | `music.polish_album` | effect | ✓ clean |
-| `music.polish_and_master_album` | effect | `long_brief` |
+| `music.polish_and_master_album` | effect | ✓ clean |
 | `music.polish_audio` | effect | ✓ clean |
 | `music.pregen_check` | effect | ✓ clean |
 | `music.promo_copy` | act | ✓ clean |
 | `music.promo_gate` | effect | ✓ clean |
 | `music.promo_review` | transform | ✓ clean |
 | `music.promo_review_gate` | effect | ✓ clean |
-| `music.promote_idea` | effect | `long_brief` |
+| `music.promote_idea` | effect | ✓ clean |
 | `music.pronunciation_gate` | effect | ✓ clean |
 | `music.prosody_gate` | effect | ✓ clean |
 | `music.publish_asset` | effect | ✓ clean |
@@ -110,7 +110,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `music.scan_artist_names` | transform | ✓ clean |
 | `music.set_album_status` | effect | ✓ clean |
 | `music.set_track_status` | effect | ✓ clean |
-| `music.transcribe_sheet` | act | `long_brief` |
+| `music.transcribe_sheet` | act | ✓ clean |
 | `music.tweet_schedule_gate` | effect | ✓ clean |
 | `music.update_streaming_url` | effect | ✓ clean |
 | `music.upload_promo_video` | effect | ✓ clean |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_master_audio
-# Single-track master via AudioDriver (effect); produces mastering-report.
+# Master a single track via AudioDriver, producing a mastering-report (effect).
 # Usage: agency-music-master_audio [--intent-id ID] <album> <path> [target_lufs] [preset]
 set -euo pipefail
 

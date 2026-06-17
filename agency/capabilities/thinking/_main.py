@@ -319,7 +319,7 @@ class ThinkingCapability(CapabilityBase):
     @verb(role="act")
     def apply_full_review(self, subject: str = "",
                            depth: str = "standard") -> ToolResult:
-        """Run the 8 founding methods in sequence; produce thinking-analysis artefact (act).
+        """Run the 8 founding thinking methods in sequence, producing a thinking-analysis artefact (act).
 
         Inputs: subject (defaults to serving intent), depth (one of
                 ANALYSIS_DEPTH; documents the rigor level).

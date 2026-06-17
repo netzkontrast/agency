@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_create_novel
-# Record a Novel node SERVING the intent; materialise disk on production.
+# Record a Novel node SERVING the intent, materialising disk on production.
 # Usage: agency-novel-create_novel [--intent-id ID] <title> <author> [genre]
 set -euo pipefail
 

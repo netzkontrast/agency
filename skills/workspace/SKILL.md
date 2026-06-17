@@ -23,7 +23,7 @@ Workspace isolates work in a git worktree and records a green baseline, so risky
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `baseline` | effect | Run the baseline test command in the workspace and record the green/red result. | [details](references/baseline.md) |
-| `isolate` | effect | Create an isolated git worktree on a fresh branch off `base`; record the Workspace. | [details](references/isolate.md) |
+| `isolate` | effect | Create an isolated git worktree on a fresh branch off `base`, recording the Workspace. | [details](references/isolate.md) |
 
 ## Example
 

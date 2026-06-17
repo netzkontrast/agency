@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_polish_and_master_album
-# Combined polish + master pipeline (effect); produces mastering-report.
+# Run the combined polish + master pipeline, producing a mastering-report (effect).
 # Usage: agency-music-polish_and_master_album [--intent-id ID] <album> <paths> [target_lufs]
 set -euo pipefail
 

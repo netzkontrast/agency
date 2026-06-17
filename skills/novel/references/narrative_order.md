@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.narrative_order
 
-Topo-sort over PRECEDES; canonical narrative reading order (transform).
+Topo-sort over PRECEDES for the canonical narrative reading order (transform).
 
 ## Inputs
 

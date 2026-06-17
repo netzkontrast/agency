@@ -13,15 +13,15 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## research verb audit — 3 of 5 verbs need work
+## research verb audit — 0 of 5 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
 | `research.ingest_gdoc` | transform | ✓ clean |
-| `research.lead` | act | `long_brief` |
+| `research.lead` | act | ✓ clean |
 | `research.record_ingested_source` | effect | ✓ clean |
-| `research.specialist` | act | `long_brief` |
-| `research.verify` | act | `long_brief` |
+| `research.specialist` | act | ✓ clean |
+| `research.verify` | act | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The

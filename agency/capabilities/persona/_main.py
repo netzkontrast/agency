@@ -101,6 +101,7 @@ class PersonaCapability(CapabilityBase):
     def list(self) -> dict:
         """The specialist-persona roster — name · focus · approach.
 
+        Inputs: (none).
         Returns: ``{count, personas: [...]}``.
         chain_next: persona.recommend(task) or persona.summon(name, task).
         """
@@ -120,6 +121,7 @@ class PersonaCapability(CapabilityBase):
         """Recommend the specialist persona(s) best matched to a ``task`` by
         decidable domain overlap (read-only).
 
+        Inputs: task (str — what you need a specialist for), top (int — how many).
         Returns: ``{task, top, matches: [{persona, score, focus}]}``.
         chain_next: persona.summon(top, task) to compose the dispatch brief.
         """

@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # document.render
 
-Project graph state to markdown; deterministic.
+Deterministically project graph state to markdown.
 
 ## Inputs
 

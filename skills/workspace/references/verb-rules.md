@@ -13,12 +13,12 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## workspace verb audit — 1 of 2 verbs need work
+## workspace verb audit — 0 of 2 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
 | `workspace.baseline` | effect | ✓ clean |
-| `workspace.isolate` | effect | `long_brief` |
+| `workspace.isolate` | effect | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The

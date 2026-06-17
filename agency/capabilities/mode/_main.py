@@ -87,6 +87,7 @@ class ModeCapability(CapabilityBase):
     def list(self) -> dict:
         """The behavioral-mode roster — name · purpose · behaviors · triggers.
 
+        Inputs: (none).
         Returns: ``{count, modes: [...]}``.
         chain_next: mode.detect(context) or mode.activate(mode).
         """
@@ -109,6 +110,7 @@ class ModeCapability(CapabilityBase):
         """Rank the behavioral modes by decidable trigger overlap with
         ``context`` (read-only).
 
+        Inputs: context (str — free text to match the modes against).
         Returns: ``{matches: [{mode, score}], top}`` (``top`` empty if none).
         chain_next: mode.activate(mode=top, context=...).
         """

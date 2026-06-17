@@ -13,12 +13,12 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## persona verb audit — 2 of 3 verbs need work
+## persona verb audit — 0 of 3 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
-| `persona.list` | act | `missing_inputs` |
-| `persona.recommend` | act | `missing_inputs` |
+| `persona.list` | act | ✓ clean |
+| `persona.recommend` | act | ✓ clean |
 | `persona.summon` | effect | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).

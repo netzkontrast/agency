@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # document.explain
 
-Deterministic code → markdown explanation; emits a Reflection.
+Deterministically explain code as markdown, emitting a Reflection.
 
 ## Inputs
 

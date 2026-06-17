@@ -90,7 +90,7 @@ class ResearchCapability(CapabilityBase):
 
     @verb(role="act")
     def lead(self, question: str, depth: str = "standard") -> dict:
-        """Scope a research question + plan specialists; mints a Research node.
+        """Scope a research question and plan specialists, minting a Research node.
 
         Inputs: question (str), depth (str — brief|standard|deep).
         Returns: ``{research_id, specialists, plan}``.
@@ -117,7 +117,7 @@ class ResearchCapability(CapabilityBase):
                    search_root: str = "agency",
                    docs_root: str = "docs",
                    k: int = 5) -> dict:
-        """One bounded sub-search; records Citations under the research_id.
+        """Run one bounded sub-search, recording Citations under the research_id.
 
         Inputs: research_id (str — from research.lead), role (str
         — codebase|prior-reflections|doc-corpus|web), query (str),
@@ -153,7 +153,7 @@ class ResearchCapability(CapabilityBase):
 
     @verb(role="act")
     def verify(self, research_id: str) -> dict:
-        """Adversarial citation check; emits a Verification node.
+        """Adversarially check citations, emitting a Verification node.
 
         Inputs: research_id (str — from prior research.lead).
         Returns: ``{ok, checks: {evidence-supports-claim, contradiction-cluster}}``.

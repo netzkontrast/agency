@@ -41,7 +41,7 @@ class ResearchMixin:
 
     @verb(role="transform")
     def list_claims(self, verified: str = "") -> ToolResult:
-        """List captured claims; optional verified-status filter (transform).
+        """List captured claims with an optional verified-status filter (transform).
 
         Inputs: verified (one of ``CLAIM_VERIFIED`` or ``""`` for all).
         Returns: ``{claims, count}``.

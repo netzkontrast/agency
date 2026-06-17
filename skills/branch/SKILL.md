@@ -24,7 +24,7 @@ Branch inspects the working tree and remote state and finishes the branch the ap
 |------|------|-------|-----------|
 | `assess` | transform | Read the branch state (ahead/behind/dirty) and recommend merge/pr/keep/discard. | [details](references/assess.md) |
 | `commit_smart` | transform | Compose a conventional-commit message from a change summary + the changed paths (Spec 046 F-C — decidable, no LLM). | [details](references/commit_smart.md) |
-| `finish` | effect | Finish the branch by the chosen action (merge/pr/keep/discard); record the outcome. | [details](references/finish.md) |
+| `finish` | effect | Finish the branch by the chosen action (merge/pr/keep/discard) and record the outcome. | [details](references/finish.md) |
 
 ## Example
 

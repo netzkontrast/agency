@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.set_novel_status
 
-Flip a Novel's lifecycle status; enum-checked (effect).
+Flip a Novel's enum-checked lifecycle status (effect).
 
 ## Inputs
 

@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # document.index_repo
 
-94%-reduction repo briefing — deterministic; ≤ max_tokens.
+Deterministic 94%-reduction repo briefing within ≤ max_tokens.
 
 ## Inputs
 

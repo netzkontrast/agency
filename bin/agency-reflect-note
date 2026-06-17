@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_reflect_note
-# Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent.
+# Write a scope-tagged insight node, edged OBSERVED_DURING + SERVES the intent.
 # Usage: agency-reflect-note [--intent-id ID] <scope> <text>
 set -euo pipefail
 

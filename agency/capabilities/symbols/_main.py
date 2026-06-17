@@ -58,6 +58,7 @@ class SymbolsCapability(CapabilityBase):
     def legend(self) -> dict:
         """The phrase↔symbol legend.
 
+        Inputs: (none).
         Returns: ``{count, legend: [{phrase, symbol}]}``.
         chain_next: symbols.compress(text) / symbols.expand(text).
         """

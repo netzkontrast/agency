@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.list_claims
 
-List captured claims; optional verified-status filter (transform).
+List captured claims with an optional verified-status filter (transform).
 
 ## Inputs
 

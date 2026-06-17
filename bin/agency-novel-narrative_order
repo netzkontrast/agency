@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_narrative_order
-# Topo-sort over PRECEDES; canonical narrative reading order (transform).
+# Topo-sort over PRECEDES for the canonical narrative reading order (transform).
 # Usage: agency-novel-narrative_order [--intent-id ID] <novel_id>
 set -euo pipefail
 

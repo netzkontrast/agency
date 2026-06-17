@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # dogfood.collect
 
-Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files; extract observations.
+Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files and extract observations.
 
 ## Inputs
 

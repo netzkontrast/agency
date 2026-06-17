@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_research_specialist
-# One bounded sub-search; records Citations under the research_id.
+# Run one bounded sub-search, recording Citations under the research_id.
 # Usage: agency-research-specialist [--intent-id ID] <research_id> <role> <query> [search_root] [docs_root] [k]
 set -euo pipefail
 

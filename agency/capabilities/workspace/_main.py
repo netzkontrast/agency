@@ -29,7 +29,7 @@ class WorkspaceCapability(CapabilityBase):
 
     @verb(role="effect", inject=["vcs"])
     def isolate(self, vcs, branch: str, base: str = "main") -> dict:
-        """Create an isolated git worktree on a fresh branch off `base`; record the Workspace.
+        """Create an isolated git worktree on a fresh branch off `base`, recording the Workspace.
 
         Inputs: branch (str — new branch name), base (str — default 'main').
         Returns: ``{workspace, path, branch, base}`` on success;

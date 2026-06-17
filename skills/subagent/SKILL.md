@@ -22,7 +22,7 @@ Subagent composes subagent-driven development: a self-contained task is dispatch
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
-| `develop` | effect | Dispatch a worker child via delegate, then gate it spec-review→quality-review; done iff both pass. | [details](references/develop.md) |
+| `develop` | effect | Dispatch a worker child and gate it through spec-review then quality-review (effect). | [details](references/develop.md) |
 
 ## Example
 

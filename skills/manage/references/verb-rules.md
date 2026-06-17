@@ -13,19 +13,19 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## manage verb audit — 5 of 10 verbs need work
+## manage verb audit — 0 of 10 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
 | `manage.amend` | effect | ✓ clean |
-| `manage.artefacts` | act | `missing_inputs` |
-| `manage.create` | effect | `long_brief` |
+| `manage.artefacts` | act | ✓ clean |
+| `manage.create` | effect | ✓ clean |
 | `manage.list` | act | ✓ clean |
-| `manage.open_intents` | act | `missing_inputs` |
+| `manage.open_intents` | act | ✓ clean |
 | `manage.read` | act | ✓ clean |
 | `manage.retract` | effect | ✓ clean |
-| `manage.state` | act | `missing_inputs` |
-| `manage.timeline` | act | `missing_inputs` |
+| `manage.state` | act | ✓ clean |
+| `manage.timeline` | act | ✓ clean |
 | `manage.update` | effect | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).

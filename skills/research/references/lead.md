@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # research.lead
 
-Scope a research question + plan specialists; mints a Research node.
+Scope a research question and plan specialists, minting a Research node.
 
 ## Inputs
 

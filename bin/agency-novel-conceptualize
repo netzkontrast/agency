@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_conceptualize
-# Render a novel-concept document (act); the first verb of the MVN flow.
+# Render a novel-concept document, the first verb of the MVN flow (act).
 # Usage: agency-novel-conceptualize [--intent-id ID] <title> <author> [premise] [central_question]
 set -euo pipefail
 

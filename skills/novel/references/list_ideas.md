@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.list_ideas
 
-List captured ideas; optional status filter (transform).
+List captured ideas with an optional status filter (transform).
 
 ## Inputs
 

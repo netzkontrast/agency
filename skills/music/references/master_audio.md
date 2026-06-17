@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # music.master_audio
 
-Single-track master via AudioDriver (effect); produces mastering-report.
+Master a single track via AudioDriver, producing a mastering-report (effect).
 
 ## Inputs
 

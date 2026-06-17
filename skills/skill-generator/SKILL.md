@@ -22,7 +22,7 @@ Skill_generator produces a deploy-ready skill in a single call, emitting a CSO-c
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
-| `generate` | act | Author a SKILL.md and lint it against the CSO rules; flag if not deploy-ready. | [details](references/generate.md) |
+| `generate` | act | Author a SKILL.md and lint it against the CSO rules, flagging if not deploy-ready. | [details](references/generate.md) |
 
 ## Example
 

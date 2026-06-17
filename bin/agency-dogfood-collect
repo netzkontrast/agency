@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_dogfood_collect
-# Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files; extract observations.
+# Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files and extract observations.
 # Usage: agency-dogfood-collect [--intent-id ID] [plan_dir]
 set -euo pipefail
 

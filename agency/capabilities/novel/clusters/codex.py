@@ -75,7 +75,7 @@ class CodexMixin:
     @verb(role="transform")
     def match_codex_entries(self, novel_id: str,
                               text: str) -> ToolResult:
-        """Scan ``text`` for any registered codex trigger; return matches (transform).
+        """Scan ``text`` for any registered codex trigger and return matches (transform).
 
         Case-insensitive whole-substring match (the simpler half of the
         Novelcrafter behaviour; word-boundary matching is a Slice 2

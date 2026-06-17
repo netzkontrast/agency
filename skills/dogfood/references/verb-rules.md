@@ -13,13 +13,13 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## dogfood verb audit — 2 of 11 verbs need work
+## dogfood verb audit — 0 of 11 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
-| `dogfood.apply_amendment` | effect | `long_brief`, `no_chain_next` |
+| `dogfood.apply_amendment` | effect | ✓ clean |
 | `dogfood.boundary_use_audit` | transform | ✓ clean |
-| `dogfood.collect` | transform | `long_brief` |
+| `dogfood.collect` | transform | ✓ clean |
 | `dogfood.export` | effect | ✓ clean |
 | `dogfood.import` | effect | ✓ clean |
 | `dogfood.note` | act | ✓ clean |

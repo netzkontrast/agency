@@ -24,7 +24,7 @@ A native reimplementation of SuperClaude's Business Panel: nine strategic thinke
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `convene` | effect | Convene the panel on a ``subject`` — emit a mode-appropriate multi-expert critique scaffold + record it (Spec 294). | [details](references/convene.md) |
-| `experts` | act | The 9-expert roster — name · framework · lens · signature question. | [details](#experts) |
+| `experts` | act | The 9-expert roster — name · framework · lens · signature question. | [details](references/experts.md) |
 
 ## Example
 
@@ -43,11 +43,3 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`strategic-analysis`** (discipline): frame → convene → challenge → synthesize
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'strategic-analysis', 'inputs': {}, 'intent_id': '…'})`
-
-## experts
-
-The 9-expert roster — name · framework · lens · signature question.
-
-Parameters: `()`.
-
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/experts.md.)_

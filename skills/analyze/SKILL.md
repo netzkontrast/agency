@@ -30,7 +30,7 @@ Analyze runs decidable transforms over source and reports findings on the qualit
 | `paths` | transform | Spec 048 intent-path analysis: long chains + verb sequences. | [details](references/paths.md) |
 | `performance` | transform | AST-based hot-path lint: nested O(n²), += in loop, unbounded while True. | [details](references/performance.md) |
 | `quality` | transform | Decidable lint findings: unused imports, long lines, long functions, long files. | [details](references/quality.md) |
-| `run` | act | Run the requested axes; record an Analysis + per-Finding nodes. | [details](references/run.md) |
+| `run` | act | Run the requested analysis axes and record an Analysis + per-Finding nodes. | [details](references/run.md) |
 | `security` | transform | Decidable security patterns: eval/exec, hardcoded credentials, pickle.load, shell=True. | [details](references/security.md) |
 
 ## Example

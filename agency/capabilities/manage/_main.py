@@ -49,7 +49,7 @@ class ManageCapability(CapabilityBase):
 
     @verb(role="effect")
     def create(self, label: str, props: dict | None = None) -> dict:
-        """CREATE a node of any ontology ``label``; SERVES the intent (Spec 293).
+        """CREATE a node of any ontology ``label`` that SERVES the intent (Spec 293).
 
         Inputs: label (str — an ontology node label), props (dict|json-str —
                 the node's properties; validated against the ontology).
@@ -155,6 +155,7 @@ class ManageCapability(CapabilityBase):
         Artefacts and Lifecycles grouped by state. With ``intent_id``, also the
         size of its ``SERVES`` subtree + artefacts produced under it.
 
+        Inputs: for_intent_id (str — optional; scopes the rollup to one intent).
         Returns: ``{intents, reflections, artefacts, lifecycles_by_state, …}``.
         chain_next: manage.open_intents / manage.timeline to drill in.
         """
@@ -179,6 +180,7 @@ class ManageCapability(CapabilityBase):
         """OPEN-INTENTS — live intents + acceptance + SERVES subtree size,
         busiest first (Spec 290, Intent pillar).
 
+        Inputs: top (int — how many busiest intents to return).
         Returns: ``{count, intents: [{id, purpose, acceptance, status,
                    serves_count}]}``.
         chain_next: manage.timeline(intent_id) for an intent's event order.
@@ -198,6 +200,7 @@ class ManageCapability(CapabilityBase):
         """TIMELINE — the ordered Event + Invocation history for an intent
         (Spec 290, Lifecycle · Memory).
 
+        Inputs: for_intent_id (str — the Intent id), limit (int — max events).
         Returns: ``{intent_id, count, timeline: [{kind, name, at}]}`` ordered
         by valid-time.
         chain_next: manage.artefacts(intent_id) for what it produced.
@@ -223,6 +226,7 @@ class ManageCapability(CapabilityBase):
         """ARTEFACTS produced under an intent + their source invocations
         (Spec 290, Memory pillar).
 
+        Inputs: for_intent_id (str — the Intent id).
         Returns: ``{intent_id, count, artefacts: [props]}``.
         chain_next: manage.read(id) for one artefact's full state.
         """

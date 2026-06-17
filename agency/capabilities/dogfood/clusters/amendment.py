@@ -407,7 +407,7 @@ class AmendmentMixin:
     @verb(role="effect")
     def apply_amendment(self, payload: dict, dry_run: bool = True,
                          confirm_token: str = "") -> dict:
-        """Render a ProposalPayload as a unified diff; provenance Artefact.
+        """Render a ProposalPayload as a unified diff, recorded as a provenance Artefact.
 
         v1 always renders the diff and writes an
         `Artefact(kind="amendment-proposal")` with PRODUCES_FROM edges
@@ -424,6 +424,8 @@ class AmendmentMixin:
                        ``AMENDMENT_VAGUE`` (rationale < 40 chars),
                        ``AMENDMENT_UNCONFIRMED`` (live write requested,
                        confirm_token does not match the payload id-hash).
+        chain_next: review the diff, then re-call with ``dry_run=False`` +
+                    ``confirm_token`` to write the amendment.
         """
         # Hard-coded constants are tunable budgets (rule 8):
         _RATIONALE_FLOOR = 40   # documented in Plan/150 §"Done When"

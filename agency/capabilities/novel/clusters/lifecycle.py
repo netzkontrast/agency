@@ -27,7 +27,7 @@ class LifecycleMixin:
     def conceptualize(self, title: str, author: str,
                        premise: str = "",
                        central_question: str = "") -> ToolResult:
-        """Render a novel-concept document (act); the first verb of the MVN flow.
+        """Render a novel-concept document, the first verb of the MVN flow (act).
 
         Inputs: title, author, premise, central_question.
         Returns: ``{result, artefact}`` novel-concept artefact.
@@ -47,7 +47,7 @@ class LifecycleMixin:
     @verb(role="effect")
     def create_novel(self, title: str, author: str,
                       genre: str = "novel") -> ToolResult:
-        """Record a Novel node SERVING the intent; materialise disk on production.
+        """Record a Novel node SERVING the intent, materialising disk on production.
 
         Inputs: title, author, genre (default "novel"; routes the disk
                 layout `works/{author}/works/{genre}/{slug}/`).
@@ -226,7 +226,7 @@ class LifecycleMixin:
 
     @verb(role="transform")
     def list_ideas(self, status: str = "") -> ToolResult:
-        """List captured ideas; optional status filter (transform).
+        """List captured ideas with an optional status filter (transform).
 
         Inputs: status (one of ``IDEA_STATUS`` or ``""`` for all).
         Returns: ``{ideas: [...], count}``.
@@ -243,7 +243,7 @@ class LifecycleMixin:
     @verb(role="effect")
     def promote_idea(self, idea_id: str, title: str,
                       author: str) -> ToolResult:
-        """Idea → Novel transition; records PROMOTED_TO edge (effect).
+        """Transition an Idea to a Novel, recording the PROMOTED_TO edge (effect).
 
         Flips the Idea's status to ``promoted``, mints a Novel node, and
         wires a PROMOTED_TO edge. Mirrors music's promote_idea / Idea-to-
@@ -290,7 +290,7 @@ class LifecycleMixin:
 
     @verb(role="effect", param_enums={"status": NOVEL_STATUS})
     def set_novel_status(self, novel_id: str, status: str) -> ToolResult:
-        """Flip a Novel's lifecycle status; enum-checked (effect).
+        """Flip a Novel's enum-checked lifecycle status (effect).
 
         Inputs: novel_id, status (one of ``NOVEL_STATUS``).
         Returns: ``{novel_id, status}``.
@@ -698,7 +698,7 @@ class LifecycleMixin:
     @verb(role="effect", param_enums={"status": CHAPTER_STATUS})
     def set_chapter_status(self, chapter_id: str,
                             status: str) -> ToolResult:
-        """Flip a Chapter's lifecycle status; enum-checked (effect).
+        """Flip a Chapter's enum-checked lifecycle status (effect).
 
         Inputs: chapter_id, status (one of ``CHAPTER_STATUS``).
         Returns: ``{chapter_id, status}``.

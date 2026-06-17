@@ -21,7 +21,7 @@ class SkillGeneratorCapability(CapabilityBase):
 
     @verb(role="act")
     def generate(self, name: str, description: str, body: str) -> dict:
-        """Author a SKILL.md and lint it against the CSO rules; flag if not deploy-ready.
+        """Author a SKILL.md and lint it against the CSO rules, flagging if not deploy-ready.
 
         Inputs: name (skill slug), description (str — the trigger phrase),
                 body (str — the SKILL.md content).

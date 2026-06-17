@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # research.specialist
 
-One bounded sub-search; records Citations under the research_id.
+Run one bounded sub-search, recording Citations under the research_id.
 
 ## Inputs
 

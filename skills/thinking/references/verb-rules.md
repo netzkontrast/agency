@@ -13,11 +13,11 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## thinking verb audit — 1 of 11 verbs need work
+## thinking verb audit — 0 of 11 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
-| `thinking.apply_full_review` | act | `long_brief` |
+| `thinking.apply_full_review` | act | ✓ clean |
 | `thinking.assumptions` | transform | ✓ clean |
 | `thinking.decompose` | transform | ✓ clean |
 | `thinking.first_principles` | transform | ✓ clean |

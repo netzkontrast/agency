@@ -13,14 +13,14 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## reflect verb audit — 2 of 6 verbs need work
+## reflect verb audit — 0 of 6 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
 | `reflect.batch_note` | act | ✓ clean |
-| `reflect.note` | act | `long_brief` |
+| `reflect.note` | act | ✓ clean |
 | `reflect.recall` | transform | ✓ clean |
-| `reflect.recall_semantic` | transform | `long_brief` |
+| `reflect.recall_semantic` | transform | ✓ clean |
 | `reflect.search` | transform | ✓ clean |
 | `reflect.synthesize_session` | act | ✓ clean |
 

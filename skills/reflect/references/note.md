@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # reflect.note
 
-Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent.
+Write a scope-tagged insight node, edged OBSERVED_DURING + SERVES the intent.
 
 ## Inputs
 

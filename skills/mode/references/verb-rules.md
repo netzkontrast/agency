@@ -13,13 +13,13 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## mode verb audit — 2 of 3 verbs need work
+## mode verb audit — 0 of 3 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
 | `mode.activate` | effect | ✓ clean |
-| `mode.detect` | act | `missing_inputs` |
-| `mode.list` | act | `missing_inputs` |
+| `mode.detect` | act | ✓ clean |
+| `mode.list` | act | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The

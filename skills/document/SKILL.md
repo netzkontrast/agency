@@ -24,11 +24,11 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `convergence` | act | Audit a Document's convergence facets (Spec 292 C3). | [details](references/convergence.md) |
-| `explain` | act | Deterministic code → markdown explanation; emits a Reflection. | [details](references/explain.md) |
-| `index_repo` | effect | 94%-reduction repo briefing — deterministic; ≤ max_tokens. | [details](references/index_repo.md) |
+| `explain` | act | Deterministically explain code as markdown, emitting a Reflection. | [details](references/explain.md) |
+| `index_repo` | effect | Deterministic 94%-reduction repo briefing within ≤ max_tokens. | [details](references/index_repo.md) |
 | `ingest` | effect | Round-trip a markdown file INTO the graph (file → graph; Spec 292). | [details](references/ingest.md) |
 | `mirror` | effect | Project graph→file AND event-source it (Spec 292 — closes the loop). | [details](references/mirror.md) |
-| `render` | transform | Project graph state to markdown; deterministic. | [details](references/render.md) |
+| `render` | transform | Deterministically project graph state to markdown. | [details](references/render.md) |
 | `reopen` | effect | Reopen an archived session Document — reconstruct the four concepts (Spec 292 C4). | [details](references/reopen.md) |
 | `restore_session` | act | Restore a complete session from the Session Graph (Spec 292). | [details](references/restore_session.md) |
 | `revisions` | act | Read a Document's keep-both revision history (Spec 292). | [details](references/revisions.md) |

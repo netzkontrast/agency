@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## novel verb audit — 9 of 95 verbs need work
+## novel verb audit — 0 of 95 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -44,7 +44,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `novel.check_storybeat_moment_refs` | transform | ✓ clean |
 | `novel.check_throughline_partition` | transform | ✓ clean |
 | `novel.check_voice_consistency` | transform | ✓ clean |
-| `novel.conceptualize` | act | `long_brief` |
+| `novel.conceptualize` | act | ✓ clean |
 | `novel.copy_gate` | effect | ✓ clean |
 | `novel.count_words` | transform | ✓ clean |
 | `novel.create_chapter` | effect | ✓ clean |
@@ -52,7 +52,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `novel.create_culture` | effect | ✓ clean |
 | `novel.create_language` | effect | ✓ clean |
 | `novel.create_magic_system` | effect | ✓ clean |
-| `novel.create_novel` | effect | `long_brief` |
+| `novel.create_novel` | effect | ✓ clean |
 | `novel.create_religion` | effect | ✓ clean |
 | `novel.create_scene` | effect | ✓ clean |
 | `novel.create_storyform` | effect | ✓ clean |
@@ -73,22 +73,22 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `novel.line_gate` | effect | ✓ clean |
 | `novel.link_character_to_world` | effect | ✓ clean |
 | `novel.list_chapters` | transform | ✓ clean |
-| `novel.list_claims` | transform | `long_brief` |
+| `novel.list_claims` | transform | ✓ clean |
 | `novel.list_codex_entries` | transform | ✓ clean |
-| `novel.list_ideas` | transform | `long_brief` |
+| `novel.list_ideas` | transform | ✓ clean |
 | `novel.list_reveals_in` | transform | ✓ clean |
 | `novel.list_story_events_up_to` | transform | ✓ clean |
 | `novel.list_world` | transform | ✓ clean |
 | `novel.manuscript_coherence_check` | transform | ✓ clean |
 | `novel.mark_narrative_beat` | effect | ✓ clean |
-| `novel.match_codex_entries` | transform | `long_brief` |
-| `novel.narrative_order` | transform | `long_brief` |
+| `novel.match_codex_entries` | transform | ✓ clean |
+| `novel.narrative_order` | transform | ✓ clean |
 | `novel.novel_coherence_check` | effect | ✓ clean |
 | `novel.novel_progress` | transform | ✓ clean |
 | `novel.pending_verifications` | transform | ✓ clean |
 | `novel.pov_options` | transform | ✓ clean |
 | `novel.pre_draft_gate` | effect | ✓ clean |
-| `novel.promote_idea` | effect | `long_brief` |
+| `novel.promote_idea` | effect | ✓ clean |
 | `novel.publication_gate` | effect | ✓ clean |
 | `novel.publish_ready_gate` | effect | ✓ clean |
 | `novel.query_ready_gate` | effect | ✓ clean |
@@ -105,8 +105,8 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `novel.resume_session` | transform | ✓ clean |
 | `novel.reveal_in_scene` | effect | ✓ clean |
 | `novel.scan_proper_nouns` | transform | ✓ clean |
-| `novel.set_chapter_status` | effect | `long_brief` |
-| `novel.set_novel_status` | effect | `long_brief` |
+| `novel.set_chapter_status` | effect | ✓ clean |
+| `novel.set_novel_status` | effect | ✓ clean |
 | `novel.storyform_critical_pass` | act | ✓ clean |
 | `novel.update_codex_entry` | effect | ✓ clean |
 | `novel.validate_appreciations` | transform | ✓ clean |

@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # manage.create
 
-CREATE a node of any ontology ``label``; SERVES the intent (Spec 293).
+CREATE a node of any ontology ``label`` that SERVES the intent (Spec 293).
 
 ## Inputs
 

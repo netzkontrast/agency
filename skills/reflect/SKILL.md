@@ -24,9 +24,9 @@ Reflect is the cross-session memory surface: scope-tagged notes recorded as grap
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `batch_note` | act | Bulk version of ``note``: one Reflection node per text. | [details](references/batch_note.md) |
-| `note` | act | Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent. | [details](references/note.md) |
+| `note` | act | Write a scope-tagged insight node, edged OBSERVED_DURING + SERVES the intent. | [details](references/note.md) |
 | `recall` | transform | Retrieve reflections, newest first, optionally filtered by scope. | [details](references/recall.md) |
-| `recall_semantic` | transform | Semantic top-k recall over Reflection nodes; backend-injectable. | [details](references/recall_semantic.md) |
+| `recall_semantic` | transform | Semantic top-k recall over Reflection nodes (backend-injectable). | [details](references/recall_semantic.md) |
 | `search` | transform | Keyword search over reflection text (deterministic substring match). | [details](references/search.md) |
 | `synthesize_session` | act | Produce a session-reflection artefact at session close (act). | [details](references/synthesize_session.md) |
 

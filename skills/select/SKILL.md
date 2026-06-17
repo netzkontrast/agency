@@ -23,7 +23,7 @@ A native, generalized reimplementation of SuperClaude's `sc-select-tool`: score 
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
-| `archetypes` | act | The approach archetypes + their trade-offs. | [details](#archetypes) |
+| `archetypes` | act | The approach archetypes + their trade-offs. | [details](references/archetypes.md) |
 | `route` | effect | Route an ``operation`` to an approach archetype by decidable complexity scoring (Spec 296). | [details](references/route.md) |
 
 ## Example
@@ -43,11 +43,3 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`select-usage`** (usage): use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'select-usage', 'inputs': {}, 'intent_id': '…'})`
-
-## archetypes
-
-The approach archetypes + their trade-offs.
-
-Parameters: `()`.
-
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/archetypes.md.)_

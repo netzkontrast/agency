@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # research.verify
 
-Adversarial citation check; emits a Verification node.
+Adversarially check citations, emitting a Verification node.
 
 ## Inputs
 

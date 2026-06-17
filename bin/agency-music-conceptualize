@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_conceptualize
-# Render an album-concept document (act); ``type`` must be a known album type.
+# Render an album-concept document for a known album ``type`` (act).
 # Usage: agency-music-conceptualize [--intent-id ID] <artist> <title> <type> [theme] [tracklist]
 set -euo pipefail
 
