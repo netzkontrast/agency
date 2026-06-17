@@ -9,7 +9,6 @@ See Spec 043 §"index_repo's 94%-reduction mechanism".
 from __future__ import annotations
 
 import ast
-import hashlib
 import os
 
 
@@ -241,5 +240,6 @@ def render(root: str, memory, intent_id: str = "",
     return text, final_tokens, files_scanned
 
 
-def content_sha(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+# The 16-hex content hash lives in `_interconnect` (Spec 292); re-exported here
+# for the existing `_index_repo.content_sha` callers.
+from ._interconnect import content_sha  # noqa: E402,F401

@@ -20,17 +20,31 @@ Exit codes (per Spec 169 CI-gate doctrine):
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# GOALS.md ships exactly 8 Vision goals. The validator does not silently widen.
-_VALID_GOALS = frozenset(range(1, 9))
+# CLAUDE.md rule 8 — DERIVE the legal goal set from GOALS.md, never freeze it.
+# A new goal in GOALS.md must not require hand-editing a magic number here.
+_GOALS_MD = Path(__file__).resolve().parents[1] / "docs" / "vision" / "GOALS.md"
+# A goal is a top-level numbered item in the "## Goals" section: `N. **Title**`.
+_GOAL_RE = re.compile(r"^(\d+)\.\s+\*\*", re.MULTILINE)
+# Fallback if GOALS.md is unreadable: the historical 8-goal floor (never widens
+# silently — derivation is the source of truth, this only guards a missing file).
+_FALLBACK_GOALS = frozenset(range(1, 9))
 
 
-def valid_goals() -> set[int]:
-    """The set of legal Goal IDs per `docs/vision/GOALS.md`."""
-    return set(_VALID_GOALS)
+def valid_goals(goals_md: Path = _GOALS_MD) -> set[int]:
+    """The set of legal Goal IDs, DERIVED from the "## Goals" section of
+    `docs/vision/GOALS.md` (CLAUDE.md rule 8 — computed, not a frozen snapshot)."""
+    try:
+        text = goals_md.read_text(encoding="utf-8")
+    except OSError:
+        return set(_FALLBACK_GOALS)
+    section = text.split("## Goals", 1)[-1].split("## Non-goals", 1)[0]
+    derived = {int(m.group(1)) for m in _GOAL_RE.finditer(section)}
+    return derived or set(_FALLBACK_GOALS)
 
 
 # ── frontmatter parsing ──────────────────────────────────────────────────────
@@ -78,7 +92,7 @@ def _spec_id_from_dir(path: Path) -> str:
 def check_spec(path: Path) -> SpecResult:
     """Audit one spec.md. The rule:
     - `vision_goals:` must be present in the YAML frontmatter
-    - it must be a non-empty list of unique integers in {1..8}
+    - it must be a non-empty list of unique integers (valid set derived from GOALS.md)
     """
     spec_id = _spec_id_from_dir(path)
     try:
@@ -99,13 +113,14 @@ def check_spec(path: Path) -> SpecResult:
     if len(val) != len(set(val)):
         return SpecResult(spec_id, path, False, "invalid",
                           f"duplicate goal IDs: {val}")
+    legal = valid_goals()
     for g in val:
         if not isinstance(g, int):
             return SpecResult(spec_id, path, False, "invalid",
                               f"non-int entry: {g!r}")
-        if g not in _VALID_GOALS:
+        if g not in legal:
             return SpecResult(spec_id, path, False, "invalid",
-                              f"goal {g} not in {{1..8}} (GOALS.md)")
+                              f"goal {g} not in {sorted(legal)} (GOALS.md)")
     return SpecResult(spec_id, path, True, "ok")
 
 
@@ -190,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
                 if r.spec_id == sid:
                     print(f"  {sid}  {r.code:8}  {r.detail}")
                     break
-        print("\nFix: add `vision_goals: [int, ...]` (Goal IDs 1..8 per GOALS.md) "
+        print("\nFix: add `vision_goals: [int, ...]` (valid Goal IDs are derived from GOALS.md) "
               "to each spec's frontmatter.")
     else:
         print(f"OK — no regressions ({len(rep.baseline_missing)} baseline-tracked "

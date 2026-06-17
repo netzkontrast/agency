@@ -525,3 +525,91 @@ def _hooks_shape(doctor_result):
     hooks = doctor_result["hooks"]
     for key in ("plugin_enabled", "cli_on_path", "hook_scripts_present", "next_steps"):
         assert key in hooks, f"doctor.hooks missing key: {key}"
+
+
+# ── SessionEnd → session Document archive (Spec 292) ──────────────────────────
+
+@when("a SessionEnd hook event fires", target_fixture="hook_out")
+def _sessionend(hook_engine, active_intent):
+    return hook_engine.dispatch_hook(
+        {"hook_event_name": "SessionEnd", "session_id": "s1"})
+
+
+@then("the hook result archives a session Document")
+def _archived_doc(hook_out):
+    assert hook_out.get("archived", "").startswith("document:"), hook_out
+
+
+@then("that session Document exists in the graph")
+def _archived_in_graph(hook_engine, hook_out):
+    assert hook_engine.memory.recall_typed(hook_out["archived"], "Document")
+
+
+# ── UserPromptSubmit injection — assumption-guard (Spec 292) ──────────────────
+
+@then("the hook injects an assumption-guard naming intent and thinking")
+def _inject_guard(hook_out):
+    inj = hook_out.get("inject", "")
+    assert "intent.assumptions" in inj and "thinking" in inj, inj
+    assert "ASSUMPTION" in inj.upper() and "ASK" in inj.upper(), inj
+
+
+@then("the injected guard names the active intent purpose")
+def _inject_names_intent(hook_out):
+    assert "Active intent:" in hook_out.get("inject", "")
+
+
+# ── Session Graph restore (Spec 292) ──────────────────────────────────────────
+
+@when("a UserPromptSubmit then a PostToolUse event fire in session s9")
+def _two_events_s9(hook_engine, active_intent):
+    hook_engine.dispatch_hook({"hook_event_name": "UserPromptSubmit",
+                               "session_id": "s9", "prompt": "go"})
+    hook_engine.dispatch_hook({"hook_event_name": "PostToolUse",
+                               "session_id": "s9", "tool_name": "Bash",
+                               "tool_input": {"command": "ls"}})
+
+
+@when("a SessionEnd event fires in session s9")
+def _sessionend_s9(hook_engine):
+    hook_engine.dispatch_hook({"hook_event_name": "SessionEnd", "session_id": "s9"})
+
+
+@then("restoring session s9 reports a closed session with events and a Document")
+def _restore_s9(hook_engine, active_intent):
+    r, _ = hook_engine.registry.invoke(
+        hook_engine.memory, active_intent, "document", "restore_session",
+        agent_id="agent:test", session_id="s9")
+    assert r["status"] == "closed", r
+    assert r["event_count"] >= 3, r          # 2 events + the SessionEnd event
+    assert r["document_id"], r
+
+
+# ── Session Graph analytics (Spec 292) ────────────────────────────────────────
+
+def _analytics(eng, intent, **kw):
+    r, _ = eng.registry.invoke(eng.memory, intent, "document", "session_analytics",
+                               agent_id="agent:test", **kw)
+    return r
+
+
+@then("session analytics for s9 report the event-type and tool breakdown")
+def _analytics_single(hook_engine, active_intent):
+    a = _analytics(hook_engine, active_intent, session_id="s9")
+    assert a["found"] and a["event_count"] >= 3, a
+    names = {row["name"] for row in a["events_by_type"]}
+    assert {"UserPromptSubmit", "PostToolUse", "SessionEnd"} <= names, a
+    assert any(row["tool"] == "Bash" for row in a["tools_used"]), a
+
+
+@then("session analytics for s9 attach the archived Document")
+def _analytics_doc(hook_engine, active_intent):
+    a = _analytics(hook_engine, active_intent, session_id="s9")
+    assert a["documents"] and a["documents"][0]["id"].startswith("document:"), a
+
+
+@then("cross-session analytics report a positive session count and a busiest list")
+def _analytics_cross(hook_engine, active_intent):
+    a = _analytics(hook_engine, active_intent)
+    assert a["session_count"] >= 1, a
+    assert any(row["session_id"] == "s9" for row in a["busiest_sessions"]), a

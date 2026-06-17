@@ -582,3 +582,24 @@ def _valid_terminal_status(discipline_walk_results):
     for skill, out in discipline_walk_results.items():
         assert out.get("status") in valid, \
             f"{skill}: unexpected status {out.get('status')!r}"
+
+
+# ── develop.index — ported indexer (Spec 292) ─────────────────────────────────
+
+@when("I call develop.index on the agency repo", target_fixture="dev_index_result")
+def _develop_index(engine, confirmed_intent):
+    import os
+    repo = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    r, _ = engine.registry.invoke(engine.memory, confirmed_intent, "develop", "index",
+                                  agent_id="agent:test", path=repo, apply=False)
+    return r
+
+
+@then("the develop index result carries an index_id")
+def _dev_index_id(dev_index_result):
+    assert dev_index_result.get("index_id", "").startswith("repoindex:")
+
+
+@then("the develop index token count is positive")
+def _dev_index_tokens(dev_index_result):
+    assert dev_index_result.get("tokens", 0) > 0

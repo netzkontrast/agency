@@ -115,3 +115,8 @@ Feature: develop capability — scaffolding, linting, authoring walk, discipline
   Scenario: cued discipline skills are walkable
     When I walk each of the "plan", "spec-panel", and "brainstorm" disciplines
     Then each walk returns a valid terminal status
+
+  Scenario: develop.index produces a repo briefing via the ported indexer
+    When I call develop.index on the agency repo
+    Then the develop index result carries an index_id
+    And the develop index token count is positive

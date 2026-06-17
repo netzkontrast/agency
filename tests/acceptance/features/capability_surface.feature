@@ -31,3 +31,9 @@ Feature: A working capability surface and engine health
       | cap   |
       | music |
       | novel |
+
+  Scenario: The doctor reports surface freshness and accurate test coverage (Spec 302)
+    Given a fresh agency engine in code-mode
+    When I ask the engine doctor for a health report
+    Then the doctor reports a surface_freshness with a live hash
+    And the doctor does not falsely flag acceptance-tested capabilities as untested

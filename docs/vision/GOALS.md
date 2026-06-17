@@ -50,23 +50,43 @@ operational docs ([`../../AGENTS.md`](../../AGENTS.md),
    observation→spec-amendment path (Spec 014) is **not yet built**, so the loop
    is closed by hand, not by the engine. Closing it for real is still ahead.*
 
-7. **Graph is the store; files are a rendered view.** Working artefacts belong in
-   the graph; markdown is rendered on demand for external readers.
-   *Bounded exception (intentional, not a contradiction): the canon/doctrine docs
-   themselves — `CORE.md`, `AGENTS.md`, `AGENCY_PROTOCOL.md`, this file — live as
-   files because their audience is humans outside the graph. The aim holds for
-   **working** artefacts; the canon is the named carve-out (CLAUDE.md rule 2).*
+7. **Graph and files are interconnected peers.** The graph is the queryable
+   spine; markdown files are an editable surface that round-trips back into it
+   (`document.ingest`/`sync`), reconciled keep-both bi-temporally — latest wins
+   on read, history retained, nothing overwritten. *(Premise flip, Spec 292;
+   supersedes the old "files are a one-way rendered view".)*
 
 8. **Harness-in-harness composition.** The agency is itself a Claude Code plugin;
    Jules dispatch is itself a sub-harness; the substrate supports the recursion.
    The aim is to compose with the larger ecosystem rather than replace it.
+
+9. **The Document is the universal convergence artefact (Spec 292).** *Absolute
+   goal:* every capability is effortless to drive because all output converges
+   on one artefact — the Document — where the substrate's layers meet: datalayer
+   (a graph node), templates + schemas + ontology (it binds `template`/`schema`,
+   `CONFORMS_TO` a Schema), prompt (*every file is also a prompt* — `ingest`
+   scores it via `prompt.audit`), and the four concepts (`document.session`
+   renders **Intent · Capability · Lifecycle · Memory** into a durable Document
+   archived under `.agency/sessions/`). *Strict criteria:* (1) every verb
+   discoverable via `search`, every error names its missing field; (2) total
+   round-trip — engine output re-ingests idempotently, human edits re-ingest
+   with no loss; (3) every Document carries template + schema + clarity_score +
+   four-concept provenance; (4) closing a session writes a Document, reopening
+   reconstructs it; (5) `agency install` + SessionStart yield a working
+   substrate with zero manual steps, `agency_doctor` green or naming the gap.
+   *Setup status:* `.agency/sessions/` is committed (durable session graph); the
+   opt-in pre-commit `document.sync` hook, the schema-conformance gate on
+   `ingest`, install auto-offering the `plugin_enabled` fix, and the
+   `document.mirror` render→`DocRevision` graph→file mirror (closing the
+   bi-directional loop) all shipped in Slice 1.
 
 ## Non-goals
 
 - A flat four-verb surface (rejected — code-mode is the only contract).
 - Fixed domains in the core (domains live in `examples/`).
 - `manifest.toml`-style registration (reflection discovers; never reintroduce).
-- Markdown as primary store for working artefacts (the graph is the store).
+- Markdown as a *destructive* primary store (graph and files are keep-both peers,
+  not a file-wins overwrite — Spec 292).
 - A separate `sessions.json` for Jules state (use `JulesSession` nodes).
 
 ## How the goals show up (and where they fall short)
@@ -79,8 +99,9 @@ operational docs ([`../../AGENTS.md`](../../AGENTS.md),
 | 4 — Open set | `agency/capabilities/__init__.py` `discover()`; Spec 016 | Mostly — 3 caps still bare modules |
 | 5 — Code-mode | `fastmcp…code_mode` + `agency/cli.py` | Realized (bare-name alias cancelled, 069) |
 | 6 — Dogfood loop | `dogfood.collect` + `reflect.batch_note` | **Partial — fold-back is manual; Spec 014 unbuilt** |
-| 7 — Graph-as-store | the `Reflection` node pattern | Realized for working artefacts; canon docs are the named exception |
+| 7 — Graph↔file peers | `document.ingest`/`sync` + `DocRevision` keep-both | Realized (Spec 292 Slice 1) |
 | 8 — Harness-in-harness | `jules.dispatch` + the watcher; `delegate.fan_out` | Realized |
+| 9 — Document convergence | `document.{ingest,mirror,sync,revisions,session,…}` + `Document`/`DocRevision` | Realized (Slice 1 — bi-directional loop closed) |
 
 If a proposed change weakens one of these goals, it needs an explicit
 trade-off argument in the spec body and panel review.

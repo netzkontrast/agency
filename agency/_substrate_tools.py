@@ -105,6 +105,32 @@ class MemoryGraphProvenance(SubstrateTool):
         return memory_graph_provenance
 
 
+class AgencyReload(SubstrateTool):
+    name = "agency_reload"
+
+    def make_impl(self, engine):
+        def agency_reload() -> dict:
+            """Reload capabilities mid-session WITHOUT restarting the server
+            (Spec 302).
+
+            Substrate — NO intent required. Re-discovers + reloads the capability
+            modules, rebuilds the registry + effective ontology in place, and
+            wires genuinely-new verbs onto the live MCP. Code-mode ``execute``
+            reaches the new surface immediately; a non-code-mode client must
+            re-list tools to see brand-new verbs. Use after editing/adding a
+            capability when ``agency_doctor.surface_freshness.fresh`` is False —
+            no reinstall, no session restart.
+
+            Inputs: (none).
+            Returns: ``{reloaded, capability_count, capability_set_hash, added,
+                    removed, rewired_tools}``.
+            chain_next: ``agency_welcome`` to read the refreshed surface.
+            """
+            return engine.reload()
+
+        return agency_reload
+
+
 class HookEvent(SubstrateTool):
     name = "hook_event"
 
@@ -427,6 +453,10 @@ class AgencyDoctor(SubstrateTool):
                 # scripts/check-drift script (would require a heavy
                 # subprocess otherwise).
                 "drift": engine._drift_signals(),
+                # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
+                # can bootstrap an intent + invoke a verb end-to-end (proven on a
+                # throwaway in-memory engine, so the live graph is untouched).
+                "onboarding": engine._onboarding_probe(),
                 # Spec 039 §"Distribution" line 101-102: which install
                 # method is the running server using? Helps users debug
                 # pipx-vs-marketplace mismatches and the install-
@@ -609,4 +639,5 @@ SUBSTRATE_TOOLS: tuple[SubstrateTool, ...] = (
     AgencyInstall(),
     AgencyDoctor(),
     AgencyWelcome(),
+    AgencyReload(),
 )

@@ -163,6 +163,14 @@ def _default_hook_handler(engine, event: dict) -> dict:
         from .capabilities.shell import _apply_filter
         props["summary"] = _apply_filter(_json.dumps(payload, default=str), "head:5")[:500]
     eid = engine.memory.record("Event", props)
+    # Spec 292 — the Session Graph: link every event into a Session node keyed
+    # by session_id, so the complete session is restorable from the graph.
+    if session and session != "unknown":
+        sid = f"session:{session}"
+        if engine.memory.recall(sid) is None:
+            engine.memory.record("Session", {"session_id": session,
+                                              "status": "open"}, node_id=sid)
+        engine.memory.link(eid, sid, "IN_SESSION")
     iid = _os.environ.get("AGENCY_INTENT", "")
     if iid and engine.memory.recall_typed(iid, "Intent") is not None:
         engine.memory.link(eid, iid, "OBSERVED_DURING")
@@ -185,6 +193,79 @@ def _default_hook_handler(engine, event: dict) -> dict:
             engine.memory.link(bid, iid, "SERVES")
             engine.memory.link(bid, eid, "RECORDED_BY")
     return {"recorded": eid, "event": name}
+
+
+def _active_intent(engine, *, fallback_latest: bool = False):
+    """The session's active intent as ``(intent_id, props)`` — the env-bound
+    ``AGENCY_INTENT`` when valid, else (with ``fallback_latest``) the most
+    recently recorded Intent. ``("", None)`` when none applies. Shared by the
+    hook handlers (Spec 292)."""
+    import os as _os
+    iid = _os.environ.get("AGENCY_INTENT", "")
+    props = engine.memory.recall_typed(iid, "Intent") if iid else None
+    if props is not None:
+        return iid, props
+    if fallback_latest:
+        intents = engine.memory.find("Intent")
+        if intents:
+            latest = max(intents, key=lambda n: n.get("vfrom", 0))
+            return latest["id"], latest
+    return "", None
+
+
+def _user_prompt_submit_handler(engine, event: dict) -> dict:
+    """Spec 292 — UserPromptSubmit injection (sync, blocking by doctrine).
+
+    Records the Event AND returns an ``inject`` context block (surfaced to the
+    prompt by the dispatcher) that wires in the ``intent`` + ``thinking``
+    capabilities so the agent STARTS by surfacing assumptions and asking
+    clarifying questions instead of guessing. This is the assumption-guard: the
+    cheapest place to stop an agent acting on an unstated assumption is before
+    the turn runs."""
+    base = _default_hook_handler(engine, event)
+    _, intent = _active_intent(engine)
+    guard = (
+        "[agency] Before acting, AVOID ASSUMPTIONS: list your load-bearing "
+        "assumptions (intent.assumptions) and, if any are ambiguous or the "
+        "request is underspecified, ASK clarifying questions FIRST "
+        "(thinking.socratic / AskUserQuestion) rather than guessing.")
+    if intent:
+        ctx = (f"[agency] Active intent: {intent.get('purpose', '')} "
+               f"— deliverable: {intent.get('deliverable', '')}; "
+               f"acceptance: {intent.get('acceptance', '')}.")
+        inject = ctx + "\n" + guard
+    else:
+        inject = ("[agency] No active intent — consider intent_bootstrap to "
+                  "anchor this work.\n" + guard)
+    return {**base, "inject": inject}
+
+
+def _session_end_handler(engine, event: dict) -> dict:
+    """Spec 292 — on SessionEnd, record the Event AND auto-archive the session
+    as a Document (``document.session``): the four concepts — Intent · Capability
+    · Lifecycle · Memory — are rendered into ``.agency/sessions/`` so a closed
+    session is durable, not ephemeral. Best-effort: a missing intent or an
+    archive failure never raises (a hook must never break session teardown)."""
+    base = _default_hook_handler(engine, event)
+    iid, _ = _active_intent(engine, fallback_latest=True)
+    if not iid:
+        return {**base, "archived": None}
+    try:
+        res, _ = engine.registry.invoke(
+            engine.memory, iid, "document", "session",
+            agent_id="agent:session-end", for_intent_id=iid)
+        doc_id = res.get("document_id")
+        # Attach the archived Document to the Session node + close the session,
+        # so the Session Graph holds the restorable session-end snapshot.
+        session = (event or {}).get("session_id") or "unknown"
+        if doc_id and session != "unknown":
+            sid = f"session:{session}"
+            if engine.memory.recall(sid) is not None:
+                engine.memory.link(doc_id, sid, "IN_SESSION")
+                engine.memory.update(sid, {"status": "closed"})
+        return {**base, "archived": doc_id, "written": res.get("written")}
+    except Exception:                                           # noqa: BLE001
+        return {**base, "archived": None}
 
 
 class Engine:
@@ -262,6 +343,7 @@ class Engine:
 
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
+        self._onboarding_cache: dict | None = None        # Spec 302 — doctor probe cache
         self.ontology = Ontology.core()                         # the base, then each capability extends it
         # discovered core capabilities, plus any external ones the host supplies —
         # the extension point: an out-of-tree capability registers + extends exactly
@@ -274,35 +356,11 @@ class Engine:
         # First-wins: discover()'d caps take precedence over re-supplied
         # extras with the same name.
         seen_names: set[str] = set()
-        from ._capability_loader import load_capability_folders
         for cap in list(discover()) + list(extra_capabilities or []):
             if cap.name in seen_names:
                 continue
             seen_names.add(cap.name)
-            # Spec 060 Phase 1: merge file-discovered templates +
-            # schemas INTO cap.ontology BEFORE the engine ontology
-            # extends. Each entry is additive; a collision between an
-            # OntologyExtension dict entry and a same-named file is
-            # a doctrinal violation (force clean migrations).
-            file_templates, file_schemas = load_capability_folders(cap)
-            for tname, body in file_templates.items():
-                if tname in cap.ontology.templates:
-                    raise ValueError(
-                        f"template {tname!r} declared both in "
-                        f"{cap.name}'s OntologyExtension and as a file "
-                        f"under {cap.name}/templates/{tname}.* — "
-                        f"pick one source")
-                cap.ontology.templates[tname] = body
-            for sname, schema in file_schemas.items():
-                if sname in cap.ontology.schemas:
-                    raise ValueError(
-                        f"schema {sname!r} declared both in "
-                        f"{cap.name}'s OntologyExtension and as a file "
-                        f"under {cap.name}/schemas/{sname}.json — "
-                        f"pick one source")
-                cap.ontology.schemas[sname] = schema
-            self.registry.register(cap)
-            self.ontology.extend(cap.ontology, cap.name)
+            self._register_capability(cap)
         # the Registry needs the effective ontology to build a CapabilityContext
         self.registry.ontology = self.ontology
         # Spec 031 §A + Spec 080 — bootstrap-time skill_doc REQUIREMENT.
@@ -349,7 +407,9 @@ class Engine:
         self.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
-        self._hook_handlers = {"*": _default_hook_handler}
+        self._hook_handlers = {"*": _default_hook_handler,
+                               "UserPromptSubmit": _user_prompt_submit_handler,
+                               "SessionEnd": _session_end_handler}
 
     # Spec 286-A2 — the bespoke boundary attributes are now thin read-through
     # properties over the DriverRegistry (`self.drivers`), the single source of
@@ -554,25 +614,91 @@ class Engine:
         Heavy checks (install regen diff) live in scripts/check-drift.
         """
         import os
-        # AGENCY-DRIFT: capability-list — capabilities without a
-        # tests/test_<name>_*.py file convention; Spec 053 markers
-        # depend on the file-naming convention.
+        # AGENCY-DRIFT: capability-list — a capability is "tested" if a
+        # flat tests/test_<name>_*.py OR an acceptance tests/acceptance/
+        # test_<name>.py exists (Spec 302: the acceptance-suite is the
+        # primary convention now, so the flat-only check false-flagged
+        # every acceptance-tested capability as untested).
         repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tests_dir = os.path.join(repo_root, "tests")
+        test_files: set[str] = set()
+        for sub in ("tests", os.path.join("tests", "acceptance")):
+            d = os.path.join(repo_root, sub)
+            if os.path.isdir(d):
+                test_files |= set(os.listdir(d))
         missing_tests: list[str] = []
-        if os.path.isdir(tests_dir):
-            test_files = set(os.listdir(tests_dir))
-            for cap_name in self.registry.names():
-                if cap_name.startswith("_"):
-                    continue
-                if not any(f.startswith(f"test_{cap_name}_") or
-                            f == f"test_{cap_name}.py"
-                            for f in test_files):
-                    missing_tests.append(cap_name)
+        for cap_name in self.registry.names():
+            if cap_name.startswith("_"):
+                continue
+            if not any(f.startswith(f"test_{cap_name}_") or f == f"test_{cap_name}.py"
+                       for f in test_files):
+                missing_tests.append(cap_name)
         return {
             "capabilities_without_tests": sorted(missing_tests),
-            "capability_count": len(list(self.registry.names())),
+            "capability_count": len(self.registry.names()),
+            "surface_freshness": self._surface_freshness(),
         }
+
+    def _onboarding_probe(self) -> dict:
+        """Spec 302 Slice 3 — time-to-first-successful-call: prove the critical
+        path (discover → bootstrap an intent → invoke a verb → record provenance)
+        actually works for a fresh user. Runs against a throwaway in-memory
+        engine so it never pollutes the live graph; returns the wall-clock ms.
+
+        Cached per engine lifetime (the path is deterministic for a fixed
+        capability set) so repeated ``agency_doctor`` calls don't re-spin a full
+        engine; ``reload()`` invalidates the cache."""
+        if self._onboarding_cache is not None:
+            return self._onboarding_cache
+        import time
+        t0 = time.perf_counter()
+        probe = None
+        try:
+            probe = Engine(":memory:")
+            iid = probe.intent.capture_and_confirm(
+                "onboarding probe", "first verb call succeeds", "result returned")
+            res, _ = probe.registry.invoke(
+                probe.memory, iid, "reflect", "note",
+                agent_id="agent:doctor", scope="observation", text="probe")
+            ok = isinstance(res, dict) and not res.get("error")
+            served = isinstance(res, dict) and probe.memory.has_edge(
+                res.get("result", ""), iid, "SERVES")
+            out = {"ok": bool(ok),
+                   "ms": round((time.perf_counter() - t0) * 1000, 1),
+                   "provenance_recorded": bool(served),
+                   "steps": ["intent_bootstrap", "reflect.note", "SERVES edge"]}
+        except Exception as exc:                                # noqa: BLE001
+            out = {"ok": False, "error": str(exc)[:140]}
+        finally:
+            if probe is not None:
+                probe.memory.close()
+        self._onboarding_cache = out
+        return out
+
+    def _surface_freshness(self) -> dict:
+        """Spec 302 — detect a STALE installed surface: compare the live
+        capability-set hash against the one stamped into the generated
+        ``.claude-plugin/plugin.json`` at last ``agency install``. A mismatch
+        means capabilities changed but the plugin surface wasn't regenerated
+        (so a running MCP client sees an out-of-date verb set). ``fresh=None``
+        when no stamp is found (older install)."""
+        import json
+        import os
+        from ._envelope import capability_set_hash
+        live = capability_set_hash(self.registry.names())
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        manifest = os.path.join(repo_root, ".claude-plugin", "plugin.json")
+        try:
+            with open(manifest, encoding="utf-8") as f:
+                recorded = json.load(f).get("_surface_hash", "")
+        except (OSError, ValueError):
+            recorded = ""
+        fresh = (recorded == live) if recorded else None
+        out = {"fresh": fresh, "live_hash": live[:12],
+               "installed_hash": recorded[:12] if recorded else ""}
+        if fresh is False:
+            out["hint"] = ("installed plugin surface is stale — run "
+                           "`python -m agency.install` to regenerate it")
+        return out
 
     def build_mcp(self, codemode: bool = True) -> FastMCP:
         if codemode and not HAVE_CODEMODE:                  # fail loud, not a silent raw-tool fallback
@@ -608,18 +734,127 @@ class Engine:
         # the brief slice; mirror the same treatment for substrate tools so
         # search results stay token-bounded regardless of how rich a
         # Hint-#7 docstring grows.
+        for key, tool in self._iter_mcp_tools(mcp):
+            name = getattr(tool, "name", "") or ""
+            if name.startswith("capability_"):
+                continue   # already tightened in _wire
+            raw = (getattr(tool, "description", "") or "").strip()
+            if not raw:
+                continue
+            brief = parse_slices(raw)["brief"]
+            if brief and brief != raw:
+                tool.description = brief
+
+        self._mcp = mcp   # Spec 302 — held so agency_reload can wire new verbs in
+        return mcp
+
+    @staticmethod
+    def _iter_mcp_tools(mcp):
+        """Yield ``(key, tool)`` for every registered tool on a FastMCP server.
+        The ONE place that reaches into FastMCP internals (``provider._components``)
+        — fragile, pending a public tool-enumeration API; both the docstring-
+        tightening loop and ``_wired_tool_names`` go through here."""
         for provider in getattr(mcp, "providers", ()):
             for key, tool in getattr(provider, "_components", {}).items():
-                if not key.startswith("tool:"):
-                    continue
-                name = getattr(tool, "name", "") or ""
-                if name.startswith("capability_"):
-                    continue   # already tightened in _wire
-                raw = (getattr(tool, "description", "") or "").strip()
-                if not raw:
-                    continue
-                brief = parse_slices(raw)["brief"]
-                if brief and brief != raw:
-                    tool.description = brief
+                if key.startswith("tool:"):
+                    yield key, tool
 
-        return mcp
+    def _wired_tool_names(self) -> set[str]:
+        """Best-effort set of `capability_*` tool names registered on the live
+        MCP server (Spec 302 — so reload only wires genuinely-new verbs)."""
+        mcp = getattr(self, "_mcp", None)
+        if mcp is None:
+            return set()
+        # keys look like `tool:capability_x_y@<provider>`; prefer the tool's own
+        # clean .name, falling back to the parsed key.
+        return {getattr(tool, "name", "") or key.split(":", 1)[1].split("@", 1)[0]
+                for key, tool in self._iter_mcp_tools(mcp)}
+
+    def _register_capability(self, cap) -> None:
+        """Merge a capability's file-discovered templates/schemas into its
+        ontology (Spec 060 Phase 1), register it, and extend the effective
+        ontology. Shared by ``__init__`` and ``reload()`` so both bootstrap
+        paths stay identical — a collision between an ``OntologyExtension`` dict
+        entry and a same-named file is a doctrinal violation (force clean
+        migrations)."""
+        from ._capability_loader import load_capability_folders
+        file_templates, file_schemas = load_capability_folders(cap)
+        for tname, body in file_templates.items():
+            if tname in cap.ontology.templates:
+                raise ValueError(
+                    f"template {tname!r} declared both in {cap.name}'s "
+                    f"OntologyExtension and as a file under "
+                    f"{cap.name}/templates/{tname}.* — pick one source")
+            cap.ontology.templates[tname] = body
+        for sname, schema in file_schemas.items():
+            if sname in cap.ontology.schemas:
+                raise ValueError(
+                    f"schema {sname!r} declared both in {cap.name}'s "
+                    f"OntologyExtension and as a file under "
+                    f"{cap.name}/schemas/{sname}.json — pick one source")
+            cap.ontology.schemas[sname] = schema
+        self.registry.register(cap)
+        self.ontology.extend(cap.ontology, cap.name)
+
+    def reload(self) -> dict:
+        """Spec 302 — re-discover capabilities mid-session WITHOUT restarting the
+        server. Reloads changed capability modules, rebuilds the registry +
+        effective ontology IN PLACE (existing wired tools dispatch via the
+        registry by name, so changed code is picked up), and wires genuinely-new
+        verbs onto the live MCP. Code-mode `execute` reaches the new surface
+        immediately; a non-code-mode client must re-list tools to see new verbs.
+
+        Returns ``{reloaded, capability_count, capability_set_hash, added,
+        removed, rewired_tools}``. Best-effort + fail-safe: an import error in a
+        capability leaves the previous registry intact."""
+        import importlib
+        import pkgutil
+        from ._envelope import capability_set_hash
+        from .capabilities import discover
+        from .ontology import Ontology
+
+        before = set(self.registry.names())
+        from . import capabilities as _cappkg
+        for info in pkgutil.iter_modules(_cappkg.__path__):
+            if info.name.startswith("_"):
+                continue
+            try:
+                importlib.reload(importlib.import_module(f"{_cappkg.__name__}.{info.name}"))
+            except Exception:                                   # noqa: BLE001 — fail-safe
+                pass
+        try:
+            fresh = {c.name: c for c in discover()}
+        except Exception as exc:                                # noqa: BLE001
+            return {"reloaded": False, "error": str(exc),
+                    "capability_count": len(before)}
+        # rebuild the effective ontology + re-register caps in place, via the
+        # SAME path as __init__ (so file templates/schemas re-merge too).
+        self.ontology = Ontology.core()
+        for name in list(self.registry._caps):
+            if name not in fresh:
+                self.registry._caps.pop(name, None)
+        for cap in fresh.values():
+            self._register_capability(cap)
+        self.registry.ontology = self.ontology
+        self.registry.engine = self
+        self.memory.ont = self.ontology
+        self._onboarding_cache = None    # capability set changed — re-probe lazily
+        after = set(self.registry.names())
+        # wire genuinely-new verbs onto the live MCP (existing ones re-dispatch).
+        rewired = 0
+        mcp = getattr(self, "_mcp", None)
+        if mcp is not None:
+            have = self._wired_tool_names()
+            for cap_name in after:
+                for verb, spec in self.registry.get(cap_name).verbs.items():
+                    if f"capability_{cap_name}_{verb}" not in have:
+                        try:
+                            self._wire(mcp, cap_name, verb, spec)
+                            rewired += 1
+                        except Exception:                       # noqa: BLE001
+                            pass
+        return {"reloaded": True, "capability_count": len(after),
+                "capability_set_hash": capability_set_hash(after),
+                "added": sorted(after - before),
+                "removed": sorted(before - after),
+                "rewired_tools": rewired}

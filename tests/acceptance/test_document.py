@@ -495,3 +495,333 @@ def _fixture_file(tmp_path):
                  'def greet(name: str) -> str:\n'
                  '    return f"Hi, {name}"\n')
     return p
+
+
+# ── graph↔markdown interconnect steps (Spec 290) ──────────────────────────────
+
+def _ingest(engine, confirmed_intent, **kw):
+    r, _ = invoke(engine, confirmed_intent, "document", "ingest",
+                  agent_id="agent:test", **kw)
+    return r
+
+
+def _sync(engine, confirmed_intent, **kw):
+    r, _ = invoke(engine, confirmed_intent, "document", "sync",
+                  agent_id="agent:test", **kw)
+    return r
+
+
+def _revisions(engine, confirmed_intent, document_id):
+    r, _ = invoke(engine, confirmed_intent, "document", "revisions",
+                  agent_id="agent:test", document_id=document_id)
+    return r
+
+
+@given(parsers.parse('an un-anchored markdown file "{name}" with body "{body}"'),
+       target_fixture="md_file")
+def _unanchored_file(tmp_path, name, body):
+    p = tmp_path / name
+    p.write_text(body.replace("\\n", "\n"), encoding="utf-8")
+    return p
+
+
+@when("I call document.ingest on that file", target_fixture="ingest_result")
+def _ingest_file(engine, confirmed_intent, md_file):
+    return _ingest(engine, confirmed_intent, path=str(md_file))
+
+
+@when("I call document.ingest on that file again", target_fixture="ingest_result_2")
+def _ingest_file_again(engine, confirmed_intent, md_file):
+    return _ingest(engine, confirmed_intent, path=str(md_file))
+
+
+@when("I call document.ingest on that anchored file", target_fixture="ingest_result")
+def _ingest_anchored_file(engine, confirmed_intent, md_file):
+    return _ingest(engine, confirmed_intent, path=str(md_file))
+
+
+@then(parsers.parse('the ingest action is "{action}"'))
+def _ingest_action(ingest_result, action):
+    assert ingest_result.get("action") == action
+
+
+@then(parsers.parse('the second ingest action is "{action}"'))
+def _second_ingest_action(ingest_result_2, action):
+    assert ingest_result_2.get("action") == action
+
+
+@then("the ingest result carries a document_id")
+def _ingest_doc_id(ingest_result):
+    assert ingest_result.get("document_id", "").startswith("document:")
+
+
+@then("the file now begins with an agency-node anchor for that document_id")
+def _file_anchored(md_file, ingest_result):
+    text = md_file.read_text(encoding="utf-8")
+    assert text.startswith(f"<!-- agency-node: {ingest_result['document_id']} -->")
+
+
+@then(parsers.parse('a DocRevision with source "{source}" is linked to the Document'))
+def _revision_linked(engine, confirmed_intent, ingest_result, source):
+    revs = _revisions(engine, confirmed_intent,
+                      ingest_result["document_id"])["history"]
+    assert any(r["source"] == source for r in revs)
+
+
+@then("the Document has exactly one revision")
+def _one_revision(engine, confirmed_intent, ingest_result):
+    revs = _revisions(engine, confirmed_intent, ingest_result["document_id"])
+    assert revs["count"] == 1
+
+
+@given("a Document seeded with a graph-authored revision and an anchored file",
+       target_fixture="md_file")
+def _seeded_document(engine, tmp_path):
+    from agency.capabilities.document import _interconnect as _ic
+    doc_id = engine.memory.record("Document", {
+        "path": str(tmp_path / "seeded.md"), "content_sha": _ic.content_sha("graph body")})
+    rev = engine.memory.record("DocRevision", {
+        "source": "graph", "content_sha": _ic.content_sha("graph body"),
+        "text": "graph body", "recorded_at": 1})
+    engine.memory.link(rev, doc_id, "REVISION_OF")
+    p = tmp_path / "seeded.md"
+    p.write_text(_ic.stamp_anchor("file body — edited on disk", doc_id),
+                 encoding="utf-8")
+    return p
+
+
+@then("the Document has exactly two revisions")
+def _two_revisions(engine, confirmed_intent, ingest_result):
+    revs = _revisions(engine, confirmed_intent, ingest_result["document_id"])
+    assert revs["count"] == 2
+
+
+@then(parsers.parse('the latest revision has source "{source}"'))
+def _latest_source(engine, confirmed_intent, ingest_result, source):
+    revs = _revisions(engine, confirmed_intent, ingest_result["document_id"])
+    assert revs["latest"]["source"] == source
+
+
+@then(parsers.parse('the earliest revision has source "{source}"'))
+def _earliest_source(engine, confirmed_intent, ingest_result, source):
+    revs = _revisions(engine, confirmed_intent, ingest_result["document_id"])
+    assert revs["history"][-1]["source"] == source
+
+
+@then("the ingest result carries a clarity_score")
+def _ingest_clarity(ingest_result):
+    assert isinstance(ingest_result.get("clarity_score"), int)
+
+
+@then("the latest revision carries that clarity_score")
+def _latest_clarity(engine, confirmed_intent, ingest_result):
+    revs = _revisions(engine, confirmed_intent, ingest_result["document_id"])
+    assert revs["latest"].get("clarity_score") == ingest_result["clarity_score"]
+
+
+@given("a directory with two un-anchored markdown files", target_fixture="md_dir")
+def _md_dir(tmp_path):
+    (tmp_path / "a.md").write_text("first file body", encoding="utf-8")
+    (tmp_path / "b.md").write_text("second file body", encoding="utf-8")
+    return tmp_path
+
+
+@when("I call document.sync on that directory", target_fixture="sync_result")
+def _sync_dir(engine, confirmed_intent, md_dir):
+    return _sync(engine, confirmed_intent, path=str(md_dir))
+
+
+@then("the sync result reports two ingested files")
+def _sync_two(sync_result):
+    assert len(sync_result.get("ingested", [])) == 2
+
+
+@then("a second sync on that directory reports zero ingested files")
+def _sync_zero(engine, confirmed_intent, md_dir):
+    r = _sync(engine, confirmed_intent, path=str(md_dir))
+    assert len(r.get("ingested", [])) == 0
+
+
+# ── document.session — four-concept convergence (Spec 290) ────────────────────
+
+@when("I render the current session as a Document", target_fixture="session_result")
+def _render_session(engine, confirmed_intent):
+    r, _ = invoke(engine, confirmed_intent, "document", "session",
+                  agent_id="agent:test")
+    return r
+
+
+@then("the session document covers Intent, Capability, Lifecycle, and Memory")
+def _session_sections(session_result):
+    content = session_result["content"]
+    for section in ("Intent", "Capability", "Lifecycle", "Memory"):
+        assert f"## {section}" in content, f"missing section {section}"
+
+
+@then("the session result carries a document_id")
+def _session_doc_id(session_result):
+    assert session_result.get("document_id", "").startswith("document:")
+
+
+@then("the session Document has a graph-authored revision")
+def _session_graph_revision(engine, confirmed_intent, session_result):
+    r, _ = invoke(engine, confirmed_intent, "document", "revisions",
+                  agent_id="agent:test", document_id=session_result["document_id"])
+    assert any(rev["source"] == "graph" for rev in r["history"])
+
+
+@then(parsers.parse('the session is written under a "{dirname}" directory'))
+def _session_in_dir(session_result, dirname):
+    written = session_result.get("written", "")
+    assert written and os.path.basename(os.path.dirname(written)) == dirname, written
+    assert os.path.exists(written)
+
+
+@then("the archived session file carries the document anchor")
+def _archived_anchor(session_result):
+    text = open(session_result["written"], encoding="utf-8").read()
+    assert text.startswith(f"<!-- agency-node: {session_result['document_id']} -->")
+
+
+# ── C3 convergence + schema-conformance steps (Spec 292) ──────────────────────
+
+def _convergence(engine, confirmed_intent, document_id):
+    r, _ = invoke(engine, confirmed_intent, "document", "convergence",
+                  agent_id="agent:test", document_id=document_id)
+    return r
+
+
+@when("I call document.ingest on that file bound to schema \"repo-index\"",
+      target_fixture="ingest_result")
+def _ingest_bound_schema(engine, confirmed_intent, md_file):
+    return _ingest(engine, confirmed_intent, path=str(md_file), schema="repo-index")
+
+
+@then("the ingest result carries an error naming the missing fields")
+def _error_names_fields(ingest_result):
+    err = ingest_result.get("error", "")
+    assert "schema" in err and "path" in err and "content_sha" in err, err
+
+
+@given('a markdown file "withfm.md" whose frontmatter satisfies schema "repo-index"',
+       target_fixture="md_file")
+def _file_with_frontmatter(tmp_path):
+    p = tmp_path / "withfm.md"
+    p.write_text("---\npath: x\ncontent_sha: abc\ntoken_count: 5\n---\n# Body\n",
+                 encoding="utf-8")
+    return p
+
+
+@then(parsers.parse('the Document conforms to schema "{schema}"'))
+def _conforms_to(engine, confirmed_intent, ingest_result, schema):
+    conv = _convergence(engine, confirmed_intent, ingest_result["document_id"])
+    assert conv["has_schema"], conv
+
+
+@given("a bare Document node with no revisions", target_fixture="bare_doc_id")
+def _bare_document(engine):
+    from agency.capabilities.document import _interconnect as _ic
+    return engine.memory.record("Document", {
+        "path": "/tmp/bare.md", "content_sha": _ic.content_sha("")})
+
+
+@when("I audit that Document's convergence", target_fixture="convergence_result")
+def _audit_bare(engine, confirmed_intent, bare_doc_id):
+    return _convergence(engine, confirmed_intent, bare_doc_id)
+
+
+@then("the convergence audit marks it a defect")
+def _is_defect(convergence_result):
+    assert convergence_result["is_defect"] is True
+
+
+@when("I audit the ingested Document's convergence", target_fixture="convergence_result")
+def _audit_ingested(engine, confirmed_intent, ingest_result):
+    return _convergence(engine, confirmed_intent, ingest_result["document_id"])
+
+
+@then("the convergence audit does not mark it a defect")
+def _not_defect(convergence_result):
+    assert convergence_result["is_defect"] is False
+
+
+@then("the convergence audit reports a clarity facet")
+def _has_clarity_facet(convergence_result):
+    assert convergence_result["has_clarity"] is True
+
+
+# ── C4 session reopen steps (Spec 292) ────────────────────────────────────────
+
+@given("a session has been archived to disk", target_fixture="archived_session")
+def _archive_session(engine, confirmed_intent, tmp_path):
+    path = str(tmp_path / "past-session.md")
+    r, _ = invoke(engine, confirmed_intent, "document", "session",
+                  agent_id="agent:test", apply_path=path)
+    return {"path": path, "document_id": r["document_id"]}
+
+
+@when("I reopen that archived session file", target_fixture="reopen_result")
+def _reopen(engine, confirmed_intent, archived_session):
+    r, _ = invoke(engine, confirmed_intent, "document", "reopen",
+                  agent_id="agent:test", path=archived_session["path"])
+    return r
+
+
+@then("the reopened session restores the Document into the graph")
+def _reopened_doc(engine, confirmed_intent, reopen_result, archived_session):
+    assert reopen_result["document_id"] == archived_session["document_id"]
+    assert engine.memory.recall_typed(reopen_result["document_id"], "Document")
+
+
+@then("the reopened session reconstructs Intent, Capability, Lifecycle, and Memory")
+def _reopened_concepts(reopen_result):
+    concepts = reopen_result.get("concepts", {})
+    for c in ("Intent", "Capability", "Lifecycle", "Memory"):
+        assert c in concepts, f"missing reconstructed concept {c}"
+
+
+# ── render→file mirror (Spec 292) ─────────────────────────────────────────────
+
+@when('I mirror the "reflections" scope to a file', target_fixture="mirror_result")
+def _mirror(engine, confirmed_intent, tmp_path):
+    path = str(tmp_path / "mirror.md")
+    r, _ = invoke(engine, confirmed_intent, "document", "mirror",
+                  agent_id="agent:test", scope="reflections",
+                  apply_path=path, for_intent_id=confirmed_intent)
+    r["_path"] = path
+    return r
+
+
+@then(parsers.parse('the mirror action is "{action}"'))
+def _mirror_action(mirror_result, action):
+    assert mirror_result["action"] == action, mirror_result
+
+
+@then("the mirrored file begins with an agency-node anchor")
+def _mirror_anchor(mirror_result):
+    text = open(mirror_result["written"], encoding="utf-8").read()
+    assert text.startswith(f"<!-- agency-node: {mirror_result['document_id']} -->")
+
+
+@then("the mirrored Document has a graph-authored revision")
+def _mirror_graph_rev(engine, confirmed_intent, mirror_result):
+    r, _ = invoke(engine, confirmed_intent, "document", "revisions",
+                  agent_id="agent:test", document_id=mirror_result["document_id"])
+    assert any(rev["source"] == "graph" for rev in r["history"]), r
+
+
+@when("a human edits that mirrored file and I ingest it")
+def _edit_and_ingest(engine, confirmed_intent, mirror_result):
+    path = mirror_result["written"]
+    with open(path, "a", encoding="utf-8") as f:
+        f.write("\n\nHuman note appended on disk.\n")
+    invoke(engine, confirmed_intent, "document", "ingest",
+           agent_id="agent:test", path=path)
+
+
+@then("the Document has both a graph-authored and a file-authored revision")
+def _both_sources(engine, confirmed_intent, mirror_result):
+    r, _ = invoke(engine, confirmed_intent, "document", "revisions",
+                  agent_id="agent:test", document_id=mirror_result["document_id"])
+    sources = {rev["source"] for rev in r["history"]}
+    assert {"graph", "file"} <= sources, r

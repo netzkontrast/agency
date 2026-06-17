@@ -756,6 +756,28 @@ class DevelopCapability(CapabilityBase):
         return {"result": {"points": points, "bucket": bucket, "confidence": confidence,
                            "drivers": {"loc": loc, "files": files, "tests": tests}}}
 
+    @verb(role="effect")
+    def index(self, path: str = ".", apply: bool = False,
+              max_tokens: int = 3000) -> dict:
+        """Index a repo as a token-cheap briefing — the development-workflow
+        entry to the indexer (Spec 292).
+
+        Understanding a repo before working on it is a `develop` concern, so the
+        94%-reduction briefing is surfaced here. Delegates to
+        ``document.index_repo`` (the rendering machinery + ``RepoIndex`` graph
+        node stay in ``document``; this is the verb-level port, not a fork), so
+        a single call records the index node AND, with ``apply``, writes
+        ``PROJECT_INDEX.md``. Used by the SessionStart hook to keep the index
+        fresh each session.
+
+        Inputs: path (str), apply (bool — write PROJECT_INDEX.md),
+                max_tokens (int — budget; default 3000).
+        Returns: ``{index_id, content, tokens, files_scanned, writeup}``.
+        chain_next: read the briefing instead of re-scanning the tree.
+        """
+        return self.ctx.call("document", "index_repo", path=path,
+                             apply=apply, max_tokens=max_tokens)
+
     @verb(role="act")
     def scaffold_capability(self, name: str, kind: str = "light",
                             base_dir: str = "") -> dict:

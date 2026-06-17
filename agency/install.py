@@ -488,9 +488,13 @@ set -u
 
 PAYLOAD="$(cat || true)"
 
-# Best-effort Event recording (Spec 076).
+# Best-effort Event recording (Spec 076) + injection (Spec 292). `agency hook`
+# prints an `inject` context block to STDOUT for UserPromptSubmit (the
+# assumption-guard that wires in intent + thinking) and nothing for other
+# events — so passing STDOUT through is safe and surfaces the guard to the
+# prompt. Provenance noise stays on STDERR (dropped).
 if command -v agency >/dev/null 2>&1; then
-  printf '%s' "${PAYLOAD}" | agency hook >/dev/null 2>&1 || true
+  printf '%s' "${PAYLOAD}" | agency hook 2>/dev/null || true
 fi
 
 # Routing advice (Spec 280 Slice 1) — parse the payload via Python so
@@ -634,6 +638,20 @@ _SESSION_START_HOOK_SCRIPT = """\
 #    .agency/ dir + .gitattributes binary marker, nothing else.
 set -e
 
+# --- Spec 292: refresh the repo index as a Document on session start ---
+# Regenerates PROJECT_INDEX.md (a RepoIndex graph node — the 94%-reduction
+# briefing) via the ported `develop index` verb, so every session opens with a
+# fresh, token-cheap map of the repo. BACKGROUNDED + non-fatal: never blocks
+# session start; deterministic + content-hash stable, so it does not churn git
+# when nothing changed. AGENCY_INDEX_ON_START=0 opts out.
+_agency_index_on_start() {
+  [ "${AGENCY_INDEX_ON_START:-1}" = "0" ] && return 0
+  [ -n "${CLAUDE_PROJECT_DIR:-}" ] && command -v agency >/dev/null 2>&1 || return 0
+  ( cd "${CLAUDE_PROJECT_DIR}" && agency execute --code "iid = (await call_tool('intent_bootstrap', {'purpose':'session-start repo index','deliverable':'PROJECT_INDEX.md','acceptance':'RepoIndex node recorded'}))['intent_id']
+await call_tool('capability_develop_index', {'intent_id': iid, 'agent_id':'agent:session-start', 'path':'.', 'apply': True})
+return 'ok'" >/dev/null 2>&1 & ) || true
+}
+
 # --- Scaffold the project's .agency/ (idempotent; runs every session) ---
 # Only reachable if agency-mcp is already installed; the post-install
 # block below covers the first-run case.
@@ -644,6 +662,7 @@ fi
 
 # --- Idempotent install guard: bail if agency-mcp is already on PATH. ---
 if command -v agency-mcp >/dev/null 2>&1; then
+  _agency_index_on_start
   exit 0
 fi
 
@@ -705,6 +724,9 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
   agency install --scaffold-only "${CLAUDE_PROJECT_DIR}" >&2 || \\
     echo "agency: .agency/ scaffold failed (non-fatal)" >&2
 fi
+
+# Refresh the repo index now that the CLI is installed (Spec 292).
+_agency_index_on_start
 
 exit 0
 """
@@ -822,8 +844,13 @@ def generate(engine: Engine) -> dict[str, str]:
     caps = {n: list(reg.get(n).verbs) for n in reg.names()}
     help_doc = help_map(caps)["result"]["doc"]
     skill_body = _MCP_QUICKSTART + "\n" + help_doc
+    # Spec 302 — stamp the live capability-set hash into the manifest so
+    # `agency_doctor.surface_freshness` can detect a stale installed surface.
+    from ._envelope import capability_set_hash
+    manifest = _manifest()
+    manifest["_surface_hash"] = capability_set_hash(list(reg.names()))
     files: dict[str, str] = {
-        ".claude-plugin/plugin.json":      json.dumps(_manifest(), indent=2),
+        ".claude-plugin/plugin.json":      json.dumps(manifest, indent=2),
         ".claude-plugin/marketplace.json": json.dumps(_marketplace(engine), indent=2),
         ".mcp.json":                       json.dumps(_mcp_config(), indent=2),
         # Spec 062 — SessionStart hook auto-runs `pipx install` on
@@ -1005,7 +1032,16 @@ def main(argv: list | None = None) -> int:
                              "(default: $CLAUDE_PROJECT_DIR/.claude/"
                              "settings.json, or $PWD/.claude/settings.json "
                              "when the env var is unset).")
+    parser.add_argument("--enable", action="store_true",
+                        help="Spec 302 Slice 3 — one-step onboarding: regenerate "
+                             "the surface AND enable the plugin in "
+                             "`.claude/settings.json` (implies "
+                             "--patch-claude-settings). The single command a new "
+                             "user runs.")
     ns = parser.parse_args(argv)
+    # --enable is the friendly one-liner: install + enable in one step.
+    if ns.enable:
+        ns.patch_claude_settings = True
     target = ns.root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if ns.dry_run:
         # generate() runs the PRE-emit lint via emit_skill; a lint failure
@@ -1074,7 +1110,27 @@ def main(argv: list | None = None) -> int:
             print(p)
         if result["gitattributes_updated"]:
             print(os.path.join(scaffold_root, ".gitattributes"))
+    # Spec 292 C5 (config completeness): after a plain install, if the plugin
+    # isn't enabled in the project's settings, OFFER the one-liner fix instead
+    # of leaving the user to discover `--patch-claude-settings`. Skipped when the
+    # user already passed it (the patch ran above).
+    if not ns.patch_claude_settings:
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+        settings_path = os.path.join(project_dir, ".claude", "settings.json")
+        if not _plugin_enabled_in_settings(settings_path):
+            print("\nNEXT: enable the agency plugin in this project — run:")
+            print("  python -m agency.install --patch-claude-settings")
     return 0
+
+
+def _plugin_enabled_in_settings(settings_path: str) -> bool:
+    """True iff the project's `.claude/settings.json` already references the
+    agency plugin (so install can offer the one-liner fix only when needed)."""
+    try:
+        with open(settings_path, encoding="utf-8") as f:
+            return "agency" in f.read()
+    except OSError:
+        return False
 
 
 _AGENCY_README = """# .agency/ — central graph DB

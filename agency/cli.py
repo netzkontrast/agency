@@ -266,7 +266,14 @@ def hook(ctx):
         event = json.loads(raw) if raw.strip() else {}
     except ValueError as e:
         return _emit({"error": "JSONDecodeError", "message": str(e)}, 1)
-    return _emit(*_call_engine_tool(_db(ctx), "hook_event", {"event": event}))
+    result, rc = _call_engine_tool(_db(ctx), "hook_event", {"event": event})
+    # Spec 292 — a handler may return an `inject` context block (e.g. the
+    # UserPromptSubmit assumption-guard). Print it to STDOUT so Claude Code adds
+    # it to the prompt; the provenance Event is already recorded in the graph.
+    inject = result.get("inject") if isinstance(result, dict) else ""
+    if inject:
+        click.echo(inject)
+    return rc
 
 
 @hook.command(name="self-test")

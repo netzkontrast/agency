@@ -92,3 +92,18 @@ def _all_tools(engine):
 def _onboarding(all_tools):
     expected = {"agency_welcome", "agency_install", "agency_doctor", "intent_bootstrap"}
     assert expected <= all_tools, f"missing onboarding tools: {expected - all_tools}"
+
+
+@then("the doctor reports a surface_freshness with a live hash")
+def _surface_freshness(health):
+    sf = health["drift"]["surface_freshness"]
+    assert sf["fresh"] in (True, False, None)
+    assert len(sf["live_hash"]) == 12, sf
+
+
+@then("the doctor does not falsely flag acceptance-tested capabilities as untested")
+def _accurate_coverage(health):
+    # panel/mode/manage are acceptance-tested under tests/acceptance/test_<cap>.py;
+    # the doctor must discover those, not only flat tests/test_<cap>_*.py (Spec 302).
+    missing = set(health["drift"]["capabilities_without_tests"])
+    assert {"panel", "mode", "manage"}.isdisjoint(missing), missing

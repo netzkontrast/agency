@@ -188,3 +188,99 @@ Feature: document capability — render, index_repo, explain, and scope guards (
     Then a new Reflection node is added to the graph
     And that Reflection node has kind "explanation"
     And that Reflection node targets "agency.capabilities.reflect"
+
+  # ── graph↔markdown interconnect — ingest, sync, revisions (Spec 290) ─────────
+
+  Scenario: ingesting an un-anchored markdown file mints a Document and stamps the anchor
+    Given an un-anchored markdown file "note.md" with body "# Title\nSome body."
+    When I call document.ingest on that file
+    Then the ingest action is "created"
+    And the ingest result carries a document_id
+    And the file now begins with an agency-node anchor for that document_id
+    And a DocRevision with source "file" is linked to the Document
+
+  Scenario: re-ingesting an unchanged file is idempotent
+    Given an un-anchored markdown file "stable.md" with body "unchanged content"
+    When I call document.ingest on that file
+    And I call document.ingest on that file again
+    Then the second ingest action is "unchanged"
+    And the Document has exactly one revision
+
+  Scenario: ingesting a changed file keeps both versions bi-temporally
+    Given a Document seeded with a graph-authored revision and an anchored file
+    When I call document.ingest on that anchored file
+    Then the ingest action is "revised"
+    And the Document has exactly two revisions
+    And the latest revision has source "file"
+    And the earliest revision has source "graph"
+
+  Scenario: every ingested file is audited as a prompt
+    Given an un-anchored markdown file "prompt.md" with body "Write a haiku about the sea."
+    When I call document.ingest on that file
+    Then the ingest result carries a clarity_score
+    And the latest revision carries that clarity_score
+
+  Scenario: sync ingests every changed markdown file under a directory
+    Given a directory with two un-anchored markdown files
+    When I call document.sync on that directory
+    Then the sync result reports two ingested files
+    And a second sync on that directory reports zero ingested files
+
+  Scenario: a session renders as a Document gathering the four concepts
+    When I render the current session as a Document
+    Then the session document covers Intent, Capability, Lifecycle, and Memory
+    And the session result carries a document_id
+    And the session Document has a graph-authored revision
+
+  Scenario: a session is archived into the dedicated past-sessions directory
+    When I render the current session as a Document
+    Then the session is written under a "sessions" directory
+    And the archived session file carries the document anchor
+
+  # ── C3: convergence proof + schema-conformance gate (Spec 292) ──────────────
+
+  Scenario: ingesting against a bound schema fails when required fields are missing
+    Given an un-anchored markdown file "nofm.md" with body "no frontmatter here"
+    When I call document.ingest on that file bound to schema "repo-index"
+    Then the ingest result carries an error naming the missing fields
+
+  Scenario: ingesting against a bound schema passes when frontmatter satisfies it
+    Given a markdown file "withfm.md" whose frontmatter satisfies schema "repo-index"
+    When I call document.ingest on that file bound to schema "repo-index"
+    Then the ingest action is "created"
+    And the Document conforms to schema "repo-index"
+
+  Scenario: the convergence audit flags a Document carrying no convergence facets
+    Given a bare Document node with no revisions
+    When I audit that Document's convergence
+    Then the convergence audit marks it a defect
+
+  Scenario: an ingested file is not a convergence defect
+    Given an un-anchored markdown file "conv.md" with body "Summarise the quarter."
+    When I call document.ingest on that file
+    When I audit the ingested Document's convergence
+    Then the convergence audit does not mark it a defect
+    And the convergence audit reports a clarity facet
+
+  # ── C4: a session Document reopens and reconstructs the four concepts ────────
+
+  Scenario: reopening an archived session reconstructs the four concepts
+    Given a session has been archived to disk
+    When I reopen that archived session file
+    Then the reopened session restores the Document into the graph
+    And the reopened session reconstructs Intent, Capability, Lifecycle, and Memory
+
+  # ── render→file mirror closes the bi-directional loop (Spec 292) ────────────
+
+  Scenario: mirror event-sources the graph→file direction
+    Given three technical reflections are recorded in order first, second, third
+    When I mirror the "reflections" scope to a file
+    Then the mirror action is "created"
+    And the mirrored file begins with an agency-node anchor
+    And the mirrored Document has a graph-authored revision
+
+  Scenario: a mirrored file edited on disk keeps both directions bi-temporally
+    Given three technical reflections are recorded in order first, second, third
+    When I mirror the "reflections" scope to a file
+    And a human edits that mirrored file and I ingest it
+    Then the Document has both a graph-authored and a file-authored revision
