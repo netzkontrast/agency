@@ -1032,7 +1032,16 @@ def main(argv: list | None = None) -> int:
                              "(default: $CLAUDE_PROJECT_DIR/.claude/"
                              "settings.json, or $PWD/.claude/settings.json "
                              "when the env var is unset).")
+    parser.add_argument("--enable", action="store_true",
+                        help="Spec 302 Slice 3 — one-step onboarding: regenerate "
+                             "the surface AND enable the plugin in "
+                             "`.claude/settings.json` (implies "
+                             "--patch-claude-settings). The single command a new "
+                             "user runs.")
     ns = parser.parse_args(argv)
+    # --enable is the friendly one-liner: install + enable in one step.
+    if ns.enable:
+        ns.patch_claude_settings = True
     target = ns.root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if ns.dry_run:
         # generate() runs the PRE-emit lint via emit_skill; a lint failure

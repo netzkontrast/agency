@@ -453,6 +453,10 @@ class AgencyDoctor(SubstrateTool):
                 # scripts/check-drift script (would require a heavy
                 # subprocess otherwise).
                 "drift": engine._drift_signals(),
+                # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
+                # can bootstrap an intent + invoke a verb end-to-end (proven on a
+                # throwaway in-memory engine, so the live graph is untouched).
+                "onboarding": engine._onboarding_probe(),
                 # Spec 039 §"Distribution" line 101-102: which install
                 # method is the running server using? Helps users debug
                 # pipx-vs-marketplace mismatches and the install-

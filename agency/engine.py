@@ -661,6 +661,30 @@ class Engine:
             "surface_freshness": self._surface_freshness(),
         }
 
+    def _onboarding_probe(self) -> dict:
+        """Spec 302 Slice 3 — time-to-first-successful-call: prove the critical
+        path (discover → bootstrap an intent → invoke a verb → record provenance)
+        actually works for a fresh user. Runs against a throwaway in-memory
+        engine so it never pollutes the live graph; returns the wall-clock ms."""
+        import time
+        t0 = time.perf_counter()
+        try:
+            probe = Engine(":memory:")
+            iid = probe.intent.capture_and_confirm(
+                "onboarding probe", "first verb call succeeds", "result returned")
+            res, _ = probe.registry.invoke(
+                probe.memory, iid, "reflect", "note",
+                agent_id="agent:doctor", scope="observation", text="probe")
+            ok = isinstance(res, dict) and not res.get("error")
+            served = probe.memory.has_edge(res.get("result", ""), iid, "SERVES") \
+                if isinstance(res, dict) else False
+            probe.memory.close()
+        except Exception as exc:                                # noqa: BLE001
+            return {"ok": False, "error": str(exc)[:140]}
+        return {"ok": bool(ok), "ms": round((time.perf_counter() - t0) * 1000, 1),
+                "provenance_recorded": bool(served),
+                "steps": ["intent_bootstrap", "reflect.note", "SERVES edge"]}
+
     def _surface_freshness(self) -> dict:
         """Spec 302 — detect a STALE installed surface: compare the live
         capability-set hash against the one stamped into the generated

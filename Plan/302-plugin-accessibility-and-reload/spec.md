@@ -67,8 +67,10 @@ import error leaves the previous registry intact — fail-safe).
   is discovered AND invocable mid-session (acceptance test writes a probe cap,
   reloads, invokes it, cleans up). Fail-safe (import error leaves the prior
   registry intact).
-- [ ] Slice 3: install auto-enable (opt-in) + a `time-to-first-successful-call`
-  doctor probe.
+- [x] Slice 3: `agency install --enable` (one-step install + enable; implies
+  `--patch-claude-settings`) + `agency_doctor.onboarding` — a
+  time-to-first-successful-call probe (intent_bootstrap → verb invoke → SERVES
+  edge) run on a throwaway in-memory engine so the live graph is untouched.
 
 ## Followup — Implementation Status (2026-06-16)
 

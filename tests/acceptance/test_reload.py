@@ -1,31 +1,14 @@
 """Acceptance — agency_reload: mid-session capability reload (Spec 302 Slice 2).
 
-Uses the filesystem (writes a temp capability into the package) so it exercises
-the real discover() path; cleans up in finally + drops the temp cap via a final
-reload.
+Injects a probe capability by monkeypatching ``discover`` — NOT by writing into
+the shared ``agency/capabilities/`` package (which would let parallel xdist
+workers' ``discover()`` see the extra cap and break exact-capability-set
+invariants).
 """
 from __future__ import annotations
 
-import os
 import tempfile
-import textwrap
 
-import pytest
-
-from agency.engine import Engine
-
-_TMP_CAP = "agency/capabilities/reloadprobe.py"
-_SRC = textwrap.dedent('''# agency-scaffold: v1
-"""reloadprobe — a mid-session-reload probe capability.
-
-Use when: validating that agency_reload picks up a new capability live.
-Triggers:
-- A reload test needs a fresh capability to appear
-- Verifying a new verb is invocable without a restart
-Red flags:
-- Trusting reload without a test -> add this probe
-- Shipping the reload tool untested -> run this scenario
-"""
 from agency.capability import CapabilityBase, verb
 from agency.ontology import OntologyExtension
 
@@ -44,18 +27,12 @@ class ReloadprobeCapability(CapabilityBase):
         chain_next: (terminal).
         """
         return {"result": "reloaded"}
-''')
 
 
-def _drop_pycache():
-    d = "agency/capabilities/__pycache__"
-    if os.path.isdir(d):
-        for f in os.listdir(d):
-            if f.startswith("reloadprobe"):
-                os.remove(os.path.join(d, f))
+def test_agency_reload_picks_up_a_new_capability_mid_session(monkeypatch):
+    from agency.engine import Engine
+    import agency.capabilities as capmod
 
-
-def test_agency_reload_picks_up_a_new_capability_mid_session():
     eng = Engine(tempfile.mktemp(suffix=".db"))
     eng.build_mcp(codemode=True)            # so the live MCP is held for re-wiring
     try:
@@ -64,9 +41,13 @@ def test_agency_reload_picks_up_a_new_capability_mid_session():
         r0 = eng.reload()
         assert r0["reloaded"] and r0["added"] == [] and r0["removed"] == []
 
-        # add a capability ON DISK, then reload mid-session
-        with open(_TMP_CAP, "w", encoding="utf-8") as f:
-            f.write(_SRC)
+        # inject the probe cap into discovery, then reload mid-session. reload()
+        # does `from .capabilities import discover` at call time, so patching the
+        # module attribute is honoured.
+        real = capmod.discover
+        extra = ReloadprobeCapability.as_capability()
+        monkeypatch.setattr(capmod, "discover", lambda: [*real(), extra])
+
         r1 = eng.reload()
         assert "reloadprobe" in r1["added"], r1
         assert r1["rewired_tools"] >= 1, r1
@@ -78,10 +59,10 @@ def test_agency_reload_picks_up_a_new_capability_mid_session():
         res, _ = eng.registry.invoke(eng.memory, iid, "reloadprobe", "ping",
                                      agent_id="a")
         assert res == {"result": "reloaded"}, res
-    finally:
-        if os.path.exists(_TMP_CAP):
-            os.remove(_TMP_CAP)
-        _drop_pycache()
+
+        # un-patch → reload drops it again
+        monkeypatch.setattr(capmod, "discover", real)
         r2 = eng.reload()
         assert "reloadprobe" in r2["removed"], r2
+    finally:
         eng.memory.close()
