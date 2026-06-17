@@ -275,6 +275,12 @@ Feature: dogfood capability — graph-native ledgers, export/import, amendment p
     When I call apply_amendment with dry_run false and a wrong confirm_token
     Then an exception mentioning "confirm_token" or "amendment_unconfirmed" is raised
 
+  Scenario: apply_amendment live-write folds the amendment into the spec file
+    Given a temp spec file with a Done-When section
+    When I apply a live amendment with the matching confirm_token
+    Then the spec file gains the new Done-When bullet
+    And the response carries a written_path
+
   # ── reflect.batch_note ────────────────────────────────────────────────────
 
   Scenario: batch_note records one Reflection per text

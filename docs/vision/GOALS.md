@@ -46,9 +46,14 @@ operational docs ([`../../AGENTS.md`](../../AGENTS.md),
 6. **Doctrine evolves through dogfooding.** Running the system on itself surfaces
    real lessons; lessons land in the graph as `Reflection` nodes; the aim is that
    they **fold back into the specs** so the improvement loop closes.
-   *Distance: today the fold-back is manual — the automatic
-   observation→spec-amendment path (Spec 014) is **not yet built**, so the loop
-   is closed by hand, not by the engine. Closing it for real is still ahead.*
+   *Distance: the observation→spec-amendment path (Spec 150, ex-014) is now
+   mechanized end to end — `dogfood.parse_amendment` classifies Reflections into
+   proposals and `dogfood.apply_amendment(dry_run=False, confirm_token=…)` folds
+   the amendment INTO the spec.md file (decidable section surgery, recorded as a
+   provenance Artefact). The remaining distance is quality, not mechanism: the
+   sharp LLM classifier (Slice 2) needs an API key, and the live-write sits
+   behind a human `confirm_token` gate by design. The engine closes the loop
+   now; the human still approves each fold.*
 
 7. **Graph and files are interconnected peers.** The graph is the queryable
    spine; markdown files are an editable surface that round-trips back into it
@@ -98,7 +103,7 @@ operational docs ([`../../AGENTS.md`](../../AGENTS.md),
 | 3 — Agent-uniform | `agency/skill.py` SkillRun; hard-gate persistence | Realized |
 | 4 — Open set | `agency/capabilities/__init__.py` `discover()`; Spec 016 | Mostly — 3 caps still bare modules |
 | 5 — Code-mode | `fastmcp…code_mode` + `agency/cli.py` | Realized (bare-name alias cancelled, 069) |
-| 6 — Dogfood loop | `dogfood.collect` + `reflect.batch_note` | **Partial — fold-back is manual; Spec 014 unbuilt** |
+| 6 — Dogfood loop | `dogfood.parse_amendment` + `apply_amendment` (live-write) + `reflect.batch_note` | Mostly — loop mechanized end to end (Spec 150); fold-back behind a human `confirm_token` gate, sharp LLM classifier needs a key |
 | 7 — Graph↔file peers | `document.ingest`/`sync` + `DocRevision` keep-both | Realized (Spec 292 Slice 1) |
 | 8 — Harness-in-harness | `jules.dispatch` + the watcher; `delegate.fan_out` | Realized |
 | 9 — Document convergence | `document.{ingest,mirror,sync,revisions,session,…}` + `Document`/`DocRevision` | Realized (Slice 1 — bi-directional loop closed) |

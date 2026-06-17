@@ -1164,3 +1164,78 @@ def _both_obs_in_graph(engine):
     texts = [r["r"]["properties"]["text"] for r in rows]
     assert any("alpha body" in t for t in texts)
     assert any("beta body" in t for t in texts)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# dogfood.apply_amendment — live-write (Spec 150, closes Goal 6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@given("a temp spec file with a Done-When section", target_fixture="temp_spec")
+def _temp_spec(tmp_path, monkeypatch):
+    from agency.capabilities.dogfood.clusters import amendment as amod
+    spec = tmp_path / "Plan" / "987-x" / "spec.md"
+    spec.parent.mkdir(parents=True)
+    spec.write_text(
+        "# Spec 987\n\n## Done-When\n\n- [x] existing item\n\n## Next steps\n\nmore\n",
+        encoding="utf-8")
+    monkeypatch.setattr(amod, "_resolve_spec_path",
+                        lambda sid: str(spec) if sid == "987" else None)
+    return spec
+
+
+@when("I apply a live amendment with the matching confirm_token",
+      target_fixture="live_result")
+def _apply_live(engine, confirmed_intent, temp_spec):
+    from agency.capabilities.dogfood.clusters.amendment import _payload_hash
+    rid = _call(engine, confirmed_intent, "dogfood", "note",
+                plan_slug="987-x",
+                observation="Should add a budget cap")["reflection_id"]
+    payload = {
+        "spec_id": "987", "section": "Done When", "op": "add-done-when",
+        "before": "", "after": "- [ ] new folded item",
+        "rationale": ("The reflection shows a pattern that needs codifying "
+                      "into the spec text so downstream derives from it."),
+        "source_reflections": [rid], "confidence": 0.7,
+    }
+    token = _payload_hash(payload)
+    return _call(engine, confirmed_intent, "dogfood", "apply_amendment",
+                 payload=payload, dry_run=False, confirm_token=token)
+
+
+@then("the spec file gains the new Done-When bullet")
+def _spec_gained_bullet(temp_spec):
+    body = temp_spec.read_text(encoding="utf-8")
+    assert "- [ ] new folded item" in body, body
+    # appended INSIDE the Done-When section (before the next heading)
+    assert body.index("new folded item") < body.index("## Next steps"), body
+
+
+@then("the response carries a written_path")
+def _carries_written_path(live_result):
+    assert live_result.get("written_path", "").endswith("spec.md"), live_result
+
+
+# pure section-surgery invariants (the decidable core; rule 8 — assert relations)
+
+def test_apply_amendment_to_text_appends_bullet_in_section():
+    from agency.capabilities.dogfood.clusters.amendment import apply_amendment_to_text
+    text = "# S\n\n## Done-When\n\n- [x] a\n\n## Next\n"
+    out = apply_amendment_to_text(text, section="Done When",
+                                  op="add-done-when", after="b")
+    assert "- [ ] b" in out
+    assert out.index("- [x] a") < out.index("- [ ] b") < out.index("## Next")
+
+
+def test_apply_amendment_to_text_missing_section_raises():
+    from agency.capabilities.dogfood.clusters.amendment import apply_amendment_to_text
+    with pytest.raises(ValueError, match="amendment_no_section"):
+        apply_amendment_to_text("# S\n\n## Other\n", section="Done When",
+                                op="add-done-when", after="b")
+
+
+def test_apply_amendment_to_text_edit_replaces_target_line():
+    from agency.capabilities.dogfood.clusters.amendment import apply_amendment_to_text
+    text = "## Done-When\n\n- [ ] old line\n\n## End\n"
+    out = apply_amendment_to_text(text, section="Done When", op="edit-done-when",
+                                  before="old line", after="- [x] new line")
+    assert "new line" in out and "old line" not in out
