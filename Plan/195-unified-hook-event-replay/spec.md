@@ -228,3 +228,37 @@ Then:   monotonic == False; the consumer must surface this as a
 - **Spec 280 Slice 2 integration** — the bypass-rate baseline
   drives the WARN→error flip on the dispatcher's clearest routes
   (`git commit` / `git push` → exit 2 + the routing advice).
+
+## Followup — PreToolUse → agency MCP suggestion (Spec 195 Slice 2, 2026-06-17)
+
+**Shipped (user directive — "when a hook fires and the plugin detects this
+should be an MCP call, return the MCP functions + schema").** Spec 195 Slice 1's
+`_verb_shadow_for` flagged "Slice 2 derives this from the live registry"; this
+delivers it as a returning suggestion:
+
+- **`_suggest_mcp_calls(event)`** (`agency/engine.py`) maps a raw tool +
+  payload to the agency capability call(s) that should be used instead — incl.
+  read tools (advisory, unlike the mutating-only BoundaryUse): Bash `git commit`
+  → `branch.commit_smart`, `git push` → `branch.finish_branch`, `pytest` →
+  `develop.test`; Grep/Glob → `mcp__agency__search`; WebFetch/WebSearch →
+  `research.fetch`; Task → `subagent.dispatch`; Write/Edit on a spec.md →
+  `dogfood.observe`.
+- **`_verb_input_schema(engine, cap, verb)`** derives the call's JSON schema
+  from the LIVE registry verb signature (intent_id/agent_id omitted — auto-
+  injected); substrate tools (`mcp__agency__search`) carry an explicit schema.
+- **`_pre_tool_use_handler`** (registered for `PreToolUse`) records the
+  Event + BoundaryUse via the default handler, then attaches
+  `hookSpecificOutput.additionalContext` naming the MCP call(s) + schema +
+  `agency_suggestion` (the structured list).
+- **CLI wire (`agency hook`)** now emits the `hookSpecificOutput` JSON on stdout
+  so Claude Code folds it into the pending tool call's context — the piece that
+  makes the suggestion actually reach the agent. Dogfooded live via
+  `echo '{...PreToolUse git commit...}' | agency hook`.
+
+**Tests:** 3 acceptance scenarios in `tests/acceptance/features/hooks.feature`
+(git-commit → branch.commit_smart + schema + additionalContext; Grep →
+mcp__agency__search; Read → no suggestion). 28 hooks + 67 install/cli/substrate
+scenarios green; drift clean.
+
+**Still:** broaden the raw→verb map as the surface grows; optional
+`permissionDecision:"ask"` mode to make the nudge blocking (today advisory).

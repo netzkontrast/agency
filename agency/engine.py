@@ -137,6 +137,144 @@ def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
     return "", ""
 
 
+# Spec 195 Slice 2 — raw tool → the agency MCP call that should be used instead.
+# Unlike the BoundaryUse shadow (mutating-only, moat-provenance), the SUGGESTION
+# is advisory and covers read tools too: when a hook fires and the plugin detects
+# the action has a capability equivalent, the PreToolUse handler returns the MCP
+# function(s) + their schema so the agent calls the verb (Goal 2 — dogfood the
+# moat). Each entry is `(suggestion, why)`; `@<name>` denotes a substrate tool.
+def _suggest_mcp_calls(event: dict) -> list[tuple[str, str]]:
+    tool = (event or {}).get("tool_name") or ""
+    tin = (event or {}).get("tool_input") or {}
+    if tool == "Bash":
+        cmd = str(tin.get("command") or "").strip()
+        if cmd.startswith("git commit"):
+            return [("branch.commit_smart",
+                     "commit through the verb — records the Artefact + provenance")]
+        if cmd.startswith("git push"):
+            return [("branch.finish_branch",
+                     "push + open the PR through the verb")]
+        if (cmd.startswith("pytest") or cmd.startswith("python -m pytest")
+                or cmd.startswith("python3 -m pytest")):
+            return [("develop.test", "run tests through the verb — records the run")]
+        return []
+    if tool in ("Grep", "Glob"):
+        return [("@search",
+                 "discover capabilities + code via the agency search surface")]
+    if tool in ("WebFetch", "WebSearch"):
+        return [("research.fetch",
+                 "fetch through research so the source lands as a Citation")]
+    if tool in ("Task", "Agent"):
+        return [("subagent.dispatch",
+                 "dispatch through the verb — records the sub-intent + provenance")]
+    if tool in ("Write", "Edit"):
+        import re as _re
+        path = str(tin.get("file_path") or "")
+        if _re.search(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$", path):
+            return [("dogfood.observe",
+                     "record a spec observation instead of hand-editing the file")]
+        return []
+    return []
+
+
+def _ann_to_json_type(annotation) -> str:
+    """Best-effort Python annotation → JSON-schema type for a verb param."""
+    import typing
+    mapping = {str: "string", int: "integer", float: "number",
+               bool: "boolean", dict: "object", list: "array"}
+    if annotation in mapping:
+        return mapping[annotation]
+    origin = typing.get_origin(annotation)
+    if origin in (dict,):
+        return "object"
+    if origin in (list,):
+        return "array"
+    return "string"
+
+
+def _verb_input_schema(engine, cap: str, verb: str) -> dict | None:
+    """The JSON-schema of a capability verb's CALLER params (intent_id/agent_id
+    are auto-injected at the wire, so omitted). Derived from the live registry
+    signature — Spec 195 Slice 2's "derive from the registry"."""
+    import inspect
+    try:
+        capability = engine.registry.get(cap)
+    except Exception:
+        return None
+    spec = getattr(capability, "verbs", {}).get(verb)
+    if spec is None:
+        return None
+    fn = getattr(spec, "fn", None) or (spec.get("fn") if isinstance(spec, dict) else None)
+    inject = set(getattr(spec, "inject", None)
+                 or (spec.get("inject", []) if isinstance(spec, dict) else []))
+    if fn is None:
+        return None
+    props: dict = {}
+    required: list[str] = []
+    for name, p in inspect.signature(fn).parameters.items():
+        if name in ("self", "intent_id", "agent_id") or name in inject:
+            continue
+        props[name] = {"type": _ann_to_json_type(p.annotation)}
+        if p.default is inspect.Parameter.empty:
+            required.append(name)
+    return {"type": "object", "properties": props, "required": required}
+
+
+# Substrate-tool schemas (not capability verbs) — kept small + explicit.
+_SUBSTRATE_SCHEMAS: dict[str, tuple[str, dict]] = {
+    "@search": ("mcp__agency__search", {
+        "type": "object",
+        "properties": {"query": {"type": "string"},
+                       "detail": {"type": "string",
+                                  "enum": ["brief", "detailed", "full"]}},
+        "required": ["query"]}),
+}
+
+
+def _resolve_mcp_suggestion(engine, suggestion: str) -> dict | None:
+    """Resolve a `(cap.verb | @substrate)` suggestion to `{mcp_tool, schema}`."""
+    if suggestion.startswith("@"):
+        entry = _SUBSTRATE_SCHEMAS.get(suggestion)
+        if entry is None:
+            return None
+        mcp_tool, schema = entry
+        return {"mcp_tool": mcp_tool, "schema": schema}
+    if "." not in suggestion:
+        return None
+    cap, verb = suggestion.split(".", 1)
+    schema = _verb_input_schema(engine, cap, verb)
+    if schema is None:
+        return None
+    return {"mcp_tool": f"capability_{cap}_{verb}", "schema": schema}
+
+
+def _pre_tool_use_handler(engine, event: dict) -> dict:
+    """Spec 195 Slice 2 — the PreToolUse handler. Records the Event + BoundaryUse
+    (via the default handler) and, when the raw tool has an agency capability
+    equivalent, RETURNS the MCP function(s) + their schema as Claude Code
+    `hookSpecificOutput.additionalContext`, so the agent calls the verb instead
+    (dogfooding the provenance moat, Goal 2)."""
+    import json as _json
+    base = _default_hook_handler(engine, event)
+    calls = []
+    for suggestion, why in _suggest_mcp_calls(event):
+        resolved = _resolve_mcp_suggestion(engine, suggestion)
+        if resolved is not None:
+            calls.append({**resolved, "why": why})
+    if calls:
+        base["agency_suggestion"] = calls
+        lines = ["This action has an agency capability equivalent — prefer it "
+                 "(it records provenance). Call instead:"]
+        for c in calls:
+            lines.append(f"- `{c['mcp_tool']}` — {c['why']}\n"
+                         f"  schema: {_json.dumps(c['schema'], sort_keys=True)}")
+        base["hookSpecificOutput"] = {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "\n".join(lines),
+        }
+    return base
+
+
 def _default_hook_handler(engine, event: dict) -> dict:
     """Spec 076 — the default event handler: record an `Event` node (substrate
     provenance, no intent required) and, for tool events, capture a trimmed
@@ -409,6 +547,7 @@ class Engine:
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
         self._hook_handlers = {"*": _default_hook_handler,
+                               "PreToolUse": _pre_tool_use_handler,
                                "UserPromptSubmit": _user_prompt_submit_handler,
                                "SessionEnd": _session_end_handler}
 
