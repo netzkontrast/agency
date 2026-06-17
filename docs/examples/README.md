@@ -1,5 +1,9 @@
 # Examples
 
+**New here?** Start with the **[cookbook](cookbook.md)** — copy-paste recipes for
+every capability (onboarding · the SuperClaude reimplementations · the graph↔markdown
+Document · Memory CRUD · mid-session reload).
+
 Runnable, self-contained examples that drive the agency engine. Run from the repo
 root with the package on the path:
 
