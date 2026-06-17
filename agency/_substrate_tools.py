@@ -113,17 +113,20 @@ class AgencyReload(SubstrateTool):
             """Reload capabilities mid-session WITHOUT restarting the server
             (Spec 302).
 
-            Substrate — NO intent required. Re-discovers + reloads the capability
-            modules, rebuilds the registry + effective ontology in place, and
-            wires genuinely-new verbs onto the live MCP. Code-mode ``execute``
-            reaches the new surface immediately; a non-code-mode client must
-            re-list tools to see brand-new verbs. Use after editing/adding a
-            capability when ``agency_doctor.surface_freshness.fresh`` is False —
-            no reinstall, no session restart.
+            Substrate — NO intent required. Purges the ``agency.capabilities.*``
+            module subtree and re-imports it fresh from disk (so EDITED code in a
+            ``<cap>/_main.py`` or ``clusters/*.py`` submodule is picked up, not
+            just brand-new caps), rebuilds the registry + effective ontology in
+            place, and wires genuinely-new verbs onto the live MCP. Code-mode
+            ``execute`` reaches the new surface immediately; a non-code-mode
+            client must re-list tools to see brand-new verbs. Use after
+            editing/adding a capability when
+            ``agency_doctor.surface_freshness.fresh`` is False — no reinstall, no
+            session restart.
 
             Inputs: (none).
             Returns: ``{reloaded, capability_count, capability_set_hash, added,
-                    removed, rewired_tools}``.
+                    removed, rewired_tools, reimported}``.
             chain_next: ``agency_welcome`` to read the refreshed surface.
             """
             return engine.reload()
