@@ -928,7 +928,7 @@ class DevelopCapability(CapabilityBase):
 
         Inputs: name (registered skill, e.g. 'tdd'), inputs (map of produce→value),
                 resume_from (a prior skill_id to resume; "" starts fresh).
-        Returns (the status contract):
+        Returns: a status-contract shape — one of:
           - ``{status: "completed", skill_id, outputs}``
           - ``{status: "input-required", phase, blocked_on, resume_with, skill_id, partial_outputs}``
           - ``{status: "failed", phase, error, skill_id, completed_phases}``
@@ -947,7 +947,7 @@ class DevelopCapability(CapabilityBase):
     def session_init(self, purpose: str = "", deliverable: str = "",
                       acceptance: str = "",
                       mode_hint: str = "") -> dict:
-        """Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb.
+        """Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb.
 
         The plugin's primary session-driver entry point (Spec 114 Pillar 1).
         Records a SessionLifecycle node tied to the serving intent + an initial

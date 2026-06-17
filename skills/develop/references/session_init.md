@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # develop.session_init
 
-Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb.
+Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb.
 
 ## Inputs
 

@@ -13,12 +13,12 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## develop verb audit — 3 of 16 verbs need work
+## develop verb audit — 0 of 16 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
 | `develop.checklist` | transform | ✓ clean |
-| `develop.draft_plan` | act | `long_brief` |
+| `develop.draft_plan` | act | ✓ clean |
 | `develop.estimate` | transform | ✓ clean |
 | `develop.index` | effect | ✓ clean |
 | `develop.mode_select` | effect | ✓ clean |
@@ -29,9 +29,9 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `develop.reference` | transform | ✓ clean |
 | `develop.scaffold_capability` | act | ✓ clean |
 | `develop.session_check` | transform | ✓ clean |
-| `develop.session_init` | act | `long_brief` |
+| `develop.session_init` | act | ✓ clean |
 | `develop.session_resume` | transform | ✓ clean |
-| `develop.skill_walk` | act | `missing_returns` |
+| `develop.skill_walk` | act | ✓ clean |
 | `develop.validate_skill` | transform | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).

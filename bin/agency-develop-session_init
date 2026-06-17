@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_develop_session_init
-# Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb.
+# Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb.
 # Usage: agency-develop-session_init [--intent-id ID] [purpose] [deliverable] [acceptance] [mode_hint]
 set -euo pipefail
 

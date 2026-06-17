@@ -1,15 +1,14 @@
 <!-- agency-generated: scripts/optimize-verb-docs (Spec 306). Advisory candidates — apply by hand. -->
 # Verb-description optimization sweep (tool-desc)
 
-Audited **373 verbs** across **28 capabilities**; **50** need work (13%). Rules: `agency/capabilities/prompt/references/tool-desc-authoring.md`.
+Audited **373 verbs** across **28 capabilities**; **43** need work (11%). Rules: `agency/capabilities/prompt/references/tool-desc-authoring.md`.
 
 ## Flag histogram
 
 | Flag | Count | What it means |
 |------|-------|---------------|
-| `long_brief` | 38 |  |
+| `long_brief` | 32 |  |
 | `missing_inputs` | 11 | no Inputs: section |
-| `missing_returns` | 1 |  |
 | `no_chain_next` | 1 | no chain_next: |
 
 ## Per-capability candidates
@@ -46,48 +45,7 @@ CHAIN_NEXT: terminal — outcome node carries the audit trail.
 ```
 </details>
 
-### `develop` — 3/16 verbs need work
-
-<details><summary><code>develop.draft_plan</code> (act) — `long_brief`</summary>
-
-```
-BRIEF: Author a bite-sized plan as graph provenance (Spec 287; rule 2).
-
-INPUTS: title, steps (JSON list or newlines). Returns: ``{plan_id, step_ids, count}``. chain_next: walk ``plan-execute``, or sign off then ``record_step_outcome`` per step + ``plan_status`` to roll up.
-
-RETURNS: ``{plan_id, step_ids, count}``. chain_next: walk ``plan-execute``, or sign off then ``record_step_outcome`` per step + ``plan_status`` to roll up.
-
-CHAIN_NEXT: walk ``plan-execute``, or sign off then ``record_step_outcome`` per step + ``plan_status`` to roll up.
-```
-</details>
-
-<details><summary><code>develop.session_init</code> (act) — `long_brief`</summary>
-
-```
-BRIEF: Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb.
-
-INPUTS: purpose, deliverable, acceptance (optional intent triple — if empty, uses the serving intent's existing fields), mode_hint (override the auto-detect). Returns: ``{session_lifecycle_id, intent_id, mode, suggested_first_verb}``. chain_next: ``develop.session_check`` to read state OR ``develop.mode_select`` to switch.
-
-RETURNS: ``{session_lifecycle_id, intent_id, mode, suggested_first_verb}``. chain_next: ``develop.session_check`` to read state OR ``develop.mode_select`` to switch.
-
-CHAIN_NEXT: ``develop.session_check`` to read state OR ``develop.mode_select`` to switch.
-```
-</details>
-
-<details><summary><code>develop.skill_walk</code> (act) — `missing_returns`</summary>
-
-```
-BRIEF: Walk a registered skill to the first hard gate in ONE call (the atomic walker).
-
-INPUTS: name (registered skill, e.g. 'tdd'), inputs (map of produce→value), resume_from (a prior skill_id to resume; "" starts fresh). Returns (the status contract): - ``{status: "completed", skill_id, outputs}`` - ``{status: "input-required", phase, blocked_on, resume_with, skill_id, partial_outputs}`` - ``{status: "failed", phase, error, skill_id, completed_phases}`` chain_next: on input-required, re-call with resume_from + resume_with keys.
-
-RETURNS: [TODO]
-
-CHAIN_NEXT: on input-required, re-call with resume_from + resume_with keys.
-```
-</details>
-
-### `document` — 4/12 verbs need work
+### `document` — 3/12 verbs need work
 
 <details><summary><code>document.explain</code> (act) — `long_brief`</summary>
 
@@ -112,19 +70,6 @@ INPUTS: path (str), apply (bool — write PROJECT_INDEX.md), max_tokens (int —
 RETURNS: ``{index_id, content, tokens, files_scanned, writeup}``. chain_next: caller publishes via ``apply=True`` after review.
 
 CHAIN_NEXT: caller publishes via ``apply=True`` after review.
-```
-</details>
-
-<details><summary><code>document.ingest</code> (effect) — `long_brief`</summary>
-
-```
-BRIEF: Round-trip a markdown file INTO the graph (file → graph; Spec 292).
-
-INPUTS: path (str — the .md file), audit (bool — prompt-audit the body), template (str — generator binding), schema (str — schema binding). Returns: ``{document_id, revision_id, action, content_sha, anchored, clarity_score, path}``. action ∈ created | revised | unchanged. chain_next: ``document.revisions`` to read the keep-both history.
-
-RETURNS: ``{document_id, revision_id, action, content_sha, anchored, clarity_score, path}``. action ∈ created | revised | unchanged. chain_next: ``document.revisions`` to read the keep-both history.
-
-CHAIN_NEXT: ``document.revisions`` to read the keep-both history.
 ```
 </details>
 
@@ -166,21 +111,6 @@ INPUTS: plan_dir (str — root dir of plans; default ``Plan``). Returns: ``{obse
 RETURNS: ``{observations: [{plan, kind, index, title, text}], texts: [str], count, plans: [str], warnings: [str]}``. chain_next: ``reflect.batch_note(scope='observation', texts=)`` to seed the graph from one-shot migration of legacy files. Deprecated for ongoing use — prefer ``dogfood.note`` (graph- native authoring) + ``dogfood.render`` (markdown projection on demand). Errors (missing dir, unreadable file) degrade into the ``warnings`` list rather than raising.
 
 CHAIN_NEXT: ``reflect.batch_note(scope='observation', texts=)`` to seed the graph from one-shot migration of legacy files. Deprecated for ongoing use — prefer ``dogfood.note`` (graph- native authoring) + ``dogfood.render`` (markdown projection on demand). Errors (missing dir, unreadable file) degrade into the ``warnings`` list rather than raising.
-```
-</details>
-
-### `jules` — 1/22 verbs need work
-
-<details><summary><code>jules.list</code> (transform) — `long_brief`</summary>
-
-```
-BRIEF: Enumerate sessions (trimmed to id/state/title/url; one page — walk via token).
-
-INPUTS: page_size (int), page_token (str — empty = first page). Returns: ``{sessions: [{id, state, title, url}], next_page_token}``. chain_next: re-call with returned ``next_page_token`` to walk older pages.
-
-RETURNS: ``{sessions: [{id, state, title, url}], next_page_token}``. chain_next: re-call with returned ``next_page_token`` to walk older pages.
-
-CHAIN_NEXT: re-call with returned ``next_page_token`` to walk older pages.
 ```
 </details>
 
@@ -518,34 +448,6 @@ INPUTS: [TODO]
 RETURNS: ``{task, top, matches: [{persona, score, focus}]}``. chain_next: persona.summon(top, task) to compose the dispatch brief.
 
 CHAIN_NEXT: persona.summon(top, task) to compose the dispatch brief.
-```
-</details>
-
-### `prompt` — 2/19 verbs need work
-
-<details><summary><code>prompt.register_fragment</code> (effect) — `long_brief`</summary>
-
-```
-BRIEF: Write a fragment to the project overlay (effect; runtime-extensible).
-
-INPUTS: slug (str — canonical or alias id), text (str — guidance body, ≤300 tokens recommended), overlay_path (str — defaults to ``.agency/dramatica-fragments-overlay.yaml``). Returns: ``{slug, canonical_id, kind, tokens, overlay_path}`` OR ``{slug, error: 'UNKNOWN_SLUG'}``. chain_next: ``prompt.fragment(slug)`` to verify the round-trip.
-
-RETURNS: ``{slug, canonical_id, kind, tokens, overlay_path}`` OR ``{slug, error: 'UNKNOWN_SLUG'}``. chain_next: ``prompt.fragment(slug)`` to verify the round-trip.
-
-CHAIN_NEXT: ``prompt.fragment(slug)`` to verify the round-trip.
-```
-</details>
-
-<details><summary><code>prompt.register_framework</code> (effect) — `long_brief`</summary>
-
-```
-BRIEF: Write a custom framework to the project overlay (effect; extensible).
-
-INPUTS: slug (str), payload (dict — at minimum ``template``; any of name/intent_category/complexity_tier/audience/components/ when_to_use/discriminators override the vendored defaults). ``intent_category``/``complexity_tier``/``audience`` must be valid ontology enum values (validated HERE so a bad overlay fails fast, not later at ``render`` time when the ``PromptFramework`` node is recorded). overlay_path (str — defaults to the project overlay). Returns: ``{slug, name, intent_category, audience, overlay_path}`` OR ``{slug, error: 'INVALID_ARGUMENT', invalid: {...}}`` when the template is missing or an enum field is out of range. chain_next: ``prompt.framework(slug)`` to verify the round-trip.
-
-RETURNS: ``{slug, name, intent_category, audience, overlay_path}`` OR ``{slug, error: 'INVALID_ARGUMENT', invalid: {...}}`` when the template is missing or an enum field is out of range. chain_next: ``prompt.framework(slug)`` to verify the round-trip.
-
-CHAIN_NEXT: ``prompt.framework(slug)`` to verify the round-trip.
 ```
 </details>
 

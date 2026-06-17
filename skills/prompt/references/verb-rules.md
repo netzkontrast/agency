@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## prompt verb audit — 2 of 19 verbs need work
+## prompt verb audit — 0 of 19 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -31,8 +31,8 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `prompt.framework` | transform | ✓ clean |
 | `prompt.frameworks_for` | transform | ✓ clean |
 | `prompt.intent_capture` | act | ✓ clean |
-| `prompt.register_fragment` | effect | `long_brief` |
-| `prompt.register_framework` | effect | `long_brief` |
+| `prompt.register_fragment` | effect | ✓ clean |
+| `prompt.register_framework` | effect | ✓ clean |
 | `prompt.render` | act | ✓ clean |
 | `prompt.route_framework` | effect | ✓ clean |
 | `prompt.token_budget_gate` | effect | ✓ clean |

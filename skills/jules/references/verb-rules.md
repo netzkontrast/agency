@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## jules verb audit — 1 of 22 verbs need work
+## jules verb audit — 0 of 22 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -25,7 +25,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `jules.detect_mode` | transform | ✓ clean |
 | `jules.dispatch` | effect | ✓ clean |
 | `jules.lint_prompt` | transform | ✓ clean |
-| `jules.list` | transform | `long_brief` |
+| `jules.list` | transform | ✓ clean |
 | `jules.message` | effect | ✓ clean |
 | `jules.patch` | transform | ✓ clean |
 | `jules.patch_body` | transform | ✓ clean |

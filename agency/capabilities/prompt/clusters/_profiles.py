@@ -241,6 +241,21 @@ def _first_sentence(body: str) -> str:
     return text[:cut].strip()
 
 
+def _clause_semicolon(brief: str) -> bool:
+    """True if the brief has a ``;`` JOINING clauses — i.e. at paren-depth 0.
+    A ``;`` inside a parenthetical (``(Spec 287; rule 2)``, ``(effect; …)``) is
+    not a two-clause brief, so it does not fire ``long_brief``."""
+    depth = 0
+    for ch in brief:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif ch == ";" and depth == 0:
+            return True
+    return False
+
+
 def tool_desc_profile(body: str) -> tuple[dict, list[str]]:
     """Score a verb docstring against the agency **Spec 023** grammar — a
     first-sentence brief (≤ 120 chars, single clause) + ``Inputs:`` +
@@ -256,7 +271,7 @@ def tool_desc_profile(body: str) -> tuple[dict, list[str]]:
     # explicit two-clause signal. An em-dash is NOT flagged — in a within-budget
     # brief it is usually appositive (single clause), so flagging it over-counts.
     brief = _first_sentence(body)
-    if len(brief) > 120 or ";" in brief:
+    if len(brief) > 120 or _clause_semicolon(brief):
         flags.append("long_brief")
         scores["brief"] = 4.0
     else:

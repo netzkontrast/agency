@@ -35,9 +35,9 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | `reference` | transform | Fetch a discipline's heavy how-to on demand (T3 disclosure). | [details](references/reference.md) |
 | `scaffold_capability` | act | Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton. | [details](references/scaffold_capability.md) |
 | `session_check` | transform | Read the current SessionLifecycle state (transform). | [details](references/session_check.md) |
-| `session_init` | act | Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb. | [details](references/session_init.md) |
+| `session_init` | act | Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb. | [details](references/session_init.md) |
 | `session_resume` | transform | Spec 114 Slice 2 — cross-session handoff. | [details](references/session_resume.md) |
-| `skill_walk` | act | Walk a registered skill to the first hard gate in ONE call (the atomic walker). | [details](#skill_walk) |
+| `skill_walk` | act | Walk a registered skill to the first hard gate in ONE call (the atomic walker). | [details](references/skill_walk.md) |
 | `validate_skill` | transform | Validate a capability's Agent-Skill (its SkillDoc) — lint + dry-run emit. | [details](references/validate_skill.md) |
 
 ## Example
@@ -77,11 +77,3 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'tdd', 'inputs': {}, 'intent_id': '…'})`
 - **`verify`** (discipline): identify → run → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'verify', 'inputs': {}, 'intent_id': '…'})`
-
-## skill_walk
-
-Walk a registered skill to the first hard gate in ONE call (the atomic walker).
-
-Parameters: `(name: 'str', inputs: 'dict', resume_from: 'str' = '')`.
-
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/skill_walk.md.)_
