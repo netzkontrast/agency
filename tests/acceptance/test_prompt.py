@@ -681,3 +681,170 @@ def _register_fw_bad(engine, confirmed_intent, slug):
     res, _ = invoke(engine, confirmed_intent, "prompt", "register_framework",
                     slug=slug, payload={"name": "Bad"})
     return res
+
+
+# ── Framework routing + render + evaluate (Spec 305) ──────────────────────────
+
+@when(parsers.parse('I route the draft "{draft}"'), target_fixture="route")
+def _route(engine, confirmed_intent, draft):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "route_framework", draft=draft)
+    return res
+
+
+@when(parsers.parse('I route the draft "{draft}" with intent hint "{hint}"'),
+      target_fixture="route")
+def _route_hint(engine, confirmed_intent, draft, hint):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "route_framework",
+                    draft=draft, intent_hint=hint)
+    return res
+
+
+@then(parsers.parse('the routed intent is "{intent}"'))
+def _routed_intent(route, intent):
+    assert route["intent"] == intent
+
+
+@then("the routed framework is present")
+def _routed_fw(route):
+    assert route["framework"] and route["framework"]["slug"]
+
+
+@then("the route scaffold is non-empty")
+def _route_scaffold(route):
+    assert route["scaffold"]
+
+
+@then("the route rationale is non-empty")
+def _route_rationale(route):
+    assert route["rationale"]
+
+
+@then("the route returns at most two frameworks total")
+def _route_efficient(route):
+    total = (1 if route["framework"] else 0) + len(route["alts"])
+    assert total <= 2
+
+
+@then(parsers.parse('that is fewer than the frameworks_for candidate list for intent "{intent}"'))
+def _route_fewer(engine, confirmed_intent, route, intent):
+    cand, _ = invoke(engine, confirmed_intent, "prompt", "frameworks_for",
+                     intent=intent, max_tokens=100000)
+    total = (1 if route["framework"] else 0) + len(route["alts"])
+    assert total < len(cand["frameworks"])
+
+
+@then("a Recommendation node serves the intent")
+def _route_recommendation(engine, confirmed_intent, route):
+    rows = engine.memory.g.query(
+        "MATCH (r:Recommendation)-[:SERVES]->(i) WHERE i.id=$iid RETURN r",
+        {"iid": confirmed_intent})
+    assert rows
+
+
+@when("I render framework \"ape\" with action, purpose and expectation fields",
+      target_fixture="rendered")
+def _render_ape(engine, confirmed_intent):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "render",
+                    framework_slug="ape",
+                    fields={"action": "Summarize the quarterly report",
+                            "purpose": "exec briefing",
+                            "expectation": "three tight bullets"})
+    return res
+
+
+@then("the rendered body mentions the field values")
+def _rendered_body(rendered):
+    body = rendered["result"]
+    assert "Summarize the quarterly report" in body
+    assert "three tight bullets" in body
+
+
+@then("a FILLS_FRAMEWORK edge links the instance to a PromptFramework node")
+def _fills_edge(engine, rendered):
+    iid = rendered["artefact"]["instance_id"]
+    rows = engine.memory.g.query(
+        "MATCH (i:PromptInstance)-[:FILLS_FRAMEWORK]->(f:PromptFramework) "
+        "WHERE i.id=$iid RETURN f", {"iid": iid})
+    assert rows and rows[0]["f"]["properties"]["slug"] == "ape"
+
+
+@when("I render framework \"co-star\" with a huge field and a tight budget",
+      target_fixture="render_over")
+def _render_over(engine, confirmed_intent):
+    res, inv = invoke(engine, confirmed_intent, "prompt", "render",
+                      framework_slug="co-star",
+                      fields={"context": "x " * 500}, max_tokens=10)
+    return res, inv
+
+
+@then(parsers.parse('the render result is null with error "{code}"'))
+def _render_null(engine, render_over, code):
+    res, inv = render_over
+    assert res is None
+    assert code in engine.memory.recall(inv).get("error", "")
+
+
+@when(parsers.parse('I render framework "{slug}" with empty fields'),
+      target_fixture="render_unknown")
+def _render_unknown(engine, confirmed_intent, slug):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "render",
+                    framework_slug=slug, fields={})
+    return res
+
+
+@then(parsers.parse('the render error is "{err}"'))
+def _render_err(render_unknown, err):
+    assert render_unknown.get("error") == err
+
+
+@when("I evaluate a well-formed user prompt", target_fixture="evald")
+def _evaluate_good(engine, confirmed_intent):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "evaluate",
+                    prompt_body="Write a detailed 800-word blog post about "
+                    "machine learning in healthcare for non-technical readers "
+                    "in a friendly, professional tone.")
+    return res
+
+
+@then("the evaluation has five dimension scores")
+def _eval_five(evald):
+    assert set(evald["scores"]) == {
+        "clarity", "specificity", "context", "completeness", "structure"}
+
+
+@then("the evaluation has a status and an overall score")
+def _eval_status(evald):
+    assert evald["status"] in {"passed", "failed"}
+    assert isinstance(evald["overall"], (int, float))
+
+
+@when(parsers.parse('I evaluate with target "{target}"'), target_fixture="evald")
+def _evaluate_target(engine, confirmed_intent, target):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "evaluate",
+                    prompt_body="some body", target=target)
+    return res
+
+
+@then(parsers.parse('the evaluation error is "{err}"'))
+def _eval_err(evald, err):
+    assert evald.get("error") == err
+
+
+@when("I evaluate a vague user prompt", target_fixture="vague_eval")
+def _eval_vague(engine, confirmed_intent):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "evaluate",
+                    prompt_body="maybe do something with that stuff")
+    return res["overall"]
+
+
+@when("I evaluate a clear user prompt", target_fixture="clear_eval")
+def _eval_clear(engine, confirmed_intent):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "evaluate",
+                    prompt_body="Write a 500-word report analyzing Q4 sales "
+                    "data for the finance team, structured with sections.")
+    return res["overall"]
+
+
+@then("the vague overall is below the clear overall")
+def _vague_below(vague_eval, clear_eval):
+    assert vague_eval < clear_eval

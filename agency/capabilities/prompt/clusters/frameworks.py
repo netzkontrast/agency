@@ -100,6 +100,110 @@ class FrameworksMixin:
         })
 
     @verb(role="effect")
+    def route_framework(self, draft: str, intent_hint: str = "",
+                        top: int = 1) -> ToolResult:
+        """Route a free-text ``draft`` to the ONE right framework (effect).
+
+        Two-level routing (Spec 305): (1) detect the ``intent_category`` by
+        matching ``draft`` against the vendored category signals + each
+        framework's ``discriminators`` (DERIVED from the library, not a
+        hardcoded keyword table); (2) within that category, rank candidates by
+        discriminator + token overlap. **Token-efficient — returns ONE
+        framework plus ≤ 1 alt, never the whole library.** Records a
+        ``Recommendation`` node SERVING the intent (298 parity).
+
+        Inputs: draft (str — the rough prompt/goal), intent_hint (str —
+                override category detection), top (int — ranked candidates).
+        Returns: ``{intent, framework: {slug, name, complexity_tier},
+                 alts: [...], rationale, scaffold}``.
+        chain_next: ``prompt.render(framework_slug, fields)`` to fill it.
+        """
+        store = _load_frameworks()
+        intent = (intent_hint if intent_hint in _user_intents(store)
+                  else _detect_category(draft, store))
+        ranked = _rank_in_category(draft, intent, store)
+        if not ranked:
+            return ToolResult.success(data={
+                "intent": intent, "framework": None, "alts": [],
+                "rationale": f"no framework matched intent '{intent}'",
+                "scaffold": "",
+            })
+        best = ranked[0]
+        entry = store[best["slug"]]
+        alts = [{"slug": r["slug"], "name": store[r["slug"]]["name"]}
+                for r in ranked[1:max(1, top) + 1]][:max(0, top)]
+        self.ctx.record_and_serve("Recommendation", {
+            "request": draft[:200], "capability": "prompt",
+        })
+        rationale = (f"intent '{intent}' → {entry['name']}: "
+                     f"{entry.get('when_to_use', '') or entry['full_name']}")[:200]
+        return ToolResult.success(data={
+            "intent": intent,
+            "framework": {"slug": entry["slug"], "name": entry["name"],
+                          "complexity_tier": entry["complexity_tier"]},
+            "alts": alts,
+            "rationale": rationale,
+            "scaffold": entry.get("template", ""),
+        })
+
+    @verb(role="act")
+    def render(self, framework_slug: str, fields: dict,
+               max_tokens: int = 2000) -> ToolResult:
+        """Fill a framework's template with ``fields`` → a PromptInstance (act).
+
+        Renders one ``COMPONENT: value`` line per framework component (the
+        slots derived from the template), filling from ``fields`` (matched by
+        component name, case-insensitive) and marking unfilled slots ``[TODO]``.
+        Honors ``max_tokens`` (refuses an over-budget body — the ``engineer``
+        gate). Records a ``PromptInstance`` + a ``FILLS_FRAMEWORK`` edge to a
+        lazily-recorded ``PromptFramework`` node (304 — nodes appear only on
+        use; declare-an-edge ⇒ traverse-it).
+
+        Inputs: framework_slug (str), fields (dict — component→value),
+                max_tokens (int).
+        Returns: ``{result, artefact: {kind, framework_slug, rendered_body,
+                 instance_id, approx_tokens}}`` OR ``{error}``.
+        chain_next: ``prompt.evaluate(body, target='user-prompt')`` to score it.
+        """
+        entry = _load_frameworks().get(framework_slug)
+        if entry is None:
+            return ToolResult.success(data={
+                "framework_slug": framework_slug, "error": "NO_FRAMEWORK"})
+        body = _fill_template(entry, fields or {})
+        tokens = _approx_tokens(body)
+        if tokens > max_tokens:
+            return ToolResult.failure(
+                "INVALID_ARGUMENT",
+                f"rendered prompt {tokens} tokens > budget {max_tokens}; "
+                f"trim fields or raise max_tokens")
+        fw_node = self._framework_node(entry)
+        instance_id = self.ctx.record_and_serve("PromptInstance", {
+            "builder_kind": f"framework:{framework_slug}", "rendered_body": body,
+        })
+        self.ctx.link(instance_id, fw_node, "FILLS_FRAMEWORK")
+        return ToolResult.success(data={
+            "result": body,
+            "artefact": {"kind": "prompt-instance",
+                         "framework_slug": framework_slug,
+                         "rendered_body": body,
+                         "instance_id": instance_id,
+                         "approx_tokens": tokens},
+        })
+
+    def _framework_node(self, entry: dict) -> str:
+        """Lazily record (or find) the PromptFramework node for ``entry`` (Q1:
+        nodes record only when a framework is actually used)."""
+        existing = self.ctx.query_nodes("PromptFramework", {"slug": entry["slug"]})
+        if existing:
+            return existing[0]["id"]
+        return self.ctx.record("PromptFramework", {
+            "slug": entry["slug"], "name": entry["name"],
+            "intent_category": entry["intent_category"],
+            "complexity_tier": entry["complexity_tier"],
+            "audience": entry.get("audience", "user"),
+        })
+
+    @verb(role="effect")
     def register_framework(self, slug: str, payload: dict,
                            overlay_path: str = "") -> ToolResult:
         """Write a custom framework to the project overlay (effect; extensible).
@@ -125,6 +229,72 @@ class FrameworksMixin:
             "audience": entry["audience"],
             "overlay_path": path,
         })
+
+
+# ─────────────────────────── routing + render (Spec 305) ────────────────────
+# Reuses Spec 298 (recommend)'s tokenizer — the shared scoring substrate; this
+# slice owns only the framework-specific candidate shaping (Open Q1).
+from agency.capabilities.recommend._main import _tokens  # noqa: E402
+
+
+def _user_intents(store: dict) -> set[str]:
+    """The intent categories that carry at least one user-facing framework."""
+    return {e["intent_category"] for e in store.values()
+            if e.get("audience", "user") == "user"}
+
+
+def _detect_category(draft: str, store: dict) -> str:
+    """First-level routing: score each intent category by substring hits of its
+    vendored signals + member-framework discriminators against ``draft``.
+    Falls back to ``create`` (the most common) when nothing matches — upstream
+    parity."""
+    low = draft.lower()
+    signals = _load_intent_signals()
+    # Aggregate per-category discriminators from the library (derived, rule 8).
+    agg: dict[str, list[str]] = {}
+    for e in store.values():
+        if e.get("audience", "user") != "user":
+            continue
+        agg.setdefault(e["intent_category"], []).extend(e.get("discriminators", []))
+    scores: dict[str, int] = {}
+    for cat in _user_intents(store):
+        kws = list(signals.get(cat, [])) + agg.get(cat, [])
+        scores[cat] = sum(1 for kw in kws if kw and kw.lower() in low)
+    best = max(scores, key=lambda c: scores[c]) if scores else "create"
+    return best if scores.get(best, 0) > 0 else "create"
+
+
+def _rank_in_category(draft: str, intent: str, store: dict) -> list[dict]:
+    """Second-level routing: rank the category's user frameworks by
+    discriminator substring hits + token overlap against ``draft``."""
+    toks = _tokens(draft)
+    low = draft.lower()
+    ranked = []
+    for e in store.values():
+        if e.get("audience", "user") != "user" or e["intent_category"] != intent:
+            continue
+        discs = e.get("discriminators", [])
+        disc_hits = sum(1 for d in discs if d and d.lower() in low)
+        overlap = len(toks & _tokens(" ".join(discs) + " " + e.get("when_to_use", "")))
+        ranked.append({"slug": e["slug"], "score": disc_hits * 2 + overlap})
+    # Stable order: score desc, then library order (slug) for determinism.
+    ranked.sort(key=lambda r: (-r["score"], r["slug"]))
+    return ranked
+
+
+def _fill_template(entry: dict, fields: dict) -> str:
+    """Fill a framework's component slots from ``fields`` (matched by component
+    name, case-insensitive; first word as a fallback key). Unfilled → [TODO]."""
+    lowered = {str(k).lower(): v for k, v in fields.items()}
+    lines = []
+    for comp in entry.get("components", []) or []:
+        key = comp.lower()
+        val = (lowered.get(key)
+               or lowered.get(key.split()[0] if key.split() else key))
+        lines.append(f"{comp.upper()}: {val}" if val else f"{comp.upper()}: [TODO]")
+    if not lines:  # frameworks with no parsed components fall back to template
+        return entry.get("template", "")
+    return "\n\n".join(lines)
 
 
 # ─────────────────────────── framework loader (Spec 304 / 129 parity) ───────

@@ -194,3 +194,52 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
   Scenario: register_framework rejects a payload with no template
     When I register a custom framework "bad-fw" with no template
     Then the framework error is "INVALID_ARGUMENT"
+
+  # ── Framework routing + render + evaluate (Spec 305) ─────────────────────
+
+  Scenario: route_framework returns one framework with a scaffold and rationale
+    When I route the draft "Write a blog post about machine learning for a non-technical audience"
+    Then the routed intent is "create"
+    And the routed framework is present
+    And the route scaffold is non-empty
+    And the route rationale is non-empty
+
+  Scenario: route_framework honors an explicit intent hint
+    When I route the draft "do the thing" with intent hint "reason"
+    Then the routed intent is "reason"
+
+  Scenario: route_framework is token-efficient versus the candidate list
+    When I route the draft "Calculate the payback period for CAC 1200 and MRR 150"
+    Then the route returns at most two frameworks total
+    And that is fewer than the frameworks_for candidate list for intent "reason"
+
+  Scenario: route_framework records a Recommendation serving the intent
+    When I route the draft "Rewrite this email to sound more professional"
+    Then a Recommendation node serves the intent
+
+  Scenario: render fills a framework template into a PromptInstance
+    When I render framework "ape" with action, purpose and expectation fields
+    Then the rendered body mentions the field values
+    And a FILLS_FRAMEWORK edge links the instance to a PromptFramework node
+
+  Scenario: render refuses an over-budget body
+    When I render framework "co-star" with a huge field and a tight budget
+    Then the render result is null with error "INVALID_ARGUMENT"
+
+  Scenario: render returns NO_FRAMEWORK for an unknown slug
+    When I render framework "nope" with empty fields
+    Then the render error is "NO_FRAMEWORK"
+
+  Scenario: evaluate scores a user prompt across five dimensions
+    When I evaluate a well-formed user prompt
+    Then the evaluation has five dimension scores
+    And the evaluation has a status and an overall score
+
+  Scenario: evaluate returns UNKNOWN_TARGET for an unregistered target
+    When I evaluate with target "bogus-target"
+    Then the evaluation error is "UNKNOWN_TARGET"
+
+  Scenario: evaluate scores a vague prompt below a clear one
+    When I evaluate a vague user prompt
+    And I evaluate a clear user prompt
+    Then the vague overall is below the clear overall

@@ -98,3 +98,36 @@ extends with functional-doc profiles.
    `intent_hint` if wrong) — keeps the verb pure + token-bounded.
 3. Keep `audit` as alias or deprecate? **Recommend alias for one spec cycle**
    (enforcement blast-radius — grep call sites first).
+
+## Followup — Implementation Status (2026-06-17)
+
+**Shipped** on `claude/spec-304-306-impl-wrfzvb`.
+
+Done:
+- `route_framework(draft, intent_hint, top)` (`clusters/frameworks.py`):
+  two-level routing — `_detect_category` scores each intent category by
+  substring hits of the vendored `intent_signals` + per-framework
+  `discriminators` (DERIVED from the 304 library, not a hardcoded table);
+  `_rank_in_category` ranks the category's user frameworks by discriminator +
+  token overlap. Returns ONE framework + ≤1 alt + `scaffold` (template) +
+  one-line `rationale`. Records a `Recommendation` SERVING the intent.
+- Q1 → reuses 298's `_tokens` tokenizer (the shared scoring substrate);
+  framework candidate shaping is owned locally (no parallel registry scorer).
+  Q2 → non-interactive best-guess + alt. Q3 → `audit` kept (alias-by-coexistence).
+- `render(framework_slug, fields, max_tokens)`: fills one `COMPONENT: value`
+  line per derived component, `[TODO]` for unfilled; budget-gated (the
+  `engineer` gate); records `PromptInstance` + `FILLS_FRAMEWORK` edge to a
+  lazily-recorded `PromptFramework` node (Q1 of 304 — nodes appear only on use;
+  declare-an-edge ⇒ traverse-it, exercised by the acceptance edge query).
+- `evaluate(prompt_body, target, min_score)`: the 5-dim grid (clarity /
+  specificity / context / completeness / structure) ported from
+  `prompt_evaluator.py` into `clusters/_profiles.py`; a `PROFILES` registry
+  keyed by target is the seam 306 extends. `user-prompt` profile shipped.
+  Returns `{target, scores, overall, flags, status}` or `UNKNOWN_TARGET`.
+- `audit` UNCHANGED — Spec 292 `document.ingest → prompt.audit` reads
+  `clarity_score`; full document suite green (enforcement blast-radius cleared).
+- 10 acceptance scenarios; token-efficiency asserted as a RELATIONSHIP
+  (route total ≤ 2 < `frameworks_for` candidate count) — rule 8, no byte count.
+
+Still: 306 functional profiles (`skilldoc`/`tool-desc`/`template`) +
+`role_padding` flag + `develop.optimize_skilldoc`.
