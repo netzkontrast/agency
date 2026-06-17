@@ -15,7 +15,7 @@ Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton.
 
 ## Chain-next
 
-plugin.lint_capability(name) — verify lint-clean.
+plugin.lint_capability(name) to verify lint-clean, then develop.reload to make the new capability live this session.
 
 ## Details
 

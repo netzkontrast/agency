@@ -66,3 +66,66 @@ def test_agency_reload_picks_up_a_new_capability_mid_session(monkeypatch):
         assert "reloadprobe" in r2["removed"], r2
     finally:
         eng.memory.close()
+
+
+def _write_codecap_main(pkg_dir, verb_name: str) -> None:
+    """A folder-capability whose verb lives in a ``_main`` SUBMODULE — the shape
+    that exposed the Spec-302 reload gap (package-reload didn't recurse)."""
+    (pkg_dir / "_main.py").write_text(
+        '"""reloadcodecap — a reload-probe capability.\n\n'
+        "Use when proving mid-session code reload.\n"
+        "Triggers:\n- a reload test runs\n"
+        "Red flags:\n- none\n"
+        '"""\n'
+        "from agency.capability import CapabilityBase, verb\n"
+        "from agency.ontology import OntologyExtension\n\n\n"
+        "class ReloadcodecapCapability(CapabilityBase):\n"
+        "    name = 'reloadcodecap'\n"
+        "    home = 'capability'\n"
+        "    ontology = OntologyExtension()\n\n"
+        "    @verb(role='transform')\n"
+        f"    def {verb_name}(self) -> dict:\n"
+        '        """A reload sentinel verb.\n\n'
+        "        Inputs: (none).\n"
+        f"        Returns: {{result: {verb_name}}}.\n"
+        "        chain_next: (terminal).\n"
+        '        """\n'
+        f"        return {{'result': '{verb_name}'}}\n"
+    )
+
+
+def test_agency_reload_picks_up_an_edited_submodule_mid_session(tmp_path):
+    """The real hot-reload contract: EDITING an existing folder-capability's
+    ``_main.py`` and reloading reflects the change — not just adding a brand-new
+    top-level cap. Reproduces the gap where ``importlib.reload(package)`` left the
+    ``_main`` submodule cached, so a new/renamed verb stayed invisible."""
+    import sys
+    from agency.engine import Engine
+    import agency.capabilities as capmod
+
+    # Build the engine FIRST (the temp cap is added mid-session, like real use —
+    # and so the init-time skill_doc gate doesn't see a half-built probe).
+    eng = Engine(tempfile.mktemp(suffix=".db"))
+    eng.build_mcp(codemode=True)
+    pkg = tmp_path / "reloadcodecap"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text(
+        "from ._main import ReloadcodecapCapability  # noqa: F401\n")
+    _write_codecap_main(pkg, "alpha")
+    capmod.__path__.append(str(tmp_path))     # discovery now also walks tmp_path
+    try:
+        eng.reload()
+        assert "alpha" in eng.registry.get("reloadcodecap").verbs
+
+        # EDIT the submodule on disk — rename the verb — then reload.
+        _write_codecap_main(pkg, "beta")
+        r = eng.reload()
+        verbs = eng.registry.get("reloadcodecap").verbs
+        assert "beta" in verbs and "alpha" not in verbs, verbs  # submodule re-imported
+        assert r["reimported"] >= 1, r                          # the subtree was purged
+    finally:
+        if str(tmp_path) in capmod.__path__:
+            capmod.__path__.remove(str(tmp_path))
+        for m in [k for k in list(sys.modules) if "reloadcodecap" in k]:
+            sys.modules.pop(m, None)
+        eng.memory.close()

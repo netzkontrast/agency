@@ -344,6 +344,7 @@ class Engine:
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
         self._onboarding_cache: dict | None = None        # Spec 302 — doctor probe cache
+        self._extra_capabilities = list(extra_capabilities or [])  # Spec 302 — re-added on reload()
         self.ontology = Ontology.core()                         # the base, then each capability extends it
         # discovered core capabilities, plus any external ones the host supplies —
         # the extension point: an out-of-tree capability registers + extends exactly
@@ -798,32 +799,40 @@ class Engine:
 
     def reload(self) -> dict:
         """Spec 302 — re-discover capabilities mid-session WITHOUT restarting the
-        server. Reloads changed capability modules, rebuilds the registry +
-        effective ontology IN PLACE (existing wired tools dispatch via the
-        registry by name, so changed code is picked up), and wires genuinely-new
-        verbs onto the live MCP. Code-mode `execute` reaches the new surface
-        immediately; a non-code-mode client must re-list tools to see new verbs.
+        server, picking up EDITED code (not just brand-new caps). Purges every
+        ``agency.capabilities.*`` submodule from ``sys.modules`` so ``discover()``
+        re-imports each capability — including its ``_main`` / ``clusters``
+        submodules — fresh from disk, then rebuilds the registry + effective
+        ontology IN PLACE and wires genuinely-new verbs onto the live MCP.
+        Host-supplied ``extra_capabilities`` are preserved (re-added as-is).
+        Code-mode `execute` reaches the new surface immediately; a non-code-mode
+        client must re-list tools to see new verbs.
+
+        Why a purge, not ``importlib.reload``: reloading a capability PACKAGE does
+        not recurse into its submodules, so a verb edited in ``<cap>/_main.py``
+        stayed cached. Purging forces a clean re-import of the whole subtree.
 
         Returns ``{reloaded, capability_count, capability_set_hash, added,
-        removed, rewired_tools}``. Best-effort + fail-safe: an import error in a
-        capability leaves the previous registry intact."""
-        import importlib
-        import pkgutil
+        removed, rewired_tools, reimported}``. Best-effort + fail-safe: an import
+        error during re-discovery leaves the previous registry intact."""
+        import sys
         from ._envelope import capability_set_hash
         from .capabilities import discover
         from .ontology import Ontology
 
         before = set(self.registry.names())
-        from . import capabilities as _cappkg
-        for info in pkgutil.iter_modules(_cappkg.__path__):
-            if info.name.startswith("_"):
-                continue
-            try:
-                importlib.reload(importlib.import_module(f"{_cappkg.__name__}.{info.name}"))
-            except Exception:                                   # noqa: BLE001 — fail-safe
-                pass
+        # Purge the capability subtree so the next import reads disk afresh. Keep
+        # the ``agency.capabilities`` package itself (``discover`` lives there);
+        # drop every submodule/subpackage beneath it (``…develop``,
+        # ``…develop._main``, ``…prompt.clusters.frameworks``, …).
+        purged = [m for m in list(sys.modules)
+                  if m.startswith("agency.capabilities.")]
+        for m in purged:
+            sys.modules.pop(m, None)
         try:
             fresh = {c.name: c for c in discover()}
+            for cap in self._extra_capabilities:    # preserve host-supplied extras
+                fresh.setdefault(cap.name, cap)
         except Exception as exc:                                # noqa: BLE001
             return {"reloaded": False, "error": str(exc),
                     "capability_count": len(before)}
@@ -857,4 +866,5 @@ class Engine:
                 "capability_set_hash": capability_set_hash(after),
                 "added": sorted(after - before),
                 "removed": sorted(before - after),
-                "rewired_tools": rewired}
+                "rewired_tools": rewired,
+                "reimported": len(purged)}

@@ -690,3 +690,18 @@ def _optimize_template(engine, confirmed_intent, cap):
 def _cand_template(optimized):
     body = optimized["candidate"].upper()
     assert "SLOTS:" in body and "INVARIANTS:" in body
+
+
+# ── develop.reload — mid-session code reload (Spec 302) ───────────────────────
+
+@when("I call develop.reload", target_fixture="reloaded_result")
+def _develop_reload(engine, confirmed_intent):
+    engine.build_mcp(codemode=True)
+    return _call(engine, confirmed_intent, "develop", "reload")
+
+
+@then("the reload reports reloaded true with a reimported count")
+def _reload_ok(reloaded_result):
+    assert reloaded_result["reloaded"] is True
+    assert reloaded_result["reimported"] >= 1
+    assert reloaded_result["capability_count"] >= 1
