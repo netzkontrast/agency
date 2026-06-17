@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import tempfile
 
+from agency.capability import CapabilityBase, verb
 from agency.engine import Engine
+from agency.ontology import OntologyExtension
 from agency.toolresult import (
     Codes,
     Severity,
@@ -105,28 +107,41 @@ def test_invoke_records_permanent_for_bad_pov() -> None:
     e.memory.close()
 
 
-def test_invoke_records_transient_for_contention_exception() -> None:
-    e = _fresh()
-    iid = _iid(e)
-    # register a probe verb that raises the known contention error.
-    cap = e.registry._caps["novel"]
+class _ContentionProbeCapability(CapabilityBase):
+    """A probe capability whose verb raises the known graphqlite edge-contention
+    error, so the real invoke path classifies + records its severity."""
+    name = "contentionprobe"
+    home = "capability"
+    ontology = OntologyExtension()
 
-    def _boom(ctx):  # noqa: ANN001
+    @verb(role="effect")
+    def boom(self) -> dict:
+        """Raise the transient edge-contention error (Spec 282).
+
+        Inputs: (none).
+        Returns: (never — raises).
+        chain_next: (terminal).
+        """
         raise RuntimeError("Failed to set property 'vfrom' on edge 7")
 
-    # Spec 286-A4 — verbs are typed `Verb` objects (the invoke path reads
-    # `spec.inject`/`spec.fn` as attributes), not raw dicts.
-    from agency.capability import Verb
-    cap.verbs["_probe_contention"] = Verb(
-        name="_probe_contention", role="effect", fn=_boom, inject=["ctx"])
+
+def test_invoke_records_transient_for_contention_exception() -> None:
+    # Exercise the REAL path: a genuine @verb-decorated capability registered
+    # through the engine's `extra_capabilities` flow + invoked via the registry —
+    # no reaching into `registry._caps`. `_require_skill_doc=False` is the
+    # documented probe/fixture bypass (CLAUDE.md "enforcement blast-radius").
+    e = Engine(tempfile.mktemp(suffix=".db"),
+               extra_capabilities=[_ContentionProbeCapability.as_capability()],
+               _require_skill_doc=False)
+    iid = _iid(e)
     try:
-        e.registry.invoke(e.memory, iid, "novel", "_probe_contention")
+        e.registry.invoke(e.memory, iid, "contentionprobe", "boom")
     except RuntimeError:
         pass
-    # the most recent failed Invocation must be classified transient.
+    # the failed Invocation must be classified transient.
     rows = e.memory.g.query(
         "MATCH (i:Invocation) WHERE i.verb = $v RETURN i.error_severity AS s",
-        {"v": "_probe_contention"})
+        {"v": "boom"})
     assert rows and rows[0]["s"] == Severity.TRANSIENT
     e.memory.close()
 
