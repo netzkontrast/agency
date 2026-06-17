@@ -779,6 +779,10 @@ class DevelopCapability(CapabilityBase):
         ``doc-optimization`` Artefact. **Advisory: returns the candidate, writes
         no source** (a human or a later ``branch.commit_smart`` applies it).
 
+        The rules each flag enforces — what a good skilldoc paragraph looks like —
+        live in ``agency/capabilities/prompt/references/skilldoc-authoring.md``;
+        read them before applying a candidate.
+
         Inputs: target_ref (a capability name, a file path, or literal text),
                 kind (``skilldoc`` | ``tool-desc`` | ``template``).
         Returns: ``{flags, candidate, rationale, artefact_id, scores, status,

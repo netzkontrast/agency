@@ -22,8 +22,10 @@ from ._base import _approx_tokens
 # Tunable pass threshold on the 0-10 grid (CLAUDE.md rule 8 — documented budget).
 _DEFAULT_EVAL_MIN_SCORE: float = 6.0
 # A functional doc (docstring / SkillDoc / tool-desc) earns its keep by being
-# SHORT — a routing aid, not an essay. Tunable budget (rule 8).
-_FUNCTIONAL_DOC_BUDGET: int = 400
+# SHORT — a routing aid, not an essay. Tunable budget (rule 8): 600 tokens gives
+# a clustered capability docstring room for its lineage overview + the
+# Use-when/Triggers/Red-flags grammar without padding.
+_FUNCTIONAL_DOC_BUDGET: int = 600
 
 
 def _clamp(score: float) -> float:
