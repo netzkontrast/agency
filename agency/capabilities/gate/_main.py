@@ -52,3 +52,41 @@ class GateCapability(CapabilityBase):
         if not passed:
             self.ctx.memory.update(lifecycle_id, {"state": "input-required"})
         return {"result": {"passed": bool(passed), "gate": g}}
+
+    @verb(role="act")
+    def adjudicate(self, a: str, b: str, lifecycle_id: str = "") -> dict:
+        """Adjudicate two CONFLICTING concerns at a decision point by consulting
+        ``doctrine.resolve`` — the priority-hierarchy winner (safety > correctness
+        > maintainability > speed), recorded as a Gate (Spec 303).
+
+        This is doctrine's real consumer: rather than guessing which concern wins
+        a tradeoff, the gate delegates to the doctrine capability (recording a
+        ``doctrine.resolve`` Invocation that SERVES the intent) and persists the
+        verdict as auditable Gate provenance.
+
+        Inputs: a (str — one concern), b (str — the conflicting concern),
+                lifecycle_id (str — optional Lifecycle to edge the verdict onto).
+        Returns: ``{result: {winner, winner_category, loser, tie, rationale,
+                   gate}}``.
+        chain_next: proceed with the winning concern; doctrine.cite it.
+        """
+        resolution = self.ctx.call("doctrine", "resolve", a=a, b=b)
+        decided = not resolution.get("tie", False)
+        g = self.ctx.record("Gate", {
+            "name": f"conflict:{a}-vs-{b}",
+            "passed": decided,
+            "evidence": resolution.get("rationale", ""),
+        })
+        if lifecycle_id:
+            chain = list(self.ctx.memory._intent_chain(self.ctx.intent_id))
+            if self.ctx.has_edge(lifecycle_id, chain, "SERVES",
+                                 src_label="Lifecycle", dst_label="Intent"):
+                self.ctx.link(lifecycle_id, g, "PASSED" if decided else "BLOCKED_ON")
+        return {"result": {
+            "winner": resolution.get("winner", ""),
+            "winner_category": resolution.get("winner_category", ""),
+            "loser": resolution.get("loser", ""),
+            "tie": resolution.get("tie", False),
+            "rationale": resolution.get("rationale", ""),
+            "gate": g,
+        }}

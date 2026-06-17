@@ -22,12 +22,13 @@ Gate evaluates a reusable predicate and records the outcome as a Gate node edged
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `adjudicate` | act | Adjudicate two CONFLICTING concerns at a decision point by consulting ``doctrine.resolve`` — the priority-hierarchy winner (safety > correctness > maintainability > speed), recorded as a Gate (Spec 303). | [details](references/adjudicate.md) |
 | `check` | act | Record a gate outcome on a Lifecycle: PASSED, or BLOCKED_ON + an input-required pause on failure. | [details](references/check.md) |
 
 ## Example
 
 ```bash
-await call_tool('capability_gate_check', {'intent_id': 'intent:abc'})
+await call_tool('capability_gate_adjudicate', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
