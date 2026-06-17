@@ -271,14 +271,23 @@ def _find_section_bounds(lines: list, section: str):
 
 def _format_bullet(section: str, after: str) -> str:
     """A new bullet for an ``add-*`` op. ``after`` already authored as a bullet
-    (starts with ``-``) is kept verbatim; otherwise a checkbox bullet is used
-    for a Done-When section, a plain bullet elsewhere."""
-    body = after.rstrip("\n")
-    if body.lstrip().startswith(("-", "*")):
-        return body + "\n"
-    if "done" in _norm_heading(section):
-        return f"- [ ] {body}\n"
-    return f"- {body}\n"
+    (starts with ``-``/``*``) keeps its own marker; otherwise a checkbox bullet
+    is used for a Done-When section, a plain bullet elsewhere. A multi-line
+    ``after`` stays inside ONE list item: only the first line carries the
+    marker, continuation lines are indented (2 spaces) so they never land bare
+    at the list margin (self-review fix)."""
+    rows = after.rstrip("\n").split("\n")
+    first = rows[0]
+    if first.lstrip().startswith(("-", "*")):
+        head = first
+    elif "done" in _norm_heading(section):
+        head = f"- [ ] {first}"
+    else:
+        head = f"- {first}"
+    out = [head]
+    for ln in rows[1:]:
+        out.append(("  " + ln) if ln.strip() else ln)
+    return "\n".join(out) + "\n"
 
 
 def apply_amendment_to_text(text: str, *, section: str, op: str,
@@ -303,7 +312,12 @@ def apply_amendment_to_text(text: str, *, section: str, op: str,
         while insert_at - 1 > start and lines[insert_at - 1].strip() == "":
             insert_at -= 1
         bullet = _format_bullet(section, after)
-        return "".join(lines[:insert_at] + [bullet] + lines[insert_at:])
+        head = lines[:insert_at]
+        # Guard the EOF/no-trailing-newline case: the bullet must start on its
+        # own line, never fuse onto the section's last line (self-review fix).
+        if head and not head[-1].endswith("\n"):
+            head = head[:-1] + [head[-1] + "\n"]
+        return "".join(head + [bullet] + lines[insert_at:])
     if op.startswith("edit-"):
         needle = before.strip()
         if not needle:

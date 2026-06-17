@@ -89,7 +89,8 @@ _RULES_BY_NAME = {r["rule"]: r for r in _RULES}
 # (a rule name, a category name, or a raw concern like "ship fast") into it.
 _HIERARCHY = ["safety", "correctness", "maintainability", "speed"]
 _CATEGORY_KEYWORDS = {
-    "safety": ["safety", "security", "data", "integrity", "destructive",
+    "safety": ["safety", "secure", "security", "data", "integrity",
+               "delete", "erase", "wipe", "destructive",
                "secret", "credential", "privacy", "corruption"],
     "correctness": ["correctness", "correct", "verify", "test", "accuracy",
                     "bug", "soundness", "valid"],
@@ -104,8 +105,10 @@ def _classify(term: str) -> str:
     """Map a rule name / category / free-text concern to a hierarchy category.
 
     A known rule name resolves to its declared category; otherwise the term is
-    matched against each category's keywords (longest-keyword-first so 'data
-    integrity' beats nothing). Unknown terms rank lowest (``""``)."""
+    matched against each category's keywords in HIERARCHY order — so a concern
+    naming keywords from two categories resolves to the higher-priority one
+    (e.g. 'fast but correct' → correctness > speed). Unknown terms rank
+    lowest (``""``)."""
     low = term.lower().strip()
     rule = _RULES_BY_NAME.get(low)
     if rule is not None:

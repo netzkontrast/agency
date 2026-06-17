@@ -19,7 +19,7 @@ manage.read(id) for one row's full state.
 
 ## Details
 
-Ranks live ``label`` nodes by overlap with ``query`` (most-relevant first; recency breaks ties), then returns the highest-priority prefix that fits under ``budget`` tokens — a bounded delta, never a raw dump (rule 2). Read-only; composes the shared ``budget_take`` split + the Spec 082 token counter.
+Ranks live ``label`` nodes by overlap with ``query`` (most-relevant first; recency breaks ties), then returns the highest-priority prefix that fits under ``budget`` tokens — a bounded delta, never a raw dump (rule 2). Read-only; composes the shared ``budget_take`` split + the Spec 082 token counter. A budget smaller than the single highest-ranked row yields ``rows: []`` with ``truncated: True`` (the bounded-delta contract — the caller raises the budget or reads the row by id); it never partial-writes a node.
 
 ## Example
 

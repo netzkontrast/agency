@@ -1239,3 +1239,31 @@ def test_apply_amendment_to_text_edit_replaces_target_line():
     out = apply_amendment_to_text(text, section="Done When", op="edit-done-when",
                                   before="old line", after="- [x] new line")
     assert "new line" in out and "old line" not in out
+
+
+def test_apply_amendment_to_text_no_fuse_when_section_lacks_trailing_newline():
+    """Blocking bug (self-review #1): a section at EOF whose last line has no
+    trailing newline must NOT fuse the new bullet onto it."""
+    from agency.capabilities.dogfood.clusters.amendment import apply_amendment_to_text
+    text = "# S\n\n## Done When\n- [x] a"            # no trailing newline
+    out = apply_amendment_to_text(text, section="Done When",
+                                  op="add-done-when", after="x")
+    lines = out.splitlines()
+    assert "- [x] a" in lines, out                    # original bullet intact
+    assert "- [ ] x" in lines, out                    # new bullet on its own line
+    assert "- [x] a- [ ] x" not in out, out           # not fused
+
+
+def test_apply_amendment_to_text_multiline_after_stays_within_the_bullet():
+    """Blocking bug (self-review #2): a multi-line `after` must not leave a bare
+    non-bullet line at the list margin."""
+    from agency.capabilities.dogfood.clusters.amendment import apply_amendment_to_text
+    text = "## Done When\n\n- [x] a\n\n## End\n"
+    out = apply_amendment_to_text(text, section="Done When",
+                                  op="add-done-when", after="line1\nline2")
+    section = out.split("## End")[0]
+    for ln in section.splitlines():
+        if "line2" in ln:
+            assert ln.startswith(" "), f"continuation not indented: {ln!r}"
+    # line1 carries the checkbox bullet
+    assert any(ln.strip().startswith("- [ ] line1") for ln in section.splitlines()), out
