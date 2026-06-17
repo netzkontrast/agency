@@ -105,6 +105,32 @@ class MemoryGraphProvenance(SubstrateTool):
         return memory_graph_provenance
 
 
+class AgencyReload(SubstrateTool):
+    name = "agency_reload"
+
+    def make_impl(self, engine):
+        def agency_reload() -> dict:
+            """Reload capabilities mid-session WITHOUT restarting the server
+            (Spec 302).
+
+            Substrate — NO intent required. Re-discovers + reloads the capability
+            modules, rebuilds the registry + effective ontology in place, and
+            wires genuinely-new verbs onto the live MCP. Code-mode ``execute``
+            reaches the new surface immediately; a non-code-mode client must
+            re-list tools to see brand-new verbs. Use after editing/adding a
+            capability when ``agency_doctor.surface_freshness.fresh`` is False —
+            no reinstall, no session restart.
+
+            Inputs: (none).
+            Returns: ``{reloaded, capability_count, capability_set_hash, added,
+                    removed, rewired_tools}``.
+            chain_next: ``agency_welcome`` to read the refreshed surface.
+            """
+            return engine.reload()
+
+        return agency_reload
+
+
 class HookEvent(SubstrateTool):
     name = "hook_event"
 
@@ -609,4 +635,5 @@ SUBSTRATE_TOOLS: tuple[SubstrateTool, ...] = (
     AgencyInstall(),
     AgencyDoctor(),
     AgencyWelcome(),
+    AgencyReload(),
 )

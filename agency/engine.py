@@ -736,4 +736,83 @@ class Engine:
                 if brief and brief != raw:
                     tool.description = brief
 
+        self._mcp = mcp   # Spec 302 — held so agency_reload can wire new verbs in
         return mcp
+
+    def _wired_tool_names(self) -> set[str]:
+        """Best-effort set of `capability_*` tool names registered on the live
+        MCP server (Spec 302 — so reload only wires genuinely-new verbs)."""
+        names: set[str] = set()
+        mcp = getattr(self, "_mcp", None)
+        if mcp is None:
+            return names
+        for provider in getattr(mcp, "providers", ()):
+            for key, tool in getattr(provider, "_components", {}).items():
+                if key.startswith("tool:"):
+                    # keys look like `tool:capability_x_y@<provider>`; the tool's
+                    # own .name is the clean wire name.
+                    names.add(getattr(tool, "name", "") or
+                              key.split(":", 1)[1].split("@", 1)[0])
+        return names
+
+    def reload(self) -> dict:
+        """Spec 302 — re-discover capabilities mid-session WITHOUT restarting the
+        server. Reloads changed capability modules, rebuilds the registry +
+        effective ontology IN PLACE (existing wired tools dispatch via the
+        registry by name, so changed code is picked up), and wires genuinely-new
+        verbs onto the live MCP. Code-mode `execute` reaches the new surface
+        immediately; a non-code-mode client must re-list tools to see new verbs.
+
+        Returns ``{reloaded, capability_count, capability_set_hash, added,
+        removed, rewired_tools}``. Best-effort + fail-safe: an import error in a
+        capability leaves the previous registry intact."""
+        import importlib
+        import pkgutil
+        from ._envelope import capability_set_hash
+        from .capabilities import discover
+        from .ontology import Ontology
+
+        before = set(self.registry.names())
+        from . import capabilities as _cappkg
+        for info in pkgutil.iter_modules(_cappkg.__path__):
+            if info.name.startswith("_"):
+                continue
+            try:
+                importlib.reload(importlib.import_module(f"{_cappkg.__name__}.{info.name}"))
+            except Exception:                                   # noqa: BLE001 — fail-safe
+                pass
+        try:
+            fresh = {c.name: c for c in discover()}
+        except Exception as exc:                                # noqa: BLE001
+            return {"reloaded": False, "error": str(exc),
+                    "capability_count": len(before)}
+        # rebuild the effective ontology + re-register caps in place.
+        self.ontology = Ontology.core()
+        for name in list(self.registry._caps):
+            if name not in fresh:
+                self.registry._caps.pop(name, None)
+        for cap in fresh.values():
+            self.registry.register(cap)
+            self.ontology.extend(cap.ontology, cap.name)
+        self.registry.ontology = self.ontology
+        self.registry.engine = self
+        self.memory.ont = self.ontology
+        after = set(self.registry.names())
+        # wire genuinely-new verbs onto the live MCP (existing ones re-dispatch).
+        rewired = 0
+        mcp = getattr(self, "_mcp", None)
+        if mcp is not None:
+            have = self._wired_tool_names()
+            for cap_name in after:
+                for verb, spec in self.registry.get(cap_name).verbs.items():
+                    if f"capability_{cap_name}_{verb}" not in have:
+                        try:
+                            self._wire(mcp, cap_name, verb, spec)
+                            rewired += 1
+                        except Exception:                       # noqa: BLE001
+                            pass
+        return {"reloaded": True, "capability_count": len(after),
+                "capability_set_hash": capability_set_hash(list(after)),
+                "added": sorted(after - before),
+                "removed": sorted(before - after),
+                "rewired_tools": rewired}

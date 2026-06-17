@@ -37,7 +37,7 @@ Driving the engine all session surfaced concrete gaps:
 - `_drift_signals` test discovery now scans `tests/` AND `tests/acceptance/`,
   so the coverage signal is accurate (25 false positives → real gaps only).
 
-## Slice 2 — mid-session reload (`agency_reload`) [PLANNED — answers the user]
+## Slice 2 — mid-session reload (`agency_reload`) [SHIPPED — answers the user]
 
 **Yes, a mid-session reload is feasible — *because of code-mode*.** The wire
 contract is three tools (`search`/`get_schema`/`execute`); per-verb dispatch
@@ -61,14 +61,26 @@ import error leaves the previous registry intact — fail-safe).
 
 - [x] Slice 1: `surface_freshness` doctor field + plugin.json stamp; accurate
   `capabilities_without_tests`; acceptance scenarios.
-- [ ] Slice 2: `agency_reload` substrate tool (mid-session capability reload via
-  code-mode); returns the added/removed delta.
+- [x] Slice 2: `agency_reload` substrate tool — `Engine.reload()` re-discovers +
+  rebuilds the registry/ontology in place, re-wires new verbs onto the held MCP,
+  returns `{added, removed, rewired_tools, …}`. A new capability written to disk
+  is discovered AND invocable mid-session (acceptance test writes a probe cap,
+  reloads, invokes it, cleans up). Fail-safe (import error leaves the prior
+  registry intact).
 - [ ] Slice 3: install auto-enable (opt-in) + a `time-to-first-successful-call`
   doctor probe.
 
 ## Followup — Implementation Status (2026-06-16)
 
-**Done (Slice 1).** `engine._surface_freshness` + `_drift_signals` acceptance-dir
-fix; `install.generate` stamps `_surface_hash`. 2 acceptance scenarios.
+**Done.** Slice 1: `engine._surface_freshness` + `_drift_signals` acceptance-dir
+fix; `install.generate` stamps `_surface_hash`. Slice 2: `Engine.reload()` +
+`agency_reload` substrate tool (held `self._mcp` for re-wiring; existing tools
+re-dispatch via the registry so changed code is picked up; new verbs wired).
+4 acceptance scenarios total.
 
-**Still.** Slice 2 (`agency_reload`) + Slice 3 (auto-enable + first-call probe).
+**Caveat (documented).** Code-mode `execute` reaches the reloaded surface
+immediately; a non-code-mode client must re-list tools to see brand-new verbs.
+Folder-template capabilities (file `templates/`/`schemas/`) reload their in-class
+ontology but not re-read files — a full restart is the fallback for those.
+
+**Still.** Slice 3 (auto-enable + first-call probe).
