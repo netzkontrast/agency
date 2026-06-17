@@ -42,7 +42,7 @@ class AudioCluster(_MusicBase):
     @verb(role="act")
     @requires_driver("music_audio", as_="audio")
     def transcribe_sheet(self, album: str, path: str, *, audio) -> ToolResult:
-        """Transcribe audio → sheet music via AudioDriver (act); produces sheet-music artefact.
+        """Transcribe audio to sheet music via AudioDriver, producing a sheet-music artefact (act).
 
         The transcription tool (AnthemScore-class) runs behind the driver, never inline.
         Inputs: album, path (the audio file).
@@ -83,7 +83,7 @@ class AudioCluster(_MusicBase):
     def master_audio(self, album: str, path: str,
                      target_lufs: float = STREAMING_TARGET_LUFS,
                      preset: str = "", *, audio) -> ToolResult:
-        """Single-track master via AudioDriver (effect); produces mastering-report.
+        """Master a single track via AudioDriver, producing a mastering-report (effect).
 
         Inputs: album, path, target_lufs, preset.
         Returns: ``{result, artefact}`` with input/output paths + gain.
@@ -145,7 +145,7 @@ class AudioCluster(_MusicBase):
     @requires_driver("music_audio", as_="audio")
     def polish_and_master_album(self, album: str, paths: list[str],
                                   target_lufs: float = STREAMING_TARGET_LUFS, *, audio) -> ToolResult:
-        """Combined polish + master pipeline (effect); produces mastering-report.
+        """Run the combined polish + master pipeline, producing a mastering-report (effect).
 
         Inputs: album, paths, target_lufs.
         Returns: ``{result, artefact}`` with per-track gain summary.

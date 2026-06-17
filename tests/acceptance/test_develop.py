@@ -676,7 +676,7 @@ def _optimize_tool_desc(engine, confirmed_intent, cap):
 @then("the candidate carries the tool-desc grammar")
 def _cand_tool_desc(optimized):
     body = optimized["candidate"].upper()
-    assert "WHAT_IT_DOES:" in body and "INPUTS:" in body
+    assert "BRIEF:" in body and "INPUTS:" in body and "RETURNS:" in body
 
 
 @when(parsers.parse('I optimize capability "{cap}" with kind "template"'),

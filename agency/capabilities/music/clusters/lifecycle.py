@@ -32,7 +32,7 @@ class LifecycleCluster(_MusicBase):
     @verb(role="act")
     def conceptualize(self, artist: str, title: str, type: str,
                       theme: str = "", tracklist: str = "") -> dict:
-        """Render an album-concept document (act); ``type`` must be a known album type.
+        """Render an album-concept document for a known album ``type`` (act).
 
         Inputs: artist, title, type (one of ``ALBUM_TYPES``), theme, tracklist.
         Returns: ``{result, artefact}`` where artefact.kind = ``album-concept``.
@@ -66,7 +66,7 @@ class LifecycleCluster(_MusicBase):
     @verb(role="effect")
     def promote_idea(self, idea_id: str, artist: str, title: str,
                      genre: str, type: str = "thematic") -> ToolResult:
-        """Promote an Idea → Album (effect); record Album + PROMOTED_TO edge.
+        """Promote an Idea to an Album, recording the Album + PROMOTED_TO edge (effect).
 
         Inputs: idea_id, artist, title, genre, type.
         Returns: ``{idea_id, album_id, album_slug, status}``.

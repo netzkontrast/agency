@@ -1,6 +1,6 @@
 ---
 name: prompt
-description: "Use when authoring research dossiers, engineering structured prompts that honor a token budget, auditing prompts for clarity / anti-patterns."
+description: "Use when authoring a research dossier, engineering a token-budgeted prompt,"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -11,13 +11,13 @@ allowed-tools:
 
 # prompt capability
 
-Two-lineage capability:
+Author research dossiers, engineer token-budgeted prompts, route a draft to the right one of 27 research-backed frameworks, and score prompts — and agency's own functional docs — for clarity and anti-patterns. The prompt-as-substrate spine where templates, the framework library, and evaluation meet.
 
 ## When to use
 
 - A research intent needs a dossier authored before generation begins
-- A prompt is being constructed and needs token-budget gating
-- An LLM output flagged for anti-patterns needs an optimization pass
+- A draft prompt needs the right framework picked, then filled to a token budget
+- A prompt or a capability's own doc needs clarity / anti-pattern scoring
 
 ## Verbs
 
@@ -51,8 +51,10 @@ await call_tool('capability_prompt_assemble_scene_brief', {'intent_id': 'intent:
 
 ## Red flags — stop and re-read this skill
 
-- Hand-rolling prompts outside the engineering pipeline → call `prompt.engineer`
-- Skipping the audit gate → call `prompt.audit` (general-case) or `prompt.brief_audit` (dossier-case)
+- Hand-rolling a prompt instead of routing → call `prompt.route_framework` then `prompt.render`
+- Reading all 27 frameworks to pick one → `prompt.route_framework` returns the one
+- Skipping the score gate → `prompt.evaluate` (or `prompt.audit` for the legacy contract)
+- Adding a Role to a function's doc → that is `role_padding`; functions need actionable insight, not a persona
 
 ## Walk this capability
 

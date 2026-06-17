@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.match_codex_entries
 
-Scan ``text`` for any registered codex trigger; return matches (transform).
+Scan ``text`` for any registered codex trigger and return matches (transform).
 
 ## Inputs
 

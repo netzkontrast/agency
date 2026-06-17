@@ -867,28 +867,27 @@
     {
       "slug": "tool-desc",
       "name": "ToolDesc",
-      "full_name": "Functional verb/tool description (route + invoke)",
+      "full_name": "Functional verb description (Spec 023 grammar: brief + Inputs + Returns + chain_next)",
       "intent_category": "functional",
       "complexity_tier": "meta",
       "audience": "functional",
       "components": [
-        "What_It_Does",
-        "When_To_Route_Here",
+        "Brief",
         "Inputs",
-        "Chain_Next",
-        "Failure_Modes"
+        "Returns",
+        "Chain_Next"
       ],
-      "template": "WHAT_IT_DOES: [one line — the effect this verb produces]\n\nWHEN_TO_ROUTE_HERE: [the condition that should route a caller here]\n\nINPUTS: [name (type) — meaning, one per arg]\n\nCHAIN_NEXT: [the verb to call after this one]\n\nFAILURE_MODES: [the error codes / null returns a caller must handle]",
+      "template": "BRIEF: [what it does — verb-first, <=120 chars, single clause, role-tagged (act|transform|effect)]\n\nINPUTS: [name (type) — meaning, one per user-facing arg]\n\nRETURNS: [the wire shape — {field, ...} on success; name the error / null cases too]\n\nCHAIN_NEXT: [the verb to call after this one, or (terminal)]",
       "discriminators": [
-        "tool description",
         "verb",
+        "docstring",
         "inputs",
         "returns",
         "chain_next",
-        "routing"
+        "tool description"
       ],
-      "when_to_use": "author/optimize a verb or tool description for correct routing + invocation",
-      "source_ref": "agency:verb-docstring grammar (Spec 306)"
+      "when_to_use": "author/optimize a verb docstring to the agency Spec 023 grammar (brief + Inputs + Returns + chain_next); routing is the capability's job, not the verb's",
+      "source_ref": "agency:spec-023 verb-docstring contract (Spec 306)"
     },
     {
       "slug": "template",

@@ -1,6 +1,6 @@
 ---
 name: skill-generator
-description: "Skill_generator produces a deploy-ready skill in a single call, emitting a CSO-clean SKILL.md from a name and description. Use when a deploy-ready skill should be produced in one call — a complete, CSO-clean SKILL.md generated from a description."
+description: "Use when a deploy-ready skill should be produced in one call — a complete, CSO-clean SKILL.md generated from a description."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -22,7 +22,7 @@ Skill_generator produces a deploy-ready skill in a single call, emitting a CSO-c
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
-| `generate` | act | Author a SKILL.md and lint it against the CSO rules; flag if not deploy-ready. | [details](references/generate.md) |
+| `generate` | act | Author a SKILL.md and lint it against the CSO rules, flagging if not deploy-ready. | [details](references/generate.md) |
 
 ## Example
 

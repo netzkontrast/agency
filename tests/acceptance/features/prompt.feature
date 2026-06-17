@@ -254,9 +254,10 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
     When I evaluate a clean functional doc with target "skilldoc"
     Then the evaluation flags exclude "role_padding"
 
-  Scenario: the tool-desc profile flags missing routing signals
+  Scenario: the tool-desc profile flags a missing wire shape
     When I evaluate a bare verb name with target "tool-desc"
-    Then the evaluation flags include "no_routing_signal"
+    Then the evaluation flags include "missing_returns"
+    And the evaluation flags include "missing_inputs"
 
   Scenario: functional frameworks are held out of user routing
     When I list frameworks for every user intent category

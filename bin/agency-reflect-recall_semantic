@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_reflect_recall_semantic
-# Semantic top-k recall over Reflection nodes; backend-injectable.
+# Semantic top-k recall over Reflection nodes (backend-injectable).
 # Usage: agency-reflect-recall_semantic [--intent-id ID] <query> [k] [scope]
 set -euo pipefail
 

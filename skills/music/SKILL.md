@@ -1,6 +1,6 @@
 ---
 name: music
-description: "Music graduates from ``examples/music.py`` into a first-class folder-form capability under ``agency/capabilities/music/`` (Spec 094). Use when conceptualizing or producing an album — turning an idea into a gated concept, mastering to a target loudness, drafting promo copy, or auditing a release — as the reference for how a first-class clustered domain capability extends agency."
+description: "Use when conceptualizing or producing an album — turning an idea into a gated concept, mastering to a target loudness, drafting promo copy, or auditing a release — as the reference for how a first-class clustered domain capability extends agency."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -43,12 +43,12 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `check_streaming_lyrics` | transform | Check the lyric body for platform-incompatible markup (transform). | [details](references/check_streaming_lyrics.md) |
 | `check_voice_tells` | transform | AI-tell rule-based detector (advisory only — no gate impact) (transform). | [details](references/check_voice_tells.md) |
 | `concept_gate` | effect | Pre-generation gate: concept exists for the album (effect). | [details](references/concept_gate.md) |
-| `conceptualize` | act | Render an album-concept document (act); ``type`` must be a known album type. | [details](references/conceptualize.md) |
+| `conceptualize` | act | Render an album-concept document for a known album ``type`` (act). | [details](references/conceptualize.md) |
 | `count_syllables` | transform | Count syllables in a word — deterministic, driver-free text math. | [details](#count_syllables) |
 | `create_album` | effect | Create an album root + render the canonical templates (effect). | [details](references/create_album.md) |
 | `create_songbook` | effect | LilyPond → PDF songbook render via AudioDriver (effect). | [details](references/create_songbook.md) |
 | `create_track` | effect | Create a track in an album, rendered from the bitwize ``track`` template (effect). | [details](references/create_track.md) |
-| `db_create_tweet` | effect | Insert a tweet row via the DBDriver (effect); produces tweet-record artefact. | [details](references/db_create_tweet.md) |
+| `db_create_tweet` | effect | Insert a tweet row via the DBDriver, producing a tweet-record artefact (effect). | [details](references/db_create_tweet.md) |
 | `db_delete_tweet` | effect | Delete a tweet row via the DBDriver (effect). | [details](references/db_delete_tweet.md) |
 | `db_get_tweet_stats` | transform | Aggregate counts of tweets by status via DBDriver (transform). | [details](references/db_get_tweet_stats.md) |
 | `db_list_tweets` | transform | List tweets via the DBDriver, filtered by album + status (transform). | [details](references/db_list_tweets.md) |
@@ -79,7 +79,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `lyric_report` | act | Analyze a lyric sheet's syllable load per line via the TextDriver (act). | [details](references/lyric_report.md) |
 | `lyrics_pregen_gate` | effect | Composite lyrics pre-generation gate — chains the lyric gates (effect). | [details](references/lyrics_pregen_gate.md) |
 | `master_album` | effect | Master an audio file to a target loudness via the AudioDriver (effect). | [details](references/master_album.md) |
-| `master_audio` | effect | Single-track master via AudioDriver (effect); produces mastering-report. | [details](references/master_audio.md) |
+| `master_audio` | effect | Master a single track via AudioDriver, producing a mastering-report (effect). | [details](references/master_audio.md) |
 | `master_with_reference` | effect | Master `path` to match `reference` album loudness (effect). | [details](references/master_with_reference.md) |
 | `measure_album_signature` | transform | Spectral signatures for an album's tracks via AudioDriver (transform). | [details](references/measure_album_signature.md) |
 | `measure_gate` | effect | Computed measure gate — composes loudness probe + range check (effect). | [details](references/measure_gate.md) |
@@ -88,14 +88,14 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `name_exposure_gate` | effect | Computed name-exposure gate — no forbidden roster names in lyrics (effect). | [details](references/name_exposure_gate.md) |
 | `pending_verifications` | transform | Aggregate count of pending claims (transform). | [details](references/pending_verifications.md) |
 | `polish_album` | effect | Album-wide polish pass — applies polish to every track (effect). | [details](references/polish_album.md) |
-| `polish_and_master_album` | effect | Combined polish + master pipeline (effect); produces mastering-report. | [details](references/polish_and_master_album.md) |
+| `polish_and_master_album` | effect | Run the combined polish + master pipeline, producing a mastering-report (effect). | [details](references/polish_and_master_album.md) |
 | `polish_audio` | effect | Per-track polish pass via AudioDriver (effect). | [details](references/polish_audio.md) |
 | `pregen_check` | effect | Computed `pre-generation` gate — machine-checkable predicate (Spec 094). | [details](references/pregen_check.md) |
 | `promo_copy` | act | Draft promotional copy for an album (act, produces a ``promo-copy`` artefact). | [details](references/promo_copy.md) |
 | `promo_gate` | effect | Promo-drafted gate — at least 1 promo asset exists (effect). | [details](references/promo_gate.md) |
 | `promo_review` | transform | Rule-based scoring of promo copy quality (transform). | [details](references/promo_review.md) |
 | `promo_review_gate` | effect | Computed promo-review gate (effect) — composes ``promo_review`` scoring. | [details](references/promo_review_gate.md) |
-| `promote_idea` | effect | Promote an Idea → Album (effect); record Album + PROMOTED_TO edge. | [details](references/promote_idea.md) |
+| `promote_idea` | effect | Promote an Idea to an Album, recording the Album + PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
 | `pronunciation_gate` | effect | Computed pronunciation gate — composes pronunciation + homograph (effect). | [details](references/pronunciation_gate.md) |
 | `prosody_gate` | effect | Computed prosody gate — composes rhyme + syllable checks (effect). | [details](references/prosody_gate.md) |
 | `publish_asset` | effect | Publish an album asset to object storage via the CloudDriver (effect). | [details](references/publish_asset.md) |
@@ -116,7 +116,7 @@ Music graduates from ``examples/music.py`` into a first-class folder-form capabi
 | `scan_artist_names` | transform | Scan for accidental artist-name drops against the blocklist (transform). | [details](references/scan_artist_names.md) |
 | `set_album_status` | effect | Persist an album's production status via the StateDriver (effect). | [details](references/set_album_status.md) |
 | `set_track_status` | effect | Persist a track's production status via the StateDriver (effect). | [details](references/set_track_status.md) |
-| `transcribe_sheet` | act | Transcribe audio → sheet music via AudioDriver (act); produces sheet-music artefact. | [details](references/transcribe_sheet.md) |
+| `transcribe_sheet` | act | Transcribe audio to sheet music via AudioDriver, producing a sheet-music artefact (act). | [details](references/transcribe_sheet.md) |
 | `tweet_schedule_gate` | effect | Computed tweet-schedule gate (effect) — composes 3 checks. | [details](references/tweet_schedule_gate.md) |
 | `update_streaming_url` | effect | Persist a verified streaming URL via StateDriver (effect). | [details](references/update_streaming_url.md) |
 | `upload_promo_video` | effect | Upload a promo video to object storage (effect). | [details](references/upload_promo_video.md) |

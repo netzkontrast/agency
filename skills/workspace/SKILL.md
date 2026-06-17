@@ -1,6 +1,6 @@
 ---
 name: workspace
-description: "Workspace isolates work in a git worktree and records a green baseline, so risky changes start from a clean, provably-green point that recovery can return to. Use when work should be isolated in a git worktree with a recorded green baseline — a clean, provably-green starting point before risky changes."
+description: "Use when work should be isolated in a git worktree with a recorded green baseline — a clean, provably-green starting point before risky changes."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -23,7 +23,7 @@ Workspace isolates work in a git worktree and records a green baseline, so risky
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `baseline` | effect | Run the baseline test command in the workspace and record the green/red result. | [details](references/baseline.md) |
-| `isolate` | effect | Create an isolated git worktree on a fresh branch off `base`; record the Workspace. | [details](references/isolate.md) |
+| `isolate` | effect | Create an isolated git worktree on a fresh branch off `base`, recording the Workspace. | [details](references/isolate.md) |
 
 ## Example
 

@@ -104,6 +104,7 @@ class PanelCapability(CapabilityBase):
     def experts(self) -> dict:
         """The 9-expert roster — name · framework · lens · signature question.
 
+        Inputs: (none).
         Returns: ``{count, experts: [...]}``.
         chain_next: panel.convene(subject) to apply the panel to a subject.
         """

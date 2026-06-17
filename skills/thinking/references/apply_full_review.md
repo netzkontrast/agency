@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # thinking.apply_full_review
 
-Run the 8 founding methods in sequence; produce thinking-analysis artefact (act).
+Run the 8 founding thinking methods in sequence, producing a thinking-analysis artefact (act).
 
 ## Inputs
 

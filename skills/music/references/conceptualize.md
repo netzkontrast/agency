@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # music.conceptualize
 
-Render an album-concept document (act); ``type`` must be a known album type.
+Render an album-concept document for a known album ``type`` (act).
 
 ## Inputs
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_list_ideas
-# List captured ideas; optional status filter (transform).
+# List captured ideas with an optional status filter (transform).
 # Usage: agency-novel-list_ideas [--intent-id ID] [status]
 set -euo pipefail
 

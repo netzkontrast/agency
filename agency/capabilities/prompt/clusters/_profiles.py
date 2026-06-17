@@ -22,8 +22,10 @@ from ._base import _approx_tokens
 # Tunable pass threshold on the 0-10 grid (CLAUDE.md rule 8 — documented budget).
 _DEFAULT_EVAL_MIN_SCORE: float = 6.0
 # A functional doc (docstring / SkillDoc / tool-desc) earns its keep by being
-# SHORT — a routing aid, not an essay. Tunable budget (rule 8).
-_FUNCTIONAL_DOC_BUDGET: int = 400
+# SHORT — a routing aid, not an essay. Tunable budget (rule 8): 600 tokens gives
+# a clustered capability docstring room for its lineage overview + the
+# Use-when/Triggers/Red-flags grammar without padding.
+_FUNCTIONAL_DOC_BUDGET: int = 600
 
 
 def _clamp(score: float) -> float:
@@ -227,30 +229,70 @@ def skilldoc_profile(body: str) -> tuple[dict, list[str]]:
     return scores, flags
 
 
+def _first_sentence(body: str) -> str:
+    """The docstring's first sentence — the T1 brief (``parse_slices`` uses the
+    same boundary). Up to the first ``. `` or newline."""
+    text = body.strip()
+    cut = len(text)
+    for sep in (". ", "\n"):
+        i = text.find(sep)
+        if i != -1:
+            cut = min(cut, i)
+    return text[:cut].strip()
+
+
+def _clause_semicolon(brief: str) -> bool:
+    """True if the brief has a ``;`` JOINING clauses — i.e. at paren-depth 0.
+    A ``;`` inside a parenthetical (``(Spec 287; rule 2)``, ``(effect; …)``) is
+    not a two-clause brief, so it does not fire ``long_brief``."""
+    depth = 0
+    for ch in brief:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif ch == ";" and depth == 0:
+            return True
+    return False
+
+
 def tool_desc_profile(body: str) -> tuple[dict, list[str]]:
-    """Score a verb/tool description against the routing grammar."""
+    """Score a verb docstring against the agency **Spec 023** grammar — a
+    first-sentence brief (≤ 120 chars, single clause) + ``Inputs:`` +
+    ``Returns:`` (the wire shape) + ``chain_next:`` — NOT a generic
+    tool-description grammar. Routing is the CAPABILITY's job (``search`` /
+    ``recommend`` / the SkillDoc 'When to use'); a verb carries no per-verb
+    routing sentence (GOALS #1 token economy, #5 code-mode contract). Canon:
+    ``docs/vision/CAPABILITY-AUTHORING.md`` §'verb docstring contract'."""
     low, flags, scores = body.lower(), [], {}
     scores["role_cleanliness"] = _role_clean(body, flags)
-    if not any(k in low for k in ("when to", "route", "use this", "when the")):
-        flags.append("no_routing_signal")
-        scores["routing"] = 3.0
+    # T1 brief — the load-bearing first-sentence rule. The measured harm is
+    # search-token cost ∝ length (Spec 023: ≤120 chars); a ';' is the canon's
+    # explicit two-clause signal. An em-dash is NOT flagged — in a within-budget
+    # brief it is usually appositive (single clause), so flagging it over-counts.
+    brief = _first_sentence(body)
+    if len(brief) > 120 or _clause_semicolon(brief):
+        flags.append("long_brief")
+        scores["brief"] = 4.0
     else:
-        scores["routing"] = 9.0
-    if "input" not in low and "args" not in low:
+        scores["brief"] = 9.0
+    if "inputs:" not in low:
         flags.append("missing_inputs")
         scores["inputs"] = 4.0
     else:
         scores["inputs"] = 9.0
-    if "chain_next" not in low and "chain next" not in low:
+    if "returns:" not in low:
+        flags.append("missing_returns")
+        scores["returns"] = 4.0
+    else:
+        scores["returns"] = 9.0
+    # chain_next is T3 + only needed when the verb chains; advisory, not a hard
+    # fail (a terminal verb legitimately omits it).
+    if "chain_next:" not in low and "chain next" not in low:
         flags.append("no_chain_next")
-        scores["chaining"] = 5.0
+        scores["chaining"] = 6.0
     else:
         scores["chaining"] = 9.0
-    if not any(k in low for k in ("error", "fail", "returns null", "none")):
-        flags.append("no_failure_mode")
-        scores["failure_modes"] = 5.0
-    else:
-        scores["failure_modes"] = 9.0
     return scores, flags
 
 

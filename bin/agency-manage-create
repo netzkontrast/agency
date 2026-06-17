@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_manage_create
-# CREATE a node of any ontology ``label``; SERVES the intent (Spec 293).
+# CREATE a node of any ontology ``label`` that SERVES the intent (Spec 293).
 # Usage: agency-manage-create [--intent-id ID] <label> [props]
 set -euo pipefail
 

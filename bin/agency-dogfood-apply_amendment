@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_dogfood_apply_amendment
-# Render a ProposalPayload as a unified diff; provenance Artefact.
+# Render a ProposalPayload as a unified diff, recorded as a provenance Artefact.
 # Usage: agency-dogfood-apply_amendment [--intent-id ID] <payload> [dry_run] [confirm_token]
 set -euo pipefail
 

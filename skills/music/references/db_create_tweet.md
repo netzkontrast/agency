@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # music.db_create_tweet
 
-Insert a tweet row via the DBDriver (effect); produces tweet-record artefact.
+Insert a tweet row via the DBDriver, producing a tweet-record artefact (effect).
 
 ## Inputs
 

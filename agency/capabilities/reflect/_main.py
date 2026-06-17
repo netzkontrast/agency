@@ -42,7 +42,7 @@ class ReflectCapability(CapabilityBase):
 
     @verb(role="act", param_enums={"scope": REFLECT_SCOPES})
     def note(self, scope: str, text: str) -> dict:
-        """Write a scope-tagged insight node; edged OBSERVED_DURING + SERVES the intent.
+        """Write a scope-tagged insight node, edged OBSERVED_DURING + SERVES the intent.
 
         Inputs: scope (one of observation/project/reflection/technical/user/world),
                 text (str — the insight body).
@@ -108,7 +108,7 @@ class ReflectCapability(CapabilityBase):
     @verb(role="transform", inject=["embedder"])
     def recall_semantic(self, embedder, query: str, k: int = 5,
                         scope: str = "") -> dict:
-        """Semantic top-k recall over Reflection nodes; backend-injectable.
+        """Semantic top-k recall over Reflection nodes (backend-injectable).
 
         Inputs: query (str — free text; empty → empty results),
                 k (int — max results), scope (str — optional post-rank filter).

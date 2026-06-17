@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.create_novel
 
-Record a Novel node SERVING the intent; materialise disk on production.
+Record a Novel node SERVING the intent, materialising disk on production.
 
 ## Inputs
 

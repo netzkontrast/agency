@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # music.polish_and_master_album
 
-Combined polish + master pipeline (effect); produces mastering-report.
+Run the combined polish + master pipeline, producing a mastering-report (effect).
 
 ## Inputs
 

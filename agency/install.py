@@ -895,7 +895,7 @@ def generate(engine: Engine) -> dict[str, str]:
     # doesn't have a root yet (write() does). Task 2.5 design: cache check
     # happens in write(), not generate(). For generate(), always emit fresh.
     from .skill_emit import (
-        emit_skill, emit_references, emit_bash_wrappers,
+        emit_skill, emit_references, emit_bash_wrappers, emit_verb_rules,
         _capability_hash, GEN_VERSION,
     )
     from . import cache as _cache  # noqa: F401 — reserved for future write()-side cache check
@@ -908,6 +908,7 @@ def generate(engine: Engine) -> dict[str, str]:
                                 getattr(cap.ontology, "skills", None)))
         files.update(emit_references(cap_name, cap.verbs))
         files.update(emit_bash_wrappers(cap_name, cap.verbs))
+        files.update(emit_verb_rules(cap_name, cap.verbs))   # Spec 306 — per-cap verb-description rules block
     return files
 
 

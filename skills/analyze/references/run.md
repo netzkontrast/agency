@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # analyze.run
 
-Run the requested axes; record an Analysis + per-Finding nodes.
+Run the requested analysis axes and record an Analysis + per-Finding nodes.
 
 ## Inputs
 

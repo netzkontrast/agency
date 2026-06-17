@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_list_claims
-# List captured claims; optional verified-status filter (transform).
+# List captured claims with an optional verified-status filter (transform).
 # Usage: agency-novel-list_claims [--intent-id ID] [verified]
 set -euo pipefail
 

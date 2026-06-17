@@ -1,6 +1,6 @@
 ---
 name: symbols
-description: "A native reimplementation of SuperClaude's Token-Efficiency symbol system (`MODE_Token_Efficiency` + `BUSINESS_SYMBOLS`): a decidable phrase↔symbol substitution that compresses prose for dense communication and expands it back. Use when output must be compact without losing meaning — large-scale results,"
+description: "Use when output must be compact without losing meaning — large-scale results,"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -25,7 +25,7 @@ A native reimplementation of SuperClaude's Token-Efficiency symbol system (`MODE
 |------|------|-------|-----------|
 | `compress` | transform | Substitute known phrases with symbols — dense, decidable (Spec 300). | [details](references/compress.md) |
 | `expand` | transform | Expand symbols back into prose (the inverse of ``compress``). | [details](references/expand.md) |
-| `legend` | transform | The phrase↔symbol legend. | [details](#legend) |
+| `legend` | transform | The phrase↔symbol legend. | [details](references/legend.md) |
 
 ## Example
 
@@ -44,11 +44,3 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`symbols-usage`** (usage): use-transform → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'symbols-usage', 'inputs': {}, 'intent_id': '…'})`
-
-## legend
-
-The phrase↔symbol legend.
-
-Parameters: `()`.
-
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/legend.md.)_

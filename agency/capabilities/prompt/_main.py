@@ -1,28 +1,34 @@
 # agency-scaffold: v1
 # agency-accept-warn: surface_size — Spec 109 ships 9 founding verbs (research-dossier + engineering lineages); Spec 129 adds 3 fragment verbs (fragment/fragments_for/register_fragment) for the Dramatica-as-prompts substrate; Spec 127 adds assemble_scene_brief for graph-driven brief assembly; Spec 304 adds 3 framework verbs (framework/frameworks_for/register_framework) for the 27-framework library; Spec 305 adds 3 (route_framework/render/evaluate) for token-efficient routing + template render + goal-aware evaluation. 19 total > 12 budget by design — each verb pulls a distinct primitive; consolidating would re-grow the function signatures (kw-arg explosion). Tier discovery via Spec 068 not warranted while the cluster is still landing.
-"""prompt — prompt-engineering capability (Spec 109 Slice 1).
+"""prompt — prompt-engineering substrate (Spec 109 · 129 · 304-306).
 
-Two-lineage capability:
+Author research dossiers, engineer token-budgeted prompts, route a draft to the
+right one of 27 research-backed frameworks, and score prompts — and agency's own
+functional docs — for clarity and anti-patterns. The prompt-as-substrate spine
+where templates, the framework library, and evaluation meet.
 
-1. **Research-dossier lineage**: intent_capture → catalog_list → brief_render
-   → brief_audit → brief_finalize. Produces dossier-shaped research
-   deliverables.
-2. **Prompt-engineering lineage**: engineer (renders a PromptInstance inside
-   a token budget) + audit (general-case reader-test simulation) +
-   token_budget_gate (composite gate verb).
+Three lineages on one capability:
 
-Slice 1 ships 7 user verbs + 1 gate verb + 2 walkable skills + 2
-templates. Slice 2 adds the 7 builder/optimizer/variant verbs + 3 more
-skills + the bundled module catalog YAML.
+1. **Research-dossier**: intent_capture → catalog_list → brief_render →
+   brief_audit → brief_finalize — dossier-shaped research deliverables.
+2. **Prompt-engineering**: engineer (token-budgeted PromptInstance) +
+   audit / evaluate (clarity + anti-pattern scoring) + token_budget_gate.
+3. **Framework library (Spec 304-306)**: framework / frameworks_for /
+   route_framework / render over the 27-framework library + the functional
+   family (skilldoc / tool-desc / template) for agency's own documentation.
 
-Use when: authoring research dossiers, engineering structured prompts that honor a token budget, auditing prompts for clarity / anti-patterns.
+Use when: authoring a research dossier, engineering a token-budgeted prompt,
+picking the right framework for a goal (route_framework), or scoring a prompt or
+functional doc for clarity / anti-patterns (evaluate).
 Triggers:
 - A research intent needs a dossier authored before generation begins
-- A prompt is being constructed and needs token-budget gating
-- An LLM output flagged for anti-patterns needs an optimization pass
+- A draft prompt needs the right framework picked, then filled to a token budget
+- A prompt or a capability's own doc needs clarity / anti-pattern scoring
 Red flags:
-- Hand-rolling prompts outside the engineering pipeline → call `prompt.engineer`
-- Skipping the audit gate → call `prompt.audit` (general-case) or `prompt.brief_audit` (dossier-case)
+- Hand-rolling a prompt instead of routing → call `prompt.route_framework` then `prompt.render`
+- Reading all 27 frameworks to pick one → `prompt.route_framework` returns the one
+- Skipping the score gate → `prompt.evaluate` (or `prompt.audit` for the legacy contract)
+- Adding a Role to a function's doc → that is `role_padding`; functions need actionable insight, not a persona
 """
 from __future__ import annotations
 

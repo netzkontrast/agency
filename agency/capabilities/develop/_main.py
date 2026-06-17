@@ -468,11 +468,12 @@ def _functional_fields(text: str, kind: str) -> dict:
             "red_flags": "; ".join(parsed.get("red_flags", [])),
         }
     if kind == "tool-desc":
+        # Spec 023 verb-docstring grammar: brief + Inputs + Returns + chain_next.
         return {
+            "brief": (text.strip().splitlines() or [""])[0].strip(),
             "inputs": _grab_section(text, "Inputs", "Args", "Arguments"),
+            "returns": _grab_section(text, "Returns", "Return"),
             "chain_next": _grab_section(text, "chain_next", "chain next", "Next"),
-            "failure_modes": _grab_section(text, "Returns", "Raises", "Errors"),
-            "what_it_does": (text.strip().splitlines() or [""])[0].strip(),
         }
     # template
     return {"slots": _grab_section(text, "Slots", "Fields")}
@@ -779,6 +780,10 @@ class DevelopCapability(CapabilityBase):
         ``doc-optimization`` Artefact. **Advisory: returns the candidate, writes
         no source** (a human or a later ``branch.commit_smart`` applies it).
 
+        The rules each flag enforces — what a good skilldoc paragraph looks like —
+        live in ``agency/capabilities/prompt/references/skilldoc-authoring.md``;
+        read them before applying a candidate.
+
         Inputs: target_ref (a capability name, a file path, or literal text),
                 kind (``skilldoc`` | ``tool-desc`` | ``template``).
         Returns: ``{flags, candidate, rationale, artefact_id, scores, status,
@@ -923,7 +928,7 @@ class DevelopCapability(CapabilityBase):
 
         Inputs: name (registered skill, e.g. 'tdd'), inputs (map of produce→value),
                 resume_from (a prior skill_id to resume; "" starts fresh).
-        Returns (the status contract):
+        Returns: a status-contract shape — one of:
           - ``{status: "completed", skill_id, outputs}``
           - ``{status: "input-required", phase, blocked_on, resume_with, skill_id, partial_outputs}``
           - ``{status: "failed", phase, error, skill_id, completed_phases}``
@@ -942,7 +947,7 @@ class DevelopCapability(CapabilityBase):
     def session_init(self, purpose: str = "", deliverable: str = "",
                       acceptance: str = "",
                       mode_hint: str = "") -> dict:
-        """Mint a SessionLifecycle SERVING the intent; detect mode; suggest first verb.
+        """Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb.
 
         The plugin's primary session-driver entry point (Spec 114 Pillar 1).
         Records a SessionLifecycle node tied to the serving intent + an initial

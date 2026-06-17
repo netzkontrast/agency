@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_music_promote_idea
-# Promote an Idea → Album (effect); record Album + PROMOTED_TO edge.
+# Promote an Idea to an Album, recording the Album + PROMOTED_TO edge (effect).
 # Usage: agency-music-promote_idea [--intent-id ID] <idea_id> <artist> <title> <genre> [type]
 set -euo pipefail
 

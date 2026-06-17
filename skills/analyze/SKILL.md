@@ -1,6 +1,6 @@
 ---
 name: analyze
-description: "Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions. Use when assessing a codebase or diff for quality, security, performance, or architecture problems before review or shipping — surfaces decidable findings as graph artefacts."
+description: "Use when assessing a codebase or diff for quality, security, performance, or architecture problems before review or shipping — surfaces decidable findings as graph artefacts."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -30,7 +30,7 @@ Analyze runs decidable transforms over source and reports findings on the qualit
 | `paths` | transform | Spec 048 intent-path analysis: long chains + verb sequences. | [details](references/paths.md) |
 | `performance` | transform | AST-based hot-path lint: nested O(n²), += in loop, unbounded while True. | [details](references/performance.md) |
 | `quality` | transform | Decidable lint findings: unused imports, long lines, long functions, long files. | [details](references/quality.md) |
-| `run` | act | Run the requested axes; record an Analysis + per-Finding nodes. | [details](references/run.md) |
+| `run` | act | Run the requested analysis axes and record an Analysis + per-Finding nodes. | [details](references/run.md) |
 | `security` | transform | Decidable security patterns: eval/exec, hardcoded credentials, pickle.load, shell=True. | [details](references/security.md) |
 
 ## Example

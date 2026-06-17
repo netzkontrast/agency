@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.conceptualize
 
-Render a novel-concept document (act); the first verb of the MVN flow.
+Render a novel-concept document, the first verb of the MVN flow (act).
 
 ## Inputs
 

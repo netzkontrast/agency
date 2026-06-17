@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # reflect.recall_semantic
 
-Semantic top-k recall over Reflection nodes; backend-injectable.
+Semantic top-k recall over Reflection nodes (backend-injectable).
 
 ## Inputs
 

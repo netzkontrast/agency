@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_document_render
-# Project graph state to markdown; deterministic.
+# Deterministically project graph state to markdown.
 # Usage: agency-document-render [--intent-id ID] <scope> [for_intent_id] [format]
 set -euo pipefail
 

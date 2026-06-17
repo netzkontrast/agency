@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # branch.finish
 
-Finish the branch by the chosen action (merge/pr/keep/discard); record the outcome.
+Finish the branch by the chosen action (merge/pr/keep/discard) and record the outcome.
 
 ## Inputs
 

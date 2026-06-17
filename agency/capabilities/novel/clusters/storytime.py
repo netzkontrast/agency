@@ -160,7 +160,7 @@ class StoryTimeMixin:
 
     @verb(role="transform")
     def narrative_order(self, novel_id: str) -> ToolResult:
-        """Topo-sort over PRECEDES; canonical narrative reading order (transform).
+        """Topo-sort over PRECEDES for the canonical narrative reading order (transform).
 
         Inputs: novel_id.
         Returns: ``{beats: [{beat_id, label, scene_id}]}`` ordered so every

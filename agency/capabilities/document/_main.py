@@ -89,7 +89,7 @@ class DocumentCapability(CapabilityBase):
     @verb(role="transform")
     def render(self, scope: str, for_intent_id: str = "",
                format: str = "markdown") -> dict:
-        """Project graph state to markdown; deterministic.
+        """Deterministically project graph state to markdown.
 
         Inputs: scope (str — one of install-artefacts | reflections |
                 provenance | capability-catalogue),
@@ -166,7 +166,7 @@ class DocumentCapability(CapabilityBase):
 
     @verb(role="act")
     def explain(self, target: str, depth: str = "standard") -> dict:
-        """Deterministic code → markdown explanation; emits a Reflection.
+        """Deterministically explain code as markdown, emitting a Reflection.
 
         Inputs: target (str — file path | module | module.symbol),
                 depth (str — brief | standard | deep).
@@ -200,7 +200,7 @@ class DocumentCapability(CapabilityBase):
     @verb(role="effect")
     def index_repo(self, path: str = ".", apply: bool = False,
                    max_tokens: int = 3000) -> dict:
-        """94%-reduction repo briefing — deterministic; ≤ max_tokens.
+        """Deterministic 94%-reduction repo briefing within ≤ max_tokens.
 
         Inputs: path (str), apply (bool — write PROJECT_INDEX.md),
                 max_tokens (int — budget; default 3000).

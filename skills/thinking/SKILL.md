@@ -1,6 +1,6 @@
 ---
 name: thinking
-description: "10 method verbs (8 founding + 2 net-new: red_team + socratic) + 1 composite (apply_full_review) + 1 walkable skill (critical-thinking). Use when structured rigor needed before commit; binding decisions need tradeoff + premortem + red-team; an assumption stack needs surfacing."
+description: "Use when structured rigor needed before commit; binding decisions need tradeoff + premortem + red-team; an assumption stack needs surfacing."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -23,7 +23,7 @@ allowed-tools:
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
-| `apply_full_review` | act | Run the 8 founding methods in sequence; produce thinking-analysis artefact (act). | [details](references/apply_full_review.md) |
+| `apply_full_review` | act | Run the 8 founding thinking methods in sequence, producing a thinking-analysis artefact (act). | [details](references/apply_full_review.md) |
 | `assumptions` | transform | Surface + classify implicit assumptions (load-bearing vs not) (transform). | [details](references/assumptions.md) |
 | `decompose` | transform | MECE sub-problem decomposition (transform). | [details](references/decompose.md) |
 | `first_principles` | transform | Strip the goal to fundamentals + reconstruct (transform). | [details](references/first_principles.md) |

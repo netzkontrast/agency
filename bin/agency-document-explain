@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_document_explain
-# Deterministic code → markdown explanation; emits a Reflection.
+# Deterministically explain code as markdown, emitting a Reflection.
 # Usage: agency-document-explain [--intent-id ID] <target> [depth]
 set -euo pipefail
 

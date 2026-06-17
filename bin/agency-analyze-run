@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_analyze_run
-# Run the requested axes; record an Analysis + per-Finding nodes.
+# Run the requested analysis axes and record an Analysis + per-Finding nodes.
 # Usage: agency-analyze-run [--intent-id ID] [path] [axes] [lang]
 set -euo pipefail
 

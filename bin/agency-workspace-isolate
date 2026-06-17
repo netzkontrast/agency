@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_workspace_isolate
-# Create an isolated git worktree on a fresh branch off `base`; record the Workspace.
+# Create an isolated git worktree on a fresh branch off `base`, recording the Workspace.
 # Usage: agency-workspace-isolate [--intent-id ID] <branch> [base]
 set -euo pipefail
 

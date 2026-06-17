@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_research_lead
-# Scope a research question + plan specialists; mints a Research node.
+# Scope a research question and plan specialists, minting a Research node.
 # Usage: agency-research-lead [--intent-id ID] <question> [depth]
 set -euo pipefail
 

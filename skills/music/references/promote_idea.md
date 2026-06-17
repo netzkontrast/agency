@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # music.promote_idea
 
-Promote an Idea → Album (effect); record Album + PROMOTED_TO edge.
+Promote an Idea to an Album, recording the Album + PROMOTED_TO edge (effect).
 
 ## Inputs
 

@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # subagent.develop
 
-Dispatch a worker child via delegate, then gate it spec-review→quality-review; done iff both pass.
+Dispatch a worker child and gate it through spec-review then quality-review (effect).
 
 ## Inputs
 

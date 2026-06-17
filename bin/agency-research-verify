@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_research_verify
-# Adversarial citation check; emits a Verification node.
+# Adversarially check citations, emitting a Verification node.
 # Usage: agency-research-verify [--intent-id ID] <research_id>
 set -euo pipefail
 

@@ -51,6 +51,7 @@ class SelectCapability(CapabilityBase):
     def archetypes(self) -> dict:
         """The approach archetypes + their trade-offs.
 
+        Inputs: (none).
         Returns: ``{count, archetypes: {name: description}}``.
         chain_next: select.route(operation) to pick one for an operation.
         """

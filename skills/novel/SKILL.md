@@ -1,6 +1,6 @@
 ---
 name: novel
-description: "Five-verb path from premise to manuscript: conceptualize → create_novel → create_chapter → chapter_report → render_manuscript, plus the novel-concept gated planning skill. Use when authoring a novel — turning a premise into a structured manuscript through gated concept → chapters → report → render."
+description: "Use when authoring a novel — turning a premise into a structured manuscript through gated concept → chapters → report → render."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -50,7 +50,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `check_storybeat_moment_refs` | transform | Decidable check (row 11): every moment.storybeat_ref resolves (transform). | [details](references/check_storybeat_moment_refs.md) |
 | `check_throughline_partition` | transform | Decidable check (row 5): 4 throughlines / 4 distinct Classes (transform). | [details](references/check_throughline_partition.md) |
 | `check_voice_consistency` | transform | Per-chapter voice-signature outlier check (transform). | [details](references/check_voice_consistency.md) |
-| `conceptualize` | act | Render a novel-concept document (act); the first verb of the MVN flow. | [details](references/conceptualize.md) |
+| `conceptualize` | act | Render a novel-concept document, the first verb of the MVN flow (act). | [details](references/conceptualize.md) |
 | `copy_gate` | effect | Composite gate: surface-level editorial readiness (effect). | [details](references/copy_gate.md) |
 | `count_words` | transform | Word + char counter (transform, driver-free). | [details](#count_words) |
 | `create_chapter` | effect | Record a Chapter graph node + CHAPTER_OF the parent Novel (effect). | [details](references/create_chapter.md) |
@@ -58,7 +58,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `create_culture` | effect | Mint a Culture under a World + PART_OF_WORLD edge (effect). | [details](references/create_culture.md) |
 | `create_language` | effect | Mint a Language under a World + PART_OF_WORLD edge (effect). | [details](references/create_language.md) |
 | `create_magic_system` | effect | Mint a MagicSystem under a World + PART_OF_WORLD edge (effect). | [details](references/create_magic_system.md) |
-| `create_novel` | effect | Record a Novel node SERVING the intent; materialise disk on production. | [details](references/create_novel.md) |
+| `create_novel` | effect | Record a Novel node SERVING the intent, materialising disk on production. | [details](references/create_novel.md) |
 | `create_religion` | effect | Mint a Religion under a World + PART_OF_WORLD edge (effect). | [details](references/create_religion.md) |
 | `create_scene` | effect | Record a Scene node + SCENE_OF the parent Chapter (effect). | [details](references/create_scene.md) |
 | `create_storyform` | effect | Mint the Storyform node for a novel + STORYFORM_OF edge (effect). | [details](references/create_storyform.md) |
@@ -79,22 +79,22 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `line_gate` | effect | Composite gate: prose-level editorial readiness (effect). | [details](references/line_gate.md) |
 | `link_character_to_world` | effect | Add a typed edge from Character → World child (effect). | [details](references/link_character_to_world.md) |
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
-| `list_claims` | transform | List captured claims; optional verified-status filter (transform). | [details](references/list_claims.md) |
+| `list_claims` | transform | List captured claims with an optional verified-status filter (transform). | [details](references/list_claims.md) |
 | `list_codex_entries` | transform | List CodexEntries for a novel, optionally filtered by kind (transform). | [details](references/list_codex_entries.md) |
-| `list_ideas` | transform | List captured ideas; optional status filter (transform). | [details](references/list_ideas.md) |
+| `list_ideas` | transform | List captured ideas with an optional status filter (transform). | [details](references/list_ideas.md) |
 | `list_reveals_in` | transform | List events this scene discloses (transform). | [details](references/list_reveals_in.md) |
 | `list_story_events_up_to` | transform | Story-time slice: events with ``when_story`` ≤ this scene's anchor (transform). | [details](references/list_story_events_up_to.md) |
 | `list_world` | transform | Render a tree of a World's contents (transform). | [details](references/list_world.md) |
 | `manuscript_coherence_check` | transform | Chapter-sequence contiguity check (transform, driver-free). | [details](references/manuscript_coherence_check.md) |
 | `mark_narrative_beat` | effect | Mint a NarrativeBeat + optional PRECEDES edge from a predecessor (effect). | [details](references/mark_narrative_beat.md) |
-| `match_codex_entries` | transform | Scan ``text`` for any registered codex trigger; return matches (transform). | [details](references/match_codex_entries.md) |
-| `narrative_order` | transform | Topo-sort over PRECEDES; canonical narrative reading order (transform). | [details](references/narrative_order.md) |
+| `match_codex_entries` | transform | Scan ``text`` for any registered codex trigger and return matches (transform). | [details](references/match_codex_entries.md) |
+| `narrative_order` | transform | Topo-sort over PRECEDES for the canonical narrative reading order (transform). | [details](references/narrative_order.md) |
 | `novel_coherence_check` | effect | Composite gate (Spec 120): runs all 11 storyform checks with chaining. | [details](references/novel_coherence_check.md) |
 | `novel_progress` | transform | Aggregate progress (word-count + per-status counts) for a novel (transform). | [details](references/novel_progress.md) |
 | `pending_verifications` | transform | Aggregate pending claims by domain (transform). | [details](references/pending_verifications.md) |
 | `pov_options` | transform | Structured POV choices for an assumption-gate (transform). | [details](references/pov_options.md) |
 | `pre_draft_gate` | effect | Composite gate: storyform + research + chapters present (effect). | [details](references/pre_draft_gate.md) |
-| `promote_idea` | effect | Idea → Novel transition; records PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
+| `promote_idea` | effect | Transition an Idea to a Novel, recording the PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
 | `publication_gate` | effect | Terminal composite: publish_ready + ≥1 export + front-matter declared (effect). | [details](references/publication_gate.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
@@ -111,8 +111,8 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `resume_session` | transform | Return the most-recently-created Novel's id + title (transform). | [details](references/resume_session.md) |
 | `reveal_in_scene` | effect | Add the REVEALED_IN edge (event disclosed by this scene) (effect). | [details](references/reveal_in_scene.md) |
 | `scan_proper_nouns` | transform | Extract proper nouns (Title-Case words, sentence-starter words filtered) (transform). | [details](references/scan_proper_nouns.md) |
-| `set_chapter_status` | effect | Flip a Chapter's lifecycle status; enum-checked (effect). | [details](references/set_chapter_status.md) |
-| `set_novel_status` | effect | Flip a Novel's lifecycle status; enum-checked (effect). | [details](references/set_novel_status.md) |
+| `set_chapter_status` | effect | Flip a Chapter's enum-checked lifecycle status (effect). | [details](references/set_chapter_status.md) |
+| `set_novel_status` | effect | Flip a Novel's enum-checked lifecycle status (effect). | [details](references/set_novel_status.md) |
 | `storyform_critical_pass` | act | Critical-thinking pass over the storyform (act, xcap to thinking). | [details](references/storyform_critical_pass.md) |
 | `update_codex_entry` | effect | Edit a CodexEntry's body / triggers / name (effect). | [details](references/update_codex_entry.md) |
 | `validate_appreciations` | transform | Row 12 hybrid: NCP appreciations ∈ canonical 463 (transform). | [details](references/validate_appreciations.md) |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_thinking_apply_full_review
-# Run the 8 founding methods in sequence; produce thinking-analysis artefact (act).
+# Run the 8 founding thinking methods in sequence, producing a thinking-analysis artefact (act).
 # Usage: agency-thinking-apply_full_review [--intent-id ID] [subject] [depth]
 set -euo pipefail
 

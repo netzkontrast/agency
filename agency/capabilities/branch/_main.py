@@ -95,7 +95,7 @@ class BranchCapability(CapabilityBase):
 
     @verb(role="effect", inject=["vcs"])
     def finish(self, vcs, branch: str, action: str, base: str = "main") -> dict:
-        """Finish the branch by the chosen action (merge/pr/keep/discard); record the outcome.
+        """Finish the branch by the chosen action (merge/pr/keep/discard) and record the outcome.
 
         Inputs: branch (str), action (one of merge/pr/keep/discard), base (str).
         Returns: ``{outcome, branch, action, ok, detail}`` (wire shape);

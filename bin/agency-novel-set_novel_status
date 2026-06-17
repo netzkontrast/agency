@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_set_novel_status
-# Flip a Novel's lifecycle status; enum-checked (effect).
+# Flip a Novel's enum-checked lifecycle status (effect).
 # Usage: agency-novel-set_novel_status [--intent-id ID] <novel_id> <status>
 set -euo pipefail
 

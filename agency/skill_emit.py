@@ -37,6 +37,9 @@ _VERB_REFERENCE_TEMPLATE = Template(
 _BASH_WRAPPER_TEMPLATE = Template(
     (_RENDER_DIR / "bash-wrapper.sh").read_text()
 )
+_VERB_RULES_TEMPLATE = Template(
+    (_RENDER_DIR / "verb-rules.md").read_text()
+)
 
 # Engine-injected params: these are NOT user-facing args in the wrapper.
 _INJECTED_PARAMS = frozenset({"ctx", "client", "vcs", "memory", "caps"})
@@ -176,20 +179,14 @@ def _render_walk_section(skills: dict) -> str:
 def _selector_description(doc) -> str:
     """The frontmatter ``description`` Claude Code shows in the skill selector.
 
-    Leads with WHAT the skill does (the first sentence of the overview), then
-    WHEN to use it (the ``Use when …`` description) — so the selector paragraph
-    reads "<does X>. Use when <Y>." Derived entirely from the SkillDoc (no new
-    authored text). Falls back to the bare ``Use when …`` description when the
-    overview is a fragment (e.g. ends with ':') or already echoed by it."""
-    desc = (doc.description or "").strip()
-    overview = (doc.overview or "").strip()
-    lead = overview.split(". ")[0].strip() if overview else ""
-    if lead and not lead.endswith((".", ":", "!", "?")):
-        lead += "."
-    if (lead and not lead.endswith(":") and len(lead) > 20
-            and lead.lower() not in desc.lower()):
-        return f"{lead} {desc}"
-    return desc
+    **Trigger-first** ("Use when …"), per SKILL-CONTRACT.md §1 (Spec 023/029 +
+    Anthropic's CSO rule, enforced by ``plugin.lint_skill``): the description
+    MUST start with "Use when …" and MUST NOT lead with a workflow summary
+    (``description-no-workflow-summary``). A well-written trigger description
+    already conveys WHAT the skill does via the activities it names — so the
+    selector paragraph is informative without violating the contract. WHAT-it-
+    does prose lives in the SKILL.md body (the overview), not the description."""
+    return (doc.description or "").strip()
 
 
 def _yaml_quote(s: str) -> str:
@@ -353,6 +350,56 @@ def emit_references(cap_name: str, verbs: dict) -> dict[str, str]:
         )
         out[f"skills/{_skill_name(cap_name)}/references/{verb_name}.md"] = rendered
     return out
+
+
+def verb_tool_desc_flags(verbs: dict) -> list[tuple[str, str, list[str]]]:
+    """Audit each verb's docstring against the ``tool-desc`` functional profile
+    (Spec 306). Returns ``[(verb_name, role, flags), …]`` sorted by name — the
+    shared backbone of the per-capability ``verb-rules.md`` block AND the
+    repo-wide ``scripts/optimize-verb-docs`` sweep, so both agree on what 'needs
+    work' means."""
+    from agency.capabilities.prompt.clusters._profiles import tool_desc_profile
+    out: list[tuple[str, str, list[str]]] = []
+    for verb_name in sorted(verbs):
+        spec = verbs[verb_name]
+        fn = spec.get("fn")
+        role = spec.get("role", "?")
+        doc = (fn.__doc__ or "") if fn else ""
+        _scores, flags = tool_desc_profile(doc)
+        out.append((verb_name, role, flags))
+    return out
+
+
+def emit_verb_rules(cap_name: str, verbs: dict) -> dict[str, str]:
+    """Render skills/<cap>/references/verb-rules.md — the per-capability
+    verb-description rules block (Spec 306).
+
+    Pairs the ``tool-desc`` grammar with THIS capability's verbs audited against
+    it (which still lack a routing signal / failure mode / inputs / chain_next),
+    so an author sees the rules and the gaps in one place. The full rules live in
+    the prompt cap's ``references/tool-desc-authoring.md``.
+
+    Inputs: cap_name (str), verbs ({verb_name: {role, fn}}).
+    Returns: {path: content} — one verb-rules.md for the capability.
+    chain_next: emit alongside emit_skill / emit_references in install.generate.
+    """
+    rows = []
+    flagged = 0
+    for verb_name, role, flags in verb_tool_desc_flags(verbs):
+        if flags:
+            flagged += 1
+            status = ", ".join(f"`{f}`" for f in flags)
+        else:
+            status = "✓ clean"
+        rows.append(f"| `{cap_name}.{verb_name}` | {role} | {status} |")
+    content = _VERB_RULES_TEMPLATE.substitute(
+        gen_version=str(GEN_VERSION),
+        cap_name=_skill_name(cap_name),
+        verb_count=len(verbs),
+        flagged=flagged,
+        verb_audit="\n".join(rows) or "| (no verbs) | | |",
+    )
+    return {f"skills/{_skill_name(cap_name)}/references/verb-rules.md": content}
 
 
 def _user_params(fn, inject_list: list) -> list[str]:

@@ -1,6 +1,6 @@
 ---
 name: plugin
-description: "Plugin ports the plugin-development craft into compute: scaffolds, skill and command authoring, marketplace entries, and the lint rules that enforce the authoring doctrine. Use when building or extending a Claude Code plugin — scaffolding a manifest, authoring a skill or command, or linting a capability against the authoring doctrine."
+description: "Use when building or extending a Claude Code plugin — scaffolding a manifest, authoring a skill or command, or linting a capability against the authoring doctrine."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema

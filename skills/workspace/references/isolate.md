@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # workspace.isolate
 
-Create an isolated git worktree on a fresh branch off `base`; record the Workspace.
+Create an isolated git worktree on a fresh branch off `base`, recording the Workspace.
 
 ## Inputs
 

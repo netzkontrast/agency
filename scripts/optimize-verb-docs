@@ -1,0 +1,114 @@
+#!/usr/bin/env python
+"""Spec 306 — repo-wide verb-description optimization sweep.
+
+For EVERY verb of EVERY capability: evaluate its docstring against the
+``tool-desc`` functional profile (the rules in
+``agency/capabilities/prompt/references/tool-desc-authoring.md``) and emit an
+optimized candidate for the flagged ones — by dogfooding
+``develop.optimize_skilldoc(target_ref=<docstring>, kind="tool-desc")``.
+
+Advisory: writes NO source. Writes a report to
+``claudedocs/verb-tool-desc-audit.md`` an author reviews + applies by hand.
+
+Usage:  python scripts/optimize-verb-docs        # full sweep → report
+        python scripts/optimize-verb-docs --top 30   # only the worst N in detail
+"""
+from __future__ import annotations
+
+import collections
+import sys
+from pathlib import Path
+
+from agency.engine import Engine
+from agency.skill_emit import verb_tool_desc_flags
+
+_REPORT = Path("claudedocs/verb-tool-desc-audit.md")
+
+
+def main(argv: list[str]) -> int:
+    top = None
+    if "--top" in argv:
+        top = int(argv[argv.index("--top") + 1])
+
+    e = Engine(":memory:")
+    iid = e.intent.capture("verb-doc sweep", "tool-desc audit", "report")
+    e.intent.confirm(iid)
+    reg = e.registry
+
+    total = flagged = 0
+    flag_hist: collections.Counter = collections.Counter()
+    cap_sections: list[tuple[str, int, int, list[tuple]]] = []
+
+    for cap_name in sorted(reg.names()):
+        cap = reg.get(cap_name)
+        verbs = getattr(cap, "verbs", {}) or {}
+        rows: list[tuple] = []
+        cap_flagged = 0
+        for vname, role, flags in verb_tool_desc_flags(verbs):
+            total += 1
+            if not flags:
+                continue
+            flagged += 1
+            cap_flagged += 1
+            flag_hist.update(flags)
+            fn = verbs[vname].get("fn")
+            doc = (fn.__doc__ or "") if fn else ""
+            res, _ = reg.invoke(e.memory, iid, "develop", "optimize_skilldoc",
+                                target_ref=doc, kind="tool-desc")
+            cand = (res or {}).get("candidate", "")
+            rows.append((f"{cap_name}.{vname}", role, flags, cand))
+        if rows:
+            cap_sections.append((cap_name, len(verbs), cap_flagged, rows))
+
+    # ── render report ──────────────────────────────────────────────────────
+    out: list[str] = []
+    out.append("<!-- agency-generated: scripts/optimize-verb-docs (Spec 306). "
+               "Advisory candidates — apply by hand. -->")
+    out.append("# Verb-description optimization sweep (tool-desc)\n")
+    out.append(f"Audited **{total} verbs** across **{len(reg.names())} "
+               f"capabilities**; **{flagged}** need work "
+               f"({100 * flagged // max(total, 1)}%). Rules: "
+               "`agency/capabilities/prompt/references/tool-desc-authoring.md`.\n")
+    out.append("## Flag histogram\n")
+    out.append("| Flag | Count | What it means |")
+    out.append("|------|-------|---------------|")
+    _meaning = {
+        "no_routing_signal": "no 'when to route here' condition",
+        "no_failure_mode": "Returns omits error codes / null cases",
+        "missing_inputs": "no Inputs: section",
+        "no_chain_next": "no chain_next:",
+        "role_padding": "a Role / persona in a function doc",
+    }
+    for flag, n in flag_hist.most_common():
+        out.append(f"| `{flag}` | {n} | {_meaning.get(flag, '')} |")
+    out.append("")
+
+    detail_caps = cap_sections
+    if top is not None:
+        # keep the worst caps (most flagged) for the detailed candidate dump
+        detail_caps = sorted(cap_sections, key=lambda c: -c[2])[:top]
+
+    out.append("## Per-capability candidates\n")
+    out.append("Each candidate is the tool-desc skeleton filled from the verb's "
+               "own docstring; `[TODO]` marks the slot the flag says is missing "
+               "(fill it, then the flag clears).\n")
+    for cap_name, vcount, capf, rows in detail_caps:
+        out.append(f"### `{cap_name}` — {capf}/{vcount} verbs need work\n")
+        for full, role, flags, cand in rows:
+            out.append(f"<details><summary><code>{full}</code> ({role}) — "
+                       f"{', '.join('`'+f+'`' for f in flags)}</summary>\n")
+            out.append("```")
+            out.append(cand.strip() or "(no candidate)")
+            out.append("```")
+            out.append("</details>\n")
+
+    _REPORT.parent.mkdir(parents=True, exist_ok=True)
+    _REPORT.write_text("\n".join(out) + "\n")
+    print(f"wrote {_REPORT} — {flagged}/{total} verbs flagged across "
+          f"{len(reg.names())} capabilities")
+    print("flag histogram:", dict(flag_hist.most_common()))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

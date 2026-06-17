@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_skill_generator_generate
-# Author a SKILL.md and lint it against the CSO rules; flag if not deploy-ready.
+# Author a SKILL.md and lint it against the CSO rules, flagging if not deploy-ready.
 # Usage: agency-skill_generator-generate [--intent-id ID] <name> <description> <body>
 set -euo pipefail
 

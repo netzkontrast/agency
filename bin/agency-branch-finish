@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_branch_finish
-# Finish the branch by the chosen action (merge/pr/keep/discard); record the outcome.
+# Finish the branch by the chosen action (merge/pr/keep/discard) and record the outcome.
 # Usage: agency-branch-finish [--intent-id ID] <branch> <action> [base]
 set -euo pipefail
 

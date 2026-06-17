@@ -187,7 +187,7 @@ class ObserveMixin:
 
     @verb(role="transform")
     def collect(self, plan_dir: str = "Plan") -> dict:
-        """Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files; extract observations.
+        """Walk ``plan_dir`` for ``DOGFOOD-NOTES.md`` files and extract observations.
 
         Inputs: plan_dir (str — root dir of plans; default ``Plan``).
         Returns: ``{observations: [{plan, kind, index, title, text}],

@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.promote_idea
 
-Idea → Novel transition; records PROMOTED_TO edge (effect).
+Transition an Idea to a Novel, recording the PROMOTED_TO edge (effect).
 
 ## Inputs
 

@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # music.transcribe_sheet
 
-Transcribe audio → sheet music via AudioDriver (act); produces sheet-music artefact.
+Transcribe audio to sheet music via AudioDriver, producing a sheet-music artefact (act).
 
 ## Inputs
 
