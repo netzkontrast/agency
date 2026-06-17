@@ -844,8 +844,13 @@ def generate(engine: Engine) -> dict[str, str]:
     caps = {n: list(reg.get(n).verbs) for n in reg.names()}
     help_doc = help_map(caps)["result"]["doc"]
     skill_body = _MCP_QUICKSTART + "\n" + help_doc
+    # Spec 302 — stamp the live capability-set hash into the manifest so
+    # `agency_doctor.surface_freshness` can detect a stale installed surface.
+    from ._envelope import capability_set_hash
+    manifest = _manifest()
+    manifest["_surface_hash"] = capability_set_hash(list(reg.names()))
     files: dict[str, str] = {
-        ".claude-plugin/plugin.json":      json.dumps(_manifest(), indent=2),
+        ".claude-plugin/plugin.json":      json.dumps(manifest, indent=2),
         ".claude-plugin/marketplace.json": json.dumps(_marketplace(engine), indent=2),
         ".mcp.json":                       json.dumps(_mcp_config(), indent=2),
         # Spec 062 — SessionStart hook auto-runs `pipx install` on

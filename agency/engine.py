@@ -637,25 +637,56 @@ class Engine:
         Heavy checks (install regen diff) live in scripts/check-drift.
         """
         import os
-        # AGENCY-DRIFT: capability-list — capabilities without a
-        # tests/test_<name>_*.py file convention; Spec 053 markers
-        # depend on the file-naming convention.
+        # AGENCY-DRIFT: capability-list — a capability is "tested" if a
+        # flat tests/test_<name>_*.py OR an acceptance tests/acceptance/
+        # test_<name>.py exists (Spec 302: the acceptance-suite is the
+        # primary convention now, so the flat-only check false-flagged
+        # every acceptance-tested capability as untested).
         repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tests_dir = os.path.join(repo_root, "tests")
+        test_files: set[str] = set()
+        for sub in ("tests", os.path.join("tests", "acceptance")):
+            d = os.path.join(repo_root, sub)
+            if os.path.isdir(d):
+                test_files |= set(os.listdir(d))
         missing_tests: list[str] = []
-        if os.path.isdir(tests_dir):
-            test_files = set(os.listdir(tests_dir))
-            for cap_name in self.registry.names():
-                if cap_name.startswith("_"):
-                    continue
-                if not any(f.startswith(f"test_{cap_name}_") or
-                            f == f"test_{cap_name}.py"
-                            for f in test_files):
-                    missing_tests.append(cap_name)
+        for cap_name in self.registry.names():
+            if cap_name.startswith("_"):
+                continue
+            if not any(f.startswith(f"test_{cap_name}_") or f == f"test_{cap_name}.py"
+                       for f in test_files):
+                missing_tests.append(cap_name)
         return {
             "capabilities_without_tests": sorted(missing_tests),
             "capability_count": len(list(self.registry.names())),
+            "surface_freshness": self._surface_freshness(),
         }
+
+    def _surface_freshness(self) -> dict:
+        """Spec 302 — detect a STALE installed surface: compare the live
+        capability-set hash against the one stamped into the generated
+        ``.claude-plugin/plugin.json`` at last ``agency install``. A mismatch
+        means capabilities changed but the plugin surface wasn't regenerated
+        (so a running MCP client sees an out-of-date verb set). ``fresh=None``
+        when no stamp is found (older install)."""
+        import json
+        import os
+        from ._envelope import capability_set_hash
+        live = capability_set_hash(list(self.registry.names()))
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        manifest = os.path.join(repo_root, ".claude-plugin", "plugin.json")
+        recorded = ""
+        try:
+            with open(manifest, encoding="utf-8") as f:
+                recorded = json.load(f).get("_surface_hash", "")
+        except (OSError, ValueError):
+            recorded = ""
+        fresh = (recorded == live) if recorded else None
+        out = {"fresh": fresh, "live_hash": live[:12],
+               "installed_hash": recorded[:12] if recorded else ""}
+        if fresh is False:
+            out["hint"] = ("installed plugin surface is stale — run "
+                           "`python -m agency.install` to regenerate it")
+        return out
 
     def build_mcp(self, codemode: bool = True) -> FastMCP:
         if codemode and not HAVE_CODEMODE:                  # fail loud, not a silent raw-tool fallback
