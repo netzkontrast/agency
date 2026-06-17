@@ -343,6 +343,7 @@ class Engine:
 
         self.registry = Registry()
         self.registry.engine = self                       # so CapabilityContext can reach engine-attached state
+        self._onboarding_cache: dict | None = None        # Spec 302 — doctor probe cache
         self.ontology = Ontology.core()                         # the base, then each capability extends it
         # discovered core capabilities, plus any external ones the host supplies —
         # the extension point: an out-of-tree capability registers + extends exactly
@@ -355,35 +356,11 @@ class Engine:
         # First-wins: discover()'d caps take precedence over re-supplied
         # extras with the same name.
         seen_names: set[str] = set()
-        from ._capability_loader import load_capability_folders
         for cap in list(discover()) + list(extra_capabilities or []):
             if cap.name in seen_names:
                 continue
             seen_names.add(cap.name)
-            # Spec 060 Phase 1: merge file-discovered templates +
-            # schemas INTO cap.ontology BEFORE the engine ontology
-            # extends. Each entry is additive; a collision between an
-            # OntologyExtension dict entry and a same-named file is
-            # a doctrinal violation (force clean migrations).
-            file_templates, file_schemas = load_capability_folders(cap)
-            for tname, body in file_templates.items():
-                if tname in cap.ontology.templates:
-                    raise ValueError(
-                        f"template {tname!r} declared both in "
-                        f"{cap.name}'s OntologyExtension and as a file "
-                        f"under {cap.name}/templates/{tname}.* — "
-                        f"pick one source")
-                cap.ontology.templates[tname] = body
-            for sname, schema in file_schemas.items():
-                if sname in cap.ontology.schemas:
-                    raise ValueError(
-                        f"schema {sname!r} declared both in "
-                        f"{cap.name}'s OntologyExtension and as a file "
-                        f"under {cap.name}/schemas/{sname}.json — "
-                        f"pick one source")
-                cap.ontology.schemas[sname] = schema
-            self.registry.register(cap)
-            self.ontology.extend(cap.ontology, cap.name)
+            self._register_capability(cap)
         # the Registry needs the effective ontology to build a CapabilityContext
         self.registry.ontology = self.ontology
         # Spec 031 §A + Spec 080 — bootstrap-time skill_doc REQUIREMENT.
@@ -657,7 +634,7 @@ class Engine:
                 missing_tests.append(cap_name)
         return {
             "capabilities_without_tests": sorted(missing_tests),
-            "capability_count": len(list(self.registry.names())),
+            "capability_count": len(self.registry.names()),
             "surface_freshness": self._surface_freshness(),
         }
 
@@ -665,9 +642,16 @@ class Engine:
         """Spec 302 Slice 3 — time-to-first-successful-call: prove the critical
         path (discover → bootstrap an intent → invoke a verb → record provenance)
         actually works for a fresh user. Runs against a throwaway in-memory
-        engine so it never pollutes the live graph; returns the wall-clock ms."""
+        engine so it never pollutes the live graph; returns the wall-clock ms.
+
+        Cached per engine lifetime (the path is deterministic for a fixed
+        capability set) so repeated ``agency_doctor`` calls don't re-spin a full
+        engine; ``reload()`` invalidates the cache."""
+        if self._onboarding_cache is not None:
+            return self._onboarding_cache
         import time
         t0 = time.perf_counter()
+        probe = None
         try:
             probe = Engine(":memory:")
             iid = probe.intent.capture_and_confirm(
@@ -676,14 +660,19 @@ class Engine:
                 probe.memory, iid, "reflect", "note",
                 agent_id="agent:doctor", scope="observation", text="probe")
             ok = isinstance(res, dict) and not res.get("error")
-            served = probe.memory.has_edge(res.get("result", ""), iid, "SERVES") \
-                if isinstance(res, dict) else False
-            probe.memory.close()
+            served = isinstance(res, dict) and probe.memory.has_edge(
+                res.get("result", ""), iid, "SERVES")
+            out = {"ok": bool(ok),
+                   "ms": round((time.perf_counter() - t0) * 1000, 1),
+                   "provenance_recorded": bool(served),
+                   "steps": ["intent_bootstrap", "reflect.note", "SERVES edge"]}
         except Exception as exc:                                # noqa: BLE001
-            return {"ok": False, "error": str(exc)[:140]}
-        return {"ok": bool(ok), "ms": round((time.perf_counter() - t0) * 1000, 1),
-                "provenance_recorded": bool(served),
-                "steps": ["intent_bootstrap", "reflect.note", "SERVES edge"]}
+            out = {"ok": False, "error": str(exc)[:140]}
+        finally:
+            if probe is not None:
+                probe.memory.close()
+        self._onboarding_cache = out
+        return out
 
     def _surface_freshness(self) -> dict:
         """Spec 302 — detect a STALE installed surface: compare the live
@@ -695,10 +684,9 @@ class Engine:
         import json
         import os
         from ._envelope import capability_set_hash
-        live = capability_set_hash(list(self.registry.names()))
+        live = capability_set_hash(self.registry.names())
         repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         manifest = os.path.join(repo_root, ".claude-plugin", "plugin.json")
-        recorded = ""
         try:
             with open(manifest, encoding="utf-8") as f:
                 recorded = json.load(f).get("_surface_hash", "")
@@ -746,38 +734,67 @@ class Engine:
         # the brief slice; mirror the same treatment for substrate tools so
         # search results stay token-bounded regardless of how rich a
         # Hint-#7 docstring grows.
-        for provider in getattr(mcp, "providers", ()):
-            for key, tool in getattr(provider, "_components", {}).items():
-                if not key.startswith("tool:"):
-                    continue
-                name = getattr(tool, "name", "") or ""
-                if name.startswith("capability_"):
-                    continue   # already tightened in _wire
-                raw = (getattr(tool, "description", "") or "").strip()
-                if not raw:
-                    continue
-                brief = parse_slices(raw)["brief"]
-                if brief and brief != raw:
-                    tool.description = brief
+        for key, tool in self._iter_mcp_tools(mcp):
+            name = getattr(tool, "name", "") or ""
+            if name.startswith("capability_"):
+                continue   # already tightened in _wire
+            raw = (getattr(tool, "description", "") or "").strip()
+            if not raw:
+                continue
+            brief = parse_slices(raw)["brief"]
+            if brief and brief != raw:
+                tool.description = brief
 
         self._mcp = mcp   # Spec 302 — held so agency_reload can wire new verbs in
         return mcp
 
-    def _wired_tool_names(self) -> set[str]:
-        """Best-effort set of `capability_*` tool names registered on the live
-        MCP server (Spec 302 — so reload only wires genuinely-new verbs)."""
-        names: set[str] = set()
-        mcp = getattr(self, "_mcp", None)
-        if mcp is None:
-            return names
+    @staticmethod
+    def _iter_mcp_tools(mcp):
+        """Yield ``(key, tool)`` for every registered tool on a FastMCP server.
+        The ONE place that reaches into FastMCP internals (``provider._components``)
+        — fragile, pending a public tool-enumeration API; both the docstring-
+        tightening loop and ``_wired_tool_names`` go through here."""
         for provider in getattr(mcp, "providers", ()):
             for key, tool in getattr(provider, "_components", {}).items():
                 if key.startswith("tool:"):
-                    # keys look like `tool:capability_x_y@<provider>`; the tool's
-                    # own .name is the clean wire name.
-                    names.add(getattr(tool, "name", "") or
-                              key.split(":", 1)[1].split("@", 1)[0])
-        return names
+                    yield key, tool
+
+    def _wired_tool_names(self) -> set[str]:
+        """Best-effort set of `capability_*` tool names registered on the live
+        MCP server (Spec 302 — so reload only wires genuinely-new verbs)."""
+        mcp = getattr(self, "_mcp", None)
+        if mcp is None:
+            return set()
+        # keys look like `tool:capability_x_y@<provider>`; prefer the tool's own
+        # clean .name, falling back to the parsed key.
+        return {getattr(tool, "name", "") or key.split(":", 1)[1].split("@", 1)[0]
+                for key, tool in self._iter_mcp_tools(mcp)}
+
+    def _register_capability(self, cap) -> None:
+        """Merge a capability's file-discovered templates/schemas into its
+        ontology (Spec 060 Phase 1), register it, and extend the effective
+        ontology. Shared by ``__init__`` and ``reload()`` so both bootstrap
+        paths stay identical — a collision between an ``OntologyExtension`` dict
+        entry and a same-named file is a doctrinal violation (force clean
+        migrations)."""
+        from ._capability_loader import load_capability_folders
+        file_templates, file_schemas = load_capability_folders(cap)
+        for tname, body in file_templates.items():
+            if tname in cap.ontology.templates:
+                raise ValueError(
+                    f"template {tname!r} declared both in {cap.name}'s "
+                    f"OntologyExtension and as a file under "
+                    f"{cap.name}/templates/{tname}.* — pick one source")
+            cap.ontology.templates[tname] = body
+        for sname, schema in file_schemas.items():
+            if sname in cap.ontology.schemas:
+                raise ValueError(
+                    f"schema {sname!r} declared both in {cap.name}'s "
+                    f"OntologyExtension and as a file under "
+                    f"{cap.name}/schemas/{sname}.json — pick one source")
+            cap.ontology.schemas[sname] = schema
+        self.registry.register(cap)
+        self.ontology.extend(cap.ontology, cap.name)
 
     def reload(self) -> dict:
         """Spec 302 — re-discover capabilities mid-session WITHOUT restarting the
@@ -810,17 +827,18 @@ class Engine:
         except Exception as exc:                                # noqa: BLE001
             return {"reloaded": False, "error": str(exc),
                     "capability_count": len(before)}
-        # rebuild the effective ontology + re-register caps in place.
+        # rebuild the effective ontology + re-register caps in place, via the
+        # SAME path as __init__ (so file templates/schemas re-merge too).
         self.ontology = Ontology.core()
         for name in list(self.registry._caps):
             if name not in fresh:
                 self.registry._caps.pop(name, None)
         for cap in fresh.values():
-            self.registry.register(cap)
-            self.ontology.extend(cap.ontology, cap.name)
+            self._register_capability(cap)
         self.registry.ontology = self.ontology
         self.registry.engine = self
         self.memory.ont = self.ontology
+        self._onboarding_cache = None    # capability set changed — re-probe lazily
         after = set(self.registry.names())
         # wire genuinely-new verbs onto the live MCP (existing ones re-dispatch).
         rewired = 0
@@ -836,7 +854,7 @@ class Engine:
                         except Exception:                       # noqa: BLE001
                             pass
         return {"reloaded": True, "capability_count": len(after),
-                "capability_set_hash": capability_set_hash(list(after)),
+                "capability_set_hash": capability_set_hash(after),
                 "added": sorted(after - before),
                 "removed": sorted(before - after),
                 "rewired_tools": rewired}

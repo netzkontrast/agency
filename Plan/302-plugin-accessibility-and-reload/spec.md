@@ -82,7 +82,8 @@ re-dispatch via the registry so changed code is picked up; new verbs wired).
 
 **Caveat (documented).** Code-mode `execute` reaches the reloaded surface
 immediately; a non-code-mode client must re-list tools to see brand-new verbs.
-Folder-template capabilities (file `templates/`/`schemas/`) reload their in-class
-ontology but not re-read files — a full restart is the fallback for those.
+(Folder-template caps re-merge their `templates/`/`schemas/` files on reload too,
+since `reload()` and `__init__` now share `_register_capability` — `/simplify`
+pass 2026-06-17.)
 
 **Still.** Slice 3 (auto-enable + first-call probe).
