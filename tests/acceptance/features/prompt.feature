@@ -243,3 +243,21 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
     When I evaluate a vague user prompt
     And I evaluate a clear user prompt
     Then the vague overall is below the clear overall
+
+  # ── Functional-doc evaluation (Spec 306) ─────────────────────────────────
+
+  Scenario: evaluate flags role_padding on a functional doc with a Role
+    When I evaluate a role-framed functional doc with target "skilldoc"
+    Then the evaluation flags include "role_padding"
+
+  Scenario: evaluate does not flag role_padding on a clean functional doc
+    When I evaluate a clean functional doc with target "skilldoc"
+    Then the evaluation flags exclude "role_padding"
+
+  Scenario: the tool-desc profile flags missing routing signals
+    When I evaluate a bare verb name with target "tool-desc"
+    Then the evaluation flags include "no_routing_signal"
+
+  Scenario: functional frameworks are held out of user routing
+    When I list frameworks for every user intent category
+    Then no functional framework slug appears in any candidate list

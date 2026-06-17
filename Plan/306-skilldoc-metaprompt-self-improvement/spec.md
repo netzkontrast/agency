@@ -119,3 +119,43 @@ exposing a capability. **Roles for agents; actionable insight for functions.**
 3. Auto-apply path later? Out of scope now (owner: no auto-rewrite). A future
    spec could wire `optimize_skilldoc` → `branch.commit_smart` behind an explicit
    `--apply`. Noted, not built.
+
+## Followup — Implementation Status (2026-06-17)
+
+**Shipped** on `claude/spec-304-306-impl-wrfzvb`.
+
+Done:
+- `functional` framework family in `data/frameworks.json` (`audience=functional`):
+  `skilldoc` (use_when · triggers · red_flags · actionable_imperative ·
+  sibling_disambiguation · token_budget), `tool-desc` (what_it_does ·
+  when_to_route_here · inputs · chain_next · failure_modes), `template` (slots ·
+  invariants · budget). Components mirror the Spec 080 grammar. A held-out
+  `intent_category=functional` (`ontology.USER_INTENT_CATEGORY` is the 7 user
+  cats; `INTENT_CATEGORY` adds `functional`) + the `audience=functional` filter
+  hold the family out of every routing surface (`frameworks_for`/`route_framework`)
+  — verified by an acceptance scenario over every user intent.
+- 305 `evaluate` gains `skilldoc`/`tool-desc`/`template` profiles in
+  `clusters/_profiles.py` (registered in `PROFILES`) + the goal-keyed flag
+  taxonomy. **`role_padding`** is the load-bearing heuristic (`_ROLE_PADDING`
+  regex: `you are a/an`, `act as`, `your role is`, `as a senior/expert <role>`)
+  — fires on a functional doc carrying rhetorical role framing, clean on a
+  well-formed one (two acceptance scenarios pin both sides).
+- `develop.optimize_skilldoc(target_ref, kind)` (advisory `act`): resolves
+  `target_ref` (capability name → module docstring / file path → contents /
+  literal) → `evaluate(text, target=kind)` → `render` the functional framework
+  (`_functional_fields` extracts the source's own sections into the candidate)
+  → records a `doc-optimization` Artefact SERVING the intent → returns
+  `{flags, candidate, rationale, artefact_id, scores, status, source, kind}`.
+  **Writes no source** (asserted: a file target is byte-unchanged after a run).
+- Decisions: Q1 → one target per call (batch is orchestration). Q2 → same JSON,
+  flagged `audience=functional` (one library, one loader). Q3 → no auto-apply
+  (owner directive); candidate is returned for a human / later `commit_smart`.
+- Dogfood acceptance runs `optimize_skilldoc` on the live `recommend` cap and
+  asserts the well-formed-return + provenance INVARIANT (rule 8 — not a pinned
+  flag set). `optimize_skilldoc` output feeds `develop.validate_skill` cleanly.
+- `# AGENCY-DRIFT: evaluate-profiles` tag ties the `PROFILES` keys to the
+  functional framework slugs (Spec 054).
+
+Not built (noted): `sibling_collision` flag (needs cross-doc comparison — an
+orchestration concern, like the repo-wide batch scan of Q1); a future
+`--apply` path to `branch.commit_smart`.

@@ -603,3 +603,62 @@ def _dev_index_id(dev_index_result):
 @then("the develop index token count is positive")
 def _dev_index_tokens(dev_index_result):
     assert dev_index_result.get("tokens", 0) > 0
+
+
+# ── optimize_skilldoc — functional-doc self-improvement (Spec 306) ────────────
+
+@when(parsers.parse('I optimize the skilldoc of capability "{cap}"'),
+      target_fixture="optimized")
+def _optimize_cap(engine, confirmed_intent, cap):
+    return _call(engine, confirmed_intent, "develop", "optimize_skilldoc",
+                 target_ref=cap, kind="skilldoc")
+
+
+@then("the optimization returns flags, a candidate and an artefact id")
+def _opt_shape(optimized):
+    assert isinstance(optimized.get("flags"), list)
+    assert optimized.get("candidate")
+    assert optimized.get("artefact_id", "").startswith("artefact:")
+
+
+@then("the optimization artefact serves the intent")
+def _opt_serves(engine, confirmed_intent, optimized):
+    rows = engine.memory.g.query(
+        "MATCH (a:Artefact)-[:SERVES]->(i) WHERE a.id=$aid AND i.id=$iid RETURN a",
+        {"aid": optimized["artefact_id"], "iid": confirmed_intent})
+    assert rows
+
+
+@when("I optimize a functional doc file as a skilldoc", target_fixture="optimized_file")
+def _optimize_file(engine, confirmed_intent, tmp_path):
+    f = tmp_path / "doc.md"
+    original = ("You are an expert assistant.\n\n"
+               "Use when: doing the thing.\nTriggers:\n- a thing happens\n")
+    f.write_text(original)
+    res = _call(engine, confirmed_intent, "develop", "optimize_skilldoc",
+                target_ref=str(f), kind="skilldoc")
+    return res, f, original
+
+
+@then("the optimization returns a candidate")
+def _opt_file_candidate(optimized_file):
+    res, f, original = optimized_file
+    assert res.get("candidate")
+
+
+@then("the source file is left unchanged")
+def _opt_file_unchanged(optimized_file):
+    res, f, original = optimized_file
+    assert f.read_text() == original
+
+
+@when(parsers.parse('I optimize capability "{cap}" with kind "{kind}"'),
+      target_fixture="optimized")
+def _optimize_bad_kind(engine, confirmed_intent, cap, kind):
+    return _call(engine, confirmed_intent, "develop", "optimize_skilldoc",
+                 target_ref=cap, kind=kind)
+
+
+@then("the optimization result has an error")
+def _opt_error(optimized):
+    assert "error" in optimized

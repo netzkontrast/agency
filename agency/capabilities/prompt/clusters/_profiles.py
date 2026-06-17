@@ -17,8 +17,13 @@ from __future__ import annotations
 import re
 from typing import Callable
 
+from ._base import _approx_tokens
+
 # Tunable pass threshold on the 0-10 grid (CLAUDE.md rule 8 — documented budget).
 _DEFAULT_EVAL_MIN_SCORE: float = 6.0
+# A functional doc (docstring / SkillDoc / tool-desc) earns its keep by being
+# SHORT — a routing aid, not an essay. Tunable budget (rule 8).
+_FUNCTIONAL_DOC_BUDGET: int = 400
 
 
 def _clamp(score: float) -> float:
@@ -160,11 +165,122 @@ def user_prompt_profile(body: str) -> tuple[dict, list[str]]:
     return scores, flags
 
 
+# ─────────────────────────── functional profiles (Spec 306) ───────────────────
+# agency's own surface — docstrings / SkillDocs / tool-descs / templates — are
+# FUNCTIONAL prompts: their job is correct ROUTING + INVOCATION, not persuasion.
+# Their flags name the TARGET GOAL they violate (not a generic quality dip).
+
+# The load-bearing novel heuristic (owner directive 2026-06-17: "a function
+# needs no Role — it needs actionable insight"). Fires when a functional doc
+# carries rhetorical role-assignment framing — the complement of `persona`
+# (Spec 297), which ADDS a Role to an AGENT.
+_ROLE_PADDING = re.compile(
+    r"\byou are an?\b"                       # "you are a/an <role>"
+    r"|\bact as\b"                           # "act as ..."
+    r"|\byour role is\b"
+    r"|\byou (?:should |must )?(?:act|behave|respond) as\b"
+    r"|\bas an? (?:expert|specialist|senior|professional|world-class|"
+    r"seasoned|experienced)\b",              # "as a senior <role>"
+    re.IGNORECASE,
+)
+# A vague imperative is the opposite of "actionable insight" — hedge words where
+# a verb-first instruction belongs.
+_VAGUE_IMPERATIVE = re.compile(
+    r"\b(?:helps?|tries? to|aims? to|is meant to|kind of|sort of|various|"
+    r"stuff|things?)\b", re.IGNORECASE)
+
+
+def _role_clean(body: str, flags: list[str]) -> float:
+    if _ROLE_PADDING.search(body):
+        flags.append("role_padding")
+        return 2.0
+    return 10.0
+
+
+def _budget_score(body: str, flags: list[str]) -> float:
+    if _approx_tokens(body) > _FUNCTIONAL_DOC_BUDGET:
+        flags.append("over_budget")
+        return 5.0
+    return 10.0
+
+
+def skilldoc_profile(body: str) -> tuple[dict, list[str]]:
+    """Score a skill/capability docstring against the Spec 080 grammar."""
+    low, flags, scores = body.lower(), [], {}
+    scores["role_cleanliness"] = _role_clean(body, flags)
+    if "use when" not in low and "triggers" not in low:
+        flags.append("missing_trigger")
+        scores["trigger_coverage"] = 3.0
+    else:
+        scores["trigger_coverage"] = 9.0
+    if "red flag" not in low:
+        flags.append("no_red_flags")
+        scores["red_flag_coverage"] = 4.0
+    else:
+        scores["red_flag_coverage"] = 9.0
+    if _VAGUE_IMPERATIVE.search(body):
+        flags.append("vague_imperative")
+        scores["actionability"] = 4.0
+    else:
+        scores["actionability"] = 8.0
+    scores["budget"] = _budget_score(body, flags)
+    return scores, flags
+
+
+def tool_desc_profile(body: str) -> tuple[dict, list[str]]:
+    """Score a verb/tool description against the routing grammar."""
+    low, flags, scores = body.lower(), [], {}
+    scores["role_cleanliness"] = _role_clean(body, flags)
+    if not any(k in low for k in ("when to", "route", "use this", "when the")):
+        flags.append("no_routing_signal")
+        scores["routing"] = 3.0
+    else:
+        scores["routing"] = 9.0
+    if "input" not in low and "args" not in low:
+        flags.append("missing_inputs")
+        scores["inputs"] = 4.0
+    else:
+        scores["inputs"] = 9.0
+    if "chain_next" not in low and "chain next" not in low:
+        flags.append("no_chain_next")
+        scores["chaining"] = 5.0
+    else:
+        scores["chaining"] = 9.0
+    if not any(k in low for k in ("error", "fail", "returns null", "none")):
+        flags.append("no_failure_mode")
+        scores["failure_modes"] = 5.0
+    else:
+        scores["failure_modes"] = 9.0
+    return scores, flags
+
+
+def template_profile(body: str) -> tuple[dict, list[str]]:
+    """Score a render template (slots · invariants · budget)."""
+    low, flags, scores = body.lower(), [], {}
+    scores["role_cleanliness"] = _role_clean(body, flags)
+    if "[" not in body or "]" not in body:
+        flags.append("no_slots")
+        scores["slots"] = 4.0
+    else:
+        scores["slots"] = 9.0
+    if "invariant" not in low and "must" not in low:
+        flags.append("no_invariants")
+        scores["invariants"] = 5.0
+    else:
+        scores["invariants"] = 9.0
+    scores["budget"] = _budget_score(body, flags)
+    return scores, flags
+
+
 # Target → profile callable. Spec 306 registers functional profiles here.
 # AGENCY-DRIFT: evaluate-profiles — keep in sync with the `target` values the
-# `evaluate` verb advertises + the 306 functional-framework family.
+# `evaluate` verb advertises + the 306 functional-framework family (the
+# functional slugs in data/frameworks.json must equal the functional targets).
 PROFILES: dict[str, Callable[[str], tuple[dict, list[str]]]] = {
     "user-prompt": user_prompt_profile,
+    "skilldoc": skilldoc_profile,
+    "tool-desc": tool_desc_profile,
+    "template": template_profile,
 }
 
 

@@ -613,11 +613,11 @@ def _fw_error(fw, err):
 @when("I list every framework intent category present", target_fixture="cat_coverage")
 def _cat_coverage(engine, confirmed_intent):
     from agency.capabilities.prompt._main import _load_frameworks
-    from agency.capabilities.prompt.ontology import INTENT_CATEGORY
+    from agency.capabilities.prompt.ontology import USER_INTENT_CATEGORY
     store = _load_frameworks()
     present = {e["intent_category"] for e in store.values()
                if e.get("audience", "user") == "user"}
-    return present, INTENT_CATEGORY
+    return present, USER_INTENT_CATEGORY
 
 
 @then("every user intent category has at least one framework")
@@ -848,3 +848,65 @@ def _eval_clear(engine, confirmed_intent):
 @then("the vague overall is below the clear overall")
 def _vague_below(vague_eval, clear_eval):
     assert vague_eval < clear_eval
+
+
+# ── Functional-doc evaluation (Spec 306) ──────────────────────────────────────
+
+@when(parsers.parse('I evaluate a role-framed functional doc with target "{target}"'),
+      target_fixture="evald")
+def _eval_role_framed(engine, confirmed_intent, target):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "evaluate",
+                    prompt_body="You are an expert prompt engineer. Act as a "
+                    "senior specialist and help the user write better prompts.",
+                    target=target)
+    return res
+
+
+@when(parsers.parse('I evaluate a clean functional doc with target "{target}"'),
+      target_fixture="evald")
+def _eval_clean_functional(engine, confirmed_intent, target):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "evaluate",
+                    prompt_body="Use when: routing a free-text request to a verb. "
+                    "Triggers: an ambiguous ask. Red flags: guessing a verb name.",
+                    target=target)
+    return res
+
+
+@when(parsers.parse('I evaluate a bare verb name with target "{target}"'),
+      target_fixture="evald")
+def _eval_bare(engine, confirmed_intent, target):
+    res, _ = invoke(engine, confirmed_intent, "prompt", "evaluate",
+                    prompt_body="frobnicate the widget", target=target)
+    return res
+
+
+@then(parsers.parse('the evaluation flags include "{flag}"'))
+def _eval_flags_include(evald, flag):
+    assert flag in evald["flags"], evald["flags"]
+
+
+@then(parsers.parse('the evaluation flags exclude "{flag}"'))
+def _eval_flags_exclude(evald, flag):
+    assert flag not in evald["flags"], evald["flags"]
+
+
+@when("I list frameworks for every user intent category", target_fixture="all_candidates")
+def _all_candidates(engine, confirmed_intent):
+    from agency.capabilities.prompt.ontology import USER_INTENT_CATEGORY
+    out = {}
+    for intent in USER_INTENT_CATEGORY:
+        res, _ = invoke(engine, confirmed_intent, "prompt", "frameworks_for",
+                        intent=intent, max_tokens=100000)
+        out[intent] = [f["slug"] for f in res["frameworks"]]
+    return out
+
+
+@then("no functional framework slug appears in any candidate list")
+def _no_functional_in_routing(all_candidates):
+    from agency.capabilities.prompt._main import _load_frameworks
+    store = _load_frameworks()
+    functional = {s for s, e in store.items()
+                  if e.get("audience") == "functional"}
+    assert functional, "expected at least one functional framework"
+    for intent, slugs in all_candidates.items():
+        assert not (functional & set(slugs)), f"{intent} leaked functional: {slugs}"

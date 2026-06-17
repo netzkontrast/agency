@@ -836,6 +836,81 @@
       ],
       "when_to_use": "multiple distinct approaches to compare",
       "source_ref": "prompt-architect:tree-of-thought (MIT, ckelsoe)"
+    },
+    {
+      "slug": "skilldoc",
+      "name": "SkillDoc",
+      "full_name": "Functional skill/capability docstring (Use-when · Triggers · Red-flags)",
+      "intent_category": "functional",
+      "complexity_tier": "meta",
+      "audience": "functional",
+      "components": [
+        "Use_When",
+        "Triggers",
+        "Red_Flags",
+        "Actionable_Imperative",
+        "Sibling_Disambiguation",
+        "Token_Budget"
+      ],
+      "template": "USE_WHEN: [the single situation that should trigger this skill]\n\nTRIGGERS:\n- [concrete signal that should invoke it]\n\nRED_FLAGS:\n- [anti-pattern that means \"reach for a sibling instead\"]\n\nACTIONABLE_IMPERATIVE: [what to DO — verb-first, no Role]\n\nSIBLING_DISAMBIGUATION: [how this differs from the nearest sibling skill]\n\nTOKEN_BUDGET: [keep the doc under N tokens]",
+      "discriminators": [
+        "skilldoc",
+        "docstring",
+        "use when",
+        "triggers",
+        "red flags",
+        "capability doc"
+      ],
+      "when_to_use": "author/optimize a skill or capability docstring (routing + invocation, not persuasion)",
+      "source_ref": "agency:spec-080 docstring grammar (Spec 306)"
+    },
+    {
+      "slug": "tool-desc",
+      "name": "ToolDesc",
+      "full_name": "Functional verb/tool description (route + invoke)",
+      "intent_category": "functional",
+      "complexity_tier": "meta",
+      "audience": "functional",
+      "components": [
+        "What_It_Does",
+        "When_To_Route_Here",
+        "Inputs",
+        "Chain_Next",
+        "Failure_Modes"
+      ],
+      "template": "WHAT_IT_DOES: [one line — the effect this verb produces]\n\nWHEN_TO_ROUTE_HERE: [the condition that should route a caller here]\n\nINPUTS: [name (type) — meaning, one per arg]\n\nCHAIN_NEXT: [the verb to call after this one]\n\nFAILURE_MODES: [the error codes / null returns a caller must handle]",
+      "discriminators": [
+        "tool description",
+        "verb",
+        "inputs",
+        "returns",
+        "chain_next",
+        "routing"
+      ],
+      "when_to_use": "author/optimize a verb or tool description for correct routing + invocation",
+      "source_ref": "agency:verb-docstring grammar (Spec 306)"
+    },
+    {
+      "slug": "template",
+      "name": "FunctionalTemplate",
+      "full_name": "Functional render template (slots · invariants · budget)",
+      "intent_category": "functional",
+      "complexity_tier": "meta",
+      "audience": "functional",
+      "components": [
+        "Slots",
+        "Invariants",
+        "Budget"
+      ],
+      "template": "SLOTS: [the named fill slots the template exposes]\n\nINVARIANTS: [what must hold regardless of how slots are filled]\n\nBUDGET: [the token / size ceiling for the rendered result]",
+      "discriminators": [
+        "template",
+        "render",
+        "slots",
+        "placeholder"
+      ],
+      "when_to_use": "author/optimize a render template (a functional prompt whose slots are filled at render time)",
+      "source_ref": "agency:render-template grammar (Spec 306)"
     }
   ]
 }

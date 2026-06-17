@@ -33,13 +33,17 @@ OPTIMIZATION_KIND = {
 AUDIT_STATUS = {"pending", "passed", "failed"}
 
 # ─── Spec 304 — prompt-framework library enums ───
-# The 7 user intent categories (prompt-architect A-G). ``functional`` (Spec 306)
-# is an AUDIENCE, deliberately NOT an intent_category — so routing never offers
-# a meta-framework as a user-prompt pick.
-INTENT_CATEGORY = {
+# The 7 user intent categories (prompt-architect A-G) + the held-out
+# ``functional`` meta category (Spec 306). The 7 are the user-facing set routing
+# ranks over; ``functional`` is the 8th, meta member — frameworks carrying it are
+# additionally marked ``audience=functional`` and held out of every routing
+# surface by the audience filter (`frameworks_for` / `route_framework`), so a
+# functional meta-framework is never offered as a user-prompt pick.
+USER_INTENT_CATEGORY = {
     "recover", "clarify", "create", "transform",
     "reason", "critique", "agentic",
 }
+INTENT_CATEGORY = USER_INTENT_CATEGORY | {"functional"}
 # Complexity/kind tiers — the upstream SKILL.md "Quick Reference" grouping.
 COMPLEXITY_TIER = {
     "simple", "medium", "comprehensive",

@@ -44,6 +44,7 @@ Phase
 Plan
 PlanStep
 Plugin
+PromptFramework
 PromptOutput
 PromptVariant
 Recommendation
