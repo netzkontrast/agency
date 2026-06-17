@@ -222,6 +222,119 @@ class ManageCapability(CapabilityBase):
                 "timeline": items[:limit]}
 
     @verb(role="act")
+    def whats_next(self, for_intent_id: str) -> dict:
+        """WHATS-NEXT — blocked items + the next actions against an intent's
+        acceptance (Spec 290, Lifecycle pillar; the navigate core).
+
+        Reads the Lifecycles + Gates serving the intent: anything awaiting
+        input/auth or failed (or an explicit ``BLOCKED_ON`` dependency) is
+        ``blocked``; anything still submitted/working is in flight; with
+        neither and the acceptance unmet, the acceptance itself is surfaced as
+        the next action.
+
+        Inputs: for_intent_id (str — the Intent id).
+        Returns: ``{intent_id, acceptance, status, done, blocked, next}``.
+        chain_next: manage.timeline(intent_id) for the full event order.
+        """
+        intent = self.ctx.recall_typed(for_intent_id, "Intent")
+        if intent is None:
+            return {"error": f"{for_intent_id!r} is not an Intent id",
+                    "intent_id": for_intent_id, "blocked": [], "next": []}
+        lifecycles = self._live(self.ctx.nodes_serving(for_intent_id, "Lifecycle"))
+        gates = self._live(self.ctx.nodes_serving(for_intent_id, "Gate"))
+
+        blocked_states = {"input-required", "auth-required", "failed"}
+        active_states = {"submitted", "working"}
+        done_states = {"completed", "canceled"}
+
+        blocked: list = []
+        for lc in lifecycles:
+            if lc.get("state") in blocked_states:
+                blocked.append({"kind": "lifecycle", "id": lc.get("id"),
+                                "state": lc.get("state"), "phase": lc.get("phase", "")})
+        for g in gates:
+            if not g.get("passed"):
+                blocked.append({"kind": "gate", "id": g.get("id"),
+                                "name": g.get("name", "")})
+        for dep in self.ctx.neighbors(for_intent_id, "BLOCKED_ON", direction="out"):
+            blocked.append({"kind": "dependency", "id": dep.get("id")})
+
+        nxt: list = []
+        for lc in lifecycles:
+            if lc.get("state") in active_states:
+                nxt.append({"kind": "lifecycle", "id": lc.get("id"),
+                            "state": lc.get("state"), "phase": lc.get("phase", "")})
+
+        done = intent.get("status") in done_states or (
+            bool(lifecycles) and all(lc.get("state") in done_states for lc in lifecycles))
+
+        if not nxt and not done:
+            acc = intent.get("acceptance", "")
+            nxt.append({"kind": "acceptance",
+                        "action": f"satisfy acceptance: {acc}" if acc
+                        else "define acceptance for this intent"})
+
+        return {"intent_id": for_intent_id,
+                "acceptance": intent.get("acceptance", ""),
+                "status": intent.get("status", ""),
+                "done": done, "blocked": blocked, "next": nxt}
+
+    @verb(role="act")
+    def research_state(self, domain: str = "", top: int = 20) -> dict:
+        """RESEARCH-STATE — open research leads with their claims, citations and
+        verification status, grouped (Spec 290, Memory pillar).
+
+        Composes the research sub-graph (`Research` · `ResearchClaim` ·
+        `Citation` · `Verification`) into one rollup. ``pending`` lists leads
+        not yet ``ready``/``published`` — the verifications still owed.
+
+        Inputs: domain (str — optional case-insensitive filter on a lead's
+                question; scopes the children too), top (int — leads returned).
+        Returns: ``{domain, totals, leads: [{research_id, question, status,
+                   claims, citations, verifications}], pending}``.
+        chain_next: manage.read(research_id) for one lead's full props.
+        """
+        leads = self._live(self.ctx.find("Research"))
+        if domain:
+            d = domain.lower()
+            leads = [r for r in leads if d in r.get("question", "").lower()]
+        claims = self._live(self.ctx.find("ResearchClaim"))
+        citations = self._live(self.ctx.find("Citation"))
+        verifications = self._live(self.ctx.find("Verification"))
+
+        if domain:
+            lead_ids = {lead["id"] for lead in leads}
+            claims = [c for c in claims if c.get("research_id") in lead_ids]
+            citations = [c for c in citations if c.get("research_id") in lead_ids]
+            verifications = [v for v in verifications if v.get("research_id") in lead_ids]
+
+        def _for(rid, rows):
+            return [r for r in rows if r.get("research_id") == rid]
+
+        done_statuses = {"ready", "published"}
+        rows: list = []
+        pending: list = []
+        for lead in leads:
+            rid = lead["id"]
+            status = lead.get("status", "")
+            vsummary: dict = {}
+            for v in _for(rid, verifications):
+                st = v.get("status", "?")
+                vsummary[st] = vsummary.get(st, 0) + 1
+            rows.append({"research_id": rid, "question": lead.get("question", ""),
+                         "status": status, "claims": len(_for(rid, claims)),
+                         "citations": len(_for(rid, citations)),
+                         "verifications": vsummary})
+            if status not in done_statuses:
+                pending.append(rid)
+        rows.sort(key=lambda r: r["citations"], reverse=True)
+        return {"domain": domain,
+                "totals": {"leads": len(leads), "claims": len(claims),
+                           "citations": len(citations),
+                           "verifications": len(verifications)},
+                "leads": rows[:top], "pending": pending}
+
+    @verb(role="act")
     def artefacts(self, for_intent_id: str) -> dict:
         """ARTEFACTS produced under an intent + their source invocations
         (Spec 290, Memory pillar).
