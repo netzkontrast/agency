@@ -1,6 +1,6 @@
 ---
 name: develop
-description: "Use when building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, or running a skill to its first hard gate."
+description: "Use when building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, running a skill to its first hard gate, or reloading edited capability code mid-session."
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -18,6 +18,7 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 - About to implement a feature or fix without a discipline
 - A new capability needing a skeleton that lints clean
 - A multi-phase workflow that should pause at a human gate
+- A capability was just edited or scaffolded and needs to go live without a restart
 
 ## Verbs
 
@@ -33,6 +34,7 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | `record_authoring_outcome` | act | Record a Reflection at the end of an authoring-capabilities walk. | [details](references/record_authoring_outcome.md) |
 | `record_step_outcome` | act | Mark a PlanStep's execution outcome (Spec 287). | [details](references/record_step_outcome.md) |
 | `reference` | transform | Fetch a discipline's heavy how-to on demand (T3 disclosure). | [details](references/reference.md) |
+| `reload` | effect | Reload edited capability code into the live session (effect). | [details](references/reload.md) |
 | `scaffold_capability` | act | Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton. | [details](references/scaffold_capability.md) |
 | `session_check` | transform | Read the current SessionLifecycle state (transform). | [details](references/session_check.md) |
 | `session_init` | act | Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb. | [details](references/session_init.md) |
@@ -50,6 +52,7 @@ await call_tool('capability_develop_checklist', {'intent_id': 'intent:abc'})
 
 - Writing implementation before a failing test → walk capability_develop_skill_walk with tdd
 - Hand-rolling a capability skeleton → use capability_develop_scaffold_capability
+- Restarting the session to pick up a capability edit → develop.reload re-imports it in place
 
 ## Walk this capability
 

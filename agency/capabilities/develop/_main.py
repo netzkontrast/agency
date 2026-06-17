@@ -1,16 +1,26 @@
 # agency-scaffold: v1
+# agency-accept-warn: surface_size — develop is the development-workflow HUB: plan
+# authoring (draft_plan/record_step_outcome/plan_status), the skill walker
+# (skill_walk/checklist/reference), capability authoring (scaffold_capability/
+# validate_skill/optimize_skilldoc/reload), the session driver
+# (session_init/session_check/session_resume/mode_select), and estimate/index/
+# ping. 17 distinct primitives > 12 budget by design — each pulls a separate
+# workflow primitive; consolidating would re-grow kw-arg signatures. Tiered
+# discovery (Spec 068) covers the cost.
 """develop — the development-workflow capability.
 
 Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance.
 
-Use when: building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, or running a skill to its first hard gate.
+Use when: building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, running a skill to its first hard gate, or reloading edited capability code mid-session.
 Triggers:
 - About to implement a feature or fix without a discipline
 - A new capability needing a skeleton that lints clean
 - A multi-phase workflow that should pause at a human gate
+- A capability was just edited or scaffolded and needs to go live without a restart
 Red flags:
 - Writing implementation before a failing test → walk capability_develop_skill_walk with tdd
 - Hand-rolling a capability skeleton → use capability_develop_scaffold_capability
+- Restarting the session to pick up a capability edit → develop.reload re-imports it in place
 """
 from __future__ import annotations
 
@@ -910,10 +920,29 @@ class DevelopCapability(CapabilityBase):
 
         Inputs: name (kebab-case), kind (light|medium|heavy), base_dir (optional).
         Returns: {result: <path>, artefact: {kind, name, path, scaffold_version}}.
-        chain_next: plugin.lint_capability(name) — verify lint-clean.
+        chain_next: plugin.lint_capability(name) to verify lint-clean, then
+                    develop.reload to make the new capability live this session.
         """
         return scaffold_capability(name, kind=kind,
                                    base_dir=base_dir or None)
+
+    @verb(role="effect")
+    def reload(self) -> dict:
+        """Reload edited capability code into the live session (effect).
+
+        Purges + re-imports the ``agency.capabilities.*`` subtree so a verb you
+        just edited or scaffolded is live WITHOUT a session restart — the
+        authoring loop's last step (delegates to ``Engine.reload``, Spec 302).
+        Picks up edits inside a folder-cap's ``_main`` / ``clusters`` submodules,
+        not just brand-new caps. Code-mode ``execute`` reaches new verbs
+        immediately; a non-code-mode client must re-list tools to see them.
+
+        Inputs: (none).
+        Returns: ``{reloaded, capability_count, added, removed, rewired_tools,
+                 reimported}``.
+        chain_next: develop.validate_skill(name) on the reloaded capability.
+        """
+        return self.ctx.engine.reload()
 
     @verb(role="act")
     def skill_walk(self, name: str, inputs: dict, resume_from: str = "") -> dict:

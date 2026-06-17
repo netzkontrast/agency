@@ -144,3 +144,7 @@ Feature: develop capability — scaffolding, linting, authoring walk, discipline
   Scenario: optimize_skilldoc authors a template candidate
     When I optimize capability "recommend" with kind "template"
     Then the candidate carries the template grammar
+
+  Scenario: develop.reload re-imports capability code mid-session
+    When I call develop.reload
+    Then the reload reports reloaded true with a reimported count
