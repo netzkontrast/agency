@@ -1,8 +1,8 @@
 """Acceptance — agency_reload: mid-session capability reload (Spec 302 Slice 2).
 
-Injects a probe capability by monkeypatching ``discover`` — NOT by writing into
+Injects a probe capability by monkeypatching ``discover_capabilities`` — NOT by writing into
 the shared ``agency/capabilities/`` package (which would let parallel xdist
-workers' ``discover()`` see the extra cap and break exact-capability-set
+workers' ``discover_capabilities()`` see the extra cap and break exact-capability-set
 invariants).
 """
 from __future__ import annotations
@@ -42,11 +42,11 @@ def test_agency_reload_picks_up_a_new_capability_mid_session(monkeypatch):
         assert r0["reloaded"] and r0["added"] == [] and r0["removed"] == []
 
         # inject the probe cap into discovery, then reload mid-session. reload()
-        # does `from .capabilities import discover` at call time, so patching the
+        # does `from .capabilities import discover_capabilities` at call time, so patching the
         # module attribute is honoured.
-        real = capmod.discover
+        real = capmod.discover_capabilities
         extra = ReloadprobeCapability.as_capability()
-        monkeypatch.setattr(capmod, "discover", lambda: [*real(), extra])
+        monkeypatch.setattr(capmod, "discover_capabilities", lambda: [*real(), extra])
 
         r1 = eng.reload()
         assert "reloadprobe" in r1["added"], r1
@@ -61,7 +61,7 @@ def test_agency_reload_picks_up_a_new_capability_mid_session(monkeypatch):
         assert res == {"result": "reloaded"}, res
 
         # un-patch → reload drops it again
-        monkeypatch.setattr(capmod, "discover", real)
+        monkeypatch.setattr(capmod, "discover_capabilities", real)
         r2 = eng.reload()
         assert "reloadprobe" in r2["removed"], r2
     finally:
