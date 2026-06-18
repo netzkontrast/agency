@@ -16,7 +16,7 @@ wave: program-master
 > deep build-out** UNTIL its children are promoted (Spec 047 precedent: a
 > cluster master governs until each child spec ships, then the child wins).
 > It defines the architecture, the verb surface, the ontology, and the
-> core-feature coverage matrix that the 18 child specs (308–325) all reference.
+> core-feature coverage matrix that the 17 child specs (308–325, 313 folded·319 deferred) all reference.
 > No child re-derives the package layout or node names — they cite this file.
 
 ## Why (evidence + doctrine)
@@ -92,7 +92,7 @@ agency/capabilities/discover/          # auto-discovered like any cap (Goal 4)
     interview.py                       #   Spec 309 — adaptive AskUser beat-chain
     ask.py                             #   Spec 310 — the well-formed-question primitive
     clarify.py                         #   Spec 311 — ambiguity detection + clarification loop
-    ground.py                          #   Spec 312/313/314 — research dispatch + grounding + feasibility
+    ground.py                          #   Spec 312 (+scouts, was 313) / 314 — research dispatch + grounding + feasibility
     frame.py                           #   Spec 315 — prompt-framework framing
     examine.py                         #   Spec 316 — thinking-methods pass on the draft
     scope.py                           #   Spec 317/318/319 — acceptance · scope · decomposition
@@ -136,7 +136,7 @@ composition in Spec 324), that coupling is the bug.
 | `examine` | act | examine | 316 | run thinking methods on the draft Intent (decompose/assumptions/premortem) |
 | `acceptance` | transform | scope | 317 | derive testable, Gherkin-shaped acceptance criteria |
 | `scope` | act | scope | 318 | elicit in-/out-of-scope boundaries (AskUser) |
-| `decompose_intent` | act | scope | 319 | split a large Intent into a confirmed sub-intent tree (PARENT_INTENT) |
+| `decompose_intent` | act | scope | ~~319~~ | split a large Intent into a sub-intent tree — **DEFERRED** (trim, panel-driven; not in the active 17) |
 | `refine` | act | refine | 320 | supersede the Intent from an exploration finding (bi-temporal) |
 | `clarity` | transform | refine | 322 | score the Intent's clarity; the `confirm` gate reads it |
 | `watch_intent` | transform | session | 321 | detect a NEW intent emerging mid-session → trigger capture |
@@ -196,15 +196,15 @@ every sibling capability is exercised by at least one child:
 
 | Core feature / capability | How `discover` uses it | Child |
 |---|---|---|
-| **Intent node** (capture/confirm/supersede/chain) | the whole point — discovery mints/sharpens/confirms it | 308, 309, 319, 320 |
+| **Intent node** (capture/confirm/supersede/chain) | the whole point — discovery mints/sharpens/confirms it | 308, 309, 320 (·319 decompose *deferred*) |
 | **Capability (open set, drop-in)** | `discover` IS a drop-in folder (Goal 4) | 308 |
 | **Lifecycle (skill_walk, gates)** | `guided-discovery` walkable discipline; hard clarity gate | 322, 323 |
 | **Memory (record/link/project, bi-temporal)** | every turn/finding a node; `refine` supersedes; `state` projects | 308, 320, 324, 325 |
-| **`research` capability** (lead→fan-out→verify) | `ground` dispatches it; intent-scout specialists | 312, 313, 314 |
+| **`research` capability** (lead→fan-out→verify) | `ground` dispatches it; the intent-discovery scouts (folded from 313) | 312, 314 |
 | **`prompt` capability** (framework library, Spec 304) | `frame` routes a framework over the raw intent | 315 |
 | **`thinking` capability** (Spec 110 methods) | `examine` runs decompose/assumptions/premortem on the draft | 316 |
 | **`intent` critical-thinking** (Spec 091) | folded via `examine` (honours the 291 merge into `thinking`) | 316 |
-| **AskUser tool-call chain** (`AskUserQuestion`) | `ask` primitive + `interview`/`clarify`/`scope` compose it | 309, 310, 311, 318 |
+| **AskUser tool-call chain** (`AskUserQuestion`) | `ask` primitive + the testable emit→fold protocol; `interview`/`clarify`/`scope` compose it | 309, 310, 311, 318 |
 | **Driver seam** (Spec 147 structured-output) | the interview/clarify next-question generation runs through it | 309, 311 |
 | **`manage` read-API** (Spec 290) | `state` composes `manage`; discovery dashboard | 324 |
 | **Document convergence** (Spec 292) | the session renders to `discovery-session.md` | 308, 324 |
@@ -236,7 +236,14 @@ seed ──► interview ──► [draft Intent] ──► ground ──► cla
 Each arrow records a graph edge; `watch_intent` (321) can re-enter the flow at
 `interview` when a NEW intent emerges mid-session.
 
-## Child-spec index (the 18)
+## Child-spec index (16 active + 1 deferred)
+
+> **Trim 19→17 (panel-driven, 2026-06-18).** A spec-panel + business-panel pass
+> (`spec-panel-review.md`, `business-panel-review.md`) trimmed the corpus: **313
+> folded into 312** (the scouts were too coupled to `ground` to stand apart — a
+> literal `depends_on` cycle), and **319 deferred** (sub-intent decomposition is
+> machinery to add *after* the core loop is dogfooded — Taleb via-negativa,
+> Meadows lightest-touch). Active build set = this master + 16 children.
 
 | Spec | Title | Layer |
 |---|---|---|
@@ -244,14 +251,14 @@ Each arrow records a graph edge; `watch_intent` (321) can re-enter the flow at
 | **309** | Elicitation interview engine (`discover.interview`) | guided exploration |
 | **310** | AskUser well-formed-question primitive (`discover.ask`) | guided exploration |
 | **311** | Ambiguity detection + clarification loop (`discover.clarify`) | guided exploration |
-| **312** | Research-grounded intent (`discover.ground`) | research agents |
-| **313** | Intent-discovery research specialists (scouts) | research agents |
+| **312** | Research-grounded intent + intent-discovery scouts (`discover.ground`) | research agents |
+| ~~313~~ | ~~Intent-discovery research specialists (scouts)~~ — **folded into 312** | research agents |
 | **314** | Feasibility + prior-art go/no-go probe (`discover.feasibility`) | research agents |
 | **315** | Intent framing via prompt frameworks (`discover.frame`) | sharpen the WHY |
 | **316** | Critical-thinking examination of the draft (`discover.examine`) | sharpen the WHY |
 | **317** | Acceptance-criteria derivation (`discover.acceptance`) | structure |
 | **318** | Scope-boundary elicitation (`discover.scope`) | structure |
-| **319** | Intent decomposition into a sub-intent tree (`discover.decompose_intent`) | structure |
+| ~~319~~ | ~~Intent decomposition into a sub-intent tree~~ — **DEFERRED** (kept on disk, not in the active set) | structure |
 | **320** | Exploration-driven intent refinement (`discover.refine`) | lifecycle |
 | **321** | Per-session new-intent detection (`discover.watch_intent`) | lifecycle |
 | **322** | Intent clarity score + capture gate (`discover.clarity`) | quality gate |
@@ -261,33 +268,52 @@ Each arrow records a graph edge; `watch_intent` (321) can re-enter the flow at
 
 ## Cross-spec coherence (the rules children must not break)
 
-1. **One capability, one folder.** All 18 children land code under
-   `discover/`; only 321 (session-start hook) and 324 (`manage` composition)
-   touch a documented seam outside it.
+1. **One capability, one folder.** All children land code under `discover/`;
+   only 321 (session-start hook), 324 (`manage` composition), and 312 (the
+   `research/_specialist.py` scout seam) touch a documented seam outside it.
 2. **Derive, don't invent (CLAUDE.md derivability audit).** Every AskUser option
    and every acceptance criterion is *derived* from research/context/the intent —
-   never a literal the verb made up. `ask` (310) enforces this contract.
-3. **Read-only stays read-only.** `clarity`, `state`, `replay`, `acceptance`,
-   `frame`, `ask` are `transform` (no graph mutation beyond the Invocation);
-   only `interview`, `clarify`, `ground`, `scope`, `decompose_intent`, `refine`,
-   `feasibility`, `discover` write.
-4. **No second source of truth (Spec 290 rule).** `state` composes `manage` /
+   never a literal the verb made up. `ask` (310) enforces this with a **resolvable
+   `provenance` pointer** (each option names the context item it derives from; an
+   option with no resolving source is rejected) — not a trivial token-overlap check.
+3. **No transform mutates the Intent — proposals have ONE writer (the
+   proposal→apply protocol).** "Transform" here means **does not mutate the Intent
+   or any pre-existing node**; a transform MAY append its *own* provenance artefact
+   (the question `ask` asked, the criteria `acceptance` derived) — that append is
+   not a mutation. `clarity`, `state`, `replay`, `frame`, `ask`, `acceptance` are
+   `transform`; the `act`/`effect` writers that mutate the Intent or fan out a
+   pipeline are `interview`, `clarify`, `examine`, `ground`, `scope`, `refine`,
+   `feasibility`, `discover`. The keystone rule the spec-panel asked for: a verb
+   that *proposes* a change to the Intent's triple (`frame` → a sharper
+   `{purpose, deliverable, acceptance}`; `examine` → surfaced assumptions;
+   `acceptance` → criteria) **returns the proposed delta; it never writes the
+   Intent's fields itself**. The delta is applied by exactly one writer — the
+   caller via `intent.amend` (inside `interview`/`clarify`) or `discover.refine`
+   (320). So `frame`'s role contradiction dissolves: it is `transform` *because* it
+   only proposes; no two writers race on the Intent.
+4. **The AskUser seam is a typed, testable protocol (not an unwritten doc).** `ask`
+   (310) emits a `ClarificationQuestion` + `question_id`; the harness renders it;
+   the caller folds the answer via `_base.fold_answer(question_id, answer)`. An
+   injected `AnswerProvider` exercises the full round-trip with no live
+   `AskUserQuestion`. The 9 AskUser-consuming specs share this one seam.
+5. **No second source of truth (Spec 290 rule).** `state` composes `manage` /
    `analyze.graph` / `project`; it never reimplements a query that exists.
-5. **Invariants, not snapshots (CLAUDE.md #8).** Every test asserts a
+6. **Invariants, not snapshots (CLAUDE.md #8).** Every test asserts a
    relationship computed from the live graph (turn-count == beats elicited;
    clarity gate monotonic in answered-questions) — never a pinned count.
-6. **Provenance or it didn't happen (Goal 2).** Every discovery action records
-   its node + edge; 325's replay is the acceptance test that the moat is whole.
+7. **Provenance or it didn't happen (Goal 2).** Every discovery action records
+   its node + edge; 325's replay is the acceptance test that the moat is whole —
+   checked against the independent Invocation census, not a self-referential walk.
 
 ## Done When (program-level — children carry their own)
 
-- [ ] All 18 children (308–325) are drafted with `## Why`, `## Design`,
+- [ ] All active children (308–325 minus folded 313 & deferred 319) are drafted with `## Why`, `## Design`,
       `## Tests` (RED→GREEN, rule-8 invariants), `## Acceptance`, `## Followup`.
 - [ ] The verb surface + ontology in this master are the single source the
       children cite (no child redefines a node name or verb signature).
 - [ ] The coverage matrix holds: every core feature + sibling capability is
       exercised by a named child.
-- [ ] `TODO.md` carries the program row + the 18 child rows.
+- [ ] `TODO.md` carries the program row + the child rows (16 active + 313 folded + 319 deferred).
 - [ ] On promotion (each child ships Slice 1), this master's child-index row
       flips to a pointer at the promoted spec (Spec 047 precedent).
 
@@ -297,7 +323,7 @@ A reviewer reading this master can answer, without opening a child: *what code
 lands where, what verbs exist, what nodes/edges the discovery writes, which core
 feature and which sibling capability each child exercises, and how the
 guided-discovery flow runs from seed to confirmed, grounded, clarity-gated
-Intent.* The 18 children make it real; this master makes it coherent.
+Intent.* The 16 active children make it real; this master makes it coherent.
 
 ## Followup — Implementation Status (2026-06-18)
 

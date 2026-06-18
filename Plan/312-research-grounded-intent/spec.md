@@ -5,7 +5,7 @@ status: draft
 last_updated: 2026-06-18
 owner: "@agency"
 vision_goals: [2, 8]
-depends_on: ["044", "307", "308", "313"]
+depends_on: ["040", "044", "307", "308"]
 domain: intent
 wave: program-master
 parent_spec: "307"
@@ -18,6 +18,14 @@ parent_spec: "307"
 > `research.lead` → fan-out specialists → `research.verify`) over a draft Intent
 > so the WHY is born grounded, not guessed — every verified `Citation` gets a
 > `GROUNDS` edge to the Intent (Spec 307 ontology).
+>
+> **Folds in the former Spec 313 (trim 19→17, panel-driven 2026-06-18).** The
+> intent-discovery research scouts — *the "Research agents" the owner asked for*
+> — were their own spec; the spec-panel + business-panel both found 313↔312 too
+> tightly coupled (a literal `depends_on` cycle) to stand apart. The scout set
+> now lives here, as a §"intent-discovery scouts" section of the verb that
+> dispatches them. No behaviour lost — the scouts are the same profiled
+> compositions over `research/_specialist.py`.
 
 ## Why (evidence + doctrine)
 
@@ -86,8 +94,8 @@ research specialists already use — `_specialist.run_prior_reflections` calls
    `_DEPTH_SPECIALISTS`): `brief` → `[codebase]`; `standard` →
    `[codebase, prior-reflections]`; `deep` →
    `[codebase, prior-reflections, doc-corpus, web]`. When the lead is invoked
-   with the discovery profile, Spec 313's intent-discovery scouts join the set
-   (this spec passes the profile through; 313 defines selection).
+   with `purpose="intent-discovery"`, the intent-discovery scouts (§"The
+   intent-discovery scouts" below) join/replace the set.
 3. **Fan out** — for each planned role, `invoke("research", "specialist",
    research_id=rid, role=role, query=…)`. Each runs ONE bounded sub-search and
    records `Citation` nodes (`CITES` from the `Research` node), per Spec 044's
@@ -98,6 +106,39 @@ research specialists already use — `_specialist.run_prior_reflections` calls
    `web-reachability`) gates which citations are trustworthy. Only citations on
    a `Research` whose `Verification.status != "fail"` are grounded onto the
    Intent — unverified evidence does not earn a `GROUNDS` edge.
+
+### The intent-discovery scouts (folded from Spec 313)
+
+Research's v1 specialist roles (`codebase`, `prior-reflections`, `doc-corpus`,
+`web`) answer *generic* questions. An Intent needs **sharper** ones — *can the
+repo support this? has it already been built/specced? what hard constraints
+bound it? who does it affect?* So `ground` selects an **intent-discovery scout
+set** when it leads the research (the Spec 307 §"thesis" axes). Each scout is a
+new role-handler in `research/_specialist.py` — a **profiled composition** over
+the *existing* walkers (aim, not a parallel engine), recording `Citation` nodes
+with the unchanged Spec 044 confidence rules so `research.verify` checks them as-is:
+
+| Scout role | Question | Reuses | source_kind |
+|---|---|---|---|
+| `feasibility-scout` | Can the repo/stack support this? | deps (`pyproject`/extras) + `run_codebase` over `agency/` | `codebase` |
+| `prior-art-scout` | Built / specced / reflected-on already? | `Plan/` + `run_prior_reflections` + `run_codebase` | `codebase`+`reflection` |
+| `constraint-scout` | What hard constraints bound this? | `CLAUDE.md` + `docs/` (`run_doc_corpus`) | `doc-corpus` |
+| `stakeholder-scout` | Who/what does this affect? | the Intent's `SERVES` subtree via `ctx.neighbors` | `codebase` (graph-anchored) |
+
+Selection rides a **profile arg** on the lead planner — `research/_lead.py::plan(question, depth, purpose="")`; `purpose=="intent-discovery"` returns the scout
+set (`brief`→`[prior-art-scout]`; `standard`→`+feasibility-scout`; `deep`→
+`+constraint-scout, stakeholder-scout`), mirroring research's depth contract.
+`ground` passes `purpose="intent-discovery"` through its `research.lead` call; a
+plain research question keeps the v1 sets untouched. Adding the roles touches the
+`research.specialist` role enum (`# AGENCY-DRIFT: research specialist roles`) and
+the naming-audit substrate set — run `scripts/check-drift` before commit
+(CLAUDE.md rule 6). A scout heavy enough to cross the Spec 040 eleven-signal
+threshold (e.g. `stakeholder-scout` over a large `SERVES` subtree — S2/S3/S7
+amplify, the S6 mutation disqualifier never fires) walks `dispatch-decision`
+before fan-out; the decision is *computed* per scout, never hardcoded. This is a
+Goal-4 win: the scout set extends an existing open set (research's roles) with no
+new verb and no new capability — `ground` (here, `discover/`) and the scouts
+(`research/`, a documented composition seam) are the only files touched.
 
 ### Ontology read/write (Spec 307 + Spec 044, BY NAME)
 
@@ -151,6 +192,18 @@ and Spec 314's feasibility probe weighs into a go/no-go verdict.
 6. **`already_exists` is derived, not asserted:** with a codebase citation
    matching the deliverable, `already_exists is True`; remove it and it flips
    False — the flag tracks live evidence, never a constant.
+7. **Scout set extends the open role set (Goal 4, folded from 313):** after this
+   spec the live `research.specialist` role set is a **superset** of the v1 four
+   — assert `v1_roles <= live_roles` and the four scouts ∈ `live_roles`, computed
+   from the dispatch handler, never a pinned count.
+8. **Profile selects scouts, plain stays generic:** `plan(q, depth,
+   purpose="intent-discovery")` returns the scout set for that depth while
+   `plan(q, depth)` returns the unchanged v1 set — assert the two differ exactly
+   by the scout/generic swap, both read from the live planner.
+9. **Stakeholder-scout reads the SERVES tree:** for an Intent with a known
+   `SERVES` subtree, the stakeholder-scout's citation count tracks the live
+   subtree size (grows when a child is added) — derived from the graph, never
+   frozen.
 
 ## Acceptance
 
@@ -164,17 +217,22 @@ feasibility probe consume), and nothing outside `discover/` changed.
 
 ## Followup — Implementation Status (2026-06-18)
 
-- **Status: draft.** Research-agents core of the Spec 307 program; the first of
-  the three research children (312 grounds, 313 scouts, 314 probes). Build
-  AFTER 308 (scaffold) and 309/310 (AskUser core), since grounding feeds the
-  clarify loop. Depends on 313 for the intent-discovery scout profile but
-  degrades gracefully to research's default depth sets if 313 lands later
-  (the `depth` mapping is the floor; the discovery profile is the enrichment).
+- **Status: draft.** Research-agents core of the Spec 307 program (now BOTH
+  research children — grounding + the scouts folded from 313; 314 probes builds
+  on it). Build AFTER 308 (scaffold) and 309/310 (AskUser core), since grounding
+  feeds the clarify loop.
 - **Slice plan:** Slice 1 — typed dispatch + `GROUNDS` edges over research's
   default specialist sets (no scout profile yet); the verify gate and the
-  derived summary land here. Slice 2 — pass the `purpose=intent-discovery` lead
-  profile (Spec 313) through `depth`. Slice 3 — `recommendation` tuning from
-  dogfooded grounding reflections (`analyze.graph`).
+  derived summary land here. Slice 2 — the `purpose=intent-discovery` lead
+  profile + the two `standard` scouts (`prior-art-scout` + `feasibility-scout`,
+  the highest-value "exists already?"/"feasible?" pair). Slice 3 — the `deep`
+  scouts (`constraint-scout` + `stakeholder-scout`) + the Spec 040 dispatch hook
+  for heavy scouts (default inline) + `recommendation` tuning from dogfooded
+  grounding reflections (`analyze.graph`).
+- **Open question (scouts):** whether the discovery profile *replaces* or
+  *augments* the depth set. Default: replace (scouts are tuned supersets, so
+  running both double-counts); revisit if dogfooding shows the generic walker
+  catches hits the scouts miss.
 - **Open question (resolve at build):** the `already_exists` confidence floor —
   a documented tunable budget (CLAUDE.md #8), not a magic number; default to
   the research codebase-citation confidence (1.0) requiring a deliverable-token

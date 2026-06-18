@@ -1,7 +1,7 @@
 ---
 spec_id: "319"
 slug: intent-decomposition-tree
-status: draft
+status: deferred
 last_updated: 2026-06-18
 owner: "@agency"
 vision_goals: [2, 3]
@@ -17,6 +17,16 @@ parent_spec: "307"
 > discovered Intent is rarely one unit of work — this slice splits it into a
 > CONFIRMED sub-intent TREE so every leaf SERVES the root through a real
 > PARENT_INTENT chain, not a paragraph of prose.
+>
+> **DEFERRED (trim 19→17, panel-driven 2026-06-18).** Both panels flagged this as
+> premature: the spec-panel called it the lowest-coupled child to drop, and the
+> business-panel (Taleb via-negativa, Collins "smallest push") argued sub-intent
+> decomposition is machinery to add *after* the core discovery loop
+> (elicit→ground→clarify→confirm) has been dogfooded — not before one line runs.
+> The substrate already supports it (`intent.capture(parent_intent_id=…)` +
+> `PARENT_INTENT`, Spec 048), so this design is kept intact and reactivated when a
+> dogfooded reflection shows a real intent that *needed* splitting at capture
+> time. It is NOT in the active 17-spec build set.
 
 ## Why (evidence + doctrine)
 

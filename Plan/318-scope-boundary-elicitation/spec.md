@@ -44,7 +44,9 @@ every decision as a graph edge.
 Doctrine guardrails: `scope` is `role="act"` (it writes `ScopeBoundary` nodes), it
 **composes `ask` (310), not raw `AskUserQuestion`** (Spec 307 rule 4, no second
 source of truth), and the candidate boundaries are **derived** from the grounding
-(312) + decomposition (319), never invented (rule 2).
+(312) — and, once Spec 319 (decomposition) is reactivated from deferral, its
+sub-problems too — never invented (rule 2). With 319 deferred, grounding is the
+sole candidate source; the design degrades gracefully.
 
 ## Design
 
@@ -148,8 +150,8 @@ deliverable's fence was drawn and why*.
   candidates). Design only — no code.
 - **Slice plan:** Slice 1 = derive candidates from grounding, ask via `ask` (310),
   mint `ScopeBoundary` + `BOUNDS` edges, return the three lists with the partition
-  + provenance invariants green. Slice 2 = pull decomposition (319) candidates +
-  wire the out-of-scope → deferred-sub-intent hand-off, and multiSelect batching
+  + provenance invariants green. Slice 2 (gated on Spec 319 reactivation) = pull
+  decomposition candidates + wire the out-of-scope → deferred-sub-intent hand-off, and multiSelect batching
   (one question covering N independent boundaries — the token-economy win, Goal 1).
 - **Open question (resolve at build):** when grounding + decomposition surface
   many candidates, does `scope` ask them all (multiSelect batches) or rank and ask

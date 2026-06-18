@@ -98,8 +98,15 @@ separately as `refinements` — the explicit "why the WHY changed" answer.
   "intent":      {id, purpose, deliverable, acceptance},   # the DISCOVERED Intent
   "timeline":    [{step, kind, node, summary}, ...],        # every recorded node, in order
   "refinements": [{trigger, before, after, recorded_at}],   # the WHY-change story (Spec 320)
+  "gaps":        [{invocation, kind}],                      # Invocations whose PRODUCED node
+                                                            #   has no reachable domain edge —
+                                                            #   the completeness check (usually [])
 }
 ```
+
+A non-empty `gaps` list means a sibling verb recorded an `Invocation` but failed to
+write the domain edge replay traverses (the dormant-edge anti-pattern) — `replay`
+is the moat's self-audit. In a whole discovery `gaps == []`.
 
 `timeline` is the durable reconstruction; each entry names the `step` index, the
 `kind` (the table above), the `node` id (so the reader can drill), and a derived
@@ -119,12 +126,25 @@ surface (Goal 9).
 
 ## Tests (RED → GREEN; invariants, not snapshots — rule 8)
 
-- **Completeness — the moat invariant.** `replay`'s collected edge set EQUALS the
-  union of edges every sibling verb recorded for that session — computed from the
-  live graph (`ctx.neighbors(session_id, edge)` over each declared edge), never a
-  pinned edge list. If a sibling recorded a `BOUNDS` edge, replay surfaces it; if
-  replay's set is missing an edge present in the graph, the test fails (a sibling
-  recorded but replay didn't traverse — the dormant-edge anti-pattern, CLAUDE.md).
+- **Completeness — against an INDEPENDENT ground truth (fixes the spec-panel
+  circular-test blocker).** The naive check ("replay's edge set == the union of
+  edges replay traverses") is circular — it re-walks the same edges it asserts and
+  passes vacuously on an empty graph. Instead, ground completeness in a source
+  replay does NOT read: the **Invocation census**. Every discovery verb records an
+  `Invocation` SERVING the intent (the provenance moat, Goal 2), independent of the
+  domain edges replay traverses. The test **seeds a known discovery** (N distinct
+  recorded actions across ≥3 kinds), then asserts replay's `timeline` has one
+  entry per discovery `Invocation` on that session — `{e.node for e in timeline}`
+  reconstructed from domain edges == the set of nodes those Invocations PRODUCED,
+  computed from the Invocation log, NOT from replay's own traversal. Empty graph is
+  excluded because the seeded session is non-empty by construction.
+- **Mutation catches a dropped edge (the test that earns the word "completeness").**
+  Take the seeded session; delete ONE domain edge a sibling recorded (e.g. a
+  `BOUNDS` edge). Assert replay's reconstruction is now detectably incomplete — the
+  timeline entry for that node is missing while its Invocation still exists, so
+  replay reports a `gaps` list naming the orphaned Invocation. This proves replay
+  can catch a sibling that fails to record an edge (the dormant-edge anti-pattern,
+  CLAUDE.md) — the original circular test could not.
 - **Ordered by recorded_at (Spec 002).** The `timeline` is monotonic non-
   decreasing in `recorded_at` — assert each step's `recorded_at >=` its
   predecessor's, derived from the live nodes, not a fixed sequence.

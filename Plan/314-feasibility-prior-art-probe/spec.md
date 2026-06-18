@@ -5,7 +5,7 @@ status: draft
 last_updated: 2026-06-18
 owner: "@agency"
 vision_goals: [2]
-depends_on: ["307", "308", "312", "313", "320"]
+depends_on: ["307", "308", "312", "320"]
 domain: intent
 wave: program-master
 parent_spec: "307"
@@ -16,14 +16,14 @@ parent_spec: "307"
 > Child of the intent-pillar deep program (Spec 307), the **research-agents**
 > layer. It is the research-backed **GO / NO-GO / REFINE** probe run BEFORE an
 > Intent is confirmed — it weighs the feasibility-scout + prior-art-scout
-> Citations (Spec 313) and records a `FeasibilitySignal` node (Spec 307
+> Citations (Spec 312) and records a `FeasibilitySignal` node (Spec 307
 > ontology) carrying the verdict.
 
 ## Why (evidence + doctrine)
 
 Spec 307 §"Why" names the missing pieces of a discovered intent — *"no
 research-backed grounding, no … feasibility probe — before the intent is
-confirmed."* Spec 312 grounds the Intent in evidence; Spec 313 supplies the
+confirmed."* Spec 312 grounds the Intent in evidence; Spec 312 supplies the
 intent-discovery scouts. But grounding produces *citations*, not a *decision*.
 Before the orchestrator spends effort against an Intent, it needs a sharp
 verdict: **is this worth doing as stated?** A prior-art-scout that finds an
@@ -50,7 +50,7 @@ the next agent would otherwise re-litigate. This is the
 def feasibility(self, intent_id: str = "") -> dict:
     """Research-backed GO / NO-GO / REFINE probe on a draft Intent (Spec 314).
 
-    Runs the feasibility-scout + prior-art-scout (Spec 313) over the
+    Runs the feasibility-scout + prior-art-scout (Spec 312) over the
     Intent, weighs the Citations, records a FeasibilitySignal, and
     recommends the next move.
 
@@ -65,9 +65,9 @@ def feasibility(self, intent_id: str = "") -> dict:
 `role="act"` per the Spec 307 verb table (a writing verb — it records a
 `FeasibilitySignal`, on the write side of §coherence rule 3). It lands in the
 same `clusters/ground.py` module as `discover.ground` (Spec 307 §architecture:
-*"ground.py — Spec 312/313/314 — research dispatch + grounding + feasibility"*).
+*"ground.py — Spec 312/314 — research dispatch + grounding + feasibility"*).
 
-### How it composes the research pipeline (via Spec 312/313)
+### How it composes the research pipeline (via Spec 312)
 
 `feasibility` runs a **focused** dispatch — only the two decision-relevant
 scouts, not the full grounding fan-out:
@@ -75,7 +75,7 @@ scouts, not the full grounding fan-out:
 1. Recall the Intent (`_base.DiscoverCluster._recall_intent`, Spec 308); empty →
    `{error: "UNKNOWN_INTENT", intent_id}`.
 2. `invoke("research", "lead", question=…, depth="standard",
-   purpose="intent-discovery")` — Spec 313's `standard` discovery profile is
+   purpose="intent-discovery")` — Spec 312's `standard` discovery profile is
    exactly `[prior-art-scout, feasibility-scout]`, the two scouts this probe
    needs. (If `discover.ground` already ran for this Intent, `feasibility` MAY
    reuse the existing `Research`'s verified Citations rather than re-fan — the
@@ -159,15 +159,15 @@ yields `no-go`; a missing dependency yields `refine`; a clear field yields `go`
 — each routing to the right next discovery verb. The decision survives as a
 replayable graph fact (Spec 325): a reviewer can answer "why was this intent not
 built?" from the `FeasibilitySignal` + its driving Citations alone. Nothing
-outside `discover/` (and the Spec 312/313 research composition) changed.
+outside `discover/` (and the Spec 312 research composition) changed.
 
 ## Followup — Implementation Status (2026-06-18)
 
-- **Status: draft.** The decision layer over Spec 312 (grounding) + Spec 313
-  (scouts) — the probe that turns evidence into a go/no-go/refine verdict before
-  the clarity gate. Build AFTER 312 + 313 (its scouts) and alongside 320 (its
-  no-go target); the `standard` discovery profile (`[prior-art-scout,
-  feasibility-scout]`) is the exact set it needs, so it ships once 313's two
+- **Status: draft.** The decision layer over Spec 312 (grounding + the
+  intent-discovery scouts, folded in) — the probe that turns evidence into a
+  go/no-go/refine verdict before the clarity gate. Build AFTER 312 and alongside
+  320 (its no-go target); the `standard` discovery profile (`[prior-art-scout,
+  feasibility-scout]`) is the exact set it needs, so it ships once 312's two
   `standard` scouts land.
 - **Slice plan:** Slice 1 — verdict derivation + `FeasibilitySignal` recording
   over a freshly-fanned `Research` (the monotone weighing rule). Slice 2 — reuse

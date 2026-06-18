@@ -62,9 +62,18 @@ records; no Intent mutation).
 It **BUILDS ONE** `AskUserQuestion`-shaped payload for the harness to render:
 
 ```python
+class ContextItem(TypedDict):
+    # the caller passes context as a LIST of identified items, not a blob —
+    # each is a derivation source an option can point back to.
+    id: str               # stable handle: a Citation id (from ground, 312),
+                          #   a ScopeBoundary id, or "ctx:<n>" for a passed signal
+    text: str             # the evidence span itself
+
 class AskOption(TypedDict):
     label: str            # short; the RECOMMENDED one suffixed " (Recommended)"
     description: str      # one line of WHY, derived from the evidence
+    provenance: str       # REQUIRED — the ContextItem.id this option derives from
+                          #   (the resolvable pointer the oracle checks; "" is illegal)
 
 class AskPayload(TypedDict):
     question: str         # the well-formed question text
@@ -74,7 +83,7 @@ class AskPayload(TypedDict):
 
 class AskResult(TypedDict):
     payload: AskPayload   # what the harness renders via the real AskUserQuestion tool
-    question_id: str      # the recorded ClarificationQuestion node
+    question_id: str      # the recorded ClarificationQuestion node (the fold-back key)
 ```
 
 **The well-formed-question rules (enforced here, once):**
@@ -91,14 +100,26 @@ class AskResult(TypedDict):
 - **Header ≤ 12 chars.** The column header is truncated/derived to ≤ 12 chars
   (an `AskUserQuestion` constraint) — a named budget, not a magic number.
 
-**Derivation seam (Spec 147).** Turning `context` into options runs through the
-Driver structured-output seam **behind the typed `AskPayload` shape**: given the
-evidence, the Driver returns candidate `{label, description}` options grounded in
-that evidence. With no Driver, a **deterministic fallback** extracts options from
-the context's structured signals (e.g. the distinct values/bullets the caller
-passed) — so the primitive is fully exercised with zero LLM. Either way the
-verb **rejects** an option whose `description` is not traceable to the supplied
-`context` (the derivability contract is a runtime check, not a comment).
+**Derivation seam (Spec 147).** Turning the context items into options runs
+through the Driver structured-output seam **behind the typed `AskPayload` shape**:
+given the evidence items, the Driver returns candidate
+`{label, description, provenance}` options. With no Driver, a **deterministic
+fallback** projects one option per distinct `ContextItem` (label = a derived
+summary, `provenance` = that item's `id`) — so the primitive is fully exercised
+with zero LLM.
+
+**The derivability oracle — a RESOLVABLE pointer, not token overlap (fixes the
+spec-panel blocker).** The trivial check ("the option's words appear in the
+context") passes on any shared stop-word and is no contract at all. Instead, the
+oracle is **referential**: every `AskOption.provenance` MUST be the `id` of a
+`ContextItem` that was passed in, AND the option's `description` must be entailed
+by that *specific* item (the fallback derives it FROM that item, so entailment is
+constructive; the Driver path is required to return a `provenance` that resolves).
+`ask` **rejects** (raises `INVALID_ARGUMENT` / drops, per the caller's mode) any
+option whose `provenance` is empty or does not resolve to a supplied item — so an
+*invented* option (no backing item) cannot survive. The contract is thus a
+**resolution check against the passed item set**, immune to incidental word
+overlap.
 
 **Record the node.** `ask` records a **`ClarificationQuestion`** node (Spec 307
 ontology — `text`, `options`, `ambiguity_kind`); the `ambiguity_kind` (Spec 307
@@ -107,10 +128,32 @@ supplies the beat's kind mapped to a default). The `CLARIFIES` edge to the
 Intent is **not** written here — that is the *caller's* job once an answer
 exists (`clarify`, Spec 311), keeping `ask` read-only and reusable.
 
-**Return, don't render.** `ask` returns the payload for the **harness** to render
-via the real `AskUserQuestion` tool (Goal 8 — the human is in the loop); the
-answer is folded back by the caller. `ask` never blocks on a user; it is a pure
-payload builder + recorder.
+### The AskUser harness protocol — the testable seam (fixes the spec-panel blocker)
+
+`ask` does not call `AskUserQuestion` itself (a verb cannot block on a human, and
+the engine has no UI). The control-flow is a **two-phase, resolvable protocol** —
+the keystone seam the 9 AskUser-consuming specs (309/311/318/323) share — defined
+here as a typed interface, not prose in an unwritten reference doc:
+
+1. **Emit.** `ask` records a `ClarificationQuestion` node in `pending` state and
+   returns `AskResult{payload, question_id}`. `question_id` is the fold-back key.
+2. **Render.** The *harness* (Claude Code / the CLI hook) renders `payload`
+   through the real `AskUserQuestion` tool and obtains the user's selection(s).
+   This is the only step that needs a human; it lives outside the engine (Goal 8).
+3. **Fold.** The caller resolves the pending question via a shared
+   `_base.fold_answer(question_id, answer)` helper (Spec 308): it updates the
+   `ClarificationQuestion` to `answered` (storing the chosen `provenance`-bearing
+   option) and writes the caller-appropriate edge — `CLARIFIES`→Intent for
+   `clarify` (311), an `ElicitationTurn`/`ELICITS` for `interview` (309), a
+   `ScopeBoundary`/`BOUNDS` for `scope` (318). `ask` itself never writes that edge
+   (it stays read-only beyond the one node).
+
+**Testable without a human.** The render step is injected behind a typed
+`AnswerProvider` seam (mirroring the Spec 147 Driver seam): a test double returns
+a canned selection keyed by `question_id`, so the full emit→fold round-trip is
+exercised in the acceptance suite with **zero live AskUserQuestion call**. The
+prose companion (`references/askuser-contract.md`, Spec 308) documents the seam;
+the *contract* is this typed protocol + its tests, so it is falsifiable.
 
 ## Tests (RED → GREEN; invariants, not snapshots — rule 8)
 
@@ -120,10 +163,15 @@ payload builder + recorder.
 - **Recommended-first:** `payload["options"][0]["label"]` ends with
   `" (Recommended)"` and **no other** option carries the suffix — asserted on the
   live payload, the relationship not a fixed string.
-- **Derive-not-invent (the hard contract):** every option's `description` is
-  traceable to a token/signal present in the supplied `context` — assert the
-  overlap predicate holds for **all** options; an option with no support is
-  rejected (raises / is dropped), proving the verb cannot manufacture options.
+- **Derive-not-invent (the hard contract — referential, not overlap):** every
+  option's `provenance` resolves to the `id` of a `ContextItem` that was passed
+  in — assert `all(opt["provenance"] in {item["id"] for item in context})`. The
+  **negative** is the load-bearing case: inject a Driver/fallback result carrying
+  an option whose `provenance` is empty or points at an absent id, and assert
+  `ask` rejects it (raises `INVALID_ARGUMENT` or drops it) — so a manufactured
+  option provably cannot survive. This test must FAIL under a naive token-overlap
+  oracle (an invented option reusing context words but with no resolvable
+  `provenance` is caught), proving the oracle is referential.
 - **Header budget:** `len(payload["header"]) <= MAX_HEADER_LEN` for arbitrary
   context — the bound is the named budget, computed, not snapshotted.
 - **multiSelect gate:** `multi=False` yields `multiSelect == False`; `multi=True`
@@ -133,6 +181,12 @@ payload builder + recorder.
   `ClarificationQuestion` node and **no** `CLARIFIES` edge / Intent mutation —
   graph node-count delta equals the single `ClarificationQuestion` plus the
   Invocation (the read-only invariant, computed from a live census).
+- **Harness protocol round-trip (the seam is testable):** with an injected
+  `AnswerProvider` test double, `ask` → render → `_base.fold_answer(question_id,
+  answer)` transitions the `ClarificationQuestion` from `pending` to `answered`
+  and the chosen option (with its `provenance`) is recorded — assert the
+  state transition + the stored selection, with **no** live `AskUserQuestion`
+  call. A fold against an unknown `question_id` raises (the key is load-bearing).
 
 ## Acceptance
 
