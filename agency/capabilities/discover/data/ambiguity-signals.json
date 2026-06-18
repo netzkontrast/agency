@@ -1,0 +1,8 @@
+{
+  "_doc": "Spec 311 — the ambiguity heuristic registry (CLAUDE.md #8: a definable registry, not frozen code). One entry per turn_kind (Spec 307 ambiguity_kind enum): each names the Intent field it inspects, a word-count floor below which the field reads ambiguous, and a template question (the deterministic fallback; the Spec 147 Driver sharpens it from the GROUNDS evidence in Slice 2).",
+  "signals": [
+    {"kind": "underspecified", "field": "purpose", "min_words": 4, "template": "Your purpose reads as brief — what specifically are you trying to achieve, and for whom?"},
+    {"kind": "missing-acceptance", "field": "acceptance", "min_words": 3, "template": "What concrete, measurable outcome will mean this is done?"},
+    {"kind": "unstated-assumption", "field": "deliverable", "min_words": 3, "template": "What does the deliverable assume or depend on that should be made explicit?"}
+  ]
+}

@@ -25,13 +25,14 @@ from __future__ import annotations
 from agency.capability import CapabilityBase, verb
 from agency.toolresult import ToolResult
 
-from .clusters import (AskCluster, DiscoverCluster, InterviewCluster,
-                       RefineCluster, ScopeCluster)
+from .clusters import (AskCluster, ClarifyCluster, DiscoverCluster,
+                       InterviewCluster, RefineCluster, ScopeCluster)
 from .ontology import discover_ontology
 
 
-class DiscoverCapability(InterviewCluster, AskCluster, RefineCluster,
-                         ScopeCluster, DiscoverCluster, CapabilityBase):
+class DiscoverCapability(InterviewCluster, AskCluster, ClarifyCluster,
+                         RefineCluster, ScopeCluster, DiscoverCluster,
+                         CapabilityBase):
     name = "discover"
     # Intent-pillar peer to ``prompt``. Spec 291 re-homes the intent pillar to
     # ``home="intent"``; until that reorg lands, ``capability`` keeps the cap on

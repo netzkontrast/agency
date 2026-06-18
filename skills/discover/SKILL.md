@@ -25,6 +25,7 @@ allowed-tools:
 |------|------|-------|-----------|
 | `acceptance` | transform | Derive testable, Gherkin-shaped acceptance criteria from the Intent (transform). | [details](references/acceptance.md) |
 | `ask` | transform | Build ONE well-formed AskUserQuestion payload from DERIVED options (transform). | [details](references/ask.md) |
+| `clarify` | act | Resolve a draft Intent's ambiguities, folding each answer back (act). | [details](references/clarify.md) |
 | `clarity` | transform | Score a captured Intent's clarity / readiness (transform, read-only). | [details](references/clarity.md) |
 | `interview` | act | Run the adaptive elicitation interview → a DRAFT Intent (act). | [details](references/interview.md) |
 | `scope` | act | Elicit in-/out-of-scope boundaries (act). | [details](references/scope.md) |
