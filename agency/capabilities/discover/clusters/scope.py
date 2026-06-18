@@ -79,6 +79,69 @@ class ScopeCluster:
                          "covered": covered, "gaps": gaps},
         })
 
+    @verb(role="act")
+    def scope(self, for_intent_id: str = "", decisions: dict | None = None) -> ToolResult:
+        """Elicit in-/out-of-scope boundaries (act).
+
+        Candidates are DERIVED from the Intent's ``GROUNDS`` citations (Spec 312) —
+        never invented. ``scope`` composes ``discover.ask`` (310) to build ONE
+        well-formed multiSelect question over the candidates (it never calls
+        ``AskUserQuestion`` itself — 310 owns that contract). The caller folds the
+        ``decisions`` ({candidate → "in"|"out"}); each decided candidate becomes a
+        ``ScopeBoundary`` (``side ∈ {in,out}``) ``BOUNDS``-edged to the Intent,
+        undecided ones stay ``open`` (no node).
+
+        Inputs: for_intent_id (defaults to ``ctx.intent_id``); decisions (the
+                folded {candidate_text|citation_id → "in"|"out"} map).
+        Returns: ``{in_scope:[...], out_of_scope:[...], open:[...], question}``.
+        chain_next: seed deferred sub-intents from ``out_of_scope`` via
+                    ``discover.decompose_intent`` (319).
+        """
+        decisions = decisions or {}
+        iid = for_intent_id or self.ctx.intent_id
+        candidates = self._scope_candidates(iid)
+
+        # Compose discover.ask (rule 4 — the well-formed-question contract lives
+        # in 310, not here). multiSelect: several boundaries are independent axes.
+        question = None
+        if len(candidates) >= 2:
+            asked = self.ask(context=candidates, multi=True,
+                             n_options=len(candidates), ambiguity_kind="vague-scope",
+                             question="Which of these are in scope?")
+            if asked.ok:
+                question = asked.data["payload"]
+
+        in_scope: list[str] = []
+        out_of_scope: list[str] = []
+        open_: list[str] = []
+        for cand in candidates:
+            item = cand["text"]
+            side = decisions.get(item) or decisions.get(cand.get("id", ""))
+            if side in ("in", "out"):
+                node = self.ctx.record_and_serve(
+                    "ScopeBoundary", {"item": item, "side": side})
+                self.ctx.link(node, iid, "BOUNDS")
+                (in_scope if side == "in" else out_of_scope).append(item)
+            else:
+                open_.append(item)
+
+        return ToolResult.success(data={
+            "in_scope": in_scope, "out_of_scope": out_of_scope,
+            "open": open_, "question": question})
+
+    def _scope_candidates(self, intent_id: str) -> list[dict]:
+        """Candidate boundaries DERIVED from the Intent's ``GROUNDS`` citations
+        (Spec 312) — each a ``{id, text}`` evidence item (the `ask` context shape).
+        Empty until grounding lands; decomposition (319) adds a second source."""
+        out: list[dict] = []
+        for cite in self.ctx.neighbors(intent_id, "GROUNDS", direction="in"):
+            text = str(cite.get("claim_supported")
+                       or cite.get("evidence_text")
+                       or cite.get("source_url_or_path") or "").strip()
+            if text:
+                out.append({"id": cite.get("id", ""), "text": text})
+        return out
+
     # ── derivation helpers (Spec 147 Driver seam fills sharper criteria later) ──
     def _split_deliverable(self, deliverable: str) -> list[str]:
         """Split the deliverable into checkable sub-parts on clause delimiters +
