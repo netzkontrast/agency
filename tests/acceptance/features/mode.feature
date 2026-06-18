@@ -23,3 +23,7 @@ Feature: mode capability — behavioral modes, first-class (Spec 295)
   Scenario: activate falls back to brainstorming when nothing matches
     When I activate the auto mode for "xyzzy"
     Then the activated mode is "brainstorming"
+
+  Scenario: mode exposes a walkable mode-selection discipline (Spec 301 superpowers pattern)
+    When I walk the "mode-selection" discipline to its gate
+    Then the discipline pauses at a hard gate

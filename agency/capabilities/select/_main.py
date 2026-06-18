@@ -39,12 +39,27 @@ _PATTERN = ("pattern", "bulk", "replace", "regex", "across", "all occurrences",
 _FORCE_SEMANTIC = ("memory", "context", "save", "persist", "cross-session")
 
 
+# Spec 301 Slice 2 — the walkable discipline (superpowers' signature):
+# characterize the operation, weigh the archetypes, route to one, commit behind
+# a hard gate. Mirrors the select verb flow (archetypes → route).
+_APPROACH_ROUTING_SKILL = {
+    "name": "approach-routing", "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "characterize", "produces": ["operation", "scope"]},
+        {"index": 2, "name": "weigh", "produces": ["candidates"]},
+        {"index": 3, "name": "route", "produces": ["approach"]},
+        {"index": 4, "name": "commit", "produces": ["rationale"], "gate": "hard"},
+    ],
+}
+
+
 class SelectCapability(CapabilityBase):
     name = "select"
     home = "lifecycle"   # a routing decision parameterizing HOW work proceeds
     ontology = OntologyExtension(
         nodes={"Selection": ["operation", "approach"]},
         enums={("Selection", "approach"): set(_ARCHETYPES)},
+        skills={"approach-routing": _APPROACH_ROUTING_SKILL},
     )
 
     @verb(role="act")

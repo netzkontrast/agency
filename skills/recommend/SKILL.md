@@ -40,5 +40,5 @@ await call_tool('capability_recommend_route', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`recommend-usage`** (usage): use-effect → confirm
-  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'recommend-usage', 'inputs': {}, 'intent_id': '…'})`
+- **`capability-routing`** (discipline): frame → rank → select → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'capability-routing', 'inputs': {}, 'intent_id': '…'})`

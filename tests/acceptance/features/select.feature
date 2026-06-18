@@ -27,3 +27,7 @@ Feature: select capability — complexity-scored approach selection (Spec 296)
     When I route the operation "save project context for cross-session memory"
     Then the selected approach is "semantic"
     And the selection rationale mentions a direct mapping
+
+  Scenario: select exposes a walkable approach-routing discipline (Spec 301 superpowers pattern)
+    When I walk the "approach-routing" discipline to its gate
+    Then the discipline pauses at a hard gate

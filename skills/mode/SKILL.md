@@ -43,5 +43,5 @@ await call_tool('capability_mode_activate', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`mode-usage`** (usage): use-effect → use-act → confirm
-  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'mode-usage', 'inputs': {}, 'intent_id': '…'})`
+- **`mode-selection`** (discipline): assess → detect → activate → confirm
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'mode-selection', 'inputs': {}, 'intent_id': '…'})`
