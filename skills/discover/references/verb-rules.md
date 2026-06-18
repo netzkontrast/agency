@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## discover verb audit — 0 of 5 verbs need work
+## discover verb audit — 0 of 6 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -21,6 +21,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `discover.ask` | transform | ✓ clean |
 | `discover.clarity` | transform | ✓ clean |
 | `discover.interview` | act | ✓ clean |
+| `discover.scope` | act | ✓ clean |
 | `discover.status` | transform | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
