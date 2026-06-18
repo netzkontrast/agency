@@ -115,37 +115,42 @@ _SPEC_MD_RE = re.compile(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$")
 
 # ONE source of truth for raw-tool → agency-verb routing, read by BOTH the
 # BoundaryUse shadow (Slice 1 provenance, mutating tools) AND the PreToolUse
-# suggestion (Slice 2 live nudge) so the two cannot drift. Each row:
-# (predicate(tool, tool_input) -> bool, verb, why, suggest). `@<name>` denotes a
-# substrate tool.
+# suggestion (Slice 2) so the two cannot drift. Each row:
+# (predicate(tool, tool_input) -> bool, verb, why, suggest).
 #
-# `suggest` is the KEY correctness gate (Codex review #154): a route is only
-# SUGGESTED ("call this instead") when the verb performs the SAME effect the raw
-# tool would, with all required args known up-front. The git commit/push routes
-# are shadow-ONLY provenance — `branch.commit_smart` merely composes a message
-# and `branch.finish` does merge/pr, neither replaces the raw VCS op — so they
-# are NOT suggested. `subagent.develop` needs post-work gate results, so Task has
-# no valid pre-dispatch suggestion and is omitted entirely. Suggested verbs MUST
-# resolve to a live MCP tool — `test_every_suggestion_resolves_to_a_live_verb`
-# guards it (CLAUDE.md dormant-surface).
+# `suggest` is the correctness gate (Codex review #154). A route is SUGGESTED
+# only when the verb is a genuine agency COMPANION whose required args are known
+# up-front and which is reachable from a normal session. Suggestions are
+# ADVISORY — a companion that records provenance (Goal 2), NOT a drop-in
+# replacement for the raw tool and NOT a deny/block — so the additionalContext is
+# a nudge and the raw tool still runs (PreToolUse `additionalContext` is advisory
+# by design; we deliberately do not deny/`updatedInput`). Routes without a true
+# companion are shadow-only or omitted, never a false "call instead":
+#   - git commit → branch.commit_smart: composes the conventional message
+#     (companion run alongside the commit) → suggested.
+#   - spec.md edit → dogfood.note: records the observation so it folds back
+#     (Goal 6 companion to the edit) → suggested.
+#   - git push → branch.finish: merge/pr, NOT a push — shadow-only.
+#   - Grep/Glob: `search` is capability-DISCOVERY, not code search — omitted.
+#   - Task: subagent.develop needs post-work gate results — omitted.
+# Suggested verbs MUST resolve to a live MCP tool —
+# `test_every_suggestion_resolves_to_a_live_verb` guards it (dormant-surface).
 # AGENCY-DRIFT: raw-tool-routes — follow-up: derive via recommend.route / Spec
 # 188 suggest_drill so the surface is discovered, not memorized.
 _RAW_ROUTES: list[tuple] = [
     (lambda t, tin: t == "Bash"
         and str(tin.get("command") or "").strip().startswith("git commit"),
      "branch.commit_smart",
-     "compose a conventional-commit message via the verb (then commit with it)",
-     False),
+     "companion: compose the conventional-commit message via this verb",
+     True),
     (lambda t, tin: t == "Bash"
         and str(tin.get("command") or "").strip().startswith("git push"),
      "branch.finish", "finish the branch (merge/pr) through the verb when done",
      False),
-    (lambda t, tin: t in ("Grep", "Glob"),
-     "@search", "discover capabilities + code via the agency search surface",
-     True),
     (lambda t, tin: t in ("Write", "Edit")
         and bool(_SPEC_MD_RE.search(str(tin.get("file_path") or ""))),
-     "dogfood.note", "record a spec observation instead of hand-editing the file",
+     "dogfood.note",
+     "companion: also record a spec observation so it folds back (Goal 6)",
      True),
 ]
 # The guard's inventory of every SUGGESTED target (verb, why).
@@ -256,36 +261,31 @@ def _verb_input_schema(engine, cap: str, verb: str) -> dict | None:
     return {"type": "object", "properties": props, "required": required}
 
 
-# Non-verb (substrate) targets resolve straight to `{mcp_tool, schema}`.
-_STATIC_SCHEMAS: dict[str, dict] = {
-    "@search": {"mcp_tool": "mcp__agency__search", "schema": {
-        "type": "object",
-        "properties": {"query": {"type": "string"},
-                       "detail": {"type": "string",
-                                  "enum": ["brief", "detailed", "full"]}},
-        "required": ["query"]}},
-}
-
-
 def _resolve_mcp_suggestion(engine, suggestion: str) -> dict | None:
-    """Resolve a `(cap.verb | @substrate)` suggestion to `{mcp_tool, schema}`."""
-    if suggestion in _STATIC_SCHEMAS:
-        return _STATIC_SCHEMAS[suggestion]
+    """Resolve a `cap.verb` companion to a callable form.
+
+    Codex review #154: in this plugin's code-mode the PUBLIC MCP tools are
+    `search`/`get_schema`/`execute` — `capability_<cap>_<verb>` is NOT directly
+    invocable from a normal session; verbs are reached via `execute`'s
+    `call_tool`. So a suggestion resolves to `mcp__agency__execute` plus the
+    `call_tool` snippet + the verb's input schema, not a bare `capability_*`."""
     if "." not in suggestion:
         return None
     cap, verb = suggestion.split(".", 1)
     schema = _verb_input_schema(engine, cap, verb)
     if schema is None:
         return None
-    return {"mcp_tool": f"capability_{cap}_{verb}", "schema": schema}
+    tool = f"capability_{cap}_{verb}"
+    return {"mcp_tool": "mcp__agency__execute", "verb": tool, "schema": schema,
+            "snippet": f'await call_tool("{tool}", {{...}})'}
 
 
 def _pre_tool_use_handler(engine, event: dict) -> dict:
     """Spec 195 Slice 2 — the PreToolUse handler. Records the Event + BoundaryUse
-    (via the default handler) and, when the raw tool has an agency capability
-    equivalent, RETURNS the MCP function(s) + their schema as Claude Code
-    `hookSpecificOutput.additionalContext`, so the agent calls the verb instead
-    (dogfooding the provenance moat, Goal 2)."""
+    (via the default handler) and, when the raw tool has an agency COMPANION
+    verb, returns it (reachable via `mcp__agency__execute`) + its schema as
+    `hookSpecificOutput.additionalContext`. ADVISORY (a provenance companion,
+    Goal 2 — not a replacement, not a deny): the raw tool still runs."""
     import json as _json
     base = _default_hook_handler(engine, event)
     calls = []
@@ -295,11 +295,13 @@ def _pre_tool_use_handler(engine, event: dict) -> dict:
             calls.append({**resolved, "why": why})
     if calls:
         base["agency_suggestion"] = calls
-        lines = ["This action has an agency capability equivalent — prefer it "
-                 "(it records provenance). Call instead:"]
+        lines = ["This raw tool bypasses agency provenance. Advisory — run the "
+                 "agency companion via `mcp__agency__execute` (the raw tool still "
+                 "runs; this is a nudge, not a replacement):"]
         for c in calls:
-            lines.append(f"- `{c['mcp_tool']}` — {c['why']}\n"
-                         f"  schema: {_json.dumps(c['schema'], sort_keys=True)}")
+            lines.append(f"- {c['why']}\n"
+                         f"  via `{c['mcp_tool']}`: {c['snippet']}\n"
+                         f"  args schema: {_json.dumps(c['schema'], sort_keys=True)}")
         base["hookSpecificOutput"] = {
             "hookEventName": "PreToolUse",
             "additionalContext": "\n".join(lines),

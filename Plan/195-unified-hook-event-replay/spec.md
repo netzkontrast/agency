@@ -240,21 +240,29 @@ delivers it as a returning suggestion:
   payload to the agency call — read by BOTH `_verb_shadow_for` (the Slice-1
   BoundaryUse shadow) and `_suggest_mcp_calls` (the Slice-2 suggestion) so they
   cannot drift (the /simplify review caught the prior two-table duplication).
-  Live, registry-resolved targets (advisory; read tools included): Bash
-  `git commit` → `branch.commit_smart`, `git push` → `branch.finish`; Grep/Glob
-  → `mcp__agency__search`; Task/Agent → `subagent.develop`; Write/Edit on a
-  spec.md → `dogfood.note`. (A test-runner and a URL-fetch route are
-  deliberately omitted — no `develop.test` / `research.fetch` verb exists yet;
-  pointing at a fiction would be dormant surface. Follow-up
+  Each row carries a `suggest` flag. Correctness gate (Codex review #154 — the
+  suggestion is an ADVISORY companion, not a "call instead", and additionalContext
+  does NOT block the raw tool): a route is `suggest=True` only when the verb is a
+  genuine companion whose args are known up-front. Suggested companions:
+  `git commit` → `branch.commit_smart` (compose the conventional message);
+  Write/Edit on a `Plan/NNN-*/spec.md` → `dogfood.note` (record the observation
+  so it folds back, Goal 6). Shadow-only: `git push` → `branch.finish` (merge/pr,
+  not a push). Omitted entirely: Grep/Glob (`search` is capability DISCOVERY, not
+  code search); Task/Agent (`subagent.develop` needs post-work gate inputs);
+  pytest/WebFetch (no `develop.test`/`research.fetch` verb). Follow-up
   `# AGENCY-DRIFT: raw-tool-routes`: derive via `recommend.route` once a
-  command-prefix matcher exists.)
+  command-prefix matcher exists.
 - **`_verb_input_schema(engine, cap, verb)`** derives the call's JSON schema
-  from the LIVE registry verb signature (intent_id/agent_id omitted — auto-
-  injected); substrate tools (`mcp__agency__search`) carry an explicit schema.
+  from the LIVE registry verb signature (`*args`/`**kwargs` skipped; an OPTIONAL
+  `intent_id` surfaced so a no-`AGENCY_INTENT` session can target an intent).
+- **`_resolve_mcp_suggestion`** resolves a companion verb to
+  `mcp__agency__execute` + a `call_tool("capability_<cap>_<verb>", {…})` snippet
+  (Codex review #154 — `capability_*` is NOT a directly-callable public tool in
+  code-mode; verbs are reached through `execute`).
 - **`_pre_tool_use_handler`** (registered for `PreToolUse`) records the
-  Event + BoundaryUse via the default handler, then attaches
-  `hookSpecificOutput.additionalContext` naming the MCP call(s) + schema +
-  `agency_suggestion` (the structured list).
+  Event + BoundaryUse via the default handler, then attaches an ADVISORY
+  `hookSpecificOutput.additionalContext` (the raw tool still runs) naming the
+  execute companion + snippet + args schema, plus the `agency_suggestion` list.
 - **CLI wire (`agency hook`)** now emits the `hookSpecificOutput` JSON on stdout
   so Claude Code folds it into the pending tool call's context — the piece that
   makes the suggestion actually reach the agent. Dogfooded live via

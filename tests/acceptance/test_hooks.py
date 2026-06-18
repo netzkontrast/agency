@@ -654,10 +654,11 @@ def _suggestion_schema(hook_result):
     assert sugg[0]["schema"].get("type") == "object", sugg[0]
 
 
-@then("the additionalContext names the MCP call and its schema")
+@then("the additionalContext names the execute companion and its schema")
 def _additional_context(hook_result):
     ctx = hook_result.get("hookSpecificOutput", {}).get("additionalContext", "")
-    assert "mcp__agency__search" in ctx and "schema" in ctx, ctx
+    assert "mcp__agency__execute" in ctx and "schema" in ctx, ctx
+    assert "capability_branch_commit_smart" in ctx, ctx
 
 
 @then("the hook returns no agency_suggestion")
