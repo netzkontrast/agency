@@ -10,5 +10,7 @@ from ._base import DiscoverCluster
 from .ask import AskCluster
 from .interview import InterviewCluster
 from .refine import RefineCluster
+from .scope import ScopeCluster
 
-__all__ = ["DiscoverCluster", "AskCluster", "InterviewCluster", "RefineCluster"]
+__all__ = ["DiscoverCluster", "AskCluster", "InterviewCluster", "RefineCluster",
+           "ScopeCluster"]
