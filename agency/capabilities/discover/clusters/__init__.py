@@ -8,9 +8,10 @@ them — a pure addition, never a structural change (Spec 308 acceptance).
 """
 from ._base import DiscoverCluster
 from .ask import AskCluster
+from .clarify import ClarifyCluster
 from .interview import InterviewCluster
 from .refine import RefineCluster
 from .scope import ScopeCluster
 
-__all__ = ["DiscoverCluster", "AskCluster", "InterviewCluster", "RefineCluster",
-           "ScopeCluster"]
+__all__ = ["DiscoverCluster", "AskCluster", "ClarifyCluster", "InterviewCluster",
+           "RefineCluster", "ScopeCluster"]
