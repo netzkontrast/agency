@@ -26,6 +26,13 @@ parent_spec: "307"
 > now lives here, as a §"intent-discovery scouts" section of the verb that
 > dispatches them. No behaviour lost — the scouts are the same profiled
 > compositions over `research/_specialist.py`.
+>
+> **★ EXTENDED by Spec 307 §Refinement (2026-06-18).** `ground` also absorbs
+> `feasibility` (314) as `ground(decide=True)` — same scouts, plus a verdict — and
+> two efficiency rules become mandatory: (1) **reuse** a verified grounding
+> `Research` that already `SERVES` the Intent this session (never re-fan the same
+> scouts — the largest waste the efficiency pass found); (2) specialist fan-out
+> runs **concurrently** (inherit the `research` Spec 044 model).
 
 ## Why (evidence + doctrine)
 

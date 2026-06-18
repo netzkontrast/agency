@@ -17,6 +17,11 @@ parent_spec: "307"
 > layer. This is the ambiguity-resolution loop the flow runs after grounding
 > (`… ──► ground ──► clarify ──► frame`): it finds what is still vague in the
 > draft Intent and asks the user targeted questions until it is sharp.
+>
+> **★ CONSOLIDATED by Spec 307 §Refinement (2026-06-18).** `clarify` merges with
+> `interview` (309) + `scope` (318) into one **`elicit(mode=clarify)`** AskUser loop
+> — the ambiguity-signal candidate source is the `mode`'s only distinction.
+> Retained as the ambiguity-detection mechanism record.
 
 ## Why
 

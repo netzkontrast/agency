@@ -18,6 +18,12 @@ parent_spec: "307"
 > `thinking` methods (Spec 110) over the DRAFT Intent BEFORE confirm, surfacing
 > unstated assumptions, failure modes, and whether the goal survives
 > first-principles — feeding `clarify` (311) and the clarity score (322).
+>
+> **★ FOLDED by Spec 307 §Refinement (2026-06-18).** `examine` is a near-duplicate
+> of the shipped `thinking.apply_full_review(subject=intent.deliverable)` plus one
+> `ANALYZES` edge; it becomes the *thinking pass* of the merged `sharpen` proposal
+> (with `frame`/`acceptance`), calling the composite rather than re-sequencing the
+> methods. Retained as the mechanism record.
 
 ## Why (evidence + doctrine)
 

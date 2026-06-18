@@ -18,6 +18,12 @@ parent_spec: "307"
 > Intent is confirmed — it weighs the feasibility-scout + prior-art-scout
 > Citations (Spec 312) and records a `FeasibilitySignal` node (Spec 307
 > ontology) carrying the verdict.
+>
+> **★ FOLDED by Spec 307 §Refinement (2026-06-18).** `feasibility` collapses into
+> `ground(decide=True)` — it is grounding + a verdict over the *same* scouts, so a
+> separate verb re-fans the pipeline (the efficiency pass's largest waste). The
+> `FeasibilitySignal` node is dropped (a verdict-tagged finding on the existing
+> Citations). This spec stays as the verdict-derivation mechanism record.
 
 ## Why (evidence + doctrine)
 

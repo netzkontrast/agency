@@ -17,6 +17,14 @@ parent_spec: "307"
 > Mirrors `prompt.audit`'s clarity score for the WHY: it scores a captured
 > Intent's readiness from live discovery signals, and defines the hard CAPTURE
 > GATE the `guided-discovery` discipline (Spec 323) reads before `confirm`.
+>
+> **★ RELOCATED by Spec 307 §Refinement (2026-06-18).** The gate moves DOWN onto
+> the substrate: `confirm` (in `intent/_core.py`) **is** the gate — it raises below
+> the clarity threshold unless given an override token — so it is *unbypassable*
+> (the canonical `capture_and_confirm`, `intent.py:82`, can no longer mint a
+> confirmed-but-shallow Intent, which a `discover`-only gate allowed). The
+> `clarity` scoring logic here is retained; its *home* is the substrate, not a
+> capability verb. This is the highest-leverage altitude fix.
 
 ## Why (evidence + doctrine)
 

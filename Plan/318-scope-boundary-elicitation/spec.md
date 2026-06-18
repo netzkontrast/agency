@@ -19,6 +19,11 @@ parent_spec: "307"
 > `BOUNDS`-edged to the Intent. The out-of-scope set sharpens the deliverable and
 > guards against scope creep — and out-of-scope items can seed deferred
 > sub-intents (Spec 319).
+>
+> **★ CONSOLIDATED by Spec 307 §Refinement (2026-06-18).** `scope` merges with
+> `interview` (309) + `clarify` (311) into one **`elicit(mode=scope)`** AskUser loop
+> — its scope-candidate source is the `mode`'s distinction. The `ScopeBoundary`
+> node survives; the standalone verb does not. Retained as the mechanism record.
 
 ## Why (evidence + doctrine)
 

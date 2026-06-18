@@ -19,6 +19,11 @@ parent_spec: "307"
 > (Goal 1) that COMPOSES the Spec 290 `manage` read-API and the Spec 322 clarity
 > score, never reimplementing them, and renders to the `discovery-session.md`
 > Document (Goal 9).
+>
+> **★ EXTENDED by Spec 307 §Refinement (2026-06-18).** `state` absorbs `replay`
+> (325) as **`state(mode=now|history)`** — same Document, two projections — with the
+> history mode composing the shipped `manage.timeline`. One read verb for the whole
+> discovery read side.
 
 ## Why (evidence + doctrine)
 

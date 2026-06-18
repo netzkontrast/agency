@@ -17,6 +17,13 @@ parent_spec: "307"
 > layer. This is the adaptive AskUser beat-chain that turns a one-line seed into
 > a grounded *draft* Intent — the engine Spec 307's flow opens with
 > (`seed ──► interview ──► [draft Intent]`).
+>
+> **★ CONSOLIDATED by Spec 307 §Refinement (2026-06-18).** `interview` merges with
+> `clarify` (311) + `scope` (318) into one **`elicit(mode=interview|clarify|scope)`**
+> AskUser loop (they differ only in candidate source, not in mechanism), and it
+> should **extend the shipped `intent.managed_onboard` (Spec 262)** — building
+> adaptivity into it — rather than ship a parallel interview. Retained as the
+> beat-chain mechanism record.
 
 ## Why
 
