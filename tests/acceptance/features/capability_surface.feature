@@ -42,3 +42,8 @@ Feature: A working capability surface and engine health
     Given a fresh agency engine in code-mode
     When I ask the engine doctor for a health report
     Then the doctor reports a codes_coverage fraction between 0 and 1
+
+  Scenario: The doctor reports live schema-coverage health (Spec 153 Slice 3)
+    Given a fresh agency engine in code-mode
+    When I ask the engine doctor for a health report
+    Then the doctor reports a schema_coverage fraction between 0 and 1
