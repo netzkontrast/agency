@@ -42,3 +42,27 @@ class DiscoverCluster:
             raise ValueError(f"fold_answer: unknown question_id {question_id!r}")
         self.ctx.update(question_id, {"status": "answered", "answer": answer})
         return {"question_id": question_id, "status": "answered", "answer": answer}
+
+    def _session(self, seed: str) -> str:
+        """Open a ``DiscoverySession`` — the spine its turns hang off (Spec 307/309).
+
+        Records the node (``seed`` · ``status="open"`` · ``clarity_score=0``) and
+        SERVES the invoking intent. Shared so ``interview`` (309) / ``discover``
+        (323) open a session the same way.
+        """
+        return self.ctx.record_and_serve(
+            "DiscoverySession", {"seed": seed, "status": "open", "clarity_score": 0})
+
+    def _record_turn(self, session_id: str, beat: int, kind: str,
+                     question: str, answer: str) -> str:
+        """Record one ``ElicitationTurn`` + the ``ELICITS`` edge (Spec 307/309).
+
+        The edge runs ``DiscoverySession → ElicitationTurn`` (declare an edge ⇒
+        traverse it — the interview loop reads prior turns via
+        ``ctx.neighbors(session_id, "ELICITS", direction="out")``). Shared by
+        ``interview`` (309) and ``clarify`` (311).
+        """
+        turn_id = self.ctx.record_and_serve("ElicitationTurn", {
+            "beat": beat, "kind": kind, "question": question, "answer": answer})
+        self.ctx.link(session_id, turn_id, "ELICITS")
+        return turn_id
