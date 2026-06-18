@@ -1,7 +1,7 @@
 # Drivers & Boundaries — external I/O (Spec 002)
 
 <!-- doc-source: agency/capability.py agency/engine.py examples/music_drivers.py Plan/002-boundary-driver-protocol/spec.md -->
-<!-- doc-hash: f12fba81046759b1 -->
+<!-- doc-hash: 7287febb75110cff -->
 
 Every external side-effect (git, Jules, audio, a DB, object storage, the token counter,
 the Skills API) is isolated behind a **Driver** so it can be stubbed deterministically in
@@ -17,14 +17,18 @@ seams into one named table.
   `dispatch(op)`. Each driver keeps its own typed, named methods (`AudioDriver
   .read_loudness(path)`, `GitClient.branch(...)`); the uniform contract is the RETURN
   TYPE (`ToolResult`), produced by the *wrapping verb*.
-- **`DriverRegistry`** — `register(name, driver)` · `get(name)` (raises `DriverMissing`,
-  a `LookupError`) · `has(name)` · `names()`.
+- **`DriverRegistry`** — `register(name, driver)` · `register_factory(name, factory)`
+  (Spec 286-A2 — a lazy default, materialized on first `get`) · `get(name)` (raises
+  `DriverMissing`, a `LookupError`) · `has(name)` · `names()` · `backend(name)` /
+  `readiness(name)` (health probes).
 
 ## How the engine wires it
 
-`Engine.__init__` builds one `DriverRegistry` registering the core boundaries —
-`jules` · `vcs` · `embedder` · `runner` · `token_counter` · `skills_client` · `llm`
-(the OpenRouter LLM-decider, Spec 092 G3) — and derives
+`Engine.__init__` builds one `DriverRegistry` registering the **nine** core boundaries —
+`runner` · `jules` · `vcs` · `embedder` · `web_search` · `token_counter` ·
+`skills_client` · `llm` (the LLM-decider, Spec 092 G3) · `anthropic` (the AnthropicDriver,
+Spec 147) — as **lazy factories** (explicit injection wins; an unused boundary is never
+constructed) and derives
 `Registry.injectors` from it (one source of truth, so `inject=[…]` + `ctx.client` keep
 working). A `drivers={…}` kwarg lets a host register **a domain cluster with no new
 Engine kwarg and no new injectors key**.
@@ -43,7 +47,7 @@ def master_album(self, album, path, target_lufs=-14.0) -> ToolResult:
     return ToolResult.success(data={"result": …, "artefact": {…}})
 ```
 
-## The worked example: `examples/music_drivers.py`
+## The worked example: `agency/capabilities/music/drivers.py`
 
 The music capability ships five Driver protocols — `State` · `Text` · `Audio` · `DB` ·
 `Cloud` — each with a deterministic **fake** (`fake_drivers()`), so the whole music

@@ -1,7 +1,7 @@
 # The capability system
 
 <!-- doc-source: agency/capability.py -->
-<!-- doc-hash: 0f1b36dbc27213e2 -->
+<!-- doc-hash: fe5d5b02f8d10f80 -->
 
 `agency/capability.py` defines how a capability is authored, compiled, registered, and
 invoked. It is the single most load-bearing module.
@@ -62,10 +62,18 @@ A delegator over engine services (never a new public surface):
      and converts `artefacts_written` + a `data["artefact"]` into `Artefact` nodes with
      `PRODUCES` edges, then unwraps to `.data` for the lean wire shape.
 
+  Spec 286-A3 decomposed this monolith into an orchestrator over four collaborators —
+  `IntentGuard` (step 1), `ParameterInjector` (step 3), `InvocationRecorder` (step 2),
+  `ResultProcessor` (step 4) — with the logic in `agency/_invoke.py`. Behaviour is
+  byte-identical; the steps above still describe what happens, only the *where* moved.
+  Verbs are also typed `Verb` value objects now (Spec 286-A4), not raw dicts, with a
+  Mapping bridge so `spec["fn"]`-style access still works.
+
 ## The Driver family (Spec 002)
 
 Also defined here: `Boundary` / `Driver` marker Protocols, `DriverRegistry`
-(`register`/`get`/`has`/`names`), and `DriverMissing`. See [drivers.md](drivers.md).
+(`register`/`register_factory`/`get`/`has`/`names`/`backend`/`readiness`), and
+`DriverMissing`. See [drivers.md](drivers.md).
 
 ## The drop-in bar, enforced here
 

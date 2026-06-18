@@ -1,7 +1,7 @@
 # Intent · Lifecycle · Gate — three of the four concepts
 
 <!-- doc-source: agency/intent.py agency/lifecycle.py agency/capabilities/gate/_main.py -->
-<!-- doc-hash: 4e7a70b4c3942b84 -->
+<!-- doc-hash: 594a3ac8144ca1ee -->
 
 ## Intent (`agency/intent.py`)
 
@@ -33,7 +33,12 @@ The machine-vs-human split the canon draws (CORE.md:57-62):
 - **`gate.check(lifecycle_id, name, passed, evidence)`** — a **machine-checkable**
   predicate. The caller computes `passed`; on `False` it records a `Gate` `BLOCKED_ON`
   edge and flips the Lifecycle to `input-required`; on `True`, a `PASSED` edge. It
-  validates the lifecycle serves the intent (walking the `SUPERSEDED_BY` chain).
+  validates the lifecycle serves the intent (walking the `SUPERSEDED_BY` chain). Returns
+  the wire envelope `{"result": {passed, gate}}`.
+- **`gate.adjudicate(a, b, lifecycle_id="")`** (Spec 303) — adjudicates two CONFLICTING
+  concerns by delegating to `doctrine.resolve` (the safety > correctness >
+  maintainability > speed hierarchy), recording a `Gate` node + a `doctrine.resolve`
+  Invocation that SERVES the intent — doctrine's real consumer.
 - **`lifecycle_gate`** (a bootstrap tool / `elicit`) — the **terminal human** "ready /
   ship it?" confirmation (the hard final phase of a gated skill).
 
