@@ -32,10 +32,27 @@ def _tokens(text: str) -> set[str]:
     return {t for t in re.split(r"[^a-z0-9]+", text.lower()) if t and t not in _STOP}
 
 
+# Spec 301 Slice 2 — the walkable discipline (superpowers' signature): frame the
+# request, rank the capability surface, select one, confirm behind a hard gate.
+# Mirrors the recommend verb flow (route → ranked recommendations).
+_CAPABILITY_ROUTING_SKILL = {
+    "name": "capability-routing", "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "frame", "produces": ["request"]},
+        {"index": 2, "name": "rank", "produces": ["recommendations"]},
+        {"index": 3, "name": "select", "produces": ["chosen"]},
+        {"index": 4, "name": "confirm", "produces": ["rationale"], "gate": "hard"},
+    ],
+}
+
+
 class RecommendCapability(CapabilityBase):
     name = "recommend"
     home = "capability"   # reads the registry to route a request
-    ontology = OntologyExtension(nodes={"Recommendation": ["request", "capability"]})
+    ontology = OntologyExtension(
+        nodes={"Recommendation": ["request", "capability"]},
+        skills={"capability-routing": _CAPABILITY_ROUTING_SKILL},
+    )
 
     def _usage_counts(self) -> dict:
         """Per-capability invocation frequency from the provenance graph (Spec

@@ -53,3 +53,19 @@ def _records(engine, confirmed_intent, routed):
 @then("the selection rationale mentions a direct mapping")
 def _rationale(routed):
     assert "direct mapping" in routed["rationale"], routed
+
+
+# Spec 301 Slice 2 — the walkable discipline (superpowers pattern).
+@when(parsers.parse('I walk the "{name}" discipline to its gate'), target_fixture="walk")
+def _walk(engine, confirmed_intent, name):
+    r, _ = invoke(engine, confirmed_intent, "develop", "skill_walk",
+                  agent_id="agent:test", name=name,
+                  inputs={"operation": "rename a symbol", "scope": "wide",
+                          "candidates": ["semantic", "pattern"],
+                          "approach": "semantic", "rationale": "fits the goal"})
+    return r
+
+
+@then("the discipline pauses at a hard gate")
+def _gate(walk):
+    assert walk.get("status") == "input-required", walk
