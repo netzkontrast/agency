@@ -25,3 +25,20 @@ class DiscoverCluster:
         it serves without threading the id through every signature.
         """
         return self.ctx.recall(intent_id or self.ctx.intent_id)
+
+    def fold_answer(self, question_id: str, answer: str) -> dict:
+        """Resolve a pending ``ClarificationQuestion`` (Spec 308/310 shared fold).
+
+        The second phase of the AskUser protocol: ``ask`` emits a pending
+        question; the harness renders it and obtains a selection; the caller
+        folds the answer here. Transitions ``pending`` → ``answered`` and stores
+        the chosen answer. The caller-appropriate edge (``CLARIFIES`` for clarify
+        311, ``ELICITS`` for interview 309, ``BOUNDS`` for scope 318) is the
+        CALLER's job — this helper stays generic so ``ask`` remains read-only.
+        Raises on an unknown ``question_id`` (the fold-back key is load-bearing).
+        """
+        node = self.ctx.recall(question_id)
+        if node is None:
+            raise ValueError(f"fold_answer: unknown question_id {question_id!r}")
+        self.ctx.update(question_id, {"status": "answered", "answer": answer})
+        return {"question_id": question_id, "status": "answered", "answer": answer}
