@@ -40,7 +40,7 @@ def _sandbox_limits() -> dict:
         "max_memory": int(_os.environ.get("AGENCY_SANDBOX_MAX_MEM_MB", "512")) * 1024 * 1024,
     }
 
-from .capabilities import discover
+from .capabilities import discover_capabilities
 from .capabilities._vcs import GitClient
 from .capabilities.jules import JulesClient
 from .capability import Registry
@@ -529,7 +529,7 @@ class Engine:
         # First-wins: discover()'d caps take precedence over re-supplied
         # extras with the same name.
         seen_names: set[str] = set()
-        for cap in list(discover()) + list(extra_capabilities or []):
+        for cap in list(discover_capabilities()) + list(extra_capabilities or []):
             if cap.name in seen_names:
                 continue
             seen_names.add(cap.name)
@@ -990,7 +990,7 @@ class Engine:
         error during re-discovery leaves the previous registry intact."""
         import sys
         from ._envelope import capability_set_hash
-        from .capabilities import discover
+        from .capabilities import discover_capabilities
         from .ontology import Ontology
 
         before = set(self.registry.names())
@@ -1003,7 +1003,7 @@ class Engine:
         for m in purged:
             sys.modules.pop(m, None)
         try:
-            fresh = {c.name: c for c in discover()}
+            fresh = {c.name: c for c in discover_capabilities()}
             for cap in self._extra_capabilities:    # preserve host-supplied extras
                 fresh.setdefault(cap.name, cap)
         except Exception as exc:                                # noqa: BLE001
