@@ -66,3 +66,38 @@ class DiscoverCluster:
             "beat": beat, "kind": kind, "question": question, "answer": answer})
         self.ctx.link(session_id, turn_id, "ELICITS")
         return turn_id
+
+    def _clarity_inputs(self, intent_id: str = "") -> dict:
+        """The five readiness signals Spec 322's clarity score reads — each
+        COMPUTED from the live discovery graph (derivability audit), never stored.
+
+        Returns a typed ``{signal: bool}`` bag:
+          - ``has_triple``           — purpose/deliverable/acceptance are real
+            (non-empty, not an interview draft placeholder)
+          - ``acceptance_measurable``— an ``AcceptanceCriterion`` ``VALIDATES`` the
+            Intent with ``measurable`` truthy (Spec 317)
+          - ``ambiguities_resolved`` — no ``CLARIFIES``-linked ``ClarificationQuestion``
+            is still ``pending`` (Spec 311)
+          - ``grounded``             — a ``Citation`` ``GROUNDS`` the Intent (Spec 312)
+          - ``scope_bounded``        — a ``ScopeBoundary`` ``BOUNDS`` the Intent (Spec 318)
+
+        Signals whose source nodes/edges don't exist yet read False (missing), so
+        the score rises as the discovery children land — no second source of truth.
+        """
+        from .interview import DRAFT_FIELD_PREFIX
+        iid = intent_id or self.ctx.intent_id
+        intent = self.ctx.recall(iid) or {}
+        triple_ok = all(
+            str(intent.get(f, "")).strip()
+            and not str(intent.get(f, "")).startswith(DRAFT_FIELD_PREFIX)
+            for f in ("purpose", "deliverable", "acceptance"))
+        criteria = self.ctx.neighbors(iid, "VALIDATES", direction="in")
+        questions = self.ctx.neighbors(iid, "CLARIFIES", direction="in")
+        return {
+            "has_triple": triple_ok,
+            "acceptance_measurable": any(c.get("measurable") for c in criteria),
+            "ambiguities_resolved": not any(
+                q.get("status") == "pending" for q in questions),
+            "grounded": bool(self.ctx.neighbors(iid, "GROUNDS", direction="in")),
+            "scope_bounded": bool(self.ctx.neighbors(iid, "BOUNDS", direction="in")),
+        }

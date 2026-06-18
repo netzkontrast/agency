@@ -33,6 +33,11 @@ from agency.toolresult import ToolResult
 # triple, so a sharp user finishes early and a vague one runs the budget.
 _TRIPLE_FIELDS = ("purpose", "deliverable", "acceptance")
 
+# The sentinel prefix for a triple field not yet elicited — minted on an
+# incomplete interview so the draft Intent is a valid node. Spec 322's clarity
+# `has_triple` signal reads this to tell a real field from a draft placeholder.
+DRAFT_FIELD_PREFIX = "(draft — "
+
 _BEATS_CACHE: list | None = None
 
 
@@ -95,7 +100,11 @@ class InterviewCluster:
             "intent_id": intent_id,
             "beats": turns,
             "terminated_by": terminated_by,
-            "clarity_inputs": self._clarity_inputs(turns, triple),
+            # The signal bag Spec 322's clarity score reads — the SAME _base
+            # 5-signal helper (one source of truth, rule 4), scored on the
+            # just-minted draft (mostly unsatisfied until the discovery children
+            # ground/scope/validate it).
+            "clarity_inputs": self._clarity_inputs(intent_id),
         })
 
     # ── beat selection (Spec 147 Driver seam behind the NextBeat shape) ──
@@ -124,17 +133,10 @@ class InterviewCluster:
     def _derive_triple(self, turns: list) -> dict:
         """Positional projection of the non-empty answers onto the triple —
         purpose ← 1st, deliverable ← 2nd, acceptance ← 3rd. Missing fields get a
-        clear DRAFT placeholder so the draft Intent is a valid node (the clarity
-        gate Spec 322 reads ``clarity_inputs`` to see what is still unelicited)."""
+        clear DRAFT placeholder so the draft Intent is a valid node (Spec 322's
+        clarity ``has_triple`` signal reads the placeholder to tell a real field
+        from an unelicited one)."""
         vals = self._filled(turns)
         return {f: (vals[i] if i < len(vals)
-                    else f"(draft — {f} not yet elicited)")
+                    else f"{DRAFT_FIELD_PREFIX}{f} not yet elicited)")
                 for i, f in enumerate(_TRIPLE_FIELDS)}
-
-    def _clarity_inputs(self, turns: list, triple: dict) -> dict:
-        """The signal bag Spec 322's clarity score reads — derived, not pinned.
-        ``fields_filled`` counts REAL answers (not the draft placeholders)."""
-        filled = min(len(self._filled(turns)), len(_TRIPLE_FIELDS))
-        return {"turns": len(turns), "fields_filled": filled,
-                "total_fields": len(_TRIPLE_FIELDS),
-                "answered": len(self._filled(turns))}
