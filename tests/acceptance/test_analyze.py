@@ -520,12 +520,85 @@ def _has_analyze_extras(doctor_result):
     assert "analyze_extras" in doctor_result
 
 
-@then("the known extra tools are exactly ruff, bandit, and radon")
+@then("the reported extras include ruff, bandit, and radon")
 def _extras_set(doctor_result):
-    assert set(doctor_result["analyze_extras"]) == {"ruff", "bandit", "radon"}
+    # Subset invariant (rule 8): the core analyze toolchain is always reported;
+    # the set may grow (e.g. networkx, Spec 051) without breaking this contract.
+    assert {"ruff", "bandit", "radon"} <= set(doctor_result["analyze_extras"])
 
 
 @then("each status value is a non-empty string")
 def _extras_status(doctor_result):
     for tool, status in doctor_result["analyze_extras"].items():
         assert isinstance(status, str) and status, f"{tool!r} status must be non-empty"
+
+
+# ── Spec 051 — networkx cycle path + fan-in/out structural rules ───────────────
+
+@then("the A001 message shows a cycle path that returns to its start")
+def _a001_path(scan_findings):
+    hits = [f for f in scan_findings if f.rule == "A001"]
+    assert hits, "no A001 finding"
+    path_part = hits[0].message.split(":", 1)[1].strip()
+    nodes = [t.strip() for t in path_part.split("→")]
+    assert len(nodes) >= 3, hits[0].message       # a → b → a
+    assert nodes[0] == nodes[-1], hits[0].message  # the cycle closes
+
+
+@given("a Python package where one module imports nine siblings",
+       target_fixture="source_dir")
+def _fan_out_9(tmp_path):
+    d = str(tmp_path)
+    _write(d, "__init__.py", "")
+    for i in range(9):
+        _write(d, f"s{i}.py", "VALUE = 1\n")
+    _write(d, "hub.py", "".join(f"from . import s{i}\n" for i in range(9)))
+    return d
+
+
+@then('an A004 finding with severity "warn" is produced')
+def _a004_warn(scan_findings):
+    hits = [f for f in scan_findings if f.rule == "A004"]
+    assert any(h.severity == "warn" for h in hits), \
+        [(f.rule, f.severity) for f in scan_findings]
+
+
+@given("a Python package where one module is imported by eleven others",
+       target_fixture="source_dir")
+def _fan_in_11(tmp_path):
+    d = str(tmp_path)
+    _write(d, "__init__.py", "")
+    _write(d, "core.py", "VALUE = 1\n")
+    for i in range(11):
+        _write(d, f"m{i}.py", "from . import core\n")
+    return d
+
+
+@then('an A005 finding with severity "info" is produced')
+def _a005_info(scan_findings):
+    hits = [f for f in scan_findings if f.rule == "A005"]
+    assert hits and hits[0].severity == "info", \
+        [(f.rule, f.severity) for f in scan_findings]
+
+
+@given("a Python package with a god-module of high fan-in fan-out and LOC",
+       target_fixture="source_dir")
+def _god_module(tmp_path):
+    d = str(tmp_path)
+    _write(d, "__init__.py", "")
+    for i in range(8):
+        _write(d, f"d{i}.py", "VALUE = 1\n")
+    body = "".join(f"from . import d{i}\n" for i in range(8))
+    from agency.capabilities.analyze._architecture import _GOD_LOC
+    body += "".join(f"X{j} = {j}\n" for j in range(_GOD_LOC + 20))  # > _GOD_LOC
+    _write(d, "god.py", body)
+    for i in range(10):
+        _write(d, f"u{i}.py", "from . import god\n")
+    return d
+
+
+@then('an A006 finding with severity "warn" is produced')
+def _a006_warn(scan_findings):
+    hits = [f for f in scan_findings if f.rule == "A006"]
+    assert hits and hits[0].severity == "warn", \
+        [(f.rule, f.severity) for f in scan_findings]

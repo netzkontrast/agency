@@ -1,7 +1,7 @@
 ---
 spec: 297
 title: specialist-personas-capability
-status: Partial (Slice 1 shipped)
+status: Shipped
 depends_on: [294, 295, 296]
 clusters: [develop, delegate]
 vision_goals: [4]

@@ -273,6 +273,13 @@ def hook(ctx):
     inject = result.get("inject") if isinstance(result, dict) else ""
     if inject:
         click.echo(inject)
+    # Spec 195 Slice 2 — a PreToolUse handler may return a `hookSpecificOutput`
+    # (the agency MCP call(s) + schema the agent should use INSTEAD of the raw
+    # tool). Emit it as JSON on stdout so Claude Code folds the
+    # `additionalContext` into the pending tool call's context.
+    hso = result.get("hookSpecificOutput") if isinstance(result, dict) else None
+    if hso:
+        click.echo(json.dumps({"hookSpecificOutput": hso}))
     return rc
 
 

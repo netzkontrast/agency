@@ -1,7 +1,7 @@
 ---
 spec: 296
 title: select-approach-capability
-status: Partial (Slice 1 shipped)
+status: Shipped
 depends_on: [040, 294, 295]
 clusters: [develop, analyze]
 vision_goals: [1, 4]

@@ -17,6 +17,7 @@ list (e.g. `client`, `caps`) are supplied by the engine, not the caller.
 from __future__ import annotations
 
 import inspect
+import re
 from contextlib import asynccontextmanager
 
 from fastmcp import Context, FastMCP
@@ -110,31 +111,202 @@ def _capability_tier(registry) -> list:
     return tier
 
 
-def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
-    """Spec 195 Slice 1 — derive the capability verb a raw tool call
-    BYPASSED, plus a short argument summary for the BoundaryUse node.
+_SPEC_MD_RE = re.compile(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$")
 
-    Hard-coded routing for the most common bypass patterns (mirrors the
-    Spec 280 dispatcher advisory hints). Slice 2 derives this from the
-    live registry via Spec 188 `suggest_drill`."""
+# ONE source of truth for raw-tool → agency-verb routing, read by BOTH the
+# BoundaryUse shadow (Slice 1 provenance, mutating tools) AND the PreToolUse
+# suggestion (Slice 2) so the two cannot drift. Each row:
+# (predicate(tool, tool_input) -> bool, verb, why, suggest).
+#
+# `suggest` is the correctness gate (Codex review #154). A route is SUGGESTED
+# only when the verb is a genuine agency COMPANION whose required args are known
+# up-front and which is reachable from a normal session. Suggestions are
+# ADVISORY — a companion that records provenance (Goal 2), NOT a drop-in
+# replacement for the raw tool and NOT a deny/block — so the additionalContext is
+# a nudge and the raw tool still runs (PreToolUse `additionalContext` is advisory
+# by design; we deliberately do not deny/`updatedInput`). Routes without a true
+# companion are shadow-only or omitted, never a false "call instead":
+#   - git commit → branch.commit_smart: composes the conventional message
+#     (companion run alongside the commit) → suggested.
+#   - spec.md edit → dogfood.note: records the observation so it folds back
+#     (Goal 6 companion to the edit) → suggested.
+#   - git push → branch.finish: merge/pr, NOT a push — shadow-only.
+#   - Grep/Glob: `search` is capability-DISCOVERY, not code search — omitted.
+#   - Task: subagent.develop needs post-work gate results — omitted.
+# Suggested verbs MUST resolve to a live MCP tool —
+# `test_every_suggestion_resolves_to_a_live_verb` guards it (dormant-surface).
+# AGENCY-DRIFT: raw-tool-routes — follow-up: derive via recommend.route / Spec
+# 188 suggest_drill so the surface is discovered, not memorized.
+_RAW_ROUTES: list[tuple] = [
+    (lambda t, tin: t == "Bash"
+        and str(tin.get("command") or "").strip().startswith("git commit"),
+     "branch.commit_smart",
+     "companion: compose the conventional-commit message via this verb",
+     True),
+    (lambda t, tin: t == "Bash"
+        and str(tin.get("command") or "").strip().startswith("git push"),
+     "branch.finish", "finish the branch (merge/pr) through the verb when done",
+     False),
+    (lambda t, tin: t in ("Write", "Edit")
+        and bool(_SPEC_MD_RE.search(str(tin.get("file_path") or ""))),
+     "dogfood.note",
+     "companion: also record a spec observation so it folds back (Goal 6)",
+     True),
+]
+# The guard's inventory of every SUGGESTED target (verb, why).
+_ALL_SUGGESTIONS: list[tuple[str, str]] = [(v, w) for _p, v, w, s in _RAW_ROUTES if s]
+
+
+def _route_for(tool: str, tool_input: dict):
+    """The first `_RAW_ROUTES` row whose predicate matches → `(verb, why)`, or
+    None. Used by the BoundaryUse SHADOW (provenance — any matching route)."""
+    for pred, verb, why, _suggest in _RAW_ROUTES:
+        if pred(tool, tool_input or {}):
+            return verb, why
+    return None
+
+
+def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
+    """Spec 195 Slice 1 — the capability verb a raw MUTATING tool call BYPASSED
+    (for the BoundaryUse node) + a short argument summary. Reads the shared
+    `_RAW_ROUTES` table; falls back to a generic shell.run / capability_verb_for
+    shadow for an unmatched mutating tool. Only Write/Edit/Bash reach here (see
+    `_default_hook_handler`)."""
+    route = _route_for(tool, payload)
     if tool == "Bash":
         cmd = str(payload.get("command") or "").strip()
+        if route is not None:
+            return route[0], cmd[:200]
         head = cmd.split()[0] if cmd else ""
-        if cmd.startswith("git commit"):
-            return "branch.commit_smart", cmd[:200]
-        if cmd.startswith("git push"):
-            return "branch.finish_branch", cmd[:200]
-        if (cmd.startswith("pytest") or cmd.startswith("python -m pytest")
-                or cmd.startswith("python3 -m pytest")):
-            return "develop.test", cmd[:200]
         return f"shell.run({head!r})", cmd[:200]
     if tool in ("Write", "Edit"):
-        import re as _re
         path = str(payload.get("file_path") or "")
-        if _re.search(r"(^|/)Plan/\d{3}-[^/]+/spec\.md$", path):
-            return "dogfood.observe", path[:200]
+        if route is not None:
+            return route[0], path[:200]
         return f"capability_verb_for({path!r})", path[:200]
     return "", ""
+
+
+def _suggest_mcp_calls(event: dict) -> list[tuple[str, str]]:
+    """Spec 195 Slice 2 — the agency MCP call a raw tool should use INSTEAD,
+    from `_RAW_ROUTES`. Only `suggest=True` rows are emitted (true effect-
+    equivalents whose args are known up-front — Codex review #154)."""
+    tool = (event or {}).get("tool_name") or ""
+    tin = (event or {}).get("tool_input") or {}
+    for pred, verb, why, suggest in _RAW_ROUTES:
+        if suggest and pred(tool, tin):
+            return [(verb, why)]
+    return []
+
+
+def _ann_to_json_type(annotation) -> str:
+    """Best-effort Python annotation → JSON-schema type for a verb param.
+
+    Handles BOTH real types and STRING annotations: capability verbs use
+    `from __future__ import annotations`, so `inspect.signature` yields strings
+    ('str', 'dict', 'int | None'); comparing those against real type objects
+    would mistype every param as 'string' (the bug cli._ann_kind also guards)."""
+    import typing
+    name = (annotation if isinstance(annotation, str)
+            else getattr(annotation, "__name__", ""))
+    by_name = {"str": "string", "int": "integer", "float": "number",
+               "bool": "boolean", "dict": "object", "list": "array",
+               "Dict": "object", "List": "array"}
+    # A `str | None` string annotation starts with the base type name.
+    base = name.split("|", 1)[0].split("[", 1)[0].strip()
+    if base in by_name:
+        return by_name[base]
+    origin = typing.get_origin(annotation)
+    if origin is dict:
+        return "object"
+    if origin is list:
+        return "array"
+    return "string"
+
+
+def _verb_input_schema(engine, cap: str, verb: str) -> dict | None:
+    """The JSON-schema of a capability verb's CALLER params (intent_id/agent_id
+    are auto-injected at the wire, so omitted). Derived from the live registry
+    signature — Spec 195 Slice 2's "derive from the registry"."""
+    import inspect
+    try:
+        capability = engine.registry.get(cap)
+    except Exception:
+        return None
+    spec = getattr(capability, "verbs", {}).get(verb)
+    if spec is None:
+        return None
+    fn = getattr(spec, "fn", None) or (spec.get("fn") if isinstance(spec, dict) else None)
+    inject = set(getattr(spec, "inject", None)
+                 or (spec.get("inject", []) if isinstance(spec, dict) else []))
+    if fn is None:
+        return None
+    props: dict = {}
+    required: list[str] = []
+    for name, p in inspect.signature(fn).parameters.items():
+        if name in ("self", "intent_id", "agent_id") or name in inject:
+            continue
+        if p.kind in (inspect.Parameter.VAR_POSITIONAL,
+                      inspect.Parameter.VAR_KEYWORD):
+            continue        # *args/**kwargs aren't wire params (mirrors _wire)
+        props[name] = {"type": _ann_to_json_type(p.annotation)}
+        if p.default is inspect.Parameter.empty:
+            required.append(name)
+    # The wire auto-injects intent_id from AGENCY_INTENT, but when that env var
+    # is unset (or the agent must target a specific intent) the call hits the
+    # SERVES guard. Surface intent_id as an OPTIONAL param so the agent can pass
+    # it (Codex review #154); it stays out of `required` (the env default wins).
+    props["intent_id"] = {"type": "string",
+                          "description": "optional — defaults from AGENCY_INTENT"}
+    return {"type": "object", "properties": props, "required": required}
+
+
+def _resolve_mcp_suggestion(engine, suggestion: str) -> dict | None:
+    """Resolve a `cap.verb` companion to a callable form.
+
+    Codex review #154: in this plugin's code-mode the PUBLIC MCP tools are
+    `search`/`get_schema`/`execute` — `capability_<cap>_<verb>` is NOT directly
+    invocable from a normal session; verbs are reached via `execute`'s
+    `call_tool`. So a suggestion resolves to `mcp__agency__execute` plus the
+    `call_tool` snippet + the verb's input schema, not a bare `capability_*`."""
+    if "." not in suggestion:
+        return None
+    cap, verb = suggestion.split(".", 1)
+    schema = _verb_input_schema(engine, cap, verb)
+    if schema is None:
+        return None
+    tool = f"capability_{cap}_{verb}"
+    return {"mcp_tool": "mcp__agency__execute", "verb": tool, "schema": schema,
+            "snippet": f'await call_tool("{tool}", {{...}})'}
+
+
+def _pre_tool_use_handler(engine, event: dict) -> dict:
+    """Spec 195 Slice 2 — the PreToolUse handler. Records the Event + BoundaryUse
+    (via the default handler) and, when the raw tool has an agency COMPANION
+    verb, returns it (reachable via `mcp__agency__execute`) + its schema as
+    `hookSpecificOutput.additionalContext`. ADVISORY (a provenance companion,
+    Goal 2 — not a replacement, not a deny): the raw tool still runs."""
+    import json as _json
+    base = _default_hook_handler(engine, event)
+    calls = []
+    for suggestion, why in _suggest_mcp_calls(event):
+        resolved = _resolve_mcp_suggestion(engine, suggestion)
+        if resolved is not None:
+            calls.append({**resolved, "why": why})
+    if calls:
+        base["agency_suggestion"] = calls
+        lines = ["This raw tool bypasses agency provenance. Advisory — run the "
+                 "agency companion via `mcp__agency__execute` (the raw tool still "
+                 "runs; this is a nudge, not a replacement):"]
+        for c in calls:
+            lines.append(f"- {c['why']}\n"
+                         f"  via `{c['mcp_tool']}`: {c['snippet']}\n"
+                         f"  args schema: {_json.dumps(c['schema'], sort_keys=True)}")
+        base["hookSpecificOutput"] = {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "\n".join(lines),
+        }
+    return base
 
 
 def _default_hook_handler(engine, event: dict) -> dict:
@@ -409,6 +581,7 @@ class Engine:
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
         self._hook_handlers = {"*": _default_hook_handler,
+                               "PreToolUse": _pre_tool_use_handler,
                                "UserPromptSubmit": _user_prompt_submit_handler,
                                "SessionEnd": _session_end_handler}
 

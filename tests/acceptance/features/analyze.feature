@@ -152,10 +152,30 @@ Feature: analyze capability — code analysis and graph census (Spec 042, Spec 0
     When I invoke the architecture scanner on that package
     Then no A001 finding is produced
 
+  Scenario: a circular import reports the shortest cycle path
+    Given a Python package with a circular import between two modules
+    When I invoke the architecture scanner on that package
+    Then the A001 message shows a cycle path that returns to its start
+
+  Scenario: architecture scanner flags a high fan-out module as A004
+    Given a Python package where one module imports nine siblings
+    When I invoke the architecture scanner on that package
+    Then an A004 finding with severity "warn" is produced
+
+  Scenario: architecture scanner flags a high fan-in module as A005
+    Given a Python package where one module is imported by eleven others
+    When I invoke the architecture scanner on that package
+    Then an A005 finding with severity "info" is produced
+
+  Scenario: architecture scanner flags a god-module as A006
+    Given a Python package with a god-module of high fan-in fan-out and LOC
+    When I invoke the architecture scanner on that package
+    Then an A006 finding with severity "warn" is produced
+
   # ── external deps integration ───────────────────────────────────────────────
 
   Scenario: agency_doctor reports analyze_extras with known tool names
     When I call agency_doctor
     Then the payload includes analyze_extras
-    And the known extra tools are exactly ruff, bandit, and radon
+    And the reported extras include ruff, bandit, and radon
     And each status value is a non-empty string

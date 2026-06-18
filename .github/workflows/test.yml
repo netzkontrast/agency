@@ -92,13 +92,11 @@ jobs:
       # AttributeError waiting to happen — should be `Codes.X`). Known-
       # historical offenders enumerated in
       # `Plan/_planning/codes-coverage-baseline.txt`; the gate fails ONLY
-      # on regressions (new offenders NOT in the baseline).
-      # ADVISORY (2026-06-14): the Spec 286 OOP refactor moved offender call
-      # sites (baseline references stale line numbers), so this drifted
-      # pre-existing on main. Demoted to advisory until the baseline is
-      # refreshed; the acceptance suite is the gate.
-      - name: Codes-coverage lint (advisory)
-        continue-on-error: true
+      # on regressions (new offenders NOT in the baseline). The comparison
+      # keys offenders by (path, literal) as a multiset, so it tolerates
+      # line shifts; the baseline was refreshed after the Spec 286 refactor
+      # moved call sites between modules, restoring this from advisory.
+      - name: Codes-coverage lint
         run: |
           python scripts/check_codes_coverage.py --root agency \
             --baseline Plan/_planning/codes-coverage-baseline.txt --strict

@@ -1,7 +1,7 @@
 # Overview — the four concepts, the wire contract, the bootstrap flow
 
 <!-- doc-source: docs/vision/CORE.md agency/engine.py agency/capability.py -->
-<!-- doc-hash: 75390d4049fbbf1d -->
+<!-- doc-hash: 5fd4784674202d30 -->
 
 The authoritative model is [../CORE.md](../CORE.md). This page is the
 engineering-level summary: what the pieces are and how a call flows through them.
@@ -33,9 +33,10 @@ substrate tools** plus a few bootstrap tools:
 - **`execute(code)`** → run code against the live verb surface **inside the sandbox**;
   only the return value crosses back (**code-mode** — CORE.md:9-18).
 
-Bootstrap tools (the documented exceptions): `intent_bootstrap`, `agency_welcome`,
-`agency_doctor`, `lifecycle_gate`, `memory_graph_provenance`. This fixed set is guarded
-by `tests/test_naming_audit.py`.
+Bootstrap tools (the documented exceptions, the eight in `SUBSTRATE_TOOLS`):
+`intent_bootstrap`, `agency_welcome`, `agency_doctor`, `agency_install`, `agency_reload`,
+`lifecycle_gate`, `memory_graph_provenance`, `hook_event`. This set is guarded by the
+`tests/acceptance/features/capability_surface.feature` substrate-tools scenario.
 
 **Code-mode is the contract.** An agent does not call verbs one-RPC-at-a-time; it writes
 a short program that chains verbs in the sandbox (`call_tool("capability_x_y", {...})`),
@@ -46,7 +47,7 @@ and only the conclusion returns. This is why adding verbs never widens the wire.
 1. **Bootstrap** (`Engine.__init__`, `engine.py`): build the core `Ontology`; discover
    every `CapabilityBase` under `agency/capabilities/` (+ any `extra_capabilities`);
    merge each capability's `OntologyExtension` **strictly** onto core; register its
-   verbs; build the `DriverRegistry` (the six boundaries); validate each capability's
+   verbs; build the `DriverRegistry` (the nine boundaries, lazily wired); validate each capability's
    docstring-derived `SkillDoc`. Nothing is written to the graph at bootstrap.
 2. **Intent first**: every verb requires an `Intent`. An agent mints one via
    `intent_bootstrap` (or `agency intent …` on the CLI). `Registry.invoke` rejects any

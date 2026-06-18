@@ -23,6 +23,17 @@ dependencies = [
     # capabilities directly. (Already present transitively via fastmcp; pinned
     # direct because cli.py imports it.)
     "click>=8.1",
+    # User directive (2026-06-17): the analyze static-analysis toolchain is now a
+    # DEFAULT dependency (was the optional `[analyze]` extra) — `analyze` is core
+    # enough that the engine should ship ready to lint/scan/measure out of the box.
+    # ruff (700+ lint rules) · bandit (CWE security) · radon (cyclomatic/MI).
+    # networkx (Spec 051) backs analyze.architecture's cycle enumeration +
+    # fan-in/out degree metrics; the wrappers still degrade gracefully if a tool
+    # is somehow absent, and agency_doctor reports the live versions.
+    "ruff>=0.6",
+    "bandit>=1.7",
+    "radon>=6",
+    "networkx>=3.2",
 ]
 
 # AGENCY-DRIFT: deps-extras — adding/removing an extra here means:
@@ -77,19 +88,14 @@ all = [
 recall = [
     "sentence-transformers>=2.0",
 ]
-# Spec 050 — optional industrial Python static-analysis tools used by
-# the analyze capability. When installed, _ruff.py / _bandit.py /
-# _radon.py wrappers compose ruff (700+ lint rules), bandit (CWE
-# security), and radon (cyclomatic complexity) findings ALONGSIDE the
-# agency-native Q*/S*/P*/A* rules. Without this extra, the analyze
-# capability still ships Spec 042 v1 findings (Q001-Q004, S001-S004,
-# P001-P003, A001-A003); each wrapper degrades silently when its tool
-# is missing. agency_doctor reports the live extras.
-analyze = [
-    "ruff>=0.6",
-    "bandit>=1.7",
-    "radon>=6",
-]
+# Spec 050 / Spec 051 — the analyze static-analysis toolchain (ruff · bandit ·
+# radon · networkx) GRADUATED to a default dependency per the 2026-06-17 user
+# directive (see `[project].dependencies`). This extra is kept as an EMPTY
+# back-compat alias so existing `agency[analyze]` references (the `dev`
+# self-ref, the CI install line, third-party installs) keep resolving. The
+# `_ruff.py`/`_bandit.py`/`_radon.py`/`_architecture.py` wrappers still degrade
+# gracefully if a tool is somehow absent; agency_doctor reports live versions.
+analyze = []
 # Spec 082 — optional Anthropic SDK for AUTHORITATIVE token counting via
 # `messages.count_tokens` (the token-economy gate's measurement). Without it, the
 # TokenCounter boundary falls back to tiktoken (a dev dep) then a char//4 proxy —

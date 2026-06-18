@@ -253,16 +253,16 @@ def _bu_tool(hook_engine):
     assert bu["tool"] == "Bash"
 
 
-@then("the verb_shadow is develop.test")
+@then("the verb_shadow is shell.run('pytest')")
 def _shadow_test(hook_engine):
     bu = hook_engine.memory.find("BoundaryUse")[0]
-    assert bu["verb_shadow"] == "develop.test"
+    assert bu["verb_shadow"] == "shell.run('pytest')"
 
 
-@then("the verb_shadow is dogfood.observe")
+@then("the verb_shadow is dogfood.note")
 def _shadow_observe(hook_engine):
     bu = hook_engine.memory.find("BoundaryUse")[0]
-    assert bu["verb_shadow"] == "dogfood.observe"
+    assert bu["verb_shadow"] == "dogfood.note"
 
 
 @then("no BoundaryUse node is created")
@@ -613,3 +613,67 @@ def _analytics_cross(hook_engine, active_intent):
     a = _analytics(hook_engine, active_intent)
     assert a["session_count"] >= 1, a
     assert any(row["session_id"] == "s9" for row in a["busiest_sessions"]), a
+
+
+# ── Spec 195 Slice 2 — PreToolUse → agency MCP suggestion + schema ─────────────
+from pytest_bdd import parsers as _parsers  # noqa: E402
+
+
+@when(_parsers.parse('a PreToolUse event fires for a "{cmd}" Bash command'),
+      target_fixture="hook_result")
+def _pretooluse_bash(hook_engine, cmd):
+    return hook_engine.dispatch_hook(
+        {"hook_event_name": "PreToolUse", "session_id": "s1",
+         "tool_name": "Bash", "tool_input": {"command": cmd}})
+
+
+@when("a PreToolUse event fires for a Grep tool", target_fixture="hook_result")
+def _pretooluse_grep(hook_engine):
+    return hook_engine.dispatch_hook(
+        {"hook_event_name": "PreToolUse", "session_id": "s1",
+         "tool_name": "Grep", "tool_input": {"pattern": "foo"}})
+
+
+@when("a PreToolUse event fires for a Read tool", target_fixture="hook_result")
+def _pretooluse_read(hook_engine):
+    return hook_engine.dispatch_hook(
+        {"hook_event_name": "PreToolUse", "session_id": "s1",
+         "tool_name": "Read", "tool_input": {"file_path": "/x.py"}})
+
+
+@then(_parsers.parse('the hook returns an agency_suggestion for "{mcp_tool}"'))
+def _has_suggestion(hook_result, mcp_tool):
+    sugg = hook_result.get("agency_suggestion") or []
+    assert any(s["mcp_tool"] == mcp_tool for s in sugg), hook_result
+
+
+@then("the suggestion carries a JSON object schema for the call")
+def _suggestion_schema(hook_result):
+    sugg = hook_result["agency_suggestion"]
+    assert sugg and isinstance(sugg[0]["schema"], dict)
+    assert sugg[0]["schema"].get("type") == "object", sugg[0]
+
+
+@then("the additionalContext names the execute companion and its schema")
+def _additional_context(hook_result):
+    ctx = hook_result.get("hookSpecificOutput", {}).get("additionalContext", "")
+    assert "mcp__agency__execute" in ctx and "schema" in ctx, ctx
+    assert "capability_branch_commit_smart" in ctx, ctx
+
+
+@then("the hook returns no agency_suggestion")
+def _no_suggestion(hook_result):
+    assert not hook_result.get("agency_suggestion"), hook_result
+
+
+def test_every_suggestion_resolves_to_a_live_verb():
+    """Dormant-surface guard (CLAUDE.md): every PreToolUse suggestion target must
+    resolve to a real MCP tool against the live registry — no dead branch."""
+    from agency.engine import _ALL_SUGGESTIONS, _resolve_mcp_suggestion
+    eng = Engine(tempfile.mktemp(suffix=".db"))
+    try:
+        for suggestion, _why in _ALL_SUGGESTIONS:
+            assert _resolve_mcp_suggestion(eng, suggestion) is not None, \
+                f"dead suggestion target: {suggestion!r}"
+    finally:
+        eng.memory.close()

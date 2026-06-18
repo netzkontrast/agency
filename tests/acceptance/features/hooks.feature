@@ -41,15 +41,15 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     And the verb_shadow is branch.commit_smart
     And the BoundaryUse tool is Bash
 
-  Scenario: raw Bash pytest under active intent records BoundaryUse with verb_shadow develop.test
+  Scenario: raw Bash pytest under active intent records BoundaryUse with a shell.run shadow
     Given a confirmed intent set as AGENCY_INTENT
     When a PreToolUse Bash event fires with command pytest tests/
-    Then the verb_shadow is develop.test
+    Then the verb_shadow is shell.run('pytest')
 
-  Scenario: raw Edit on a spec under active intent records BoundaryUse with verb_shadow dogfood.observe
+  Scenario: raw Edit on a spec under active intent records BoundaryUse with verb_shadow dogfood.note
     Given a confirmed intent set as AGENCY_INTENT
     When a PreToolUse Edit event fires with file_path Plan/280-foo/spec.md
-    Then the verb_shadow is dogfood.observe
+    Then the verb_shadow is dogfood.note
 
   Scenario: PostToolUse Bash does not record BoundaryUse — bypass detection fires only at PreToolUse
     Given a confirmed intent set as AGENCY_INTENT
@@ -142,3 +142,22 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     Given a confirmed intent set as AGENCY_INTENT
     When a UserPromptSubmit then a PostToolUse event fire in session s9
     Then cross-session analytics report a positive session count and a busiest list
+
+  # ── Spec 195 Slice 2 — PreToolUse returns the agency MCP call + schema ──────
+
+  Scenario: a PreToolUse on git commit suggests the branch.commit_smart companion via execute
+    Given a confirmed intent set as AGENCY_INTENT
+    When a PreToolUse event fires for a "git commit -m x" Bash command
+    Then the hook returns an agency_suggestion for "mcp__agency__execute"
+    And the suggestion carries a JSON object schema for the call
+    And the additionalContext names the execute companion and its schema
+
+  Scenario: a PreToolUse on a Grep suggests nothing — search is discovery, not code search
+    Given a confirmed intent set as AGENCY_INTENT
+    When a PreToolUse event fires for a Grep tool
+    Then the hook returns no agency_suggestion
+
+  Scenario: a PreToolUse on a tool with no agency equivalent suggests nothing
+    Given a confirmed intent set as AGENCY_INTENT
+    When a PreToolUse event fires for a Read tool
+    Then the hook returns no agency_suggestion

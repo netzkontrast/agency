@@ -228,3 +228,50 @@ Then:   monotonic == False; the consumer must surface this as a
 - **Spec 280 Slice 2 integration** — the bypass-rate baseline
   drives the WARN→error flip on the dispatcher's clearest routes
   (`git commit` / `git push` → exit 2 + the routing advice).
+
+## Followup — PreToolUse → agency MCP suggestion (Spec 195 Slice 2, 2026-06-17)
+
+**Shipped (user directive — "when a hook fires and the plugin detects this
+should be an MCP call, return the MCP functions + schema").** Spec 195 Slice 1's
+`_verb_shadow_for` flagged "Slice 2 derives this from the live registry"; this
+delivers it as a returning suggestion:
+
+- **One shared `_RAW_ROUTES` table** (`agency/engine.py`) maps a raw tool +
+  payload to the agency call — read by BOTH `_verb_shadow_for` (the Slice-1
+  BoundaryUse shadow) and `_suggest_mcp_calls` (the Slice-2 suggestion) so they
+  cannot drift (the /simplify review caught the prior two-table duplication).
+  Each row carries a `suggest` flag. Correctness gate (Codex review #154 — the
+  suggestion is an ADVISORY companion, not a "call instead", and additionalContext
+  does NOT block the raw tool): a route is `suggest=True` only when the verb is a
+  genuine companion whose args are known up-front. Suggested companions:
+  `git commit` → `branch.commit_smart` (compose the conventional message);
+  Write/Edit on a `Plan/NNN-*/spec.md` → `dogfood.note` (record the observation
+  so it folds back, Goal 6). Shadow-only: `git push` → `branch.finish` (merge/pr,
+  not a push). Omitted entirely: Grep/Glob (`search` is capability DISCOVERY, not
+  code search); Task/Agent (`subagent.develop` needs post-work gate inputs);
+  pytest/WebFetch (no `develop.test`/`research.fetch` verb). Follow-up
+  `# AGENCY-DRIFT: raw-tool-routes`: derive via `recommend.route` once a
+  command-prefix matcher exists.
+- **`_verb_input_schema(engine, cap, verb)`** derives the call's JSON schema
+  from the LIVE registry verb signature (`*args`/`**kwargs` skipped; an OPTIONAL
+  `intent_id` surfaced so a no-`AGENCY_INTENT` session can target an intent).
+- **`_resolve_mcp_suggestion`** resolves a companion verb to
+  `mcp__agency__execute` + a `call_tool("capability_<cap>_<verb>", {…})` snippet
+  (Codex review #154 — `capability_*` is NOT a directly-callable public tool in
+  code-mode; verbs are reached through `execute`).
+- **`_pre_tool_use_handler`** (registered for `PreToolUse`) records the
+  Event + BoundaryUse via the default handler, then attaches an ADVISORY
+  `hookSpecificOutput.additionalContext` (the raw tool still runs) naming the
+  execute companion + snippet + args schema, plus the `agency_suggestion` list.
+- **CLI wire (`agency hook`)** now emits the `hookSpecificOutput` JSON on stdout
+  so Claude Code folds it into the pending tool call's context — the piece that
+  makes the suggestion actually reach the agent. Dogfooded live via
+  `echo '{...PreToolUse git commit...}' | agency hook`.
+
+**Tests:** 3 acceptance scenarios in `tests/acceptance/features/hooks.feature`
+(git-commit → branch.commit_smart + schema + additionalContext; Grep →
+mcp__agency__search; Read → no suggestion). 28 hooks + 67 install/cli/substrate
+scenarios green; drift clean.
+
+**Still:** broaden the raw→verb map as the surface grows; optional
+`permissionDecision:"ask"` mode to make the nudge blocking (today advisory).

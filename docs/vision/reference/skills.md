@@ -1,7 +1,7 @@
 # Skills — schemas, the walker, derivation, emission
 
 <!-- doc-source: agency/skill.py agency/skill_emit.py agency/disclosure.py agency/capabilities/skills/_main.py agency/capabilities/develop/_main.py -->
-<!-- doc-hash: ddf7ff94de2b9b02 -->
+<!-- doc-hash: 1f5b9077049053d7 -->
 
 A **skill** is a phase-graph (a Lifecycle template) a capability ships on its
 `ontology.skills`. Skills are how workflow guard-rails become *walkable* discipline
@@ -23,7 +23,7 @@ modules.
 ## Two sources: authored vs derived (Spec 080/081)
 
 - **Authored** — a capability declares real disciplines on `ontology.skills`
-  (`develop`'s 9, `jules`'s 6, `intent`'s `critical-thinking`, `music`'s gated skills).
+  (`develop`'s 11, `jules`'s 6, `intent`'s `critical-thinking`, `music`'s gated skills).
 - **Derived** — a capability that authored *none* gets a `<cap>-usage` walk derived from
   its verbs (clustered by role, ≤6 phases, hard confirm gate) by `derive_usage_skill`
   in `as_capability()`. Authored skills override the derived default.
@@ -40,10 +40,10 @@ disclosure, not a single dump.
 
 - **`intent.suggests(called_capability, called_verb, called_state, floor)`** — projects
   the serving intent + last-state to the best applicable skill, evaluating each skill's
-  `applies_when` **Matcher** (`pattern` regex, or `verb_code` decider — cycle-checked;
-  `llm_select` deferred).
-- **`skills.find` / `render` / `lint`** — the first-class `skills` capability to
-  enumerate, read, and validate skills.
+  `applies_when` **Matcher** (`pattern` regex, `verb_code` decider — cycle-checked — or
+  `llm_select`, which asks the `llm` Driver, Spec 092 G3).
+- **`skills.find` / `render` / `lint` / `rank`** — the first-class `skills` capability to
+  enumerate, read, validate, and rank skills.
 - **`skills.index`** — promotes `ontology.skills` into the graph as `Skill` + `Phase`
   nodes (queryable via `analyze.graph`).
 
