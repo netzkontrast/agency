@@ -6,7 +6,7 @@ relocation into a cluster mixin composed into the single NovelCapability.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 
 class StoryTimeMixin:
@@ -30,7 +30,7 @@ class StoryTimeMixin:
         """
         if self.ctx.recall(novel_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+                Codes.NOT_FOUND, f"novel_id={novel_id!r} not found")
         eid = self.ctx.record_and_serve("StoryTimeEvent", {
             "novel": novel_id, "label": label, "when_story": when_story,
         })
@@ -39,7 +39,7 @@ class StoryTimeMixin:
         if scene_id:
             if self.ctx.recall(scene_id) is None:
                 return ToolResult.failure(
-                    "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                    Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
             self.ctx.link(scene_id, eid, "HAPPENS_AT")
             out["scene_id"] = scene_id
         return ToolResult.success(data=out)
@@ -54,10 +54,10 @@ class StoryTimeMixin:
         """
         if self.ctx.recall(event_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"event_id={event_id!r} not found")
+                Codes.NOT_FOUND, f"event_id={event_id!r} not found")
         if self.ctx.recall(scene_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
         self.ctx.link(event_id, scene_id, "REVEALED_IN")
         return ToolResult.success(data={
             "event_id": event_id, "scene_id": scene_id,
@@ -80,7 +80,7 @@ class StoryTimeMixin:
         scene = self.ctx.recall(scene_id)
         if scene is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
         anchors = self.ctx.neighbors(scene_id, "HAPPENS_AT", direction="out")
         if not anchors:
             return ToolResult.success(data={
@@ -114,7 +114,7 @@ class StoryTimeMixin:
         """
         if self.ctx.recall(scene_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
         reveals = self.ctx.neighbors(scene_id, "REVEALED_IN", direction="in")
         return ToolResult.success(data={
             "reveals": [
@@ -138,14 +138,14 @@ class StoryTimeMixin:
         scene = self.ctx.recall(scene_id)
         if scene is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
         # Spec 282 Workstream C — validate ALL preconditions BEFORE any write,
         # so a bad predecessor never leaves an orphan NarrativeBeat node (the
         # create-node-then-fail-edge partial write). The node + its PRECEDES
         # edge land together or not at all.
         if predecessor_id and self.ctx.recall(predecessor_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND",
+                Codes.NOT_FOUND,
                 f"predecessor_id={predecessor_id!r} not found")
         novel_id = (self.ctx.recall(scene.get("chapter", "")) or {}
                     ).get("novel", "")
@@ -169,7 +169,7 @@ class StoryTimeMixin:
         """
         if self.ctx.recall(novel_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+                Codes.NOT_FOUND, f"novel_id={novel_id!r} not found")
         beats = [b for b in self.ctx.find("NarrativeBeat")
                   if b.get("novel") == novel_id]
         # Build predecessor map by querying PRECEDES.

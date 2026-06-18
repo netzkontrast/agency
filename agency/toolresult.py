@@ -136,16 +136,19 @@ class Codes:
     INTERNAL = "internal"
     UNSPECIFIED = "unspecified"   # ok=False with no structured error
     # Spec 151 Slice 1 — promoted from heavily-used literal-string call
-    # sites (e.g. novel cap argument-validation paths). Value MUST stay
-    # uppercase "INVALID_ARGUMENT" to match the existing live convention
-    # (40+ call sites + assertions across tests/test_music_lifecycle.py,
-    # tests/test_novel_lifecycle*.py, tests/test_thinking_capability.py,
-    # tests/test_prompt_capability.py, …). Migrating call sites from the
-    # literal `"INVALID_ARGUMENT"` to `Codes.INVALID_ARGUMENT` must NOT
-    # change the emitted `TypedError.code`. Other Codes constants use a
-    # lowercase value (Spec 059 convention); this constant is the
-    # documented exception so the backfill stays a pure refactor.
-    INVALID_ARGUMENT = "INVALID_ARGUMENT"
+    # sites (e.g. novel cap argument-validation paths). Spec 151 Slice 4
+    # canonicalized this value to lowercase: EVERY Codes member's value is
+    # the lowercase of its name (Spec 059 convention) — there is no
+    # documented exception. The case flip changes the emitted
+    # `TypedError.code` from "INVALID_ARGUMENT" to "invalid_argument";
+    # tests asserting the code value were updated to the lowercase form.
+    INVALID_ARGUMENT = "invalid_argument"
+    # Spec 151 Slice 4 — promoted from heavily-used literal-string failure
+    # codes (lowercase per Spec 059).
+    BAD_REQUEST = "bad_request"
+    DRIVER_REFUSAL = "driver_refusal"
+    SCENE_OVERFLOW_LOST = "scene_overflow_lost"
+    VOICE_BRIEF_MISSING = "voice_brief_missing"
     # Spec 150 — dogfood amendment classifier failure modes.
     AMENDMENT_BAD_SPEC = "amendment_bad_spec"     # proposal cites a non-existent spec_id
     AMENDMENT_NO_SOURCE = "amendment_no_source"   # source_reflections is empty (provenance break)

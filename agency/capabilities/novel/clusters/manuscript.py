@@ -6,7 +6,7 @@ relocation into a cluster mixin composed into the single NovelCapability.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 from .._main import (
     CONTENT_WARNINGS,
     _word_tokens,
@@ -141,7 +141,7 @@ class ManuscriptMixin:
         if not all(checks.values()):
             failed = [k for k, v in checks.items() if not v]
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"pre-draft: missing {failed}")
         return ToolResult.success(data={
             "passed": True, "checks": checks,
@@ -172,7 +172,7 @@ class ManuscriptMixin:
         if not all(checks.values()):
             failed = [k for k, v in checks.items() if not v]
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"beta-ready: missing {failed}")
         return ToolResult.success(data={
             "passed": True, "checks": checks,
@@ -210,7 +210,7 @@ class ManuscriptMixin:
         if not all(checks.values()):
             failed = [k for k, v in checks.items() if not v]
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"query-ready: missing {failed}; warnings={warnings_hit}")
         return ToolResult.success(data={
             "passed": True, "checks": checks,
@@ -248,7 +248,7 @@ class ManuscriptMixin:
         if not all(checks.values()):
             failed = [k for k, v in checks.items() if not v]
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"publish-ready: missing {failed}; gaps={gaps}")
         return ToolResult.success(data={
             "passed": True, "checks": checks,
@@ -261,12 +261,12 @@ class ManuscriptMixin:
         drv = self._maybe_format_driver()
         if drv is None:
             return {"_fail": ToolResult.failure(
-                "DEPENDENCY_MISSING",
+                Codes.DEPENDENCY_MISSING,
                 "novel_format driver not wired (set engine._novel_production = True "
                 "or add the novel_format driver to Engine(drivers=...))")}
         if fmt not in drv.available_formats():
             return {"_fail": ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"format={fmt!r} not in driver.available_formats() "
                 f"= {drv.available_formats()}")}
         manuscript_result = self.ctx.call("novel", "render_manuscript",
@@ -369,7 +369,7 @@ class ManuscriptMixin:
         }
         if not all(checks.values()):
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"publication: missing "
                 f"{[k for k, v in checks.items() if not v]}")
         return ToolResult.success(data={

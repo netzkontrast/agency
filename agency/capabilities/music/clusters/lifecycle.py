@@ -13,7 +13,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 from __future__ import annotations
 
 from agency.capability import DriverMissing, requires_driver, verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ..ontology import IDEA_STATUS, TRACK_STATUS
 from ._base import (
@@ -50,7 +50,7 @@ class LifecycleCluster(_MusicBase):
         chain_next: ``music.promote_idea`` when an idea grows into an album.
         """
         if not text.strip():
-            return ToolResult.failure("INVALID_ARGUMENT", "idea text is required")
+            return ToolResult.failure(Codes.INVALID_ARGUMENT, "idea text is required")
         idea_id = self.ctx.record_and_serve("Idea", {"text": text, "status": "new"})
         self._autowire_music_drivers()    # Spec 117: wire-on-need before the direct get
         try:
@@ -79,7 +79,7 @@ class LifecycleCluster(_MusicBase):
         idea_node = self.ctx.recall(idea_id)
         if idea_node is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"idea_id={idea_id!r} not found")
+                Codes.NOT_FOUND, f"idea_id={idea_id!r} not found")
         slug = _slugify(title)
         album_id = self.ctx.record_and_serve("Album", {
             "artist": artist, "title": title, "type": type,
@@ -112,7 +112,7 @@ class LifecycleCluster(_MusicBase):
         """
         if status and status not in IDEA_STATUS:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"status={status!r} not in {sorted(IDEA_STATUS)}")
         state, _fail = self._require_drv("music_state")
         if _fail: return _fail
@@ -190,7 +190,7 @@ class LifecycleCluster(_MusicBase):
         chain_next: ``music.album_progress`` to verify state preserved.
         """
         if not new_slug.strip():
-            return ToolResult.failure("INVALID_ARGUMENT",
+            return ToolResult.failure(Codes.INVALID_ARGUMENT,
                                       "new_slug must be non-empty")
         state, _fail = self._require_drv("music_state")
         if _fail: return _fail
@@ -282,7 +282,7 @@ class LifecycleCluster(_MusicBase):
         """
         if status not in TRACK_STATUS:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"status={status!r} not in {sorted(TRACK_STATUS)}")
         state, _fail = self._require_drv("music_state")
         if _fail: return _fail
@@ -301,7 +301,7 @@ class LifecycleCluster(_MusicBase):
         chain_next: ``music.list_tracks`` to verify.
         """
         if not new_slug.strip():
-            return ToolResult.failure("INVALID_ARGUMENT",
+            return ToolResult.failure(Codes.INVALID_ARGUMENT,
                                       "new_slug must be non-empty")
         state, _fail = self._require_drv("music_state")
         if _fail: return _fail

@@ -1893,22 +1893,22 @@ def _then_result_none(ctx):
     assert ctx["result"] is None
 
 
-@then("the invocation error contains \"NOT_FOUND\"")
+@then("the invocation error contains \"not_found\"")
 def _then_err_not_found(engine, ctx):
     err = engine.memory.recall(ctx["inv"]).get("error", "")
-    assert "NOT_FOUND" in err
+    assert "not_found" in err
 
 
-@then("the invocation error contains \"INVALID_ARGUMENT\"")
+@then("the invocation error contains \"invalid_argument\"")
 def _then_err_invalid_arg(engine, ctx):
     err = engine.memory.recall(ctx["inv"]).get("error", "")
-    assert "INVALID_ARGUMENT" in err
+    assert "invalid_argument" in err
 
 
-@then("the invocation error contains \"GATE_FAILED\"")
+@then("the invocation error contains \"gate_failed\"")
 def _then_err_gate_failed(engine, ctx):
     err = engine.memory.recall(ctx["inv"]).get("error", "")
-    assert "GATE_FAILED" in err
+    assert "gate_failed" in err
 
 
 # ─── then: ideas ─────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ relocation into a cluster mixin composed into the single NovelCapability.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 from .._main import (
     CONTENT_WARNINGS,
     FILTER_WORDS,
@@ -50,7 +50,7 @@ class ProseMixin:
         """
         if not body.strip():
             return ToolResult.failure(
-                "INVALID_ARGUMENT", "body is empty")
+                Codes.INVALID_ARGUMENT, "body is empty")
         words = _word_tokens(body)
         word_n = len(words)
         sent_n = _count_sentences(body)
@@ -356,7 +356,7 @@ class ProseMixin:
         chapter = self.ctx.recall(chapter_id)
         if chapter is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"chapter_id={chapter_id!r} not found")
+                Codes.NOT_FOUND, f"chapter_id={chapter_id!r} not found")
         body = chapter.get("body", "") or ""
         checks = {
             "readability": self.ctx.call("novel", "analyze_readability",
@@ -409,7 +409,7 @@ class ProseMixin:
         }
         if not all(checks.values()):
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"developmental: missing "
                 f"{[k for k, v in checks.items() if not v]}")
         return ToolResult.success(data={"passed": True, "checks": checks})
@@ -462,7 +462,7 @@ class ProseMixin:
         }
         if not all_pass:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"line: {[k for k, v in checks.items() if not v]}")
         return ToolResult.success(data={
             "passed": True, "checks": checks, "per_chapter": per_chapter,
@@ -503,7 +503,7 @@ class ProseMixin:
         }
         if not all(checks.values()):
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"copy: {[k for k, v in checks.items() if not v]}")
         return ToolResult.success(data={
             "passed": True, "checks": checks,

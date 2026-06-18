@@ -6,7 +6,7 @@ the composed ``NovelCapability`` inherit. Behaviour-frozen relocation.
 """
 from __future__ import annotations
 
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 
 class NovelBase:
@@ -96,7 +96,7 @@ class NovelBase:
         node = self.ctx.recall(novel_id)
         if node is None:
             return None, ToolResult.failure(
-                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+                Codes.NOT_FOUND, f"novel_id={novel_id!r} not found")
         return node, None
 
     def _require_chapter(self, chapter_id: str) -> tuple[dict | None, ToolResult | None]:
@@ -104,5 +104,5 @@ class NovelBase:
         node = self.ctx.recall(chapter_id)
         if node is None:
             return None, ToolResult.failure(
-                "NOT_FOUND", f"chapter_id={chapter_id!r} not found")
+                Codes.NOT_FOUND, f"chapter_id={chapter_id!r} not found")
         return node, None

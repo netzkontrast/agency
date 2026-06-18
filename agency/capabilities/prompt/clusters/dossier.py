@@ -9,7 +9,7 @@ Produces dossier-shaped research deliverables.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import _DEFAULT_AUDIT_MIN_SCORE, _score_brief
 from ..ontology import CATALOG_CATEGORY, DELIVERABLE_KIND
@@ -51,7 +51,7 @@ class DossierMixin:
         """
         if deliverable not in DELIVERABLE_KIND:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"deliverable={deliverable!r} not in {sorted(DELIVERABLE_KIND)}")
         rid = self.ctx.record_and_serve("ResearchIntent", {
             "seed_query": seed_query, "topic": topic,
@@ -75,7 +75,7 @@ class DossierMixin:
         """
         if category and category not in CATALOG_CATEGORY:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"category={category!r} not in {sorted(CATALOG_CATEGORY)}")
         modules = [m for m in _SEED_CATALOG
                    if not category or m["category"] == category]
@@ -101,7 +101,7 @@ class DossierMixin:
         intent_node = self.ctx.recall(research_intent_id)
         if intent_node is None:
             return ToolResult.failure(
-                "NOT_FOUND",
+                Codes.NOT_FOUND,
                 f"research_intent_id={research_intent_id!r} not found")
         skeleton = self.ctx.template("dossier-skeleton")
         body = skeleton.template if skeleton is not None else ""
@@ -143,7 +143,7 @@ class DossierMixin:
         brief_node = self.ctx.recall(brief_id)
         if brief_node is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"brief_id={brief_id!r} not found")
+                Codes.NOT_FOUND, f"brief_id={brief_id!r} not found")
         body = brief_node.get("body", "")
         score, findings = _score_brief(body)
         status = "passed" if score >= min_score else "failed"
@@ -167,7 +167,7 @@ class DossierMixin:
         brief_node = self.ctx.recall(brief_id)
         if brief_node is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"brief_id={brief_id!r} not found")
+                Codes.NOT_FOUND, f"brief_id={brief_id!r} not found")
         self.ctx.update(brief_id, {"finalized": True})
         return ToolResult.success(data={
             "brief_id": brief_id, "finalized": True,

@@ -11,7 +11,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 from __future__ import annotations
 
 from agency.capability import requires_driver, verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import _MusicBase
 
@@ -206,7 +206,7 @@ class PromoCluster(_MusicBase):
                                 f"score={review['score']} < {min_score}"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"promo-review: score={review['score']} < {min_score}")
         return ToolResult.success(data={"gate": "promo-review",
                                         "passed": True,

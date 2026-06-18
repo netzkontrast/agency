@@ -24,7 +24,7 @@ from __future__ import annotations
 from typing import Optional
 
 from agency.capability import CapabilityBase
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from agency._prosody import syllables as _syllables_shared
 
@@ -69,7 +69,7 @@ def _validate_album_type(value: str) -> Optional["ToolResult"]:
     """
     if value not in ALBUM_TYPES:
         return ToolResult.failure(
-            "INVALID_ARGUMENT",
+            Codes.INVALID_ARGUMENT,
             f"type={value!r} not in {sorted(ALBUM_TYPES)}")
     return None
 

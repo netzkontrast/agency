@@ -72,7 +72,7 @@ def test_create_storyform_rejects_unknown_novel() -> None:
     iid = _iid(e)
     data, inv = _invoke(e, iid, "create_storyform", novel_id="novel:nope")
     assert data is None
-    assert "NOT_FOUND" in e.memory.recall(inv).get("error", "")
+    assert "not_found" in e.memory.recall(inv).get("error", "")
     e.memory.close()
 
 

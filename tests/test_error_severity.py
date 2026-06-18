@@ -158,7 +158,7 @@ def test_wire_surfaces_permanent_error_envelope() -> None:
     shaped = e._shape_wire_result(result, inv)
     assert shaped["ok"] is False
     err = shaped["error"]
-    assert err["code"] == "INVALID_ARGUMENT"
+    assert err["code"] == "invalid_argument"
     assert err["severity"] == Severity.PERMANENT
     assert err["retryable"] is False
     assert err["trace_id"] == inv
