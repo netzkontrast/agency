@@ -11,7 +11,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 from __future__ import annotations
 
 from agency.capability import requires_driver, verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import (
     _MIN_RHYME_GROUPS,
@@ -257,7 +257,7 @@ class LyricsCluster(_MusicBase):
                       name="prosody", passed=passed,
                       evidence="ok" if passed else "; ".join(problems))
         if not passed:
-            return ToolResult.failure("GATE_FAILED",
+            return ToolResult.failure(Codes.GATE_FAILED,
                                       f"prosody: {'; '.join(problems)}")
         return ToolResult.success(data={"gate": "prosody", "passed": True,
                                         "evidence": rhyme})
@@ -284,7 +284,7 @@ class LyricsCluster(_MusicBase):
                                 f"pronunciation:{len(prn)} homograph:{len(hom)}"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"pronunciation: {len(prn)} forced + {len(hom)} ambiguous")
         return ToolResult.success(data={"gate": "pronunciation",
                                         "passed": True,
@@ -312,7 +312,7 @@ class LyricsCluster(_MusicBase):
                                 f"{report['repeated_lines']} repeats"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"repetition: {report['repeated_lines']} cross-track repeats")
         return ToolResult.success(data={"gate": "repetition", "passed": True,
                                         "report": report})
@@ -347,7 +347,7 @@ class LyricsCluster(_MusicBase):
                       evidence=evidence)
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"explicit: rating={report['rating']} (set allow_explicit=True "
                 f"to ship)")
         return ToolResult.success(data={"gate": "explicit", "passed": True,
@@ -381,7 +381,7 @@ class LyricsCluster(_MusicBase):
                                 f"leaked names: {[h['name'] for h in hits]}"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"name-exposure: forbidden names present: "
                 f"{[h['name'] for h in hits]}")
         return ToolResult.success(data={"gate": "name-exposure",

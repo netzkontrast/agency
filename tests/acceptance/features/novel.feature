@@ -28,7 +28,7 @@ Feature: Novel capability — observable behaviour
   Scenario: create_chapter for an unknown novel returns a NOT_FOUND error
     When I create a chapter for novel_id "novel:does-not-exist"
     Then the result is None
-    And the invocation error contains "NOT_FOUND"
+    And the invocation error contains "not_found"
 
   # ──────────────────────────────── MVN: chapter_report ────────────────────────
 
@@ -78,7 +78,7 @@ Feature: Novel capability — observable behaviour
   Scenario: list_ideas rejects an invalid status with INVALID_ARGUMENT
     When I list ideas with status "bogus"
     Then the result is None
-    And the invocation error contains "INVALID_ARGUMENT"
+    And the invocation error contains "invalid_argument"
 
   Scenario: promote_idea creates a Novel and records PROMOTED_TO edge
     Given a captured idea
@@ -90,7 +90,7 @@ Feature: Novel capability — observable behaviour
   Scenario: promote_idea for an unknown idea returns a NOT_FOUND error
     When I promote idea_id "idea:does-not-exist" to a novel
     Then the result is None
-    And the invocation error contains "NOT_FOUND"
+    And the invocation error contains "not_found"
 
   # ──────────────────────────────── find_novel ─────────────────────────────────
 
@@ -117,12 +117,12 @@ Feature: Novel capability — observable behaviour
     Given a novel titled "X" by "Y"
     When I set the novel status to "not-a-real-status"
     Then the result is None
-    And the invocation error contains "INVALID_ARGUMENT"
+    And the invocation error contains "invalid_argument"
 
   Scenario: set_novel_status for an unknown novel returns NOT_FOUND
     When I set status "drafting" on novel_id "novel:nope"
     Then the result is None
-    And the invocation error contains "NOT_FOUND"
+    And the invocation error contains "not_found"
 
   # ──────────────────────────────── lifecycle slice 2 ──────────────────────────
 
@@ -147,7 +147,7 @@ Feature: Novel capability — observable behaviour
     Given a novel with a chapter
     When I create a scene with pov "qwerty gibberish nonsense"
     Then the result is None
-    And the invocation error contains "INVALID_ARGUMENT"
+    And the invocation error contains "invalid_argument"
 
   Scenario: create_scene projects a rich pov onto the canonical enum
     Given a novel with a chapter
@@ -164,7 +164,7 @@ Feature: Novel capability — observable behaviour
     Given a novel with a chapter
     When I set the chapter status to "bogus"
     Then the result is None
-    And the invocation error contains "INVALID_ARGUMENT"
+    And the invocation error contains "invalid_argument"
 
   Scenario: rename_novel updates the title in the graph
     Given a novel titled "Original Title" by "Author"
@@ -207,7 +207,7 @@ Feature: Novel capability — observable behaviour
   Scenario: analyze_readability on empty body returns INVALID_ARGUMENT
     When I call analyze_readability with body ""
     Then the result is None
-    And the invocation error contains "INVALID_ARGUMENT"
+    And the invocation error contains "invalid_argument"
 
   Scenario: check_filter_words detects high-density filter words
     When I call check_filter_words with filter-heavy prose
@@ -270,7 +270,7 @@ Feature: Novel capability — observable behaviour
   Scenario: render_blurb for an unknown novel returns NOT_FOUND
     When I call render_blurb on novel_id "novel:nope"
     Then the result is None
-    And the invocation error contains "NOT_FOUND"
+    And the invocation error contains "not_found"
 
   Scenario: render_query_letter produces a query-letter artefact
     Given a novel titled "Modem Daze" by "The Phreakers"
@@ -296,7 +296,7 @@ Feature: Novel capability — observable behaviour
   Scenario: capture_claim rejects an invalid domain with INVALID_ARGUMENT
     When I capture a claim with invalid domain "not-a-domain"
     Then the result is None
-    And the invocation error contains "INVALID_ARGUMENT"
+    And the invocation error contains "invalid_argument"
 
   Scenario: list_claims filters by verified status
     Given three claims have been captured
@@ -310,7 +310,7 @@ Feature: Novel capability — observable behaviour
   Scenario: list_claims rejects invalid verified value with INVALID_ARGUMENT
     When I list claims with verified "bogus"
     Then the result is None
-    And the invocation error contains "INVALID_ARGUMENT"
+    And the invocation error contains "invalid_argument"
 
   Scenario: pending_verifications aggregates pending claims by domain
     Given claims captured for domains "historical" and "scientific"
@@ -600,7 +600,7 @@ Feature: Novel capability — observable behaviour
     Given a novel with no prerequisites
     When I call pre_draft_gate
     Then the result is None
-    And the invocation error contains "GATE_FAILED"
+    And the invocation error contains "gate_failed"
 
   Scenario: pre_draft_gate passes when chapter, claim, and storyform are present
     Given a novel with one chapter, one claim, and a storyform node
@@ -612,7 +612,7 @@ Feature: Novel capability — observable behaviour
     Given a novel with chapters still outlined
     When I call beta_ready_gate
     Then the result is None
-    And the invocation error contains "GATE_FAILED"
+    And the invocation error contains "gate_failed"
 
   Scenario: beta_ready_gate passes when all chapters are drafted
     Given a novel with all chapters set to drafted
@@ -624,7 +624,7 @@ Feature: Novel capability — observable behaviour
     Given a novel still in concept status
     When I call query_ready_gate
     Then the result is None
-    And the invocation error contains "GATE_FAILED"
+    And the invocation error contains "gate_failed"
 
   Scenario: query_ready_gate passes at beta with clean chapter content
     Given a novel at beta status with revised chapters
@@ -636,7 +636,7 @@ Feature: Novel capability — observable behaviour
     Given a novel with chapters 1 and 3 but not 2 at querying status
     When I call publish_ready_gate
     Then the result is None
-    And the invocation error contains "GATE_FAILED"
+    And the invocation error contains "gate_failed"
 
   Scenario: publish_ready_gate passes with contiguous chapters at querying
     Given a novel with 3 contiguous chapters all final at querying status

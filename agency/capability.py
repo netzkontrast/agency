@@ -717,12 +717,12 @@ class CapabilityBase:
         The 2-tuple shape avoids type ambiguity that a single-return helper
         would introduce (a Driver could theoretically be a ToolResult).
         """
-        from .toolresult import ToolResult
+        from .toolresult import ToolResult, Codes
         try:
             return self.ctx.get_driver(name), None
         except DriverMissing:
             return None, ToolResult.failure(
-                "DEPENDENCY_MISSING",
+                Codes.DEPENDENCY_MISSING,
                 f"no {name!r} driver registered")
 
     @classmethod

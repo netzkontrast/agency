@@ -13,7 +13,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 from __future__ import annotations
 
 from agency.capability import requires_driver, verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import _MusicBase
 
@@ -42,7 +42,7 @@ class GatesCluster(_MusicBase):
         self.ctx.call("gate", "check", lifecycle_id=lifecycle_id, name="pre-generation",
                       passed=passed, evidence="ready" if passed else f"missing: {missing}")
         if not passed:
-            return ToolResult.failure("GATE_FAILED", f"pre-generation blocked; missing: {missing}")
+            return ToolResult.failure(Codes.GATE_FAILED, f"pre-generation blocked; missing: {missing}")
         return ToolResult.success(data={"gate": "pre-generation", "passed": True})
 
     @verb(role="effect")
@@ -68,7 +68,7 @@ class GatesCluster(_MusicBase):
                       evidence="all mastered" if passed else f"unmastered: {unmastered}")
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED", f"release-qa blocked: {len(unmastered)} unmastered: {unmastered}")
+                Codes.GATE_FAILED, f"release-qa blocked: {len(unmastered)} unmastered: {unmastered}")
         return ToolResult.success(data={"album": album, "gate": "release-qa", "passed": True})
 
     # ════════════════════════════════════════════════════════════════════════
@@ -186,7 +186,7 @@ class GatesCluster(_MusicBase):
                                 f"album '{album}' not found"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"concept: album '{album}' not found")
         return ToolResult.success(data={"gate": "concept", "passed": True,
                                         "album": album})
@@ -210,7 +210,7 @@ class GatesCluster(_MusicBase):
             self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
                           name="lyrics-pregen", passed=False,
                           evidence="empty lyrics")
-            return ToolResult.failure("GATE_FAILED",
+            return ToolResult.failure(Codes.GATE_FAILED,
                                       "lyrics-pregen: empty lyrics")
         results = {}
         errors = {}
@@ -245,7 +245,7 @@ class GatesCluster(_MusicBase):
         if not all_passed:
             failed = [k for k, v in results.items() if not v]
             return ToolResult.failure(
-                "GATE_FAILED", f"lyrics-pregen: failed sub-gates: {failed}")
+                Codes.GATE_FAILED, f"lyrics-pregen: failed sub-gates: {failed}")
         return ToolResult.success(data={"gate": "lyrics-pregen",
                                         "passed": True,
                                         "sub_gates": results})
@@ -273,7 +273,7 @@ class GatesCluster(_MusicBase):
                                 f"unmastered: {unmastered}"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"audio-release: {len(unmastered)} unmastered: {unmastered}")
         return ToolResult.success(data={"gate": "audio-release",
                                         "passed": True,
@@ -308,7 +308,7 @@ class GatesCluster(_MusicBase):
                                 f"{url_count} urls, {len(scheduled)} scheduled"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"catalogue: {url_count} urls, {len(scheduled)} tweets")
         return ToolResult.success(data={"gate": "catalogue",
                                         "passed": True,
@@ -336,7 +336,7 @@ class GatesCluster(_MusicBase):
                                 "no assets"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"promo: no published assets for album '{album}'")
         return ToolResult.success(data={"gate": "promo", "passed": True,
                                         "asset_count": len(assets)})

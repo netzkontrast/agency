@@ -114,7 +114,7 @@ def test_bad_predecessor_leaves_no_orphan_beat() -> None:
         e.memory, iid, "novel", "mark_narrative_beat",
         scene_id=sid, beat_label="x", predecessor_id="beat:does-not-exist")
     assert data is None                                   # NOT_FOUND failure
-    assert "NOT_FOUND" in e.memory.recall(inv).get("error", "")
+    assert "not_found" in e.memory.recall(inv).get("error", "")
     assert _beat_count(e) == before                       # NO orphan node
     e.memory.close()
 

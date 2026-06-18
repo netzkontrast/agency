@@ -6,7 +6,7 @@ relocation into a cluster mixin composed into the single NovelCapability.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 from .._main import (
     CLAIM_VERIFIED,
     RESEARCH_DOMAINS,
@@ -27,7 +27,7 @@ class ResearchMixin:
         """
         if domain not in RESEARCH_DOMAINS:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"domain={domain!r} not in {sorted(RESEARCH_DOMAINS)}")
         cid = self.ctx.record("NovelClaim", {
             "text": text, "source_uri": source_uri,
@@ -49,7 +49,7 @@ class ResearchMixin:
         """
         if verified and verified not in CLAIM_VERIFIED:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"verified={verified!r} not in {sorted(CLAIM_VERIFIED)}")
         claims = [c for c in self.ctx.find("NovelClaim")
                   if not verified or c.get("verified") == verified]
@@ -90,7 +90,7 @@ class ResearchMixin:
         """
         if domain not in RESEARCH_DOMAINS:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"domain={domain!r} not in {sorted(RESEARCH_DOMAINS)}")
         # Cross-cap call — research.lead mints the Research node + serves
         # the current intent. The Invocation+SERVES edge is auto-recorded

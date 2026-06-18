@@ -16,7 +16,7 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
 
   Scenario: intent_capture rejects an unknown deliverable
     When I capture a research intent with deliverable "nonsense"
-    Then the captured intent is null with error "INVALID_ARGUMENT"
+    Then the captured intent is null with error "invalid_argument"
 
   # ── catalog_list ─────────────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
 
   Scenario: catalog_list rejects an unknown category
     When I list the prompt module catalogue filtered by category "Z"
-    Then the catalogue list is null with error "INVALID_ARGUMENT"
+    Then the catalogue list is null with error "invalid_argument"
 
   # ── brief_render ─────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
 
   Scenario: brief_render returns NOT_FOUND for a missing intent
     When I render a brief for an unknown research intent id
-    Then the brief render is null with error "NOT_FOUND"
+    Then the brief render is null with error "not_found"
 
   # ── brief_audit + brief_finalize ─────────────────────────────────────────
 
@@ -64,7 +64,7 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
 
   Scenario: engineer rejects a context that exceeds the token budget
     When I engineer a "dialogue-prompt" with a very tight max_tokens budget
-    Then the engineer result is null with error "INVALID_ARGUMENT"
+    Then the engineer result is null with error "invalid_argument"
 
   Scenario: audit scores a prompt for clarity
     When I audit a prompt body with clear structure
@@ -224,7 +224,7 @@ Feature: Prompt capability — research briefs, engineering, scene assembly
 
   Scenario: render refuses an over-budget body
     When I render framework "co-star" with a huge field and a tight budget
-    Then the render result is null with error "INVALID_ARGUMENT"
+    Then the render result is null with error "invalid_argument"
 
   Scenario: render returns NO_FRAMEWORK for an unknown slug
     When I render framework "nope" with empty fields

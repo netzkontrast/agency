@@ -23,7 +23,7 @@ from pathlib import Path
 
 from agency._overflow import budget_take
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import _approx_tokens
 
@@ -189,7 +189,7 @@ class FrameworksMixin:
         tokens = _approx_tokens(body)
         if tokens > max_tokens:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"rendered prompt {tokens} tokens > budget {max_tokens}; "
                 f"trim fields or raise max_tokens")
         fw_node = self._framework_node(entry)

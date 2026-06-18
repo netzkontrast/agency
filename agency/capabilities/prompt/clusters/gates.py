@@ -9,7 +9,7 @@ audit_gate. Both delegate to the ``gate`` capability's ``check`` verb.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import (
     _DEFAULT_AUDIT_MIN_SCORE,
@@ -39,7 +39,7 @@ class GatesMixin:
                       evidence=f"approx_tokens={tokens}, max={max_tokens}")
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"token-budget: {tokens} > {max_tokens}")
         return ToolResult.success(data={
             "gate": "token-budget", "passed": True,
@@ -62,7 +62,7 @@ class GatesMixin:
                       evidence=f"clarity_score={score}, min={min_score}")
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"audit: clarity_score={score} < {min_score}")
         return ToolResult.success(data={
             "gate": "audit", "passed": True,

@@ -12,7 +12,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 from __future__ import annotations
 
 from agency.capability import requires_driver, verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ..ontology import ALBUM_STATUS
 from ._base import _MusicBase
@@ -29,7 +29,7 @@ class StateCluster(_MusicBase):
         chain_next: ``release-qa``.
         """
         if status not in ALBUM_STATUS:
-            return ToolResult.failure("INVALID_ARGUMENT",
+            return ToolResult.failure(Codes.INVALID_ARGUMENT,
                                       f"status {status!r} not in {sorted(ALBUM_STATUS)}")
         state, _fail = self._require_drv("music_state")
         if _fail: return _fail

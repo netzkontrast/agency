@@ -6,7 +6,7 @@ relocation into a cluster mixin composed into the single NovelCapability.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 from .._main import (
     WORLD_AXIOM_SEVERITY,
     _CHARACTER_WORLD_EDGES,
@@ -87,7 +87,7 @@ class WorldMixin:
         world = self.ctx.recall(world_id)
         if world is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"world_id={world_id!r} not found")
+                Codes.NOT_FOUND, f"world_id={world_id!r} not found")
         nid = self.ctx.record(label, {"slug": slug, "name": name})
         self.ctx.link(nid, world_id, "PART_OF_WORLD")
         self.ctx.link(nid, self.ctx.intent_id, "SERVES")
@@ -108,12 +108,12 @@ class WorldMixin:
         """
         if severity not in WORLD_AXIOM_SEVERITY:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"severity={severity!r} not in {sorted(WORLD_AXIOM_SEVERITY)}")
         world = self.ctx.recall(world_id)
         if world is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"world_id={world_id!r} not found")
+                Codes.NOT_FOUND, f"world_id={world_id!r} not found")
         aid = self.ctx.record("WorldAxiom", {
             "text": text, "severity": severity,
         })
@@ -139,7 +139,7 @@ class WorldMixin:
         world = self.ctx.recall(world_id)
         if world is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"world_id={world_id!r} not found")
+                Codes.NOT_FOUND, f"world_id={world_id!r} not found")
         children = self.ctx.neighbors(world_id, "PART_OF_WORLD")
         groups = {
             "cultures": [], "religions": [], "languages": [],
@@ -178,7 +178,7 @@ class WorldMixin:
         """
         if self.ctx.recall(world_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"world_id={world_id!r} not found")
+                Codes.NOT_FOUND, f"world_id={world_id!r} not found")
         axioms = [a for a in self.ctx.neighbors(world_id, "PART_OF_WORLD")
                    if "text" in a and "severity" in a]
         contradictions: list[dict] = []
@@ -223,17 +223,17 @@ class WorldMixin:
         """
         if edge_kind not in _CHARACTER_WORLD_EDGES:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"edge_kind={edge_kind!r} not in "
                 f"{sorted(_CHARACTER_WORLD_EDGES)}")
         # Character node doesn't exist in the ontology yet (Slice 2);
         # accept any node id pending the character-psychology layer.
         if self.ctx.recall(character_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"character_id={character_id!r} not found")
+                Codes.NOT_FOUND, f"character_id={character_id!r} not found")
         if self.ctx.recall(target_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"target_id={target_id!r} not found")
+                Codes.NOT_FOUND, f"target_id={target_id!r} not found")
         self.ctx.link(character_id, target_id, edge_kind)
         return ToolResult.success(data={
             "character_id": character_id, "target_id": target_id,
