@@ -7,5 +7,6 @@ frame / examine / scope / refine / session) and ``discover/_main.py`` composes
 them — a pure addition, never a structural change (Spec 308 acceptance).
 """
 from ._base import DiscoverCluster
+from .ask import AskCluster
 
-__all__ = ["DiscoverCluster"]
+__all__ = ["DiscoverCluster", "AskCluster"]

@@ -25,11 +25,11 @@ from __future__ import annotations
 from agency.capability import CapabilityBase, verb
 from agency.toolresult import ToolResult
 
-from .clusters import DiscoverCluster
+from .clusters import AskCluster, DiscoverCluster
 from .ontology import discover_ontology
 
 
-class DiscoverCapability(DiscoverCluster, CapabilityBase):
+class DiscoverCapability(AskCluster, DiscoverCluster, CapabilityBase):
     name = "discover"
     # Intent-pillar peer to ``prompt``. Spec 291 re-homes the intent pillar to
     # ``home="intent"``; until that reorg lands, ``capability`` keeps the cap on
