@@ -428,6 +428,23 @@ class AgencyDoctor(SubstrateTool):
             # neither in CI); flipping the `ok` invariant on them would
             # erode the doctor's health contract (Spec 030).
 
+            # Spec 151 Slice 3 — codes-coverage health. Engine-side audit of
+            # ToolResult.failure() typing (imports agency._codes_coverage, NOT
+            # the dev-only scripts/ tree) so a drop in Codes coverage is visible
+            # at runtime. Wrapped: a diagnostic must never crash the doctor.
+            try:
+                from ._codes_coverage import audit_tree as _codes_audit
+                _cc = _codes_audit(os.path.dirname(os.path.abspath(__file__)))
+                codes_coverage = {
+                    "fraction": round(_cc.fraction, 3),
+                    "covered": _cc.covered_sites,
+                    "offenders": len(_cc.offenders),
+                    "computed": _cc.expr_sites,
+                    "orphan_codes": sorted(_cc.orphan_codes),
+                }
+            except Exception as _e:  # noqa: BLE001 — never crash the doctor
+                codes_coverage = {"error": f"{type(_e).__name__}: {_e}"}
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -463,6 +480,9 @@ class AgencyDoctor(SubstrateTool):
                 # scripts/check-drift script (would require a heavy
                 # subprocess otherwise).
                 "drift": engine._drift_signals(),
+                # Spec 151 Slice 3 — live Codes-coverage fraction +
+                # offender/orphan counts (engine-side audit above).
+                "codes_coverage": codes_coverage,
                 # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
                 # can bootstrap an intent + invoke a verb end-to-end (proven on a
                 # throwaway in-memory engine, so the live graph is untouched).
