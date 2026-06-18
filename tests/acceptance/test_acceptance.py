@@ -107,3 +107,14 @@ def _accurate_coverage(health):
     # the doctor must discover those, not only flat tests/test_<cap>_*.py (Spec 302).
     missing = set(health["drift"]["capabilities_without_tests"])
     assert {"panel", "mode", "manage"}.isdisjoint(missing), missing
+
+
+@then("the doctor reports a codes_coverage fraction between 0 and 1")
+def _codes_coverage(health):
+    # Spec 151 Slice 3 — the doctor surfaces the live ToolResult.failure()
+    # typing fraction. Rule 8: assert the relationship (fraction in [0,1] +
+    # non-negative breakdown), never a frozen count.
+    cc = health["codes_coverage"]
+    assert "error" not in cc, cc
+    assert 0.0 <= cc["fraction"] <= 1.0, cc
+    assert cc["covered"] >= 0 and cc["offenders"] >= 0, cc
