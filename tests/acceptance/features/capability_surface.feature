@@ -37,3 +37,8 @@ Feature: A working capability surface and engine health
     When I ask the engine doctor for a health report
     Then the doctor reports a surface_freshness with a live hash
     And the doctor does not falsely flag acceptance-tested capabilities as untested
+
+  Scenario: The doctor reports live Codes-coverage health (Spec 151 Slice 3)
+    Given a fresh agency engine in code-mode
+    When I ask the engine doctor for a health report
+    Then the doctor reports a codes_coverage fraction between 0 and 1
