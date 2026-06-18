@@ -24,6 +24,7 @@ allowed-tools:
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `ask` | transform | Build ONE well-formed AskUserQuestion payload from DERIVED options (transform). | [details](references/ask.md) |
+| `interview` | act | Run the adaptive elicitation interview → a DRAFT Intent (act). | [details](references/interview.md) |
 | `status` | transform | Smoke verb — report the registered ``discover`` ontology surface. | [details](references/status.md) |
 
 ## Example
@@ -42,5 +43,5 @@ await call_tool('capability_discover_ask', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`discover-usage`** (usage): use-transform → confirm
+- **`discover-usage`** (usage): use-transform → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'discover-usage', 'inputs': {}, 'intent_id': '…'})`
