@@ -250,25 +250,49 @@ def _scc_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
 
 def _bfs_shortest_cycle(graph: dict[str, set[str]], scc: list[str]) -> list[str]:
     """Shortest elementary cycle within an SCC node set, as an ordered path that
-    returns to its start (``[a, b, …, a]``). Pure-Python BFS fallback used when
-    networkx is absent."""
+    returns to its start (``[a, b, …, a]``).
+
+    A TRUE shortest-cycle BFS over ``(node, predecessor)`` state — Codex review
+    (#154): storing whole simple paths in the queue grows exponentially in a
+    layered SCC before any cycle is found. This keeps only ``dist``/``pred``
+    dicts (O(V) per start), so the whole search is O(V·(V+E)) — bounded.
+    For each start it BFS-explores; the first edge back to ``start`` is the
+    shortest cycle through that start (BFS visits in distance order); the global
+    minimum over starts is the shortest cycle in the SCC."""
     nodes = set(scc)
     best: list[str] | None = None
     for start in sorted(nodes):
-        queue: deque[list[str]] = deque([[start]])
+        pred: dict[str, str | None] = {start: None}
+        dist: dict[str, int] = {start: 0}
+        queue: deque[str] = deque([start])
+        closer: str | None = None      # the node with an edge back to start
         while queue:
-            path = queue.popleft()
-            if best is not None and len(path) >= len(best):
-                continue
-            for nxt in graph.get(path[-1], ()):
-                if nxt not in nodes:
+            u = queue.popleft()
+            # BFS is distance-monotone; once dist[u] can't beat best, stop.
+            if best is not None and dist[u] + 1 >= len(best):
+                break
+            for v in graph.get(u, ()):
+                if v not in nodes:
                     continue
-                if nxt == start and len(path) >= 2:
-                    cand = path + [start]
-                    if best is None or len(cand) < len(best):
-                        best = cand
-                elif nxt not in path:
-                    queue.append(path + [nxt])
+                if v == start and dist[u] >= 1:
+                    closer = u           # shortest closer in BFS order
+                    break
+                if v not in dist:
+                    dist[v] = dist[u] + 1
+                    pred[v] = u
+                    queue.append(v)
+            if closer is not None:
+                break
+        if closer is not None:
+            path: list[str] = []
+            node: str | None = closer
+            while node is not None:
+                path.append(node)
+                node = pred[node]
+            path.reverse()
+            cand = path + [start]        # start … closer → start
+            if best is None or len(cand) < len(best):
+                best = cand
         if best is not None and len(best) == 3:
             break        # a → b → a is the shortest possible in a multi-node SCC
     if best is None:                       # pathological; never expected for an SCC
