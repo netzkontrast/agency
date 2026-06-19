@@ -14,7 +14,7 @@ Red flags:
 """
 from __future__ import annotations
 
-from ...capability import CapabilityBase, RenderTemplates, verb  # noqa: F401
+from ...capability import ArtefactSchemas, CapabilityBase, RenderTemplates, verb  # noqa: F401
 from ...ontology import OntologyExtension
 
 # Spec 286 P3 — the verb surface is split across cluster mixins (one file per
@@ -72,6 +72,7 @@ class DogfoodCapability(
     name = "dogfood"
     home = "memory"
     render_templates = RenderTemplates.from_module(__file__)
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     # Spec 114 — session-tracking ontology: DecisionRecord binds decisions to
     # a session; BoundaryUse records a raw-tool invocation so future sessions
     # can detect "should have called a capability verb" patterns.
