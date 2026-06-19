@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plan",
+  "description": "A structured execution plan authored during a session (agency/capabilities/develop/_main.py; Spec 287). SERVES the active intent; HAS_STEP edges link to PlanStep nodes. Status is derived from step roll-up.",
+  "type": "object",
+  "required": ["title"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Short human-readable title for the plan."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["drafted", "in-progress", "done", "abandoned"],
+      "description": "Optional roll-up status derived from step states."
+    }
+  }
+}
