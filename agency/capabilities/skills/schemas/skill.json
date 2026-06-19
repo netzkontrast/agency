@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Skill",
+  "description": "A walkable skill in the Capability pillar's skill registry (agency/skill.py + agency/capabilities/skills/_main.py; Spec 081 + Spec 153 Slice 6 workflow-spine coverage). Links HAS_PHASE→Phase; the registry exposes it via capability_skills_find.",
+  "type": "object",
+  "required": ["name", "kind"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique skill identifier (e.g. 'develop-implement', 'critical-thinking')."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["usage", "discipline"],
+      "description": "Skill class: 'usage' for auto-derived capability-usage walks; 'discipline' for hand-authored multi-phase workflow skills."
+    }
+  }
+}

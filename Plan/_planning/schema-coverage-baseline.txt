@@ -12,14 +12,12 @@ BoundaryUse
 BriefAudit
 CatalogModule
 Chapter
-ClarificationQuestion
 CodexEntry
 Command
 Culture
 DecisionRecord
 DocRevision
 DoctrineCitation
-Event
 FeasibilitySignal
 Finding
 Genre
@@ -28,7 +26,6 @@ IntentRefinement
 JulesAlias
 KnownFact
 Language
-Lifecycle
 MagicSystem
 ModeActivation
 ModeShift
@@ -38,7 +35,6 @@ NovelClaim
 OptimizationPass
 Panel
 PersonaBrief
-Phase
 Plan
 PlanStep
 Plugin
@@ -56,7 +52,6 @@ Scene
 Schema
 Selection
 SessionLifecycle
-Skill
 StoryTimeEvent
 Storyform
 Template

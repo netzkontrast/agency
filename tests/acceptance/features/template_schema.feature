@@ -107,3 +107,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the document-convergence schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the document convergence labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — workflow-spine wave) ─────────────────
+
+  Scenario: the workflow-spine labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the workflow spine labels are all schema-covered
+
+  Scenario: the workflow-spine schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the workflow spine labels each have a loaded ontology schema
