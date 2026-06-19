@@ -230,11 +230,28 @@ Scenario: the Stop hook exports the top calls with spec suggestions
    the raw Event capture moves out — confirm no audit consumer reads the moved
    `Event` rows (only `dogfood.session` did; it reads BoundaryUse + the export).
 
-## Followup — Implementation Status (drafted 2026-06-19)
+## Followup — Implementation Status (SHIPPED 2026-06-19)
 
-- **Done:** spec drafted; owner forks resolved (capture-only wrapper · heuristic +
-  optional-LLM · ephemeral gitignored DB).
-- **Still:** all four slices (S1 fidelity/guard · S2 ephemeral store + reroute ·
-  S3 shell capture filter · S4 export). TDD per slice.
-- **Refinement:** the no-truncate guard (S1) should subsume the manual sweep done
-  in the predecessor work — once it exists, new `[:N]` data cuts fail CI.
+- **S1 ✅ (PR #188):** `agency/_capture.py::paginate` (page + cursor + read-more
+  instruction; the walk reconstructs the full set). `scripts/check-no-truncate`
+  guard wired into CI (advisory) — it caught **4 real stored-data truncations**
+  (panel `subject`, persona `task`, prompt/recommend `request`) on first run, all
+  fixed to `keep_full`. 3 fidelity scenarios.
+- **S2 ✅:** `agency/_toolcalls.py::ToolcallStore` (gitignored `.agency/toolcalls.db`;
+  `:memory:` for a bare engine). `engine.toolcalls` lazy; `_default_hook_handler`
+  reroutes PreToolUse/PostToolUse to the store (no graph Event) — BoundaryUse moat
+  stays. The **`toolcalls` capability** (`top`/`recent`/`stats`/`export`/`prune`) is
+  the clear MCP surface; `ctx.toolcalls` accessor. 5 Spec 292 consumers updated
+  (graph = lifecycle + provenance; tool stats via `toolcalls`).
+- **S3 ✅:** `shell.capture_filter(command, output)` — a token-filtered VIEW; the
+  hook routes every Bash call's data through it into the store's `filtered` column.
+  Execution unchanged (capture & filter only). The FULL payload stays in
+  `output_json`.
+- **S4 ✅:** `toolcalls.export(top_n, apply, prune)` — heuristic suggestions
+  (repeated command → shell template; repeated read → index; high-volume → filter)
+  + an optional LLM pass behind `toolcalls.suggest_via_llm`; FULL report to
+  `.agency/sessions/<session>-toolcalls.md` + a durable `ToolcallExport` artefact
+  (schema'd). SessionEnd hook calls it (best-effort).
+- **Evidence:** toolcalls (5) + hooks (29) + session_driver (9) + fidelity (3) +
+  the Event-consumer suites green; install regen + drift + schema-coverage clean.
+  PR #195. Config: `toolcalls.export_top_n` / `toolcalls.suggest_via_llm` (Spec 334).
