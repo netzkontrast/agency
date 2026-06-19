@@ -94,6 +94,7 @@ agency execute --code \
 - **subagent** — develop
 - **symbols** — compress, expand, legend
 - **thinking** — apply_full_review, assumptions, decompose, first_principles, inversion, premortem, red_team, second_order, socratic, steelman, tradeoffs
+- **toolcalls** — prune, recent, stats, top
 - **workspace** — baseline, isolate
 
 ## Discovery

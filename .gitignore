@@ -34,3 +34,6 @@ __pycache__/
 # a tracked file is unaffected by a gitignored parent — the code index still travels
 # and its updates still commit.
 .codegraph/
+# Spec 336 — ephemeral tool-call capture store (local; distilled by the Stop-hook export)
+.agency/toolcalls.db
+.agency/toolcalls.db-*

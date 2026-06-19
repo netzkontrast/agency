@@ -311,70 +311,92 @@ def _pre_tool_use_handler(engine, event: dict) -> dict:
     return base
 
 
+# Spec 336 S2 — the high-volume tool events routed to the ephemeral store, not
+# the durable graph. Everything else stays a (low-volume) graph Event.
+_TOOLCALL_EVENTS = frozenset({"PreToolUse", "PostToolUse"})
+
+
 def _default_hook_handler(engine, event: dict) -> dict:
-    """Spec 076 — the default event handler: record an `Event` node (substrate
-    provenance, no intent required) and, for tool events, capture the FULL
-    payload. Links the Event OBSERVED_DURING the active intent (``AGENCY_INTENT``
-    — Spec 018 Win 3) when one is set, so events during an intent become its
-    provenance. The handler surface is an OPEN SET; register a per-event override
-    via ``engine.register_hook_handler``.
+    """Spec 076 — the default event handler. The handler surface is an OPEN SET;
+    register a per-event override via ``engine.register_hook_handler``.
 
-    No-truncate policy (user directive 2026-06-19): the captured tool
-    input/response is stored in FULL — pre/post tool calls are exactly the
-    "special case we want all data" — never head-filtered or sliced. A dropped
-    tail makes the provenance LIE about what ran; `keep_full` warns on an unusually
-    large value instead of cutting it.
+    Spec 336 S2 — high-volume tool events (PreToolUse/PostToolUse) are captured in
+    FULL into the EPHEMERAL tool-call store (``engine.toolcalls``), NOT as ``Event``
+    nodes: keeping every tool call's full payload in the bi-temporal graph bloated
+    session.db (~95% of nodes were Events). Lifecycle events
+    (UserPromptSubmit/Stop/SubagentStop/SessionStart) still record a durable graph
+    ``Event`` linked OBSERVED_DURING the active intent (``AGENCY_INTENT``). The
+    ``toolcalls`` capability reads the store; the Stop-hook export distils it.
 
-    Spec 195 Slice 1 — when the event is a `PreToolUse` on raw
-    Write/Edit/Bash AND an active intent is set, ALSO record a typed
-    `BoundaryUse{tool, target, verb_shadow, argument_summary, intent_id,
-    session}` node so `dogfood.boundary_use_audit` can surface the
-    bypass rate. SERVES the intent so a single graph traversal recovers
-    the full audit."""
+    No-truncate (Spec 336 S1): the captured input/response is stored in FULL —
+    ``keep_full`` warns on an unusually large value instead of cutting it.
+
+    Spec 195 Slice 1 — a raw mutating ``PreToolUse`` (Write/Edit/Bash) under an
+    active intent ALSO records a typed ``BoundaryUse`` (the low-volume bypass
+    SIGNAL) in the durable graph, independent of the capture reroute."""
     import json as _json
     import os as _os
     from ._capture import keep_full
     name = (event or {}).get("hook_event_name") or "unknown"
     session = (event or {}).get("session_id") or "unknown"
-    props = {"name": name, "session": session}
     tool = (event or {}).get("tool_name")
+    iid = _os.environ.get("AGENCY_INTENT", "")
+
+    if name in _TOOLCALL_EVENTS:
+        # FULL capture to the ephemeral store — off the durable graph. A capture
+        # failure must never break the session.
+        phase = "pre" if name == "PreToolUse" else "post"
+        try:
+            engine.toolcalls.record(
+                phase=phase, tool=tool or "", session=session, intent=iid,
+                input_json=keep_full(_json.dumps(event.get("tool_input") or {},
+                                                 default=str), label=f"{name} input"),
+                output_json=keep_full(_json.dumps(event.get("tool_response") or {},
+                                                  default=str), label=f"{name} output"))
+        except Exception:                                       # noqa: BLE001
+            pass
+        _record_boundary_use(engine, name, tool, event, session, iid)
+        return {"recorded": None, "event": name, "toolcall": True}
+
+    # --- lifecycle events: a durable graph Event (low-volume) ---
+    props = {"name": name, "session": session}
     if tool:
         props["tool"] = tool
-        payload = event.get("tool_input") or event.get("tool_response") or {}
-        # FULL payload — no head:5 filter, no char cap. Warn-not-truncate.
-        props["payload"] = keep_full(_json.dumps(payload, default=str),
-                                     label=f"{name}.{tool} payload")
     eid = engine.memory.record("Event", props)
-    # Spec 292 — the Session Graph: link every event into a Session node keyed
-    # by session_id, so the complete session is restorable from the graph.
+    # Spec 292 — the Session Graph: link the event into its Session node.
     if session and session != "unknown":
         sid = f"session:{session}"
         if engine.memory.recall(sid) is None:
             engine.memory.record("Session", {"session_id": session,
                                               "status": "open"}, node_id=sid)
         engine.memory.link(eid, sid, "IN_SESSION")
-    iid = _os.environ.get("AGENCY_INTENT", "")
     if iid and engine.memory.recall_typed(iid, "Intent") is not None:
         engine.memory.link(eid, iid, "OBSERVED_DURING")
-        # Spec 195 Slice 1 — BoundaryUse capture for raw mutating tools.
-        # PreToolUse is when the bypass actually happens; reads + post
-        # events don't poison the moat (Open Q1: mutating-only).
-        if name == "PreToolUse" and tool in ("Write", "Edit", "Bash"):
-            tin = event.get("tool_input") or {}
-            verb_shadow, summary = _verb_shadow_for(tool, tin)
-            target = keep_full(str(tin.get("command") or "")
-                       or str(tin.get("file_path") or ""), label=f"{tool} target")
-            bid = engine.memory.record("BoundaryUse", {
-                "tool":             tool,
-                "argument_summary": summary or f"<{tool} no payload>",
-                "target":           target,
-                "verb_shadow":      verb_shadow,
-                "intent_id":        iid,
-                "session":          session,
-            })
-            engine.memory.link(bid, iid, "SERVES")
-            engine.memory.link(bid, eid, "RECORDED_BY")
     return {"recorded": eid, "event": name}
+
+
+def _record_boundary_use(engine, name, tool, event, session, iid) -> None:
+    """Spec 195 — the BoundaryUse moat audit for raw mutating tools under an active
+    intent. Stays in the durable graph (low-volume bypass signal), independent of
+    the Spec 336 capture reroute. No-op without a valid active intent."""
+    if not iid or engine.memory.recall_typed(iid, "Intent") is None:
+        return
+    if name != "PreToolUse" or tool not in ("Write", "Edit", "Bash"):
+        return
+    from ._capture import keep_full
+    tin = event.get("tool_input") or {}
+    verb_shadow, summary = _verb_shadow_for(tool, tin)
+    target = keep_full(str(tin.get("command") or "")
+               or str(tin.get("file_path") or ""), label=f"{tool} target")
+    bid = engine.memory.record("BoundaryUse", {
+        "tool":             tool,
+        "argument_summary": summary or f"<{tool} no payload>",
+        "target":           target,
+        "verb_shadow":      verb_shadow,
+        "intent_id":        iid,
+        "session":          session,
+    })
+    engine.memory.link(bid, iid, "SERVES")
 
 
 def _active_intent(engine, *, fallback_latest: bool = False):
@@ -507,6 +529,10 @@ class Engine:
                  sampling_enabled: bool | None = None,
                  _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
+        # Spec 336 S2 — the ephemeral tool-call store lives beside the graph db
+        # (resolved lazily so a fresh engine on `:memory:` gets an in-memory store).
+        self._db_path = path
+        self._toolcalls = None
         # Spec 285 OQ3 — server-initiated sampling cost control. Explicit kwarg
         # wins; else AGENCY_SAMPLING_ENABLED env; else on. Read by HostBridge
         # (via CapabilityContext.host) + surfaced in agency_doctor.
@@ -686,6 +712,17 @@ class Engine:
     @property
     def anthropic_driver(self):
         return self.drivers.get("anthropic")
+
+    @property
+    def toolcalls(self):
+        """Spec 336 S2 — the ephemeral tool-call store (lazy; beside the graph db,
+        or in-memory for a `:memory:` engine). High-volume pre/post tool capture
+        lives here, OFF the durable graph; the `toolcalls` capability reads it."""
+        if self._toolcalls is None:
+            from . import _toolcalls
+            self._toolcalls = _toolcalls.ToolcallStore(
+                _toolcalls.resolve_path(self._db_path))
+        return self._toolcalls
 
     def register_hook_handler(self, event_name: str, fn) -> None:
         """Spec 076 — register a per-event hook handler (open set). ``fn(engine,
