@@ -26,6 +26,7 @@ Red flags:
 """
 from __future__ import annotations
 
+from ..._capture import keep_full
 from ...capability import ArtefactSchemas, RenderTemplates, CapabilityBase, verb
 from ...ontology import OntologyExtension
 from ...skill import SkillRun, phase as _phase  # Spec 286 — shared phase() builder
@@ -846,7 +847,8 @@ class DevelopCapability(CapabilityBase):
         node = self.ctx.recall(step_id)
         if node is None:
             return {"error": f"no node {step_id!r}"}
-        self.ctx.update(step_id, {"state": outcome, "evidence": evidence[:200]})
+        self.ctx.update(step_id, {"state": outcome,
+                                  "evidence": keep_full(evidence, label="step evidence")})
         return {"step_id": step_id, "state": outcome}
 
     @verb(role="transform")
