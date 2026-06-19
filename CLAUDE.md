@@ -173,6 +173,21 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    When you catch yourself writing `data[:N]` on a captured/stored string, stop
    and use `keep_full` instead.
 
+10. **Use CodeGraph for EVERY code lookup — MANDATORY (when `.codegraph/` exists).**
+    For ANY "where is X / what is X / how does X work", symbol, call-path, or
+    blast-radius question — and BEFORE editing an unfamiliar symbol — reach for
+    CodeGraph **first**, never grep/find/Read as the opening move.
+    `codegraph_explore` (MCP) or `codegraph explore "<q>"` (CLI) answers most in
+    ONE call: it returns the relevant symbols' **verbatim source + the call paths
+    between them** — treat that source as already read (don't re-grep to
+    "confirm" it). `codegraph_node`/`query`/`callers`/`callees`/`impact` round it
+    out (CLI mirrors every MCP tool). grep/Glob/Read are the **fallback** — only
+    when CodeGraph is inactive (no `.codegraph/` dir → indexing is the user's
+    call) or for non-code text (docs, specs, config). The full token-efficient
+    guide travels on demand via `develop.reference("codegraph")`; don't memorize
+    it. When you reach for grep on a code question and `.codegraph/` exists, stop
+    — that's the reflex this rule exists to correct.
+
 ## Field-tested heuristics (dogfooded — grounded in graph reflections)
 
 Cheap checks that caught real failures during the 076→080 build-out. Pointers,
