@@ -12,12 +12,12 @@ CodexEntry
 Command
 Culture
 DecisionRecord
-DoctrineCitation
 Genre
 Idea
 KnownFact
 Language
 MagicSystem
+ModeShift
 NarrativeBeat
 Novel
 NovelClaim
