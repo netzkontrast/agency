@@ -1,4 +1,4 @@
-"""Acceptance — unified config resolver + registry (Spec 328 Slice 1).
+"""Acceptance — unified config resolver + registry (Spec 334 Slice 1).
 
 Behaviour: a registered key resolves env > file > default; config_set persists;
 registered sections appear in the live set. Calls agency._config directly, the
@@ -71,7 +71,7 @@ def _in_keys(dotted):
     assert dotted in _config.registered_keys()
 
 
-# ── Spec 328 Slice 2 — scaffold generator ─────────────────────────────────────
+# ── Spec 334 Slice 2 — scaffold generator ─────────────────────────────────────
 @when("I scaffold the config")
 @when("I scaffold the config again")
 def _scaffold(cfg):

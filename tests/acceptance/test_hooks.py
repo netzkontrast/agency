@@ -98,12 +98,12 @@ def _userprompt(hook_engine):
          "prompt": "do the thing"})
 
 
-@when("a PostToolUse hook event fires with a 200-line Bash command",
+@when("a PostToolUse hook event fires with a 500-line Bash command",
       target_fixture="hook_out")
 def _posttooluse(hook_engine):
     return hook_engine.dispatch_hook(
         {"hook_event_name": "PostToolUse", "session_id": "s1",
-         "tool_name": "Bash", "tool_input": {"command": "x\n" * 200}})
+         "tool_name": "Bash", "tool_input": {"command": "x\n" * 500}})
 
 
 @when("a hook event fires without a hook_event_name",
@@ -198,12 +198,16 @@ def _event_posttooluse(hook_engine):
     assert any(e["name"] == "PostToolUse" for e in evs)
 
 
-@then("the event summary is at most 600 characters")
-def _event_summary(hook_engine):
+@then("the event payload holds all 500 lines untruncated")
+def _event_payload_full(hook_engine):
     evs = hook_engine.memory.find("Event")
     ev = next(e for e in evs if e["name"] == "PostToolUse")
-    assert ev.get("summary")
-    assert len(ev["summary"]) <= 600
+    payload = ev.get("payload", "")
+    assert payload, ev
+    # FULL capture (no-truncate policy): every one of the 500 lines survives, and
+    # the value is NOT capped at the old 600-char budget.
+    assert payload.count("x") == 500, payload.count("x")
+    assert len(payload) > 600
 
 
 @then("the result carries recorded or skipped without raising")

@@ -1,5 +1,5 @@
-Feature: frugal core discipline — level + render (Spec 326 Slice 1)
-  The minimal-code discipline's active level resolves via Spec 328 config
+Feature: frugal core discipline — level + render (Spec 332 Slice 1)
+  The minimal-code discipline's active level resolves via Spec 334 config
   (default full); render() emits the ladder + the non-negotiable safety floor;
   off emits nothing; the compact render is token-bounded but still names the floor.
 

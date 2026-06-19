@@ -232,7 +232,7 @@ class AgencyInstall(SubstrateTool):
             present. The CLAUDE.md snippet is bounded by explicit markers,
             so user content outside the markers is never touched.
 
-            Spec 327 — with ``agent`` (one of cursor/windsurf/cline/kiro/copilot/
+            Spec 333 — with ``agent`` (one of cursor/windsurf/cline/kiro/copilot/
             agents/claude/all), install agency into that agent's native rules
             instead (the surface_card projected per host; fenced-block merge,
             per-adapter report).
@@ -240,7 +240,7 @@ class AgencyInstall(SubstrateTool):
             Inputs:
               - ``target`` (str, optional) — default = ``CLAUDE_PROJECT_DIR``
                 env → cwd (mirrors the Spec 020 scaffold target).
-              - ``agent`` (str, optional) — a Spec 327 agent target.
+              - ``agent`` (str, optional) — a Spec 333 agent target.
             Returns: ``{target, scaffolded, …}`` (default) or
                      ``{target, agents: {name: {ok, wrote|error}}}`` (--agent).
             chain_next: ``intent_bootstrap`` to mint the first Intent.
@@ -488,7 +488,7 @@ class AgencyDoctor(SubstrateTool):
             except Exception as _e2:  # noqa: BLE001 — never crash the doctor
                 schema_coverage = {"error": f"{type(_e2).__name__}: {_e2}"}
 
-            # Spec 328 Slice 4 — unified-config health. Report every registered
+            # Spec 334 Slice 4 — unified-config health. Report every registered
             # key's resolved value + source (secrets redacted to presence) and
             # fold any validation issue (bad enum value, unknown key) into
             # next_steps so the doctor's `ok` reflects config sanity. Wrapped:
@@ -501,7 +501,7 @@ class AgencyDoctor(SubstrateTool):
             except Exception as _e3:  # noqa: BLE001 — never crash the doctor
                 config_block = {"error": f"{type(_e3).__name__}: {_e3}"}
 
-            # Spec 326 Slice 5 — surface the frugal discipline status first-class
+            # Spec 332 Slice 5 — surface the frugal discipline status first-class
             # (level + source + whether the M2 per-verb stamp is firing), so "is
             # frugal on?" is one glance. Derived from the config block +
             # frugal_prefix — no duplicated logic. Wrapped: never crash the doctor.
@@ -514,7 +514,7 @@ class AgencyDoctor(SubstrateTool):
             except Exception as _e4:  # noqa: BLE001 — never crash the doctor
                 frugal_block = {"error": f"{type(_e4).__name__}: {_e4}"}
 
-            # Spec 327 Slice 5 — which agents agency is installed into (instruction
+            # Spec 333 Slice 5 — which agents agency is installed into (instruction
             # files carrying the agency fenced block in the project dir).
             try:
                 from ._install_adapters import installed_agents as _ia
@@ -563,12 +563,12 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 153 Slice 3 — live schema-coverage fraction + priority
                 # ranking of uncovered labels by graph node-count.
                 "schema_coverage": schema_coverage,
-                # Spec 328 Slice 4 — unified-config: resolved values + sources
+                # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
-                # Spec 326 Slice 5 — the frugal discipline status at a glance.
+                # Spec 332 Slice 5 — the frugal discipline status at a glance.
                 "frugal": frugal_block,
-                # Spec 327 Slice 5 — agents agency is installed into.
+                # Spec 333 Slice 5 — agents agency is installed into.
                 "installed_agents": installed,
                 # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
                 # can bootstrap an intent + invoke a verb end-to-end (proven on a
@@ -727,7 +727,7 @@ class AgencyWelcome(SubstrateTool):
                 "capability_tier": _capability_tier(engine.registry),
                 "discipline_skills": discipline_skills,
             }
-            # Spec 326 M2 — the frugal discipline rides the onboarding payload's
+            # Spec 332 M2 — the frugal discipline rides the onboarding payload's
             # cache-stable prefix too (byte-stable at a fixed level; off omits).
             try:
                 from . import _frugal

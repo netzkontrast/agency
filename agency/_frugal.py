@@ -1,7 +1,7 @@
-"""Frugal core discipline — Spec 326 Slice 1 (level + render).
+"""Frugal core discipline — Spec 332 Slice 1 (level + render).
 
 Agency's own minimal-code reflex (a redevelopment, not a port): a ladder + a
-non-negotiable safety floor. The active **level** resolves via Spec 328 config
+non-negotiable safety floor. The active **level** resolves via Spec 334 config
 (``frugal.level``: env ``AGENCY_FRUGAL_LEVEL`` → ``.agency/config.yaml`` →
 ``full``). ``render()`` emits the discipline at a level (the FULL projection for
 the M1 session injection; the COMPACT projection for the M2 per-verb envelope
@@ -18,7 +18,7 @@ LEVELS = ("off", "lite", "full", "ultra")
 DEFAULT_LEVEL = "full"
 
 # The safety-floor invariants — pinned verbatim so no level (bar off) and no
-# Spec 327 adapter copy can silently drop one (the Slice-4 gate asserts these).
+# Spec 333 adapter copy can silently drop one (the Slice-4 gate asserts these).
 SAFETY_FLOOR_MARKERS = (
     "input validation at trust boundaries",
     "prevents data loss",
@@ -89,7 +89,7 @@ def render(level: str | None = None, *, mode: str = "full") -> str:
 
 
 def safety_floor_intact(render_fn=None) -> dict:
-    """Spec 326 Slice 4 — the safety-floor gate predicate. The floor is a
+    """Spec 332 Slice 4 — the safety-floor gate predicate. The floor is a
     first-class clause no level (bar ``off``) can strip: at every non-off level
     the FULL render must carry every ``SAFETY_FLOOR_MARKER`` and the COMPACT
     render must name the floor. Returns ``{ok, checked, findings}`` —
@@ -110,7 +110,7 @@ def safety_floor_intact(render_fn=None) -> dict:
 
 
 def frugal_prefix(level: str | None = None, *, path: str | None = None) -> dict:
-    """Spec 326 M2 — the per-verb stamp as a prefix fragment:
+    """Spec 332 M2 — the per-verb stamp as a prefix fragment:
     ``{"frugal": <compact render>}`` when stamping is active, else ``{}``.
 
     ``off`` level OR ``frugal.stamp_every_verb=false`` → empty. The value is
@@ -129,7 +129,7 @@ def frugal_prefix(level: str | None = None, *, path: str | None = None) -> dict:
     return {"frugal": text} if text else {}
 
 
-# The frugal config section (Spec 328 registry) — default level full.
+# The frugal config section (Spec 334 registry) — default level full.
 _config.register_config_section("frugal", [
     _config.ConfigKey("level", "AGENCY_FRUGAL_LEVEL", DEFAULT_LEVEL,
                       "minimal-code discipline level", enum=LEVELS),

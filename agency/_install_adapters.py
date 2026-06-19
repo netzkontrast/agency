@@ -1,6 +1,6 @@
-"""Spec 327 — multi-agent self-installer.
+"""Spec 333 — multi-agent self-installer.
 
-One ``surface_card`` (derived from the live registry + the Spec 326 frugal
+One ``surface_card`` (derived from the live registry + the Spec 332 frugal
 discipline) projected into each agent's native instruction format. Adapters are
 pure ``card → files`` renderers; installs MERGE a fenced block so the user's
 content is never clobbered (Spec 292 anchor pattern); each adapter succeeds or
@@ -27,7 +27,7 @@ _BOOTSTRAP = ("If `agency` is not found: `pipx install "
 
 # Wave 1 instruction-file agents. `claude` is the DEFAULT MCP path (handled in
 # install_agents via install.write); Wave 2 MCP runtimes (Codex/Gemini/pi/
-# opencode) are deferred to Spec 329.
+# opencode) are deferred to Spec 335.
 INSTRUCTION_AGENTS = ("cursor", "windsurf", "cline", "kiro", "copilot", "agents")
 
 _CURSOR_FRONT = ("---\n"
@@ -44,7 +44,7 @@ _TARGETS: dict[str, list[tuple[str, str]]] = {
     "windsurf": [(".windsurf/rules/agency.md", "")],
     "cline":    [(".clinerules/agency.md", "")],
     "kiro":     [(".kiro/steering/agency.md", _KIRO_FRONT)],
-    # Copilot reads BOTH its own file and AGENTS.md (Spec 327 Q2) — the AGENTS.md
+    # Copilot reads BOTH its own file and AGENTS.md (Spec 333 Q2) — the AGENTS.md
     # overlap with the `agents` adapter is intentional and idempotent (same block).
     "copilot":  [(".github/copilot-instructions.md", ""), ("AGENTS.md", "")],
     "agents":   [("AGENTS.md", "")],

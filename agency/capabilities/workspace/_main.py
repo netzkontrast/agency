@@ -10,6 +10,7 @@ Triggers:
 """
 from __future__ import annotations
 
+from ..._capture import keep_full
 from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 from .._vcs import GitClient
@@ -61,7 +62,8 @@ class WorkspaceCapability(CapabilityBase):
         res = (vcs or GitClient()).run(command=command, cwd=ws["path"])
         passed = int(res.get("returncode", 1)) == 0
         b = self.ctx.record("Baseline", {"command": command, "passed": passed,
-                                         "output": (res.get("output") or "")[:2000]})
+                                         "output": keep_full(res.get("output") or "",
+                                                             label="baseline output")})
         self.ctx.link(workspace, b, "BASELINED")
         self.ctx.link(b, self.ctx.intent_id, "SERVES")
         return {"result": {"workspace": workspace, "passed": passed, "output": res.get("output", "")}}

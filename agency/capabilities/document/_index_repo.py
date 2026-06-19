@@ -1,8 +1,10 @@
 """``document.index_repo`` — the 94%-reduction repo briefing.
 
-Walks a repo tree, reads first-sentence brief slices from module
-docstrings, and synthesises a deterministic PROJECT_INDEX.md ≤ 3000
-cl100k tokens.
+Sources the file list + per-file symbol counts from the **codegraph** index when
+it is initialized (``codegraph files --json`` — complete + gitignore-accurate),
+falling back to a filesystem walk otherwise; reads first-sentence brief slices
+from module docstrings; and synthesises a deterministic PROJECT_INDEX.md. The
+SAVE path renders in FULL (never truncated — CLAUDE.md mandatory rule).
 
 See Spec 043 §"index_repo's 94%-reduction mechanism".
 """
@@ -16,6 +18,32 @@ _PRUNE_DIRS = frozenset({
     "__pycache__", ".venv", ".git", ".pytest_cache", "node_modules",
     "dist", "build", ".tox", ".mypy_cache",
 })
+
+
+def _codegraph_files(root: str) -> dict[str, int] | None:
+    """The repo's file list → per-file symbol count from the **codegraph** index
+    (``codegraph files --json``), keyed by repo-relative path. ``None`` when
+    codegraph is unavailable or NOT initialized — the caller falls back to a
+    filesystem walk. Query-only: codegraph auto-syncs on save (and the
+    SessionStart hook syncs), so no ``sync`` here; ``init`` is NEVER run here
+    (that is the SessionStart hook's / the user's decision)."""
+    import shutil
+    import subprocess
+    import json as _json
+    if not shutil.which("codegraph"):
+        return None
+    try:
+        out = subprocess.run(["codegraph", "files", "--json", "--path", root],
+                             cwd=root, capture_output=True, text=True, timeout=60)
+        if out.returncode != 0 or not out.stdout.strip():
+            return None
+        data = _json.loads(out.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    if not isinstance(data, list):
+        return None
+    return {f["path"]: int(f.get("nodeCount", 0) or 0)
+            for f in data if isinstance(f, dict) and f.get("path")}
 
 
 def _python_files(root: str) -> list[str]:
@@ -48,23 +76,28 @@ def _module_brief(src: str) -> str:
     return doc.splitlines()[0].strip() if doc else ""
 
 
-def _package_briefs(root: str) -> dict[str, list[tuple[str, str]]]:
-    """Walk the tree; group files by their containing dir; pair each
-    file with its module-brief. Returns {dir_rel: [(file_basename,
-    brief), ...]} sorted."""
-    out: dict[str, list[tuple[str, str]]] = {}
-    for path in _python_files(root):
+def _package_briefs(root: str) -> dict[str, list[tuple[str, str, int | None]]]:
+    """Group .py files by their containing dir; pair each with its module-brief
+    and codegraph symbol count. The file LIST comes from the codegraph index when
+    initialized (complete + gitignore-accurate); else a filesystem walk (symbol
+    count then ``None``). Returns {dir_rel: [(basename, brief, symbols), ...]}."""
+    cg = _codegraph_files(root)
+    if cg is not None:
+        rels = sorted(p for p in cg if p.endswith(".py"))
+    else:
+        rels = sorted(os.path.relpath(p, root) for p in _python_files(root))
+    out: dict[str, list[tuple[str, str, int | None]]] = {}
+    for rel in rels:
         try:
-            with open(path, encoding="utf-8") as f:
+            with open(os.path.join(root, rel), encoding="utf-8") as f:
                 src = f.read()
         except OSError:
             continue
         brief = _module_brief(src)
-        rel = os.path.relpath(path, root)
+        symbols = cg.get(rel) if cg is not None else None
         dir_rel = os.path.dirname(rel) or "."
-        base = os.path.basename(rel)
-        out.setdefault(dir_rel, []).append((base, brief))
-    for dir_rel, items in out.items():
+        out.setdefault(dir_rel, []).append((os.path.basename(rel), brief, symbols))
+    for items in out.values():
         items.sort(key=lambda p: p[0])
     return out
 
@@ -218,11 +251,12 @@ def render(root: str, memory, intent_id: str = "",
         items = briefs_by_dir[dir_rel]
         # Synthesise: one-line per dir + bulleted files.
         parts.append(f"\n### `{dir_rel}/` ({len(items)} files)\n")
-        for base, brief in items:
+        for base, brief, symbols in items:
+            suffix = f" ({symbols} symbols)" if symbols else ""
             if brief:
-                parts.append(f"- **{base}** — {brief}\n")
+                parts.append(f"- **{base}** — {brief}{suffix}\n")
             else:
-                parts.append(f"- **{base}**\n")
+                parts.append(f"- **{base}**{suffix}\n")
         # Mid-loop budget check; truncate gracefully — UNLESS full (the save
         # path never deletes content to fit a budget; CLAUDE.md mandatory rule).
         if not full and _count_tokens("".join(parts)) > max_tokens * 0.92:

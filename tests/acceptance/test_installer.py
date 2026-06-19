@@ -1,4 +1,4 @@
-"""Acceptance — multi-agent self-installer (Spec 327).
+"""Acceptance — multi-agent self-installer (Spec 333).
 
 surface_card → per-agent adapters (compact projection: frugal discipline + entry
 pointers, NOT the full verb index); idempotent fenced-block merge; per-adapter

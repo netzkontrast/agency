@@ -1,4 +1,4 @@
-Feature: frugal safety-floor gate (Spec 326 Slice 4)
+Feature: frugal safety-floor gate (Spec 332 Slice 4)
   The safety floor is a first-class, tested clause — a gate-recordable predicate
   that the rendered discipline never omits the floor at any level but off.
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import shlex
 
+from ..._capture import keep_full
 from ...capability import CapabilityBase, verb
 
 # AGENCY-DRIFT: shell-allowlist — the tools shell.run may invoke (command's first
@@ -232,7 +233,8 @@ class ShellCapability(CapabilityBase):
         raw = (res.get("stdout", "") or "") + (("\n" + res["stderr"]) if res.get("stderr") else "")
         filtered = _apply_filter(raw, filter or "tail:20")
         rid = self.ctx.record("Artefact", {
-            "kind": "command-run", "tool": tool, "command": command[:200],
+            "kind": "command-run", "tool": tool,
+            "command": keep_full(command, label="shell command"),
             "exit_code": res.get("exit_code"), "duration_s": res.get("duration_s", 0.0),
             "tail": filtered[:_MAX_OUTPUT]})
         self.ctx.link(rid, self.ctx.intent_id, "SERVES")

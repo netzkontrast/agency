@@ -1,4 +1,4 @@
-"""Acceptance — unified config wiring (Spec 328 Slice 3).
+"""Acceptance — unified config wiring (Spec 334 Slice 3).
 
 The three zero-manual-step generation points: `agency install` (here:
 `install.scaffold_agency_dir`) creates the annotated config; the SessionStart
