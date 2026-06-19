@@ -141,11 +141,12 @@ that produced the observation (Spec 076 unified-hook discipline).
 
 Spec 173 Slice 1 ships the typed lint finding so the audit + the CI
 gate consume one shape.
-- **_llm.py** — Spec 092 G3 — the LLM-decider boundary (an ``llm`` Driver on the Spec-002 registry).
+- **_llm.py** — Spec 092 G3 / Spec 331 — the LLM-decider boundary (an ``llm`` Driver on the
+Spec-002 registry).
 
 A constrained classifier the engine uses where a small judgement is needed without an
-autonomous agent — today `intent.suggests`'s ``llm_select`` Matcher; later the agentic
-pressure-test deciders (Spec 011).
+autonomous agent — today `intent.suggests`'s ``llm_select`` Matcher and
+`delegate.dispatch_decision`'s optional S12 LLM tie-breaker.
 - **_loop_events.py** — Spec 156 Slice 1 — typed LoopEvent shape + pure loop detector.
 
 The dogfood loop needs to know when an agent is repeating itself: 3 raw

@@ -13,9 +13,12 @@ wave: operational
 # Spec 331 — OpenRouter free-tier provider & dotenv configuration
 
 > Hardens the Spec-092-G3 `LLMClient` boundary: pins it to OpenRouter's free tier
-> (`:free`-suffix models only), loads `OPENROUTER_API_KEY` / `JULES_API_KEY` from a
-> `.env` file via `python-dotenv`, and changes the default model from the paid
-> `openai/gpt-4o-mini` to `meta-llama/llama-3.3-70b-instruct:free`.
+> (`:free`-suffix models only), adds live free-model discovery
+> (`AGENCY_LLM_MODEL=auto` + `list_free_models()` / `resolve_model()`), loads
+> `OPENROUTER_API_KEY` / `JULES_API_KEY` from a `.env` file via `python-dotenv`,
+> changes the default model from the paid `openai/gpt-4o-mini` to
+> `meta-llama/llama-3.3-70b-instruct:free`, and wires an optional S12 LLM
+> tie-breaker into `delegate.dispatch_decision()`.
 
 ## Why
 
@@ -100,6 +103,89 @@ Alternative free models that work (set via `AGENCY_LLM_MODEL`):
 - `deepseek/deepseek-chat-v3-0324:free` — fast, well-balanced
 - `qwen/qwen3-coder:free` — best for code-oriented decisions (262K context)
 
+### Live free-model discovery (`AGENCY_LLM_MODEL=auto`)
+
+Setting `AGENCY_LLM_MODEL=auto` triggers dynamic model selection at construction
+time via two new classmethods on `LLMClient`:
+
+**`list_free_models(api_key=None) -> list[dict]`** — queries
+`GET /api/v1/models` (public; optional auth header for authenticated results) and
+returns `{id, name, context_length}` for every model whose ID ends with `:free`.
+Authentication is opportunistic — the public endpoint returns the full free-model
+catalogue without a key, but including the key avoids rate-limiting.
+
+**`resolve_model(api_key=None) -> str`** — walks `_MODEL_PREFERENCE` in order,
+returning the first model whose ID appears in the live catalogue. Falls back to
+`_DEFAULT_MODEL` when the API is unreachable or no preference matches.
+
+```python
+_MODEL_PREFERENCE: list[str] = [
+    "deepseek/deepseek-r1:free",          # dominates free-tier traffic (2026)
+    "deepseek/deepseek-chat-v3-0324:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen3-coder:free",
+    "google/gemma-3-27b-it:free",
+    "mistralai/mistral-7b-instruct:free",
+]
+
+class LLMClient:
+    def __init__(self, model: str | None = None):
+        raw = model or os.environ.get("AGENCY_LLM_MODEL", _DEFAULT_MODEL)
+        if raw == "auto":
+            resolved = self.resolve_model()  # live catalogue walk
+        else:
+            resolved = raw
+        if not resolved.endswith(_FREE_SUFFIX):
+            raise ValueError(...)
+        self.model = resolved
+```
+
+**Why `_MODEL_PREFERENCE` not live-usage-ranked?** The OpenRouter
+`/api/v1/models` endpoint does not expose per-model traffic or usage statistics.
+The preference list is ranked by community usage research (DeepSeek R1 leads
+OpenRouter free-tier traffic as of 2026-06) — a reasonable stable proxy that
+avoids an extra HTTP round-trip.
+
+**Fallback chain:** `auto` → live catalogue walk → first preference hit →
+`_DEFAULT_MODEL` (if network fails or no preference matches). No exception is
+raised when the catalogue is unreachable — the fallback ensures the driver stays
+operational in air-gapped or rate-limited environments.
+
+### S12 LLM tie-breaker in `delegate.dispatch_decision()`
+
+`dispatch_decision()` gains three optional parameters that wire the `llm` Driver
+as an optional post-heuristic validator (S12):
+
+```python
+def dispatch_decision(
+    self,
+    # ... existing S1–S11 signals ...
+    use_llm: bool = False,                    # S12 — consult LLMClient after heuristic
+    task_description: str = "",               # plain-text fed to decide()
+    llm_confidence_threshold: float = 0.75,  # minimum confidence to accept LLM override
+) -> dict:
+```
+
+When `use_llm=True` and the 11-signal heuristic produces a driver, the helper
+`_llm_dispatch_signal()` is called:
+
+1. Fetches the `llm` driver via `ctx.get_driver("llm")`.  Silently skips
+   (returns `None`, heuristic stands) when the driver is unavailable
+   (`DriverMissing`) or `OPENROUTER_API_KEY` is unset.
+2. Constructs a prompt from `task_description` and `signals_fired`, then calls
+   `llm.decide(prompt, options=["local", "jules", "inline"])`.
+3. If `result["confidence"] >= llm_confidence_threshold` AND
+   `result["choice"] != heuristic_driver`, records `S12:llm_override=<choice>`
+   and replaces the driver.
+4. Otherwise records `S12:llm_confirms=<choice>` and leaves the heuristic
+   decision intact.
+5. Any exception from `decide()` is swallowed — the heuristic always wins on
+   failure.
+
+This keeps the S12 signal strictly additive: existing callers passing no LLM
+parameters get identical behaviour. The threshold default of 0.75 means the LLM
+must be fairly confident before overriding a deterministic signal.
+
 ### `python-dotenv` integration (`agency/__main__.py`, `agency/cli.py`)
 
 `load_dotenv()` is called at module import time in both entry points:
@@ -143,7 +229,8 @@ entry points.
 
 | File | Change |
 |---|---|
-| `agency/_llm.py` | New default (`meta-llama/llama-3.3-70b-instruct:free`), `_FREE_SUFFIX` constant, construction + call-time `:free` enforcement |
+| `agency/_llm.py` | New default (`meta-llama/llama-3.3-70b-instruct:free`), `_FREE_SUFFIX` / `_MODELS_URL` constants, `_MODEL_PREFERENCE` list, `AGENCY_LLM_MODEL=auto` handling, `list_free_models()` + `resolve_model()` classmethods, construction + call-time `:free` enforcement |
+| `agency/capabilities/delegate/_main.py` | `use_llm` / `task_description` / `llm_confidence_threshold` params on `dispatch_decision()`; `_llm_dispatch_signal()` helper |
 | `agency/__main__.py` | `load_dotenv()` call at module level |
 | `agency/cli.py` | `load_dotenv()` call at module level |
 | `pyproject.toml` | `python-dotenv>=1.0` in core deps |
@@ -194,6 +281,54 @@ Feature: OpenRouter free-provider enforcement
     When the entry point is imported
     Then no exception is raised
     And existing os.environ values are unchanged
+
+Feature: Free-model auto-discovery
+
+  Scenario: auto mode picks most-preferred available model
+    Given AGENCY_LLM_MODEL is set to "auto"
+    And the OpenRouter catalogue contains "deepseek/deepseek-r1:free"
+    When LLMClient is constructed
+    Then the client's model is "deepseek/deepseek-r1:free"
+
+  Scenario: auto mode falls back to default when catalogue unreachable
+    Given AGENCY_LLM_MODEL is set to "auto"
+    And the OpenRouter /api/v1/models endpoint is unreachable
+    When LLMClient is constructed
+    Then no exception is raised
+    And the client's model is "meta-llama/llama-3.3-70b-instruct:free"
+
+  Scenario: list_free_models returns only :free-suffixed models
+    When list_free_models() is called
+    Then every returned model's id ends with ":free"
+
+Feature: S12 LLM dispatch tie-breaker
+
+  Scenario: use_llm=False leaves heuristic result unchanged
+    Given dispatch_decision() is called with use_llm=False
+    Then no LLM driver is consulted
+    And the returned driver equals the 11-signal heuristic result
+
+  Scenario: LLM overrides heuristic when confident
+    Given dispatch_decision() is called with use_llm=True and task_description="..."
+    And the 11-signal heuristic picks "local"
+    And the LLM returns choice="jules" with confidence=0.9
+    And llm_confidence_threshold is 0.75
+    Then the returned driver is "jules"
+    And signals contains "S12:llm_override=jules"
+
+  Scenario: LLM confirms heuristic when low confidence
+    Given dispatch_decision() is called with use_llm=True
+    And the 11-signal heuristic picks "jules"
+    And the LLM returns choice="local" with confidence=0.6
+    And llm_confidence_threshold is 0.75
+    Then the returned driver is "jules"
+    And signals contains "S12:llm_confirms=jules"
+
+  Scenario: LLM driver unavailable silently skips S12
+    Given dispatch_decision() is called with use_llm=True
+    And OPENROUTER_API_KEY is not set
+    Then no exception is raised
+    And the returned driver equals the 11-signal heuristic result
 ```
 
 ## Followup — Implementation Status (2026-06-19)
@@ -202,27 +337,35 @@ Feature: OpenRouter free-provider enforcement
 
 ### Done
 - `_llm.py`: `_DEFAULT_MODEL` changed to `meta-llama/llama-3.3-70b-instruct:free`;
-  `_FREE_SUFFIX = ":free"` constant added; `LLMClient.__init__` raises `ValueError`
-  on non-free model; `decide()` raises `ValueError` on non-free per-call override.
+  `_FREE_SUFFIX = ":free"` / `_MODELS_URL` constants added; `LLMClient.__init__`
+  raises `ValueError` on non-free model; `decide()` raises `ValueError` on non-free
+  per-call override; `AGENCY_LLM_MODEL=auto` triggers `resolve_model()`.
+- `_llm.py`: `list_free_models()` queries `GET /api/v1/models`, filters to `:free`
+  IDs, returns `{id, name, context_length}` list.
+- `_llm.py`: `resolve_model()` walks `_MODEL_PREFERENCE` against live catalogue;
+  falls back to `_DEFAULT_MODEL` on network failure or no match.
+- `_llm.py`: `_MODEL_PREFERENCE` list ranked by community usage (DeepSeek R1 first).
+- `capabilities/delegate/_main.py`: `dispatch_decision()` gains `use_llm`,
+  `task_description`, `llm_confidence_threshold` params; `_llm_dispatch_signal()`
+  helper implements S12 — fetches `llm` driver, calls `decide()`, records
+  `S12:llm_override=<x>` or `S12:llm_confirms=<x>` in signals; silently no-ops
+  when driver unavailable or `decide()` raises.
 - `__main__.py`: `from dotenv import load_dotenv; load_dotenv()` at module level.
 - `cli.py`: same.
 - `pyproject.toml`: `python-dotenv>=1.0` in `[project].dependencies`.
 
 ### Still-to-implement
-- **Acceptance test suite.** The six Gherkin scenarios above are not yet wired
-  into `tests/acceptance/`. A `tests/acceptance/test_openrouter_provider.py` +
-  `tests/acceptance/features/openrouter_provider.feature` should cover them
-  (mocking network; no real OpenRouter call in CI).
+- **Acceptance test suite.** The thirteen Gherkin scenarios above are not yet wired
+  into `tests/acceptance/`. `tests/acceptance/test_openrouter_provider.py` +
+  `tests/acceptance/features/openrouter_provider.feature` should cover the
+  enforcement and dotenv scenarios (mocking network; no real OpenRouter call in CI).
+  `tests/acceptance/test_delegate_s12.py` should cover the S12 dispatch scenarios
+  (mocking the `llm` driver's `decide()` return).
 - **`agency_doctor` reporting.** The doctor currently reports `llm_backend`
   as `"openrouter"` or `"none"`. It could add `llm_model` to show the active
   free model, confirming the enforcement is in effect.
 
 ### Refinements deferred
-- Dynamic free-model discovery: query `GET /api/v1/models` and filter by
-  `pricing.prompt == "0"` to validate the configured model is *currently* free
-  (the `:free` suffix is reliable but OpenRouter could change the convention).
-  Deferred — a startup HTTP call has too high a cost for validation that rarely
-  matters in practice.
 - Per-call model rotation across multiple free models for rate-limit resilience
-  (20 req/min per free model). Deferred until `decide()` is called at a rate
-  that hits the limit.
+  (20 req/min per free model on OpenRouter free tier). Deferred until `decide()`
+  is called at a rate that hits the limit.
