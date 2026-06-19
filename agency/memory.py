@@ -16,7 +16,7 @@ from typing import Any, Optional
 from graphqlite import Graph, connect
 
 from . import ontology
-from ._entity_store import EntityStore
+from ._entity_store import EntityStore, IntentStore
 
 OPEN = 10 ** 12  # sentinel valid_to for the currently-valid version
 
@@ -45,6 +45,10 @@ class Memory:
         # is a core dep, so no optional guard.
         self.entities = EntityStore(
             sqlite_connection=self.g._conn.sqlite_connection)
+        # Spec 330 — the typed-join READ API over the four-concept tables (the
+        # consumer that makes the FK columns + Edge spine load-bearing). A faithful
+        # projection of the authoritative graph; the parity gate guards it.
+        self.intents = IntentStore(self.entities)
 
     def _max_persisted_tick(self) -> int:
         # Spec 006 #1 — O(1) clock seed: NO unconstrained full scan. Every tick ever
@@ -79,6 +83,9 @@ class Memory:
         any error (the row can be re-derived from the graph)."""
         try:
             self.entities.upsert(node_id, label, props, vfrom=vfrom, vto=vto)
+            # Spec 327 — also route a CORE label into its explicit typed table
+            # (additive: EntityRecord stays the catch-all). No-op for non-core.
+            self.entities.upsert_typed(node_id, label, props, vfrom=vfrom, vto=vto)
         except Exception:                                   # noqa: BLE001
             # projection is re-derivable from the authoritative graph; never
             # let a mirror error escape the graph write. (Optionally observable
@@ -110,7 +117,16 @@ class Memory:
         attempts = 4
         for i in range(attempts):
             try:
-                self.g.upsert_edge(src, dst, {**(props or {}), "vfrom": self._now()}, rel_type=rel)
+                etick = self._now()
+                self.g.upsert_edge(src, dst, {**(props or {}), "vfrom": etick}, rel_type=rel)
+                # Spec 327/329 — project the edge onto its typed FK column AND the
+                # typed Edge spine (one-way, failure-isolated: the authoritative
+                # edge is already written, so a projection error never fails it).
+                try:
+                    self.entities.set_fk_from_edge(src, dst, rel)
+                    self.entities.upsert_edge_row(src, dst, rel, vfrom=etick)
+                except Exception:                           # noqa: BLE001
+                    pass
                 return
             except Exception as e:                          # noqa: BLE001
                 sev = classify_severity("", exc=e, message=str(e))
@@ -159,6 +175,13 @@ class Memory:
         self._mirror(node_id, label, closed_old,
                      vfrom=closed_old.get("vfrom", 0), vto=now)
         self._mirror(new_id, label, new_props, vfrom=now, vto=OPEN)
+        # Spec 326 — carry the prior version's edge-derived FK columns forward, so
+        # a superseded core node stays in the typed joins (the new id's carried
+        # edges still point at the old id and aren't re-projected). Best-effort.
+        try:
+            self.entities.carry_fks(node_id, new_id, label)
+        except Exception:                                   # noqa: BLE001
+            pass
         return new_id
 
     def retract(self, node_id: str) -> int:

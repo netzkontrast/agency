@@ -431,3 +431,11 @@ Intent.* The 16 active children make it real; this master makes it coherent.
 - **Next build slice (re-expressed):** deepen substrate `capture`/`confirm` (the
   gate) → add `ask` + `elicit` → wire the `guided-discovery` skill orchestrating
   existing verbs → render now/history via `manage`.
+- **Refinement Slice 1 SHIPPED 2026-06-18 — the substrate clarity gate.**
+  `agency/_clarity.py` (single-source `clarity_signals`/`clarity_score`) +
+  `Intent.confirm(require_clarity, override_token, threshold)` records
+  `clarity_score` on every confirm and gates (opt-in, unbypassable when required);
+  `discover.clarity` + `_clarity_inputs` delegate to it (no second source). The #1
+  altitude fix (A2: the gate that `capture_and_confirm` used to bypass) is now on
+  the substrate. 3 acceptance scenarios; full suite 1071 green; drift/schema/codes
+  clean. Next: `elicit(mode)` consolidation, then the `guided-discovery` skill.

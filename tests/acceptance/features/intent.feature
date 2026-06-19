@@ -123,3 +123,19 @@ Feature: intent capability — critical-thinking methods and chaining
     Given 5 user root intents each with a 6-deep chain
     When I run analyze.paths with max_paths 2
     Then at most 2 IP001 findings are returned
+
+  # ── substrate clarity gate (Spec 307 §Refinement — the gate lives on confirm) ─
+
+  Scenario: confirming an Intent records its clarity_score
+    Given a captured-and-confirmed intent
+    Then the intent node carries a clarity_score between 0 and 1
+
+  Scenario: the clarity gate blocks a shallow Intent when required
+    Given a freshly captured shallow intent
+    When I confirm it requiring clarity
+    Then the confirm is refused for low clarity
+    And confirming it with an override token succeeds
+
+  Scenario: the substrate clarity score agrees with discover.clarity
+    Given a captured-and-confirmed intent
+    Then the substrate clarity score equals discover clarity's score

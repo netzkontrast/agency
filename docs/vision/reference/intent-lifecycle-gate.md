@@ -1,14 +1,18 @@
 # Intent · Lifecycle · Gate — three of the four concepts
 
 <!-- doc-source: agency/intent.py agency/lifecycle.py agency/capabilities/gate/_main.py -->
-<!-- doc-hash: 594a3ac8144ca1ee -->
+<!-- doc-hash: 27d2fc4e7fa0f73a -->
 
 ## Intent (`agency/intent.py`)
 
 The human-owned root. `why` and `what` are merged — a deliverable held with a purpose.
 
 - **`capture(purpose, deliverable, acceptance)`** → records an `Intent` node (unconfirmed).
-- **`confirm(intent_id)`** → labels it a confirmed `Intent` (verbs require this).
+- **`confirm(intent_id, require_clarity=False, …)`** → labels it a confirmed `Intent`
+  (verbs require this). Records the `clarity_score` (Spec 322) on every confirm, and —
+  Spec 328 — an **Intent-owned clarity `Gate`** (`kind="clarity"`, the score + verdict)
+  linked `GATES`→Intent, so "is this intent fulfilled?" has a typed home + a history of
+  checks. Best-effort: a provenance write never fails confirm.
 - **`capture_and_confirm(...)`** → the one-shot bootstrap used by `intent_bootstrap` and
   the `agency intent` CLI side-pipe.
 

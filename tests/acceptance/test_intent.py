@@ -496,3 +496,59 @@ def _paths_max_2(engine, confirmed_intent, many_roots):
 def _max_2_ip001(paths_max_2):
     ip001 = [f for f in paths_max_2["findings"] if f["rule"] == "IP001"]
     assert len(ip001) <= 2
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Substrate clarity gate (Spec 307 §Refinement — the gate lives on `confirm`)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@given("a captured-and-confirmed intent", target_fixture="clar_iid")
+def _clar_iid(engine):
+    return engine.intent.capture_and_confirm(
+        "ship a feature", "a working feature", "tests pass", owner="user")
+
+
+@then("the intent node carries a clarity_score between 0 and 1")
+def _records_clarity(engine, clar_iid):
+    node = engine.memory.recall(clar_iid)
+    assert "clarity_score" in node, "confirm did not record clarity_score"
+    assert 0.0 <= float(node["clarity_score"]) <= 1.0
+
+
+@given("a freshly captured shallow intent", target_fixture="shallow_iid")
+def _shallow_iid(engine):
+    # capture only (status draft) — a bare triple, no grounding/scope/acceptance.
+    return engine.intent.capture("vague", "something", "done", owner="user")
+
+
+@when("I confirm it requiring clarity", target_fixture="gate_outcome")
+def _confirm_requiring_clarity(engine, shallow_iid):
+    try:
+        engine.intent.confirm(shallow_iid, require_clarity=True)
+        return {"refused": False}
+    except ValueError as e:
+        return {"refused": True, "error": str(e)}
+
+
+@then("the confirm is refused for low clarity")
+def _confirm_refused(gate_outcome, engine, shallow_iid):
+    assert gate_outcome["refused"], "shallow intent should not clear the gate"
+    # still a draft — the gate did not confirm it
+    assert engine.memory.recall(shallow_iid)["status"] == "draft"
+
+
+@then("confirming it with an override token succeeds")
+def _override_succeeds(engine, shallow_iid):
+    engine.intent.confirm(shallow_iid, require_clarity=True,
+                          override_token="forced-by-test")
+    assert engine.memory.recall(shallow_iid)["status"] == "confirmed"
+
+
+@then("the substrate clarity score equals discover clarity's score")
+def _scores_agree(engine, clar_iid):
+    from agency import _clarity
+    substrate = _clarity.clarity_score(engine.memory, clar_iid)
+    verb_res = _call(engine, clar_iid, "discover", "clarity", for_intent_id=clar_iid)
+    assert abs(round(substrate, 3) - verb_res["score"]) < 1e-9, (
+        f"divergent clarity sources: substrate={substrate} verb={verb_res['score']}")

@@ -28,6 +28,7 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | `draft_plan` | act | Author a bite-sized plan as graph provenance (Spec 287; rule 2). | [details](references/draft_plan.md) |
 | `estimate` | transform | Decidable effort estimate from change-size inputs (Spec 046 F-D — sc-estimate, DECIDABLE only: no LLM, a transparent formula over the inputs you can count). | [details](references/estimate.md) |
 | `index` | effect | Index a repo as a token-cheap briefing — the development-workflow entry to the indexer (Spec 292). | [details](references/index.md) |
+| `maintain` | act | Drive — and AUTOLEARN — the recurring "Agency Steward" maintenance loop. | [details](references/maintain.md) |
 | `mode_select` | effect | Switch session mode + record a ModeShift node (effect). | [details](references/mode_select.md) |
 | `optimize_skilldoc` | act | Author an optimized functional doc — flags + candidate, NO rewrite (act). | [details](references/optimize_skilldoc.md) |
 | `plan_status` | transform | Roll up a Plan's steps + completion (Spec 287) — the render-on-demand read side (rule 2). | [details](references/plan_status.md) |

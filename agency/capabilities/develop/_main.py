@@ -407,6 +407,9 @@ develop_ontology = OntologyExtension(
         # to markdown on demand, never a parsed file).
         "Plan": ["title"],                       # optional: status
         "PlanStep": ["plan", "index", "description"],   # optional: state, evidence
+        # the autolearning maintenance loop — each run is a node, chained
+        # PRECEDES the next (the loop's memory; see develop.maintain).
+        "MaintenanceRun": ["focus"],             # optional: status, selected, next_candidate
     },
     enums={
         ("SessionLifecycle", "mode"): SESSION_MODE,
@@ -645,6 +648,87 @@ class DevelopCapability(CapabilityBase):
     ontology = develop_ontology
 
     # ---- Spec 287 — plan authoring + execution provenance -----------------
+
+    @verb(role="act")
+    def maintain(self, focus: str = "", record: bool = True) -> dict:
+        """Drive — and AUTOLEARN — the recurring "Agency Steward" maintenance loop.
+
+        The maintenance discipline lives HERE as a verb, not in a fragile external
+        prompt: each call returns the hardened phase plan + an evidence-grounded
+        candidate shortlist COMPUTED from the live graph, and records a
+        ``MaintenanceRun`` linked ``PRECEDES`` from the prior run — so the task
+        learns across scheduled runs (the run chain + the reflection backlog are
+        its memory). Reference it from the steward prompt: call ``develop.maintain``
+        at session start, follow the returned ``phases``, and the loop compounds.
+
+        The candidate shortlist is derived, not snapshot (rule 8): the observation
+        ``Reflection`` backlog (lessons to fold) + open Intents ranked by their
+        live ``SERVES`` reach. The seven phases encode the steward discipline
+        (orient → select → build → simplify → pillars → learn → ship).
+
+        Inputs: focus (optional steer for this run), record (persist the run node).
+        Returns: ``{run_id, phases, prior, signals, candidates, next_step}``.
+        chain_next: walk the phases; end with ``reflect.note`` + a handover, then
+                    ``branch.finish_branch`` to merge into main.
+        """
+        phases = [
+            "0 orient — read AGENTS/CLAUDE/CORE/GOALS/TODO; `!codegraph init` then "
+            "`!codegraph index`; agency_welcome + analyze.graph + manage.state; "
+            "read the last MaintenanceRun + handover",
+            "1 select — rank candidates by reach x coherence-debt x unblock x "
+            "pillar-completeness-gap; record the ranking; pick exactly ONE",
+            "2 build — harden the spec, then implement ONE shippable slice "
+            "test-first (RED -> GREEN; behaviour, not internals)",
+            "3 simplify — /simplify the touched code + its coupled blast radius",
+            "4 pillars — prove Intent/Capability/Lifecycle/Memory each own write+read, "
+            "no dormant surface, the Document convergence holds; drift clean; suite green",
+            "5 learn — reflect.note the lessons; dogfood.parse_amendment; write + "
+            "prompt.audit the handover",
+            "6 ship — branch.finish_branch; drive CI green; merge the PR into main",
+        ]
+        # --- autolearn memory: the prior run chain ---
+        prior_runs = self.ctx.find("MaintenanceRun")          # current versions only
+        prior = None
+        if prior_runs:
+            last = max(prior_runs, key=lambda r: r.get("vfrom", 0))
+            prior = {"id": last.get("id"), "focus": last.get("focus"),
+                     "selected": last.get("selected") or "",
+                     "next": last.get("next_candidate") or ""}
+        # --- live-graph signals + a DERIVED candidate shortlist (rule 8) ---
+        intents = self.ctx.find("Intent")
+        reflections = [r for r in self.ctx.find("Reflection")
+                       if r.get("scope") == "observation"]
+        open_intents = [i for i in intents
+                        if i.get("status") != "confirmed"] or intents
+
+        def _reach(node: dict) -> int:
+            nid = node.get("id", "")
+            return len(self.ctx.nodes_serving(nid)) if nid else 0
+
+        ranked = sorted(open_intents, key=_reach, reverse=True)
+        signals = {
+            "intents": len(intents),
+            "open_intents": len(open_intents),
+            "observation_backlog": len(reflections),
+            "prior_runs": len(prior_runs),
+        }
+        candidates = (
+            [{"kind": "reflection", "id": r.get("id"),
+              "text": (r.get("text") or "")[:160]} for r in reflections[:5]]
+            + [{"kind": "intent", "id": i.get("id"), "purpose": i.get("purpose"),
+                "reach": _reach(i)} for i in ranked[:5]]
+        )
+        run_id = None
+        if record:
+            run_id = self.ctx.record_and_serve("MaintenanceRun", {
+                "focus": focus or "auto", "status": "open",
+                "selected": "", "next_candidate": ""})
+            if prior and prior.get("id"):
+                self.ctx.link(prior["id"], run_id, "PRECEDES")   # the autolearn chain
+        next_step = ("read the last handover + run `!codegraph index`, then rank the "
+                     "candidates and pick ONE high-impact spec (phase 1)")
+        return {"run_id": run_id, "phases": phases, "prior": prior,
+                "signals": signals, "candidates": candidates, "next_step": next_step}
 
     @verb(role="act")
     def draft_plan(self, title: str, steps: str = "") -> dict:
