@@ -141,9 +141,15 @@ class LLMClient:
     # Core decide() interface
     # ------------------------------------------------------------------
 
-    def decide(self, prompt: str, options: list[str], model: str | None = None) -> dict:
+    def decide(self, prompt: str, options: list[str], model: str | None = None,
+               system: str | None = None) -> dict:
         """Choose EXACTLY ONE of ``options``. Returns ``{choice, confidence}``; tolerant
-        of a malformed reply (degrades to a mentioned option, else the first / conf 0)."""
+        of a malformed reply (degrades to a mentioned option, else the first / conf 0).
+
+        ``system`` overrides the default ``_SYSTEM`` prompt for this call only — pass a
+        domain-specific system prompt to improve routing quality for specialised decisions
+        (e.g. the S12 dispatch tie-breaker in ``delegate.dispatch_decision``).
+        """
         key = os.environ.get("OPENROUTER_API_KEY")
         if not key:
             raise RuntimeError(
@@ -156,13 +162,14 @@ class LLMClient:
                 f"Per-call model override must also be a free OpenRouter model "
                 f"(must end with '{_FREE_SUFFIX}', got {use_model!r})."
             )
-        return self._parse(self._chat(key, prompt, options, use_model), options)
+        return self._parse(self._chat(key, prompt, options, use_model, system=system), options)
 
-    def _chat(self, key, prompt, options, model):            # pragma: no cover - network
+    def _chat(self, key, prompt, options, model,              # pragma: no cover - network
+              system: str | None = None):
         import httpx
         body = {
             "model": model, "temperature": 0, "max_tokens": 64,
-            "messages": [{"role": "system", "content": _SYSTEM},
+            "messages": [{"role": "system", "content": system or _SYSTEM},
                          {"role": "user", "content": f"{prompt}\n\nOptions: {options}"}],
             "response_format": {"type": "json_schema", "json_schema": {
                 "name": "decision", "strict": True, "schema": {

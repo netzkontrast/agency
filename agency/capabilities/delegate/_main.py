@@ -335,6 +335,41 @@ class DelegateCapability(CapabilityBase):
             "signals_fired": signals,
         }
 
+    @staticmethod
+    def _generate_dispatch_system_prompt(
+        heuristic_driver: str,
+        signals_fired: list[str],
+    ) -> str:
+        """Build a rich, context-aware system prompt for the S12 dispatch LLM decision.
+
+        Includes driver trade-offs, heuristic context, signals that fired, and explicit
+        decision criteria — giving the model enough signal to make a high-quality override
+        decision without hallucinating routing logic.
+        """
+        signals_block = (
+            "\n".join(f"  - {s}" for s in signals_fired) if signals_fired else "  (none)"
+        )
+        return (
+            "You are a dispatch-routing advisor for the agency agentic framework.\n"
+            "Your role: validate or override a deterministic heuristic routing decision\n"
+            "for a software engineering task by choosing the best execution driver.\n\n"
+            "DRIVER OPTIONS:\n"
+            "  local  — spawn an isolated local subagent (fast, bounded context, in-process)\n"
+            "  jules  — send to Jules async coding agent (long-running, offline, high budget)\n"
+            "  inline — handle in the current agent without dispatch (lowest overhead)\n\n"
+            f"HEURISTIC RESULT: {heuristic_driver!r}\n\n"
+            "SIGNALS THAT FIRED:\n"
+            f"{signals_block}\n\n"
+            "DECISION CRITERIA (apply in order):\n"
+            "  1. Return tokens >= 5000 or >= 4 unfamiliar files → prefer local or jules\n"
+            "  2. Wall-clock >= 15 min or task is async/offline → prefer jules\n"
+            "  3. Task mutates shared state (S6) without provenance → local or jules only\n"
+            "  4. Read-only + context overlap < 0.7 + cache warm → prefer inline\n"
+            "  5. When uncertain, confirm the heuristic; only override with high confidence.\n\n"
+            'Reply ONLY with JSON: {"choice": "<local|jules|inline>", "confidence": <0.0-1.0>}\n'
+            "Set confidence >= 0.75 only when you are confident the heuristic needs overriding."
+        )
+
     def _llm_dispatch_signal(
         self,
         task_description: str,
@@ -351,19 +386,17 @@ class DelegateCapability(CapabilityBase):
         except DriverMissing:
             return None
         options = ["local", "jules", "inline"]
+        system_prompt = self._generate_dispatch_system_prompt(
+            heuristic_driver=heuristic_driver,
+            signals_fired=signals_fired,
+        )
         prompt = (
-            f"You are a task-routing advisor. "
-            f"Based on the signals below, pick the best dispatch driver.\n\n"
-            f"Task: {task_description or '(no description provided)'}\n"
-            f"Heuristic decision: {heuristic_driver}\n"
-            f"Signals fired: {', '.join(signals_fired) or 'none'}\n\n"
-            f"'local' = spawn a local subagent in a clean context (isolated, fast).\n"
-            f"'jules' = send to Jules async coding agent (long-running, offline).\n"
-            f"'inline' = handle in the current agent context (no dispatch).\n"
-            f"Choose ONE of: local, jules, inline."
+            f"Task description: {task_description or '(no description provided)'}\n\n"
+            f"The heuristic picked {heuristic_driver!r}. "
+            f"Should it be confirmed or overridden? Choose one of: local, jules, inline."
         )
         try:
-            result = llm.decide(prompt, options)
+            result = llm.decide(prompt, options, system=system_prompt)
         except Exception:
             return None
         choice = result.get("choice", "")
