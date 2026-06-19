@@ -56,7 +56,7 @@ _SYSTEM = ('You are a constrained decider. Choose EXACTLY ONE option and a confi
 
 class LLMClient:
     def __init__(self, model: str | None = None):
-        raw = model or os.environ.get("AGENCY_LLM_MODEL", _DEFAULT_MODEL)
+        raw = model or os.environ.get("AGENCY_LLM_MODEL") or _DEFAULT_MODEL
         if raw == "auto":
             resolved = self.resolve_model()
         else:

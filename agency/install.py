@@ -36,7 +36,7 @@ import sys
 from .capabilities.plugin import author_command, author_skill, help_map
 
 # Keys captured from the environment and written to .env.dev during install.
-_DEV_ENV_KEYS = ("JULES_API_KEY", "OPENROUTER_API_KEY", "AGENCY_LLM_MODEL")
+_DEV_ENV_KEYS = ("JULES_API_KEY", "OPENROUTER_API_KEY")  # AGENCY_LLM_MODEL has a safe default; omit
 
 
 def _write_dev_env(root: str) -> str | None:
