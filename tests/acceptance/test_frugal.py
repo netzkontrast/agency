@@ -10,8 +10,60 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from agency import _frugal
+from agency.engine import Engine
 
 scenarios("features/frugal.feature")
+
+
+@pytest.fixture
+def feng(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENCY_CONFIG", str(tmp_path / ".agency" / "config.yaml"))
+    monkeypatch.delenv("AGENCY_FRUGAL_LEVEL", raising=False)
+    monkeypatch.delenv("AGENCY_INTENT", raising=False)
+    e = Engine(":memory:")
+    yield {"engine": e, "mp": monkeypatch}
+    e.memory.close()
+
+
+@given("a frugal engine with no level override", target_fixture="feng_ctx")
+def _eng_default(feng):
+    return feng
+
+
+@given(parsers.parse('a frugal engine with level "{level}"'), target_fixture="feng_ctx")
+def _eng_level(feng, level):
+    feng["mp"].setenv("AGENCY_FRUGAL_LEVEL", level)
+    return feng
+
+
+@when("a UserPromptSubmit event fires", target_fixture="injected")
+def _ups(feng_ctx):
+    out = feng_ctx["engine"].dispatch_hook(
+        {"hook_event_name": "UserPromptSubmit", "session_id": "f1", "prompt": "hi"})
+    return out.get("inject", "")
+
+
+@when("a SessionStart event fires", target_fixture="injected")
+def _ss(feng_ctx):
+    out = feng_ctx["engine"].dispatch_hook(
+        {"hook_event_name": "SessionStart", "session_id": "f1"})
+    return out.get("inject", "")
+
+
+@then(parsers.parse('the injected text contains "{needle}"'))
+def _inj_has(injected, needle):
+    assert needle in injected, injected
+
+
+@then(parsers.parse('the injected text does not contain "{needle}"'))
+def _inj_hasnt(injected, needle):
+    assert needle not in injected, injected
+
+
+@then("the injected text contains every safety-floor marker")
+def _inj_floor(injected):
+    for m in _frugal.SAFETY_FLOOR_MARKERS:
+        assert m in injected, f"missing floor marker: {m!r}"
 
 
 @pytest.fixture

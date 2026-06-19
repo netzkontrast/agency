@@ -38,3 +38,19 @@ Feature: frugal core discipline — level + render (Spec 326 Slice 1)
   Scenario: off renders nothing
     When I render the discipline at "off"
     Then the render is empty
+
+  Scenario: a prompt injects the frugal discipline at the default level (M1)
+    Given a frugal engine with no level override
+    When a UserPromptSubmit event fires
+    Then the injected text contains "YAGNI"
+    And the injected text contains "floor"
+
+  Scenario: off injects no frugal discipline into the prompt (M1)
+    Given a frugal engine with level "off"
+    When a UserPromptSubmit event fires
+    Then the injected text does not contain "YAGNI"
+
+  Scenario: a session start injects the full discipline (M1)
+    Given a frugal engine with no level override
+    When a SessionStart event fires
+    Then the injected text contains every safety-floor marker
