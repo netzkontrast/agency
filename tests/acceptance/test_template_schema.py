@@ -660,3 +660,27 @@ def _no_dormant_schemas(live_dormant_report):
         "these schema files match an ontology label but are NOT declared "
         "by their capability (add `artefact_schemas` to the owning cap):\n"
         + "\n".join(f"  {l}" for l in sorted(live_dormant_report.dormant_schemas)))
+
+
+# ── Slice 6: discover-prompt wave ────────────────────────────────────────────
+# FeasibilitySignal + IntentRefinement (discover cap; already has artefact_schemas)
+# Template (document cap; already has artefact_schemas)
+# PromptFramework (prompt cap; artefact_schemas added this wave)
+DISCOVER_PROMPT_LABELS = {"FeasibilitySignal", "IntentRefinement", "Template", "PromptFramework"}
+
+
+@then("the discover-prompt labels are all schema-covered")
+def _discover_prompt_covered(coverage_report):
+    missing = DISCOVER_PROMPT_LABELS - coverage_report.covered
+    assert not missing, (
+        "discover-prompt labels lack a Schema (Spec 153 Slice 6 — discover-prompt wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the discover-prompt labels each have a loaded ontology schema")
+def _discover_prompt_loaded(loaded_schema_titles):
+    missing = DISCOVER_PROMPT_LABELS - loaded_schema_titles
+    assert not missing, (
+        "discover-prompt schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))

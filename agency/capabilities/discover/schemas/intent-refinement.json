@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IntentRefinement",
+  "description": "A recorded delta when an Intent's formulation is refined during guided discovery (agency/capabilities/discover/ontology.py; Spec 153 Slice 6 — discover-prompt wave). Links REFINES→Intent; captures the before/after diff so the evolution is auditable.",
+  "type": "object",
+  "required": ["trigger", "before", "after"],
+  "properties": {
+    "trigger": {
+      "type": "string",
+      "description": "What prompted the refinement — a clarification answer, a feasibility finding, or an explicit user edit."
+    },
+    "before": {
+      "type": "string",
+      "description": "The Intent formulation (purpose + deliverable + acceptance) before the refinement."
+    },
+    "after": {
+      "type": "string",
+      "description": "The Intent formulation after the refinement."
+    }
+  }
+}

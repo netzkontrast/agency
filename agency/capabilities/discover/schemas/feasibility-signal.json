@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FeasibilitySignal",
+  "description": "A go/no-go/refine verdict on whether an Intent is ready to implement (agency/capabilities/discover/ontology.py; Spec 153 Slice 6 — discover-prompt wave). Links to DiscoverySession; the verdict gates the clarify→build transition.",
+  "type": "object",
+  "required": ["verdict", "rationale"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["go", "no-go", "refine"],
+      "description": "Feasibility decision: go (ready), no-go (blocked), or refine (needs more discovery)."
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Human-readable explanation of the verdict — what was assessed and why."
+    }
+  }
+}
