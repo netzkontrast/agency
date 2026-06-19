@@ -247,6 +247,7 @@ ToolSearch is the deferred-schema fallback only.
 | Edit a spec / write a doc | (use Write/Edit but call `dogfood.observe` to record) | Write / Edit |
 | Run tests | `develop.test(scope)` | Bash `pytest` |
 | Search code | `mcp__agency__search` + `analyze.*` | Grep / Glob |
+| Understand/locate CODE (symbols · calls · blast radius) | `codegraph_explore`/`node`/`search` · CLI `codegraph <cmd>` — guide `develop.reference("codegraph")` | Grep / Read |
 | Web fetch | `research.fetch(url, query)` (when shipped) | WebFetch |
 | Commit | `branch.commit_smart(message)` | Bash `git commit` |
 | Push + PR | `branch.finish_branch(...)` | Bash + gh CLI |
@@ -262,6 +263,18 @@ delivers ONE phase at a time so context stays bounded.
 provenance (`Invocation` SERVES intent + `Artefact` PRODUCES edges).
 Raw-tool actions don't. The provenance moat IS the moat; bypass it
 and the session is one-shot.
+
+## Code navigation — CodeGraph (when `.codegraph/` exists)
+
+This repo is indexed by **CodeGraph** — a pre-built symbol / call-graph /
+impact-radius index. For ANY "where/what/how does X work", call-path, or
+blast-radius question, reach for it **BEFORE** grep/find/Read: `codegraph_explore`
+(MCP) or `codegraph explore "<q>"` (CLI) answers in one call — treat the returned
+source as already read, don't re-verify with grep. `codegraph node <sym|file>`,
+`query`, `callers`, `callees`, `impact` round it out (CLI mirrors every MCP tool).
+The **complete token-efficient guide is `develop.reference("codegraph")`** — the
+heavy how-to travels on demand, never in the system prompt. No `.codegraph/`
+dir → CodeGraph is inactive and indexing is the user's call (`codegraph init`).
 
 ## Dev
 
