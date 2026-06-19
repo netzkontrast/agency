@@ -1,4 +1,16 @@
-<!-- agency-node: spec:336 -->
+---
+spec_id: "336"
+slug: toolcall-capture-export
+status: drafted
+last_updated: 2026-06-19
+owner: "@agency"
+vision_goals: [1, 2, 6]
+affects:
+  - agency/_capture.py
+  - agency/_toolcalls.py
+  - agency/engine.py
+  - agency/capabilities/shell/_main.py
+---
 # Spec 336 — Lossless tool-call capture, no-truncate fidelity & self-improvement export
 
 > **Status:** Drafted (2026-06-19). Extension spec — owner-directed.
