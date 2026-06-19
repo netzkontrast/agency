@@ -54,6 +54,22 @@ def secret_keys() -> list[str]:
             for section, keys in _REGISTRY.items() for k in keys if k.secret]
 
 
+def register_dataclass_section(name: str, dataclass_type, *, doc: str = "") -> list:
+    """Register a config section DERIVED from a dataclass's fields + declared
+    scalar defaults — single source, no duplicated literals (Goal 4 + rule 2).
+    The open-set proof: a capability surfaces its config in the unified file by
+    pointing at its own dataclass. Returns the registered keys."""
+    import dataclasses
+    label = doc or f"{name} capability default"
+    keys = [ConfigKey(name=f.name, default=f.default, doc=f"{label} ({f.name})")
+            for f in dataclasses.fields(dataclass_type)
+            if f.default is not dataclasses.MISSING
+            and isinstance(f.default, (str, int, float, bool))]
+    if keys:
+        register_config_section(name, keys)
+    return keys
+
+
 def _lookup(dotted: str) -> tuple[str, ConfigKey] | None:
     section, _, name = dotted.partition(".")
     for k in _REGISTRY.get(section, []):

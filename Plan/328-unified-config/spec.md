@@ -168,7 +168,7 @@ Scenario: secrets are never written as literals
 
 ## Followup — Implementation Status (2026-06-19)
 
-**Verdict: Partial** (Slices 1–2 shipped; 3–5 remain).
+**Verdict: Shipped** (all 5 slices).
 
 - **Done — Slice 1** (`agency/_config.py`, PR #171): resolver + registry +
   precedence (`config_get`/`config_resolve`/`config_set`, `register_config_section`,
@@ -195,6 +195,15 @@ Scenario: secrets are never written as literals
   unknown file key) folded into `next_steps` (so `ok` reflects config sanity).
   `agency-doctor --write-config` repairs a missing config non-destructively then
   reports. 3 acceptance scenarios in `features/config_doctor.feature`.
-- **Still:** Slice 5 (capability-registry proof — migrate `novel`/`music` onto
-  `register_config_section` as the open-set proof).
-- **Blocker / Next step:** Slice 5 — the capability-registry proof.
+- **Done — Slice 5** (this change): the open-set proof on REAL capabilities.
+  `register_dataclass_section(name, dataclass)` derives a config section from a
+  dataclass's fields + scalar defaults (single source, no literals); `novel` and
+  `music` register theirs at import, so the unified scaffold lists `novel.*` +
+  `music.*`. 1 acceptance scenario. **Honest scope:** the section surfaces each
+  cap's DEFAULTS for discovery in the one file; the live value is still resolved
+  by the capability (`.agency/<cap>-config.yaml` / `AGENCY_<CAP>_HOME`). Full
+  read-path unification (the cap READS via `config_get`) is a deliberate
+  follow-up — the cap config systems are richly cached with their own precedence
+  (Q1 "defer the rest"); a misleading half-merge was avoided.
+- **Follow-up (tracked):** unify the novel/music READ path onto `config_get`
+  (precedence design + cache-invalidation) so an edit to the unified file is live.

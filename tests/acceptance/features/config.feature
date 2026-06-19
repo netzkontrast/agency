@@ -65,3 +65,11 @@ Feature: unified config — .agency/config.yaml resolver + registry (Spec 328)
     Then the config file lists "demo2.color"
     And the frugal level is still "ultra"
     And the comment "# my note" is preserved
+
+  # Spec 328 Slice 5 — open-set proof: real capabilities register their sections
+  Scenario: a loaded capability surfaces its config in the unified file
+    Given the novel and music capabilities are loaded
+    And a clean env and an empty config file
+    When I scaffold the config
+    Then the config file lists "novel.default_genre"
+    And the config file lists "music.db_backend"
