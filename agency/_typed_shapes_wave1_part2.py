@@ -34,6 +34,25 @@ class RedTeamInvariant:
 
 # ── Spec 160 — GateProjection (CLI --fields/--chain composition) ────
 @dataclass(frozen=True)
+class ChainStep:
+    """One step in a YAML dataflow chain (Spec 160)."""
+
+    cap:     str
+    verb:    str
+    args:    dict
+    save_as: str | None = None
+    fields:  list[str] | None = None
+
+    def __post_init__(self) -> None:
+        if not self.cap:
+            raise ValueError("ChainStep.cap must be non-empty")
+        if not self.verb:
+            raise ValueError("ChainStep.verb must be non-empty")
+        if not isinstance(self.args, dict):
+            raise ValueError("ChainStep.args must be a dictionary")
+
+
+@dataclass(frozen=True)
 class GateProjection:
     """The projected dict the bash agent receives from `agency <cap>
     <verb> --fields a,b`. `kept` is the ordered key list; `dropped`
