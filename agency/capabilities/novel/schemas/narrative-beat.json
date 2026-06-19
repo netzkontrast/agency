@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NarrativeBeat",
+  "description": "A narrative beat — an atomic story unit tied to a Scene and ordered by PRECEDES edges (Spec 128).",
+  "type": "object",
+  "required": ["novel", "label", "scene"],
+  "properties": {
+    "novel": {
+      "type": "string",
+      "description": "Parent Novel node id."
+    },
+    "label": {
+      "type": "string",
+      "description": "Short label identifying the beat."
+    },
+    "scene": {
+      "type": "string",
+      "description": "Scene node id where this beat occurs."
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Storyform",
+  "description": "Dramatica storyform payload for a Novel (Spec 103). Holds NCP v1.3.0 shape in an open `body` dict; links to its Novel via STORYFORM_OF.",
+  "type": "object",
+  "required": ["novel"],
+  "properties": {
+    "novel": {
+      "type": "string",
+      "description": "Parent Novel node id."
+    },
+    "body": {
+      "type": "object",
+      "description": "Open NCP v1.3.0 payload — throughlines, dynamics, appreciations, narrative-functions.",
+      "additionalProperties": true
+    }
+  }
+}

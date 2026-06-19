@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Novel",
+  "description": "A novel project node — the root of the novel sub-graph (Spec 101/102). Chapters, Scenes, and the Storyform hang off it via CHAPTER_OF / STORYFORM_OF edges.",
+  "type": "object",
+  "required": ["title", "author", "status"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Working title of the novel."
+    },
+    "author": {
+      "type": "string",
+      "description": "Primary author name."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["concept", "outlining", "drafting", "revising", "beta", "querying", "published"],
+      "description": "Novel lifecycle stage (NOVEL_STATUS enum, agency/capabilities/novel/_main.py)."
+    },
+    "genre": {
+      "type": "string",
+      "description": "Primary genre (e.g. 'literary-fiction', 'fantasy')."
+    },
+    "logline": {
+      "type": "string",
+      "description": "One-sentence premise produced by the novel-concept skill."
+    }
+  }
+}

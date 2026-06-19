@@ -870,3 +870,33 @@ def _music_dogfood_prompt_loaded(loaded_schema_titles):
         "music+dogfood-boundary+prompt-opt schemas are on disk but NOT loaded "
         "by the engine (declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── novel + core Schema/Tool wave ─────────────────────────────────────────────
+# Novel/Chapter/Storyform/NovelClaim/Scene/World/Culture/Religion/Language/
+# MagicSystem/WorldAxiom/StoryTimeEvent/NarrativeBeat/CodexEntry/KnownFact (novel cap)
+# Schema/Tool (core ontology labels; develop cap already declares artefact_schemas)
+NOVEL_CORE_LABELS = {
+    "Novel", "Chapter", "Storyform", "NovelClaim", "Scene",
+    "World", "Culture", "Religion", "Language", "MagicSystem", "WorldAxiom",
+    "StoryTimeEvent", "NarrativeBeat", "CodexEntry", "KnownFact",
+    "Schema", "Tool",
+}
+
+
+@then("the novel-core labels are all schema-covered")
+def _novel_core_covered(coverage_report):
+    missing = NOVEL_CORE_LABELS - coverage_report.covered
+    assert not missing, (
+        "novel+core labels lack a Schema "
+        "(Spec 153 Slice 6 — novel+core wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the novel-core labels each have a loaded ontology schema")
+def _novel_core_loaded(loaded_schema_titles):
+    missing = NOVEL_CORE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "novel+core schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))

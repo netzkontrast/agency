@@ -476,3 +476,27 @@ wired], OptimizationPass in prompt [already wired]). Also fixed inline
 counted DecisionRecord which Wave 4 squash-merge hadn't fully trimmed).
 schema_coverage 0.719→0.809, crossing 0.8 milestone. 2 acceptance scenarios
 (MUSIC_DOGFOOD_PROMPT_LABELS contract set). Drift clean.
+
+
+## Done — Slice 6 novel + core Schema/Tool wave (2026-06-19)
+
+Wave 6 (steward run, FINAL Slice 6 wave): 17 labels covered — 15 novel cap
+labels (Novel/Chapter/Storyform/NovelClaim/Scene/World/Culture/Religion/Language/
+MagicSystem/WorldAxiom/StoryTimeEvent/NarrativeBeat/CodexEntry/KnownFact) +
+Schema/Tool (core ontology labels; develop cap already declares artefact_schemas).
+
+- **15 schemas authored** — novel capability, new schemas/ directory:
+  novel.json, chapter.json, storyform.json, novel-claim.json, scene.json,
+  world.json, culture.json, religion.json, language.json, magic-system.json,
+  world-axiom.json, story-time-event.json, narrative-beat.json, codex-entry.json,
+  known-fact.json (15 files, required fields DERIVED from novel_ontology.nodes).
+- **2 schemas authored** — develop capability: schema.json (Schema, required:
+  name/required), tool.json (Tool, required: name/input/output) — DERIVED from
+  agency/ontology.py NODE_SCHEMAS.
+- **NovelCapability updated** — ArtefactSchemas import + artefact_schemas wired.
+- **2 acceptance scenarios** — NOVEL_CORE_LABELS named contract set (17 labels);
+  44 scenarios total (was 42).
+- **Baseline cleared** Plan/_planning/schema-coverage-baseline.txt 17→0 (empty).
+- **Coverage** schema_coverage.fraction 0.809→1.0 (72→89 covered).
+  FULL COVERAGE ACHIEVED — Spec 153 Slice 6 complete.
+- Drift clean.

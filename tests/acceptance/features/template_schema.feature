@@ -207,3 +207,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the music-dogfood-prompt schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the music-dogfood-prompt labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — novel + core Schema/Tool wave) ───────
+
+  Scenario: the novel-core labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the novel-core labels are all schema-covered
+
+  Scenario: the novel-core schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the novel-core labels each have a loaded ontology schema

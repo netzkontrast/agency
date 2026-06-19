@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KnownFact",
+  "description": "A fact known by a character — entry in the character-knowledge ledger (Spec 131). Links to Character via KNOWS; to Scene via LEARNED_IN.",
+  "type": "object",
+  "required": ["character", "fact"],
+  "properties": {
+    "character": {
+      "type": "string",
+      "description": "Character node id who holds this knowledge."
+    },
+    "fact": {
+      "type": "string",
+      "description": "The fact the character knows."
+    },
+    "scene": {
+      "type": "string",
+      "description": "Scene node id where the character learned this fact (optional; links via LEARNED_IN)."
+    }
+  }
+}
