@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ClarificationQuestion",
+  "description": "An AskUser clarification question derived from an ambiguity in the draft Intent (agency/capabilities/discover/clusters/clarify.py; Spec 311 + Spec 153 Slice 6 workflow-spine coverage). Links CLARIFIES→Intent; answered via fold_answer.",
+  "type": "object",
+  "required": ["text", "options", "ambiguity_kind"],
+  "properties": {
+    "text": {
+      "type": "string",
+      "description": "The question text surfaced to the user."
+    },
+    "options": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Choice options derived from the Intent's context (2-4 items, recommended-first)."
+    },
+    "ambiguity_kind": {
+      "type": "string",
+      "enum": ["underspecified", "conflicting", "vague-scope", "missing-acceptance", "unstated-assumption"],
+      "description": "Which ambiguity signal this question resolves."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "answered"],
+      "description": "Pending until fold_answer is called; answered after the user's response is folded in."
+    }
+  }
+}

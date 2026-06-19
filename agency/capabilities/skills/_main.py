@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Literal
 
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 _VALID_GATES = {"hard", "soft"}
@@ -126,6 +126,7 @@ class SkillsCapability(CapabilityBase):
     name = "skills"
     home = "capability"
     ontology = OntologyExtension(skills={"skills-triage": _TRIAGE_SKILL})
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
 
     @verb(role="transform")
     def find(self, kind: str = "", capability: str = "") -> dict:

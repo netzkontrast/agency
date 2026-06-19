@@ -575,3 +575,28 @@ def _doc_convergence_loaded(loaded_schema_titles):
         "document-convergence schemas are on disk but NOT loaded by the engine "
         "(declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# The workflow-spine set: Lifecycle (pillar concept), Event (substrate hooks,
+# Spec 076), Phase (skill-walk progression), Skill (capability-skill surface),
+# ClarificationQuestion (discover/clarify node, Spec 311).
+# Spec 153 Slice 6 continuation — next coverage wave targeting the four-pillar
+# surface. A named contract set, not a snapshot count (CLAUDE.md rule 8).
+WORKFLOW_SPINE_LABELS = {"Lifecycle", "Event", "Phase", "Skill", "ClarificationQuestion"}
+
+
+@then("the workflow spine labels are all schema-covered")
+def _workflow_spine_covered(coverage_report):
+    missing = WORKFLOW_SPINE_LABELS - coverage_report.covered
+    assert not missing, (
+        "workflow-spine labels lack a Schema (Spec 153 Slice 6 — workflow-spine wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the workflow spine labels each have a loaded ontology schema")
+def _workflow_spine_loaded(loaded_schema_titles):
+    missing = WORKFLOW_SPINE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "workflow-spine schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))

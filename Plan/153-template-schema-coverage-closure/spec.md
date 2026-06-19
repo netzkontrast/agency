@@ -236,3 +236,39 @@ the prior Slice 6 entry.
 - **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 65→61.
 - **Coverage** `schema_coverage.fraction` 0.270→0.315 (24→28 covered).
   Next: continued backfill toward >0.5; Slice 4 round-trip invariant.
+
+### Done — Slice 6 workflow-spine wave (2026-06-19)
+
+Steward run continuation: 5 workflow-spine labels covering the four-pillar
+surface (Lifecycle pillar node, substrate hook Events, skill-walk Phase,
+Capability pillar Skill surface, discover ClarificationQuestion).
+
+- **5 schemas authored** — title = ontology label, properties DERIVED from
+  the live node-creation sites:
+  - `develop/schemas/lifecycle.json` (`Lifecycle`) ← `agency/lifecycle.py`
+    (`state` enum A2A-aligned, `phase` int; Spec 153).
+  - `develop/schemas/event.json` (`Event`) ← `agency/engine.py`
+    (`name`/`session` required; `tool`/`summary` optional; Spec 076).
+  - `skills/schemas/phase.json` (`Phase`) ← `agency/skill.py` +
+    `skills/_main.py` (`skill`/`index`/`name` required; `produces` optional).
+  - `skills/schemas/skill.json` (`Skill`) ← `agency/skill.py` +
+    `skills/_main.py` (`name`/`kind` enum usage|discipline required).
+  - `discover/schemas/clarification-question.json` (`ClarificationQuestion`)
+    ← `discover/clusters/clarify.py` + `discover/ontology.py`
+    (`text`/`options`/`ambiguity_kind` required; `status` optional).
+- **Engine-load fix** — `skills` cap had no `schemas/` dir and no
+  `artefact_schemas` declaration; created the dir and added
+  `ArtefactSchemas.from_module(__file__)` to `SkillsCapability` (import +
+  class attr). doc-drift caught immediately (check-doc-drift: skills.md
+  stale → re-stamped). Three occurrences of this trap across Slice 6
+  batches — candidate for Slice 4 engine-load intersection gate.
+- **2 acceptance scenarios** — `WORKFLOW_SPINE_LABELS` named contract set
+  (`{"Lifecycle","Event","Phase","Skill","ClarificationQuestion"}`):
+  (1) all five are schema-covered by the live-tree audit; (2) the engine
+  actually loads each (guards the undeclared trap). 22 scenarios total (was 20).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 61→56.
+- **Coverage** `schema_coverage.fraction` 0.315→0.371 (28→33 covered).
+  Next: continued backfill toward >0.5; Slice 4 round-trip invariant.
+  Remaining uncovered: 56 labels (see baseline). Strong candidates for
+  next wave: `PromptFramework`, `Reflection`-adjacent (Template, Schema,
+  Tool), discover wave (`FeasibilitySignal`, `IntentRefinement`, `ScopeBoundary`).

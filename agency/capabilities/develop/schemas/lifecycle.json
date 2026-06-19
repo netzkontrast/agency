@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Lifecycle",
+  "description": "Task/agent state-machine node — A2A-aligned task states (agency/lifecycle.py; Spec 153 Slice 6 — workflow-spine coverage). Linked SERVES→Intent; gates record PASSED/BLOCKED_ON edges; agents link via DISPATCHED_TO.",
+  "type": "object",
+  "required": ["state", "phase"],
+  "properties": {
+    "state": {
+      "type": "string",
+      "enum": ["submitted", "working", "input-required", "auth-required", "completed", "failed", "canceled"],
+      "description": "A2A-aligned task state. Starts 'working' on open(); advances through gates; 'input-required' when a gate blocks."
+    },
+    "phase": {
+      "type": "integer",
+      "description": "Phase counter — incremented by lifecycle.move() when a gate passes. Starts at 0."
+    }
+  }
+}

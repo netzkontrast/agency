@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Event",
+  "description": "Substrate hook event — fired on SessionStart/SessionEnd/PreToolUse/PostToolUse by the unified hook dispatcher (agency/engine.py; Spec 076 + Spec 153 Slice 6 workflow-spine coverage). Links IN_SESSION→Session and OBSERVED_DURING→Intent.",
+  "type": "object",
+  "required": ["name", "session"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Hook event name (e.g. 'PreToolUse', 'SessionEnd', 'PostToolUse')."
+    },
+    "session": {
+      "type": "string",
+      "description": "Session ID the event belongs to ('unknown' when no session context)."
+    },
+    "tool": {
+      "type": "string",
+      "description": "Tool name for tool-lifecycle events (Write/Edit/Bash/…). Absent for session-level events."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Token-bounded head of the tool payload (head:5 filter, max 500 chars). Absent for session-level events."
+    }
+  }
+}
