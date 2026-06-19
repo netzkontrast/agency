@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Gate",
+  "description": "A recorded gate decision — a checkpoint a Lifecycle PASSED or is BLOCKED_ON (agency/capabilities/gate/_main.py, agency/_substrate_tools.py; Spec 153 Slice 6 coverage). Distinct from GateOutcome (the wire-payload schema).",
+  "type": "object",
+  "required": ["name", "passed"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The gate's identity (e.g. 'human-confirm', 'conflict:a-vs-b')."
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "Whether the gate cleared — drives PASSED vs BLOCKED_ON edge + lifecycle state."
+    },
+    "evidence": {
+      "type": "string",
+      "description": "The rationale / evidence backing the decision."
+    },
+    "question": {
+      "type": "string",
+      "description": "The question posed when the gate is a human-confirm checkpoint (optional)."
+    }
+  }
+}

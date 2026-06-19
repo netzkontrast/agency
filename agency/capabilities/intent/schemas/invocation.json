@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Invocation",
+  "description": "One recorded capability-verb call — the provenance spine (agency/_invoke.py; Spec 153 Slice 6 coverage). SERVES an Intent and is PERFORMED_BY an Agent.",
+  "type": "object",
+  "required": ["capability", "verb", "role"],
+  "properties": {
+    "capability": {
+      "type": "string",
+      "description": "The capability whose verb was invoked (e.g. 'develop')."
+    },
+    "verb": {
+      "type": "string",
+      "description": "The verb name within the capability (e.g. 'maintain')."
+    },
+    "role": {
+      "type": "string",
+      "description": "The verb's declared role (act / effect / read) — the read/mutate axis of provenance."
+    }
+  }
+}

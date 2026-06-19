@@ -509,3 +509,44 @@ def _no_fixed_in_baseline(coverage_report):
     assert coverage_report.fixed_uncovered == set(), (
         "baseline lists labels now covered — trim them.\n"
         + "\n".join(f"  {l}" for l in sorted(coverage_report.fixed_uncovered)))
+
+
+# The named set of core provenance node types — the substrate spine every
+# session writes (Intent → Invocation performed-by Agent; Gate decisions;
+# the steward's own MaintenanceRun). Spec 153 Slice 6 backfills schemas for
+# these highest-traffic labels first (doctor `priority_uncovered` ranking).
+# A named contract set, not a snapshot count (CLAUDE.md rule 8).
+CORE_PROVENANCE_LABELS = {"Intent", "Agent", "Invocation", "MaintenanceRun", "Gate"}
+
+
+@then("the core provenance labels are all schema-covered")
+def _core_provenance_covered(coverage_report):
+    missing = CORE_PROVENANCE_LABELS - coverage_report.covered
+    assert not missing, (
+        "core substrate provenance labels lack a Schema (Spec 153 Slice 6):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@when("I boot the live engine", target_fixture="loaded_schema_titles")
+def _boot_engine_schema_titles():
+    """A schema FILE counted by the glob audit is dormant unless its
+    capability DECLARES `artefact_schemas` so the engine loads it. This
+    asserts the stronger invariant: the engine ontology actually carries
+    each core schema (guards the Slice 6 declaration regression)."""
+    from agency.engine import Engine
+    e = Engine(":memory:")
+    try:
+        titles = {v.get("title") for v in e.ontology.schemas.values()
+                  if isinstance(v, dict)}
+    finally:
+        e.memory.close()
+    return titles
+
+
+@then("the core provenance labels each have a loaded ontology schema")
+def _core_provenance_loaded(loaded_schema_titles):
+    missing = CORE_PROVENANCE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "core provenance schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
