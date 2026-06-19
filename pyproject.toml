@@ -34,6 +34,10 @@ dependencies = [
     "bandit>=1.7",
     "radon>=6",
     "networkx>=3.2",
+    # Spec 328 — .agency/config.yaml is a CORE runtime feature (config_get reads
+    # YAML at engine/CLI/MCP startup), so PyYAML graduates from a dev-only dep to
+    # core. Still pinned in [dev] too for the vision_goals frontmatter validator.
+    "PyYAML>=6.0",
 ]
 
 # AGENCY-DRIFT: deps-extras — adding/removing an extra here means:
