@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DoctrineCitation",
+  "description": "A provenance record that a named doctrine principle DROVE a concrete action (agency/capabilities/doctrine/_main.py). SERVES the active intent; links the principle to its application for audit and retrospective.",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Canonical name of the doctrine principle cited (e.g. 'correctness > maintainability > speed')."
+    }
+  }
+}

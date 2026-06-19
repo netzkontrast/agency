@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DecisionRecord",
+  "description": "A binding architectural or design decision recorded for provenance (agency/capabilities/dogfood/_main.py; Spec 114). SERVES the active intent; subject+decision+rationale form the ADR triple.",
+  "type": "object",
+  "required": ["subject", "decision", "rationale"],
+  "properties": {
+    "subject": {
+      "type": "string",
+      "description": "Short noun-phrase naming what the decision is about."
+    },
+    "decision": {
+      "type": "string",
+      "description": "The chosen option or outcome."
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Why this option was chosen over alternatives."
+    }
+  }
+}

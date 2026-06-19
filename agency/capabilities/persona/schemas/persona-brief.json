@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PersonaBrief",
+  "description": "A persona-framed task brief (agency/capabilities/persona/_main.py; Spec 300). SERVES the active intent; persona selects the expert lens and task describes the work to perform under that lens.",
+  "type": "object",
+  "required": ["persona", "task"],
+  "properties": {
+    "persona": {
+      "type": "string",
+      "enum": [
+        "backend-architect", "frontend-architect", "devops-architect",
+        "system-architect", "security-engineer", "performance-engineer",
+        "quality-engineer", "python-expert", "refactoring-expert",
+        "requirements-analyst", "root-cause-analyst", "technical-writer",
+        "learning-guide", "socratic-mentor"
+      ],
+      "description": "The expert persona selected to frame the task."
+    },
+    "task": {
+      "type": "string",
+      "description": "Natural-language description of the task to perform under the persona lens."
+    }
+  }
+}
