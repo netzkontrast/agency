@@ -89,6 +89,17 @@ def _force_mirror_failure(engine, ctx, monkeypatch):
     ctx["iid"] = engine.intent.capture("resilient", "graph wins", "node survives")
 
 
+@when("an invocation serving an intent is superseded")
+def _supersede_invocation(engine, ctx):
+    iid = engine.intent.capture("typed", "supersede carry", "fk forwarded")
+    engine.intent.confirm(iid)
+    inv = engine.memory.record("Invocation",
+                               {"capability": "c", "verb": "v", "role": "act"})
+    engine.memory.link(inv, iid, "SERVES")
+    new_inv = engine.memory.supersede(inv, {"outcome": "ok"})
+    ctx.update(iid=iid, old_inv=inv, new_inv=new_inv)
+
+
 @when("I record an intent with an owner that is not in the ontology")
 def _bad_owner(engine, ctx):
     try:
@@ -154,6 +165,15 @@ def _parent_fk(engine, ctx):
 @then("the authoritative graph still has the intent node")
 def _graph_survives(engine, ctx):
     assert engine.memory.recall(ctx["iid"]) is not None
+
+
+@then("the live invocation still serves that intent in the typed projection")
+def _supersede_carry(engine, ctx):
+    served = {i["id"] for i in engine.memory.intents.serves(ctx["iid"])}
+    # the LIVE (current) version carries the relationship forward
+    assert ctx["new_inv"] in served
+    row = _store(engine).typed_row("Invocation", ctx["new_inv"])
+    assert row["serves_intent_id"] == ctx["iid"]
 
 
 @then("the record is rejected")

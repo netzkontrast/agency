@@ -37,3 +37,7 @@ Feature: typed entity projection — the Intent + Capability core (Spec 327)
   Scenario: enum values are enforced from the ontology
     When I record an intent with an owner that is not in the ontology
     Then the record is rejected
+
+  Scenario: superseding a core node keeps it in the typed projection
+    When an invocation serving an intent is superseded
+    Then the live invocation still serves that intent in the typed projection

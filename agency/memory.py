@@ -175,6 +175,13 @@ class Memory:
         self._mirror(node_id, label, closed_old,
                      vfrom=closed_old.get("vfrom", 0), vto=now)
         self._mirror(new_id, label, new_props, vfrom=now, vto=OPEN)
+        # Spec 326 — carry the prior version's edge-derived FK columns forward, so
+        # a superseded core node stays in the typed joins (the new id's carried
+        # edges still point at the old id and aren't re-projected). Best-effort.
+        try:
+            self.entities.carry_fks(node_id, new_id, label)
+        except Exception:                                   # noqa: BLE001
+            pass
         return new_id
 
     def retract(self, node_id: str) -> int:

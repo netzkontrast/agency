@@ -19,7 +19,7 @@ tracking system. ``Memory`` mirrors here AFTER each authoritative graph write
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Optional
 
 from sqlalchemy import Column, select
 from sqlalchemy.pool import StaticPool
@@ -381,6 +381,33 @@ class EntityStore:
         with Session(self._engine) as s:
             row = s.get(TypedEdge, f"{src}|{rel}|{dst}")
             return self._row_dict(row) if row is not None else None
+
+    def carry_fks(self, old_id: str, new_id: str, label: str) -> None:
+        """On ``supersede``, carry the prior version's edge-derived FK columns
+        onto the new version (Spec 326 correctness).
+
+        ``supersede`` mints a NEW node id and only links ``SUPERSEDED_BY`` to it;
+        the carried SERVES/PERFORMED_BY/PRODUCES/PARENT_INTENT edges still point at
+        the OLD id and are never re-projected. Without this, the new typed row
+        (mirrored from props, FK columns skipped) would have NULL FKs and the live
+        version would vanish from ``serves``/``provenance``/``intent_tree`` (which
+        read ``vto == OPEN``). The new version inherits the same relationships —
+        "the what changes while the why holds" — so the live projection stays
+        faithful to the graph's SUPERSEDED_BY-chain-aware provenance."""
+        model = CORE_TYPED.get(label)
+        cols = _FK_COLUMNS.get(label, set())
+        if model is None or not cols:
+            return
+        with Session(self._engine) as s:
+            old, new = s.get(model, old_id), s.get(model, new_id)
+            if old is None or new is None:
+                return
+            for c in cols:
+                val = getattr(old, c, None)
+                if val is not None:
+                    setattr(new, c, val)
+            s.add(new)
+            s.commit()
 
     def typed_row(self, label: str, node_id: str) -> Optional[dict]:
         """The typed row for a core node as a dict, or ``None``."""
