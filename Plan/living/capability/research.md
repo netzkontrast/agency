@@ -1,10 +1,10 @@
 ---
 capability: research
 pillar: capability
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [1, 2, 4]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [44, 52, 126]
 ---
 
 # research — Research runs a question through a lead that scopes it, specialists that gather evidence, and a verifier that adversarially checks claims before publishing (capability pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Research drives an open question through a scoping lead, specialist fanout, and adversarial cross-check, producing a published finding that rests on verified cited sources rather than single-source trust.
 
 ## Verbs (generated · 5)
 

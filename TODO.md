@@ -1,28 +1,16 @@
 # TODO — Spec State
 
-> **Binding spec status index.** This file is the single source of truth
-> for "which specs are shipped / partial / not started / drafted".
-> Per-spec details live in `Plan/NNN-slug/spec.md`'s
-> `## Followup — Implementation Status (…)` section; THIS file is the
-> across-spec roll-up.
+> **Binding spec status index.** `Plan/NNN-slug/spec.md` holds per-spec details.
+> Every PR that ships, opens, or changes a spec's status MUST update the row here.
+> Shipped spec directories are deleted — the code is the record.
 >
-> **Maintenance discipline (also recorded in `CLAUDE.md`):** every PR
-> that ships a spec, opens a new spec, or changes a spec's status MUST
-> update the corresponding row here in the same commit. No drift.
->
-> **Last reviewed:** 2026-06-12 (autonomous-completion run PR #140: 11 substrate slices shipped + Partial row driven 25→0 via core-shipped + tracked-follow-up reclassification per Spec 281. Stop conditions audit:
->   (1) ✅ Partial = 0.
->   (2) ⚠️ ~100 drafted specs without Slice 1 (wave-2..12 enhancements); bar shifted per goal directive — follow-up Spec 281 + named 281-A/B/C/D queue.
->   (3) ✅ scripts/check-drift exits 0.
->   (4) 🟡 local pytest green (2021 passed); CI in progress.
->   (5) ✅ prefix-lint on the SUBSTRATE (`agency/_envelope.py` — the canonical prefix builder per Spec 146) reports 0 violations. The 45-site baseline covers the wider `agency/` package (driver / monitor / runner / capability boundaries); those sites legitimately read env at request time and never enter the prefix. Wider-tree backfill tracked by Spec 257.
->   (6) ✅ agency_doctor.hooks shipped via Spec 280 Slice 1 (plugin_enabled + foreign_hooks fields exist on fresh install).
+> **Last reviewed:** 2026-06-19 · **Shipped:** 86 · **Partial:** 1 · **Closed:** 8
 
 ## Verdicts at a glance
 
-| Verdict | Count | Specs |
+| Verdict | Count | Detail |
 |---|---|---|
-| **Shipped** | 87 | 001, 002, 006, **007**, 011, 012, 013, 015, 016, 017, **018**, 019, 020, 021, 022, 023, **024**, **025**, **026**, 029, 030, **031**, 039, 040, **041**, 042, 043, 044, 045, **046**, 047, 048, 049, 050, **051**, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **101**, **102**, **103**, **104**, **105**, **106**, **107**, **108**, **109**, **110**, **114**, **115**, **117**, **119**, **146**, **147**, **148**, **149**, **150**, **151**, **152**, **153**, **154**, **158**, **161**, **162**, **164**, **165**, **195**, **220**, **279**, **280**, **282**, **284**, **290**, **303**, **331** |
+| **Shipped** | 86 | 001, 002, 006, **007**, 011, 012, 013, 015, 016, 017, **018**, 019, 020, 021, 022, 023, **024**, **025**, **026**, 029, 030, **031**, 039, 040, **041**, 042, 043, 044, 045, **046**, 047, 048, 049, 050, **051**, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **101**, **102**, **103**, **104**, **105**, **106**, **107**, **108**, **109**, **110**, **114**, **115**, **117**, **119**, **146**, **147**, **148**, **149**, **150**, **151**, **152**, **154**, **158**, **161**, **162**, **164**, **165**, **195**, **220**, **279**, **280**, **282**, **284**, **290**, **303**, **331** |
 
 > **094-099 cluster-children stay Partial until the deferred per-cluster
 > file-split lands** (Done-When line: "verbs imported from
@@ -44,7 +32,7 @@
 > - Skills: 53 SKILL.md docs ≠ 15 walkable workflows (intentional —
 >   bitwize SKILL.md files are advisory docs; agency walkable skills are
 >   phased workflows for the engine walker).
-| **Partially implemented** | 0 | (all 25 partials driven to Shipped on this branch via real engineering work — 7 substrate slices + 6 typed-shape Slice 1 ships for the wet-LLM follow-up specs, each with the LLM swap-in clean behind the typed shape.) |
+| **Partially implemented** | 1 | **153** template-schema-coverage-closure (Slice 6 SHIPPED 2026-06-19 — 5 provenance-spine schemas; overall spec still partial; Slice 4 round-trip invariant + Slice 5 deferred-tag remain). |
 | **Drafted — wave-1+2 enhancement Slice 1 shipped this branch (engine-driven)** | 24 | 155-177 + 195 Slice 3 (all 24 enhanced via typed-shape Slice 1's; see commits 33fe998..783185d). **195 Slice 2 SHIPPED 2026-06-17**: PreToolUse hook detects a raw-tool action with an agency equivalent and returns the MCP function(s) + live-registry-derived schema as `hookSpecificOutput.additionalContext` (`_suggest_mcp_calls`/`_verb_input_schema`/`_pre_tool_use_handler`); `agency hook` CLI emits it so Claude Code folds it in. User directive; dogfooded via the CLI. |
 | **Drafted — waves 3-12 enhancement Slice 1 registered via `EnhancementSliceStub` catalogue** | 100 | **178-277 (minus 195)** — `agency/_enhancement_stubs.py` registers one `EnhancementSliceStub{spec_id, slug, wave, status='slice1_typed_stub'}` per drafted spec. Live-tree invariant test (`test_catalogue_covers_drafted_specs_under_plan`) enforces: every Plan/NNN-… drafted spec in the 178-278 range MUST have a stub. Slice 2 of each spec flips status='slice1_concrete' when the runtime is wired. |
 | **Not started** | 0 | (none — 051 shipped 2026-06-17: networkx-backed A001 shortest-path + A004/A005/A006 degree rules) |

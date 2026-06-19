@@ -1,10 +1,10 @@
 ---
 capability: analyze
 pillar: capability
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [1, 2, 4, 9]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [42, 50, 51, 57]
 ---
 
 # analyze — Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions (capability pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Analyze runs decidable static analysis over source code to surface quality, security, performance, and architecture findings as queryable graph nodes rather than prose opinions, making risky changes detectable and measurable before review.
 
 ## Verbs (generated · 9)
 

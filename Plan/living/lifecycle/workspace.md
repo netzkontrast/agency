@@ -1,10 +1,10 @@
 ---
 capability: workspace
 pillar: lifecycle
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [2, 3]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [18]
 ---
 
 # workspace — Workspace isolates work in a git worktree and records a green baseline, so risky changes start from a clean, provably-green point that recovery can return to (lifecycle pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Workspace isolates work in a git worktree and records a green baseline, so risky changes start from a clean provably-green point that recovery can return to without touching the main working tree.
 
 ## Verbs (generated · 2)
 

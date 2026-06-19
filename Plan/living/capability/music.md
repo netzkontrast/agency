@@ -1,10 +1,10 @@
 ---
 capability: music
 pillar: capability
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [2, 4]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [7, 93, 115, 117]
 ---
 
 # music — Music graduates from ``examples/music.py`` into a first-class folder-form capability under ``agency/capabilities/music/`` (Spec 094) (capability pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Music is the reference clustered domain capability — demonstrating how a first-class creative-production domain (lyrics, audio, promo, catalogue) reaches external tools via Drivers and records every step as provenance in the graph.
 
 ## Verbs (generated · 103)
 

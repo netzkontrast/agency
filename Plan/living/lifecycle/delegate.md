@@ -1,10 +1,10 @@
 ---
 capability: delegate
 pillar: lifecycle
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [1, 2, 3, 8]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [11, 40]
 ---
 
 # delegate — Delegate weighs the token-economics and safety signals of dispatching, fans a task out to one or more drivers, and reduces their results back into a single answer (lifecycle pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Delegate weighs token-economics and safety signals to decide whether to dispatch a task to a subagent, fans it out with quota control, and reduces results into a single answer so large or parallelizable work doesn't bloat inline context.
 
 ## Verbs (generated · 4)
 

@@ -1,10 +1,10 @@
 ---
 capability: skill_generator
 pillar: capability
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [4, 9]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [83]
 ---
 
 # skill_generator — Skill_generator produces a deploy-ready skill in a single call, emitting a CSO-clean SKILL.md from a name and description (capability pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Skill_generator composes a deploy-ready skill in a single call by delegating to plugin authoring and linting, so a skill idea becomes a CSO-clean deployable artefact without hand-assembly of file structure.
 
 ## Verbs (generated · 1)
 

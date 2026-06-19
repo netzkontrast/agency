@@ -1,10 +1,10 @@
 ---
 capability: branch
 pillar: lifecycle
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [2, 3]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [18]
 ---
 
 # branch — Branch inspects the working tree and remote state and finishes the branch the appropriate way — merge when clean, a PR when review is needed, or a clear report of what blocks completion (lifecycle pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Branch detects working-tree and remote state then finishes the branch the appropriate way — commit when clean, open a PR when review is needed, or report what blocks — so development work lands decisively and provably.
 
 ## Verbs (generated · 3)
 
