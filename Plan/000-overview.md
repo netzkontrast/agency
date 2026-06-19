@@ -42,6 +42,12 @@ cat Plan/NNN-slug/spec.md
 
 # Which front to work on next:
 cat TODO.md  # Partial section = in-flight work
+
+# Read a shipped/closed spec (all 127 are in the archive branch):
+git show archive/plan-specs-pre-cleanup:Plan/NNN-slug/spec.md
+
+# List all archived spec dirs:
+git ls-tree -r --name-only archive/plan-specs-pre-cleanup -- Plan/
 ```
 
 ## Spec lifecycle
