@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Finding",
+  "description": "A single diagnostic finding from a code analysis run (agency/capabilities/analyze/_main.py; Spec 042). Linked via HAS_FINDING←Analysis; severity gates downstream improvement planning.",
+  "type": "object",
+  "required": ["rule", "severity", "file", "line", "message"],
+  "properties": {
+    "rule": {
+      "type": "string",
+      "description": "Linter/analyzer rule identifier (e.g. 'RUF100', 'B001', 'C901')."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "warn", "fail"],
+      "description": "Severity tier: 'fail' blocks merge; 'warn' flags; 'info' is advisory."
+    },
+    "file": {
+      "type": "string",
+      "description": "Relative path to the source file containing the finding."
+    },
+    "line": {
+      "type": "integer",
+      "description": "Line number where the finding occurs."
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable description of the finding."
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Optional code excerpt or additional evidence from the analyzer."
+    }
+  }
+}

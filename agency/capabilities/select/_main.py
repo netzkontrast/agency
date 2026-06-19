@@ -21,7 +21,7 @@ Red flags:
 from __future__ import annotations
 
 from ..._capture import keep_full
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 
@@ -57,6 +57,7 @@ _APPROACH_ROUTING_SKILL = {
 class SelectCapability(CapabilityBase):
     name = "select"
     home = "lifecycle"   # a routing decision parameterizing HOW work proceeds
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"Selection": ["operation", "approach"]},
         enums={("Selection", "approach"): set(_ARCHETYPES)},

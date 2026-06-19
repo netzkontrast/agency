@@ -6,7 +6,6 @@
 # Format: one label per line
 #
 Album
-Analysis
 BoundaryUse
 Chapter
 CodexEntry
@@ -14,7 +13,6 @@ Command
 Culture
 DecisionRecord
 DoctrineCitation
-Finding
 Genre
 Idea
 KnownFact
@@ -41,7 +39,6 @@ ResearchBrief
 ResearchClaim
 Scene
 Schema
-Selection
 SessionLifecycle
 StoryTimeEvent
 Storyform
