@@ -183,13 +183,22 @@ Scenario: stamp is byte-stable at a fixed level
 
 ## Followup — Implementation Status (2026-06-19)
 
-**Verdict: Not started** (design drafted + panel-hardened; reframed native;
-awaiting gate approval).
+**Verdict: Partial** (Slices 1–3 shipped; 4–5 remain).
 
-- **Done:** redeveloped as agency's own frugal discipline (third-party framing +
-  vendored source removed per directive); M1+M2 grounded on live code
-  (`register_hook_handler`/`dispatch_hook`/`_envelope.ResponseEnvelope`/
-  `cli.py hook`); panel findings folded; native handle `frugal` chosen.
-- **Still:** human gate approval, then Slice 1 (`_frugal.py`) — after Spec 328
-  Slice 1 (`_config.py`).
-- **Blocker / Next step:** confirm Q3; pairs with Spec 327 + 328.
+- **Done — Slice 1** (`agency/_frugal.py`, PR #171): the ladder + safety-floor
+  content, `LEVELS`/`DEFAULT_LEVEL='full'`, `frugal_level`/`set_frugal_level`
+  (via Spec 328 config), `render(level, mode='full'|'compact')`, `off` → empty.
+- **Done — Slice 3** (M1, PR #171): `engine._append_frugal` injects the
+  discipline on `UserPromptSubmit` (compact; full at `ultra`) + `SessionStart`
+  (full); `off` injects nothing; degrades silently.
+- **Done — Slice 2** (M2, this change): `_frugal.frugal_prefix()` →
+  `{"frugal": <compact>}` (gated by `frugal.stamp_every_verb`; `off` → `{}`;
+  never raises). `engine._shape_wire_result` stamps **every capability verb**
+  return (additive, byte-stable, degrades silently); `agency_welcome` carries it
+  in its cache-stable Spec-146 prefix. 3 acceptance scenarios; verified additive
+  across welcome budget/stability + the exact-eq suite (194 + 35 green).
+- **Still:** Slice 4 (safety-floor gate — a `gate`-recordable predicate that the
+  rendered/injected discipline never omits validate/secure/a11y at any level but
+  `off`), Slice 5 (doctor reports `frugal.level`; install emits the core handlers).
+- **Blocker / Next step:** Slice 4 — the safety-floor gate. (Q3 decided: keep the
+  compact stamp at `lite`.)

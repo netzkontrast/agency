@@ -686,6 +686,13 @@ class AgencyWelcome(SubstrateTool):
                 "capability_tier": _capability_tier(engine.registry),
                 "discipline_skills": discipline_skills,
             }
+            # Spec 326 M2 — the frugal discipline rides the onboarding payload's
+            # cache-stable prefix too (byte-stable at a fixed level; off omits).
+            try:
+                from . import _frugal
+                prefix.update(_frugal.frugal_prefix())
+            except Exception:
+                pass
             body = {
                 "state": state,
                 "intents_count": intents_count,

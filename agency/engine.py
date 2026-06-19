@@ -714,13 +714,26 @@ class Engine:
         """
         from ._wire_envelope import WireEnvelope
         node = self.memory.recall(inv) or {}
-        return WireEnvelope.shape(
+        shaped = WireEnvelope.shape(
             result,
             outcome=node.get("outcome"),
             error=node.get("error", "") or "",
             error_severity=node.get("error_severity") or "",
             trace_id=inv,
         )
+        # Spec 326 M2 — stamp the frugal discipline on every verb's wire return
+        # (byte-stable at a fixed level; `off`/`stamp_every_verb=false` omits it).
+        # Additive + degrades silently: a stamp must never break or reshape a
+        # verb that already speaks `frugal`.
+        if isinstance(shaped, dict) and "frugal" not in shaped:
+            try:
+                from . import _frugal
+                stamp = _frugal.frugal_prefix()
+                if stamp:
+                    shaped = {**stamp, **shaped}
+            except Exception:
+                pass
+        return shaped
 
     def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
         """Auto-wire ONE MCP tool for a capability verb from its fn signature.

@@ -88,6 +88,26 @@ def render(level: str | None = None, *, mode: str = "full") -> str:
     )
 
 
+def frugal_prefix(level: str | None = None, *, path: str | None = None) -> dict:
+    """Spec 326 M2 — the per-verb stamp as a prefix fragment:
+    ``{"frugal": <compact render>}`` when stamping is active, else ``{}``.
+
+    ``off`` level OR ``frugal.stamp_every_verb=false`` → empty. The value is
+    byte-stable at a fixed level (the wrapping driver's prefix cache stays warm;
+    a level change is an intentional one-time bust). Never raises — a stamp must
+    never break a verb (the assumption-guard / M1 degrade precedent)."""
+    try:
+        stamp = _config.config_get("frugal.stamp_every_verb", path=path)
+        if isinstance(stamp, str):
+            stamp = stamp.strip().lower() not in ("false", "0", "no", "off", "")
+        if not stamp:
+            return {}
+        text = render(level, mode="compact")
+    except Exception:
+        return {}
+    return {"frugal": text} if text else {}
+
+
 # The frugal config section (Spec 328 registry) — default level full.
 _config.register_config_section("frugal", [
     _config.ConfigKey("level", "AGENCY_FRUGAL_LEVEL", DEFAULT_LEVEL,
