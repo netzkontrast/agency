@@ -36,6 +36,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # populate OPENROUTER_API_KEY / JULES_API_KEY from .env before any lazy reads
 
+from ._capture import keep_full
 from .engine import Engine
 
 
@@ -373,7 +374,7 @@ def hook_self_test(ctx, plugin_root):                                  # noqa: A
             "exit_code": proc.returncode,
             "want_hint": want_hint,
             "hint_seen": hint_seen,
-            "stderr":    (proc.stderr or "")[:240],
+            "stderr":    keep_full(proc.stderr or "", label="self-test stderr"),
             "ok":        case_ok,
         })
     return _emit({"ok": all_ok, "results": results}, 0 if all_ok else 1)
@@ -417,7 +418,7 @@ def hook_wrap(ctx, command):                                           # noqa: A
         try:
             eng.memory.record("Event", {
                 "name":      "hook-wrap-run",
-                "command":   command[:200],
+                "command":   keep_full(command, label="hook-wrap command"),
                 "exit_code": proc.returncode,
             })
         finally:

@@ -160,6 +160,19 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    saved index ever shows an omission marker, that is a defect — regenerate it
    complete (`document.index_repo(apply=True)`) before committing.
 
+   **Generalised — never silently truncate CAPTURED DATA (MANDATORY; user
+   directive 2026-06-19).** The index rule is the special case of a wider law:
+   captured data — hook **tool calls (pre/post)**, command output, stderr, stored
+   provenance text — is stored/returned in **FULL**, never sliced to a char
+   budget or head/tail-filtered before persisting. A dropped tail makes the
+   record LIE about what happened. When a value is unusually large, **warn — do
+   not cut**: route it through `agency/_capture.py::keep_full(value, label=…)`,
+   which returns the full value and logs a size warning. NOT in scope (these are
+   not "data" and keep their slicing): content-hash prefixes (`sha[:16]`), top-N
+   list selection (`ranked[:10]`), and pure display width (a CLI help column).
+   When you catch yourself writing `data[:N]` on a captured/stored string, stop
+   and use `keep_full` instead.
+
 ## Field-tested heuristics (dogfooded — grounded in graph reflections)
 
 Cheap checks that caught real failures during the 076→080 build-out. Pointers,

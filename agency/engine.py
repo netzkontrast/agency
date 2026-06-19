@@ -168,22 +168,24 @@ def _route_for(tool: str, tool_input: dict):
 
 def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
     """Spec 195 Slice 1 — the capability verb a raw MUTATING tool call BYPASSED
-    (for the BoundaryUse node) + a short argument summary. Reads the shared
-    `_RAW_ROUTES` table; falls back to a generic shell.run / capability_verb_for
-    shadow for an unmatched mutating tool. Only Write/Edit/Bash reach here (see
-    `_default_hook_handler`)."""
+    (for the BoundaryUse node) + the FULL argument (command / file path). Reads
+    the shared `_RAW_ROUTES` table; falls back to a generic shell.run /
+    capability_verb_for shadow for an unmatched mutating tool. Only Write/Edit/Bash
+    reach here (see `_default_hook_handler`). No-truncate policy: the argument is
+    captured in full (warn-not-cut), so the moat audit records what actually ran."""
+    from ._capture import keep_full
     route = _route_for(tool, payload)
     if tool == "Bash":
-        cmd = str(payload.get("command") or "").strip()
+        cmd = keep_full(str(payload.get("command") or "").strip(), label="Bash command")
         if route is not None:
-            return route[0], cmd[:200]
+            return route[0], cmd
         head = cmd.split()[0] if cmd else ""
-        return f"shell.run({head!r})", cmd[:200]
+        return f"shell.run({head!r})", cmd
     if tool in ("Write", "Edit"):
-        path = str(payload.get("file_path") or "")
+        path = keep_full(str(payload.get("file_path") or ""), label=f"{tool} path")
         if route is not None:
-            return route[0], path[:200]
-        return f"capability_verb_for({path!r})", path[:200]
+            return route[0], path
+        return f"capability_verb_for({path!r})", path
     return "", ""
 
 
@@ -311,11 +313,17 @@ def _pre_tool_use_handler(engine, event: dict) -> dict:
 
 def _default_hook_handler(engine, event: dict) -> dict:
     """Spec 076 — the default event handler: record an `Event` node (substrate
-    provenance, no intent required) and, for tool events, capture a trimmed
-    payload via the shell filter. Links the Event OBSERVED_DURING the active
-    intent (``AGENCY_INTENT`` — Spec 018 Win 3) when one is set, so events during
-    an intent become its provenance. The handler surface is an OPEN SET; register
-    a per-event override via ``engine.register_hook_handler``.
+    provenance, no intent required) and, for tool events, capture the FULL
+    payload. Links the Event OBSERVED_DURING the active intent (``AGENCY_INTENT``
+    — Spec 018 Win 3) when one is set, so events during an intent become its
+    provenance. The handler surface is an OPEN SET; register a per-event override
+    via ``engine.register_hook_handler``.
+
+    No-truncate policy (user directive 2026-06-19): the captured tool
+    input/response is stored in FULL — pre/post tool calls are exactly the
+    "special case we want all data" — never head-filtered or sliced. A dropped
+    tail makes the provenance LIE about what ran; `keep_full` warns on an unusually
+    large value instead of cutting it.
 
     Spec 195 Slice 1 — when the event is a `PreToolUse` on raw
     Write/Edit/Bash AND an active intent is set, ALSO record a typed
@@ -325,6 +333,7 @@ def _default_hook_handler(engine, event: dict) -> dict:
     the full audit."""
     import json as _json
     import os as _os
+    from ._capture import keep_full
     name = (event or {}).get("hook_event_name") or "unknown"
     session = (event or {}).get("session_id") or "unknown"
     props = {"name": name, "session": session}
@@ -332,8 +341,9 @@ def _default_hook_handler(engine, event: dict) -> dict:
     if tool:
         props["tool"] = tool
         payload = event.get("tool_input") or event.get("tool_response") or {}
-        from .capabilities.shell import _apply_filter
-        props["summary"] = _apply_filter(_json.dumps(payload, default=str), "head:5")[:500]
+        # FULL payload — no head:5 filter, no char cap. Warn-not-truncate.
+        props["payload"] = keep_full(_json.dumps(payload, default=str),
+                                     label=f"{name}.{tool} payload")
     eid = engine.memory.record("Event", props)
     # Spec 292 — the Session Graph: link every event into a Session node keyed
     # by session_id, so the complete session is restorable from the graph.
@@ -352,8 +362,8 @@ def _default_hook_handler(engine, event: dict) -> dict:
         if name == "PreToolUse" and tool in ("Write", "Edit", "Bash"):
             tin = event.get("tool_input") or {}
             verb_shadow, summary = _verb_shadow_for(tool, tin)
-            target = (str(tin.get("command") or "")
-                       or str(tin.get("file_path") or ""))[:200]
+            target = keep_full(str(tin.get("command") or "")
+                       or str(tin.get("file_path") or ""), label=f"{tool} target")
             bid = engine.memory.record("BoundaryUse", {
                 "tool":             tool,
                 "argument_summary": summary or f"<{tool} no payload>",

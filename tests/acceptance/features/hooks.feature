@@ -11,10 +11,10 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     When a UserPromptSubmit hook event fires with session s1
     Then an Event node with name UserPromptSubmit and session s1 is in the graph
 
-  Scenario: PostToolUse event captures a trimmed tool summary under 600 chars
-    When a PostToolUse hook event fires with a 200-line Bash command
+  Scenario: PostToolUse event captures the FULL tool payload (no truncation)
+    When a PostToolUse hook event fires with a 500-line Bash command
     Then an Event node for PostToolUse is recorded
-    And the event summary is at most 600 characters
+    And the event payload holds all 500 lines untruncated
 
   Scenario: missing hook_event_name does not crash the dispatcher
     When a hook event fires without a hook_event_name
