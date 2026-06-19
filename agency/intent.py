@@ -96,6 +96,18 @@ class Intent:
         # in place: confirming doesn't fork identity, so SERVES edges stay stable
         self.m.update(intent_id, {"status": "confirmed",
                                   "clarity_score": round(score, 3)})
+        # Spec 328 — record the fulfilment verdict as an Intent-owned clarity Gate
+        # (the typed Gate table is its durable, queryable home + history). The
+        # GATES edge keys it to the Intent; the score is the single substrate
+        # source (rule 4). Best-effort: a provenance write must not fail confirm.
+        try:
+            gid = self.m.record("Gate", {
+                "name": "clarity", "kind": "clarity",
+                "passed": bool(score >= thresh), "score": round(score, 3),
+                "threshold": round(thresh, 3), "checked_at": self.m._now()})
+            self.m.link(gid, intent_id, "GATES")
+        except Exception:                                   # noqa: BLE001
+            pass
         return intent_id
 
     def amend(self, intent_id: str, **changes) -> str:

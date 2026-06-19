@@ -97,6 +97,10 @@ EDGE_TYPES = {
     "DISPATCHED_TO", "DRIVES", "PRECEDES", "NEXT", "HAS_PHASE",
     # Spec 048 — sub-intent chains back to its originating parent.
     "PARENT_INTENT",
+    # Spec 328 — a fulfilment Gate (clarity/acceptance/completion) keyed to the
+    # Intent it judges. Distinct from PASSED (Lifecycle→Gate) so the Intent-owned
+    # gate carries its own edge and does not pollute clarity's VALIDATES signal.
+    "GATES",
 }
 
 # closed-enum constraints on specific (label, field) pairs — ENFORCED

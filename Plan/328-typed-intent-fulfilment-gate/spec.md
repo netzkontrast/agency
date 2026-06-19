@@ -1,7 +1,7 @@
 ---
 spec_id: "328"
 slug: typed-intent-fulfilment-gate
-status: draft
+status: Shipped
 last_updated: 2026-06-19
 owner: "@agency"
 vision_goals: [2, 4]
@@ -106,10 +106,31 @@ one-way from the authoritative graph, the clarity score still sourced from
 
 ## Followup — Implementation Status (2026-06-19)
 
-- **Status: draft.** Slice 2 — the fulfilment layer. Depends on Slice 327's
-  `Intent` table + mirror router. Reuses the shipped Spec 322 `_clarity` scorer
-  (no second source).
-- **Open question (resolve at build):** whether the `acceptance`/`completion`
-  gate fires automatically (e.g. on a Lifecycle `completed` transition, Spec 329)
-  or only on an explicit check. Default: explicit check now; auto-fire on the
-  `completed` transition is a follow-up once Lifecycle states are typed (329).
+- **Status: SHIPPED 2026-06-19.** Slice 2 — the Intent-owned fulfilment layer.
+  Full acceptance suite **989 passed / 0 failed**; drift clean. Done:
+  - `agency/_entity_store.py` — `TypedGate` (`id` · `intent_id` FK · name · kind
+    · passed · score · threshold · checked_at) + `TypedAcceptanceCriterion`
+    (`id` · `intent_id` FK · text · gherkin · measurable), both in `CORE_TYPED`
+    with `intent_id` guarded in `_FK_COLUMNS`.
+  - `agency/ontology.py` — new core edge `GATES` (Gate→Intent), kept DISTINCT
+    from `PASSED` (Lifecycle→Gate) so the Intent-owned gate carries its own edge
+    and does NOT pollute clarity's `VALIDATES`-in signal. `_EDGE_FK_SRC` maps both
+    `VALIDATES` and `GATES` → `intent_id` (the src's own table disambiguates).
+  - `agency/intent.py` — `confirm` now records an Intent-owned clarity `Gate`
+    (`kind="clarity"`, `passed = score>=threshold`, `score`, `threshold`,
+    `checked_at`) and links it `GATES`→Intent. The score is the single substrate
+    source (`_clarity.clarity_score`, rule 4); best-effort (a provenance write
+    never fails `confirm`).
+  - `tests/acceptance/{features/typed_fulfilment.feature,test_typed_fulfilment.py}`
+    — 4 scenarios: confirm records the Intent-owned clarity Gate (score == the
+    substrate score), Gate history accrues (a measurable criterion raises the
+    next check's score), an AcceptanceCriterion is typed + FK'd via VALIDATES, and
+    a Lifecycle gate (no GATES edge) keeps a null `intent_id` (not mis-attributed).
+- **Ontology-derived mapping (rule 2):** the node's `passed` bool is the verdict;
+  `kind` (clarity/acceptance/completion) distinguishes the gate's role. The spec's
+  `status` notion = `passed` + `kind` (no second enum hand-copied).
+- **Decision:** every `confirm` records a clarity Gate (the history the spec
+  wants — "Gate check accrues"); acceptance/completion gates auto-firing on a
+  Lifecycle `completed` transition is deferred to a follow-up once Lifecycle is
+  typed (Slice 329).
+- **Next:** Slice 329 (`LifecycleState` + the `Artefact`/`Edge` Memory spine).

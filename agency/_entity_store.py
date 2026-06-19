@@ -115,6 +115,44 @@ class TypedInvocation(SQLModel, table=True):
     vto: int = OPEN
 
 
+class TypedGate(SQLModel, table=True):
+    """Gate — the recorded verdict on whether an Intent is FULFILLED (Spec 328;
+    owner directive: the Gate lives in Intent). The clarity gate (capture-time,
+    Spec 322), acceptance + completion gates (done-time) all key to their Intent
+    via ``intent_id`` (the GATES edge). A Lifecycle-attached gate (``gate.check``)
+    has no GATES edge, so its ``intent_id`` stays null — not mis-attributed."""
+
+    __tablename__ = "agency_gate"
+
+    id: str = Field(primary_key=True)
+    intent_id: Optional[str] = Field(                  # GATES edge (Intent-owned)
+        default=None, foreign_key="agency_intent.id", index=True)
+    name: Optional[str] = None
+    kind: Optional[str] = Field(default=None, index=True)   # clarity|acceptance|completion
+    passed: Optional[bool] = None                      # the ontology's verdict bool
+    score: Optional[float] = None
+    threshold: Optional[float] = None
+    checked_at: Optional[int] = None                   # the logical tick of the check
+    vfrom: int = 0
+    vto: int = OPEN
+
+
+class TypedAcceptanceCriterion(SQLModel, table=True):
+    """AcceptanceCriterion — what "fulfilled" MEANS (Spec 317). VALIDATES the
+    Intent; ``intent_id`` is that edge as a typed FK."""
+
+    __tablename__ = "agency_acceptance_criterion"
+
+    id: str = Field(primary_key=True)
+    intent_id: Optional[str] = Field(                  # VALIDATES edge
+        default=None, foreign_key="agency_intent.id", index=True)
+    text: Optional[str] = None
+    gherkin: Optional[str] = None
+    measurable: Optional[bool] = None
+    vfrom: int = 0
+    vto: int = OPEN
+
+
 # label → typed model (the router's switchboard). The mirror routes a CORE label
 # here IN ADDITION to the generic EntityRecord (additive — no existing reader of
 # EntityRecord breaks); a non-core/domain label stays EntityRecord-only.
@@ -123,6 +161,8 @@ CORE_TYPED: dict[str, type[SQLModel]] = {
     "Intent": TypedIntent,
     "Agent": TypedAgent,
     "Invocation": TypedInvocation,
+    "Gate": TypedGate,
+    "AcceptanceCriterion": TypedAcceptanceCriterion,
 }
 
 # Columns NEVER written from node props — they are derived from EDGES, set by
@@ -131,15 +171,21 @@ CORE_TYPED: dict[str, type[SQLModel]] = {
 _FK_COLUMNS: dict[str, set[str]] = {
     "Intent": {"parent_intent_id"},
     "Invocation": {"serves_intent_id", "agent_id"},
+    "Gate": {"intent_id"},
+    "AcceptanceCriterion": {"intent_id"},
 }
 
 # edge rel → the FK column it sets on the edge's SRC row (value := the edge's DST).
-# All three slice-327 rels are (src)-[rel]->(dst) with the FK living on the src.
+# Every projected rel is (src)-[rel]->(dst) with the FK living on the src row.
+# VALIDATES + GATES both set ``intent_id`` — the src's own table (the only one
+# holding a row with id == src) disambiguates which gets it.
 # AGENCY-DRIFT: typed-edge-fk — the rels that project onto a typed FK column.
 _EDGE_FK_SRC: dict[str, str] = {
     "SERVES": "serves_intent_id",
     "PERFORMED_BY": "agent_id",
     "PARENT_INTENT": "parent_intent_id",
+    "VALIDATES": "intent_id",
+    "GATES": "intent_id",
 }
 
 
