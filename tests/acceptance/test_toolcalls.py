@@ -78,3 +78,35 @@ def _ranked(result):
 def _empty(result, ctx):
     assert result["pruned"] == 4, result
     assert ctx["engine"].toolcalls.count() == 0
+
+
+# ── S3 — the mandatory shell capture-filter ───────────────────────────────────
+
+@given("a fresh engine", target_fixture="ctx")
+def _fresh(tc):
+    return tc
+
+
+@when("a Bash PostToolUse with a 50-line output is captured")
+def _bash_capture(ctx):
+    ctx["engine"].dispatch_hook({
+        "hook_event_name": "PostToolUse", "session_id": "s", "tool_name": "Bash",
+        "tool_input": {"command": "ls -la /tmp"},
+        "tool_response": "line\n" * 50})
+
+
+@then("the captured Bash row carries a shell-filtered view of the command")
+def _filtered_view(ctx):
+    rows = ctx["engine"].toolcalls.rows(where="tool='Bash'")
+    assert rows, "the Bash call must be captured"
+    filtered = rows[-1]["filtered"]
+    assert filtered.startswith("$ ls -la /tmp"), filtered
+    # the filter is a BOUNDED view (head:20), not the full 50 lines
+    assert 0 < filtered.count("line") <= 20, filtered.count("line")
+
+
+@then("the full 50-line output is preserved in the row alongside the filtered view")
+def _full_output(ctx):
+    rows = ctx["engine"].toolcalls.rows(where="tool='Bash'")
+    # the FULL output lives in output_json (no-truncate), all 50 lines
+    assert rows[-1]["output_json"].count("line") == 50, rows[-1]["output_json"].count("line")

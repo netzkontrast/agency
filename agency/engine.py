@@ -346,13 +346,29 @@ def _default_hook_handler(engine, event: dict) -> dict:
         # FULL capture to the ephemeral store — off the durable graph. A capture
         # failure must never break the session.
         phase = "pre" if name == "PreToolUse" else "post"
+        # Spec 336 S3 — every Bash call's data is routed (MANDATORILY) through the
+        # shell capture-filter for a clean structured `filtered` view. Capture &
+        # filter only: Claude Code still executes the command unchanged.
+        filtered = ""
+        if (tool or "") == "Bash":
+            try:
+                from .capabilities.shell import capture_filter
+                tin = event.get("tool_input") or {}
+                cmd = tin.get("command", "") if isinstance(tin, dict) else ""
+                resp = event.get("tool_response")
+                out = resp if isinstance(resp, str) else (
+                    _json.dumps(resp, default=str) if resp else "")
+                filtered = capture_filter(cmd, out)
+            except Exception:                                   # noqa: BLE001
+                filtered = ""
         try:
             engine.toolcalls.record(
                 phase=phase, tool=tool or "", session=session, intent=iid,
                 input_json=keep_full(_json.dumps(event.get("tool_input") or {},
                                                  default=str), label=f"{name} input"),
                 output_json=keep_full(_json.dumps(event.get("tool_response") or {},
-                                                  default=str), label=f"{name} output"))
+                                                  default=str), label=f"{name} output"),
+                filtered=filtered)
         except Exception:                                       # noqa: BLE001
             pass
         _record_boundary_use(engine, name, tool, event, session, iid)

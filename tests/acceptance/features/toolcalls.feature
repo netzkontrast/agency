@@ -18,3 +18,9 @@ Feature: The toolcalls capability — the clear MCP surface over tool-call captu
     Given an engine with several captured tool calls
     When I call toolcalls.prune
     Then the store is emptied
+
+  Scenario: a captured Bash call carries a shell-filtered view (S3)
+    Given a fresh engine
+    When a Bash PostToolUse with a 50-line output is captured
+    Then the captured Bash row carries a shell-filtered view of the command
+    And the full 50-line output is preserved in the row alongside the filtered view
