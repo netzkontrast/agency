@@ -1,7 +1,7 @@
 # Memory — the bi-temporal graph store
 
 <!-- doc-source: agency/memory.py -->
-<!-- doc-hash: 9b6361dd60db7456 -->
+<!-- doc-hash: 10e0240411b23877 -->
 
 `agency/memory.py` wraps a **GraphQLite** graph as the engine's single store. Files are
 a rendered view; the graph is the source of truth.
@@ -42,6 +42,25 @@ Because `Registry.invoke` records an `Invocation SERVES Intent` for *every* verb
 `act`/`effect` verbs add `PRODUCES`/gate edges, any question of the form "show me every
 X for this goal" is one traversal. The `music` example exists to demonstrate exactly
 this (a release audit) — something a flat handler library structurally cannot do.
+
+## The typed projection (Spec 289 + 326–330)
+
+The graph stays write-authoritative, but every write is also MIRRORED one-way into
+typed SQLModel rows sharing the graph's one SQLite connection (`memory.entities`,
+an `EntityStore`). Spec 289 mirrors any node into a generic `EntityRecord` JSON
+blob; Spec 326–330 add an **explicit relational layer** for the four-concept core
+— `TypedIntent` · `TypedInvocation` · `TypedAgent` · `TypedGate` ·
+`TypedAcceptanceCriterion` · `TypedLifecycleState` · `TypedArtefact` plus a general
+`TypedEdge` spine — with real **foreign-key columns** (`serves_intent_id` ·
+`agent_id` · `parent_intent_id` · `intent_id` · `produced_by_id`) set from the
+edges as they land (`SERVES`/`PERFORMED_BY`/`PARENT_INTENT`/`VALIDATES`/`GATES`/
+`PRODUCES`). So the interweave (Capability · Lifecycle · Memory → Intent) is a
+typed SQL **join**, not just a Cypher traversal. `memory.intents` (an
+`IntentStore`) is the typed-join read API — `serves` · `intent_tree` ·
+`provenance` · `fulfilment` — guarded by a parity test against the graph. The
+mirror is failure-isolated (a projection error never fails the graph write), and
+`supersede` carries the prior version's FK columns forward so a superseded node
+stays in the typed joins.
 
 ## Related
 

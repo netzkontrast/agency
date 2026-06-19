@@ -1,7 +1,7 @@
 # Ontology — the graph schema
 
 <!-- doc-source: agency/ontology.py -->
-<!-- doc-hash: 72060e5e13ad578a -->
+<!-- doc-hash: b83c28a37e34d8d0 -->
 
 `agency/ontology.py` defines the node/edge/enum backbone every capability's data is
 built on, and how a capability *extends* it.
@@ -20,8 +20,16 @@ built on, and how a capability *extends* it.
 - **`Event`** — unified hook events (Spec 076).
 
 Edges (`EDGE_TYPES`) include `SERVES`, `PRODUCES`, `OBSERVED_DURING`, `HAS_PHASE`,
-`PASSED`/`BLOCKED_ON`, `SUPERSEDED_BY`, `PERFORMED_BY`, `PRECEDES`/`NEXT`, … The core
-ships **no domain skills** — those are owned by the capabilities that add them.
+`PASSED`/`BLOCKED_ON`, `SUPERSEDED_BY`, `PERFORMED_BY`, `PRECEDES`/`NEXT`,
+`PARENT_INTENT`, and `GATES` (Spec 328 — an Intent-owned fulfilment `Gate` keyed to
+the Intent it judges, distinct from `PASSED`/Lifecycle→Gate). The core ships **no
+domain skills** — those are owned by the capabilities that add them.
+
+Closed enums (`FIELD_ENUMS`, each derived from a `str, Enum` — the single source):
+`Invocation.role` (`Role`), `Lifecycle.state` (`LifecycleState`), `Intent.owner`
+(`IntentOwner`), and `Gate.kind` (`GateKind` — `clarity`/`acceptance`/`completion`,
+Spec 328; enforced only when the field is present, so kind-less Lifecycle gates are
+unaffected).
 
 ## `OntologyExtension` — how a capability extends the schema
 
