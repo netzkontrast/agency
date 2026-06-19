@@ -189,6 +189,12 @@ Scenario: secrets are never written as literals
   non-destructively — and deliberately **never creates** one from a hook (a hook
   must not scaffold `.agency/` into an arbitrary cwd; creation is install/setup).
   3 acceptance scenarios in `features/config_wiring.feature`.
-- **Still:** Slice 4 (`agency_doctor` config report + validate + `--write-config`),
-  Slice 5 (capability-registry proof — migrate `novel`/`music`).
-- **Blocker / Next step:** Slice 4 — the doctor config block.
+- **Done — Slice 4** (this change): `agency_doctor` gains a `config` block —
+  `_config.config_report()` (every registered key → value + source, secrets
+  redacted to `set`/`unset`) + `_config.config_validate()` (bad enum value /
+  unknown file key) folded into `next_steps` (so `ok` reflects config sanity).
+  `agency-doctor --write-config` repairs a missing config non-destructively then
+  reports. 3 acceptance scenarios in `features/config_doctor.feature`.
+- **Still:** Slice 5 (capability-registry proof — migrate `novel`/`music` onto
+  `register_config_section` as the open-set proof).
+- **Blocker / Next step:** Slice 5 — the capability-registry proof.

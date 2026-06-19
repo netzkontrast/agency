@@ -472,6 +472,19 @@ class AgencyDoctor(SubstrateTool):
             except Exception as _e2:  # noqa: BLE001 — never crash the doctor
                 schema_coverage = {"error": f"{type(_e2).__name__}: {_e2}"}
 
+            # Spec 328 Slice 4 — unified-config health. Report every registered
+            # key's resolved value + source (secrets redacted to presence) and
+            # fold any validation issue (bad enum value, unknown key) into
+            # next_steps so the doctor's `ok` reflects config sanity. Wrapped:
+            # a config read must never crash the doctor.
+            try:
+                from . import _config as _cfg
+                config_block = {"values": _cfg.config_report(),
+                                "issues": _cfg.config_validate()}
+                next_steps.extend(config_block["issues"])
+            except Exception as _e3:  # noqa: BLE001 — never crash the doctor
+                config_block = {"error": f"{type(_e3).__name__}: {_e3}"}
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -513,6 +526,9 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 153 Slice 3 — live schema-coverage fraction + priority
                 # ranking of uncovered labels by graph node-count.
                 "schema_coverage": schema_coverage,
+                # Spec 328 Slice 4 — unified-config: resolved values + sources
+                # (secrets redacted) + validation issues (also in next_steps).
+                "config": config_block,
                 # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
                 # can bootstrap an intent + invoke a verb end-to-end (proven on a
                 # throwaway in-memory engine, so the live graph is untouched).

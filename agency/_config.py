@@ -202,6 +202,51 @@ def config_scaffold(path: str | None = None) -> str:
     return target
 
 
+# ── Spec 328 Slice 4 — doctor report + validation ─────────────────────────────
+def config_report(*, path: str | None = None) -> dict:
+    """Every registered key → ``{value, source}`` (env / file / default), so doctor
+    can explain *why* a value is what it is. Secret keys are redacted to presence
+    (``value`` is ``"set"``/``"unset"`` — the literal is never reported)."""
+    _ensure_core_sections()
+    secrets = set(secret_keys())
+    out: dict = {}
+    for dotted in registered_keys():
+        r = config_resolve(dotted, path=path)
+        if dotted in secrets:
+            present = r["source"] == "env" and bool(r["value"])
+            out[dotted] = {"value": "set" if present else "unset", "source": r["source"]}
+        else:
+            out[dotted] = {"value": r["value"], "source": r["source"]}
+    return out
+
+
+def config_validate(*, path: str | None = None) -> list[str]:
+    """Config-health issues (empty = clean): a registered key resolving outside
+    its declared ``enum``, and a key present in the file that no section
+    registered (typo / stale). Each message names the key + the repair."""
+    _ensure_core_sections()
+    issues: list[str] = []
+    for section, keys in _REGISTRY.items():
+        for k in keys:
+            if not k.enum:
+                continue
+            val = config_resolve(f"{section}.{k.name}", path=path)["value"]
+            if val not in k.enum:
+                issues.append(
+                    f"config {section}.{k.name}={val!r} is invalid (expected "
+                    f"{'|'.join(map(str, k.enum))}) — fix .agency/config.yaml or "
+                    f"run `agency-doctor --write-config` to regenerate missing keys")
+    registered = set(registered_keys())
+    for section, sec in (_read(path or _resolve_config_path()) or {}).items():
+        if isinstance(sec, dict):
+            for name in sec:
+                if f"{section}.{name}" not in registered:
+                    issues.append(
+                        f"config {section}.{name} in .agency/config.yaml is not a "
+                        f"registered key (typo or stale?)")
+    return issues
+
+
 # ── core section (always registered) ──────────────────────────────────────────
 register_config_section("core", [
     ConfigKey("db_path", "AGENCY_DB", ".agency/session.db",
