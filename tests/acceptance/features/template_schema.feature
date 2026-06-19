@@ -117,3 +117,14 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the workflow-spine schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the workflow spine labels each have a loaded ontology schema
+
+  # ── schema coverage Slice 4 — engine-load intersection gate ──────────────────
+
+  Scenario: a schema file not declared by the capability goes to dormant_schemas, not covered
+    Given a capability with a schema file for "Dormant" but no artefact_schemas declaration
+    When I run the schema coverage audit with engine_loaded_titles excluding "Dormant"
+    Then "Dormant" is in dormant_schemas and not in covered
+
+  Scenario: the live tree has no dormant schemas — all on-disk schemas are engine-loaded
+    When I run the live schema audit with engine-load intersection
+    Then there are no dormant schemas

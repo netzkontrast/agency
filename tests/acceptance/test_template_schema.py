@@ -600,3 +600,63 @@ def _workflow_spine_loaded(loaded_schema_titles):
         "workflow-spine schemas are on disk but NOT loaded by the engine "
         "(declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── Slice 4: engine-load intersection gate ───────────────────────────────────
+
+@given("a capability with a schema file for \"Dormant\" but no artefact_schemas declaration",
+       target_fixture="dormant_audit_ctx")
+def _given_dormant_schema(tmp_path):
+    """A schema file on disk whose cap never declares artefact_schemas — the
+    engine won't load it, so the intersection gate must move it to dormant_schemas."""
+    (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
+    (tmp_path / "capabilities" / "a" / "schemas" / "dormant.json").write_text(
+        '{"title": "Dormant"}')
+    return {"root": tmp_path, "ontology": {"Dormant"}, "engine_loaded": set()}
+
+
+@when("I run the schema coverage audit with engine_loaded_titles excluding \"Dormant\"",
+      target_fixture="dormant_report")
+def _run_dormant_audit(dormant_audit_ctx):
+    from agency._schema_coverage import audit_schemas
+    return audit_schemas(
+        dormant_audit_ctx["root"],
+        ontology_labels=dormant_audit_ctx["ontology"],
+        engine_loaded_titles=dormant_audit_ctx["engine_loaded"],
+    )
+
+
+@then("\"Dormant\" is in dormant_schemas and not in covered")
+def _dormant_in_dormant_not_covered(dormant_report):
+    assert "Dormant" in dormant_report.dormant_schemas, (
+        "expected 'Dormant' in dormant_schemas")
+    assert "Dormant" not in dormant_report.covered, (
+        "expected 'Dormant' NOT in covered (it is file-backed but engine-undeclared)")
+
+
+@when("I run the live schema audit with engine-load intersection",
+      target_fixture="live_dormant_report")
+def _run_live_dormant_audit():
+    from agency.engine import Engine
+    from agency._schema_coverage import (audit_schemas, truly_inline_schemas,
+                                         engine_loaded_schema_titles)
+    repo = Path(__file__).parent.parent.parent
+    e = Engine(":memory:")
+    try:
+        ontology = set(e.ontology.nodes)
+        merged = dict(e.ontology.schemas)
+        engine_loaded = engine_loaded_schema_titles(merged)
+    finally:
+        e.memory.close()
+    inline = truly_inline_schemas(repo / "agency", merged)
+    return audit_schemas(repo / "agency", ontology_labels=ontology,
+                         ontology_schemas=inline,
+                         engine_loaded_titles=engine_loaded)
+
+
+@then("there are no dormant schemas")
+def _no_dormant_schemas(live_dormant_report):
+    assert live_dormant_report.dormant_schemas == set(), (
+        "these schema files match an ontology label but are NOT declared "
+        "by their capability (add `artefact_schemas` to the owning cap):\n"
+        + "\n".join(f"  {l}" for l in sorted(live_dormant_report.dormant_schemas)))

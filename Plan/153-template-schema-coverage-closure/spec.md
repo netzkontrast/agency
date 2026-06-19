@@ -155,17 +155,51 @@ set captures REGRESSIONS directly).
   baseline fails; CLI strict-with baseline passes on the committed set;
   LIVE INVARIANT (committed baseline = live uncovered set).
 
-### Still — Slice 3+
+### Done — Slice 3 (agency_doctor schema_coverage block, 2026-06-18)
 
-- **Slice 3** — `agency_doctor.schema_coverage` reports the typed
-  payload + a `monotone_ok` bool + the `priority_uncovered` list
-  (ranked by live graph node-count so authors target the highest-
-  traffic gaps first). Needs an Engine handle on the audited DB.
-- **Slice 4** — generate→validate round-trip invariant (CORE.md
-  proven-runnable extended): for every covered label, a Template
-  renders an Artefact that the Schema validates, and the materialised
-  result round-trips back to the source dict shape. Invariant (c) —
-  `covered_schemas ⊆ template_renderable_schemas`.
+`agency_doctor.schema_coverage` now reports the typed audit result:
+`{fraction, covered, uncovered, total_labels, non_node_schemas,
+priority_uncovered}` — uncovered labels ranked by live graph node-count.
+
+### Done — Slice 4 (engine-load intersection gate, 2026-06-19 steward run)
+
+The "file present, cap undeclared → glob counts as covered" trap
+occurred 3 times across Slice 6 batches (develop, document, skills
+caps). This slice closes it permanently.
+
+- **`engine_loaded_schema_titles(merged_schemas) -> set[str]`** —
+  extracts the PascalCase label for every schema the engine actually
+  loaded (dict-form with/without `title`, list-form inline; mirrors
+  `schema_labels()` extraction logic so the sets are comparable).
+  Added to `agency/_schema_coverage.py`; re-exported via
+  `scripts/check_schema_coverage.py`.
+- **`audit_schemas()` gains `engine_loaded_titles: set[str] | None`** —
+  when supplied: `covered = schemas ∩ ontology ∩ engine_loaded`;
+  `dormant_schemas = (schemas ∩ ontology) − engine_loaded` (file-backed
+  + matching ontology label, but NOT declared by the cap → engine never
+  loads it). Backwards-compatible: callers without the param get the
+  prior behaviour.
+- **`CoverageReport.dormant_schemas: set[str]`** — the new field; empty
+  when `engine_loaded_titles` is not supplied.
+- **`agency_doctor.schema_coverage.dormant_schemas`** — the live sorted
+  list (empty = all on-disk schemas are engine-declared).
+- **2 acceptance scenarios** (24 total, was 22):
+  1. Unit: a schema file whose cap has no `artefact_schemas` declaration
+     → `dormant_schemas` (not `covered`).
+  2. Live: boot the engine; 0 dormant schemas (all current caps declared).
+- `scripts/check_schema_coverage.py` re-exports `engine_loaded_schema_titles`.
+- drift + doc-drift clean (6 stale docs from prior run re-stamped).
+
+### Still — Slice 5+
+
+- **Slice 5** — `# AGENCY-SCHEMA-DEFERRED: <reason>` tag scan so the
+  audit subtracts deferred-but-documented gaps from the uncovered set
+  (per Spec 054 drift pattern; matches the AGENCY-RESERVED escape
+  hatch in Spec 151).
+- **Round-trip invariant (original Slice 4 plan)** — generate→validate:
+  for every covered label, a Template renders an Artefact that the Schema
+  validates, and the materialised result round-trips back to the source
+  dict shape. Invariant (c) — `covered_schemas ⊆ template_renderable_schemas`.
 - **Slice 5** — `# AGENCY-SCHEMA-DEFERRED: <reason>` tag scan so the
   audit subtracts deferred-but-documented gaps from the uncovered set
   (per Spec 054 drift pattern; matches the AGENCY-RESERVED escape
