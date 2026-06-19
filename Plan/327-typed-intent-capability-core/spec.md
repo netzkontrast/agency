@@ -1,7 +1,7 @@
 ---
 spec_id: "327"
 slug: typed-intent-capability-core
-status: draft
+status: Shipped
 last_updated: 2026-06-19
 owner: "@agency"
 vision_goals: [2, 4, 5]
@@ -114,10 +114,32 @@ mirrored one-way from the authoritative graph.
 
 ## Followup — Implementation Status (2026-06-19)
 
-- **Status: draft.** Slice 1 of the Spec 326 program — the core mapping. Build
-  FIRST; slices 328 (fulfilment), 329 (lifecycle + spine), 330 (read API) hang
-  off these tables + the mirror router.
-- **Open question (resolve at build):** whether superseded (`vto != OPEN`)
-  versions get their own rows or only the current version mirrors. Default:
-  mirror the current version (the typed tables are the "now" projection; the graph
-  holds full bi-temporal history) — revisit if a typed as-of read is needed.
+- **Status: SHIPPED 2026-06-19.** Slice 1 of the Spec 326 program — the core
+  mapping — landed. The full acceptance suite is **985 passed / 0 failed**; drift
+  clean. Done:
+  - `agency/_entity_store.py` — three `table=True` models (`TypedIntent` ·
+    `TypedAgent` · `TypedInvocation`) on the SAME shared engine as `EntityRecord`
+    (one DB; node id == PK), plus the `CORE_TYPED` router switchboard, the
+    `_FK_COLUMNS` guard (props never clobber an edge-set FK), and `_EDGE_FK_SRC`
+    (`SERVES`→`serves_intent_id`, `PERFORMED_BY`→`agent_id`,
+    `PARENT_INTENT`→`parent_intent_id`). New methods: `upsert_typed`,
+    `set_fk_from_edge`, `typed_row`, `typed_rows`.
+  - `agency/memory.py` — `_mirror` additionally routes a CORE label into its
+    typed table (EntityRecord stays the catch-all — additive, no reader breaks);
+    `link` projects the edge onto its typed FK after the authoritative edge write
+    (one-way, failure-isolated — wrapped so a projection error never fails the
+    graph write).
+  - `tests/acceptance/{features/typed_entities.feature,test_typed_entities.py}` —
+    7 scenarios: mirror parity, the serves_intent_id NOT-NULL+resolves invariant,
+    serves_intent_id tracks SERVES, the agent_id FK, PARENT_INTENT→parent_intent_id,
+    one-way+failure-isolation (forced mirror error leaves the graph node), enum
+    sourcing from the ontology.
+- **Ontology-derived corrections (rule 2) vs the Spec 326 sketch:** Agent's field
+  is `runtime` (not `kind`); the Invocation→Agent edge is `PERFORMED_BY` (not
+  `BY` — `BY` is a Cypher reserved word). The hot FK columns are nullable at the
+  schema level (a node is recorded BEFORE its edges), so the NOT-NULL "mapping"
+  is a DATA invariant the mirror upholds + the suite guards, not a DB constraint.
+- **Decision logged:** only the CURRENT version mirrors to the typed table (the
+  graph holds full bi-temporal history); `vfrom`/`vto` are present so a later
+  as-of typed read is a pure addition.
+- **Next:** Slice 328 (Intent-owned `Gate` + `AcceptanceCriterion`).

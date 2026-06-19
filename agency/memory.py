@@ -79,6 +79,9 @@ class Memory:
         any error (the row can be re-derived from the graph)."""
         try:
             self.entities.upsert(node_id, label, props, vfrom=vfrom, vto=vto)
+            # Spec 327 — also route a CORE label into its explicit typed table
+            # (additive: EntityRecord stays the catch-all). No-op for non-core.
+            self.entities.upsert_typed(node_id, label, props, vfrom=vfrom, vto=vto)
         except Exception:                                   # noqa: BLE001
             # projection is re-derivable from the authoritative graph; never
             # let a mirror error escape the graph write. (Optionally observable
@@ -111,6 +114,12 @@ class Memory:
         for i in range(attempts):
             try:
                 self.g.upsert_edge(src, dst, {**(props or {}), "vfrom": self._now()}, rel_type=rel)
+                # Spec 327 — project the edge onto a typed FK column (one-way,
+                # failure-isolated: the authoritative edge is already written).
+                try:
+                    self.entities.set_fk_from_edge(src, dst, rel)
+                except Exception:                           # noqa: BLE001
+                    pass
                 return
             except Exception as e:                          # noqa: BLE001
                 sev = classify_severity("", exc=e, message=str(e))

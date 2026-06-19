@@ -48,6 +48,101 @@ class EntityRecord(SQLModel, table=True):
     vto: int = OPEN
 
 
+# --- Spec 327 — the explicit relational typed layer (the four-concept core) ---
+#
+# Where ``EntityRecord`` is the generic JSON-blob mirror for ANY node, these
+# ``table=True`` models give the four-concept CORE entities real columns + real
+# foreign keys, so the interweave (Capability · Lifecycle · Memory → Intent) is
+# queryable by SQL join, not just a Cypher traversal. They share the same engine
+# / connection as ``EntityRecord`` (one DB; node id == PK). Enum VALUES are still
+# enforced upstream by the ontology (``EntityModels.validate`` / ``Memory.record``)
+# — rule 2: the columns stay plain ``str``, no hand-copied enum here. The new
+# typed layer is the RELATIONAL structure the flat ontology can't express (the FKs).
+#
+# The hot FK columns (``serves_intent_id`` · ``agent_id`` · ``parent_intent_id``)
+# are nullable at the schema level on purpose: a node is recorded BEFORE its edges
+# (``Memory.record`` then ``Memory.link``), so the row is inserted first and the FK
+# is set when the edge lands. The "every Invocation maps to an Intent" invariant is
+# a DATA invariant the mirror upholds (and the acceptance suite guards), not a DB
+# NOT-NULL that would break the insert-before-edge ordering.
+
+
+class TypedIntent(SQLModel, table=True):
+    """Intent — the human-owned root every concept edges back to (Spec 326)."""
+
+    __tablename__ = "agency_intent"
+
+    id: str = Field(primary_key=True)
+    purpose: Optional[str] = None
+    deliverable: Optional[str] = None
+    acceptance: Optional[str] = None
+    status: Optional[str] = Field(default=None, index=True)
+    owner: Optional[str] = None
+    clarity_score: Optional[float] = None              # Spec 322 (set on confirm)
+    parent_intent_id: Optional[str] = Field(           # PARENT_INTENT edge
+        default=None, foreign_key="agency_intent.id", index=True)
+    vfrom: int = 0
+    vto: int = OPEN
+
+
+class TypedAgent(SQLModel, table=True):
+    """Agent — the performer (Capability concept: jules / develop / subagent …).
+    The ontology's discriminator field is ``runtime`` (rule 2)."""
+
+    __tablename__ = "agency_agent"
+
+    id: str = Field(primary_key=True)
+    runtime: Optional[str] = Field(default=None, index=True)
+    vfrom: int = 0
+    vto: int = OPEN
+
+
+class TypedInvocation(SQLModel, table=True):
+    """Invocation — every capability verb call, mapped to the Intent it SERVES
+    and the Agent that PERFORMED_BY it (Spec 326 §the interweave)."""
+
+    __tablename__ = "agency_invocation"
+
+    id: str = Field(primary_key=True)
+    capability: Optional[str] = Field(default=None, index=True)
+    verb: Optional[str] = Field(default=None, index=True)
+    role: Optional[str] = None
+    serves_intent_id: Optional[str] = Field(           # SERVES edge (the mapping)
+        default=None, foreign_key="agency_intent.id", index=True)
+    agent_id: Optional[str] = Field(                   # PERFORMED_BY edge
+        default=None, foreign_key="agency_agent.id", index=True)
+    vfrom: int = 0
+    vto: int = OPEN
+
+
+# label → typed model (the router's switchboard). The mirror routes a CORE label
+# here IN ADDITION to the generic EntityRecord (additive — no existing reader of
+# EntityRecord breaks); a non-core/domain label stays EntityRecord-only.
+# AGENCY-DRIFT: typed-core-labels — the set of labels with a typed table.
+CORE_TYPED: dict[str, type[SQLModel]] = {
+    "Intent": TypedIntent,
+    "Agent": TypedAgent,
+    "Invocation": TypedInvocation,
+}
+
+# Columns NEVER written from node props — they are derived from EDGES, set by
+# ``set_fk_from_edge`` when the edge lands (so a re-upsert from props can't clobber
+# a FK already set by its edge).
+_FK_COLUMNS: dict[str, set[str]] = {
+    "Intent": {"parent_intent_id"},
+    "Invocation": {"serves_intent_id", "agent_id"},
+}
+
+# edge rel → the FK column it sets on the edge's SRC row (value := the edge's DST).
+# All three slice-327 rels are (src)-[rel]->(dst) with the FK living on the src.
+# AGENCY-DRIFT: typed-edge-fk — the rels that project onto a typed FK column.
+_EDGE_FK_SRC: dict[str, str] = {
+    "SERVES": "serves_intent_id",
+    "PERFORMED_BY": "agent_id",
+    "PARENT_INTENT": "parent_intent_id",
+}
+
+
 class EntityStore:
     """OOP handle over the graph-authoritative typed projection. Bind it to the
     SAME SQLite database as the graph — pass
@@ -70,11 +165,79 @@ class EntityStore:
             self._engine = create_engine(
                 url, connect_args={"check_same_thread": False},
                 poolclass=StaticPool)
-        SQLModel.metadata.create_all(self._engine, tables=[EntityRecord.__table__])
+        tables = [EntityRecord.__table__] + [m.__table__ for m in CORE_TYPED.values()]
+        SQLModel.metadata.create_all(self._engine, tables=tables)
 
     @staticmethod
     def _clean(props: dict) -> dict:
         return {k: v for k, v in props.items() if k not in _SUBSTRATE}
+
+    # --- Spec 327 — the explicit typed-core projection ---------------------
+    @staticmethod
+    def _row_dict(row: SQLModel) -> dict:
+        return {c: getattr(row, c) for c in row.__table__.columns.keys()}
+
+    def upsert_typed(self, node_id: str, label: str, props: dict,
+                     vfrom: int = 0, vto: int = OPEN) -> Optional[str]:
+        """Mirror a CORE node into its typed table (Spec 327). No-op for a
+        non-core label (it stays EntityRecord-only). Props fill the value columns;
+        the FK columns (``_FK_COLUMNS``) are left to ``set_fk_from_edge`` — a
+        re-upsert from props never clobbers a FK already set by its edge."""
+        model = CORE_TYPED.get(label)
+        if model is None:
+            return None
+        cols = set(model.__table__.columns.keys())
+        skip = _FK_COLUMNS.get(label, set()) | {"id", "vfrom", "vto"}
+        payload = {k: v for k, v in props.items() if k in cols and k not in skip}
+        with Session(self._engine) as s:
+            row = s.get(model, node_id)
+            if row is None:
+                row = model(id=node_id, vfrom=vfrom, vto=vto, **payload)
+            else:
+                for k, v in payload.items():
+                    setattr(row, k, v)
+                row.vfrom, row.vto = vfrom, vto
+            s.add(row)
+            s.commit()
+        return node_id
+
+    def set_fk_from_edge(self, src: str, dst: str, rel: str) -> None:
+        """Set the typed FK column an edge projects onto (Spec 327). The three
+        slice-327 rels are ``(src)-[rel]->(dst)`` with the FK on the SRC row
+        (value := ``dst``). Only the src's own typed table carries a row with
+        ``id == src``, so exactly one row is touched (or none, for a non-core src
+        or an unprojected rel)."""
+        col = _EDGE_FK_SRC.get(rel)
+        if col is None:
+            return
+        for model in CORE_TYPED.values():
+            if col not in model.__table__.columns.keys():
+                continue
+            with Session(self._engine) as s:
+                row = s.get(model, src)
+                if row is not None:
+                    setattr(row, col, dst)
+                    s.add(row)
+                    s.commit()
+                    return
+
+    def typed_row(self, label: str, node_id: str) -> Optional[dict]:
+        """The typed row for a core node as a dict, or ``None``."""
+        model = CORE_TYPED.get(label)
+        if model is None:
+            return None
+        with Session(self._engine) as s:
+            row = s.get(model, node_id)
+            return self._row_dict(row) if row is not None else None
+
+    def typed_rows(self, label: str) -> list[dict]:
+        """All CURRENT (``vto == OPEN``) typed rows for a core label, as dicts."""
+        model = CORE_TYPED.get(label)
+        if model is None:
+            return []
+        with Session(self._engine) as s:
+            rows = s.exec(select(model).where(model.vto == OPEN)).all()
+            return [self._row_dict(r[0]) for r in rows]
 
     def upsert(self, node_id: str, label: str, props: dict,
                vfrom: int = 0, vto: int = OPEN) -> str:
