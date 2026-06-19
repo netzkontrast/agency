@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings.
 
-### `agency/` (57 files)
+### `agency/` (58 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -58,6 +58,10 @@ Three console-script entry points (Spec 039):
 A Lifecycle `check` is the post-hoc read over whatever a delegation/subagent
 produced — same observe family as `COMPLETED ≠ done`/`verify` (CORE.md:31,33-35),
 NOT a new capability's act.
+- **_clarity.py** — Intent clarity — the substrate readiness signals + score (Spec 307 §Refinement).
+
+The clarity score is the home of the "is this intent clear enough to confirm?"
+question.
 - **_codes_coverage.py** — Spec 151 — ToolResult Codes coverage audit (engine-side core).
 
 Moved out of ``scripts/check_codes_coverage.py`` (Spec 151 Slice 3) so the
@@ -234,9 +238,6 @@ Live-skill compatibility (Codex review on PR #127):
 - **_substrate_tools.py** — Substrate tools as a registered set — Spec 286 Phase 2 / A5.
 
 The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
-``lifecycle_gate`` · ``memory_graph_provenance`` · ``hook_event`` ·
-``intent_bootstrap`` · ``agency_install`` · ``agency_doctor`` ·
-``agency_welcome``.
-- **_tokens.py** — Spec 082 — the token-coun
+``lif
 
 _…(content omitted to fit token budget)_
