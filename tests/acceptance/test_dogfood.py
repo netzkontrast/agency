@@ -1069,7 +1069,13 @@ def _noop_wrong_token(engine, confirmed_intent):
 
 
 @then('an exception mentioning "confirm_token" or "amendment_unconfirmed" is raised')
-def _wrong_token_error(engine, confirmed_intent):
+def _wrong_token_error(engine, confirmed_intent, monkeypatch, tmp_path):
+    from agency.capabilities.dogfood.clusters import amendment as amod
+    spec = tmp_path / "Plan" / "146-engine-output-prefix-discipline" / "spec.md"
+    spec.parent.mkdir(parents=True)
+    spec.write_text("# Spec 146\n\n## Done When\n\n- [x] existing\n", encoding="utf-8")
+    monkeypatch.setattr(amod, "_resolve_spec_path",
+                        lambda sid: str(spec) if sid == "146" else None)
     with pytest.raises(Exception) as excinfo:
         _call(engine, confirmed_intent, "dogfood", "apply_amendment",
               payload=_valid_payload(), dry_run=False,

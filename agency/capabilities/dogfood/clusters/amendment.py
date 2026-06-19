@@ -205,6 +205,32 @@ def _resolve_spec_path(spec_id: str) -> str | None:
     return matches[0] if matches else None
 
 
+def _resolve_spec_path_from_archive(spec_id: str) -> str | None:
+    """Check the git archive branch for a shipped spec path (dry-run fallback).
+
+    Specs that have been shipped are deleted from ``Plan/`` but preserved in
+    ``archive/plan-specs-pre-cleanup``.  For dry-run amendment proposals the
+    path is only used as the diff-header filename, so the file need not exist
+    on disk — we just need the canonical path string.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "ls-tree", "-r", "--name-only",
+             "archive/plan-specs-pre-cleanup", "--", "Plan/"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        for line in out.stdout.splitlines():
+            parts = line.split("/")
+            if (len(parts) == 3 and parts[0] == "Plan"
+                    and parts[1].startswith(f"{spec_id}-")
+                    and parts[2] == "spec.md"):
+                return line
+    except Exception:
+        pass
+    return None
+
+
 def _payload_hash(payload: dict) -> str:
     """Stable id-hash for a proposal — used by the confirm_token live-write
     gate. Hashed over (spec_id, section, op, after) so a re-classification
@@ -536,8 +562,17 @@ class AmendmentMixin:
         spec_id = payload.get("spec_id", "")
         spec_path = _resolve_spec_path(spec_id)
         if spec_path is None:
-            raise RuntimeError(f"amendment_bad_spec: no spec dir for "
-                               f"spec_id={spec_id!r}")
+            # Spec may have been shipped and deleted from Plan/ — check archive.
+            archived_path = _resolve_spec_path_from_archive(spec_id)
+            if archived_path is None:
+                raise RuntimeError(f"amendment_bad_spec: no spec dir for "
+                                   f"spec_id={spec_id!r}")
+            if not dry_run:
+                raise RuntimeError(
+                    f"amendment_bad_spec: spec {spec_id!r} is archived "
+                    f"(shipped; no longer in Plan/); live amendment requires "
+                    f"the spec file on disk")
+            spec_path = archived_path
         # Live-write requires confirm_token matching the payload id-hash.
         payload_hash = _payload_hash(payload)
         if not dry_run and confirm_token != payload_hash:
