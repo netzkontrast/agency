@@ -28,3 +28,11 @@ Feature: the typed Intent read API — joins, not Cypher (Spec 330)
   Scenario: manage state surfaces the typed fulfilment read
     When I capture and confirm an intent
     Then manage state for that intent includes a fulfilment block
+
+  Scenario: manage provenance surfaces the typed cross-concern join
+    When an invocation serving an intent produces an artefact serving it
+    Then manage provenance for that intent includes the invocation and artefact
+
+  Scenario: manage subtree walks the typed parent-intent tree
+    When I capture a child intent under a parent intent
+    Then manage subtree of the parent includes both intents
