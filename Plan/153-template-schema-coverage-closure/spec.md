@@ -438,3 +438,30 @@ Steward run continuation: 6 labels from 4 new caps gaining `artefact_schemas`
 - **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 44→38.
 - **Coverage** `schema_coverage.fraction` 0.584→0.652 (52→58 covered).
   Crossed 0.6 milestone. Next: continue toward 0.7.
+
+### Done — Slice 6 plugin + persona + doctrine + dogfood wave (2026-06-19)
+
+Steward run continuation: 6 labels — 2 from plugin cap (already had
+`artefact_schemas`), 1 from prompt cap (already wired), 3 from new caps.
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `plugin/schemas/plugin.json` (`Plugin`) ← `plugin/_main.py`
+    (`name`/`version`/`description` required).
+  - `plugin/schemas/command.json` (`Command`) ← `plugin/_main.py`
+    (`name`/`description` required).
+  - `prompt/schemas/research-brief.json` (`ResearchBrief`) ← `prompt/clusters/dossier.py`
+    (`intent`/`body` required).
+  - `persona/schemas/persona-brief.json` (`PersonaBrief`) ← `persona/_main.py`
+    (`persona` enum 14-member `_BY_NAME` set; `task` required).
+  - `doctrine/schemas/doctrine-citation.json` (`DoctrineCitation`) ← `doctrine/_main.py`
+    (`name` required).
+  - `dogfood/schemas/decision-record.json` (`DecisionRecord`) ← `dogfood/_main.py`
+    (`subject`/`decision`/`rationale` required — ADR triple).
+- **3 capabilities updated** — `ArtefactSchemas.from_module(__file__)` added
+  to `PersonaCapability`, `DoctrineCapability`, `DogfoodCapability`.
+- **2 acceptance scenarios** — `PLUGIN_PERSONA_DOCTRINE_DOGFOOD_LABELS` named
+  contract set; 36 scenarios total (was 34).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 38→32.
+- **Coverage** `schema_coverage.fraction` 0.652→0.719 (58→64 covered).
+  Crossed 0.7 milestone. Remaining: 25 labels (mostly music/novel/worldbuilding).
