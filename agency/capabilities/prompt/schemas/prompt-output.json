@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PromptOutput",
+  "description": "The raw LLM response produced by running a prompt instance (agency/capabilities/prompt/ontology.py; Spec 153 Slice 6 — prompt-dossier wave). PRODUCED_BY the PromptInstance; FLAGS_ANTI edges link to any AntiPattern findings.",
+  "type": "object",
+  "required": ["instance", "response_body"],
+  "properties": {
+    "instance": {
+      "type": "string",
+      "description": "Node ID of the PromptInstance that produced this output."
+    },
+    "response_body": {
+      "type": "string",
+      "description": "The full LLM response text."
+    }
+  }
+}

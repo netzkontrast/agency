@@ -23,7 +23,7 @@ Red flags:
 """
 from __future__ import annotations
 
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 # ── doctrine config (small, named, overridable — NOT a frozen snapshot of live
@@ -125,8 +125,10 @@ def _classify(term: str) -> str:
 class DoctrineCapability(CapabilityBase):
     name = "doctrine"
     home = "capability"   # a reference surface consulted during work; no new pillar
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"DoctrineCitation": ["name"]},
+        schemas={"doctrine-citation": ["name"]},
     )
 
     @verb(role="act")

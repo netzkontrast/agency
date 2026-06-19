@@ -22,8 +22,11 @@ __pycache__/
 # User directive 2026-06-19: `.agency/session.db` is SNAPSHOTTED, not tracked. The
 # live binary churns every session + is 96% ephemeral Event noise; the DURABLE graph
 # is exported to portable SQL in `.agency/sql/` (`scripts/session-snapshot export`)
-# and restored on SessionStart when the db is missing. So the binary is ignored:
+# and restored on SessionStart when the db is missing. (PR #194/Jules also untracked
+# it — the stop-hook was committing it every turn, a CI-loop.) So the binary is ignored:
 .agency/session.db
+# Literal '${CLAUDE_PROJECT_DIR}' directory from an unexpanded env var — never real.
+${CLAUDE_PROJECT_DIR}
 # SQLite WAL/journal files (transient — never commit)
 *.db-journal
 *.db-wal

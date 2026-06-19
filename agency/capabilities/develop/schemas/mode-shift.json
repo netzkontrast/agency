@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ModeShift",
+  "description": "A recorded session mode transition (agency/capabilities/develop/_main.py; Spec 287). Linked to the active SessionLifecycle; captures the from/to modes and optional reason.",
+  "type": "object",
+  "required": ["from_mode", "to_mode"],
+  "properties": {
+    "from_mode": {
+      "type": "string",
+      "enum": ["brainstorming", "spec-authoring", "coding", "review", "synthesize"],
+      "description": "Session mode before the transition."
+    },
+    "to_mode": {
+      "type": "string",
+      "enum": ["brainstorming", "spec-authoring", "coding", "review", "synthesize"],
+      "description": "Session mode after the transition."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Optional human-readable explanation for the mode change."
+    }
+  }
+}
