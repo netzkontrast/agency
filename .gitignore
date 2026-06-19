@@ -26,3 +26,10 @@ __pycache__/
 *.db-journal
 *.db-wal
 *.db-shm
+# CodeGraph: the index DB (`.codegraph/codegraph.db`) is COMMITTED (force-added)
+# so the code index travels with the repo; only the transient runtime files stay
+# out of git. NOTE: codegraph regenerates a `.codegraph/.gitignore` on each sync
+# that self-un-ignores (`!.gitignore`), so a parent ignore can't suppress it — it
+# may reappear as untracked. Harmless: the tracked DB is unaffected.
+.codegraph/daemon.*
+.codegraph/*.sock
