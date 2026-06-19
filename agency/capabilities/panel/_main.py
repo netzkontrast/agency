@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 
+from ..._capture import keep_full
 from ...capability import CapabilityBase, verb
 from ...ontology import OntologyExtension
 
@@ -171,7 +172,7 @@ class PanelCapability(CapabilityBase):
                         for e in experts]
             synthesis = "Identify convergent themes + complementary perspectives across frameworks."
         panel_id = self.ctx.record_and_serve("Panel", {
-            "subject": subject[:200], "mode": chosen_mode})
+            "subject": keep_full(subject, label="panel subject"), "mode": chosen_mode})
         return {"panel_id": panel_id, "subject": subject, "mode": chosen_mode,
                 "experts": [e["name"] for e in experts],
                 "analysis": analysis, "synthesis": synthesis}
