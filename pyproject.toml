@@ -18,6 +18,12 @@ dependencies = [
     # Core dep per user directive (2026-06-13): used for every data object.
     "sqlmodel>=0.0.14",
     "httpx",
+    # Spec 001 — load OPENROUTER_API_KEY / JULES_API_KEY (and any other secrets)
+    # from a .env file at startup so operators can configure the plugin without
+    # hand-exporting variables in the shell.  `load_dotenv()` is a no-op when
+    # no .env is present, so this has zero cost for containerised/cloud deploys
+    # that inject env vars directly.
+    "python-dotenv>=1.0",
     # Spec 079 — the bash CLI (agency/cli.py) is built on Click: it mirrors every
     # capability verb as `agency <cap> <verb>` so non-MCP agents reach the
     # capabilities directly. (Already present transitively via fastmcp; pinned
@@ -34,6 +40,10 @@ dependencies = [
     "bandit>=1.7",
     "radon>=6",
     "networkx>=3.2",
+    # Spec 328 — .agency/config.yaml is a CORE runtime feature (config_get reads
+    # YAML at engine/CLI/MCP startup), so PyYAML graduates from a dev-only dep to
+    # core. Still pinned in [dev] too for the vision_goals frontmatter validator.
+    "PyYAML>=6.0",
 ]
 
 # AGENCY-DRIFT: deps-extras — adding/removing an extra here means:

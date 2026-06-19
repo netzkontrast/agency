@@ -32,6 +32,9 @@ import os
 import sys
 
 import click
+from dotenv import load_dotenv
+
+load_dotenv()  # populate OPENROUTER_API_KEY / JULES_API_KEY from .env before any lazy reads
 
 from .engine import Engine
 

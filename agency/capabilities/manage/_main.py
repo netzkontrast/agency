@@ -186,6 +186,47 @@ class ManageCapability(CapabilityBase):
         return out
 
     @verb(role="act")
+    def provenance(self, for_intent_id: str) -> dict:
+        """PROVENANCE — the typed cross-concern join (Spec 330/290, Memory ·
+        Capability · Lifecycle): every Invocation serving the intent + its
+        Agent + the Artefacts it produced (or that serve the intent) + the
+        Lifecycle states, read through the typed ``IntentStore`` join rather
+        than a Cypher traversal. This is the verb that makes the Spec 330 typed
+        read surface load-bearing (not dormant) — and the natural Goal-5
+        FastAPI endpoint shape.
+
+        Inputs: for_intent_id (str — the Intent id).
+        Returns: ``{intent_id, invocations, agents, artefacts, lifecycle,
+                   counts}`` or ``{error}`` if not an Intent.
+        chain_next: manage.timeline(intent_id) for the time order;
+                    manage.subtree(intent_id) for its sub-intents.
+        """
+        if self.ctx.recall_typed(for_intent_id, "Intent") is None:
+            return {"error": f"{for_intent_id!r} is not an Intent id",
+                    "intent_id": for_intent_id}
+        prov = self.ctx.memory.intents.provenance(for_intent_id)
+        counts = {k: len(v) for k, v in prov.items()}
+        return {"intent_id": for_intent_id, **prov, "counts": counts}
+
+    @verb(role="act")
+    def subtree(self, root_intent_id: str) -> dict:
+        """SUBTREE — the ``PARENT_INTENT`` sub-intent tree rooted at an intent
+        (root inclusive), walked over the typed ``parent_intent_id`` FK (Spec
+        330; makes ``IntentStore.intent_tree`` load-bearing).
+
+        Inputs: root_intent_id (str — the root Intent id).
+        Returns: ``{root_intent_id, count, intents: [props]}`` or ``{error}``.
+        chain_next: manage.provenance(intent_id) for one intent's full
+                    cross-concern provenance.
+        """
+        if self.ctx.recall_typed(root_intent_id, "Intent") is None:
+            return {"error": f"{root_intent_id!r} is not an Intent id",
+                    "root_intent_id": root_intent_id, "count": 0, "intents": []}
+        tree = self.ctx.memory.intents.intent_tree(root_intent_id)
+        return {"root_intent_id": root_intent_id, "count": len(tree),
+                "intents": tree}
+
+    @verb(role="act")
     def open_intents(self, top: int = 20) -> dict:
         """OPEN-INTENTS — live intents + acceptance + SERVES subtree size,
         busiest first (Spec 290, Intent pillar).

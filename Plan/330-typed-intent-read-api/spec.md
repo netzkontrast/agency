@@ -120,5 +120,18 @@ legible as typed relations, not just Cypher.
   into `manage.state` now; the broader `provenance`/`open_intents`/`whats_next`
   re-route stays a follow-up (the existing Cypher paths are parity-equivalent and
   untouched, so no regression risk taken for no present need).
-- **FastAPI (Goal 5/7):** `IntentStore`'s dict returns are the read models a
-  FastAPI app exposes — the next follow-up now the four slices have landed.
+- **Follow-up SHIPPED 2026-06-19 (steward run):** the deferred re-route above —
+  `manage.provenance(for_intent_id)` (consumes `IntentStore.provenance`, which
+  internally calls `serves`) + `manage.subtree(root_intent_id)` (consumes
+  `IntentStore.intent_tree`). This closes the **dormant-surface gap**: before this,
+  `serves` / `provenance` / `intent_tree` had a parity-gate test but ZERO production
+  reader (only `fulfilment` was wired). Now every `IntentStore` read method is
+  load-bearing through a `manage` verb (CLAUDE.md heuristic #1). 2 acceptance
+  scenarios added to `typed_read_api.feature` (manage.provenance includes the
+  invocation+artefact; manage.subtree includes parent+child). Both verbs guard on
+  `recall_typed(.,"Intent")` and return FastAPI-serialisable dicts. Install
+  regenerated (the two verbs added to the wire surface); drift clean.
+- **FastAPI (Goal 5/7):** `IntentStore`'s dict returns + these `manage` verbs are
+  the read models a FastAPI app exposes — the remaining follow-up (architecturally
+  significant: new server surface → deferred to a human-reviewed spec, not a
+  steward guess).

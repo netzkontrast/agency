@@ -87,3 +87,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
     When I run the live audit and compare to the committed baseline
     Then there are no new uncovered labels
     And there are no newly-covered labels still in the baseline
+
+  # ── schema coverage backfill (Slice 6) ────────────────────────────────────────
+
+  Scenario: the core substrate provenance labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the core provenance labels are all schema-covered
+
+  Scenario: the core provenance schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the core provenance labels each have a loaded ontology schema
