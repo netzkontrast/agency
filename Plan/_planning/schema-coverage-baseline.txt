@@ -12,7 +12,6 @@ CodexEntry
 Command
 Culture
 DecisionRecord
-DoctrineCitation
 Genre
 Idea
 KnownFact

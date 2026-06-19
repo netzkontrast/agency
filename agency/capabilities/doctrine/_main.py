@@ -127,6 +127,7 @@ class DoctrineCapability(CapabilityBase):
     home = "capability"   # a reference surface consulted during work; no new pillar
     ontology = OntologyExtension(
         nodes={"DoctrineCitation": ["name"]},
+        schemas={"doctrine-citation": ["name"]},
     )
 
     @verb(role="act")
