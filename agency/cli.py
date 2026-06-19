@@ -205,6 +205,36 @@ def intent(ctx, purpose, deliverable, acceptance):
     return _emit(out, rc)
 
 
+@cli.group(invoke_without_command=False)
+def snapshot():
+    """Export/import the DURABLE session graph as portable SQL in `.agency/sql/`.
+
+    The live `.agency/session.db` is gitignored (it churns + is mostly ephemeral);
+    the committed snapshot is the source of truth. SessionStart restores a missing
+    db from it; run `export` periodically to re-snapshot."""
+
+
+@snapshot.command(name="export")
+@click.option("--all", "all_", is_flag=True, help="include ephemeral Events/RepoIndex")
+@click.option("--out", default=None)
+@click.option("--db", default=None)
+def snapshot_export(all_, out, db):
+    """Snapshot the durable graph → `.agency/sql/session-snapshot.sql`."""
+    from . import _session_snapshot as snap
+    r = snap.export(graph_db=db, out=out or snap._DEFAULT_SQL, include_events=all_)
+    return _emit(r, 0 if r.get("exported") else 1)
+
+
+@snapshot.command(name="import")
+@click.option("--sql", default=None)
+@click.option("--db", default=None)
+def snapshot_import(sql, db):
+    """Replay a SQL snapshot → graph (used by the SessionStart restore)."""
+    from . import _session_snapshot as snap
+    r = snap.import_snapshot(sql=sql or snap._DEFAULT_SQL, target_db=db)
+    return _emit(r, 0 if r.get("imported") else 1)
+
+
 @cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("root", required=False)
 @click.option("--scaffold-db", is_flag=True,

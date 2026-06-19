@@ -19,10 +19,11 @@ __pycache__/
 # Spec 292 — `.agency/sessions/` is COMMITTED (user directive 2026-06-16): the
 # session graph + archived session Documents are durable provenance, like the
 # graph DB itself (Spec 020), so a session restores across clones.
-# User directive 2026-06-19: the blanket `*.db` ignore is LIFTED so the durable
-# substrate DBs (`.agency/session.db`, `.codegraph/codegraph.db`) can be tracked
-# and travel with the repo. Only the transient SQLite sidecars below stay
-# ignored (committing a WAL/journal/shm would corrupt the DB).
+# User directive 2026-06-19: `.agency/session.db` is SNAPSHOTTED, not tracked. The
+# live binary churns every session + is 96% ephemeral Event noise; the DURABLE graph
+# is exported to portable SQL in `.agency/sql/` (`scripts/session-snapshot export`)
+# and restored on SessionStart when the db is missing. So the binary is ignored:
+.agency/session.db
 # SQLite WAL/journal files (transient — never commit)
 *.db-journal
 *.db-wal
