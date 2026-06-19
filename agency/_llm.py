@@ -56,7 +56,7 @@ _SYSTEM = ('You are a constrained decider. Choose EXACTLY ONE option and a confi
 
 class LLMClient:
     def __init__(self, model: str | None = None):
-        raw = model or os.environ.get("AGENCY_LLM_MODEL", _DEFAULT_MODEL)
+        raw = model or os.environ.get("AGENCY_LLM_MODEL") or _DEFAULT_MODEL
         if raw == "auto":
             resolved = self.resolve_model()
         else:
@@ -103,13 +103,6 @@ class LLMClient:
         models: list[dict] = []
         for m in resp.json().get("data", []):
             mid = m.get("id", "")
-            pricing = m.get("pricing", {})
-            is_free = (
-                mid.endswith(_FREE_SUFFIX)
-                or (str(pricing.get("prompt", "1")) == "0"
-                    and str(pricing.get("completion", "1")) == "0"
-                    and mid.endswith(_FREE_SUFFIX))  # only :free IDs pass enforcement
-            )
             # Strict: only include models whose IDs end with :free so they
             # pass the decide() enforcement without special-casing.
             if mid.endswith(_FREE_SUFFIX):

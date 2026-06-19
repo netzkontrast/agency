@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 *.db
 .venv/
+.env.dev
 .pytest_cache/
 .claude/
 *.bak
