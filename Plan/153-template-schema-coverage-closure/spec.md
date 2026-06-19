@@ -363,3 +363,25 @@ Steward run continuation: 6 labels from caps already declaring `artefact_schemas
 - **Coverage** `schema_coverage.fraction` 0.416→0.483 (37→43 covered).
   Next: push past 0.5 — next targets `Analysis`/`Finding` (analyze cap, needs
   `artefact_schemas`) or `Schema`/`Tool` (core nodes — assign to develop cap).
+
+### Done — Slice 6 analyze + select wave (2026-06-19)
+
+Steward run continuation: 3 labels from analyze + select caps — both needed
+`artefact_schemas` declared.
+
+- **3 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `analyze/schemas/analysis.json` (`Analysis`) ← `analyze/_main.py`
+    (`path`/`axes`/`started_at` required; `axes` items enum 5-member axis set).
+  - `analyze/schemas/finding.json` (`Finding`) ← `analyze/_main.py`
+    (`rule`/`severity`/`file`/`line`/`message` required; `severity` enum
+    {info/warn/fail}; `evidence` optional).
+  - `select/schemas/selection.json` (`Selection`) ← `select/_main.py`
+    (`operation`/`approach` required; `approach` enum {semantic/pattern/native}).
+- **2 capabilities updated** — `ArtefactSchemas.from_module(__file__)` added
+  to `AnalyzeCapability` and `SelectCapability`.
+- **2 acceptance scenarios** — `ANALYZE_SELECT_LABELS` named contract set;
+  30 scenarios total (was 28).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 53→50.
+- **Coverage** `schema_coverage.fraction` 0.483→0.517 (43→46 covered). 
+  Crossed 0.5 milestone. Next: continue toward 0.6.
