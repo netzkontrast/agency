@@ -1,8 +1,9 @@
-"""Spec 092 G3 — the LLM-decider boundary (an ``llm`` Driver on the Spec-002 registry).
+"""Spec 092 G3 / Spec 331 — the LLM-decider boundary (an ``llm`` Driver on the
+Spec-002 registry).
 
 A constrained classifier the engine uses where a small judgement is needed without an
-autonomous agent — today `intent.suggests`'s ``llm_select`` Matcher; later the agentic
-pressure-test deciders (Spec 011). The single typed method is
+autonomous agent — today `intent.suggests`'s ``llm_select`` Matcher and
+`delegate.dispatch_decision`'s optional S12 LLM tie-breaker. The single typed method is
 ``decide(prompt, options) -> {choice, confidence}``.
 
 **Backend: OpenRouter** (https://openrouter.ai) — OpenAI-wire-compatible, reached over
@@ -16,10 +17,12 @@ model ID (e.g. ``meta-llama/llama-3.3-70b-instruct:free``).  The engine enforces
 at construction time so a misconfigured ``AGENCY_LLM_MODEL`` never silently incurs cost.
 
 The model is ``AGENCY_LLM_MODEL`` (default
-``meta-llama/llama-3.3-70b-instruct:free``). The request pins
-``temperature: 0`` and a strict ``response_format: json_schema`` so the reply is forced to
-``{"choice": <one option>, "confidence": <float>}``; parsing is tolerant (fence-strip +
-brace-extract) so a model that ignores strict schema still works.
+``meta-llama/llama-3.3-70b-instruct:free``).  Set ``AGENCY_LLM_MODEL=auto`` to
+dynamically query the OpenRouter ``/api/v1/models`` endpoint and pick the most
+preferred available free model (see ``_MODEL_PREFERENCE`` ranking below). The request
+pins ``temperature: 0`` and a strict ``response_format: json_schema`` so the reply is
+forced to ``{"choice": <one option>, "confidence": <float>}``; parsing is tolerant
+(fence-strip + brace-extract) so a model that ignores strict schema still works.
 
 API key and any other secrets are loaded from a ``.env`` file by the entry-point modules
 (``__main__.py`` / ``cli.py``) via ``python-dotenv`` before this module is used.
@@ -32,6 +35,20 @@ import re
 
 _DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 _FREE_SUFFIX = ":free"
+_MODELS_URL = "https://openrouter.ai/api/v1/models"
+
+# Preference-ranked list of known good free models used by `resolve_model()`
+# when AGENCY_LLM_MODEL=auto.  The first model that appears in the live
+# OpenRouter catalogue is selected; order reflects community usage prevalence
+# (as of 2026-06, DeepSeek models dominate OpenRouter free-tier traffic).
+_MODEL_PREFERENCE: list[str] = [
+    "deepseek/deepseek-r1:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen3-coder:free",
+    "google/gemma-3-27b-it:free",
+    "mistralai/mistral-7b-instruct:free",
+]
 _URL = "https://openrouter.ai/api/v1/chat/completions"
 _SYSTEM = ('You are a constrained decider. Choose EXACTLY ONE option and a confidence in '
            '[0,1]. Reply ONLY with JSON: {"choice": "<one option>", "confidence": <float>}.')
@@ -39,12 +56,17 @@ _SYSTEM = ('You are a constrained decider. Choose EXACTLY ONE option and a confi
 
 class LLMClient:
     def __init__(self, model: str | None = None):
-        resolved = model or os.environ.get("AGENCY_LLM_MODEL", _DEFAULT_MODEL)
+        raw = model or os.environ.get("AGENCY_LLM_MODEL", _DEFAULT_MODEL)
+        if raw == "auto":
+            resolved = self.resolve_model()
+        else:
+            resolved = raw
         if not resolved.endswith(_FREE_SUFFIX):
             raise ValueError(
                 f"AGENCY_LLM_MODEL must be a free OpenRouter model "
                 f"(model ID must end with '{_FREE_SUFFIX}', got {resolved!r}). "
-                f"Browse free models at https://openrouter.ai/models?order=pricing-asc "
+                f"Set AGENCY_LLM_MODEL=auto to auto-discover, browse free models at "
+                f"https://openrouter.ai/models?order=pricing-asc "
                 f"or leave AGENCY_LLM_MODEL unset to use the default ({_DEFAULT_MODEL})."
             )
         self.model = resolved
@@ -53,6 +75,72 @@ class LLMClient:
         """The live backend name (what ``agency_doctor`` reports) — never the key."""
         return "openrouter" if os.environ.get("OPENROUTER_API_KEY") else "none"
 
+    # ------------------------------------------------------------------
+    # Free model discovery (Spec 331)
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def list_free_models(cls, api_key: str | None = None) -> list[dict]:
+        """Query ``/api/v1/models`` and return models available at zero cost.
+
+        A model is considered free when its ID ends with ``:free`` OR when
+        both ``pricing.prompt`` and ``pricing.completion`` are ``"0"``.
+        Returns a list of ``{id, name, context_length}`` dicts, ordered as
+        they appear in the OpenRouter catalogue (most recently added first).
+        An API key is optional — the public endpoint is accessible without
+        one, though authenticated requests may see more models.
+        """
+        import httpx
+        key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
+        headers = {
+            "HTTP-Referer": "https://github.com/netzkontrast/agency",
+            "X-Title": "agency",
+        }
+        if key:
+            headers["Authorization"] = f"Bearer {key}"
+        resp = httpx.get(_MODELS_URL, headers=headers, timeout=15)
+        resp.raise_for_status()
+        models: list[dict] = []
+        for m in resp.json().get("data", []):
+            mid = m.get("id", "")
+            pricing = m.get("pricing", {})
+            is_free = (
+                mid.endswith(_FREE_SUFFIX)
+                or (str(pricing.get("prompt", "1")) == "0"
+                    and str(pricing.get("completion", "1")) == "0"
+                    and mid.endswith(_FREE_SUFFIX))  # only :free IDs pass enforcement
+            )
+            # Strict: only include models whose IDs end with :free so they
+            # pass the decide() enforcement without special-casing.
+            if mid.endswith(_FREE_SUFFIX):
+                models.append({
+                    "id": mid,
+                    "name": m.get("name", mid),
+                    "context_length": m.get("context_length", 0),
+                })
+        return models
+
+    @classmethod
+    def resolve_model(cls, api_key: str | None = None) -> str:
+        """Pick the most-preferred available free model from the live catalogue.
+
+        Walks ``_MODEL_PREFERENCE`` in order and returns the first model whose
+        ID appears in the OpenRouter free-model list.  Falls back to
+        ``_DEFAULT_MODEL`` when the API is unreachable or no preference matches.
+        """
+        try:
+            live_ids = {m["id"] for m in cls.list_free_models(api_key=api_key)}
+            for preferred in _MODEL_PREFERENCE:
+                if preferred in live_ids:
+                    return preferred
+        except Exception:
+            pass
+        return _DEFAULT_MODEL
+
+    # ------------------------------------------------------------------
+    # Core decide() interface
+    # ------------------------------------------------------------------
+
     def decide(self, prompt: str, options: list[str], model: str | None = None) -> dict:
         """Choose EXACTLY ONE of ``options``. Returns ``{choice, confidence}``; tolerant
         of a malformed reply (degrades to a mentioned option, else the first / conf 0)."""
@@ -60,8 +148,8 @@ class LLMClient:
         if not key:
             raise RuntimeError(
                 "LLM driver needs OPENROUTER_API_KEY — get one at https://openrouter.ai/keys "
-                "(set AGENCY_LLM_MODEL to choose a free model; default "
-                f"{_DEFAULT_MODEL}).")
+                "(set AGENCY_LLM_MODEL to choose a free model or 'auto' to discover; "
+                f"default {_DEFAULT_MODEL}).")
         use_model = model or self.model
         if not use_model.endswith(_FREE_SUFFIX):
             raise ValueError(
