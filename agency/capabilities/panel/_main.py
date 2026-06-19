@@ -24,7 +24,6 @@ import re
 
 from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ..._capture import keep_full
-from ...capability import CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 
