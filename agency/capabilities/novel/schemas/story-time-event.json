@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StoryTimeEvent",
+  "description": "A story-time event on the timeline of a Novel (Spec 128). Scenes link to it via HAPPENS_AT; the disclosure point links via REVEALED_IN.",
+  "type": "object",
+  "required": ["novel", "label", "when_story"],
+  "properties": {
+    "novel": {
+      "type": "string",
+      "description": "Parent Novel node id."
+    },
+    "label": {
+      "type": "string",
+      "description": "Short human-readable label for the event."
+    },
+    "when_story": {
+      "type": "string",
+      "description": "Story-time position — a date, period, or relative marker (e.g. 'Year 3 of the war', 'Day 0')."
+    },
+    "when_narrative": {
+      "type": "string",
+      "description": "Narrative-time position — when the reader encounters this in the text."
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BoundaryUse",
+  "description": "Records a raw-tool bypass invocation (agency/capabilities/dogfood/_main.py; Spec 195). Captured by the stop-hook to surface 'should have called a capability verb' patterns. RECORDED_BY edge links to the originating Event.",
+  "type": "object",
+  "required": ["tool", "argument_summary"],
+  "properties": {
+    "tool": {
+      "type": "string",
+      "description": "The raw tool invoked (e.g. 'Write', 'Edit', 'Bash')."
+    },
+    "argument_summary": {
+      "type": "string",
+      "description": "Trimmed summary of the tool arguments (never the full payload)."
+    },
+    "target": {
+      "type": "string",
+      "description": "Full path or command passed to the tool."
+    },
+    "verb_shadow": {
+      "type": "string",
+      "description": "The capability verb that should have served the same intent."
+    },
+    "intent_id": {
+      "type": "string",
+      "description": "The Intent node this invocation was serving."
+    },
+    "session": {
+      "type": "string",
+      "description": "Session identifier linking to a SessionLifecycle node."
+    }
+  }
+}

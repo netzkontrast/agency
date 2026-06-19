@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Schema",
+  "description": "A JSON schema node registered in the agency ontology (agency/ontology.py NODE_SCHEMAS). Tracks the shape of a node label's required fields; loaded by the engine and queryable via the ontology surface.",
+  "type": "object",
+  "required": ["name", "required"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The node label this schema describes (e.g. 'Intent', 'Artefact')."
+    },
+    "required": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "description": "Required field names for nodes of this label."
+    }
+  }
+}

@@ -128,7 +128,6 @@ class DoctrineCapability(CapabilityBase):
     artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"DoctrineCitation": ["name"]},
-        schemas={"doctrine-citation": ["name"]},
     )
 
     @verb(role="act")
