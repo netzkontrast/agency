@@ -531,7 +531,19 @@ def _session_end_handler(engine, event: dict) -> dict:
             if engine.memory.recall(sid) is not None:
                 engine.memory.link(doc_id, sid, "IN_SESSION")
                 engine.memory.update(sid, {"status": "closed"})
-        return {**base, "archived": doc_id, "written": res.get("written")}
+        # Spec 336 S4 — distil the ephemeral tool-call capture into a durable
+        # ToolcallExport (top calls + responses + new-spec suggestions) written to
+        # .agency/sessions/. Best-effort: never breaks teardown.
+        toolcall_export = None
+        try:
+            tx, _ = engine.registry.invoke(
+                engine.memory, iid, "toolcalls", "export",
+                agent_id="agent:session-end", apply=True)
+            toolcall_export = tx.get("export_id")
+        except Exception:                                       # noqa: BLE001
+            pass
+        return {**base, "archived": doc_id, "written": res.get("written"),
+                "toolcall_export": toolcall_export}
     except Exception:                                           # noqa: BLE001
         return {**base, "archived": None}
 

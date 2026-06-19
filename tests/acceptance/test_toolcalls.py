@@ -110,3 +110,29 @@ def _full_output(ctx):
     rows = ctx["engine"].toolcalls.rows(where="tool='Bash'")
     # the FULL output lives in output_json (no-truncate), all 50 lines
     assert rows[-1]["output_json"].count("line") == 50, rows[-1]["output_json"].count("line")
+
+
+# ── S4 — the export ───────────────────────────────────────────────────────────
+
+@when("I call toolcalls.export with apply", target_fixture="result")
+def _export(ctx):
+    return _call(ctx, "export", apply=True)
+
+
+@then("the export ranks the repeated Bash call first in its top list")
+def _export_top(result):
+    top = result["top"]
+    assert top and top[0]["tool"] == "Bash" and top[0]["calls"] == 3, top
+
+
+@then("the export proposes a new-spec suggestion for the repeated command")
+def _export_suggestion(result):
+    assert result["suggestions"], result
+    assert any("template" in s["suggestion"] for s in result["suggestions"]), \
+        result["suggestions"]
+
+
+@then("a ToolcallExport artefact is recorded in the durable graph")
+def _export_artefact(result, ctx):
+    assert result["export_id"], result
+    assert ctx["engine"].memory.recall(result["export_id"]) is not None

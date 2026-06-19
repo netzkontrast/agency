@@ -24,3 +24,10 @@ Feature: The toolcalls capability — the clear MCP surface over tool-call captu
     When a Bash PostToolUse with a 50-line output is captured
     Then the captured Bash row carries a shell-filtered view of the command
     And the full 50-line output is preserved in the row alongside the filtered view
+
+  Scenario: export distils the top calls into suggestions and a durable artefact (S4)
+    Given an engine with several captured tool calls
+    When I call toolcalls.export with apply
+    Then the export ranks the repeated Bash call first in its top list
+    And the export proposes a new-spec suggestion for the repeated command
+    And a ToolcallExport artefact is recorded in the durable graph

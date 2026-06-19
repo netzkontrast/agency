@@ -22,14 +22,26 @@ Red flags:
 """
 from __future__ import annotations
 
-from ...capability import CapabilityBase, verb
+from ... import _config
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
+
+# Spec 336 S4 — export config (Spec 334 registry).
+_config.register_config_section("toolcalls", [
+    _config.ConfigKey("export_top_n", "AGENCY_TOOLCALLS_TOP_N", 20,
+                      "how many top tool-call shapes the Stop-hook export lists"),
+    _config.ConfigKey("suggest_via_llm", "AGENCY_TOOLCALLS_LLM", False,
+                      "also propose new specs via the LLM driver (heuristic always runs)"),
+])
 
 
 class ToolcallsCapability(CapabilityBase):
     name = "toolcalls"
     home = "memory"   # high-volume capture, distilled into durable Memory artefacts
-    ontology = OntologyExtension()
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
+    ontology = OntologyExtension(
+        nodes={"ToolcallExport": ["session", "top_n", "suggestions"]},
+    )
 
     @verb(role="act")
     def top(self, n: int = 20) -> dict:
@@ -82,6 +94,28 @@ class ToolcallsCapability(CapabilityBase):
             if r["tool"]:
                 by_tool[r["tool"]] = by_tool.get(r["tool"], 0) + 1
         return {"total": len(rows), "by_phase": by_phase, "by_tool": by_tool}
+
+    @verb(role="effect")
+    def export(self, top_n: int = 0, apply: bool = False, prune: bool = False) -> dict:
+        """Distil the session's tool calls into a durable export — the top calls +
+        responses + new-spec SUGGESTIONS (the dogfooding fold-back, Goal 6).
+
+        Heuristic suggestions always run (a repeated command → a `shell.define`
+        template; a repeated read → an index; a high-volume call → a filter); an
+        LLM pass adds richer ideas when `toolcalls.suggest_via_llm` is set. With
+        `apply` the FULL markdown report is written to
+        `.agency/sessions/<session>-toolcalls.md` (never truncated) and a
+        `ToolcallExport` artefact is recorded, so the signal survives a `prune`.
+
+        Inputs: top_n (int — 0 uses the `toolcalls.export_top_n` config default),
+                apply (bool — write the report + record the artefact),
+                prune (bool — clear the store after a successful export).
+        Returns: ``{top, suggestions, report, written, export_id}``.
+        chain_next: open a spec for a strong suggestion; `toolcalls.prune` when done.
+        """
+        from . import _export
+        n = int(top_n) if int(top_n) > 0 else int(_config.config_get("toolcalls.export_top_n"))
+        return _export.run(self.ctx, top_n=n, apply=apply, prune=prune)
 
     @verb(role="effect")
     def prune(self) -> dict:

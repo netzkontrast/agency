@@ -23,6 +23,7 @@ Every pre/post tool call (Bash/Read/Edit/…) is captured in FULL into a local, 
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `export` | effect | Distil the session's tool calls into a durable export — the top calls + responses + new-spec SUGGESTIONS (the dogfooding fold-back, Goal 6). | [details](references/export.md) |
 | `prune` | effect | Clear the ephemeral capture store (after it has been distilled/exported). | [details](references/prune.md) |
 | `recent` | act | The most recent captured tool calls, in FULL (read-only). | [details](references/recent.md) |
 | `stats` | act | Capture counts broken down by phase and tool (read-only). | [details](references/stats.md) |
@@ -31,7 +32,7 @@ Every pre/post tool call (Bash/Read/Edit/…) is captured in FULL into a local, 
 ## Example
 
 ```bash
-await call_tool('capability_toolcalls_prune', {'intent_id': 'intent:abc'})
+await call_tool('capability_toolcalls_export', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
