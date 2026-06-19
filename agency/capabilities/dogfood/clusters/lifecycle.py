@@ -101,7 +101,21 @@ def _list_plan_dirs(plan_dir: str = "Plan") -> list[tuple[str, str, str]]:
 
 
 def _archive_path_for(spec_id: str) -> str | None:
-    """Return the spec path from the archive branch, or None if not found."""
+    """Return the spec path from the archive index, or None if not found.
+
+    Reads ``Plan/_archive/index.json`` first (committed — always available,
+    even in CI shallow clones), then falls back to ``git ls-tree`` on the
+    archive branch for any entries not yet in the index.
+    """
+    import json
+    index_path = Path("Plan/_archive/index.json")
+    try:
+        idx = json.loads(index_path.read_text(encoding="utf-8"))
+        if spec_id in idx:
+            return idx[spec_id]
+    except Exception:
+        pass
+    # Fallback: git archive branch (works in full clones / local dev).
     try:
         out = subprocess.run(
             ["git", "ls-tree", "-r", "--name-only", _ARCHIVE_BRANCH, "--", "Plan/"],

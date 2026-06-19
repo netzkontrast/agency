@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 # ────────────────────────────────────────────────────────────────────────────
 # Spec 150 Slice 1 — amendment classifier + apply helpers (module-level).
@@ -206,14 +207,24 @@ def _resolve_spec_path(spec_id: str) -> str | None:
 
 
 def _resolve_spec_path_from_archive(spec_id: str) -> str | None:
-    """Check the git archive branch for a shipped spec path (dry-run fallback).
+    """Check the archive index (or git branch) for a shipped spec path.
 
-    Specs that have been shipped are deleted from ``Plan/`` but preserved in
+    Specs that have been shipped are deleted from ``Plan/`` but recorded in
+    ``Plan/_archive/index.json`` (committed) and preserved in the git branch
     ``archive/plan-specs-pre-cleanup``.  For dry-run amendment proposals the
     path is only used as the diff-header filename, so the file need not exist
     on disk — we just need the canonical path string.
     """
     import subprocess
+    # Primary: committed index file — always available, even in CI shallow clones.
+    index_path = Path("Plan/_archive/index.json")
+    try:
+        idx = json.loads(index_path.read_text(encoding="utf-8"))
+        if spec_id in idx:
+            return idx[spec_id]
+    except Exception:
+        pass
+    # Fallback: git archive branch (works in full clones / local dev).
     try:
         out = subprocess.run(
             ["git", "ls-tree", "-r", "--name-only",
