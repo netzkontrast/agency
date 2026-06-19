@@ -88,6 +88,47 @@ def render(level: str | None = None, *, mode: str = "full") -> str:
     )
 
 
+def safety_floor_intact(render_fn=None) -> dict:
+    """Spec 326 Slice 4 — the safety-floor gate predicate. The floor is a
+    first-class clause no level (bar ``off``) can strip: at every non-off level
+    the FULL render must carry every ``SAFETY_FLOOR_MARKER`` and the COMPACT
+    render must name the floor. Returns ``{ok, checked, findings}`` —
+    gate-recordable via ``gate.check(passed=result['ok'])``. ``render_fn`` is the
+    render under test (defaults to the live one; injectable so a stripped render
+    is detectable)."""
+    r = render_fn or render
+    checked = [lvl for lvl in LEVELS if lvl != "off"]
+    findings: list[dict] = []
+    for level in checked:
+        full = r(level, mode="full")
+        for marker in SAFETY_FLOOR_MARKERS:
+            if marker not in full:
+                findings.append({"level": level, "mode": "full", "missing": marker})
+        if "floor" not in r(level, mode="compact"):
+            findings.append({"level": level, "mode": "compact", "missing": "floor"})
+    return {"ok": not findings, "checked": checked, "findings": findings}
+
+
+def frugal_prefix(level: str | None = None, *, path: str | None = None) -> dict:
+    """Spec 326 M2 — the per-verb stamp as a prefix fragment:
+    ``{"frugal": <compact render>}`` when stamping is active, else ``{}``.
+
+    ``off`` level OR ``frugal.stamp_every_verb=false`` → empty. The value is
+    byte-stable at a fixed level (the wrapping driver's prefix cache stays warm;
+    a level change is an intentional one-time bust). Never raises — a stamp must
+    never break a verb (the assumption-guard / M1 degrade precedent)."""
+    try:
+        stamp = _config.config_get("frugal.stamp_every_verb", path=path)
+        if isinstance(stamp, str):
+            stamp = stamp.strip().lower() not in ("false", "0", "no", "off", "")
+        if not stamp:
+            return {}
+        text = render(level, mode="compact")
+    except Exception:
+        return {}
+    return {"frugal": text} if text else {}
+
+
 # The frugal config section (Spec 328 registry) — default level full.
 _config.register_config_section("frugal", [
     _config.ConfigKey("level", "AGENCY_FRUGAL_LEVEL", DEFAULT_LEVEL,

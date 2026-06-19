@@ -142,6 +142,14 @@ Feature: document capability — render, index_repo, explain, and scope guards (
     Then the briefing token count is at most 600
     And the content signals truncation
 
+  # Mandatory rule: a SAVED project index never deletes content to fit a budget.
+  Scenario: saving the index never omits content to fit a token budget
+    Given a project directory with several modules and a pyproject.toml
+    When I call document.index_repo on that directory with apply True and max_tokens 20
+    Then a PROJECT_INDEX.md file is written
+    And the written index omits no content
+    And the written index lists every seeded module
+
   Scenario: index_repo reports files_scanned greater than zero
     When I call document.index_repo on the agency repo with apply False
     Then the files_scanned count is positive

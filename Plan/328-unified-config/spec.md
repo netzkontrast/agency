@@ -168,13 +168,54 @@ Scenario: secrets are never written as literals
 
 ## Followup — Implementation Status (2026-06-19)
 
-**Verdict: Not started** (design drafted via agency thinking + brainstorm; awaiting
-gate approval; substrate for Specs 326 + 327).
+**Verdict: Shipped** (all 5 slices).
 
-- **Done:** requirement captured (unified out-of-the-box config); grounded (next
-  spec 328; no central config module today — only `_db_path.py`; pyyaml not yet
-  declared; per-cap configs exist → registry chosen); thinking pass
-  (`reflection:5c527d1e`); trade-off → option A (YAML + registry + new spec).
-- **Still:** gate approval, then Slice 1 (`_config.py`) — lands **before** Spec 326
-  Slice 1 so `frugal_level` persists through it.
-- **Blocker / Next step:** confirm Q1/Q2; add `pyyaml` to `pyproject` deps.
+- **Done — Slice 1** (`agency/_config.py`, PR #171): resolver + registry +
+  precedence (`config_get`/`config_resolve`/`config_set`, `register_config_section`,
+  `registered_keys`); env → `.agency/config.yaml` → default; core section; pyyaml
+  declared.
+- **Done — Slice 2** (this change): `config_scaffold(path)` — the annotated
+  generator. Renders every registered section at its default with a per-key
+  comment; **non-destructive** merge (present sections never rewritten — user edits
+  + comments survive; only missing sections appended; `# frugal:` section-granular
+  ceiling noted). `ConfigKey.secret` + a `secrets` section + `secret_keys()`:
+  secrets render `${env:VAR}`, never literal (C1/C3/C4). `_ensure_core_sections()`
+  pulls the core `frugal` section in before scaffolding (closes the lazy-import
+  gap). 4 acceptance scenarios in `features/config.feature`.
+- **Done — Slice 3** (this change): the three generation points wired.
+  `install.scaffold_agency_dir` writes `.agency/config.yaml` (install/`agency_install`
+  path); `scripts/setup` scaffolds it before doctor (dev path); the SessionStart
+  hook (`engine._maybe_repair_config`) **repairs** an existing config
+  non-destructively — and deliberately **never creates** one from a hook (a hook
+  must not scaffold `.agency/` into an arbitrary cwd; creation is install/setup).
+  3 acceptance scenarios in `features/config_wiring.feature`.
+- **Done — Slice 4** (this change): `agency_doctor` gains a `config` block —
+  `_config.config_report()` (every registered key → value + source, secrets
+  redacted to `set`/`unset`) + `_config.config_validate()` (bad enum value /
+  unknown file key) folded into `next_steps` (so `ok` reflects config sanity).
+  `agency-doctor --write-config` repairs a missing config non-destructively then
+  reports. 3 acceptance scenarios in `features/config_doctor.feature`.
+- **Done — Slice 5** (this change): the open-set proof on REAL capabilities.
+  `register_dataclass_section(name, dataclass)` derives a config section from a
+  dataclass's fields + scalar defaults (single source, no literals); `novel` and
+  `music` register theirs at import, so the unified scaffold lists `novel.*` +
+  `music.*`. 1 acceptance scenario. **Honest scope:** the section surfaces each
+  cap's DEFAULTS for discovery in the one file; the live value is still resolved
+  by the capability (`.agency/<cap>-config.yaml` / `AGENCY_<CAP>_HOME`). Full
+  read-path unification (the cap READS via `config_get`) is a deliberate
+  follow-up — the cap config systems are richly cached with their own precedence
+  (Q1 "defer the rest"); a misleading half-merge was avoided.
+  **Registration is LIVE** (fixed in the /simplify pass): `config.py` is never
+  imported at capability-discovery time, so the import-side-effect registration
+  was dormant — a fresh `install`/`scaffold` emitted neither section. The scaffold
+  now self-registers via `_ensure_all_registered()`, which globs
+  `capabilities/*/config.py` (open-set, drift-free) before reading the union; the
+  S5 acceptance scenario proves it with NO explicit import.
+- **Follow-up (tracked):** unify the novel/music READ path onto `config_get`
+  (precedence design + cache-invalidation) so an edit to the unified file is live.
+- **Self-review hardening (2026-06-19):** (1) a `secret` key now resolves env →
+  default, **never** the file `${env:VAR}` placeholder (`config_resolve` skips the
+  file for secrets — was leaking the literal string to `config_get`); (2)
+  `config_scaffold` detects a **corrupt** existing file (YAML parse error) and
+  leaves it untouched instead of appending sections to broken YAML (repair must
+  not worsen it). Both pinned by new scenarios.

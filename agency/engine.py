@@ -436,9 +436,28 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
 
 def _session_start_handler(engine, event: dict) -> dict:
     """Spec 326 M1 — inject the full frugal discipline at session start. Records
-    the Event (default handler) then adds the discipline; degrades silently."""
+    the Event (default handler) then adds the discipline; degrades silently.
+    Spec 328 Slice 3 — also repair an existing config (add newly-registered
+    sections), non-destructively."""
     base = _default_hook_handler(engine, event)
+    _maybe_repair_config()
     return {**base, "inject": _append_frugal("", prompt=False)}
+
+
+def _maybe_repair_config() -> None:
+    """Spec 328 Slice 3 — repair an EXISTING ``.agency/config.yaml`` on session
+    start: add any newly-registered sections non-destructively (a freshly
+    installed capability's keys appear without clobbering user edits). It never
+    CREATES a config — a hook must not scaffold ``.agency/`` into an arbitrary
+    cwd; creation is ``install``/``setup``. Best-effort: never raises."""
+    try:
+        import os as _os
+        from . import _config
+        path = _config._resolve_config_path()
+        if _os.path.exists(path):
+            _config.config_scaffold(path)
+    except Exception:
+        pass
 
 
 def _session_end_handler(engine, event: dict) -> dict:
@@ -695,13 +714,26 @@ class Engine:
         """
         from ._wire_envelope import WireEnvelope
         node = self.memory.recall(inv) or {}
-        return WireEnvelope.shape(
+        shaped = WireEnvelope.shape(
             result,
             outcome=node.get("outcome"),
             error=node.get("error", "") or "",
             error_severity=node.get("error_severity") or "",
             trace_id=inv,
         )
+        # Spec 326 M2 — stamp the frugal discipline on every verb's wire return
+        # (byte-stable at a fixed level; `off`/`stamp_every_verb=false` omits it).
+        # Additive + degrades silently: a stamp must never break or reshape a
+        # verb that already speaks `frugal`.
+        if isinstance(shaped, dict) and "frugal" not in shaped:
+            try:
+                from . import _frugal
+                stamp = _frugal.frugal_prefix()
+                if stamp:
+                    shaped = {**stamp, **shaped}
+            except Exception:
+                pass
+        return shaped
 
     def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
         """Auto-wire ONE MCP tool for a capability verb from its fn signature.

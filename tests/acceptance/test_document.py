@@ -405,6 +405,40 @@ def _file_written(project_dir):
     assert (project_dir / "PROJECT_INDEX.md").exists()
 
 
+# ── saving the index never deletes content to fit a budget (CLAUDE.md rule) ────
+@given("a project directory with several modules and a pyproject.toml",
+       target_fixture="project_dir")
+def _multi_module_project(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "x"\n[project.scripts]\nx = "x:main"\n')
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    for i in range(6):
+        (pkg / f"mod{i}.py").write_text(
+            f'"""Module {i} brief — enough prose here to spend several tokens."""\n')
+    return tmp_path
+
+
+@when(parsers.parse("I call document.index_repo on that directory with apply True "
+                    "and max_tokens {n:d}"), target_fixture="index_result")
+def _index_apply_budget(engine, confirmed_intent, project_dir, n):
+    return _index_repo(engine, confirmed_intent, path=str(project_dir),
+                       apply=True, max_tokens=n)
+
+
+@then("the written index omits no content")
+def _no_omission(project_dir):
+    content = (project_dir / "PROJECT_INDEX.md").read_text()
+    assert "omitted to fit token budget" not in content, content[-200:]
+
+
+@then("the written index lists every seeded module")
+def _lists_modules(project_dir):
+    content = (project_dir / "PROJECT_INDEX.md").read_text()
+    for i in range(6):
+        assert f"mod{i}.py" in content, f"mod{i} missing from saved index"
+
+
 @then("the file content matches the returned content")
 def _file_matches(project_dir, index_result):
     on_disk = (project_dir / "PROJECT_INDEX.md").read_text()

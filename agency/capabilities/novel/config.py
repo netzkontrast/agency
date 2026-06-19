@@ -206,3 +206,15 @@ class NovelConfig:
         if not self.ideas_file:
             self.ideas_file = str(
                 Path(self.content_root) / "IDEAS.md")
+
+
+# Spec 328 Slice 5 — open-set proof: surface novel's config in the unified
+# .agency/config.yaml (derived from the dataclass — single source, no literals).
+# The live value is resolved by the novel capability (.agency/novel-config.yaml /
+# AGENCY_NOVEL_HOME); full read-path unification is a tracked follow-up.
+try:  # best-effort — config registration must never break the capability import
+    from ... import _config as _agency_config
+    _agency_config.register_dataclass_section(
+        "novel", NovelConfig, doc="novel default — resolved by the novel capability")
+except Exception:  # pragma: no cover - registration is best-effort
+    pass

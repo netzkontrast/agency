@@ -30,6 +30,9 @@ echo "==> pip install -e \".[$EXTRA]\""
 python -m pip install --quiet --upgrade pip
 python -m pip install -e ".[$EXTRA]"
 
+echo "==> scaffold .agency/config.yaml (Spec 328 — out-of-the-box config)"
+python -c "from agency import _config; print('  ' + _config.config_scaffold())" || true
+
 echo "==> agency-doctor (live backend report)"
 python -m agency.__main__ doctor || true
 

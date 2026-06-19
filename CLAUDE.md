@@ -149,6 +149,17 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    When you catch yourself updating a magic number to make a test pass, stop
    and make the test flexible instead.
 
+9. **Never delete content from the project index to fit a budget — MANDATORY.**
+   `PROJECT_INDEX.md` (the `document.index_repo` / `develop index` briefing) is a
+   GROW/APPEND artefact. When it is **SAVED** (`apply=True`), every module and
+   section MUST survive — the saved index is **never truncated** to fit a token
+   budget and **never** carries an "… omitted to fit token budget" marker. A
+   dropped entry makes the index LIE about the tree, which is worse than a larger
+   file. The `max_tokens` budget governs only a **preview** (`apply=False`); on
+   save the index renders in FULL (`_index_repo.render(..., full=True)`). If a
+   saved index ever shows an omission marker, that is a defect — regenerate it
+   complete (`document.index_repo(apply=True)`) before committing.
+
 ## Field-tested heuristics (dogfooded — grounded in graph reflections)
 
 Cheap checks that caught real failures during the 076→080 build-out. Pointers,

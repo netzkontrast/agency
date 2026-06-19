@@ -210,9 +210,25 @@ def intent(ctx, purpose, deliverable, acceptance):
 @click.option("--scaffold-only", is_flag=True,
               help="scaffold .agency/ ONLY (do NOT write the plugin install surface)")
 @click.option("--dry-run", is_flag=True, help="print would-write paths; touch nothing")
-def install(root, scaffold_db, scaffold_only, dry_run):
-    """Regenerate the plugin install (and optionally scaffold .agency/)."""
+@click.option("--agent", "agents", multiple=True,
+              help="Spec 327 — install agency into an agent's native rules "
+                   "(cursor/windsurf/cline/kiro/copilot/agents/claude/all); repeatable")
+def install(root, scaffold_db, scaffold_only, dry_run, agents):
+    """Regenerate the plugin install (and optionally scaffold .agency/), or
+    install agency into other agents' native rules via ``--agent``."""
     from . import install as install_mod
+    # Spec 327 — multi-agent self-installer. With --agent, project the live
+    # surface_card into each agent's native format; without it, the default
+    # Claude-Code plugin behaviour is unchanged.
+    if agents:
+        from . import _install_adapters as ia
+        eng = Engine(":memory:")
+        try:
+            report = ia.install_agents(ia.resolve_names(agents), ia.resolve_root(root), eng)
+        finally:
+            eng.memory.close()
+        click.echo(json.dumps(report, indent=2))
+        return 0 if all(r.get("ok") for r in report.values()) else 1
     sub_argv: list[str] = []
     if root:
         sub_argv.append(root)
@@ -223,6 +239,20 @@ def install(root, scaffold_db, scaffold_only, dry_run):
     if dry_run:
         sub_argv.append("--dry-run")
     return install_mod.main(sub_argv)
+
+
+@cli.command()
+@click.argument("root", required=False)
+@click.option("--agent", "agents", multiple=True, required=True,
+              help="Spec 327 — remove agency's fenced block from an agent's native "
+                   "rules (cursor/windsurf/cline/kiro/copilot/agents/all); repeatable")
+def uninstall(root, agents):
+    """Remove agency's fenced block from the given agents' native rules — the
+    user's surrounding content is preserved."""
+    from . import _install_adapters as ia
+    report = ia.uninstall_agents(ia.resolve_names(agents), ia.resolve_root(root))
+    click.echo(json.dumps(report, indent=2))
+    return 0 if all(r.get("ok") for r in report.values()) else 1
 
 
 @cli.command()
