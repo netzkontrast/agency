@@ -1,10 +1,10 @@
 ---
 capability: thinking
 pillar: capability
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [1, 2]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [110]
 ---
 
 # thinking — 10 method verbs (8 founding + 2 net-new: red_team + socratic) + 1 composite (apply_full_review) + 1 walkable skill (critical-thinking) (capability pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Thinking provides structured rigor methods — eight founding methods plus red-team and socratic modes — for binding decisions, complex specs, and assumption stacks, composed into full-review analysis that surfaces load-bearing assumptions before they become costly mistakes.
 
 ## Verbs (generated · 11)
 

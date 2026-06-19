@@ -1,10 +1,10 @@
 ---
 capability: plugin
 pillar: capability
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [4, 9]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [29, 39, 61, 64, 80, 83]
 ---
 
 # plugin — Plugin ports the plugin-development craft into compute: scaffolds, skill and command authoring, marketplace entries, and the lint rules that enforce the authoring doctrine (capability pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Plugin ports the plugin-development craft into the substrate — scaffolding, skill and command authoring, lint rules enforcing the doctrine — so capabilities grow under a consistent authoring standard that keeps the open set canon-faithful.
 
 ## Verbs (generated · 10)
 

@@ -1,10 +1,10 @@
 ---
 capability: develop
 pillar: lifecycle
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [2, 3, 4, 6, 9]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [16, 18, 24, 41, 80]
 ---
 
 # develop — Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance (lifecycle pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Develop owns development disciplines as walkable skills, scaffolds new capabilities with linting, walks skills recording each phase as provenance, and reloads edited capability code mid-session so the development loop stays tight and decisions are auditable.
 
 ## Verbs (generated · 14)
 

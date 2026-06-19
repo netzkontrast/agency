@@ -1,10 +1,10 @@
 ---
 capability: dogfood
 pillar: memory
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [2, 6, 7, 9]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [17, 150]
 ---
 
 # dogfood — Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exported and imported as JSON preserving ids and validity windows, and rendered to markdown on demand (memory pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Dogfood keeps observation ledgers graph-native with JSON import/export and on-demand markdown rendering, and mechanizes the amendment path so reflections fold back into specs as provenance artefacts, closing the self-improvement loop.
 
 ## Verbs (generated · 11)
 

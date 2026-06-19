@@ -1,10 +1,10 @@
 ---
 capability: document
 pillar: memory
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [2, 7, 9]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [43, 292]
 ---
 
 # document — Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph (memory pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Document renders graph-native briefings and indices so a repository or subsystem's structure becomes understandable without loading every file, and all rendering is bidirectional — markdown and graph stay in sync as interconnected peers.
 
 ## Verbs (generated · 3)
 

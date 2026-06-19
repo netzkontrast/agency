@@ -1,10 +1,10 @@
 ---
 capability: novel
 pillar: capability
-vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
+vision_goals: [2, 4]
 status: living
-last_generated: 2026-06-13
-sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
+last_generated: 2026-06-19
+sources: [101, 120, 127, 129]
 ---
 
 # novel — Five-verb path from premise to manuscript: conceptualize → create_novel → create_chapter → chapter_report → render_manuscript, plus the novel-concept gated planning skill (capability pillar)
@@ -13,7 +13,7 @@ sources: []             # TODO(why-author): archived Plan/_archive/NNN specs tha
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-_TODO: authored intent._
+Novel is the reference narrative-domain capability — minimum-viable path from premise to manuscript through Dramatica storyform, worldbuilding, and chapter production — demonstrating how a creative discipline gates quality and records progress.
 
 ## Verbs (generated · 95)
 
