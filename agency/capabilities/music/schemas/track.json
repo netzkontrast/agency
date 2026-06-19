@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Track",
+  "description": "A single track within an album (agency/capabilities/music/ontology.py; Spec 094). RECORDED_FOR links the track to its Album.",
+  "type": "object",
+  "required": ["title", "status", "slug"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Track title."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "recorded", "mixed", "mastered"],
+      "description": "Production status of the track."
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-safe kebab-case identifier."
+    }
+  }
+}

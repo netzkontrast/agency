@@ -465,3 +465,14 @@ Steward run continuation: 6 labels — 2 from plugin cap (already had
 - **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 38→32.
 - **Coverage** `schema_coverage.fraction` 0.652→0.719 (58→64 covered).
   Crossed 0.7 milestone. Remaining: 25 labels (mostly music/novel/worldbuilding).
+
+## Done — Slice 6 music + dogfood-boundary + prompt-opt wave (2026-06-19)
+
+Wave 5 (steward run): 8 labels covered (Album/Track/Genre/Idea/Tweet/Reference
+in music cap [new schemas/ + artefact_schemas], BoundaryUse in dogfood [already
+wired], OptimizationPass in prompt [already wired]). Also fixed inline
+`schemas={"doctrine-citation": ["name"]}` collision in doctrine OntologyExtension
+(double-declared with the file — removed inline entry). Baseline 26→17 (26
+counted DecisionRecord which Wave 4 squash-merge hadn't fully trimmed).
+schema_coverage 0.719→0.809, crossing 0.8 milestone. 2 acceptance scenarios
+(MUSIC_DOGFOOD_PROMPT_LABELS contract set). Drift clean.

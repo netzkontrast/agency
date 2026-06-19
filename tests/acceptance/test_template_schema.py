@@ -842,3 +842,31 @@ def _plugin_persona_doctrine_dogfood_loaded(loaded_schema_titles):
         "plugin+persona+doctrine+dogfood schemas are on disk but NOT loaded by "
         "the engine (declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── music + dogfood-boundary + prompt-opt wave ───────────────────────────────
+# Album/Track/Genre/Idea/Tweet/Reference (music cap; new schemas/ dir + artefact_schemas)
+# BoundaryUse (dogfood cap; already wired, new schema file)
+# OptimizationPass (prompt cap; already wired, new schema file)
+MUSIC_DOGFOOD_PROMPT_LABELS = {
+    "Album", "Track", "Genre", "Idea", "Tweet", "Reference",
+    "BoundaryUse", "OptimizationPass",
+}
+
+
+@then("the music-dogfood-prompt labels are all schema-covered")
+def _music_dogfood_prompt_covered(coverage_report):
+    missing = MUSIC_DOGFOOD_PROMPT_LABELS - coverage_report.covered
+    assert not missing, (
+        "music+dogfood-boundary+prompt-opt labels lack a Schema "
+        "(Spec 153 Slice 6 — music+dogfood-boundary+prompt-opt wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the music-dogfood-prompt labels each have a loaded ontology schema")
+def _music_dogfood_prompt_loaded(loaded_schema_titles):
+    missing = MUSIC_DOGFOOD_PROMPT_LABELS - loaded_schema_titles
+    assert not missing, (
+        "music+dogfood-boundary+prompt-opt schemas are on disk but NOT loaded "
+        "by the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))

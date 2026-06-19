@@ -197,3 +197,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the plugin-persona-doctrine-dogfood schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the plugin-persona-doctrine-dogfood labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — music + dogfood-boundary + prompt-opt wave) ─
+
+  Scenario: the music-dogfood-prompt labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the music-dogfood-prompt labels are all schema-covered
+
+  Scenario: the music-dogfood-prompt schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the music-dogfood-prompt labels each have a loaded ontology schema

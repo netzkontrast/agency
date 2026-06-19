@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Album",
+  "description": "A music album node (agency/capabilities/music/ontology.py; Spec 094). Records the album's identity, type, and production status for provenance and gating.",
+  "type": "object",
+  "required": ["artist", "title", "type", "status"],
+  "properties": {
+    "artist": {
+      "type": "string",
+      "description": "Primary artist or project name."
+    },
+    "title": {
+      "type": "string",
+      "description": "Album title."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["documentary", "narrative", "thematic", "character-study", "collection", "ost"],
+      "description": "Conceptual type of the album."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "in-production", "mastered", "released"],
+      "description": "Production status."
+    },
+    "genre": {
+      "type": "string",
+      "description": "Genre slug (links to a Genre node)."
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-safe kebab-case identifier."
+    },
+    "target_lufs": {
+      "type": "number",
+      "description": "Target integrated loudness in LUFS for mastering."
+    }
+  }
+}
