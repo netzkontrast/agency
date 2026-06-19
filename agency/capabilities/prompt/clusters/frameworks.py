@@ -21,6 +21,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from agency._capture import keep_full
 from agency._overflow import budget_take
 from agency.capability import verb
 from agency.toolresult import ToolResult, Codes
@@ -149,7 +150,7 @@ class FrameworksMixin:
         alts = [{"slug": r["slug"], "name": store[r["slug"]]["name"]}
                 for r in ranked[1:max(1, top) + 1]][:max(0, top)]
         self.ctx.record_and_serve("Recommendation", {
-            "request": draft[:200], "capability": "prompt",
+            "request": keep_full(draft, label="prompt request"), "capability": "prompt",
         })
         rationale = (f"intent '{intent}' → {entry['name']}: "
                      f"{entry.get('when_to_use', '') or entry['full_name']}")[:200]

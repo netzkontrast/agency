@@ -63,6 +63,13 @@ jobs:
         continue-on-error: true
         run: python scripts/check-doc-drift
 
+      # Spec 336 S1 — no-truncate guard, ADVISORY: flags any `value[:N]` slice on
+      # data that is then STORED (instead of routed through keep_full). Promote to
+      # gating once the capture surface is stable.
+      - name: No-truncate guard (advisory)
+        continue-on-error: true
+        run: python scripts/check-no-truncate
+
       # Spec 149 Slice 1 — vision-goals frontmatter gate. Fails ONLY when a
       # NEW spec lacks valid `vision_goals: [int, ...]` (Goal IDs 1..8 per
       # GOALS.md). The 129 historical gaps are tracked in

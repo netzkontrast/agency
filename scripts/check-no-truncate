@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""check-no-truncate — Spec 336 S1 guard (advisory).
+
+Flags the data-truncation anti-pattern: a string sliced ``value[:N]`` that is then
+STORED (a dict value in a ``record``/``update``/``record_and_serve`` write, or an
+``Event``/``BoundaryUse`` payload) instead of routed through
+``agency/_capture.py::keep_full``. A dropped tail makes the record lie about what
+happened (CLAUDE.md rule 9, generalised).
+
+Heuristic, advisory (WARN-only) — it reports candidates for review, it does not
+gate the build. NOT data (allow-listed): content-hash prefixes (``sha[:16]``),
+small top-N selection (``[:10]``), and pure display width.
+
+Exit 0 always (advisory). Use ``--strict`` to exit 1 when candidates are found.
+"""
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SRC = ROOT / "agency"
+
+# A value sliced to a 2-4 digit length: `name[:200]`, `(expr)[:500]`.
+SLICE = re.compile(r"[\w.\)\]\"']\[:\s*(\d{2,4})\s*\]")
+# Lines that look like a STORE of that sliced value (vs a view/return).
+STORE_HINT = re.compile(r"\b(record|update|record_and_serve|upsert|INSERT|"
+                        r"_mirror|memory\.record)\b")
+# Allow-list: not data truncation.
+ALLOW = re.compile(r"hexdigest|sha256|sha1|content_sha|short_help|"
+                   r"\[:\s*1[0-6]\s*\]|# *no-truncate-ok")
+
+
+def scan() -> list[str]:
+    hits: list[str] = []
+    for path in sorted(SRC.rglob("*.py")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if not SLICE.search(line) or ALLOW.search(line):
+                continue
+            # STORE signal on this line or the 2 lines above (dict literals span).
+            window = "\n".join(lines[max(0, i - 2): i + 1])
+            if STORE_HINT.search(window) and "keep_full" not in window:
+                rel = path.relative_to(ROOT)
+                hits.append(f"  {rel}:{i + 1}: {line.strip()}")
+    return hits
+
+
+def main() -> int:
+    strict = "--strict" in sys.argv
+    hits = scan()
+    if not hits:
+        print("==> no-truncate: no un-routed data-slice candidates")
+        return 0
+    print(f"==> no-truncate: {len(hits)} candidate(s) — review; route stored "
+          f"data through keep_full (or mark `# no-truncate-ok`):")
+    print("\n".join(hits))
+    return 1 if strict else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
