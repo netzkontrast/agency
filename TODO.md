@@ -22,7 +22,7 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 87 | 001, 002, 006, **007**, 011, 012, 013, 015, 016, 017, **018**, 019, 020, 021, 022, 023, **024**, **025**, **026**, 029, 030, **031**, 039, 040, **041**, 042, 043, 044, 045, **046**, 047, 048, 049, 050, **051**, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **101**, **102**, **103**, **104**, **105**, **106**, **107**, **108**, **109**, **110**, **114**, **115**, **117**, **119**, **146**, **147**, **148**, **149**, **150**, **151**, **152**, **153**, **154**, **158**, **161**, **162**, **164**, **165**, **195**, **220**, **279**, **280**, **282**, **284**, **290**, **303**, **331** |
+| **Shipped** | 88 | 001, 002, 006, **007**, 011, 012, 013, 015, 016, 017, **018**, 019, 020, 021, 022, 023, **024**, **025**, **026**, 029, 030, **031**, 039, 040, **041**, 042, 043, 044, 045, **046**, 047, 048, 049, 050, **051**, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **101**, **102**, **103**, **104**, **105**, **106**, **107**, **108**, **109**, **110**, **114**, **115**, **117**, **119**, **146**, **147**, **148**, **149**, **150**, **151**, **152**, **153**, **154**, **158**, **161**, **162**, **164**, **165**, **195**, **220**, **279**, **280**, **282**, **284**, **290**, **303**, **331**, **336** |
 
 > **094-099 cluster-children stay Partial until the deferred per-cluster
 > file-split lands** (Done-When line: "verbs imported from
@@ -251,13 +251,13 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 
 ## Suggested implementation order (next 5)
 
-Refreshed 2026-06-11 (post Wave-1 Slice 1 wave: 5 chain anchors + 3 substrate enhancements landed; 152 + 154 in flight). Ranked by leverage — finishing the chain anchors unblocks the rest of the Vision Charter.
+Refreshed 2026-06-19 (post Spec 153 Slice 6 full-coverage + Spec 336 all-4-slices shipped; 88 specs shipped total). Ranked by leverage given current state.
 
-1. **Spec 149 Slice 2** — `scripts/derive-docs` (TODO/matrix/SkillDoc/Followup auto-derivation). Single highest-leverage move: unlocks the 129-baseline `vision_goals:` backfill, makes the alignment matrix self-updating, and is a prerequisite for Spec 261's stop-condition verification.
-2. **Spec 147 Slice 2** — Managed-Agents bridge (`dispatch_session`). Turns 150/148/177's "stub" paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
-3. **Spec 146 Slice 2** — `_check_response_prefix` AST lint rule. Promotes prefix discipline to a CI gate per Spec 058 WARN→error doctrine.
-4. **Spec 150 Slice 2** — swap keyword classifier for AnthropicDriver structured-output classification (depends on 147 Slice 2).
-5. **Spec 191** — vision-alignment live matrix. Derives goal coverage from `vision_goals:` frontmatter (depends on 149 Slice 2); unblocks every retrospective.
+1. **Spec 153 round-trip invariant** — generate→validate: `memory.record()` validates node props against the cap's file-backed JSON Schema (jsonschema Draft-7); typed `Codes.SCHEMA_VALIDATION_FAILED` on mismatch. Invariant (c) from the spec: every covered label fails on missing required fields. Now that all 89 labels are schema-covered, this closes the enforcement loop.
+2. **Spec 149 Slice 2** — `scripts/derive-docs` (spec.md derived-zone rewrite via `<!-- derived:<id> -->` HTML fences). Prerequisite for Spec 261's stop-condition verification and the 129-baseline `vision_goals:` backfill.
+3. **Spec 147 Slice 2** — Managed-Agents `dispatch_session` bridge. Turns 150/148/177 stub paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
+4. **Spec 146 Slice 2.2** — WARN→error promotion + `Plan/_planning/prefix-lint-baseline.txt` for the 3 engine.py OS_ENVIRON sites. Closes the prefix discipline as a CI gate.
+5. **Spec 311 Slice 2** — `discover.clarify` wet Driver `ClarifySpec` + grounding-sharp options (depends on 147 Slice 2 for the AnthropicDriver wet path).
 
 ## When to update this file
 
