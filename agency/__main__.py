@@ -84,20 +84,20 @@ def doctor_main(argv: list[str] | None = None) -> int:
     then reports — the opt-in write side effect a plain run never makes.
     """
     argv = list(argv if argv is not None else [])
-    write_config = "--write-config" in argv
-    # In-memory engine — no disk side effects (unless --write-config is asked).
+    # --write-config repairs the config first (the opt-in write side effect a
+    # plain run never makes); it's independent of the engine, so do it up front.
+    wrote = None
+    if "--write-config" in argv:
+        from . import _config
+        wrote = _config.config_scaffold()
     engine = Engine(":memory:")
     try:
-        wrote = None
-        if write_config:
-            from . import _config
-            wrote = _config.config_scaffold()
         mcp = engine.build_mcp(codemode=False)
         report = _call_doctor(mcp)
     finally:
         engine.memory.close()
     if wrote is not None:
-        report = {**report, "wrote_config": wrote}
+        report["wrote_config"] = wrote
     print(json.dumps(report))
     return 0 if report.get("ok") else 1
 

@@ -205,5 +205,11 @@ Scenario: secrets are never written as literals
   read-path unification (the cap READS via `config_get`) is a deliberate
   follow-up — the cap config systems are richly cached with their own precedence
   (Q1 "defer the rest"); a misleading half-merge was avoided.
+  **Registration is LIVE** (fixed in the /simplify pass): `config.py` is never
+  imported at capability-discovery time, so the import-side-effect registration
+  was dormant — a fresh `install`/`scaffold` emitted neither section. The scaffold
+  now self-registers via `_ensure_all_registered()`, which globs
+  `capabilities/*/config.py` (open-set, drift-free) before reading the union; the
+  S5 acceptance scenario proves it with NO explicit import.
 - **Follow-up (tracked):** unify the novel/music READ path onto `config_get`
   (precedence design + cache-invalidation) so an edit to the unified file is live.

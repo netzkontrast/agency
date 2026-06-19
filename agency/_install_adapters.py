@@ -44,6 +44,8 @@ _TARGETS: dict[str, list[tuple[str, str]]] = {
     "windsurf": [(".windsurf/rules/agency.md", "")],
     "cline":    [(".clinerules/agency.md", "")],
     "kiro":     [(".kiro/steering/agency.md", _KIRO_FRONT)],
+    # Copilot reads BOTH its own file and AGENTS.md (Spec 327 Q2) — the AGENTS.md
+    # overlap with the `agents` adapter is intentional and idempotent (same block).
     "copilot":  [(".github/copilot-instructions.md", ""), ("AGENTS.md", "")],
     "agents":   [("AGENTS.md", "")],
 }
@@ -81,27 +83,49 @@ def _fenced(body: str) -> str:
     return f"{FENCE_START}\n{body}\n{FENCE_END}"
 
 
+def _split_block(existing: str) -> tuple[str, str] | None:
+    """The ``(pre, post)`` text around the fenced agency block, or ``None`` when no
+    block is present — the one place the fence is parsed."""
+    if FENCE_START in existing and FENCE_END in existing:
+        return existing.split(FENCE_START, 1)[0], existing.split(FENCE_END, 1)[1]
+    return None
+
+
 def _merge(existing: str, body: str) -> str:
     """Replace the fenced agency block if present, else append a fresh one —
     never clobbering the user's surrounding content (Spec 292 anchor pattern)."""
-    block = _fenced(body)
-    if FENCE_START in existing and FENCE_END in existing:
-        pre = existing.split(FENCE_START, 1)[0]
-        post = existing.split(FENCE_END, 1)[1]
-        return pre + block + post
+    split = _split_block(existing)
+    if split is not None:
+        pre, post = split
+        return pre + _fenced(body) + post
     if existing.strip():
-        return existing.rstrip() + "\n\n" + block + "\n"
-    return block + "\n"
+        return existing.rstrip() + "\n\n" + _fenced(body) + "\n"
+    return _fenced(body) + "\n"
 
 
 def _remove_block(existing: str) -> str:
     """Drop the fenced agency block, keep the user's surrounding content."""
-    if FENCE_START not in existing or FENCE_END not in existing:
+    split = _split_block(existing)
+    if split is None:
         return existing
-    pre = existing.split(FENCE_START, 1)[0].rstrip()
-    post = existing.split(FENCE_END, 1)[1].lstrip()
-    joined = (pre + ("\n\n" if pre and post else "") + post).strip()
+    pre, post = split
+    joined = (pre.rstrip() + ("\n\n" if pre.strip() and post.strip() else "")
+              + post.lstrip()).strip()
     return joined + "\n" if joined else ""
+
+
+def resolve_names(agents) -> list[str]:
+    """Expand an ``--agent`` selection: ``all`` → every instruction agent."""
+    return list(INSTRUCTION_AGENTS) if "all" in agents else list(agents)
+
+
+def resolve_root(root: str | None) -> str:
+    """The install target dir: explicit arg → ``CLAUDE_PROJECT_DIR`` → cwd — the
+    same precedence as ``install._scaffold_target`` (reused, one source of truth)."""
+    if root:
+        return root
+    from .install import _scaffold_target
+    return _scaffold_target(os.getcwd())
 
 
 def install_agent(name: str, root: str, card: dict) -> list[str]:
@@ -115,7 +139,9 @@ def install_agent(name: str, root: str, card: dict) -> list[str]:
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 existing = f.read()
-        content = _merge(existing, body) if existing.strip() else front + _fenced(body) + "\n"
+        # Frontmatter is written only on a FRESH file; _merge owns block creation.
+        prefix = front if (front and not existing.strip()) else ""
+        content = prefix + _merge(existing, body)
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)

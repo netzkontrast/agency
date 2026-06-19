@@ -97,12 +97,9 @@ def safety_floor_intact(render_fn=None) -> dict:
     render under test (defaults to the live one; injectable so a stripped render
     is detectable)."""
     r = render_fn or render
-    checked: list[str] = []
+    checked = [lvl for lvl in LEVELS if lvl != "off"]
     findings: list[dict] = []
-    for level in LEVELS:
-        if level == "off":
-            continue
-        checked.append(level)
+    for level in checked:
         full = r(level, mode="full")
         for marker in SAFETY_FLOOR_MARKERS:
             if marker not in full:

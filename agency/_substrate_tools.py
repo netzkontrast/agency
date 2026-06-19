@@ -249,10 +249,9 @@ class AgencyInstall(SubstrateTool):
             if not agent:
                 return install_op(target or None)
             from . import _install_adapters as ia
-            import os as _os
-            root = target or _os.environ.get("CLAUDE_PROJECT_DIR") or _os.getcwd()
-            names = list(ia.INSTRUCTION_AGENTS) if agent == "all" else [agent]
-            return {"target": root, "agents": ia.install_agents(names, root, engine)}
+            root = ia.resolve_root(target)
+            return {"target": root,
+                    "agents": ia.install_agents(ia.resolve_names([agent]), root, engine)}
 
         return agency_install
 

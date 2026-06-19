@@ -84,15 +84,32 @@ def _resolve_config_path() -> str:
         os.getcwd(), ".agency", "config.yaml")
 
 
+_READ_CACHE: dict[str, tuple[float, dict]] = {}
+
+
 def _read(path: str) -> dict:
-    if not path or yaml is None or not os.path.exists(path):
+    """Parsed YAML config (``{}`` if missing/corrupt). Memoized per-process keyed
+    on ``(path, mtime)`` — config changes ~never within a process, but
+    ``config_get`` is on the per-verb hot path (Spec 326 M2) and the doctor reads
+    once per key, so a `stat` + dict reuse replaces an open + YAML parse each call.
+    Returned dict is READ-ONLY (writers `config_set` copy before mutating)."""
+    if not path or yaml is None:
         return {}
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:                       # missing/unreadable → defaults
+        return {}
+    cached = _READ_CACHE.get(path)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
     try:
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
-        return data if isinstance(data, dict) else {}
-    except (OSError, yaml.YAMLError):  # corrupt/unreadable → fall through to defaults
+        data = data if isinstance(data, dict) else {}
+    except (OSError, yaml.YAMLError):     # corrupt → fall through to defaults
         return {}
+    _READ_CACHE[path] = (mtime, data)
+    return data
 
 
 def config_resolve(dotted: str, *, path: str | None = None) -> dict:
@@ -119,16 +136,23 @@ def config_get(dotted: str, *, path: str | None = None) -> Any:
 
 def config_set(dotted: str, value: Any, *, path: str | None = None) -> None:
     """Persist ``value`` for ``dotted`` to the config file (durable across
-    processes). Slice 2 adds comment-preserving round-trip + scaffold rendering."""
+    processes). Secret keys are env-only — never written literal (the scaffold/
+    report enforce this; so must the persist path, Spec 328 Q2)."""
     if yaml is None:  # pragma: no cover - yaml is a declared dependency
         raise RuntimeError("PyYAML is required for config_set")
+    found = _lookup(dotted)
+    if found is not None and found[1].secret:
+        raise ValueError(f"refusing to persist secret {dotted!r} — secrets are "
+                         f"env-only ({found[1].env or 'env var'}), never written to file")
     section, _, name = dotted.partition(".")
     target = path or _resolve_config_path()
-    data = _read(target)
+    import copy
+    data = copy.deepcopy(_read(target))   # never mutate the read-cache's dict
     data.setdefault(section, {})[name] = value
-    os.makedirs(os.path.dirname(target), exist_ok=True)
+    os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
     with open(target, "w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+    _READ_CACHE.pop(target, None)              # write invalidates the read-cache
 
 
 # ── Spec 328 Slice 2 — the annotated scaffold generator ───────────────────────
@@ -174,14 +198,27 @@ def _render_section(section: str, keys: list[ConfigKey]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _ensure_core_sections() -> None:
-    """Register the core-discipline sections that live in their own module. The
-    ``frugal`` section registers on ``import agency._frugal`` — but the M1 hook
-    handlers import it lazily, so a scaffold during ``install``/``setup`` (before
-    any hook fires) would otherwise miss it. Capability sections register when the
-    engine loads them; this only nudges the core discipline. Best-effort."""
+def _ensure_all_registered() -> None:
+    """Register every config section before reading the UNION. Config registers via
+    import side-effect, but the modules that hold it are imported lazily: ``_frugal``
+    by the M1 hook handlers, and each capability's ``config`` submodule only when a
+    config-reading verb runs (NOT at capability discovery). So a scaffold/report —
+    which needs the whole set — must pull them in. Globs ``capabilities/*/config.py``
+    so a new drop-in capability is included with no edit here (open-set; no frozen
+    list — Spec 054). Best-effort: one bad import never breaks scaffold/report."""
     try:
-        from . import _frugal  # noqa: F401 — import side effect registers 'frugal'
+        from . import _frugal  # noqa: F401 — core discipline section
+    except Exception:
+        pass
+    try:
+        import importlib
+        import pkgutil
+        from . import capabilities as _caps
+        for mod in pkgutil.iter_modules(_caps.__path__):
+            try:
+                importlib.import_module(f"{_caps.__name__}.{mod.name}.config")
+            except Exception:
+                continue                  # no config.py (or its import failed) → skip
     except Exception:
         pass
 
@@ -198,16 +235,19 @@ def config_scaffold(path: str | None = None) -> str:
     # grows in place and the file must list it; comment-preserving round-trip
     # would then want ruamel.yaml over the bare-pyyaml read used here.
     """
-    _ensure_core_sections()
+    _ensure_all_registered()
     target = path or _resolve_config_path()
     existing_text = ""
     if os.path.exists(target):
         with open(target, encoding="utf-8") as f:
             existing_text = f.read()
     present = _read(target)                    # which sections already exist
-    out = existing_text if existing_text.strip() else _HEADER
     appended = [_render_section(section, keys)
                 for section, keys in _REGISTRY.items() if section not in present]
+    if not appended and existing_text:
+        return target                          # nothing missing → no rewrite (keeps
+        #                                        the read-cache + file mtime stable)
+    out = existing_text if existing_text.strip() else _HEADER
     if appended:
         if out and not out.endswith("\n"):
             out += "\n"
@@ -215,6 +255,7 @@ def config_scaffold(path: str | None = None) -> str:
     os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
     with open(target, "w", encoding="utf-8") as f:
         f.write(out)
+    _READ_CACHE.pop(target, None)              # write invalidates the read-cache
     return target
 
 
@@ -223,7 +264,7 @@ def config_report(*, path: str | None = None) -> dict:
     """Every registered key → ``{value, source}`` (env / file / default), so doctor
     can explain *why* a value is what it is. Secret keys are redacted to presence
     (``value`` is ``"set"``/``"unset"`` — the literal is never reported)."""
-    _ensure_core_sections()
+    _ensure_all_registered()
     secrets = set(secret_keys())
     out: dict = {}
     for dotted in registered_keys():
@@ -240,7 +281,7 @@ def config_validate(*, path: str | None = None) -> list[str]:
     """Config-health issues (empty = clean): a registered key resolving outside
     its declared ``enum``, and a key present in the file that no section
     registered (typo / stale). Each message names the key + the repair."""
-    _ensure_core_sections()
+    _ensure_all_registered()
     issues: list[str] = []
     for section, keys in _REGISTRY.items():
         for k in keys:

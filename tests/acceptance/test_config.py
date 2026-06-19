@@ -95,10 +95,6 @@ def _register_new(section, name, default):
     _config.register_config_section(section, [_config.ConfigKey(name=name, default=default)])
 
 
-@given("the novel and music capabilities are loaded")
-def _load_caps():
-    import agency.capabilities.novel.config  # noqa: F401 — registers 'novel'
-    import agency.capabilities.music.config  # noqa: F401 — registers 'music'
 
 
 @then("the config file lists every registered key")

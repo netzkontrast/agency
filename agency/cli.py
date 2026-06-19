@@ -222,11 +222,9 @@ def install(root, scaffold_db, scaffold_only, dry_run, agents):
     # Claude-Code plugin behaviour is unchanged.
     if agents:
         from . import _install_adapters as ia
-        names = list(ia.INSTRUCTION_AGENTS) if "all" in agents else list(agents)
-        target = root or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
         eng = Engine(":memory:")
         try:
-            report = ia.install_agents(names, target, eng)
+            report = ia.install_agents(ia.resolve_names(agents), ia.resolve_root(root), eng)
         finally:
             eng.memory.close()
         click.echo(json.dumps(report, indent=2))
@@ -252,9 +250,7 @@ def uninstall(root, agents):
     """Remove agency's fenced block from the given agents' native rules — the
     user's surrounding content is preserved."""
     from . import _install_adapters as ia
-    names = list(ia.INSTRUCTION_AGENTS) if "all" in agents else list(agents)
-    target = root or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
-    report = ia.uninstall_agents(names, target)
+    report = ia.uninstall_agents(ia.resolve_names(agents), ia.resolve_root(root))
     click.echo(json.dumps(report, indent=2))
     return 0 if all(r.get("ok") for r in report.values()) else 1
 
