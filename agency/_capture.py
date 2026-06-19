@@ -34,3 +34,30 @@ def keep_full(value: str, *, label: str = "value",
         _log.warning("%s is %d chars — kept in full, not truncated "
                      "(no-truncate policy)", label, len(value))
     return value
+
+
+def paginate(items, *, cursor: int = 0, page_size: int, kind: str = "items") -> dict:
+    """Return one page of ``items`` PLUS the instruction to read the rest — the
+    no-truncate complement of ``keep_full`` for a bounded RETURN (Spec 336 S1).
+
+    The tail is **never cut**: it is reachable via ``next_cursor``, not dropped.
+    ``items`` is any sequence (paginate a large text by splitting it to lines
+    first, then ``"\\n".join`` each page). The agent gets a literal
+    read-continuation instruction so the full set is recoverable deterministically.
+
+    Returns ``{page, cursor, next_cursor, total, remaining, read_more}`` —
+    ``read_more`` is ``""`` when the set is exhausted, else an instruction naming
+    the ``cursor`` to pass on the next call.
+    """
+    if page_size < 1:
+        raise ValueError(f"page_size must be >= 1, got {page_size}")
+    seq = list(items)
+    total = len(seq)
+    cursor = max(0, int(cursor))
+    page = seq[cursor:cursor + page_size]
+    next_cursor = cursor + len(page)
+    remaining = total - next_cursor
+    read_more = (f"{remaining} more {kind} — call again with cursor={next_cursor} "
+                 f"to read the rest." if remaining > 0 else "")
+    return {"page": page, "cursor": cursor, "next_cursor": next_cursor,
+            "total": total, "remaining": remaining, "read_more": read_more}

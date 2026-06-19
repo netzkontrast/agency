@@ -24,7 +24,7 @@ Red flags:
 """
 from __future__ import annotations
 
-from agency.capability import CapabilityBase, verb
+from agency.capability import ArtefactSchemas, CapabilityBase, verb
 from agency.ontology import OntologyExtension
 from agency.toolresult import ToolResult, Codes
 
@@ -88,6 +88,7 @@ def _subject_or_default(ctx, subject: str) -> str:
 class ThinkingCapability(CapabilityBase):
     name = "thinking"
     home = "capability"
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = thinking_ontology
 
     # ════════════════════════════════════════════════════════════════════════

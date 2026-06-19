@@ -385,3 +385,56 @@ Steward run continuation: 3 labels from analyze + select caps — both needed
 - **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 53→50.
 - **Coverage** `schema_coverage.fraction` 0.483→0.517 (43→46 covered). 
   Crossed 0.5 milestone. Next: continue toward 0.6.
+
+### Done — Slice 6 research + develop-extras wave (2026-06-19)
+
+Steward run continuation: 6 labels from research + develop caps — both already
+declared `artefact_schemas` (no cap setup needed).
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `research/schemas/research.json` (`Research`) ← `research/_main.py`
+    (`question`/`depth`/`started_at`/`status` required; `status` enum 6-member
+    lifecycle set {planning/fanning-out/verifying/ready/superseded/failed}).
+  - `research/schemas/research-claim.json` (`ResearchClaim`) ← `research/_main.py`
+    (`text`/`research_id` required).
+  - `develop/schemas/plan.json` (`Plan`) ← `develop/_main.py`
+    (`title` required; `status` optional enum {drafted/in-progress/done/abandoned}).
+  - `develop/schemas/plan-step.json` (`PlanStep`) ← `develop/_main.py`
+    (`plan`/`index`/`description` required; `state` enum {pending/done/blocked/skipped}).
+  - `develop/schemas/mode-shift.json` (`ModeShift`) ← `develop/_main.py`
+    (`from_mode`/`to_mode` required; both enum SESSION_MODE 5-member set).
+  - `develop/schemas/session-lifecycle.json` (`SessionLifecycle`) ← `develop/_main.py`
+    (`mode`/`status` required; mode enum SESSION_MODE; status enum {active/paused/archived}).
+- **2 acceptance scenarios** — `RESEARCH_DEVELOP_EXTRAS_LABELS` named contract
+  set; 32 scenarios total (was 30). No artefact_schemas additions needed.
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 50→44.
+- **Coverage** `schema_coverage.fraction` 0.517→0.584 (46→52 covered).
+  Crossed 0.5+ continue toward 0.6.
+
+### Done — Slice 6 recommend + mode + panel + thinking wave (2026-06-19)
+
+Steward run continuation: 6 labels from 4 new caps gaining `artefact_schemas`
++ 2 from prompt cap (already wired).
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `recommend/schemas/recommendation.json` (`Recommendation`) ← `recommend/_main.py`
+    (`request`/`capability` required; no enums — free string fields).
+  - `mode/schemas/mode-activation.json` (`ModeActivation`) ← `mode/_main.py`
+    (`mode` required; enum 5-member `_BY_NAME` set).
+  - `panel/schemas/panel.json` (`Panel`) ← `panel/_main.py`
+    (`subject`/`mode` required; mode enum {discussion/debate/socratic}).
+  - `thinking/schemas/thinking-method.json` (`ThinkingMethod`) ← `thinking/_main.py`
+    (`method`/`subject` required; method enum 10-member set).
+  - `prompt/schemas/prompt-variant.json` (`PromptVariant`) ← `prompt/ontology.py`
+    (`parent_instance`/`variant_kind` required; variant_kind enum 6-member `VARIANT_KIND`).
+  - `prompt/schemas/prompt-output.json` (`PromptOutput`) ← `prompt/ontology.py`
+    (`instance`/`response_body` required).
+- **4 capabilities updated** — `ArtefactSchemas.from_module(__file__)` added
+  to `RecommendCapability`, `ModeCapability`, `PanelCapability`, `ThinkingCapability`.
+- **2 acceptance scenarios** — `RECOMMEND_MODE_PANEL_THINKING_LABELS` named contract
+  set; 34 scenarios total (was 32).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 44→38.
+- **Coverage** `schema_coverage.fraction` 0.584→0.652 (52→58 covered).
+  Crossed 0.6 milestone. Next: continue toward 0.7.

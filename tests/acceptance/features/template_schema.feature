@@ -168,3 +168,22 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the foundational-service schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the foundational service labels each have a loaded ontology schema
+  # ── schema coverage backfill (Slice 6 — research + develop-extras wave) ──────
+
+  Scenario: the research-develop-extras labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the research-develop-extras labels are all schema-covered
+
+  Scenario: the research-develop-extras schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the research-develop-extras labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — recommend + mode + panel + thinking wave) ─
+
+  Scenario: the recommend-mode-panel-thinking labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the recommend-mode-panel-thinking labels are all schema-covered
+
+  Scenario: the recommend-mode-panel-thinking schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the recommend-mode-panel-thinking labels each have a loaded ontology schema

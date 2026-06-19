@@ -760,4 +760,55 @@ def _foundational_service_loaded(loaded_schema_titles):
     assert not missing, (
         "foundational-service schemas are not loaded by the engine "
         "(add inline schema to the owning capability's OntologyExtension):\n"
+# ── research + develop-extras wave ───────────────────────────────────────────
+# Research/ResearchClaim (research cap) + Plan/PlanStep/ModeShift/SessionLifecycle (develop cap)
+# Both caps already declare artefact_schemas — only schemas needed.
+RESEARCH_DEVELOP_EXTRAS_LABELS = {
+    "Research", "ResearchClaim",
+    "Plan", "PlanStep", "ModeShift", "SessionLifecycle",
+}
+
+
+@then("the research-develop-extras labels are all schema-covered")
+def _research_develop_extras_covered(coverage_report):
+    missing = RESEARCH_DEVELOP_EXTRAS_LABELS - coverage_report.covered
+    assert not missing, (
+        "research+develop-extras labels lack a Schema "
+        "(Spec 153 Slice 6 — research+develop-extras wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the research-develop-extras labels each have a loaded ontology schema")
+def _research_develop_extras_loaded(loaded_schema_titles):
+    missing = RESEARCH_DEVELOP_EXTRAS_LABELS - loaded_schema_titles
+    assert not missing, (
+        "research+develop-extras schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── recommend + mode + panel + thinking wave ─────────────────────────────────
+# Recommendation (recommend) + ModeActivation (mode) + Panel (panel)
+# + ThinkingMethod (thinking) + PromptVariant/PromptOutput (prompt, already wired)
+RECOMMEND_MODE_PANEL_THINKING_LABELS = {
+    "Recommendation", "ModeActivation", "Panel",
+    "ThinkingMethod", "PromptVariant", "PromptOutput",
+}
+
+
+@then("the recommend-mode-panel-thinking labels are all schema-covered")
+def _recommend_mode_panel_thinking_covered(coverage_report):
+    missing = RECOMMEND_MODE_PANEL_THINKING_LABELS - coverage_report.covered
+    assert not missing, (
+        "recommend+mode+panel+thinking labels lack a Schema "
+        "(Spec 153 Slice 6 — recommend+mode+panel+thinking wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the recommend-mode-panel-thinking labels each have a loaded ontology schema")
+def _recommend_mode_panel_thinking_loaded(loaded_schema_titles):
+    missing = RECOMMEND_MODE_PANEL_THINKING_LABELS - loaded_schema_titles
+    assert not missing, (
+        "recommend+mode+panel+thinking schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))

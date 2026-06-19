@@ -20,7 +20,7 @@ Red flags:
 from __future__ import annotations
 
 
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 
@@ -92,6 +92,7 @@ _MODE_SELECTION_SKILL = {
 class ModeCapability(CapabilityBase):
     name = "mode"
     home = "lifecycle"   # a mode parameterizes HOW work proceeds
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"ModeActivation": ["mode"]},
         enums={("ModeActivation", "mode"): set(_BY_NAME)},
