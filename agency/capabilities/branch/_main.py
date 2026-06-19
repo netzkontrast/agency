@@ -13,6 +13,7 @@ Red flags:
 """
 from __future__ import annotations
 
+from ..._capture import keep_full
 from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 from .._vcs import GitClient
@@ -107,6 +108,7 @@ class BranchCapability(CapabilityBase):
         res = (vcs or GitClient()).finish(branch=branch, action=action, base=base)
         ok = bool(res.get("ok", True))
         o = self.ctx.record_and_serve("BranchOutcome", {"branch": branch, "action": action, "ok": ok,
-                                                        "detail": (res.get("detail") or "")[:2000]})
+                                                        "detail": keep_full(res.get("detail") or "",
+                                                                           label="branch outcome detail")})
         return {"result": {"outcome": o, "branch": branch, "action": action, "ok": ok,
                            "detail": res.get("detail", "")}}

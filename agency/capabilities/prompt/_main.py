@@ -32,7 +32,7 @@ Red flags:
 """
 from __future__ import annotations
 
-from agency.capability import CapabilityBase, RenderTemplates, verb  # noqa: F401
+from agency.capability import ArtefactSchemas, CapabilityBase, RenderTemplates, verb  # noqa: F401
 
 from .ontology import prompt_ontology
 
@@ -108,3 +108,4 @@ class PromptCapability(
     home = "capability"
     ontology = prompt_ontology
     render_templates = RenderTemplates.from_module(__file__)
+    artefact_schemas = ArtefactSchemas.from_module(__file__)

@@ -142,6 +142,28 @@ Feature: document capability — render, index_repo, explain, and scope guards (
     Then the briefing token count is at most 600
     And the content signals truncation
 
+  # The index sources its structure + symbol counts from codegraph (with a
+  # filesystem-scan fallback when codegraph is not indexed).
+  Scenario: the index surfaces codegraph symbol counts
+    Given a minimal project directory with a pyproject.toml and a Python module
+    And codegraph reports a symbol count for that module
+    When I call document.index_repo on that directory with apply True
+    Then a PROJECT_INDEX.md file is written
+    And the written index shows a codegraph symbol count
+
+  Scenario: the index falls back to a filesystem scan when codegraph is unavailable
+    Given a minimal project directory with a pyproject.toml and a Python module
+    And codegraph is unavailable
+    When I call document.index_repo on that directory with apply True
+    Then a PROJECT_INDEX.md file is written
+    And the written index lists the Python module
+  Scenario: saving the index never omits content to fit a token budget
+    Given a project directory with several modules and a pyproject.toml
+    When I call document.index_repo on that directory with apply True and max_tokens 20
+    Then a PROJECT_INDEX.md file is written
+    And the written index omits no content
+    And the written index lists every seeded module
+
   Scenario: index_repo reports files_scanned greater than zero
     When I call document.index_repo on the agency repo with apply False
     Then the files_scanned count is positive

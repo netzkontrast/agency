@@ -1,13 +1,13 @@
 <!-- agency-generated: v1 -->
 # document.index_repo
 
-Deterministic 94%-reduction repo briefing within ≤ max_tokens.
+Deterministic repo briefing.
 
 ## Inputs
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `path (str), apply (bool — write PROJECT_INDEX.md), max_tokens (int — budget; default 3000).` |  |  |
+| `path (str), apply (bool — write COMPLETE PROJECT_INDEX.md), max_tokens (int — preview budget; default 3000).` |  |  |
 
 ## Returns
 

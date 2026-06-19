@@ -9,22 +9,25 @@
 # discovery (Spec 068) covers the cost.
 """develop — the development-workflow capability.
 
-Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance.
+Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance. For ANY code lookup — where/how a symbol works, a call path X→Y, blast radius — reach for codegraph FIRST (`codegraph explore "<q>"` is the one-call primary: relevant source + call paths + impact; `codegraph node <sym|file>` for one symbol's source + caller/callee trail; `codegraph query <name>` to locate) BEFORE grep/Read — it IS the index, so a grep/Read sweep re-does its work. Full token-efficient guide: `develop.reference("codegraph")`.
 
-Use when: building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, running a skill to its first hard gate, or reloading edited capability code mid-session.
+Use when: building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, running a skill to its first hard gate, reloading edited capability code mid-session, or looking up code (use codegraph).
 Triggers:
 - About to implement a feature or fix without a discipline
 - A new capability needing a skeleton that lints clean
 - A multi-phase workflow that should pause at a human gate
 - A capability was just edited or scaffolded and needs to go live without a restart
+- A 'where/how does X work', call-path, or blast-radius question → `codegraph explore "<q>"` (one call), not a grep/Read sweep
 Red flags:
 - Writing implementation before a failing test → walk capability_develop_skill_walk with tdd
 - Hand-rolling a capability skeleton → use capability_develop_scaffold_capability
 - Restarting the session to pick up a capability edit → develop.reload re-imports it in place
+- grep/Read loop to understand code while `.codegraph/` exists → `codegraph explore` already indexed it (`develop.reference("codegraph")`)
 """
 from __future__ import annotations
 
-from ...capability import RenderTemplates, CapabilityBase, verb
+from ..._capture import keep_full
+from ...capability import ArtefactSchemas, RenderTemplates, CapabilityBase, verb
 from ...ontology import OntologyExtension
 from ...skill import SkillRun, phase as _phase  # Spec 286 — shared phase() builder
 
@@ -190,6 +193,65 @@ REFERENCES: dict[str, str] = {
         "- Bisect to the polluter: find the first commit/test/input that flips the behaviour (a `find-polluter` sweep), don't guess.\n"
         "- Reproduce deterministically before fixing; a fix for a non-reproduced bug fixes nothing.\n"
         "- A flaky test is a real bug (shared state, ordering, time) — quarantine + root-cause, never `@retry`.\n"
+    ),
+    # CodeGraph — code-intelligence tool (a pre-built symbol/call/impact graph).
+    # The complete vendor docs, refactored token-efficient + decision-focused; the
+    # heavy how-to travels on demand via `develop.reference("codegraph")`, never in
+    # any system prompt. Use BEFORE grep/find/Read for understanding/locating code.
+    "codegraph": (
+        "# CodeGraph — code intelligence (use BEFORE grep/find/Read)\n\n"
+        "A pre-built SQLite knowledge graph of every symbol, edge, and file (FTS5 "
+        "+ call graph + impact radius). When a `.codegraph/` dir exists it answers "
+        "\"what/where/how does X work\", call paths, and blast-radius in ONE call — "
+        "sub-ms, 100% local, auto-synced on save. Reach for it BEFORE grep/find/Read "
+        "to understand or locate code. (This repo is indexed — `.codegraph/` is present.)\n\n"
+        "## The rule\n"
+        "It IS the index, so a grep/read loop repeats work it already did:\n"
+        "- Answer structural questions DIRECTLY; treat returned source as already "
+        "read — don't re-verify with grep.\n"
+        "- Don't fan code exploration out to a file-reading sub-agent — that re-does "
+        "the index; one call replaces the sweep.\n"
+        "- After you EDIT, watch for the `⚠️` staleness banner; a pending "
+        "file → `Read` it directly (watcher debounces ~2s).\n"
+        "- No `.codegraph/` dir → inactive (indexing is the user's call); use "
+        "grep/Read. `codegraph init` builds the index.\n\n"
+        "## Pick the tool by intent\n"
+        "| Need | MCP tool (if wired) | CLI (always works, same output) |\n"
+        "|---|---|---|\n"
+        "| Almost anything: \"how does X work\", a flow \"X→Y\", survey an area | "
+        "`codegraph_explore` (PRIMARY — one call: relevant source grouped by file + "
+        "relationship map + blast radius) | `codegraph explore \"<question \\| symbols>\"` |\n"
+        "| One symbol's full source + caller/callee trail | `codegraph_node` | "
+        "`codegraph node <symbol>` |\n"
+        "| Read a whole file (line-numbered, like Read) + its dependents | "
+        "`codegraph_node` (path) | `codegraph node <file> [--offset N --limit M]` |\n"
+        "| Locate a symbol by name | `codegraph_search` | "
+        "`codegraph query <name> [-k <kind> -l <n>]` |\n"
+        "| Every call site (incl. callback registration) | `codegraph_callers` | "
+        "`codegraph callers <symbol>` |\n"
+        "| What a symbol calls | (inline in explore/node) | `codegraph callees <symbol>` |\n"
+        "| Blast radius of a change | (inline in explore) | "
+        "`codegraph impact <symbol> [-d <depth>]` |\n"
+        "| Test files hit by changed files | — | "
+        "`git diff --name-only \\| codegraph affected --stdin` |\n"
+        "| Index health / pending syncs | `codegraph_status` | `codegraph status` |\n\n"
+        "`codegraph_explore` is the default — most questions need ONLY it. The 4 "
+        "default MCP tools are explore/node/search/callers; callees/impact/files/"
+        "status are CLI-only by default (their info rides inline on the four) — "
+        "re-enable via `CODEGRAPH_MCP_TOOLS=explore,node,search,callers,impact`. "
+        "Reach for raw Read/Grep only to confirm a detail codegraph didn't cover.\n\n"
+        "## Scope\n"
+        "20+ languages (TS/JS · Python · Go · Rust · Java · C# · PHP · Ruby · C/C++ · "
+        "ObjC · Swift · Kotlin · Scala · Dart · Lua · R · Svelte/Vue/Astro · Liquid · "
+        "Pascal). Framework-aware routes (Django/Flask/FastAPI/Express/NestJS/Rails/"
+        "Spring/Laravel/Gin/Axum/…) link URL patterns → handlers; cross-language "
+        "iOS/RN/Expo bridges. Auto-skips node_modules/dist/.venv/etc · `.gitignore`d "
+        "· >1MB files.\n\n"
+        "## Setup (zero-config)\n"
+        "`codegraph install` wires the MCP server into agents (Claude Code/Cursor/"
+        "Codex/opencode/Gemini/Kiro/…); `codegraph init` builds a project's index "
+        "(then auto-syncs — no manual `sync` needed). `codegraph upgrade` updates. "
+        "100% local, no API keys, SQLite only.\n"
     ),
 }
 
@@ -645,6 +707,8 @@ class DevelopCapability(CapabilityBase):
     name = "develop"
     home = "lifecycle"
     render_templates = RenderTemplates.from_module(__file__)
+    # Spec 153 Slice 6 — the engine loads + enforces the MaintenanceRun schema.
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = develop_ontology
 
     # ---- Spec 287 — plan authoring + execution provenance -----------------
@@ -783,7 +847,8 @@ class DevelopCapability(CapabilityBase):
         node = self.ctx.recall(step_id)
         if node is None:
             return {"error": f"no node {step_id!r}"}
-        self.ctx.update(step_id, {"state": outcome, "evidence": evidence[:200]})
+        self.ctx.update(step_id, {"state": outcome,
+                                  "evidence": keep_full(evidence, label="step evidence")})
         return {"step_id": step_id, "state": outcome}
 
     @verb(role="transform")

@@ -58,4 +58,4 @@ capability reference from the live registry. So "complete" stays true — see
 > and the engine authors and validates its own plugin install.
 
 <!-- doc-source: agency/engine.py agency/capability.py -->
-<!-- doc-hash: 702c5562c9334e95 -->
+<!-- doc-hash: d5a9e20723f0676e -->

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_document_index_repo
-# Deterministic 94%-reduction repo briefing within ≤ max_tokens.
+# Deterministic repo briefing.
 # Usage: agency-document-index_repo [--intent-id ID] [path] [apply] [max_tokens]
 set -euo pipefail
 

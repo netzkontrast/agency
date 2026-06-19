@@ -149,6 +149,30 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    When you catch yourself updating a magic number to make a test pass, stop
    and make the test flexible instead.
 
+9. **Never delete content from the project index to fit a budget — MANDATORY.**
+   `PROJECT_INDEX.md` (the `document.index_repo` / `develop index` briefing) is a
+   GROW/APPEND artefact. When it is **SAVED** (`apply=True`), every module and
+   section MUST survive — the saved index is **never truncated** to fit a token
+   budget and **never** carries an "… omitted to fit token budget" marker. A
+   dropped entry makes the index LIE about the tree, which is worse than a larger
+   file. The `max_tokens` budget governs only a **preview** (`apply=False`); on
+   save the index renders in FULL (`_index_repo.render(..., full=True)`). If a
+   saved index ever shows an omission marker, that is a defect — regenerate it
+   complete (`document.index_repo(apply=True)`) before committing.
+
+   **Generalised — never silently truncate CAPTURED DATA (MANDATORY; user
+   directive 2026-06-19).** The index rule is the special case of a wider law:
+   captured data — hook **tool calls (pre/post)**, command output, stderr, stored
+   provenance text — is stored/returned in **FULL**, never sliced to a char
+   budget or head/tail-filtered before persisting. A dropped tail makes the
+   record LIE about what happened. When a value is unusually large, **warn — do
+   not cut**: route it through `agency/_capture.py::keep_full(value, label=…)`,
+   which returns the full value and logs a size warning. NOT in scope (these are
+   not "data" and keep their slicing): content-hash prefixes (`sha[:16]`), top-N
+   list selection (`ranked[:10]`), and pure display width (a CLI help column).
+   When you catch yourself writing `data[:N]` on a captured/stored string, stop
+   and use `keep_full` instead.
+
 ## Field-tested heuristics (dogfooded — grounded in graph reflections)
 
 Cheap checks that caught real failures during the 076→080 build-out. Pointers,
@@ -247,6 +271,7 @@ ToolSearch is the deferred-schema fallback only.
 | Edit a spec / write a doc | (use Write/Edit but call `dogfood.observe` to record) | Write / Edit |
 | Run tests | `develop.test(scope)` | Bash `pytest` |
 | Search code | `mcp__agency__search` + `analyze.*` | Grep / Glob |
+| Understand/locate CODE (symbols · calls · blast radius) | `codegraph_explore`/`node`/`search` · CLI `codegraph <cmd>` — guide `develop.reference("codegraph")` | Grep / Read |
 | Web fetch | `research.fetch(url, query)` (when shipped) | WebFetch |
 | Commit | `branch.commit_smart(message)` | Bash `git commit` |
 | Push + PR | `branch.finish_branch(...)` | Bash + gh CLI |
@@ -262,6 +287,18 @@ delivers ONE phase at a time so context stays bounded.
 provenance (`Invocation` SERVES intent + `Artefact` PRODUCES edges).
 Raw-tool actions don't. The provenance moat IS the moat; bypass it
 and the session is one-shot.
+
+## Code navigation — CodeGraph (when `.codegraph/` exists)
+
+This repo is indexed by **CodeGraph** — a pre-built symbol / call-graph /
+impact-radius index. For ANY "where/what/how does X work", call-path, or
+blast-radius question, reach for it **BEFORE** grep/find/Read: `codegraph_explore`
+(MCP) or `codegraph explore "<q>"` (CLI) answers in one call — treat the returned
+source as already read, don't re-verify with grep. `codegraph node <sym|file>`,
+`query`, `callers`, `callees`, `impact` round it out (CLI mirrors every MCP tool).
+The **complete token-efficient guide is `develop.reference("codegraph")`** — the
+heavy how-to travels on demand, never in the system prompt. No `.codegraph/`
+dir → CodeGraph is inactive and indexing is the user's call (`codegraph init`).
 
 ## Dev
 

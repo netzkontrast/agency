@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Session",
+  "description": "A Claude Code session node keyed by session_id — every hook Event links IN_SESSION to it, so the COMPLETE session (event timeline + archived Document) is restorable from the graph by session_id alone (document/_main.py; Spec 292).",
+  "type": "object",
+  "required": ["session_id"],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "The opaque Claude Code session identifier injected via the SessionStart hook."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "closed"],
+      "description": "Lifecycle of the session: 'open' on creation, 'closed' on SessionEnd."
+    }
+  }
+}

@@ -1,16 +1,18 @@
 # agency-scaffold: v1
 """document — graph-native rendering + briefing (Spec 043).
 
-Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph.
+Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph. index_repo sources its file list + per-file symbol counts from the codegraph index (`codegraph files`); to locate code inside a subsystem, query codegraph first — `codegraph explore "<area>"` (source + call paths in one call) / `codegraph node <file>` (a file + its dependents) — before reading files.
 
 Use when: a repository's structure must be understood or rendered — an explanation of a subsystem, a project index, or a graph-native rendering — without loading the whole tree.
 Triggers:
 - An unfamiliar codebase that needs onboarding
 - A stale mental model of a tree untouched for weeks
 - A subsystem whose purpose is unclear from the files alone
+- Locating code within a subsystem → `codegraph explore "<area>"` / `codegraph node <file>` before reading files
 Red flags:
 - Reading every file to grasp a repo → index it via capability_document_index_repo
 - Guessing a subsystem's role → get capability_document_explain output
+- grep/Read loop to find code while `.codegraph/` exists → `codegraph explore`/`query` already indexed it
 """
 from __future__ import annotations
 
@@ -200,16 +202,19 @@ class DocumentCapability(CapabilityBase):
     @verb(role="effect")
     def index_repo(self, path: str = ".", apply: bool = False,
                    max_tokens: int = 3000) -> dict:
-        """Deterministic 94%-reduction repo briefing within ≤ max_tokens.
+        """Deterministic repo briefing. A PREVIEW (``apply=False``) fits ≤
+        max_tokens (truncates with an "omitted" marker); SAVING
+        (``apply=True``) writes the COMPLETE index — a saved project index never
+        deletes content to fit a token budget (CLAUDE.md mandatory rule).
 
-        Inputs: path (str), apply (bool — write PROJECT_INDEX.md),
-                max_tokens (int — budget; default 3000).
+        Inputs: path (str), apply (bool — write COMPLETE PROJECT_INDEX.md),
+                max_tokens (int — preview budget; default 3000).
         Returns: ``{index_id, content, tokens, files_scanned, writeup}``.
         chain_next: caller publishes via ``apply=True`` after review.
         """
         content, tokens, files_scanned = _index_repo.render(
             path, self.ctx.memory, intent_id=self.ctx.intent_id,
-            max_tokens=max_tokens)
+            max_tokens=max_tokens, full=apply)
         sha = _index_repo.content_sha(content)
         index_id = self.ctx.record_and_serve("RepoIndex", {
             "path": os.path.abspath(path),

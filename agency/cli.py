@@ -37,6 +37,7 @@ from dotenv import load_dotenv
 load_dotenv(".env.dev")  # dev-specific actual values (gitignored); written by `python -m agency.install`
 load_dotenv()            # committed .env template with ${VAR} expansion; no-op if already set
 
+from ._capture import keep_full
 from .engine import Engine
 
 
@@ -211,9 +212,25 @@ def intent(ctx, purpose, deliverable, acceptance):
 @click.option("--scaffold-only", is_flag=True,
               help="scaffold .agency/ ONLY (do NOT write the plugin install surface)")
 @click.option("--dry-run", is_flag=True, help="print would-write paths; touch nothing")
-def install(root, scaffold_db, scaffold_only, dry_run):
-    """Regenerate the plugin install (and optionally scaffold .agency/)."""
+@click.option("--agent", "agents", multiple=True,
+              help="Spec 333 — install agency into an agent's native rules "
+                   "(cursor/windsurf/cline/kiro/copilot/agents/claude/all); repeatable")
+def install(root, scaffold_db, scaffold_only, dry_run, agents):
+    """Regenerate the plugin install (and optionally scaffold .agency/), or
+    install agency into other agents' native rules via ``--agent``."""
     from . import install as install_mod
+    # Spec 333 — multi-agent self-installer. With --agent, project the live
+    # surface_card into each agent's native format; without it, the default
+    # Claude-Code plugin behaviour is unchanged.
+    if agents:
+        from . import _install_adapters as ia
+        eng = Engine(":memory:")
+        try:
+            report = ia.install_agents(ia.resolve_names(agents), ia.resolve_root(root), eng)
+        finally:
+            eng.memory.close()
+        click.echo(json.dumps(report, indent=2))
+        return 0 if all(r.get("ok") for r in report.values()) else 1
     sub_argv: list[str] = []
     if root:
         sub_argv.append(root)
@@ -224,6 +241,20 @@ def install(root, scaffold_db, scaffold_only, dry_run):
     if dry_run:
         sub_argv.append("--dry-run")
     return install_mod.main(sub_argv)
+
+
+@cli.command()
+@click.argument("root", required=False)
+@click.option("--agent", "agents", multiple=True, required=True,
+              help="Spec 333 — remove agency's fenced block from an agent's native "
+                   "rules (cursor/windsurf/cline/kiro/copilot/agents/all); repeatable")
+def uninstall(root, agents):
+    """Remove agency's fenced block from the given agents' native rules — the
+    user's surrounding content is preserved."""
+    from . import _install_adapters as ia
+    report = ia.uninstall_agents(ia.resolve_names(agents), ia.resolve_root(root))
+    click.echo(json.dumps(report, indent=2))
+    return 0 if all(r.get("ok") for r in report.values()) else 1
 
 
 @cli.command()
@@ -344,7 +375,7 @@ def hook_self_test(ctx, plugin_root):                                  # noqa: A
             "exit_code": proc.returncode,
             "want_hint": want_hint,
             "hint_seen": hint_seen,
-            "stderr":    (proc.stderr or "")[:240],
+            "stderr":    keep_full(proc.stderr or "", label="self-test stderr"),
             "ok":        case_ok,
         })
     return _emit({"ok": all_ok, "results": results}, 0 if all_ok else 1)
@@ -388,7 +419,7 @@ def hook_wrap(ctx, command):                                           # noqa: A
         try:
             eng.memory.record("Event", {
                 "name":      "hook-wrap-run",
-                "command":   command[:200],
+                "command":   keep_full(command, label="hook-wrap command"),
                 "exit_code": proc.returncode,
             })
         finally:

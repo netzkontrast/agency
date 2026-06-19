@@ -20,6 +20,7 @@ Red flags:
 """
 from __future__ import annotations
 
+from ..._capture import keep_full
 from ...capability import CapabilityBase, verb
 from ...ontology import OntologyExtension
 
@@ -116,7 +117,8 @@ class SelectCapability(CapabilityBase):
                          f"{'speed-priority; ' if speed_priority else ''}"
                          f"threshold → {approach}")
         sel_id = self.ctx.record_and_serve("Selection", {
-            "operation": operation[:200], "approach": approach})
+            "operation": keep_full(operation, label="selection operation"),
+            "approach": approach})
         return {"operation": operation, "approach": approach,
                 "score": round(score, 3),
                 "confidence": round(abs(score - 0.5) * 2, 3),

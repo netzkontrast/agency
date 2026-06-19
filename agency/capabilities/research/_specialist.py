@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import re
 
+from ..._capture import keep_full
 from ._findings import semantic_score
 
 
@@ -113,7 +114,7 @@ def run_prior_reflections(memory, ctx, research_id: str, query: str,
         cit_id = memory.record("Citation", {
             "source_kind": "reflection",
             "source_url_or_path": hit["id"],
-            "evidence_text": hit["text"][:200],
+            "evidence_text": keep_full(hit["text"], label="reflection evidence"),
             "confidence": float(hit["score"]),    # Spec 044 §"confidence" — uses ranker score
             "claim_supported": query,
             "research_id": research_id,
@@ -249,8 +250,8 @@ def run_web(memory, ctx, research_id: str, query: str,
         cit_id = memory.record("Citation", {
             "source_kind": "web",
             "source_url_or_path": hit.get("url", ""),
-            "evidence_text": (hit.get("text", "") or
-                              hit.get("snippet", ""))[:200],
+            "evidence_text": keep_full(hit.get("text", "") or hit.get("snippet", ""),
+                                       label="web evidence"),
             "confidence": 0.9,
             "claim_supported": query,
             "research_id": research_id,

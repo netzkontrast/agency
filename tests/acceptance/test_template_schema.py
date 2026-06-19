@@ -509,3 +509,178 @@ def _no_fixed_in_baseline(coverage_report):
     assert coverage_report.fixed_uncovered == set(), (
         "baseline lists labels now covered — trim them.\n"
         + "\n".join(f"  {l}" for l in sorted(coverage_report.fixed_uncovered)))
+
+
+# The named set of core provenance node types — the substrate spine every
+# session writes (Intent → Invocation performed-by Agent; Gate decisions;
+# the steward's own MaintenanceRun). Spec 153 Slice 6 backfills schemas for
+# these highest-traffic labels first (doctor `priority_uncovered` ranking).
+# A named contract set, not a snapshot count (CLAUDE.md rule 8).
+CORE_PROVENANCE_LABELS = {"Intent", "Agent", "Invocation", "MaintenanceRun", "Gate"}
+
+
+@then("the core provenance labels are all schema-covered")
+def _core_provenance_covered(coverage_report):
+    missing = CORE_PROVENANCE_LABELS - coverage_report.covered
+    assert not missing, (
+        "core substrate provenance labels lack a Schema (Spec 153 Slice 6):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@when("I boot the live engine", target_fixture="loaded_schema_titles")
+def _boot_engine_schema_titles():
+    """A schema FILE counted by the glob audit is dormant unless its
+    capability DECLARES `artefact_schemas` so the engine loads it. This
+    asserts the stronger invariant: the engine ontology actually carries
+    each core schema (guards the Slice 6 declaration regression)."""
+    from agency.engine import Engine
+    e = Engine(":memory:")
+    try:
+        titles = {v.get("title") for v in e.ontology.schemas.values()
+                  if isinstance(v, dict)}
+    finally:
+        e.memory.close()
+    return titles
+
+
+@then("the core provenance labels each have a loaded ontology schema")
+def _core_provenance_loaded(loaded_schema_titles):
+    missing = CORE_PROVENANCE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "core provenance schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# The document-convergence set: Artefact (PRODUCES spine), Document (the
+# universal convergence artefact — Spec 292), Session (session graph node),
+# AcceptanceCriterion (VALIDATES-edged fulfilment node — Spec 317).
+# Spec 153 Slice 6 continuation — next highest-traffic uncovered labels.
+# A named contract set, not a snapshot count (CLAUDE.md rule 8).
+DOC_CONVERGENCE_LABELS = {"AcceptanceCriterion", "Artefact", "Session", "Document"}
+
+
+@then("the document convergence labels are all schema-covered")
+def _doc_convergence_covered(coverage_report):
+    missing = DOC_CONVERGENCE_LABELS - coverage_report.covered
+    assert not missing, (
+        "document-convergence labels lack a Schema (Spec 153 Slice 6 cont.):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the document convergence labels each have a loaded ontology schema")
+def _doc_convergence_loaded(loaded_schema_titles):
+    missing = DOC_CONVERGENCE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "document-convergence schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# The workflow-spine set: Lifecycle (pillar concept), Event (substrate hooks,
+# Spec 076), Phase (skill-walk progression), Skill (capability-skill surface),
+# ClarificationQuestion (discover/clarify node, Spec 311).
+# Spec 153 Slice 6 continuation — next coverage wave targeting the four-pillar
+# surface. A named contract set, not a snapshot count (CLAUDE.md rule 8).
+WORKFLOW_SPINE_LABELS = {"Lifecycle", "Event", "Phase", "Skill", "ClarificationQuestion"}
+
+
+@then("the workflow spine labels are all schema-covered")
+def _workflow_spine_covered(coverage_report):
+    missing = WORKFLOW_SPINE_LABELS - coverage_report.covered
+    assert not missing, (
+        "workflow-spine labels lack a Schema (Spec 153 Slice 6 — workflow-spine wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the workflow spine labels each have a loaded ontology schema")
+def _workflow_spine_loaded(loaded_schema_titles):
+    missing = WORKFLOW_SPINE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "workflow-spine schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── Slice 4: engine-load intersection gate ───────────────────────────────────
+
+@given("a capability with a schema file for \"Dormant\" but no artefact_schemas declaration",
+       target_fixture="dormant_audit_ctx")
+def _given_dormant_schema(tmp_path):
+    """A schema file on disk whose cap never declares artefact_schemas — the
+    engine won't load it, so the intersection gate must move it to dormant_schemas."""
+    (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
+    (tmp_path / "capabilities" / "a" / "schemas" / "dormant.json").write_text(
+        '{"title": "Dormant"}')
+    return {"root": tmp_path, "ontology": {"Dormant"}, "engine_loaded": set()}
+
+
+@when("I run the schema coverage audit with engine_loaded_titles excluding \"Dormant\"",
+      target_fixture="dormant_report")
+def _run_dormant_audit(dormant_audit_ctx):
+    from agency._schema_coverage import audit_schemas
+    return audit_schemas(
+        dormant_audit_ctx["root"],
+        ontology_labels=dormant_audit_ctx["ontology"],
+        engine_loaded_titles=dormant_audit_ctx["engine_loaded"],
+    )
+
+
+@then("\"Dormant\" is in dormant_schemas and not in covered")
+def _dormant_in_dormant_not_covered(dormant_report):
+    assert "Dormant" in dormant_report.dormant_schemas, (
+        "expected 'Dormant' in dormant_schemas")
+    assert "Dormant" not in dormant_report.covered, (
+        "expected 'Dormant' NOT in covered (it is file-backed but engine-undeclared)")
+
+
+@when("I run the live schema audit with engine-load intersection",
+      target_fixture="live_dormant_report")
+def _run_live_dormant_audit():
+    from agency.engine import Engine
+    from agency._schema_coverage import (audit_schemas, truly_inline_schemas,
+                                         engine_loaded_schema_titles)
+    repo = Path(__file__).parent.parent.parent
+    e = Engine(":memory:")
+    try:
+        ontology = set(e.ontology.nodes)
+        merged = dict(e.ontology.schemas)
+        engine_loaded = engine_loaded_schema_titles(merged)
+    finally:
+        e.memory.close()
+    inline = truly_inline_schemas(repo / "agency", merged)
+    return audit_schemas(repo / "agency", ontology_labels=ontology,
+                         ontology_schemas=inline,
+                         engine_loaded_titles=engine_loaded)
+
+
+@then("there are no dormant schemas")
+def _no_dormant_schemas(live_dormant_report):
+    assert live_dormant_report.dormant_schemas == set(), (
+        "these schema files match an ontology label but are NOT declared "
+        "by their capability (add `artefact_schemas` to the owning cap):\n"
+        + "\n".join(f"  {l}" for l in sorted(live_dormant_report.dormant_schemas)))
+
+
+# ── Slice 6: discover-prompt wave ────────────────────────────────────────────
+# FeasibilitySignal + IntentRefinement (discover cap; already has artefact_schemas)
+# Template (document cap; already has artefact_schemas)
+# PromptFramework (prompt cap; artefact_schemas added this wave)
+DISCOVER_PROMPT_LABELS = {"FeasibilitySignal", "IntentRefinement", "Template", "PromptFramework"}
+
+
+@then("the discover-prompt labels are all schema-covered")
+def _discover_prompt_covered(coverage_report):
+    missing = DISCOVER_PROMPT_LABELS - coverage_report.covered
+    assert not missing, (
+        "discover-prompt labels lack a Schema (Spec 153 Slice 6 — discover-prompt wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the discover-prompt labels each have a loaded ontology schema")
+def _discover_prompt_loaded(loaded_schema_titles):
+    missing = DISCOVER_PROMPT_LABELS - loaded_schema_titles
+    assert not missing, (
+        "discover-prompt schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))

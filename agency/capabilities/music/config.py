@@ -289,3 +289,15 @@ class MusicConfig:
             },
             "name_exposure": {"blocklist": list(self.name_exposure_blocklist)},
         }
+
+
+# Spec 334 Slice 5 — open-set proof: surface music's config in the unified
+# .agency/config.yaml (derived from the dataclass — single source, no literals).
+# The live value is resolved by the music capability (.agency/music-config.yaml /
+# AGENCY_MUSIC_HOME); full read-path unification is a tracked follow-up.
+try:  # best-effort — config registration must never break the capability import
+    from ... import _config as _agency_config
+    _agency_config.register_dataclass_section(
+        "music", MusicConfig, doc="music default — resolved by the music capability")
+except Exception:  # pragma: no cover - registration is best-effort
+    pass

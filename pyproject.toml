@@ -40,6 +40,10 @@ dependencies = [
     "bandit>=1.7",
     "radon>=6",
     "networkx>=3.2",
+    # Spec 328 — .agency/config.yaml is a CORE runtime feature (config_get reads
+    # YAML at engine/CLI/MCP startup), so PyYAML graduates from a dev-only dep to
+    # core. Still pinned in [dev] too for the vision_goals frontmatter validator.
+    "PyYAML>=6.0",
 ]
 
 # AGENCY-DRIFT: deps-extras — adding/removing an extra here means:
@@ -196,4 +200,12 @@ filterwarnings = [
     # (no newer version available as of this commit); suppress the
     # noise locally so the test output is clean.
     "ignore::DeprecationWarning:opentelemetry.util._importlib_metadata",
+    # Third-party noise: pytest-bdd 8.1.0 (the latest release) still passes
+    # `nodeid`/`baseid` to pytest 9's fixture internals — deprecated in
+    # `pytest_bdd/compat.py`, removed in pytest 10. Fix is upstream (no newer
+    # pytest-bdd available as of this commit); suppress the two known messages
+    # locally so the acceptance output is clean. Scoped to the messages, so any
+    # OTHER PytestRemovedIn10Warning (e.g. from our own code) still surfaces.
+    "ignore:Passing nodeid to _register_fixture is deprecated:pytest.PytestRemovedIn10Warning",
+    "ignore:Passing baseid to FixtureDef is deprecated:pytest.PytestRemovedIn10Warning",
 ]

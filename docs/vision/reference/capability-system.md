@@ -1,7 +1,7 @@
 # The capability system
 
 <!-- doc-source: agency/capability.py -->
-<!-- doc-hash: fe5d5b02f8d10f80 -->
+<!-- doc-hash: 43781e37261aed5a -->
 
 `agency/capability.py` defines how a capability is authored, compiled, registered, and
 invoked. It is the single most load-bearing module.

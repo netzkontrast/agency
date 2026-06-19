@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Phase",
+  "description": "One phase of a walkable skill — the atomic unit of progress in the Lifecycle/Capability skill-walk (agency/skill.py + agency/capabilities/skills/_main.py; Spec 153 Slice 6 workflow-spine coverage). Links HAS_PHASE←Skill; PRECEDES next Phase.",
+  "type": "object",
+  "required": ["skill", "index", "name"],
+  "properties": {
+    "skill": {
+      "type": "string",
+      "description": "Name of the parent skill this phase belongs to."
+    },
+    "index": {
+      "type": "integer",
+      "description": "Zero-based position of this phase within the skill's phase sequence."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable phase name (e.g. 'orient', 'build', 'ship')."
+    },
+    "produces": {
+      "description": "Artefact kinds this phase yields (list or comma-separated string).",
+      "oneOf": [
+        {"type": "array", "items": {"type": "string"}},
+        {"type": "string"}
+      ]
+    }
+  }
+}

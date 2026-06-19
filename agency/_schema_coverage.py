@@ -16,11 +16,14 @@ from pathlib import Path
 @dataclass
 class CoverageReport:
     """The Slice 1 audit payload. Slice 2 adds `floor`, `monotone_ok`,
-    `priority_uncovered: list[(label, node_count)]`."""
+    `priority_uncovered: list[(label, node_count)]`.
+    Slice 4 adds `dormant_schemas`: files matching an ontology label but
+    not declared by the owning capability (engine never loads them)."""
 
-    covered: set[str] = field(default_factory=set)                  # ontology ∩ schemas
+    covered: set[str] = field(default_factory=set)                  # ontology ∩ schemas [∩ engine_loaded]
     uncovered: set[str] = field(default_factory=set)                # ontology − schemas
     non_node_schemas: set[str] = field(default_factory=set)         # schemas − ontology (artefact / wire-payload — NOT a bug)
+    dormant_schemas: set[str] = field(default_factory=set)          # (ontology ∩ schemas) − engine_loaded
     total_ontology_labels: int = 0
 
     @property
@@ -90,22 +93,63 @@ def schema_labels(repo_root: Path,
 
 def audit_schemas(repo_root: Path, *,
                   ontology_labels: set[str],
-                  ontology_schemas: dict | None = None) -> CoverageReport:
+                  ontology_schemas: dict | None = None,
+                  engine_loaded_titles: set[str] | None = None) -> CoverageReport:
     """Compose the typed CoverageReport for `<repo_root>` against the
-    given ontology labels + (optional) inline-declared schemas. Pure
-    function over the schema files + the supplied ontology — caller
-    is responsible for booting an Engine if `ontology_schemas` is
-    needed (see `main()` for the live-tree path)."""
+    given ontology labels + (optional) inline-declared schemas.
+
+    When `engine_loaded_titles` is supplied (Slice 4), only schemas that
+    are BOTH on disk AND loaded by the engine count as ``covered``.
+    Schemas on disk matching an ontology label but absent from
+    ``engine_loaded_titles`` land in ``dormant_schemas`` — they are
+    file-backed but the owning capability never declared ``artefact_schemas``
+    so the engine never loads them.  Callers obtain ``engine_loaded_titles``
+    by booting an Engine and extracting title fields from ``e.ontology.schemas``.
+    """
     schemas = schema_labels(repo_root, inline_schemas=ontology_schemas)
-    covered = schemas & ontology_labels
+    node_schemas = schemas & ontology_labels          # on disk + in ontology
+    if engine_loaded_titles is not None:
+        covered = node_schemas & engine_loaded_titles
+        dormant = node_schemas - engine_loaded_titles
+    else:
+        covered = node_schemas
+        dormant = set()
     uncovered = ontology_labels - schemas
     non_node = schemas - ontology_labels
     return CoverageReport(
         covered=covered,
         uncovered=uncovered,
         non_node_schemas=non_node,
+        dormant_schemas=dormant,
         total_ontology_labels=len(ontology_labels),
     )
+
+
+# ── engine-loaded extraction (Slice 4) ───────────────────────────────────────
+def engine_loaded_schema_titles(merged_schemas: dict) -> set[str]:
+    """Extract the PascalCase label set for schemas the engine actually loaded.
+
+    Mirrors the ``schema_labels()`` extraction logic applied to the engine's
+    *already-loaded* ``ontology.schemas`` dict (``e.ontology.schemas``):
+
+    * Dict-form with ``title`` key → use the title (standard file-backed form).
+    * Dict-form WITHOUT ``title`` → derive label from the kebab-case key
+      (inline dict schema declared without a title field).
+    * List-form → derive label from the kebab-case key
+      (inline ``OntologyExtension.schemas = {"foo-bar": ["field1", ...]}``)
+
+    Any schema present in ``merged_schemas`` is engine-loaded; this function
+    normalises each to its PascalCase ontology-label counterpart.
+    """
+    out: set[str] = set()
+    for key, val in merged_schemas.items():
+        if isinstance(val, dict):
+            title = val.get("title")
+            out.add(title if isinstance(title, str) and title
+                    else _kebab_to_pascal(key))
+        elif isinstance(val, list):
+            out.add(_kebab_to_pascal(key))
+    return out
 
 
 # ── CLI entry ─────────────────────────────────────────────────────────────

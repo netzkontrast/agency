@@ -22,7 +22,7 @@ capability the 17 children (309-325) fill in. The only behaviour here is the
 """
 from __future__ import annotations
 
-from agency.capability import CapabilityBase, verb
+from agency.capability import ArtefactSchemas, CapabilityBase, verb
 from agency.toolresult import ToolResult
 
 from .clusters import (AskCluster, ClarifyCluster, DiscoverCluster,
@@ -40,6 +40,7 @@ class DiscoverCapability(InterviewCluster, AskCluster, ClarifyCluster,
     # now, re-home with 291).
     home = "capability"
     ontology = discover_ontology
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
 
     @verb(role="transform")
     def status(self) -> ToolResult:
