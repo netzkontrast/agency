@@ -5,7 +5,7 @@ status: draft
 last_updated: 2026-06-19
 owner: "@agency"
 vision_goals: [3, 4, 8]
-depends_on: ["062", "065", "079", "280", "326"]
+depends_on: ["062", "065", "079", "280", "326", "328"]
 domain: install
 wave: core-discipline
 ---
@@ -22,7 +22,7 @@ wave: core-discipline
 > **Wave 1 (this spec):** Claude Code (MCP, existing) + the **instruction-file
 > agents** — Cursor, Windsurf, Cline, Kiro, GitHub Copilot — via native rules /
 > `AGENTS.md`. Other MCP runtimes (Codex, Gemini, pi, opencode, openclaw) →
-> **Wave 2** (Spec 328, deferred). Split from Spec 326; **panel-hardened**
+> **Wave 2** (Spec 329, deferred). Split from Spec 326; **panel-hardened**
 > (2026-06-19 `/sc:spec-panel`): compact rules projection, CLI precondition +
 > bootstrap, uninstall/update, partial-install reporting, per-agent validity,
 > Gherkin. Provenance `intent:7509dac0`, `reflection:fe553a2e`; porting source
@@ -134,7 +134,7 @@ per-agent file **shapes** (vendored) → adapter renderers · `check-rule-copies
   behaviour (Claude) is unchanged.
 - **C6** — `agency uninstall --agent <name>` cleanly removes the block;
   per-adapter failures are reported independently.
-- **C7** — Wave-2 runtimes named as out-of-scope follow-ups (Spec 328).
+- **C7** — Wave-2 runtimes named as out-of-scope follow-ups (Spec 329).
 
 ## Acceptance scenarios (Gherkin sketch)
 
@@ -176,7 +176,7 @@ Scenario: partial install reports per-adapter
   (doctrine, file-authoritative) or only write the *consumer project's*? *Rec:
   consumer-project only; never rewrite the repo's canon AGENTS.md.*
 
-*(Q1 project-dir default, Q2 Copilot both-forms, Q3 Wave-2-as-Spec-328 — decided
+*(Q1 project-dir default, Q2 Copilot both-forms, Q3 Wave-2-as-Spec-329 — decided
 above.)*
 
 ## Followup — Implementation Status (2026-06-19)

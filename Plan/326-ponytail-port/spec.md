@@ -5,7 +5,7 @@ status: draft
 last_updated: 2026-06-19
 owner: "@agency"
 vision_goals: [1, 3, 4]
-depends_on: ["062", "076", "146", "280", "292", "295"]
+depends_on: ["062", "076", "146", "280", "292", "295", "328"]
 domain: core
 wave: core-discipline
 ---
@@ -72,10 +72,12 @@ rules files. No second copy to drift (the rule ponytail enforces upstream with
 
 ### Core state — lifetime & scope (panel ❌ Nygard)
 
-Level resolution on READ: `PONYTAIL_DEFAULT_MODE` env → `.agency/config.json`
-`disciplineLevel` → **`full`**. SET (`discipline_level(level)`) **persists to
-`.agency/config.json`** (durable, so the **CLI — a fresh process per invocation —
-sees it next run**) **and** records a `DisciplineLevel` provenance node. The
+Level resolution on READ goes through **Spec 328's `config_get("ponytail.level")`**
+— `PONYTAIL_DEFAULT_MODE` env → `.agency/config.yaml` `ponytail.level` → **`full`**.
+SET (`discipline_level(level)`) calls **`config_set` → persists to
+`.agency/config.yaml`** (durable, so the **CLI — a fresh process per invocation —
+sees it next run**) **and** records a `DisciplineLevel` provenance node. *(Config
+home is Spec 328's unified `.agency/config.yaml`; supersedes the v1 `config.json`.)* The
 in-process cache (`engine.discipline_level`) is a **per-process** read-through of
 that config; the long-lived MCP server is assumed **single-session per project**
 (one `agency-mcp` per `CLAUDE_PROJECT_DIR`) — documented, not load-bearing for
@@ -168,7 +170,7 @@ Scenario: off disables both paths
 Scenario: SET persists across a fresh CLI process
   Given "agency discipline ultra" has run
   When a brand-new CLI process reads the level
-  Then it resolves "ultra" from .agency/config.json
+  Then it resolves "ultra" from .agency/config.yaml
 
 Scenario: render failure degrades silently
   Given _discipline.render raises
