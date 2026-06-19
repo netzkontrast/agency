@@ -3,7 +3,6 @@ __pycache__/
 *.db
 .venv/
 .pytest_cache/
-.claude/
 *.bak
 # Spec 021 — engine monitor SLOG (ephemeral; durable provenance is the graph)
 .agency/monitor.log
