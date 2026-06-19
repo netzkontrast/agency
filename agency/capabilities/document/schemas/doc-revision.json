@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DocRevision",
+  "description": "An append-only revision record for a Document node — created by document.ingest or document.sync when file content differs from the graph (agency/capabilities/document/_main.py; Spec 292 keep-both bi-temporal reconciliation + Spec 153 Slice 6). Each DocRevision preserves the full content_sha at that point in time; latest recorded_at wins on read.",
+  "type": "object",
+  "required": ["source", "content_sha"],
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": ["graph", "file"],
+      "description": "Which surface authored this revision: 'graph' (verb-rendered) or 'file' (disk edit ingested by document.sync)."
+    },
+    "content_sha": {
+      "type": "string",
+      "description": "SHA-256 hex digest of the revision's rendered content at the time of recording."
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AntiPattern",
+  "description": "A flagged prompt anti-pattern detected during output scoring (agency/capabilities/prompt/ontology.py; Spec 153 Slice 6 — prompt-dossier wave). Linked FLAGS_ANTI←PromptOutput; each occurrence is a distinct node so provenance is per-output.",
+  "type": "object",
+  "required": ["kind", "body"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "on-the-nose", "filter-words", "adjective-heavy",
+        "telling-not-showing", "leading-question", "yes-bias",
+        "hallucination-prone", "ambiguous-instruction"
+      ],
+      "description": "Canonical anti-pattern type per the prompt engineering taxonomy."
+    },
+    "body": {
+      "type": "string",
+      "description": "The specific excerpt or instruction text that triggered the anti-pattern flag."
+    }
+  }
+}
