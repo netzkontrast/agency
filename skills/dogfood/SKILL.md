@@ -34,6 +34,9 @@ Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exporte
 | `record_decision` | effect | Bind a decision to the current session (effect). | [details](references/record_decision.md) |
 | `render` | transform | Project plan_slug observations into DOGFOOD-NOTES.md. | [details](references/render.md) |
 | `replay_events` | transform | Replay every Event recorded OBSERVED_DURING the given intent (Spec 195 Slice 2 — typed replay + monotonic chain). | [details](references/replay_events.md) |
+| `spec_refs` | transform | Find all ``# Spec NNN`` inline references to a spec in the codebase. | [details](#spec_refs) |
+| `spec_status` | transform | Return the lifecycle status of a spec by its 3-digit id. | [details](#spec_status) |
+| `specs` | transform | List specs from the Plan/ directory, optionally filtered by status. | [details](#specs) |
 
 ## Example
 
@@ -52,3 +55,27 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`dogfood-usage`** (usage): use-transform → use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'dogfood-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## spec_refs
+
+Find all ``# Spec NNN`` inline references to a spec in the codebase.
+
+Parameters: `(spec_id: 'str', search_root: 'str' = 'agency')`.
+
+_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/spec_refs.md.)_
+
+## spec_status
+
+Return the lifecycle status of a spec by its 3-digit id.
+
+Parameters: `(spec_id: 'str')`.
+
+_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/spec_status.md.)_
+
+## specs
+
+List specs from the Plan/ directory, optionally filtered by status.
+
+Parameters: `(status: 'str' = '', plan_dir: 'str' = 'Plan')`.
+
+_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/specs.md.)_
