@@ -1,7 +1,7 @@
 ---
 spec_id: "330"
 slug: typed-intent-read-api
-status: draft
+status: Shipped
 last_updated: 2026-06-19
 owner: "@agency"
 vision_goals: [2, 4, 5]
@@ -99,12 +99,26 @@ legible as typed relations, not just Cypher.
 
 ## Followup — Implementation Status (2026-06-19)
 
-- **Status: draft.** Slice 4 — the read API + the consumer that makes 327–329's
-  typed columns load-bearing (dormant-surface audit). Depends on all prior slices.
-- **Open question (resolve at build):** how much of `manage` to re-route now vs.
-  leave on Cypher. Default: route `provenance`/`state`/`open_intents`/`whats_next`
-  (the hot joins) through `IntentStore`; leave research/timeline composing their
-  existing surfaces until a typed need appears (YAGNI).
-- **FastAPI (Goal 5/7):** `IntentStore`'s SQLModel returns are the read models a
-  FastAPI app exposes — out of scope here (read API first), tracked as the next
-  follow-up once the four slices land.
+- **Status: SHIPPED 2026-06-19.** Slice 4 — the read API + the consumer that makes
+  327–329's typed columns load-bearing. Done:
+  - `agency/_entity_store.py` — `IntentStore` (bound to the shared engine):
+    `serves` (typed Invocations for an Intent), `intent_tree` (the PARENT_INTENT
+    subtree over `parent_intent_id`), `provenance` (invocations + agents +
+    produced/serving artefacts + lifecycle — one typed query set), `fulfilment`
+    (latest Intent-owned Gate verdict — acceptance/completion wins over clarity —
+    + criteria counts). Returns plain dicts (FastAPI-serialisable).
+  - `agency/memory.py` — exposes `memory.intents = IntentStore(self.entities)`.
+  - `agency/capabilities/manage/_main.py` — `manage.state(for_intent_id)` now
+    surfaces a typed `fulfilment` block via `memory.intents` (the real consumer —
+    not dormant surface; additive field, no new wire verb → no install regen).
+  - `tests/acceptance/{features/typed_read_api.feature,test_typed_read_api.py}` —
+    5 scenarios incl. the **parity gate**: `serves` and `provenance.invocations`
+    equal the live Cypher SERVES-Invocation set (the typed projection never
+    diverges from the graph), `intent_tree` follows PARENT_INTENT, `fulfilment`
+    carries the gate verdict, and `manage.state` surfaces the fulfilment block.
+- **Decision (the spec's YAGNI default):** wired the headline `fulfilment` read
+  into `manage.state` now; the broader `provenance`/`open_intents`/`whats_next`
+  re-route stays a follow-up (the existing Cypher paths are parity-equivalent and
+  untouched, so no regression risk taken for no present need).
+- **FastAPI (Goal 5/7):** `IntentStore`'s dict returns are the read models a
+  FastAPI app exposes — the next follow-up now the four slices have landed.

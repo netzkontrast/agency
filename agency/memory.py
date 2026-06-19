@@ -16,7 +16,7 @@ from typing import Any, Optional
 from graphqlite import Graph, connect
 
 from . import ontology
-from ._entity_store import EntityStore
+from ._entity_store import EntityStore, IntentStore
 
 OPEN = 10 ** 12  # sentinel valid_to for the currently-valid version
 
@@ -45,6 +45,10 @@ class Memory:
         # is a core dep, so no optional guard.
         self.entities = EntityStore(
             sqlite_connection=self.g._conn.sqlite_connection)
+        # Spec 330 — the typed-join READ API over the four-concept tables (the
+        # consumer that makes the FK columns + Edge spine load-bearing). A faithful
+        # projection of the authoritative graph; the parity gate guards it.
+        self.intents = IntentStore(self.entities)
 
     def _max_persisted_tick(self) -> int:
         # Spec 006 #1 — O(1) clock seed: NO unconstrained full scan. Every tick ever

@@ -180,6 +180,9 @@ class ManageCapability(CapabilityBase):
             out["intent_id"] = for_intent_id
             out["serves_count"] = len(self.ctx.nodes_serving(for_intent_id))
             out["artefacts_under"] = len(self.ctx.artefacts_produced_under(for_intent_id))
+            # Spec 330 — the typed fulfilment read (is this intent fulfilled?),
+            # answered by the Intent-owned Gate via the typed-join IntentStore.
+            out["fulfilment"] = self.ctx.memory.intents.fulfilment(for_intent_id)
         return out
 
     @verb(role="act")

@@ -189,9 +189,22 @@ write-authority and the typed rows are re-derivable from it.
 
 ## Followup — Implementation Status (2026-06-19)
 
-- **Status: draft (program master).** Designed via the brainstorming discipline
-  (owner-confirmed: typed projection from the authoritative graph · full
-  four-concept interweave · Gate→Intent · Agent→Capability). Extends the shipped
-  Spec 289 Slices 1–2. No code yet.
-- **Next:** Slice 327 (Intent + Capability core + mirror router) first — it
-  realises "map all capabilities into intents" and everything else hangs off it.
+- **Status: SHIPPED 2026-06-19 (all four slices landed).** Designed via the
+  brainstorming discipline (owner-confirmed: typed projection from the
+  authoritative graph · full four-concept interweave · Gate→Intent ·
+  Agent→Capability). Extends the shipped Spec 289 Slices 1–2.
+  - **327** — Intent + Capability core (`TypedIntent`/`TypedInvocation`/`TypedAgent`
+    + the `serves_intent_id` NOT-NULL mapping + the mirror router). ✅
+  - **328** — Intent-owned fulfilment (`TypedGate` + `TypedAcceptanceCriterion`,
+    the `GATES` edge, `confirm` records the clarity Gate). ✅
+  - **329** — Lifecycle + Memory spine (`TypedLifecycleState` + `TypedArtefact` +
+    the general `TypedEdge` spine; reverse-direction PRODUCES FK). ✅
+  - **330** — `IntentStore` typed-join read API (serves/intent_tree/provenance/
+    fulfilment) + the parity gate + `manage.state` consumer. ✅
+- **Result:** the four concepts are typed, FK-joined, fulfilment-aware, and
+  parity-guaranteed; the graph stays the sole write-authority; the typed tables
+  are a one-way, failure-isolated mirror. 8 typed tables (`agency_intent`,
+  `agency_invocation`, `agency_agent`, `agency_gate`, `agency_acceptance_criterion`,
+  `agency_lifecycle_state`, `agency_artefact`, `agency_edge`) on the one shared DB.
+- **Next:** the refinement loop (simplify · analyze · code-analyze · code-review ·
+  improve) until a doubly-clean pass; then the FastAPI read surface follow-up.

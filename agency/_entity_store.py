@@ -427,3 +427,95 @@ class EntityStore:
     def count(self) -> int:
         with Session(self._engine) as s:
             return len(s.exec(select(EntityRecord)).all())
+
+
+class IntentStore:
+    """Spec 330 — the typed-join READ API over the four-concept tables.
+
+    Reads the interweave (Capability · Lifecycle · Memory → Intent) as typed SQL
+    queries, not hand-written Cypher — the consumer that makes the FK columns +
+    the Edge spine load-bearing (dormant-surface audit). Returns plain dicts
+    (FastAPI-serialisable — Goal 5). It is a PROJECTION of the authoritative
+    graph; the acceptance suite's parity gate guarantees each method's result
+    equals the equivalent Cypher traversal, so the typed read can never silently
+    diverge from the moat.
+    """
+
+    def __init__(self, store: EntityStore) -> None:
+        self._store = store
+        self._engine = store._engine
+
+    def _rows(self, model: type[SQLModel], **eq) -> list[dict]:
+        with Session(self._engine) as s:
+            stmt = select(model).where(model.vto == OPEN)
+            for col, val in eq.items():
+                stmt = stmt.where(getattr(model, col) == val)
+            return [EntityStore._row_dict(r[0]) for r in s.exec(stmt).all()]
+
+    def serves(self, intent_id: str) -> list[dict]:
+        """Every capability Invocation mapped to this Intent (the directive's
+        core) — one indexed `WHERE serves_intent_id = :id`."""
+        return self._rows(TypedInvocation, serves_intent_id=intent_id)
+
+    def intent_tree(self, root_id: str) -> list[dict]:
+        """The PARENT_INTENT sub-intent tree rooted at ``root_id`` (inclusive),
+        walked over the typed ``parent_intent_id`` FK."""
+        root = self._store.typed_row("Intent", root_id)
+        if root is None:
+            return []
+        out, frontier = [root], [root_id]
+        seen = {root_id}
+        while frontier:
+            parent = frontier.pop()
+            for child in self._rows(TypedIntent, parent_intent_id=parent):
+                if child["id"] not in seen:
+                    seen.add(child["id"])
+                    out.append(child)
+                    frontier.append(child["id"])
+        return out
+
+    def provenance(self, intent_id: str) -> dict:
+        """The cross-concern join CORE.md names — invocations + their agents +
+        produced/serving artefacts + lifecycle state — as one typed query set,
+        not a Cypher traversal."""
+        invs = self.serves(intent_id)
+        inv_ids = {i["id"] for i in invs}
+        agent_ids = {i["agent_id"] for i in invs if i.get("agent_id")}
+        agents = [a for aid in agent_ids
+                  for a in [self._store.typed_row("Agent", aid)] if a]
+        artefacts = {a["id"]: a for a in self._rows(TypedArtefact,
+                                                    serves_intent_id=intent_id)}
+        for a in self._rows_in(TypedArtefact, "produced_by_id", inv_ids):
+            artefacts.setdefault(a["id"], a)
+        lifecycle = self._rows(TypedLifecycleState, serves_intent_id=intent_id)
+        return {"invocations": invs, "agents": agents,
+                "artefacts": list(artefacts.values()), "lifecycle": lifecycle}
+
+    def _rows_in(self, model: type[SQLModel], col: str,
+                 values: set) -> list[dict]:
+        if not values:
+            return []
+        with Session(self._engine) as s:
+            stmt = select(model).where(model.vto == OPEN,
+                                       getattr(model, col).in_(values))
+            return [EntityStore._row_dict(r[0]) for r in s.exec(stmt).all()]
+
+    def fulfilment(self, intent_id: str) -> dict:
+        """Is the Intent fulfilled? The latest Intent-owned Gate verdict (an
+        acceptance/completion gate wins over a clarity gate) + the
+        AcceptanceCriterion satisfaction (Spec 328) — the typed answer to "are we
+        there yet?"."""
+        gates = self._rows(TypedGate, intent_id=intent_id)
+        criteria = self._rows(TypedAcceptanceCriterion, intent_id=intent_id)
+        measurable = [c for c in criteria if c.get("measurable")]
+        done_gates = [g for g in gates
+                      if g.get("kind") in ("acceptance", "completion")]
+        pool = done_gates or gates
+        latest = max(pool, key=lambda g: g.get("vfrom") or 0) if pool else None
+        return {
+            "intent_id": intent_id,
+            "fulfilled": bool(latest and latest.get("passed")),
+            "verdict_gate": latest,
+            "criteria": len(criteria),
+            "measurable_criteria": len(measurable),
+        }
