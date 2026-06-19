@@ -14,137 +14,181 @@ wave: core-discipline
 
 > Port ponytail's Node multi-runtime installer to **Python** and fold it into
 > `agency install` + the MCP server, so **agency can install *itself* across many
-> agent runtimes** — exposing agency's **full functionality** on each, not just
-> the discipline. The way ponytail ships one skill to 14 agents, agency ships its
-> *whole surface* (capability verbs + the Spec 326 discipline) to each agent in
-> that agent's native instruction format. **Goal 3** (agent-uniform lifecycle —
-> *no special-casing per agent*) and **Goal 8** (harness-in-harness — compose
-> with the ecosystem, don't replace it).
+> agent runtimes** — exposing agency's **full functionality** on each (via MCP, or
+> the Spec 079 `agency <cap> <verb>` CLI), not just the discipline. **Goal 3**
+> (agent-uniform — *no special-casing per agent*) and **Goal 8** (compose with
+> the ecosystem).
 >
-> **Wave 1 scope (this spec):** Claude Code (MCP, already installed) + the
-> **instruction-file agents** — Cursor, Windsurf, Cline, Kiro, GitHub Copilot —
-> via native rules / `AGENTS.md`. The other MCP runtimes (Codex, Gemini, pi,
-> opencode, openclaw) are **deferred to Wave 2** (a follow-up spec). Split out of
-> Spec 326 per the 2026-06-19 directive; provenance `intent:7509dac0`,
-> `reflection:fe553a2e`. Porting source vendored under
-> [`../326-ponytail-port/reference/`](../326-ponytail-port/reference/).
+> **Wave 1 (this spec):** Claude Code (MCP, existing) + the **instruction-file
+> agents** — Cursor, Windsurf, Cline, Kiro, GitHub Copilot — via native rules /
+> `AGENTS.md`. Other MCP runtimes (Codex, Gemini, pi, opencode, openclaw) →
+> **Wave 2** (Spec 328, deferred). Split from Spec 326; **panel-hardened**
+> (2026-06-19 `/sc:spec-panel`): compact rules projection, CLI precondition +
+> bootstrap, uninstall/update, partial-install reporting, per-agent validity,
+> Gherkin. Provenance `intent:7509dac0`, `reflection:fe553a2e`; porting source
+> under [`../326-ponytail-port/reference/`](../326-ponytail-port/reference/).
 
 ## Why (evidence + doctrine)
 
-Ponytail's reach is the proof of pattern: **one source of truth, generated into
-every agent's native format** (`.cursor/rules/`, `.windsurf/rules/`,
-`.clinerules/`, `.kiro/steering/`, `AGENTS.md`, `.github/copilot-instructions.md`,
-plus MCP/extension configs), kept in lockstep by `check-rule-copies.js` +
-`build-openclaw-skills.js`. Agency already has the two halves this needs:
-- a **generator** — `install.write()` emits the plugin surface from the live
-  registry (Spec 029/031/065);
-- a **CLI that mirrors every verb** — `agency <cap> <verb>` (Spec 079), so an
-  agent with no MCP can still reach agency's *full* functionality from a shell.
-
-What is missing is the **adapter layer**: turn agency's live surface + the Spec
-326 discipline into each agent's native instruction file. That is what porting
-ponytail's installer buys us, generalized from "a discipline" to "all of agency."
+Ponytail's reach proves the pattern: **one source of truth, generated into every
+agent's native format**, kept in lockstep by `check-rule-copies.js`. Agency has
+the two halves already: a **generator** (`install.write()` emits the surface from
+the live registry) and a **CLI that mirrors every verb** (`agency <cap> <verb>`,
+Spec 079) so a no-MCP agent still reaches agency's full functionality from a
+shell. What is missing is the **adapter layer** — turning agency's live surface +
+the Spec 326 discipline into each agent's native instruction file.
 
 ## Design
 
-### One canonical "agency surface card" → many adapters
+### One canonical `surface_card` → many adapters (projections)
 
-A single derived descriptor (`install.surface_card(engine)`) — the live
-capability/verb list, how to reach agency (MCP config *or* `agency <cap> <verb>`
-CLI), the `agency_welcome` pointer, and the Spec 326 discipline (imported from
-`_discipline.py`, never re-authored). **Every adapter renders from this card** —
-single source of truth, so no per-agent copy can drift (the invariant
-`check-rule-copies.js` enforces upstream; here a `scripts/check-drift` assertion).
+`install.surface_card(engine)` derives, from the live registry: the full
+capability/verb list, the access recipe (MCP config *or* the `agency <cap>
+<verb>` CLI), the `agency_welcome` pointer, and the Spec 326 discipline (imported
+from `_discipline.py`, never re-authored). The card holds the **full** surface;
+each adapter **projects** the slice that fits its host — single source of truth,
+drift-gated.
+
+**Compact projection for instruction files (panel ❌ Wiegers/Newman).** Rules
+files must **NOT** inline the full ~200-verb index — that bloats every session in
+that host and fights Goal 1 (and hits host size limits). Instead they carry: the
+**discipline**, and **entry pointers** — `agency search "<task>"`, `agency help`,
+`agency <cap> <verb>`, `agency_welcome`. The agent discovers verbs on demand via
+the CLI, exactly as an MCP client does via `search`. (The full card still backs
+the MCP/Claude adapter, where discovery is interactive.)
+
+### CLI precondition + bootstrap (panel ❌ Hohpe)
+
+Instruction-file adapters tell the agent to "reach agency via `agency <cap>
+<verb>`," which **presupposes agency is installed and on PATH**. Each generated
+file therefore **opens with a bootstrap line** — *"If `agency` is not found:
+`pipx install agency` (or see <repo>)"* — mirroring the SessionStart pipx
+auto-install (Spec 062). The precondition is stated, not assumed.
 
 ### The adapters (Wave 1)
 
-`agency/install/adapters/` — one small renderer per target, each a pure
-`card → {path: content}`:
+`agency/install/adapters/` — one pure `card → {path: content}` renderer per
+target. **Claude is routed through the card too** (panel ⚠️ Fowler): the `claude`
+adapter calls `surface_card` then delegates to `install.write()` for the MCP
+plugin surface — symmetry preserved, card stays the single source.
 
-| Agent | Channel | Writes |
-|---|---|---|
-| **Claude Code** | MCP (full verb surface) | the existing `install.write()` output + the Spec 326 core handlers |
-| **Cursor** | instruction-file | `.cursor/rules/agency.mdc` — discipline + "reach agency via `agency <cap> <verb>`" + the verb index |
-| **Windsurf** | instruction-file | `.windsurf/rules/agency.md` |
-| **Cline** | instruction-file | `.clinerules/agency.md` |
-| **Kiro** | instruction-file | `.kiro/steering/agency.md` |
-| **GitHub Copilot** | instruction-file | `.github/copilot-instructions.md` |
-| **(universal)** | instruction-file | `AGENTS.md` — the zero-config fallback every AGENTS-reading agent picks up |
+| Agent | Channel | Writes | Validity criterion (Wiegers) |
+|---|---|---|---|
+| **Claude Code** | MCP (full surface) | `install.write()` output + Spec 326 handlers | existing install tests |
+| **Cursor** | rules | `.cursor/rules/agency.mdc` | parses as `.mdc` with required frontmatter keys |
+| **Windsurf** | rules | `.windsurf/rules/agency.md` | non-empty rules block |
+| **Cline** | rules | `.clinerules/agency.md` | non-empty rules block |
+| **Kiro** | steering | `.kiro/steering/agency.md` | non-empty steering doc |
+| **Copilot** | rules | `.github/copilot-instructions.md` **and** `AGENTS.md` | both present (Q2 decided: both) |
+| **(universal)** | rules | `AGENTS.md` | the zero-config fallback any AGENTS-reader picks up |
 
-"**Cover all functionality**": MCP-capable hosts get the full verb surface over
-`.mcp.json`; instruction-file hosts get the **agency CLI** (`agency <cap> <verb>`,
-Spec 079 mirrors every verb) + the live verb index + the discipline + the
-`agency_welcome` entry — so every adapter exposes the *whole* agency, through the
-channel that agent supports.
+### Idempotency, partial-install & uninstall (panel ⚠️ Nygard/Hightower)
+
+- **Merge, never clobber:** each file gets a fenced `<!-- agency:auto:start -->`
+  … `<!-- agency:auto:end -->` block. Existing file **with** the fence → replace
+  the block; **without** the fence → **append a fresh block**, leaving the user's
+  content intact (Spec 292 anchor pattern).
+- **Per-adapter independent report (no global transaction):** each adapter
+  succeeds/fails independently and is reported; one failure never half-writes
+  another. Re-running is the recovery (idempotent), so no rollback machinery.
+- **Uninstall / update:** `agency uninstall --agent <name>` removes the fenced
+  block; update = re-merge (replace the block). Mirrors ponytail's `uninit`.
 
 ### Invocation surface
 
-- CLI: `agency install --agent <name>` (repeatable / `--agent all`); default (no
-  `--agent`) keeps today's Claude-Code behaviour.
-- MCP: `agency_install(agent=…)` substrate tool gains the `agent` selector.
-- Idempotent + additive: never clobbers a user's existing rules file — merges a
-  fenced `<!-- agency:auto -->` block (the Spec 292 anchor pattern), like
-  `install` already does for `CLAUDE.md`.
+`agency install --agent <name>` (repeatable / `--agent all`); default (no
+`--agent`) keeps today's Claude-Code behaviour. MCP `agency_install(agent=…)`.
+Target dir = the **consumer project** (`$CLAUDE_PROJECT_DIR`/cwd); `--global`
+opts into the agent's user config dir (Q1 decided).
 
 ### Ported from ponytail's Node (→ Python)
 
-- per-agent file **shapes** (vendored) → adapter renderers;
-- `check-rule-copies.js` → a `scripts/check-drift` assertion (derived == source);
-- `build-openclaw-skills.js` → the `surface_card` derive step;
-- the `PONYTAIL_DEFAULT_MODE` / config notion → Spec 326's `discipline_level`.
+per-agent file **shapes** (vendored) → adapter renderers · `check-rule-copies.js`
+→ a `scripts/check-drift` assertion (derived == card) · `build-openclaw-skills.js`
+→ the `surface_card` derive step · `uninit` → `agency uninstall --agent`.
 
 ## Slices (TDD)
 
-1. **Surface card + framework.** `install.surface_card(engine)` (live verbs +
-   CLI access + discipline) and the adapter registry + `agency install --agent`
-   CLI flag / MCP `agent` param. *Acceptance:* the card lists the full live verb
-   set and embeds the discipline from `_discipline.py`.
-2. **Claude Code adapter.** Wrap `install.write()` as the `claude` adapter (+ Spec
-   326 handlers). *Acceptance:* `--agent claude` reproduces today's surface, no
-   drift.
-3. **Instruction-file adapters.** Cursor / Windsurf / Cline / Kiro / Copilot,
-   each rendered from the card. *Acceptance:* `--agent cursor` writes a valid
-   `.cursor/rules/agency.mdc` carrying the discipline + CLI access to all verbs;
-   re-running is idempotent (fenced-block merge).
-4. **AGENTS.md generation.** The universal fallback carrying agency's full
-   surface + discipline. *Acceptance:* an AGENTS-reading agent has the verb index
-   + discipline with zero other setup.
-5. **Drift guard + doctor.** `scripts/check-drift` asserts every adapter output
-   derives from the card; `agency_doctor` reports installed agents + the
-   discipline level (with Spec 326). *Acceptance:* drift exits 0; doctor lists the
-   targets.
+1. **Surface card + framework + bootstrap.** `surface_card(engine)`, the adapter
+   registry, the `--agent` CLI flag / MCP param, and the bootstrap-line helper.
+2. **Claude adapter (via card).** Wrap `install.write()` behind the card.
+3. **Instruction-file adapters.** Cursor/Windsurf/Cline/Kiro/Copilot — compact
+   projection, fenced-block merge.
+4. **AGENTS.md generation.** The universal fallback (discipline + entry pointers).
+5. **Uninstall + drift guard + doctor.** `agency uninstall --agent`;
+   `scripts/check-drift` asserts derived == card; `agency_doctor` lists installed
+   agents + discipline level (Spec 326).
 
 ## Acceptance criteria
 
-- C1 — `agency install --agent <name>` produces a valid, idempotent native
-  instruction surface for each Wave-1 agent, carrying agency's **full** verb
-  access (MCP or CLI) + the Spec 326 discipline.
-- C2 — Single source of truth: every adapter renders from `surface_card`; a
-  drift check gates that no copy diverges.
-- C3 — Additive: an existing user rules file is merged (fenced block), never
-  clobbered.
-- C4 — Default behaviour (no `--agent`) is unchanged (Claude Code).
-- C5 — Wave-2 runtimes (Codex/Gemini/pi/opencode/openclaw) are named as
-  out-of-scope follow-ups, not silently dropped.
+- **C1** — `agency install --agent <name>` writes a valid (per the table's
+  criterion), idempotent native surface carrying agency's **full** verb *access*
+  (MCP, or the CLI entry pointers) + the Spec 326 discipline.
+- **C2** — Instruction files carry **entry pointers, not the full verb index**
+  (token-bounded); the full surface stays in the card.
+- **C3** — Single source of truth: every adapter renders from `surface_card`;
+  drift-gated.
+- **C4** — Additive: existing user files are merged via the fenced block, never
+  clobbered; unfenced files get a fresh appended block.
+- **C5** — Each file states the CLI precondition + bootstrap; default `--agent`
+  behaviour (Claude) is unchanged.
+- **C6** — `agency uninstall --agent <name>` cleanly removes the block;
+  per-adapter failures are reported independently.
+- **C7** — Wave-2 runtimes named as out-of-scope follow-ups (Spec 328).
 
-## Open questions
+## Acceptance scenarios (Gherkin sketch)
 
-- **Q1** — `agency install --agent` targets the **consumer project** dir
-  (`$CLAUDE_PROJECT_DIR`/cwd) vs a global agent config dir (`~/.cursor/…`)?
-  *Rec: project dir by default, `--global` opt-in* (mirrors ponytail + Spec 065).
-- **Q2** — Does Copilot get the `.github/copilot-instructions.md` form, the
-  `AGENTS.md` form, or both? *Rec: both* (ponytail ships both; Copilot reads
-  either).
-- **Q3** — Wave 2 (the deferred MCP runtimes) as slices here or a separate Spec
-  328? *Rec: separate spec* once Wave 1 ships and the adapter contract is proven.
+```gherkin
+Scenario: install into a clean Cursor project
+  When I run "agency install --agent cursor" in a project dir
+  Then .cursor/rules/agency.mdc exists with valid frontmatter
+  And it contains the discipline and the "agency <cap> <verb>" entry pointer
+  And it does NOT inline the full verb index
+  And it opens with the pipx bootstrap line
+
+Scenario: re-install is idempotent
+  Given .cursor/rules/agency.mdc already has the agency fenced block
+  When I run "agency install --agent cursor" again
+  Then the agency block is replaced, not duplicated
+  And any non-agency content in the file is unchanged
+
+Scenario: merge into an existing unfenced file
+  Given .github/copilot-instructions.md exists with user content and no fence
+  When I run "agency install --agent copilot"
+  Then a fresh agency fenced block is appended
+  And the original user content is preserved
+
+Scenario: uninstall removes only the agency block
+  Given an agency block is present
+  When I run "agency uninstall --agent cursor"
+  Then the fenced block is gone and user content remains
+
+Scenario: partial install reports per-adapter
+  Given one adapter target dir is read-only
+  When I run "agency install --agent all"
+  Then the writable adapters succeed and are reported
+  And the failing one is reported without aborting the others
+```
+
+## Open questions (remaining)
+
+- **Q4** — Should `AGENTS.md` generation MERGE into agency's own repo `AGENTS.md`
+  (doctrine, file-authoritative) or only write the *consumer project's*? *Rec:
+  consumer-project only; never rewrite the repo's canon AGENTS.md.*
+
+*(Q1 project-dir default, Q2 Copilot both-forms, Q3 Wave-2-as-Spec-328 — decided
+above.)*
 
 ## Followup — Implementation Status (2026-06-19)
 
-**Verdict: Not started** (design drafted; awaiting gate approval; pairs with Spec 326).
+**Verdict: Not started** (design drafted + panel-hardened; awaiting gate approval; pairs with Spec 326).
 
-- **Done:** scope set to Wave 1 (Claude + instruction-file agents) per user
-  directive; surface-card + adapter design grounded on `install.write` + the Spec
-  079 CLI mirror + the Spec 326 discipline; this spec.
-- **Still:** gate approval, then Slice 1.
-- **Blocker / Next step:** confirm Q1–Q3; Spec 326 Slice 1 (`_discipline.py`)
-  should land first so the card can import the canonical discipline.
+- **Done:** Wave-1 scope set per directive; surface-card + adapter design grounded
+  on `install.write` + the Spec 079 CLI mirror + the Spec 326 discipline;
+  `/sc:spec-panel` folded — compact rules projection, CLI precondition/bootstrap,
+  fenced-merge + partial-install reporting, uninstall/update, per-agent validity,
+  Gherkin.
+- **Still:** gate approval, then Slice 1 (after Spec 326 Slice 1 lands
+  `_discipline.py`).
+- **Blocker / Next step:** confirm Q4; Spec 326 Slice 1 first so the card imports
+  the canonical discipline.
