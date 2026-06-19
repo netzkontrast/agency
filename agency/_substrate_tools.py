@@ -223,7 +223,7 @@ class AgencyInstall(SubstrateTool):
     name = "agency_install"
 
     def make_impl(self, engine):
-        def agency_install(target: str = "") -> dict:
+        def agency_install(target: str = "", agent: str = "") -> dict:
             """Scaffold .agency/ + a CLAUDE.md onboarding snippet in the target repo.
 
             Closes the missing MCP install path: previously only available
@@ -232,15 +232,27 @@ class AgencyInstall(SubstrateTool):
             present. The CLAUDE.md snippet is bounded by explicit markers,
             so user content outside the markers is never touched.
 
+            Spec 327 — with ``agent`` (one of cursor/windsurf/cline/kiro/copilot/
+            agents/claude/all), install agency into that agent's native rules
+            instead (the surface_card projected per host; fenced-block merge,
+            per-adapter report).
+
             Inputs:
               - ``target`` (str, optional) — default = ``CLAUDE_PROJECT_DIR``
                 env → cwd (mirrors the Spec 020 scaffold target).
-            Returns: ``{target, scaffolded, gitattributes_updated,
-                       claude_md_path, claude_md_updated, next}``.
+              - ``agent`` (str, optional) — a Spec 327 agent target.
+            Returns: ``{target, scaffolded, …}`` (default) or
+                     ``{target, agents: {name: {ok, wrote|error}}}`` (--agent).
             chain_next: ``intent_bootstrap`` to mint the first Intent.
             """
             from .install import install_op
-            return install_op(target or None)
+            if not agent:
+                return install_op(target or None)
+            from . import _install_adapters as ia
+            import os as _os
+            root = target or _os.environ.get("CLAUDE_PROJECT_DIR") or _os.getcwd()
+            names = list(ia.INSTRUCTION_AGENTS) if agent == "all" else [agent]
+            return {"target": root, "agents": ia.install_agents(names, root, engine)}
 
         return agency_install
 
@@ -498,6 +510,14 @@ class AgencyDoctor(SubstrateTool):
             except Exception as _e4:  # noqa: BLE001 — never crash the doctor
                 frugal_block = {"error": f"{type(_e4).__name__}: {_e4}"}
 
+            # Spec 327 Slice 5 — which agents agency is installed into (instruction
+            # files carrying the agency fenced block in the project dir).
+            try:
+                from ._install_adapters import installed_agents as _ia
+                installed = _ia(project_dir or os.getcwd())
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                installed = []
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -544,6 +564,8 @@ class AgencyDoctor(SubstrateTool):
                 "config": config_block,
                 # Spec 326 Slice 5 — the frugal discipline status at a glance.
                 "frugal": frugal_block,
+                # Spec 327 Slice 5 — agents agency is installed into.
+                "installed_agents": installed,
                 # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
                 # can bootstrap an intent + invoke a verb end-to-end (proven on a
                 # throwaway in-memory engine, so the live graph is untouched).

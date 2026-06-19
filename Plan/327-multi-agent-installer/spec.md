@@ -180,11 +180,25 @@ Scenario: partial install reports per-adapter
 
 ## Followup — Implementation Status (2026-06-19)
 
-**Verdict: Not started** (design drafted + panel-hardened; reframed native; awaiting gate approval; pairs with Spec 326 + 328).
+**Verdict: Shipped** (Wave 1 — all 5 slices in `agency/_install_adapters.py`).
 
-- **Done:** Wave-1 scope set; surface-card + adapter design grounded on
-  `install.write` + the Spec 079 CLI mirror + the Spec 326 frugal discipline;
-  panel findings folded; third-party framing/source removed per directive.
-- **Still:** gate approval, then Slice 1 (after Spec 326/328 Slice 1).
-- **Blocker / Next step:** confirm Q4; Spec 328 (`_config.py`) + Spec 326
-  (`_frugal.py`) Slice 1 land first so the card imports the canonical discipline.
+- **Done — S1–S4** (card + adapters + AGENTS.md): `surface_card(engine)` derives
+  the single source (frugal discipline imported from `_frugal`, the live cap list,
+  the CLI/`agency_welcome` access recipe). Adapters project the **compact** body
+  (discipline + entry pointers, NOT the ~200-verb index) into each host's native
+  file — Cursor (`.mdc` frontmatter) · Windsurf · Cline · Kiro (steering
+  frontmatter) · Copilot (`.github/copilot-instructions.md` + `AGENTS.md`) ·
+  universal `AGENTS.md`; every file opens with the pipx **bootstrap** line. Merge
+  is the Spec 292 fenced block (`<!-- agency:auto:start -->…`): replace if present,
+  append if the file is unfenced — user content never clobbered. `claude`
+  delegates to `install.write` (card stays the single entry). Invocation:
+  `agency install --agent <name>` (repeatable / `all`) + MCP `agency_install(agent=)`.
+- **Done — S5** (uninstall + drift + doctor): `agency uninstall --agent` removes
+  only the block; per-adapter independent report (one failure never aborts the
+  rest); `agency_doctor.installed_agents` lists the installed agents; the **drift
+  guard** is the acceptance invariant *every adapter projection carries the safety
+  floor* (CI-gated via pytest — no adapter copy can silently drop it).
+- **Tests:** 8 acceptance scenarios (`features/installer.feature`); CLI smoke
+  (install + uninstall) green; install-regen drift clean (327 adds no generated
+  surface). Q4 decided: consumer-project `AGENTS.md` only — never the repo canon.
+- **Follow-up:** Wave 2 MCP runtimes (Codex/Gemini/pi/opencode) → Spec 329.
