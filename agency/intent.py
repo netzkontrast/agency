@@ -69,9 +69,33 @@ class Intent:
             self.m.link(iid, parent_intent_id, "PARENT_INTENT")
         return iid
 
-    def confirm(self, intent_id: str) -> str:
+    def confirm(self, intent_id: str, require_clarity: bool = False,
+                override_token: str = "",
+                threshold: float | None = None) -> str:
+        """Confirm an Intent — and record its clarity, optionally GATING on it.
+
+        The clarity gate lives HERE, on the substrate ``confirm`` (Spec 307
+        §Refinement), so it is unbypassable: every confirmed Intent records a
+        ``clarity_score`` (depth for free), and when ``require_clarity`` is set the
+        confirm is REFUSED below ``threshold`` unless an ``override_token`` is given.
+
+        ``require_clarity`` defaults to False so the canonical
+        ``capture_and_confirm`` bootstrap and every existing caller keep working —
+        the gate is opt-in (the ``guided-discovery`` discipline opts in at its final
+        phase). The score is computed by the shared substrate function the
+        ``discover.clarity`` verb also uses (no second source — CLAUDE.md rule 4).
+        """
+        from ._clarity import CLARITY_THRESHOLD, clarity_score
+        thresh = CLARITY_THRESHOLD if threshold is None else threshold
+        score = clarity_score(self.m, intent_id)
+        if require_clarity and score < thresh and not override_token:
+            raise ValueError(
+                f"clarity gate: intent {intent_id!r} scores {score:.2f} < "
+                f"{thresh:.2f} — sharpen it (ground / clarify / scope / "
+                f"acceptance) or pass an override_token to confirm anyway")
         # in place: confirming doesn't fork identity, so SERVES edges stay stable
-        self.m.update(intent_id, {"status": "confirmed"})
+        self.m.update(intent_id, {"status": "confirmed",
+                                  "clarity_score": round(score, 3)})
         return intent_id
 
     def amend(self, intent_id: str, **changes) -> str:

@@ -13,8 +13,9 @@ from __future__ import annotations
 from agency.capability import verb
 from agency.toolresult import ToolResult
 
-# Documented, tunable readiness threshold (CLAUDE.md #8) — not a frozen snapshot.
-CLARITY_THRESHOLD = 0.6
+# Single source of truth for the threshold — the substrate clarity module the
+# Intent.confirm gate also reads (Spec 307 §Refinement; CLAUDE.md rule 4).
+from agency._clarity import CLARITY_THRESHOLD  # noqa: F401  (re-exported for callers)
 
 
 class RefineCluster:

@@ -82,22 +82,11 @@ class DiscoverCluster:
           - ``scope_bounded``        — a ``ScopeBoundary`` ``BOUNDS`` the Intent (Spec 318)
 
         Signals whose source nodes/edges don't exist yet read False (missing), so
-        the score rises as the discovery children land — no second source of truth.
+        the score rises as the discovery children land. Delegates to the SUBSTRATE
+        ``agency._clarity`` (Spec 307 §Refinement) so the verb and the
+        ``Intent.confirm`` gate share one source of truth (CLAUDE.md rule 4).
         """
+        from agency import _clarity
         from .interview import DRAFT_FIELD_PREFIX
         iid = intent_id or self.ctx.intent_id
-        intent = self.ctx.recall(iid) or {}
-        triple_ok = all(
-            str(intent.get(f, "")).strip()
-            and not str(intent.get(f, "")).startswith(DRAFT_FIELD_PREFIX)
-            for f in ("purpose", "deliverable", "acceptance"))
-        criteria = self.ctx.neighbors(iid, "VALIDATES", direction="in")
-        questions = self.ctx.neighbors(iid, "CLARIFIES", direction="in")
-        return {
-            "has_triple": triple_ok,
-            "acceptance_measurable": any(c.get("measurable") for c in criteria),
-            "ambiguities_resolved": not any(
-                q.get("status") == "pending" for q in questions),
-            "grounded": bool(self.ctx.neighbors(iid, "GROUNDS", direction="in")),
-            "scope_bounded": bool(self.ctx.neighbors(iid, "BOUNDS", direction="in")),
-        }
+        return _clarity.clarity_signals(self.ctx.memory, iid, DRAFT_FIELD_PREFIX)
