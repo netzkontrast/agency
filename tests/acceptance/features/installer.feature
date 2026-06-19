@@ -39,6 +39,14 @@ Feature: multi-agent self-installer (Spec 327)
     Then every requested adapter is reported
     And the cursor and agents adapters succeeded
 
+  # Spec 327 C6 — a failing adapter is reported without aborting the others.
+  Scenario: a failing adapter does not abort the rest
+    Given a clean installer project
+    And the cursor target path is blocked
+    When I install agency for all instruction agents
+    Then the cursor adapter is reported failed
+    And the agents adapter still succeeded
+
   Scenario: the card is the single source — adapters carry the live discipline
     Given a clean installer project
     When I install agency for agent "windsurf"

@@ -85,7 +85,13 @@ def _fenced(body: str) -> str:
 
 def _split_block(existing: str) -> tuple[str, str] | None:
     """The ``(pre, post)`` text around the fenced agency block, or ``None`` when no
-    block is present — the one place the fence is parsed."""
+    block is present — the one place the fence is parsed.
+
+    # frugal: assumes a well-formed matched START…END pair (what install always
+    # writes). An UNMATCHED / reversed / duplicated marker — only reachable by a
+    # user hand-editing the file or pasting the literal fence into their prose —
+    # is not auto-repaired; harden to a START-then-next-END scan if that surfaces.
+    """
     if FENCE_START in existing and FENCE_END in existing:
         return existing.split(FENCE_START, 1)[0], existing.split(FENCE_END, 1)[1]
     return None

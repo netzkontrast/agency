@@ -14,6 +14,14 @@ Feature: frugal M2 — per-verb envelope stamp (Spec 326 Slice 2)
     When a capability verb returns over the wire
     Then the wire return has no frugal stamp
 
+  # Spec 326 C6 — any render failure degrades silently; the verb still succeeds.
+  Scenario: a broken render degrades silently — the verb is unaffected
+    Given a frugal wire engine at the default level
+    And the frugal render is broken
+    When a capability verb returns over the wire
+    Then the wire return has no frugal stamp
+    And the wire return is otherwise intact
+
   Scenario: agency_welcome carries the frugal stamp in its prefix
     Given a frugal wire engine at the default level
     When agency_welcome returns over the wire

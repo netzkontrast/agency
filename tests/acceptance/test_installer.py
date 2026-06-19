@@ -57,6 +57,24 @@ def _install_all(proj):
     proj["report"] = ia.install_agents(ia.INSTRUCTION_AGENTS, proj["root"], proj["engine"])
 
 
+@given("the cursor target path is blocked")
+def _block_cursor(proj):
+    # A FILE where the .cursor/ dir must be → the cursor adapter's makedirs fails,
+    # so it must report failed while the other adapters still succeed.
+    with open(os.path.join(proj["root"], ".cursor"), "w", encoding="utf-8") as f:
+        f.write("not a dir")
+
+
+@then("the cursor adapter is reported failed")
+def _cursor_failed(proj):
+    assert proj["report"]["cursor"]["ok"] is False, proj["report"]["cursor"]
+
+
+@then("the agents adapter still succeeded")
+def _agents_ok(proj):
+    assert proj["report"]["agents"]["ok"] is True, proj["report"]["agents"]
+
+
 @when(parsers.parse('I uninstall agency for agent "{name}"'))
 def _uninstall(proj, name):
     proj["report"] = ia.uninstall_agents([name], proj["root"])

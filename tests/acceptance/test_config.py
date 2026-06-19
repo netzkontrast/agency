@@ -6,6 +6,8 @@ same way test_install.py drives agency.install.
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -79,6 +81,31 @@ def _scaffold(cfg):
 @given("the config has been scaffolded")
 def _scaffolded(cfg):
     _config.config_scaffold(path=cfg["path"])
+
+
+@given("the JULES_API_KEY env is unset")
+def _no_jules(cfg):
+    cfg["mp"].delenv("JULES_API_KEY", raising=False)
+
+
+@given("the config file is corrupt")
+def _corrupt(cfg):
+    os.makedirs(os.path.dirname(cfg["path"]), exist_ok=True)
+    cfg["corrupt"] = "this: is: not: valid: [[[\n"
+    with open(cfg["path"], "w", encoding="utf-8") as f:
+        f.write(cfg["corrupt"])
+
+
+@then("the config file is unchanged")
+def _unchanged(cfg):
+    with open(cfg["path"], encoding="utf-8") as f:
+        assert f.read() == cfg["corrupt"]
+
+
+@then(parsers.parse('the secret value is empty with source "{source}"'))
+def _secret_empty(resolved, source):
+    assert resolved["value"] in ("", None), resolved
+    assert resolved["source"] == source, resolved
 
 
 @given(parsers.parse('the user edits the frugal level to "{level}" with a "{comment}" comment'))

@@ -122,10 +122,14 @@ def config_resolve(dotted: str, *, path: str | None = None) -> dict:
     section, key = found
     if key.env and os.environ.get(key.env) is not None:
         return {"value": os.environ[key.env], "source": "env"}
-    data = _read(path or _resolve_config_path())
-    sec = data.get(section)
-    if isinstance(sec, dict) and key.name in sec:
-        return {"value": sec[key.name], "source": "file"}
+    # Secrets are env-only: the file holds a ${env:VAR} REFERENCE, never a value,
+    # so a secret resolves env → default — never the file placeholder (which would
+    # leak the literal "${env:...}" string to a caller). Non-secrets read the file.
+    if not key.secret:
+        data = _read(path or _resolve_config_path())
+        sec = data.get(section)
+        if isinstance(sec, dict) and key.name in sec:
+            return {"value": sec[key.name], "source": "file"}
     return {"value": key.default, "source": "default"}
 
 
@@ -241,7 +245,17 @@ def config_scaffold(path: str | None = None) -> str:
     if os.path.exists(target):
         with open(target, encoding="utf-8") as f:
             existing_text = f.read()
-    present = _read(target)                    # which sections already exist
+    # Parse the existing text directly (one parse). If it's non-empty but CORRUPT
+    # YAML, repair must NOT blind-append sections — that yields a doubly-broken
+    # file. Leave it untouched and let the caller/doctor surface the parse error.
+    if existing_text.strip():
+        try:
+            parsed = yaml.safe_load(existing_text) if yaml is not None else {}
+        except yaml.YAMLError:
+            return target                      # corrupt — don't worsen it
+        present = parsed if isinstance(parsed, dict) else {}
+    else:
+        present = {}
     appended = [_render_section(section, keys)
                 for section, keys in _REGISTRY.items() if section not in present]
     if not appended and existing_text:

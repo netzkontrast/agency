@@ -213,3 +213,9 @@ Scenario: secrets are never written as literals
   S5 acceptance scenario proves it with NO explicit import.
 - **Follow-up (tracked):** unify the novel/music READ path onto `config_get`
   (precedence design + cache-invalidation) so an edit to the unified file is live.
+- **Self-review hardening (2026-06-19):** (1) a `secret` key now resolves env →
+  default, **never** the file `${env:VAR}` placeholder (`config_resolve` skips the
+  file for secrets — was leaking the literal string to `config_get`); (2)
+  `config_scaffold` detects a **corrupt** existing file (YAML parse error) and
+  leaves it untouched instead of appending sections to broken YAML (repair must
+  not worsen it). Both pinned by new scenarios.

@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings.
 
-### `agency/` (60 files)
+### `agency/` (61 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -137,6 +137,10 @@ client.
 When the AnthropicDriver isn't capable (no ``ANTHROPIC_API_KEY`` + no
 injected client), ``driver.backend()`` returns ``"none"`` and
 ``driver.complete`` raises ``AUTH_FAILED``.
+- **_install_adapters.py** — Spec 327 — multi-agent self-installer.
+
+One ``surface_card`` (derived from the live registry + the Spec 326 frugal
+discipline) projected into each agent's native instruction format.
 - **_invoke.py** — Spec 286 Phase-1 / A3 — the `Registry.invoke` decomposition.
 
 `Registry.invoke` was a ~105-line god-method fusing five responsibilities.
@@ -1063,7 +1067,7 @@ Closes the documented ENGINE GAP: the storyform gates + checks read a
 - **test_render_driver_substrate.py** — Spec 283 Slice 1 (Workstream F) — capability render substrate.
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate.
 
-### `tests/acceptance/` (68 files)
+### `tests/acceptance/` (69 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.
 
 Phase C — the flat `tests/test_*.py` are converted into behaviour scenarios
@@ -1214,6 +1218,11 @@ cache-stable prefix.
 
 Converted from tests/test_implicit_intent.py.
 - **test_install.py** — Acceptance — install pipeline (Spec 029/031/032/062/064/065/092).
+- **test_installer.py** — Acceptance — multi-agent self-installer (Spec 327).
+
+surface_card → per-agent adapters (compact projection: frugal discipline + entry
+pointers, NOT the full verb index); idempotent fenced-block merge; per-adapter
+report; uninstall removes only the block.
 - **test_intent.py** — Acceptance — intent capability: critical-thinking methods, chaining,
 owners, path analysis, and skill projection.
 - **test_jules.py** — Acceptance — jules capability.

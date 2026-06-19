@@ -46,6 +46,13 @@ def _level(we, level):
     return we
 
 
+@given("the frugal render is broken")
+def _break_render(we):
+    def _boom(*a, **k):
+        raise RuntimeError("render exploded")
+    we["mp"].setattr("agency._frugal.render", _boom)
+
+
 @when("a capability verb returns over the wire")
 def _verb(we):
     we["r"] = _call_verb(we["engine"])
@@ -86,6 +93,11 @@ def _stable(we):
 @then("the wire return has no frugal stamp")
 def _no_stamp(we):
     assert "frugal" not in we["r"], we["r"]
+
+
+@then("the wire return is otherwise intact")
+def _intact(we):
+    assert we["r"]["id"].startswith("document:"), we["r"]
 
 
 @then("the welcome prefix carries the frugal stamp")
