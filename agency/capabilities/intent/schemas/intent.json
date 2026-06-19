@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Intent",
+  "description": "The human-owned root node — why/what merged, deliverable as an attribute (agency/intent.py; Spec 048 chaining + owners, Spec 153 Slice 6 coverage). Everything edges back here via SERVES.",
+  "type": "object",
+  "required": ["purpose", "deliverable", "acceptance"],
+  "properties": {
+    "purpose": {
+      "type": "string",
+      "description": "WHY this intent exists — the goal it serves."
+    },
+    "deliverable": {
+      "type": "string",
+      "description": "WHAT is produced — the concrete artefact the intent demands."
+    },
+    "acceptance": {
+      "type": "string",
+      "description": "How completion is verified — the success test."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "confirmed", "superseded"],
+      "description": "Lifecycle of the intent itself: minted draft → confirmed → superseded on amend."
+    },
+    "owner": {
+      "type": "string",
+      "enum": ["user", "agent", "subagent", "jules", "system"],
+      "description": "Who minted the intent (Spec 048). Roots default to 'user', sub-intents to 'agent'."
+    },
+    "parent_intent_id": {
+      "type": "string",
+      "description": "Links a sub-intent to its root via the PARENT_INTENT edge ('' for a root)."
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MaintenanceRun",
+  "description": "One scheduled steward maintenance run — the autolearn chain node (agency/capabilities/develop/_main.py develop.maintain; Spec 153 Slice 6 coverage). PRECEDES the next run so the loop learns across schedules.",
+  "type": "object",
+  "required": ["focus", "status"],
+  "properties": {
+    "focus": {
+      "type": "string",
+      "description": "The run's focus hint ('auto' when unscoped)."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "shipped", "deferred"],
+      "description": "Run state: 'open' on mint, advanced as the run selects + ships."
+    },
+    "selected": {
+      "type": "string",
+      "description": "The candidate the run chose to work this cycle ('' until phase 1 picks)."
+    },
+    "next_candidate": {
+      "type": "string",
+      "description": "The highest-impact move handed to the next run ('' until phase 5 ranks)."
+    }
+  }
+}

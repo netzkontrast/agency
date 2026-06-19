@@ -6,7 +6,6 @@
 # Format: one label per line
 #
 AcceptanceCriterion
-Agent
 Album
 Analysis
 AntiPattern
@@ -26,18 +25,14 @@ Document
 Event
 FeasibilitySignal
 Finding
-Gate
 Genre
 Idea
-Intent
 IntentRefinement
-Invocation
 JulesAlias
 KnownFact
 Language
 Lifecycle
 MagicSystem
-MaintenanceRun
 ModeActivation
 ModeShift
 NarrativeBeat
