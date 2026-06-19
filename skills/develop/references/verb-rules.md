@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## develop verb audit — 0 of 17 verbs need work
+## develop verb audit — 0 of 18 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -21,6 +21,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `develop.draft_plan` | act | ✓ clean |
 | `develop.estimate` | transform | ✓ clean |
 | `develop.index` | effect | ✓ clean |
+| `develop.maintain` | act | ✓ clean |
 | `develop.mode_select` | effect | ✓ clean |
 | `develop.optimize_skilldoc` | act | ✓ clean |
 | `develop.plan_status` | transform | ✓ clean |
