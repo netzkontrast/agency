@@ -153,6 +153,55 @@ class TypedAcceptanceCriterion(SQLModel, table=True):
     vto: int = OPEN
 
 
+class TypedLifecycleState(SQLModel, table=True):
+    """Lifecycle — the task/session state machine (Spec 329). Weaves to its Intent
+    (``serves_intent_id`` ← SERVES) and the performer (``agent_id``)."""
+
+    __tablename__ = "agency_lifecycle_state"
+
+    id: str = Field(primary_key=True)
+    state: Optional[str] = Field(default=None, index=True)
+    phase: Optional[str] = None
+    serves_intent_id: Optional[str] = Field(
+        default=None, foreign_key="agency_intent.id", index=True)
+    agent_id: Optional[str] = Field(
+        default=None, foreign_key="agency_agent.id", index=True)
+    vfrom: int = 0
+    vto: int = OPEN
+
+
+class TypedArtefact(SQLModel, table=True):
+    """Artefact — a produced output (Spec 329, Memory). ``produced_by_id`` ←
+    PRODUCES (the Invocation that produced it); ``serves_intent_id`` ← SERVES."""
+
+    __tablename__ = "agency_artefact"
+
+    id: str = Field(primary_key=True)
+    kind: Optional[str] = Field(default=None, index=True)
+    produced_by_id: Optional[str] = Field(
+        default=None, foreign_key="agency_invocation.id", index=True)
+    serves_intent_id: Optional[str] = Field(
+        default=None, foreign_key="agency_intent.id", index=True)
+    vfrom: int = 0
+    vto: int = OPEN
+
+
+class TypedEdge(SQLModel, table=True):
+    """The Memory provenance SPINE (Spec 329) — every typed edge mirrored, so any
+    traversal (GROUNDS · VALIDATES · SUPERSEDED_BY · DISPATCHED_TO · …) is a typed
+    query, not just the hot FK columns. ``id`` is the deterministic ``src|rel|dst``
+    so a re-link updates the one current row."""
+
+    __tablename__ = "agency_edge"
+
+    id: str = Field(primary_key=True)
+    src_id: str = Field(index=True)
+    dst_id: str = Field(index=True)
+    rel: str = Field(index=True)
+    vfrom: int = 0
+    vto: int = OPEN
+
+
 # label → typed model (the router's switchboard). The mirror routes a CORE label
 # here IN ADDITION to the generic EntityRecord (additive — no existing reader of
 # EntityRecord breaks); a non-core/domain label stays EntityRecord-only.
@@ -163,6 +212,8 @@ CORE_TYPED: dict[str, type[SQLModel]] = {
     "Invocation": TypedInvocation,
     "Gate": TypedGate,
     "AcceptanceCriterion": TypedAcceptanceCriterion,
+    "Lifecycle": TypedLifecycleState,
+    "Artefact": TypedArtefact,
 }
 
 # Columns NEVER written from node props — they are derived from EDGES, set by
@@ -173,10 +224,12 @@ _FK_COLUMNS: dict[str, set[str]] = {
     "Invocation": {"serves_intent_id", "agent_id"},
     "Gate": {"intent_id"},
     "AcceptanceCriterion": {"intent_id"},
+    "Lifecycle": {"serves_intent_id", "agent_id"},
+    "Artefact": {"produced_by_id", "serves_intent_id"},
 }
 
 # edge rel → the FK column it sets on the edge's SRC row (value := the edge's DST).
-# Every projected rel is (src)-[rel]->(dst) with the FK living on the src row.
+# Every SRC-projected rel is (src)-[rel]->(dst) with the FK living on the src row.
 # VALIDATES + GATES both set ``intent_id`` — the src's own table (the only one
 # holding a row with id == src) disambiguates which gets it.
 # AGENCY-DRIFT: typed-edge-fk — the rels that project onto a typed FK column.
@@ -186,6 +239,15 @@ _EDGE_FK_SRC: dict[str, str] = {
     "PARENT_INTENT": "parent_intent_id",
     "VALIDATES": "intent_id",
     "GATES": "intent_id",
+}
+
+# edge rel → (FK column on the DST row, required SRC label). REVERSE-direction:
+# ``(src)-[rel]->(dst)`` sets the FK on the DST row to ``src`` — but only when the
+# src is of the required label. PRODUCES is emitted both Invocation→Artefact AND
+# Intent→Artefact; only the former names a real producer, so an Intent-produced
+# artefact correctly keeps ``produced_by_id`` null.
+_EDGE_FK_DST: dict[str, tuple[str, str]] = {
+    "PRODUCES": ("produced_by_id", "Invocation"),
 }
 
 
@@ -211,7 +273,8 @@ class EntityStore:
             self._engine = create_engine(
                 url, connect_args={"check_same_thread": False},
                 poolclass=StaticPool)
-        tables = [EntityRecord.__table__] + [m.__table__ for m in CORE_TYPED.values()]
+        tables = ([EntityRecord.__table__, TypedEdge.__table__]
+                  + [m.__table__ for m in CORE_TYPED.values()])
         SQLModel.metadata.create_all(self._engine, tables=tables)
 
     @staticmethod
@@ -248,24 +311,70 @@ class EntityStore:
         return node_id
 
     def set_fk_from_edge(self, src: str, dst: str, rel: str) -> None:
-        """Set the typed FK column an edge projects onto (Spec 327). The three
-        slice-327 rels are ``(src)-[rel]->(dst)`` with the FK on the SRC row
-        (value := ``dst``). Only the src's own typed table carries a row with
-        ``id == src``, so exactly one row is touched (or none, for a non-core src
-        or an unprojected rel)."""
+        """Set the typed FK column(s) an edge projects onto (Spec 327/329).
+
+        SRC-direction (``_EDGE_FK_SRC``): ``(src)-[rel]->(dst)`` sets the FK on the
+        SRC row (value := ``dst``). Only the src's own typed table carries a row
+        with ``id == src``, so exactly one row is touched.
+
+        DST-direction (``_EDGE_FK_DST``): the FK lives on the DST row (value :=
+        ``src``) — but only when ``src`` is of the required label (so an
+        Intent-produced Artefact keeps ``produced_by_id`` null)."""
         col = _EDGE_FK_SRC.get(rel)
-        if col is None:
-            return
+        if col is not None:
+            self._set_fk(src, col, dst)
+        dst_rule = _EDGE_FK_DST.get(rel)
+        if dst_rule is not None:
+            col, required_src_label = dst_rule
+            src_model = CORE_TYPED.get(required_src_label)
+            if src_model is not None and self._exists(src_model, src):
+                self._set_fk(dst, col, src)
+
+    def _exists(self, model: type[SQLModel], node_id: str) -> bool:
+        with Session(self._engine) as s:
+            return s.get(model, node_id) is not None
+
+    def _set_fk(self, node_id: str, col: str, value: str) -> None:
+        """Set ``col = value`` on whichever core table holds a row with this id."""
         for model in CORE_TYPED.values():
             if col not in model.__table__.columns.keys():
                 continue
             with Session(self._engine) as s:
-                row = s.get(model, src)
+                row = s.get(model, node_id)
                 if row is not None:
-                    setattr(row, col, dst)
+                    setattr(row, col, value)
                     s.add(row)
                     s.commit()
                     return
+
+    # --- Spec 329 — the typed Edge spine (every edge, full traversal) ------
+    def upsert_edge_row(self, src: str, dst: str, rel: str,
+                        vfrom: int = 0, vto: int = OPEN) -> str:
+        """Mirror one authoritative graph edge into the typed Edge spine. The id
+        is the deterministic ``src|rel|dst`` so a re-link updates the one current
+        row (the graph holds full bi-temporal edge history)."""
+        eid = f"{src}|{rel}|{dst}"
+        with Session(self._engine) as s:
+            row = s.get(TypedEdge, eid)
+            if row is None:
+                row = TypedEdge(id=eid, src_id=src, dst_id=dst, rel=rel,
+                                vfrom=vfrom, vto=vto)
+            else:
+                row.vfrom, row.vto = vfrom, vto
+            s.add(row)
+            s.commit()
+        return eid
+
+    def edge_rows(self) -> list[dict]:
+        """All CURRENT (``vto == OPEN``) typed Edge rows as dicts."""
+        with Session(self._engine) as s:
+            rows = s.exec(select(TypedEdge).where(TypedEdge.vto == OPEN)).all()
+            return [self._row_dict(r[0]) for r in rows]
+
+    def edge_row(self, src: str, rel: str, dst: str) -> Optional[dict]:
+        with Session(self._engine) as s:
+            row = s.get(TypedEdge, f"{src}|{rel}|{dst}")
+            return self._row_dict(row) if row is not None else None
 
     def typed_row(self, label: str, node_id: str) -> Optional[dict]:
         """The typed row for a core node as a dict, or ``None``."""

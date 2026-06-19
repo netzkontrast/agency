@@ -1,7 +1,7 @@
 ---
 spec_id: "329"
 slug: typed-lifecycle-memory-spine
-status: draft
+status: Shipped
 last_updated: 2026-06-19
 owner: "@agency"
 vision_goals: [2, 3, 4]
@@ -109,10 +109,26 @@ authoritative graph.
 
 ## Followup — Implementation Status (2026-06-19)
 
-- **Status: draft.** Slice 3 — completes the interweave. Depends on Slice 327
-  (`Intent`/`Invocation`/`Agent` + router). The `Edge` spine is the substrate the
-  read API (330) joins on.
-- **Open question (resolve at build):** whether `Edge` mirrors superseded edges
-  (`vto != OPEN`) or only current. Default: current-only (the typed projection is
-  "now"; the graph holds bi-temporal history), with `vfrom`/`vto` present so a
-  later as-of typed read is a pure addition.
+- **Status: SHIPPED 2026-06-19.** Slice 3 — completes the interweave. Done:
+  - `agency/_entity_store.py` — `TypedLifecycleState` (state · phase ·
+    `serves_intent_id` · `agent_id`), `TypedArtefact` (kind · `produced_by_id` ·
+    `serves_intent_id`), and `TypedEdge` (the spine: `src_id` · `dst_id` · `rel`,
+    id == `src|rel|dst`). New REVERSE-direction FK map `_EDGE_FK_DST`
+    (`PRODUCES` → `produced_by_id` on the dst Artefact, **only** when the src is an
+    `Invocation` — an Intent-produced artefact keeps it null). New methods
+    `upsert_edge_row` / `edge_rows` / `edge_row`; `set_fk_from_edge` now handles
+    both SRC- and DST-direction FKs via the shared `_set_fk` helper.
+  - `agency/memory.py` — `link` captures the edge tick once and projects the edge
+    onto BOTH its typed FK AND the `TypedEdge` spine after the authoritative edge
+    write (one-way, failure-isolated).
+  - `tests/acceptance/{features/typed_spine.feature,test_typed_spine.py}` — 6
+    scenarios: Artefact `produced_by_id`+`serves_intent_id` FKs, the Intent-produced
+    artefact keeps `produced_by_id` null, Lifecycle weaves to its Intent, spine
+    completeness (every live graph edge ⊆ the typed spine), +1 row per link, and
+    one-way failure-isolation (a forced spine error leaves the graph edge).
+- **Decisions:** the spine keys edges by `src|rel|dst` (current row; the graph
+  holds full bi-temporal edge history) — `vfrom`/`vto` present for a later as-of
+  read. `serves_intent_id` reuses the existing `SERVES` src-FK (Lifecycle/Artefact
+  share the column; the row-existence check disambiguates).
+- **Next:** Slice 330 — the `IntentStore` typed-join read API + the parity gate,
+  the consumer that makes these columns load-bearing (dormant-surface audit).

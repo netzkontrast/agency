@@ -113,11 +113,14 @@ class Memory:
         attempts = 4
         for i in range(attempts):
             try:
-                self.g.upsert_edge(src, dst, {**(props or {}), "vfrom": self._now()}, rel_type=rel)
-                # Spec 327 — project the edge onto a typed FK column (one-way,
-                # failure-isolated: the authoritative edge is already written).
+                etick = self._now()
+                self.g.upsert_edge(src, dst, {**(props or {}), "vfrom": etick}, rel_type=rel)
+                # Spec 327/329 — project the edge onto its typed FK column AND the
+                # typed Edge spine (one-way, failure-isolated: the authoritative
+                # edge is already written, so a projection error never fails it).
                 try:
                     self.entities.set_fk_from_edge(src, dst, rel)
+                    self.entities.upsert_edge_row(src, dst, rel, vfrom=etick)
                 except Exception:                           # noqa: BLE001
                     pass
                 return
