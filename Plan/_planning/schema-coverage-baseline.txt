@@ -10,7 +10,6 @@ BoundaryUse
 Chapter
 CodexEntry
 Culture
-DecisionRecord
 Genre
 Idea
 KnownFact
