@@ -19,17 +19,13 @@ __pycache__/
 # Spec 292 — `.agency/sessions/` is COMMITTED (user directive 2026-06-16): the
 # session graph + archived session Documents are durable provenance, like the
 # graph DB itself (Spec 020), so a session restores across clones.
-# User directive 2026-06-19: the blanket `*.db` ignore is LIFTED so the durable
-# substrate DBs (`.agency/session.db`, `.codegraph/codegraph.db`) can be tracked
-# and travel with the repo. Only the transient SQLite sidecars below stay
-# ignored (committing a WAL/journal/shm would corrupt the DB).
-# .agency/session.db: excluded despite the 2026-06-19 directive to lift *.db —
-# PR #194 (Jules) intentionally removed it from tracking because the stop-hook
-# committed it on every turn, creating a CI-loop. Exclude it here to prevent
-# the stop-hook from flagging it as untracked on every session.
+# User directive 2026-06-19: `.agency/session.db` is SNAPSHOTTED, not tracked. The
+# live binary churns every session + is 96% ephemeral Event noise; the DURABLE graph
+# is exported to portable SQL in `.agency/sql/` (`scripts/session-snapshot export`)
+# and restored on SessionStart when the db is missing. (PR #194/Jules also untracked
+# it — the stop-hook was committing it every turn, a CI-loop.) So the binary is ignored:
 .agency/session.db
-# Literal '${CLAUDE_PROJECT_DIR}' directory created by unexpanded env var in
-# some environment setup — never a real repo artefact.
+# Literal '${CLAUDE_PROJECT_DIR}' directory from an unexpanded env var — never real.
 ${CLAUDE_PROJECT_DIR}
 # SQLite WAL/journal files (transient — never commit)
 *.db-journal
@@ -42,5 +38,6 @@ ${CLAUDE_PROJECT_DIR}
 # a tracked file is unaffected by a gitignored parent — the code index still travels
 # and its updates still commit.
 .codegraph/
-# Spurious directory created when CLAUDE_PROJECT_DIR env var is unexpanded in hooks
-\${CLAUDE_PROJECT_DIR}/
+# Spec 336 — ephemeral tool-call capture store (local; distilled by the Stop-hook export)
+.agency/toolcalls.db
+.agency/toolcalls.db-*

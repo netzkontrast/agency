@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ToolcallExport",
+  "description": "A durable distillation of a session's ephemeral tool-call capture (agency/capabilities/toolcalls/; Spec 336 S4). Recorded by toolcalls.export — the top calls + responses + new-spec suggestions, written FULL to .agency/sessions/<session>-toolcalls.md. SERVES the active intent and survives a prune of the high-volume ephemeral store.",
+  "type": "object",
+  "required": ["session", "top_n", "suggestions"],
+  "properties": {
+    "session": {
+      "type": "string",
+      "description": "The session id whose captured tool calls were distilled."
+    },
+    "top_n": {
+      "type": "integer",
+      "description": "How many top tool-call shapes (by frequency × payload cost) the export listed."
+    },
+    "suggestions": {
+      "type": "integer",
+      "description": "Count of new-spec suggestions generated (heuristic + optional LLM)."
+    }
+  }
+}

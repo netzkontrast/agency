@@ -126,6 +126,9 @@ class DoctrineCapability(CapabilityBase):
     name = "doctrine"
     home = "capability"   # a reference surface consulted during work; no new pillar
     artefact_schemas = ArtefactSchemas.from_module(__file__)
+    # `doctrine-citation` schema lives in schemas/doctrine-citation.json (the
+    # single source — Spec 153 migration). It is NOT re-declared inline here:
+    # the engine rejects a schema named in both OntologyExtension and a file.
     ontology = OntologyExtension(
         nodes={"DoctrineCitation": ["name"]},
     )
