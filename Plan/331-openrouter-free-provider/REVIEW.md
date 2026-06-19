@@ -10,7 +10,7 @@ The implementation correctly enforces the use of OpenRouter's free tier, adds au
    - **Severity:** None (Looks good)
 
 2. **`system` param in `decide()`**
-   - **Finding:** Correctly overrides `_SYSTEM` when provided and successfully passes through `_chat()` to the HTTP request payload. 
+   - **Finding:** Correctly overrides `_SYSTEM` when provided and successfully passes through `_chat()` to the HTTP request payload.
    - **Severity:** None (Looks good)
 
 3. **`_generate_dispatch_system_prompt()`**
