@@ -158,3 +158,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the analyze-select schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the analyze-select labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — foundational-service wave) ───────────
+
+  Scenario: the foundational-service labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the foundational service labels are all schema-covered
+
+  Scenario: the foundational-service schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the foundational service labels each have a loaded ontology schema

@@ -96,6 +96,7 @@ class ModeCapability(CapabilityBase):
         nodes={"ModeActivation": ["mode"]},
         enums={("ModeActivation", "mode"): set(_BY_NAME)},
         skills={"mode-selection": _MODE_SELECTION_SKILL},
+        schemas={"mode-activation": ["mode"]},
     )
 
     @verb(role="act")

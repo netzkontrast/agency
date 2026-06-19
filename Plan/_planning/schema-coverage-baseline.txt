@@ -12,13 +12,11 @@ CodexEntry
 Command
 Culture
 DecisionRecord
-DoctrineCitation
 Genre
 Idea
 KnownFact
 Language
 MagicSystem
-ModeActivation
 ModeShift
 NarrativeBeat
 Novel
@@ -42,7 +40,6 @@ Schema
 SessionLifecycle
 StoryTimeEvent
 Storyform
-ThinkingMethod
 Tool
 Track
 Tweet

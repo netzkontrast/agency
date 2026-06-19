@@ -534,10 +534,10 @@ def _boot_engine_schema_titles():
     asserts the stronger invariant: the engine ontology actually carries
     each core schema (guards the Slice 6 declaration regression)."""
     from agency.engine import Engine
+    from agency._schema_coverage import engine_loaded_schema_titles
     e = Engine(":memory:")
     try:
-        titles = {v.get("title") for v in e.ontology.schemas.values()
-                  if isinstance(v, dict)}
+        titles = engine_loaded_schema_titles(dict(e.ontology.schemas))
     finally:
         e.memory.close()
     return titles
@@ -734,4 +734,30 @@ def _analyze_select_loaded(loaded_schema_titles):
     assert not missing, (
         "analyze+select schemas are on disk but NOT loaded by "
         "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── Slice 6: foundational-service wave ───────────────────────────────────────
+# DoctrineCitation (doctrine cap) + ModeActivation (mode cap) +
+# ThinkingMethod (thinking cap) — all inline OntologyExtension schemas
+# (no file-backed schemas dir; inline is loaded by the engine automatically).
+# A named contract set, not a snapshot count (CLAUDE.md rule 8).
+FOUNDATIONAL_SERVICE_LABELS = {"DoctrineCitation", "ModeActivation", "ThinkingMethod"}
+
+
+@then("the foundational service labels are all schema-covered")
+def _foundational_service_covered(coverage_report):
+    missing = FOUNDATIONAL_SERVICE_LABELS - coverage_report.covered
+    assert not missing, (
+        "foundational-service labels lack a Schema "
+        "(Spec 153 Slice 6 — foundational-service wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the foundational service labels each have a loaded ontology schema")
+def _foundational_service_loaded(loaded_schema_titles):
+    missing = FOUNDATIONAL_SERVICE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "foundational-service schemas are not loaded by the engine "
+        "(add inline schema to the owning capability's OntologyExtension):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
