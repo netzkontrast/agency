@@ -11,13 +11,14 @@ allowed-tools:
 
 # analyze capability
 
-Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions.
+Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions. Scope WHAT to analyze with codegraph first — `codegraph impact <symbol>` (blast radius of a change), `codegraph callers <symbol>` (every call site), `codegraph explore "<area>"` (understand an unfamiliar area) — before running the transforms, so the analysis follows the real dependency edges.
 
 ## When to use
 
 - Unsure whether a change is safe to ship
 - Suspected security or performance regressions in a diff
 - A codebase area that feels risky or unfamiliar before review
+- Scoping a risky change → `codegraph impact <symbol>` (blast radius) + `codegraph callers <symbol>` (call sites) before the analyzers
 
 ## Verbs
 
@@ -43,6 +44,7 @@ await call_tool('capability_analyze_architecture', {'intent_id': 'intent:abc'})
 
 - Shipping a risky diff with no analysis → run capability_analyze_security first
 - Hand-waving 'looks fine' on unfamiliar code → get findings via capability_analyze_quality
+- Guessing a change's blast radius → `codegraph impact <symbol>` gives it directly from the call graph
 
 ## Walk this capability
 

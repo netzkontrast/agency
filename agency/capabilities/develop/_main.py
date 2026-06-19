@@ -9,18 +9,20 @@
 # discovery (Spec 068) covers the cost.
 """develop — the development-workflow capability.
 
-Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance.
+Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance. For ANY code lookup — where/how a symbol works, a call path X→Y, blast radius — reach for codegraph FIRST (`codegraph explore "<q>"` is the one-call primary: relevant source + call paths + impact; `codegraph node <sym|file>` for one symbol's source + caller/callee trail; `codegraph query <name>` to locate) BEFORE grep/Read — it IS the index, so a grep/Read sweep re-does its work. Full token-efficient guide: `develop.reference("codegraph")`.
 
-Use when: building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, running a skill to its first hard gate, or reloading edited capability code mid-session.
+Use when: building the system further — walking a development discipline (tdd, plan, review), scaffolding a new capability, running a skill to its first hard gate, reloading edited capability code mid-session, or looking up code (use codegraph).
 Triggers:
 - About to implement a feature or fix without a discipline
 - A new capability needing a skeleton that lints clean
 - A multi-phase workflow that should pause at a human gate
 - A capability was just edited or scaffolded and needs to go live without a restart
+- A 'where/how does X work', call-path, or blast-radius question → `codegraph explore "<q>"` (one call), not a grep/Read sweep
 Red flags:
 - Writing implementation before a failing test → walk capability_develop_skill_walk with tdd
 - Hand-rolling a capability skeleton → use capability_develop_scaffold_capability
 - Restarting the session to pick up a capability edit → develop.reload re-imports it in place
+- grep/Read loop to understand code while `.codegraph/` exists → `codegraph explore` already indexed it (`develop.reference("codegraph")`)
 """
 from __future__ import annotations
 
