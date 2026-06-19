@@ -17,7 +17,6 @@ Idea
 KnownFact
 Language
 MagicSystem
-ModeShift
 NarrativeBeat
 Novel
 NovelClaim

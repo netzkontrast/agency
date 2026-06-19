@@ -760,6 +760,9 @@ def _foundational_service_loaded(loaded_schema_titles):
     assert not missing, (
         "foundational-service schemas are not loaded by the engine "
         "(add inline schema to the owning capability's OntologyExtension):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
 # ── research + develop-extras wave ───────────────────────────────────────────
 # Research/ResearchClaim (research cap) + Plan/PlanStep/ModeShift/SessionLifecycle (develop cap)
 # Both caps already declare artefact_schemas — only schemas needed.

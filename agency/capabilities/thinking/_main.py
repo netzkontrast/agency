@@ -68,7 +68,6 @@ thinking_ontology = OntologyExtension(
     schemas={
         "thinking-analysis":  ["subject", "methods", "recommendation"],
         "thinking-finding":   ["method", "subject", "severity"],
-        "thinking-method":    ["method", "subject"],
     },
 )
 
