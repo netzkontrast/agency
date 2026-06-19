@@ -46,6 +46,8 @@ CANONICAL_KINDS = (
     "info",
     "recovery",
     "completed",
+    "server_start",
+    "server_stop",
 )
 
 
