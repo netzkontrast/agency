@@ -1,4 +1,4 @@
-"""Acceptance — frugal safety-floor gate (Spec 326 Slice 4).
+"""Acceptance — frugal safety-floor gate (Spec 332 Slice 4).
 
 `_frugal.safety_floor_intact()` is a decidable predicate: at every level but off
 the FULL render carries every safety-floor marker and the COMPACT render names

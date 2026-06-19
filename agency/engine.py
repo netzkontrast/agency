@@ -409,7 +409,7 @@ def _user_prompt_submit_handler(engine, event: dict) -> dict:
     else:
         inject = ("[agency] No active intent — consider intent_bootstrap to "
                   "anchor this work.\n" + guard)
-    # Spec 326 M1 — append the frugal discipline (compact every prompt, full at
+    # Spec 332 M1 — append the frugal discipline (compact every prompt, full at
     # ultra, nothing at off). Degrades silently: a render failure never breaks
     # the turn (the assumption-guard precedent).
     inject = _append_frugal(inject, prompt=True)
@@ -417,7 +417,7 @@ def _user_prompt_submit_handler(engine, event: dict) -> dict:
 
 
 def _append_frugal(inject: str, *, prompt: bool) -> str:
-    """Spec 326 M1 — append the frugal discipline to an inject block. ``prompt``
+    """Spec 332 M1 — append the frugal discipline to an inject block. ``prompt``
     True = the per-prompt cadence (compact, full at ultra); False = session
     start (always full). ``off`` adds nothing. Never raises."""
     try:
@@ -435,9 +435,9 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
 
 
 def _session_start_handler(engine, event: dict) -> dict:
-    """Spec 326 M1 — inject the full frugal discipline at session start. Records
+    """Spec 332 M1 — inject the full frugal discipline at session start. Records
     the Event (default handler) then adds the discipline; degrades silently.
-    Spec 328 Slice 3 — also repair an existing config (add newly-registered
+    Spec 334 Slice 3 — also repair an existing config (add newly-registered
     sections), non-destructively."""
     base = _default_hook_handler(engine, event)
     _maybe_repair_config()
@@ -445,7 +445,7 @@ def _session_start_handler(engine, event: dict) -> dict:
 
 
 def _maybe_repair_config() -> None:
-    """Spec 328 Slice 3 — repair an EXISTING ``.agency/config.yaml`` on session
+    """Spec 334 Slice 3 — repair an EXISTING ``.agency/config.yaml`` on session
     start: add any newly-registered sections non-destructively (a freshly
     installed capability's keys appear without clobbering user edits). It never
     CREATES a config — a hook must not scaffold ``.agency/`` into an arbitrary
@@ -631,7 +631,7 @@ class Engine:
         self._hook_handlers = {"*": _default_hook_handler,
                                "PreToolUse": _pre_tool_use_handler,
                                "UserPromptSubmit": _user_prompt_submit_handler,
-                               "SessionStart": _session_start_handler,  # Spec 326 M1
+                               "SessionStart": _session_start_handler,  # Spec 332 M1
                                "SessionEnd": _session_end_handler}
 
     # Spec 286-A2 — the bespoke boundary attributes are now thin read-through
@@ -721,7 +721,7 @@ class Engine:
             error_severity=node.get("error_severity") or "",
             trace_id=inv,
         )
-        # Spec 326 M2 — stamp the frugal discipline on every verb's wire return
+        # Spec 332 M2 — stamp the frugal discipline on every verb's wire return
         # (byte-stable at a fixed level; `off`/`stamp_every_verb=false` omits it).
         # Additive + degrades silently: a stamp must never break or reshape a
         # verb that already speaks `frugal`.

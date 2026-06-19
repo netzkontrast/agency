@@ -208,7 +208,7 @@ class NovelConfig:
                 Path(self.content_root) / "IDEAS.md")
 
 
-# Spec 328 Slice 5 — open-set proof: surface novel's config in the unified
+# Spec 334 Slice 5 — open-set proof: surface novel's config in the unified
 # .agency/config.yaml (derived from the dataclass — single source, no literals).
 # The live value is resolved by the novel capability (.agency/novel-config.yaml /
 # AGENCY_NOVEL_HOME); full read-path unification is a tracked follow-up.

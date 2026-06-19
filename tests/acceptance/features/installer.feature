@@ -1,4 +1,4 @@
-Feature: multi-agent self-installer (Spec 327)
+Feature: multi-agent self-installer (Spec 333)
   agency installs itself across agent runtimes — one surface_card projected into
   each agent's native format; idempotent fenced-block merge that never clobbers
   user content; per-adapter independent report; uninstall removes only the block.
@@ -39,7 +39,7 @@ Feature: multi-agent self-installer (Spec 327)
     Then every requested adapter is reported
     And the cursor and agents adapters succeeded
 
-  # Spec 327 C6 — a failing adapter is reported without aborting the others.
+  # Spec 333 C6 — a failing adapter is reported without aborting the others.
   Scenario: a failing adapter does not abort the rest
     Given a clean installer project
     And the cursor target path is blocked
@@ -58,7 +58,7 @@ Feature: multi-agent self-installer (Spec 327)
     Then the cursor rules file exists with valid frontmatter
     And the doctor lists cursor as an installed agent
 
-  # Spec 327 Slice 5 — drift guard: no adapter copy may silently drop the floor.
+  # Spec 333 Slice 5 — drift guard: no adapter copy may silently drop the floor.
   Scenario: every adapter projection carries the safety floor
     Given a clean installer project
     When I install agency for all instruction agents

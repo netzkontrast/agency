@@ -1,10 +1,10 @@
-<!-- agency-note: design reference for Spec 326; intent:7509dac0 -->
+<!-- agency-note: design reference for Spec 332; intent:7509dac0 -->
 # The frugal discipline — agency's minimal-code reflex (design reference)
 
-> Agency's own design for the **frugal** core discipline (Spec 326). This is the
+> Agency's own design for the **frugal** core discipline (Spec 332). This is the
 > canonical text the implementation (`agency/_frugal.py`) renders from — a
 > redevelopment from first principles, not a port. Companion installer design:
-> [`../../327-multi-agent-installer/reference/INSTALLER.md`](../../327-multi-agent-installer/reference/INSTALLER.md).
+> [`../../333-multi-agent-installer/reference/INSTALLER.md`](../../333-multi-agent-installer/reference/INSTALLER.md).
 
 ## 1. What it is
 
@@ -83,18 +83,18 @@ the upgrade path, so a shortcut reads as intent, not ignorance:
 
 `develop`/`analyze` can later harvest these into a debt ledger (a follow-up verb).
 
-## 7. Mechanism (how it embeds in core — Spec 326 M1 + M2)
+## 7. Mechanism (how it embeds in core — Spec 332 M1 + M2)
 
 | Concern | Implementation |
 |---|---|
-| **Level state** | Spec 328 `config_get("frugal.level")`: `AGENCY_FRUGAL_LEVEL` env → `.agency/config.yaml` → `full`. `frugal_level(level)` SET → `config_set` + a `FrugalLevel` node. |
+| **Level state** | Spec 334 `config_get("frugal.level")`: `AGENCY_FRUGAL_LEVEL` env → `.agency/config.yaml` → `full`. `frugal_level(level)` SET → `config_set` + a `FrugalLevel` node. |
 | **M1 — session/prompt inject** | core `SessionStart` + `UserPromptSubmit` handlers (`register_hook_handler`, beside the assumption-guard) → `{inject: full render}`. `ultra` adds the prompt cadence. CLI lane = `agency hook`. |
 | **M2 — per-verb stamp** | `ResponseEnvelope.prefix.frugal` = compact render (Spec 146, cache-stable). `off` omits it. |
 | **Degrade** | any render failure → no inject, no stamp, verb still succeeds. |
 | **Doctor** | `agency_doctor` reports the resolved `frugal.level` + source. |
 
 **Two lanes (MCP + CLI parity):** hosts with lifecycle hooks get M1 live; no-hook
-agents get the discipline from the Spec 327 `AGENTS.md`/rules file. Either way the
+agents get the discipline from the Spec 333 `AGENTS.md`/rules file. Either way the
 discipline is present every session.
 
 ## 8. Why core, not a capability

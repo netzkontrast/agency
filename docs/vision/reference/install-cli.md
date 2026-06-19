@@ -46,10 +46,10 @@ wrappers + `skills/<cap>/references/*.md`) that no longer map to a live verb (Sp
 G1), and `check-drift` flags any committed orphan the prune removes — so a removed/renamed
 verb never leaves a stale file behind.
 
-## 4. Multi-agent self-install (`--agent`, Spec 327)
+## 4. Multi-agent self-install (`--agent`, Spec 333)
 
 `agency install --agent <name>` projects the live **`surface_card`** (the capability
-roster + the access recipe + the Spec 326 frugal discipline, imported from `_frugal`)
+roster + the access recipe + the Spec 332 frugal discipline, imported from `_frugal`)
 into another agent's native instruction file — `cursor` · `windsurf` · `cline` ·
 `kiro` · `copilot` · `agents` (the universal `AGENTS.md`), or `all`. Each file carries
 the **compact** projection — the discipline + the `agency search` / `agency <cap>
@@ -63,9 +63,9 @@ re-running is the idempotent recovery), and the single `surface_card` is drift-g
 (every adapter must carry the safety floor). `claude` (the default — no `--agent`) is
 the MCP plugin install in §3; `agency uninstall --agent <name>` removes only the block;
 MCP exposes the same via `agency_install(agent=…)`. Wave 2 MCP runtimes
-(Codex/Gemini/pi/opencode) are deferred to Spec 329.
+(Codex/Gemini/pi/opencode) are deferred to Spec 335.
 
-The unified config (`.agency/config.yaml`, Spec 328) is scaffolded by `agency install`
+The unified config (`.agency/config.yaml`, Spec 334) is scaffolded by `agency install`
 / `scripts/setup` and repaired on SessionStart; `agency-doctor --write-config`
 regenerates any missing keys non-destructively, and `agency_doctor` reports each key's
 resolved value + source (secrets redacted), the frugal level, and the installed agents.

@@ -1,6 +1,6 @@
-"""Acceptance — frugal core discipline level + render (Spec 326 Slice 1).
+"""Acceptance — frugal core discipline level + render (Spec 332 Slice 1).
 
-Behaviour: the active level resolves via Spec 328 config (default full, env wins,
+Behaviour: the active level resolves via Spec 334 config (default full, env wins,
 invalid falls back, set persists); render() emits the ladder + safety floor at a
 level; off is empty; the compact render is token-bounded but names the floor.
 """

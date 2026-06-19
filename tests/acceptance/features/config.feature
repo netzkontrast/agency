@@ -1,4 +1,4 @@
-Feature: unified config — .agency/config.yaml resolver + registry (Spec 328)
+Feature: unified config — .agency/config.yaml resolver + registry (Spec 334)
   config_resolve resolves a registered key as env > file > built-in default;
   config_set persists to the file; capabilities register sections so the file is
   the union of all live config.
@@ -35,7 +35,7 @@ Feature: unified config — .agency/config.yaml resolver + registry (Spec 328)
     And a clean env and an empty config file
     Then "demo.color" is in the registered keys
 
-  # Spec 328 Slice 2 — the annotated scaffold generator (config_scaffold)
+  # Spec 334 Slice 2 — the annotated scaffold generator (config_scaffold)
   Scenario: scaffold writes every registered key at its default with comments
     Given a clean env and an empty config file
     When I scaffold the config
@@ -66,7 +66,7 @@ Feature: unified config — .agency/config.yaml resolver + registry (Spec 328)
     And the frugal level is still "ultra"
     And the comment "# my note" is preserved
 
-  # Spec 328 — a secret resolves env → default, NEVER the file ${env:} placeholder.
+  # Spec 334 — a secret resolves env → default, NEVER the file ${env:} placeholder.
   Scenario: a secret never resolves to the file placeholder
     Given a clean env and an empty config file
     And the JULES_API_KEY env is unset
@@ -74,14 +74,14 @@ Feature: unified config — .agency/config.yaml resolver + registry (Spec 328)
     When I resolve "secrets.jules_api_key"
     Then the secret value is empty with source "default"
 
-  # Spec 328 — repair must NOT append to a corrupt config (would doubly-break it).
+  # Spec 334 — repair must NOT append to a corrupt config (would doubly-break it).
   Scenario: scaffold leaves a corrupt config untouched
     Given a clean env and an empty config file
     And the config file is corrupt
     When I scaffold the config
     Then the config file is unchanged
 
-  # Spec 328 Slice 5 — open-set proof: config_scaffold SELF-registers capability
+  # Spec 334 Slice 5 — open-set proof: config_scaffold SELF-registers capability
   # config via its glob (NO explicit import here), so a fresh install emits their
   # sections. If the glob regressed, nothing would register novel/music and these
   # assertions would fail.

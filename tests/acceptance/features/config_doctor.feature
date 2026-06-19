@@ -1,4 +1,4 @@
-Feature: unified config doctor (Spec 328 Slice 4)
+Feature: unified config doctor (Spec 334 Slice 4)
   agency_doctor reports each registered config key's resolved value + source
   (secrets redacted to presence), flags an invalid value in next_steps, and
   --write-config repairs a missing config non-destructively.

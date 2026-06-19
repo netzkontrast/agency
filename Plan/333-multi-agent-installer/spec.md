@@ -10,19 +10,19 @@ domain: install
 wave: core-discipline
 ---
 
-# Spec 327 — Multi-agent self-installer (agency installs itself across agents)
+# Spec 333 — Multi-agent self-installer (agency installs itself across agents)
 
 > Build a Python **multi-agent self-installer** folded into `agency install` + the
 > MCP server, so **agency can install *itself* across many agent runtimes** —
 > exposing agency's **full functionality** on each (via MCP, or the Spec 079
-> `agency <cap> <verb>` CLI), plus the Spec 326 **frugal** discipline. **Goal 3**
+> `agency <cap> <verb>` CLI), plus the Spec 332 **frugal** discipline. **Goal 3**
 > (agent-uniform — *no special-casing per agent*) and **Goal 8** (compose with the
 > ecosystem).
 >
 > **Wave 1 (this spec):** Claude Code (MCP, existing) + the **instruction-file
 > agents** — Cursor, Windsurf, Cline, Kiro, GitHub Copilot — via native rules /
 > `AGENTS.md`. Other MCP runtimes (Codex, Gemini, pi, opencode) → **Wave 2**
-> (Spec 329, deferred). **Panel-hardened** (2026-06-19): compact rules projection,
+> (Spec 335, deferred). **Panel-hardened** (2026-06-19): compact rules projection,
 > CLI precondition + bootstrap, uninstall/update, partial-install reporting,
 > per-agent validity, Gherkin. Design notes:
 > [`reference/INSTALLER.md`](reference/INSTALLER.md). Provenance `intent:7509dac0`.
@@ -50,7 +50,7 @@ spec — generalized from "a discipline" to "all of agency."
 
 `install.surface_card(engine)` derives, from the live registry: the full
 capability/verb list, the access recipe (MCP config *or* the `agency <cap>
-<verb>` CLI), the `agency_welcome` pointer, and the Spec 326 frugal discipline
+<verb>` CLI), the `agency_welcome` pointer, and the Spec 332 frugal discipline
 (imported from `_frugal.py`, never re-authored). The card holds the **full**
 surface; each adapter **projects** the slice that fits its host — single source of
 truth, drift-gated.
@@ -80,7 +80,7 @@ symmetry preserved, card stays the single source.
 
 | Agent | Channel | Writes | Validity criterion |
 |---|---|---|---|
-| **Claude Code** | MCP (full surface) | `install.write()` output + Spec 326 handlers | existing install tests |
+| **Claude Code** | MCP (full surface) | `install.write()` output + Spec 332 handlers | existing install tests |
 | **Cursor** | rules | `.cursor/rules/agency.mdc` | parses as `.mdc` with required frontmatter keys |
 | **Windsurf** | rules | `.windsurf/rules/agency.md` | non-empty rules block |
 | **Cline** | rules | `.clinerules/agency.md` | non-empty rules block |
@@ -117,13 +117,13 @@ into the agent's user config dir (Q1).
 4. **AGENTS.md generation.** The universal fallback (discipline + entry pointers).
 5. **Uninstall + drift guard + doctor.** `agency uninstall --agent`;
    `scripts/check-drift` asserts derived == card; `agency_doctor` lists installed
-   agents + the frugal level (Spec 326).
+   agents + the frugal level (Spec 332).
 
 ## Acceptance criteria
 
 - **C1** — `agency install --agent <name>` writes a valid (per the table's
   criterion), idempotent native surface carrying agency's **full** verb *access*
-  (MCP, or the CLI entry pointers) + the Spec 326 frugal discipline.
+  (MCP, or the CLI entry pointers) + the Spec 332 frugal discipline.
 - **C2** — Instruction files carry **entry pointers, not the full verb index**
   (token-bounded); the full surface stays in the card.
 - **C3** — Single source of truth: every adapter renders from `surface_card`;
@@ -134,7 +134,7 @@ into the agent's user config dir (Q1).
   behaviour (Claude) is unchanged.
 - **C6** — `agency uninstall --agent <name>` cleanly removes the block;
   per-adapter failures are reported independently.
-- **C7** — Wave-2 runtimes named as out-of-scope follow-ups (Spec 329).
+- **C7** — Wave-2 runtimes named as out-of-scope follow-ups (Spec 335).
 
 ## Acceptance scenarios (Gherkin sketch)
 
@@ -201,4 +201,4 @@ Scenario: partial install reports per-adapter
 - **Tests:** 8 acceptance scenarios (`features/installer.feature`); CLI smoke
   (install + uninstall) green; install-regen drift clean (327 adds no generated
   surface). Q4 decided: consumer-project `AGENTS.md` only — never the repo canon.
-- **Follow-up:** Wave 2 MCP runtimes (Codex/Gemini/pi/opencode) → Spec 329.
+- **Follow-up:** Wave 2 MCP runtimes (Codex/Gemini/pi/opencode) → Spec 335.

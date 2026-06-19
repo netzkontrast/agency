@@ -68,7 +68,7 @@ Moved out of ``scripts/check_codes_coverage.py`` (Spec 151 Slice 3) so the
 engine — ``agency_doctor`` — can import the audit WITHOUT depending on the
 dev-only ``scripts/`` tree (the wheel packages only ``agency``; importing
 ``scripts.*`` at runtime would crash the installed plugin). (22 symbols)
-- **_config.py** — Unified ``.agency/config.yaml`` — Spec 328 Slice 1 (resolver + registry).
+- **_config.py** — Unified ``.agency/config.yaml`` — Spec 334 Slice 1 (resolver + registry).
 
 A single home for all agency config. (26 symbols)
 - **_coverage_gate.py** — Spec 169 Slice 1 — typed GateResult + pure evaluate() for the CI gate.
@@ -118,7 +118,7 @@ the cached prefix invalidates everything after it. (14 symbols)
 The render substrate writes each graph entity to a markdown file carrying a
 YAML-ish frontmatter block (the node id + key fields, so a re-render is
 byte-identical and `parse` reconstructs the slice). (9 symbols)
-- **_frugal.py** — Frugal core discipline — Spec 326 Slice 1 (level + render).
+- **_frugal.py** — Frugal core discipline — Spec 332 Slice 1 (level + render).
 
 Agency's own minimal-code reflex (a redevelopment, not a port): a ladder + a
 non-negotiable safety floor. (14 symbols)
@@ -137,9 +137,9 @@ client. (26 symbols)
 When the AnthropicDriver isn't capable (no ``ANTHROPIC_API_KEY`` + no
 injected client), ``driver.backend()`` returns ``"none"`` and
 ``driver.complete`` raises ``AUTH_FAILED``. (17 symbols)
-- **_install_adapters.py** — Spec 327 — multi-agent self-installer.
+- **_install_adapters.py** — Spec 333 — multi-agent self-installer.
 
-One ``surface_card`` (derived from the live registry + the Spec 326 frugal
+One ``surface_card`` (derived from the live registry + the Spec 332 frugal
 discipline) projected into each agent's native instruction format. (22 symbols)
 - **_invoke.py** — Spec 286 Phase-1 / A3 — the `Registry.invoke` decomposition.
 
@@ -389,7 +389,9 @@ Finding shape. (11 symbols)
 - **_findings.py** — Spec 042 — Finding shape (the contract).
 
 Every analyze.* axis returns a list of Finding value objects. (10 symbols)
-- **_main.py** — analyze — multi-axis decidable code analysis (Spec 042). (22 symbols)
+- **_main.py** — analyze — multi-axis decidable code analysis (Spec 042).
+
+Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions. (22 symbols)
 - **_paths.py** — Spec 048 — analyze.paths axis.
 
 Surfaces intent-shape patterns that suggest a missing specialized
@@ -446,7 +448,9 @@ Branch inspects the working tree and remote state and finishes the branch the ap
 
 ### `agency/capabilities/develop/` (2 files)
 - **__init__.py** — develop — discipline-walk templates + scaffolds. (2 symbols)
-- **_main.py** — develop — the development-workflow capability. (48 symbols)
+- **_main.py** — develop — the development-workflow capability.
+
+Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance. (48 symbols)
 
 ### `agency/capabilities/discover/` (3 files)
 - **__init__.py** — discover — guided intent-discovery capability (Spec 307 program · 308 scaffold).
@@ -548,7 +552,9 @@ Mechanism (keep-both, bi-temporal, stable anchor):
       <!-- agency-node: document:abc12345 -->
 
   reusing the existing HTML-comment marker convention (cf. (9 symbols)
-- **_main.py** — document — graph-native rendering + briefing (Spec 043). (26 symbols)
+- **_main.py** — document — graph-native rendering + briefing (Spec 043).
+
+Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph. (26 symbols)
 - **_render.py** — Scope renderers for ``document.render`` — graph → markdown.
 
 Each function takes a Memory and returns the rendered markdown for
@@ -1131,12 +1137,12 @@ effects. (42 symbols)
 
 Grounds the Slice 2 gate that `.github/workflows/test.yml` runs (`--baseline
 --strict`). (19 symbols)
-- **test_config.py** — Acceptance — unified config resolver + registry (Spec 328 Slice 1).
+- **test_config.py** — Acceptance — unified config resolver + registry (Spec 334 Slice 1).
 
 Behaviour: a registered key resolves env > file > default; config_set persists;
 registered sections appear in the live set. (30 symbols)
-- **test_config_doctor.py** — Acceptance — unified config doctor (Spec 328 Slice 4). (17 symbols)
-- **test_config_wiring.py** — Acceptance — unified config wiring (Spec 328 Slice 3).
+- **test_config_doctor.py** — Acceptance — unified config doctor (Spec 334 Slice 4). (17 symbols)
+- **test_config_wiring.py** — Acceptance — unified config wiring (Spec 334 Slice 3).
 
 The three zero-manual-step generation points: `agency install` (here:
 `install.scaffold_agency_dir`) creates the annotated config; the SessionStart
@@ -1206,13 +1212,13 @@ Dropped (implementation / structural / not observable behaviour):
   dataclass validators; we keep only the construction-rejection (ValueError)
   behaviours since those are observable contracts.
 - test_guard_typed_shape / test_capability_row_typed_shape / etc. (76 symbols)
-- **test_frugal.py** — Acceptance — frugal core discipline level + render (Spec 326 Slice 1). (27 symbols)
-- **test_frugal_floor.py** — Acceptance — frugal safety-floor gate (Spec 326 Slice 4).
+- **test_frugal.py** — Acceptance — frugal core discipline level + render (Spec 332 Slice 1). (27 symbols)
+- **test_frugal_floor.py** — Acceptance — frugal safety-floor gate (Spec 332 Slice 4).
 
 `_frugal.safety_floor_intact()` is a decidable predicate: at every level but off
 the FULL render carries every safety-floor marker and the COMPACT render names
 the floor. (14 symbols)
-- **test_frugal_stamp.py** — Acceptance — frugal M2 per-verb envelope stamp (Spec 326 Slice 2).
+- **test_frugal_stamp.py** — Acceptance — frugal M2 per-verb envelope stamp (Spec 332 Slice 2).
 
 Every capability verb's wire return carries a byte-stable compact frugal stamp
 (via engine._shape_wire_result); off omits it; agency_welcome carries it in its
@@ -1223,7 +1229,7 @@ cache-stable prefix. (22 symbols)
 
 Converted from tests/test_implicit_intent.py. (21 symbols)
 - **test_install.py** — Acceptance — install pipeline (Spec 029/031/032/062/064/065/092). (76 symbols)
-- **test_installer.py** — Acceptance — multi-agent self-installer (Spec 327).
+- **test_installer.py** — Acceptance — multi-agent self-installer (Spec 333).
 
 surface_card → per-agent adapters (compact projection: frugal discipline + entry
 pointers, NOT the full verb index); idempotent fenced-block merge; per-adapter

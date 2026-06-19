@@ -79,7 +79,7 @@ def doctor_main(argv: list[str] | None = None) -> int:
     MCP server, what's wrong?" path — runs on system Python, doesn't
     need a venv, doesn't open the persistent DB.
 
-    ``--write-config`` (Spec 328 Slice 4) first repairs ``.agency/config.yaml``
+    ``--write-config`` (Spec 334 Slice 4) first repairs ``.agency/config.yaml``
     non-destructively (adds any missing registered sections at their defaults),
     then reports — the opt-in write side effect a plain run never makes.
     """

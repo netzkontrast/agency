@@ -1,4 +1,4 @@
-"""Acceptance — unified config doctor (Spec 328 Slice 4).
+"""Acceptance — unified config doctor (Spec 334 Slice 4).
 
 agency_doctor surfaces a `config` block (every registered key's resolved value +
 source, secrets redacted) and folds validation issues (bad enum value, unknown

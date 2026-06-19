@@ -33,7 +33,13 @@ def resolve_db_path(explicit: str | None = None) -> str:
         return explicit
     env = os.environ.get("AGENCY_DB")
     if env:
-        return env
+        # `.mcp.json` sets AGENCY_DB to ``${CLAUDE_PROJECT_DIR}/.agency/session.db``;
+        # expand it from the environment. If a placeholder survives (the var was
+        # unset — e.g. a bare CLI run), DON'T open a literal-named path like
+        # ``${CLAUDE_PROJECT_DIR}/…`` — fall through to the CWD-local default.
+        expanded = os.path.expandvars(env)
+        if "$" not in expanded:
+            return expanded
     cwd_agency = os.path.join(os.getcwd(), ".agency")
     if os.path.isdir(cwd_agency):
         return os.path.join(cwd_agency, "session.db")

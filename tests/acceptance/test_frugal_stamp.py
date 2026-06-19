@@ -1,4 +1,4 @@
-"""Acceptance — frugal M2 per-verb envelope stamp (Spec 326 Slice 2).
+"""Acceptance — frugal M2 per-verb envelope stamp (Spec 332 Slice 2).
 
 Every capability verb's wire return carries a byte-stable compact frugal stamp
 (via engine._shape_wire_result); off omits it; agency_welcome carries it in its

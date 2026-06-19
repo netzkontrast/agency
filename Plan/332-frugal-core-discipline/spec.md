@@ -10,7 +10,7 @@ domain: core
 wave: core-discipline
 ---
 
-# Spec 326 — Frugal core discipline (agency's minimal-code reflex)
+# Spec 332 — Frugal core discipline (agency's minimal-code reflex)
 
 > Give agency its own **frugal** discipline — a *write-only-what-the-task-needs*
 > reflex — embedded into **core**, NOT a capability. The minimal-code ladder + a
@@ -52,7 +52,7 @@ engine-level discipline does, exactly like the assumption-guard.
 
 One canonical module in core — `agency/_frugal.py` — owns the text and its
 rendering. Everything derives from it: the session injection, the per-verb stamp,
-and Spec 327's per-agent rules files. No second copy to drift.
+and Spec 333's per-agent rules files. No second copy to drift.
 
 1. **The ladder** — before writing code, stop at the first rung that holds:
    `1. Does this need to exist? (YAGNI) → 2. stdlib → 3. native platform feature
@@ -73,9 +73,9 @@ and Spec 327's per-agent rules files. No second copy to drift.
 
 ## Design — core embedding (mechanism **M1 + M2**)
 
-### Core state — lifetime & scope (via Spec 328)
+### Core state — lifetime & scope (via Spec 334)
 
-Level resolution on READ goes through **Spec 328's `config_get("frugal.level")`** —
+Level resolution on READ goes through **Spec 334's `config_get("frugal.level")`** —
 `AGENCY_FRUGAL_LEVEL` env → `.agency/config.yaml` `frugal.level` → **`full`**.
 SET (`frugal_level(level)`) calls **`config_set` → persists to
 `.agency/config.yaml`** (durable, so the **CLI — a fresh process per invocation —
@@ -91,7 +91,7 @@ Core `SessionStart` + `UserPromptSubmit` hook handlers
 `{"inject": <FULL render @ level>}`. `cli.py hook` already prints `inject` to
 stdout — the same path is the **CLI lane** (`python -m agency.cli hook`), so a
 no-MCP agent that runs the hook script is covered; a pure no-hook agent is covered
-by Spec 327's `AGENTS.md`. Cadence (Q1): `SessionStart` for all levels; **`ultra`
+by Spec 333's `AGENTS.md`. Cadence (Q1): `SessionStart` for all levels; **`ultra`
 additionally fires on `UserPromptSubmit`**; `off` injects nothing.
 
 ### M2 — Per-verb envelope stamp ("with every verb there is")
@@ -118,7 +118,7 @@ new pillar inherits the discipline for free.
 ## Slices (TDD)
 
 1. **Core module + durable state.** `_frugal.py` (ladder + floor + full & compact
-   renders) and `frugal_level` substrate tool (read/SET → Spec 328 config +
+   renders) and `frugal_level` substrate tool (read/SET → Spec 334 config +
    `FrugalLevel` node, default `full`).
 2. **M2 — compact envelope stamp.** `prefix.frugal` on every verb; omitted at
    `off`; Spec 146 prefix tests updated.
@@ -138,7 +138,7 @@ new pillar inherits the discipline for free.
 - **C3** — Cache-safe **at a fixed level**: the stamp is byte-identical across
   calls; a **level change is an intentional one-time cache bust**.
 - **C4** — Single source of truth in `_frugal.py`; both injection paths, the
-  per-verb stamp, and Spec 327's files derive from it (drift-gated).
+  per-verb stamp, and Spec 333's files derive from it (drift-gated).
 - **C5** — `off` fully disables; the per-verb stamp is **token-bounded** (≤ ~40
   tokens); full ladder only in the session injection (Goal-1 self-consistency).
 - **C6** — Durable + degrading: SET survives process exit (CLI next-run sees it);
@@ -187,7 +187,7 @@ Scenario: stamp is byte-stable at a fixed level
 
 - **Done — Slice 1** (`agency/_frugal.py`, PR #171): the ladder + safety-floor
   content, `LEVELS`/`DEFAULT_LEVEL='full'`, `frugal_level`/`set_frugal_level`
-  (via Spec 328 config), `render(level, mode='full'|'compact')`, `off` → empty.
+  (via Spec 334 config), `render(level, mode='full'|'compact')`, `off` → empty.
 - **Done — Slice 3** (M1, PR #171): `engine._append_frugal` injects the
   discipline on `UserPromptSubmit` (compact; full at `ultra`) + `SessionStart`
   (full); `off` injects nothing; degrades silently.
@@ -208,7 +208,7 @@ Scenario: stamp is byte-stable at a fixed level
   `frugal_prefix` — no dup logic) so "is frugal on?" is one glance. Install is
   zero-manual-step by composition: the M1 handlers are engine-resident (any
   engine injects on SessionStart/UserPromptSubmit), `frugal.level` is scaffolded
-  by Spec 328 S3, and the M2 stamp fires on every verb (S2). 1 OOB integration
+  by Spec 334 S3, and the M2 stamp fires on every verb (S2). 1 OOB integration
   scenario. (Q3 decided: keep the compact stamp at `lite`.)
-- **Blocker / Next step:** none — 326 shipped. Pairs with Spec 327 (the installer
+- **Blocker / Next step:** none — 326 shipped. Pairs with Spec 333 (the installer
   projects the same `_frugal` discipline into per-agent rules files).

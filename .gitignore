@@ -1,6 +1,5 @@
 __pycache__/
 *.pyc
-*.db
 .venv/
 .pytest_cache/
 # .claude/ shared project config is tracked (settings.json + CLAUDE.md);
@@ -19,6 +18,10 @@ __pycache__/
 # Spec 292 — `.agency/sessions/` is COMMITTED (user directive 2026-06-16): the
 # session graph + archived session Documents are durable provenance, like the
 # graph DB itself (Spec 020), so a session restores across clones.
+# User directive 2026-06-19: the blanket `*.db` ignore is LIFTED so the durable
+# substrate DBs (`.agency/session.db`, `.codegraph/codegraph.db`) can be tracked
+# and travel with the repo. Only the transient SQLite sidecars below stay
+# ignored (committing a WAL/journal/shm would corrupt the DB).
 # SQLite WAL/journal files (transient — never commit)
 *.db-journal
 *.db-wal

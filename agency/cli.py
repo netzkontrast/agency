@@ -211,13 +211,13 @@ def intent(ctx, purpose, deliverable, acceptance):
               help="scaffold .agency/ ONLY (do NOT write the plugin install surface)")
 @click.option("--dry-run", is_flag=True, help="print would-write paths; touch nothing")
 @click.option("--agent", "agents", multiple=True,
-              help="Spec 327 — install agency into an agent's native rules "
+              help="Spec 333 — install agency into an agent's native rules "
                    "(cursor/windsurf/cline/kiro/copilot/agents/claude/all); repeatable")
 def install(root, scaffold_db, scaffold_only, dry_run, agents):
     """Regenerate the plugin install (and optionally scaffold .agency/), or
     install agency into other agents' native rules via ``--agent``."""
     from . import install as install_mod
-    # Spec 327 — multi-agent self-installer. With --agent, project the live
+    # Spec 333 — multi-agent self-installer. With --agent, project the live
     # surface_card into each agent's native format; without it, the default
     # Claude-Code plugin behaviour is unchanged.
     if agents:
@@ -244,7 +244,7 @@ def install(root, scaffold_db, scaffold_only, dry_run, agents):
 @cli.command()
 @click.argument("root", required=False)
 @click.option("--agent", "agents", multiple=True, required=True,
-              help="Spec 327 — remove agency's fenced block from an agent's native "
+              help="Spec 333 — remove agency's fenced block from an agent's native "
                    "rules (cursor/windsurf/cline/kiro/copilot/agents/all); repeatable")
 def uninstall(root, agents):
     """Remove agency's fenced block from the given agents' native rules — the

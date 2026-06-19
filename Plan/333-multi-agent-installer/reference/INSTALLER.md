@@ -1,10 +1,10 @@
-<!-- agency-note: design reference for Spec 327; intent:7509dac0 -->
+<!-- agency-note: design reference for Spec 333; intent:7509dac0 -->
 # Multi-agent self-installer — agency's adapter design (design reference)
 
-> Agency's own design for installing **itself** across agent runtimes (Spec 327),
-> exposing its full surface + the Spec 326 frugal discipline in each agent's native
+> Agency's own design for installing **itself** across agent runtimes (Spec 333),
+> exposing its full surface + the Spec 332 frugal discipline in each agent's native
 > format. Companion discipline design:
-> [`../../326-frugal-core-discipline/reference/DISCIPLINE.md`](../../326-frugal-core-discipline/reference/DISCIPLINE.md).
+> [`../../332-frugal-core-discipline/reference/DISCIPLINE.md`](../../332-frugal-core-discipline/reference/DISCIPLINE.md).
 
 ## 1. The pattern: one source → many native formats, drift-gated
 
@@ -13,7 +13,7 @@ everything else. Agency's source is the live registry; the deriving pieces:
 
 - **`install.surface_card(engine)`** — the canonical descriptor: the live
   capability/verb list, the access recipe (MCP config *or* `agency <cap> <verb>`
-  CLI), the `agency_welcome` pointer, and the Spec 326 frugal discipline (imported
+  CLI), the `agency_welcome` pointer, and the Spec 332 frugal discipline (imported
   from `_frugal.py`).
 - **Adapters** — pure `card → {path: content}` renderers, one per target.
 - **Drift gate** — `scripts/check-drift` asserts every adapter output still derives
@@ -24,7 +24,7 @@ everything else. Agency's source is the live registry; the deriving pieces:
 
 | Runtime | Channel | Carrier file | Validity |
 |---|---|---|---|
-| **Claude Code** | MCP (full surface) | `.mcp.json` + plugin (via `install.write()`) + Spec 326 handlers | existing install tests |
+| **Claude Code** | MCP (full surface) | `.mcp.json` + plugin (via `install.write()`) + Spec 332 handlers | existing install tests |
 | **Cursor** | rules | `.cursor/rules/agency.mdc` | `.mdc` frontmatter keys present |
 | **Windsurf** | rules | `.windsurf/rules/agency.md` | non-empty rules block |
 | **Cline** | rules | `.clinerules/agency.md` | non-empty rules block |
@@ -32,7 +32,7 @@ everything else. Agency's source is the live registry; the deriving pieces:
 | **Copilot** | rules | `.github/copilot-instructions.md` + `AGENTS.md` | both present |
 | **(universal)** | `AGENTS.md` | `AGENTS.md` | zero-config fallback any AGENTS-reader loads |
 
-Wave 2 (deferred → **Spec 329**): the other MCP runtimes — Codex, Gemini, pi,
+Wave 2 (deferred → **Spec 335**): the other MCP runtimes — Codex, Gemini, pi,
 opencode.
 
 ## 3. "Cover all functionality of agency" — by channel
@@ -50,7 +50,7 @@ opencode.
 - **CLI must be installed / on PATH** — every instruction file **opens with a
   bootstrap line**: *"If `agency` is not found: `pipx install agency`"* (mirrors the
   SessionStart pipx auto-install, Spec 062). Stated, not assumed.
-- **Level via config** — the frugal level comes from Spec 328's
+- **Level via config** — the frugal level comes from Spec 334's
   `.agency/config.yaml` / `AGENCY_FRUGAL_LEVEL`, so the installer bakes no level
   into the files.
 
