@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Template",
+  "description": "A named Jinja2 template loaded from a capability's templates/ folder (agency/ontology.py + agency/capability.py; Spec 153 Slice 6 — discover-prompt wave). The engine records one Template node per discovered .j2 file; the body is the raw template source. Rendered output becomes a Document or Artefact.",
+  "type": "object",
+  "required": ["name", "body"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Stable identifier — the capability-prefixed template name, e.g. 'develop/session-brief'."
+    },
+    "body": {
+      "type": "string",
+      "description": "Raw Jinja2 template source. Rendered at verb call time with the verb's context dict."
+    }
+  }
+}

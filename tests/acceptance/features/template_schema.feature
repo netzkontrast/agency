@@ -128,3 +128,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the live tree has no dormant schemas — all on-disk schemas are engine-loaded
     When I run the live schema audit with engine-load intersection
     Then there are no dormant schemas
+
+  # ── schema coverage backfill (Slice 6 — discover-prompt wave) ────────────────
+
+  Scenario: the discover-prompt labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the discover-prompt labels are all schema-covered
+
+  Scenario: the discover-prompt schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the discover-prompt labels each have a loaded ontology schema

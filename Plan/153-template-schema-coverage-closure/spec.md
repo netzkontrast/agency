@@ -306,3 +306,34 @@ Capability pillar Skill surface, discover ClarificationQuestion).
   Remaining uncovered: 56 labels (see baseline). Strong candidates for
   next wave: `PromptFramework`, `Reflection`-adjacent (Template, Schema,
   Tool), discover wave (`FeasibilitySignal`, `IntentRefinement`, `ScopeBoundary`).
+
+### Done — Slice 6 discover-prompt wave (2026-06-19)
+
+Steward run continuation: 4 labels spanning the discover cap's intent-program
+nodes + the core Template node + the prompt cap's PromptFramework.
+
+- **4 schemas authored** — title = ontology label, properties DERIVED from
+  the live node-creation sites:
+  - `discover/schemas/feasibility-signal.json` (`FeasibilitySignal`) ←
+    `discover/ontology.py` (`verdict` enum {go/no-go/refine}, `rationale` str).
+  - `discover/schemas/intent-refinement.json` (`IntentRefinement`) ←
+    `discover/ontology.py` (`trigger`/`before`/`after` required str).
+  - `document/schemas/template.json` (`Template`) ← `agency/ontology.py`
+    (`name`/`body` required str — the core Jinja2 template node).
+  - `prompt/schemas/prompt-framework.json` (`PromptFramework`) ←
+    `prompt/ontology.py` (`slug`/`name`/`intent_category`/`complexity_tier`
+    required; `intent_category` enum {recover/clarify/create/transform/reason/
+    critique/agentic/functional}; `complexity_tier` enum {simple/medium/
+    comprehensive/reasoning/structure/critique/meta}).
+- **Engine-load fix** — `prompt` cap had no `schemas/` dir and no
+  `artefact_schemas` declaration; created the dir and added
+  `ArtefactSchemas.from_module(__file__)` to `PromptCapability`. Pattern
+  identical to `skills` cap fix in the workflow-spine wave.
+- **2 acceptance scenarios** — `DISCOVER_PROMPT_LABELS` named contract set
+  (`{"FeasibilitySignal","IntentRefinement","Template","PromptFramework"}`):
+  (1) all four are schema-covered by the live-tree audit; (2) the engine
+  actually loads each (guards the undeclared trap). 26 scenarios total (was 24).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 63→59.
+- **Coverage** `schema_coverage.fraction` 0.371→0.416 (33→37 covered).
+  Next: continued backfill toward >0.5; Slice 5 deferred-tag gate.
+  Remaining uncovered: 52 labels (see baseline).

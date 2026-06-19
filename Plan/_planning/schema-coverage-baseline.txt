@@ -18,11 +18,9 @@ Culture
 DecisionRecord
 DocRevision
 DoctrineCitation
-FeasibilitySignal
 Finding
 Genre
 Idea
-IntentRefinement
 JulesAlias
 KnownFact
 Language
@@ -38,7 +36,6 @@ PersonaBrief
 Plan
 PlanStep
 Plugin
-PromptFramework
 PromptOutput
 PromptVariant
 Recommendation
@@ -54,7 +51,6 @@ Selection
 SessionLifecycle
 StoryTimeEvent
 Storyform
-Template
 ThinkingMethod
 Tool
 Track
