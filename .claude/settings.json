@@ -35,7 +35,13 @@
       "mcp__codegraph__codegraph_callees",
       "mcp__codegraph__codegraph_impact",
       "mcp__codegraph__codegraph_files",
-      "mcp__codegraph__codegraph_status"
+      "mcp__codegraph__codegraph_status",
+      "mcp__agency__search",
+      "mcp__agency__get_schema",
+      "mcp__agency__execute",
+      "mcp__plugin_agency_agency__search",
+      "mcp__plugin_agency_agency__get_schema",
+      "mcp__plugin_agency_agency__execute"
     ]
   }
 }
