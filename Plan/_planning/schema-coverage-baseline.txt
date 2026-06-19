@@ -5,11 +5,9 @@
 #
 # Format: one label per line
 #
-AcceptanceCriterion
 Album
 Analysis
 AntiPattern
-Artefact
 BoundaryUse
 BriefAudit
 CatalogModule
@@ -21,7 +19,6 @@ Culture
 DecisionRecord
 DocRevision
 DoctrineCitation
-Document
 Event
 FeasibilitySignal
 Finding
@@ -58,7 +55,6 @@ ResearchIntent
 Scene
 Schema
 Selection
-Session
 SessionLifecycle
 Skill
 StoryTimeEvent

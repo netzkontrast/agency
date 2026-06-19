@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings.
 
-### `agency/` (58 files)
+### `agency/` (60 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -68,6 +68,9 @@ Moved out of ``scripts/check_codes_coverage.py`` (Spec 151 Slice 3) so the
 engine — ``agency_doctor`` — can import the audit WITHOUT depending on the
 dev-only ``scripts/`` tree (the wheel packages only ``agency``; importing
 ``scripts.*`` at runtime would crash the installed plugin).
+- **_config.py** — Unified ``.agency/config.yaml`` — Spec 328 Slice 1 (resolver + registry).
+
+A single home for all agency config.
 - **_coverage_gate.py** — Spec 169 Slice 1 — typed GateResult + pure evaluate() for the CI gate.
 
 The CI gate has three concerns: coverage trend (non-decreasing per
@@ -115,6 +118,10 @@ the cached prefix invalidates everything after it.
 The render substrate writes each graph entity to a markdown file carrying a
 YAML-ish frontmatter block (the node id + key fields, so a re-render is
 byte-identical and `parse` reconstructs the slice).
+- **_frugal.py** — Frugal core discipline — Spec 326 Slice 1 (level + render).
+
+Agency's own minimal-code reflex (a redevelopment, not a port): a ladder + a
+non-negotiable safety floor.
 - **_hooks.py** — Spec 280 Slice 1 — hooks install verification + foreign-hook wrapping.
 
 The agency plugin ALREADY ships hooks (`hooks/hooks.json` + Spec 076
@@ -232,12 +239,6 @@ Slice 1 surface (this module):
 
 Live-skill compatibility (Codex review on PR #127):
 - `gate` accepts `"hard"` / `"soft"` / `"computed"` (the gates the live
-  registry already uses; see `agency/capabilities/music/ontology.py`,
-  `agency/capabilities/subagent/_main.py`, `agency/capabilities/skills.py`).
-- Top-level `kind` (e.g.
-- **_substrate_tools.py** — Substrate tools as a registered set — Spec 286 Phase 2 / A5.
-
-The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
-``lif
+  registry already uses; see
 
 _…(content omitted to fit token budget)_

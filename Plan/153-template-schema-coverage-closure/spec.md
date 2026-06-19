@@ -210,3 +210,29 @@ first (the Slice 3 `priority_uncovered` ranking), not speculative ones.
 - **Coverage** `schema_coverage.fraction` 0.213→0.270 (19→24 covered).
   Full closure to >0.5 + re-floor is the remaining Slice 6 work
   (next labels: AcceptanceCriterion/Artefact/Session/Document).
+
+### Done — Slice 6 cont. (document-convergence schema backfill, 2026-06-19)
+
+Steward run continuation: the 4 highest-traffic uncovered labels named in
+the prior Slice 6 entry.
+
+- **4 schemas authored** — title = ontology label, properties DERIVED from
+  the live node-creation sites:
+  - `discover/schemas/acceptance-criterion.json` (`AcceptanceCriterion`) ←
+    `discover/clusters/scope.py` (`text`/`gherkin`/`measurable`; Spec 317).
+  - `develop/schemas/artefact.json` (`Artefact`) ← `agency/ontology.py` +
+    `agency/_invoke.py` (`kind`; optional `path`/`name`).
+  - `document/schemas/session.json` (`Session`) ← `agency/engine.py` +
+    `document/_main.py` (`session_id`; optional `status`; Spec 292).
+  - `document/schemas/document.json` (`Document`) ← `document/_main.py`
+    (`path`/`content_sha`; optional `template`/`schema`; Spec 292).
+- **Engine-load fix** — `discover` cap lacked `artefact_schemas`; added
+  `ArtefactSchemas.from_module(__file__)` (same pattern as intent/develop
+  Slice 6). All 4 now verified engine-loaded.
+- **2 acceptance scenarios** — `DOC_CONVERGENCE_LABELS` named contract set
+  (`{"AcceptanceCriterion","Artefact","Session","Document"}`):
+  (1) all four are schema-covered by the live-tree audit; (2) the engine
+  actually loads each (guards the undeclared trap). 20 scenarios total (was 18).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 65→61.
+- **Coverage** `schema_coverage.fraction` 0.270→0.315 (24→28 covered).
+  Next: continued backfill toward >0.5; Slice 4 round-trip invariant.

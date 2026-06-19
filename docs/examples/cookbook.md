@@ -7,7 +7,7 @@ the shell). Each verb call records provenance — every action becomes a node in
 the graph that `SERVES` your intent.
 
 <!-- doc-source: agency/capabilities/panel/_main.py agency/capabilities/mode/_main.py agency/capabilities/persona/_main.py agency/capabilities/select/_main.py agency/capabilities/recommend/_main.py agency/capabilities/symbols/_main.py agency/capabilities/manage/_main.py agency/capabilities/document/_main.py agency/_substrate_tools.py -->
-<!-- doc-hash: de008e0864872cb4 -->
+<!-- doc-hash: d59ccc38c743e69f -->
 
 ## 0. Onboarding (one-time)
 

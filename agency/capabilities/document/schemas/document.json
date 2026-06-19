@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Document",
+  "description": "The universal convergence artefact — a file's stable identity in the graph, bi-directionally interconnected with the graph. Binds datalayer · templates · schemas · ontology · prompt via its optional fields. CONFORMS_TO a Schema; REVISION_OF points to DocRevisions (document/_main.py; Spec 292).",
+  "type": "object",
+  "required": ["path", "content_sha"],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Absolute filesystem path (or a render-ref for in-memory renders: 'render:<sha>')."
+    },
+    "content_sha": {
+      "type": "string",
+      "description": "SHA-256 of the file body at the time of ingest/render — used for change detection."
+    },
+    "template": {
+      "type": "string",
+      "description": "Name of the template that generated this Document (optional — binds the Templates substrate layer)."
+    },
+    "schema": {
+      "type": "string",
+      "description": "Name of the Schema this Document CONFORMS_TO (optional — binds the Schemas substrate layer)."
+    }
+  }
+}

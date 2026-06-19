@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AcceptanceCriterion",
+  "description": "A testable acceptance criterion derived from an Intent's deliverable — VALIDATES-edged back to the Intent. The Gherkin triple makes it observable; unmeasurable criteria are flagged, never dropped (discover/clusters/scope.py; Spec 317).",
+  "type": "object",
+  "required": ["text", "measurable"],
+  "properties": {
+    "text": {
+      "type": "string",
+      "description": "Human-readable statement: 'The deliverable satisfies: …'"
+    },
+    "gherkin": {
+      "type": "string",
+      "description": "Given/When/Then triple. Spec 147 Driver fills a sharper form in Slice 2; Slice 1 uses a deterministic fallback."
+    },
+    "measurable": {
+      "type": "boolean",
+      "description": "True when the Then clause carries an observable check; False for criteria resting only on vague qualifiers (flagged, not dropped)."
+    }
+  }
+}
