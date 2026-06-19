@@ -19,7 +19,7 @@ from __future__ import annotations
 import time
 
 from agency.capability import (
-    CapabilityBase, RenderTemplates, verb,
+    ArtefactSchemas, CapabilityBase, RenderTemplates, verb,
 )
 from agency.ontology import OntologyExtension
 from agency.skill import phase as _phase  # Spec 286 — shared phase() builder
@@ -100,6 +100,7 @@ class AnalyzeCapability(CapabilityBase):
     name = "analyze"
     home = "capability"
     render_templates = RenderTemplates.from_module(__file__)
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={
             "Analysis": ["path", "axes", "started_at"],
