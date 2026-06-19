@@ -199,6 +199,10 @@ class DelegateCapability(CapabilityBase):
         context_overlap: float = 0.0,            # S9 — fraction already in parent context
         cache_warmth: float = 0.0,               # S10 — fraction prompt-cached at parent
         local_budget_relevant: bool = True,      # S11 — Jules sidesteps local budget
+        # S12 — optional LLM tie-breaker via the OpenRouter free-model driver.
+        use_llm: bool = False,                   # S12 — consult LLMClient when True
+        task_description: str = "",              # plain-text description fed to the LLM
+        llm_confidence_threshold: float = 0.75, # minimum confidence to accept LLM override
     ) -> dict:
         """Apply the dispatch-vs-inline heuristic and return a recommendation.
 
@@ -206,11 +210,16 @@ class DelegateCapability(CapabilityBase):
                 est_duration_min (S5), expected_return_tokens (S1),
                 mutates (S6 disqualifier), read_only (S7), driver_hint (S8),
                 context_overlap (S9), cache_warmth (S10),
-                local_budget_relevant (S11).
+                local_budget_relevant (S11),
+                use_llm (S12 — optional; consult the ``llm`` Driver after the
+                heuristic; requires OPENROUTER_API_KEY),
+                task_description (plain text fed to the LLM when use_llm=True),
+                llm_confidence_threshold (float, default 0.75; LLM override only
+                applied when its confidence exceeds this value).
         Returns: ``{recommendation, driver, rationale, token_cost_estimate,
                  local_budget_token_estimate, signals_fired}`` — the six-field
                  payload documented in Spec 040 §"Done When". ``signals_fired``
-                 reports which of the 11 swung the decision (incl. disqualifiers).
+                 reports which of the 11 (+ optional S12) swung the decision.
         chain_next: when ``recommendation == 'dispatch'``, call ``delegate.fan_out``
                     (driver=, driver_verb=, items=, quota=); when ``inline``,
                     execute in-process.
@@ -298,6 +307,20 @@ class DelegateCapability(CapabilityBase):
         else:
             driver = "local"
 
+        # ----- S12 — optional LLM tie-breaker (OpenRouter free-model driver).
+        # Fires AFTER the heuristic so the LLM has a concrete initial decision
+        # to validate or override.  Silently skips if the driver is unavailable
+        # or if the LLM call fails — the heuristic result stands in that case.
+        if use_llm:
+            llm_override = self._llm_dispatch_signal(
+                task_description=task_description,
+                heuristic_driver=driver,
+                signals_fired=signals,
+                confidence_threshold=llm_confidence_threshold,
+            )
+            if llm_override:
+                driver, signals = llm_override["driver"], llm_override["signals"]
+
         local_cost = _estimate_local_tokens(
             expected_return_tokens, context_overlap, cache_warmth, driver)
         total_cost = _estimate_total_work_tokens(
@@ -311,6 +334,81 @@ class DelegateCapability(CapabilityBase):
             "local_budget_token_estimate": local_cost,
             "signals_fired": signals,
         }
+
+    @staticmethod
+    def _generate_dispatch_system_prompt(
+        heuristic_driver: str,
+        signals_fired: list[str],
+    ) -> str:
+        """Build a rich, context-aware system prompt for the S12 dispatch LLM decision.
+
+        Includes driver trade-offs, heuristic context, signals that fired, and explicit
+        decision criteria — giving the model enough signal to make a high-quality override
+        decision without hallucinating routing logic.
+        """
+        signals_block = (
+            "\n".join(f"  - {s}" for s in signals_fired) if signals_fired else "  (none)"
+        )
+        return (
+            "You are a dispatch-routing advisor for the agency agentic framework.\n"
+            "Your role: validate or override a deterministic heuristic routing decision\n"
+            "for a software engineering task by choosing the best execution driver.\n\n"
+            "DRIVER OPTIONS:\n"
+            "  local  — spawn an isolated local subagent (fast, bounded context, in-process)\n"
+            "  jules  — send to Jules async coding agent (long-running, offline, high budget)\n"
+            "  inline — handle in the current agent without dispatch (lowest overhead)\n\n"
+            f"HEURISTIC RESULT: {heuristic_driver!r}\n\n"
+            "SIGNALS THAT FIRED:\n"
+            f"{signals_block}\n\n"
+            "DECISION CRITERIA (apply in order):\n"
+            "  1. Return tokens >= 5000 or >= 4 unfamiliar files → prefer local or jules\n"
+            "  2. Wall-clock >= 15 min or task is async/offline → prefer jules\n"
+            "  3. Task mutates shared state (S6) without provenance → local or jules only\n"
+            "  4. Read-only + context overlap < 0.7 + cache warm → prefer inline\n"
+            "  5. When uncertain, confirm the heuristic; only override with high confidence.\n\n"
+            'Reply ONLY with JSON: {"choice": "<local|jules|inline>", "confidence": <0.0-1.0>}\n'
+            "Set confidence >= 0.75 only when you are confident the heuristic needs overriding."
+        )
+
+    def _llm_dispatch_signal(
+        self,
+        task_description: str,
+        heuristic_driver: str,
+        signals_fired: list[str],
+        confidence_threshold: float,
+    ) -> dict | None:
+        """Consult the ``llm`` Driver (OpenRouter free model) to validate or
+        override the heuristic driver choice.  Returns ``{driver, signals}``
+        when the LLM answer meets the confidence threshold, else ``None``."""
+        from ...capability import DriverMissing
+        try:
+            llm = self.ctx.get_driver("llm")
+        except DriverMissing:
+            return None
+        options = ["local", "jules", "inline"]
+        system_prompt = self._generate_dispatch_system_prompt(
+            heuristic_driver=heuristic_driver,
+            signals_fired=signals_fired,
+        )
+        prompt = (
+            f"Task description: {task_description or '(no description provided)'}\n\n"
+            f"The heuristic picked {heuristic_driver!r}. "
+            f"Should it be confirmed or overridden? Choose one of: local, jules, inline."
+        )
+        try:
+            result = llm.decide(prompt, options, system=system_prompt)
+        except Exception:
+            return None
+        choice = result.get("choice", "")
+        confidence = float(result.get("confidence", 0.0))
+        if choice not in options or confidence < confidence_threshold:
+            return None
+        new_signals = list(signals_fired)
+        if choice != heuristic_driver:
+            new_signals.append(f"S12:llm_override={choice}(conf={confidence:.2f})")
+        else:
+            new_signals.append(f"S12:llm_confirms={choice}(conf={confidence:.2f})")
+        return {"driver": choice, "signals": new_signals}
 
     def _inline(self, rationale: str, signals: list[str],
                 s1_tokens: int, s9_overlap: float, s10_warmth: float) -> dict:
