@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Recommendation",
+  "description": "A capability-routing recommendation produced by the recommend cap (agency/capabilities/recommend/_main.py; Spec 298). SERVES the active intent; maps a free-text request to the best-matching capability + verb.",
+  "type": "object",
+  "required": ["request", "capability"],
+  "properties": {
+    "request": {
+      "type": "string",
+      "description": "The original free-text request that was routed."
+    },
+    "capability": {
+      "type": "string",
+      "description": "Name of the recommended capability (e.g. 'analyze', 'research')."
+    }
+  }
+}

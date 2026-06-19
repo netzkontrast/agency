@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import re
 
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 _STOP = {"the", "a", "an", "to", "of", "and", "for", "in", "on", "with", "my",
@@ -49,6 +49,7 @@ _CAPABILITY_ROUTING_SKILL = {
 class RecommendCapability(CapabilityBase):
     name = "recommend"
     home = "capability"   # reads the registry to route a request
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"Recommendation": ["request", "capability"]},
         skills={"capability-routing": _CAPABILITY_ROUTING_SKILL},

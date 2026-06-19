@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ThinkingMethod",
+  "description": "A critical-thinking pass applied to a subject (agency/capabilities/thinking/_main.py; Spec 091). ANALYZES the target node; one method per invocation; findings recorded as ThinkingFinding nodes.",
+  "type": "object",
+  "required": ["method", "subject"],
+  "properties": {
+    "method": {
+      "type": "string",
+      "enum": [
+        "decompose", "assumptions", "premortem", "first_principles",
+        "inversion", "steelman", "second_order", "tradeoffs",
+        "red_team", "socratic"
+      ],
+      "description": "The critical-thinking method applied."
+    },
+    "subject": {
+      "type": "string",
+      "description": "Description of the subject being analyzed (a plan, decision, or design)."
+    }
+  }
+}

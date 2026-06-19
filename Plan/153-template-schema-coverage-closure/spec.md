@@ -411,3 +411,30 @@ declared `artefact_schemas` (no cap setup needed).
 - **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 50→44.
 - **Coverage** `schema_coverage.fraction` 0.517→0.584 (46→52 covered).
   Crossed 0.5+ continue toward 0.6.
+
+### Done — Slice 6 recommend + mode + panel + thinking wave (2026-06-19)
+
+Steward run continuation: 6 labels from 4 new caps gaining `artefact_schemas`
++ 2 from prompt cap (already wired).
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `recommend/schemas/recommendation.json` (`Recommendation`) ← `recommend/_main.py`
+    (`request`/`capability` required; no enums — free string fields).
+  - `mode/schemas/mode-activation.json` (`ModeActivation`) ← `mode/_main.py`
+    (`mode` required; enum 5-member `_BY_NAME` set).
+  - `panel/schemas/panel.json` (`Panel`) ← `panel/_main.py`
+    (`subject`/`mode` required; mode enum {discussion/debate/socratic}).
+  - `thinking/schemas/thinking-method.json` (`ThinkingMethod`) ← `thinking/_main.py`
+    (`method`/`subject` required; method enum 10-member set).
+  - `prompt/schemas/prompt-variant.json` (`PromptVariant`) ← `prompt/ontology.py`
+    (`parent_instance`/`variant_kind` required; variant_kind enum 6-member `VARIANT_KIND`).
+  - `prompt/schemas/prompt-output.json` (`PromptOutput`) ← `prompt/ontology.py`
+    (`instance`/`response_body` required).
+- **4 capabilities updated** — `ArtefactSchemas.from_module(__file__)` added
+  to `RecommendCapability`, `ModeCapability`, `PanelCapability`, `ThinkingCapability`.
+- **2 acceptance scenarios** — `RECOMMEND_MODE_PANEL_THINKING_LABELS` named contract
+  set; 34 scenarios total (was 32).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 44→38.
+- **Coverage** `schema_coverage.fraction` 0.584→0.652 (52→58 covered).
+  Crossed 0.6 milestone. Next: continue toward 0.7.

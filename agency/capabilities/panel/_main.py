@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 
@@ -93,6 +93,7 @@ _STRATEGIC_ANALYSIS_SKILL = {
 
 class PanelCapability(CapabilityBase):
     name = "panel"
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     home = "memory"   # produces strategic-analysis provenance
     ontology = OntologyExtension(
         nodes={"Panel": ["subject", "mode"]},
