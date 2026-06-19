@@ -138,3 +138,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the discover-prompt schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the discover-prompt labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — prompt-dossier + document + jules wave) ─
+
+  Scenario: the prompt-dossier + document + jules labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the prompt-dossier-document-jules labels are all schema-covered
+
+  Scenario: the prompt-dossier + document + jules schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the prompt-dossier-document-jules labels each have a loaded ontology schema

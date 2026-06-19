@@ -337,3 +337,29 @@ nodes + the core Template node + the prompt cap's PromptFramework.
 - **Coverage** `schema_coverage.fraction` 0.371→0.416 (33→37 covered).
   Next: continued backfill toward >0.5; Slice 5 deferred-tag gate.
   Remaining uncovered: 52 labels (see baseline).
+
+### Done — Slice 6 prompt-dossier + document + jules wave (2026-06-19)
+
+Steward run continuation: 6 labels from caps already declaring `artefact_schemas`
+(no new cap setup needed for any of these).
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  the live node-creation sites:
+  - `prompt/schemas/brief-audit.json` (`BriefAudit`) ← `prompt/ontology.py`
+    (`brief`/`clarity_score` required; `status` enum {pending/passed/failed}).
+  - `prompt/schemas/catalog-module.json` (`CatalogModule`) ← `prompt/ontology.py`
+    (`category` enum {A/B/C}; `identifier`/`name` required).
+  - `prompt/schemas/research-intent.json` (`ResearchIntent`) ← `prompt/ontology.py`
+    (`seed_query`/`topic` required; `deliverable` enum {dossier/report/outline/memo}).
+  - `prompt/schemas/anti-pattern.json` (`AntiPattern`) ← `prompt/ontology.py`
+    (`kind` enum 8-member anti-pattern set; `body` required str).
+  - `document/schemas/doc-revision.json` (`DocRevision`) ← `document/_main.py`
+    (`source` enum {graph/file}; `content_sha` required; Spec 292 keep-both).
+  - `jules/schemas/jules-alias.json` (`JulesAlias`) ← `jules/_main.py`
+    (`name`/`sid` required str — alias→session-ID mapping).
+- **2 acceptance scenarios** — `PROMPT_DOSSIER_DOC_JULES_LABELS` named contract
+  set; 28 scenarios total (was 26). No artefact_schemas additions needed.
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 59→53.
+- **Coverage** `schema_coverage.fraction` 0.416→0.483 (37→43 covered).
+  Next: push past 0.5 — next targets `Analysis`/`Finding` (analyze cap, needs
+  `artefact_schemas`) or `Schema`/`Tool` (core nodes — assign to develop cap).

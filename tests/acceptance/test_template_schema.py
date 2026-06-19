@@ -684,3 +684,31 @@ def _discover_prompt_loaded(loaded_schema_titles):
         "discover-prompt schemas are on disk but NOT loaded by the engine "
         "(declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── Slice 6: prompt-dossier + document + jules wave ──────────────────────────
+# BriefAudit/CatalogModule/ResearchIntent/AntiPattern (prompt cap)
+# DocRevision (document cap) + JulesAlias (jules cap)
+# All owning caps already have artefact_schemas declared.
+PROMPT_DOSSIER_DOC_JULES_LABELS = {
+    "BriefAudit", "CatalogModule", "ResearchIntent", "AntiPattern",
+    "DocRevision", "JulesAlias",
+}
+
+
+@then("the prompt-dossier-document-jules labels are all schema-covered")
+def _prompt_dossier_doc_jules_covered(coverage_report):
+    missing = PROMPT_DOSSIER_DOC_JULES_LABELS - coverage_report.covered
+    assert not missing, (
+        "prompt-dossier+document+jules labels lack a Schema "
+        "(Spec 153 Slice 6 — prompt-dossier+doc+jules wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the prompt-dossier-document-jules labels each have a loaded ontology schema")
+def _prompt_dossier_doc_jules_loaded(loaded_schema_titles):
+    missing = PROMPT_DOSSIER_DOC_JULES_LABELS - loaded_schema_titles
+    assert not missing, (
+        "prompt-dossier+document+jules schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
