@@ -21,6 +21,10 @@ import json
 import os
 import sys
 
+from dotenv import load_dotenv
+
+load_dotenv()  # populate OPENROUTER_API_KEY / JULES_API_KEY from .env before any lazy reads
+
 from ._db_path import resolve_db_path
 from .engine import Engine
 
