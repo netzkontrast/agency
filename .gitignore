@@ -23,6 +23,14 @@ __pycache__/
 # substrate DBs (`.agency/session.db`, `.codegraph/codegraph.db`) can be tracked
 # and travel with the repo. Only the transient SQLite sidecars below stay
 # ignored (committing a WAL/journal/shm would corrupt the DB).
+# .agency/session.db: excluded despite the 2026-06-19 directive to lift *.db —
+# PR #194 (Jules) intentionally removed it from tracking because the stop-hook
+# committed it on every turn, creating a CI-loop. Exclude it here to prevent
+# the stop-hook from flagging it as untracked on every session.
+.agency/session.db
+# Literal '${CLAUDE_PROJECT_DIR}' directory created by unexpanded env var in
+# some environment setup — never a real repo artefact.
+${CLAUDE_PROJECT_DIR}
 # SQLite WAL/journal files (transient — never commit)
 *.db-journal
 *.db-wal
