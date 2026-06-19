@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SessionLifecycle",
+  "description": "Lifecycle anchor for a working session (agency/capabilities/develop/_main.py; Spec 287). SERVES the active intent; mode tracks the current session posture; ModeShift edges record transitions.",
+  "type": "object",
+  "required": ["mode", "status"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["brainstorming", "spec-authoring", "coding", "review", "synthesize"],
+      "description": "Current operational mode of the session."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "paused", "archived"],
+      "description": "Lifecycle status of the session."
+    }
+  }
+}

@@ -385,3 +385,29 @@ Steward run continuation: 3 labels from analyze + select caps — both needed
 - **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 53→50.
 - **Coverage** `schema_coverage.fraction` 0.483→0.517 (43→46 covered). 
   Crossed 0.5 milestone. Next: continue toward 0.6.
+
+### Done — Slice 6 research + develop-extras wave (2026-06-19)
+
+Steward run continuation: 6 labels from research + develop caps — both already
+declared `artefact_schemas` (no cap setup needed).
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `research/schemas/research.json` (`Research`) ← `research/_main.py`
+    (`question`/`depth`/`started_at`/`status` required; `status` enum 6-member
+    lifecycle set {planning/fanning-out/verifying/ready/superseded/failed}).
+  - `research/schemas/research-claim.json` (`ResearchClaim`) ← `research/_main.py`
+    (`text`/`research_id` required).
+  - `develop/schemas/plan.json` (`Plan`) ← `develop/_main.py`
+    (`title` required; `status` optional enum {drafted/in-progress/done/abandoned}).
+  - `develop/schemas/plan-step.json` (`PlanStep`) ← `develop/_main.py`
+    (`plan`/`index`/`description` required; `state` enum {pending/done/blocked/skipped}).
+  - `develop/schemas/mode-shift.json` (`ModeShift`) ← `develop/_main.py`
+    (`from_mode`/`to_mode` required; both enum SESSION_MODE 5-member set).
+  - `develop/schemas/session-lifecycle.json` (`SessionLifecycle`) ← `develop/_main.py`
+    (`mode`/`status` required; mode enum SESSION_MODE; status enum {active/paused/archived}).
+- **2 acceptance scenarios** — `RESEARCH_DEVELOP_EXTRAS_LABELS` named contract
+  set; 32 scenarios total (was 30). No artefact_schemas additions needed.
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 50→44.
+- **Coverage** `schema_coverage.fraction` 0.517→0.584 (46→52 covered).
+  Crossed 0.5+ continue toward 0.6.

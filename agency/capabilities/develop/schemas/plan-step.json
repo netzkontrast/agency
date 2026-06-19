@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PlanStep",
+  "description": "A single step within a Plan (agency/capabilities/develop/_main.py; Spec 287). Linked via HAS_STEP←Plan; index establishes ordering; state tracks execution outcome.",
+  "type": "object",
+  "required": ["plan", "index", "description"],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "Node ID of the parent Plan."
+    },
+    "index": {
+      "type": "integer",
+      "description": "Zero-based position of this step within the plan."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the step."
+    },
+    "state": {
+      "type": "string",
+      "enum": ["pending", "done", "blocked", "skipped"],
+      "description": "Optional execution state of the step."
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Optional evidence or output produced when the step was completed."
+    }
+  }
+}
