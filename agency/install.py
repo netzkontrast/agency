@@ -638,18 +638,33 @@ _SESSION_START_HOOK_SCRIPT = """\
 #    .agency/ dir + .gitattributes binary marker, nothing else.
 set -e
 
-# --- Spec 292: refresh the repo index as a Document on session start ---
-# Regenerates PROJECT_INDEX.md (a RepoIndex graph node — the 94%-reduction
-# briefing) via the ported `develop index` verb, so every session opens with a
-# fresh, token-cheap map of the repo. BACKGROUNDED + non-fatal: never blocks
-# session start; deterministic + content-hash stable, so it does not churn git
-# when nothing changed. AGENCY_INDEX_ON_START=0 opts out.
+# --- Spec 292: CodeGraph + repo index refresh on session start ---
+# ONE backgrounded, non-fatal job (never blocks session start), ORDERED:
+#   1. CodeGraph — `init` on the first session, `sync` thereafter, so the repo
+#      index and EVERY code lookup read a fresh, local symbol/call-graph index.
+#      AGENCY_CODEGRAPH_ON_START=0 opts out.
+#   2. PROJECT_INDEX.md — the codegraph-powered `develop index` briefing (a
+#      RepoIndex graph node). Runs AFTER codegraph so it reads the fresh index;
+#      the SAVE path renders in FULL (never truncated — CLAUDE.md rule 9).
+#      Deterministic + content-hash stable, so it does not churn git unchanged.
+#      AGENCY_INDEX_ON_START=0 opts out.
 _agency_index_on_start() {
-  [ "${AGENCY_INDEX_ON_START:-1}" = "0" ] && return 0
-  [ -n "${CLAUDE_PROJECT_DIR:-}" ] && command -v agency >/dev/null 2>&1 || return 0
-  ( cd "${CLAUDE_PROJECT_DIR}" && agency execute --code "iid = (await call_tool('intent_bootstrap', {'purpose':'session-start repo index','deliverable':'PROJECT_INDEX.md','acceptance':'RepoIndex node recorded'}))['intent_id']
+  [ -n "${CLAUDE_PROJECT_DIR:-}" ] || return 0
+  (
+    cd "${CLAUDE_PROJECT_DIR}" || exit 0
+    if [ "${AGENCY_CODEGRAPH_ON_START:-1}" != "0" ] && command -v codegraph >/dev/null 2>&1; then
+      if codegraph status 2>/dev/null | grep -q "Not initialized"; then
+        codegraph init . >/dev/null 2>&1 || true
+      else
+        codegraph sync . >/dev/null 2>&1 || true
+      fi
+    fi
+    if [ "${AGENCY_INDEX_ON_START:-1}" != "0" ] && command -v agency >/dev/null 2>&1; then
+      agency execute --code "iid = (await call_tool('intent_bootstrap', {'purpose':'session-start repo index','deliverable':'PROJECT_INDEX.md','acceptance':'RepoIndex node recorded'}))['intent_id']
 await call_tool('capability_develop_index', {'intent_id': iid, 'agent_id':'agent:session-start', 'path':'.', 'apply': True})
-return 'ok'" >/dev/null 2>&1 & ) || true
+return 'ok'" >/dev/null 2>&1 || true
+    fi
+  ) &
 }
 
 # --- Scaffold the project's .agency/ (idempotent; runs every session) ---

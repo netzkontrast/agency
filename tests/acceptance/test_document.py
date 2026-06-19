@@ -405,6 +405,32 @@ def _file_written(project_dir):
     assert (project_dir / "PROJECT_INDEX.md").exists()
 
 
+# ── the index sources structure + symbol counts from codegraph (with fallback) ──
+@given("codegraph reports a symbol count for that module")
+def _cg_counts(monkeypatch):
+    monkeypatch.setattr(
+        "agency.capabilities.document._index_repo._codegraph_files",
+        lambda root: {"module.py": 9})
+
+
+@given("codegraph is unavailable")
+def _cg_none(monkeypatch):
+    monkeypatch.setattr(
+        "agency.capabilities.document._index_repo._codegraph_files",
+        lambda root: None)
+
+
+@then("the written index shows a codegraph symbol count")
+def _shows_symbols(project_dir):
+    content = (project_dir / "PROJECT_INDEX.md").read_text()
+    assert "9 symbols" in content, content
+
+
+@then("the written index lists the Python module")
+def _lists_module(project_dir):
+    assert "module.py" in (project_dir / "PROJECT_INDEX.md").read_text()
+
+
 # ── saving the index never deletes content to fit a budget (CLAUDE.md rule) ────
 @given("a project directory with several modules and a pyproject.toml",
        target_fixture="project_dir")
