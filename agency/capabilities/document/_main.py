@@ -200,16 +200,19 @@ class DocumentCapability(CapabilityBase):
     @verb(role="effect")
     def index_repo(self, path: str = ".", apply: bool = False,
                    max_tokens: int = 3000) -> dict:
-        """Deterministic 94%-reduction repo briefing within ≤ max_tokens.
+        """Deterministic repo briefing. A PREVIEW (``apply=False``) fits ≤
+        max_tokens (truncates with an "omitted" marker); SAVING
+        (``apply=True``) writes the COMPLETE index — a saved project index never
+        deletes content to fit a token budget (CLAUDE.md mandatory rule).
 
-        Inputs: path (str), apply (bool — write PROJECT_INDEX.md),
-                max_tokens (int — budget; default 3000).
+        Inputs: path (str), apply (bool — write COMPLETE PROJECT_INDEX.md),
+                max_tokens (int — preview budget; default 3000).
         Returns: ``{index_id, content, tokens, files_scanned, writeup}``.
         chain_next: caller publishes via ``apply=True`` after review.
         """
         content, tokens, files_scanned = _index_repo.render(
             path, self.ctx.memory, intent_id=self.ctx.intent_id,
-            max_tokens=max_tokens)
+            max_tokens=max_tokens, full=apply)
         sha = _index_repo.content_sha(content)
         index_id = self.ctx.record_and_serve("RepoIndex", {
             "path": os.path.abspath(path),

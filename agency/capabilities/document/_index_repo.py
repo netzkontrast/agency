@@ -147,10 +147,16 @@ def _count_tokens(text: str) -> int:
 
 
 def render(root: str, memory, intent_id: str = "",
-           max_tokens: int = 3000) -> tuple[str, int, int]:
+           max_tokens: int = 3000, full: bool = False) -> tuple[str, int, int]:
     """Compose the PROJECT_INDEX.md content; return (text, tokens,
-    files_scanned). Truncates to max_tokens with a "... (N modules
-    omitted)" marker rather than exceeding budget."""
+    files_scanned).
+
+    With ``full=True`` the briefing is COMPLETE — every module survives, the
+    index is never truncated. This is the SAVE path: a saved project index must
+    not delete content to fit a token budget (CLAUDE.md mandatory rule — a
+    dropped entry makes the index lie about the tree). With ``full=False``
+    (preview/exploration) the ``max_tokens`` budget still applies, truncating
+    with a "... (N modules omitted)" marker rather than exceeding it."""
     root = os.path.abspath(root)
     name = os.path.basename(root) or "project"
     substrate = _detect_substrate(root)
@@ -217,8 +223,9 @@ def render(root: str, memory, intent_id: str = "",
                 parts.append(f"- **{base}** — {brief}\n")
             else:
                 parts.append(f"- **{base}**\n")
-        # Mid-loop budget check; truncate gracefully.
-        if _count_tokens("".join(parts)) > max_tokens * 0.92:
+        # Mid-loop budget check; truncate gracefully — UNLESS full (the save
+        # path never deletes content to fit a budget; CLAUDE.md mandatory rule).
+        if not full and _count_tokens("".join(parts)) > max_tokens * 0.92:
             omitted = sum(len(briefs_by_dir[d]) for d in sorted(briefs_by_dir)
                           if d > dir_rel)
             parts.append(f"\n_... ({omitted} modules omitted to fit token budget)_\n")
@@ -230,7 +237,7 @@ def render(root: str, memory, intent_id: str = "",
     # tail to fit. Preserve the leading sections; tail-truncate the
     # body. A char proxy is enough — token count is verified after.
     final_tokens = _count_tokens(text)
-    if final_tokens > max_tokens:
+    if not full and final_tokens > max_tokens:
         # Estimated chars to keep = max_tokens * 4 (cl100k average).
         keep_chars = max_tokens * 4
         if len(text) > keep_chars:
