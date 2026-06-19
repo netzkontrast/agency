@@ -712,3 +712,26 @@ def _prompt_dossier_doc_jules_loaded(loaded_schema_titles):
         "prompt-dossier+document+jules schemas are on disk but NOT loaded by "
         "the engine (declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── analyze + select wave ─────────────────────────────────────────────────────
+# Analysis/Finding (analyze cap) + Selection (select cap)
+ANALYZE_SELECT_LABELS = {"Analysis", "Finding", "Selection"}
+
+
+@then("the analyze-select labels are all schema-covered")
+def _analyze_select_covered(coverage_report):
+    missing = ANALYZE_SELECT_LABELS - coverage_report.covered
+    assert not missing, (
+        "analyze+select labels lack a Schema "
+        "(Spec 153 Slice 6 — analyze+select wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the analyze-select labels each have a loaded ontology schema")
+def _analyze_select_loaded(loaded_schema_titles):
+    missing = ANALYZE_SELECT_LABELS - loaded_schema_titles
+    assert not missing, (
+        "analyze+select schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))

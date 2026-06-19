@@ -881,12 +881,17 @@ class Engine:
         @asynccontextmanager
         async def lifespan(server):
             from agency.capabilities.jules import watch as _jules_watch
+            from ._monitor import MonitorEvent
             engine.monitor.maybe_rotate()           # Spec 021 — bound the SLOG on session enter
+            engine.monitor.emit(MonitorEvent(source="engine", kind="server_start",
+                                             message="MCP server started"))
             _jules_watch.start(engine)              # attaches engine._jules_watcher + starts poll loop
             try:
                 yield {}                             # lifespan state available via Context
             finally:
                 await _jules_watch.stop(engine)     # cancels the poll loop cleanly
+                engine.monitor.emit(MonitorEvent(source="engine", kind="server_stop",
+                                                 message="MCP server stopped"))
 
         return lifespan
 
