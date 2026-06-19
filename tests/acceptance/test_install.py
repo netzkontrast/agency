@@ -141,6 +141,56 @@ def _first_write(tmp_path):
     return tmp_path
 
 
+# ── given/when/then — external MCP server preservation ────────────────────────
+
+@given("a target whose .mcp.json declares an external codegraph server",
+       target_fixture="mcp_external_target")
+def _mcp_external_target(tmp_path):
+    (tmp_path / ".mcp.json").write_text(json.dumps({
+        "mcpServers": {
+            "codegraph": {
+                "type": "stdio",
+                "command": "codegraph",
+                "args": ["serve", "--mcp"],
+            },
+        }
+    }, indent=2))
+    return tmp_path
+
+
+@when("I write the install to that target", target_fixture="mcp_write_result")
+def _write_to_mcp_target(install_engine, mcp_external_target):
+    install.write(str(mcp_external_target))
+    return mcp_external_target
+
+
+@when("I write the install to that target twice", target_fixture="mcp_write_twice")
+def _write_twice_to_mcp_target(install_engine, mcp_external_target):
+    install.write(str(mcp_external_target))
+    first = (mcp_external_target / ".mcp.json").read_text()
+    install.write(str(mcp_external_target))
+    second = (mcp_external_target / ".mcp.json").read_text()
+    return first, second
+
+
+@then(".mcp.json still declares the external codegraph server")
+def _mcp_keeps_codegraph(mcp_write_result):
+    cfg = json.loads((mcp_write_result / ".mcp.json").read_text())
+    assert "codegraph" in cfg["mcpServers"], list(cfg["mcpServers"])
+
+
+@then(".mcp.json still declares the agency server")
+def _mcp_keeps_agency(mcp_write_result):
+    cfg = json.loads((mcp_write_result / ".mcp.json").read_text())
+    assert "agency" in cfg["mcpServers"], list(cfg["mcpServers"])
+
+
+@then("the two .mcp.json contents are byte-identical")
+def _mcp_regen_idempotent(mcp_write_twice):
+    first, second = mcp_write_twice
+    assert first == second
+
+
 # ── then — scaffold ───────────────────────────────────────────────────────────
 
 @then(".agency/ directory is created")

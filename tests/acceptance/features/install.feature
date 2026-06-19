@@ -71,6 +71,19 @@ Feature: install pipeline — scaffold, hooks, skills, prune (Spec 029 / 031 / 0
     And .mcp.json cwd is ${CLAUDE_PROJECT_DIR}
     And .mcp.json env_vars includes AGENCY_EMBEDDER AGENCY_DB and JULES_API_KEY
 
+  Scenario: write preserves an external MCP server across regen
+    Given a fresh agency engine in code-mode
+    And a target whose .mcp.json declares an external codegraph server
+    When I write the install to that target
+    Then .mcp.json still declares the external codegraph server
+    And .mcp.json still declares the agency server
+
+  Scenario: write is idempotent when an external MCP server is present
+    Given a fresh agency engine in code-mode
+    And a target whose .mcp.json declares an external codegraph server
+    When I write the install to that target twice
+    Then the two .mcp.json contents are byte-identical
+
   Scenario: marketplace description names the live capability count
     Given a fresh agency engine in code-mode
     When I generate the install manifest

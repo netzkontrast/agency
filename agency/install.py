@@ -927,6 +927,12 @@ def write(root: str) -> list[str]:
         cap_names = list(engine.registry.names())
     finally:
         engine.memory.close()
+    # Preserve user-added (external) MCP servers across regen so the
+    # self-hosted install-drift gate stays green when a project wires its own
+    # servers into `.mcp.json` (e.g. `codegraph install --location local`).
+    # `agency` is generator-owned; anything else already on disk is kept.
+    if ".mcp.json" in files:
+        files[".mcp.json"] = _merge_external_mcp_servers(files[".mcp.json"], root)
     # Spec 092 G1 — prune generator-owned files that no longer correspond to a live verb
     # (the installer historically WROTE but never PRUNED, so a removed/renamed verb left
     # an orphan bin wrapper / reference that check-drift didn't catch).
@@ -992,6 +998,39 @@ def _prune_orphans(root: str, expected: set[str], cap_names: list[str]) -> list[
                 except OSError:
                     pass
     return pruned
+
+
+def _merge_external_mcp_servers(generated_json: str, root: str) -> str:
+    """Preserve user-added (external) MCP servers across an install regen.
+
+    `.mcp.json` is generator-owned for the `agency` server, but a project may
+    extend the same file with its own servers (e.g. `codegraph` written by
+    `codegraph install --location local`). A blind overwrite dropped those,
+    which tripped the self-hosted install-drift gate — CI runs
+    ``python -m agency.install`` then ``git diff --quiet``, so any wiped
+    server reads as drift and fails the build.
+
+    Merge instead: the generator's entries win for the keys it owns; any other
+    server already present on disk is preserved in its existing order, so a
+    second regen is a no-op (idempotent). An absent or malformed existing file
+    returns the generated config unchanged.
+    """
+    existing_path = os.path.join(root, ".mcp.json")
+    try:
+        with open(existing_path, encoding="utf-8") as f:
+            existing = json.load(f)
+    except (OSError, ValueError):
+        return generated_json
+    existing_servers = existing.get("mcpServers") if isinstance(existing, dict) else None
+    if not isinstance(existing_servers, dict):
+        return generated_json
+    gen = json.loads(generated_json)
+    gen_servers = gen.get("mcpServers", {})
+    extras = {k: v for k, v in existing_servers.items() if k not in gen_servers}
+    if not extras:
+        return generated_json
+    gen["mcpServers"] = {**gen_servers, **extras}
+    return json.dumps(gen, indent=2)
 
 
 def main(argv: list | None = None) -> int:

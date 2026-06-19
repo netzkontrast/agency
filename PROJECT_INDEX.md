@@ -22,7 +22,7 @@
 
 ## Macro-structure
 
-**Capabilities:** `analyze/`, `branch/`, `clusters/`, `delegate/`, `develop/`, `document/`, `dogfood/`, `gate/`, `intent/`, `jules/`, `migrations/`, `music/`, `novel/`, `plugin/`, `prompt/`, `reflect/`, `research/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `thinking/`, `workspace/`
+**Capabilities:** `analyze/`, `branch/`, `clusters/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `gate/`, `intent/`, `jules/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `workspace/`
 
 ### `./` (1 files)
 - **conftest.py**
@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings.
 
-### `agency/` (55 files)
+### `agency/` (57 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -58,6 +58,12 @@ Three console-script entry points (Spec 039):
 A Lifecycle `check` is the post-hoc read over whatever a delegation/subagent
 produced — same observe family as `COMPLETED ≠ done`/`verify` (CORE.md:31,33-35),
 NOT a new capability's act.
+- **_codes_coverage.py** — Spec 151 — ToolResult Codes coverage audit (engine-side core).
+
+Moved out of ``scripts/check_codes_coverage.py`` (Spec 151 Slice 3) so the
+engine — ``agency_doctor`` — can import the audit WITHOUT depending on the
+dev-only ``scripts/`` tree (the wheel packages only ``agency``; importing
+``scripts.*`` at runtime would crash the installed plugin).
 - **_coverage_gate.py** — Spec 169 Slice 1 — typed GateResult + pure evaluate() for the CI gate.
 
 The CI gate has three concerns: coverage trend (non-decreasing per
@@ -199,6 +205,11 @@ classified ``transient``.
 
 A thin, stubbable boundary (like `JulesClient` / `GitClient`) so `dogfood`'s
 toolchain verbs can be exercised in tests without shelling out.
+- **_schema_coverage.py** — Spec 153 — template/schema coverage audit (engine-side core).
+
+Moved out of ``scripts/check_schema_coverage.py`` (Spec 153 Slice 3) so the
+engine — ``agency_doctor`` — can import the audit WITHOUT depending on the
+dev-only ``scripts/`` tree (the wheel packages only ``agency``).
 - **_skill_parse.py** — Spec 152 Slice 1 — typed Skill/Phase parse boundary.
 
 A single parse + validate point for skill / phase dicts so the walker
@@ -226,22 +237,6 @@ The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
 ``lifecycle_gate`` · ``memory_graph_provenance`` · ``hook_event`` ·
 ``intent_bootstrap`` · ``agency_install`` · ``agency_doctor`` ·
 ``agency_welcome``.
-- **_tokens.py** — Spec 082 — the token-count boundary.
-
-ONE place to count tokens, with tiers (best first):
-  1.
-- **_typed_shapes_wave1.py** — Spec 171 + 175 + 176 Slice 1 — typed shapes for the wave-1 batch.
-- **_typed_shapes_wave1_part2.py** — Wave-1 enhancement Slice 1 batch — 8 typed shapes.
-
-Specs 155 / 160 / 163 / 166 / 167 / 172 / 174 / 177.
-- **_typed_shapes_wave3.py** — Wave-3 enhancement Slice 1 batch — substantive typed shapes (Specs 178/179/180/182/183).
-
-Promotes 5 wave-3 specs from catalogue stub (agency/_enhancement_stubs.py)
-to substantive Slice 1 code.
-- **_typed_shapes_waves4_12.py** — Waves 4-12 enhancement Slice 1 batch — substantive typed shapes.
-
-Promotes every wave-4..12 spec (184-277, minus 195/281) from catalogue
-stub to substantive Slice 1.
-- **_verb.py** — Spec 286 Phase-1 / A4 — the typed `
+- **_tokens.py** — Spec 082 — the token-coun
 
 _…(content omitted to fit token budget)_
