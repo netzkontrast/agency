@@ -15,6 +15,8 @@ import json
 import re
 from pathlib import Path
 
+from .lifecycle import _ARCHIVE_BRANCH
+
 # ────────────────────────────────────────────────────────────────────────────
 # Spec 150 Slice 1 — amendment classifier + apply helpers (module-level).
 # ────────────────────────────────────────────────────────────────────────────
@@ -216,25 +218,26 @@ def _resolve_spec_path_from_archive(spec_id: str) -> str | None:
     on disk — we just need the canonical path string.
     """
     import subprocess
+    sid = spec_id.strip().zfill(3)  # normalise "3" → "003" to match index keys
     # Primary: committed index file — always available, even in CI shallow clones.
     index_path = Path("Plan/_archive/index.json")
     try:
         idx = json.loads(index_path.read_text(encoding="utf-8"))
-        if spec_id in idx:
-            return idx[spec_id]
+        if sid in idx:
+            return idx[sid]
     except Exception:
         pass
     # Fallback: git archive branch (works in full clones / local dev).
     try:
         out = subprocess.run(
             ["git", "ls-tree", "-r", "--name-only",
-             "archive/plan-specs-pre-cleanup", "--", "Plan/"],
+             _ARCHIVE_BRANCH, "--", "Plan/"],
             capture_output=True, text=True, timeout=5, check=False,
         )
         for line in out.stdout.splitlines():
             parts = line.split("/")
             if (len(parts) == 3 and parts[0] == "Plan"
-                    and parts[1].startswith(f"{spec_id}-")
+                    and parts[1].startswith(f"{sid}-")
                     and parts[2] == "spec.md"):
                 return line
     except Exception:
