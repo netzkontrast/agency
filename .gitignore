@@ -42,3 +42,5 @@ ${CLAUDE_PROJECT_DIR}
 # a tracked file is unaffected by a gitignored parent — the code index still travels
 # and its updates still commit.
 .codegraph/
+# Spurious directory created when CLAUDE_PROJECT_DIR env var is unexpanded in hooks
+\${CLAUDE_PROJECT_DIR}/
