@@ -121,3 +121,23 @@ def _manage_state(engine, ctx):
     res = res.get("result", res) if isinstance(res, dict) else res
     assert "fulfilment" in res
     assert res["fulfilment"]["intent_id"] == ctx["iid"]
+
+
+@then("manage provenance for that intent includes the invocation and artefact")
+def _manage_provenance(engine, ctx):
+    res, _ = invoke(engine, ctx["iid"], "manage", "provenance",
+                    agent_id="agent:test", for_intent_id=ctx["iid"])
+    res = res.get("result", res) if isinstance(res, dict) else res
+    assert ctx["inv"] in {i["id"] for i in res["invocations"]}
+    assert ctx["art"] in {a["id"] for a in res["artefacts"]}
+    assert res["counts"]["invocations"] == len(res["invocations"])
+
+
+@then("manage subtree of the parent includes both intents")
+def _manage_subtree(engine, ctx):
+    res, _ = invoke(engine, ctx["parent"], "manage", "subtree",
+                    agent_id="agent:test", root_intent_id=ctx["parent"])
+    res = res.get("result", res) if isinstance(res, dict) else res
+    ids = {i["id"] for i in res["intents"]}
+    assert ctx["parent"] in ids and ctx["child"] in ids
+    assert res["count"] == len(res["intents"])
