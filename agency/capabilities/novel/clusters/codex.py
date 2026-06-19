@@ -6,7 +6,7 @@ relocation into a cluster mixin composed into the single NovelCapability.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 from .._main import (
     CODEX_ENTRY_KIND,
 )
@@ -29,11 +29,11 @@ class CodexMixin:
         """
         if kind not in CODEX_ENTRY_KIND:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"kind={kind!r} not in {sorted(CODEX_ENTRY_KIND)}")
         if self.ctx.recall(novel_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"novel_id={novel_id!r} not found")
+                Codes.NOT_FOUND, f"novel_id={novel_id!r} not found")
         if not triggers:
             triggers = f"{name}, {slug}"
         cid = self.ctx.record("CodexEntry", {
@@ -57,7 +57,7 @@ class CodexMixin:
         """
         if kind and kind not in CODEX_ENTRY_KIND:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"kind={kind!r} not in {sorted(CODEX_ENTRY_KIND)}")
         entries = [
             {"entry_id": e.get("id"), "slug": e.get("slug"),
@@ -123,7 +123,7 @@ class CodexMixin:
         node = self.ctx.recall(entry_id)
         if node is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"entry_id={entry_id!r} not found")
+                Codes.NOT_FOUND, f"entry_id={entry_id!r} not found")
         updates: dict = {}
         if body:
             updates["body"] = body
@@ -153,7 +153,7 @@ class CodexMixin:
         node = self.ctx.recall(entry_id)
         if node is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"entry_id={entry_id!r} not found")
+                Codes.NOT_FOUND, f"entry_id={entry_id!r} not found")
         self.ctx.memory.update(entry_id, {
             "archived": "yes",
             "archived_reason": reason or "",

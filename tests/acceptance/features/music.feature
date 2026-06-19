@@ -26,7 +26,7 @@ Feature: Music capability — observable behaviour across all clusters
   Scenario: promote_idea on a ghost id returns NOT_FOUND
     When I promote a non-existent idea id
     Then the invocation outcome is "failed"
-    And the error contains "NOT_FOUND"
+    And the error contains "not_found"
 
   Scenario: list_ideas filters by status
     Given ideas "alpha" and "beta" have been captured
@@ -47,7 +47,7 @@ Feature: Music capability — observable behaviour across all clusters
   Scenario: create_album with unknown type returns INVALID_ARGUMENT
     When I create album "Bad" by artist "A" in genre "g" with type "polka"
     Then the invocation outcome is "failed"
-    And the error contains "INVALID_ARGUMENT"
+    And the error contains "invalid_argument"
 
   Scenario: find_album returns exact and fuzzy matches
     Given albums "Origin" and "Echoes" exist for artist "A"
@@ -76,7 +76,7 @@ Feature: Music capability — observable behaviour across all clusters
     And 1 track exists on album "loop"
     When I set that track status to "bogus"
     Then the invocation outcome is "failed"
-    And the error contains "INVALID_ARGUMENT"
+    And the error contains "invalid_argument"
 
   Scenario: album_progress reports completion percentage
     Given album "Long Player" by artist "A" exists
@@ -101,7 +101,7 @@ Feature: Music capability — observable behaviour across all clusters
   Scenario: set_album_status with invalid status returns INVALID_ARGUMENT
     When I set album "X" status to "bogus"
     Then the invocation outcome is "failed"
-    And the error contains "INVALID_ARGUMENT"
+    And the error contains "invalid_argument"
 
   Scenario: conceptualize returns an album-concept artefact
     When I conceptualize album "Nightfall" by "Artist" of type "narrative"
@@ -471,7 +471,7 @@ Feature: Music capability — observable behaviour across all clusters
   Scenario: capture_claim rejects an unknown domain
     When I capture claim with domain "polka"
     Then the invocation outcome is "failed"
-    And the error contains "INVALID_ARGUMENT"
+    And the error contains "invalid_argument"
 
   Scenario: list_claims filters by verified status
     Given 2 claims exist for album "A" with status "pending"

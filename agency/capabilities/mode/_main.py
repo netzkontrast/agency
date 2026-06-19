@@ -75,12 +75,27 @@ _MODES = [
 _BY_NAME = {m["name"]: m for m in _MODES}
 
 
+# Spec 301 Slice 2 — the walkable discipline (superpowers' signature): assess
+# the context, detect candidate modes, activate one, confirm with a hard gate.
+# Mirrors the mode verb flow (detect → activate); walked via develop.skill_walk.
+_MODE_SELECTION_SKILL = {
+    "name": "mode-selection", "kind": "discipline",
+    "phases": [
+        {"index": 1, "name": "assess", "produces": ["context"]},
+        {"index": 2, "name": "detect", "produces": ["candidate_modes"]},
+        {"index": 3, "name": "activate", "produces": ["active_mode"]},
+        {"index": 4, "name": "confirm", "produces": ["rationale"], "gate": "hard"},
+    ],
+}
+
+
 class ModeCapability(CapabilityBase):
     name = "mode"
     home = "lifecycle"   # a mode parameterizes HOW work proceeds
     ontology = OntologyExtension(
         nodes={"ModeActivation": ["mode"]},
         enums={("ModeActivation", "mode"): set(_BY_NAME)},
+        skills={"mode-selection": _MODE_SELECTION_SKILL},
     )
 
     @verb(role="act")

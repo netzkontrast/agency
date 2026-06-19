@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from agency.capability import CapabilityBase, verb
 from agency.ontology import OntologyExtension
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 
 # ─────────────────────────── enums ───────────────────────────
@@ -329,7 +329,7 @@ class ThinkingCapability(CapabilityBase):
         """
         if depth not in ANALYSIS_DEPTH:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"depth={depth!r} not in {sorted(ANALYSIS_DEPTH)}")
         s = _subject_or_default(self.ctx, subject)
         # Run each method (each returns a ToolResult; we extract the .data

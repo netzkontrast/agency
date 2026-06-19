@@ -706,7 +706,7 @@ def _prosody_gate_fail(engine, confirmed_intent, lc):
 @then("the gate fails")
 def _gate_fails(engine, gate_inv):
     node = engine.memory.recall(gate_inv["inv"])
-    assert "GATE_FAILED" in node.get("error", "")
+    assert "gate_failed" in node.get("error", "")
 
 
 @then(parsers.parse('the lifecycle state is "{state}"'))
@@ -1965,7 +1965,7 @@ def _dep_missing(dep_missing_invs):
     for e2, inv, data in dep_missing_invs:
         assert data is None
         err = e2.memory.recall(inv).get("error", "")
-        assert "DEPENDENCY_MISSING" in err
+        assert "dependency_missing" in err
     for e2, _, __ in dep_missing_invs:
         try:
             e2.memory.close()

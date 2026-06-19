@@ -6,7 +6,7 @@ relocation into a cluster mixin composed into the single NovelCapability.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 
 class CharacterKnowledgeMixin:
@@ -25,11 +25,11 @@ class CharacterKnowledgeMixin:
         """
         if self.ctx.recall(character_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND",
+                Codes.NOT_FOUND,
                 f"character_id={character_id!r} not found")
         if self.ctx.recall(scene_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
         fid = self.ctx.record("KnownFact", {
             "character": character_id, "fact": fact,
         })
@@ -57,7 +57,7 @@ class CharacterKnowledgeMixin:
         target = self.ctx.recall(scene_id)
         if target is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
         target_chapter = (self.ctx.recall(target.get("chapter", "")) or {}
                           ).get("number", 0)
         # Walk KNOWS to get the character's facts.
@@ -99,7 +99,7 @@ class CharacterKnowledgeMixin:
         target = self.ctx.recall(scene_id)
         if target is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
         target_chapter_node = self.ctx.recall(target.get("chapter", ""))
         target_chapter = (target_chapter_node or {}).get("number", 0)
         target_title = (target_chapter_node or {}).get("title", "")

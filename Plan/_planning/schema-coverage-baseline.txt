@@ -5,6 +5,7 @@
 #
 # Format: one label per line
 #
+AcceptanceCriterion
 Agent
 Album
 Analysis
@@ -14,6 +15,7 @@ BoundaryUse
 BriefAudit
 CatalogModule
 Chapter
+ClarificationQuestion
 CodexEntry
 Command
 Culture
@@ -22,11 +24,13 @@ DocRevision
 DoctrineCitation
 Document
 Event
+FeasibilitySignal
 Finding
 Gate
 Genre
 Idea
 Intent
+IntentRefinement
 Invocation
 JulesAlias
 KnownFact

@@ -428,6 +428,50 @@ class AgencyDoctor(SubstrateTool):
             # neither in CI); flipping the `ok` invariant on them would
             # erode the doctor's health contract (Spec 030).
 
+            # Spec 151 Slice 3 — codes-coverage health. Engine-side audit of
+            # ToolResult.failure() typing (imports agency._codes_coverage, NOT
+            # the dev-only scripts/ tree) so a drop in Codes coverage is visible
+            # at runtime. Wrapped: a diagnostic must never crash the doctor.
+            try:
+                from ._codes_coverage import audit_tree as _codes_audit
+                _cc = _codes_audit(os.path.dirname(os.path.abspath(__file__)))
+                codes_coverage = {
+                    "fraction": round(_cc.fraction, 3),
+                    "covered": _cc.covered_sites,
+                    "offenders": len(_cc.offenders),
+                    "computed": _cc.expr_sites,
+                    "orphan_codes": sorted(_cc.orphan_codes),
+                }
+            except Exception as _e:  # noqa: BLE001 — never crash the doctor
+                codes_coverage = {"error": f"{type(_e).__name__}: {_e}"}
+
+            # Spec 153 Slice 3 — schema-coverage health + priority ranking.
+            # Engine-side audit (agency._schema_coverage); the engine already
+            # holds the live ontology, so no second Engine boot. Uncovered
+            # labels are ranked by live node-count so authors write the
+            # highest-traffic schemas first. Wrapped: never crash the doctor.
+            try:
+                from pathlib import Path as _Path
+                from ._schema_coverage import audit_schemas, truly_inline_schemas
+                _sroot = _Path(os.path.dirname(os.path.abspath(__file__)))
+                _inline = truly_inline_schemas(_sroot, dict(engine.ontology.schemas))
+                _sc = audit_schemas(_sroot, ontology_labels=set(engine.ontology.nodes),
+                                    ontology_schemas=_inline)
+                _ranked = sorted(
+                    ((lbl, len(list(engine.memory.find(lbl)))) for lbl in _sc.uncovered),
+                    key=lambda t: (-t[1], t[0]))
+                schema_coverage = {
+                    "fraction": round(_sc.coverage_fraction, 3),
+                    "covered": len(_sc.covered),
+                    "uncovered": len(_sc.uncovered),
+                    "total_labels": _sc.total_ontology_labels,
+                    "non_node_schemas": len(_sc.non_node_schemas),
+                    "priority_uncovered": [{"label": _l, "nodes": _n}
+                                           for _l, _n in _ranked[:10]],
+                }
+            except Exception as _e2:  # noqa: BLE001 — never crash the doctor
+                schema_coverage = {"error": f"{type(_e2).__name__}: {_e2}"}
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -463,6 +507,12 @@ class AgencyDoctor(SubstrateTool):
                 # scripts/check-drift script (would require a heavy
                 # subprocess otherwise).
                 "drift": engine._drift_signals(),
+                # Spec 151 Slice 3 — live Codes-coverage fraction +
+                # offender/orphan counts (engine-side audit above).
+                "codes_coverage": codes_coverage,
+                # Spec 153 Slice 3 — live schema-coverage fraction + priority
+                # ranking of uncovered labels by graph node-count.
+                "schema_coverage": schema_coverage,
                 # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
                 # can bootstrap an intent + invoke a verb end-to-end (proven on a
                 # throwaway in-memory engine, so the live graph is untouched).

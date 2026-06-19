@@ -8,7 +8,7 @@ from __future__ import annotations
 from agency._enums import project_enum
 from agency._frontmatter import frontmatter_hash
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 from .._main import (
     CHAPTER_STATUS,
     IDEA_STATUS,
@@ -234,7 +234,7 @@ class LifecycleMixin:
         """
         if status and status not in IDEA_STATUS:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"status={status!r} not in {sorted(IDEA_STATUS)}")
         ideas = [i for i in self.ctx.find("Idea")
                  if not status or i.get("status") == status]
@@ -256,7 +256,7 @@ class LifecycleMixin:
         node = self.ctx.recall(idea_id)
         if node is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"idea_id={idea_id!r} not found")
+                Codes.NOT_FOUND, f"idea_id={idea_id!r} not found")
         nid = self.ctx.record_and_serve("Novel", {
             "title": title, "author": author, "status": "concept",
         })
@@ -298,7 +298,7 @@ class LifecycleMixin:
         """
         if status not in NOVEL_STATUS:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"status={status!r} not in {sorted(NOVEL_STATUS)}")
         _, fail = self._require_novel(novel_id)
         if fail is not None:
@@ -366,7 +366,7 @@ class LifecycleMixin:
         canonical, detail = project_enum(pov, SCENE_POV, aliases=_POV_ALIASES)
         if canonical is None:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"pov={pov!r} carries no POV signal — not projectable onto "
                 f"{sorted(SCENE_POV)}")
         _, fail = self._require_chapter(chapter_id)
@@ -447,7 +447,7 @@ class LifecycleMixin:
         # must come from Spec 144 (signaled by non-empty `brief`).
         if voice_locked and not scene_brief.strip():
             return ToolResult.failure(
-                "VOICE_BRIEF_MISSING",
+                Codes.VOICE_BRIEF_MISSING,
                 f"alter_id={alter_id!r} requires a Spec 144 voice-locked "
                 f"scene_brief; got empty scene_brief")
 
@@ -464,7 +464,7 @@ class LifecycleMixin:
             scene_node = self.ctx.memory.recall_typed(scene_id, "Scene")
             if scene_node is None:
                 return ToolResult.failure(
-                    "NOT_FOUND",
+                    Codes.NOT_FOUND,
                     f"scene_id={scene_id!r} not found as a Scene node — "
                     f"cannot route the generated body to a non-existent "
                     f"or wrong-label node; create the Scene with "
@@ -484,7 +484,7 @@ class LifecycleMixin:
         # retry with prefer_delegate=True to opt into the envelope.
         if driver is None and host_completion is None:
             return ToolResult.failure(
-                "DEPENDENCY_MISSING",
+                Codes.DEPENDENCY_MISSING,
                 "no anthropic driver wired and no host_completion "
                 "supplied; pass prefer_delegate=True for host-LLM "
                 "delegation (Spec 279) or wire an AnthropicDriver "
@@ -496,7 +496,7 @@ class LifecycleMixin:
                 and not prefer_delegate
                 and driver.backend() == "none"):
             return ToolResult.failure(
-                "DEPENDENCY_MISSING",
+                Codes.DEPENDENCY_MISSING,
                 "anthropic driver backend is 'none' (no key, no client) "
                 "and prefer_delegate=False; set ANTHROPIC_API_KEY or "
                 "pass prefer_delegate=True for host-LLM delegation")
@@ -542,7 +542,7 @@ class LifecycleMixin:
                 str(exc))
         except Exception as exc:                                      # noqa: BLE001
             return ToolResult.failure(
-                "DRIVER_REFUSAL",
+                Codes.DRIVER_REFUSAL,
                 f"AnthropicDriver raised on scene-body generation: {exc}")
 
         # Branch 3: delegate envelope — return it so the wrapping host
@@ -571,7 +571,7 @@ class LifecycleMixin:
                 body_text, max_tokens=512, counter=count_tokens)
         except Exception as exc:                                      # noqa: BLE001
             return ToolResult.failure(
-                "SCENE_OVERFLOW_LOST",
+                Codes.SCENE_OVERFLOW_LOST,
                 f"capture_overflow failed: {exc}")
 
         # Record the body as an Artefact so a follow-up
@@ -637,14 +637,14 @@ class LifecycleMixin:
         """
         if not body_handle:
             return ToolResult.failure(
-                "INVALID_ARGUMENT", "body_handle is required")
+                Codes.INVALID_ARGUMENT, "body_handle is required")
         art = self.ctx.recall(body_handle)
         if art is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"body_handle={body_handle!r} not found")
+                Codes.NOT_FOUND, f"body_handle={body_handle!r} not found")
         if art.get("kind") != "scene-body":
             return ToolResult.failure(
-                "BAD_REQUEST",
+                Codes.BAD_REQUEST,
                 f"body_handle={body_handle!r} is "
                 f"kind={art.get('kind')!r}, not 'scene-body'")
         full = str(art.get("full_body") or "")
@@ -680,7 +680,7 @@ class LifecycleMixin:
         """
         if self.ctx.recall(scene_id) is None:
             return ToolResult.failure(
-                "NOT_FOUND", f"scene_id={scene_id!r} not found")
+                Codes.NOT_FOUND, f"scene_id={scene_id!r} not found")
         self.ctx.memory.update(scene_id, {"body": body})
         aid = self.ctx.record("Artefact", {
             "kind": "scene-integration",
@@ -706,7 +706,7 @@ class LifecycleMixin:
         """
         if status not in CHAPTER_STATUS:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"status={status!r} not in {sorted(CHAPTER_STATUS)}")
         _, fail = self._require_chapter(chapter_id)
         if fail is not None:

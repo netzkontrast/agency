@@ -41,5 +41,5 @@ await call_tool('capability_select_archetypes', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`select-usage`** (usage): use-effect → use-act → confirm
-  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'select-usage', 'inputs': {}, 'intent_id': '…'})`
+- **`approach-routing`** (discipline): characterize → weigh → route → commit
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'approach-routing', 'inputs': {}, 'intent_id': '…'})`

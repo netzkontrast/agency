@@ -12,7 +12,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 from __future__ import annotations
 
 from agency.capability import DriverMissing, requires_driver, verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import _MusicBase
 
@@ -285,7 +285,7 @@ class CatalogueCluster(_MusicBase):
                                 "; ".join(problems)))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"tweet-schedule: {'; '.join(problems)}")
         return ToolResult.success(data={"gate": "tweet-schedule",
                                         "passed": True,

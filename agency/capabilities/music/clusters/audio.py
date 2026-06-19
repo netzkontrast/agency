@@ -11,7 +11,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 from __future__ import annotations
 
 from agency.capability import requires_driver, verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import STREAMING_TARGET_LUFS, _MusicBase
 
@@ -350,7 +350,7 @@ class AudioCluster(_MusicBase):
                       evidence=f"measured={measured:.1f} LUFS, range=[{min_lufs},{max_lufs}]")
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"measure: {measured:.1f} LUFS outside [{min_lufs}, {max_lufs}]")
         return ToolResult.success(data={"gate": "measure", "passed": True,
                                         "measured_lufs": measured})
@@ -377,7 +377,7 @@ class AudioCluster(_MusicBase):
                                 f"warns={len(warned)}, fails={len(failed_rows)}"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"qc: {len(failed_rows)} failing rows: {failed_rows}")
         return ToolResult.success(data={"gate": "qc", "passed": True,
                                         "summary": report["summary"],

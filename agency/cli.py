@@ -521,9 +521,9 @@ def _add_capability_commands(group):
     """Mount one command group per capability (its verbs as subcommands), reading
     the LIVE registry via discover(). A capability whose name collides with a
     legacy command is skipped (the legacy command wins) — Spec 079 OQ-3."""
-    from .capabilities import discover
+    from .capabilities import discover_capabilities
     reserved = set(group.commands)
-    for cap in discover():
+    for cap in discover_capabilities():
         if cap.name in reserved:
             continue
         cap_group = click.Group(name=cap.name,

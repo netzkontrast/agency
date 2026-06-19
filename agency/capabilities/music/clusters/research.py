@@ -11,7 +11,7 @@ Pure relocation — same decorator args, signatures, bodies, provenance.
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ..ontology import RESEARCH_DOMAINS
 from ._base import DEFAULT_CLAIM_CONFIDENCE, _MusicBase
@@ -83,7 +83,7 @@ class ResearchCluster(_MusicBase):
         """
         if domain not in RESEARCH_DOMAINS:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"domain={domain!r} not in {sorted(RESEARCH_DOMAINS)}")
         cid = self.ctx.record_and_serve("AlbumClaim", {
             "text": text, "source_uri": source_uri,
@@ -214,7 +214,7 @@ class ResearchCluster(_MusicBase):
                                 f"{len(pending)} pending: {by_domain}"))
         if not passed:
             return ToolResult.failure(
-                "GATE_FAILED",
+                Codes.GATE_FAILED,
                 f"verify: {len(pending)} pending claims: {by_domain}")
         return ToolResult.success(data={"gate": "verify", "passed": True,
                                         "pending_count": 0,

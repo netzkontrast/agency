@@ -1,10 +1,10 @@
 """Capabilities — discovered by REFLECTION, not hand-wired.
 
 Drop a module in this package that defines a `Capability` instance OR a
-`CapabilityBase` subclass at module level; `discover()` finds both via the stdlib
+`CapabilityBase` subclass at module level; `discover_capabilities()` finds both via the stdlib
 reflection APIs (`pkgutil.iter_modules` to walk this package's directory +
 `importlib` to import each module + `isinstance`/`issubclass` to pick them out).
-The engine calls `discover()` and registers everything, and auto-wires one MCP
+The engine calls `discover_capabilities()` and registers everything, and auto-wires one MCP
 tool per verb from the verb signature (`inspect.signature`). Adding a capability =
 adding a file. No registration code, no per-tool boilerplate.
 """
@@ -17,7 +17,11 @@ import pkgutil
 from ..capability import Capability, CapabilityBase
 
 
-def discover() -> list[Capability]:
+# NOTE: named ``discover_capabilities`` (not ``discover``) so a capability
+# folder literally named ``discover`` (Spec 308) does not SHADOW this
+# function's attribute on the package — the shadowing broke ``reload()``
+# (`'module' object is not callable`).
+def discover_capabilities() -> list[Capability]:
     """Every `Capability` (instance) or `CapabilityBase` subclass defined at the
     top level of any non-private module in this package, in stable order."""
     found: list[Capability] = []

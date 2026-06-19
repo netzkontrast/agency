@@ -9,7 +9,7 @@ engineer (renders a PromptInstance inside a token budget) + audit
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import ToolResult, Codes
 
 from ._base import (
     _DEFAULT_AUDIT_MIN_SCORE,
@@ -53,7 +53,7 @@ class EngineeringMixin:
         tokens = _approx_tokens(body)
         if tokens > max_tokens:
             return ToolResult.failure(
-                "INVALID_ARGUMENT",
+                Codes.INVALID_ARGUMENT,
                 f"engineered prompt {tokens} tokens > budget {max_tokens}; "
                 f"reduce context or relax constraints")
         instance_id = self.ctx.record_and_serve("PromptInstance", {

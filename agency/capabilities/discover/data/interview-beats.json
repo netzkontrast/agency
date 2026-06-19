@@ -1,0 +1,11 @@
+{
+  "_doc": "Spec 309 — the adaptive beat library that supersedes Spec 262's fixed four. Each beat maps a turn_kind (Spec 307 enum) to a question template; {seed} fills on the opening beat, {prior} fills from the previous answer (the adaptivity seam). CLAUDE.md #8 — definable + editable, not a frozen constant.",
+  "beats": [
+    {"kind": "describe",  "template": "In a sentence or two, what are you trying to achieve with: {seed}?"},
+    {"kind": "configure", "template": "Given \"{prior}\", what concrete deliverable should this produce?"},
+    {"kind": "constrain", "template": "For \"{prior}\", what is explicitly OUT of scope?"},
+    {"kind": "ground",    "template": "What evidence, prior art, or constraints ground \"{prior}\"?"},
+    {"kind": "clarify",   "template": "Anything ambiguous about \"{prior}\" we should pin down before starting?"},
+    {"kind": "confirm",   "template": "Confirm: the intent's purpose, deliverable and acceptance as derived from your answers — is that right?"}
+  ]
+}

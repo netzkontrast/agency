@@ -19,3 +19,7 @@ Feature: recommend capability — request → capability routing (Spec 298)
     Given the "manage" capability has been invoked twice
     When I ask for a recommendation for "create read update or retract a node"
     Then the manage recommendation carries a usage count of at least two
+
+  Scenario: recommend exposes a walkable capability-routing discipline (Spec 301 superpowers pattern)
+    When I walk the "capability-routing" discipline to its gate
+    Then the discipline pauses at a hard gate
