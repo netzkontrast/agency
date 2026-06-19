@@ -11,11 +11,18 @@ never touches the network until a verb asks for a decision, and ``decide`` raise
 error when ``OPENROUTER_API_KEY`` is unset (the ``llm_select`` Matcher is then skipped —
 pattern/verb_code Matchers are unaffected).
 
-The model is ``AGENCY_LLM_MODEL`` (an OpenRouter ``vendor/model`` slug; default
-``openai/gpt-4o-mini`` — cheap + fast for a tiny classification). The request pins
+Only **free** OpenRouter models are used.  Free models carry a ``:free`` suffix in their
+model ID (e.g. ``meta-llama/llama-3.3-70b-instruct:free``).  The engine enforces this
+at construction time so a misconfigured ``AGENCY_LLM_MODEL`` never silently incurs cost.
+
+The model is ``AGENCY_LLM_MODEL`` (default
+``meta-llama/llama-3.3-70b-instruct:free``). The request pins
 ``temperature: 0`` and a strict ``response_format: json_schema`` so the reply is forced to
 ``{"choice": <one option>, "confidence": <float>}``; parsing is tolerant (fence-strip +
 brace-extract) so a model that ignores strict schema still works.
+
+API key and any other secrets are loaded from a ``.env`` file by the entry-point modules
+(``__main__.py`` / ``cli.py``) via ``python-dotenv`` before this module is used.
 """
 from __future__ import annotations
 
@@ -23,7 +30,8 @@ import json
 import os
 import re
 
-_DEFAULT_MODEL = "openai/gpt-4o-mini"
+_DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+_FREE_SUFFIX = ":free"
 _URL = "https://openrouter.ai/api/v1/chat/completions"
 _SYSTEM = ('You are a constrained decider. Choose EXACTLY ONE option and a confidence in '
            '[0,1]. Reply ONLY with JSON: {"choice": "<one option>", "confidence": <float>}.')
@@ -31,7 +39,15 @@ _SYSTEM = ('You are a constrained decider. Choose EXACTLY ONE option and a confi
 
 class LLMClient:
     def __init__(self, model: str | None = None):
-        self.model = model or os.environ.get("AGENCY_LLM_MODEL", _DEFAULT_MODEL)
+        resolved = model or os.environ.get("AGENCY_LLM_MODEL", _DEFAULT_MODEL)
+        if not resolved.endswith(_FREE_SUFFIX):
+            raise ValueError(
+                f"AGENCY_LLM_MODEL must be a free OpenRouter model "
+                f"(model ID must end with '{_FREE_SUFFIX}', got {resolved!r}). "
+                f"Browse free models at https://openrouter.ai/models?order=pricing-asc "
+                f"or leave AGENCY_LLM_MODEL unset to use the default ({_DEFAULT_MODEL})."
+            )
+        self.model = resolved
 
     def backend(self) -> str:
         """The live backend name (what ``agency_doctor`` reports) — never the key."""
@@ -44,8 +60,15 @@ class LLMClient:
         if not key:
             raise RuntimeError(
                 "LLM driver needs OPENROUTER_API_KEY — get one at https://openrouter.ai/keys "
-                "(set AGENCY_LLM_MODEL to choose a model; default openai/gpt-4o-mini).")
-        return self._parse(self._chat(key, prompt, options, model or self.model), options)
+                "(set AGENCY_LLM_MODEL to choose a free model; default "
+                f"{_DEFAULT_MODEL}).")
+        use_model = model or self.model
+        if not use_model.endswith(_FREE_SUFFIX):
+            raise ValueError(
+                f"Per-call model override must also be a free OpenRouter model "
+                f"(must end with '{_FREE_SUFFIX}', got {use_model!r})."
+            )
+        return self._parse(self._chat(key, prompt, options, use_model), options)
 
     def _chat(self, key, prompt, options, model):            # pragma: no cover - network
         import httpx

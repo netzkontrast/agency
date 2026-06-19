@@ -1063,7 +1063,7 @@ Closes the documented ENGINE GAP: the storyform gates + checks read a
 - **test_render_driver_substrate.py** — Spec 283 Slice 1 (Workstream F) — capability render substrate.
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate.
 
-### `tests/acceptance/` (66 files)
+### `tests/acceptance/` (68 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.
 
 Phase C — the flat `tests/test_*.py` are converted into behaviour scenarios
@@ -1198,6 +1198,16 @@ Dropped (implementation / structural / not observable behaviour):
   behaviours since those are observable contracts.
 - test_guard_typed_shape / test_capability_row_typed_shape / etc.
 - **test_frugal.py** — Acceptance — frugal core discipline level + render (Spec 326 Slice 1).
+- **test_frugal_floor.py** — Acceptance — frugal safety-floor gate (Spec 326 Slice 4).
+
+`_frugal.safety_floor_intact()` is a decidable predicate: at every level but off
+the FULL render carries every safety-floor marker and the COMPACT render names
+the floor.
+- **test_frugal_stamp.py** — Acceptance — frugal M2 per-verb envelope stamp (Spec 326 Slice 2).
+
+Every capability verb's wire return carries a byte-stable compact frugal stamp
+(via engine._shape_wire_result); off omits it; agency_welcome carries it in its
+cache-stable prefix.
 - **test_gate.py** — Acceptance — gate capability + gate predicates (Spec 011).
 - **test_hooks.py** — Acceptance — hook dispatch, BoundaryUse, foreign-hook install (Spec 076 / 195 / 280).
 - **test_implicit_intent.py** — Acceptance — implicit intent_id via AGENCY_INTENT env var (Spec 018 Win 3).

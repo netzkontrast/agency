@@ -24,7 +24,7 @@ Red flags:
 """
 from __future__ import annotations
 
-from ...capability import RenderTemplates, CapabilityBase, verb
+from ...capability import ArtefactSchemas, RenderTemplates, CapabilityBase, verb
 from ...ontology import OntologyExtension
 from ...skill import SkillRun, phase as _phase  # Spec 286 — shared phase() builder
 
@@ -704,6 +704,8 @@ class DevelopCapability(CapabilityBase):
     name = "develop"
     home = "lifecycle"
     render_templates = RenderTemplates.from_module(__file__)
+    # Spec 153 Slice 6 — the engine loads + enforces the MaintenanceRun schema.
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = develop_ontology
 
     # ---- Spec 287 — plan authoring + execution provenance -----------------

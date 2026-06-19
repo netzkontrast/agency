@@ -15,7 +15,7 @@ Red flags:
 """
 from __future__ import annotations
 
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 # An AUTHORED walkable discipline (overrides the derived <cap>-usage, Spec 081): a real
@@ -41,6 +41,9 @@ class IntentCapability(CapabilityBase):
     name = "intent"
     home = "capability"
     ontology = OntologyExtension(skills={"critical-thinking": _CRITICAL_THINKING_SKILL})
+    # Spec 153 Slice 6 — the engine loads + enforces the Intent/Invocation
+    # provenance-spine schemas from schemas/ (declared, not glob-discovered).
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
 
     # ── the subject defaults to the serving intent (ambient), so a bare call reasons
     #    about the current goal; an explicit `subject` overrides. ──

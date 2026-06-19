@@ -173,3 +173,66 @@ set captures REGRESSIONS directly).
 - **Slice 6** — author schemas for the top-N highest-traffic
   uncovered labels (driven by Slice 3 ranking); push fraction above
   0.5 then re-floor.
+
+### Done — Slice 6 (backfill the highest-traffic provenance-spine schemas, 2026-06-19)
+
+Open question 1 answered: authored only the kinds with ≥1 live node
+first (the Slice 3 `priority_uncovered` ranking), not speculative ones.
+
+- **5 schemas authored** — title = ontology label, properties DERIVED
+  from the live node-creation sites (not invented; CLAUDE.md derivability
+  audit):
+  - `intent/schemas/intent.json` (`Intent`) ← `agency/intent.py`
+    (`purpose`/`deliverable`/`acceptance`/`status`/`owner`/`parent_intent_id`).
+  - `intent/schemas/invocation.json` (`Invocation`) ← `agency/_invoke.py`
+    (`capability`/`verb`/`role`).
+  - `jules/schemas/agent.json` (`Agent`) ← `_invoke`/`lifecycle`/`delegate`
+    (`runtime` enum external/delegated/cloud-async).
+  - `develop/schemas/maintenance-run.json` (`MaintenanceRun`) ←
+    `develop._main` (`focus`/`status`/`selected`/`next_candidate`).
+  - `gate/schemas/gate.json` (`Gate`) ← `gate._main`/`_substrate_tools`
+    (`name`/`passed`/`evidence`/`question`); distinct from the existing
+    `GateOutcome` wire-payload schema.
+- **Engine-load fix (the real catch)** — the file-glob audit
+  (`schema_paths`) counts a `schemas/*.json` even when the owning
+  capability never declares `artefact_schemas`, so the engine never
+  LOADS it: dormant surface that reads as "covered". The `intent` and
+  `develop` caps lacked the declaration → added
+  `artefact_schemas = ArtefactSchemas.from_module(__file__)` to both;
+  the engine ontology now carries all 5 schemas (verified).
+- **2 acceptance scenarios** (`tests/acceptance/features/template_schema.feature`
+  + `test_template_schema.py`): (1) the named `CORE_PROVENANCE_LABELS`
+  set is schema-covered by the live-tree audit; (2) the live engine
+  actually LOADS each — guards the file-present-but-undeclared trap.
+  Named-set contract, not a magic count (rule 8).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt`
+  70→65 uncovered (the live-baseline invariant test enforces the trim).
+- **Coverage** `schema_coverage.fraction` 0.213→0.270 (19→24 covered).
+  Full closure to >0.5 + re-floor is the remaining Slice 6 work
+  (next labels: AcceptanceCriterion/Artefact/Session/Document).
+
+### Done — Slice 6 cont. (document-convergence schema backfill, 2026-06-19)
+
+Steward run continuation: the 4 highest-traffic uncovered labels named in
+the prior Slice 6 entry.
+
+- **4 schemas authored** — title = ontology label, properties DERIVED from
+  the live node-creation sites:
+  - `discover/schemas/acceptance-criterion.json` (`AcceptanceCriterion`) ←
+    `discover/clusters/scope.py` (`text`/`gherkin`/`measurable`; Spec 317).
+  - `develop/schemas/artefact.json` (`Artefact`) ← `agency/ontology.py` +
+    `agency/_invoke.py` (`kind`; optional `path`/`name`).
+  - `document/schemas/session.json` (`Session`) ← `agency/engine.py` +
+    `document/_main.py` (`session_id`; optional `status`; Spec 292).
+  - `document/schemas/document.json` (`Document`) ← `document/_main.py`
+    (`path`/`content_sha`; optional `template`/`schema`; Spec 292).
+- **Engine-load fix** — `discover` cap lacked `artefact_schemas`; added
+  `ArtefactSchemas.from_module(__file__)` (same pattern as intent/develop
+  Slice 6). All 4 now verified engine-loaded.
+- **2 acceptance scenarios** — `DOC_CONVERGENCE_LABELS` named contract set
+  (`{"AcceptanceCriterion","Artefact","Session","Document"}`):
+  (1) all four are schema-covered by the live-tree audit; (2) the engine
+  actually loads each (guards the undeclared trap). 20 scenarios total (was 18).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 65→61.
+- **Coverage** `schema_coverage.fraction` 0.270→0.315 (24→28 covered).
+  Next: continued backfill toward >0.5; Slice 4 round-trip invariant.

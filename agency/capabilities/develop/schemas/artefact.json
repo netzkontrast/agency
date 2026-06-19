@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Artefact",
+  "description": "Any durable output PRODUCED by an Invocation or SERVES an Intent — file, amendment-proposal, command-template, published-skill, or any capability-specific output. The 'kind' field discriminates sub-types (agency/ontology.py; agency/_invoke.py).",
+  "type": "object",
+  "required": ["kind"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "description": "Discriminates the artefact sub-type: 'file', 'amendment-proposal', 'command-template', 'published-skill', 'overflow-capture', etc."
+    },
+    "path": {
+      "type": "string",
+      "description": "Filesystem path — present when kind='file' or kind='amendment-proposal'."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable label — present on command-templates and published-skills."
+    }
+  }
+}

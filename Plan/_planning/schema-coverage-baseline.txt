@@ -5,12 +5,9 @@
 #
 # Format: one label per line
 #
-AcceptanceCriterion
-Agent
 Album
 Analysis
 AntiPattern
-Artefact
 BoundaryUse
 BriefAudit
 CatalogModule
@@ -22,22 +19,17 @@ Culture
 DecisionRecord
 DocRevision
 DoctrineCitation
-Document
 Event
 FeasibilitySignal
 Finding
-Gate
 Genre
 Idea
-Intent
 IntentRefinement
-Invocation
 JulesAlias
 KnownFact
 Language
 Lifecycle
 MagicSystem
-MaintenanceRun
 ModeActivation
 ModeShift
 NarrativeBeat
@@ -63,7 +55,6 @@ ResearchIntent
 Scene
 Schema
 Selection
-Session
 SessionLifecycle
 Skill
 StoryTimeEvent

@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent",
+  "description": "A performer of Invocations — an Agent IS a Lifecycle parameterization (agency/_invoke.py, lifecycle.py, capabilities/delegate; Spec 153 Slice 6 coverage). Linked to its work via PERFORMED_BY.",
+  "type": "object",
+  "required": ["runtime"],
+  "properties": {
+    "runtime": {
+      "type": "string",
+      "enum": ["external", "delegated", "cloud-async"],
+      "description": "Where the agent runs: 'external' (direct MCP/CLI caller), 'delegated' (sub-agent fan-out), or 'cloud-async' (Jules / remote lifecycle)."
+    }
+  }
+}
