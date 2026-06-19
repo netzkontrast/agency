@@ -18,6 +18,12 @@ parent_spec: "307"
 > Gherkin-shaped (Given/When/Then) per the repo's testing doctrine — recording
 > each as an `AcceptanceCriterion` node `VALIDATES`-edged to the Intent, and
 > sharpening the Intent's `acceptance` field.
+>
+> **★ FOLDED by Spec 307 §Refinement (2026-06-18).** `acceptance` becomes the
+> *gherkin pass* of the merged `sharpen` proposal verb (with `frame`/`examine`) —
+> all three propose a triple-delta under the single-writer protocol (master rule
+> 3). The `AcceptanceCriterion` node + `VALIDATES` edge survive; the standalone
+> verb does not. Retained as the criteria-derivation mechanism record.
 
 ## Why (evidence + doctrine)
 

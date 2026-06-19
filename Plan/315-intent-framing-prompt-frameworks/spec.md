@@ -17,6 +17,12 @@ parent_spec: "307"
 > layer**. This is the bridge from the PROMPT pillar into Intent: it routes a
 > Spec 304 framework over the raw captured seed and returns a structured,
 > sharper `{purpose, deliverable, acceptance}` draft for the caller to amend.
+>
+> **★ CONSOLIDATED by Spec 307 §Refinement (2026-06-18).** `frame` becomes the
+> *prompt pass* of the merged **`sharpen`** proposal verb (with `examine`/`acceptance`)
+> — all three propose a triple-delta under the single-writer protocol (master rule
+> 3). The `prompt.frameworks_for` composition is the keeper; the standalone verb
+> folds. Retained as the framing mechanism record.
 
 ## Why (evidence + doctrine)
 

@@ -76,10 +76,89 @@ research so the next probe is *targeted*. The loop runs until the intent clears 
 **clarity gate** (Spec 322), then `confirm` fires with a full provenance trail
 (Spec 325) of *how the WHY was discovered*.
 
+## Refinement — altitude + simplification pass (dogfooded 2026-06-18) ★ AUTHORITATIVE
+
+> This section **supersedes the verb surface + architecture below** for the
+> *concept and altitude*. A `/simplify` pass (4 cleanup agents: reuse ·
+> simplification · efficiency · altitude) + a dogfooded `thinking` pass
+> (`first_principles`/`assumptions`/`inversion` on `intent:57d8fae7`;
+> `reflection:a4a676c6`) found the original 16-verb design **over-built and at the
+> wrong altitude**. The detailed child specs (308–325) remain the design record
+> for *mechanism*; this section is the corrected *shape*.
+
+**The concept, in one sentence (Doumont).** *An intent is captured as a **draft**,
+sharpened by evidence and questions until it clears a **clarity gate**, then
+**confirmed**.* That is the whole of it. The original corpus shattered this one
+cohesive act into 16 verbs + 7 nodes + 7 edges + 4 enums a user must reassemble;
+the depth belongs in the **root node and one skill**, not a side-car capability.
+
+**Why the altitude was wrong.** `agency/intent.py` (the substrate) stays four thin
+verbs (`capture/confirm/amend/chain`); the original design parked all the richness
+in a parallel `discover/` folder the substrate never learns from. Inversion makes
+the failure modes concrete: a clarity gate that lives in `discover` (322) is
+**bypassed** by the substrate's own `capture_and_confirm` (`intent.py:82`); 13 of
+16 verbs are thin re-exports of `research`/`thinking`/`prompt`/`manage` that
+already exist (dormant surface — the repo's own anti-pattern); and `interview`
+(309) duplicates the shipped `intent.managed_onboard` (Spec 262). First-principles:
+the irreducible core is *a draft that gets clear before work SERVES it* — that is a
+property of the **Intent node**, not a new capability.
+
+**The four corrections (the improved design):**
+
+1. **Deepen the substrate, don't side-car it.** `intent/_core.py` (Spec 291 target)
+   grows a *draft lifecycle*: `capture` returns `(draft_id, clarity_score,
+   open_questions)`; the Intent node gains a `clarity_score` prop and a
+   `draft→confirmed` invariant. Every caller — `intent_bootstrap`, `/agency-onboard`,
+   the MCP — inherits depth **for free**. (Reuse/altitude A1.)
+2. **The gate lives on substrate `confirm` (unbypassable).** `confirm` *is* the
+   gate — it raises below the clarity threshold unless given an override token. A
+   gate in a different module from the verb it guards is the definition of bolt-on;
+   on the substrate, nothing can mint a confirmed-but-shallow intent. (Altitude A2;
+   Spec 322's logic moves here.)
+3. **Discovery is ONE walkable Lifecycle skill, not a capability.** CORE.md: a
+   skill IS a Lifecycle template. `guided-discovery` (323) orchestrates the
+   **already-existing** verbs — `research.ground`(+scouts) · `thinking.apply_full_review`
+   · `prompt.frameworks_for` · `manage.state`/`timeline` · the AskUser pair — and is
+   *the surface*. (Altitude A3; reuse #1/#2/#4/#5.)
+4. **The only genuinely-new primitives are the AskUser pair.** Net new verbs ≈
+   **`ask`** (the well-formed-question primitive, 310 — keep as-is) + **`elicit(mode=
+   interview|clarify|scope)`** (one AskUser question-chain; the three were a data
+   difference, not a verb difference — simplification #1). Optional: a thin
+   `discovery` composite that runs the skill. Everything else composes existing
+   capabilities. **~16 verbs → ~2–4.** (Simplification #1–4.)
+
+**Consolidations folded by this pass (mechanism specs become sections):**
+
+| Original | Folds into | Why |
+|---|---|---|
+| `interview` (309) · `clarify` (311) · `scope` (318) | **`elicit(mode)`** | one AskUser loop; mode = candidate source (beats / ambiguity / scope) |
+| `frame` (315) · `examine` (316) · `acceptance` (317) | **one `sharpen(pass)` proposal** | all three *propose a triple-delta* (rule 3); routes to prompt/thinking/gherkin |
+| `feasibility` (314) | **`ground(decide=True)`** | feasibility = ground + a verdict over the same scouts |
+| `replay` (325) | **`state(mode=history)`** | both read the same `discovery-session.md`; one verb, two projections |
+| `examine` (316) | `thinking.apply_full_review` + 1 edge | near-duplicate of the shipped composite (reuse #2) |
+| node `IntentRefinement` (320) | props on the `SUPERSEDED_BY` edge | derivable — substrate edge is ground truth |
+| node `FeasibilitySignal` (314) | a verdict-tagged finding on the Citations | derivable — no new node |
+
+**Efficiency fixes (carry into whatever ships):** grounding `Research` reuse is
+**mandatory** (never re-fan the same scouts across `ground`→`feasibility` — the
+single largest waste); specialist fan-out runs **concurrently** (inherit the
+`research` Spec 044 model); `watch_intent`'s hot-path drift check stays
+keyword-first (embed backend gated behind it). (Efficiency #1/#2/#4.)
+
+**Net:** the same captured depth the Capability pillar has — a rich `_core` + a
+skill over it — achieved by making the **root node richer** and letting **one
+skill** be the discovery surface, instead of a 16-verb capability beside a
+four-verb substrate. The build slice the panels wanted (308→309→322→325) is
+re-expressed: *deepen `capture`/`confirm` on the substrate, add `ask`+`elicit`,
+wire the `guided-discovery` skill, render history via `manage`.*
+
 ## Architecture — the `discover` capability (drop-in, prompt-shaped)
 
-One new capability, `discover`, structured to **mirror `prompt/`** (the
-reference for a deep capability) so the Intent pillar gains a peer to the
+> **Superseded for altitude by §Refinement above.** Retained as the mechanism
+> record: the cluster layout still applies to whatever new code lands (`ask`,
+> `elicit`), but the *home* shifts toward the substrate (`intent/_core.py`) +
+> the `guided-discovery` skill, and most clusters below become skill-orchestrated
+> calls to existing capabilities rather than new verbs.
 Capability pillar's richest member:
 
 ```
@@ -124,6 +203,12 @@ documented seams — the session-start hook in Spec 321 and the `manage`
 composition in Spec 324), that coupling is the bug.
 
 ## The verb surface (locked here; children implement)
+
+> **Superseded for altitude by §Refinement.** This 16-verb table is the original
+> mechanism map. Per §Refinement the *shipping* surface is ~2–4 new verbs (`ask` +
+> `elicit(mode)` (+ optional `discovery` composite)) over a deepened substrate
+> (`capture`→draft+clarity, `confirm`=gate) and the `guided-discovery` skill; the
+> rows below marked → are folded (see the §Refinement consolidation table).
 
 | Verb | Role | Cluster | Spec | One-line |
 |---|---|---|---|---|
@@ -327,10 +412,22 @@ Intent.* The 16 active children make it real; this master makes it coherent.
 
 ## Followup — Implementation Status (2026-06-18)
 
-- **Status: draft (program master).** Authored on
+- **Status: draft (program master), refined.** Authored on
   `claude/intent-pillar-deep-specs-uag2v0`. No code yet — this is the design
-  layer (the deliverable is the spec corpus, per the branch name). Execution is
-  Slice-1-per-child (typed shapes first, LLM/AskUser seams behind the typed
-  contract, per the wet-LLM follow-up pattern), gated by the acceptance suite.
-- **Next step:** children 308–325 drafted in the same commit; first build slice
-  is 308 (scaffold) → 309/310 (the AskUser core) → 312 (the research core).
+  layer. Execution is Slice-1-per-child (typed shapes first, LLM/AskUser seams
+  behind the typed contract), gated by the acceptance suite.
+- **Refinement pass (2026-06-18) — `/simplify` + dogfooded `thinking`.** Four
+  cleanup agents (reuse · simplification · efficiency · altitude) + a `thinking`
+  pass (`intent:57d8fae7`; `reflection:a4a676c6`) found the 16-verb design at the
+  wrong altitude. See **§Refinement ★ AUTHORITATIVE** — the shape is now: deepen
+  the Intent *substrate* (`capture`→draft+clarity_score+open_questions, `confirm`
+  IS the unbypassable gate), make **`guided-discovery` a Lifecycle skill over the
+  existing research/thinking/prompt/AskUser verbs**, and ship **~2–4 new
+  primitives** (`ask` + `elicit(mode)` (+ optional `discovery` composite)) instead
+  of 16. Folded: 314→`ground(decide)`, {315,316,317}→`sharpen(pass)`,
+  {309,311,318}→`elicit(mode)`, 325→`state(mode=history)`, 322's gate→substrate
+  `confirm`; dropped nodes `IntentRefinement`/`FeasibilitySignal`. Mandatory
+  efficiency: grounding `Research` reuse + concurrent scout fan-out.
+- **Next build slice (re-expressed):** deepen substrate `capture`/`confirm` (the
+  gate) → add `ask` + `elicit` → wire the `guided-discovery` skill orchestrating
+  existing verbs → render now/history via `manage`.

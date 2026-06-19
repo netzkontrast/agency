@@ -20,6 +20,13 @@ parent_spec: "307"
 > provenance is WHOLE; if replay can't reconstruct the discovery, a sibling
 > failed to record an edge. Renders to the `discovery-session.md` Document
 > (Goal 9).
+>
+> **★ FOLDED by Spec 307 §Refinement (2026-06-18).** `replay` collapses into
+> `state(mode=history)` (Spec 324) — both read the *same* `discovery-session.md`,
+> one as the current view and one as the history view; and the underlying ordered
+> traversal composes the shipped `manage.timeline` (Spec 290) over the discovery
+> edge-set rather than a parallel walker. The Invocation-census completeness +
+> `gaps` test moves to `state(mode=history)`. Retained as the moat mechanism record.
 
 ## Why (evidence + doctrine)
 
