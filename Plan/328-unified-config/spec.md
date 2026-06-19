@@ -168,13 +168,21 @@ Scenario: secrets are never written as literals
 
 ## Followup — Implementation Status (2026-06-19)
 
-**Verdict: Not started** (design drafted via agency thinking + brainstorm; awaiting
-gate approval; substrate for Specs 326 + 327).
+**Verdict: Partial** (Slices 1–2 shipped; 3–5 remain).
 
-- **Done:** requirement captured (unified out-of-the-box config); grounded (next
-  spec 328; no central config module today — only `_db_path.py`; pyyaml not yet
-  declared; per-cap configs exist → registry chosen); thinking pass
-  (`reflection:5c527d1e`); trade-off → option A (YAML + registry + new spec).
-- **Still:** gate approval, then Slice 1 (`_config.py`) — lands **before** Spec 326
-  Slice 1 so `frugal_level` persists through it.
-- **Blocker / Next step:** confirm Q1/Q2; add `pyyaml` to `pyproject` deps.
+- **Done — Slice 1** (`agency/_config.py`, PR #171): resolver + registry +
+  precedence (`config_get`/`config_resolve`/`config_set`, `register_config_section`,
+  `registered_keys`); env → `.agency/config.yaml` → default; core section; pyyaml
+  declared.
+- **Done — Slice 2** (this change): `config_scaffold(path)` — the annotated
+  generator. Renders every registered section at its default with a per-key
+  comment; **non-destructive** merge (present sections never rewritten — user edits
+  + comments survive; only missing sections appended; `# frugal:` section-granular
+  ceiling noted). `ConfigKey.secret` + a `secrets` section + `secret_keys()`:
+  secrets render `${env:VAR}`, never literal (C1/C3/C4). `_ensure_core_sections()`
+  pulls the core `frugal` section in before scaffolding (closes the lazy-import
+  gap). 4 acceptance scenarios in `features/config.feature`.
+- **Still:** Slice 3 (wire `setup` + `agency install` + SessionStart to
+  generate/repair), Slice 4 (`agency_doctor` config report + validate +
+  `--write-config`), Slice 5 (capability-registry proof — migrate `novel`/`music`).
+- **Blocker / Next step:** Slice 3 — the three generation points.

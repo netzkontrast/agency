@@ -34,3 +34,34 @@ Feature: unified config — .agency/config.yaml resolver + registry (Spec 328)
     Given a registered config key "demo.color" default "blue" env "DEMO_COLOR"
     And a clean env and an empty config file
     Then "demo.color" is in the registered keys
+
+  # Spec 328 Slice 2 — the annotated scaffold generator (config_scaffold)
+  Scenario: scaffold writes every registered key at its default with comments
+    Given a clean env and an empty config file
+    When I scaffold the config
+    Then the config file lists every registered key
+    And the frugal level line carries a comment
+    And the frugal level default is "full"
+
+  Scenario: scaffold renders secrets as env references, never literals
+    Given a clean env and an empty config file
+    When I scaffold the config
+    Then every secret key is written as an env reference
+
+  Scenario: re-scaffold is non-destructive — user edits and comments survive
+    Given a clean env and an empty config file
+    And the config has been scaffolded
+    And the user edits the frugal level to "ultra" with a "# my note" comment
+    When I scaffold the config again
+    Then the frugal level is still "ultra"
+    And the comment "# my note" is preserved
+
+  Scenario: scaffold appends a newly registered section without clobbering
+    Given a clean env and an empty config file
+    And the config has been scaffolded
+    And the user edits the frugal level to "ultra" with a "# my note" comment
+    And a new capability registers a config section "demo2" key "color" default "teal"
+    When I scaffold the config again
+    Then the config file lists "demo2.color"
+    And the frugal level is still "ultra"
+    And the comment "# my note" is preserved
