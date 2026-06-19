@@ -436,9 +436,28 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
 
 def _session_start_handler(engine, event: dict) -> dict:
     """Spec 326 M1 — inject the full frugal discipline at session start. Records
-    the Event (default handler) then adds the discipline; degrades silently."""
+    the Event (default handler) then adds the discipline; degrades silently.
+    Spec 328 Slice 3 — also repair an existing config (add newly-registered
+    sections), non-destructively."""
     base = _default_hook_handler(engine, event)
+    _maybe_repair_config()
     return {**base, "inject": _append_frugal("", prompt=False)}
+
+
+def _maybe_repair_config() -> None:
+    """Spec 328 Slice 3 — repair an EXISTING ``.agency/config.yaml`` on session
+    start: add any newly-registered sections non-destructively (a freshly
+    installed capability's keys appear without clobbering user edits). It never
+    CREATES a config — a hook must not scaffold ``.agency/`` into an arbitrary
+    cwd; creation is ``install``/``setup``. Best-effort: never raises."""
+    try:
+        import os as _os
+        from . import _config
+        path = _config._resolve_config_path()
+        if _os.path.exists(path):
+            _config.config_scaffold(path)
+    except Exception:
+        pass
 
 
 def _session_end_handler(engine, event: dict) -> dict:

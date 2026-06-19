@@ -182,7 +182,13 @@ Scenario: secrets are never written as literals
   secrets render `${env:VAR}`, never literal (C1/C3/C4). `_ensure_core_sections()`
   pulls the core `frugal` section in before scaffolding (closes the lazy-import
   gap). 4 acceptance scenarios in `features/config.feature`.
-- **Still:** Slice 3 (wire `setup` + `agency install` + SessionStart to
-  generate/repair), Slice 4 (`agency_doctor` config report + validate +
-  `--write-config`), Slice 5 (capability-registry proof — migrate `novel`/`music`).
-- **Blocker / Next step:** Slice 3 — the three generation points.
+- **Done — Slice 3** (this change): the three generation points wired.
+  `install.scaffold_agency_dir` writes `.agency/config.yaml` (install/`agency_install`
+  path); `scripts/setup` scaffolds it before doctor (dev path); the SessionStart
+  hook (`engine._maybe_repair_config`) **repairs** an existing config
+  non-destructively — and deliberately **never creates** one from a hook (a hook
+  must not scaffold `.agency/` into an arbitrary cwd; creation is install/setup).
+  3 acceptance scenarios in `features/config_wiring.feature`.
+- **Still:** Slice 4 (`agency_doctor` config report + validate + `--write-config`),
+  Slice 5 (capability-registry proof — migrate `novel`/`music`).
+- **Blocker / Next step:** Slice 4 — the doctor config block.

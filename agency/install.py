@@ -1247,6 +1247,15 @@ def scaffold_agency_dir(root: str) -> list[str]:
                     "monitor.log\n"
                     "monitor.log.*\n")
         written.append(gitignore)
+    # Spec 328 Slice 3 — the unified config lands with the .agency/ scaffold, so
+    # a fresh clone has every knob at a sensible default (out of the box). The
+    # generator is non-destructive: re-running only adds missing sections.
+    from . import _config
+    cfg = os.path.join(agency_dir, "config.yaml")
+    created = not os.path.exists(cfg)
+    _config.config_scaffold(cfg)
+    if created:
+        written.append(cfg)
     return written
 
 
