@@ -550,3 +550,28 @@ def _core_provenance_loaded(loaded_schema_titles):
         "core provenance schemas are on disk but NOT loaded by the engine "
         "(declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# The document-convergence set: Artefact (PRODUCES spine), Document (the
+# universal convergence artefact — Spec 292), Session (session graph node),
+# AcceptanceCriterion (VALIDATES-edged fulfilment node — Spec 317).
+# Spec 153 Slice 6 continuation — next highest-traffic uncovered labels.
+# A named contract set, not a snapshot count (CLAUDE.md rule 8).
+DOC_CONVERGENCE_LABELS = {"AcceptanceCriterion", "Artefact", "Session", "Document"}
+
+
+@then("the document convergence labels are all schema-covered")
+def _doc_convergence_covered(coverage_report):
+    missing = DOC_CONVERGENCE_LABELS - coverage_report.covered
+    assert not missing, (
+        "document-convergence labels lack a Schema (Spec 153 Slice 6 cont.):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the document convergence labels each have a loaded ontology schema")
+def _doc_convergence_loaded(loaded_schema_titles):
+    missing = DOC_CONVERGENCE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "document-convergence schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))

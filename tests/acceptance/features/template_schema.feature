@@ -97,3 +97,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the core provenance schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the core provenance labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 cont.) ─────────────────────────────────
+
+  Scenario: the document-convergence labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the document convergence labels are all schema-covered
+
+  Scenario: the document-convergence schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the document convergence labels each have a loaded ontology schema
