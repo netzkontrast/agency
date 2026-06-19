@@ -218,14 +218,12 @@ CORE_TYPED: dict[str, type[SQLModel]] = {
 
 # Columns NEVER written from node props — they are derived from EDGES, set by
 # ``set_fk_from_edge`` when the edge lands (so a re-upsert from props can't clobber
-# a FK already set by its edge).
+# a FK already set by its edge). DERIVED from each model's ``foreign_key`` columns
+# (rule 2: the schema's FK declarations are the single source — no hand-copied
+# parallel mapping to drift).
 _FK_COLUMNS: dict[str, set[str]] = {
-    "Intent": {"parent_intent_id"},
-    "Invocation": {"serves_intent_id", "agent_id"},
-    "Gate": {"intent_id"},
-    "AcceptanceCriterion": {"intent_id"},
-    "Lifecycle": {"serves_intent_id", "agent_id"},
-    "Artefact": {"produced_by_id", "serves_intent_id"},
+    label: {c.name for c in model.__table__.columns if c.foreign_keys}
+    for label, model in CORE_TYPED.items()
 }
 
 # edge rel → the FK column it sets on the edge's SRC row (value := the edge's DST).
@@ -335,11 +333,19 @@ class EntityStore:
             return s.get(model, node_id) is not None
 
     def _set_fk(self, node_id: str, col: str, value: str) -> None:
-        """Set ``col = value`` on whichever core table holds a row with this id."""
-        for model in CORE_TYPED.values():
-            if col not in model.__table__.columns.keys():
-                continue
-            with Session(self._engine) as s:
+        """Set ``col = value`` on whichever core table holds a row with this id.
+
+        One session for the whole probe (a column may live on several tables —
+        ``serves_intent_id`` on Invocation/Lifecycle/Artefact — but only the
+        node's own table holds a row with ``id == node_id``); the candidate
+        ``s.get`` calls are cheap PK lookups, so this is one commit per edge, not
+        one per candidate table."""
+        candidates = [m for m in CORE_TYPED.values()
+                      if col in m.__table__.columns.keys()]
+        if not candidates:
+            return
+        with Session(self._engine) as s:
+            for model in candidates:
                 row = s.get(model, node_id)
                 if row is not None:
                     setattr(row, col, value)
@@ -481,8 +487,7 @@ class IntentStore:
         invs = self.serves(intent_id)
         inv_ids = {i["id"] for i in invs}
         agent_ids = {i["agent_id"] for i in invs if i.get("agent_id")}
-        agents = [a for aid in agent_ids
-                  for a in [self._store.typed_row("Agent", aid)] if a]
+        agents = self._rows_in(TypedAgent, "id", agent_ids)   # one batched query
         artefacts = {a["id"]: a for a in self._rows(TypedArtefact,
                                                     serves_intent_id=intent_id)}
         for a in self._rows_in(TypedArtefact, "produced_by_id", inv_ids):
@@ -505,11 +510,11 @@ class IntentStore:
         acceptance/completion gate wins over a clarity gate) + the
         AcceptanceCriterion satisfaction (Spec 328) — the typed answer to "are we
         there yet?"."""
+        from .ontology import DONE_GATE_KINDS
         gates = self._rows(TypedGate, intent_id=intent_id)
         criteria = self._rows(TypedAcceptanceCriterion, intent_id=intent_id)
         measurable = [c for c in criteria if c.get("measurable")]
-        done_gates = [g for g in gates
-                      if g.get("kind") in ("acceptance", "completion")]
+        done_gates = [g for g in gates if g.get("kind") in DONE_GATE_KINDS]
         pool = done_gates or gates
         latest = max(pool, key=lambda g: g.get("vfrom") or 0) if pool else None
         return {

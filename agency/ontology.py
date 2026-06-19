@@ -82,6 +82,16 @@ class IntentOwner(str, Enum):
     SYSTEM = "system"
 
 
+class GateKind(str, Enum):
+    """Spec 328 — the role of an Intent-owned fulfilment ``Gate`` (the `Gate.kind`
+    closed enum). ``clarity`` fires at capture (Spec 322); ``acceptance`` /
+    ``completion`` are the done-time verdicts. The single source for these values
+    (was previously a literal in ``intent.confirm`` + ``IntentStore.fulfilment``)."""
+    CLARITY = "clarity"
+    ACCEPTANCE = "acceptance"
+    COMPLETION = "completion"
+
+
 # Plain-string sets DERIVED from the enums above (single source of truth). The
 # `.value` extraction keeps these byte-identical to the historical literals, so
 # every downstream consumer (FIELD_ENUMS, Ontology.violations, EntityModels'
@@ -89,6 +99,10 @@ class IntentOwner(str, Enum):
 ROLES = {m.value for m in Role}                     # how-verb roles
 LIFECYCLE_STATES = {m.value for m in LifecycleState}  # A2A-aligned task states
 INTENT_OWNERS = {m.value for m in IntentOwner}       # Spec 048 — Intent owners
+GATE_KINDS = {m.value for m in GateKind}             # Spec 328 — fulfilment-gate roles
+# Spec 328 — the done-time gate kinds (acceptance/completion) that win over a
+# clarity gate when reading fulfilment (IntentStore.fulfilment).
+DONE_GATE_KINDS = {GateKind.ACCEPTANCE.value, GateKind.COMPLETION.value}
 
 # --- core edge types (enumerated; link() rejects anything else) -------------
 EDGE_TYPES = {
@@ -109,6 +123,9 @@ FIELD_ENUMS: dict[tuple[str, str], set] = {
     ("Lifecycle", "state"): LIFECYCLE_STATES,
     # Spec 048 — Intent owner closed enum.
     ("Intent", "owner"): INTENT_OWNERS,
+    # Spec 328 — fulfilment-gate kind closed enum (only enforced when present;
+    # Lifecycle gates that carry no kind are unaffected).
+    ("Gate", "kind"): GATE_KINDS,
 }
 
 # The core ships NO domain skills — skills are owned by the capabilities that

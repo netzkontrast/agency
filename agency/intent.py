@@ -101,8 +101,9 @@ class Intent:
         # GATES edge keys it to the Intent; the score is the single substrate
         # source (rule 4). Best-effort: a provenance write must not fail confirm.
         try:
+            from .ontology import GateKind
             gid = self.m.record("Gate", {
-                "name": "clarity", "kind": "clarity",
+                "name": GateKind.CLARITY.value, "kind": GateKind.CLARITY.value,
                 "passed": bool(score >= thresh), "score": round(score, 3),
                 "threshold": round(thresh, 3), "checked_at": self.m._now()})
             self.m.link(gid, intent_id, "GATES")
