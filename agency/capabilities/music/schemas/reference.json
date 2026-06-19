@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Reference",
+  "description": "A reference track or document used for research (agency/capabilities/music/ontology.py; Spec 099). Links research findings back to a citable source.",
+  "type": "object",
+  "required": ["kind", "slug"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "description": "Category of reference (e.g. 'track', 'article', 'interview')."
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-safe kebab-case identifier for the reference."
+    },
+    "body": {
+      "type": "string",
+      "description": "Optional notes or excerpt from the reference."
+    }
+  }
+}

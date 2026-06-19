@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OptimizationPass",
+  "description": "A named optimization pass applied to a PromptInstance (agency/capabilities/prompt/ontology.py; Spec 304). APPLIES_PASS edge links a PromptInstance to each pass applied to it.",
+  "type": "object",
+  "required": ["slug", "kind"],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Unique kebab-case identifier for this pass (e.g. 'brevity-pass-1')."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "clarity",
+        "brevity",
+        "specificity",
+        "instruction-tightening",
+        "few-shot-injection",
+        "negative-example-injection",
+        "structural-reformat"
+      ],
+      "description": "Category of optimization applied."
+    }
+  }
+}

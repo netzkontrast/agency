@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CodexEntry",
+  "description": "A Novelcrafter-aligned codex entry for world-building detail (Spec 132). Links to Novel via CODEX_OF.",
+  "type": "object",
+  "required": ["novel", "slug", "name", "kind"],
+  "properties": {
+    "novel": {
+      "type": "string",
+      "description": "Parent Novel node id."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Kebab-case unique identifier within the novel."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of the codex entry."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["location", "minor-character", "artefact", "concept", "faction"],
+      "description": "Codex category (CODEX_ENTRY_KIND enum, agency/capabilities/novel/_main.py)."
+    },
+    "body": {
+      "type": "string",
+      "description": "Prose description of the entry."
+    }
+  }
+}

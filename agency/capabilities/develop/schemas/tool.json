@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tool",
+  "description": "A typed tool node — a micro-step skill or external tool with a declared input/output schema (agency/ontology.py NODE_SCHEMAS). Used to record available tools as graph nodes.",
+  "type": "object",
+  "required": ["name", "input", "output"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Tool name (e.g. 'Bash', 'Write', 'mcp__agency__execute')."
+    },
+    "input": {
+      "type": "string",
+      "description": "Schema ref or description of the tool's input shape."
+    },
+    "output": {
+      "type": "string",
+      "description": "Schema ref or description of the tool's output shape."
+    }
+  }
+}

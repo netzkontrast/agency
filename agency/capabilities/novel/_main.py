@@ -23,7 +23,7 @@ from pathlib import Path
 from agency._enums import project_enum
 from agency._frontmatter import frontmatter_hash
 from agency._render import RenderRule, RenderSpec
-from agency.capability import CapabilityBase, RenderTemplates, verb
+from agency.capability import ArtefactSchemas, CapabilityBase, RenderTemplates, verb
 from agency.ontology import OntologyExtension
 from ._slug import slugify
 from agency.toolresult import ToolResult
@@ -778,4 +778,5 @@ class NovelCapability(
     name = "novel"
     home = "capability"
     ontology = novel_ontology
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     render_templates = RenderTemplates.from_module(__file__)
