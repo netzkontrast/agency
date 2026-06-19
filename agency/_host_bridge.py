@@ -163,9 +163,9 @@ def _run(coro_factory):
     loop and blocks for the result. In a unit test / direct-async context (no
     worker-thread portal) that raises ``RuntimeError`` — we fall back to running
     the coroutine on a fresh loop."""
-    import anyio.from_thread
+    from anyio.from_thread import run
     try:
-        return anyio.from_thread.run(coro_factory)
+        return run(coro_factory)
     except RuntimeError:
         import asyncio
         return asyncio.run(coro_factory())
