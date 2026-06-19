@@ -20,6 +20,7 @@ Red flags:
 """
 from __future__ import annotations
 
+from ..._capture import keep_full
 from ...capability import CapabilityBase, verb
 from ...ontology import OntologyExtension
 
@@ -161,5 +162,5 @@ class PersonaCapability(CapabilityBase):
                  f"**Approach:** {spec['approach']}\n\n"
                  f"---\n# Task\n\n{task}\n")
         brief_id = self.ctx.record_and_serve("PersonaBrief",
-                                             {"persona": resolved, "task": task[:200]})
+                                             {"persona": resolved, "task": keep_full(task, label="persona task")})
         return {"persona": resolved, "brief": brief, "persona_brief_id": brief_id}
