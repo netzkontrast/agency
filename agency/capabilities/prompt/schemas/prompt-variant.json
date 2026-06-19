@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PromptVariant",
+  "description": "A systematically varied version of a prompt instance (agency/capabilities/prompt/ontology.py; Spec 153 Slice 6 — prompt-dossier wave). VARIANT_OF the parent PromptInstance; variant_kind classifies the transformation applied.",
+  "type": "object",
+  "required": ["parent_instance", "variant_kind"],
+  "properties": {
+    "parent_instance": {
+      "type": "string",
+      "description": "Node ID of the PromptInstance this variant derives from."
+    },
+    "variant_kind": {
+      "type": "string",
+      "enum": [
+        "tone-shift", "length-target", "constraint-relax",
+        "constraint-tighten", "structure-shift", "voice-shift"
+      ],
+      "description": "Type of transformation applied to produce this variant."
+    }
+  }
+}

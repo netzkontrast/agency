@@ -18,17 +18,12 @@ Idea
 KnownFact
 Language
 MagicSystem
-ModeActivation
 NarrativeBeat
 Novel
 NovelClaim
 OptimizationPass
-Panel
 PersonaBrief
 Plugin
-PromptOutput
-PromptVariant
-Recommendation
 Reference
 Religion
 ResearchBrief
@@ -36,7 +31,6 @@ Scene
 Schema
 StoryTimeEvent
 Storyform
-ThinkingMethod
 Tool
 Track
 Tweet
