@@ -56,6 +56,21 @@ def _welcome(we):
     we["r"] = call_tool(we["engine"], "agency_welcome", {})
 
 
+@when("agency_doctor returns over the wire")
+def _doctor(we):
+    we["r"] = call_tool(we["engine"], "agency_doctor", {})
+
+
+@then(parsers.parse('the doctor reports frugal level "{level}"'))
+def _doctor_level(we, level):
+    assert we["r"]["frugal"]["level"] == level, we["r"].get("frugal")
+
+
+@then("the doctor reports the per-verb stamp active")
+def _doctor_stamp(we):
+    assert we["r"]["frugal"]["stamp_active"] is True, we["r"].get("frugal")
+
+
 @then("the wire return carries a frugal stamp naming the floor")
 def _has_stamp(we):
     assert "frugal" in we["r"], we["r"]

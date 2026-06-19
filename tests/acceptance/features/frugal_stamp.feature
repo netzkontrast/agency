@@ -18,3 +18,10 @@ Feature: frugal M2 — per-verb envelope stamp (Spec 326 Slice 2)
     Given a frugal wire engine at the default level
     When agency_welcome returns over the wire
     Then the welcome prefix carries the frugal stamp
+
+  # Spec 326 Slice 5 — out of the box the doctor surfaces the discipline status
+  Scenario: the doctor reports the frugal discipline is live
+    Given a frugal wire engine at the default level
+    When agency_doctor returns over the wire
+    Then the doctor reports frugal level "full"
+    And the doctor reports the per-verb stamp active

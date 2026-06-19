@@ -183,7 +183,7 @@ Scenario: stamp is byte-stable at a fixed level
 
 ## Followup — Implementation Status (2026-06-19)
 
-**Verdict: Partial** (Slices 1–3 shipped; 4–5 remain).
+**Verdict: Shipped** (all 5 slices).
 
 - **Done — Slice 1** (`agency/_frugal.py`, PR #171): the ladder + safety-floor
   content, `LEVELS`/`DEFAULT_LEVEL='full'`, `frugal_level`/`set_frugal_level`
@@ -197,8 +197,18 @@ Scenario: stamp is byte-stable at a fixed level
   return (additive, byte-stable, degrades silently); `agency_welcome` carries it
   in its cache-stable Spec-146 prefix. 3 acceptance scenarios; verified additive
   across welcome budget/stability + the exact-eq suite (194 + 35 green).
-- **Still:** Slice 4 (safety-floor gate — a `gate`-recordable predicate that the
-  rendered/injected discipline never omits validate/secure/a11y at any level but
-  `off`), Slice 5 (doctor reports `frugal.level`; install emits the core handlers).
-- **Blocker / Next step:** Slice 4 — the safety-floor gate. (Q3 decided: keep the
-  compact stamp at `lite`.)
+- **Done — Slice 4** (safety-floor gate): `_frugal.safety_floor_intact(render_fn=None)`
+  — a decidable predicate (`{ok, checked, findings}`) that at every non-off level
+  the FULL render carries every `SAFETY_FLOOR_MARKER` and the COMPACT render names
+  the floor; gate-recordable via `gate.check(passed=result['ok'])`. 3 acceptance
+  scenarios (intact, catches a stripped marker via an injected render, records a
+  passing Gate).
+- **Done — Slice 5** (doctor + install wiring): `agency_doctor` gains a `frugal`
+  block (`{level, source, stamp_active}`, derived from the config block +
+  `frugal_prefix` — no dup logic) so "is frugal on?" is one glance. Install is
+  zero-manual-step by composition: the M1 handlers are engine-resident (any
+  engine injects on SessionStart/UserPromptSubmit), `frugal.level` is scaffolded
+  by Spec 328 S3, and the M2 stamp fires on every verb (S2). 1 OOB integration
+  scenario. (Q3 decided: keep the compact stamp at `lite`.)
+- **Blocker / Next step:** none — 326 shipped. Pairs with Spec 327 (the installer
+  projects the same `_frugal` discipline into per-agent rules files).

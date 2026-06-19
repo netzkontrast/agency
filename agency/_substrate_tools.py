@@ -485,6 +485,19 @@ class AgencyDoctor(SubstrateTool):
             except Exception as _e3:  # noqa: BLE001 — never crash the doctor
                 config_block = {"error": f"{type(_e3).__name__}: {_e3}"}
 
+            # Spec 326 Slice 5 — surface the frugal discipline status first-class
+            # (level + source + whether the M2 per-verb stamp is firing), so "is
+            # frugal on?" is one glance. Derived from the config block +
+            # frugal_prefix — no duplicated logic. Wrapped: never crash the doctor.
+            try:
+                from . import _frugal as _fr
+                _lvl = (config_block.get("values") or {}).get("frugal.level", {})
+                frugal_block = {"level": _lvl.get("value"),
+                                "source": _lvl.get("source"),
+                                "stamp_active": bool(_fr.frugal_prefix())}
+            except Exception as _e4:  # noqa: BLE001 — never crash the doctor
+                frugal_block = {"error": f"{type(_e4).__name__}: {_e4}"}
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -529,6 +542,8 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 328 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
+                # Spec 326 Slice 5 — the frugal discipline status at a glance.
+                "frugal": frugal_block,
                 # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
                 # can bootstrap an intent + invoke a verb end-to-end (proven on a
                 # throwaway in-memory engine, so the live graph is untouched).
