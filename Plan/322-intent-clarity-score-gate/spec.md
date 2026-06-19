@@ -134,9 +134,21 @@ serves it. The threshold is a documented tunable budget, not a snapshot.
 
 ## Followup — Implementation Status (2026-06-18)
 
-- **Status: draft.** Quality-gate-layer child of Spec 307. Mirrors the shipped
+- **Status: Slice 1 + the SUBSTRATE GATE shipped.** Slice 1 (`discover.clarity`)
+  shipped on main. The **§Refinement gate relocation SHIPPED 2026-06-18** (the
+  highest-leverage altitude fix): the gate now lives on the substrate
+  `Intent.confirm`, not in the capability. `agency/_clarity.py` is the single
+  source (`clarity_signals`/`clarity_score`); `Intent.confirm(require_clarity=,
+  override_token=, threshold=)` records `clarity_score` on EVERY confirm (depth for
+  free) and refuses below threshold when `require_clarity` is set (opt-in so the
+  ~25 `capture_and_confirm` callers keep working; the `guided-discovery` discipline
+  opts in at its final phase). `discover.clarity` + `_base._clarity_inputs` now
+  DELEGATE to `agency._clarity` (no second source — rule 4). 3 acceptance scenarios
+  (records score · gate refuses shallow + override passes · substrate score ==
+  `discover.clarity` score); full suite 1071 green; drift + schema + codes clean.
+- **Quality-gate-layer child of Spec 307.** Mirrors the shipped
   `prompt.audit`/`audit_gate` pattern; the new surface is the Intent-signal
-  scorer + the `clarity_gate` the Spec 323 skill phase reads via `gate_verb`.
+  scorer + the gate now on substrate `confirm`.
 - **Slice plan:** Slice 1 — `clarity` reading the five signals from `_clarity_inputs`
   (typed bag) and returning `{score, missing, ready}`; Slice 2 — the `clarity_gate`
   composite + the override token + Gate-result recording; Slice 3 — Spec 323 wires

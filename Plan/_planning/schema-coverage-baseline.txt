@@ -37,6 +37,7 @@ KnownFact
 Language
 Lifecycle
 MagicSystem
+MaintenanceRun
 ModeActivation
 ModeShift
 NarrativeBeat
