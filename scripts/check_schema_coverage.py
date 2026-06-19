@@ -11,8 +11,8 @@ from pathlib import Path
 
 from agency._schema_coverage import (  # noqa: F401  (re-export surface)
     CoverageReport, SchemaRegressionReport, schema_paths, schema_labels,
-    audit_schemas, truly_inline_schemas, load_schema_baseline,
-    compare_uncovered_to_baseline,
+    audit_schemas, engine_loaded_schema_titles, truly_inline_schemas,
+    load_schema_baseline, compare_uncovered_to_baseline,
 )
 
 

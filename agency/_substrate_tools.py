@@ -463,11 +463,15 @@ class AgencyDoctor(SubstrateTool):
             # highest-traffic schemas first. Wrapped: never crash the doctor.
             try:
                 from pathlib import Path as _Path
-                from ._schema_coverage import audit_schemas, truly_inline_schemas
+                from ._schema_coverage import (audit_schemas, truly_inline_schemas,
+                                               engine_loaded_schema_titles)
                 _sroot = _Path(os.path.dirname(os.path.abspath(__file__)))
-                _inline = truly_inline_schemas(_sroot, dict(engine.ontology.schemas))
+                _merged = dict(engine.ontology.schemas)
+                _inline = truly_inline_schemas(_sroot, _merged)
+                _loaded = engine_loaded_schema_titles(_merged)
                 _sc = audit_schemas(_sroot, ontology_labels=set(engine.ontology.nodes),
-                                    ontology_schemas=_inline)
+                                    ontology_schemas=_inline,
+                                    engine_loaded_titles=_loaded)
                 _ranked = sorted(
                     ((lbl, len(list(engine.memory.find(lbl)))) for lbl in _sc.uncovered),
                     key=lambda t: (-t[1], t[0]))
@@ -477,6 +481,7 @@ class AgencyDoctor(SubstrateTool):
                     "uncovered": len(_sc.uncovered),
                     "total_labels": _sc.total_ontology_labels,
                     "non_node_schemas": len(_sc.non_node_schemas),
+                    "dormant_schemas": sorted(_sc.dormant_schemas),
                     "priority_uncovered": [{"label": _l, "nodes": _n}
                                            for _l, _n in _ranked[:10]],
                 }

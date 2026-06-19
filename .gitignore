@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.env.dev
 .pytest_cache/
 # .claude/ shared project config is tracked (settings.json + CLAUDE.md);
 # only the personal/local overrides file stays ignored.

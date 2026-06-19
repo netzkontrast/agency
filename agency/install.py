@@ -35,6 +35,31 @@ import sys
 
 from .capabilities.plugin import author_command, author_skill, help_map
 
+# Keys captured from the environment and written to .env.dev during install.
+_DEV_ENV_KEYS = ("JULES_API_KEY", "OPENROUTER_API_KEY")  # AGENCY_LLM_MODEL has a safe default; omit
+
+
+def _write_dev_env(root: str) -> str | None:
+    """Write keys present in os.environ to ``<root>/.env.dev`` (gitignored).
+
+    Called during ``python -m agency.install`` so that keys already exported in
+    the shell are persisted for future sessions where the shell env may not be
+    set.  Only keys that ARE set in the environment are written — unset keys are
+    omitted, keeping ``.env.dev`` minimal.  Returns the path written, or ``None``
+    when no known keys are found in the environment.
+    """
+    import pathlib
+    lines = []
+    for key in _DEV_ENV_KEYS:
+        val = os.environ.get(key)
+        if val:
+            lines.append(f"{key}={val}\n")
+    if not lines:
+        return None
+    path = pathlib.Path(root) / ".env.dev"
+    path.write_text("".join(lines), encoding="utf-8")
+    return str(path)
+
 
 # Spec 148 Slice 2 — documented per-skill command cap (Open Q4). Slice 3
 # replaces the alpha-sort cap with an invocation-rank cap derived from the
@@ -1134,6 +1159,9 @@ def main(argv: list | None = None) -> int:
     if not settings_only:
         for p in write(target):
             print(p)
+        dev_env = _write_dev_env(target)
+        if dev_env:
+            print(dev_env)
     if ns.patch_claude_settings:
         from agency._hooks import patch_settings_file
         # Codex review on PR #138 round 2: the default settings path
