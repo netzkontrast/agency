@@ -1,7 +1,7 @@
 # Intent · Lifecycle · Gate — three of the four concepts
 
 <!-- doc-source: agency/intent.py agency/lifecycle.py agency/capabilities/gate/_main.py -->
-<!-- doc-hash: 66345573b9ea7c4e -->
+<!-- doc-hash: 3f92129c9bf93aa6 -->
 
 ## Intent (`agency/intent.py`)
 
@@ -34,15 +34,23 @@ surface, Spec 339).
   `parameterization` (the agent-as-Lifecycle seam, e.g. `"remote-async"`) are
   optional props recorded only when set. Returns the lifecycle id.
 - **`move(lc_id, to_state)`** is the **sole** state-shaped writer — it validates
-  `to_state` against the closed enum and refuses a no-op; every state change flows
-  through this one chokepoint. Each accepted transition **emits** (Spec 344):
-  terminal/blocked states (`completed·failed·canceled·input-required·auth-required`)
-  become a durable graph `Event{name:"lifecycle_transition"}` (`OBSERVED_DURING` the
-  intent + lifecycle, reusing the Spec 076 node); every transition also fans a
-  `MonitorEvent{source:"lifecycle", kind:"transition"}` onto the Spec 021 channel.
-  Intermediate churn (`submitted→working`) stays on the monitor only (panel B4 —
-  the graph keeps the Spec 336 low-bloat win). Because emission lives in the sole
-  writer, every routed writer emits for free.
+  `to_state` against the closed enum, refuses a no-op, and **enforces the A2A
+  transition table** (Spec 340): the legal edges live as data in
+  `agency/_lifecycle_data/transitions.json` (overridable by an
+  `Artefact{kind:"transition-table"}` graph node, monotone + terminal-floor checked
+  via `extend_table`, read O(1) by a deterministic node id — not an `Artefact`
+  scan), and an illegal edge (`completed→working`, `submitted→completed`) raises a
+  typed `IllegalTransition{from_state, to_state, allowed}`. Each accepted
+  transition **emits** (Spec 344 + 349b): terminal/blocked states
+  (`completed·failed·canceled·input-required·auth-required`) become a durable graph
+  `Event{name:"lifecycle_transition"}` (`OBSERVED_DURING` the intent + lifecycle,
+  reusing the Spec 076 node, recorded inline — the lifecycle's intrinsic
+  provenance); EVERY transition then fans onto the **pillar event bus**
+  (`lifecycle:transition`, `agency/_events.py`), where a registered subscriber
+  emits the `MonitorEvent{source:"lifecycle", kind:"transition"}` on the Spec 021
+  channel and any capability can react. Intermediate churn (`submitted→working`)
+  stays off the graph (monitor/bus only — panel B4, the Spec 336 low-bloat win).
+  Because emission lives in the sole writer, every routed writer emits for free.
 - **`close(lc_id, outcome="completed")`** drives to a terminal state through `move`.
 - `delegate.fan_out` opens one child Lifecycle per dispatched item via
   `ctx.lifecycle.open(parameterization="remote-async")` (Spec 339), then `move`s it

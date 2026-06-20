@@ -213,3 +213,94 @@ def _timeline_has_transition(engine, confirmed_intent):
                     for_intent_id=confirmed_intent)
     names = [item.get("name") for item in res.get("timeline", [])]
     assert "lifecycle_transition" in names, names
+
+
+# ── Spec 340 — the enforced A2A transition table ──────────────────────────────
+
+
+@when(parsers.parse('I move the lifecycle to "{to_state}" expecting an illegal transition'))
+def _move_illegal(engine, lc, to_state, box):
+    try:
+        engine.lifecycle.move(lc, to_state)
+        box["illegal"] = None
+    except Exception as exc:  # noqa: BLE001
+        box["illegal"] = exc
+
+
+@then(parsers.parse('the move is rejected as an illegal transition with allowed "{allowed}"'))
+def _rejected_illegal_allowed(box, allowed):
+    from agency._lifecycle_transitions import IllegalTransition
+    err = box.get("illegal")
+    assert isinstance(err, IllegalTransition), err
+    assert str(err.allowed) == allowed, err.allowed
+
+
+@then("the move is rejected as an illegal transition")
+def _rejected_illegal(box):
+    from agency._lifecycle_transitions import IllegalTransition
+    assert isinstance(box.get("illegal"), IllegalTransition), box.get("illegal")
+
+
+@then("every state in the transition table is a valid lifecycle state")
+def _table_consistent():
+    from agency._lifecycle_transitions import load_base_table
+    from agency.ontology import LIFECYCLE_STATES
+    table = load_base_table()
+    for state, targets in table.items():
+        assert state in LIFECYCLE_STATES, state
+        for target in targets:
+            assert target in LIFECYCLE_STATES, target
+
+
+@given(parsers.parse('a transition-table override adding "{src}" to "{dst}"'))
+def _override(engine, confirmed_intent, src, dst):
+    import json
+    from agency.lifecycle import TRANSITION_TABLE_KIND, TRANSITION_TABLE_NODE_ID
+    # Stored at the deterministic id so `move` reads it via an O(1) recall
+    # (Spec 340 perf fix) — not a full Artefact scan.
+    aid = engine.memory.record("Artefact", {"kind": TRANSITION_TABLE_KIND,
+                                            "table": json.dumps({src: [dst]})},
+                               node_id=TRANSITION_TABLE_NODE_ID)
+    engine.memory.link(aid, confirmed_intent, "SERVES")
+    return aid
+
+
+@when(parsers.parse('I move an opened lifecycle to "{to_state}"'), target_fixture="lc")
+def _open_and_move(engine, confirmed_intent, to_state):
+    lc = engine.lifecycle.open(confirmed_intent)
+    engine.lifecycle.move(lc, to_state)
+    return lc
+
+
+@then("loading the effective table is rejected")
+def _effective_rejected(engine):
+    from agency._lifecycle_transitions import IllegalTransition
+    with pytest.raises(IllegalTransition):
+        engine.lifecycle._effective_table()
+
+
+# ── Spec 349b — lifecycle transitions on the pillar event bus ─────────────────
+
+
+@given("a subscriber registered for the lifecycle transition event",
+       target_fixture="bus_box")
+def _register_bus_subscriber():
+    from agency import _events
+    from agency.lifecycle import LIFECYCLE_TRANSITION_EVENT
+    received: list[dict] = []
+
+    def _capture(engine, event):
+        received.append(event)
+        return ""
+
+    # Unique name so this test subscription doesn't collide with the built-in
+    # `lifecycle.monitor` one; idempotent re-registration is safe.
+    _events.subscribe(LIFECYCLE_TRANSITION_EVENT, _capture,
+                      name="test.capture_transition")
+    return {"received": received}
+
+
+@then(parsers.parse('the subscriber received a transition to "{to_state}"'))
+def _subscriber_received(bus_box, to_state):
+    tos = [e.get("to_state") for e in bus_box["received"]]
+    assert to_state in tos, tos

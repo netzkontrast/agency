@@ -17,9 +17,16 @@ append-only bi-temporality is demonstrated on Intent (see intent.py).
 """
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
+from . import _events
 from ._lifecycle_events import TRANSITION_EVENT_NAME, is_durable_transition
+from ._lifecycle_transitions import (
+    assert_transition,
+    extend_table,
+    load_base_table,
+)
 from .memory import Memory
 from .ontology import LIFECYCLE_STATES, LifecycleState
 
@@ -41,13 +48,77 @@ CANCELED = LifecycleState.CANCELED.value
 CLOSE_OUTCOMES = {COMPLETED, FAILED, CANCELED}
 
 
+#: Spec 340 — the graph override marker (the `shell.define` pattern, Spec 075):
+#: an `Artefact{kind: TRANSITION_TABLE_KIND, table: <json>}` overrides the seed.
+TRANSITION_TABLE_KIND = "transition-table"
+#: Stored at ONE deterministic node id so `move` reads the override with an
+#: O(1) `recall` instead of scanning every `Artefact` (Jules review, Spec 340).
+TRANSITION_TABLE_NODE_ID = "artefact:lifecycle-transition-table"
+
+#: Spec 349b — the lifecycle transition event name on the pillar event bus.
+LIFECYCLE_TRANSITION_EVENT = "lifecycle:transition"
+
+
+def _monitor_transition(monitor, from_state: str, to_state: str,
+                        intent_id: str) -> None:
+    """Fan one lifecycle transition onto the Spec 021 monitor channel (the single
+    source both the bus subscriber and the engine-less fallback call — rule 2)."""
+    if monitor is None:
+        return
+    from ._monitor import MonitorEvent
+    monitor.emit(MonitorEvent(
+        source="lifecycle", kind="transition",
+        message=f"{from_state or '∅'}→{to_state}", intent_id=intent_id))
+
+
+def _emit_monitor_on_transition(engine, event: dict) -> str:
+    """Spec 349b bus subscriber — the lifecycle's transition telemetry now flows
+    through the pillar event bus (`agency/_events.py`) instead of a hardcoded
+    `self.monitor.emit` (Jules review: decouple the monitor from `move`). Other
+    capabilities subscribe to `lifecycle:transition` the same way."""
+    _monitor_transition(getattr(engine, "monitor", None),
+                        event.get("from_state", ""), event.get("to_state", ""),
+                        event.get("intent_id", ""))
+    return ""
+
+
+# Register at import (idempotent by (event, name) — a reload never double-fires).
+_events.subscribe(LIFECYCLE_TRANSITION_EVENT, _emit_monitor_on_transition,
+                  name="lifecycle.monitor")
+
+
 class Lifecycle:
-    def __init__(self, memory: Memory, monitor: Any = None):
+    def __init__(self, memory: Memory, monitor: Any = None, engine: Any = None):
         self.m = memory
         # Spec 344 — the Spec 021 monitor channel (engine.monitor). Optional so a
         # bare ``Lifecycle(memory)`` (no engine) still records durable graph
         # transitions; only the high-volume churn telemetry needs the channel.
         self.monitor = monitor
+        # Spec 349b — the owning engine, so a transition can fan onto the pillar
+        # event bus (`_events.run(engine, ...)`). ``None`` in bare unit tests →
+        # the monitor fallback keeps Spec 344 telemetry working.
+        self.engine = engine
+        # Spec 340 — the base A2A transition table (data; loaded + validated once).
+        self._base_table = load_base_table()
+
+    def _effective_table(self) -> dict:
+        """The transition table `move` enforces — graph-first (an
+        `Artefact{kind:"transition-table"}` override at ``TRANSITION_TABLE_NODE_ID``,
+        monotone + floor-checked via ``extend_table``), seed fallback (Spec 340;
+        the `shell.define` pattern). Read per-move via an O(1) ``recall`` on the
+        fixed node id (NOT a full `Artefact` scan — Jules review) so a
+        freshly-defined override takes effect without a restart."""
+        art = self.m.recall(TRANSITION_TABLE_NODE_ID)
+        raw = art.get("table") if art else None
+        if not raw:
+            return self._base_table
+        try:                                     # an UNPARSEABLE override → seed
+            extra = raw if isinstance(raw, dict) else json.loads(raw)
+        except (ValueError, TypeError):
+            return self._base_table
+        # A floor/monotonicity violation (`IllegalTransition`, a ValueError
+        # subclass) MUST propagate — never silently swallowed back to the seed.
+        return extend_table(self._base_table, extra)
 
     def open(self, intent_id: str, *, kind: str = "task",
              agent: str = "", parameterization: str = "") -> str:
@@ -76,8 +147,9 @@ class Lifecycle:
     def move(self, lc_id: str, to_state: str, *, evidence: str = "") -> str:
         """The SOLE state-shaped writer of ``Lifecycle.state`` (Spec 339).
 
-        Validates ``to_state`` against the closed A2A enum and refuses a no-op.
-        The full transition-table guard (340) layers on top of this chokepoint.
+        Validates ``to_state`` against the closed A2A enum, refuses a no-op, and
+        enforces the A2A **transition table** (Spec 340) — an illegal edge (e.g.
+        ``completed→working``, ``submitted→completed``) raises ``IllegalTransition``.
         Every accepted transition then **emits** (Spec 344): terminal/blocked
         states become durable graph ``Event``s, all transitions fan onto the
         monitor channel — because emission lives here, every former unguarded
@@ -94,17 +166,24 @@ class Lifecycle:
         if current == to_state:
             raise ValueError(
                 f"no-op transition: lifecycle {lc_id!r} is already {to_state!r}")
+        # Spec 340 — enforce the A2A transition table. A well-formed lifecycle
+        # (any state set by `open`) must follow a legal edge; a lifecycle with no
+        # state yet (pre-`open` legacy) can't be reasoned about, so it is exempt.
+        if current:
+            assert_transition(current, to_state, self._effective_table())
         self.m.update(lc_id, {"state": to_state})
         self._emit_transition(lc_id, current or "", to_state, evidence)
         return to_state
 
     def _emit_transition(self, lc_id: str, from_state: str, to_state: str,
                          evidence: str) -> None:
-        """Broadcast a transition (Spec 344). Terminal/blocked transitions become
-        durable graph ``Event``s (reusing the Spec 076 node + ``OBSERVED_DURING``
-        edge); EVERY transition also fans onto the Spec 021 monitor channel as
-        telemetry. Split by class so high-volume churn never bloats the graph
-        (panel B4 — preserving the Spec 336 win)."""
+        """Broadcast a transition (Spec 344 + 349b). Terminal/blocked transitions
+        become durable graph ``Event``s (the lifecycle's intrinsic provenance —
+        recorded inline, memory-only); EVERY transition is then fanned onto the
+        **pillar event bus** (`lifecycle:transition`, Spec 349b) — the monitor
+        telemetry is now a bus SUBSCRIBER, not a hardcoded call, so other
+        capabilities can react to transitions the same way. Split by class so
+        high-volume churn never bloats the graph (panel B4 — Spec 336 win)."""
         intent_id = ""
         serving = self.m.neighbors(lc_id, "SERVES", direction="out")
         if serving:
@@ -120,12 +199,13 @@ class Lifecycle:
             if intent_id:
                 self.m.link(eid, intent_id, "OBSERVED_DURING")
             self.m.link(eid, lc_id, "OBSERVED_DURING")
-        if self.monitor is not None:
-            from ._monitor import MonitorEvent
-            self.monitor.emit(MonitorEvent(
-                source="lifecycle", kind="transition",
-                message=f"{from_state or '∅'}→{to_state}",
-                intent_id=intent_id))
+        ev = {"lifecycle_id": lc_id, "from_state": from_state,
+              "to_state": to_state, "intent_id": intent_id, "evidence": evidence,
+              "durable": is_durable_transition(to_state)}
+        if self.engine is not None:
+            _events.run(self.engine, LIFECYCLE_TRANSITION_EVENT, ev)
+        else:                                    # bare Lifecycle(memory, monitor) — no bus
+            _monitor_transition(self.monitor, from_state, to_state, intent_id)
 
     def close(self, lc_id: str, *, outcome: str = COMPLETED, evidence: str = "") -> str:
         """Drive a lifecycle to a terminal outcome through ``move`` (Spec 339).

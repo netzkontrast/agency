@@ -1,0 +1,9 @@
+{
+  "submitted":      ["working", "input-required", "auth-required", "canceled"],
+  "working":        ["input-required", "auth-required", "completed", "failed", "canceled"],
+  "input-required": ["working", "canceled"],
+  "auth-required":  ["working", "canceled"],
+  "completed":      [],
+  "failed":         ["working", "canceled"],
+  "canceled":       []
+}
