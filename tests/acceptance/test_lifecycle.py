@@ -383,3 +383,29 @@ def _substrate_watch(engine, lc, n):
     from agency._substrate_tools import LifecycleWatch
     result = LifecycleWatch().bind(engine)(lc)
     assert len(result.get("trail", [])) == n, result
+
+
+@then(parsers.parse('the lifecycle_check substrate tool matches "{state}"'))
+def _substrate_check_match(engine, lc, state):
+    from agency._substrate_tools import LifecycleCheck
+    result = LifecycleCheck().bind(engine)(lc, state)
+    assert result.get("match") is True, result
+
+
+@then(parsers.parse('the lifecycle_check substrate tool does not match "{state}"'))
+def _substrate_check_no_match(engine, lc, state):
+    from agency._substrate_tools import LifecycleCheck
+    result = LifecycleCheck().bind(engine)(lc, state)
+    assert result.get("match") is False, result
+
+
+@when("I open two lifecycles serving the intent", target_fixture="lc")
+def _open_two(engine, confirmed_intent):
+    engine.lifecycle.open(confirmed_intent)
+    return engine.lifecycle.open(confirmed_intent)
+
+
+@then(parsers.parse("lifecycle.find for the intent returns {n:d} lifecycles"))
+def _find_plural(engine, confirmed_intent, n):
+    found = engine.lifecycle.find(confirmed_intent)
+    assert len(found) == n, found

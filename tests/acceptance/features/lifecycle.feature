@@ -185,3 +185,12 @@ Feature: Lifecycle pillar substrate — the open/move/close state machine (Spec 
     When I move the lifecycle to "working"
     And I close the lifecycle as "completed"
     Then the lifecycle_watch substrate tool returns 1 transition event
+
+  Scenario: the lifecycle_check substrate tool returns match true for the current state
+    Given an opened lifecycle via the lifecycle_open substrate tool
+    Then the lifecycle_check substrate tool matches "submitted"
+    And the lifecycle_check substrate tool does not match "working"
+
+  Scenario: find returns all lifecycles when an intent has multiple
+    When I open two lifecycles serving the intent
+    Then lifecycle.find for the intent returns 2 lifecycles
