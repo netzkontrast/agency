@@ -7,15 +7,15 @@ Harvest deliberate ``frugal:``/``ponytail:`` shortcut markers into a debt ledger
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `paths (str — optional path filter; empty = all tracked source), write (str — optional markdown path for the document-backed ledger).` |  |  |
+| `paths (str — optional path filter; empty = all tracked source).` |  |  |
 
 ## Returns
 
-token-bounded ``{markers, no_trigger, top: [...]}`` (+ ``written`` / ``document_id`` when ``write`` is set) — the FULL ledger is in the graph (DebtMarker nodes); the wire caps at the top-N.
+token-bounded ``{markers, no_trigger, top: [...]}`` — the FULL ledger is in the graph (DebtMarker nodes); the wire caps at the top-N (Spec 348-review Sev3#5: full capture, bounded return).
 
 ## Chain-next
 
-query the DebtMarker nodes, or open the written ledger Document.
+query the DebtMarker nodes for the full ledger.
 
 ## Details
 

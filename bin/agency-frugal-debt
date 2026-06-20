@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_frugal_debt
 # Harvest deliberate ``frugal:``/``ponytail:`` shortcut markers into a debt ledger — each a ``DebtMarker`` node SERVING the intent, so "what did we defer" is a query, not a re-grep (the substrate's edge over the JS original).
-# Usage: agency-frugal-debt [--intent-id ID] [paths] [write]
+# Usage: agency-frugal-debt [--intent-id ID] [paths]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -66,7 +66,6 @@ def _coerce(raw, ann):
     return raw
 _kw = {"intent_id": sys.argv[1]}
 if len(sys.argv) > 2: _kw["paths"] = _coerce(sys.argv[2], str)
-if len(sys.argv) > 3: _kw["write"] = _coerce(sys.argv[3], str)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

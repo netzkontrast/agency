@@ -29,9 +29,6 @@ def main(argv: list[str] | None = None) -> int:
                         help="promote to gate: with --baseline, exit 1 on "
                              "new uncovered labels; without, exit 1 on any "
                              "uncovered label")
-    parser.add_argument("--fix-baseline", action="store_true",
-                        help="rewrite the baseline file in-place, removing "
-                             "labels that are now covered")
     args = parser.parse_args(argv)
     # Boot the engine just long enough to read the live ontology labels
     # AND the merged schema dict (which we then split into truly-
@@ -71,26 +68,10 @@ def main(argv: list[str] | None = None) -> int:
                 for label in sorted(res.new_uncovered):
                     print(f"  + {label}")
             if res.fixed_uncovered:
-                if args.fix_baseline:
-                    print(f"\nFIXING: {len(res.fixed_uncovered)} baseline "
-                          f"entries now covered — auto-trimming from {args.baseline}:")
-                    for label in sorted(res.fixed_uncovered):
-                        print(f"  - {label}")
-
-                    baseline_path = Path(args.baseline)
-                    lines = baseline_path.read_text(encoding="utf-8").splitlines(keepends=True)
-                    new_lines = []
-                    for line in lines:
-                        if line.strip() and not line.strip().startswith("#"):
-                            if line.strip() in res.fixed_uncovered:
-                                continue
-                        new_lines.append(line)
-                    baseline_path.write_text("".join(new_lines), encoding="utf-8")
-                else:
-                    print(f"\nFIXED: {len(res.fixed_uncovered)} baseline "
-                          f"entries now covered — trim from {args.baseline} (or use --fix-baseline):")
-                    for label in sorted(res.fixed_uncovered):
-                        print(f"  - {label}")
+                print(f"\nFIXED: {len(res.fixed_uncovered)} baseline "
+                      f"entries now covered — trim from {args.baseline}:")
+                for label in sorted(res.fixed_uncovered):
+                    print(f"  - {label}")
             return 0 if res.ok else 1
         return 0 if not rep.uncovered else 1
     return 0

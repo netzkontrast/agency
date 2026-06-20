@@ -40,14 +40,12 @@ Dropped (implementation / structural — not observable behaviour):
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-import tempfile
 
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
-from conftest import call_tool, invoke, served
+from conftest import call_tool, invoke
 
 scenarios("features/analyze.feature")
 

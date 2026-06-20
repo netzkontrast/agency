@@ -25,7 +25,7 @@ once at build time.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 
 @dataclass

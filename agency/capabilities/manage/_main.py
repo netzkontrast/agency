@@ -25,6 +25,40 @@ from ...capability import CapabilityBase, verb
 from ...memory import OPEN as _OPEN  # the substrate's bi-temporal "currently-valid" sentinel
 from ..._overflow import budget_take  # Spec 286 P3 — shared priority-ordered token-budget split
 from ..._tokens import count_tokens   # Spec 082 — the one TokenCounter boundary
+from ...ontology import OntologyExtension
+
+
+
+_LIFECYCLE_MANAGEMENT_SKILL = {
+
+    "name": "lifecycle-management",
+
+    "kind": "discipline",
+
+    "applies_when": {"kind": "pattern",
+
+                     "pattern": r"manage lifecycle|unblock|what's in flight|advance.*lifecycle",
+
+                     "confidence": 0.8},
+
+    "phases": [
+
+        {"index": 1, "name": "survey", "produces": ["board_state"]},
+
+        {"index": 2, "name": "triage", "produces": ["blockers"]},
+
+        {"index": 3, "name": "unblock", "produces": ["unblocked_lifecycles"]},
+
+        {"index": 4, "name": "advance", "produces": ["progress_recorded"]},
+
+        {"index": 5, "name": "close", "produces": ["terminal_closed"]},
+
+        {"index": 6, "name": "report", "produces": ["lifecycle_board"]},
+
+    ],
+
+}
+
 
 
 def _query_tokens(text: str) -> set:
@@ -50,9 +84,17 @@ def _parse_props(props) -> dict:
     return {}
 
 
+def _phase_of(ctx, lifecycle_id: str) -> str:
+    """Spec 343 helper — the phase/state bridge made explicit: read the current phase."""
+    props = ctx.recall(lifecycle_id)
+    if not props:
+        raise ValueError(f"lifecycle {lifecycle_id!r} not found")
+    return props.get("phase", "")
+
 class ManageCapability(CapabilityBase):
     name = "manage"
     home = "memory"   # reads/writes the existing graph; no new node types
+    ontology = OntologyExtension(skills={"lifecycle-management": _LIFECYCLE_MANAGEMENT_SKILL})
 
     @verb(role="effect")
     def create(self, label: str, props: dict | None = None) -> dict:

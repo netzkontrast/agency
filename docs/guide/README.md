@@ -8,7 +8,6 @@ Task-oriented docs for driving the engine. (For *how it's built*, see
 | [concepts.md](concepts.md) | understand the model in plain language — the four concepts + the engine |
 | [usage.md](usage.md) | drive the engine — code-mode, context-mode, and the three surfaces (MCP · CLI · Skills) |
 | [capabilities.md](capabilities.md) | the capability reference — every capability + verb (**generated** from the live registry) |
-| [frugal.md](frugal.md) | the minimal-code discipline — the ladder, the safety floor, the levels, and the `frugal` verbs |
 | [extending.md](extending.md) | add your own capability + the `examples/` extension point |
 
 > New here? Start with [../getting-started.md](../getting-started.md), then

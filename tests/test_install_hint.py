@@ -1,6 +1,5 @@
 import re
 import sys
-import pytest
 from agency.install import _DISPATCH_HOOK_SCRIPT
 
 def test_hint_function_outputs_to_stderr(capsys):

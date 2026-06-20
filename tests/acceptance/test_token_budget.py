@@ -16,7 +16,6 @@ Dropped (implementation / structural / not observable behaviour):
 from __future__ import annotations
 
 import asyncio
-import tempfile
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when

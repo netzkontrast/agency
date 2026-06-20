@@ -14,8 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-from pytest_bdd import given, scenario, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
 scenarios("features/derive_docs.feature")
 

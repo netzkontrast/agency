@@ -27,14 +27,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import stat
-import tempfile
-from pathlib import Path
 
-import pytest
 from fastmcp import Client
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
 from agency.engine import Engine
 from agency import install
