@@ -127,3 +127,11 @@ Feature: Lifecycle pillar substrate — the open/move/close state machine (Spec 
   Scenario: an override cannot reopen a terminal state
     Given a transition-table override adding "completed" to "working"
     Then loading the effective table is rejected
+
+  # Spec 349b — lifecycle transitions fan onto the pillar event bus.
+
+  Scenario: a transition fans onto the Spec 349 event bus
+    Given a subscriber registered for the lifecycle transition event
+    And an opened lifecycle
+    When I move the lifecycle to "working"
+    Then the subscriber received a transition to "working"

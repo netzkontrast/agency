@@ -196,6 +196,16 @@ Storage note: `from`/`to` are graphqlite-Cypher reserved words (raw syntax error
 so the Event stores `from_state`/`to_state` (matching the dataclass fields) — the
 spec sketch's `from:/to:` keys are renamed accordingly.
 
+**Jules-review follow-up SHIPPED 2026-06-20 (the 349b lifecycle-source slice):**
+the monitor emit was hardcoded as `self.monitor.emit` inside `move`. It now fans
+onto the **Spec 349 pillar event bus** — `_emit_transition` calls
+`_events.run(engine, "lifecycle:transition", ev)` and a registered subscriber
+(`lifecycle.monitor`) emits the `MonitorEvent`. The durable graph `Event` record
+stays inline (the lifecycle's intrinsic, engine-independent provenance); the
+cross-cutting telemetry is the decoupled, subscribable part. This realises the
+Spec 349 docstring's deferred "lifecycle events on the bus" — any capability can
+now subscribe to `lifecycle:transition` (1 acceptance scenario proves fan-out).
+
 Still (Slice 2): the `lifecycle.watch` consumer (Spec 341) reads this trail; the
 dogfood loop-detector gains stall visibility over transition events; 340's table
 guard runs before emit. The remaining unguarded writers (`subagent`, `music`) move

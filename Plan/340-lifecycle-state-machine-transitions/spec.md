@@ -157,6 +157,14 @@ lifecycle. So `submitted` also reaches `input-required`/`auth-required`. The cor
 invariant the spec defends — *no `completed` without passing `working`* — is
 intact (`submitted` still can NOT skip to `completed`/`failed`).
 
+**Jules-review follow-up SHIPPED 2026-06-20 (perf blocker):** the `_effective_table`
+override read was a per-`move` **full `Artefact` scan** (`query_nodes("Artefact",
+where=…)` → `MATCH (n:Artefact) RETURN n` + Python filter — `Artefact` is
+high-cardinality). Fixed: the override is stored at ONE deterministic node id
+(`TRANSITION_TABLE_NODE_ID`) and read with an O(1) `recall`. The parse-failure vs
+floor-violation paths are split so an `IllegalTransition` (a `ValueError` subclass)
+propagates instead of being swallowed back to the seed.
+
 Still (Slice 2): the **B3 static drift guard** (`scripts/check-drift` grep that
 fails CI on any `update(...{"state"` / `record("Lifecycle"` outside
 `agency/lifecycle.py`) is deferred to **339b** — `subagent`/`music` still write

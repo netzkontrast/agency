@@ -255,9 +255,12 @@ def _table_consistent():
 @given(parsers.parse('a transition-table override adding "{src}" to "{dst}"'))
 def _override(engine, confirmed_intent, src, dst):
     import json
-    from agency.lifecycle import TRANSITION_TABLE_KIND
+    from agency.lifecycle import TRANSITION_TABLE_KIND, TRANSITION_TABLE_NODE_ID
+    # Stored at the deterministic id so `move` reads it via an O(1) recall
+    # (Spec 340 perf fix) — not a full Artefact scan.
     aid = engine.memory.record("Artefact", {"kind": TRANSITION_TABLE_KIND,
-                                            "table": json.dumps({src: [dst]})})
+                                            "table": json.dumps({src: [dst]})},
+                               node_id=TRANSITION_TABLE_NODE_ID)
     engine.memory.link(aid, confirmed_intent, "SERVES")
     return aid
 
@@ -274,3 +277,30 @@ def _effective_rejected(engine):
     from agency._lifecycle_transitions import IllegalTransition
     with pytest.raises(IllegalTransition):
         engine.lifecycle._effective_table()
+
+
+# ── Spec 349b — lifecycle transitions on the pillar event bus ─────────────────
+
+
+@given("a subscriber registered for the lifecycle transition event",
+       target_fixture="bus_box")
+def _register_bus_subscriber():
+    from agency import _events
+    from agency.lifecycle import LIFECYCLE_TRANSITION_EVENT
+    received: list[dict] = []
+
+    def _capture(engine, event):
+        received.append(event)
+        return ""
+
+    # Unique name so this test subscription doesn't collide with the built-in
+    # `lifecycle.monitor` one; idempotent re-registration is safe.
+    _events.subscribe(LIFECYCLE_TRANSITION_EVENT, _capture,
+                      name="test.capture_transition")
+    return {"received": received}
+
+
+@then(parsers.parse('the subscriber received a transition to "{to_state}"'))
+def _subscriber_received(bus_box, to_state):
+    tos = [e.get("to_state") for e in bus_box["received"]]
+    assert to_state in tos, tos
