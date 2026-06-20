@@ -121,7 +121,8 @@ class Lifecycle:
         return extend_table(self._base_table, extra)
 
     def open(self, intent_id: str, *, kind: str = "task",
-             agent: str = "", parameterization: str = "") -> str:
+             agent: str = "", parameterization: str = "",
+             machine: str = "a2a") -> str:
         # Spec 339 — mint in `submitted` (was `working`): submitted = admitted/
         # queued, working = actually running. The distinction makes `whats_next`
         # accurate and matches CORE.md §3's A2A start state.
@@ -130,7 +131,12 @@ class Lifecycle:
         # (the 342 seam — e.g. "remote-async" for a delegated child, "session"
         # for a SessionLifecycle) are OPTIONAL props recorded only when set, so
         # legacy/default lifecycles stay byte-identical.
-        props = {"state": SUBMITTED, "phase": 0}
+        # Spec 345 — per-machine initial state; default machine "a2a" → SUBMITTED (byte-identical)
+        from ._lifecycle_machines import resolve_machine as _resolve_machine
+        _m = _resolve_machine(machine)
+        props: dict = {"state": _m["initial"], "phase": 0}
+        if machine != "a2a":
+            props["machine"] = machine
         if kind and kind != "task":
             props["kind"] = kind
         if parameterization:
@@ -158,19 +164,33 @@ class Lifecycle:
         # AGENCY-DRIFT: lifecycle-state-writer — the ONE legitimate site that
         # writes Lifecycle.state. A new `update({"state": ...})` / `record(
         # "Lifecycle"/"SessionLifecycle", ...)` elsewhere is drift (Spec 340 guard).
-        if to_state not in LIFECYCLE_STATES:
+        node = self.m.recall(lc_id) or {}
+        current = node.get("state")
+        machine_name = node.get("machine", "a2a")
+
+        # Spec 345: per-machine state + transition validation.
+        # A2A branch reuses _effective_table() for graph-override support (Spec 340);
+        # other machines use resolve_machine() from the seed registry.
+        if machine_name == "a2a":
+            valid_states = LIFECYCLE_STATES
+            table = self._effective_table()
+        else:
+            from ._lifecycle_machines import resolve_machine as _resolve_machine
+            _m = _resolve_machine(machine_name)
+            valid_states = _m["states"]
+            table = _m["transitions"]
+
+        if to_state not in valid_states:
             raise ValueError(
-                f"unknown lifecycle state {to_state!r}; "
-                f"valid: {sorted(LIFECYCLE_STATES)}")
-        current = (self.m.recall(lc_id) or {}).get("state")
+                f"unknown state {to_state!r} for machine {machine_name!r}; "
+                f"valid: {sorted(valid_states)}")
         if current == to_state:
             raise ValueError(
                 f"no-op transition: lifecycle {lc_id!r} is already {to_state!r}")
-        # Spec 340 — enforce the A2A transition table. A well-formed lifecycle
-        # (any state set by `open`) must follow a legal edge; a lifecycle with no
-        # state yet (pre-`open` legacy) can't be reasoned about, so it is exempt.
+        # A well-formed lifecycle (any state set by `open`) must follow a legal
+        # edge; a lifecycle with no state yet (pre-`open` legacy) is exempt.
         if current:
-            assert_transition(current, to_state, self._effective_table())
+            assert_transition(current, to_state, table)
         self.m.update(lc_id, {"state": to_state})
         self._emit_transition(lc_id, current or "", to_state, evidence)
         return to_state
@@ -188,6 +208,13 @@ class Lifecycle:
         serving = self.m.neighbors(lc_id, "SERVES", direction="out")
         if serving:
             intent_id = serving[0].get("id", "")
+        # Spec 347 — frugal stamp: active discipline level at transition time.
+        # Single source: _frugal.frugal_level() (Spec 332); never redefined here.
+        try:
+            from ._frugal import frugal_level as _frugal_level
+            fl = _frugal_level()
+        except Exception:
+            fl = ""
         if is_durable_transition(to_state):
             # Reuse Spec 076: a new *kind* of Event, exactly as Spec 156 records
             # `loop_detected`. `from_state`/`to_state` (not `from`/`to` — both are
@@ -195,13 +222,13 @@ class Lifecycle:
             eid = self.m.record("Event", {
                 "name": TRANSITION_EVENT_NAME, "session": "lifecycle",
                 "lifecycle": lc_id, "from_state": from_state,
-                "to_state": to_state, "evidence": evidence})
+                "to_state": to_state, "evidence": evidence, "frugal": fl})
             if intent_id:
                 self.m.link(eid, intent_id, "OBSERVED_DURING")
             self.m.link(eid, lc_id, "OBSERVED_DURING")
         ev = {"lifecycle_id": lc_id, "from_state": from_state,
               "to_state": to_state, "intent_id": intent_id, "evidence": evidence,
-              "durable": is_durable_transition(to_state)}
+              "durable": is_durable_transition(to_state), "frugal": fl}
         if self.engine is not None:
             _events.run(self.engine, LIFECYCLE_TRANSITION_EVENT, ev)
         else:                                    # bare Lifecycle(memory, monitor) — no bus
@@ -223,18 +250,60 @@ class Lifecycle:
         props = self.m.recall(lc_id)
         return props.get("state") if props else None
 
-    def resume(self, lc_id: str) -> dict:
-        """Re-enter a paused lifecycle. Asserts the lifecycle is in
-        input-required | auth-required (the only resumable states, per 340's
-        table), moves it →working, and returns the recorded phase so the
-        caller re-enters skill_walk at that phase (resume_from=).
-        Returns {lifecycle_id, state, phase, resume_from}.
+    # ── Spec 341 — observe suite: read · find · check · watch ────────────────
+
+    def read(self, lc_id: str) -> dict:
+        """Full lifecycle node props + serving intent_id (Spec 341).
+
+        Richer than ``status`` (which only returns the state string): returns
+        all recorded props (state, kind, parameterization, phase, …) plus the
+        ``intent_id`` resolved via the ``SERVES`` edge — the snapshot an
+        observer needs to act without re-querying multiple methods.
         """
-        current = self.status(lc_id)
-        if current not in (INPUT_REQUIRED, AUTH_REQUIRED):
-            raise ValueError(
-                f"lifecycle {lc_id!r} is not resumable (state: {current})")
         props = self.m.recall(lc_id)
-        phase = props.get("phase") if props else None
-        self.move(lc_id, "working", evidence="resume")
-        return {"lifecycle_id": lc_id, "state": "working", "phase": phase, "resume_from": phase}
+        if not props:
+            return {}
+        result = dict(props)
+        serving = self.m.neighbors(lc_id, "SERVES", direction="out")
+        if serving:
+            result["intent_id"] = serving[0].get("id", "")
+        return result
+
+    def find(self, intent_id: str, *, state: str = "") -> list[dict]:
+        """All Lifecycle nodes SERVING ``intent_id``, optionally filtered by
+        state (Spec 341). Returns property dicts ordered by graph insertion.
+
+        ``state`` filters the result set to nodes whose ``state`` matches
+        exactly; omit to return all lifecycles for the intent regardless of
+        state.
+        """
+        candidates = [n for n in self.m.neighbors(intent_id, "SERVES",
+                                                   direction="in")
+                      if "state" in n]      # Lifecycle nodes always carry state
+        if state:
+            candidates = [n for n in candidates if n.get("state") == state]
+        return candidates
+
+    def check(self, lc_id: str, state: str) -> bool:
+        """True if the lifecycle is currently in ``state`` (Spec 341).
+
+        A narrow, read-only guard: does NOT raise on unknown states (returns
+        False), so it is safe as a non-throwing condition in pipeline guards.
+        """
+        return self.status(lc_id) == state
+
+    def watch(self, lc_id: str) -> list[dict]:
+        """The durable lifecycle_transition trail for ``lc_id`` — no poll
+        (Spec 341 / 344).
+
+        Returns the Spec 344 ``lifecycle_transition`` Events linked
+        ``OBSERVED_DURING`` the lifecycle, ordered oldest-first. Only terminal
+        and blocked transitions appear here (churn goes to the monitor channel
+        only, per Spec 344's B4 split). The trail is the retrospective record
+        an observer reads instead of polling state.
+        """
+        events = [n for n in self.m.neighbors(lc_id, "OBSERVED_DURING",
+                                               direction="in")
+                  if n.get("name") == "lifecycle_transition"]
+        events.sort(key=lambda e: e.get("vfrom", 0))
+        return events

@@ -4,8 +4,9 @@ __pycache__/
 .env.dev
 .pytest_cache/
 # .claude/ shared project config is tracked (settings.json + CLAUDE.md);
-# only the personal/local overrides file stays ignored.
+# only the personal/local overrides file and ephemeral worktrees stay ignored.
 .claude/settings.local.json
+.claude/worktrees/
 *.bak
 # Spec 021 — engine monitor SLOG (ephemeral; durable provenance is the graph)
 .agency/monitor.log
