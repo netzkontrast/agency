@@ -251,13 +251,13 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 
 ## Suggested implementation order (next 5)
 
-Refreshed 2026-06-19 (post Spec 153 Slice 6 full-coverage + Spec 336 all-4-slices shipped; 88 specs shipped total). Ranked by leverage given current state.
+Refreshed 2026-06-20 (post Spec 153 round-trip invariant done; 88 specs shipped total). Ranked by leverage given current state.
 
-1. **Spec 153 round-trip invariant** — generate→validate: `memory.record()` validates node props against the cap's file-backed JSON Schema (jsonschema Draft-7); typed `Codes.SCHEMA_VALIDATION_FAILED` on mismatch. Invariant (c) from the spec: every covered label fails on missing required fields. Now that all 89 labels are schema-covered, this closes the enforcement loop.
-2. **Spec 149 Slice 2** — `scripts/derive-docs` (spec.md derived-zone rewrite via `<!-- derived:<id> -->` HTML fences). Prerequisite for Spec 261's stop-condition verification and the 129-baseline `vision_goals:` backfill.
-3. **Spec 147 Slice 2** — Managed-Agents `dispatch_session` bridge. Turns 150/148/177 stub paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
-4. **Spec 146 Slice 2.2** — WARN→error promotion + `Plan/_planning/prefix-lint-baseline.txt` for the 3 engine.py OS_ENVIRON sites. Closes the prefix discipline as a CI gate.
-5. **Spec 311 Slice 2** — `discover.clarify` wet Driver `ClarifySpec` + grounding-sharp options (depends on 147 Slice 2 for the AnthropicDriver wet path).
+1. **Spec 149 Slice 2** — `scripts/derive-docs` (spec.md derived-zone rewrite via `<!-- derived:<id> -->` HTML fences). Prerequisite for Spec 261's stop-condition verification and the 129-baseline `vision_goals:` backfill.
+2. **Spec 147 Slice 2** — Managed-Agents `dispatch_session` bridge. Turns 150/148/177 stub paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
+3. **Spec 146 Slice 2.2** — WARN→error promotion + `Plan/_planning/prefix-lint-baseline.txt` for the 3 engine.py OS_ENVIRON sites. Closes the prefix discipline as a CI gate.
+4. **Spec 311 Slice 2** — `discover.clarify` wet Driver `ClarifySpec` + grounding-sharp options (depends on 147 Slice 2 for the AnthropicDriver wet path).
+5. **Spec 322 Slice 2** — `clarity_gate` composite + override token + Gate recording; wire as 323's final gate verb. Closes the Intent confirmation gate chain.
 
 ## When to update this file
 

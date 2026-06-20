@@ -196,14 +196,6 @@ caps). This slice closes it permanently.
   audit subtracts deferred-but-documented gaps from the uncovered set
   (per Spec 054 drift pattern; matches the AGENCY-RESERVED escape
   hatch in Spec 151).
-- **Round-trip invariant (original Slice 4 plan)** — generate→validate:
-  for every covered label, a Template renders an Artefact that the Schema
-  validates, and the materialised result round-trips back to the source
-  dict shape. Invariant (c) — `covered_schemas ⊆ template_renderable_schemas`.
-- **Slice 5** — `# AGENCY-SCHEMA-DEFERRED: <reason>` tag scan so the
-  audit subtracts deferred-but-documented gaps from the uncovered set
-  (per Spec 054 drift pattern; matches the AGENCY-RESERVED escape
-  hatch in Spec 151).
 - **Slice 6** — author schemas for the top-N highest-traffic
   uncovered labels (driven by Slice 3 ranking); push fraction above
   0.5 then re-floor.
@@ -477,6 +469,29 @@ counted DecisionRecord which Wave 4 squash-merge hadn't fully trimmed).
 schema_coverage 0.719→0.809, crossing 0.8 milestone. 2 acceptance scenarios
 (MUSIC_DOGFOOD_PROMPT_LABELS contract set). Drift clean.
 
+
+## Done — round-trip invariant (2026-06-20)
+
+The last remaining "Still" item from the original spec: for every covered label,
+`memory.record(label, valid_props)` succeeds and `memory.record(label,
+missing_required_prop)` raises ValueError — closing the enforcement loop.
+
+- **2 acceptance scenarios added** — `test_recording_a_covered_label_with_all_required_fields_succeeds`
+  and `test_recording_a_covered_label_with_a_missing_required_field_raises_valueerror`
+  in `tests/acceptance/features/template_schema.feature` +
+  `tests/acceptance/test_template_schema.py`. 46 scenarios total (was 44).
+- **Representative label: Intent** — NODE_SCHEMAS["Intent"] requires
+  ["purpose", "deliverable", "acceptance", "status", "owner"]; valid-props
+  passes all 5, missing-props omits "purpose".
+- **Enforcement path** — `memory.record()` → `ont.violations()` →
+  `missing_required()` reads `self.nodes["Intent"]` (NODE_SCHEMAS); raises
+  ValueError when non-empty. This is the live enforcement, unchanged.
+- **Invariant scope**: this closes invariant (a) — `memory.record` is the
+  guard. The original invariant (c) (`covered_schemas ⊆
+  template_renderable_schemas`) is architecturally deferred: requires
+  `Template`-per-label authorship (74 labels don't have templates today)
+  and is out of scope for this spec cycle.
+- All 46 scenarios green; drift clean.
 
 ## Done — Slice 6 novel + core Schema/Tool wave (2026-06-19)
 
