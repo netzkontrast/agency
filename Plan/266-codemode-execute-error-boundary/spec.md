@@ -1,15 +1,15 @@
 ---
 spec_id: "266"
 slug: codemode-execute-error-boundary
-status: draft
-last_updated: 2026-06-10
+status: superseded
+last_updated: 2026-06-20
 owner: "@agency"
 enhances: "019"
 depends_on: ["019", "059", "151", "154", "256", "260"]
+superseded_by: "282"
 vision_goals: [5]
 affects:
   - agency/engine.py
-  - tests/test_codemode_error_boundary.py
 ---
 
 # Spec 266 — code-mode execute: error boundary
@@ -141,3 +141,46 @@ Then:   ChainCallFailure{code: Codes.REFUSAL, message includes refusal
 3. **How long do partial captures persist?** **Recommend**: align with
    Spec 154 capture TTL (default 24h); long enough for the next
    session, short enough to bound storage.
+
+## Followup — Implementation Status (reconciled 2026-06-20)
+
+**Verdict: SUPERSEDED by Spec 282 (safety goal) + architecturally infeasible
+as written (aggregation goal).** Grounded in a codegraph investigation of the
+live `execute` path (`engine.build_mcp` · `_wire`/`_shape_wire_result` ·
+`_wire_envelope.WireEnvelope` · `cli.execute`).
+
+### Done — the safety goal already ships (Spec 282)
+
+266's core ask — "`execute` wraps each chained `call_tool` in a typed-error
+boundary; never leak a raw traceback" — is **already delivered** by Spec 282:
+
+- `Engine._shape_wire_result` → `WireEnvelope.shape` converts every FAILED
+  verb invocation into the typed envelope `{"ok": False, "error": {code,
+  message, severity, retryable, trace_id}}` (`agency/_wire_envelope.py:76`).
+- So every `await call_tool("capability_*", …)` inside `execute` that fails
+  returns that typed error — no raw Python traceback crosses the wire. The
+  `TypedError`/`ToolResult.failure` path (`agency/toolresult.py`) carries the
+  same shape for verbs that fail explicitly.
+
+The wave-batch `CodemodeError{code,message}` typed stub
+(`agency/_typed_shapes_waves4_12.py:838`) is the Slice-1 placeholder; it is
+subsumed by `WireEnvelope.shape_failure`'s richer envelope.
+
+### Won't do — the aggregation goal isn't agency's to own
+
+266's `ExecuteResult{result, errors[], partial_capture_ref, calls_attempted,
+calls_succeeded}` requires owning the `execute` loop to count calls + capture
+partial mid-chain state. But that loop is **fastmcp's `CodeMode` transform on a
+`MontySandboxProvider`** (`engine.build_mcp`, `engine.py:26/1031`), and the
+result is the code-block author's own `return` value. Both the MCP `execute`
+and the bash `cli.execute` route through this same sandbox — agency owns NO
+execute loop on either path. Injecting aggregation would mean wrapping/forking
+fastmcp's experimental CodeMode internals: large, fragile, and against Goal 5
+("code-mode IS the contract") + YAGNI. Since each chained call is ALREADY
+typed (282), a code block that wants a roll-up aggregates the typed errors
+itself — that is the author's job, not an engine-injected envelope.
+
+### Net
+
+No code change. Per-call typed-error safety: shipped (282). Chain aggregation:
+out of agency's architectural scope. Spec marked `superseded_by: 282`.
