@@ -1,7 +1,8 @@
 """Substrate tools as a registered set — Spec 286 Phase 2 / A5.
 
 The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
-``lifecycle_gate`` · ``memory_graph_provenance`` · ``hook_event`` ·
+``lifecycle_gate`` · ``lifecycle_open`` · ``lifecycle_move`` ·
+``lifecycle_close`` · ``memory_graph_provenance`` · ``hook_event`` ·
 ``intent_bootstrap`` · ``agency_install`` · ``agency_doctor`` ·
 ``agency_welcome``. They live outside the per-capability auto-wire because they
 **mint or inspect** rather than SERVE an intent — they legitimately bypass the
@@ -85,11 +86,94 @@ class LifecycleGate(SubstrateTool):
             approved = getattr(res, "data", None) == "approve"
             g = mem.record("Gate", {"name": "human-confirm", "question": question, "passed": approved})
             mem.link(lifecycle_id, g, "PASSED" if approved else "BLOCKED_ON")
-            if not approved:                              # a rejected gate pauses the lifecycle for re-entry
-                mem.update(lifecycle_id, {"state": "input-required"})
+            if not approved and engine.lifecycle.status(lifecycle_id) != "input-required":
+                # Spec 339/344 — route the pause through the SOLE state writer so
+                # the blocked transition emits a durable transition Event (the
+                # guard keeps the old raw-update idempotency on a re-reject).
+                engine.lifecycle.move(lifecycle_id, "input-required")
             return {"approved": approved, "gate_id": g}
 
         return lifecycle_gate
+
+
+class LifecycleOpen(SubstrateTool):
+    name = "lifecycle_open"
+
+    def make_impl(self, engine):
+        def lifecycle_open(intent_id: str, kind: str = "task", agent: str = "",
+                           parameterization: str = "") -> dict:
+            """Open a Lifecycle in ``submitted`` SERVING the given intent (Spec 339).
+
+            The wire surface of the Lifecycle PILLAR's ``open`` — the canonical
+            way to mint a unit of work's state machine (peer to
+            ``intent_bootstrap`` for Intent). Takes ``intent_id`` explicitly (it
+            SERVES, it does not mint the intent). ``kind`` (task | session | gate
+            | dispatch …) and ``parameterization`` (the agent-as-Lifecycle seam,
+            e.g. ``"remote-async"``) are optional.
+
+            Inputs:
+              - ``intent_id`` (str, required) — the intent this lifecycle serves
+              - ``kind`` (str, optional) — default ``"task"``
+              - ``agent`` (str, optional) — DISPATCHED_TO ``agent:<agent>``
+              - ``parameterization`` (str, optional) — the 342 seam
+            Returns: ``{lifecycle_id, state: "submitted"}``
+            chain_next: ``lifecycle_move(lifecycle_id, to_state=…)`` to advance.
+            """
+            lid = engine.lifecycle.open(intent_id, kind=kind, agent=agent,
+                                        parameterization=parameterization)
+            return {"lifecycle_id": lid, "state": engine.lifecycle.status(lid)}
+
+        return lifecycle_open
+
+
+class LifecycleMove(SubstrateTool):
+    name = "lifecycle_move"
+
+    def make_impl(self, engine):
+        def lifecycle_move(lifecycle_id: str, to_state: str,
+                           evidence: str = "") -> dict:
+            """Transition a Lifecycle to ``to_state`` — the SOLE state writer (Spec 339).
+
+            Validates ``to_state`` against the closed A2A enum and refuses a
+            no-op (raises ``ValueError`` the wire envelope surfaces as a typed
+            error). The full transition-table guard (340) and transition events
+            (344) layer on this one chokepoint.
+
+            Inputs:
+              - ``lifecycle_id`` (str, required)
+              - ``to_state`` (str, required) — a valid LifecycleState value
+              - ``evidence`` (str, optional)
+            Returns: ``{lifecycle_id, state: <to_state>}``
+            chain_next: ``lifecycle_close(lifecycle_id, outcome=…)`` to finish.
+            """
+            state = engine.lifecycle.move(lifecycle_id, to_state, evidence=evidence)
+            return {"lifecycle_id": lifecycle_id, "state": state}
+
+        return lifecycle_move
+
+
+class LifecycleClose(SubstrateTool):
+    name = "lifecycle_close"
+
+    def make_impl(self, engine):
+        def lifecycle_close(lifecycle_id: str, outcome: str = "completed",
+                            evidence: str = "") -> dict:
+            """Drive a Lifecycle to a terminal outcome through ``move`` (Spec 339).
+
+            ``outcome`` must be a terminal/failure state (completed | failed |
+            canceled). Not a parallel writer — it routes through ``move``.
+
+            Inputs:
+              - ``lifecycle_id`` (str, required)
+              - ``outcome`` (str, optional) — default ``"completed"``
+              - ``evidence`` (str, optional)
+            Returns: ``{lifecycle_id, state: <outcome>}``
+            """
+            state = engine.lifecycle.close(lifecycle_id, outcome=outcome,
+                                           evidence=evidence)
+            return {"lifecycle_id": lifecycle_id, "state": state}
+
+        return lifecycle_close
 
 
 class MemoryGraphProvenance(SubstrateTool):
@@ -757,6 +841,9 @@ class AgencyWelcome(SubstrateTool):
 # name); kept matching the historical inline order for diff-stability.
 SUBSTRATE_TOOLS: tuple[SubstrateTool, ...] = (
     LifecycleGate(),
+    LifecycleOpen(),
+    LifecycleMove(),
+    LifecycleClose(),
     MemoryGraphProvenance(),
     HookEvent(),
     IntentBootstrap(),

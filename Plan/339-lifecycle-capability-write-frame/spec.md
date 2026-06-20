@@ -1,7 +1,7 @@
 ---
 spec_id: "339"
 slug: lifecycle-substrate-write-frame
-status: draft
+status: partial
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 3, 4]
@@ -183,6 +183,39 @@ Scenario: gate.check routes its pause through lifecycle.move
 
 ## Followup — Implementation Status (2026-06-20)
 
-Not started — scaffold slice drafted. Lands the folder, the `open · move · close`
-frame, and the ownership move (three unguarded writes routed through `move`). 340
-hardens `move` with the transition table in place.
+**Partial — 339a (cycle 1) + 339a-cont shipped; 339b remains.**
+
+- **339a cycle 1 (PR #215, merged):** hardened `agency/lifecycle.py` substrate —
+  `open`→`submitted` (was `working`), state-shaped `move` is the SOLE guarded
+  writer (`AGENCY-DRIFT: lifecycle-state-writer`), `close` drives to a terminal
+  outcome through `move`. 5 acceptance scenarios in
+  `tests/acceptance/features/lifecycle.feature`.
+- **339a-cont (this branch):** wired the substrate frame to the engine —
+  - `Lifecycle.open` extended with `kind`/`parameterization` optional props
+    (recorded only when set, so legacy lifecycles stay byte-identical; the 342
+    seam).
+  - `ctx.lifecycle` property delegator on `CapabilityContext` (returns
+    `engine.lifecycle`, like `ctx.toolcalls`) — a member cap mints/advances a
+    Lifecycle through the substrate, not a hand-rolled `record_and_serve`.
+  - `lifecycle_open` / `lifecycle_move` / `lifecycle_close` substrate-tools
+    (`_substrate_tools.py`, `requires_intent=False`, registered in
+    `SUBSTRATE_TOOLS`) — the wire surface, discoverable in `search` (Q1; the
+    `intent_bootstrap` precedent — registered MCP tools are catalog-findable).
+  - **`delegate.fan_out` migrated** (proof-first, Q3): the hand-rolled
+    `record_and_serve("Lifecycle", {state:"working"})` is replaced by
+    `ctx.lifecycle.open(intent_id, agent=driver, parameterization="remote-async")`
+    + `ctx.lifecycle.move(lc, "working")` at dispatch. Behaviour-preserving —
+    `delegate.feature`'s "child in working state" scenario stays green; the
+    child now carries `parameterization="remote-async"`.
+  - CORE.md §CapabilityContext updated (P3 — adds the `lifecycle` row).
+  - 4 new acceptance scenarios (parameterization seam, the two substrate tools,
+    the delegate migration). Full lifecycle+delegate suites green (30); broader
+    welcome/intent/typed-fulfilment/music/prompt suites green (203); drift clean;
+    install regen no-diff.
+
+**Still 339b:** migrate the remaining unguarded writers through `move` —
+`subagent.develop`'s `ctx.memory.update(child, {"state":"completed"})`,
+`gate.check` / `lifecycle_gate`'s `input-required` write, `music` —, and
+(Q4, last slice) `SessionLifecycle`→`Lifecycle{parameterization="session"}`
+behind a gate that `develop.session_check/resume` + `reflect.synthesize_session`
+still pass. 340 then hardens `move` with the transition table in place.
