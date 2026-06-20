@@ -114,3 +114,10 @@ cross-machine invariant in `resolve_machine` (345); (2) transition events (344)
 carry the frugal stamp; (3) `frugal` is registered as a drivable machine (the
 ladder). Reuses Spec 332 (single source for the floor/ladder); only the floor is
 hard, the ladder stays advisory. Builds on 345 (machine registry) + 344 (events).
+
+**Spec 348/349 cross-ref.** The drivable `frugal` machine's verbs (depth 3) live
+in the `frugal` capability (Spec 348, the ponytail port). The transition
+frugal-stamp (depth 2) and the frugal first-use emit are delivered via the Spec
+349 event bus — `frugal` is that bus's reference subscriber/emitter. 347 stays the
+owner of the floor-as-invariant + the machine definition; 348 homes the verbs, 349
+homes the delivery.

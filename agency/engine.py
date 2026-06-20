@@ -308,6 +308,17 @@ def _pre_tool_use_handler(engine, event: dict) -> dict:
             "hookEventName": "PreToolUse",
             "additionalContext": "\n".join(lines),
         }
+    # Spec 349a — fan PreToolUse out to declared event subscriptions (the frugal
+    # first-use hint is the reference subscriber); merge their fragments into
+    # additionalContext. Dedup'd + fail-isolated in `_events.run`.
+    from . import _events
+    frags = _events.run(engine, "PreToolUse", event)
+    if frags:
+        ctx = (base.get("hookSpecificOutput") or {}).get("additionalContext", "")
+        base["hookSpecificOutput"] = {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "\n".join([ctx, *frags]) if ctx else "\n".join(frags),
+        }
     return base
 
 
@@ -482,8 +493,12 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
         level = _frugal.frugal_level()
         if level == "off":
             return inject
-        mode = "full" if (not prompt or level == "ultra") else "compact"
-        text = _frugal.render(level, mode=mode)
+        if prompt:
+            mode = "full" if level == "ultra" else "compact"
+            text = _frugal.render(level, mode=mode)
+        else:
+            # SessionStart: the configurable full help (Spec 348 mandatory wiring).
+            text = _frugal.session_inject_text(level)
     except Exception:
         return inject
     if not text:

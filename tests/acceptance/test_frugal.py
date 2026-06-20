@@ -36,6 +36,12 @@ def _eng_level(feng, level):
     return feng
 
 
+@given(parsers.parse('a frugal engine with session_inject "{mode}"'), target_fixture="feng_ctx")
+def _eng_inject(feng, mode):
+    feng["mp"].setenv("AGENCY_FRUGAL_SESSION_INJECT", mode)
+    return feng
+
+
 @when("a UserPromptSubmit event fires", target_fixture="injected")
 def _ups(feng_ctx):
     out = feng_ctx["engine"].dispatch_hook(

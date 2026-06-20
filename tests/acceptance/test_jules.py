@@ -105,7 +105,9 @@ class _StubJulesClient:
                 "url": f"https://jules.google.com/{session}"}
 
     def list(self, page_size, page_token=""): return {"sessions": []}
-    def activities(self, session, page_size, only_kinds, page_token=""): return {"activities": []}
+    def activities(self, session, page_size, only_kinds, page_token="", summary_only=True):
+        self.last_summary_only = summary_only
+        return {"activities": []}
     def plan(self, session, max_pages): return {"steps": []}
     def approve_plan(self, session): return {"ok": True}
     def message(self, session, prompt): return {"ok": True}
@@ -311,6 +313,37 @@ def _when_dispatch_preset(stub_engine):
                        source="netzkontrast/agency", starting_branch="main",
                        prompt="task", protocol_preset="agency-default")
     return result
+
+
+@given("a stub Jules backend that captures the activities call", target_fixture="stub_engine")
+def _given_activities_capture_engine():
+    client = _StubJulesClient()
+    eng = Engine(tempfile.mktemp(suffix=".db"), jules_client=client)
+    iid = eng.intent.capture("jules activities", "full toggle", "verified")
+    eng.intent.confirm(iid)
+    eng._test_iid = iid
+    eng._test_client = client
+    return eng
+
+
+@when("I fetch activities without full", target_fixture="activities_result")
+def _when_activities_default(stub_engine):
+    result, _ = invoke(stub_engine, stub_engine._test_iid, "jules", "activities",
+                       agent_id="agent:claude", session="s-1")
+    return result
+
+
+@when("I fetch activities with full=True", target_fixture="activities_result")
+def _when_activities_full(stub_engine):
+    result, _ = invoke(stub_engine, stub_engine._test_iid, "jules", "activities",
+                       agent_id="agent:claude", session="s-1", full=True)
+    return result
+
+
+@then(parsers.parse("the activities backend received summary_only={expected}"))
+def _then_activities_summary_only(stub_engine, expected):
+    want = expected.strip() == "True"
+    assert stub_engine._test_client.last_summary_only is want
 
 
 @when(parsers.parse('I invoke verify with state "{state}" and branch "{branch}"'),

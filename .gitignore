@@ -27,16 +27,21 @@ __pycache__/
 .agency/session.db
 # Literal '${CLAUDE_PROJECT_DIR}' directory from an unexpanded env var — never real.
 ${CLAUDE_PROJECT_DIR}
-# SQLite WAL/journal files (transient — never commit)
+# SQLite databases + their WAL/journal sidecars (local/transient — never commit).
+# `*.db` ignores every SQLite binary repo-wide (session.db, toolcalls.db,
+# codegraph.db, …); the DURABLE graph travels as portable SQL snapshots
+# (`.agency/sql/`), not the churning binary.
+*.db
 *.db-journal
 *.db-wal
 *.db-shm
 # CodeGraph: ignore the ENTIRE `.codegraph/` working dir (codegraph's regenerated
 # self-un-ignoring `.gitignore`, daemon pid/sockets, WAL/shm). Git does not descend
 # into an excluded directory, so none of codegraph's per-sync churn ever shows.
-# The index DB `.codegraph/codegraph.db` is force-tracked (already in the repo) and
-# a tracked file is unaffected by a gitignored parent — the code index still travels
-# and its updates still commit.
+# `.codegraph/codegraph.db` is no longer tracked (untracked 2026-06-20): the ~13MB
+# index churns on every reindex and is a local rebuild artefact — `codegraph init`
+# regenerates it per machine, so it stays out of version control like the other db
+# binaries above.
 .codegraph/
 # Spec 336 — ephemeral tool-call capture store (local; distilled by the Stop-hook export)
 .agency/toolcalls.db

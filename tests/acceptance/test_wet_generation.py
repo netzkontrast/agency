@@ -1,4 +1,4 @@
-"""Acceptance — use-case model selection + OpenRouter-first generation (Spec 338).
+"""Acceptance — use-case model selection + OpenRouter-first generation (Spec 348).
 
 All selection logic is network-free. `generate` is exercised with a stub
 OpenRouter client (no network); the live SDK boundary (`_openrouter_models`,
@@ -254,3 +254,98 @@ def _res_model_uc(ctx, uc):
 @then('the result model id ends with ":free"')
 def _res_model_free(ctx):
     assert ctx["result"].model.endswith(":free")
+
+
+# ── free-first in the shared host-LLM seam (complete_or_delegate) ───────────
+from agency._host_llm import complete_or_delegate, HostLLMRequest
+from agency._drivers._anthropic import Completion
+
+
+class _SeamDriver:
+    """A driver whose backend()/complete() are deterministic — `complete`
+    returns a marker so a test can prove the driver branch ran (not free)."""
+    def __init__(self, backend: str):
+        self._backend = backend
+
+    def backend(self) -> str:
+        return self._backend
+
+    def complete(self, **kw):
+        return Completion(text="DRIVER", stop_reason="end_turn")
+
+
+@given("OPENROUTER_API_KEY is set in the seam environment")
+def _seam_env(ctx):
+    ctx["seam_env"] = {"OPENROUTER_API_KEY": "or"}
+
+
+@given("AGENCY_GENERATE pins anthropic in the seam environment")
+def _seam_pin_an(ctx):
+    ctx["seam_env"]["AGENCY_GENERATE"] = "anthropic"
+
+
+@given("the seam environment has no generation key")
+def _seam_no_key(ctx):
+    ctx["seam_env"] = {}
+
+
+@given(parsers.parse('a stub LLMClient that generates for use-case "{uc}"'))
+def _seam_llm(ctx, uc):
+    ctx["seam_llm"] = _llm.LLMClient(client=_StubClient(), use_case=uc)
+
+
+@given("a capable anthropic driver")
+def _seam_driver(ctx):
+    ctx["seam_driver"] = _SeamDriver("anthropic")
+
+
+def _seam_call(ctx, **extra):
+    driver = ctx.get("seam_driver") or _SeamDriver("none")
+    return complete_or_delegate(
+        driver,
+        messages=[{"role": "user", "content": "draft this"}],
+        env=ctx["seam_env"],
+        llm=ctx.get("seam_llm"),
+        use_case="prose",
+        **extra)
+
+
+@when("I complete-or-delegate plain text through the seam")
+def _seam_plain(ctx):
+    ctx["seam_out"] = _seam_call(ctx)
+
+
+@when("I complete-or-delegate with an output schema through the seam")
+def _seam_schema(ctx):
+    ctx["seam_out"] = _seam_call(ctx, output_schema={"type": "object"})
+
+
+@when(parsers.parse('I complete-or-delegate requiring "{req}" through the seam'))
+def _seam_req(ctx, req):
+    ctx["seam_out"] = _seam_call(ctx, require=req)
+
+
+@when("I complete-or-delegate with a host completion through the seam")
+def _seam_host(ctx):
+    ctx["seam_out"] = _seam_call(ctx, host_completion={"text": "RESUMED"})
+
+
+@then(parsers.parse('the completion stop reason is "{sr}"'))
+def _seam_sr(ctx, sr):
+    assert ctx["seam_out"].stop_reason == sr
+
+
+@then('the completion model id ends with ":free"')
+def _seam_free(ctx):
+    assert ctx["seam_out"].model.endswith(":free")
+
+
+@then("the completion text is from the driver")
+def _seam_driver_text(ctx):
+    assert ctx["seam_out"].text == "DRIVER"
+
+
+@then("the seam returns a host-delegate envelope")
+def _seam_envelope(ctx):
+    assert isinstance(ctx["seam_out"], HostLLMRequest)
+    assert ctx["seam_out"].kind == "llm_delegate"

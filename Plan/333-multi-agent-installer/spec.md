@@ -1,5 +1,5 @@
 ---
-spec_id: "327"
+spec_id: "333"
 slug: multi-agent-installer
 status: draft
 last_updated: 2026-06-19

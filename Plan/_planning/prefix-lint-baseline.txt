@@ -14,9 +14,9 @@
 #   "
 #
 agency/__main__.py:102:unsorted_dict
+agency/_config.py:83:os_environ
 agency/_config.py:123:os_environ
 agency/_config.py:124:os_environ
-agency/_config.py:83:os_environ
 agency/_db_path.py:34:os_environ
 agency/_drivers/_anthropic.py:116:os_environ
 agency/_drivers/_anthropic.py:123:os_environ
@@ -28,11 +28,13 @@ agency/_llm.py:212:os_environ
 agency/_llm.py:223:os_environ
 agency/_llm.py:241:os_environ
 agency/_llm.py:293:os_environ
-agency/_llm.py:371:os_environ
-agency/_llm.py:396:os_environ
-agency/_monitor.py:123:time_time
+agency/_llm.py:367:os_environ
+agency/_llm.py:379:os_environ
+agency/_llm.py:395:os_environ
+agency/_llm.py:417:os_environ
 agency/_monitor.py:70:unsorted_dict
 agency/_monitor.py:94:os_environ
+agency/_monitor.py:123:time_time
 agency/_runner.py:20:time_time
 agency/_runner.py:24:time_time
 agency/_runner.py:27:time_time
@@ -65,14 +67,14 @@ agency/cli.py:392:unsorted_dict
 agency/cli.py:416:unsorted_dict
 agency/cli.py:477:unsorted_dict
 agency/cli.py:527:unsorted_dict
-agency/install.py:1079:unsorted_dict
-agency/install.py:1180:os_environ
-agency/install.py:1207:os_environ
-agency/install.py:1531:os_environ
-agency/install.py:492:unsorted_dict
 agency/install.py:54:os_environ
+agency/install.py:492:unsorted_dict
 agency/install.py:579:unsorted_dict
 agency/install.py:899:unsorted_dict
 agency/install.py:900:unsorted_dict
 agency/install.py:901:unsorted_dict
+agency/install.py:1079:unsorted_dict
+agency/install.py:1180:os_environ
+agency/install.py:1207:os_environ
+agency/install.py:1531:os_environ
 agency/memory.py:100:uuid4
