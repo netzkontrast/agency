@@ -252,13 +252,53 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 
 ## Suggested implementation order (next 5)
 
-Refreshed 2026-06-19 (post Spec 153 Slice 6 full-coverage + Spec 336 all-4-slices shipped; 88 specs shipped total). Ranked by leverage given current state.
+**Reconciled 2026-06-20** (deconfliction + tree-verified). The 2026-06-19
+refresh below ranked work that was ALREADY shipped or claimed. Each item
+verified against its spec's `## Followup` section + the live tree:
 
-1. **Spec 153 round-trip invariant** — generate→validate: `memory.record()` validates node props against the cap's file-backed JSON Schema (jsonschema Draft-7); typed `Codes.SCHEMA_VALIDATION_FAILED` on mismatch. Invariant (c) from the spec: every covered label fails on missing required fields. Now that all 89 labels are schema-covered, this closes the enforcement loop.
-2. **Spec 149 Slice 2** — `scripts/derive-docs` (spec.md derived-zone rewrite via `<!-- derived:<id> -->` HTML fences). Prerequisite for Spec 261's stop-condition verification and the 129-baseline `vision_goals:` backfill.
-3. **Spec 147 Slice 2** — Managed-Agents `dispatch_session` bridge. Turns 150/148/177 stub paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
-4. **Spec 146 Slice 2.2** — WARN→error promotion + `Plan/_planning/prefix-lint-baseline.txt` for the 3 engine.py OS_ENVIRON sites. Closes the prefix discipline as a CI gate.
-5. **Spec 311 Slice 2** — `discover.clarify` wet Driver `ClarifySpec` + grounding-sharp options (depends on 147 Slice 2 for the AnthropicDriver wet path).
+- **Spec 153 round-trip invariant** — IN FLIGHT on **PR #209**
+  (`claude/affectionate-fermi-wsik9u`): `memory.record` required-field
+  enforcement + 2 acceptance scenarios. Do NOT start; let #209 land
+  (flips row 004 → Shipped on merge).
+- **Spec 149 Slice 2** — **Slice 2.1 + 2.2 SHIPPED** (2026-06-11/12):
+  `scripts/derive_docs.py` carries the derivation engine + the
+  `<!-- derived:<id> -->` fence rewriter (`find_fence` / `rewrite_fence` /
+  `apply_derivations_to_spec_text` + `--write`). ⚠ **Doc-drift defect**:
+  the spec's Followup still cites `tests/test_derive_docs.py` (29 tests),
+  but that file was DELETED in commit `c6bebbb` (phase-c flat-test→Gherkin
+  migration) and never replaced — the tooling is now untested in-tree.
+  Remaining: Slice 2.3 (`check-doc-drift` CI gate) + restore acceptance
+  coverage.
+- **Spec 147 Slice 2** — **PARTIAL SHIPPED** (2026-06-11): the Managed-Agents
+  `dispatch_session` bridge + `SessionHandle` exist in
+  `agency/_drivers/_anthropic.py`. Remaining (Slice 2.x): MonitorEvent
+  streaming from dispatched sessions, `stream()` for >16K outputs, wet
+  `thinking.*` flips, `cache_control` placement.
+- **Spec 146 Slice 2.2** — **SHIPPED** (2026-06-12): baseline +
+  `--strict` regression gate + CI step (`.github/workflows/test.yml`
+  "Response-prefix lint"). Remaining: Slice 2.3 (reachability-narrowed
+  scan), Slice 3 (`agency_doctor.prefix_stability`).
+- **Spec 311 Slice 2** — still open; depends on 147 Slice 2.x (wet path).
+
+### Genuinely-open, re-ranked (next 5)
+
+1. **Spec 337 per-tool output filters** — drafted 2026-06-19 with 5
+   acceptance scenarios + a seed `FilterProfile` table; explicit
+   RED→GREEN next. Cleanest unclaimed implementation target; extends the
+   shipped Spec 336 capture path (strict superset of `head:20`).
+2. **Spec 149 Slice 2.3** — `check-doc-drift` extension: fail CI when a
+   derived zone diverges from `derive_docs --dry-run`. The deriver code is
+   already present; this closes the drift loop. Pair with restoring
+   derive_docs acceptance coverage (the phase-c deletion above).
+3. **Spec 147 Slice 2.x** — MonitorEvent streaming from the dispatched
+   session (`agent.tool_use` / `session.status_*` → graph nodes SERVES'd
+   by the Intent). The next concrete sub-slice now that the bridge exists.
+4. **Spec 146 Slice 3** — `agency_doctor.prefix_stability` (drift_bytes /
+   tokens across two `agency_welcome` calls) + the cache-hit invariant
+   test. The prefix CI gate (2.2) already ships.
+5. **Spec 322 Slice 2** — `discover.clarity` `clarity_gate` composite +
+   override token + Gate recording (intent-pillar program; substrate
+   `_clarity.py` gate already shipped).
 
 ## When to update this file
 
