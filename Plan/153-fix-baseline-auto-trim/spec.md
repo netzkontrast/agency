@@ -7,6 +7,7 @@ depends_on: ["153-template-schema-coverage-closure"]
 affects:
   - scripts/check_schema_coverage.py
 domain: core
+vision_goals: [7]
 wave: 2
 ---
 
