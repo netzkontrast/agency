@@ -13,8 +13,8 @@ affects:
   - scripts/derive_docs.py
   - Plan/_planning/vision-goals-baseline.txt
   - .github/workflows/test.yml
-  - tests/test_vision_goals_validator.py
-  - tests/test_derive_docs.py
+  - tests/acceptance/features/derive_docs.feature
+  - tests/acceptance/test_derive_docs.py
 ---
 
 # Spec 149 — Derived-doc discipline (TODO + matrix + SkillDoc self-update)
@@ -176,6 +176,35 @@ Then:   exits with Codes.DERIVE_AMBIGUOUS naming both specs;
 - Pattern matches Spec 149 Slice 1 (`scripts/check_vision_goals.py`)
   — pure functions importable as `scripts.derive_docs`, frozen
   dataclasses, deterministic sort.
+
+### Done — Slice 2.2 (fence rewrite acceptance tests, 2026-06-20)
+
+The fence rewrite code (`find_fence`, `rewrite_fence`,
+`render_fence_content`, `apply_derivations_to_spec_text`) was already
+implemented in Slice 2.1 but had no tests. Slice 2.2 closes that gap:
+
+- **5 acceptance scenarios** in `tests/acceptance/features/derive_docs.feature`
+  + `tests/acceptance/test_derive_docs.py`:
+  1. Test-count fence is filled from the affects-file count (fence content
+     shows "**7**"; hand prose outside unchanged).
+  2. Applying derivations twice is idempotent (second pass yields no diff).
+  3. An unclosed fence raises ValueError mentioning "unclosed fence".
+  4. A spec with no fences is left byte-identical (no spurious writes).
+  5. Live tree dry-run (`python -m scripts.derive_docs`) completes without
+     error and reports at least one spec (smoke test).
+- `affects:` updated to point at the new acceptance test files (replaces
+  the planned-but-absent `tests/test_derive_docs.py`).
+- All 5 scenarios pass; drift clean.
+
+### Still — Slices 2.3+
+
+- **Slice 2.3** — `check-doc-drift` CI extension: fails when a
+  derived zone's rendered content does not match a `--dry-run` output hash.
+- **Slice 2.4** — typed Codes (`DERIVE_AMBIGUOUS` / `DERIVE_MISSING_GOAL`
+  / `DERIVE_FENCE_BROKEN`) promoted from inline ValueError.
+- **Slice 2.5** — alignment-matrix Goal column from `vision_goals:` frontmatter.
+- **Slice 2.6** — backfill `vision_goals:` on the 129 baseline specs.
+- **Slice 2.7** — Followup-status derive (Spec 269).
 
 ### Done — Slice 2.2 (HTML-comment fence rewrite, 2026-06-12)
 
