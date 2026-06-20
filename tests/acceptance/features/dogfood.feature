@@ -302,29 +302,3 @@ Feature: dogfood capability — graph-native ledgers, export/import, amendment p
     Given a plan tree with two DOGFOOD-NOTES.md observations
     When I walk the jules-self-improvement skill through both phases
     Then both observation texts appear as Reflection nodes in the graph
-
-  # ── dogfood spec lifecycle verbs ─────────────────────────────────────────
-
-  Scenario: spec_status returns on-disk spec details
-    When I call spec_status for spec "003"
-    Then the status result shows spec_id "003" on disk
-    And the status field is "drafted"
-
-  Scenario: spec_status returns shipped for archived spec
-    When I call spec_status for spec "146"
-    Then the status result shows spec_id "146" as shipped
-    And on_disk is false
-
-  Scenario: spec_status returns unknown for nonexistent spec
-    When I call spec_status for spec "9999"
-    Then the status result shows status "unknown"
-
-  Scenario: specs lists all on-disk plan directories
-    When I call specs with no filter
-    Then the specs list has more than 100 entries
-    And every entry has spec_id slug and status fields
-
-  Scenario: spec_refs finds code references to a known spec
-    When I call spec_refs for spec "150"
-    Then the refs list is non-empty
-    And every ref has file line and text fields

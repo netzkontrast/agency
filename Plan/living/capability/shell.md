@@ -1,10 +1,10 @@
 ---
 capability: shell
 pillar: capability
-vision_goals: [1, 2]
+vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
 status: living
-last_generated: 2026-06-19
-sources: [73, 75]
+last_generated: 2026-06-13
+sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
 # shell — Shell is a token-efficient host-command boundary: allowlisted execution, output filtering, and definable templates that bundle a command with its token-saving filter (capability pillar)
@@ -13,7 +13,7 @@ sources: [73, 75]
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-Shell is a token-efficient host-command boundary that allowlists execution, filters output to keep context lean, and defines reusable templates so commands stay recorded in provenance and expensive outputs don't bloat the session.
+_TODO: authored intent._
 
 ## Verbs (generated · 4)
 

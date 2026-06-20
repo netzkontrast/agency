@@ -1,10 +1,10 @@
 ---
 capability: jules
 pillar: lifecycle
-vision_goals: [2, 3, 8]
+vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
 status: living
-last_generated: 2026-06-19
-sources: [12, 13, 22]
+last_generated: 2026-06-13
+sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
 # jules — Jules drives remote agent sessions end-to-end: dispatch, plan approval, follow-ups, and verification that a session reporting completed actually pushed a branch (lifecycle pillar)
@@ -13,7 +13,7 @@ sources: [12, 13, 22]
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-Jules drives remote agent sessions end to end — dispatch, plan approval, follow-ups, verification — so coding work that should isolate to another context completes fully and provably, with all state synchronized back to origin.
+_TODO: authored intent._
 
 ## Verbs (generated · 22)
 

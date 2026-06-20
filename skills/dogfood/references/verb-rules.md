@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## dogfood verb audit — 3 of 14 verbs need work
+## dogfood verb audit — 0 of 11 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -28,9 +28,6 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `dogfood.record_decision` | effect | ✓ clean |
 | `dogfood.render` | transform | ✓ clean |
 | `dogfood.replay_events` | transform | ✓ clean |
-| `dogfood.spec_refs` | transform | `missing_inputs`, `missing_returns`, `no_chain_next` |
-| `dogfood.spec_status` | transform | `missing_inputs`, `missing_returns`, `no_chain_next` |
-| `dogfood.specs` | transform | `missing_inputs`, `missing_returns`, `no_chain_next` |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The

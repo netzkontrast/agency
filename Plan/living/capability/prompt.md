@@ -1,10 +1,10 @@
 ---
 capability: prompt
 pillar: capability
-vision_goals: [1, 2, 9]
+vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
 status: living
-last_generated: 2026-06-19
-sources: [109, 304, 305, 306]
+last_generated: 2026-06-13
+sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
 # prompt — Two-lineage capability: (capability pillar)
@@ -13,7 +13,7 @@ sources: [109, 304, 305, 306]
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-Prompt engineers token-budgeted prompts and research dossiers, routes drafts through the right one of 27 research-backed frameworks, and scores both prompts and functional docs for clarity and anti-patterns so the substrate's own output meets the standard it enforces.
+_TODO: authored intent._
 
 ## Verbs (generated · 13)
 

@@ -1,10 +1,10 @@
 ---
 capability: dogfood
 pillar: memory
-vision_goals: [2, 6, 7, 9]
+vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
 status: living
-last_generated: 2026-06-19
-sources: [17, 150]
+last_generated: 2026-06-13
+sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
 # dogfood — Dogfood keeps observation ledgers graph-native: notes recorded as nodes, exported and imported as JSON preserving ids and validity windows, and rendered to markdown on demand (memory pillar)
@@ -13,9 +13,9 @@ sources: [17, 150]
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-Dogfood keeps observation ledgers graph-native with JSON import/export and on-demand markdown rendering, mechanizes the amendment path so reflections fold back into specs as provenance artefacts, and makes the Plan lifecycle machine-queryable via spec_status / specs / spec_refs so the Plan folder is a first-class, traversable part of the agency surface.
+_TODO: authored intent._
 
-## Verbs (generated · 14)
+## Verbs (generated · 11)
 
 | Verb | Role | Params (**required**) | Purpose |
 |---|---|---|---|
@@ -30,9 +30,6 @@ Dogfood keeps observation ledgers graph-native with JSON import/export and on-de
 | `dogfood.record_decision` | effect | **subject** · **decision** · rationale · next_action · session_lifecycle_id | Bind a decision to the current session (effect). |
 | `dogfood.render` | transform | **plan_slug** · max_tokens | Project plan_slug observations into DOGFOOD-NOTES.md. |
 | `dogfood.replay_events` | transform | for_intent_id · tool · limit | Replay every Event recorded OBSERVED_DURING the given intent |
-| `dogfood.spec_refs` | transform | **spec_id** · search_root | Find all ``# Spec NNN`` code references to a spec across Python source. |
-| `dogfood.spec_status` | transform | **spec_id** | Status of any spec by 3-digit id — on-disk, shipped (archive), or unknown. |
-| `dogfood.specs` | transform | status · plan_dir | List on-disk Plan/ specs, optionally filtered by normalized status. |
 
 ## Ontology (generated)
 

@@ -1,10 +1,10 @@
 ---
 capability: intent
 pillar: capability
-vision_goals: [1, 2]
+vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
 status: living
-last_generated: 2026-06-19
-sources: [91]
+last_generated: 2026-06-13
+sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
 # intent — Intent is the reasoning capability: it turns the human-owned goal into structured critical-thinking scaffolds — decomposition, assumption-surfacing, premortem, first-principles, inversion, steelman, second-order, and trade-off analysis — each a deterministic method an agent fills in against the current intent (capability pillar)
@@ -13,7 +13,7 @@ sources: [91]
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-Intent structures critical thinking about a goal before committing to approach — decomposing it into sub-problems, surfacing assumptions, stress-testing with premortem, and weighing tradeoffs — so hidden dependencies and failure modes become visible before work begins.
+_TODO: authored intent._
 
 ## Verbs (generated · 9)
 

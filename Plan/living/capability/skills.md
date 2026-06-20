@@ -1,10 +1,10 @@
 ---
 capability: skills
 pillar: capability
-vision_goals: [4, 9]
+vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
 status: living
-last_generated: 2026-06-19
-sources: [25, 26, 80, 81]
+last_generated: 2026-06-13
+sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
 # skills — Skills makes the skill surface itself a capability: one home to find, render, and lint the phase-graph skills each capability ships on its ontology, instead of reaching them only through the merged ontology dict or the walker (capability pillar)
@@ -13,7 +13,7 @@ sources: [25, 26, 80, 81]
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-Skills makes the skill surface itself queryable — discoverable, renderable, and lintable — so walkers and users understand a workflow's shape before committing, and authoring gaps surface as decidable findings rather than silent omissions.
+_TODO: authored intent._
 
 ## Verbs (generated · 5)
 

@@ -1,10 +1,10 @@
 ---
 capability: gate
 pillar: lifecycle
-vision_goals: [2, 3]
+vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
 status: living
-last_generated: 2026-06-19
-sources: [11]
+last_generated: 2026-06-13
+sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
 # gate — Gate evaluates a reusable predicate and records the outcome as a Gate node edged into the lifecycle and intent, so a pass or block is auditable provenance (lifecycle pillar)
@@ -13,7 +13,7 @@ sources: [11]
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-Gate evaluates a programmatic predicate and records the outcome as a Gate node in the provenance graph so acceptance conditions become auditable facts linked to the intent and lifecycle, not hand-waved assumptions.
+_TODO: authored intent._
 
 ## Verbs (generated · 1)
 

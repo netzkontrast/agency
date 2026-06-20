@@ -13,9 +13,6 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
-
-from .lifecycle import _ARCHIVE_BRANCH
 
 # ────────────────────────────────────────────────────────────────────────────
 # Spec 150 Slice 1 — amendment classifier + apply helpers (module-level).
@@ -206,43 +203,6 @@ def _resolve_spec_path(spec_id: str) -> str | None:
         return None
     matches = sorted(glob.glob(f"Plan/{spec_id}-*/spec.md"))
     return matches[0] if matches else None
-
-
-def _resolve_spec_path_from_archive(spec_id: str) -> str | None:
-    """Check the archive index (or git branch) for a shipped spec path.
-
-    Specs that have been shipped are deleted from ``Plan/`` but recorded in
-    ``Plan/_archive/index.json`` (committed) and preserved in the git branch
-    ``archive/plan-specs-pre-cleanup``.  For dry-run amendment proposals the
-    path is only used as the diff-header filename, so the file need not exist
-    on disk — we just need the canonical path string.
-    """
-    import subprocess
-    sid = spec_id.strip().zfill(3)  # normalise "3" → "003" to match index keys
-    # Primary: committed index file — always available, even in CI shallow clones.
-    index_path = Path("Plan/_archive/index.json")
-    try:
-        idx = json.loads(index_path.read_text(encoding="utf-8"))
-        if sid in idx:
-            return idx[sid]
-    except Exception:
-        pass
-    # Fallback: git archive branch (works in full clones / local dev).
-    try:
-        out = subprocess.run(
-            ["git", "ls-tree", "-r", "--name-only",
-             _ARCHIVE_BRANCH, "--", "Plan/"],
-            capture_output=True, text=True, timeout=5, check=False,
-        )
-        for line in out.stdout.splitlines():
-            parts = line.split("/")
-            if (len(parts) == 3 and parts[0] == "Plan"
-                    and parts[1].startswith(f"{sid}-")
-                    and parts[2] == "spec.md"):
-                return line
-    except Exception:
-        pass
-    return None
 
 
 def _payload_hash(payload: dict) -> str:
@@ -576,17 +536,8 @@ class AmendmentMixin:
         spec_id = payload.get("spec_id", "")
         spec_path = _resolve_spec_path(spec_id)
         if spec_path is None:
-            # Spec may have been shipped and deleted from Plan/ — check archive.
-            archived_path = _resolve_spec_path_from_archive(spec_id)
-            if archived_path is None:
-                raise RuntimeError(f"amendment_bad_spec: no spec dir for "
-                                   f"spec_id={spec_id!r}")
-            if not dry_run:
-                raise RuntimeError(
-                    f"amendment_bad_spec: spec {spec_id!r} is archived "
-                    f"(shipped; no longer in Plan/); live amendment requires "
-                    f"the spec file on disk")
-            spec_path = archived_path
+            raise RuntimeError(f"amendment_bad_spec: no spec dir for "
+                               f"spec_id={spec_id!r}")
         # Live-write requires confirm_token matching the payload id-hash.
         payload_hash = _payload_hash(payload)
         if not dry_run and confirm_token != payload_hash:

@@ -1,10 +1,10 @@
 ---
 capability: reflect
 pillar: memory
-vision_goals: [2, 6, 7]
+vision_goals: []        # TODO(why-author): which GOALS.md goals this serves
 status: living
-last_generated: 2026-06-19
-sources: [45]
+last_generated: 2026-06-13
+sources: []             # TODO(why-author): archived Plan/_archive/NNN specs that built this
 ---
 
 # reflect — Reflect is the cross-session memory surface: scope-tagged notes recorded as graph nodes, recalled by scope or by semantic similarity against prior observations (memory pillar)
@@ -13,7 +13,7 @@ sources: [45]
 <!-- AUTHORED (the only hand-written section). The intent + trade-offs the
      code can't express. A per-pillar subagent fills this from the archived
      specs in sources:. Everything below is GENERATED — do not hand-edit. -->
-Reflect is scope-tagged cross-session memory — insights recorded as graph nodes and recalled by scope or semantic similarity — so lessons outlive the session and repeated rediscovery becomes a traced fact rather than an invisible tax.
+_TODO: authored intent._
 
 ## Verbs (generated · 6)
 

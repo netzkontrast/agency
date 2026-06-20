@@ -1,0 +1,259 @@
+---
+spec_id: "021"
+slug: engine-monitor-channel
+status: done   # Shipped 2026-06-06 (branch claude/affectionate-meitner-H4vTJ)
+owner: "@agency"
+depends_on: ["020"]   # uses CLAUDE_PLUGIN_DATA path + .agency/ convention
+affects:
+  - agency/engine.py                       # monitor emitter wiring + lifespan tail-rotation
+  - agency/capability.py                   # CapabilityContext.emit_monitor()
+  - agency/install.py                      # generate ONE monitors/monitors.json entry
+  - .claude-plugin/plugin.json             # no change required (monitors is plugin-root)
+  - monitors/monitors.json                 # NEW — single engine-monitor declaration
+estimated_jules_sessions: 0
+domain: substrate
+wave: 3
+---
+
+# Spec 021 — Engine Monitor channel (one monitor surface; many capability event sources)
+
+## Why
+
+Claude Code's plugin system supports `monitors/monitors.json` — each entry is
+a long-running shell command whose stdout lines are delivered to the agent as
+notifications (per the [official docs](https://code.claude.com/docs/en/plugins#add-background-monitors-to-your-plugin)).
+
+**The naive path** for a capability author who wants to surface events
+(Jules watcher state transitions, long-running fan-out completions,
+graph anomalies) is to declare a new monitor per capability. With 11
+shipped capabilities that's potentially 11 monitor processes the agent
+has to read + correlate.
+
+**The canon path** (GOALS.md goal #2 "the moat is the graph"; goal #4
+"open set of capabilities — the contract is small enough that the open
+set stays canon-faithful") is to **let the engine own the single
+monitor surface**; capabilities emit through it. One file tail; many
+fan-in sources. Same shape as `search/get_schema/execute` exposing
+ONE wire surface for N tools.
+
+This spec lands the **substrate**. Spec 022 lands the FIRST USE
+(the Jules watcher transitions). Future monitor-emitting capabilities
+(e.g. `delegate.fan_out` completion notifications) plug into the same
+channel with zero monitors.json change.
+
+## Done When
+
+- [ ] **`MonitorEvent` dataclass** in `agency/_monitor.py` (new module).
+  Frozen + serializable:
+  ```python
+  @dataclass(frozen=True)
+  class MonitorEvent:
+      source: str           # capability name (e.g. "jules", "delegate", "engine")
+      kind: str             # event kind ("state_transition", "fanout_complete", "warning", "info")
+      message: str          # one-line human/agent-readable summary (cap ~280 chars)
+      intent_id: str = ""   # serving intent if any
+      ts: float = 0.0       # unix ts; auto-filled on emit if 0
+  ```
+
+- [ ] **`MonitorEmitter` class** in `agency/_monitor.py` writes events as
+  newline-delimited JSON to a single log file. Path resolution:
+  - Default: `${.agency/monitor.log}` (Spec 020 dir; same root as session.db).
+  - Override via env: `AGENCY_MONITOR_LOG` for tests + non-default deployments.
+  - Atomic append (`open(path, "a")` + `\n`); each line is one JSON dict.
+  - Idempotent rotation: when the log exceeds 1 MB, rename to
+    `monitor.log.1` (overwriting any older `.1`) + truncate the live file.
+    Single-file-history; bounded disk usage; no archival overhead.
+
+- [ ] **`Engine` owns the emitter as `engine.monitor`.** Wired in
+  `Engine.__init__`; reachable from any verb via
+  `self.ctx.engine.monitor.emit(MonitorEvent(...))`.
+
+- [ ] **`CapabilityContext.emit_monitor(source, kind, message, **kw)` helper.**
+  Sugar over `self.engine.monitor.emit(MonitorEvent(...))` so verbs don't
+  need to import the dataclass; auto-fills `intent_id=self.intent_id` and
+  `ts=time.time()`.
+
+- [ ] **`agency/install.py` generates `monitors/monitors.json`** with a
+  SINGLE entry:
+  ```json
+  [
+    {
+      "name": "agency-engine",
+      "command": "tail -F ${CLAUDE_PLUGIN_DATA}/monitor.log 2>/dev/null || tail -F ./.agency/monitor.log",
+      "description": "Agency engine event stream — capability events fan in here."
+    }
+  ]
+  ```
+  The fallback `||` form lets the same monitors.json work for both the
+  marketplace-install case (`${CLAUDE_PLUGIN_DATA}/monitor.log`) and
+  local-dev (`./.agency/monitor.log`).
+
+- [ ] **`tail -F` behavior** — the agent receives **one line per event**;
+  multi-line events MUST be encoded as a single JSON dict on a single
+  line. Linewise format means CC's notification system fires once per
+  event without buffering games.
+
+- [ ] **Tests** (`tests/test_engine_monitor.py`):
+  - `MonitorEvent` serialization roundtrip.
+  - `MonitorEmitter` appends valid JSONL.
+  - Rotation kicks in at the 1 MB threshold + overwrites .log.1.
+  - `CapabilityContext.emit_monitor` auto-fills `intent_id` + `ts`.
+  - `install.py` regen produces a `monitors/monitors.json` with exactly
+    ONE entry named `"agency-engine"`.
+  - `tail -F` smoke (Linux only; uses `subprocess.Popen` + read line).
+
+## Files
+
+- **Create:**
+  - `agency/_monitor.py` — `MonitorEvent` + `MonitorEmitter`.
+  - `monitors/monitors.json` — generated by `agency.install`.
+  - `tests/test_engine_monitor.py` — coverage of the contract above.
+
+- **Modify:**
+  - `agency/engine.py` — `Engine.__init__` instantiates `self.monitor =
+    MonitorEmitter(...)`; lifespan rotates on enter (truncates if oversized).
+  - `agency/capability.py` — `CapabilityContext.emit_monitor(...)` helper +
+    `engine` field already present (Spec 016 Hint #5).
+  - `agency/install.py` — `generate()` adds the `monitors/monitors.json`
+    entry to the returned dict.
+
+## Open Questions
+
+1. **Where does the monitor log live exactly?** Three candidates:
+   `${CLAUDE_PLUGIN_DATA}/monitor.log` (per-install, private),
+   `./.agency/monitor.log` (per-project, optionally committed),
+   `~/.agency-monitor.log` (per-user, system-wide). Recommend
+   **${CLAUDE_PLUGIN_DATA} as primary** (lifecycle-aligned with the
+   plugin install); fall back to `./.agency/monitor.log` if not set.
+
+2. **Should the monitor log be committed to git?** No — it's a SLOG,
+   not a graph. Bounded size + ephemeral. Add `.agency/monitor.log*`
+   to `.gitignore` automatically via Spec 020's scaffold (small
+   addition to the install scaffold).
+
+3. **What's the maximum useful events/sec?** CC's notification model
+   probably caps at single-digit/sec UX-wise (otherwise the agent
+   drowns in noise). Add a soft rate limit in `MonitorEmitter`
+   (drop if > 10/sec from a single source, log "dropped N events"
+   when the throttle clears)? OR push the throttle into individual
+   emit callers (recommended; gives them control over what's
+   important). Recommend: NO engine-side throttle in v1; emit-callers
+   choose carefully + the dispatch-decision skill principle applies
+   ("don't emit unless context-heavy / actually new info").
+
+4. **Multi-process emit safety.** Two processes both writing to the
+   same `.log` file → interleaved bytes. Atomic append on POSIX
+   handles this for lines ≤ PIPE_BUF (4096 bytes typically) — fine
+   for our use. On Windows, file appends are NOT atomic; needs a
+   lock. Recommend: spec the 4096-byte-per-event limit (sufficient);
+   document Windows caveat; revisit only if Windows support
+   becomes load-bearing.
+
+5. **Replay / catch-up after CC restart.** CC's monitor only sees
+   stdout lines emitted while it's connected to the `tail -F`. Events
+   emitted while CC was down are lost (the file still has them, but
+   the agent doesn't see them). Acceptable — the GRAPH carries the
+   durable provenance; the monitor is a live notification stream, not
+   a transactional log. Document this expectation in the README.
+
+6. **`MonitorEvent.kind` open vs closed enum.** Closed enum lets the
+   agent reason about kinds (filter to errors only, etc.). Open string
+   means easy extension by new capabilities. Recommend OPEN string for
+   v1 + a docstring listing the canonical-so-far kinds (state_transition,
+   fanout_complete, warning, info, recovery, completed).
+
+## Evidence
+
+- Claude Code plugin docs (`https://code.claude.com/docs/en/plugins#add-background-monitors-to-your-plugin`):
+  > "Each stdout line from `command` is delivered to Claude as a
+  > notification during the session."
+- `Plan/015-architecture-review/JULES-OBSERVATIONS.md` — Jules-side
+  observation that "the watcher's value depends on the engine being
+  long-running" (the monitor channel makes the watcher's value visible
+  even during short-lived sessions).
+- `docs/vision/GOALS.md` goal #4 (open set of capabilities — the
+  contract is small enough that the set stays canon-faithful — same
+  pattern: ONE engine surface, MANY capability emitters).
+- `agency/capabilities/_jules_watch.py` — the WatchEvent classifier
+  that Spec 022 wires into this channel.
+- `Plan/020-central-graph-db/spec.md` — `.agency/` convention this
+  spec extends with `monitor.log`.
+
+## Followup — Implementation Status (2026-05-31)
+
+> Consolidation pass on branch `claude/plan-spec-review-74gHM`. Frontmatter `status:` may be stale; this section reflects verified code state.
+
+**Verdict:** Not started
+
+### Done
+- `agency/capability.py:47` already has `engine: Any = None` on `CapabilityContext` (the field the spec says `emit_monitor` hangs off of). This is pre-existing infrastructure from Spec 016, not a Spec 021 addition.
+- Nothing else from this spec is implemented.
+
+### Still to implement
+- `agency/_monitor.py` — `MonitorEvent` dataclass + `MonitorEmitter` class — file does not exist.
+- `Engine.monitor` attribute in `agency/engine.py` — not present.
+- `CapabilityContext.emit_monitor(...)` helper in `agency/capability.py` — not present.
+- `agency/install.py` `generate()` producing `monitors/monitors.json` — no monitor output in install; `monitors/` directory does not exist.
+- `monitors/monitors.json` — file does not exist anywhere in the repo.
+- `tests/test_engine_monitor.py` — does not exist.
+- `.agency/monitor.log*` gitignore entry via scaffold — not present.
+
+### Refinement needed (given later specs)
+- Spec 022 (`jules-monitor-capability`) is the first consumer of this channel and is blocked entirely until 021 ships.
+- Spec 020's `.agency/` scaffold should be extended (minor add to `scaffold_agency_dir`) to write `.agency/monitor.log*` into `.gitignore` when 021 is implemented — coordinate with `agency/install.py`.
+
+### Evidence
+- code: `agency/_monitor.py` absent; `agency/capability.py:47` has `engine` field only; `agency/engine.py` has no `monitor` attribute; `monitors/` directory absent
+- tests: `tests/test_engine_monitor.py` absent
+- commits/notes: No commit referencing `MonitorEvent`, `MonitorEmitter`, `emit_monitor`, or `monitors.json`
+
+## Followup — Implementation Status (2026-06-06)
+
+> Shipped on branch `claude/affectionate-meitner-H4vTJ` (Phase A of
+> `intent:a21a843b`). TDD: RED (12 failing tests, module absent) → GREEN.
+
+**Verdict:** Shipped
+
+### Done
+- `agency/_monitor.py` — `MonitorEvent` (frozen dataclass; `to_json`/`from_json`
+  single-line roundtrip) + `MonitorEmitter` (lazy append-only JSONL; `maybe_rotate`
+  at 1 MB via atomic `os.replace` overwriting `<log>.1`; `_fit_message` keeps each
+  line ≤ 4096 bytes for POSIX atomic-append safety) + `resolve_monitor_log_path`
+  (explicit > `AGENCY_MONITOR_LOG` env > sibling-of-DB > `./.agency/monitor.log`
+  > `~/.agency-monitor.log`). `kind` left OPEN (Q#6) with `CANONICAL_KINDS`
+  documented; NO engine-side throttle (Q#3).
+- `agency/engine.py:184-186` — `Engine.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))`.
+- `agency/engine.py` lifespan — `engine.monitor.maybe_rotate()` bounds the SLOG on session enter.
+- `agency/capability.py` — `CapabilityContext.emit_monitor(source, kind, message, intent_id=None)`
+  sugar; auto-fills `intent_id` from the serving intent; silent no-op when no
+  engine/monitor attached (best-effort, never load-bearing).
+- `agency/install.py` — `_MONITORS_JSON` single `agency-engine` entry added to
+  `generate()`. Command: `tail -n 0 -F "${CLAUDE_PROJECT_DIR:-.}/.agency/monitor.log"`
+  — points at the path `Engine.monitor` actually writes (DB sibling; `.mcp.json`
+  sets `AGENCY_DB=${CLAUDE_PROJECT_DIR}/.agency/session.db`), `-n 0` starts at EOF
+  so no stale-history replay, and `${VAR:-.}` covers local-dev without a dead
+  `|| tail` branch (Q#1; corrected per PR #20 Codex review). `monitors/monitors.json`
+  written to repo via regen.
+- `agency/install.py:scaffold_agency_dir` — writes `.agency/.gitignore`
+  (session.db + monitor.log*) so the SLOG never enters git (Q#2); repo root
+  `.gitignore` mirrors the guard.
+- `AGENCY-DRIFT: monitor-channel` tag at the install site (Spec 054).
+
+### Tests
+- `tests/test_engine_monitor.py` — 12 tests: event JSON roundtrip; JSONL append;
+  ts auto-fill; rotation-overwrites-`.1`; atomic-budget truncation;
+  path-resolution (explicit/env/sibling); `Engine.monitor` ownership;
+  `emit_monitor` auto-fill + no-engine no-op; single install entry; `tail -F`
+  one-line-per-event smoke (POSIX). All green; full suite 697 passed / 3 skipped;
+  `scripts/check-drift` reports NO DRIFT.
+
+### Still / deferred to v2
+- Multi-process Windows append atomicity (Q#4) — documented caveat; revisit only
+  if Windows becomes load-bearing.
+- Restart catch-up (Q#5) — by design the graph carries durable provenance; the
+  monitor is live-only.
+
+### Refinement (for Spec 022)
+- Spec 022 is now UNBLOCKED — wire the Jules `WatchEvent` classifier
+  (`agency/capabilities/jules/_jules_watch.py`) through `ctx.emit_monitor(
+  source="jules", kind="state_transition", ...)`; zero `monitors.json` change.

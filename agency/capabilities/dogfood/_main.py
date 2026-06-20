@@ -52,12 +52,6 @@ from .clusters.amendment import (  # noqa: F401
     _resolve_spec_path,
     _spec_id_from_slug,
 )
-from .clusters.lifecycle import (  # noqa: F401
-    LifecycleMixin,
-    _archive_path_for,
-    _list_plan_dirs,
-    _read_frontmatter,
-)
 
 
 # Spec 286 P3 — DogfoodCapability composes the cluster mixins into ONE
@@ -72,7 +66,6 @@ class DogfoodCapability(
     PortageMixin,
     SessionMixin,
     AmendmentMixin,
-    LifecycleMixin,
     DogfoodBase,
     CapabilityBase,
 ):

@@ -1069,13 +1069,7 @@ def _noop_wrong_token(engine, confirmed_intent):
 
 
 @then('an exception mentioning "confirm_token" or "amendment_unconfirmed" is raised')
-def _wrong_token_error(engine, confirmed_intent, monkeypatch, tmp_path):
-    from agency.capabilities.dogfood.clusters import amendment as amod
-    spec = tmp_path / "Plan" / "146-engine-output-prefix-discipline" / "spec.md"
-    spec.parent.mkdir(parents=True)
-    spec.write_text("# Spec 146\n\n## Done When\n\n- [x] existing\n", encoding="utf-8")
-    monkeypatch.setattr(amod, "_resolve_spec_path",
-                        lambda sid: str(spec) if sid == "146" else None)
+def _wrong_token_error(engine, confirmed_intent):
     with pytest.raises(Exception) as excinfo:
         _call(engine, confirmed_intent, "dogfood", "apply_amendment",
               payload=_valid_payload(), dry_run=False,
@@ -1273,75 +1267,3 @@ def test_apply_amendment_to_text_multiline_after_stays_within_the_bullet():
             assert ln.startswith(" "), f"continuation not indented: {ln!r}"
     # line1 carries the checkbox bullet
     assert any(ln.strip().startswith("- [ ] line1") for ln in section.splitlines()), out
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# dogfood spec lifecycle verbs
-# ─────────────────────────────────────────────────────────────────────────────
-
-@when(parsers.parse('I call spec_status for spec "{spec_id}"'),
-      target_fixture="spec_status_result")
-def _call_spec_status(engine, confirmed_intent, spec_id):
-    return _call(engine, confirmed_intent, "dogfood", "spec_status",
-                 spec_id=spec_id)
-
-
-@then(parsers.parse('the status result shows spec_id "{spec_id}" on disk'))
-def _status_on_disk(spec_status_result, spec_id):
-    assert spec_status_result.get("spec_id") == spec_id.zfill(3), spec_status_result
-    assert spec_status_result.get("on_disk") is True, spec_status_result
-
-
-@then(parsers.parse('the status field is "{expected}"'))
-def _status_field(spec_status_result, expected):
-    assert spec_status_result.get("status") == expected, spec_status_result
-
-
-@then(parsers.parse('the status result shows spec_id "{spec_id}" as shipped'))
-def _status_shipped(spec_status_result, spec_id):
-    assert spec_status_result.get("spec_id") == spec_id.zfill(3), spec_status_result
-    assert spec_status_result.get("status") == "shipped", spec_status_result
-
-
-@then("on_disk is false")
-def _not_on_disk(spec_status_result):
-    assert spec_status_result.get("on_disk") is False, spec_status_result
-
-
-@then(parsers.parse('the status result shows status "{expected}"'))
-def _status_unknown(spec_status_result, expected):
-    assert spec_status_result.get("status") == expected, spec_status_result
-
-
-@when("I call specs with no filter", target_fixture="specs_result")
-def _call_specs(engine, confirmed_intent):
-    return _call(engine, confirmed_intent, "dogfood", "specs")
-
-
-@then("the specs list has more than 100 entries")
-def _specs_over_100(specs_result):
-    assert specs_result.get("count", 0) > 100, specs_result
-
-
-@then("every entry has spec_id slug and status fields")
-def _specs_shape(specs_result):
-    for entry in specs_result.get("specs", []):
-        assert "spec_id" in entry and "slug" in entry and "status" in entry, entry
-
-
-@when(parsers.parse('I call spec_refs for spec "{spec_id}"'),
-      target_fixture="spec_refs_result")
-def _call_spec_refs(engine, confirmed_intent, spec_id):
-    return _call(engine, confirmed_intent, "dogfood", "spec_refs",
-                 spec_id=spec_id)
-
-
-@then("the refs list is non-empty")
-def _refs_nonempty(spec_refs_result):
-    assert spec_refs_result.get("count", 0) > 0, spec_refs_result
-
-
-@then("every ref has file line and text fields")
-def _refs_shape(spec_refs_result):
-    for ref in spec_refs_result.get("refs", []):
-        assert "file" in ref and "line" in ref and "text" in ref, ref
