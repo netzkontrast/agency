@@ -1,7 +1,17 @@
 #!/bin/bash
+# .claude/hooks/session-start.sh — install the dev environment for
+# Claude Code on the web so tests and linters work out of the box.
+#
+# Mirrors `scripts/setup`: creates the .venv (if missing) and installs
+# agency with every lightweight runtime extra + dev tools (.[dev]), so
+# the full suite runs with zero silently-skipped capability tests.
+#
+# Remote-only (web sessions); idempotent; non-interactive. Persists the
+# venv on PATH (+ PYTHONPATH) via $CLAUDE_ENV_FILE so every later command
+# in the session resolves the venv's Python and its site-packages.
 set -euo pipefail
 
-# Only run in remote (web) environments
+# Only run in Claude Code on the web; local sessions manage their own venv.
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
