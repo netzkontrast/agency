@@ -42,9 +42,9 @@ agency/_runner.py:30:time_time
 agency/_session_snapshot.py:170:unsorted_dict
 agency/_tokens.py:133:os_environ
 agency/_tokens.py:136:os_environ
-agency/_toolcalls.py:41:os_environ
-agency/_toolcalls.py:69:time_time
+agency/_toolcalls.py:52:os_environ
 agency/_toolcalls.py:80:time_time
+agency/_toolcalls.py:99:time_time
 agency/capabilities/_embed.py:195:os_environ
 agency/capabilities/analyze/_main.py:252:time_time
 agency/capabilities/document/_main.py:223:time_time

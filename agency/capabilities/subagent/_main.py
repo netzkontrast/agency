@@ -63,5 +63,5 @@ class SubagentCapability(CapabilityBase):
                                     passed=bool(quality_passed), evidence=quality_evidence)["result"]
         done = bool(spec_passed and quality_passed)
         if done:
-            self.ctx.memory.update(child, {"state": "completed"})    # verified join: both gates passed
+            self.ctx.lifecycle.move(child, "completed")    # verified join: both gates passed
         return {"result": {"child": child, "done": done, "spec": spec, "quality": quality}}

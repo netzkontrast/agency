@@ -304,3 +304,108 @@ def _register_bus_subscriber():
 def _subscriber_received(bus_box, to_state):
     tos = [e.get("to_state") for e in bus_box["received"]]
     assert to_state in tos, tos
+
+
+# ── Spec 341 — observe suite: read · find · check · watch ────────────────────
+
+
+@then(parsers.parse('lifecycle.read returns the state "{expected}"'))
+def _read_state(engine, lc, expected):
+    result = engine.lifecycle.read(lc)
+    assert result.get("state") == expected, result
+
+
+@then("lifecycle.read includes the serving intent_id")
+def _read_intent(engine, lc, confirmed_intent):
+    result = engine.lifecycle.read(lc)
+    assert result.get("intent_id") == confirmed_intent, result
+
+
+@then(parsers.parse("lifecycle.find for the intent returns {n:d} lifecycle"))
+@then(parsers.parse("lifecycle.find for the intent returns {n:d} lifecycles"))
+def _find_for_intent(engine, confirmed_intent, n):
+    found = engine.lifecycle.find(confirmed_intent)
+    assert len(found) == n, found
+
+
+@then(parsers.parse('lifecycle.find for the intent in state "{state}" returns {n:d} lifecycle'))
+@then(parsers.parse('lifecycle.find for the intent in state "{state}" returns {n:d} lifecycles'))
+def _find_filtered(engine, confirmed_intent, state, n):
+    found = engine.lifecycle.find(confirmed_intent, state=state)
+    assert len(found) == n, found
+
+
+@then(parsers.parse('lifecycle.check for "{state}" is true'))
+def _check_true(engine, lc, state):
+    assert engine.lifecycle.check(lc, state) is True
+
+
+@then(parsers.parse('lifecycle.check for "{state}" is false'))
+def _check_false(engine, lc, state):
+    assert engine.lifecycle.check(lc, state) is False
+
+
+@then(parsers.parse("lifecycle.watch returns {n:d} transition event"))
+@then(parsers.parse("lifecycle.watch returns {n:d} transition events"))
+def _watch_count(engine, lc, n):
+    trail = engine.lifecycle.watch(lc)
+    assert len(trail) == n, trail
+
+
+@then(parsers.parse('the first watch event is a transition to "{state}"'))
+def _watch_first(engine, lc, state):
+    trail = engine.lifecycle.watch(lc)
+    assert trail, "watch trail is empty"
+    assert trail[0].get("to_state") == state, trail[0]
+
+
+# ── Spec 341 — substrate tools ────────────────────────────────────────────────
+
+
+@then(parsers.parse('the lifecycle_read substrate tool returns state "{expected}"'))
+def _substrate_read(engine, lc, expected):
+    from agency._substrate_tools import LifecycleRead
+    result = LifecycleRead().bind(engine)(lc)
+    assert result.get("state") == expected, result
+
+
+@then(parsers.parse("the lifecycle_find substrate tool returns {n:d} lifecycle for the intent"))
+@then(parsers.parse("the lifecycle_find substrate tool returns {n:d} lifecycles for the intent"))
+def _substrate_find(engine, confirmed_intent, n):
+    from agency._substrate_tools import LifecycleFind
+    result = LifecycleFind().bind(engine)(confirmed_intent)
+    assert len(result.get("lifecycles", [])) == n, result
+
+
+@then(parsers.parse("the lifecycle_watch substrate tool returns {n:d} transition event"))
+@then(parsers.parse("the lifecycle_watch substrate tool returns {n:d} transition events"))
+def _substrate_watch(engine, lc, n):
+    from agency._substrate_tools import LifecycleWatch
+    result = LifecycleWatch().bind(engine)(lc)
+    assert len(result.get("trail", [])) == n, result
+
+
+@then(parsers.parse('the lifecycle_check substrate tool matches "{state}"'))
+def _substrate_check_match(engine, lc, state):
+    from agency._substrate_tools import LifecycleCheck
+    result = LifecycleCheck().bind(engine)(lc, state)
+    assert result.get("match") is True, result
+
+
+@then(parsers.parse('the lifecycle_check substrate tool does not match "{state}"'))
+def _substrate_check_no_match(engine, lc, state):
+    from agency._substrate_tools import LifecycleCheck
+    result = LifecycleCheck().bind(engine)(lc, state)
+    assert result.get("match") is False, result
+
+
+@when("I open two lifecycles serving the intent", target_fixture="lc")
+def _open_two(engine, confirmed_intent):
+    engine.lifecycle.open(confirmed_intent)
+    return engine.lifecycle.open(confirmed_intent)
+
+
+@then(parsers.parse("lifecycle.find for the intent returns {n:d} lifecycles"))
+def _find_plural(engine, confirmed_intent, n):
+    found = engine.lifecycle.find(confirmed_intent)
+    assert len(found) == n, found
