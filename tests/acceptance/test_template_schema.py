@@ -900,3 +900,47 @@ def _novel_core_loaded(loaded_schema_titles):
         "novel+core schemas are on disk but NOT loaded by the engine "
         "(declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── round-trip invariant (Spec 153 remaining) ─────────────────────────────────
+# NODE_SCHEMAS["Intent"] = ["purpose", "deliverable", "acceptance", "status", "owner"]
+# Invariant: record with all required fields → succeeds; omit one → ValueError.
+
+_ROUND_TRIP_VALID = {
+    "purpose": "test round-trip purpose",
+    "deliverable": "test deliverable",
+    "acceptance": "test acceptance criterion",
+    "status": "draft",
+    "owner": "agent",
+}
+_ROUND_TRIP_MISSING_REQUIRED = {
+    # "purpose" intentionally omitted — required by NODE_SCHEMAS["Intent"]
+    "deliverable": "test deliverable",
+    "acceptance": "test acceptance criterion",
+    "status": "draft",
+    "owner": "agent",
+}
+
+
+@when("I boot the live engine for round-trip validation", target_fixture="round_trip_engine")
+def _boot_live_engine_round_trip():
+    from agency.engine import Engine
+    return Engine(":memory:")
+
+
+@then("recording an Intent node with valid required fields succeeds")
+def _round_trip_valid_succeeds(round_trip_engine):
+    try:
+        nid = round_trip_engine.memory.record("Intent", dict(_ROUND_TRIP_VALID))
+        assert isinstance(nid, str) and len(nid) > 0
+    finally:
+        round_trip_engine.memory.close()
+
+
+@then("recording an Intent node with a missing required field raises ValueError")
+def _round_trip_missing_raises(round_trip_engine):
+    try:
+        with pytest.raises(ValueError, match="missing required"):
+            round_trip_engine.memory.record("Intent", dict(_ROUND_TRIP_MISSING_REQUIRED))
+    finally:
+        round_trip_engine.memory.close()
