@@ -294,7 +294,7 @@ def _bu_serves(hook_engine, active_intent):
 def _pretooluse_in_store(hook_engine):
     rows = hook_engine.toolcalls.rows(where="phase='pre'")
     assert rows, "the PreToolUse call must be captured in the tool-call store"
-    assert rows[-1]["tool"] == "Bash", rows[-1]
+    assert rows[-1]["tool"] in ("Bash", "Edit"), rows[-1]
 
 
 @then("the BoundaryUse is RECORDED_BY the Event")

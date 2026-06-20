@@ -1988,14 +1988,14 @@ def _then_graph_status_drafting(engine, ctx):
 
 @then("the chapter numbers are in ascending order 1 2 3")
 def _then_chapter_order(ctx):
-    nums = [c["number"] for c in ctx["result"]["chapters"]]
+    nums = [c["number"] for c in ctx["result"]["body"]["items"]]
     assert nums == [1, 2, 3]
 
 
 @then("chapter_count is 0 and chapters is an empty list")
 def _then_no_chapters(ctx):
-    assert ctx["result"]["count"] == 0
-    assert ctx["result"]["chapters"] == []
+    assert ctx["result"]["body"]["total"] == 0
+    assert ctx["result"]["body"]["items"] == []
 
 
 @then("the result contains a scene_id starting with \"scene:\"")
