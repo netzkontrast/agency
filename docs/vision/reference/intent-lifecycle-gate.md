@@ -1,7 +1,7 @@
 # Intent · Lifecycle · Gate — three of the four concepts
 
 <!-- doc-source: agency/intent.py agency/lifecycle.py agency/capabilities/gate/_main.py -->
-<!-- doc-hash: 3f92129c9bf93aa6 -->
+<!-- doc-hash: 4cc34824b11e546c -->
 
 ## Intent (`agency/intent.py`)
 
