@@ -260,13 +260,12 @@ Scenario: a declared subscription reacts when its event fires (behaviour, not th
   Then the on_first_tool_use handler runs and its effect is observable
   And search/manage lists the capability as a subscriber of that event
 
-Scenario: first use of a tool emits once, then stays silent
+Scenario: first use of a tool emits once, then stays silent (observable, not internal state)
   Given the frugal first-use subscription is active in a session
   When PreToolUse fires for tool "Bash" the first time
-  Then additionalContext carries the frugal snippet
-  And an Event{name:"first_use_emit", tool:"Bash"} is recorded
+  Then the injected context contains the frugal snippet
   When PreToolUse fires for tool "Bash" again in the same session
-  Then no snippet is emitted (once_per session.tool)
+  Then the injected context omits the frugal snippet (once_per session.tool)
 
 Scenario: one capability emits, another reacts
   Given memory subscribes to "capability:frugal:debt_harvested"
@@ -350,6 +349,45 @@ two new folds, both from the agency hook PROCESS model:
   host consumes `additionalContext` from the return, so re-entrant emits drain
   after the current fan-out but BEFORE the hook returns — non-recursive, nothing
   crosses the return boundary.
+
+## Refinement — 3rd pass (Jules critical review, PR #222 / REVIEW-348-349.md)
+
+A delegated Jules review severity-ranked both specs → REFINE. Four 349 findings,
+all folded (authoritative):
+
+- **S1 (blocker) — high-volume events never graph-record a delivery.** §7's "every
+  delivery records an Event" would re-create the Spec 336 bloat on `hook:PreToolUse`
+  (fires on every tool call), regardless of a subscriber's `once_per`. **FIX:** the
+  bus **forbids graph-recording deliveries for high-volume events at the engine
+  level** — `hook:PreToolUse`/`PostToolUse` (and any event flagged `high_volume`)
+  record their deliveries to the Spec 336 `toolcalls.db` / the monitor channel
+  ONLY, never a graph `Event` per delivery, **even if a subscriber asks for it**.
+  This is the Spec 344 B4 split applied to the bus (low-volume → durable graph
+  Event; high-volume → ephemeral store). Replay (§4) reads the ephemeral store for
+  those. Supersedes §7's "every delivery records the Event".
+- **S1 (blocker) — `toolcalls.db` concurrency on the hot path.** `PreToolUse` can
+  fire concurrently → multiple `agency hook` processes → SQLite `database is
+  locked`. **FIX (the M5 once_per memo):** open `toolcalls.db` in **WAL mode** with
+  a short `busy_timeout` (~250ms) and a strict **fail-open** degrade — if the lock
+  times out, the dedup check is SKIPPED and the tool call proceeds unblocked (a
+  duplicate snippet is acceptable; a blocked tool call is not). The hot path never
+  raises and never waits.
+- **S2 (major) — synchronous-drain wall-clock budget.** M6's drain runs before the
+  hook returns; a slow external `run:` hook or verb could exceed the host's hook
+  timeout and crash the session. **FIX:** the drain has a **strict enforceable
+  wall-clock budget** (config, default ~500ms); on exceed it **truncates, logs a
+  timeout warning, and returns immediately** with whatever `additionalContext`
+  accrued. Session liveness always wins over completeness.
+- **S3 (minor) — acceptance at behaviour altitude.** The first-use Gherkin still
+  asserted internal state ("an Event{name:'first_use_emit'} is recorded").
+  **FIX:** rewritten to observable outcomes — "the injected context contains / omits
+  the frugal snippet" (the Acceptance block above is updated). `event.subscribers`
+  / `dogfood.replay_events` remain legitimate observable *verb* surfaces, not
+  internal-state probes.
+
+Acceptance additions: a high-volume delivery records NO graph Event (S1); a
+locked `toolcalls.db` fails open and the tool still runs (S1); the drain returns
+within budget under a slow subscriber (S2).
 
 ## Followup — Implementation Status (2026-06-20)
 

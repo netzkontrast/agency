@@ -5,7 +5,7 @@ status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [3]
-depends_on: ["076", "114", "195", "332", "333", "347"]
+depends_on: ["076", "114", "195", "332", "333", "347", "349"]
 domain: frugal
 wave: program-master
 parent_spec: "332"
@@ -299,6 +299,33 @@ two new folds:
   git's native ignore over a hand-rolled exclusion set (supersedes M2's list).
 - **m3 — welcome token economy (Spec 066/068):** `agency_welcome` surfaces frugal
   COMPACTLY (level + a one-line capability pointer), not 7 expanded verb schemas.
+
+## Refinement — 3rd pass (Jules critical review, PR #222 / REVIEW-348-349.md)
+
+A delegated Jules review severity-ranked both specs → REFINE. Two 348 findings,
+both folded (authoritative):
+
+- **S2 (major) — the drop-in-bar coupling (the architectural fix).** 348 graduates
+  frugal to `agency/capabilities/frugal/`, but B2's "mandatory" relied on hardcoded
+  frugal checks in core (`agency_welcome` + `engine._session_start_handler`) —
+  violating CLAUDE.md's drop-in bar ("if adding a capability needs an edit
+  elsewhere, that coupling is the bug"). **FIX:** the mandatory wiring is delivered
+  through the **Spec 349 event bus**, not a core edit. Frugal declares a
+  `hook:SessionStart` **subscription** (the configurable inject) and the welcome
+  surface is automatic — `agency_welcome` already lists EVERY discovered capability
+  from the registry, so frugal needs NO frugal-specific code there. Graduating
+  frugal then touches only `agency/capabilities/frugal/` (+ the generic bus). While
+  349 is unbuilt the inject stays in core `_frugal.py`+engine (frugal is still the
+  Spec 332 core discipline today — no coupling exists yet); the move to a bus
+  subscription lands **with** the capability graduation, so the coupled
+  intermediate state never ships. 348 now `depends_on` 349 for this wiring.
+- **S3 (minor) — separate graph capture from the MCP return (token economy).** M2
+  keeps capture full within scope (CLAUDE.md #76) — correct for the GRAPH. But
+  returning a whole-repo `review(scope="repo")` / `debt` ledger as MCP text blows
+  the token budget (Spec 066/068). **FIX:** those verbs record the FULL findings to
+  the graph and **return a token-bounded summary** — "Recorded N findings to the
+  graph; top K by severity: …" + a locator/cursor to fetch the rest (the Spec 336
+  paginate precedent). Full fidelity in the graph, bounded text on the wire.
 
 ## Followup — Implementation Status (2026-06-20)
 
