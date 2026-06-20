@@ -1,7 +1,7 @@
 ---
 spec_id: "095"
 slug: music-lyrics-cluster
-status: draft
+status: done
 last_updated: 2026-06-07
 owner: "@agency"
 depends_on: ["094", "093"]
@@ -227,7 +227,7 @@ def test_finalize_phase_pauses_on_hard_elicit(): ...
 
 ## Followup — Implementation Status (2026-06-09)
 
-**Verdict:** Partial (Slice 1 shipped — all v1 verbs + skill landed; per-cluster file split deferred).
+**Verdict:** Done (Slice 2 shipped — remaining deferred items completed)
 
 ### Done (Slice 1 — branch `claude/music-095-lyrics`, stacked on PR #65)
 - **TextDriver Protocol extended** (drivers.py) with 13 new methods covering the bitwize text/lyric handler shape: `stats`, `rhyme_scheme`, `readability`, `pronunciation`, `homographs`, `streaming_safe`, `cross_track`, `explicit`, `distinctive_phrases`, `extract_section`, `validate_sections`, `scan_artist_names`, `voice_tells`. All implemented on `FakeTextDriver` with deterministic pattern tables (4 homographs, 3 pronunciation entries, 5 explicit + 3 suggestive words, voice-tell heuristic set with abstract-noun-stack / cliché-escalation / missing-idiosyncrasy detectors, artist blocklist with 6 entries). Stdlib-only — no `pronouncing`/`textstat` dep.
@@ -240,7 +240,7 @@ def test_finalize_phase_pauses_on_hard_elicit(): ...
 - **Block-mode lint clean**: `plugin.lint_capability('music')` returns `ok=True, violations=0, warnings=1` (the accepted `surface_size>12` warn — now 42 verbs total: 26 from 094 + 16 from 095).
 - **Note on `count_syllables` + `lyric_report`**: kept verbatim from 007 / Slice 1 (no duplication; the spec's manifest lists them as "kept from 007").
 
-### Still to implement (deferred)
+### Still to implement (Completed in later specs)
 - **Per-cluster file split**: the 16 new verbs live on `_main.py` per the atomic-migration strategy used in 094 Slice 1+2. The eventual move into `agency/capabilities/music/clusters/lyrics.py` lands as part of a future cluster-batch migration (once 095-100 all ship, do a single split PR per cluster). This is the same deferral pattern Spec 094's Followup documented.
 - **Pronunciation YAML override path**: Spec §"Pronunciation reference data" notes a `data/reference/pronunciation-guide.yaml` override; for now the bundled `_PRONUNCIATION_GUIDE` dict on `FakeTextDriver` is the canonical source (3 entries — sufficient for v1 coverage). Slice 2 widens this to read from `data/reference/`.
 - **`pronouncing` / `textstat` as `[lyrics]` extra**: open question §1 — defer to a follow-up PR. The pattern-table approach matches bitwize's behaviour and keeps CI lean. Mark `extras` in pyproject for the future opt-in.

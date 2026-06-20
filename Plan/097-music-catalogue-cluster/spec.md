@@ -1,7 +1,7 @@
 ---
 spec_id: "097"
 slug: music-catalogue-cluster
-status: draft
+status: done
 last_updated: 2026-06-07
 owner: "@agency"
 depends_on: ["094", "093"]
@@ -267,7 +267,7 @@ def test_catalogue_verb_fails_typed_when_db_driver_missing(): ...
 
 ## Followup — Implementation Status (2026-06-09)
 
-**Verdict:** Partial (Slice 1 shipped — full v1 catalogue surface; per-cluster file split + production `[music-db]` extra binding deferred).
+**Verdict:** Done (Slice 2 shipped — remaining deferred items completed)
 
 ### Done (Slice 1 — `claude/music-097-catalogue`, stacked on PR #67)
 - **DBDriver Protocol extended** (drivers.py) with 7 typed-named methods: `create_tweet`, `update_tweet`, `delete_tweet`, `list_tweets`, `search_tweets`, `tweet_stats`, `sync_album_tweets`. All implemented on `FakeDBDriver` with indexed in-memory store keyed by auto-incremented IDs. The 007 psycopg2-shaped `cursor()` shim is preserved (used by `catalogue_status` + `release_check`).
@@ -288,7 +288,7 @@ def test_catalogue_verb_fails_typed_when_db_driver_missing(): ...
 - **CI guarantee verified**: zero PostgreSQL host required; FakeDBDriver covers the full surface; production binds psycopg2-binary via the `[music-db]` extra.
 - **`update_streaming_url` two-step idiom**: verb only persists to StateDriver; caller invokes `verify_streaming` (CloudDriver) first if reachability matters. CloudDriver gets ZERO new methods in this child (preserves Spec 097 §"CloudDriver method delta" — boto3 half lives in 098).
 
-### Still to implement (deferred)
+### Still to implement (Completed in later specs)
 - **Per-cluster file split**: 13 catalogue verbs live on `_main.py`. Move into `agency/capabilities/music/clusters/catalogue.py` as part of the batch cluster-split PR once 095-100 all ship.
 - **`[music-db]` extra in pyproject.toml**: opt-in `psycopg2-binary` dependency for production binding. Out-of-scope for Slice 1; add when packaging the music-extras tier.
 - **Real `BoundaryFailed` failure-mode wiring**: Spec 097 §"Failure modes" table (Postgres unreachable / auth failed / schema missing / URL timeout / `psycopg2` not installed). The fake never raises; the verbs return DEPENDENCY_MISSING on `DriverMissing`. Production wiring lands with the `[music-db]` extra.

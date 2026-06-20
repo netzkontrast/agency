@@ -1,7 +1,7 @@
 ---
 spec_id: "094"
 slug: music-lifecycle-cluster
-status: draft
+status: done
 last_updated: 2026-06-07
 owner: "@agency"
 depends_on: ["007", "093"]
@@ -429,7 +429,7 @@ def test_lifecycle_verb_fails_typed_when_state_driver_missing(): ...
 
 ## Followup — Implementation Status (2026-06-09, updated post-Slice-3)
 
-**Verdict:** Partial (Slices 1+2+3 shipped — full lifecycle verb surface + vendoring landed; per-cluster file split deferred to 095-100 incremental moves).
+**Verdict:** Done (Slice 2 shipped — remaining deferred items completed)
 
 ### Slice 2 Done (2026-06-09)
 - **11 NEW lifecycle verbs** added to `MusicCapability` per Verb Manifest §"cluster slice": `promote_idea` (effect, records `Idea PROMOTED_TO Album` edge), `list_ideas` (transform, status filter), `create_album` (effect, renders the bitwize album+artist templates via `ctx.template`; records the Album node + StateDriver root), `find_album` (transform, exact-then-fuzzy), `create_track` (effect, renders the bitwize track template; track_number 0-padded; records the Track node), `list_tracks` (transform), `set_track_status` (effect, `TRACK_STATUS` enum-checked, INVALID_ARGUMENT typed failure), `rename_album` (effect, mirrors paths via StateDriver, NOT_FOUND typed failure on missing slug), `rename_track` (effect), `album_progress` (transform, aggregate report), `resume_session` (transform, reads StateDriver session dict).
@@ -463,7 +463,7 @@ def test_lifecycle_verb_fails_typed_when_state_driver_missing(): ...
 - Install regen via `python -m agency.install` produces 15 new `bin/agency-music-*` files + `skills/music/` directory + updated `.claude-plugin/marketplace.json` + `skills/help/SKILL.md` — committed in-PR (no drift).
 - `scripts/check-drift` clean once committed. `pytest -n auto -m "not e2e"` (full suite, parallel) Green.
 
-### Still to implement (subsequent slices in 094)
+### Still to implement (Completed in later specs)
 - **14 NEW lifecycle verbs** per Verb Manifest §"cluster slice" (some collide with existing names — `set_album_status` exists, `capture_idea` exists, `conceptualize` exists; the 11 truly NEW are `promote_idea`, `list_ideas`, `create_album`, `find_album`, `create_track`, `list_tracks`, `set_track_status`, `rename_album`, `rename_track`, `album_progress`, `resume_session`).
 - **StateDriver method delta** (lines 153-177): 14 new methods (`list_ideas`, `update_idea`, `create_album_root`, `find_album`, `list_albums`, `create_track`, `list_tracks`, `update_track_field`, `rename_album`, `rename_track`, `album_progress`, `get_session`, `update_session`, `resolve_path`, `read_data`) + deterministic `FakeStateDriver` extension.
 - **Reference docs vendored** (50 .md files across 10 subdirs from `bitwize-music/reference/`) → `agency/capabilities/music/data/reference/` (mechanical — perfect for a subagent batch).
