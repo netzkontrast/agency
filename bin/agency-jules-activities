@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_jules_activities
-# A session's activity stream, trimmed to summaries (the costliest Jules read).
-# Usage: agency-jules-activities [--intent-id ID] <session> [page_size] [only_kinds] [page_token]
+# A session's activity stream.
+# Usage: agency-jules-activities [--intent-id ID] <session> [page_size] [only_kinds] [page_token] [full]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -72,6 +72,7 @@ _kw["session"] = _coerce(sys.argv[2], str)
 if len(sys.argv) > 3: _kw["page_size"] = _coerce(sys.argv[3], int)
 if len(sys.argv) > 4: _kw["only_kinds"] = _coerce(sys.argv[4], str)
 if len(sys.argv) > 5: _kw["page_token"] = _coerce(sys.argv[5], str)
+if len(sys.argv) > 6: _kw["full"] = _coerce(sys.argv[6], bool)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

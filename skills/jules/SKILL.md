@@ -23,7 +23,7 @@ Jules drives remote agent sessions end-to-end: dispatch, plan approval, follow-u
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
-| `activities` | transform | A session's activity stream, trimmed to summaries (the costliest Jules read). | [details](references/activities.md) |
+| `activities` | transform | A session's activity stream. | [details](references/activities.md) |
 | `alias` | act | Read or upsert a stable alias for a Jules sid. | [details](references/alias.md) |
 | `apply_patch` | transform | Compute a recovery plan for a session's patch (verb mirror of `recover_apply_plan`). | [details](references/apply_patch.md) |
 | `approve_awaiting` | effect | Bulk-approve every session in AWAITING_PLAN_APPROVAL (up to `limit`). | [details](references/approve_awaiting.md) |

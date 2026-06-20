@@ -49,7 +49,8 @@ class JulesBackend(Protocol):
                protocol_preset: str = "") -> dict: ...
     def get(self, session: str) -> dict: ...
     def list(self, page_size: int, page_token: str) -> dict: ...
-    def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "") -> dict: ...
+    def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "",
+                   summary_only: bool = True) -> dict: ...
     def plan(self, session: str, max_pages: int) -> dict: ...
     def approve_plan(self, session: str) -> dict: ...
     def message(self, session: str, prompt: str) -> dict: ...
@@ -85,10 +86,12 @@ class JulesClient:
         from . import api as _jules_api
         return _jules_api.jules_list(page_size=page_size, page_token=page_token)
 
-    def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "") -> dict:
+    def activities(self, session: str, page_size: int, only_kinds: str, page_token: str = "",
+                   summary_only: bool = True) -> dict:
         from . import api as _jules_api
         return _jules_api.jules_activities(session, page_size=page_size,
-                                           only_kinds=only_kinds, page_token=page_token)
+                                           only_kinds=only_kinds, page_token=page_token,
+                                           summary_only=summary_only)
 
     def plan(self, session: str, max_pages: int) -> dict:
         from . import api as _jules_api
@@ -264,19 +267,25 @@ class JulesCapability(CapabilityBase):
 
     @verb(role="transform")
     def activities(self, session: str, page_size: int = 10, only_kinds: str = "",
-                   page_token: str = "") -> dict:
-        """A session's activity stream, trimmed to summaries (the costliest Jules read).
+                   page_token: str = "", full: bool = False) -> dict:
+        """A session's activity stream. Trimmed to summaries by default (the
+        costliest Jules read); pass ``full=True`` for the UNTRIMMED activities —
+        the only way to recover a long ``agentMessaged`` body (e.g. a review the
+        agent output to the user), which the 280-char summary preview truncates.
 
         Inputs: session (sid), page_size (int), only_kinds (comma-separated kinds),
-                page_token (str — empty for newest page).
-        Returns: ``{activities: [{kind, summary, ts}], next_page_token}``.
+                page_token (str — empty for newest page),
+                full (bool — False = {id,originator,kind,summary} preview;
+                      True = the complete raw activity, nothing dropped — CLAUDE.md #9).
+        Returns: ``{activities: [...], next_page_token}``.
         chain_next: walk pages via ``next_page_token``; ``jules.plan`` /
                     ``jules.patch`` for typed slices.
 
         Without ``page_token`` older `agentMessaged` / failure details become
         unreachable (Codex review ccb8f03 / jules.py:139).
         """
-        return self._backend().activities(session, page_size, only_kinds, page_token)
+        return self._backend().activities(session, page_size, only_kinds,
+                                          page_token, summary_only=not full)
 
     @verb(role="transform")
     def plan(self, session: str, max_pages: int = 5) -> dict:
