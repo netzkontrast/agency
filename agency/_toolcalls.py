@@ -31,6 +31,17 @@ CREATE TABLE IF NOT EXISTS toolcall (
 );
 CREATE INDEX IF NOT EXISTS toolcall_tool ON toolcall(tool);
 CREATE INDEX IF NOT EXISTS toolcall_session ON toolcall(session);
+-- Spec 349a — the event-bus "once" dedup marker. A SEPARATE table so a
+-- control-plane marker (the bus delivered subscriber X once for this session)
+-- never pollutes the captured tool-call rows above (toolcalls.stats/recent/top/
+-- export read only `toolcall`). The (session, scope) PK makes a concurrent
+-- first-occurrence deterministic: exactly one INSERT wins, the rest conflict.
+CREATE TABLE IF NOT EXISTS event_marker (
+  session TEXT NOT NULL,
+  scope   TEXT NOT NULL,
+  ts      REAL NOT NULL,
+  PRIMARY KEY (session, scope)
+);
 """
 
 
@@ -71,6 +82,26 @@ class ToolcallStore:
         self._conn.commit()
         return int(cur.lastrowid)
 
+    def mark_seen(self, *, scope: str, session: str) -> bool:
+        """Spec 349a — atomic first-occurrence dedup for the event bus, in the
+        SEPARATE ``event_marker`` table so it never pollutes the captured tool-call
+        rows. ``True`` the FIRST time ``(session, scope)`` is seen; the (session,
+        scope) PK conflict makes a concurrent double deterministic (one wins → one
+        ``True``). Survives the per-event fresh-process model because the store is
+        the persistent ``.agency/toolcalls.db``. Only the "already seen" conflict
+        is caught here; any OTHER sqlite error propagates so the caller decides the
+        fail-open direction (emit-anyway for a mandatory inject, skip for a hint)."""
+        if not scope or not session:
+            return False
+        try:
+            self._conn.execute(
+                "INSERT INTO event_marker(session, scope, ts) VALUES (?,?,?)",
+                (session, scope, time.time()))
+            self._conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
     def count(self) -> int:
         return int(self._conn.execute("SELECT count(*) FROM toolcall").fetchone()[0])
 
@@ -104,9 +135,12 @@ class ToolcallStore:
                  "bytes": int(r[3] or 0), "sample": r[4] or ""} for r in rows]
 
     def prune(self) -> int:
-        """Delete all rows (post-export). Returns the count removed."""
+        """Delete all captured rows (post-export). Returns the tool-call count
+        removed. Also clears the Spec 349a event markers (session-scoped, so they
+        are dead weight once a session's capture is distilled and pruned)."""
         n = self.count()
         self._conn.execute("DELETE FROM toolcall")
+        self._conn.execute("DELETE FROM event_marker")
         self._conn.commit()
         return n
 

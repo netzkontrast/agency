@@ -261,3 +261,19 @@ def on_first_tool_use(engine, event) -> str:
 
 _events.subscribe("PreToolUse", on_first_tool_use,
                   once_per="session.tool", name="frugal.first_use")
+
+
+def on_session_start(engine, event) -> str:
+    """Spec 348/349a — deliver the FULL frugal discipline (the deep ponytail-port
+    card) ONCE per session. SessionStart fires on startup AND resume AND every
+    compaction, so a direct inject would repeat the heavy card each time; the bus
+    dedups (once_per='session') so it lands exactly once. Fail-open to EMIT
+    (once_fail_emit=True) — the mandatory discipline must reach the agent even if
+    the dedup store is unavailable (a duplicate card beats a missing one). Silent
+    at frugal level 'off' / session_inject='off' (session_inject_text returns '')."""
+    return _frugal.session_inject_text()
+
+
+_events.subscribe("SessionStart", on_session_start,
+                  once_per="session", once_fail_emit=True,
+                  name="frugal.session_inject")

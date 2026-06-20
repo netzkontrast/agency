@@ -200,3 +200,83 @@ def _has_hint(ev_ctx):
 @then("the injected context omits the frugal first-use hint")
 def _no_hint(ev_ctx):
     assert "[frugal]" not in ev_ctx, ev_ctx
+
+
+# ── SessionStart deep inject, delivered once per session (Spec 348/349a) ───────
+
+
+@pytest.fixture
+def injects():
+    """SessionStart inject(s) captured per session id, in order — a list so a
+    repeated SessionStart for ONE session shows the once-per-session dedup."""
+    return {}
+
+
+@when(parsers.parse('a SessionStart hook fires for session "{sid}"'))
+def _session_start(engine, injects, sid):
+    out = engine.dispatch_hook({"hook_event_name": "SessionStart", "session_id": sid})
+    injects.setdefault(sid, []).append(out.get("inject", ""))
+
+
+def _first_inject(injects, sid):
+    got = injects.get(sid, [])
+    return got[0] if got else ""
+
+
+@then(parsers.parse('the session "{sid}" inject names every safety-floor marker'))
+def _ss_floor(injects, sid):
+    inj = _first_inject(injects, sid)
+    for m in _frugal.SAFETY_FLOOR_MARKERS:
+        assert m in inj, (m, inj[:200])
+
+
+@then(parsers.parse('the session "{sid}" inject teaches the ladder, the rules, and the output pattern'))
+def _ss_depth(injects, sid):
+    # the DEPTH guard: shallow bullets fail this — ladder + rules + output pattern
+    inj = _first_inject(injects, sid).lower()
+    assert "yagni" in inj and "stdlib" in inj, "ladder missing"
+    assert "no unrequested abstractions" in inj or "deletion over addition" in inj, "rules missing"
+    assert "skipped:" in inj, "output pattern missing"
+
+
+@then(parsers.parse('the session "{sid}" inject is far deeper than the one-line per-verb stamp'))
+def _ss_deeper(injects, sid):
+    inj = _first_inject(injects, sid)
+    stamp = _frugal.render(mode="compact")
+    assert len(inj) > 3 * len(stamp), (len(inj), len(stamp))
+
+
+@then(parsers.parse('the session "{sid}" discipline is injected exactly once'))
+def _ss_once(injects, sid):
+    got = injects.get(sid, [])
+    disciplined = [i for i in got if "FRUGAL DISCIPLINE" in i]
+    assert len(disciplined) == 1, [len(i) for i in got]
+
+
+@then(parsers.parse('the second session "{sid}" inject is empty'))
+def _ss_second_empty(injects, sid):
+    got = injects.get(sid, [])
+    assert len(got) >= 2 and got[1] == "", got
+
+
+@then(parsers.parse('the session "{sid}" inject carries the frugal discipline'))
+def _ss_carries(injects, sid):
+    assert "FRUGAL DISCIPLINE" in _first_inject(injects, sid), injects.get(sid)
+
+
+@then(parsers.parse('the session "{sid}" inject is empty'))
+def _ss_empty(injects, sid):
+    assert _first_inject(injects, sid) == "", injects.get(sid)
+
+
+@given(parsers.parse('the frugal level is "{level}"'))
+def _set_level(level):
+    _frugal.set_frugal_level(level)
+
+
+@then("the tool-call capture stats carry no event-bus marker")
+def _clean_capture(engine, confirmed_intent):
+    # the bus dedup marker lives in a SEPARATE table — never a captured tool-call
+    r, _ = invoke(engine, confirmed_intent, "toolcalls", "stats", agent_id="agent:test")
+    phases = r.get("by_phase", {})
+    assert not any("first_use" in p or "session" in p for p in phases), phases

@@ -329,9 +329,9 @@ both folded (authoritative):
 
 ## Followup — Implementation Status (2026-06-20)
 
-Not started — design record. Opened by the owner's "port ponytail completely +
-make it mandatory + setup into SessionStart" directive. Graduates `frugal` from
-the `_frugal.py` core module (Spec 332, shipped) into
+**SHIPPED 2026-06-20 (+ depth/once refinement).** Opened by the owner's "port
+ponytail completely + make it mandatory + setup into SessionStart" directive.
+Graduated `frugal` from the `_frugal.py` core module (Spec 332, shipped) into
 `agency/capabilities/frugal/` (the `gate/` drop-in template), porting the five
 ponytail sub-commands as provenance-emitting verbs + `frugal.instructions` as the
 MCP port, wiring the discipline mandatorily into SessionStart + `agency_welcome`
@@ -339,5 +339,26 @@ MCP port, wiring the discipline mandatorily into SessionStart + `agency_welcome`
 doctrine hazards a faithful port would import (gain's frozen medians, debt's
 comment-prefix gap, help's drift). Reuses Spec 332 (content), Spec 333 (install),
 Spec 076/195 (hook seams), Spec 347 (floor/machine). Research:
-`research/ponytail-port/{scenario-analysis,agency-infra}.md`. Build-order:
-independent of Spec 349, but `frugal` is 349's reference emitter/subscriber.
+`research/ponytail-port/{scenario-analysis,agency-infra}.md`.
+
+**Refinement 2026-06-20 — DEEP + delivered ONCE** (owner: *"the injected
+instructions are too shallow"* + *"make sure the frugal inject only happens once
+via the new event"*).
+- **Depth.** The inject was a bare bullet list. `render(mode="full")` + `help_text`
+  now carry the FULL ponytail discipline: persona ("lazy senior dev — efficient,
+  not careless") + persistence (ACTIVE every response) + the ladder WITH examples
+  (`<input type="date">`, CSS-over-JS) + the rules (no unrequested abstractions,
+  deletion over addition, mark shortcuts) + the output pattern
+  (`[code] -> skipped: X, add when Y`) + the one-runnable-check rule + the safety
+  floor + per-level worked examples. ~45× the compact stamp; every
+  `SAFETY_FLOOR_MARKER` survives (the Slice-4 gate still passes).
+- **Once.** The deep card is delivered exactly ONCE per session via a Spec 349a
+  `frugal.session_inject` subscription (`once_per="session"`, fail-open to EMIT) —
+  SessionStart fires on startup/resume/**compact**, so a direct inject repeated the
+  heavy card on every compaction. `engine._session_start_handler` now routes
+  through `_events.run(engine, "SessionStart", event)`.
+- **Guarantee tests.** The frugal acceptance suite (16 scenarios) adds the
+  SessionStart-once GUARANTEE, a depth guard (fails if the inject is ever
+  shallowed), and capture-cleanliness (the dedup marker never pollutes the
+  tool-call store); 66 store/hook/event tests green. These are the regression lock
+  that the NEXT session uses the ponytail port for sure.
