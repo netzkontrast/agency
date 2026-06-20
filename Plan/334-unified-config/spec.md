@@ -1,5 +1,5 @@
 ---
-spec_id: "328"
+spec_id: "334"
 slug: unified-config
 status: draft
 last_updated: 2026-06-19

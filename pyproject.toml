@@ -18,7 +18,7 @@ dependencies = [
     # Core dep per user directive (2026-06-13): used for every data object.
     "sqlmodel>=0.0.14",
     "httpx",
-    # Spec 338 (owner directive 2026-06-20) — the official OpenRouter SDK is a
+    # Spec 348 (owner directive 2026-06-20) — the official OpenRouter SDK is a
     # CORE dep: the LLM driver fetches the live free-model catalogue (model info
     # + flags) and runs free-model generation through it. Type-safe, tracks the
     # live OpenRouter OpenAPI. Imported lazily (no network at import); the

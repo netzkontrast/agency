@@ -1,5 +1,5 @@
 ---
-spec_id: "338"
+spec_id: "348"
 slug: openrouter-first-wet-generation
 status: partial
 last_updated: 2026-06-20
@@ -16,7 +16,15 @@ affects:
   - tests/acceptance/test_wet_generation.py
 ---
 
-# Spec 338 — OpenRouter-first wet generation + use-case model selection
+# Spec 348 — OpenRouter-first wet generation + use-case model selection
+
+> **Renumbered 338 → 348 (2026-06-20).** Two parallel sessions both claimed
+> `spec_id: 338`; this standalone program collided with the
+> `338-lifecycle-pillar-deep-program` master (which owns a 339–347 child
+> cluster — far more entangled to move). Per CLAUDE.md rule 4's renumber clause
+> (rare; only after a collision on merge), this leaf moved to the free **348**,
+> keeping the lifecycle cluster intact. Merged PR #223/#225 history references
+> the old number 338; the spec + code now read 348.
 
 ## Why
 
