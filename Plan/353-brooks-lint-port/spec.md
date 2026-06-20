@@ -183,6 +183,9 @@ graph node SERVING the intent, so:
      ├─ 358  acceptance + source-coverage + evals      ← needs 354,355
      ├─ 359  brooks PROSE → templates + references      ← needs 354,355,357
      └─ 360  migration (.brooks-lint.* → config+graph)  ← needs 356
+
+POST-v1 followup (NOT in the build order — land on demand, YAGNI):
+ ⋯ 361  multi-language decidable scanners              ← needs 354,355
 ```
 
 354 ships first (everything depends on the extended `Finding` + the data). 355
@@ -299,4 +302,9 @@ fixture-backed scenarios, not prose Givens (358). **(completeness)** Newman — 
 **migration** path is now dedicated child **Spec 360** (`.brooks-lint.*` →
 config+graph) + symmetric vendored-data `_source` versioning (354/358).
 
-The program is now **umbrella + 7 children (354–360)**. Next: 354 (foundation) TDD.
+The program is now **umbrella + 7 children (354–360)**, with **Spec 361**
+(multi-language decidable scanners) drafted as a **post-v1 followup** — out of the
+build order, landed on demand. The one product call the panel surfaced (Python-only
+decidable) is **resolved**: v1 stays decidable=py / judgment=any-language (owner
+"good call", 2026-06-20), and the multi-language lift is captured as 361 rather
+than expanding 354/355 now (YAGNI). Next: 354 (foundation) TDD.

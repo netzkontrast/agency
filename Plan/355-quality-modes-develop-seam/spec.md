@@ -166,9 +166,13 @@ CI uses (Spec 357). This dissolves OQ3.
 > judgment pass is language-agnostic (it reasons over any diff). So v1 is:
 > **decidable tagging = Python; judgment = any language.** A TypeScript PR still
 > gets brooks judgment findings — only the *mechanical* pre-tagging is py-first.
-> This is a documented v1 limitation with an evolution path (add a language's
-> decidable scanners → its findings auto-tag), NOT a silent regression. The report
-> states the active language coverage in its Scope line.
+> This is a documented v1 limitation with an evolution path — **Spec 361**
+> (multi-language decidable scanners: a `LanguageScanner` registry +
+> tree-sitter/semgrep adapters feeding the same `Finding` shape + `decidable`
+> arrays), explicitly out of the v1 build order (YAGNI; land it when a non-Python
+> codebase needs it). NOT a silent regression. The report states the active
+> language coverage in its Scope line — computed by 361's `analyze.coverage()`
+> once that lands, a static note until then.
 
 **Cross-link into the existing dev loop** (the "wire it into develop" intent):
 
