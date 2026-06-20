@@ -181,6 +181,7 @@ markers = [
     # Spec 060 round 9 — folder-form-cap markers.
     "develop: tests targeting the develop capability",
     "gate: tests targeting the gate capability",
+    "frugal: tests targeting the frugal capability",
     "branch: tests targeting the branch capability",
     "workspace: tests targeting the workspace capability",
     "subagent: tests targeting the subagent capability",

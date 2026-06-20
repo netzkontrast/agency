@@ -1,17 +1,17 @@
 <!-- agency-generated: v1 -->
 # jules.activities
 
-A session's activity stream, trimmed to summaries (the costliest Jules read).
+A session's activity stream.
 
 ## Inputs
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `session (sid), page_size (int), only_kinds (comma-separated kinds), page_token (str — empty for newest page).` |  |  |
+| `session (sid), page_size (int), only_kinds (comma-separated kinds), page_token (str — empty for newest page), full (bool — False = {id,originator,kind,summary} preview; True = the complete raw activity, nothing dropped — CLAUDE.md #9).` |  |  |
 
 ## Returns
 
-``{activities: [{kind, summary, ts}], next_page_token}``.
+``{activities: [...], next_page_token}``.
 
 ## Chain-next
 
