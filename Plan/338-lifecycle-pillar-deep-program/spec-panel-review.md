@@ -338,3 +338,86 @@ new-only), A-2 (event dedup/class split), H-2 (ordering by `recorded_at`), C-1 +
 Hi-1 (ownership rule + stall detection → 343). The unified-node schema (F-3) and
 the `session` parameterization remain the largest implementation risk and are
 flagged for the 339/342 build.
+
+---
+
+## 9. Second-pass panel — after the pillar reframe (2026-06-20)
+
+> Re-review of the **revised** corpus (substrate pillar, not a capability; B1–B5
+> folded). The reframe is a net improvement and the right call — but a pillar
+> made of substrate-tools is not free, and the fold introduced **3 new findings**
+> (one a blocker) plus left one major under-addressed.
+
+**Headline (2nd pass): closer, one new blocker.** The pillar model removed the
+worst structural problem (B1) and made the design canon-symmetric with Intent and
+Memory. But moving the frame from capability verbs to **substrate-tools** trades
+away the auto-surface every capability gets for free, and B2's fix introduced a
+cross-member coupling that wants one more turn of the crank.
+
+### P1 (BLOCKER) — Newman/Hightower: the substrate frame loses discoverability
+
+A capability verb is auto-discovered (`mcp__agency__search`), CLI-mirrored (Spec
+079), and carries a derived SkillDoc (Spec 080) **for free**. A `SubstrateTool`
+(`lifecycle_open/move/close`) is **hand-registered** in `SUBSTRATE_TOOLS`, is NOT
+in the capability registry `search` walks, and has no `<cap>.help`. So the pillar's
+own write frame becomes *less* discoverable than the member caps that drive it —
+the opposite of "a complete, first-class suite" (CORE.md "four complete pillars").
+`intent_bootstrap` gets away with this because it is ONE well-known entry point;
+`open/move/close/+verify` is a frame an agent must find. **Fix options (→ brainstorm):**
+(a) register the substrate-tools' briefs into `search`'s index explicitly; (b)
+keep a *thin* `home="lifecycle"` member cap whose verbs are pure pass-throughs to
+`ctx.lifecycle` purely for discovery/CLI/SkillDoc (the frame lives in substrate,
+the *surface* is a member) — note this re-opens the "is it a capability" question
+the owner just closed, so it needs care; (c) accept reduced discoverability and
+document the frame in the pillar's reference doc + `manage`. **This must be decided
+before 339 builds** — it changes what `lifecycle_*` *is*.
+
+### P2 (BLOCKER) — Hohpe/Fowler: who invokes the parameterization's observer?
+
+B2 placed verify-invocation in `delegate.join` (`join` calls `jules.verify`). That
+works for the dispatch path, but it **hardcodes a member→member dependency**
+(`delegate` must know `jules`) and does not generalize: the `reviewed`
+parameterization's observer is `gate.check`, run by `subagent.develop`, not
+`join`. So "who runs the observer" is answered *per caller*, re-creating the
+per-agent special-casing Goal 3 exists to remove — just one layer up. **The
+cleaner model:** the parameterization *declares* its observer; whoever drives the
+`→verify`/`→in-review` transition asks the substrate to **dispatch the declared
+observer by name** (`ctx.lifecycle.advance(lc)` runs the parameterization's
+observer and performs the resulting move). Then `delegate.join` and
+`subagent.develop` call the SAME `advance`, and neither hardcodes jules/gate.
+**But** substrate dispatching INTO a capability verb (`jules.verify` needs `vcs`
++ network) is a layering inversion (substrate is below caps). Resolving *where
+`advance` lives* (substrate? a member? the registry?) is the real open question →
+brainstorm.
+
+### P3 (MAJOR) — Fowler: `ctx.lifecycle` is a CORE.md change, unstated
+
+CORE.md §CapabilityContext enumerates the delegator's fields ("Eight fields…").
+Adding `ctx.lifecycle` makes it nine and is a canon edit — the program must say so
+(and update CORE.md), or the next reader treats `ctx.lifecycle` as undocumented
+surface. Small, but it is exactly the kind of canon-drift CLAUDE.md rule 2 warns
+about. (Same applies to documenting the new `lifecycle_*` substrate-tools in
+CORE.md's substrate-tool list.)
+
+### P4 (MAJOR, carried) — Gregory/Crispin: the member migration is still the risk
+
+The reframe did not shrink the migration — `delegate`, `subagent`, `jules`,
+`develop` (SessionLifecycle), `music`, `gate` all rewire to `ctx.lifecycle`, and
+`SessionLifecycle`→`session`-parameterization (F-3) is unproven. **Recommendation:
+add an explicit slice ordering — migrate ONE member (`delegate`) end-to-end as the
+proof-of-pillar BEFORE the others**, so the substrate API is validated by a real
+consumer before five more depend on it. Today 339 absorbs all paths at once.
+
+### What the 2nd pass CONFIRMS is right
+
+- The pillar reframe is canon-faithful (substrate symmetry with `intent.py`/
+  `memory.py`) and genuinely dissolves B1 — net large positive.
+- B4's event-class split is the correct reconciliation with shipped 336.
+- F-2's orphan/terminal floor is the right invariant.
+
+### 2nd-pass verdict
+
+**Still buildable; resolve P1 + P2 first (both are "where does X live" decisions,
+not redesigns), state P3, and re-order 339 per P4.** Overall **7.1/10** (up from
+6.7 — the reframe fixed more than it cost). P1 and P2 are exactly the kind of
+open design questions a brainstorm should settle before implementation.
