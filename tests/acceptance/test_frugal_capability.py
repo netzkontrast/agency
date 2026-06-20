@@ -68,6 +68,35 @@ def _help_has(fr, needle):
     assert needle in fr["help"], fr["help"][:200]
 
 
+# ── develop cross-link: the heavy how-to on demand (Spec 348 §7) ───────────────
+
+
+@when(parsers.parse('I fetch the develop reference for "{topic}"'), target_fixture="ref")
+def _develop_reference(engine, confirmed_intent, topic):
+    r, _ = invoke(engine, confirmed_intent, "develop", "reference", topic=topic)
+    return r["result"]
+
+
+@then("the frugal reference names every safety-floor marker")
+def _ref_floor(ref):
+    # derived from _frugal (single source) — so it carries the floor for free
+    for m in _frugal.SAFETY_FLOOR_MARKERS:
+        assert m in ref["doc"], (m, ref["doc"][:200])
+
+
+@then("the frugal reference points to the frugal capability verbs")
+def _ref_verbs(ref):
+    # the reference is the how-to, not just the discipline: it surfaces the actionable verbs
+    assert "frugal.review" in ref["doc"] and "frugal.debt" in ref["doc"], ref["doc"][-400:]
+
+
+@then('"frugal" is listed among the available develop references')
+def _ref_available(engine, confirmed_intent):
+    # discoverability: a miss reports the available set, which must include frugal
+    r, _ = invoke(engine, confirmed_intent, "develop", "reference", topic="__nope__")
+    assert "frugal" in r["result"]["available"], r["result"]
+
+
 # ── debt + gain (Slice 2) ─────────────────────────────────────────────────────
 
 
@@ -124,6 +153,64 @@ def _points_debt(fr):
     assert fr["this_repo"]["use"] == "frugal.debt", fr
 
 
+# ── substrate-depth improvements (Spec 348 §7 — templates + core functions) ────
+
+
+@when("I get the frugal gain scoreboard for that tree", target_fixture="fr")
+def _gain_tree(engine, confirmed_intent, debt_path):
+    return _f(engine, confirmed_intent, "gain", paths=debt_path)
+
+
+@then(parsers.parse("the gain scoreboard reports {n:d} live markers"))
+def _gain_count(fr, n):
+    assert fr["this_repo"]["markers"] == n, fr
+
+
+@then("the gain scoreboard still names the ponytail benchmark source")
+def _gain_bench(fr):
+    assert "ponytail" in fr["benchmark"]["source"].lower(), fr
+
+
+@then("gain recorded no DebtMarker node")
+def _gain_readonly(engine, confirmed_intent, fr):
+    # gain is a READ — only debt writes DebtMarker nodes (the live count is a scan)
+    assert served(engine, confirmed_intent, "DebtMarker") == 0
+
+
+@when("I harvest the frugal debt for that tree into a ledger file", target_fixture="fr")
+def _debt_write(engine, confirmed_intent, debt_path, tmp_path):
+    ledger = str(tmp_path / "FRUGAL-DEBT.md")
+    r = _f(engine, confirmed_intent, "debt", paths=debt_path, write=ledger)
+    r["_ledger"] = ledger
+    return r
+
+
+@then("the debt ledger file was written with the markers")
+def _ledger_written(fr):
+    from pathlib import Path
+    body = Path(fr["_ledger"]).read_text(encoding="utf-8")
+    assert "Frugal debt ledger" in body and "global lock" in body, body[:300]
+
+
+@then("the ledger file is bound as a graph Document")
+def _ledger_doc(fr):
+    # composes document.ingest (Spec 292) — the ledger round-trips as a Document node
+    assert fr.get("document_id"), fr
+
+
+@when("I attempt to walk the frugal discipline", target_fixture="fr")
+def _walk_frugal(engine, confirmed_intent):
+    r, _ = invoke(engine, confirmed_intent, "develop", "skill_walk", name="frugal", inputs={})
+    return r
+
+
+@then("the frugal ladder discipline is registered and walkable")
+def _walk_registered(fr):
+    # resolved (NOT 'unknown skill') and the first phase is the ladder's necessity rung
+    assert fr.get("error") != "unknown skill 'frugal'", fr
+    assert fr.get("phase") == "necessity", fr
+
+
 # ── review (Slice 3) ──────────────────────────────────────────────────────────
 
 
@@ -143,6 +230,23 @@ def _lean(tmp_path):
 @when("I review that tree for over-engineering", target_fixture="fr")
 def _review(engine, confirmed_intent, review_path):
     return _f(engine, confirmed_intent, "review", scope="repo", paths=review_path)
+
+
+@given("a git repo with a staged python file but no commit")
+def _nocommit_repo(tmp_path, monkeypatch):
+    """A fresh repo whose HEAD is unborn (no commit yet) with a bloated file STAGED.
+    The diff-scope review must still see it — Jules review: `git diff HEAD` errors on
+    an unborn HEAD, so the changed-file list came back empty and review saw nothing."""
+    import subprocess
+    monkeypatch.chdir(tmp_path)
+    subprocess.run(["git", "init", "-q"], cwd=str(tmp_path), check=True)
+    (tmp_path / "bloat.py").write_text("import os\nx = " + "1 + " * 80 + "1\n")
+    subprocess.run(["git", "add", "bloat.py"], cwd=str(tmp_path), check=True)
+
+
+@when("I review the working diff for over-engineering", target_fixture="fr")
+def _review_diff(engine, confirmed_intent):
+    return _f(engine, confirmed_intent, "review", scope="diff")
 
 
 @then("the review flags a decidable cut")

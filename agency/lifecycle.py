@@ -222,3 +222,61 @@ class Lifecycle:
     def status(self, lc_id: str) -> Optional[str]:
         props = self.m.recall(lc_id)
         return props.get("state") if props else None
+
+    # ── Spec 341 — observe suite: read · find · check · watch ────────────────
+
+    def read(self, lc_id: str) -> dict:
+        """Full lifecycle node props + serving intent_id (Spec 341).
+
+        Richer than ``status`` (which only returns the state string): returns
+        all recorded props (state, kind, parameterization, phase, …) plus the
+        ``intent_id`` resolved via the ``SERVES`` edge — the snapshot an
+        observer needs to act without re-querying multiple methods.
+        """
+        props = self.m.recall(lc_id)
+        if not props:
+            return {}
+        result = dict(props)
+        serving = self.m.neighbors(lc_id, "SERVES", direction="out")
+        if serving:
+            result["intent_id"] = serving[0].get("id", "")
+        return result
+
+    def find(self, intent_id: str, *, state: str = "") -> list[dict]:
+        """All Lifecycle nodes SERVING ``intent_id``, optionally filtered by
+        state (Spec 341). Returns property dicts ordered by graph insertion.
+
+        ``state`` filters the result set to nodes whose ``state`` matches
+        exactly; omit to return all lifecycles for the intent regardless of
+        state.
+        """
+        candidates = [n for n in self.m.neighbors(intent_id, "SERVES",
+                                                   direction="in")
+                      if "state" in n]      # Lifecycle nodes always carry state
+        if state:
+            candidates = [n for n in candidates if n.get("state") == state]
+        return candidates
+
+    def check(self, lc_id: str, state: str) -> bool:
+        """True if the lifecycle is currently in ``state`` (Spec 341).
+
+        A narrow, read-only guard: does NOT raise on unknown states (returns
+        False), so it is safe as a non-throwing condition in pipeline guards.
+        """
+        return self.status(lc_id) == state
+
+    def watch(self, lc_id: str) -> list[dict]:
+        """The durable lifecycle_transition trail for ``lc_id`` — no poll
+        (Spec 341 / 344).
+
+        Returns the Spec 344 ``lifecycle_transition`` Events linked
+        ``OBSERVED_DURING`` the lifecycle, ordered oldest-first. Only terminal
+        and blocked transitions appear here (churn goes to the monitor channel
+        only, per Spec 344's B4 split). The trail is the retrospective record
+        an observer reads instead of polling state.
+        """
+        events = [n for n in self.m.neighbors(lc_id, "OBSERVED_DURING",
+                                               direction="in")
+                  if n.get("name") == "lifecycle_transition"]
+        events.sort(key=lambda e: e.get("vfrom", 0))
+        return events
