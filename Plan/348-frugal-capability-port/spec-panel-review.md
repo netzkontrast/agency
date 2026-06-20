@@ -81,3 +81,24 @@ two). **B2** turns "mandatory" from a slogan into two gate-checked invariants.
 With B1/B2 + the four majors folded, the surface is 7 verbs, each with a pinned
 input contract and an operational bound, and the discipline is enforced by gates
 rather than asserted in prose.
+
+## 2nd pass — post-fold verification (2026-06-20)
+
+Blockers B1 + B2 verified resolved in the Refinement section. **Score 8.0 → 8.5,
+no open blockers.** Two new folds:
+
+**M5 — Fowler/coherence: dedupe the `frugal` walkable against Spec 347's `frugal`
+machine.** §2 introduces a walkable `frugal` discipline; Spec 347 depth 3 registers
+a drivable `frugal` machine. Two `frugal` walkables collide and duplicate the
+ladder. → FOLD: 347 OWNS the machine definition (the ladder states); 348's
+capability EXPOSES/walks it (`open(machine="frugal")` + the derived SkillDoc),
+never re-defines it. Single source, per 347's own rule.
+
+**M6 — the ladder applied to the spec's own scope bound: `git ls-files`, not a
+hand-rolled ignore set.** M2's "default exclusion set (node_modules/.git/build)"
+re-invents ignore logic git ships. → FOLD: `review(scope="repo")`/`debt` scan
+`git ls-files` (tracked files honour `.gitignore` for free) — native over custom,
+the ladder applied to the spec a third time. Supersedes M2's exclusion list.
+
+**m3 — welcome token economy (Spec 066/068):** surface frugal in `agency_welcome`
+COMPACTLY (level + a one-line capability pointer), not 7 expanded verb schemas.

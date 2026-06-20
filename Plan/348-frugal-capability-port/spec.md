@@ -285,6 +285,21 @@ Acceptance additions (fold into the Gherkin): a `debt` string-literal **negative
 (not harvested); `help` **== registry** equality; the **mandatory-surface gate**
 (welcome lists the verbs + the SessionStart discipline is non-empty at non-`off`).
 
+### 2nd-pass folds (post-fold verification, 2026-06-20)
+
+`spec-panel-review.md` §"2nd pass" (8.0→8.5, no open blockers). B1+B2 verified;
+two new folds:
+
+- **M5 — dedupe the `frugal` walkable against Spec 347's `frugal` machine.** 347
+  depth-3 OWNS the drivable `frugal` machine (the ladder states); 348's capability
+  EXPOSES/walks it (`open(machine="frugal")` + the derived SkillDoc), never
+  re-defines it. Single source.
+- **M6 — the ladder on the spec's own scope bound:** `review(scope="repo")` and
+  `debt` scan **`git ls-files`** (tracked files honour `.gitignore` for free) —
+  git's native ignore over a hand-rolled exclusion set (supersedes M2's list).
+- **m3 — welcome token economy (Spec 066/068):** `agency_welcome` surfaces frugal
+  COMPACTLY (level + a one-line capability pointer), not 7 expanded verb schemas.
+
 ## Followup — Implementation Status (2026-06-20)
 
 Not started — design record. Opened by the owner's "port ponytail completely +

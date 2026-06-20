@@ -88,3 +88,25 @@ waiting to happen). The four majors harden the hot path (M2), the collecting
 channel (M1), the test altitude (M3), and forward-compat (M4). None require a
 build — they tighten the contract a `349a` slice will implement. Post-fold the
 architecture is implementable as written.
+
+## 2nd pass — post-fold verification (2026-06-20)
+
+Blockers B1 + B2 verified resolved. **Score 8.1 → 8.5, no open blockers.** Two new
+folds, both from the agency hook PROCESS model:
+
+**M5 — Nygard/process model: the M2 "in-session memo" cannot be a process
+global.** Spec 076 runs each hook via the `agency hook` CLI — a FRESH PROCESS per
+event. An in-process memo dies between `PreToolUse` calls, so dedup would never
+fire. → FOLD: the `once_per` memo is the **Spec 336 ephemeral
+`.agency/toolcalls.db`** (already session-scoped, already in the hook path) —
+first-use is an indexed lookup + write-through there (O(1), survives across the
+per-event processes); the durable `first_use_emit` Event still backs replay. This
+makes M2 concrete AND reuses shipped infra (the ladder: installed dependency over
+new code).
+
+**M6 — the synchronous drain completes before the hook returns.** B2's
+enqueue-drain runs after the current fan-out but MUST finish within the same hook
+invocation — the host consumes `additionalContext` from the return; a drain
+deferred past return is invisible. → FOLD (clarify): "drained breadth-first after
+the current fan-out" = still within the one synchronous hook call, just not
+recursive; nothing crosses the return boundary.

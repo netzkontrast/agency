@@ -335,6 +335,22 @@ Acceptance additions: a re-entrant emit drains without recursion (B2); two
 subscribers' context merges token-bounded + labelled (M1); an extra payload field
 doesn't break a subscriber (M4).
 
+### 2nd-pass folds (post-fold verification, 2026-06-20)
+
+`spec-panel-review.md` §"2nd pass" (8.1→8.5, no open blockers). B1+B2 verified;
+two new folds, both from the agency hook PROCESS model:
+
+- **M5 — the `once_per` memo is the Spec 336 ephemeral `.agency/toolcalls.db`, not
+  a process global.** Spec 076 runs each hook via the `agency hook` CLI — a FRESH
+  PROCESS per event — so an in-process memo dies between `PreToolUse` calls and
+  dedup never fires. The session-scoped toolcalls.db (already in the hook path) is
+  the O(1) read/write-through; the durable `first_use_emit` Event keeps replay.
+  (Reuses shipped infra — the ladder: installed dependency over new code.)
+- **M6 — the enqueue-drain completes within the one synchronous hook call.** The
+  host consumes `additionalContext` from the return, so re-entrant emits drain
+  after the current fan-out but BEFORE the hook returns — non-recursive, nothing
+  crosses the return boundary.
+
 ## Followup — Implementation Status (2026-06-20)
 
 Not started — **design record, no build** (owner Q4). Opened by the owner's
