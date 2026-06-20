@@ -168,3 +168,10 @@ Adds `agency/_lifecycle_events.py` (typed `LifecycleEvent`, pure) + emission fol
 into `lifecycle.move` (reusing the Spec 076 `Event` node + Spec 021 monitor
 channel). Build-order: lands after 340 (so transitions are guarded before they are
 broadcast) and before 341 (which consumes the trail).
+
+**Spec 349 cross-ref (the event bus).** The pillar event-registration bus
+generalizes this emission: `LifecycleEvent` becomes the lifecycle-shaped case of
+`event.emit`, and subscribers (capability/intent/memory) react to
+`lifecycle:transition:*` through the bus instead of polling. 344 stays the source
+of the transition *shape* (the typed record + the B4 graph/monitor split); 349
+adds the *fan-out* to declared subscribers. No change to this slice's contract.
