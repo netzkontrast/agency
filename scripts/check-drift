@@ -155,6 +155,52 @@ fi
 say
 
 # ----------------------------------------------------------------------
+# spec_id uniqueness (Spec 351 — presence != activation; the collision class)
+# ----------------------------------------------------------------------
+say "==> spec_id uniqueness (Spec 351)"
+SPECID_OUT=$(python - <<'PYEOF' 2>&1 || true
+import glob, re, collections
+ids = collections.defaultdict(list)
+for f in sorted(glob.glob("Plan/*/spec.md")):
+    with open(f, encoding="utf-8") as fh:
+        for line in fh:
+            m = re.match(r'\s*spec_id:\s*"?(\d+)"?', line)
+            if m:
+                ids[m.group(1)].append(f)
+                break
+dups = {k: v for k, v in ids.items() if len(v) > 1}
+if dups:
+    for k, v in sorted(dups.items()):
+        print(f"DRIFT: spec_id {k} claimed by {len(v)} specs: " + ", ".join(v))
+else:
+    print("    spec_id: all unique")
+PYEOF
+)
+if echo "$SPECID_OUT" | grep -q "^DRIFT:"; then
+  say "    $SPECID_OUT"
+  DRIFT=1
+else
+  say "$SPECID_OUT"
+fi
+say
+
+# ----------------------------------------------------------------------
+# tracked db binaries (Spec 351 — local rebuild artefacts stay untracked)
+# ----------------------------------------------------------------------
+say "==> tracked db binaries (Spec 351)"
+TRACKED_DB=$(git ls-files '*.db' 2>/dev/null || true)
+if [[ -n "$TRACKED_DB" ]]; then
+  say "    DRIFT: SQLite binaries tracked in git (must be *.db-ignored + untracked):"
+  if [[ "$QUIET" -eq 0 ]]; then
+    echo "$TRACKED_DB" | sed 's/^/      /'
+  fi
+  DRIFT=1
+else
+  say "    tracked db binaries: none"
+fi
+say
+
+# ----------------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------------
 if [[ "$DRIFT" -eq 0 ]]; then

@@ -22,7 +22,7 @@
 
 ## Macro-structure
 
-**Capabilities:** `analyze/`, `branch/`, `clusters/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `gate/`, `intent/`, `jules/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `toolcalls/`, `workspace/`
+**Capabilities:** `analyze/`, `branch/`, `clusters/`, `config/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `frugal/`, `gate/`, `intent/`, `jules/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `toolcalls/`, `workspace/`
 
 ### `./` (1 files)
 - **conftest.py** (3 symbols)
@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (64 files)
+### `agency/` (66 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -75,7 +75,7 @@ dev-only ``scripts/`` tree (the wheel packages only ``agency``; importing
 ``scripts.*`` at runtime would crash the installed plugin). (22 symbols)
 - **_config.py** — Unified ``.agency/config.yaml`` — Spec 334 Slice 1 (resolver + registry).
 
-A single home for all agency config. (26 symbols)
+A single home for all agency config. (28 symbols)
 - **_coverage_gate.py** — Spec 169 Slice 1 — typed GateResult + pure evaluate() for the CI gate.
 
 The CI gate has three concerns: coverage trend (non-decreasing per
@@ -118,6 +118,12 @@ nothing is lost (the non-lossy contract). (3 symbols)
 
 The Claude API's prompt-caching is a prefix-match: any byte change anywhere in
 the cached prefix invalidates everything after it. (14 symbols)
+- **_events.py** — Spec 349a — the pillar event bus (first slice).
+
+A capability/intent/memory SUBSCRIBES to a hook event by declaring a handler;
+the engine fans each hook out to the matching subscriptions, with a ``once_per``
+dedup backed by the Spec 336 ephemeral tool-call store (so it survives the
+fresh-process-per-hook model — Spec 349 review M5). (6 symbols)
 - **_frontmatter.py** — Spec 283 (+ minimal Spec 278) — frontmatter emit / parse / hash.
 
 The render substrate writes each graph entity to a markdown file carrying a
@@ -126,7 +132,7 @@ byte-identical and `parse` reconstructs the slice). (9 symbols)
 - **_frugal.py** — Frugal core discipline — Spec 332 Slice 1 (level + render).
 
 Agency's own minimal-code reflex (a redevelopment, not a port): a ladder + a
-non-negotiable safety floor. (14 symbols)
+non-negotiable safety floor. (18 symbols)
 - **_hooks.py** — Spec 280 Slice 1 — hooks install verification + foreign-hook wrapping.
 
 The agency plugin ALREADY ships hooks (`hooks/hooks.json` + Spec 076
@@ -149,6 +155,10 @@ discipline) projected into each agent's native instruction format. (22 symbols)
 - **_invoke.py** — Spec 286 Phase-1 / A3 — the `Registry.invoke` decomposition.
 
 `Registry.invoke` was a ~105-line god-method fusing five responsibilities. (15 symbols)
+- **_lifecycle_events.py** — Spec 344 — typed ``LifecycleEvent`` shape + transition-class classifier.
+
+Mirrors ``_loop_events.py`` (Spec 156): a pure, engine-free record so tests /
+doctor / audit can build and assert a transition without an engine. (10 symbols)
 - **_link_finding.py** — Spec 173 Slice 1 — typed LinkFinding for the reflection-edge linter.
 
 Every Reflection in the graph MUST carry two edges: `SERVES` to an
@@ -162,7 +172,7 @@ Spec-002 registry).
 
 A constrained classifier the engine uses where a small judgement is needed without an
 autonomous agent — today `intent.suggests`'s ``llm_select`` Matcher and
-`delegate.dispatch_decision`'s optional S12 LLM tie-breaker. (18 symbols)
+`delegate.dispatch_decision`'s optional S12 LLM tie-breaker. (35 symbols)
 - **_loop_events.py** — Spec 156 Slice 1 — typed LoopEvent shape + pure loop detector.
 
 The dogfood loop needs to know when an agent is repeating itself: 3 raw
@@ -256,13 +266,14 @@ Live-skill compatibility (Codex review on PR #127):
 - **_substrate_tools.py** — Substrate tools as a registered set — Spec 286 Phase 2 / A5.
 
 The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
-``lifecycle_gate`` · ``memory_graph_provenance`` · ``hook_event`` ·
+``lifecycle_gate`` · ``lifecycle_open`` · ``lifecycle_move`` ·
+``lifecycle_close`` · ``memory_graph_provenance`` · ``hook_event`` ·
 ``intent_bootstrap`` · ``agency_install`` · ``agency_doctor`` ·
-``agency_welcome``. (30 symbols)
+``agency_welcome``. (39 symbols)
 - **_tokens.py** — Spec 082 — the token-count boundary.
 
 ONE place to count tokens, with tiers (best first):
-  1. (14 symbols)
+  1. (25 symbols)
 - **_toolcalls.py** — Ephemeral tool-call store — Spec 336 S2.
 
 Pre/post tool calls are high-volume and full-payload (no-truncate, Spec 336 S1).
@@ -307,7 +318,7 @@ duplicated across `engine._wire`/`engine._shape_wire_result` and
 
 The cache lives at <cache_dir>/skill-cache.json — a single document mapping
 capability name → {hash, files: [paths]}. (10 symbols)
-- **capability.py** — Capability — the craft (the open concept). (81 symbols)
+- **capability.py** — Capability — the craft (the open concept). (82 symbols)
 - **cli.py** — Bash-callable engine — the L3 layer of the harness-in-harness ladder (Click).
 
 A bash-only agent (Jules, Codex, a raw LLM with a shell) has no MCP client and no
@@ -326,7 +337,11 @@ capability verbs) into MACRO-skills (the capabilities themselves) behind a singl
 - **intent.py** — Intent — the human-owned root (why/what merged; deliverable is an attribute).
 
 capture -> confirm -> (amend via supersede). (12 symbols)
-- **lifecycle.py** — Lifecycle — task/agent state-machine. (16 symbols)
+- **lifecycle.py** — Lifecycle — the task/agent state-machine substrate (the Lifecycle PILLAR).
+
+Peer to ``intent.py`` and ``memory.py``: the engine holds one ``Lifecycle``
+(``engine.lifecycle``) and capabilities reach it via ``ctx.lifecycle`` (Spec 339).
+It is NOT a capability — it is the pillar substrate. (20 symbols)
 - **memory.py** — Memory — the moat. (49 symbols)
 - **ontology.py** — Strict, EXTENSIBLE ontology for the agency graph.
 
@@ -454,6 +469,14 @@ the same: walk a tree for ``.py`` files (skipping ``__pycache__``,
 
 Branch inspects the working tree and remote state and finishes the branch the appropriate way — merge when clean, a PR when review is needed, or a clear report of what blocks completion. (14 symbols)
 
+### `agency/capabilities/config/` (2 files)
+- **__init__.py** — config — read & persist unified .agency/config.yaml values. (2 symbols)
+- **_main.py** — config — read & persist unified .agency/config.yaml values.
+
+Config exposes get / set / list over the unified config resolver so an agent or
+the CLI can inspect and change agency configuration without hand-editing the
+file. (7 symbols)
+
 ### `agency/capabilities/delegate/` (2 files)
 - **__init__.py** — delegate — agent orchestration: fan-out + quota + join. (2 symbols)
 - **_main.py** — delegate — agent orchestration: fan-out + quota + join. (26 symbols)
@@ -526,7 +549,7 @@ provenance (Goal 2 — *how the WHY was discovered*). (15 symbols)
 
 Spec 322 lands ``clarity`` here (the cluster that also holds ``refine``, Spec 320):
 the Intent-readiness scorer the ``guided-discovery`` discipline's confirm gate
-reads. (6 symbols)
+reads. (7 symbols)
 - **scope.py** — discover.scope cluster — structure-layer verbs (Spec 317 acceptance, 318 scope).
 
 Spec 317 lands ``acceptance`` here: it derives testable, Gherkin-shaped acceptance
@@ -594,6 +617,18 @@ constant) rather than instance-level driver wiring. (2 symbols)
 - **observe.py** — dogfood.observe — graph-native observation ledgers (Spec 017). (12 symbols)
 - **portage.py** — dogfood.portage — JSON export + replay for merge-conflict recovery (Spec 020). (13 symbols)
 - **session.py** — dogfood.session — session-tracking: decisions, boundary audit, replay (Spec 114/195/154). (8 symbols)
+
+### `agency/capabilities/frugal/` (2 files)
+- **__init__.py** — frugal — the minimal-code discipline as a capability (Spec 348, ponytail port).
+
+Folder-form: the verbs WRAP the core ``agency/_frugal.py`` (Spec 332 — the single
+source for the ladder + safety floor), exposing the discipline as a discoverable,
+CLI-mirrored, MCP-wired capability. (2 symbols)
+- **_main.py** — frugal — the lazy-senior-dev discipline as a capability (Spec 348, the ponytail port).
+
+Frugal forces the laziest solution that actually works: the ladder
+YAGNI -> stdlib -> native -> installed-dep -> one line -> minimum, with a
+non-negotiable safety floor (validate / secure / accessibility never cut). (29 symbols)
 
 ### `agency/capabilities/gate/` (2 files)
 - **__init__.py** — gate — a reusable, programmatic gate predicate. (2 symbols)
@@ -663,7 +698,7 @@ layout) need slugs. (3 symbols)
 
 Loads `.agency/music-config.yaml` (per-project) with optional fallbacks at
 `~/.agency-music/config.yaml` (user-global) and `$AGENCY_MUSIC_HOME/config.yaml`
-(env override). (23 symbols)
+(env override). (25 symbols)
 - **drivers.py** — music drivers — the five external I/O boundaries the music capability reaches
 through, as Spec-002 ``Driver`` protocols (Option B: typed, named methods; the
 uniform contract is the RETURN TYPE via the wrapping verb, not a ``dispatch(op)``).
@@ -763,7 +798,7 @@ Mirrors `agency/capabilities/music/config.py`: per-project
 `bootstrap()` writes default + creates content_root on first run.
 
 Resolution order (first hit wins):
-1. (22 symbols)
+1. (24 symbols)
 - **drivers_production.py** — novel production drivers — Spec 121. (30 symbols)
 
 ### `agency/capabilities/novel/clusters/` (11 files)
@@ -1012,7 +1047,7 @@ Music drivers graduated from ``examples/music_drivers.py`` into
 ``agency/capabilities/music/drivers.py`` as part of the Spec 094
 migration. (4 symbols)
 
-### `scripts/` (11 files)
+### `scripts/` (13 files)
 - **__init__.py** — Helper scripts (Spec 054 drift-management, Spec 149 derived-doc discipline,
 Spec 053 test-suite slicing). (1 symbols)
 - **check_architecture.py** — Spec 157 Slice 1 — typed ArchitectureReport + wire-verb invariant audit.
@@ -1049,13 +1084,21 @@ all derive from one source. (22 symbols)
 - **derive_docs.py** — Spec 149 Slice 2 — `derive-docs` core derivation library.
 
 Spec 149 Slice 1 shipped the `vision_goals:` frontmatter validator + 129-
-spec baseline. (24 symbols)
+spec baseline. (29 symbols)
+- **followup_derive.py** — Spec 269 — per-spec Followup Implementation Status: derived FollowupBlock.
+
+Per CLAUDE.md rule 4 the per-spec deep state lives in each spec.md's
+`## Followup — Implementation Status` section. (24 symbols)
 - **gen-living-spec.py** — Phase B — generate a capability-indexed *living spec* from the REFACTORED code.
 
 Rule 2 applied to specs: the spec's generated sections (Verbs / Ontology /
 Skills) are DERIVED from the live registry, never hand-maintained — re-run to
 refresh. (13 symbols)
 - **mcp_wire_smoke.py** — Drive the agency MCP server over stdio with raw JSON-RPC. (11 symbols)
+- **vision_matrix.py** — Spec 191 — live vision-alignment matrix derivation.
+
+Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
+the first time a spec ships. (33 symbols)
 
 ### `tests/` (18 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
@@ -1093,7 +1136,7 @@ Replays the exact failure scenarios mined from
 ``create_scene`` rejected 513× on a closed ``pov`` enum (PERMANENT — never
 succeeds) versus the known ``Failed to set property 'vfrom' on edge N``
 contention (TRANSIENT — retry helps). (30 symbols)
-- **test_host_bridge.py** — Spec 285 Slice 1 — HostBridge seam (sampling + elicitation boundary). (46 symbols)
+- **test_host_bridge.py** — Spec 285 Slice 1 — HostBridge seam (sampling + elicitation boundary). (50 symbols)
 - **test_install_hint.py** (6 symbols)
 - **test_novel_storyform_node.py** — Spec 103 Slice 2 (Workstream D) — create_storyform / get_storyform.
 
@@ -1105,7 +1148,7 @@ Closes the documented ENGINE GAP: the storyform gates + checks read a
 - **test_skill_emit.py** (12 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
 
-### `tests/acceptance/` (72 files)
+### `tests/acceptance/` (80 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.
 
 Phase C — the flat `tests/test_*.py` are converted into behaviour scenarios
@@ -1168,7 +1211,15 @@ Grounds the Slice 2 gate that `.github/workflows/test.yml` runs (`--baseline
 
 Behaviour: a registered key resolves env > file > default; config_set persists;
 registered sections appear in the live set. (30 symbols)
+- **test_config_capability.py** — Acceptance — user-facing config capability (Spec 334 Slice 8).
+
+Behaviour: get / set / list verbs over the unified config, driven through the
+real Engine registry (records provenance like any verb). (16 symbols)
 - **test_config_doctor.py** — Acceptance — unified config doctor (Spec 334 Slice 4). (17 symbols)
+- **test_config_readpath.py** — Acceptance — unified config read-path unification (Spec 334 Slice 6).
+
+Behaviour: a capability's own `*.load()` consults the unified `config_get`
+as a live-but-lowest-priority source. (18 symbols)
 - **test_config_wiring.py** — Acceptance — unified config wiring (Spec 334 Slice 3).
 
 The three zero-manual-step generation points: `agency install` (here:
@@ -1182,7 +1233,7 @@ Converted from tests/test_context_neighbors.py. (23 symbols)
 - **test_derive_docs.py** — Acceptance — derive-docs fence rewrite (Spec 149 Slice 2.2).
 
 Tests the HTML-comment fence mechanism:
-  <!-- derived:<id> --> ... (25 symbols)
+  <!-- derived:<id> --> ... (35 symbols)
 - **test_develop.py** — Acceptance — develop capability: scaffolding, linting, authoring discipline
 walk, discipline cues for intent methods. (90 symbols)
 - **test_develop_maintain.py** — Acceptance — develop.maintain: the autolearning recurring-maintenance loop. (19 symbols)
@@ -1194,7 +1245,7 @@ all from adding one folder. (13 symbols)
 - **test_discover_acceptance.py** — Acceptance — discover.acceptance, Gherkin criteria derivation (Spec 317). (10 symbols)
 - **test_discover_ask.py** — Acceptance — discover.ask, the well-formed AskUser primitive (Spec 310). (21 symbols)
 - **test_discover_clarify.py** — Acceptance — discover.clarify, the ambiguity-resolution loop (Spec 311). (14 symbols)
-- **test_discover_clarity.py** — Acceptance — discover.clarity, the Intent readiness score (Spec 322). (15 symbols)
+- **test_discover_clarity.py** — Acceptance — discover.clarity, the Intent readiness score (Spec 322). (23 symbols)
 - **test_discover_interview.py** — Acceptance — discover.interview, the adaptive elicitation engine (Spec 309). (12 symbols)
 - **test_discover_scope.py** — Acceptance — discover.scope, in/out boundary elicitation (Spec 318). (12 symbols)
 - **test_dispatch_decision_extended.py** — Acceptance — extended dispatch_decision signals S1, S6, S7, S8 (Spec 040).
@@ -1248,7 +1299,17 @@ Dropped (implementation / structural / not observable behaviour):
 Behaviour: `paginate` returns one page + a read-continuation cursor + instruction,
 and walking the cursor reconstructs the COMPLETE set — the tail is reachable, never
 truncated. (12 symbols)
-- **test_frugal.py** — Acceptance — frugal core discipline level + render (Spec 332 Slice 1). (27 symbols)
+- **test_followup_derive.py** — Acceptance — per-spec Followup derived metrics (Spec 269).
+
+The FollowupBlock's metrics are COMPUTED (test_count from affects+collection,
+Done-When ratio parsed from the spec body, recent_commits from git log, status
+from frontmatter) — never hand-pinned. (29 symbols)
+- **test_frugal.py** — Acceptance — frugal core discipline level + render (Spec 332 Slice 1). (28 symbols)
+- **test_frugal_capability.py** — Acceptance — frugal capability (Spec 348 Slice 1, the ponytail port).
+
+Behaviour: the discipline is a discoverable capability whose verbs wrap the core
+_frugal module — read/switch the level, pull the ruleset (the MCP port), show the
+help card. (36 symbols)
 - **test_frugal_floor.py** — Acceptance — frugal safety-floor gate (Spec 332 Slice 4).
 
 `_frugal.safety_floor_intact()` is a decidable predicate: at every level but off
@@ -1274,7 +1335,12 @@ report; uninstall removes only the block. (35 symbols)
 owners, path analysis, and skill projection. (75 symbols)
 - **test_jules.py** — Acceptance — jules capability.
 
-Converted from tests/test_jules*.py (~17 files). (132 symbols)
+Converted from tests/test_jules*.py (~17 files). (136 symbols)
+- **test_lifecycle.py** — Acceptance — Lifecycle pillar substrate (Spec 339).
+
+Behaviour of the hardened `agency/lifecycle.py` substrate write frame:
+`open` mints `submitted`, `move` is the sole state-shaped writer that validates
+the target state + refuses a no-op, `close` drives to a terminal state. (37 symbols)
 - **test_loop_events.py** — Acceptance — loop detection middleware and typed LoopEvent (Spec 011 / 156). (36 symbols)
 - **test_manage.py** — Acceptance — manage capability: generic CRUD (Spec 293). (39 symbols)
 - **test_mode.py** — Acceptance — mode capability (Spec 295). (14 symbols)
@@ -1469,6 +1535,12 @@ Dropped as implementation/structural (not observable behaviour):
     validates path-traversal guards inside the template loader. (109 symbols)
 - **test_thinking.py** — Acceptance — thinking capability: critical-thinking method scaffolds (Spec 110). (16 symbols)
 - **test_token_budget.py** — Acceptance — token budget (Spec 023 / 082). (20 symbols)
+- **test_token_count_api.py** — Acceptance — TokenCounter typed result + cache + band (Spec 201).
+
+The authoritative `messages.count_tokens` backend already ships (Spec 082).
+These scenarios guard Spec 201's additions, network-free via a forced proxy
+counter: the typed `CountResult`, the per-(content, model) cache, and the
+band-agreement helper. (20 symbols)
 - **test_toolcalls.py** — Acceptance — the toolcalls capability (Spec 336 S2).
 
 The clear, discoverable MCP surface over the ephemeral tool-call store: stats,
@@ -1479,7 +1551,14 @@ interweave's load-bearing slice). (27 symbols)
 AcceptanceCriterion). (23 symbols)
 - **test_typed_read_api.py** — Acceptance — Spec 330: the typed Intent read API (IntentStore) + parity gate. (21 symbols)
 - **test_typed_spine.py** — Acceptance — Spec 329: typed Lifecycle state + the Memory provenance spine. (24 symbols)
+- **test_vision_matrix.py** — Acceptance — live vision-alignment matrix (Spec 191).
+
+The matrix is DERIVED from each spec's `vision_goals:` + `status:`
+frontmatter (Spec 149), never hand-maintained. (31 symbols)
 - **test_welcome.py** — Acceptance — agency_welcome (Spec 029 / 030). (38 symbols)
+- **test_wet_generation.py** — Acceptance — use-case model selection + OpenRouter-first generation (Spec 348).
+
+All selection logic is network-free. (68 symbols)
 - **test_workspace.py** — Acceptance — workspace capability (Spec 002).
 
 Converted from tests/test_workspace*.py (none existed in the flat suite — new coverage).
