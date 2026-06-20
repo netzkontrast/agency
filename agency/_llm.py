@@ -32,6 +32,8 @@ from __future__ import annotations
 import json
 import os
 import re
+from dataclasses import dataclass
+from typing import Literal
 
 _DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 _FREE_SUFFIX = ":free"
@@ -52,6 +54,16 @@ _MODEL_PREFERENCE: list[str] = [
 _URL = "https://openrouter.ai/api/v1/chat/completions"
 _SYSTEM = ('You are a constrained decider. Choose EXACTLY ONE option and a confidence in '
            '[0,1]. Reply ONLY with JSON: {"choice": "<one option>", "confidence": <float>}.')
+_GENERATION_SYSTEM = "You are a helpful assistant that produces clear, concise responses."
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    """Result of a plain-text generation call via OpenRouter's free backend (Spec 338)."""
+    text: str
+    model: str
+    backend: Literal["openrouter"]
+    finish_reason: str
 
 
 class LLMClient:
@@ -201,3 +213,81 @@ class LLMClient:
             if opt.lower() in low:
                 return {"choice": opt, "confidence": float(conf) if conf else 0.5}
         return {"choice": options[0] if options else "", "confidence": 0.0}
+
+    # ------------------------------------------------------------------
+    # Free-text generation (Spec 338)
+    # ------------------------------------------------------------------
+
+    def generate(self, prompt: str, *, system: str | None = None,
+                 max_tokens: int = 1024, model: str | None = None) -> GenerationResult:
+        """Generate free-form text via OpenRouter's free-model backend.
+
+        Enforces the same ``:free`` suffix as ``decide()`` — a misconfigured
+        ``model=`` override never silently incurs cost.  Raises ``RuntimeError``
+        when ``OPENROUTER_API_KEY`` is unset; use ``select_text_generator()`` to
+        route automatically to the Anthropic fallback in that case.
+        """
+        key = os.environ.get("OPENROUTER_API_KEY")
+        if not key:
+            raise RuntimeError(
+                "LLMClient.generate() needs OPENROUTER_API_KEY — "
+                "set it, or call select_text_generator() to route to the anthropic fallback")
+        use_model = model or self.model
+        if not use_model.endswith(_FREE_SUFFIX):
+            raise ValueError(
+                f"Per-call model override must be a free OpenRouter model "
+                f"(must end with '{_FREE_SUFFIX}', got {use_model!r})")
+        text, finish_reason = self._chat_text(key, prompt, use_model,
+                                              system=system, max_tokens=max_tokens)
+        return GenerationResult(text=text, model=use_model,
+                                backend="openrouter", finish_reason=finish_reason)
+
+    def _chat_text(self, key: str, prompt: str, model: str,      # pragma: no cover - network
+                   system: str | None = None, max_tokens: int = 1024) -> tuple[str, str]:
+        """Plain-text completion (no JSON schema). Returns ``(text, finish_reason)``."""
+        import httpx
+        body = {
+            "model": model,
+            "temperature": 0.7,
+            "max_tokens": max_tokens,
+            "messages": [
+                {"role": "system", "content": system or _GENERATION_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+        }
+        resp = httpx.post(
+            _URL, timeout=30, json=body,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                     "HTTP-Referer": "https://github.com/netzkontrast/agency",
+                     "X-Title": "agency"})
+        resp.raise_for_status()
+        choice = resp.json()["choices"][0]
+        return choice["message"]["content"], choice.get("finish_reason", "stop")
+
+
+def select_text_generator(drivers, *, env=os.environ):
+    """Return ``(name, driver)`` for plain-text generation (Spec 338).
+
+    Selection rule (highest-priority wins):
+    - ``OPENROUTER_API_KEY`` set → ``("llm", drivers.get("llm"))``
+      regardless of whether ``ANTHROPIC_API_KEY`` is also set (free-first
+      directive — OpenRouter always wins for plain text when the key is present).
+    - ``ANTHROPIC_API_KEY`` set → ``("anthropic", drivers.get("anthropic"))``.
+    - Neither set → raises ``RuntimeError`` (code: ``dependency_missing``);
+      callers wrap it in a typed ``ToolResult.failure`` and degrade to their
+      deterministic Spec-147 typed shape. NO automatic paid fallback.
+
+    ``drivers`` is any object with a ``.get(name)`` method (``DriverRegistry``
+    in production, a plain mapping wrapper in tests).
+    ``env`` defaults to ``os.environ``; pass an explicit dict for hermetic tests.
+    """
+    if env.get("OPENROUTER_API_KEY"):
+        return "llm", drivers.get("llm")
+    if env.get("ANTHROPIC_API_KEY"):
+        return "anthropic", drivers.get("anthropic")
+    raise RuntimeError(
+        "select_text_generator: no text generation backend available — "
+        "set OPENROUTER_API_KEY (free-first, OpenRouter) or "
+        "ANTHROPIC_API_KEY (Anthropic fallback). "
+        "code: dependency_missing"
+    )

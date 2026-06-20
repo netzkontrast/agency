@@ -1,7 +1,7 @@
 ---
 spec_id: "338"
 slug: openrouter-first-wet-generation
-status: draft
+status: shipped
 last_updated: 2026-06-20
 owner: "@agency"
 enhances: "331"
@@ -157,3 +157,38 @@ Then:   it requests the `anthropic` driver directly (free OpenRouter models
    Anthropic? **Recommend**: NO by default (a paid fallback on a free-first
    call violates the directive); make it an explicit opt-in env flag so the
    cost is never a surprise.
+
+## Followup — Implementation Status (2026-06-20, steward run)
+
+### Done — Slice 1 (complete, 2026-06-20)
+
+- **`GenerationResult` frozen dataclass** — `agency/_llm.py` (after constants):
+  `{text: str, model: str, backend: Literal["openrouter"], finish_reason: str}`.
+- **`_GENERATION_SYSTEM`** constant — minimal system prompt for plain-text calls.
+- **`LLMClient._chat_text(key, prompt, model, *, system, max_tokens)`** —
+  plain-text companion to `_chat()` (no `response_format` / JSON schema);
+  returns `(text, finish_reason)`; `# pragma: no cover - network` (same
+  convention as `_chat()`).
+- **`LLMClient.generate(prompt, *, system, max_tokens, model)`** —
+  enforces `:free` suffix; raises `RuntimeError` when `OPENROUTER_API_KEY`
+  absent; returns `GenerationResult`.
+- **`select_text_generator(drivers, *, env=os.environ)`** — module-level
+  selection rule: `OPENROUTER_API_KEY` → `("llm", drivers.get("llm"))`;
+  `ANTHROPIC_API_KEY` → `("anthropic", drivers.get("anthropic"))`; neither
+  → `RuntimeError(code: dependency_missing)`.
+- **6 Gherkin scenarios** in `tests/acceptance/features/wet_generation.feature`
+  + `tests/acceptance/test_wet_generation.py` (all hermetic — no network):
+  1. OpenRouter wins when both keys set.
+  2. Anthropic fallback when only `ANTHROPIC_API_KEY` set.
+  3. `DEPENDENCY_MISSING` when neither key set.
+  4. `generate()` enforces `:free` suffix.
+  5. `generate()` raises when key absent.
+  6. `generate()` returns `GenerationResult` via mocked `httpx.post`.
+- Full suite **1248 green**; drift clean; 5 docs re-stamped (check-doc-drift).
+- TODO.md Spec 338 row updated (Drafted → Shipped; count 89 → 90).
+
+### Still — consumer wiring
+
+Each `-wet` spec (204/220/226/230/240/249/311/317) needs to wire
+`select_text_generator(ctx.drivers)` as its generation seam in Slice 2.
+This spec ships the seam; each consumer spec wires its own call.

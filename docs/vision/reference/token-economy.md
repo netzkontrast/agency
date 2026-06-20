@@ -1,7 +1,7 @@
 # Token economy — the TokenCounter boundary + the doctrine
 
 <!-- doc-source: agency/_tokens.py agency/disclosure.py -->
-<!-- doc-hash: 44a7aa689e4e3808 -->
+<!-- doc-hash: f5126c543659c9d6 -->
 
 Token cost is a first-class budget in agency: discovery, verb briefs, and payloads are
 measured and gated so the system stays cheap to read/write/discover (Spec 066–074).
