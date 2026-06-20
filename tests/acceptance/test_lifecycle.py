@@ -1,0 +1,104 @@
+"""Acceptance — Lifecycle pillar substrate (Spec 339).
+
+Behaviour of the hardened `agency/lifecycle.py` substrate write frame:
+`open` mints `submitted`, `move` is the sole state-shaped writer that validates
+the target state + refuses a no-op, `close` drives to a terminal state. The
+transition table (340), events (344), and parameterization (342) land later.
+"""
+from __future__ import annotations
+
+import tempfile
+
+import pytest
+from pytest_bdd import given, parsers, scenarios, then, when
+
+from agency.engine import Engine
+
+scenarios("features/lifecycle.feature")
+
+
+@pytest.fixture
+def engine():
+    e = Engine(tempfile.mktemp(suffix=".db"))
+    yield e
+    e.memory.close()
+
+
+@pytest.fixture
+def confirmed_intent(engine):
+    iid = engine.intent.capture("lifecycle acceptance", "behaviour", "verified")
+    engine.intent.confirm(iid)
+    return iid
+
+
+@pytest.fixture
+def box():
+    """Mutable carrier for cross-step error capture."""
+    return {}
+
+
+@given("a fresh agency engine in code-mode", target_fixture="engine")
+def _given_engine(engine):
+    return engine
+
+
+@given("a confirmed intent", target_fixture="confirmed_intent")
+def _given_intent(confirmed_intent):
+    return confirmed_intent
+
+
+@when("I open a lifecycle serving the intent", target_fixture="lc")
+def _open_when(engine, confirmed_intent):
+    return engine.lifecycle.open(confirmed_intent)
+
+
+@given("an opened lifecycle", target_fixture="lc")
+def _open_given(engine, confirmed_intent):
+    return engine.lifecycle.open(confirmed_intent)
+
+
+@when(parsers.parse('I move the lifecycle to "{to_state}"'))
+def _move(engine, lc, to_state, box):
+    try:
+        engine.lifecycle.move(lc, to_state)
+        box["error"] = None
+    except Exception as exc:  # noqa: BLE001
+        box["error"] = exc
+
+
+@when(parsers.parse('I move the lifecycle to "{to_state}" again'))
+def _move_again(engine, lc, to_state, box):
+    try:
+        engine.lifecycle.move(lc, to_state)
+        box["second_error"] = None
+    except Exception as exc:  # noqa: BLE001
+        box["second_error"] = exc
+
+
+@when("I move the lifecycle to an unknown state")
+def _move_unknown(engine, lc, box):
+    try:
+        engine.lifecycle.move(lc, "bogus-state")
+        box["error"] = None
+    except Exception as exc:  # noqa: BLE001
+        box["error"] = exc
+
+
+@when(parsers.parse('I close the lifecycle as "{outcome}"'))
+def _close(engine, lc, outcome):
+    engine.lifecycle.close(lc, outcome=outcome)
+
+
+@then(parsers.parse('the opened lifecycle state is "{expected}"'))
+def _check_state(engine, lc, expected):
+    assert engine.memory.recall(lc).get("state") == expected
+
+
+@then("the move is rejected")
+def _move_rejected(box):
+    assert box.get("error") is not None
+
+
+@then("the second move is rejected")
+def _second_rejected(box):
+    assert box.get("second_error") is not None
