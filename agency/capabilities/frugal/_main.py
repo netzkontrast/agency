@@ -59,7 +59,8 @@ class FrugalCapability(CapabilityBase):
     name = "frugal"
     home = "lifecycle"   # a discipline parameterizing HOW work proceeds (cf. mode/select; Spec 347)
     ontology = OntologyExtension(
-        nodes={"DebtMarker": ["file", "line"], "FrugalReview": ["scope", "files"]})
+        nodes={"DebtMarker": ["file", "line"], "FrugalReview": ["scope", "files"],
+               "FrugalFinding": ["file", "line"]})
     artefact_schemas = ArtefactSchemas.from_module(__file__)
 
     # ── level / set_level / instructions / help (Slice 1) ─────────────────────
@@ -177,9 +178,16 @@ class FrugalCapability(CapabilityBase):
                                  "file": f, "line": fnd.get("line", 0),
                                  "message": fnd.get("message", "")})
         findings.sort(key=lambda x: (x["file"], x["line"]))
+        # Record the review aggregate AND each finding as a durable FrugalFinding
+        # node SERVING the intent (mirrors debt → DebtMarker) — so the judgment is
+        # a query, not a dropped tail. The wire return stays token-bounded (top-N),
+        # but the FULL findings live in the graph (Jules review Sev1: a counts-only
+        # FrugalReview lost the file/line/rule judgment to the graph).
         self.ctx.record_and_serve("FrugalReview", {
             "scope": scope, "files": len(py), "decidable": len(findings)})
-        return {"scope": scope, "files": len(py),
+        for fnd in findings:
+            self.ctx.record_and_serve("FrugalFinding", fnd)
+        return {"scope": scope, "files": len(py), "findings": len(findings),
                 "decidable_findings": findings[:_TOP_N],
                 "tags": ["delete", "stdlib", "native", "yagni", "shrink"],
                 "note": "Decidable bloat only (unused imports + long functions/files "

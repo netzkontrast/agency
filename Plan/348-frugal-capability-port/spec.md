@@ -362,3 +362,13 @@ via the new event"*).
   shallowed), and capture-cleanliness (the dedup marker never pollutes the
   tool-call store); 66 store/hook/event tests green. These are the regression lock
   that the NEXT session uses the ponytail port for sure.
+
+**Refinement 2026-06-20 — `review` provenance (Jules review Sev1).** `review`
+recorded only the FrugalReview aggregate (scope/files/decidable COUNT), dropping
+the file/line/rule/message judgment from the graph. Now it records EACH finding as
+a durable `FrugalFinding` node SERVING the intent (mirrors `debt` → `DebtMarker`;
+no foreign-key-prop anti-pattern, no dormant edge) + a `frugal-finding.json` schema;
+the wire return adds the full `findings` count beside the token-bounded
+`decidable_findings`. The acceptance bloat scenario asserts the FrugalFinding node
+count equals the reported findings count (computed, not pinned) — the full judgment
+is a graph query, not a dropped tail.

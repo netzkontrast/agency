@@ -49,6 +49,7 @@ Feature: frugal capability — the ponytail port (Spec 348 Slice 1)
     Then the review flags a decidable cut
     And the review names the over-engineering tags
     And a FrugalReview node serves the intent
+    And every finding is a durable FrugalFinding node serving the intent
 
   Scenario: review on lean code flags nothing but still records the run
     Given a lean python source tree

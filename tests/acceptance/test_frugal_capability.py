@@ -167,6 +167,15 @@ def _rserved(engine, confirmed_intent, fr):
     assert served(engine, confirmed_intent, "FrugalReview") >= 1
 
 
+@then("every finding is a durable FrugalFinding node serving the intent")
+def _findings_durable(engine, confirmed_intent, fr):
+    # the moat: the FULL judgment is in the graph, not just the FrugalReview count
+    # (Jules Sev1). The node count equals the reported full findings count, NOT the
+    # token-bounded wire slice — computed, not a pinned magic number (rule 8).
+    n = served(engine, confirmed_intent, "FrugalFinding")
+    assert n == fr["findings"] >= 1, (n, fr.get("findings"))
+
+
 # ── event bus first-use-once (Spec 349a) ──────────────────────────────────────
 
 
