@@ -253,11 +253,12 @@ trigger:  hook stdin  |  lifecycle.move  |  capability event.emit
 ## Acceptance (Gherkin — the contract a later slice implements)
 
 ```gherkin
-Scenario: a capability declares a subscription and the bus registers it
+Scenario: a declared subscription reacts when its event fires (behaviour, not the call)
   Given a capability declaring subscriptions=[{event:"hook:PreToolUse", handler:"on_first_tool_use"}]
-  When the engine boots
-  Then register_hook_handler was called for "hook:PreToolUse" with that handler
-  And manage/search can list it as a subscriber of that event
+  And the engine has booted
+  When hook:PreToolUse fires
+  Then the on_first_tool_use handler runs and its effect is observable
+  And search/manage lists the capability as a subscriber of that event
 
 Scenario: first use of a tool emits once, then stays silent
   Given the frugal first-use subscription is active in a session
@@ -294,6 +295,45 @@ Scenario: every delivery is replayable provenance
   When I call dogfood.replay_events(intent_id)
   Then each delivery appears as an Event in recorded order
 ```
+
+## Refinement — spec-panel pass (2026-06-20)
+
+`spec-panel-review.md` (critique, 6.8→8.1). These folds are **authoritative**:
+
+- **B1 — the bus is SUBSTRATE, not a capability (the Spec 338 precedent).**
+  Resolved: `ctx.events` + `event_*` substrate tools (`event_emit`,
+  `event_subscribers`, `event_log`), seeded in `Engine.__init__` like `hook_event`
+  and the lifecycle pillar — NOT `agency/capabilities/events/`. Capabilities
+  *consume* the substrate; they don't host it. (Supersedes §5's "slice spec
+  decides" hedge.)
+- **B2 — re-entrancy contract.** An `event.emit` raised inside a delivery is
+  **enqueued and drained breadth-first after** the current fan-out, never
+  recursed. A hard depth/fan cap (config; default 3 / 64) bounds storms; emits
+  beyond it are dropped-with-warning (warn-don't-cut applies to the log, not the
+  dispatch). Dispatch stays synchronous; re-entry does not recurse.
+- **M1 — `additionalContext` aggregation.** Ordered by subscriber `priority` then
+  name, deduped by content hash, **token-bounded** (reuse `shell.filter` —
+  "hook-ready"), each fragment labelled with its emitter.
+- **M2 — hot-path dedup.** `once_per` is an **in-session memo written through to
+  the graph**: the memo (keyed `session.tool`) is the O(1) read path; the
+  `first_use_emit` Event is written once for durability/replay. The graph is truth
+  on a cold session; the memo is the hot path — no graph query per `PreToolUse`.
+- **M3 — acceptance altitude.** Every scenario asserts observable behaviour, never
+  an internal call ("register_hook_handler was called") — CLAUDE.md rule 7. (First
+  scenario already re-altituded above.)
+- **M4 — payload evolution.** Event payloads are **emitter-typed and append-only**
+  (fields added, never renamed/removed within a name); subscribers MUST tolerate
+  unknown fields (forward-compat).
+- **m1 — `config disable:`** is keyed by `(event, handler)`; a `disable` matching
+  no declared subscription is a config warning, not a silent no-op.
+- **m2 — external-hook trust boundary.** A `run:` shell hook executes with the
+  user's privileges; the repo owner editing the project's own `config.yaml` IS the
+  trust boundary (the ponytail "trust node on PATH" shape). External hooks run only
+  from the project's `config.yaml`, sandboxed + time-bounded (deferred runner).
+
+Acceptance additions: a re-entrant emit drains without recursion (B2); two
+subscribers' context merges token-bounded + labelled (M1); an extra payload field
+doesn't break a subscriber (M4).
 
 ## Followup — Implementation Status (2026-06-20)
 

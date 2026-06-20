@@ -90,8 +90,7 @@ discipline text.
 | `frugal.level` | read | `/ponytail` (no-arg) | report the active level (env `AGENCY_FRUGAL_LEVEL` → `.agency/config.yaml` → `full`). |
 | `frugal.set_level` | effect | `/ponytail lite\|full\|ultra\|off` | persist the level (wraps `set_frugal_level`). |
 | `frugal.instructions` | read | `ponytail-mcp` prompt+tool | return the ruleset text at a level (wraps `render`). **The MCP port** (§4). |
-| `frugal.review` | transform | `/ponytail-review` | review a diff for over-engineering; emit `Finding` artefacts + `net: -N lines`. |
-| `frugal.audit` | transform | `/ponytail-audit` | repo-wide over-engineering scan, ranked biggest-cut-first; emit findings. |
+| `frugal.review` | transform | `/ponytail-review` + `/ponytail-audit` | over-engineering review at `scope="diff"` (default — working-tree `git diff`) or `scope="repo"` (ranked, within `paths`); emit `Finding` artefacts + `net: -N`. **One verb, not two** (B1) — `audit` IS `review(scope="repo")`. |
 | `frugal.debt` | transform | `/ponytail-debt` | harvest `frugal:`/`ponytail:` comments → a `DebtLedger` node + typed `DEBT` edges. |
 | `frugal.gain` | read | `/ponytail-gain` | impact scoreboard, **sourced from a data file** (§6), plus a live pointer to `frugal.debt`. |
 | `frugal.help` | read | `/ponytail-help` | reference card, **derived from the live verb registry** (§6). |
@@ -249,6 +248,42 @@ Scenario: frugal is mandatory but the level is overridable
 Scenario: the floor is intact at every non-off level
   Then frugal.safety-floor check passes for lite, full, and ultra
 ```
+
+## Refinement — spec-panel pass (2026-06-20)
+
+`spec-panel-review.md` (critique, 7.0→8.0). These folds are **authoritative** over
+the design above where they differ:
+
+- **B1 — one `review` verb, not two (the spec applies its own ladder).**
+  `frugal.audit` is not a separate verb; it is `frugal.review(scope="repo")`. The
+  surface is **7 verbs**: `level · set_level · instructions · review · debt · gain
+  · help`. ("audit" survives as the `scope="repo"` mode + a documented alias.)
+- **B2 — "mandatory" = two gate-checked invariants** (not a re-statement of Spec
+  332): (1) `agency_welcome` always lists the frugal *capability surface* (the
+  verbs), not just the discipline text; (2) a gate asserts the SessionStart
+  payload carries the discipline at every non-`off` level AND the capability is
+  discoverable at every level including `off`. 332 injects text; 348 guarantees
+  the *surface* + the *gate*.
+- **M1 — `review` input contract:** defaults to the working-tree diff (`git diff`
+  HEAD); `ref`/`diff` overrides; `scope="repo"` walks `paths`.
+- **M2 — operational bound:** `review(scope="repo")` and `debt` take a `paths`
+  scope (default: tracked source minus `node_modules`/`.git`/build dirs); capture
+  stays full *within scope* (CLAUDE.md #76 governs no-truncation, not scan-the-world).
+- **M3 — `debt` matches comment-prefixed markers only** across the widened prefix
+  set (`#` `//` `--` `<!-- -->` `;` `%` `/* */`), never a bare substring — a
+  `"frugal:"` inside a string literal is not harvested.
+- **M4 — `instructions`' primary actor** is an external / no-hook host (the
+  ponytail-MCP case); agency-internal agents receive frugal from the SessionStart
+  inject and never call it.
+- **m1 — `gain`'s `benchmark.json`** is a documented external constant (a
+  published, cited measurement) — the explicit CLAUDE.md #8 exception, not a
+  frozen current-state snapshot.
+- **m2 — `help`** equals the live `frugal.*` registry set (computed + asserted by
+  a test, rule 8) — drift-proof.
+
+Acceptance additions (fold into the Gherkin): a `debt` string-literal **negative**
+(not harvested); `help` **== registry** equality; the **mandatory-surface gate**
+(welcome lists the verbs + the SessionStart discipline is non-empty at non-`off`).
 
 ## Followup — Implementation Status (2026-06-20)
 
