@@ -6,6 +6,7 @@ __pycache__/
 # .claude/ shared project config is tracked (settings.json + CLAUDE.md);
 # only the personal/local overrides file stays ignored.
 .claude/settings.local.json
+.claude/worktrees/
 *.bak
 # Spec 021 — engine monitor SLOG (ephemeral; durable provenance is the graph)
 .agency/monitor.log
