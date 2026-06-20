@@ -7,7 +7,7 @@ Fetch a discipline's heavy how-to on demand (T3 disclosure).
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `topic (one of testing-skills | skill-descriptions | best-practices | …).` |  |  |
+| `topic (one of testing-skills | skill-descriptions | best-practices | frugal | …).` |  |  |
 
 ## Returns
 
