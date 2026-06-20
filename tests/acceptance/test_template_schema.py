@@ -534,10 +534,10 @@ def _boot_engine_schema_titles():
     asserts the stronger invariant: the engine ontology actually carries
     each core schema (guards the Slice 6 declaration regression)."""
     from agency.engine import Engine
+    from agency._schema_coverage import engine_loaded_schema_titles
     e = Engine(":memory:")
     try:
-        titles = {v.get("title") for v in e.ontology.schemas.values()
-                  if isinstance(v, dict)}
+        titles = engine_loaded_schema_titles(dict(e.ontology.schemas))
     finally:
         e.memory.close()
     return titles
@@ -737,6 +737,32 @@ def _analyze_select_loaded(loaded_schema_titles):
         + "\n".join(f"  {l}" for l in sorted(missing)))
 
 
+# ── Slice 6: foundational-service wave ───────────────────────────────────────
+# DoctrineCitation (doctrine cap) + ModeActivation (mode cap) +
+# ThinkingMethod (thinking cap) — all inline OntologyExtension schemas
+# (no file-backed schemas dir; inline is loaded by the engine automatically).
+# A named contract set, not a snapshot count (CLAUDE.md rule 8).
+FOUNDATIONAL_SERVICE_LABELS = {"DoctrineCitation", "ModeActivation", "ThinkingMethod"}
+
+
+@then("the foundational service labels are all schema-covered")
+def _foundational_service_covered(coverage_report):
+    missing = FOUNDATIONAL_SERVICE_LABELS - coverage_report.covered
+    assert not missing, (
+        "foundational-service labels lack a Schema "
+        "(Spec 153 Slice 6 — foundational-service wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the foundational service labels each have a loaded ontology schema")
+def _foundational_service_loaded(loaded_schema_titles):
+    missing = FOUNDATIONAL_SERVICE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "foundational-service schemas are not loaded by the engine "
+        "(add inline schema to the owning capability's OntologyExtension):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
 # ── research + develop-extras wave ───────────────────────────────────────────
 # Research/ResearchClaim (research cap) + Plan/PlanStep/ModeShift/SessionLifecycle (develop cap)
 # Both caps already declare artefact_schemas — only schemas needed.
@@ -787,5 +813,32 @@ def _recommend_mode_panel_thinking_loaded(loaded_schema_titles):
     missing = RECOMMEND_MODE_PANEL_THINKING_LABELS - loaded_schema_titles
     assert not missing, (
         "recommend+mode+panel+thinking schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── plugin + persona + doctrine + dogfood wave ───────────────────────────────
+# Plugin/Command (plugin, already wired) + ResearchBrief (prompt, already wired)
+# + PersonaBrief (persona) + DoctrineCitation (doctrine) + DecisionRecord (dogfood)
+PLUGIN_PERSONA_DOCTRINE_DOGFOOD_LABELS = {
+    "Plugin", "Command", "ResearchBrief",
+    "PersonaBrief", "DoctrineCitation", "DecisionRecord",
+}
+
+
+@then("the plugin-persona-doctrine-dogfood labels are all schema-covered")
+def _plugin_persona_doctrine_dogfood_covered(coverage_report):
+    missing = PLUGIN_PERSONA_DOCTRINE_DOGFOOD_LABELS - coverage_report.covered
+    assert not missing, (
+        "plugin+persona+doctrine+dogfood labels lack a Schema "
+        "(Spec 153 Slice 6 — plugin+persona+doctrine+dogfood wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the plugin-persona-doctrine-dogfood labels each have a loaded ontology schema")
+def _plugin_persona_doctrine_dogfood_loaded(loaded_schema_titles):
+    missing = PLUGIN_PERSONA_DOCTRINE_DOGFOOD_LABELS - loaded_schema_titles
+    assert not missing, (
+        "plugin+persona+doctrine+dogfood schemas are on disk but NOT loaded by "
         "the engine (declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
