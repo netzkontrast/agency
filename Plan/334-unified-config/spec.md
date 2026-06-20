@@ -127,6 +127,13 @@ doctor reports *presence*, not the value.
    for hand-written core keys. Derived (no literals); the alias surfaces in the
    scaffold comment for discoverability. String/int coercion mirrors the file path
    (env values are strings; the cap coerces on read).
+8. **User-facing `config` capability.** A thin `agency/capabilities/config/` cap
+   (`home="capability"`, no graph artefacts) exposing `get` / `set` / `list` over
+   the `_config` resolver — so an agent or the CLI reads/persists config without
+   hand-editing the file. Drop-in: the install regen mints the CLI mirror
+   (`bin/agency-config-{get,set,list}`), the derived skill, and the MCP wiring with
+   no edits elsewhere. Safety floor: `set` refuses secrets + unregistered keys with
+   a clean `{error}`; `list` redacts secrets; no traceback escapes a verb.
 
 ## Acceptance criteria
 
@@ -149,6 +156,9 @@ doctor reports *presence*, not the value.
   a value set under `<cap>.<key>` in the unified `.agency/config.yaml` is returned
   by `<Cap>Config.load()`; a present cap-local file still wins; with neither set
   the dataclass default is returned (floor unchanged).
+- **C8 (user-facing surface)** — `config.get/set/list` read and persist config
+  through the resolver from the agent + CLI; `set` refuses secrets and unregistered
+  keys with a clean error (no traceback); `list` redacts secrets.
 
 ## Acceptance scenarios (Gherkin sketch)
 
@@ -282,6 +292,22 @@ Scenario: a per-key env var overrides the unified file for a capability key
   (per-key env overrides the unified file for a cap key) + the resolver source is
   `env`. No new env-var collisions (cap dir-overrides `AGENCY_<CAP>_HOME` are
   distinct from the per-key `AGENCY_<CAP>_<FIELD>`).
+- **Done — Slice 8** (user-facing `config` capability): `agency/capabilities/config/`
+  (`home="capability"`, no artefact schemas) exposes `get`/`set`/`list` as thin
+  wrappers over `_config` — `get`→`config_resolve`, `set`→`config_set` (then
+  re-resolve), `list`→`config_report`+`config_validate`. `get`/`set` call
+  `_ensure_all_registered()` first so any capability key resolves. Safety floor:
+  `set` refuses a secret (`config_set`'s `ValueError` surfaced as `{error}`) and an
+  unregistered key (`_lookup` guard); `get`/`list` never leak a secret literal or a
+  traceback. Verbs are `role="act"` (the `Role` enum has no `read`; mirrors
+  `manage`/`mode`/`persona` `list`). Drop-in: `python -m agency.install` minted
+  `bin/agency-config-{get,set,list}`, `commands/agency-config-usage.md`,
+  `skills/config/`, and the plugin-registry updates with no hand edits. Acceptance:
+  5 scenarios in `features/config_capability.feature` (get-source, set+get-roundtrip,
+  list-with-redaction, secret-refusal, unregistered-key-error). SkillDoc lint forced
+  two docstring fixes (overview must avoid the `\d+[.)]\s` workflow-summary pattern;
+  red flags need a ` → ` delimiter). 118 naming/install/discovery tests stay green;
+  drift clean.
 - **Self-review hardening (2026-06-19):** (1) a `secret` key now resolves env →
   default, **never** the file `${env:VAR}` placeholder (`config_resolve` skips the
   file for secrets — was leaking the literal string to `config_get`); (2)
