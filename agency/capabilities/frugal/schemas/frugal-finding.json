@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FrugalFinding",
+  "description": "One decidable over-engineering finding from a frugal.review run (agency/capabilities/frugal; Spec 348). Composed from analyze.quality on an in-scope file: records file:line, the rule code, the over-engineering tag (delete/shrink/yagni), and the full message, so the WHOLE judgment is durable in the graph (a query, not a dropped wire tail). The review's token-bounded return shows only the top-N; every finding is recorded here.",
+  "type": "object",
+  "required": ["file", "line"],
+  "properties": {
+    "file": {
+      "type": "string",
+      "description": "Path of the file the finding is in."
+    },
+    "line": {
+      "type": "integer",
+      "description": "1-based line number of the finding."
+    },
+    "tag": {
+      "type": "string",
+      "description": "The over-engineering tag (delete | shrink | yagni | stdlib | native), mapped from the analyze rule code."
+    },
+    "rule": {
+      "type": "string",
+      "description": "The analyze.quality rule code the finding came from (e.g. Q001)."
+    },
+    "message": {
+      "type": "string",
+      "description": "The full finding message from analyze.quality (stored in full, never truncated)."
+    }
+  }
+}

@@ -20,8 +20,13 @@ from agency.engine import Engine
 
 
 @pytest.fixture
-def engine():
-    """A fresh engine on a throwaway DB."""
+def engine(tmp_path, monkeypatch):
+    """A fresh engine on a throwaway DB. The ephemeral Spec 336 tool-call store is
+    isolated PER TEST (``AGENCY_TOOLCALLS_DB`` under tmp_path): without this every
+    test's ``mktemp`` graph db shares one dir (``/tmp``), so the derived
+    ``toolcalls.db`` is a single shared file accumulating capture across tests +
+    runs — a cross-test leak the Spec 349a capture-cleanliness scenario exposes."""
+    monkeypatch.setenv("AGENCY_TOOLCALLS_DB", str(tmp_path / "toolcalls.db"))
     eng = Engine(tempfile.mktemp(suffix=".db"))
     yield eng
     eng.memory.close()

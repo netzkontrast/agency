@@ -507,13 +507,20 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
 
 
 def _session_start_handler(engine, event: dict) -> dict:
-    """Spec 332 M1 — inject the full frugal discipline at session start. Records
-    the Event (default handler) then adds the discipline; degrades silently.
-    Spec 334 Slice 3 — also repair an existing config (add newly-registered
-    sections), non-destructively."""
+    """Spec 332 M1 / Spec 348 / Spec 349a — inject the full frugal discipline at
+    session start, delivered VIA THE EVENT BUS with a once-per-session dedup so the
+    deep card lands exactly ONCE even though SessionStart fires on startup AND
+    resume AND every compaction (a direct inject repeated the heavy card each
+    time). Records the Event (default handler) first; the `frugal.session_inject`
+    subscriber returns the deep card (fail-open to EMIT). Degrades silently. Spec
+    334 Slice 3 — also repair an existing config (add newly-registered sections),
+    non-destructively."""
+    from . import _events
     base = _default_hook_handler(engine, event)
     _maybe_repair_config()
-    return {**base, "inject": _append_frugal("", prompt=False)}
+    frags = _events.run(engine, "SessionStart", event)
+    inject = "\n".join(f"[agency] {f}" for f in frags if f)
+    return {**base, "inject": inject}
 
 
 def _maybe_repair_config() -> None:
