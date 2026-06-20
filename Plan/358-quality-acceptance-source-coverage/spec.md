@@ -95,6 +95,28 @@ proves it ported the *judgment* (the "What Not to Flag" guards from
 `decay-risks.md`), not just the symptom list. Coverage is asserted by a meta-test:
 `live_risk_codes ⊆ risks_with_happy_scenarios ∩ risks_with_false_positive_scenarios`.
 
+**Concrete fixtures, not prose Givens (Adzic fix).** "Given a composition root
+wiring concrete dependencies" is a description, not a test — it cannot guard
+anything. Each scenario binds a **real fixture file** under
+`tests/acceptance/fixtures/quality/<risk>/{positive,negative}.py` (the actual
+code) and asserts against the **structured `Finding`** (risk_code + the Iron Law
+fields), not a prose match. The fixtures ARE the specification-by-example corpus —
+the negative (false-positive) fixtures especially must be real compilable code, or
+the "What Not to Flag" guard is untested.
+
+**Per-mode coverage, not only per-risk (Crispin fix).** The meta-test also asserts
+each of the six modes (review/audit/debt/test/health/sweep) has ≥1 scenario — risk
+coverage and mode coverage are independent matrices, both enforced.
+
+**Deterministic vs wet-LLM split (Crispin fix — the load-bearing test-strategy
+decision).** The decidable-tagging scenarios are deterministic (no LLM) and run in
+the **default CI gate every PR**. The judgment-pass scenarios exercise a
+non-deterministic LLM (Spec 352 wet path) and are **tag-gated** (`-m wet`, run on a
+tag / nightly), mirroring the existing `-m e2e` split (Spec 053) — so the PR gate
+never flakes on model variance, while the judgment is still exercised. The
+false-positive *decidable* guards (e.g. R5 composition-root via import analysis)
+stay deterministic; only the *reasoning* guards are wet.
+
 ### 3. Parser benchmark → SARIF-validity property test
 
 brooks' `benchmark-corpus.json` (frozen 30 reports) + `benchmark.mjs` test the
@@ -170,6 +192,19 @@ Scenario: citing a book requires a matching symptom
   Given an R1 finding
   Then its Source names a book whose source-coverage entry covers that symptom
   And a finding cannot cite a book absent from source-coverage.json
+
+Scenario: scenarios bind real fixtures, not prose Givens
+  Then each happy/false-positive scenario references a fixture file under
+       tests/acceptance/fixtures/quality/<risk>/{positive,negative}.py
+  And it asserts the structured Finding (risk_code + Iron Law fields), not a prose match
+
+Scenario: deterministic decidable scenarios run every PR; wet judgment is tag-gated
+  Then decidable-tagging scenarios carry no wet marker and run in the default gate
+  And judgment-pass scenarios are marked -m wet (run on a tag/nightly, not the PR gate)
+
+Scenario: every mode has coverage, independent of risk coverage
+  Then each of review/audit/debt/test/health/sweep has >=1 acceptance scenario
+  And the mode matrix and the risk matrix are both enforced by the meta-test
 ```
 
 ## Open questions
@@ -188,5 +223,14 @@ No code yet. Translates brooks' evals + benchmark into agency's Gherkin-acceptan
 canon (rule 7, Spec 077) + SARIF property tests; vendors the 12-book
 source-coverage as derived data (rule 8). Reuses Spec 053/054 (test slices +
 drift). Depends on 354 (risk registry) + 355 (modes to exercise). Lands last,
-validating 354–357. Next (after 354/355): `source-coverage.json` + the paired
-acceptance features + the SARIF property test + the check-drift rule.
+validating 354–357.
+
+**Amended 2026-06-20 (spec-panel critique):** scenarios bind **real fixture files**
+(`tests/acceptance/fixtures/quality/<risk>/{positive,negative}.py`) asserting the
+structured `Finding`, not prose Givens (Adzic); the deterministic decidable
+scenarios run in the default PR gate while wet-LLM judgment scenarios are
+**tag-gated `-m wet`** (Crispin — no PR-gate flakiness); the meta-test enforces a
+**per-mode** coverage matrix alongside the per-risk one (Crispin). Next (after
+354/355): `source-coverage.json` (+ `_source` marker) + the paired fixture-backed
+acceptance features (deterministic + `-m wet`) + the SARIF property test + the
+per-risk/per-mode check-drift rule.

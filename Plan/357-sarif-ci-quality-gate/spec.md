@@ -80,35 +80,66 @@ gate.check(lifecycle_id, name="quality:<mode>",
 Thresholds are config (`quality.gate.min_score`, `quality.gate.max_critical` —
 Spec 356), documented tunable budgets (rule 8). A failed gate flips the lifecycle
 `input-required` (the existing `gate` behaviour, codegraph: gate/_main.py:52-57) →
-in CI that is a non-zero exit (§3); interactively it pauses for a confirm
-override. The gate outcome is **auditable provenance** (a `Gate` node), which
-brooks' `ci-gate.mjs` exit code was not.
+in CI a new **`gate.assert(name)`** reader verb (OQ2) reads the latest `Gate` and
+exits non-zero on `BLOCKED_ON`; interactively it pauses for a confirm override. A
+wedged PR (false-positive critical, `max_critical=0`, no interactive confirm) has
+a documented bypass — a `quality-override` label or a config threshold bump —
+recorded as `Gate{overridden_by}` (§3, Nygard). The gate outcome is **auditable
+provenance** (a `Gate` node), which brooks' `ci-gate.mjs` exit code was not.
 
 ### 3. CI step — review the diff, emit SARIF, gate the PR
 
 A job in `.github/workflows/test.yml` (or a sibling `quality.yml`), mirroring
-brooks' GitHub Action + agency's existing CI shape:
+brooks' GitHub Action + agency's existing CI shape. **The CI entry is
+`analyze.review` — the headless twin (355 §3a)** — never `develop.review`, because
+the CI actor must not pause (Cockburn):
 
 ```yaml
 quality:
+  permissions: { security-events: write, contents: read }   # SARIF upload needs this
   steps:
-    - run: agency develop review --mode review --scope diff   # CLI mirror (Spec 079)
-    - run: agency analyze sarif > quality.sarif
+    - uses: actions/cache@v4                 # persist the graph for trend (Hightower)
+      with: { path: .agency, key: agency-quality-${{ github.base_ref }} }
+    - run: agency analyze review --mode review --scope diff --ci   # headless; never blocks
+    - run: agency analyze sarif --review $REVIEW_ID --max-results 5000 > quality.sarif
     - uses: github/codeql-action/upload-sarif@v3
       with: { sarif_file: quality.sarif }
-    - run: agency gate assert --name "quality:review"   # non-zero if BLOCKED_ON
+    - run: agency gate assert --name "quality:review"   # non-zero iff BLOCKED_ON
 ```
 
-- Runs on PRs (incremental, `--scope diff`) — fast, per CLAUDE.md rule 7's
-  "focused slice locally / CI is the net" discipline.
-- SARIF upload makes findings inline-annotate the PR (the code-scanning surface).
-- The gate step fails the check if the quality gate is `BLOCKED_ON`.
+- **Runs on PRs** (incremental, `--scope diff`) — fast, per CLAUDE.md rule 7.
+- **LLM credential + graceful degradation (Hightower fix).** The judgment pass
+  needs an LLM key (openrouter/anthropic). When the secret is present, CI runs the
+  full hybrid; **when absent, `analyze.review` degrades to decidable-only** (free,
+  keyless, every fork/PR still gets the mechanical findings) and the report notes
+  `judgment: skipped (no LLM key)`. The decidable gate still runs. No silent
+  full-pass-that-was-actually-empty.
+- **Trend in ephemeral CI (Hightower fix).** The graph DB is otherwise fresh each
+  run, so the 356 `QualityRun` trend would always read "first run". The job
+  **caches `.agency/` keyed by the base branch** so prior `QualityRun` nodes
+  survive across CI runs; on a cache miss the report says "first run" (honest
+  fallback, not a broken feature).
+- **SARIF size cap (Nygard fix).** GitHub caps code-scanning SARIF (~10MB / 25k
+  results). `analyze.sarif --max-results N` paginates/caps and emits a truncation
+  **locator** (CLAUDE.md #9 — count + "N of M shown", never a silent drop); the
+  full finding set stays in the graph.
+- **Stuck-PR override (Nygard fix).** A false-positive critical with
+  `max_critical=0` would wedge the PR with no interactive confirm available. The
+  gate honours a documented bypass: a `quality-override` PR label OR a config
+  `quality.gate.max_critical` bump, recorded as `Gate{overridden_by}` provenance.
+- The gate step fails the check iff the quality gate is `BLOCKED_ON`.
 - The agency self-hosted-install drift check (existing) is unaffected.
 
 > **Tension resolved — incremental in CI, full on demand.** PR CI reviews only
 > the diff (`--scope diff`) so it is cheap and unblocking; a scheduled/whole-repo
 > `audit`/`health` run (`--scope repo`) is a separate, slower job (or a manual
 > dispatch), exactly as brooks separates PR Review from Architecture Audit.
+
+> **Failure mode — a partial walk never reports green (Nygard fix).** If the
+> judgment pass crashes/times out mid-walk, the run records
+> `QualityRun{status: incomplete}` and the gate step **does not emit a pass
+> verdict** (exit non-zero with "review incomplete"), so a crashed review can never
+> masquerade as a clean one.
 
 ### 4. Report rendering — the Iron Law template via `document.render`
 
@@ -171,21 +202,62 @@ Scenario: the report renders the Iron Law template
 Scenario: the SARIF rule set cannot drift
   Then the SARIF rule ids equal the live risk-code registry set
   And adding a custom Cx risk adds exactly one SARIF rule, with no code edit
+
+Scenario: CI degrades to decidable-only without an LLM key
+  Given the quality CI job runs with no LLM secret configured
+  When analyze.review --ci runs
+  Then decidable findings are still produced and the decidable gate runs
+  And the report notes "judgment: skipped (no LLM key)"
+  And the job does not report a full clean pass it did not perform
+
+Scenario: trend survives ephemeral CI via the graph cache
+  Given the .agency graph cache restored a prior QualityRun for this base branch
+  When a new CI review runs
+  Then the report Trend line shows the delta from the cached prior run
+  And a cache miss falls back to "first run" (not a crash)
+
+Scenario: SARIF is capped with a truncation locator, never silently dropped
+  Given a whole-repo audit producing 40000 findings
+  When analyze.sarif --max-results 5000 renders
+  Then at most 5000 results are emitted
+  And the SARIF reports "5000 of 40000 shown" and the full set stays in the graph
+
+Scenario: a false-positive critical can be overridden in CI
+  Given a blocked gate and a quality-override PR label
+  When the gate step runs
+  Then the gate passes and records Gate{overridden_by: "label:quality-override"}
+
+Scenario: a partial walk never reports green
+  Given the judgment pass crashes after 3 of 8 risks
+  Then QualityRun.status is "incomplete"
+  And the gate step exits non-zero with "review incomplete"
 ```
 
-## Open questions
+## Open questions (resolved 2026-06-20 — spec-panel)
 
-- **OQ1** — one `quality.yml` workflow or a job inside `test.yml`? (Default: a job
-  in `test.yml` for PRs + a separate scheduled `quality-audit.yml` for whole-repo.)
-- **OQ2** — `agency gate assert` CLI verb: add it, or have `develop.review` exit
-  non-zero directly in `--ci` mode? (Default: a thin `gate.assert` reader verb —
-  reusable beyond quality.)
+- **OQ1 — RESOLVED:** a job in `test.yml` for PRs (`--scope diff`) + a separate
+  scheduled `quality-audit.yml` for whole-repo (`--scope repo`). The diff job is
+  keyless-capable (decidable-only) so forks aren't blocked on a secret.
+- **OQ2 — RESOLVED:** add the thin `gate.assert(name)` reader verb (reusable
+  beyond quality) — it reads the latest `Gate` for the name and exits non-zero on
+  `BLOCKED_ON`. Cleaner than a `--ci` exit baked into `analyze.review`.
 
 ## Followup — Implementation Status (2026-06-20)
 
 **DRAFTED 2026-06-20** — the CI/output slice of the Spec 353 program. No code yet.
 Reuses `gate` (codegraph: gate/_main.py:24/52), `document.render` (Spec 292), the
 CLI mirror (Spec 079), and `test.yml`. Depends on 354 (findings) + 356 (score).
-Port-forward: `report-parse.mjs` dropped (findings born structured). Next (after
-354/356): `_sarif.py` + `analyze.sarif` + the gate wiring + the CI job + the
-report template, RED→GREEN.
+Port-forward: `report-parse.mjs` dropped (findings born structured).
+
+**Amended 2026-06-20 (spec-panel critique — the operational axis was the weakest at
+5.5/10; this is the hardening pass).** CI entry is the headless `analyze.review`
+twin (355 §3a), never the interactive `develop.review` (Cockburn). Added:
+keyless decidable-only degradation when no LLM secret (Hightower); `.agency` graph
+cache keyed by base branch so the 356 trend survives ephemeral CI (Hightower);
+`security-events: write` permissions; `analyze.sarif --max-results` cap with a
+truncation locator (Nygard); a `quality-override` label / threshold-bump bypass
+for a wedged PR, recorded as `Gate{overridden_by}` (Nygard); a partial-walk
+`QualityRun{status: incomplete}` that never reports green (Nygard). OQ1/OQ2
+resolved (job-in-`test.yml` + scheduled `quality-audit.yml`; thin `gate.assert`
+reader verb). Next (after 354/356): `_sarif.py` + `analyze.sarif` (+ `--max-results`)
++ `gate.assert` + the CI job + the report template, RED→GREEN.

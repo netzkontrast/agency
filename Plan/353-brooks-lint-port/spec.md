@@ -176,21 +176,35 @@ graph node SERVING the intent, so:
 ```
 353 (this umbrella)
  └─ 354  decay-risk Finding shape + knowledge data   ← FOUNDATION (no dep)
-     ├─ 355  six modes as skills + develop.review     ← needs 354
+     ├─ 355  review/remediate + 6 modes + headless twin ← needs 354
      ├─ 356  Health Score + config + history          ← needs 354
      │        + intent.triage (suppression write)     ← + intent (091)
-     ├─ 357  SARIF + CI + quality gate                ← needs 354 (+356 score)
+     ├─ 357  SARIF + CI + quality gate (+ ops hardening) ← needs 354 (+356 score)
      ├─ 358  acceptance + source-coverage + evals      ← needs 354,355
-     └─ 359  brooks PROSE → templates + references      ← needs 354,355,357
+     ├─ 359  brooks PROSE → templates + references      ← needs 354,355,357
+     └─ 360  migration (.brooks-lint.* → config+graph)  ← needs 356
 ```
 
 354 ships first (everything depends on the extended `Finding` + the data). 355
 and 356 are parallelizable on top of 354. 357 needs the score from 356. 358
-(tests/docs) + 359 (prose/templates) land last: 359 renders 357's report path and
-binds 355's mode skills, so it follows them; 358 validates the rest. The triage
-verb (`intent.triage`) is an `intent` addition carried under 356 (owner directive
-2026-06-20: a `Finding` SERVES an intent, so triaging it is a judgment the
-`intent` capability owns — beside `intent.assumptions`/`tradeoffs`).
+(tests/docs) + 359 (prose/templates) + 360 (migration) land last: 359 renders
+357's report path and binds 355's mode skills; 360 imports into 356's config +
+nodes; 358 validates the rest. The triage verb (`intent.triage`) is an `intent`
+addition carried under 356 (a `Finding` SERVES an intent, so triaging it is a
+judgment the `intent` capability owns — beside `intent.assumptions`/`tradeoffs`).
+
+> **Architecture re-examination (2026-06-20, after the spec-panel critique).** The
+> home decomposition was re-checked and **holds** — the changes are refinements,
+> not a rebuild. The load-bearing confirmation: Cockburn's "two actors" finding
+> RESOLVES onto the existing twin shape rather than forcing a new capability —
+> `analyze.review` is the **headless engine twin** (home=capability, CI,
+> never-blocks), `develop.review`/`develop.remediate` the **interactive seam**
+> (home=lifecycle), both over a shared `analyze/_review.py` core. That one
+> clarification dissolves three findings (the twin OQ, the CI use case, half the
+> LLM-in-CI concern). The only true correctness fix was Fowler's: split the
+> non-implementable `review(fix=bool)` (a static `@verb(role=)` can't flip on an
+> arg) into `review` (transform) + `remediate` (effect). Everything else hardened
+> the operational axis (357) — the panel's weakest at 5.5/10.
 
 ### What this program does NOT do
 
@@ -240,9 +254,11 @@ Scenario: every brooks-lint surface has a live destination
 - **OQ2 — mode skill home.** Mode skills authored on `develop.ontology.skills`
   vs `analyze.ontology.skills`? (Default: `develop`, since `develop` drives the
   walk; analyze stays the engine.)
-- **OQ3 — `develop.review` vs `analyze.review`.** Single seam verb on develop, or
-  also expose `analyze.review` for headless/CI? (357 default: both — develop for
-  humans, analyze for CI; one implementation.)
+- **OQ3 — `develop.review` vs `analyze.review`. RESOLVED (spec-panel, 2026-06-20):**
+  BOTH, as a twin over a shared `analyze/_review.py` core — `develop.review`/
+  `develop.remediate` are the interactive seam (home=lifecycle, may pause),
+  `analyze.review` is the headless engine twin (home=capability, never pauses,
+  the CI entry). Not one verb; two front doors, one engine (355 §3a).
 
 ## Followup — Implementation Status (2026-06-20)
 
@@ -262,6 +278,25 @@ critical-thinking pass flagged as the underspecified gap). (2) **Triage → inte
 — the triage verb moves from `analyze.triage` to **`intent.triage`** (a `Finding`
 SERVES an intent; its accept/dismiss/defer stance is an `intent` judgment), with
 `Suppression`/`Acknowledgement` nodes on the `intent` ontology; carried as a 356
-amendment. The program is now **umbrella + 6 children (354–359)**.
+amendment.
 
-Next: spec-panel pass on the program, then 354 (foundation) TDD.
+**Optimized 2026-06-20 (spec-panel critique → design update; architecture
+re-examined + confirmed).** A 10-expert panel (critique mode) scored the program
+6.8/10 and surfaced fixes now FOLDED into the children: **(correctness)** Fowler —
+split `review(fix=bool)` into `develop.review` (transform) + `develop.remediate`
+(effect), since `@verb(role=)` is static (355); Wiegers — the Iron Law gate is a
+**decidable predicate** over `Finding` fields, not agent self-assertion (354/355).
+**(architecture)** Cockburn+Hightower — the headless/CI actor is the first-class
+`analyze.review` twin over a shared `_review.py` core (355 §3a, resolves OQ3);
+Hohpe — the decidable→judgment **merge contract** (one `Finding` per
+`(risk_code, span)`, 354/355). **(operational, the 5.5/10 axis)** Hightower —
+keyless decidable-only CI degradation + base-branch `.agency` cache so trend
+survives ephemeral CI (356/357); Nygard — SARIF size cap with a locator, a
+wedged-PR override, partial-walk `status:incomplete` never reports green (356/357).
+**(testing)** Crispin — stated language matrix (decidable=py, judgment=any) +
+deterministic/`-m wet` scenario split + per-mode coverage (355/358); Adzic —
+fixture-backed scenarios, not prose Givens (358). **(completeness)** Newman — the
+**migration** path is now dedicated child **Spec 360** (`.brooks-lint.*` →
+config+graph) + symmetric vendored-data `_source` versioning (354/358).
+
+The program is now **umbrella + 7 children (354–360)**. Next: 354 (foundation) TDD.

@@ -77,6 +77,12 @@ graph node stores the full text via `keep_full` (`agency/_capture.py`). A findin
 with an empty `risk_code` is a pure-decidable `analyze` finding (today's
 behaviour); a non-empty `risk_code` is a brooks finding.
 
+> **These structured fields are what make the Iron Law gate decidable (355,
+> Wiegers fix).** Because `consequence`/`remedy` are first-class fields, the
+> judgment gate is a pure predicate — `all(f.consequence and f.remedy for f in
+> findings)` — not an agent self-assertion. The shape exists so the gate is
+> machine-checkable.
+
 > **Tension resolved — one severity enum, two vocabularies (rule 2).**
 > `analyze` scores `info/warn/fail`; brooks reports `suggestion/warning/critical`.
 > Do NOT add a second enum. `FindingSeverity` stays canonical
@@ -117,6 +123,14 @@ comes from this file — no risk definition is duplicated in prose-in-code (rule
 The 12-book matrix itself is owned by Spec 358 (`source-coverage.json`); this file
 references books by the same canonical titles.
 
+> **Vendored-data versioning (Newman fix, 2026-06-20).** `decay-risks.json` (and
+> 358's `source-coverage.json`) carry a top-level `"_source":
+> "brooks-lint@<rev>"` provenance key — the data analogue of 359's
+> `<!-- doc-source: -->` markers on the prose. `scripts/check-drift` gains a check
+> that the vendored `_source` rev matches the pinned upstream, so a brooks update
+> to a severity threshold flags the JSON as stale instead of drifting silently.
+> Prose and data are tracked symmetrically.
+
 ### 3. Tag the decidable findings with risk codes (the bridge)
 
 `agency/capabilities/analyze/_decay.py` — a small mapping layer that takes the
@@ -140,6 +154,12 @@ detection logic, just tagging):
 record path, now carrying the Iron Law props). Risks with no `decidable` entry
 (R2, R6, all T-risks beyond the trivially decidable) are filled by the judgment
 pass (355) — this slice ships the *bridge*, not the judgment.
+
+> **This tagging IS the write side of the merge contract (355 §3b).** The
+> enriched decidable finding carries the join key `(risk_code, file, line)`; the
+> judgment pass later *enriches it in place* (filling `consequence`/`remedy`)
+> rather than emitting a duplicate. So `_decay.py` tagging and the judgment pass
+> converge on one `Finding` per `(risk_code, span)` — no double-count downstream.
 
 ### 4. Custom risks (`Cx`) — open set
 
@@ -203,5 +223,13 @@ Scenario: a custom Cx risk is accepted from config
 **DRAFTED 2026-06-20** — foundation slice of the Spec 353 program. No code yet.
 Grounded in codegraph: `Finding`/`make_finding`/`count_by_severity`
 (`analyze/_findings.py`), the 10-caller blast radius, and the `CapabilityLintRule`
-remediation pattern (`plugin/clusters/lint.py`). Next: RED→GREEN on the
-`Finding` extension + `decay-risks.json` + `_decay.py` tagging, then 355/356.
+remediation pattern (`plugin/clusters/lint.py`).
+
+**Amended 2026-06-20 (spec-panel critique):** the structured `consequence`/`remedy`
+fields are explicitly the enabler of 355's decidable Iron Law gate (Wiegers); the
+decidable tagging is the write side of the 355 §3b merge contract — one `Finding`
+per `(risk_code, span)`, no double-count (Hohpe); `decay-risks.json` carries a
+`_source: brooks-lint@<rev>` provenance key checked by `check-drift` so vendored
+data is drift-tracked symmetrically with 359's prose (Newman). Next: RED→GREEN on
+the `Finding` extension + `decay-risks.json` (+ `_source`) + `_decay.py` tagging,
+then 355/356.

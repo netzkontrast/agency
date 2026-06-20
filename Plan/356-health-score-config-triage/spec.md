@@ -61,7 +61,12 @@ same findings), not a pinned value.
 
 Under `legacy-friendly`, the report Summary leads with the **three
 highest-leverage fixes** (brooks' first-run-not-a-wall-of-red rule) — a render
-concern owned by 357, parameterized here.
+concern owned by 357, parameterized here. **"Leverage" is a defined, computed
+quantity** (Wiegers fix — not a vague adjective): `leverage(finding) =
+deduction_weight(tier, preset) × occurrence_count(risk_code)` — the score points
+recovered by fixing it × how often that risk recurs. The Summary ranks findings by
+`leverage` desc and names the top three. A pure function over the findings + the
+preset, testable, no magic.
 
 ### 2. Config — map `.brooks-lint.yaml` onto the unified config (Spec 334)
 
@@ -99,9 +104,22 @@ warning, suggestion, recorded_at}` SERVING the intent, edged to the `SkillRun`
   `QualityRun` nodes for the same mode gives "85 → 82 (−3)" for free, bi-temporal
   and durable across sessions (the sidecar file couldn't survive an ephemeral
   container; the graph snapshot does — Spec 195/289 portability).
-- The report's Trend line (357) is derived from the prior same-mode `QualityRun`.
+- **Trend in ephemeral CI (Hightower fix).** A fresh CI container has an empty
+  graph, so trend would always read "first run" — the regression the panel caught.
+  357 §3 **caches `.agency/` keyed by the base branch** so prior `QualityRun` nodes
+  survive across CI runs; on a cache miss the report says "first run" (an honest
+  fallback, not a broken feature). The graph-node design is what makes this
+  cache-portable; the old JSON sidecar would have needed the same cache anyway.
+- **Incomplete runs are recorded but excluded from trend (Nygard fix).** A walk
+  that crashed mid-judgment records `QualityRun{status: incomplete}` with whatever
+  partial findings exist; the trend query reads only `status: complete` runs, so a
+  partial run never distorts the delta nor reports a (misleadingly high) score as
+  the latest point.
+- The report's Trend line (357) is derived from the prior same-mode **complete**
+  `QualityRun`.
 - **No `.brooks-lint-history.json`** — it disappears (port-forward, like
-  `report-parse` in 357).
+  `report-parse` in 357). Its one-time import is owned by the migration slice
+  (Spec 360).
 
 ### 4. Triage + suppression — the verb lives in `intent` (owner directive)
 
@@ -215,7 +233,15 @@ mapping + finding shape). **Amended 2026-06-20 (owner directive):** the triage
 verb moves to `intent.triage` (judgment about a finding = an intent concern); the
 `Suppression`/`Acknowledgement` nodes move to the `intent` ontology, with the
 `SUPPRESSES` edge crossing to the `analyze` `Finding`. This spec keeps the
-score/config/history machinery + the scan-time suppression *scoring* read. Next
-(after 354): `_score.py` + `score-presets.json` + the `quality:` config block +
-`QualityRun` node + the score-side suppression read, RED→GREEN; `intent.triage` +
-the `Suppression`/`Acknowledgement` ontology land on `IntentCapability`.
+score/config/history machinery + the scan-time suppression *scoring* read.
+
+**Amended 2026-06-20 (spec-panel critique):** "highest-leverage" is now a defined
+computed quantity `deduction_weight(tier) × occurrence_count` (Wiegers); the
+`QualityRun` node gains a `status` field (complete|incomplete) so a crashed walk is
+recorded but excluded from trend (Nygard); the ephemeral-CI trend gap is closed by
+357's base-branch `.agency` cache, with "first run" as the honest miss-fallback
+(Hightower); `.brooks-lint-history.json` one-time import moves to the new migration
+slice (Spec 360). Next (after 354): `_score.py` + `score-presets.json` + the
+`quality:` config block + `QualityRun{status}` node + the score-side suppression
+read, RED→GREEN; `intent.triage` + the `Suppression`/`Acknowledgement` ontology
+land on `IntentCapability`.
