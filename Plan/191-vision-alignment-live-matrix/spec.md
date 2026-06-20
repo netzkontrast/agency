@@ -1,16 +1,17 @@
 ---
 spec_id: "191"
 slug: vision-alignment-live-matrix
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-20
 owner: "@agency"
 enhances: "072"
 depends_on: ["072", "149", "182", "084"]
 vision_goals: [6, 4]
 affects:
+  - scripts/vision_matrix.py
   - docs/vision/SPEC-VISION-ALIGNMENT.md
-  - scripts/derive-docs
-  - tests/test_vision_matrix_derived.py
+  - tests/acceptance/features/vision_matrix.feature
+  - tests/acceptance/test_vision_matrix.py
 ---
 
 # Spec 191 — live vision-alignment matrix
@@ -109,3 +110,54 @@ Then:   it compares the rendered hash to the file hash; mismatch fails
 3. How are partial-status specs counted? **Recommend**: count them as
    0.5 toward shipped_fraction; record `partial` separately so the
    row can show progress without inflating the verdict.
+
+## Followup — Implementation Status (Slice 1, 2026-06-20)
+
+### Done — Slice 1 (derivation engine + render + CLI)
+
+- **`scripts/vision_matrix.py`** ships the pure derivation engine:
+  - `parse_goals(goals_md)` — the goal catalogue DERIVED from
+    `docs/vision/GOALS.md`'s numbered bold list (rule 8 — NOT a frozen
+    `range(1, 9)`; GOALS.md already carries 9 goals, so any hardcoded
+    count would lie — the shipped stub `AlignmentCell` hardcodes `1..8`
+    and is already stale).
+  - `parse_status_index(todo_md)` — `{spec_id: shipped|partial}` from
+    TODO.md's verdict-count rows. **Status source = the TODO binding
+    index (CLAUDE.md rule 4)**, not each spec's frontmatter `status:`
+    (which is stale repo-wide — most shipped specs still read "draft" in
+    frontmatter; deriving from it rendered every Goal red at ~6%).
+    Frontmatter status is the per-spec fallback for ids the index omits.
+  - `SpecRef` / `GoalRow` typed shapes; `shipped`/`partial`/
+    `not_started`/`shipped_fraction`/`status` are COMPUTED properties.
+  - `goal_status(frac)` — green/yellow/red from named tunables
+    `GREEN_FLOOR = 0.80` / `YELLOW_FLOOR = 0.50` (rule 8; not inlined).
+  - `collect_specs` / `build_rows` / `biggest_gaps` (lowest-fraction
+    populated goals, id-tiebroken) / `coverage_report` (rule-8 invariant
+    evidence) / `render_matrix` / `render_from_sources`.
+  - CLI `python -m scripts.vision_matrix [--plan-root --goals --todo
+    --write PATH]`; `--write` rewrites a `<!-- derived:vision-matrix -->`
+    fence reusing Spec 149 Slice 2.2's `find_fence`/`rewrite_fence`.
+- **6 acceptance scenarios** in `tests/acceptance/features/vision_matrix.feature`
+  + `tests/acceptance/test_vision_matrix.py`: green-at-80%, threshold
+  classification, three-biggest-gaps ordering, goal catalogue derived +
+  contiguous, status sourced from TODO verdict rows, and a live-tree
+  coverage invariant (no spec with `vision_goals:` is dropped; no spec
+  references a goal id absent from GOALS.md). Asserts invariants +
+  relationships, never pinned counts (rule 8).
+- drift + doc-drift clean; no install regen needed (a script, not a
+  capability).
+
+### Still — Slice 2+
+
+- **`check-doc-drift` gate** — fail CI when the rendered matrix diverges
+  from `vision_matrix --write` output (the Done-When CI gate; the
+  `--write` fence path is in place, the gate wiring is not).
+- **Write into `docs/vision/SPEC-VISION-ALIGNMENT.md`** — add the
+  `<!-- derived:vision-matrix -->` fence to the doc and regenerate it in
+  CI so the hand-maintained "Last reviewed" matrix becomes the derived
+  view.
+- **OQ3 — partial weighting**: Slice 1 reports `partial` separately and
+  does NOT weight it into `shipped_fraction` (shipped/total). The OQ3
+  0.5-weighting recommendation is deferred to Slice 2 (a tunable).
+- **OQ1 — per-Goal hand "why this gap matters" note** with
+  `last_for_status:` re-prompt on a band cross.

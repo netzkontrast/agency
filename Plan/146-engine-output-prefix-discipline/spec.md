@@ -193,6 +193,21 @@ Then:   response carries Codes.PREFIX_BUDGET_EXCEEDED — never silent
   `agency/` audit (drift gate on the baseline itself — a fix must trim;
   a regression must justify or fix).
 
+### Done — Slice 2.2 gate re-promotion (2026-06-20)
+
+The Slice 2.2 baseline was created 2026-06-12 but the Spec 286 module
+refactor (2026-06-14) moved call sites between files, staling the
+baseline and causing a false regression. The gate was demoted to
+advisory at that point (`continue-on-error: true` in CI).
+
+This followup:
+- Refreshed `Plan/_planning/prefix-lint-baseline.txt` from the live tree
+  (60 violations: 26 OS_ENVIRON + 20 unsorted_dict + 11 time_time +
+  2 datetime_now + 1 uuid4 across 60 sites in 35 files).
+- Removed `continue-on-error: true` from the CI step — the gate is
+  **gating** again, not advisory.
+- Zero regressions on a fresh `--strict --baseline` run (exit 0).
+
 ### Still — Slice 2.3+
 
 - **Slice 2.3**: reachability analysis — restrict the scan to functions

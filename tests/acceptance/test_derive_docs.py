@@ -127,6 +127,104 @@ def _apply_derivations_again(fence_ctx):
     fence_ctx["result2"] = apply_derivations_to_spec_text(fence_ctx["result"], d)
 
 
+def _spec_with_stale_fence(affects_file: str, stale_count: int) -> str:
+    return (
+        f"---\nspec_id: \"test\"\naffects:\n  - {affects_file}\n---\n"
+        "# Spec\n\n"
+        "<!-- derived:test-count -->\n"
+        f"_test_count: **{stale_count}** (derived from `affects:` {affects_file})_\n"
+        "<!-- /derived:test-count -->\n"
+    )
+
+
+def _spec_with_current_fence(affects_file: str, count: int) -> str:
+    return (
+        f"---\nspec_id: \"test\"\naffects:\n  - {affects_file}\n---\n"
+        "# Spec\n\n"
+        "<!-- derived:test-count -->\n"
+        f"_test_count: **{count}** (derived from `affects:` {affects_file})_\n"
+        "<!-- /derived:test-count -->\n"
+    )
+
+
+# ── drift-check Given steps ───────────────────────────────────────────────
+
+@given("a spec.md with a stale test-count fence showing \"42\" but 7 collected tests",
+       target_fixture="drift_ctx")
+def _given_stale_fence():
+    from scripts.derive_docs import Derivation
+    affects_file = "tests/test_foo.py"
+    text = _spec_with_stale_fence(affects_file, stale_count=42)
+    d = Derivation(spec_id="test", test_count=7, affects_files=(affects_file,))
+    return {"text": text, "derivation": d, "result": None}
+
+
+@given("a spec.md with an up-to-date test-count fence showing \"7\" and 7 collected tests",
+       target_fixture="drift_ctx")
+def _given_current_fence():
+    from scripts.derive_docs import Derivation
+    affects_file = "tests/test_foo.py"
+    text = _spec_with_current_fence(affects_file, count=7)
+    d = Derivation(spec_id="test", test_count=7, affects_files=(affects_file,))
+    return {"text": text, "derivation": d, "result": None}
+
+
+@given("a spec.md with no derived fences and 5 collected tests",
+       target_fixture="drift_ctx")
+def _given_no_fences_drift():
+    from scripts.derive_docs import Derivation
+    affects_file = "tests/test_foo.py"
+    text = _spec_no_fences(affects_file)
+    d = Derivation(spec_id="test", test_count=5, affects_files=(affects_file,))
+    return {"text": text, "derivation": d, "result": None}
+
+
+# ── drift-check When steps ────────────────────────────────────────────────
+
+@when("I check the spec text for derived-zone drift")
+def _check_drift(drift_ctx):
+    from scripts.derive_docs import spec_has_drift
+    drift_ctx["result"] = spec_has_drift(drift_ctx["text"], drift_ctx["derivation"])
+
+
+# ── drift-check Then steps ────────────────────────────────────────────────
+
+@then("drift is detected and a diff hint is returned")
+def _drift_detected(drift_ctx):
+    assert drift_ctx["result"] is not None, "expected drift to be detected but got None"
+    assert isinstance(drift_ctx["result"], str) and len(drift_ctx["result"]) > 0, (
+        "expected a non-empty diff hint string")
+
+
+@then("no drift is detected")
+def _no_drift(drift_ctx):
+    assert drift_ctx["result"] is None, (
+        f"expected no drift but got: {drift_ctx['result']!r}")
+
+
+# ── live --check step ─────────────────────────────────────────────────────
+
+@when("I run derive-docs --check on the live repo", target_fixture="check_result")
+def _run_derive_docs_check():
+    repo = Path(__file__).parent.parent.parent
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.derive_docs",
+         "--check",
+         "--plan-root", str(repo / "Plan"),
+         "--repo-root", str(repo)],
+        cwd=str(repo), capture_output=True, text=True, timeout=180,
+    )
+    return result
+
+
+@then("it exits 0")
+def _check_exits_0(check_result):
+    assert check_result.returncode == 0, (
+        f"expected exit 0 but got {check_result.returncode}:\n"
+        f"stdout: {check_result.stdout[:500]}\n"
+        f"stderr: {check_result.stderr[:500]}")
+
+
 @when("I run derive-docs in dry-run mode on the live repo",
       target_fixture="dry_run_result")
 def _run_derive_docs_dry():
@@ -162,13 +260,19 @@ def _idempotent(fence_ctx):
         "second apply produced a different result — not idempotent")
 
 
-@then("a ValueError is raised mentioning the unclosed fence")
+@then("a DeriveError is raised with code \"derive_fence_broken\"")
 def _unclosed_raises(fence_ctx):
-    assert fence_ctx["error"] is not None, "expected ValueError but no error was raised"
-    assert isinstance(fence_ctx["error"], ValueError)
-    msg = str(fence_ctx["error"]).lower()
+    from scripts.derive_docs import DeriveError
+    from agency.toolresult import Codes
+    err = fence_ctx["error"]
+    assert err is not None, "expected DeriveError but no error was raised"
+    assert isinstance(err, DeriveError), (
+        f"expected DeriveError (ValueError subclass) but got {type(err).__name__}: {err}")
+    assert err.code == Codes.DERIVE_FENCE_BROKEN, (
+        f"expected code {Codes.DERIVE_FENCE_BROKEN!r} but got {err.code!r}")
+    msg = str(err).lower()
     assert "unclosed" in msg or "fence" in msg, (
-        f"error message does not mention unclosed fence: {fence_ctx['error']}")
+        f"error message does not mention unclosed fence: {err}")
 
 
 @then("the output is identical to the input")
