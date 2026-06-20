@@ -57,6 +57,7 @@ _AUTO_MARKER_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # were deselected when `-m` expressions filtered to the cap name.
     (re.compile(r"test_develop_"),         "develop"),
     (re.compile(r"test_gate_"),            "gate"),
+    (re.compile(r"test_frugal"),           "frugal"),
     (re.compile(r"test_branch_"),          "branch"),
     (re.compile(r"test_workspace_"),       "workspace"),
     (re.compile(r"test_subagent_"),        "subagent"),
