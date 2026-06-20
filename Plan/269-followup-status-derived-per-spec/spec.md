@@ -1,16 +1,16 @@
 ---
 spec_id: "269"
 slug: followup-status-derived-per-spec
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-20
 owner: "@agency"
 enhances: "149"
 depends_on: ["149", "191", "259", "268", "261", "270"]
 vision_goals: [4]
 affects:
-  - scripts/derive-docs
-  - Plan/
-  - tests/test_followup_derivation.py
+  - scripts/followup_derive.py
+  - tests/acceptance/features/followup_derive.feature
+  - tests/acceptance/test_followup_derive.py
 ---
 
 # Spec 269 — per-spec Followup Implementation Status: derived
@@ -145,3 +145,49 @@ Then:   the recomputed block diverges; CI fails; the PR cannot merge
    same commit window?** **Recommend**: regeneration is deterministic
    per input; the merge conflict resolves trivially by re-running
    derive-docs post-merge. No special locking.
+
+## Followup — Implementation Status (Slice 1, 2026-06-20)
+
+### Done — Slice 1 (derivation engine + render + CLI)
+
+- **`scripts/followup_derive.py`** ships the pure derivation:
+  - `parse_done_when(spec_text)` → `(checked, total)` from the `- [ ]`/
+    `- [x]` boxes in the `## Done When` section ONLY (boxes elsewhere
+    ignored; absent section → `(0, 0)`).
+  - `recent_commits(affects, n=5)` → live `git log --oneline` filtered by
+    the `affects:` paths (never frozen; `RECENT_COMMITS_N` named tunable,
+    OQ1). Empty on no-affects / git-unavailable.
+  - `FollowupBlock` typed shape (`spec_id`/`status`/`test_files`/
+    `test_count`/`done_when_checked`/`done_when_total`/`recent_commits`);
+    `done_pct` is a DERIVED property (never stored). A timestamp is
+    intentionally OMITTED so re-render is byte-identical (the determinism
+    invariant; the spec's `generated_at` is deferred to keep Slice 1
+    deterministic).
+  - `derive_block(spec_path, counts)` reuses the Spec 149 deriver
+    (`parse_affects` + `derive_test_counts`) for `test_count` and
+    `parse_frontmatter` for `status`.
+  - `status_consistent(block)` — the audit helper for the invariant
+    `done_pct == 1.0 ⇔ status == "shipped"` (boxes-empty specs exempt).
+  - `render_block` for the `<!-- derived:followup -->` fence; CLI
+    `--write` rewrites it in place (opt-in, reuses Spec 149 `rewrite_fence`).
+- **6 acceptance scenarios** in `tests/acceptance/features/followup_derive.feature`
+  + `test_followup_derive.py`: checkbox ratio parse, Done-When-section
+  scoping, the test-file invariant, the status-consistency audit (shipped
+  vs draft), render determinism, and a live-tree derivation of Spec 191's
+  block. Invariants/relationships, not pinned counts (rule 8).
+- drift + doc-drift clean; no install regen (a script).
+
+### Still — Slice 2+
+
+- **`check-doc-drift` CI gate** — recompute each spec's derived block and
+  fail when the on-disk `<!-- derived:followup -->` fence diverges (the
+  Done-When §"CI fails when stale" + the worked example's audit mode).
+- **Backfill the fences** — insert a `<!-- derived:followup -->` block into
+  each partial/shipped spec.md beside a `<!-- hand -->` prose zone, then
+  maintain it. (Slice 1 ships the writer; no fences exist yet.)
+- **Live status-consistency audit** — gating `status_consistent` over the
+  tree would flag the many shipped specs that leave Done-When boxes
+  unchecked (e.g. Spec 191 reads 0/8 while shipped). Surface as a report
+  first, gate later.
+- **`generated_at`** in the rendered block, segregated from the
+  drift-compared region (OQ-adjacent).
