@@ -301,6 +301,7 @@ ToolSearch is the deferred-schema fallback only.
 |---|---|---|
 | Edit a spec / write a doc | (use Write/Edit but call `dogfood.observe` to record) | Write / Edit |
 | Run tests | `develop.test(scope)` | Bash `pytest` |
+| Review for over-engineering | `frugal.review(scope=)` — guide `develop.reference("frugal")` | (eyeball the diff — but lossy) |
 | Search code | `mcp__agency__search` + `analyze.*` | Grep / Glob |
 | Understand/locate CODE (symbols · calls · blast radius) | `codegraph_explore`/`node`/`search` · CLI `codegraph <cmd>` — guide `develop.reference("codegraph")` | Grep / Read |
 | Web fetch | `research.fetch(url, query)` (when shipped) | WebFetch |
