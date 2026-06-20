@@ -75,12 +75,14 @@ Feature: Lifecycle pillar substrate — the open/move/close state machine (Spec 
 
   Scenario: a blocked transition is durable graph provenance
     Given an opened lifecycle
-    When I move the lifecycle to "input-required"
+    When I move the lifecycle to "working"
+    And I move the lifecycle to "input-required"
     Then a lifecycle_transition Event to "input-required" exists in the graph
 
   Scenario: a gate pause emits a durable transition event for free
     Given an opened lifecycle
-    When a gate fails on the lifecycle
+    When I move the lifecycle to "working"
+    And a gate fails on the lifecycle
     Then a lifecycle_transition Event to "input-required" exists in the graph
 
   Scenario: the durable transition trail is recoverable without polling
@@ -91,5 +93,37 @@ Feature: Lifecycle pillar substrate — the open/move/close state machine (Spec 
 
   Scenario: transitions appear in the intent timeline
     Given an opened lifecycle
-    When I move the lifecycle to "completed"
+    When I move the lifecycle to "working"
+    And I move the lifecycle to "completed"
     Then a lifecycle_transition event appears in manage.timeline for the intent
+
+  # Spec 340 — the enforced A2A transition table (the state machine).
+
+  Scenario: a legal transition succeeds
+    Given an opened lifecycle
+    When I move the lifecycle to "working"
+    Then the opened lifecycle state is "working"
+
+  Scenario: an illegal transition from a terminal state raises
+    Given an opened lifecycle
+    When I move the lifecycle to "working"
+    And I move the lifecycle to "completed"
+    And I move the lifecycle to "working" expecting an illegal transition
+    Then the move is rejected as an illegal transition with allowed "[]"
+
+  Scenario: a skip transition raises
+    Given an opened lifecycle
+    When I move the lifecycle to "completed" expecting an illegal transition
+    Then the move is rejected as an illegal transition
+
+  Scenario: the seed table is internally consistent
+    Then every state in the transition table is a valid lifecycle state
+
+  Scenario: a graph override is read instead of the seed and stays floor-safe
+    Given a transition-table override adding "submitted" to "completed"
+    When I move an opened lifecycle to "completed"
+    Then the opened lifecycle state is "completed"
+
+  Scenario: an override cannot reopen a terminal state
+    Given a transition-table override adding "completed" to "working"
+    Then loading the effective table is rejected

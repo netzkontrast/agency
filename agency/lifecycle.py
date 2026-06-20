@@ -17,9 +17,15 @@ append-only bi-temporality is demonstrated on Intent (see intent.py).
 """
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
 from ._lifecycle_events import TRANSITION_EVENT_NAME, is_durable_transition
+from ._lifecycle_transitions import (
+    assert_transition,
+    extend_table,
+    load_base_table,
+)
 from .memory import Memory
 from .ontology import LIFECYCLE_STATES, LifecycleState
 
@@ -41,6 +47,11 @@ CANCELED = LifecycleState.CANCELED.value
 CLOSE_OUTCOMES = {COMPLETED, FAILED, CANCELED}
 
 
+#: Spec 340 — the graph override marker (the `shell.define` pattern, Spec 075):
+#: an `Artefact{kind: TRANSITION_TABLE_KIND, table: <json>}` overrides the seed.
+TRANSITION_TABLE_KIND = "transition-table"
+
+
 class Lifecycle:
     def __init__(self, memory: Memory, monitor: Any = None):
         self.m = memory
@@ -48,6 +59,26 @@ class Lifecycle:
         # bare ``Lifecycle(memory)`` (no engine) still records durable graph
         # transitions; only the high-volume churn telemetry needs the channel.
         self.monitor = monitor
+        # Spec 340 — the base A2A transition table (data; loaded + validated once).
+        self._base_table = load_base_table()
+
+    def _effective_table(self) -> dict:
+        """The transition table `move` enforces — graph-first (an
+        `Artefact{kind:"transition-table"}` override, monotone + floor-checked
+        via ``extend_table``), seed fallback (Spec 340; the `shell.define`
+        pattern). Read per-move so a freshly-defined override takes effect without
+        a restart; moves are low-frequency, so the one query is cheap."""
+        for art in self.m.query_nodes("Artefact",
+                                      where={"kind": TRANSITION_TABLE_KIND}):
+            raw = art.get("table")
+            if not raw:
+                continue
+            try:
+                extra = raw if isinstance(raw, dict) else json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+            return extend_table(self._base_table, extra)
+        return self._base_table
 
     def open(self, intent_id: str, *, kind: str = "task",
              agent: str = "", parameterization: str = "") -> str:
@@ -76,8 +107,9 @@ class Lifecycle:
     def move(self, lc_id: str, to_state: str, *, evidence: str = "") -> str:
         """The SOLE state-shaped writer of ``Lifecycle.state`` (Spec 339).
 
-        Validates ``to_state`` against the closed A2A enum and refuses a no-op.
-        The full transition-table guard (340) layers on top of this chokepoint.
+        Validates ``to_state`` against the closed A2A enum, refuses a no-op, and
+        enforces the A2A **transition table** (Spec 340) — an illegal edge (e.g.
+        ``completed→working``, ``submitted→completed``) raises ``IllegalTransition``.
         Every accepted transition then **emits** (Spec 344): terminal/blocked
         states become durable graph ``Event``s, all transitions fan onto the
         monitor channel — because emission lives here, every former unguarded
@@ -94,6 +126,11 @@ class Lifecycle:
         if current == to_state:
             raise ValueError(
                 f"no-op transition: lifecycle {lc_id!r} is already {to_state!r}")
+        # Spec 340 — enforce the A2A transition table. A well-formed lifecycle
+        # (any state set by `open`) must follow a legal edge; a lifecycle with no
+        # state yet (pre-`open` legacy) can't be reasoned about, so it is exempt.
+        if current:
+            assert_transition(current, to_state, self._effective_table())
         self.m.update(lc_id, {"state": to_state})
         self._emit_transition(lc_id, current or "", to_state, evidence)
         return to_state
