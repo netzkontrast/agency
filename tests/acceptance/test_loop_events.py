@@ -15,9 +15,7 @@ Dropped (implementation / structural / not observable behaviour):
 """
 from __future__ import annotations
 
-import tempfile
 
-import pytest
 from pytest_bdd import given, scenarios, then, when
 
 from agency.engine import Engine

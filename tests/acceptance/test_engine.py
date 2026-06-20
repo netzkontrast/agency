@@ -47,17 +47,15 @@ from __future__ import annotations
 import asyncio
 import json
 import tempfile
-import time
 
-import pytest
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
 from agency.engine import Engine
 from agency._monitor import MonitorEmitter, MonitorEvent
 from agency.toolresult import Codes, ToolResult, TypedError
 from agency.capability import CapabilityBase, OntologyExtension, verb
 from agency._typed_shapes_wave1 import (
-    CapabilityRow, CommandFile, GuardFinding, InstallSurface, IntentCapture,
+    CapabilityRow, GuardFinding, IntentCapture,
 )
 
 scenarios("features/engine.feature")

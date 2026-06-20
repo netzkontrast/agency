@@ -15,7 +15,6 @@ import asyncio
 import json
 import tempfile
 
-import pytest
 from fastmcp import Client
 from pytest_bdd import given, scenarios, then, when
 

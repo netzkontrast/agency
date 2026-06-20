@@ -13,11 +13,9 @@ Dropped as implementation/structural (not observable behaviour):
 """
 from __future__ import annotations
 
-import tempfile
 
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import parsers, scenarios, then, when
 
-from conftest import invoke, served
 
 scenarios("features/skill_walk.feature")
 

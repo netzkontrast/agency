@@ -567,7 +567,6 @@ def hook_wrap(ctx, command):                                           # noqa: A
     side-effect rewrote (which the user authored themselves).
     """
     import subprocess
-    import os as _os
     proc = subprocess.run(
         ["bash", "-c", command],
         stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)

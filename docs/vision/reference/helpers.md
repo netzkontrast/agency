@@ -1,7 +1,7 @@
 # Supporting modules
 
 <!-- doc-source: agency/cache.py agency/_monitor.py agency/_runner.py agency/_predicates.py agency/_checks.py agency/_pressure.py agency/_db_path.py agency/_capability_loader.py agency/templates.py agency/capabilities/_embed.py agency/capabilities/_vcs.py -->
-<!-- doc-hash: b0f87baadf0db2cb -->
+<!-- doc-hash: aae5f4584bf3782d -->
 
 The modules that support the core but aren't themselves a concept. Pointers, not prose.
 

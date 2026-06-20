@@ -1,0 +1,43 @@
+{
+  "a2a": {
+    "initial": "submitted",
+    "states": [
+      "submitted", "working", "input-required",
+      "auth-required", "completed", "failed", "canceled"
+    ],
+    "transitions": {
+      "submitted":      ["working", "input-required", "auth-required", "canceled"],
+      "working":        ["input-required", "auth-required", "completed", "failed", "canceled"],
+      "input-required": ["working", "canceled"],
+      "auth-required":  ["working", "canceled"],
+      "completed":      [],
+      "failed":         ["working", "canceled"],
+      "canceled":       []
+    },
+    "terminal": ["completed", "canceled"]
+  },
+  "remote-async": {
+    "derives": "a2a",
+    "add_states": ["verify"],
+    "replace": {
+      "working": {"remove": ["completed"], "add": ["verify"]},
+      "verify":  ["completed", "input-required", "failed"]
+    }
+  },
+  "frugal": {
+    "initial": "assess",
+    "states": ["assess", "yagni", "stdlib", "native", "dep", "implement", "floor-check", "done"],
+    "transitions": {
+      "assess":       ["yagni"],
+      "yagni":        ["implement", "stdlib"],
+      "stdlib":       ["implement", "native"],
+      "native":       ["dep", "implement"],
+      "dep":          ["implement"],
+      "implement":    ["floor-check"],
+      "floor-check":  ["done", "implement"],
+      "done":         []
+    },
+    "terminal": ["done"],
+    "floor_gates": ["floor-check"]
+  }
+}

@@ -20,13 +20,10 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
-from agency._enums import project_enum
-from agency._frontmatter import frontmatter_hash
 from agency._render import RenderRule, RenderSpec
-from agency.capability import ArtefactSchemas, CapabilityBase, RenderTemplates, verb
+from agency.capability import ArtefactSchemas, CapabilityBase, RenderTemplates
 from agency.ontology import OntologyExtension
 from ._slug import slugify
-from agency.toolresult import ToolResult
 
 
 # Spec 104 — show-don't-tell filter words (canonical writing-craft list).

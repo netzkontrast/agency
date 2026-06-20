@@ -98,6 +98,15 @@ class GateKind(str, Enum):
 # `Literal[...]`) sees the same plain strings it always did.
 ROLES = {m.value for m in Role}                     # how-verb roles
 LIFECYCLE_STATES = {m.value for m in LifecycleState}  # A2A-aligned task states
+
+# Spec 345 — the live union of all registered machine states. Starts with A2A
+# states; register_machine() widens it in place so subsequently-constructed
+# Ontology instances automatically accept new machine states. We import the
+# shared mutable set (not a function return) so that ontology.py holds a
+# REFERENCE — the same object that _lifecycle_machines.py mutates.
+from ._lifecycle_machines import _all_states as _LIFECYCLE_ALL_STATES, _ensure_loaded as _lm_load
+_lm_load()  # populate _LIFECYCLE_ALL_STATES from machines.json at import time
+_LIFECYCLE_ALL_STATES.update(LIFECYCLE_STATES)  # ensure A2A states are always included
 INTENT_OWNERS = {m.value for m in IntentOwner}       # Spec 048 — Intent owners
 GATE_KINDS = {m.value for m in GateKind}             # Spec 328 — fulfilment-gate roles
 # Spec 328 — the done-time gate kinds (acceptance/completion) that win over a
@@ -120,7 +129,7 @@ EDGE_TYPES = {
 # closed-enum constraints on specific (label, field) pairs — ENFORCED
 FIELD_ENUMS: dict[tuple[str, str], set] = {
     ("Invocation", "role"): ROLES,
-    ("Lifecycle", "state"): LIFECYCLE_STATES,
+    ("Lifecycle", "state"): _LIFECYCLE_ALL_STATES,   # Spec 345: union of all registered machines
     # Spec 048 — Intent owner closed enum.
     ("Intent", "owner"): INTENT_OWNERS,
     # Spec 328 — fulfilment-gate kind closed enum (only enforced when present;
@@ -194,6 +203,9 @@ class Ontology:
         self.nodes = {k: list(v) for k, v in NODE_SCHEMAS.items()}
         self.edges = set(EDGE_TYPES)
         self.enums = {k: set(v) for k, v in FIELD_ENUMS.items()}
+        # Spec 345 — hold the LIVE reference for Lifecycle.state so that
+        # register_machine() calls after Engine construction widen it in place.
+        self.enums[("Lifecycle", "state")] = _LIFECYCLE_ALL_STATES
         self.skills = dict(CORE_SKILLS)
         self.schemas: dict[str, list[str]] = {}
         self.templates: dict[str, str] = {}

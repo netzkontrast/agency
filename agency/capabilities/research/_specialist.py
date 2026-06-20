@@ -14,7 +14,6 @@ Citations are recorded with the rules from Spec 044
 from __future__ import annotations
 
 import os
-import re
 
 from ..._capture import keep_full
 from ._findings import semantic_score
