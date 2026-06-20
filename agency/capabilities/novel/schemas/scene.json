@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scene",
+  "description": "A scene node within a Chapter (Spec 102 Slice 2). Links to Chapter via SCENE_OF. POV drives the line-editor and scene-bridge-auditor skills.",
+  "type": "object",
+  "required": ["chapter", "slug", "pov"],
+  "properties": {
+    "chapter": {
+      "type": "string",
+      "description": "Parent Chapter node id."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Kebab-case scene identifier, unique within the chapter."
+    },
+    "pov": {
+      "type": "string",
+      "enum": ["first", "second", "third-limited", "third-omniscient"],
+      "description": "Point-of-view (SCENE_POV enum, agency/capabilities/novel/_main.py)."
+    },
+    "body": {
+      "type": "string",
+      "description": "Scene prose body (written by novel.generate_scene_body / novel.integrate_scene_body)."
+    }
+  }
+}

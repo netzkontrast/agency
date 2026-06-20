@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
-*.db
 .venv/
+.env.dev
 .pytest_cache/
 # .claude/ shared project config is tracked (settings.json + CLAUDE.md);
 # only the personal/local overrides file stays ignored.
@@ -19,7 +19,30 @@ __pycache__/
 # Spec 292 — `.agency/sessions/` is COMMITTED (user directive 2026-06-16): the
 # session graph + archived session Documents are durable provenance, like the
 # graph DB itself (Spec 020), so a session restores across clones.
-# SQLite WAL/journal files (transient — never commit)
+# User directive 2026-06-19: `.agency/session.db` is SNAPSHOTTED, not tracked. The
+# live binary churns every session + is 96% ephemeral Event noise; the DURABLE graph
+# is exported to portable SQL in `.agency/sql/` (`scripts/session-snapshot export`)
+# and restored on SessionStart when the db is missing. (PR #194/Jules also untracked
+# it — the stop-hook was committing it every turn, a CI-loop.) So the binary is ignored:
+.agency/session.db
+# Literal '${CLAUDE_PROJECT_DIR}' directory from an unexpanded env var — never real.
+${CLAUDE_PROJECT_DIR}
+# SQLite databases + their WAL/journal sidecars (local/transient — never commit).
+# `*.db` ignores every SQLite binary repo-wide (session.db, toolcalls.db,
+# codegraph.db, …); the DURABLE graph travels as portable SQL snapshots
+# (`.agency/sql/`), not the churning binary.
+*.db
 *.db-journal
 *.db-wal
 *.db-shm
+# CodeGraph: ignore the ENTIRE `.codegraph/` working dir (codegraph's regenerated
+# self-un-ignoring `.gitignore`, daemon pid/sockets, WAL/shm). Git does not descend
+# into an excluded directory, so none of codegraph's per-sync churn ever shows.
+# `.codegraph/codegraph.db` is no longer tracked (untracked 2026-06-20): the ~13MB
+# index churns on every reindex and is a local rebuild artefact — `codegraph init`
+# regenerates it per machine, so it stays out of version control like the other db
+# binaries above.
+.codegraph/
+# Spec 336 — ephemeral tool-call capture store (local; distilled by the Stop-hook export)
+.agency/toolcalls.db
+.agency/toolcalls.db-*

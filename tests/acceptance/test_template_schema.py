@@ -534,10 +534,10 @@ def _boot_engine_schema_titles():
     asserts the stronger invariant: the engine ontology actually carries
     each core schema (guards the Slice 6 declaration regression)."""
     from agency.engine import Engine
+    from agency._schema_coverage import engine_loaded_schema_titles
     e = Engine(":memory:")
     try:
-        titles = {v.get("title") for v in e.ontology.schemas.values()
-                  if isinstance(v, dict)}
+        titles = engine_loaded_schema_titles(dict(e.ontology.schemas))
     finally:
         e.memory.close()
     return titles
@@ -600,3 +600,347 @@ def _workflow_spine_loaded(loaded_schema_titles):
         "workflow-spine schemas are on disk but NOT loaded by the engine "
         "(declare `artefact_schemas` on the owning capability):\n"
         + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── Slice 4: engine-load intersection gate ───────────────────────────────────
+
+@given("a capability with a schema file for \"Dormant\" but no artefact_schemas declaration",
+       target_fixture="dormant_audit_ctx")
+def _given_dormant_schema(tmp_path):
+    """A schema file on disk whose cap never declares artefact_schemas — the
+    engine won't load it, so the intersection gate must move it to dormant_schemas."""
+    (tmp_path / "capabilities" / "a" / "schemas").mkdir(parents=True)
+    (tmp_path / "capabilities" / "a" / "schemas" / "dormant.json").write_text(
+        '{"title": "Dormant"}')
+    return {"root": tmp_path, "ontology": {"Dormant"}, "engine_loaded": set()}
+
+
+@when("I run the schema coverage audit with engine_loaded_titles excluding \"Dormant\"",
+      target_fixture="dormant_report")
+def _run_dormant_audit(dormant_audit_ctx):
+    from agency._schema_coverage import audit_schemas
+    return audit_schemas(
+        dormant_audit_ctx["root"],
+        ontology_labels=dormant_audit_ctx["ontology"],
+        engine_loaded_titles=dormant_audit_ctx["engine_loaded"],
+    )
+
+
+@then("\"Dormant\" is in dormant_schemas and not in covered")
+def _dormant_in_dormant_not_covered(dormant_report):
+    assert "Dormant" in dormant_report.dormant_schemas, (
+        "expected 'Dormant' in dormant_schemas")
+    assert "Dormant" not in dormant_report.covered, (
+        "expected 'Dormant' NOT in covered (it is file-backed but engine-undeclared)")
+
+
+@when("I run the live schema audit with engine-load intersection",
+      target_fixture="live_dormant_report")
+def _run_live_dormant_audit():
+    from agency.engine import Engine
+    from agency._schema_coverage import (audit_schemas, truly_inline_schemas,
+                                         engine_loaded_schema_titles)
+    repo = Path(__file__).parent.parent.parent
+    e = Engine(":memory:")
+    try:
+        ontology = set(e.ontology.nodes)
+        merged = dict(e.ontology.schemas)
+        engine_loaded = engine_loaded_schema_titles(merged)
+    finally:
+        e.memory.close()
+    inline = truly_inline_schemas(repo / "agency", merged)
+    return audit_schemas(repo / "agency", ontology_labels=ontology,
+                         ontology_schemas=inline,
+                         engine_loaded_titles=engine_loaded)
+
+
+@then("there are no dormant schemas")
+def _no_dormant_schemas(live_dormant_report):
+    assert live_dormant_report.dormant_schemas == set(), (
+        "these schema files match an ontology label but are NOT declared "
+        "by their capability (add `artefact_schemas` to the owning cap):\n"
+        + "\n".join(f"  {l}" for l in sorted(live_dormant_report.dormant_schemas)))
+
+
+# ── Slice 6: discover-prompt wave ────────────────────────────────────────────
+# FeasibilitySignal + IntentRefinement (discover cap; already has artefact_schemas)
+# Template (document cap; already has artefact_schemas)
+# PromptFramework (prompt cap; artefact_schemas added this wave)
+DISCOVER_PROMPT_LABELS = {"FeasibilitySignal", "IntentRefinement", "Template", "PromptFramework"}
+
+
+@then("the discover-prompt labels are all schema-covered")
+def _discover_prompt_covered(coverage_report):
+    missing = DISCOVER_PROMPT_LABELS - coverage_report.covered
+    assert not missing, (
+        "discover-prompt labels lack a Schema (Spec 153 Slice 6 — discover-prompt wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the discover-prompt labels each have a loaded ontology schema")
+def _discover_prompt_loaded(loaded_schema_titles):
+    missing = DISCOVER_PROMPT_LABELS - loaded_schema_titles
+    assert not missing, (
+        "discover-prompt schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── Slice 6: prompt-dossier + document + jules wave ──────────────────────────
+# BriefAudit/CatalogModule/ResearchIntent/AntiPattern (prompt cap)
+# DocRevision (document cap) + JulesAlias (jules cap)
+# All owning caps already have artefact_schemas declared.
+PROMPT_DOSSIER_DOC_JULES_LABELS = {
+    "BriefAudit", "CatalogModule", "ResearchIntent", "AntiPattern",
+    "DocRevision", "JulesAlias",
+}
+
+
+@then("the prompt-dossier-document-jules labels are all schema-covered")
+def _prompt_dossier_doc_jules_covered(coverage_report):
+    missing = PROMPT_DOSSIER_DOC_JULES_LABELS - coverage_report.covered
+    assert not missing, (
+        "prompt-dossier+document+jules labels lack a Schema "
+        "(Spec 153 Slice 6 — prompt-dossier+doc+jules wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the prompt-dossier-document-jules labels each have a loaded ontology schema")
+def _prompt_dossier_doc_jules_loaded(loaded_schema_titles):
+    missing = PROMPT_DOSSIER_DOC_JULES_LABELS - loaded_schema_titles
+    assert not missing, (
+        "prompt-dossier+document+jules schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── analyze + select wave ─────────────────────────────────────────────────────
+# Analysis/Finding (analyze cap) + Selection (select cap)
+ANALYZE_SELECT_LABELS = {"Analysis", "Finding", "Selection"}
+
+
+@then("the analyze-select labels are all schema-covered")
+def _analyze_select_covered(coverage_report):
+    missing = ANALYZE_SELECT_LABELS - coverage_report.covered
+    assert not missing, (
+        "analyze+select labels lack a Schema "
+        "(Spec 153 Slice 6 — analyze+select wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the analyze-select labels each have a loaded ontology schema")
+def _analyze_select_loaded(loaded_schema_titles):
+    missing = ANALYZE_SELECT_LABELS - loaded_schema_titles
+    assert not missing, (
+        "analyze+select schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── Slice 6: foundational-service wave ───────────────────────────────────────
+# DoctrineCitation (doctrine cap) + ModeActivation (mode cap) +
+# ThinkingMethod (thinking cap) — all inline OntologyExtension schemas
+# (no file-backed schemas dir; inline is loaded by the engine automatically).
+# A named contract set, not a snapshot count (CLAUDE.md rule 8).
+FOUNDATIONAL_SERVICE_LABELS = {"DoctrineCitation", "ModeActivation", "ThinkingMethod"}
+
+
+@then("the foundational service labels are all schema-covered")
+def _foundational_service_covered(coverage_report):
+    missing = FOUNDATIONAL_SERVICE_LABELS - coverage_report.covered
+    assert not missing, (
+        "foundational-service labels lack a Schema "
+        "(Spec 153 Slice 6 — foundational-service wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the foundational service labels each have a loaded ontology schema")
+def _foundational_service_loaded(loaded_schema_titles):
+    missing = FOUNDATIONAL_SERVICE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "foundational-service schemas are not loaded by the engine "
+        "(add inline schema to the owning capability's OntologyExtension):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── research + develop-extras wave ───────────────────────────────────────────
+# Research/ResearchClaim (research cap) + Plan/PlanStep/ModeShift/SessionLifecycle (develop cap)
+# Both caps already declare artefact_schemas — only schemas needed.
+RESEARCH_DEVELOP_EXTRAS_LABELS = {
+    "Research", "ResearchClaim",
+    "Plan", "PlanStep", "ModeShift", "SessionLifecycle",
+}
+
+
+@then("the research-develop-extras labels are all schema-covered")
+def _research_develop_extras_covered(coverage_report):
+    missing = RESEARCH_DEVELOP_EXTRAS_LABELS - coverage_report.covered
+    assert not missing, (
+        "research+develop-extras labels lack a Schema "
+        "(Spec 153 Slice 6 — research+develop-extras wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the research-develop-extras labels each have a loaded ontology schema")
+def _research_develop_extras_loaded(loaded_schema_titles):
+    missing = RESEARCH_DEVELOP_EXTRAS_LABELS - loaded_schema_titles
+    assert not missing, (
+        "research+develop-extras schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── recommend + mode + panel + thinking wave ─────────────────────────────────
+# Recommendation (recommend) + ModeActivation (mode) + Panel (panel)
+# + ThinkingMethod (thinking) + PromptVariant/PromptOutput (prompt, already wired)
+RECOMMEND_MODE_PANEL_THINKING_LABELS = {
+    "Recommendation", "ModeActivation", "Panel",
+    "ThinkingMethod", "PromptVariant", "PromptOutput",
+}
+
+
+@then("the recommend-mode-panel-thinking labels are all schema-covered")
+def _recommend_mode_panel_thinking_covered(coverage_report):
+    missing = RECOMMEND_MODE_PANEL_THINKING_LABELS - coverage_report.covered
+    assert not missing, (
+        "recommend+mode+panel+thinking labels lack a Schema "
+        "(Spec 153 Slice 6 — recommend+mode+panel+thinking wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the recommend-mode-panel-thinking labels each have a loaded ontology schema")
+def _recommend_mode_panel_thinking_loaded(loaded_schema_titles):
+    missing = RECOMMEND_MODE_PANEL_THINKING_LABELS - loaded_schema_titles
+    assert not missing, (
+        "recommend+mode+panel+thinking schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── plugin + persona + doctrine + dogfood wave ───────────────────────────────
+# Plugin/Command (plugin, already wired) + ResearchBrief (prompt, already wired)
+# + PersonaBrief (persona) + DoctrineCitation (doctrine) + DecisionRecord (dogfood)
+PLUGIN_PERSONA_DOCTRINE_DOGFOOD_LABELS = {
+    "Plugin", "Command", "ResearchBrief",
+    "PersonaBrief", "DoctrineCitation", "DecisionRecord",
+}
+
+
+@then("the plugin-persona-doctrine-dogfood labels are all schema-covered")
+def _plugin_persona_doctrine_dogfood_covered(coverage_report):
+    missing = PLUGIN_PERSONA_DOCTRINE_DOGFOOD_LABELS - coverage_report.covered
+    assert not missing, (
+        "plugin+persona+doctrine+dogfood labels lack a Schema "
+        "(Spec 153 Slice 6 — plugin+persona+doctrine+dogfood wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the plugin-persona-doctrine-dogfood labels each have a loaded ontology schema")
+def _plugin_persona_doctrine_dogfood_loaded(loaded_schema_titles):
+    missing = PLUGIN_PERSONA_DOCTRINE_DOGFOOD_LABELS - loaded_schema_titles
+    assert not missing, (
+        "plugin+persona+doctrine+dogfood schemas are on disk but NOT loaded by "
+        "the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── music + dogfood-boundary + prompt-opt wave ───────────────────────────────
+# Album/Track/Genre/Idea/Tweet/Reference (music cap; new schemas/ dir + artefact_schemas)
+# BoundaryUse (dogfood cap; already wired, new schema file)
+# OptimizationPass (prompt cap; already wired, new schema file)
+MUSIC_DOGFOOD_PROMPT_LABELS = {
+    "Album", "Track", "Genre", "Idea", "Tweet", "Reference",
+    "BoundaryUse", "OptimizationPass",
+}
+
+
+@then("the music-dogfood-prompt labels are all schema-covered")
+def _music_dogfood_prompt_covered(coverage_report):
+    missing = MUSIC_DOGFOOD_PROMPT_LABELS - coverage_report.covered
+    assert not missing, (
+        "music+dogfood-boundary+prompt-opt labels lack a Schema "
+        "(Spec 153 Slice 6 — music+dogfood-boundary+prompt-opt wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the music-dogfood-prompt labels each have a loaded ontology schema")
+def _music_dogfood_prompt_loaded(loaded_schema_titles):
+    missing = MUSIC_DOGFOOD_PROMPT_LABELS - loaded_schema_titles
+    assert not missing, (
+        "music+dogfood-boundary+prompt-opt schemas are on disk but NOT loaded "
+        "by the engine (declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── novel + core Schema/Tool wave ─────────────────────────────────────────────
+# Novel/Chapter/Storyform/NovelClaim/Scene/World/Culture/Religion/Language/
+# MagicSystem/WorldAxiom/StoryTimeEvent/NarrativeBeat/CodexEntry/KnownFact (novel cap)
+# Schema/Tool (core ontology labels; develop cap already declares artefact_schemas)
+NOVEL_CORE_LABELS = {
+    "Novel", "Chapter", "Storyform", "NovelClaim", "Scene",
+    "World", "Culture", "Religion", "Language", "MagicSystem", "WorldAxiom",
+    "StoryTimeEvent", "NarrativeBeat", "CodexEntry", "KnownFact",
+    "Schema", "Tool",
+}
+
+
+@then("the novel-core labels are all schema-covered")
+def _novel_core_covered(coverage_report):
+    missing = NOVEL_CORE_LABELS - coverage_report.covered
+    assert not missing, (
+        "novel+core labels lack a Schema "
+        "(Spec 153 Slice 6 — novel+core wave):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+@then("the novel-core labels each have a loaded ontology schema")
+def _novel_core_loaded(loaded_schema_titles):
+    missing = NOVEL_CORE_LABELS - loaded_schema_titles
+    assert not missing, (
+        "novel+core schemas are on disk but NOT loaded by the engine "
+        "(declare `artefact_schemas` on the owning capability):\n"
+        + "\n".join(f"  {l}" for l in sorted(missing)))
+
+
+# ── round-trip invariant (Spec 153 remaining) ─────────────────────────────────
+# NODE_SCHEMAS["Intent"] = ["purpose", "deliverable", "acceptance", "status", "owner"]
+# Invariant: record with all required fields → succeeds; omit one → ValueError.
+
+_ROUND_TRIP_VALID = {
+    "purpose": "test round-trip purpose",
+    "deliverable": "test deliverable",
+    "acceptance": "test acceptance criterion",
+    "status": "draft",
+    "owner": "agent",
+}
+_ROUND_TRIP_MISSING_REQUIRED = {
+    # "purpose" intentionally omitted — required by NODE_SCHEMAS["Intent"]
+    "deliverable": "test deliverable",
+    "acceptance": "test acceptance criterion",
+    "status": "draft",
+    "owner": "agent",
+}
+
+
+@when("I boot the live engine for round-trip validation", target_fixture="round_trip_engine")
+def _boot_live_engine_round_trip():
+    from agency.engine import Engine
+    return Engine(":memory:")
+
+
+@then("recording an Intent node with valid required fields succeeds")
+def _round_trip_valid_succeeds(round_trip_engine):
+    try:
+        nid = round_trip_engine.memory.record("Intent", dict(_ROUND_TRIP_VALID))
+        assert isinstance(nid, str) and len(nid) > 0
+    finally:
+        round_trip_engine.memory.close()
+
+
+@then("recording an Intent node with a missing required field raises ValueError")
+def _round_trip_missing_raises(round_trip_engine):
+    try:
+        with pytest.raises(ValueError, match="missing required"):
+            round_trip_engine.memory.record("Intent", dict(_ROUND_TRIP_MISSING_REQUIRED))
+    finally:
+        round_trip_engine.memory.close()

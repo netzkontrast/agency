@@ -9,6 +9,22 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
 > [`AGENTS.md`](AGENTS.md) (operational), [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md)
 > (remote-agent doctrine).
 
+> **ALWAYS use CodeGraph to discover and find code symbols (MANDATORY).** This
+> repo is indexed by CodeGraph (a `.codegraph/` directory exists; run `codegraph
+> init` once if it does not). For EVERY code lookup — "where is X", "what is X",
+> "how does X work", any symbol / call-path / blast-radius question, and BEFORE
+> editing an unfamiliar symbol — reach for CodeGraph FIRST, never grep / find /
+> Read as the opening move. `codegraph_explore "<question or symbol names>"` (MCP)
+> or `codegraph explore "<…>"` (CLI) answers most questions in ONE call — it
+> returns the relevant symbols' verbatim source PLUS the call paths between them;
+> treat that source as already read (don't re-grep to "confirm" it).
+> `codegraph_node` / `query` / `callers` / `callees` / `impact` round it out (the
+> CLI mirrors every MCP tool). grep / Glob / Read are the FALLBACK only — when
+> CodeGraph is inactive (no `.codegraph/`) or for non-code text (docs, specs,
+> config). When you reach for grep on a code question and `.codegraph/` exists,
+> stop — that is the reflex this rule exists to correct. The full token-efficient
+> guide travels on demand via `develop.reference("codegraph")`.
+
 ## Three rules for working in this repo
 
 1. **Dogfood the engine — MCP-first when available.** When your harness has
@@ -148,6 +164,45 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    snapshot of the current state; keep them few, named, and overridable.
    When you catch yourself updating a magic number to make a test pass, stop
    and make the test flexible instead.
+
+9. **Never delete content from the project index to fit a budget — MANDATORY.**
+   `PROJECT_INDEX.md` (the `document.index_repo` / `develop index` briefing) is a
+   GROW/APPEND artefact. When it is **SAVED** (`apply=True`), every module and
+   section MUST survive — the saved index is **never truncated** to fit a token
+   budget and **never** carries an "… omitted to fit token budget" marker. A
+   dropped entry makes the index LIE about the tree, which is worse than a larger
+   file. The `max_tokens` budget governs only a **preview** (`apply=False`); on
+   save the index renders in FULL (`_index_repo.render(..., full=True)`). If a
+   saved index ever shows an omission marker, that is a defect — regenerate it
+   complete (`document.index_repo(apply=True)`) before committing.
+
+   **Generalised — never silently truncate CAPTURED DATA (MANDATORY; user
+   directive 2026-06-19).** The index rule is the special case of a wider law:
+   captured data — hook **tool calls (pre/post)**, command output, stderr, stored
+   provenance text — is stored/returned in **FULL**, never sliced to a char
+   budget or head/tail-filtered before persisting. A dropped tail makes the
+   record LIE about what happened. When a value is unusually large, **warn — do
+   not cut**: route it through `agency/_capture.py::keep_full(value, label=…)`,
+   which returns the full value and logs a size warning. NOT in scope (these are
+   not "data" and keep their slicing): content-hash prefixes (`sha[:16]`), top-N
+   list selection (`ranked[:10]`), and pure display width (a CLI help column).
+   When you catch yourself writing `data[:N]` on a captured/stored string, stop
+   and use `keep_full` instead.
+
+10. **Use CodeGraph for EVERY code lookup — MANDATORY (when `.codegraph/` exists).**
+    For ANY "where is X / what is X / how does X work", symbol, call-path, or
+    blast-radius question — and BEFORE editing an unfamiliar symbol — reach for
+    CodeGraph **first**, never grep/find/Read as the opening move.
+    `codegraph_explore` (MCP) or `codegraph explore "<q>"` (CLI) answers most in
+    ONE call: it returns the relevant symbols' **verbatim source + the call paths
+    between them** — treat that source as already read (don't re-grep to
+    "confirm" it). `codegraph_node`/`query`/`callers`/`callees`/`impact` round it
+    out (CLI mirrors every MCP tool). grep/Glob/Read are the **fallback** — only
+    when CodeGraph is inactive (no `.codegraph/` dir → indexing is the user's
+    call) or for non-code text (docs, specs, config). The full token-efficient
+    guide travels on demand via `develop.reference("codegraph")`; don't memorize
+    it. When you reach for grep on a code question and `.codegraph/` exists, stop
+    — that's the reflex this rule exists to correct.
 
 ## Field-tested heuristics (dogfooded — grounded in graph reflections)
 

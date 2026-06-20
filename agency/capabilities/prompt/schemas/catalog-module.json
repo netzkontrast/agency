@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CatalogModule",
+  "description": "A named module from the prompt catalog, selected to build a dossier section (agency/capabilities/prompt/ontology.py; Spec 153 Slice 6 — prompt-dossier wave). Modules are ranked A/B/C by coverage depth; the dossier author picks from the live catalog via prompt.list_modules.",
+  "type": "object",
+  "required": ["category", "identifier", "name"],
+  "properties": {
+    "category": {
+      "type": "string",
+      "enum": ["A", "B", "C"],
+      "description": "Coverage depth: A = comprehensive, B = standard, C = lightweight."
+    },
+    "identifier": {
+      "type": "string",
+      "description": "Stable kebab-case identifier for the module, e.g. 'character-voice'."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable module name."
+    }
+  }
+}

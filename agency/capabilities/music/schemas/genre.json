@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Genre",
+  "description": "A music genre node (agency/capabilities/music/ontology.py; Spec 094). Carries mastering targets and Suno generation tips.",
+  "type": "object",
+  "required": ["slug", "name"],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "URL-safe kebab-case genre identifier (e.g. 'lo-fi-hip-hop')."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable genre name."
+    },
+    "mastering_target_lufs": {
+      "type": "number",
+      "description": "Genre-typical integrated loudness target in LUFS."
+    },
+    "suno_tips": {
+      "type": "string",
+      "description": "Free-text prompting tips for Suno generation in this genre."
+    }
+  }
+}

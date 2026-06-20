@@ -32,11 +32,16 @@ import os
 import sys
 
 import click
+import yaml
+import re
 from dotenv import load_dotenv
 
-load_dotenv()  # populate OPENROUTER_API_KEY / JULES_API_KEY from .env before any lazy reads
+load_dotenv(".env.dev")  # dev-specific actual values (gitignored); written by `python -m agency.install`
+load_dotenv()            # committed .env template with ${VAR} expansion; no-op if already set
 
+from ._capture import keep_full
 from .engine import Engine
+from ._typed_shapes_wave1_part2 import ChainStep
 
 
 def _structured(result):
@@ -71,6 +76,80 @@ def _resolve_db(db_value):
     return db_path
 
 
+def _run_chain(ctx, db_value, chain_file):
+    """Run a YAML list of steps sequentially (Spec 160)."""
+    with open(chain_file) as f:
+        data = yaml.safe_load(f)
+
+    if not isinstance(data, list):
+        click.echo('{"error": "Codes.CHAIN_UNSAFE_YAML", "message": "Chain file must be a list of steps"}')
+        return 1
+
+    steps = []
+    for i, item in enumerate(data):
+        try:
+            steps.append(ChainStep(**item))
+        except Exception as e:
+            click.echo(json.dumps({"error": "Codes.CHAIN_UNSAFE_YAML", "message": f"Step {i}: {e}"}, sort_keys=True))
+            return 1
+
+    db_path = _resolve_db(db_value)
+    engine = Engine(db_path)
+    mcp = engine.build_mcp(codemode=False)
+
+    state = {}
+    last_result = None
+    last_rc = 0
+
+    try:
+        for step in steps:
+            args = _interpolate_args(step.args, state)
+
+            # Catch CHAIN_UNKNOWN_REF as required by failure modes
+            # We can detect this if there's an unresolved ${}
+            def _check_unresolved(v):
+                if isinstance(v, str) and "${" in v and "}" in v:
+                    return True
+                elif isinstance(v, dict):
+                    return any(_check_unresolved(sub_v) for sub_v in v.values())
+                elif isinstance(v, list):
+                    return any(_check_unresolved(sub_v) for sub_v in v)
+                return False
+
+            if _check_unresolved(args):
+                last_result = {"error": "Codes.CHAIN_UNKNOWN_REF", "message": "Unresolved reference in step arguments"}
+                last_rc = 1
+                break
+
+            tool_name = f"capability_{step.cap}_{step.verb}"
+
+            try:
+                res = _structured(asyncio.run(mcp.call_tool(tool_name, args)))
+                last_rc = 0
+            except Exception as e:
+                res = {"error": type(e).__name__, "message": str(e)}
+                last_rc = 1
+
+            if step.fields and last_rc == 0:
+                fields_csv = ",".join(step.fields)
+                res = _apply_fields(res, fields_csv)
+
+            if step.save_as:
+                state[step.save_as] = res
+
+            last_result = res
+            if last_rc != 0:
+                break
+
+    finally:
+        engine.memory.close()
+
+    if last_result is not None:
+        return _emit(last_result, last_rc)
+
+    return 0
+
+
 def _call_engine_tool(db_value, name, params, codemode=True):
     """Build an engine on the resolved DB, call ONE tool, return (result, rc).
 
@@ -99,6 +178,50 @@ def _emit(result, rc):
 
 def _db(ctx):
     return (ctx.obj or {}).get("db")
+
+
+def _interpolate_args(args, state):
+    """Recursively interpolate `${save_as.field}` references in args."""
+    if isinstance(args, str):
+        def repl(match):
+            key_path = match.group(1).split(".")
+            val = state
+            for part in key_path:
+                if isinstance(val, dict) and part in val:
+                    val = val[part]
+                elif isinstance(val, list) and part.isdigit() and int(part) < len(val):
+                    val = val[int(part)]
+                else:
+                    return match.group(0) # Not resolved
+            # If it resolves to a non-string (e.g. dict/list), we can't cleanly interpolate it
+            # into a string unless it's the entire string.
+            # We'll just return its string representation here if embedded.
+            return str(val) if val is not None else ""
+
+        # Special case: if the string is EXACTLY one interpolation variable, keep its native type.
+        exact_match = re.fullmatch(r"\$\{([^}]+)\}", args)
+        if exact_match:
+            key_path = exact_match.group(1).split(".")
+            val = state
+            resolved = True
+            for part in key_path:
+                if isinstance(val, dict) and part in val:
+                    val = val[part]
+                elif isinstance(val, list) and part.isdigit() and int(part) < len(val):
+                    val = val[int(part)]
+                else:
+                    resolved = False
+                    break
+            if resolved:
+                return val
+
+        return re.sub(r"\$\{([^}]+)\}", repl, args)
+    elif isinstance(args, dict):
+        return {k: _interpolate_args(v, state) for k, v in args.items()}
+    elif isinstance(args, list):
+        return [_interpolate_args(v, state) for v in args]
+    else:
+        return args
 
 
 def _apply_fields(result, fields_csv):
@@ -134,14 +257,23 @@ def _emit_fields(result, rc, fields_csv=None):
 
 # --- the group + legacy subcommands (behaviour-preserving) --------------------
 
-@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.group(context_settings={"help_option_names": ["-h", "--help"]}, invoke_without_command=True)
 @click.option("--db", default=None,
               help="path to the graph DB (default: per Spec 020 resolution order)")
+@click.option("--chain", default=None,
+              help="run a YAML list of {cap, verb, args, save_as, fields} steps")
 @click.pass_context
-def cli(ctx, db):
+def cli(ctx, db, chain):
     """agency — bash-callable engine (code-mode is the contract)."""
     ctx.ensure_object(dict)
     ctx.obj["db"] = db
+
+    if chain:
+        rc = _run_chain(ctx, db, chain)
+        sys.exit(rc)
+    elif ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+        sys.exit(0)
 
 
 @cli.command()
@@ -203,6 +335,36 @@ def intent(ctx, purpose, deliverable, acceptance):
     return _emit(out, rc)
 
 
+@cli.group(invoke_without_command=False)
+def snapshot():
+    """Export/import the DURABLE session graph as portable SQL in `.agency/sql/`.
+
+    The live `.agency/session.db` is gitignored (it churns + is mostly ephemeral);
+    the committed snapshot is the source of truth. SessionStart restores a missing
+    db from it; run `export` periodically to re-snapshot."""
+
+
+@snapshot.command(name="export")
+@click.option("--all", "all_", is_flag=True, help="include ephemeral Events/RepoIndex")
+@click.option("--out", default=None)
+@click.option("--db", default=None)
+def snapshot_export(all_, out, db):
+    """Snapshot the durable graph → `.agency/sql/session-snapshot.sql`."""
+    from . import _session_snapshot as snap
+    r = snap.export(graph_db=db, out=out or snap._DEFAULT_SQL, include_events=all_)
+    return _emit(r, 0 if r.get("exported") else 1)
+
+
+@snapshot.command(name="import")
+@click.option("--sql", default=None)
+@click.option("--db", default=None)
+def snapshot_import(sql, db):
+    """Replay a SQL snapshot → graph (used by the SessionStart restore)."""
+    from . import _session_snapshot as snap
+    r = snap.import_snapshot(sql=sql or snap._DEFAULT_SQL, target_db=db)
+    return _emit(r, 0 if r.get("imported") else 1)
+
+
 @cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("root", required=False)
 @click.option("--scaffold-db", is_flag=True,
@@ -210,9 +372,25 @@ def intent(ctx, purpose, deliverable, acceptance):
 @click.option("--scaffold-only", is_flag=True,
               help="scaffold .agency/ ONLY (do NOT write the plugin install surface)")
 @click.option("--dry-run", is_flag=True, help="print would-write paths; touch nothing")
-def install(root, scaffold_db, scaffold_only, dry_run):
-    """Regenerate the plugin install (and optionally scaffold .agency/)."""
+@click.option("--agent", "agents", multiple=True,
+              help="Spec 333 — install agency into an agent's native rules "
+                   "(cursor/windsurf/cline/kiro/copilot/agents/claude/all); repeatable")
+def install(root, scaffold_db, scaffold_only, dry_run, agents):
+    """Regenerate the plugin install (and optionally scaffold .agency/), or
+    install agency into other agents' native rules via ``--agent``."""
     from . import install as install_mod
+    # Spec 333 — multi-agent self-installer. With --agent, project the live
+    # surface_card into each agent's native format; without it, the default
+    # Claude-Code plugin behaviour is unchanged.
+    if agents:
+        from . import _install_adapters as ia
+        eng = Engine(":memory:")
+        try:
+            report = ia.install_agents(ia.resolve_names(agents), ia.resolve_root(root), eng)
+        finally:
+            eng.memory.close()
+        click.echo(json.dumps(report, indent=2))
+        return 0 if all(r.get("ok") for r in report.values()) else 1
     sub_argv: list[str] = []
     if root:
         sub_argv.append(root)
@@ -223,6 +401,20 @@ def install(root, scaffold_db, scaffold_only, dry_run):
     if dry_run:
         sub_argv.append("--dry-run")
     return install_mod.main(sub_argv)
+
+
+@cli.command()
+@click.argument("root", required=False)
+@click.option("--agent", "agents", multiple=True, required=True,
+              help="Spec 333 — remove agency's fenced block from an agent's native "
+                   "rules (cursor/windsurf/cline/kiro/copilot/agents/all); repeatable")
+def uninstall(root, agents):
+    """Remove agency's fenced block from the given agents' native rules — the
+    user's surrounding content is preserved."""
+    from . import _install_adapters as ia
+    report = ia.uninstall_agents(ia.resolve_names(agents), ia.resolve_root(root))
+    click.echo(json.dumps(report, indent=2))
+    return 0 if all(r.get("ok") for r in report.values()) else 1
 
 
 @cli.command()
@@ -343,7 +535,7 @@ def hook_self_test(ctx, plugin_root):                                  # noqa: A
             "exit_code": proc.returncode,
             "want_hint": want_hint,
             "hint_seen": hint_seen,
-            "stderr":    (proc.stderr or "")[:240],
+            "stderr":    keep_full(proc.stderr or "", label="self-test stderr"),
             "ok":        case_ok,
         })
     return _emit({"ok": all_ok, "results": results}, 0 if all_ok else 1)
@@ -387,7 +579,7 @@ def hook_wrap(ctx, command):                                           # noqa: A
         try:
             eng.memory.record("Event", {
                 "name":      "hook-wrap-run",
-                "command":   command[:200],
+                "command":   keep_full(command, label="hook-wrap command"),
                 "exit_code": proc.returncode,
             })
         finally:
@@ -478,6 +670,8 @@ def _make_verb_command(cap_name, verb_name, spec):
                                 help="serving intent (defaults to $AGENCY_INTENT)"))
     options.append(click.Option(["--agent-id"], default="",
                                 help="optional performer agent id"))
+    options.append(click.Option(["--fields"], default=None,
+                                help="project result to a comma-separated list of top-level keys"))
     has_json = "json" not in {p.name for p in user_params}
     if has_json:
         options.append(click.Option(["--json", "json_blob"], default="",
@@ -487,6 +681,7 @@ def _make_verb_command(cap_name, verb_name, spec):
         ctx = click.get_current_context()
         intent_id = kwargs.pop("intent_id", "")
         agent_id = kwargs.pop("agent_id", "")
+        fields = kwargs.pop("fields", None)
         json_blob = kwargs.pop("json_blob", "") if has_json else ""
         call: dict = {}
         from click.core import ParameterSource
@@ -514,7 +709,8 @@ def _make_verb_command(cap_name, verb_name, spec):
         if agent_id:
             call["agent_id"] = agent_id
         name = f"capability_{cap_name}_{verb_name}"
-        return _emit(*_call_engine_tool(_db(ctx), name, call, codemode=False))
+        return _emit_fields(*_call_engine_tool(_db(ctx), name, call, codemode=False),
+                             fields_csv=fields)
 
     return click.Command(name=verb_name, params=options, callback=callback,
                          help=brief, short_help=brief[:60])

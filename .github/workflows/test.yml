@@ -63,12 +63,26 @@ jobs:
         continue-on-error: true
         run: python scripts/check-doc-drift
 
+      # Spec 336 S1 — no-truncate guard, ADVISORY: flags any `value[:N]` slice on
+      # data that is then STORED (instead of routed through keep_full). Promote to
+      # gating once the capture surface is stable.
+      - name: No-truncate guard (advisory)
+        continue-on-error: true
+        run: python scripts/check-no-truncate
+
       # Spec 149 Slice 1 — vision-goals frontmatter gate. Fails ONLY when a
       # NEW spec lacks valid `vision_goals: [int, ...]` (Goal IDs 1..8 per
       # GOALS.md). The 129 historical gaps are tracked in
       # `Plan/_planning/vision-goals-baseline.txt`; backfill is a follow-up.
       - name: Vision-goals frontmatter
         run: python -m scripts.check_vision_goals
+
+      # Spec 149 Slice 2.3 — derived-zone drift gate. Fails CI when any
+      # spec.md that declares `<!-- derived:<id> -->` fences has stale
+      # content that does not match the live derivation. Exit 0 = all
+      # derived zones up to date (or no specs have declared fences).
+      - name: Derived-zone drift
+        run: python -m scripts.derive_docs --check --plan-root Plan
 
       # Spec 146 Slice 2.2 — response-prefix lint gate. Walks `agency/` and
       # flags any new non-deterministic call site (datetime.now / time.time /
@@ -77,12 +91,10 @@ jobs:
       # `Plan/_planning/prefix-lint-baseline.txt`; the gate fails ONLY on
       # regressions (new sites NOT in the baseline). Stop condition #5 for
       # the autonomous-completion goal.
-      # ADVISORY (2026-06-14): the Spec 286 OOP refactor moved call sites, so
-      # the baseline drifted (pre-existing on main, unrelated to the acceptance
-      # gate). Demoted to advisory until the baseline is refreshed
-      # (`check_response_prefix.py … --update`); the acceptance suite is the gate.
-      - name: Response-prefix lint (advisory)
-        continue-on-error: true
+      # Baseline refreshed 2026-06-20 (Spec 146 Slice 2.2 — promoted from
+      # advisory; was demoted 2026-06-14 due to the Spec 286 refactor
+      # moving call sites; baseline now reflects the live tree).
+      - name: Response-prefix lint
         run: |
           python scripts/check_response_prefix.py --root agency \
             --baseline Plan/_planning/prefix-lint-baseline.txt --strict

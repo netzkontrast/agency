@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Selection",
+  "description": "An approach-routing decision recorded by the select capability (agency/capabilities/select/_main.py; Spec 296 / Spec 301). SERVES the active intent; the approach archetype determines how the operation is executed.",
+  "type": "object",
+  "required": ["operation", "approach"],
+  "properties": {
+    "operation": {
+      "type": "string",
+      "description": "Natural-language description of the operation being routed (e.g. 'rename symbol Foo across repo')."
+    },
+    "approach": {
+      "type": "string",
+      "enum": ["semantic", "pattern", "native"],
+      "description": "Selected archetype: 'semantic' (structure-aware), 'pattern' (fast bulk), or 'native' (built-in safe default)."
+    }
+  }
+}

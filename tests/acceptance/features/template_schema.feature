@@ -117,3 +117,113 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the workflow-spine schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the workflow spine labels each have a loaded ontology schema
+
+  # ── schema coverage Slice 4 — engine-load intersection gate ──────────────────
+
+  Scenario: a schema file not declared by the capability goes to dormant_schemas, not covered
+    Given a capability with a schema file for "Dormant" but no artefact_schemas declaration
+    When I run the schema coverage audit with engine_loaded_titles excluding "Dormant"
+    Then "Dormant" is in dormant_schemas and not in covered
+
+  Scenario: the live tree has no dormant schemas — all on-disk schemas are engine-loaded
+    When I run the live schema audit with engine-load intersection
+    Then there are no dormant schemas
+
+  # ── schema coverage backfill (Slice 6 — discover-prompt wave) ────────────────
+
+  Scenario: the discover-prompt labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the discover-prompt labels are all schema-covered
+
+  Scenario: the discover-prompt schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the discover-prompt labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — prompt-dossier + document + jules wave) ─
+
+  Scenario: the prompt-dossier + document + jules labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the prompt-dossier-document-jules labels are all schema-covered
+
+  Scenario: the prompt-dossier + document + jules schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the prompt-dossier-document-jules labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — analyze + select wave) ───────────────
+
+  Scenario: the analyze-select labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the analyze-select labels are all schema-covered
+
+  Scenario: the analyze-select schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the analyze-select labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — foundational-service wave) ───────────
+
+  Scenario: the foundational-service labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the foundational service labels are all schema-covered
+
+  Scenario: the foundational-service schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the foundational service labels each have a loaded ontology schema
+  # ── schema coverage backfill (Slice 6 — research + develop-extras wave) ──────
+
+  Scenario: the research-develop-extras labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the research-develop-extras labels are all schema-covered
+
+  Scenario: the research-develop-extras schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the research-develop-extras labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — recommend + mode + panel + thinking wave) ─
+
+  Scenario: the recommend-mode-panel-thinking labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the recommend-mode-panel-thinking labels are all schema-covered
+
+  Scenario: the recommend-mode-panel-thinking schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the recommend-mode-panel-thinking labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — plugin + persona + doctrine + dogfood wave) ─
+
+  Scenario: the plugin-persona-doctrine-dogfood labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the plugin-persona-doctrine-dogfood labels are all schema-covered
+
+  Scenario: the plugin-persona-doctrine-dogfood schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the plugin-persona-doctrine-dogfood labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — music + dogfood-boundary + prompt-opt wave) ─
+
+  Scenario: the music-dogfood-prompt labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the music-dogfood-prompt labels are all schema-covered
+
+  Scenario: the music-dogfood-prompt schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the music-dogfood-prompt labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — novel + core Schema/Tool wave) ───────
+
+  Scenario: the novel-core labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the novel-core labels are all schema-covered
+
+  Scenario: the novel-core schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the novel-core labels each have a loaded ontology schema
+
+  # ── schema coverage round-trip invariant (Spec 153 remaining) ────────────────
+
+  Scenario: recording a covered label with all required fields succeeds
+    When I boot the live engine for round-trip validation
+    Then recording an Intent node with valid required fields succeeds
+
+  Scenario: recording a covered label with a missing required field raises ValueError
+    When I boot the live engine for round-trip validation
+    Then recording an Intent node with a missing required field raises ValueError

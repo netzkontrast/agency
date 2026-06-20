@@ -20,7 +20,8 @@ Red flags:
 """
 from __future__ import annotations
 
-from ...capability import CapabilityBase, verb
+from ..._capture import keep_full
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 
@@ -56,6 +57,7 @@ _APPROACH_ROUTING_SKILL = {
 class SelectCapability(CapabilityBase):
     name = "select"
     home = "lifecycle"   # a routing decision parameterizing HOW work proceeds
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"Selection": ["operation", "approach"]},
         enums={("Selection", "approach"): set(_ARCHETYPES)},
@@ -116,7 +118,8 @@ class SelectCapability(CapabilityBase):
                          f"{'speed-priority; ' if speed_priority else ''}"
                          f"threshold → {approach}")
         sel_id = self.ctx.record_and_serve("Selection", {
-            "operation": operation[:200], "approach": approach})
+            "operation": keep_full(operation, label="selection operation"),
+            "approach": approach})
         return {"operation": operation, "approach": approach,
                 "score": round(score, 3),
                 "confidence": round(abs(score - 0.5) * 2, 3),

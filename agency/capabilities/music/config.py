@@ -67,6 +67,25 @@ def _mtime(p: str) -> float:
         return 0.0
 
 
+# ── Spec 334 Slice 6 — unified config as a live, lowest-priority read source ───
+# Thin binders over the shared `_config` helpers (one semantics, no per-cap
+# drift); the lazy import keeps `_config` off the capability-discovery path.
+def _unified(field_name: str, fallback):
+    try:
+        from ... import _config
+        return _config.unified_or("music", field_name, fallback)
+    except Exception:
+        return fallback
+
+
+def _unified_sig() -> tuple:
+    try:
+        from ... import _config
+        return _config.unified_signature()
+    except Exception:
+        return ("", 0.0)
+
+
 # Module-level mtime-keyed cache for MusicConfig.load (Spec 116 efficiency
 # review): every config-touching verb calls load(), and engine bootstrap
 # touches it 2-3× per session. The cache key is (paths-tuple, mtime-tuple)
@@ -169,7 +188,7 @@ class MusicConfig:
         paths = (tuple(search_paths) if search_paths is not None
                  else tuple(cls._default_search_paths()))
         # Build a cache key keyed by paths + per-path mtime (mtime=0 if missing).
-        signature = tuple((p, _mtime(_expand(p))) for p in paths)
+        signature = tuple((p, _mtime(_expand(p))) for p in paths) + (_unified_sig(),)
         cached = _LOAD_CACHE.get(signature)
         if cached is not None:
             return cached
@@ -183,7 +202,7 @@ class MusicConfig:
             p = Path(_expand(path))
             if p.is_file():
                 return cls._from_dict(_parse_yaml(p.read_text()))
-        return cls.defaults()
+        return cls._from_dict({})        # no cap-local file → unified-or-default
 
     @classmethod
     def _default_search_paths(cls) -> list[str]:
@@ -242,17 +261,22 @@ class MusicConfig:
         sheet = d.get("sheet_music") or {}
         ne = d.get("name_exposure") or {}
         cfg = cls(
-            artist_name=artist.get("name") or "",
-            content_root=_expand(paths.get("content_root") or _DEFAULT_CONTENT_ROOT),
-            audio_root=_expand(paths.get("audio_root") or ""),
-            documents_root=_expand(paths.get("documents_root") or ""),
-            overrides=_expand(paths.get("overrides") or ""),
-            ideas_file=_expand(paths.get("ideas_file") or ""),
-            db_backend=(db.get("backend") or "sqlite"),
-            db_path=_expand(db.get("path") or ".agency/music.db"),
+            artist_name=artist.get("name") or _unified("artist_name", ""),
+            content_root=_expand(
+                paths.get("content_root") or _unified("content_root", _DEFAULT_CONTENT_ROOT)),
+            audio_root=_expand(paths.get("audio_root") or _unified("audio_root", "")),
+            documents_root=_expand(paths.get("documents_root") or _unified("documents_root", "")),
+            overrides=_expand(paths.get("overrides") or _unified("overrides", "")),
+            ideas_file=_expand(paths.get("ideas_file") or _unified("ideas_file", "")),
+            db_backend=(db.get("backend") or _unified("db_backend", "sqlite")),
+            db_path=_expand(db.get("path") or _unified("db_path", ".agency/music.db")),
             additional_genres=list(gen.get("additional_genres") or []),
-            sheet_music_enabled=bool(sheet.get("enabled", True)),
-            sheet_music_page_size=str(sheet.get("page_size") or "letter"),
+            # bool: respect an explicit False in the cap-local file (presence, not
+            # truthiness); fall to the unified value only when the key is absent.
+            sheet_music_enabled=(bool(sheet["enabled"]) if "enabled" in sheet
+                                 else bool(_unified("sheet_music_enabled", True))),
+            sheet_music_page_size=str(
+                sheet.get("page_size") or _unified("sheet_music_page_size", "letter")),
             name_exposure_blocklist=list(ne.get("blocklist") or []),
         )
         cfg._fill_path_defaults()
@@ -289,3 +313,15 @@ class MusicConfig:
             },
             "name_exposure": {"blocklist": list(self.name_exposure_blocklist)},
         }
+
+
+# Spec 334 Slice 5 — open-set proof: surface music's config in the unified
+# .agency/config.yaml (derived from the dataclass — single source, no literals).
+# The live value is resolved by the music capability (.agency/music-config.yaml /
+# AGENCY_MUSIC_HOME); full read-path unification is a tracked follow-up.
+try:  # best-effort — config registration must never break the capability import
+    from ... import _config as _agency_config
+    _agency_config.register_dataclass_section(
+        "music", MusicConfig, doc="music default — resolved by the music capability")
+except Exception:  # pragma: no cover - registration is best-effort
+    pass

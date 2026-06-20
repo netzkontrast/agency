@@ -11,10 +11,10 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     When a UserPromptSubmit hook event fires with session s1
     Then an Event node with name UserPromptSubmit and session s1 is in the graph
 
-  Scenario: PostToolUse event captures a trimmed tool summary under 600 chars
-    When a PostToolUse hook event fires with a 200-line Bash command
-    Then an Event node for PostToolUse is recorded
-    And the event summary is at most 600 characters
+  Scenario: pre/post tool calls are captured FULL in the ephemeral store, off the graph
+    When a PostToolUse hook event fires with a 500-line Bash command
+    Then no Event node for PostToolUse is in the graph
+    And the tool-call store holds the FULL 500-line payload
 
   Scenario: missing hook_event_name does not crash the dispatcher
     When a hook event fires without a hook_event_name
@@ -24,10 +24,10 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     When I call hook_event via the wire with a SubagentStop event
     Then a SubagentStop Event node is in the graph
 
-  Scenario: event links to active AGENCY_INTENT via OBSERVED_DURING edge
+  Scenario: a captured tool call records the active intent in the store
     Given a confirmed intent set as AGENCY_INTENT
     When a PreToolUse hook event fires with tool Edit
-    Then an OBSERVED_DURING edge connects the Event to the intent
+    Then the tool-call store records the active intent
 
   Scenario: event without active intent still records successfully
     Given no AGENCY_INTENT is set
@@ -61,11 +61,11 @@ Feature: hook dispatch — event recording, BoundaryUse capture, foreign-hook in
     When PreToolUse events fire for Read Grep Glob and WebFetch
     Then no BoundaryUse node is created
 
-  Scenario: BoundaryUse serves the active intent and links to the Event via RECORDED_BY
+  Scenario: BoundaryUse serves the active intent; the call lives in the tool-call store
     Given a confirmed intent set as AGENCY_INTENT
     When a PreToolUse Bash git commit event fires under that intent
     Then the BoundaryUse SERVES the intent
-    And the BoundaryUse is RECORDED_BY the Event
+    And the PreToolUse call is captured in the tool-call store
 
   Scenario: merge_settings is idempotent and preserves foreign plugins
     When I merge settings with another plugin already enabled

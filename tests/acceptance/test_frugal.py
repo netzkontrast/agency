@@ -1,6 +1,6 @@
-"""Acceptance — frugal core discipline level + render (Spec 326 Slice 1).
+"""Acceptance — frugal core discipline level + render (Spec 332 Slice 1).
 
-Behaviour: the active level resolves via Spec 328 config (default full, env wins,
+Behaviour: the active level resolves via Spec 334 config (default full, env wins,
 invalid falls back, set persists); render() emits the ladder + safety floor at a
 level; off is empty; the compact render is token-bounded but names the floor.
 """
@@ -33,6 +33,12 @@ def _eng_default(feng):
 @given(parsers.parse('a frugal engine with level "{level}"'), target_fixture="feng_ctx")
 def _eng_level(feng, level):
     feng["mp"].setenv("AGENCY_FRUGAL_LEVEL", level)
+    return feng
+
+
+@given(parsers.parse('a frugal engine with session_inject "{mode}"'), target_fixture="feng_ctx")
+def _eng_inject(feng, mode):
+    feng["mp"].setenv("AGENCY_FRUGAL_SESSION_INJECT", mode)
     return feng
 
 

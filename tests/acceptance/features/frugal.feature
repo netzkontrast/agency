@@ -1,5 +1,5 @@
-Feature: frugal core discipline — level + render (Spec 326 Slice 1)
-  The minimal-code discipline's active level resolves via Spec 328 config
+Feature: frugal core discipline — level + render (Spec 332 Slice 1)
+  The minimal-code discipline's active level resolves via Spec 334 config
   (default full); render() emits the ladder + the non-negotiable safety floor;
   off emits nothing; the compact render is token-bounded but still names the floor.
 
@@ -54,3 +54,22 @@ Feature: frugal core discipline — level + render (Spec 326 Slice 1)
     Given a frugal engine with no level override
     When a SessionStart event fires
     Then the injected text contains every safety-floor marker
+
+  Scenario: a session start injects the COMPLETE frugal help by default (Spec 348)
+    Given a frugal engine with no level override
+    When a SessionStart event fires
+    Then the injected text contains "YAGNI"
+    And the injected text contains "Levels (active:"
+    And the injected text contains "Switch the level"
+    And the injected text contains every safety-floor marker
+
+  Scenario: session_inject discipline injects only the ladder and floor
+    Given a frugal engine with session_inject "discipline"
+    When a SessionStart event fires
+    Then the injected text contains "YAGNI"
+    And the injected text does not contain "Levels (active:"
+
+  Scenario: session_inject off injects no frugal at session start
+    Given a frugal engine with session_inject "off"
+    When a SessionStart event fires
+    Then the injected text does not contain "YAGNI"

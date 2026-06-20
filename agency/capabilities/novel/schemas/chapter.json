@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chapter",
+  "description": "A chapter node within a Novel (Spec 101/102). Links to its novel via CHAPTER_OF; Scenes hang off it via SCENE_OF.",
+  "type": "object",
+  "required": ["novel", "number", "title", "status"],
+  "properties": {
+    "novel": {
+      "type": "string",
+      "description": "Parent Novel node id."
+    },
+    "number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Chapter ordinal (1-based)."
+    },
+    "title": {
+      "type": "string",
+      "description": "Chapter heading."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["outlined", "drafted", "revised", "final"],
+      "description": "Chapter lifecycle stage (CHAPTER_STATUS enum, agency/capabilities/novel/_main.py)."
+    },
+    "word_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Word count of the current draft body."
+    }
+  }
+}

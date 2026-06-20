@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Idea",
+  "description": "A music album idea node (agency/capabilities/music/ontology.py; Spec 094). Promoted to an Album via PROMOTED_TO edge when the concept is approved.",
+  "type": "object",
+  "required": ["text"],
+  "properties": {
+    "text": {
+      "type": "string",
+      "description": "Free-text description of the album concept."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["new", "promoted", "dropped"],
+      "description": "Lifecycle status of the idea."
+    }
+  }
+}

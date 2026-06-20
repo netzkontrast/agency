@@ -20,7 +20,8 @@ Red flags:
 """
 from __future__ import annotations
 
-from ...capability import CapabilityBase, verb
+from ..._capture import keep_full
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 
@@ -91,6 +92,7 @@ _SPECIALIST_DISPATCH_SKILL = {
 class PersonaCapability(CapabilityBase):
     name = "persona"
     home = "lifecycle"   # a persona parameterizes a dispatched agent's role
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"PersonaBrief": ["persona", "task"]},
         enums={("PersonaBrief", "persona"): set(_BY_NAME)},
@@ -161,5 +163,5 @@ class PersonaCapability(CapabilityBase):
                  f"**Approach:** {spec['approach']}\n\n"
                  f"---\n# Task\n\n{task}\n")
         brief_id = self.ctx.record_and_serve("PersonaBrief",
-                                             {"persona": resolved, "task": task[:200]})
+                                             {"persona": resolved, "task": keep_full(task, label="persona task")})
         return {"persona": resolved, "brief": brief, "persona_brief_id": brief_id}

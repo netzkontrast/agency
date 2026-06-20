@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import re
 
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
+from ..._capture import keep_full
 from ...ontology import OntologyExtension
 
 
@@ -93,6 +94,7 @@ _STRATEGIC_ANALYSIS_SKILL = {
 
 class PanelCapability(CapabilityBase):
     name = "panel"
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     home = "memory"   # produces strategic-analysis provenance
     ontology = OntologyExtension(
         nodes={"Panel": ["subject", "mode"]},
@@ -171,7 +173,7 @@ class PanelCapability(CapabilityBase):
                         for e in experts]
             synthesis = "Identify convergent themes + complementary perspectives across frameworks."
         panel_id = self.ctx.record_and_serve("Panel", {
-            "subject": subject[:200], "mode": chosen_mode})
+            "subject": keep_full(subject, label="panel subject"), "mode": chosen_mode})
         return {"panel_id": panel_id, "subject": subject, "mode": chosen_mode,
                 "experts": [e["name"] for e in experts],
                 "analysis": analysis, "synthesis": synthesis}

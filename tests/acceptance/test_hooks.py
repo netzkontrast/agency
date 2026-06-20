@@ -98,12 +98,12 @@ def _userprompt(hook_engine):
          "prompt": "do the thing"})
 
 
-@when("a PostToolUse hook event fires with a 200-line Bash command",
+@when("a PostToolUse hook event fires with a 500-line Bash command",
       target_fixture="hook_out")
 def _posttooluse(hook_engine):
     return hook_engine.dispatch_hook(
         {"hook_event_name": "PostToolUse", "session_id": "s1",
-         "tool_name": "Bash", "tool_input": {"command": "x\n" * 200}})
+         "tool_name": "Bash", "tool_input": {"command": "x\n" * 500}})
 
 
 @when("a hook event fires without a hook_event_name",
@@ -192,18 +192,30 @@ def _event_userprompt(hook_engine):
     assert any(e["name"] == "UserPromptSubmit" and e["session"] == "s1" for e in evs)
 
 
-@then("an Event node for PostToolUse is recorded")
-def _event_posttooluse(hook_engine):
+@then("no Event node for PostToolUse is in the graph")
+def _no_posttooluse_event(hook_engine):
     evs = hook_engine.memory.find("Event")
-    assert any(e["name"] == "PostToolUse" for e in evs)
+    assert not any(e["name"] == "PostToolUse" for e in evs), \
+        "Spec 336 S2 — tool calls go to the ephemeral store, not the durable graph"
 
 
-@then("the event summary is at most 600 characters")
-def _event_summary(hook_engine):
-    evs = hook_engine.memory.find("Event")
-    ev = next(e for e in evs if e["name"] == "PostToolUse")
-    assert ev.get("summary")
-    assert len(ev["summary"]) <= 600
+@then("the tool-call store holds the FULL 500-line payload")
+def _store_payload_full(hook_engine):
+    rows = hook_engine.toolcalls.rows(where="phase='post'")
+    assert rows, "the PostToolUse call must be captured in the tool-call store"
+    payload = rows[-1]["input_json"] + rows[-1]["output_json"]
+    # FULL capture (no-truncate policy): every one of the 500 lines survives,
+    # uncapped (the value is NOT cut to the old 600-char budget).
+    assert payload.count("x") == 500, payload.count("x")
+    assert len(payload) > 600
+
+
+@then("the tool-call store records the active intent")
+def _store_records_intent(hook_engine, active_intent):
+    rows = hook_engine.toolcalls.rows()
+    assert rows, "the tool call must be captured in the store"
+    assert any(r["intent"] == active_intent for r in rows), \
+        [r["intent"] for r in rows]
 
 
 @then("the result carries recorded or skipped without raising")
@@ -276,6 +288,13 @@ def _bu_serves(hook_engine, active_intent):
         "MATCH (b:BoundaryUse)-[:SERVES]->(i:Intent) WHERE i.id = $iid RETURN b",
         {"iid": active_intent})
     assert len(rows) == 1
+
+
+@then("the PreToolUse call is captured in the tool-call store")
+def _pretooluse_in_store(hook_engine):
+    rows = hook_engine.toolcalls.rows(where="phase='pre'")
+    assert rows, "the PreToolUse call must be captured in the tool-call store"
+    assert rows[-1]["tool"] == "Bash", rows[-1]
 
 
 @then("the BoundaryUse is RECORDED_BY the Event")
@@ -581,8 +600,12 @@ def _restore_s9(hook_engine, active_intent):
         hook_engine.memory, active_intent, "document", "restore_session",
         agent_id="agent:test", session_id="s9")
     assert r["status"] == "closed", r
-    assert r["event_count"] >= 3, r          # 2 events + the SessionEnd event
+    # Spec 336 S2 — the graph keeps the LIFECYCLE events (UserPromptSubmit +
+    # SessionEnd); the PostToolUse tool call lives in the ephemeral store.
+    assert r["event_count"] >= 2, r
     assert r["document_id"], r
+    assert any(rr["tool"] == "Bash" for rr in hook_engine.toolcalls.rows()), \
+        "the tool call is recoverable from the store"
 
 
 # ── Session Graph analytics (Spec 292) ────────────────────────────────────────
@@ -596,10 +619,12 @@ def _analytics(eng, intent, **kw):
 @then("session analytics for s9 report the event-type and tool breakdown")
 def _analytics_single(hook_engine, active_intent):
     a = _analytics(hook_engine, active_intent, session_id="s9")
-    assert a["found"] and a["event_count"] >= 3, a
+    # Spec 336 S2 — graph analytics cover the LIFECYCLE events; the tool breakdown
+    # moved to the ephemeral store (read via the toolcalls capability).
+    assert a["found"] and a["event_count"] >= 2, a
     names = {row["name"] for row in a["events_by_type"]}
-    assert {"UserPromptSubmit", "PostToolUse", "SessionEnd"} <= names, a
-    assert any(row["tool"] == "Bash" for row in a["tools_used"]), a
+    assert {"UserPromptSubmit", "SessionEnd"} <= names, a
+    assert any(r["tool"] == "Bash" for r in hook_engine.toolcalls.rows()), a
 
 
 @then("session analytics for s9 attach the archived Document")

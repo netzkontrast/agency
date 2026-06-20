@@ -155,17 +155,43 @@ set captures REGRESSIONS directly).
   baseline fails; CLI strict-with baseline passes on the committed set;
   LIVE INVARIANT (committed baseline = live uncovered set).
 
-### Still — Slice 3+
+### Done — Slice 3 (agency_doctor schema_coverage block, 2026-06-18)
 
-- **Slice 3** — `agency_doctor.schema_coverage` reports the typed
-  payload + a `monotone_ok` bool + the `priority_uncovered` list
-  (ranked by live graph node-count so authors target the highest-
-  traffic gaps first). Needs an Engine handle on the audited DB.
-- **Slice 4** — generate→validate round-trip invariant (CORE.md
-  proven-runnable extended): for every covered label, a Template
-  renders an Artefact that the Schema validates, and the materialised
-  result round-trips back to the source dict shape. Invariant (c) —
-  `covered_schemas ⊆ template_renderable_schemas`.
+`agency_doctor.schema_coverage` now reports the typed audit result:
+`{fraction, covered, uncovered, total_labels, non_node_schemas,
+priority_uncovered}` — uncovered labels ranked by live graph node-count.
+
+### Done — Slice 4 (engine-load intersection gate, 2026-06-19 steward run)
+
+The "file present, cap undeclared → glob counts as covered" trap
+occurred 3 times across Slice 6 batches (develop, document, skills
+caps). This slice closes it permanently.
+
+- **`engine_loaded_schema_titles(merged_schemas) -> set[str]`** —
+  extracts the PascalCase label for every schema the engine actually
+  loaded (dict-form with/without `title`, list-form inline; mirrors
+  `schema_labels()` extraction logic so the sets are comparable).
+  Added to `agency/_schema_coverage.py`; re-exported via
+  `scripts/check_schema_coverage.py`.
+- **`audit_schemas()` gains `engine_loaded_titles: set[str] | None`** —
+  when supplied: `covered = schemas ∩ ontology ∩ engine_loaded`;
+  `dormant_schemas = (schemas ∩ ontology) − engine_loaded` (file-backed
+  + matching ontology label, but NOT declared by the cap → engine never
+  loads it). Backwards-compatible: callers without the param get the
+  prior behaviour.
+- **`CoverageReport.dormant_schemas: set[str]`** — the new field; empty
+  when `engine_loaded_titles` is not supplied.
+- **`agency_doctor.schema_coverage.dormant_schemas`** — the live sorted
+  list (empty = all on-disk schemas are engine-declared).
+- **2 acceptance scenarios** (24 total, was 22):
+  1. Unit: a schema file whose cap has no `artefact_schemas` declaration
+     → `dormant_schemas` (not `covered`).
+  2. Live: boot the engine; 0 dormant schemas (all current caps declared).
+- `scripts/check_schema_coverage.py` re-exports `engine_loaded_schema_titles`.
+- drift + doc-drift clean (6 stale docs from prior run re-stamped).
+
+### Still — Slice 5+
+
 - **Slice 5** — `# AGENCY-SCHEMA-DEFERRED: <reason>` tag scan so the
   audit subtracts deferred-but-documented gaps from the uncovered set
   (per Spec 054 drift pattern; matches the AGENCY-RESERVED escape
@@ -272,3 +298,220 @@ Capability pillar Skill surface, discover ClarificationQuestion).
   Remaining uncovered: 56 labels (see baseline). Strong candidates for
   next wave: `PromptFramework`, `Reflection`-adjacent (Template, Schema,
   Tool), discover wave (`FeasibilitySignal`, `IntentRefinement`, `ScopeBoundary`).
+
+### Done — Slice 6 discover-prompt wave (2026-06-19)
+
+Steward run continuation: 4 labels spanning the discover cap's intent-program
+nodes + the core Template node + the prompt cap's PromptFramework.
+
+- **4 schemas authored** — title = ontology label, properties DERIVED from
+  the live node-creation sites:
+  - `discover/schemas/feasibility-signal.json` (`FeasibilitySignal`) ←
+    `discover/ontology.py` (`verdict` enum {go/no-go/refine}, `rationale` str).
+  - `discover/schemas/intent-refinement.json` (`IntentRefinement`) ←
+    `discover/ontology.py` (`trigger`/`before`/`after` required str).
+  - `document/schemas/template.json` (`Template`) ← `agency/ontology.py`
+    (`name`/`body` required str — the core Jinja2 template node).
+  - `prompt/schemas/prompt-framework.json` (`PromptFramework`) ←
+    `prompt/ontology.py` (`slug`/`name`/`intent_category`/`complexity_tier`
+    required; `intent_category` enum {recover/clarify/create/transform/reason/
+    critique/agentic/functional}; `complexity_tier` enum {simple/medium/
+    comprehensive/reasoning/structure/critique/meta}).
+- **Engine-load fix** — `prompt` cap had no `schemas/` dir and no
+  `artefact_schemas` declaration; created the dir and added
+  `ArtefactSchemas.from_module(__file__)` to `PromptCapability`. Pattern
+  identical to `skills` cap fix in the workflow-spine wave.
+- **2 acceptance scenarios** — `DISCOVER_PROMPT_LABELS` named contract set
+  (`{"FeasibilitySignal","IntentRefinement","Template","PromptFramework"}`):
+  (1) all four are schema-covered by the live-tree audit; (2) the engine
+  actually loads each (guards the undeclared trap). 26 scenarios total (was 24).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 63→59.
+- **Coverage** `schema_coverage.fraction` 0.371→0.416 (33→37 covered).
+  Next: continued backfill toward >0.5; Slice 5 deferred-tag gate.
+  Remaining uncovered: 52 labels (see baseline).
+
+### Done — Slice 6 prompt-dossier + document + jules wave (2026-06-19)
+
+Steward run continuation: 6 labels from caps already declaring `artefact_schemas`
+(no new cap setup needed for any of these).
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  the live node-creation sites:
+  - `prompt/schemas/brief-audit.json` (`BriefAudit`) ← `prompt/ontology.py`
+    (`brief`/`clarity_score` required; `status` enum {pending/passed/failed}).
+  - `prompt/schemas/catalog-module.json` (`CatalogModule`) ← `prompt/ontology.py`
+    (`category` enum {A/B/C}; `identifier`/`name` required).
+  - `prompt/schemas/research-intent.json` (`ResearchIntent`) ← `prompt/ontology.py`
+    (`seed_query`/`topic` required; `deliverable` enum {dossier/report/outline/memo}).
+  - `prompt/schemas/anti-pattern.json` (`AntiPattern`) ← `prompt/ontology.py`
+    (`kind` enum 8-member anti-pattern set; `body` required str).
+  - `document/schemas/doc-revision.json` (`DocRevision`) ← `document/_main.py`
+    (`source` enum {graph/file}; `content_sha` required; Spec 292 keep-both).
+  - `jules/schemas/jules-alias.json` (`JulesAlias`) ← `jules/_main.py`
+    (`name`/`sid` required str — alias→session-ID mapping).
+- **2 acceptance scenarios** — `PROMPT_DOSSIER_DOC_JULES_LABELS` named contract
+  set; 28 scenarios total (was 26). No artefact_schemas additions needed.
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 59→53.
+- **Coverage** `schema_coverage.fraction` 0.416→0.483 (37→43 covered).
+  Next: push past 0.5 — next targets `Analysis`/`Finding` (analyze cap, needs
+  `artefact_schemas`) or `Schema`/`Tool` (core nodes — assign to develop cap).
+
+### Done — Slice 6 analyze + select wave (2026-06-19)
+
+Steward run continuation: 3 labels from analyze + select caps — both needed
+`artefact_schemas` declared.
+
+- **3 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `analyze/schemas/analysis.json` (`Analysis`) ← `analyze/_main.py`
+    (`path`/`axes`/`started_at` required; `axes` items enum 5-member axis set).
+  - `analyze/schemas/finding.json` (`Finding`) ← `analyze/_main.py`
+    (`rule`/`severity`/`file`/`line`/`message` required; `severity` enum
+    {info/warn/fail}; `evidence` optional).
+  - `select/schemas/selection.json` (`Selection`) ← `select/_main.py`
+    (`operation`/`approach` required; `approach` enum {semantic/pattern/native}).
+- **2 capabilities updated** — `ArtefactSchemas.from_module(__file__)` added
+  to `AnalyzeCapability` and `SelectCapability`.
+- **2 acceptance scenarios** — `ANALYZE_SELECT_LABELS` named contract set;
+  30 scenarios total (was 28).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 53→50.
+- **Coverage** `schema_coverage.fraction` 0.483→0.517 (43→46 covered). 
+  Crossed 0.5 milestone. Next: continue toward 0.6.
+
+### Done — Slice 6 research + develop-extras wave (2026-06-19)
+
+Steward run continuation: 6 labels from research + develop caps — both already
+declared `artefact_schemas` (no cap setup needed).
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `research/schemas/research.json` (`Research`) ← `research/_main.py`
+    (`question`/`depth`/`started_at`/`status` required; `status` enum 6-member
+    lifecycle set {planning/fanning-out/verifying/ready/superseded/failed}).
+  - `research/schemas/research-claim.json` (`ResearchClaim`) ← `research/_main.py`
+    (`text`/`research_id` required).
+  - `develop/schemas/plan.json` (`Plan`) ← `develop/_main.py`
+    (`title` required; `status` optional enum {drafted/in-progress/done/abandoned}).
+  - `develop/schemas/plan-step.json` (`PlanStep`) ← `develop/_main.py`
+    (`plan`/`index`/`description` required; `state` enum {pending/done/blocked/skipped}).
+  - `develop/schemas/mode-shift.json` (`ModeShift`) ← `develop/_main.py`
+    (`from_mode`/`to_mode` required; both enum SESSION_MODE 5-member set).
+  - `develop/schemas/session-lifecycle.json` (`SessionLifecycle`) ← `develop/_main.py`
+    (`mode`/`status` required; mode enum SESSION_MODE; status enum {active/paused/archived}).
+- **2 acceptance scenarios** — `RESEARCH_DEVELOP_EXTRAS_LABELS` named contract
+  set; 32 scenarios total (was 30). No artefact_schemas additions needed.
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 50→44.
+- **Coverage** `schema_coverage.fraction` 0.517→0.584 (46→52 covered).
+  Crossed 0.5+ continue toward 0.6.
+
+### Done — Slice 6 recommend + mode + panel + thinking wave (2026-06-19)
+
+Steward run continuation: 6 labels from 4 new caps gaining `artefact_schemas`
++ 2 from prompt cap (already wired).
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `recommend/schemas/recommendation.json` (`Recommendation`) ← `recommend/_main.py`
+    (`request`/`capability` required; no enums — free string fields).
+  - `mode/schemas/mode-activation.json` (`ModeActivation`) ← `mode/_main.py`
+    (`mode` required; enum 5-member `_BY_NAME` set).
+  - `panel/schemas/panel.json` (`Panel`) ← `panel/_main.py`
+    (`subject`/`mode` required; mode enum {discussion/debate/socratic}).
+  - `thinking/schemas/thinking-method.json` (`ThinkingMethod`) ← `thinking/_main.py`
+    (`method`/`subject` required; method enum 10-member set).
+  - `prompt/schemas/prompt-variant.json` (`PromptVariant`) ← `prompt/ontology.py`
+    (`parent_instance`/`variant_kind` required; variant_kind enum 6-member `VARIANT_KIND`).
+  - `prompt/schemas/prompt-output.json` (`PromptOutput`) ← `prompt/ontology.py`
+    (`instance`/`response_body` required).
+- **4 capabilities updated** — `ArtefactSchemas.from_module(__file__)` added
+  to `RecommendCapability`, `ModeCapability`, `PanelCapability`, `ThinkingCapability`.
+- **2 acceptance scenarios** — `RECOMMEND_MODE_PANEL_THINKING_LABELS` named contract
+  set; 34 scenarios total (was 32).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 44→38.
+- **Coverage** `schema_coverage.fraction` 0.584→0.652 (52→58 covered).
+  Crossed 0.6 milestone. Next: continue toward 0.7.
+
+### Done — Slice 6 plugin + persona + doctrine + dogfood wave (2026-06-19)
+
+Steward run continuation: 6 labels — 2 from plugin cap (already had
+`artefact_schemas`), 1 from prompt cap (already wired), 3 from new caps.
+
+- **6 schemas authored** — title = ontology label, properties DERIVED from
+  live node-creation sites:
+  - `plugin/schemas/plugin.json` (`Plugin`) ← `plugin/_main.py`
+    (`name`/`version`/`description` required).
+  - `plugin/schemas/command.json` (`Command`) ← `plugin/_main.py`
+    (`name`/`description` required).
+  - `prompt/schemas/research-brief.json` (`ResearchBrief`) ← `prompt/clusters/dossier.py`
+    (`intent`/`body` required).
+  - `persona/schemas/persona-brief.json` (`PersonaBrief`) ← `persona/_main.py`
+    (`persona` enum 14-member `_BY_NAME` set; `task` required).
+  - `doctrine/schemas/doctrine-citation.json` (`DoctrineCitation`) ← `doctrine/_main.py`
+    (`name` required).
+  - `dogfood/schemas/decision-record.json` (`DecisionRecord`) ← `dogfood/_main.py`
+    (`subject`/`decision`/`rationale` required — ADR triple).
+- **3 capabilities updated** — `ArtefactSchemas.from_module(__file__)` added
+  to `PersonaCapability`, `DoctrineCapability`, `DogfoodCapability`.
+- **2 acceptance scenarios** — `PLUGIN_PERSONA_DOCTRINE_DOGFOOD_LABELS` named
+  contract set; 36 scenarios total (was 34).
+- **Baseline trimmed** `Plan/_planning/schema-coverage-baseline.txt` 38→32.
+- **Coverage** `schema_coverage.fraction` 0.652→0.719 (58→64 covered).
+  Crossed 0.7 milestone. Remaining: 25 labels (mostly music/novel/worldbuilding).
+
+## Done — Slice 6 music + dogfood-boundary + prompt-opt wave (2026-06-19)
+
+Wave 5 (steward run): 8 labels covered (Album/Track/Genre/Idea/Tweet/Reference
+in music cap [new schemas/ + artefact_schemas], BoundaryUse in dogfood [already
+wired], OptimizationPass in prompt [already wired]). Also fixed inline
+`schemas={"doctrine-citation": ["name"]}` collision in doctrine OntologyExtension
+(double-declared with the file — removed inline entry). Baseline 26→17 (26
+counted DecisionRecord which Wave 4 squash-merge hadn't fully trimmed).
+schema_coverage 0.719→0.809, crossing 0.8 milestone. 2 acceptance scenarios
+(MUSIC_DOGFOOD_PROMPT_LABELS contract set). Drift clean.
+
+
+## Done — round-trip invariant (2026-06-20)
+
+The last remaining "Still" item from the original spec: for every covered label,
+`memory.record(label, valid_props)` succeeds and `memory.record(label,
+missing_required_prop)` raises ValueError — closing the enforcement loop.
+
+- **2 acceptance scenarios added** — `test_recording_a_covered_label_with_all_required_fields_succeeds`
+  and `test_recording_a_covered_label_with_a_missing_required_field_raises_valueerror`
+  in `tests/acceptance/features/template_schema.feature` +
+  `tests/acceptance/test_template_schema.py`. 46 scenarios total (was 44).
+- **Representative label: Intent** — NODE_SCHEMAS["Intent"] requires
+  ["purpose", "deliverable", "acceptance", "status", "owner"]; valid-props
+  passes all 5, missing-props omits "purpose".
+- **Enforcement path** — `memory.record()` → `ont.violations()` →
+  `missing_required()` reads `self.nodes["Intent"]` (NODE_SCHEMAS); raises
+  ValueError when non-empty. This is the live enforcement, unchanged.
+- **Invariant scope**: this closes invariant (a) — `memory.record` is the
+  guard. The original invariant (c) (`covered_schemas ⊆
+  template_renderable_schemas`) is architecturally deferred: requires
+  `Template`-per-label authorship (74 labels don't have templates today)
+  and is out of scope for this spec cycle.
+- All 46 scenarios green; drift clean.
+
+## Done — Slice 6 novel + core Schema/Tool wave (2026-06-19)
+
+Wave 6 (steward run, FINAL Slice 6 wave): 17 labels covered — 15 novel cap
+labels (Novel/Chapter/Storyform/NovelClaim/Scene/World/Culture/Religion/Language/
+MagicSystem/WorldAxiom/StoryTimeEvent/NarrativeBeat/CodexEntry/KnownFact) +
+Schema/Tool (core ontology labels; develop cap already declares artefact_schemas).
+
+- **15 schemas authored** — novel capability, new schemas/ directory:
+  novel.json, chapter.json, storyform.json, novel-claim.json, scene.json,
+  world.json, culture.json, religion.json, language.json, magic-system.json,
+  world-axiom.json, story-time-event.json, narrative-beat.json, codex-entry.json,
+  known-fact.json (15 files, required fields DERIVED from novel_ontology.nodes).
+- **2 schemas authored** — develop capability: schema.json (Schema, required:
+  name/required), tool.json (Tool, required: name/input/output) — DERIVED from
+  agency/ontology.py NODE_SCHEMAS.
+- **NovelCapability updated** — ArtefactSchemas import + artefact_schemas wired.
+- **2 acceptance scenarios** — NOVEL_CORE_LABELS named contract set (17 labels);
+  44 scenarios total (was 42).
+- **Baseline cleared** Plan/_planning/schema-coverage-baseline.txt 17→0 (empty).
+- **Coverage** schema_coverage.fraction 0.809→1.0 (72→89 covered).
+  FULL COVERAGE ACHIEVED — Spec 153 Slice 6 complete.
+- Drift clean.

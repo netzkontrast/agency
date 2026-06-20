@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FrugalReview",
+  "description": "An over-engineering review run (agency/capabilities/frugal; Spec 348). Records the scope reviewed and the count of in-scope files + decidable bloat findings (composed from analyze.quality). The judgment tags (stdlib/native/shrink) are the reviewer's; this node records the deterministic pass as provenance.",
+  "type": "object",
+  "required": ["scope", "files"],
+  "properties": {
+    "scope": {
+      "type": "string",
+      "description": "The review scope: 'diff' (working-tree changes) or 'repo' (tracked source)."
+    },
+    "files": {
+      "type": "integer",
+      "description": "Count of in-scope Python files reviewed."
+    },
+    "decidable": {
+      "type": "integer",
+      "description": "Count of decidable bloat findings surfaced by the deterministic pass."
+    }
+  }
+}

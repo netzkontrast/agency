@@ -11,13 +11,14 @@ allowed-tools:
 
 # document capability
 
-Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph.
+Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph. index_repo sources its file list + per-file symbol counts from the codegraph index (`codegraph files`); to locate code inside a subsystem, query codegraph first — `codegraph explore "<area>"` (source + call paths in one call) / `codegraph node <file>` (a file + its dependents) — before reading files.
 
 ## When to use
 
 - An unfamiliar codebase that needs onboarding
 - A stale mental model of a tree untouched for weeks
 - A subsystem whose purpose is unclear from the files alone
+- Locating code within a subsystem → `codegraph explore "<area>"` / `codegraph node <file>` before reading files
 
 ## Verbs
 
@@ -25,7 +26,7 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 |------|------|-------|-----------|
 | `convergence` | act | Audit a Document's convergence facets (Spec 292 C3). | [details](references/convergence.md) |
 | `explain` | act | Deterministically explain code as markdown, emitting a Reflection. | [details](references/explain.md) |
-| `index_repo` | effect | Deterministic 94%-reduction repo briefing within ≤ max_tokens. | [details](references/index_repo.md) |
+| `index_repo` | effect | Deterministic repo briefing. | [details](references/index_repo.md) |
 | `ingest` | effect | Round-trip a markdown file INTO the graph (file → graph; Spec 292). | [details](references/ingest.md) |
 | `mirror` | effect | Project graph→file AND event-source it (Spec 292 — closes the loop). | [details](references/mirror.md) |
 | `render` | transform | Deterministically project graph state to markdown. | [details](references/render.md) |
@@ -46,6 +47,7 @@ await call_tool('capability_document_convergence', {'intent_id': 'intent:abc'})
 
 - Reading every file to grasp a repo → index it via capability_document_index_repo
 - Guessing a subsystem's role → get capability_document_explain output
+- grep/Read loop to find code while `.codegraph/` exists → `codegraph explore`/`query` already indexed it
 
 ## Walk this capability
 

@@ -1,7 +1,7 @@
 # Intent · Lifecycle · Gate — three of the four concepts
 
 <!-- doc-source: agency/intent.py agency/lifecycle.py agency/capabilities/gate/_main.py -->
-<!-- doc-hash: 27d2fc4e7fa0f73a -->
+<!-- doc-hash: 66345573b9ea7c4e -->
 
 ## Intent (`agency/intent.py`)
 
@@ -23,12 +23,30 @@ this core class, which owns capture/confirm.
 
 ## Lifecycle (`agency/lifecycle.py`)
 
-A task/agent state machine: `open · move · close`.
+A task/agent state machine: `open · move · close` — the **Lifecycle PILLAR
+substrate** (peer to `intent.py`/`memory.py`), reached three isomorphic ways:
+`engine.lifecycle.*`, `ctx.lifecycle.*` (the member-capability delegator), and
+the `lifecycle_open`/`lifecycle_move`/`lifecycle_close` substrate-tools (the wire
+surface, Spec 339).
 
-- **`open(intent_id, agent=None)`** → records a `Lifecycle` (state `working`, phase 0)
-  that `SERVES` the intent. Returns the lifecycle id.
-- The lifecycle advances through phases; a gate can pause it (`input-required`).
-- `delegate.fan_out` opens one child Lifecycle per dispatched item.
+- **`open(intent_id, *, kind="task", agent="", parameterization="")`** → records a
+  `Lifecycle` (state `submitted`, phase 0) that `SERVES` the intent. `kind` and
+  `parameterization` (the agent-as-Lifecycle seam, e.g. `"remote-async"`) are
+  optional props recorded only when set. Returns the lifecycle id.
+- **`move(lc_id, to_state)`** is the **sole** state-shaped writer — it validates
+  `to_state` against the closed enum and refuses a no-op; every state change flows
+  through this one chokepoint. Each accepted transition **emits** (Spec 344):
+  terminal/blocked states (`completed·failed·canceled·input-required·auth-required`)
+  become a durable graph `Event{name:"lifecycle_transition"}` (`OBSERVED_DURING` the
+  intent + lifecycle, reusing the Spec 076 node); every transition also fans a
+  `MonitorEvent{source:"lifecycle", kind:"transition"}` onto the Spec 021 channel.
+  Intermediate churn (`submitted→working`) stays on the monitor only (panel B4 —
+  the graph keeps the Spec 336 low-bloat win). Because emission lives in the sole
+  writer, every routed writer emits for free.
+- **`close(lc_id, outcome="completed")`** drives to a terminal state through `move`.
+- `delegate.fan_out` opens one child Lifecycle per dispatched item via
+  `ctx.lifecycle.open(parameterization="remote-async")` (Spec 339), then `move`s it
+  to `working` at dispatch.
 
 ## Gate (the `gate` capability)
 
@@ -36,9 +54,11 @@ The machine-vs-human split the canon draws (CORE.md:57-62):
 
 - **`gate.check(lifecycle_id, name, passed, evidence)`** — a **machine-checkable**
   predicate. The caller computes `passed`; on `False` it records a `Gate` `BLOCKED_ON`
-  edge and flips the Lifecycle to `input-required`; on `True`, a `PASSED` edge. It
-  validates the lifecycle serves the intent (walking the `SUPERSEDED_BY` chain). Returns
-  the wire envelope `{"result": {passed, gate}}`.
+  edge and flips the Lifecycle to `input-required` **through `lifecycle.move`** (Spec
+  339/344 — so the blocked transition emits a durable transition Event for free;
+  guarded against a no-op re-reject); on `True`, a `PASSED` edge. It validates the
+  lifecycle serves the intent (walking the `SUPERSEDED_BY` chain). Returns the wire
+  envelope `{"result": {passed, gate}}`.
 - **`gate.adjudicate(a, b, lifecycle_id="")`** (Spec 303) — adjudicates two CONFLICTING
   concerns by delegating to `doctrine.resolve` (the safety > correctness >
   maintainability > speed hierarchy), recording a `Gate` node + a `doctrine.resolve`

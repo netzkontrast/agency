@@ -49,8 +49,12 @@ class GateCapability(CapabilityBase):
                                "lifecycle_id": lifecycle_id}}
         g = self.ctx.record("Gate", {"name": name, "passed": bool(passed), "evidence": evidence})
         self.ctx.link(lifecycle_id, g, "PASSED" if passed else "BLOCKED_ON")
-        if not passed:
-            self.ctx.memory.update(lifecycle_id, {"state": "input-required"})
+        if not passed and self.ctx.lifecycle.status(lifecycle_id) != "input-required":
+            # Spec 339/344 — route the pause through the SOLE state writer so the
+            # blocked transition emits a durable transition Event for free (the
+            # guard avoids a no-op raise when a gate fails on an already-paused
+            # lifecycle — same idempotency the old raw `update` had).
+            self.ctx.lifecycle.move(lifecycle_id, "input-required", evidence=evidence)
         return {"result": {"passed": bool(passed), "gate": g}}
 
     @verb(role="act")

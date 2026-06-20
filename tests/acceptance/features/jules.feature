@@ -44,6 +44,18 @@ Feature: jules capability — dispatch, provenance, and in-process contracts
     When I dispatch with protocol_preset "agency-default"
     Then the backend receives protocol_preset="agency-default"
 
+  # ── activities — trimmed preview vs full retrieval (no silent truncation) ─────
+
+  Scenario: activities defaults to the trimmed summary preview
+    Given a stub Jules backend that captures the activities call
+    When I fetch activities without full
+    Then the activities backend received summary_only=True
+
+  Scenario: activities full=True requests the untrimmed bodies (recovers a long message)
+    Given a stub Jules backend that captures the activities call
+    When I fetch activities with full=True
+    Then the activities backend received summary_only=False
+
   # ── verify — COMPLETED ≠ done logic ──────────────────────────────────────────
 
   Scenario: verify returns silent_fail when COMPLETED but branch not on remote

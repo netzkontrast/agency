@@ -1,7 +1,7 @@
 # The capability system
 
 <!-- doc-source: agency/capability.py -->
-<!-- doc-hash: 43781e37261aed5a -->
+<!-- doc-hash: d223be85e82d272c -->
 
 `agency/capability.py` defines how a capability is authored, compiled, registered, and
 invoked. It is the single most load-bearing module.
@@ -46,6 +46,8 @@ A delegator over engine services (never a new public surface):
   Invocation; depth-guarded against cycles).
 - `ctx.get_driver(name)` — resolve an external `Driver` (Spec 002); raises
   `DriverMissing`.
+- `ctx.lifecycle` — the Lifecycle PILLAR substrate (`open · move · close`); mint/
+  advance a Lifecycle through the one substrate chokepoint (Spec 339).
 - `ctx.registry`, `ctx.ontology`, `ctx.engine` — escape hatches for introspection.
 
 ## `Registry` — discovery, injection, the invoke moat

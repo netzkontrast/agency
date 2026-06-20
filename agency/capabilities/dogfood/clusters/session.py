@@ -174,7 +174,9 @@ class SessionMixin:
                 "name":           p.get("name", ""),
                 "tool":           p.get("tool", ""),
                 "session":        p.get("session", ""),
-                "summary":        p.get("summary", ""),
+                # FULL tool payload (no-truncate); `summary` retained for nodes
+                # recorded before the rename.
+                "summary":        p.get("payload") or p.get("summary", ""),
                 "target":         bu.get("target", ""),
                 "verb_shadow":    bu.get("verb_shadow", ""),
             })

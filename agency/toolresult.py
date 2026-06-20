@@ -158,6 +158,10 @@ class Codes:
     SKILL_PARSE_INVALID = "skill_parse_invalid"   # top-level skill dict failed validation
     PHASE_MISSING_FIELD = "phase_missing_field"   # phase dict missing a required field
     PHASE_UNKNOWN_KIND = "phase_unknown_kind"     # unknown gate/variant on a phase
+    # Spec 149 Slice 2.4 — derive-docs typed failure modes.
+    DERIVE_FENCE_BROKEN = "derive_fence_broken"   # opened fence has no matching close marker
+    DERIVE_AMBIGUOUS = "derive_ambiguous"         # two specs claim the same derivation source
+    DERIVE_MISSING_GOAL = "derive_missing_goal"   # spec missing required frontmatter
 
 
 @dataclass(frozen=True)

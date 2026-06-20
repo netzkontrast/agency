@@ -1,15 +1,16 @@
 ---
 spec_id: "201"
 slug: token-counter-api-boundary
-status: draft
-last_updated: 2026-06-10
+status: partial
+last_updated: 2026-06-20
 owner: "@agency"
 enhances: "082"
 depends_on: ["082", "147", "146", "170"]
 vision_goals: [1]
 affects:
-  - agency/_token_counter.py
-  - tests/test_token_counter_api.py
+  - agency/_tokens.py
+  - tests/acceptance/features/token_count_api.feature
+  - tests/acceptance/test_token_count_api.py
 ---
 
 # Spec 201 — TokenCounter Anthropic-API backend
@@ -123,3 +124,51 @@ Then:   falls back to tiktoken; CountResult.backend == "tiktoken"
    **Recommend**: the band is a named config constant
    (`TOKEN_BAND_LOW=0.80`, `TOKEN_BAND_HIGH=1.30`); widen via PR with a
    `claude-api` skill citation — never silently relaxed.
+
+## Followup — Implementation Status (Slice 1, 2026-06-20)
+
+### Already shipped (Spec 082) — the authoritative backend pre-existed
+
+201's core ask — "`TokenCounter` gains the Anthropic `messages.count_tokens`
+backend; tiktoken/proxy stay the fallbacks" — was **already delivered by
+Spec 082**: `agency/_tokens.py::_anthropic_fn` calls
+`client.messages.count_tokens(model=…, messages=[{role,content}])` →
+`input_tokens` (the exact `claude-api`-skill pattern, `claude-opus-4-8`
+default), and `resolve_token_counter` prefers it ONLY when `ANTHROPIC_API_KEY`
++ the `anthropic` SDK are present, else tiktoken → proxy. The live backend name
+is `count_tokens` (082's name; kept — renaming would break the doctor + the
+naming audit).
+
+**OpenRouter-only setups already avoid Anthropic (owner directive 2026-06-20).**
+The Anthropic count_tokens backend is dormant unless `ANTHROPIC_API_KEY` is set.
+A user configured with only `OPENROUTER_API_KEY` therefore counts via
+tiktoken → proxy — no Anthropic call. OpenRouter is an inference router and has
+**no token-counting endpoint**, so there is no "OpenRouter count backend" to
+add; the directive "use OpenRouter free models instead of Anthropic" applies to
+the LLM *decider* (Spec 331 `_llm.py`), not to counting.
+
+### Done — Slice 1 (typed CountResult + cache + band, network-free)
+
+- **`CountResult`** typed shape (`tokens`/`backend`/`model`/`cached`/
+  `latency_ms`/`error_code`) + **`TokenCounter.count_result(text, model)`**.
+- **Per-(content, model) LRU cache** (`_cached_count`, `_CACHE_MAX=4096`,
+  documented size cap; never persisted — counts are derivable, rule 2). Both
+  `count` and `count_result` read through it, so Spec 146's `prefix_size_tokens`
+  is cheap to recompute. Cache-idempotence invariant holds (deterministic
+  counter → a hit returns the prior count).
+- **`band_ok(a, b)`** + named tunables `TOKEN_BAND_LOW=0.80` /
+  `TOKEN_BAND_HIGH=1.30` (rule 8; OQ3 — widen via PR with a citation).
+- **5 acceptance scenarios** (`tests/acceptance/features/token_count_api.feature`
+  + `test_token_count_api.py`), network-free via a forced proxy counter: typed
+  shape, empty-text zero, cache idempotence, per-model cache keying, band
+  agreement at the boundaries. Existing `test_token_budget.py` stays green.
+
+### Still — Slice 2+
+
+- **Wet band-over-real-fixtures** — record fixture API counts (needs
+  `ANTHROPIC_API_KEY`) and assert `band_ok(anthropic, tiktoken)` over a content
+  set; today the band helper is proven on synthetic counts only.
+- **`agency_doctor.token_backend` enrichment** (Spec 170) —
+  `{available, preferred, last_used, band_check_ok}`.
+- **`error_code` population** on a real backend fallback (RATE_LIMITED /
+  TIMEOUT / AUTH_FAILED → local fallback with the typed code).

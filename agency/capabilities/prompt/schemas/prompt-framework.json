@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PromptFramework",
+  "description": "A reusable prompt-architecture framework node, lazily recorded when first used via prompt.render (agency/capabilities/prompt/clusters/frameworks.py; Spec 304/305 + Spec 153 Slice 6 — discover-prompt wave). Indexed by slug; routes intent categories to the optimal framework via prompt.route_framework.",
+  "type": "object",
+  "required": ["slug", "name", "intent_category", "complexity_tier"],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "Stable kebab-case identifier, e.g. 'chain-of-thought'. Primary lookup key."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable framework name."
+    },
+    "intent_category": {
+      "type": "string",
+      "enum": ["recover", "clarify", "create", "transform", "reason", "critique", "agentic", "functional"],
+      "description": "Which user intent category this framework primarily serves. 'functional' is the meta category for agency-internal frameworks (held out of user-facing routing)."
+    },
+    "complexity_tier": {
+      "type": "string",
+      "enum": ["simple", "medium", "comprehensive", "reasoning", "structure", "critique", "meta"],
+      "description": "Prompt engineering complexity tier — maps to the SKILL.md Quick Reference grouping."
+    },
+    "audience": {
+      "type": "string",
+      "enum": ["user", "functional"],
+      "description": "Whether this framework serves a human authoring a prompt ('user') or agency's own functional surface ('functional')."
+    }
+  }
+}

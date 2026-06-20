@@ -67,12 +67,14 @@ agency execute --code \
 
 - **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, run, security
 - **branch** — assess, commit_smart, finish
+- **config** — get, list, set
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
 - **develop** — checklist, draft_plan, estimate, index, maintain, mode_select, optimize_skilldoc, plan_status, record_authoring_outcome, record_step_outcome, reference, reload, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
-- **discover** — acceptance, ask, clarify, clarity, interview, scope, status
+- **discover** — acceptance, ask, clarify, clarity, clarity_gate, interview, scope, status
 - **doctrine** — cite, principles, resolve, rules
 - **document** — convergence, explain, index_repo, ingest, mirror, render, reopen, restore_session, revisions, session, session_analytics, sync
 - **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, recall_overflow_slice, record_decision, render, replay_events
+- **frugal** — debt, gain, help, instructions, level, review, set_level
 - **gate** — adjudicate, check
 - **intent** — assumptions, decompose, first_principles, inversion, premortem, second_order, steelman, suggests, tradeoffs
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch
@@ -94,6 +96,7 @@ agency execute --code \
 - **subagent** — develop
 - **symbols** — compress, expand, legend
 - **thinking** — apply_full_review, assumptions, decompose, first_principles, inversion, premortem, red_team, second_order, socratic, steelman, tradeoffs
+- **toolcalls** — export, prune, recent, stats, top
 - **workspace** — baseline, isolate
 
 ## Discovery

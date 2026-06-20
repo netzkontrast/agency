@@ -9,4 +9,5 @@ from ._main import (  # noqa: F401
     _TEMPLATES,
     ShellCapability,
     _apply_filter,
+    capture_filter,
 )

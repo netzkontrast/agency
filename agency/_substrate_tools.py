@@ -1,7 +1,8 @@
 """Substrate tools as a registered set — Spec 286 Phase 2 / A5.
 
 The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
-``lifecycle_gate`` · ``memory_graph_provenance`` · ``hook_event`` ·
+``lifecycle_gate`` · ``lifecycle_open`` · ``lifecycle_move`` ·
+``lifecycle_close`` · ``memory_graph_provenance`` · ``hook_event`` ·
 ``intent_bootstrap`` · ``agency_install`` · ``agency_doctor`` ·
 ``agency_welcome``. They live outside the per-capability auto-wire because they
 **mint or inspect** rather than SERVE an intent — they legitimately bypass the
@@ -85,11 +86,94 @@ class LifecycleGate(SubstrateTool):
             approved = getattr(res, "data", None) == "approve"
             g = mem.record("Gate", {"name": "human-confirm", "question": question, "passed": approved})
             mem.link(lifecycle_id, g, "PASSED" if approved else "BLOCKED_ON")
-            if not approved:                              # a rejected gate pauses the lifecycle for re-entry
-                mem.update(lifecycle_id, {"state": "input-required"})
+            if not approved and engine.lifecycle.status(lifecycle_id) != "input-required":
+                # Spec 339/344 — route the pause through the SOLE state writer so
+                # the blocked transition emits a durable transition Event (the
+                # guard keeps the old raw-update idempotency on a re-reject).
+                engine.lifecycle.move(lifecycle_id, "input-required")
             return {"approved": approved, "gate_id": g}
 
         return lifecycle_gate
+
+
+class LifecycleOpen(SubstrateTool):
+    name = "lifecycle_open"
+
+    def make_impl(self, engine):
+        def lifecycle_open(intent_id: str, kind: str = "task", agent: str = "",
+                           parameterization: str = "") -> dict:
+            """Open a Lifecycle in ``submitted`` SERVING the given intent (Spec 339).
+
+            The wire surface of the Lifecycle PILLAR's ``open`` — the canonical
+            way to mint a unit of work's state machine (peer to
+            ``intent_bootstrap`` for Intent). Takes ``intent_id`` explicitly (it
+            SERVES, it does not mint the intent). ``kind`` (task | session | gate
+            | dispatch …) and ``parameterization`` (the agent-as-Lifecycle seam,
+            e.g. ``"remote-async"``) are optional.
+
+            Inputs:
+              - ``intent_id`` (str, required) — the intent this lifecycle serves
+              - ``kind`` (str, optional) — default ``"task"``
+              - ``agent`` (str, optional) — DISPATCHED_TO ``agent:<agent>``
+              - ``parameterization`` (str, optional) — the 342 seam
+            Returns: ``{lifecycle_id, state: "submitted"}``
+            chain_next: ``lifecycle_move(lifecycle_id, to_state=…)`` to advance.
+            """
+            lid = engine.lifecycle.open(intent_id, kind=kind, agent=agent,
+                                        parameterization=parameterization)
+            return {"lifecycle_id": lid, "state": engine.lifecycle.status(lid)}
+
+        return lifecycle_open
+
+
+class LifecycleMove(SubstrateTool):
+    name = "lifecycle_move"
+
+    def make_impl(self, engine):
+        def lifecycle_move(lifecycle_id: str, to_state: str,
+                           evidence: str = "") -> dict:
+            """Transition a Lifecycle to ``to_state`` — the SOLE state writer (Spec 339).
+
+            Validates ``to_state`` against the closed A2A enum and refuses a
+            no-op (raises ``ValueError`` the wire envelope surfaces as a typed
+            error). The full transition-table guard (340) and transition events
+            (344) layer on this one chokepoint.
+
+            Inputs:
+              - ``lifecycle_id`` (str, required)
+              - ``to_state`` (str, required) — a valid LifecycleState value
+              - ``evidence`` (str, optional)
+            Returns: ``{lifecycle_id, state: <to_state>}``
+            chain_next: ``lifecycle_close(lifecycle_id, outcome=…)`` to finish.
+            """
+            state = engine.lifecycle.move(lifecycle_id, to_state, evidence=evidence)
+            return {"lifecycle_id": lifecycle_id, "state": state}
+
+        return lifecycle_move
+
+
+class LifecycleClose(SubstrateTool):
+    name = "lifecycle_close"
+
+    def make_impl(self, engine):
+        def lifecycle_close(lifecycle_id: str, outcome: str = "completed",
+                            evidence: str = "") -> dict:
+            """Drive a Lifecycle to a terminal outcome through ``move`` (Spec 339).
+
+            ``outcome`` must be a terminal/failure state (completed | failed |
+            canceled). Not a parallel writer — it routes through ``move``.
+
+            Inputs:
+              - ``lifecycle_id`` (str, required)
+              - ``outcome`` (str, optional) — default ``"completed"``
+              - ``evidence`` (str, optional)
+            Returns: ``{lifecycle_id, state: <outcome>}``
+            """
+            state = engine.lifecycle.close(lifecycle_id, outcome=outcome,
+                                           evidence=evidence)
+            return {"lifecycle_id": lifecycle_id, "state": state}
+
+        return lifecycle_close
 
 
 class MemoryGraphProvenance(SubstrateTool):
@@ -223,7 +307,7 @@ class AgencyInstall(SubstrateTool):
     name = "agency_install"
 
     def make_impl(self, engine):
-        def agency_install(target: str = "") -> dict:
+        def agency_install(target: str = "", agent: str = "") -> dict:
             """Scaffold .agency/ + a CLAUDE.md onboarding snippet in the target repo.
 
             Closes the missing MCP install path: previously only available
@@ -232,15 +316,26 @@ class AgencyInstall(SubstrateTool):
             present. The CLAUDE.md snippet is bounded by explicit markers,
             so user content outside the markers is never touched.
 
+            Spec 333 — with ``agent`` (one of cursor/windsurf/cline/kiro/copilot/
+            agents/claude/all), install agency into that agent's native rules
+            instead (the surface_card projected per host; fenced-block merge,
+            per-adapter report).
+
             Inputs:
               - ``target`` (str, optional) — default = ``CLAUDE_PROJECT_DIR``
                 env → cwd (mirrors the Spec 020 scaffold target).
-            Returns: ``{target, scaffolded, gitattributes_updated,
-                       claude_md_path, claude_md_updated, next}``.
+              - ``agent`` (str, optional) — a Spec 333 agent target.
+            Returns: ``{target, scaffolded, …}`` (default) or
+                     ``{target, agents: {name: {ok, wrote|error}}}`` (--agent).
             chain_next: ``intent_bootstrap`` to mint the first Intent.
             """
             from .install import install_op
-            return install_op(target or None)
+            if not agent:
+                return install_op(target or None)
+            from . import _install_adapters as ia
+            root = ia.resolve_root(target)
+            return {"target": root,
+                    "agents": ia.install_agents(ia.resolve_names([agent]), root, engine)}
 
         return agency_install
 
@@ -452,11 +547,15 @@ class AgencyDoctor(SubstrateTool):
             # highest-traffic schemas first. Wrapped: never crash the doctor.
             try:
                 from pathlib import Path as _Path
-                from ._schema_coverage import audit_schemas, truly_inline_schemas
+                from ._schema_coverage import (audit_schemas, truly_inline_schemas,
+                                               engine_loaded_schema_titles)
                 _sroot = _Path(os.path.dirname(os.path.abspath(__file__)))
-                _inline = truly_inline_schemas(_sroot, dict(engine.ontology.schemas))
+                _merged = dict(engine.ontology.schemas)
+                _inline = truly_inline_schemas(_sroot, _merged)
+                _loaded = engine_loaded_schema_titles(_merged)
                 _sc = audit_schemas(_sroot, ontology_labels=set(engine.ontology.nodes),
-                                    ontology_schemas=_inline)
+                                    ontology_schemas=_inline,
+                                    engine_loaded_titles=_loaded)
                 _ranked = sorted(
                     ((lbl, len(list(engine.memory.find(lbl)))) for lbl in _sc.uncovered),
                     key=lambda t: (-t[1], t[0]))
@@ -466,11 +565,46 @@ class AgencyDoctor(SubstrateTool):
                     "uncovered": len(_sc.uncovered),
                     "total_labels": _sc.total_ontology_labels,
                     "non_node_schemas": len(_sc.non_node_schemas),
+                    "dormant_schemas": sorted(_sc.dormant_schemas),
                     "priority_uncovered": [{"label": _l, "nodes": _n}
                                            for _l, _n in _ranked[:10]],
                 }
             except Exception as _e2:  # noqa: BLE001 — never crash the doctor
                 schema_coverage = {"error": f"{type(_e2).__name__}: {_e2}"}
+
+            # Spec 334 Slice 4 — unified-config health. Report every registered
+            # key's resolved value + source (secrets redacted to presence) and
+            # fold any validation issue (bad enum value, unknown key) into
+            # next_steps so the doctor's `ok` reflects config sanity. Wrapped:
+            # a config read must never crash the doctor.
+            try:
+                from . import _config as _cfg
+                config_block = {"values": _cfg.config_report(),
+                                "issues": _cfg.config_validate()}
+                next_steps.extend(config_block["issues"])
+            except Exception as _e3:  # noqa: BLE001 — never crash the doctor
+                config_block = {"error": f"{type(_e3).__name__}: {_e3}"}
+
+            # Spec 332 Slice 5 — surface the frugal discipline status first-class
+            # (level + source + whether the M2 per-verb stamp is firing), so "is
+            # frugal on?" is one glance. Derived from the config block +
+            # frugal_prefix — no duplicated logic. Wrapped: never crash the doctor.
+            try:
+                from . import _frugal as _fr
+                _lvl = (config_block.get("values") or {}).get("frugal.level", {})
+                frugal_block = {"level": _lvl.get("value"),
+                                "source": _lvl.get("source"),
+                                "stamp_active": bool(_fr.frugal_prefix())}
+            except Exception as _e4:  # noqa: BLE001 — never crash the doctor
+                frugal_block = {"error": f"{type(_e4).__name__}: {_e4}"}
+
+            # Spec 333 Slice 5 — which agents agency is installed into (instruction
+            # files carrying the agency fenced block in the project dir).
+            try:
+                from ._install_adapters import installed_agents as _ia
+                installed = _ia(project_dir or os.getcwd())
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                installed = []
 
             return {
                 "ok": len(next_steps) == 0,
@@ -513,6 +647,13 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 153 Slice 3 — live schema-coverage fraction + priority
                 # ranking of uncovered labels by graph node-count.
                 "schema_coverage": schema_coverage,
+                # Spec 334 Slice 4 — unified-config: resolved values + sources
+                # (secrets redacted) + validation issues (also in next_steps).
+                "config": config_block,
+                # Spec 332 Slice 5 — the frugal discipline status at a glance.
+                "frugal": frugal_block,
+                # Spec 333 Slice 5 — agents agency is installed into.
+                "installed_agents": installed,
                 # Spec 302 Slice 3 — time-to-first-successful-call: a fresh user
                 # can bootstrap an intent + invoke a verb end-to-end (proven on a
                 # throwaway in-memory engine, so the live graph is untouched).
@@ -670,6 +811,13 @@ class AgencyWelcome(SubstrateTool):
                 "capability_tier": _capability_tier(engine.registry),
                 "discipline_skills": discipline_skills,
             }
+            # Spec 332 M2 — the frugal discipline rides the onboarding payload's
+            # cache-stable prefix too (byte-stable at a fixed level; off omits).
+            try:
+                from . import _frugal
+                prefix.update(_frugal.frugal_prefix())
+            except Exception:
+                pass
             body = {
                 "state": state,
                 "intents_count": intents_count,
@@ -693,6 +841,9 @@ class AgencyWelcome(SubstrateTool):
 # name); kept matching the historical inline order for diff-stability.
 SUBSTRATE_TOOLS: tuple[SubstrateTool, ...] = (
     LifecycleGate(),
+    LifecycleOpen(),
+    LifecycleMove(),
+    LifecycleClose(),
     MemoryGraphProvenance(),
     HookEvent(),
     IntentBootstrap(),

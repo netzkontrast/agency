@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""session-snapshot — portable SQLModel export/import of the durable session graph.
+
+The live `.agency/session.db` is NOT committed (it churns every session + is mostly
+ephemeral). Instead, snapshot the DURABLE provenance to portable SQL in
+`.agency/sql/` — diff-able, re-importable, version-controlled by git. Run it now
+and then (a cadence, a pre-commit cron, or by hand), not every turn.
+
+Usage:
+  scripts/session-snapshot export [--all] [--out PATH] [--db PATH]
+  scripts/session-snapshot import [--sql PATH] [--db PATH]
+
+(Thin wrapper over `python -m agency._session_snapshot`, which the SessionStart
+hook uses to restore a missing session.db from the committed snapshot.)
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from agency._session_snapshot import main  # noqa: E402
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -13,8 +13,8 @@ affects:
   - scripts/derive_docs.py
   - Plan/_planning/vision-goals-baseline.txt
   - .github/workflows/test.yml
-  - tests/test_vision_goals_validator.py
-  - tests/test_derive_docs.py
+  - tests/acceptance/features/derive_docs.feature
+  - tests/acceptance/test_derive_docs.py
 ---
 
 # Spec 149 — Derived-doc discipline (TODO + matrix + SkillDoc self-update)
@@ -177,6 +177,70 @@ Then:   exits with Codes.DERIVE_AMBIGUOUS naming both specs;
   — pure functions importable as `scripts.derive_docs`, frozen
   dataclasses, deterministic sort.
 
+### Done — Slice 2.2 (fence rewrite acceptance tests, 2026-06-20)
+
+The fence rewrite code (`find_fence`, `rewrite_fence`,
+`render_fence_content`, `apply_derivations_to_spec_text`) was already
+implemented in Slice 2.1 but had no tests. Slice 2.2 closes that gap:
+
+- **5 acceptance scenarios** in `tests/acceptance/features/derive_docs.feature`
+  + `tests/acceptance/test_derive_docs.py`:
+  1. Test-count fence is filled from the affects-file count (fence content
+     shows "**7**"; hand prose outside unchanged).
+  2. Applying derivations twice is idempotent (second pass yields no diff).
+  3. An unclosed fence raises ValueError mentioning "unclosed fence".
+  4. A spec with no fences is left byte-identical (no spurious writes).
+  5. Live tree dry-run (`python -m scripts.derive_docs`) completes without
+     error and reports at least one spec (smoke test).
+- `affects:` updated to point at the new acceptance test files (replaces
+  the planned-but-absent `tests/test_derive_docs.py`).
+- All 5 scenarios pass; drift clean.
+
+### Done — Slice 2.3 (derived-zone drift CI gate, 2026-06-20)
+
+- **`spec_has_drift(text, derivation) → str | None`** — pure function: returns
+  a unified-diff hint when the spec text's derived zones diverge from the
+  live derivation; None when all derived zones are up-to-date or the spec
+  declares no fences (opt-in model). Raises ValueError on unclosed fences.
+- **`check_derivation_drift(plan_root, counts) → [(path, hint)]`** — walks
+  `Plan/*/spec.md`, calls `spec_has_drift` for each, returns a list of
+  `(spec_path, diff_hint)` for stale specs.
+- **CLI `--check` flag** — exits 1 with a compact diff hint when any spec
+  has stale derived zones; exits 0 when all are up to date (or no spec
+  declares fences). Exit 0 = clean; exit 1 = stale.
+- **CI step `Derived-zone drift`** added to `.github/workflows/test.yml` —
+  runs `python -m scripts.derive_docs --check --plan-root Plan` on every
+  push + PR. Zero regressions on the live tree (no specs currently declare
+  `test-count` fences).
+- **4 new acceptance scenarios** in `tests/acceptance/features/derive_docs.feature`
+  + `tests/acceptance/test_derive_docs.py`:
+  1. Stale fence (count 42 vs live 7) → drift detected, non-empty diff hint.
+  2. Up-to-date fence (count 7 vs live 7) → no drift.
+  3. Spec without fences → no drift (opt-in model).
+  4. Live repo `--check` → exits 0 (smoke test).
+
+### Done — Slice 2.4 (typed Codes, 2026-06-20)
+
+- **`DeriveError(ValueError)`** in `scripts/derive_docs.py`: typed exception
+  with a `code` attribute. Subclasses `ValueError` for backwards-compatible
+  `except ValueError` sites.
+- **`Codes.DERIVE_FENCE_BROKEN`** (`"derive_fence_broken"`) added to
+  `agency/toolresult.py`; `find_fence()` now raises `DeriveError` instead of
+  raw `ValueError`.
+- **`Codes.DERIVE_AMBIGUOUS`** (`"derive_ambiguous"`) and
+  **`Codes.DERIVE_MISSING_GOAL`** (`"derive_missing_goal"`) added to `Codes`
+  — wired in future slices (two-specs-claim-same-verb path + missing-frontmatter
+  path).
+- **Acceptance scenario** updated: "an unclosed fence raises DeriveError with
+  DERIVE_FENCE_BROKEN code" — asserts `isinstance(err, DeriveError)` and
+  `err.code == Codes.DERIVE_FENCE_BROKEN`.
+
+### Still — Slices 2.5+
+
+- **Slice 2.5** — alignment-matrix Goal column from `vision_goals:` frontmatter.
+- **Slice 2.6** — backfill `vision_goals:` on the 129 baseline specs.
+- **Slice 2.7** — Followup-status derive (Spec 269).
+
 ### Done — Slice 2.2 (HTML-comment fence rewrite, 2026-06-12)
 
 - **`find_fence(text, fence_id) → (inner_start, inner_end) | None`**:
@@ -200,6 +264,14 @@ Then:   exits with Codes.DERIVE_AMBIGUOUS naming both specs;
 - **8 new tests** in `tests/test_derive_docs.py` (29 total green): find /
   not-found / rewrite / idempotent / no-marker / multiple-ids / unclosed
   raises / render_test_count / apply round-trip.
+
+> ⚠ **Drift note (reconciled 2026-06-20):** `tests/test_derive_docs.py`
+> (the 29 unit tests above) was DELETED in commit `c6bebbb` (phase-c
+> flat-test→Gherkin migration, "delete the 193 superseded flat tests")
+> and was NOT replaced with an acceptance scenario. `scripts/derive_docs.py`
+> Slice 2.1/2.2 code is still present and importable, but is currently
+> **untested in-tree**. Slice 2.3 should restore coverage as a Gherkin
+> acceptance scenario (rule 7) alongside the `check-doc-drift` CI gate.
 
 ### Still — Slice 2.3+
 

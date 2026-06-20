@@ -197,6 +197,23 @@ class CapabilityContext:
         return HostBridge(current_host_context(),
                           sampling_enabled=getattr(self.engine, "sampling_enabled", None))
 
+    @property
+    def toolcalls(self):
+        """Spec 336 S2 — the engine's ephemeral tool-call store (the `toolcalls`
+        capability reads it). ``None`` on a bare context with no engine attached."""
+        return self.engine.toolcalls if self.engine is not None else None
+
+    @property
+    def lifecycle(self):
+        """Spec 339 — the Lifecycle PILLAR substrate (``engine.lifecycle``), the
+        canonical ``open · move · close`` write frame. A member capability mints/
+        advances a Lifecycle through ``ctx.lifecycle.open(ctx.intent_id, …)`` /
+        ``.move(lid, to_state)`` / ``.close(lid, outcome=…)`` instead of hand-
+        rolling ``record_and_serve("Lifecycle", …)`` + raw ``state`` writes — so
+        ``move`` stays the SOLE state writer. ``None`` on a bare context with no
+        engine attached (bare unit tests fall back, like ``toolcalls``)."""
+        return self.engine.lifecycle if self.engine is not None else None
+
     def spawn(self, cap: str, verb: str, **args) -> tuple:
         """Invoke a sibling capability and return BOTH its result and the recorded
         Invocation id (so a caller can edge to it). Depth-guarded against cycles."""

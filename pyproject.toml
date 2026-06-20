@@ -18,6 +18,12 @@ dependencies = [
     # Core dep per user directive (2026-06-13): used for every data object.
     "sqlmodel>=0.0.14",
     "httpx",
+    # Spec 348 (owner directive 2026-06-20) — the official OpenRouter SDK is a
+    # CORE dep: the LLM driver fetches the live free-model catalogue (model info
+    # + flags) and runs free-model generation through it. Type-safe, tracks the
+    # live OpenRouter OpenAPI. Imported lazily (no network at import); the
+    # use-case registry + selection logic work without it installed.
+    "openrouter>=0.10",
     # Spec 001 — load OPENROUTER_API_KEY / JULES_API_KEY (and any other secrets)
     # from a .env file at startup so operators can configure the plugin without
     # hand-exporting variables in the shell.  `load_dotenv()` is a no-op when
@@ -175,6 +181,7 @@ markers = [
     # Spec 060 round 9 — folder-form-cap markers.
     "develop: tests targeting the develop capability",
     "gate: tests targeting the gate capability",
+    "frugal: tests targeting the frugal capability",
     "branch: tests targeting the branch capability",
     "workspace: tests targeting the workspace capability",
     "subagent: tests targeting the subagent capability",
@@ -200,4 +207,12 @@ filterwarnings = [
     # (no newer version available as of this commit); suppress the
     # noise locally so the test output is clean.
     "ignore::DeprecationWarning:opentelemetry.util._importlib_metadata",
+    # Third-party noise: pytest-bdd 8.1.0 (the latest release) still passes
+    # `nodeid`/`baseid` to pytest 9's fixture internals — deprecated in
+    # `pytest_bdd/compat.py`, removed in pytest 10. Fix is upstream (no newer
+    # pytest-bdd available as of this commit); suppress the two known messages
+    # locally so the acceptance output is clean. Scoped to the messages, so any
+    # OTHER PytestRemovedIn10Warning (e.g. from our own code) still surfaces.
+    "ignore:Passing nodeid to _register_fixture is deprecated:pytest.PytestRemovedIn10Warning",
+    "ignore:Passing baseid to FixtureDef is deprecated:pytest.PytestRemovedIn10Warning",
 ]

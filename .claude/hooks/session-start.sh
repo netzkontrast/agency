@@ -16,28 +16,20 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
-cd "${CLAUDE_PROJECT_DIR:-/home/user/agency}"
+cd "$CLAUDE_PROJECT_DIR"
 
-# Create the venv once; re-running just re-resolves the install.
-if [ ! -d .venv ]; then
+if [[ ! -d .venv ]]; then
   echo "==> creating .venv"
   python3 -m venv .venv
 fi
 
-# shellcheck disable=SC1091
 . .venv/bin/activate
 
-echo '==> pip install -e ".[dev]"'
+echo "==> pip install -e '[dev]'"
 python -m pip install --quiet --upgrade pip
-python -m pip install -e ".[dev]"
+python -m pip install -q -e ".[dev]"
 
-# Persist the venv for the rest of the session: PATH so `python`/`pytest`/
-# `ruff`/`agency` resolve from .venv, PYTHONPATH so `agency` imports resolve.
-if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  {
-    echo "export PATH=\"${CLAUDE_PROJECT_DIR:-/home/user/agency}/.venv/bin:\$PATH\""
-    echo "export VIRTUAL_ENV=\"${CLAUDE_PROJECT_DIR:-/home/user/agency}/.venv\""
-  } >> "$CLAUDE_ENV_FILE"
-fi
+echo "==> scaffold .agency/config.yaml"
+python -c "from agency import _config; print('  ' + _config.config_scaffold())" || true
 
-echo "==> dev environment ready"
+echo "Done."

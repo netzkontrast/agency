@@ -1,0 +1,12 @@
+{
+  "source": "ponytail benchmark — agentic (headless Claude Code editing a real FastAPI+React repo; Haiku 4.5, n=4, 12 feature tickets). README + benchmarks/results/2026-06-18-agentic.md",
+  "vs_no_skill_baseline": {
+    "lines_of_code": "-54%",
+    "tokens": "-22%",
+    "cost": "-20%",
+    "time": "-27%",
+    "safety": "100%"
+  },
+  "older_single_shot": "80-94% less code (isolated generation; a conversational-baseline artefact per issue #126 — the agentic figures above are the corrected, defensible version)",
+  "note": "Published medians — a documented external constant (CLAUDE.md #8 exception), NOT a per-repo measurement. The cut is biggest where a real over-build trap exists (a date picker 404->23 lines, a color picker 287->23) and near zero on already-minimal code. Frugal is the only arm that cuts every metric while staying 100% safe."
+}

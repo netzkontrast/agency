@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import shlex
 
+from ..._capture import keep_full
 from ...capability import CapabilityBase, verb
 
 # AGENCY-DRIFT: shell-allowlist — the tools shell.run may invoke (command's first
@@ -84,9 +85,80 @@ def _resolve_templates(memory) -> dict:
     return merged
 
 
+
+# AGENCY-DRIFT: shell-filter-profiles — the per-tool FilterProfile registry (Spec 337).
+# Extend deliberately; add a new entry before the tool's fallback row (first-match wins).
+# shape is a regex matched against the Bash command string; None = any command for this tool.
+# For non-Bash tools, shape is always None (tool name alone drives the match).
+_FILTER_PROFILES = [
+    # Bash: git subcommands (shape regex matched against the command string)
+    {"tool": "Bash", "shape": r"^git\s+status",      "strategy": r"grep:^[ MADRCU?]",
+     "rationale": "porcelain file list; banner prose is not the signal"},
+    {"tool": "Bash", "shape": r"^git\s+(diff|show)",  "strategy": "stat",
+     "rationale": "change shape (files × ±lines); hunks live in output_json"},
+    {"tool": "Bash", "shape": r"^git\s+log",          "strategy": "head:20",
+     "rationale": "recent oneline window"},
+    # Bash: pytest / python -m pytest
+    {"tool": "Bash", "shape": r"^(pytest\b|python\b.*-m\s+pytest)",
+     "strategy": r"grep:(FAILED|ERROR|passed|failed)",
+     "rationale": "failures + summary line; never the dot stream"},
+    # Bash: search / listing tools
+    {"tool": "Bash", "shape": r"^(grep|rg)\b",  "strategy": "count+head:20",
+     "rationale": "the count is the answer; a sample confirms"},
+    {"tool": "Bash", "shape": r"^ls\b",          "strategy": "count+head:20",
+     "rationale": "how many + a sample"},
+    # Bash fallback (must be last Bash entry — catches any unmatched command)
+    {"tool": "Bash", "shape": None, "strategy": "head:20",
+     "rationale": "Spec 336 back-compat default"},
+    # Read: keep only a locator (path + line count + sha16) — no body copy
+    {"tool": "Read", "shape": None, "strategy": "locator",
+     "rationale": "file is already on disk; keep its address only"},
+    # Edit / Write: the diff is a BoundaryUse — keep just the path
+    {"tool": "Edit",  "shape": None, "strategy": "fields:file_path",
+     "rationale": "body diff already in BoundaryUse; don't re-copy"},
+    {"tool": "Write", "shape": None, "strategy": "fields:file_path",
+     "rationale": "body already in BoundaryUse; don't re-copy"},
+    # ToolSearch: tool names only; the schema dump is recoverable on demand
+    {"tool": "ToolSearch", "shape": None, "strategy": "names",
+     "rationale": "selected tool names; schema dump is recoverable on demand"},
+    # GitHub MCP: strip the envelope to the decision fields
+    {"tool": "mcp__github__*", "shape": None,
+     "strategy": "fields:number,state,conclusion,mergeable_state,sha",
+     "rationale": "strip the envelope to the decision fields"},
+    # CodeGraph: flow header; full source is re-queryable
+    {"tool": "codegraph_*", "shape": None, "strategy": "head:40",
+     "rationale": "flow header; full source is re-queryable"},
+]
+
+
+def _resolve_profile(tool: str, command: str) -> str:
+    """First-match lookup in ``_FILTER_PROFILES``. Returns the strategy string.
+    Bash shapes are regexes matched against the full command; non-Bash shapes are always None.
+    Falls back to 'head:20' (Spec 336 back-compat) when no profile matches."""
+    for profile in _FILTER_PROFILES:
+        t = profile["tool"]
+        s = profile.get("shape")
+        # Tool match: exact or prefix-wildcard (e.g. "mcp__github__*")
+        if t.endswith("*"):
+            if not tool.startswith(t[:-1]):
+                continue
+        elif t != tool:
+            continue
+        # Shape match: None = any, else regex on the command string
+        if s is not None:
+            if not re.search(s, (command or "").strip()):
+                continue
+        return profile["strategy"]
+    return "head:20"   # absolute fallback
+
+
 def _apply_filter(text: str, spec: str) -> str:
-    """Reduce command output to the requested slice (the token-economy core).
-    spec ∈ full | tail:N | head:N | grep:PAT | lines:A-B | count | last."""
+    """Reduce text to the requested slice (the token-economy core).
+
+    spec ∈ full | tail:N | head:N | head+tail:N | grep:PAT | lines:A-B |
+           count | count+head:N | last | stat | fields:A,B,... | names
+    """
+    import json as _json
     lines = (text or "").splitlines()
     spec = (spec or "").strip()
     if spec == "count":
@@ -99,16 +171,105 @@ def _apply_filter(text: str, spec: str) -> str:
     elif spec.startswith("tail:"):
         out = "\n".join(lines[-int(spec[5:] or 0):]) if int(spec[5:] or 0) else ""
     elif spec.startswith("head:"):
-        out = "\n".join(lines[:int(spec[5:] or 0)])
+        n = int(spec[5:] or 0)
+        out = "\n".join(lines[:n])
+    elif spec.startswith("head+tail:"):
+        n = int(spec[10:] or 0)
+        if n and len(lines) > 2 * n:
+            elided = len(lines) - 2 * n
+            marker = f"… {elided} lines elided (full output retained in output_json) …"
+            out = "\n".join(lines[:n] + [marker] + lines[-n:])
+        else:
+            out = "\n".join(lines)
+    elif spec.startswith("count+head:"):
+        n = int(spec[11:] or 0)
+        count = len([ln for ln in lines if ln.strip()])
+        sample = "\n".join(lines[:n])
+        out = f"{count} lines\n\n{sample}" if sample else f"{count} lines"
     elif spec.startswith("grep:"):
-        pat = re.compile(re.escape(spec[5:]))
+        pat = re.compile(spec[5:])
         out = "\n".join(ln for ln in lines if pat.search(ln))
     elif spec.startswith("lines:"):
         a, _, b = spec[6:].partition("-")
         out = "\n".join(lines[int(a) - 1:int(b or a)])
+    elif spec == "stat":
+        # Keep git --stat lines; drop diff hunk content (+/-/@@/diff/index/---/+++)
+        stat_lines = []
+        for ln in lines:
+            if ln.startswith(("diff --git ", "index ", "--- ", "+++ ", "@@ ")):
+                continue
+            if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---")):
+                continue
+            stat_lines.append(ln)
+        out = "\n".join(stat_lines)
+    elif spec.startswith("fields:"):
+        field_names = [f.strip() for f in spec[7:].split(",") if f.strip()]
+        try:
+            data = _json.loads(text)
+            if isinstance(data, dict):
+                out = "\n".join(
+                    f"{k}: {data[k]}" if k in data else f"{k}: (missing)"
+                    for k in field_names)
+            else:
+                out = "\n".join(lines[:20])
+        except Exception:                                   # noqa: BLE001
+            out = "\n".join(lines[:20])
+    elif spec == "names":
+        try:
+            data = _json.loads(text)
+            if isinstance(data, list):
+                names = [
+                    (item.get("name") or str(item)) if isinstance(item, dict) else str(item)
+                    for item in data]
+                out = "\n".join(names[:50])
+            elif isinstance(data, dict):
+                out = "\n".join(list(data.keys())[:50])
+            else:
+                out = str(data)[:200]
+        except Exception:                                   # noqa: BLE001
+            out = "\n".join(ln for ln in lines if ln.strip())[:200]
     else:
         out = "\n".join(lines)
     return out[:_MAX_OUTPUT]
+
+
+def capture_filter(command: str, output: str, *,
+                   tool: str = "Bash", spec: str | None = None) -> str:
+    """Spec 336 S3 / Spec 337 — a per-tool token-filtered VIEW for the ephemeral
+    capture's ``filtered`` column (the cheap structured view the export prefers).
+
+    The FULL payload is stored separately via ``keep_full``; this VIEW loses no data.
+
+    - ``tool`` selects the FilterProfile registry (Spec 337).
+    - ``spec=None`` (the hook path default) auto-resolves via ``_resolve_profile``;
+      an explicit ``spec=`` still wins so callers and tests keep full control.
+    - For Read, the ``locator`` strategy returns path + line-count + sha16 (no body).
+    - For Bash (unknown command), falls back to Spec 336 ``head:20``.
+
+    Returns a tool-appropriate header line + the distilled view body.
+    """
+    import hashlib as _hashlib
+    if spec is None:
+        spec = _resolve_profile(tool, command)
+    # Build the header line
+    if tool == "Bash":
+        head = f"$ {command}".rstrip()
+    elif tool == "Read":
+        head = f"[Read {command}]"
+    elif tool in ("Edit", "Write"):
+        head = f"[{tool} {command}]"
+    else:
+        head = f"[{tool}]"
+    # Build the body: locator is special (needs command as path + sha of output)
+    if spec == "locator":
+        body_text_raw = output or ""
+        n = len(body_text_raw.splitlines())
+        sha16 = _hashlib.sha256(body_text_raw.encode()).hexdigest()[:16]
+        path = command or "?"
+        body = f"{path} — {n} lines — sha16:{sha16}"
+    else:
+        body = _apply_filter(output or "", spec) if output else ""
+    return f"{head}\n{body}".rstrip() if body else head
 
 
 
@@ -232,7 +393,8 @@ class ShellCapability(CapabilityBase):
         raw = (res.get("stdout", "") or "") + (("\n" + res["stderr"]) if res.get("stderr") else "")
         filtered = _apply_filter(raw, filter or "tail:20")
         rid = self.ctx.record("Artefact", {
-            "kind": "command-run", "tool": tool, "command": command[:200],
+            "kind": "command-run", "tool": tool,
+            "command": keep_full(command, label="shell command"),
             "exit_code": res.get("exit_code"), "duration_s": res.get("duration_s", 0.0),
             "tail": filtered[:_MAX_OUTPUT]})
         self.ctx.link(rid, self.ctx.intent_id, "SERVES")

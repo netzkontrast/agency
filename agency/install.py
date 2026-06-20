@@ -35,6 +35,31 @@ import sys
 
 from .capabilities.plugin import author_command, author_skill, help_map
 
+# Keys captured from the environment and written to .env.dev during install.
+_DEV_ENV_KEYS = ("JULES_API_KEY", "OPENROUTER_API_KEY")  # AGENCY_LLM_MODEL has a safe default; omit
+
+
+def _write_dev_env(root: str) -> str | None:
+    """Write keys present in os.environ to ``<root>/.env.dev`` (gitignored).
+
+    Called during ``python -m agency.install`` so that keys already exported in
+    the shell are persisted for future sessions where the shell env may not be
+    set.  Only keys that ARE set in the environment are written — unset keys are
+    omitted, keeping ``.env.dev`` minimal.  Returns the path written, or ``None``
+    when no known keys are found in the environment.
+    """
+    import pathlib
+    lines = []
+    for key in _DEV_ENV_KEYS:
+        val = os.environ.get(key)
+        if val:
+            lines.append(f"{key}={val}\n")
+    if not lines:
+        return None
+    path = pathlib.Path(root) / ".env.dev"
+    path.write_text("".join(lines), encoding="utf-8")
+    return str(path)
+
 
 # Spec 148 Slice 2 — documented per-skill command cap (Open Q4). Slice 3
 # replaces the alpha-sort cap with an invocation-rank cap derived from the
@@ -638,18 +663,39 @@ _SESSION_START_HOOK_SCRIPT = """\
 #    .agency/ dir + .gitattributes binary marker, nothing else.
 set -e
 
-# --- Spec 292: refresh the repo index as a Document on session start ---
-# Regenerates PROJECT_INDEX.md (a RepoIndex graph node — the 94%-reduction
-# briefing) via the ported `develop index` verb, so every session opens with a
-# fresh, token-cheap map of the repo. BACKGROUNDED + non-fatal: never blocks
-# session start; deterministic + content-hash stable, so it does not churn git
-# when nothing changed. AGENCY_INDEX_ON_START=0 opts out.
+# --- Spec 292: CodeGraph + repo index refresh on session start ---
+# ONE backgrounded, non-fatal job (never blocks session start), ORDERED:
+#   1. CodeGraph — `init` on the first session, `sync` thereafter, so the repo
+#      index and EVERY code lookup read a fresh, local symbol/call-graph index.
+#      AGENCY_CODEGRAPH_ON_START=0 opts out.
+#   2. PROJECT_INDEX.md — the codegraph-powered `develop index` briefing (a
+#      RepoIndex graph node). Runs AFTER codegraph so it reads the fresh index;
+#      the SAVE path renders in FULL (never truncated — CLAUDE.md rule 9).
+#      Deterministic + content-hash stable, so it does not churn git unchanged.
+#      AGENCY_INDEX_ON_START=0 opts out.
 _agency_index_on_start() {
-  [ "${AGENCY_INDEX_ON_START:-1}" = "0" ] && return 0
-  [ -n "${CLAUDE_PROJECT_DIR:-}" ] && command -v agency >/dev/null 2>&1 || return 0
-  ( cd "${CLAUDE_PROJECT_DIR}" && agency execute --code "iid = (await call_tool('intent_bootstrap', {'purpose':'session-start repo index','deliverable':'PROJECT_INDEX.md','acceptance':'RepoIndex node recorded'}))['intent_id']
+  [ -n "${CLAUDE_PROJECT_DIR:-}" ] || return 0
+  (
+    cd "${CLAUDE_PROJECT_DIR}" || exit 0
+    # Restore the durable graph from the committed snapshot when session.db is
+    # missing (it is gitignored; .agency/sql/session-snapshot.sql is the source of
+    # truth). The migrations replay BEFORE the index opens the db.
+    if [ ! -f .agency/session.db ] && [ -f .agency/sql/session-snapshot.sql ] && command -v agency >/dev/null 2>&1; then
+      agency snapshot import >/dev/null 2>&1 || true
+    fi
+    if [ "${AGENCY_CODEGRAPH_ON_START:-1}" != "0" ] && command -v codegraph >/dev/null 2>&1; then
+      if codegraph status 2>/dev/null | grep -q "Not initialized"; then
+        codegraph init . >/dev/null 2>&1 || true
+      else
+        codegraph sync . >/dev/null 2>&1 || true
+      fi
+    fi
+    if [ "${AGENCY_INDEX_ON_START:-1}" != "0" ] && command -v agency >/dev/null 2>&1; then
+      agency execute --code "iid = (await call_tool('intent_bootstrap', {'purpose':'session-start repo index','deliverable':'PROJECT_INDEX.md','acceptance':'RepoIndex node recorded'}))['intent_id']
 await call_tool('capability_develop_index', {'intent_id': iid, 'agent_id':'agent:session-start', 'path':'.', 'apply': True})
-return 'ok'" >/dev/null 2>&1 & ) || true
+return 'ok'" >/dev/null 2>&1 || true
+    fi
+  ) &
 }
 
 # --- Scaffold the project's .agency/ (idempotent; runs every session) ---
@@ -1119,6 +1165,9 @@ def main(argv: list | None = None) -> int:
     if not settings_only:
         for p in write(target):
             print(p)
+        dev_env = _write_dev_env(target)
+        if dev_env:
+            print(dev_env)
     if ns.patch_claude_settings:
         from agency._hooks import patch_settings_file
         # Codex review on PR #138 round 2: the default settings path
@@ -1247,6 +1296,15 @@ def scaffold_agency_dir(root: str) -> list[str]:
                     "monitor.log\n"
                     "monitor.log.*\n")
         written.append(gitignore)
+    # Spec 334 Slice 3 — the unified config lands with the .agency/ scaffold, so
+    # a fresh clone has every knob at a sensible default (out of the box). The
+    # generator is non-destructive: re-running only adds missing sections.
+    from . import _config
+    cfg = os.path.join(agency_dir, "config.yaml")
+    created = not os.path.exists(cfg)
+    _config.config_scaffold(cfg)
+    if created:
+        written.append(cfg)
     return written
 
 

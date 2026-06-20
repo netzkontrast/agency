@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import re
 
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
+from ..._capture import keep_full
 from ...ontology import OntologyExtension
 
 _STOP = {"the", "a", "an", "to", "of", "and", "for", "in", "on", "with", "my",
@@ -49,6 +50,7 @@ _CAPABILITY_ROUTING_SKILL = {
 class RecommendCapability(CapabilityBase):
     name = "recommend"
     home = "capability"   # reads the registry to route a request
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"Recommendation": ["request", "capability"]},
         skills={"capability-routing": _CAPABILITY_ROUTING_SKILL},
@@ -128,5 +130,5 @@ class RecommendCapability(CapabilityBase):
         top_cap = scored[0]["capability"] if scored else ""
         if top_cap:
             self.ctx.record_and_serve("Recommendation",
-                                      {"request": request[:200], "capability": top_cap})
+                                      {"request": keep_full(request, label="recommend request"), "capability": top_cap})
         return {"request": request, "top": top_cap, "recommendations": scored}

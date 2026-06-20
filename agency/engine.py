@@ -168,22 +168,24 @@ def _route_for(tool: str, tool_input: dict):
 
 def _verb_shadow_for(tool: str, payload: dict) -> tuple[str, str]:
     """Spec 195 Slice 1 — the capability verb a raw MUTATING tool call BYPASSED
-    (for the BoundaryUse node) + a short argument summary. Reads the shared
-    `_RAW_ROUTES` table; falls back to a generic shell.run / capability_verb_for
-    shadow for an unmatched mutating tool. Only Write/Edit/Bash reach here (see
-    `_default_hook_handler`)."""
+    (for the BoundaryUse node) + the FULL argument (command / file path). Reads
+    the shared `_RAW_ROUTES` table; falls back to a generic shell.run /
+    capability_verb_for shadow for an unmatched mutating tool. Only Write/Edit/Bash
+    reach here (see `_default_hook_handler`). No-truncate policy: the argument is
+    captured in full (warn-not-cut), so the moat audit records what actually ran."""
+    from ._capture import keep_full
     route = _route_for(tool, payload)
     if tool == "Bash":
-        cmd = str(payload.get("command") or "").strip()
+        cmd = keep_full(str(payload.get("command") or "").strip(), label="Bash command")
         if route is not None:
-            return route[0], cmd[:200]
+            return route[0], cmd
         head = cmd.split()[0] if cmd else ""
-        return f"shell.run({head!r})", cmd[:200]
+        return f"shell.run({head!r})", cmd
     if tool in ("Write", "Edit"):
-        path = str(payload.get("file_path") or "")
+        path = keep_full(str(payload.get("file_path") or ""), label=f"{tool} path")
         if route is not None:
-            return route[0], path[:200]
-        return f"capability_verb_for({path!r})", path[:200]
+            return route[0], path
+        return f"capability_verb_for({path!r})", path
     return "", ""
 
 
@@ -306,65 +308,131 @@ def _pre_tool_use_handler(engine, event: dict) -> dict:
             "hookEventName": "PreToolUse",
             "additionalContext": "\n".join(lines),
         }
+    # Spec 349a — fan PreToolUse out to declared event subscriptions (the frugal
+    # first-use hint is the reference subscriber); merge their fragments into
+    # additionalContext. Dedup'd + fail-isolated in `_events.run`.
+    from . import _events
+    frags = _events.run(engine, "PreToolUse", event)
+    if frags:
+        ctx = (base.get("hookSpecificOutput") or {}).get("additionalContext", "")
+        base["hookSpecificOutput"] = {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "\n".join([ctx, *frags]) if ctx else "\n".join(frags),
+        }
     return base
 
 
-def _default_hook_handler(engine, event: dict) -> dict:
-    """Spec 076 — the default event handler: record an `Event` node (substrate
-    provenance, no intent required) and, for tool events, capture a trimmed
-    payload via the shell filter. Links the Event OBSERVED_DURING the active
-    intent (``AGENCY_INTENT`` — Spec 018 Win 3) when one is set, so events during
-    an intent become its provenance. The handler surface is an OPEN SET; register
-    a per-event override via ``engine.register_hook_handler``.
+# Spec 336 S2 — the high-volume tool events routed to the ephemeral store, not
+# the durable graph. Everything else stays a (low-volume) graph Event.
+_TOOLCALL_EVENTS = frozenset({"PreToolUse", "PostToolUse"})
 
-    Spec 195 Slice 1 — when the event is a `PreToolUse` on raw
-    Write/Edit/Bash AND an active intent is set, ALSO record a typed
-    `BoundaryUse{tool, target, verb_shadow, argument_summary, intent_id,
-    session}` node so `dogfood.boundary_use_audit` can surface the
-    bypass rate. SERVES the intent so a single graph traversal recovers
-    the full audit."""
+
+def _default_hook_handler(engine, event: dict) -> dict:
+    """Spec 076 — the default event handler. The handler surface is an OPEN SET;
+    register a per-event override via ``engine.register_hook_handler``.
+
+    Spec 336 S2 — high-volume tool events (PreToolUse/PostToolUse) are captured in
+    FULL into the EPHEMERAL tool-call store (``engine.toolcalls``), NOT as ``Event``
+    nodes: keeping every tool call's full payload in the bi-temporal graph bloated
+    session.db (~95% of nodes were Events). Lifecycle events
+    (UserPromptSubmit/Stop/SubagentStop/SessionStart) still record a durable graph
+    ``Event`` linked OBSERVED_DURING the active intent (``AGENCY_INTENT``). The
+    ``toolcalls`` capability reads the store; the Stop-hook export distils it.
+
+    No-truncate (Spec 336 S1): the captured input/response is stored in FULL —
+    ``keep_full`` warns on an unusually large value instead of cutting it.
+
+    Spec 195 Slice 1 — a raw mutating ``PreToolUse`` (Write/Edit/Bash) under an
+    active intent ALSO records a typed ``BoundaryUse`` (the low-volume bypass
+    SIGNAL) in the durable graph, independent of the capture reroute."""
     import json as _json
     import os as _os
+    from ._capture import keep_full
     name = (event or {}).get("hook_event_name") or "unknown"
     session = (event or {}).get("session_id") or "unknown"
-    props = {"name": name, "session": session}
     tool = (event or {}).get("tool_name")
+    iid = _os.environ.get("AGENCY_INTENT", "")
+
+    if name in _TOOLCALL_EVENTS:
+        # FULL capture to the ephemeral store — off the durable graph. A capture
+        # failure must never break the session.
+        phase = "pre" if name == "PreToolUse" else "post"
+        # Spec 336 S3 / Spec 337 — EVERY captured tool's output is routed through
+        # the per-tool capture-filter for a clean structured `filtered` view.
+        # Bash uses the profile registry (Spec 337); non-Bash tools have their own
+        # profiles (Read → locator, mcp__github__* → decision fields, etc.).
+        # Capture & filter only — execution is unchanged; output_json is always FULL.
+        filtered = ""
+        try:
+            from .capabilities.shell import capture_filter
+            tin = event.get("tool_input") or {}
+            resp = event.get("tool_response")
+            tool_name = tool or ""
+            if tool_name == "Bash":
+                cmd = tin.get("command", "") if isinstance(tin, dict) else ""
+            elif tool_name == "Read":
+                cmd = tin.get("file_path", "") if isinstance(tin, dict) else ""
+            elif tool_name in ("Edit", "Write"):
+                cmd = tin.get("file_path", "") if isinstance(tin, dict) else ""
+            else:
+                cmd = _json.dumps(tin, default=str) if isinstance(tin, dict) else str(tin or "")
+            out = resp if isinstance(resp, str) else (
+                _json.dumps(resp, default=str) if resp else "")
+            filtered = capture_filter(cmd, out, tool=tool_name, spec=None)
+        except Exception:                                       # noqa: BLE001
+            filtered = ""
+        try:
+            engine.toolcalls.record(
+                phase=phase, tool=tool or "", session=session, intent=iid,
+                input_json=keep_full(_json.dumps(event.get("tool_input") or {},
+                                                 default=str), label=f"{name} input"),
+                output_json=keep_full(_json.dumps(event.get("tool_response") or {},
+                                                  default=str), label=f"{name} output"),
+                filtered=filtered)
+        except Exception:                                       # noqa: BLE001
+            pass
+        _record_boundary_use(engine, name, tool, event, session, iid)
+        return {"recorded": None, "event": name, "toolcall": True}
+
+    # --- lifecycle events: a durable graph Event (low-volume) ---
+    props = {"name": name, "session": session}
     if tool:
         props["tool"] = tool
-        payload = event.get("tool_input") or event.get("tool_response") or {}
-        from .capabilities.shell import _apply_filter
-        props["summary"] = _apply_filter(_json.dumps(payload, default=str), "head:5")[:500]
     eid = engine.memory.record("Event", props)
-    # Spec 292 — the Session Graph: link every event into a Session node keyed
-    # by session_id, so the complete session is restorable from the graph.
+    # Spec 292 — the Session Graph: link the event into its Session node.
     if session and session != "unknown":
         sid = f"session:{session}"
         if engine.memory.recall(sid) is None:
             engine.memory.record("Session", {"session_id": session,
                                               "status": "open"}, node_id=sid)
         engine.memory.link(eid, sid, "IN_SESSION")
-    iid = _os.environ.get("AGENCY_INTENT", "")
     if iid and engine.memory.recall_typed(iid, "Intent") is not None:
         engine.memory.link(eid, iid, "OBSERVED_DURING")
-        # Spec 195 Slice 1 — BoundaryUse capture for raw mutating tools.
-        # PreToolUse is when the bypass actually happens; reads + post
-        # events don't poison the moat (Open Q1: mutating-only).
-        if name == "PreToolUse" and tool in ("Write", "Edit", "Bash"):
-            tin = event.get("tool_input") or {}
-            verb_shadow, summary = _verb_shadow_for(tool, tin)
-            target = (str(tin.get("command") or "")
-                       or str(tin.get("file_path") or ""))[:200]
-            bid = engine.memory.record("BoundaryUse", {
-                "tool":             tool,
-                "argument_summary": summary or f"<{tool} no payload>",
-                "target":           target,
-                "verb_shadow":      verb_shadow,
-                "intent_id":        iid,
-                "session":          session,
-            })
-            engine.memory.link(bid, iid, "SERVES")
-            engine.memory.link(bid, eid, "RECORDED_BY")
     return {"recorded": eid, "event": name}
+
+
+def _record_boundary_use(engine, name, tool, event, session, iid) -> None:
+    """Spec 195 — the BoundaryUse moat audit for raw mutating tools under an active
+    intent. Stays in the durable graph (low-volume bypass signal), independent of
+    the Spec 336 capture reroute. No-op without a valid active intent."""
+    if not iid or engine.memory.recall_typed(iid, "Intent") is None:
+        return
+    if name != "PreToolUse" or tool not in ("Write", "Edit", "Bash"):
+        return
+    from ._capture import keep_full
+    tin = event.get("tool_input") or {}
+    verb_shadow, summary = _verb_shadow_for(tool, tin)
+    target = keep_full(str(tin.get("command") or "")
+               or str(tin.get("file_path") or ""), label=f"{tool} target")
+    bid = engine.memory.record("BoundaryUse", {
+        "tool":             tool,
+        "argument_summary": summary or f"<{tool} no payload>",
+        "target":           target,
+        "verb_shadow":      verb_shadow,
+        "intent_id":        iid,
+        "session":          session,
+    })
+    engine.memory.link(bid, iid, "SERVES")
 
 
 def _active_intent(engine, *, fallback_latest: bool = False):
@@ -409,7 +477,7 @@ def _user_prompt_submit_handler(engine, event: dict) -> dict:
     else:
         inject = ("[agency] No active intent — consider intent_bootstrap to "
                   "anchor this work.\n" + guard)
-    # Spec 326 M1 — append the frugal discipline (compact every prompt, full at
+    # Spec 332 M1 — append the frugal discipline (compact every prompt, full at
     # ultra, nothing at off). Degrades silently: a render failure never breaks
     # the turn (the assumption-guard precedent).
     inject = _append_frugal(inject, prompt=True)
@@ -417,7 +485,7 @@ def _user_prompt_submit_handler(engine, event: dict) -> dict:
 
 
 def _append_frugal(inject: str, *, prompt: bool) -> str:
-    """Spec 326 M1 — append the frugal discipline to an inject block. ``prompt``
+    """Spec 332 M1 — append the frugal discipline to an inject block. ``prompt``
     True = the per-prompt cadence (compact, full at ultra); False = session
     start (always full). ``off`` adds nothing. Never raises."""
     try:
@@ -425,8 +493,12 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
         level = _frugal.frugal_level()
         if level == "off":
             return inject
-        mode = "full" if (not prompt or level == "ultra") else "compact"
-        text = _frugal.render(level, mode=mode)
+        if prompt:
+            mode = "full" if level == "ultra" else "compact"
+            text = _frugal.render(level, mode=mode)
+        else:
+            # SessionStart: the configurable full help (Spec 348 mandatory wiring).
+            text = _frugal.session_inject_text(level)
     except Exception:
         return inject
     if not text:
@@ -435,10 +507,29 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
 
 
 def _session_start_handler(engine, event: dict) -> dict:
-    """Spec 326 M1 — inject the full frugal discipline at session start. Records
-    the Event (default handler) then adds the discipline; degrades silently."""
+    """Spec 332 M1 — inject the full frugal discipline at session start. Records
+    the Event (default handler) then adds the discipline; degrades silently.
+    Spec 334 Slice 3 — also repair an existing config (add newly-registered
+    sections), non-destructively."""
     base = _default_hook_handler(engine, event)
+    _maybe_repair_config()
     return {**base, "inject": _append_frugal("", prompt=False)}
+
+
+def _maybe_repair_config() -> None:
+    """Spec 334 Slice 3 — repair an EXISTING ``.agency/config.yaml`` on session
+    start: add any newly-registered sections non-destructively (a freshly
+    installed capability's keys appear without clobbering user edits). It never
+    CREATES a config — a hook must not scaffold ``.agency/`` into an arbitrary
+    cwd; creation is ``install``/``setup``. Best-effort: never raises."""
+    try:
+        import os as _os
+        from . import _config
+        path = _config._resolve_config_path()
+        if _os.path.exists(path):
+            _config.config_scaffold(path)
+    except Exception:
+        pass
 
 
 def _session_end_handler(engine, event: dict) -> dict:
@@ -464,7 +555,19 @@ def _session_end_handler(engine, event: dict) -> dict:
             if engine.memory.recall(sid) is not None:
                 engine.memory.link(doc_id, sid, "IN_SESSION")
                 engine.memory.update(sid, {"status": "closed"})
-        return {**base, "archived": doc_id, "written": res.get("written")}
+        # Spec 336 S4 — distil the ephemeral tool-call capture into a durable
+        # ToolcallExport (top calls + responses + new-spec suggestions) written to
+        # .agency/sessions/. Best-effort: never breaks teardown.
+        toolcall_export = None
+        try:
+            tx, _ = engine.registry.invoke(
+                engine.memory, iid, "toolcalls", "export",
+                agent_id="agent:session-end", apply=True)
+            toolcall_export = tx.get("export_id")
+        except Exception:                                       # noqa: BLE001
+            pass
+        return {**base, "archived": doc_id, "written": res.get("written"),
+                "toolcall_export": toolcall_export}
     except Exception:                                           # noqa: BLE001
         return {**base, "archived": None}
 
@@ -478,6 +581,10 @@ class Engine:
                  sampling_enabled: bool | None = None,
                  _require_skill_doc: bool = True):
         self.surface = resolve_surface(surface)
+        # Spec 336 S2 — the ephemeral tool-call store lives beside the graph db
+        # (resolved lazily so a fresh engine on `:memory:` gets an in-memory store).
+        self._db_path = path
+        self._toolcalls = None
         # Spec 285 OQ3 — server-initiated sampling cost control. Explicit kwarg
         # wins; else AGENCY_SAMPLING_ENABLED env; else on. Read by HostBridge
         # (via CapabilityContext.host) + surfaced in agency_doctor.
@@ -602,17 +709,19 @@ class Engine:
         }
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
-        self.lifecycle = Lifecycle(self.memory)
         # Spec 021 — the single engine Monitor channel. Capabilities fan events
         # in via ctx.emit_monitor(...); one tail -F on this log surfaces them.
+        # Built BEFORE the Lifecycle so the substrate can emit transition
+        # telemetry onto it (Spec 344).
         from ._monitor import MonitorEmitter, resolve_monitor_log_path
         self.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))
+        self.lifecycle = Lifecycle(self.memory, monitor=self.monitor)  # Spec 344 — emits transitions
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
         self._hook_handlers = {"*": _default_hook_handler,
                                "PreToolUse": _pre_tool_use_handler,
                                "UserPromptSubmit": _user_prompt_submit_handler,
-                               "SessionStart": _session_start_handler,  # Spec 326 M1
+                               "SessionStart": _session_start_handler,  # Spec 332 M1
                                "SessionEnd": _session_end_handler}
 
     # Spec 286-A2 — the bespoke boundary attributes are now thin read-through
@@ -658,6 +767,17 @@ class Engine:
     def anthropic_driver(self):
         return self.drivers.get("anthropic")
 
+    @property
+    def toolcalls(self):
+        """Spec 336 S2 — the ephemeral tool-call store (lazy; beside the graph db,
+        or in-memory for a `:memory:` engine). High-volume pre/post tool capture
+        lives here, OFF the durable graph; the `toolcalls` capability reads it."""
+        if self._toolcalls is None:
+            from . import _toolcalls
+            self._toolcalls = _toolcalls.ToolcallStore(
+                _toolcalls.resolve_path(self._db_path))
+        return self._toolcalls
+
     def register_hook_handler(self, event_name: str, fn) -> None:
         """Spec 076 — register a per-event hook handler (open set). ``fn(engine,
         event) -> dict``. Overrides the default for ``event_name``; use "*" to
@@ -695,13 +815,26 @@ class Engine:
         """
         from ._wire_envelope import WireEnvelope
         node = self.memory.recall(inv) or {}
-        return WireEnvelope.shape(
+        shaped = WireEnvelope.shape(
             result,
             outcome=node.get("outcome"),
             error=node.get("error", "") or "",
             error_severity=node.get("error_severity") or "",
             trace_id=inv,
         )
+        # Spec 332 M2 — stamp the frugal discipline on every verb's wire return
+        # (byte-stable at a fixed level; `off`/`stamp_every_verb=false` omits it).
+        # Additive + degrades silently: a stamp must never break or reshape a
+        # verb that already speaks `frugal`.
+        if isinstance(shaped, dict) and "frugal" not in shaped:
+            try:
+                from . import _frugal
+                stamp = _frugal.frugal_prefix()
+                if stamp:
+                    shaped = {**stamp, **shaped}
+            except Exception:
+                pass
+        return shaped
 
     def _wire(self, mcp: FastMCP, cap_name: str, verb: str, spec: dict) -> None:
         """Auto-wire ONE MCP tool for a capability verb from its fn signature.
@@ -802,12 +935,17 @@ class Engine:
         @asynccontextmanager
         async def lifespan(server):
             from agency.capabilities.jules import watch as _jules_watch
+            from ._monitor import MonitorEvent
             engine.monitor.maybe_rotate()           # Spec 021 — bound the SLOG on session enter
+            engine.monitor.emit(MonitorEvent(source="engine", kind="server_start",
+                                             message="MCP server started"))
             _jules_watch.start(engine)              # attaches engine._jules_watcher + starts poll loop
             try:
                 yield {}                             # lifespan state available via Context
             finally:
                 await _jules_watch.stop(engine)     # cancels the poll loop cleanly
+                engine.monitor.emit(MonitorEvent(source="engine", kind="server_stop",
+                                                 message="MCP server stopped"))
 
         return lifespan
 

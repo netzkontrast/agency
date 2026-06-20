@@ -56,6 +56,25 @@ def _mtime(p: str) -> float:
         return 0.0
 
 
+# ── Spec 334 Slice 6 — unified config as a live, lowest-priority read source ───
+# Thin binders over the shared `_config` helpers (one semantics, no per-cap
+# drift); the lazy import keeps `_config` off the capability-discovery path.
+def _unified(field_name: str, fallback):
+    try:
+        from ... import _config
+        return _config.unified_or("novel", field_name, fallback)
+    except Exception:
+        return fallback
+
+
+def _unified_sig() -> tuple:
+    try:
+        from ... import _config
+        return _config.unified_signature()
+    except Exception:
+        return ("", 0.0)
+
+
 _LOAD_CACHE: dict[tuple, "NovelConfig"] = {}
 
 
@@ -132,7 +151,7 @@ class NovelConfig:
         """Load config from the first hit; mtime-cached for in-process reuse."""
         paths = (tuple(search_paths) if search_paths is not None
                  else tuple(cls._default_search_paths()))
-        signature = tuple((p, _mtime(_expand(p))) for p in paths)
+        signature = tuple((p, _mtime(_expand(p))) for p in paths) + (_unified_sig(),)
         cached = _LOAD_CACHE.get(signature)
         if cached is not None:
             return cached
@@ -146,7 +165,7 @@ class NovelConfig:
             p = Path(_expand(path))
             if p.is_file():
                 return cls._from_dict(_parse_yaml(p.read_text()))
-        return cls.defaults()
+        return cls._from_dict({})        # no cap-local file → unified-or-default
 
     @classmethod
     def _default_search_paths(cls) -> list[str]:
@@ -189,15 +208,15 @@ class NovelConfig:
         paths = d.get("paths") or {}
         defaults = d.get("defaults") or {}
         db = d.get("db") or {}
-        cfg.author_name = author.get("name", "") or ""
+        cfg.author_name = author.get("name") or _unified("author_name", "")
         cfg.content_root = _expand(
-            paths.get("content_root") or _DEFAULT_CONTENT_ROOT)
-        cfg.ideas_file = _expand(paths.get("ideas_file") or "")
-        cfg.default_genre = defaults.get("genre", "novel") or "novel"
+            paths.get("content_root") or _unified("content_root", _DEFAULT_CONTENT_ROOT))
+        cfg.ideas_file = _expand(paths.get("ideas_file") or _unified("ideas_file", ""))
+        cfg.default_genre = defaults.get("genre") or _unified("default_genre", "novel")
         cfg.default_target_word_count = int(
-            defaults.get("target_word_count", 80000) or 80000)
-        cfg.db_backend = db.get("backend", "sqlite") or "sqlite"
-        cfg.db_path = db.get("path", ".agency/novel.db") or ".agency/novel.db"
+            defaults.get("target_word_count") or _unified("default_target_word_count", 80000))
+        cfg.db_backend = db.get("backend") or _unified("db_backend", "sqlite")
+        cfg.db_path = db.get("path") or _unified("db_path", ".agency/novel.db")
         cfg._fill_path_defaults()
         return cfg
 
@@ -206,3 +225,15 @@ class NovelConfig:
         if not self.ideas_file:
             self.ideas_file = str(
                 Path(self.content_root) / "IDEAS.md")
+
+
+# Spec 334 Slice 5 — open-set proof: surface novel's config in the unified
+# .agency/config.yaml (derived from the dataclass — single source, no literals).
+# The live value is resolved by the novel capability (.agency/novel-config.yaml /
+# AGENCY_NOVEL_HOME); full read-path unification is a tracked follow-up.
+try:  # best-effort — config registration must never break the capability import
+    from ... import _config as _agency_config
+    _agency_config.register_dataclass_section(
+        "novel", NovelConfig, doc="novel default — resolved by the novel capability")
+except Exception:  # pragma: no cover - registration is best-effort
+    pass

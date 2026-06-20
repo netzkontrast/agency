@@ -23,7 +23,8 @@ import sys
 
 from dotenv import load_dotenv
 
-load_dotenv()  # populate OPENROUTER_API_KEY / JULES_API_KEY from .env before any lazy reads
+load_dotenv(".env.dev")  # dev-specific actual values (gitignored); written by `python -m agency.install`
+load_dotenv()            # committed .env template with ${VAR} expansion; no-op if already set
 
 from ._db_path import resolve_db_path
 from .engine import Engine
@@ -78,14 +79,26 @@ def doctor_main(argv: list[str] | None = None) -> int:
     running server. The CLI variant covers the "I can't even start the
     MCP server, what's wrong?" path — runs on system Python, doesn't
     need a venv, doesn't open the persistent DB.
+
+    ``--write-config`` (Spec 334 Slice 4) first repairs ``.agency/config.yaml``
+    non-destructively (adds any missing registered sections at their defaults),
+    then reports — the opt-in write side effect a plain run never makes.
     """
-    # In-memory engine — no disk side effects.
+    argv = list(argv if argv is not None else [])
+    # --write-config repairs the config first (the opt-in write side effect a
+    # plain run never makes); it's independent of the engine, so do it up front.
+    wrote = None
+    if "--write-config" in argv:
+        from . import _config
+        wrote = _config.config_scaffold()
     engine = Engine(":memory:")
     try:
         mcp = engine.build_mcp(codemode=False)
         report = _call_doctor(mcp)
     finally:
         engine.memory.close()
+    if wrote is not None:
+        report["wrote_config"] = wrote
     print(json.dumps(report))
     return 0 if report.get("ok") else 1
 
