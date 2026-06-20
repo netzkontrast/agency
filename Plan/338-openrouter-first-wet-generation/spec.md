@@ -1,7 +1,7 @@
 ---
 spec_id: "338"
 slug: openrouter-first-wet-generation
-status: draft
+status: partial
 last_updated: 2026-06-20
 owner: "@agency"
 enhances: "331"
@@ -208,3 +208,48 @@ Then:   the config registry REPLACES the built-in default (override, rule 8)
    model info (`context_length`, zero-pricing, capabilities) — derived, never
    hand-frozen (rule 8). The built-in registry carries only `id` + `use_cases` +
    `priority`; `flags` hydrate at fetch time.
+
+## Followup — Implementation Status (Slice 1, 2026-06-20)
+
+### Done — Slice 1 (registry + selection + generation seam)
+
+- **`ModelProfile` registry** (`agency/_llm.py`) — `{id, use_cases, priority,
+  flags}`; `_DEFAULT_REGISTRY` (6 free models tagged reasoning/decision/code/
+  prose/general). `default_registry()` reads it; `load_registry(config)` builds
+  one from a `models:` block (fail-closed to the default). `_MODEL_PREFERENCE`
+  (used by `resolve_model`) is now DERIVED from the registry — single source.
+- **`select_model(use_case, *, registry, live_ids, model, default)`** —
+  explicit `model` (`:free`-enforced) → use-case top-priority pick → `general`
+  pick → `_DEFAULT_MODEL`; `live_ids` restricts to the live catalogue.
+- **`LLMClient(model, *, use_case, require, registry, client)`** flags +
+  **`generate(prompt, *, use_case, system, max_tokens, model) ->
+  GenerationResult`** (`{text, model, backend:"openrouter", finish_reason}`).
+  `_send` uses the injected/real OpenRouter SDK; `_sdk()` is `# pragma: no
+  cover - network`.
+- **`select_text_generator(drivers, *, env, require)`** — the SOLE plain-text
+  path: `OPENROUTER_API_KEY` → `"llm"` (wins over a present Anthropic key);
+  `require="anthropic"` / `AGENCY_GENERATE=anthropic` / Anthropic-only → 
+  `"anthropic"`; neither → typed `Codes.DEPENDENCY_MISSING` (no silent paid
+  fallback — barbell recovery = caller re-calls with `require="anthropic"`).
+- **OpenRouter SDK is a CORE dep** (`openrouter>=0.10` in
+  `[project.dependencies]`); `_openrouter_models()` (`# pragma: no cover -
+  network`) fetches the live free catalogue (`max_price=0`) → `{id: flags}` to
+  hydrate the registry. Imported lazily — the registry + selection work without
+  the SDK installed.
+- **11 acceptance scenarios** (`tests/acceptance/features/wet_generation.feature`
+  + `test_wet_generation.py`), network-free: registry well-formedness, use-case
+  selection + `live_ids` skip + general fallback, config override, non-free
+  rejection, the four generator-routing invariants (OpenRouter wins / require
+  anthropic / OpenRouter-only / DEPENDENCY_MISSING), and a stub-client
+  `generate` round-trip. Existing `decide`/dispatch suite stays green; drift
+  clean (no install regen — internal boundary, not an MCP verb).
+
+### Still — Slice 2+
+
+- Wire the `-wet` consumers (204/220/226/230/240/249/311/317) to
+  `select_text_generator` + `generate(use_case=…)`; each notes its use-case.
+- `generate_stream()` (OpenRouter SSE).
+- Hydrate `flags` live in selection (`select_model(..., live_ids=_openrouter_models())`)
+  + the per-(use_case, model) success/failure feedback loop (Meadows leverage).
+- `.agency/config.yaml` `models:` block wired through the engine's config load
+  (Spec 334); Slice 1 ships `load_registry(dict)`, not the file read.
