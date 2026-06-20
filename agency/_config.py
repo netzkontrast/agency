@@ -138,6 +138,35 @@ def config_get(dotted: str, *, path: str | None = None) -> Any:
     return config_resolve(dotted, path=path)["value"]
 
 
+# ── Spec 334 Slice 6 — capability read-path unification helpers ────────────────
+# A capability with its OWN richer config (nested file + multi-path fallback —
+# novel/music) reads the unified file as a live but lowest-priority source via
+# these. Centralised here so every cap shares one semantics (no per-cap drift).
+def unified_or(section: str, field_name: str, fallback: Any) -> Any:
+    """The unified-config value for ``section.field_name`` — ranked BELOW a cap's
+    own file and ABOVE its literal default. Best-effort: an unregistered key
+    (e.g. a list field) or any error returns ``fallback`` so the capability never
+    breaks. ``config_get`` already returns the registered default (== the cap's
+    dataclass default) when the file omits the key, so an absent unified value
+    resolves byte-identically to the literal fallback."""
+    try:
+        return config_get(f"{section}.{field_name}")
+    except Exception:
+        return fallback
+
+
+def unified_signature() -> tuple:
+    """``(path, mtime)`` of the unified config file — a token a capability folds
+    into its own mtime-keyed load cache so editing ``.agency/config.yaml``
+    invalidates the cached load."""
+    path = _resolve_config_path()
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        mtime = 0.0
+    return (path, mtime)
+
+
 def config_set(dotted: str, value: Any, *, path: str | None = None) -> None:
     """Persist ``value`` for ``dotted`` to the config file (durable across
     processes). Secret keys are env-only — never written literal (the scaffold/

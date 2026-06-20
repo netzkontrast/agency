@@ -108,6 +108,15 @@ doctor reports *presence*, not the value.
 4. **Doctor report + validate + `--write-config`.**
 5. **Capability registry proof.** `frugal`/`core` register; migrate `novel`/`music`
    config onto `register_config_section` as the open-set proof.
+6. **Read-path unification (additive fallback).** `novel`/`music` `*.load()`
+   consult the unified `config_get("<cap>.<key>")` as a **live but lowest-priority**
+   source, so an edit to `.agency/config.yaml` actually takes effect. Per-key
+   precedence: cap-local nested file → unified `config.yaml` → dataclass default.
+   Backward-compatible (the registered `ConfigKey` default *is* the dataclass
+   default, so an empty unified section is byte-identical to today); the cap's
+   `_LOAD_CACHE` signature gains the unified file's `(path, mtime)` so a unified
+   edit invalidates. Scalar keys only — unregistered `list` fields keep their
+   literal fallback.
 
 ## Acceptance criteria
 
@@ -124,6 +133,10 @@ doctor reports *presence*, not the value.
   flags invalid/unknown/missing in `next_steps`, and `--write-config` repairs.
 - **C6 (substrate)** — Spec 332 `frugal_level` reads/writes the `frugal:` section
   through `_config`; Spec 333 reads any installer toggles from it.
+- **C7 (read-path unification)** — with no cap-local `.agency/<cap>-config.yaml`,
+  a value set under `<cap>.<key>` in the unified `.agency/config.yaml` is returned
+  by `<Cap>Config.load()`; a present cap-local file still wins; with neither set
+  the dataclass default is returned (floor unchanged).
 
 ## Acceptance scenarios (Gherkin sketch)
 
@@ -156,6 +169,18 @@ Scenario: doctor names a bad value
 Scenario: secrets are never written as literals
   When the config is scaffolded
   Then secrets keys reference ${env:...}, not the value
+
+Scenario: the unified file is a live fallback for a capability
+  Given no cap-local .agency/novel-config.yaml exists
+  And .agency/config.yaml sets novel.content_root "/data/novels"
+  When NovelConfig.load() resolves
+  Then content_root is "/data/novels"
+
+Scenario: a cap-local file wins over the unified file
+  Given .agency/novel-config.yaml sets paths.content_root "/local/novels"
+  And .agency/config.yaml sets novel.content_root "/data/novels"
+  When NovelConfig.load() resolves
+  Then content_root is "/local/novels"
 ```
 
 ## Open questions
@@ -211,8 +236,21 @@ Scenario: secrets are never written as literals
   now self-registers via `_ensure_all_registered()`, which globs
   `capabilities/*/config.py` (open-set, drift-free) before reading the union; the
   S5 acceptance scenario proves it with NO explicit import.
-- **Follow-up (tracked):** unify the novel/music READ path onto `config_get`
-  (precedence design + cache-invalidation) so an edit to the unified file is live.
+- **Done — Slice 6** (read-path unification, additive fallback): `novel`/`music`
+  `*.load()` now consult `config_get("<cap>.<key>")` as a live but lowest-priority
+  source via a best-effort `_unified(field, fallback)` helper — per-key precedence
+  is cap-local nested file → unified `.agency/config.yaml` → dataclass default.
+  Backward-compatible by construction (the registered `ConfigKey` default *is* the
+  dataclass default, so an empty unified section resolves byte-identically to the
+  prior literal fallback); `_load_uncached`'s no-file path returns `_from_dict({})`
+  so the unified file is consulted even with zero cap-local files; each cap's
+  `_LOAD_CACHE` signature gained the unified file's `(path, mtime)` so editing
+  `.agency/config.yaml` invalidates the cached load. Scalar keys only —
+  `register_dataclass_section` skips `list` fields, so those keep their literal
+  fallback (the `_unified` `KeyError` guard). `defaults()` stays pure (built-in
+  defaults, no unified consultation). Acceptance: 3 scenarios in
+  `features/config_readpath.feature` (unified-is-live, cap-local-wins, default-floor)
+  covering both caps. Closes Q1's deferred "the rest".
 - **Self-review hardening (2026-06-19):** (1) a `secret` key now resolves env →
   default, **never** the file `${env:VAR}` placeholder (`config_resolve` skips the
   file for secrets — was leaking the literal string to `config_get`); (2)
