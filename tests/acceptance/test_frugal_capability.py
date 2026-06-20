@@ -165,3 +165,38 @@ def _rtags(fr):
 @then("a FrugalReview node serves the intent")
 def _rserved(engine, confirmed_intent, fr):
     assert served(engine, confirmed_intent, "FrugalReview") >= 1
+
+
+# ── event bus first-use-once (Spec 349a) ──────────────────────────────────────
+
+
+@pytest.fixture
+def ev_session():
+    """A unique session per test so the first-use dedup (store-backed, may persist)
+    is always fresh — both PreToolUse steps share this one value."""
+    import uuid
+    return "evs-" + uuid.uuid4().hex[:8]
+
+
+@when(parsers.parse('a PreToolUse fires for "{tool}" the first time'), target_fixture="ev_ctx")
+def _ev_first(engine, ev_session, tool):
+    out = engine.dispatch_hook({"hook_event_name": "PreToolUse",
+                                "session_id": ev_session, "tool_name": tool, "tool_input": {}})
+    return (out.get("hookSpecificOutput") or {}).get("additionalContext", "")
+
+
+@when(parsers.parse('a PreToolUse fires for "{tool}" again'), target_fixture="ev_ctx")
+def _ev_again(engine, ev_session, tool):
+    out = engine.dispatch_hook({"hook_event_name": "PreToolUse",
+                                "session_id": ev_session, "tool_name": tool, "tool_input": {}})
+    return (out.get("hookSpecificOutput") or {}).get("additionalContext", "")
+
+
+@then("the injected context contains the frugal first-use hint")
+def _has_hint(ev_ctx):
+    assert "[frugal]" in ev_ctx, ev_ctx
+
+
+@then("the injected context omits the frugal first-use hint")
+def _no_hint(ev_ctx):
+    assert "[frugal]" not in ev_ctx, ev_ctx

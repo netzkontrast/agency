@@ -54,3 +54,9 @@ Feature: frugal capability — the ponytail port (Spec 348 Slice 1)
     When I review that tree for over-engineering
     Then the review flags no decidable cuts
     And a FrugalReview node serves the intent
+
+  Scenario: frugal emits a first-use hint once per tool (event bus, Spec 349a)
+    When a PreToolUse fires for "Bash" the first time
+    Then the injected context contains the frugal first-use hint
+    When a PreToolUse fires for "Bash" again
+    Then the injected context omits the frugal first-use hint

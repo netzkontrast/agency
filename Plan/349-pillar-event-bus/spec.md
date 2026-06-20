@@ -404,5 +404,22 @@ shipped Spec 195 Slice 2. Safety contract: deterministic priority, graph-keyed
 dispatch. `frugal` (Spec 348) is the reference emitter/subscriber. **Improves**
 Spec 344 (its `LifecycleEvent` becomes the lifecycle-shaped `event.emit`) and Spec
 347 (the frugal stamp/first-use emit are delivered via this bus) — cross-refs
-added to both. A later `349a` slice implements the bootstrap loop +
-`event.emit` + the first-use-once subscriber.
+added to both.
+
+**349a Slice 1 SHIPPED 2026-06-20** — the first-use-once emit. Substrate
+`agency/_events.py` (B1: a module registry the engine consumes, NOT a capability):
+`subscribe(event, handler, once_per, name)` + `run(engine, event, ev)` fanning a
+hook out to its subscriptions. The `once_per="session.tool"` dedup is a
+per-subscriber marker in the **Spec 336 ephemeral store** (M5 — survives the
+fresh-process-per-hook model), **fail-open** (a store error never blocks the tool
+call) and **fail-isolated** (a raising subscriber is skipped), and records **no
+graph Event per delivery** (S1 — the marker is ephemeral, so a high-volume
+`PreToolUse` can't recreate the Spec 336 bloat). `frugal` is the reference
+subscriber: `on_first_tool_use` returns a frugal hint on the FIRST `PreToolUse` of
+a tool in a session (silent at level `off`), merged into the PreToolUse
+`additionalContext` by `engine._pre_tool_use_handler`. Behaviour-tested (first →
+hint; second identical call → silent). **Still (349b+):** declarative subscriptions
+on the Capability dataclass + a bootstrap loop (this slice uses import-time
+`subscribe`); `event.emit` for custom + lifecycle events; the `config.yaml`
+`events:` registry + external-hook runner; M1 token-bounded aggregation across
+multiple subscribers.

@@ -28,7 +28,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from ... import _frugal
+from ... import _events, _frugal
 from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
@@ -239,3 +239,25 @@ class FrugalCapability(CapabilityBase):
             upgrade = upgrade.strip()
             yield {"file": path, "line": i, "text": text, "ceiling": ceiling.strip(),
                    "upgrade": upgrade, "has_trigger": bool(upgrade)}
+
+
+# ── Spec 349a — the first-use-once event subscriber (the reference subscriber) ──
+_FIRST_USE_HINTS = {
+    "Bash": "prefer a dedicated tool/verb over raw bash where one fits; shortest command that works.",
+    "Write": "does this file need to exist? (YAGNI) — stdlib/native before new code; shortest working file.",
+    "Edit": "smallest diff that works — delete before you add.",
+}
+
+
+def on_first_tool_use(engine, event) -> str:
+    """Spec 349a — on the FIRST PreToolUse of a tool in a session, return a frugal
+    hint for that tool; the bus dedups (once per session.tool) so it fires once.
+    Silent at frugal level 'off'. The reference subscriber for the pillar event bus."""
+    if _frugal.frugal_level() == "off":
+        return ""
+    hint = _FIRST_USE_HINTS.get((event or {}).get("tool_name", ""))
+    return f"[frugal] {hint}" if hint else ""
+
+
+_events.subscribe("PreToolUse", on_first_tool_use,
+                  once_per="session.tool", name="frugal.first_use")

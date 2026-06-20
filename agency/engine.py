@@ -308,6 +308,17 @@ def _pre_tool_use_handler(engine, event: dict) -> dict:
             "hookEventName": "PreToolUse",
             "additionalContext": "\n".join(lines),
         }
+    # Spec 349a — fan PreToolUse out to declared event subscriptions (the frugal
+    # first-use hint is the reference subscriber); merge their fragments into
+    # additionalContext. Dedup'd + fail-isolated in `_events.run`.
+    from . import _events
+    frags = _events.run(engine, "PreToolUse", event)
+    if frags:
+        ctx = (base.get("hookSpecificOutput") or {}).get("additionalContext", "")
+        base["hookSpecificOutput"] = {
+            "hookEventName": "PreToolUse",
+            "additionalContext": "\n".join([ctx, *frags]) if ctx else "\n".join(frags),
+        }
     return base
 
 
