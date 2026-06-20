@@ -21,6 +21,13 @@ Feature: Unified config is a live fallback for capability read paths (Spec 334 S
     When I load the "novel" config
     Then the loaded content_root is "/local/novels"
 
+  Scenario: a per-key env var overrides the unified file for a capability key
+    Given no cap-local config for "novel"
+    And the unified config sets "novel.content_root" to "/data/novels"
+    And the env var "AGENCY_NOVEL_CONTENT_ROOT" is "/env/novels"
+    When I load the "novel" config
+    Then the loaded content_root is "/env/novels"
+
   Scenario: with neither set the built-in default is returned
     Given no cap-local config for "novel"
     And the unified config is empty

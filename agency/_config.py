@@ -61,7 +61,11 @@ def register_dataclass_section(name: str, dataclass_type, *, doc: str = "") -> l
     pointing at its own dataclass. Returns the registered keys."""
     import dataclasses
     label = doc or f"{name} capability default"
-    keys = [ConfigKey(name=f.name, default=f.default, doc=f"{label} ({f.name})")
+    # Derive a per-key env alias AGENCY_<SECTION>_<FIELD> so env override (C2)
+    # holds uniformly for capability keys, not only hand-written core ones —
+    # config_resolve already checks key.env first. Derived, no literals.
+    keys = [ConfigKey(name=f.name, env=f"AGENCY_{name.upper()}_{f.name.upper()}",
+                      default=f.default, doc=f"{label} ({f.name})")
             for f in dataclasses.fields(dataclass_type)
             if f.default is not dataclasses.MISSING
             and isinstance(f.default, (str, int, float, bool))]

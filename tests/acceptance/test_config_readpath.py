@@ -66,6 +66,11 @@ def _unified_empty(ctx):
     return ctx
 
 
+@given(parsers.parse('the env var "{name}" is "{value}"'))
+def _set_env(monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+
+
 @given(parsers.parse('I load the "{cap}" config'))
 @when(parsers.parse('I load the "{cap}" config'))
 def _load(ctx, cap):
