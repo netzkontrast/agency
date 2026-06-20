@@ -72,11 +72,19 @@ def resume(self, lifecycle_id: str) -> dict:
 ```
 
 `resume` is the typed bridge between the Lifecycle state machine (340) and the
-phase walker (`develop.skill_walk`'s `resume_from`, already shipped). It does not
-duplicate the walker — it returns the `phase` so `skill_walk(resume_from=phase)`
-picks up where the pause happened. This closes CORE.md §3's "Gates = input-required
-→ Intent re-entry": a gate failure (341 `check`) pauses at a phase; `resume`
-re-enters at that phase after the Intent re-entry resolves the blocker.
+phase walker. The codegraph analysis confirmed the walker side is **already
+shipped**: `agency/skill.py::SkillRun.resume` (Spec 018) reconstructs the walker's
+position from the append-only graph — the count of recorded `Phase` nodes IS the
+next index — and a hard-gate pause already returns `resume_from` = the **phase
+NAME** + the `produces` to supply (`skill.py:159-165`). So `lifecycle.resume` does
+NOT duplicate the walker: it asserts the lifecycle is resumable (340's table:
+`input-required | auth-required`), does the `move(→working)`, and returns the
+`phase` so the caller calls `SkillRun.resume(...)` / `develop.skill_walk(
+resume_from=phase)`. It is the *state* half (the transition) bolted to the
+*walker* half (already there). This closes CORE.md §3's "Gates = input-required →
+Intent re-entry": a gate failure (341 `check`) is a guarded `move(→input-required)`
+that emits a transition event (344); `resume` is the only legal exit, re-entering
+the walker at the recorded phase after the Intent re-entry resolves the blocker.
 
 ### Phase↔state made explicit (documentation + one helper)
 

@@ -36,7 +36,7 @@ which of four surfaces holds the answer. This slice is the thin, composing frame
 | `read(lifecycle_id)` | `manage.state` filtered to the one lifecycle + its serving Intent + `PERFORMED_BY` Agent | `{lifecycle_id, state, phase, kind, intent_id, agent_id, gates}` |
 | `find(state="", intent_id="", agent_id="")` | graph `find("Lifecycle")` + `_live` filter (mirrors `manage._live`) | `{count, lifecycles: [...]}` (filtered, live-only) |
 | `check(lifecycle_id, name, passed, evidence="")` | the `gate.check` predicate + a `lifecycle.move(→input-required)` on failure | `{passed, gate, state}` |
-| `watch(lifecycle_id="", scope="intent")` | the Spec 076 hook stream + the `jules` watcher (when the lifecycle is a jules dispatch) | `{watching, transitions: [...], events: [...]}` |
+| `watch(lifecycle_id="", scope="intent")` | the **Spec 344 `lifecycle_transition` Event trail** (primary) + the `jules.watch` poller (jules dispatches) + the `MonitorEvent` SLOG (Spec 021) | `{watching, transitions: [...], events: [...]}` |
 
 **Reuse contract (the anti-dormant rule).** Each verb is a *projection* over an
 existing surface:
@@ -50,11 +50,13 @@ existing surface:
   (339/340) — a failed check is a *transition* (`→input-required`), closing the
   CORE.md "Gates = input-required → Intent re-entry" loop. `check` is the frame
   alias; `gate.check`/`gate.adjudicate` stay for reusable predicates.
-- `watch` does NOT poll in a busy loop — it composes the Spec 076 event hook
-  (already records `Event` nodes) and the jules watcher (Spec 022). For a non-jules
-  lifecycle it returns the recorded transition history (the `move` evidence trail)
-  + any `OBSERVED_DURING` events. (No new polling daemon — YAGNI; CLAUDE.md #76
-  capture stays full.)
+- `watch` does NOT poll in a busy loop — for ANY lifecycle it reads the
+  **Spec 344 `lifecycle_transition` Event trail** (`OBSERVED_DURING` the lifecycle),
+  which is the recorded transition history `move` emits. For a jules dispatch it
+  ALSO surfaces the existing `jules.watch` poller (Spec 022) and the `MonitorEvent`
+  SLOG (Spec 021). 344 is what makes `watch` event-driven rather than a re-scan;
+  without it `watch` would have to poll `state` (the gap 344 closes). (No new
+  polling daemon — YAGNI; CLAUDE.md #76 capture stays full.)
 
 ### The management board Document (`templates/lifecycle-board.md`)
 

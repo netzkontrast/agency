@@ -22,18 +22,33 @@ parent_spec: "338"
 
 ## Why
 
-CORE.md §3: *"An agent (the old 'who') is a Lifecycle parameterization — an
-agent-session is a lifecycle whose transitions/observers differ (a remote async
-agent inserts `verify`; `COMPLETED ≠ done`)."* Ten capabilities declare
-`home = "lifecycle"` (`branch · delegate · gate · jules · mode · persona · select
-· subagent · workspace` + the implicit session) — each *parameterizes how work
-proceeds* — but Spec 338 §Why item 4 documents that there is **no Lifecycle they
-parameterize**. The richest case is concrete and currently impossible to express:
-a **remote async agent** (jules, Spec 012) must not be `completed` when its run
-returns — its output needs `verify` first (`COMPLETED ≠ done`). The base
-transition table (340) has no `verify` state and goes `working → completed`
-directly. Without a parameterization seam, the substrate cannot encode the single
-most important async-agent invariant in the canon.
+This slice realizes **Goal 3 head-on**: *"Agent-uniform lifecycle. An agent IS a
+Lifecycle parameterization — Jules, Claude Code, future LLMs — sharing one
+hard-gate pattern, one `SERVES` edge, one recovery flow. The aim is no
+special-casing per agent."* CORE.md §3 says the same: *"a remote async agent
+inserts `verify`; `COMPLETED ≠ done`."*
+
+**The codegraph deep-analysis found this idea is already half-built — and
+broken-in-half.** The two halves exist but are not connected:
+
+- `delegate.fan_out` (`delegate/_main.py:489`) literally comments **"an agent IS a
+  Lifecycle parameterization"** as it links `DISPATCHED_TO` — but the
+  parameterization is only an edge + an `Agent{runtime}` node, with no variant
+  transitions. `delegate.join` (`:521`) then computes `done` from the **raw** child
+  `state == "completed"`.
+- `jules.verify` (`jules/_main.py:332`) **already** enforces `COMPLETED ≠ done` —
+  it independently re-checks the branch landed on origin via `vcs.remote_exists`
+  (`_vcs.py:60`) and emits a `silent_fail_detected` monitor event — **but it
+  returns a `{done}` dict and never writes the lifecycle**, and nothing in the
+  `fan_out`/`join` path calls it.
+
+So the substrate has **two contradictory "done"s** for one dispatch (N3): a local
+subagent is "done" at raw `completed`, while a Jules run needs the remote check —
+exactly the per-agent special-casing Goal 3 wants gone. This slice makes `verify`
+a real state on the `remote-async` parameterization, so `delegate.join`'s "done"
+**is** `jules.verify`'s "done": one machine, one recovery flow, no special-casing.
+Today the base table (340) has no `verify` state and goes `working → completed`
+directly — the seam below adds it.
 
 ## Design
 
@@ -130,6 +145,13 @@ Scenario: jules declares remote-async and dispatch wires it
   Given a jules dispatch via delegate.fan_out
   Then the child Lifecycle is opened with parameterization="remote-async"
   And its watch observer is jules.watch
+
+Scenario: delegate.join and jules.verify agree on "done" (N3 — close the disconnect)
+  Given a remote-async child Lifecycle whose run reports state "completed"
+  But whose branch is NOT on origin (jules.verify → done=False)
+  When delegate.join reduces the delegation
+  Then the child is NOT counted done (it is still in "verify", not "completed")
+  And join's "done" equals jules.verify's "done" — one notion, not two
 ```
 
 ## Followup — Implementation Status (2026-06-20)

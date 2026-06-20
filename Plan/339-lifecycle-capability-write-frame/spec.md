@@ -22,15 +22,33 @@ parent_spec: "338"
 ## Why
 
 Spec 338 §Architecture calls for a `lifecycle` capability that owns the
-CORE.md §3 verb frame. Today a `Lifecycle` node is born as a side-effect
-(`develop.session_start` mints `SessionLifecycle`; the invocation pipeline records
-`Invocation`/`Agent`) and its `state` is written by three **unguarded**
-`memory.update` sites (`gate.check`, the `lifecycle_gate` substrate tool, and
-`reflect`). Before any transition *enforcement* (340) can land, the **write frame
-must exist and own the state column**: one verb opens a Lifecycle, one verb moves
-it, one verb closes it — and `move` is the single chokepoint every state change
-flows through. This slice is thin on enforcement (340 adds the table) and complete
-on **ownership**: after it, nothing outside `lifecycle.move` writes `state`.
+CORE.md §3 verb frame. The codegraph deep-analysis (Spec 338 §Why) found the
+problem is not "nothing" but **three divergent, hand-rolled minting paths** plus
+unguarded state writes:
+
+- `agency/lifecycle.py` — a non-capability `Lifecycle` class (`open · move ·
+  complete · status`) with bugs vs. the canon: `open()` starts at `working` (not
+  `submitted`); `move(lc_id, gate, ok)` is **gate-shaped**, not state-shaped; no
+  `auth-required`. Used by only `engine.py` + `music/drivers_production.py`.
+- `delegate.fan_out` (`delegate/_main.py:488`) **hand-rolls** the node:
+  `record_and_serve("Lifecycle", {state:"working"})` — bypassing that class.
+- `develop.session_start` mints a **separate** `SessionLifecycle{mode,status}`.
+- `state` is then written by unguarded `memory.update` from `gate.check`, the
+  `lifecycle_gate` substrate tool, `Lifecycle.move/complete`, and `delegate`.
+
+So this slice is **promote + unify**, not create-from-scratch: lift the substrate
+`Lifecycle` class into a first-class capability, fix `open`→`submitted`, split the
+gate-shaped `move` into a general state-shaped `move`, and make that `move` the
+**single chokepoint** every state change flows through. After it, the three
+minting paths call `lifecycle.open` and nothing outside `lifecycle.move` writes
+`state` (N1, N2, N6 from Spec 338). Enforcement (the transition table) is 340;
+this slice is complete on **ownership**.
+
+> **`agency/lifecycle.py` migration.** The class's two callers (`engine.py`,
+> `music/drivers_production.py`) re-point to the capability verbs; the module
+> becomes a thin re-export shim for one spec cycle (the Spec 094 music-port
+> precedent), then is removed. `delegate.fan_out`'s `record_and_serve("Lifecycle"
+> …)` becomes `lifecycle.open(parameterization="remote-async")` (342).
 
 ## Design
 
