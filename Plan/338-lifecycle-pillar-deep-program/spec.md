@@ -344,6 +344,9 @@ verification — CORE.md `COMPLETED ≠ done`).
 | **341** | observe arm (REUSE) | `read · find` ARE `manage`; `check` IS `gate.check`; `watch` IS `manage.timeline` over 344 events + `jules.watch`. **No new observe verbs** (panel F-1) | "read · find · check · watch (observe)" |
 | **342** | agent-as-parameterization | the parameterization registry on the substrate (Goal 3 — no per-agent special-casing); member caps declare a parameterization; remote-async inserts `verify`, with `delegate.join` running `jules.verify` so both "done"s are one (B2) | "an agent IS a Lifecycle parameterization … inserts verify; COMPLETED ≠ done" |
 | **343** | management discipline | `lifecycle-management` walkable skill (homed on a member cap, e.g. `manage`) + `resume` bridging `SkillRun.resume` | "Gates = input-required → Intent re-entry"; the recursion (a skill IS a Lifecycle) |
+| **345** | generic state machine | the **machine registry** (`open(machine=)`, per-machine table, per-machine floor); A2A = default; 342's parameterizations re-express as derived machines; ontology `(Lifecycle,state)` relaxes to the machine-union | "the task/agent state-machine" → ANY state machine (owner) |
+| **346** | walkable-skill tracker | every walkable skill derives a `skill:<name>` machine; `SkillRun` = a lifecycle on it; the 3-view tracker (catalogue · live board · history) on `manage`/`skills` | "a skill = an ordered Lifecycle of Phases" (owner) |
+| **347** | frugal embedded | the frugal floor (validate·secure·a11y) = non-removable cross-machine invariant; transitions carry the frugal stamp; `frugal` is a drivable machine | Spec 332 frugal, embedded by construction (owner) |
 
 ## Scoped OUT (already shipped or deliberately deferred)
 
@@ -358,15 +361,76 @@ verification — CORE.md `COMPLETED ≠ done`).
 - **Per-state side-effect hooks beyond `verify`** — YAGNI until a second
   parameterization needs them; the seam (342) is built, extra observers are not.
 
+## Generalization — Lifecycle as a generic state-machine substrate (owner, 2026-06-20)
+
+> **Owner directive:** *"extend this concept further — so that lifecycle can be
+> ANY kind of state machine"* + *"a tracker that tracks walkable skills"* + *"deeply
+> embed the frugal skill into lifecycle."* This is the pillar's final widening: A2A
+> is not THE machine — it is the **default** machine. The substrate becomes the
+> universal state-machine primitive every layer reuses.
+
+**The insight.** Once `move` is the guarded sole writer over a per-target
+transition table (339/340), the table need not be A2A-specific. A **machine** is a
+named definition — `{name, initial, states, transitions, terminal}` — and A2A is
+just `machine="a2a"`. Everything that is "a thing that moves through states" lands
+on the SAME substrate as a machine:
+
+| Machine | States (example) | Was |
+|---|---|---|
+| `a2a` (default) | submitted·working·input-required·…·completed | the fixed `LifecycleState` enum |
+| `remote-async` / `reviewed` | a2a + `verify` / `in-review` | parameterizations (342 — now just *machines* derived from a2a) |
+| `skill:<name>` | the skill's phases + `paused`·`done` | `SkillRun` walked ad-hoc (343/skill.py) |
+| `music:production` / `novel:chapter` | domain stages | hand-rolled domain lifecycles |
+| `frugal` | assess→YAGNI→stdlib→native→dep→implement (floor-gated) | the frugal discipline (Spec 332) |
+
+This **subsumes** the parameterization model (342 becomes "a machine derived from
+a2a") and unifies N6 fully — one substrate, many machines, no per-domain
+hand-rolling. The three new slices below realize it:
+
+- **345 — generic state-machine substrate.** The **machine registry** (definable +
+  graph-overridable, `shell.define` pattern); `open(machine=…)` mints the machine's
+  `initial`; `move` validates against the lifecycle's machine table (340
+  generalized per-machine; the orphan/terminal floor applies per machine). The
+  ontology `(Lifecycle, state)` enum relaxes from a single global set to
+  **machine-scoped validation** (substrate-layer), with the a2a enum retained as
+  the `a2a` machine's states. 342's parameterizations re-express as machines.
+
+- **346 — walkable-skill tracker.** Every walkable skill (`skills.find` catalogue)
+  derives a **`skill:<name>` machine** from its phase graph (`skills.index` already
+  promotes Skill+Phase nodes). A `SkillRun` becomes a lifecycle on that machine
+  (`skill_walk`→`open(machine="skill:<name>")`; phase submit→`move`; hard-gate→
+  `move(paused)`; resume→`move(<phase>)`, bridging 343's `SkillRun.resume`). The
+  **tracker** is a read surface (on `manage`/`skills`) over three views: the
+  **catalogue** (available walkable skills + machine shape), the **live board**
+  (in-flight runs, current phase, paused/blocked, resume point), and **history**
+  (completed runs) — the single "where is every walk" board.
+
+- **347 — frugal embedded in lifecycle (Spec 332).** Frugal stops being a skill you
+  remember to invoke and becomes a **property of how work moves**: (a) the frugal
+  **floor** (validate·secure·a11y never cut) is a **non-removable cross-machine
+  invariant** — no machine definition may define a path that skips a required
+  floor gate (the 340 safety-floor generalized to all machines); (b) every
+  transition event (344) carries the `frugal` stamp (the engine already stamps it
+  on wire returns — extended to transitions); (c) `frugal` is itself registered as
+  a walkable machine (the ladder), so it is both the floor AND a drivable lifecycle.
+
+> **Altitude check (307 lesson, applied again).** This is a *generalization of the
+> existing substrate*, not new surface: `open`/`move`/`close` are unchanged in
+> shape (they gain a `machine` parameter, defaulting to `a2a` — fully backward
+> compatible); the machine registry is data; the tracker REUSES `manage`/`skills`;
+> frugal REUSES Spec 332. No new capability, no verb explosion.
+
 ## Build slice (the order)
 
 `339` (own the frame; `move` is the only writer; absorb the 3 minting paths) →
 `340` (enforce transitions) → `344` (`move` emits transition events) → `341`
 (wire the observe suite over those events) → `342` (the parameterization seam;
-wire `verify`) → `343` (the discipline + resume). Each is RED → GREEN → green
-suite → commit → push, behind acceptance scenarios (CLAUDE.md rule 7 — Gherkin,
-no unit tests on internals). 344 precedes 341 because the observe suite consumes
-the events 344 emits.
+wire `verify`) → `343` (the discipline + resume) → **`345`** (generalize to any
+machine; 342 re-expresses as machines) → **`346`** (walkable-skill tracker on the
+`skill:` machine) → **`347`** (frugal embedded as the cross-machine floor). Each is
+RED → GREEN → green suite → commit → push, behind acceptance scenarios (CLAUDE.md
+rule 7). 344 precedes 341 because the observe suite consumes the events 344 emits;
+345 precedes 346/347 because both build on the machine registry.
 
 ## Acceptance (the program is "done" when)
 
@@ -456,3 +520,20 @@ design record. Two refinement passes on 2026-06-20:
 The pillar owns the WRITE machine (`open/move/close` + transitions + events +
 parameterization); observation is the Memory pillar's job, reused. Children remain
 substrate additions, not a new capability folder.
+
+3. **Generalization (owner: "any kind of state machine" + "track walkable skills"
+   + "embed frugal").** Three slices opened — **345** (the machine registry: A2A
+   becomes the default machine, 342's parameterizations re-express as derived
+   machines, `open(machine=)` is backward-compatible), **346** (walkable-skill
+   tracker: skills derive `skill:` machines, `SkillRun` is a lifecycle on them,
+   a 3-view tracker on `manage`/`skills`), **347** (frugal embedded: the floor is a
+   non-removable cross-machine invariant, transitions carry the frugal stamp,
+   `frugal` is a drivable machine). All additive on the 345 registry.
+
+**Slice 339a — IMPLEMENTATION STARTED 2026-06-20 (via the agency MCP `tdd`
+discipline, intent `9d7af8cf`).** TDD cycle 1 shipped: `agency/lifecycle.py`
+hardened — `open→submitted`, `move` is the state-shaped sole guarded writer
+(`# AGENCY-DRIFT: lifecycle-state-writer`), `close` replaces the unused gate-shaped
+`move`/`complete`. 5 acceptance scenarios (`tests/acceptance/test_lifecycle.py`);
+full suite green (exit 0); 194 affected tests pass. Next cycles: `ctx.lifecycle` +
+`lifecycle_*` substrate-tools (indexed in `search`) + migrate `delegate`.
