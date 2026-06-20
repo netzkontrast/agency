@@ -109,7 +109,8 @@ pillars (see [`CAPABILITY-CLUSTERS.md`](CAPABILITY-CLUSTERS.md) `navigate`/manag
 Every verb that takes `ctx` (the default for class-form `CapabilityBase`
 methods, or via `inject: ["ctx"]` for the functional form) receives a
 single `CapabilityContext` object — a DELEGATOR over the engine's
-services, never a parallel public surface. Eight fields:
+services, never a parallel public surface. Eight core fields, plus the
+`lifecycle` pillar delegator (Spec 339):
 
 | Field | Purpose | Example use |
 |---|---|---|
@@ -121,6 +122,12 @@ services, never a parallel public surface. Eight fields:
 | `client` | Boundary object the engine injects (e.g. `JulesClient`) | `self.ctx.client.create(...)` |
 | `depth` | Recursion-depth guard for `spawn`/`call` | enforces `MAX_DEPTH=16` |
 | `engine` | The owning Engine — for verbs that need engine-attached singletons (rare) | `self.ctx.engine._jules_watcher` |
+| `lifecycle` | The Lifecycle PILLAR substrate (`engine.lifecycle`) — the `open · move · close` write frame (Spec 339) | `ctx.lifecycle.open(ctx.intent_id, …)`, `ctx.lifecycle.move(lid, "working")` |
+
+(`lifecycle` is a property delegator, like `toolcalls` and `host` — it
+returns the engine's singleton rather than being a stored field, so a
+member capability mints/advances a Lifecycle through the one substrate
+chokepoint instead of hand-rolling `record_and_serve("Lifecycle", …)`.)
 
 See [`CAPABILITY-AUTHORING.md`](CAPABILITY-AUTHORING.md) for the
 authoring contract that uses these — when each field is needed, when

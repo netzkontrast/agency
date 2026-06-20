@@ -694,11 +694,13 @@ class Engine:
         }
         self.memory = Memory(path, ont=self.ontology)           # enforce the EFFECTIVE ontology
         self.intent = Intent(self.memory)
-        self.lifecycle = Lifecycle(self.memory)
         # Spec 021 — the single engine Monitor channel. Capabilities fan events
         # in via ctx.emit_monitor(...); one tail -F on this log surfaces them.
+        # Built BEFORE the Lifecycle so the substrate can emit transition
+        # telemetry onto it (Spec 344).
         from ._monitor import MonitorEmitter, resolve_monitor_log_path
         self.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))
+        self.lifecycle = Lifecycle(self.memory, monitor=self.monitor)  # Spec 344 — emits transitions
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
         self._hook_handlers = {"*": _default_hook_handler,
