@@ -208,6 +208,13 @@ class Lifecycle:
         serving = self.m.neighbors(lc_id, "SERVES", direction="out")
         if serving:
             intent_id = serving[0].get("id", "")
+        # Spec 347 — frugal stamp: active discipline level at transition time.
+        # Single source: _frugal.frugal_level() (Spec 332); never redefined here.
+        try:
+            from ._frugal import frugal_level as _frugal_level
+            fl = _frugal_level()
+        except Exception:
+            fl = ""
         if is_durable_transition(to_state):
             # Reuse Spec 076: a new *kind* of Event, exactly as Spec 156 records
             # `loop_detected`. `from_state`/`to_state` (not `from`/`to` — both are
@@ -215,13 +222,13 @@ class Lifecycle:
             eid = self.m.record("Event", {
                 "name": TRANSITION_EVENT_NAME, "session": "lifecycle",
                 "lifecycle": lc_id, "from_state": from_state,
-                "to_state": to_state, "evidence": evidence})
+                "to_state": to_state, "evidence": evidence, "frugal": fl})
             if intent_id:
                 self.m.link(eid, intent_id, "OBSERVED_DURING")
             self.m.link(eid, lc_id, "OBSERVED_DURING")
         ev = {"lifecycle_id": lc_id, "from_state": from_state,
               "to_state": to_state, "intent_id": intent_id, "evidence": evidence,
-              "durable": is_durable_transition(to_state)}
+              "durable": is_durable_transition(to_state), "frugal": fl}
         if self.engine is not None:
             _events.run(self.engine, LIFECYCLE_TRANSITION_EVENT, ev)
         else:                                    # bare Lifecycle(memory, monitor) — no bus

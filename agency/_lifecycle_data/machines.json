@@ -23,5 +23,21 @@
       "working": {"remove": ["completed"], "add": ["verify"]},
       "verify":  ["completed", "input-required", "failed"]
     }
+  },
+  "frugal": {
+    "initial": "assess",
+    "states": ["assess", "yagni", "stdlib", "native", "dep", "implement", "floor-check", "done"],
+    "transitions": {
+      "assess":       ["yagni"],
+      "yagni":        ["implement", "stdlib"],
+      "stdlib":       ["implement", "native"],
+      "native":       ["dep", "implement"],
+      "dep":          ["implement"],
+      "implement":    ["floor-check"],
+      "floor-check":  ["done", "implement"],
+      "done":         []
+    },
+    "terminal": ["done"],
+    "floor_gates": ["floor-check"]
   }
 }
