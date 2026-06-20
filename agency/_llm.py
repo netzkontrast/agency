@@ -96,6 +96,21 @@ def load_registry(config: dict | None) -> tuple[ModelProfile, ...]:
     return tuple(out) or _DEFAULT_REGISTRY
 
 
+def load_registry_from_config(path: str | None = None) -> tuple[ModelProfile, ...]:
+    """Build the registry from the `.agency/config.yaml` ``llm.models`` block,
+    falling back to the built-in default. The block is a list of model objects
+    (not scalar config keys), so it is read raw via ``_config._read`` rather than
+    the registered-key surface. Best-effort: any read error → built-in default."""
+    try:
+        from . import _config
+        data = _config._read(path or _config._resolve_config_path())
+    except Exception:                                   # pragma: no cover - defensive
+        return _DEFAULT_REGISTRY
+    llm = data.get("llm") if isinstance(data, dict) else None
+    models = llm.get("models") if isinstance(llm, dict) else None
+    return load_registry({"models": models}) if models else _DEFAULT_REGISTRY
+
+
 def select_model(use_case: str, *, registry: tuple[ModelProfile, ...] | None = None,
                  live_ids: set[str] | None = None, model: str | None = None,
                  default: str = _DEFAULT_MODEL) -> str:
@@ -158,7 +173,10 @@ class LLMClient:
         # Spec 338 — driver flags + use-case registry.
         self.use_case = use_case
         self.require = require
-        self._registry = registry if registry is not None else _DEFAULT_REGISTRY
+        # Config `llm.models:` overrides the built-in registry (Spec 338 Slice 2);
+        # falls back to the built-in default when no block / read error.
+        self._registry = (registry if registry is not None
+                          else load_registry_from_config())
         self._client = client                # injectable OpenRouter SDK (tests)
         self._model_pinned = model is not None
 

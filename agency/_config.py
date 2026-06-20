@@ -310,7 +310,12 @@ def config_validate(*, path: str | None = None) -> list[str]:
     registered = set(registered_keys())
     for section, sec in (_read(path or _resolve_config_path()) or {}).items():
         if isinstance(sec, dict):
-            for name in sec:
+            for name, val in sec.items():
+                # Structured blocks (a list / nested dict, e.g. `llm.models:`) are
+                # not scalar ConfigKeys — the unregistered-key check is for scalar
+                # typos, so skip them rather than flag a legitimate list section.
+                if isinstance(val, (list, dict)):
+                    continue
                 if f"{section}.{name}" not in registered:
                     issues.append(
                         f"config {section}.{name} in .agency/config.yaml is not a "
