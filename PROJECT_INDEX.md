@@ -939,7 +939,7 @@ an operation's complexity and route it to the right approach archetype —
 - **__init__.py** — shell — a token-efficient, recorded, templated host-command boundary (Spec 073).
 
 Folder-form per Spec 060 §Phase 3 / Spec 286 Goal 4. (2 symbols)
-- **_main.py** — shell — a token-efficient, recorded, templated host-command boundary (Spec 073). (20 symbols)
+- **_main.py** — shell — a token-efficient, recorded, templated host-command boundary (Spec 073). (22 symbols)
 
 ### `agency/capabilities/skill_generator/` (2 files)
 - **__init__.py** — skill_generator — generate a deploy-ready skill in one call. (2 symbols)
@@ -1057,7 +1057,7 @@ Skills) are DERIVED from the live registry, never hand-maintained — re-run to
 refresh. (13 symbols)
 - **mcp_wire_smoke.py** — Drive the agency MCP server over stdio with raw JSON-RPC. (11 symbols)
 
-### `tests/` (15 files)
+### `tests/` (18 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1065,8 +1065,9 @@ Eliminates the 13 duplicate fixture blocks the test suite carried
 the legacy duplicates used `tempfile.mktemp(suffix=".db")` which is
 deprecated since Python 2 (race condition — the predicted path isn't
 guaranteed unique). (13 symbols)
+- **test__research_citation.py** (9 symbols)
 - **test_analyze_subprocess_analyzer.py** — Spec 286 — the shared SubprocessAnalyzer template scaffold. (21 symbols)
-- **test_cli_chain_fields.py** (15 symbols)
+- **test_cli_chain_fields.py** (16 symbols)
 - **test_develop_plan_execute.py** — Spec 287 — develop `plan-execute` discipline + Plan/PlanStep provenance.
 
 A first-class plan-authoring → execution-with-checkpoints discipline
@@ -1093,6 +1094,7 @@ Replays the exact failure scenarios mined from
 succeeds) versus the known ``Failed to set property 'vfrom' on edge N``
 contention (TRANSIENT — retry helps). (30 symbols)
 - **test_host_bridge.py** — Spec 285 Slice 1 — HostBridge seam (sampling + elicitation boundary). (46 symbols)
+- **test_install_hint.py** (6 symbols)
 - **test_novel_storyform_node.py** — Spec 103 Slice 2 (Workstream D) — create_storyform / get_storyform.
 
 Closes the documented ENGINE GAP: the storyform gates + checks read a
@@ -1100,9 +1102,10 @@ Closes the documented ENGINE GAP: the storyform gates + checks read a
 - **test_projected_enum.py** — Spec 284 — projected-enum substrate. (19 symbols)
 - **test_render_driver_substrate.py** — Spec 283 Slice 1 (Workstream F) — capability render substrate. (21 symbols)
 - **test_session_snapshot.py** — Session-graph snapshot export/import — round-trip + value-only (Spec follow-up). (5 symbols)
+- **test_skill_emit.py** (12 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
 
-### `tests/acceptance/` (71 files)
+### `tests/acceptance/` (72 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.
 
 Phase C — the flat `tests/test_*.py` are converted into behaviour scenarios
@@ -1176,6 +1179,10 @@ arbitrary cwd. (18 symbols)
 
 Converted from tests/test_context_neighbors.py. (23 symbols)
 - **test_delegate.py** — Acceptance — delegate capability (Spec 040/041). (60 symbols)
+- **test_derive_docs.py** — Acceptance — derive-docs fence rewrite (Spec 149 Slice 2.2).
+
+Tests the HTML-comment fence mechanism:
+  <!-- derived:<id> --> ... (25 symbols)
 - **test_develop.py** — Acceptance — develop capability: scaffolding, linting, authoring discipline
 walk, discipline cues for intent methods. (90 symbols)
 - **test_develop_maintain.py** — Acceptance — develop.maintain: the autolearning recurring-maintenance loop. (19 symbols)
@@ -1459,13 +1466,13 @@ Converted from:
 
 Dropped as implementation/structural (not observable behaviour):
   test_path_safety.py — exercises an internal helper `_safe_path` that
-    validates path-traversal guards inside the template loader. (104 symbols)
+    validates path-traversal guards inside the template loader. (109 symbols)
 - **test_thinking.py** — Acceptance — thinking capability: critical-thinking method scaffolds (Spec 110). (16 symbols)
 - **test_token_budget.py** — Acceptance — token budget (Spec 023 / 082). (20 symbols)
 - **test_toolcalls.py** — Acceptance — the toolcalls capability (Spec 336 S2).
 
 The clear, discoverable MCP surface over the ephemeral tool-call store: stats,
-top (frequency ranking), and prune. (22 symbols)
+top (frequency ranking), and prune. (38 symbols)
 - **test_typed_entities.py** — Acceptance — Spec 327: typed Intent + Capability core (the four-concept
 interweave's load-bearing slice). (27 symbols)
 - **test_typed_fulfilment.py** — Acceptance — Spec 328: typed Intent fulfilment (the Intent-owned Gate +
