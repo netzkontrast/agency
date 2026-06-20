@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from agency.capability import verb
 from agency.toolresult import ToolResult
+from agency.capabilities.novel.llm_assist import suggest_storyform
 from .._main import (
     _CANONICAL_SIGNPOST_ORDER,
     _canonical_appreciations,
@@ -536,3 +537,9 @@ class StoryformMixin:
             "violations": violations,
             "canonical_size": len(canonical),
         })
+
+    @verb(role="transform")
+    def suggest_storyform(self, premise: str, dual: bool = False) -> ToolResult:
+        """Propose a coherent Dramatica storyform using the LLM driver (Spec 219)."""
+        # Forward to the detached implementation in llm_assist
+        return suggest_storyform(premise, dual=dual)

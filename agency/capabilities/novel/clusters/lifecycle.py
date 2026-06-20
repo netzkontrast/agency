@@ -4,6 +4,7 @@ Spec 286 P3 — extracted verbatim from ``novel/_main.py``; behaviour-frozen
 relocation into a cluster mixin composed into the single NovelCapability.
 """
 from __future__ import annotations
+from agency.capabilities.novel.budget import apply_output_budget
 
 from agency._enums import project_enum
 from agency._frontmatter import frontmatter_hash
@@ -309,14 +310,14 @@ class LifecycleMixin:
         })
 
     @verb(role="transform")
-    def list_chapters(self, novel_id: str) -> ToolResult:
+    def list_chapters(self, novel_id: str, fields: list[str] = None) -> ToolResult:
         """List a novel's chapters ordered by number (transform).
 
-        Inputs: novel_id.
-        Returns: ``{chapters: [{chapter_id, number, title, status}], count}``.
+        Inputs: novel_id, fields (optional).
+        Returns: BudgetedListResult envelope.
         chain_next: ``novel.set_chapter_status`` or ``novel.create_scene``.
         """
-        _, fail = self._require_novel(novel_id)
+        novel, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
         chapters = sorted(
@@ -328,7 +329,15 @@ class LifecycleMixin:
             "title": c.get("title"),
             "status": c.get("status"),
         } for c in chapters]
-        return ToolResult.success(data={"chapters": items, "count": len(items)})
+
+        # Apply output budget
+        return apply_output_budget(
+            work_id=novel_id,
+            schema_version="1.0",
+            capability_set_hash=self.ctx.capability_set_hash if hasattr(self.ctx, "capability_set_hash") else "v1",
+            items=items,
+            fields=fields
+        )
 
     @verb(role="transform")
     def pov_options(self, keys: str = "") -> ToolResult:
