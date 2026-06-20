@@ -6,12 +6,14 @@ the Intent-readiness scorer the ``guided-discovery`` discipline's confirm gate
 reads. ``clarity`` is READ-ONLY — it scores the five independent readiness signals
 (``_base._clarity_inputs``), each computed from the live discovery graph, and
 returns ``{score, missing, ready}`` so the agent knows the next discovery step.
-The ``clarity_gate`` composite + override token is Spec 322 Slice 2.
+``clarity_gate`` (Spec 322 Slice 2) is the composite gate that wraps the score:
+it delegates to ``gate.check`` for provenance recording and returns GATE_FAILED
+unless the score is ready or an explicit override_token is supplied.
 """
 from __future__ import annotations
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import Codes, ToolResult
 
 # Single source of truth for the threshold — the substrate clarity module the
 # Intent.confirm gate also reads (Spec 307 §Refinement; CLAUDE.md rule 4).
@@ -19,7 +21,7 @@ from agency._clarity import CLARITY_THRESHOLD  # noqa: F401  (re-exported for ca
 
 
 class RefineCluster:
-    """The ``clarity`` verb — composed into ``DiscoverCapability``."""
+    """The ``clarity`` and ``clarity_gate`` verbs — composed into ``DiscoverCapability``."""
 
     @verb(role="transform")
     def clarity(self, for_intent_id: str = "") -> ToolResult:
@@ -48,4 +50,48 @@ class RefineCluster:
             "missing": sorted(name for name, ok in signals.items() if not ok),
             "ready": score >= CLARITY_THRESHOLD,
             "signals": signals,
+        })
+
+    @verb(role="effect")
+    def clarity_gate(self, lifecycle_id: str, override_token: str = "",
+                     min_clarity: float = CLARITY_THRESHOLD) -> ToolResult:
+        """Composite clarity gate — records outcome via gate.check (effect).
+
+        Passes iff the serving Intent's clarity score >= min_clarity OR an
+        explicit override_token is provided (the deliberate escape hatch, also
+        recorded so the provenance moat shows the bypass). Returns GATE_FAILED
+        when the score is too low and no override_token was given.
+
+        Inputs: lifecycle_id (Lifecycle to gate on),
+                override_token (optional bypass — deliberately confirm a below-
+                threshold Intent; recorded in gate evidence),
+                min_clarity (threshold, default CLARITY_THRESHOLD — overridable
+                per CLAUDE.md rule 8 so tests can flip the gate).
+        Returns: ``{gate, passed, score, missing, override_used}`` or GATE_FAILED.
+        chain_next: on failure, resolve ``missing`` signals (clarify/acceptance/
+                    ground/scope), re-score with ``clarity``, then re-gate.
+        """
+        signals = self._clarity_inputs()
+        total = len(signals) or 1
+        satisfied = sum(1 for ok in signals.values() if ok)
+        score = round(satisfied / total, 3)
+        missing = sorted(name for name, ok in signals.items() if not ok)
+        ready = score >= min_clarity
+        override_used = bool(override_token)
+        passed = ready or override_used
+        evidence = f"clarity_score={score}, threshold={min_clarity}"
+        if override_used:
+            evidence += ", override_token_provided=True"
+        self.ctx.call("gate", "check", lifecycle_id=lifecycle_id,
+                      name="clarity", passed=passed, evidence=evidence)
+        if not passed:
+            return ToolResult.failure(
+                Codes.GATE_FAILED,
+                f"clarity: score={score} < {min_clarity}, missing={missing}")
+        return ToolResult.success(data={
+            "gate": "clarity",
+            "passed": True,
+            "score": score,
+            "missing": missing,
+            "override_used": override_used,
         })

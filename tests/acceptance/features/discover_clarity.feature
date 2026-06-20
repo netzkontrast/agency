@@ -24,3 +24,25 @@ Feature: discover.clarity — the Intent readiness score + gate input (Spec 322)
     Then the clarity score increased
     And the draft is now ready
     And scoring created no extra acceptance criterion
+
+  # ── clarity_gate (Spec 322 Slice 2) ──────────────────────────────────────
+
+  Scenario: clarity_gate refuses a below-threshold intent without override
+    Given an open lifecycle
+    When I interview a vague intent and run clarity_gate without override
+    Then clarity_gate returns GATE_FAILED
+
+  Scenario: clarity_gate passes with an override token despite low score
+    Given an open lifecycle
+    When I interview a vague intent and run clarity_gate with an override token
+    Then clarity_gate passes and records the override
+
+  Scenario: clarity_gate passes when the intent is already ready
+    Given an open lifecycle
+    When I satisfy all signals and run clarity_gate
+    Then clarity_gate passes without override
+
+  Scenario: clarity_gate threshold is a documented budget
+    Given an open lifecycle
+    When I interview a vague intent and run clarity_gate with min_clarity 0.0
+    Then clarity_gate passes without override

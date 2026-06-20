@@ -27,6 +27,7 @@ allowed-tools:
 | `ask` | transform | Build ONE well-formed AskUserQuestion payload from DERIVED options (transform). | [details](references/ask.md) |
 | `clarify` | act | Resolve a draft Intent's ambiguities, folding each answer back (act). | [details](references/clarify.md) |
 | `clarity` | transform | Score a captured Intent's clarity / readiness (transform, read-only). | [details](references/clarity.md) |
+| `clarity_gate` | effect | Composite clarity gate — records outcome via gate.check (effect). | [details](references/clarity_gate.md) |
 | `interview` | act | Run the adaptive elicitation interview → a DRAFT Intent (act). | [details](references/interview.md) |
 | `scope` | act | Elicit in-/out-of-scope boundaries (act). | [details](references/scope.md) |
 | `status` | transform | Smoke verb — report the registered ``discover`` ontology surface. | [details](references/status.md) |
@@ -47,5 +48,5 @@ await call_tool('capability_discover_acceptance', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`discover-usage`** (usage): use-transform → use-act → confirm
+- **`discover-usage`** (usage): use-transform → use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'discover-usage', 'inputs': {}, 'intent_id': '…'})`
