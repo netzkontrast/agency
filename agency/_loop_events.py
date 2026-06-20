@@ -43,7 +43,7 @@ class LoopEvent:
                 f"kind must be one of {_VALID_KINDS}; got {self.kind!r}")
         if not self.evidence:
             raise ValueError(
-                f"evidence must cite at least one event id; got empty tuple")
+                "evidence must cite at least one event id; got empty tuple")
 
 
 def detect_loops(events: Sequence[dict], *, window: int = 5) -> list[LoopEvent]:

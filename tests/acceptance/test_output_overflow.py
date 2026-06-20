@@ -12,9 +12,7 @@ import pytest
 from pytest_bdd import scenarios, then, when
 
 from agency._overflow import (
-    OverflowHandle,
     OverflowResult,
-    RecallSlice,
     capture_overflow,
     recall_overflow_slice,
 )

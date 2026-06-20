@@ -35,7 +35,6 @@ import tempfile
 
 from pytest_bdd import parsers, scenarios, then, when
 
-from conftest import invoke
 
 scenarios("features/plugin_authoring.feature")
 

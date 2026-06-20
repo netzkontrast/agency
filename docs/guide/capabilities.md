@@ -242,7 +242,7 @@ Use when fanning a coding task out to a remote Jules agent session and driving i
 
 Use when an agent must directly create / read / update / amend / soft-delete a
 
-**Walkable skills:** `manage-usage`
+**Walkable skills:** `lifecycle-management`
 
 | verb | role | summary |
 |---|---|---|

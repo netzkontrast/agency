@@ -10,7 +10,7 @@ import pytest
 from pytest_bdd import given, when, then, scenarios, parsers
 
 from agency import _llm
-from agency.capability import DriverRegistry, DriverMissing
+from agency.capability import DriverRegistry
 
 scenarios("features/wet_generation.feature")
 

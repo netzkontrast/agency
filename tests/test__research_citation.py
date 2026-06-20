@@ -1,4 +1,3 @@
-import pytest
 from agency._research_citation import compute_citation_hash
 
 def test_compute_citation_hash_deterministic():

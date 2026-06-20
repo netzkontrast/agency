@@ -33,7 +33,7 @@ import tempfile
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from conftest import invoke, served
+from conftest import invoke
 
 scenarios("features/music.feature")
 

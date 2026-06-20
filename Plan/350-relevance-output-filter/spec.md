@@ -172,13 +172,24 @@ Scenario: jules.activities full=True bypasses the filter
 
 ## Followup — Implementation Status (2026-06-20)
 
-Not started — design record (owner: *"write a spec for this"*). Adds ONE pure
-`relevance_filter(text, profile)` helper as a new **`relevance`** strategy on the
-shipped Spec 337 `capture_filter` registry, a `filters:` config registry (Spec 334
-— needs the list-valued `_config` branch shared with Spec 349 §6), and three thin
-call sites (jules.activities `filter=`, shell/Bash capture, PostToolUse tool-call
-capture). Reuses Spec 336 storage + cursor locator; never truncates silently
-(CLAUDE.md #9 — `elided`+`locator` always reported); `budget` bounds the wire
-return, never the stored capture (Spec 348-review Sev3#5). Pairs with the shipped
-`jules.activities(full=True)` escape hatch (the raw bypass). Deferred: a graph
-`FilterProfile` override (mirrors Spec 337) + an LLM-scored relevance strategy.
+### Slice 1 — SHIPPED (steward run, 2026-06-20)
+
+**Done:**
+- `agency/_relevance.py` — pure `relevance_filter(text, profile) -> dict` with
+  include/exclude/context/budget logic; returns `{kept, matched, elided, locator}`;
+  fail-open on bad patterns (CLAUDE.md #9). 7/7 acceptance scenarios green.
+- `agency/capabilities/shell/_main.py` — `relevance:<JSON>` strategy wired into
+  `_apply_filter`; dispatches to `relevance_filter`; fail-open on bad profile JSON.
+- `agency/capabilities/jules/_main.py` — `filter: str = ""` param on `activities`;
+  filters by `kind + summary` text when `full=False`; adds `filter_applied` to result;
+  `full=True` bypasses filter entirely (existing escape hatch preserved).
+- `tests/acceptance/features/relevance.feature` + `tests/acceptance/test_relevance.py`
+  — 7 Gherkin scenarios covering pure helper, `_apply_filter` integration,
+  `jules.activities` filter, and `full=True` bypass.
+
+**Still needed (Slice 2):**
+- `filters:` config registry in `.agency/config.yaml` read via `_config._read()` so
+  users can override profiles per-tool without code changes.
+- PostToolUse hook call site (third consumer after shell + jules).
+- Graph `FilterProfile` node override (mirrors Spec 337 structural profiles).
+- LLM-scored relevance strategy (Slice 3+).
