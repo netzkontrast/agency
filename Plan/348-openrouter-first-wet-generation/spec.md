@@ -267,10 +267,39 @@ Then:   the config registry REPLACES the built-in default (override, rule 8)
 - 3 acceptance scenarios (config block → registry, absent block → built-in,
   validate ignores the structured block); existing config suite green.
 
+### Done — Slice 2b (free-first in the shared `complete_or_delegate` seam, 2026-06-20)
+
+- **`complete_or_delegate` gains a free-first branch** (`agency/_host_llm.py`) —
+  inserted as branch 2 (after resume, before the driver): PLAIN TEXT only
+  (`output_schema is None`) and not pinned to anthropic routes to an OpenRouter
+  free model and returns `Completion(stop_reason="openrouter_free", model=…:free)`.
+  Structured output / `require="anthropic"` / `AGENCY_GENERATE=anthropic` skip it
+  and fall through to the (Anthropic) driver — a free model can't honor
+  `output_config.format` / thinking / managed-agents dispatch. New params:
+  `require`, `use_case`, `llm` (injectable `LLMClient` for tests), `env`.
+- **One shared free-first gate** — `prefers_openrouter(env, require)` +
+  `force_anthropic(env, require)` (`agency/_llm.py`) express the rule ONCE;
+  `select_text_generator` now delegates to them (no drift between the selection
+  surface and the seam). Non-raising so the seam can fall through to its
+  driver / host-sampling / delegate branches.
+- **No silent paid fallback preserved** — a free failure surfaces as a typed
+  error; the documented recovery is the caller re-invoking with
+  `require="anthropic"` (barbell). The resume path (`host_completion`) still
+  wins over free-first.
+- **7 acceptance scenarios** added to `wet_generation.feature` (seam routes
+  plain text free / skips for output_schema / honors `require=anthropic` /
+  honors `AGENCY_GENERATE=anthropic` / resume wins / no-key → delegate
+  envelope), network-free via an injected stub `LLMClient`. The four Spec-279/285
+  precedence tests in `tests/test_host_bridge.py` opt out of free-first with an
+  explicit keyless `env`; a new `test_precedence_free_first_wins_over_driver`
+  documents the new ordering.
+
 ### Still — Slice 2+
 
 - Wire the `-wet` consumers (204/220/226/230/240/249/311/317) to
-  `select_text_generator` + `generate(use_case=…)`; each notes its use-case.
+  `complete_or_delegate(use_case=…)` (free-first now in the seam they already
+  wrap) / `select_text_generator` + `generate(use_case=…)`; each notes its
+  use-case.
 - `generate_stream()` (OpenRouter SSE).
 - Hydrate `flags` live in selection (`select_model(..., live_ids=_openrouter_models())`)
   + the per-(use_case, model) success/failure feedback loop (Meadows leverage).

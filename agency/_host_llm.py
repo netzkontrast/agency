@@ -193,10 +193,14 @@ def complete_or_delegate(
     max_tokens: int = DEFAULT_MAX_TOKENS,
     continuation_token: str | None = None,
     host: Any = None,
+    require: str | None = None,
+    use_case: str | None = None,
+    llm: Any = None,
+    env: Any = None,
 ) -> Completion | HostLLMRequest:
-    """The boundary helper every LLM-using verb wraps. Four branches
-    (the resume path always wins; then driver, then host sampling, then the
-    delegate envelope):
+    """The boundary helper every LLM-using verb wraps. Five branches
+    (resume always wins; then OpenRouter free-first; then driver, then host
+    sampling, then the delegate envelope):
 
     1. ``host_completion`` is given — the host already ran inference
        and called the verb again. Wrap as ``Completion(text=…,
@@ -204,12 +208,24 @@ def complete_or_delegate(
        driver state, so a retry with ``host_completion`` keeps the
        verb's flow on the resume rail.
 
-    2. ``driver.backend() != "none"`` — the AnthropicDriver is capable;
+    2. (Spec 348) free-first — PLAIN TEXT only (``output_schema is None``)
+       and not pinned to anthropic (``require != "anthropic"`` and no
+       ``AGENCY_GENERATE=anthropic``): when ``OPENROUTER_API_KEY`` is set
+       (``_llm.prefers_openrouter``), generate through an OpenRouter free
+       model and return ``Completion(stop_reason="openrouter_free")``. A
+       structured-output / thinking / managed-agents request skips this —
+       a free model can't honor ``output_config.format`` — and falls to the
+       driver. No silent paid fallback: a free failure surfaces; recovery is
+       the caller re-invoking with ``require="anthropic"`` (barbell).
+
+    3. ``driver.backend() != "none"`` — the AnthropicDriver is capable;
        call ``driver.complete(...)`` and return its ``Completion``
        (Spec 147 Slice 1). Backwards-compatible direct path:
        behavior is identical to a bare ``driver.complete(...)`` call.
 
-    3. else — driver backend is ``"none"``; return a
+    4. ``host.can_sample()`` — real MCP host sampling (Spec 285).
+
+    5. else — driver backend is ``"none"``; return a
        ``HostLLMRequest`` envelope. The wrapping verb returns it as
        part of its response so the host (Claude Code) recognises
        ``kind="llm_delegate"``, runs inference, and calls the verb
@@ -238,7 +254,28 @@ def complete_or_delegate(
             parsed=host_completion.get("parsed"),
         )
 
-    # Branch 2 (driver capable) — Spec 147 Slice 1 direct path. An explicitly
+    # Branch 2 (free-first) — Spec 348: plain text routes to an OpenRouter free
+    # model when OPENROUTER_API_KEY is set and the caller hasn't pinned anthropic.
+    # Structured output (output_schema) is NOT routed free — a free model can't
+    # honor output_config.format / adaptive thinking / managed-agents dispatch, so
+    # it falls through to the (Anthropic) driver. `llm` is an injectable LLMClient
+    # (tests); when absent it's constructed lazily (no network until generate()).
+    if output_schema is None:
+        from agency import _llm
+        if _llm.prefers_openrouter(env, require):
+            client = llm if llm is not None else _llm.LLMClient(
+                use_case=use_case or "general")
+            prompt = "\n\n".join(_messages_to_sample_input(messages))
+            gen = client.generate(prompt, use_case=use_case,
+                                  system=system or None, max_tokens=max_tokens)
+            return Completion(
+                text=gen.text,
+                stop_reason="openrouter_free",
+                model=gen.model,
+                usage={"finish_reason": gen.finish_reason},
+            )
+
+    # Branch 3 (driver capable) — Spec 147 Slice 1 direct path. An explicitly
     # wired API-key driver wins (deterministic + testable) over sampling.
     if driver.backend() != "none":
         return driver.complete(
@@ -248,7 +285,7 @@ def complete_or_delegate(
             max_tokens=max_tokens,
         )
 
-    # Branch 3 (host sampling) — Spec 285: real MCP sampling when a capable
+    # Branch 4 (host sampling) — Spec 285: real MCP sampling when a capable
     # host Context is bound + sampling_enabled. Returns a Completion with
     # stop_reason="host_sampled" (the third inference path, distinct from
     # host_provided/host_sampled-vs-delegate in provenance). Falls THROUGH to
@@ -265,7 +302,7 @@ def complete_or_delegate(
         except HostUnavailable:
             pass
 
-    # Branch 4 (delegate) — emit the envelope.
+    # Branch 5 (delegate) — emit the envelope.
     token = continuation_token or _derive_fallback_token(
         messages=messages, system=system, model_hint=model_hint)
     return HostLLMRequest(

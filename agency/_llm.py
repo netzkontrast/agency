@@ -358,6 +358,30 @@ def _dep_missing(msg: str) -> RuntimeError:
     return e
 
 
+def force_anthropic(env=None, require: str | None = None) -> bool:
+    """Spec 348 — True when the caller has explicitly opted plain text OUT of
+    free-first: ``require == "anthropic"`` (per-call escape) OR the
+    ``AGENCY_GENERATE=anthropic`` all-session override. The single anthropic-pin
+    rule shared by :func:`select_text_generator` and the ``complete_or_delegate``
+    seam — one source, no drift (CLAUDE.md derivability)."""
+    env = env if env is not None else os.environ
+    return (require == "anthropic"
+            or env.get("AGENCY_GENERATE", "").strip().lower() == "anthropic")
+
+
+def prefers_openrouter(env=None, require: str | None = None) -> bool:
+    """Spec 348 — the shared free-first gate: True when plain text should route to
+    an OpenRouter free model — ``OPENROUTER_API_KEY`` is set AND the caller has not
+    pinned anthropic (:func:`force_anthropic`). Non-raising (a falsy result means
+    "fall through", not "error"), so the ``complete_or_delegate`` seam can defer to
+    its driver / host-sampling / delegate branches. :func:`select_text_generator`
+    reuses this gate so both surfaces honor ONE free-first rule."""
+    env = env if env is not None else os.environ
+    if force_anthropic(env, require):
+        return False
+    return bool(env.get("OPENROUTER_API_KEY"))
+
+
 def select_text_generator(drivers, *, env=None, require: str | None = None):
     """The SOLE provider-selection rule for plain-text generation (Spec 348).
 
@@ -369,16 +393,13 @@ def select_text_generator(drivers, *, env=None, require: str | None = None):
     silent paid fallback — a free failure is the caller's cue to re-invoke with
     ``require="anthropic"`` (the barbell)."""
     env = env if env is not None else os.environ
-    has_or = bool(env.get("OPENROUTER_API_KEY"))
     has_an = bool(env.get("ANTHROPIC_API_KEY"))
-    force_an = (require == "anthropic"
-                or env.get("AGENCY_GENERATE", "").strip().lower() == "anthropic")
-    if force_an:
+    if force_anthropic(env, require):
         if not has_an:
             raise _dep_missing(
                 "Anthropic generation requested but ANTHROPIC_API_KEY is unset")
         return ("anthropic", drivers.get("anthropic"))
-    if has_or:
+    if prefers_openrouter(env, require):
         return ("llm", drivers.get("llm"))
     if has_an:
         return ("anthropic", drivers.get("anthropic"))

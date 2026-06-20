@@ -81,3 +81,45 @@ Feature: Use-case model selection + OpenRouter-first generation (Spec 348)
     Then the result backend is "openrouter"
     And the result model declares the "prose" use-case
     And the result model id ends with ":free"
+
+  # ── free-first in the shared host-LLM seam (complete_or_delegate) ───────────
+
+  Scenario: the shared seam routes plain text to a free model when OpenRouter-keyed
+    Given OPENROUTER_API_KEY is set in the seam environment
+    And a stub LLMClient that generates for use-case "prose"
+    When I complete-or-delegate plain text through the seam
+    Then the completion stop reason is "openrouter_free"
+    And the completion model id ends with ":free"
+
+  Scenario: the shared seam skips free generation for structured output
+    Given OPENROUTER_API_KEY is set in the seam environment
+    And a stub LLMClient that generates for use-case "prose"
+    And a capable anthropic driver
+    When I complete-or-delegate with an output schema through the seam
+    Then the completion text is from the driver
+
+  Scenario: the shared seam honors require anthropic over free-first
+    Given OPENROUTER_API_KEY is set in the seam environment
+    And a stub LLMClient that generates for use-case "prose"
+    And a capable anthropic driver
+    When I complete-or-delegate requiring "anthropic" through the seam
+    Then the completion text is from the driver
+
+  Scenario: the shared seam skips free-first when AGENCY_GENERATE pins anthropic
+    Given OPENROUTER_API_KEY is set in the seam environment
+    And AGENCY_GENERATE pins anthropic in the seam environment
+    And a stub LLMClient that generates for use-case "prose"
+    And a capable anthropic driver
+    When I complete-or-delegate plain text through the seam
+    Then the completion text is from the driver
+
+  Scenario: a host completion resume still wins over free-first
+    Given OPENROUTER_API_KEY is set in the seam environment
+    And a stub LLMClient that generates for use-case "prose"
+    When I complete-or-delegate with a host completion through the seam
+    Then the completion stop reason is "host_provided"
+
+  Scenario: no OpenRouter key falls through to the delegate envelope
+    Given the seam environment has no generation key
+    When I complete-or-delegate plain text through the seam
+    Then the seam returns a host-delegate envelope
