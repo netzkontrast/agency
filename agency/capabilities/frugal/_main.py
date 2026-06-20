@@ -61,6 +61,14 @@ class FrugalCapability(CapabilityBase):
     ontology = OntologyExtension(
         nodes={"DebtMarker": ["file", "line"], "FrugalReview": ["scope", "files"]})
     artefact_schemas = ArtefactSchemas.from_module(__file__)
+    # Spec 349b §2 — declarative event-bus subscription (was an import-time
+    # `_events.subscribe`). `handler` names the module-level `on_first_tool_use`
+    # below; the engine bootstrap loop resolves + registers it.
+    subscriptions = (
+        _events.Subscription(event="PreToolUse", handler="on_first_tool_use",
+                             once_per="session.tool", priority=50,
+                             name="frugal.first_use"),
+    )
 
     # ── level / set_level / instructions / help (Slice 1) ─────────────────────
     @verb(role="transform")
@@ -257,7 +265,3 @@ def on_first_tool_use(engine, event) -> str:
         return ""
     hint = _FIRST_USE_HINTS.get((event or {}).get("tool_name", ""))
     return f"[frugal] {hint}" if hint else ""
-
-
-_events.subscribe("PreToolUse", on_first_tool_use,
-                  once_per="session.tool", name="frugal.first_use")

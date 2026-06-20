@@ -45,6 +45,11 @@ class Capability:
     # `install.generate()` finds them. None = no skill doc declared.
     skill_doc: Optional["SkillDoc"] = None
     walker_skills: Optional["WalkerSkills"] = None
+    # Spec 349b §2 — declarative event-bus subscriptions (DATA on the cap). The
+    # engine's bootstrap loop reads these + `module` to resolve each handler by
+    # name and register it on the pillar event bus (`agency/_events.py`).
+    subscriptions: tuple = ()
+    module: str = ""
 
     def role(self, verb: str) -> str:
         return self.verbs[verb].role
@@ -714,6 +719,10 @@ class CapabilityBase:
     # Spec 032 §A — template + schema file-based extensions.
     render_templates: ClassVar[Optional[RenderTemplates]] = None
     artefact_schemas: ClassVar[Optional[ArtefactSchemas]] = None
+    # Spec 349b §2 — declarative event-bus subscriptions (a tuple of
+    # `_events.Subscription`). Empty by default; `as_capability` carries them +
+    # the module onto the compiled `Capability` for the bootstrap loop.
+    subscriptions: ClassVar[tuple] = ()
 
     def __init__(self, ctx: CapabilityContext):
         self.ctx = ctx
@@ -784,7 +793,11 @@ class CapabilityBase:
             # walker_skills configuration even after class→dataclass
             # conversion.
             skill_doc=skill_doc,
-            walker_skills=getattr(cls, "walker_skills", None))
+            walker_skills=getattr(cls, "walker_skills", None),
+            # Spec 349b §2 — carry declarative subscriptions + the source module
+            # so the engine's bootstrap loop can resolve each handler by name.
+            subscriptions=tuple(getattr(cls, "subscriptions", ()) or ()),
+            module=cls.__module__)
 
 
 class Registry:

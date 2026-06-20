@@ -1,7 +1,7 @@
 # The capability system
 
 <!-- doc-source: agency/capability.py -->
-<!-- doc-hash: d223be85e82d272c -->
+<!-- doc-hash: 53421fc3e4e9bfff -->
 
 `agency/capability.py` defines how a capability is authored, compiled, registered, and
 invoked. It is the single most load-bearing module.
@@ -29,9 +29,15 @@ class MyCapability(CapabilityBase):
 - **`inject=[…]`** asks the registry to pass a boundary by name (`vcs`, `embedder`,
   `runner`, `skills_client`). `ctx` is always injected.
 - A verb reaches engine services through **`self.ctx`** (a `CapabilityContext`).
+- **`subscriptions = (Subscription(...),)`** (Spec 349b) declares event-bus
+  interest as DATA — `event`, a `handler` NAME (a module-level `(engine, event) ->
+  str` function), `once_per`, `priority`, `name`. One engine-bootstrap loop
+  (`_events.register_capability_subscriptions`) resolves + registers each handler;
+  `frugal`'s first-use-once hint is the reference subscriber.
 
 `as_capability()` compiles the class to a frozen `Capability`: it collects `@verb`
-methods, deep-copies the ontology, and — per **Spec 080** — *derives* the `SkillDoc`
+methods, deep-copies the ontology, carries the `subscriptions` + source `module`,
+and — per **Spec 080** — *derives* the `SkillDoc`
 from the module docstring (`Use when:` / `Triggers:` / `Red flags:`) when none is set,
 and — per **Spec 081** — injects a derived `<cap>-usage` walkable skill when the
 capability authored none.

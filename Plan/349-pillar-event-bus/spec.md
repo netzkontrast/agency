@@ -418,8 +418,24 @@ graph Event per delivery** (S1 — the marker is ephemeral, so a high-volume
 subscriber: `on_first_tool_use` returns a frugal hint on the FIRST `PreToolUse` of
 a tool in a session (silent at level `off`), merged into the PreToolUse
 `additionalContext` by `engine._pre_tool_use_handler`. Behaviour-tested (first →
-hint; second identical call → silent). **Still (349b+):** declarative subscriptions
-on the Capability dataclass + a bootstrap loop (this slice uses import-time
-`subscribe`); `event.emit` for custom + lifecycle events; the `config.yaml`
-`events:` registry + external-hook runner; M1 token-bounded aggregation across
-multiple subscribers.
+hint; second identical call → silent).
+
+**349b §2 SHIPPED 2026-06-20 — declarative subscriptions + the bootstrap loop
+(THE missing reader).** `_events.Subscription(event, handler, once_per, priority,
+name)` is DATA a capability declares (`subscriptions = (...)`); `as_capability`
+carries it + the source `module` onto the compiled `Capability`; the engine
+bootstrap (`__init__` + `reload`) runs ONE loop
+(`_events.register_capability_subscriptions`) that resolves each `handler` NAME
+against the cap's module and `subscribe`s it. `subscribe`/`run` gained `priority`
+(ascending, then registration order — the §7 deterministic-ordering contract).
+`frugal` migrated off its import-time `_events.subscribe` to the declarative form
+(the reference subscriber). Substrate subscribers (`lifecycle.monitor`, Spec
+344/349b) keep their import-time `subscribe` — they are not capabilities.
+`# AGENCY-DRIFT: event-subscribers` tags the loop. 2 new acceptance scenarios
+(bootstrap registration + priority ordering); the existing frugal first-use test
+stays green through the declarative path.
+
+**Still (349c+):** the lifecycle/`intent`/`memory` pillars as symmetric declarative
+subscribers (§3); `event.emit` for custom + lifecycle events (§5); the
+`config.yaml` `events:` registry + external-hook runner (§6); M1 token-bounded
+aggregation; the optional `filter` predicate on `Subscription`.
