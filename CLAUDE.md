@@ -9,6 +9,22 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
 > [`AGENTS.md`](AGENTS.md) (operational), [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md)
 > (remote-agent doctrine).
 
+> **ALWAYS use CodeGraph to discover and find code symbols (MANDATORY).** This
+> repo is indexed by CodeGraph (a `.codegraph/` directory exists; run `codegraph
+> init` once if it does not). For EVERY code lookup — "where is X", "what is X",
+> "how does X work", any symbol / call-path / blast-radius question, and BEFORE
+> editing an unfamiliar symbol — reach for CodeGraph FIRST, never grep / find /
+> Read as the opening move. `codegraph_explore "<question or symbol names>"` (MCP)
+> or `codegraph explore "<…>"` (CLI) answers most questions in ONE call — it
+> returns the relevant symbols' verbatim source PLUS the call paths between them;
+> treat that source as already read (don't re-grep to "confirm" it).
+> `codegraph_node` / `query` / `callers` / `callees` / `impact` round it out (the
+> CLI mirrors every MCP tool). grep / Glob / Read are the FALLBACK only — when
+> CodeGraph is inactive (no `.codegraph/`) or for non-code text (docs, specs,
+> config). When you reach for grep on a code question and `.codegraph/` exists,
+> stop — that is the reflex this rule exists to correct. The full token-efficient
+> guide travels on demand via `develop.reference("codegraph")`.
+
 ## Three rules for working in this repo
 
 1. **Dogfood the engine — MCP-first when available.** When your harness has
