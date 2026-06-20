@@ -23,16 +23,11 @@ Dropped as implementation/structural (not observable behaviour):
 from __future__ import annotations
 
 import asyncio
-import tempfile
 
 import pytest
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
-from agency.capability import CapabilityBase, verb
-from agency.engine import Engine
-from agency.ontology import OntologyExtension
 
-from conftest import invoke
 
 scenarios("features/intent.feature")
 

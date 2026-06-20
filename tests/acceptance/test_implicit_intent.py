@@ -11,9 +11,8 @@ import asyncio
 import tempfile
 
 import pytest
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
-from conftest import served
 from agency.engine import Engine
 
 scenarios("features/implicit_intent.feature")

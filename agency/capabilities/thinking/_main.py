@@ -228,7 +228,7 @@ class ThinkingCapability(CapabilityBase):
             "method": "second_order", "subject": s, "n_steps": n_steps,
             "steps": [
                 f"For '{s}': what's the immediate (first-order) consequence?",
-                f"What does THAT cause? (second-order)",
+                "What does THAT cause? (second-order)",
                 f"And THAT? (continue for {n_steps} steps total)",
                 "Mark any step that contradicts the original goal's spirit.",
             ],

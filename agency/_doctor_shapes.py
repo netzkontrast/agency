@@ -14,7 +14,7 @@ any documented `ready=False` field's hint is the empty string.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal
 
 

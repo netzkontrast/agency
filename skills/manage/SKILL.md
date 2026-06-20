@@ -55,5 +55,5 @@ await call_tool('capability_manage_amend', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`manage-usage`** (usage): use-effect → use-act → confirm
-  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'manage-usage', 'inputs': {}, 'intent_id': '…'})`
+- **`lifecycle-management`** (discipline): survey → triage → unblock → advance → close → report
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'lifecycle-management', 'inputs': {}, 'intent_id': '…'})`

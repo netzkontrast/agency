@@ -222,3 +222,19 @@ class Lifecycle:
     def status(self, lc_id: str) -> Optional[str]:
         props = self.m.recall(lc_id)
         return props.get("state") if props else None
+
+    def resume(self, lc_id: str) -> dict:
+        """Re-enter a paused lifecycle. Asserts the lifecycle is in
+        input-required | auth-required (the only resumable states, per 340's
+        table), moves it →working, and returns the recorded phase so the
+        caller re-enters skill_walk at that phase (resume_from=).
+        Returns {lifecycle_id, state, phase, resume_from}.
+        """
+        current = self.status(lc_id)
+        if current not in (INPUT_REQUIRED, AUTH_REQUIRED):
+            raise ValueError(
+                f"lifecycle {lc_id!r} is not resumable (state: {current})")
+        props = self.m.recall(lc_id)
+        phase = props.get("phase") if props else None
+        self.move(lc_id, "working", evidence="resume")
+        return {"lifecycle_id": lc_id, "state": "working", "phase": phase, "resume_from": phase}

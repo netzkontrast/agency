@@ -27,11 +27,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import tempfile
 
-import pytest
-from fastmcp import Client
 from pytest_bdd import given, scenarios, then, when
 
 from agency.engine import Engine
@@ -40,7 +37,6 @@ from agency._hooks import (
     CANONICAL_SETTINGS_PATCH,
     ForeignHook,
     apply_foreign_wraps,
-    check_install,
     detect_foreign_hooks,
     merge_settings,
     wrap_foreign_hook,

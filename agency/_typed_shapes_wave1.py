@@ -90,7 +90,7 @@ class InstallSurface:
     def __post_init__(self) -> None:
         if not isinstance(self.marketplace_desc, str) or not self.marketplace_desc:
             raise ValueError(
-                f"InstallSurface.marketplace_desc must be non-empty")
+                "InstallSurface.marketplace_desc must be non-empty")
 
 
 # ── Spec 176 — IntentCapture ─────────────────────────────────────────
@@ -111,7 +111,7 @@ class IntentCapture:
     def __post_init__(self) -> None:
         if not isinstance(self.intent_id, str) or not self.intent_id:
             raise ValueError(
-                f"IntentCapture.intent_id must be non-empty")
+                "IntentCapture.intent_id must be non-empty")
         if self.source not in _VALID_SOURCES:
             raise ValueError(
                 f"IntentCapture.source must be one of {_VALID_SOURCES}; "

@@ -372,7 +372,9 @@ class AgencyDoctor(SubstrateTool):
                 "elicitation": _bridge.can_elicit(),
                 "sampling_enabled": engine.sampling_enabled,
             }
-            import os, sys, importlib.metadata as _md
+            import os
+            import sys
+            import importlib.metadata as _md
             from ._db_path import resolve_db_path
 
             deps: dict = {}
@@ -733,7 +735,7 @@ class AgencyWelcome(SubstrateTool):
                 ]
             else:
                 next_steps = [
-                    f"search('<keyword>') — discover a capability_*_* verb",
+                    "search('<keyword>') — discover a capability_*_* verb",
                     f"memory_graph_provenance('{last_intent}') — see what served the last intent",
                     "execute(code_mode_example) — chain verbs in one block",
                 ]

@@ -6,7 +6,6 @@ cache-stable prefix. Drives the real wire path (`call_tool`).
 """
 from __future__ import annotations
 
-import os
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when

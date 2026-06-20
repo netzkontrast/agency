@@ -26,17 +26,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-import tempfile
 
 import pytest
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
 from agency.engine import Engine
 from agency.disclosure import parse_slices, render_verb
 from agency._envelope import (
     ResponseEnvelope,
     canonical_json,
-    capability_set_hash,
     capture_body_overflow,
 )
 

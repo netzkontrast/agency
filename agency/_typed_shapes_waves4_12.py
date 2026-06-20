@@ -11,7 +11,7 @@ enhancement target and the shape's Slice 2 wiring target.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 
@@ -251,7 +251,7 @@ class ReasoningWetCall:                                 # Spec 204
     def __post_init__(self):
         _require("method", self.method); _require("subject", self.subject)
         if not (0.0 <= self.confidence <= 1.0):
-            raise ValueError(f"confidence ∈ [0,1]")
+            raise ValueError("confidence ∈ [0,1]")
 
 
 @dataclass(frozen=True)

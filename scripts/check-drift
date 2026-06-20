@@ -155,6 +155,47 @@ fi
 say
 
 # ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+
+# 7. Lifecycle State Writer Guard (Spec 340 B3)
+
+# ----------------------------------------------------------------------
+
+say "==> lifecycle-state-writer guard (Spec 340/338 B3)"
+
+STATE_WRITERS=$(grep -rn 'update(.*"state"' agency/ || true)
+
+RECORD_WRITERS=$(grep -rn 'record("Lifecycle"' agency/ || true)
+
+RECORD_SESS_WRITERS=$(grep -rn 'record("SessionLifecycle"' agency/ || true)
+
+ALL_WRITERS="$STATE_WRITERS"$'
+'"$RECORD_WRITERS"$'
+'"$RECORD_SESS_WRITERS"
+
+ILLEGAL_WRITERS=$(echo "$ALL_WRITERS" | grep -v '^agency/lifecycle.py' | grep -v '^agency/capabilities/develop/_main.py' | grep -v 'AGENCY-DRIFT: lifecycle-state-writer' | grep -v '^$' || true)
+
+if [[ -n "$ILLEGAL_WRITERS" ]]; then
+
+  say "    DRIFT: lifecycle state modified outside of agency/lifecycle.py. Update must route through Lifecycle.move()."
+
+  if [[ "$QUIET" -eq 0 ]]; then
+
+    echo "$ILLEGAL_WRITERS" | sed 's/^/      /'
+
+  fi
+
+  DRIFT=1
+
+else
+
+  say "    lifecycle-state-writer: clean"
+
+fi
+
+say
+
+
 # spec_id uniqueness (Spec 351 — presence != activation; the collision class)
 # ----------------------------------------------------------------------
 say "==> spec_id uniqueness (Spec 351)"

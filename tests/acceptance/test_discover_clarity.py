@@ -163,7 +163,7 @@ def _gate_failed(gate_result):
 @then("clarity_gate passes and records the override")
 def _gate_override_passes(gate_result):
     assert gate_result["passed"], \
-        f"expected gate to pass with override but got None (failure)"
+        "expected gate to pass with override but got None (failure)"
     assert gate_result["data"].get("override_used") is True, gate_result["data"]
     assert gate_result["data"].get("passed") is True, gate_result["data"]
 
@@ -171,6 +171,6 @@ def _gate_override_passes(gate_result):
 @then("clarity_gate passes without override")
 def _gate_passes(gate_result):
     assert gate_result["passed"], \
-        f"expected gate to pass but got None (failure)"
+        "expected gate to pass but got None (failure)"
     assert gate_result["data"].get("passed") is True, gate_result["data"]
     assert not gate_result["data"].get("override_used"), gate_result["data"]
