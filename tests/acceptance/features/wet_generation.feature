@@ -1,4 +1,4 @@
-Feature: Use-case model selection + OpenRouter-first generation (Spec 348)
+Feature: Use-case model selection + OpenRouter-first generation (Spec 352)
   A use-case-tagged, priority-ordered registry of free OpenRouter models drives
   generation. Plain-text wet generation routes through OpenRouter free models
   when OPENROUTER_API_KEY is set (the owner directive); Anthropic keeps an

@@ -1,4 +1,4 @@
-"""Acceptance — use-case model selection + OpenRouter-first generation (Spec 348).
+"""Acceptance — use-case model selection + OpenRouter-first generation (Spec 352).
 
 All selection logic is network-free. `generate` is exercised with a stub
 OpenRouter client (no network); the live SDK boundary (`_openrouter_models`,

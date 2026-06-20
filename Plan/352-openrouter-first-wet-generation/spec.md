@@ -1,5 +1,5 @@
 ---
-spec_id: "348"
+spec_id: "352"
 slug: openrouter-first-wet-generation
 status: partial
 last_updated: 2026-06-20
@@ -16,15 +16,18 @@ affects:
   - tests/acceptance/test_wet_generation.py
 ---
 
-# Spec 348 — OpenRouter-first wet generation + use-case model selection
+# Spec 352 — OpenRouter-first wet generation + use-case model selection
 
-> **Renumbered 338 → 348 (2026-06-20).** Two parallel sessions both claimed
-> `spec_id: 338`; this standalone program collided with the
-> `338-lifecycle-pillar-deep-program` master (which owns a 339–347 child
-> cluster — far more entangled to move). Per CLAUDE.md rule 4's renumber clause
-> (rare; only after a collision on merge), this leaf moved to the free **348**,
-> keeping the lifecycle cluster intact. Merged PR #223/#225 history references
-> the old number 338; the spec + code now read 348.
+> **Renumbered 338 → 348 → 352 (2026-06-20).** First moved off `338`
+> (collided with `338-lifecycle-pillar-deep-program`), but `348` was already
+> taken by `348-frugal-capability-port` on main — so the 338→348 move walked
+> straight into a second collision (the irony that motivated Spec 351). Per
+> CLAUDE.md rule 4's renumber clause, the less-entangled leaf moves: this
+> openrouter spec (4 code refs) → the free **352**, leaving the more-entangled
+> `348-frugal-capability-port` (a whole capability bundle, 12 refs) as the
+> canonical 348. Resolved structurally by Spec 351's `check-drift` `spec_id_unique`
+> gate. Merged PR #223/#225/#226 history references the old numbers 338/348; the
+> spec + code now read 352.
 
 ## Why
 
