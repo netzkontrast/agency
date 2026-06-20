@@ -78,3 +78,4 @@ agency/install.py:1180:os_environ
 agency/install.py:1207:os_environ
 agency/install.py:1531:os_environ
 agency/memory.py:100:uuid4
+agency/_toolcalls.py:80:time_time
