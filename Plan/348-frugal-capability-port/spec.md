@@ -425,3 +425,20 @@ hint, MCP-native). Closed the remaining substrate-depth items the owner selected
 - Out of scope (tracked elsewhere): installer Wave-2 → 14 agents (Spec 335); the
   frugal lifecycle MACHINE (Spec 347). The typed DEBT edge stays deliberately
   un-declared (dormant-surface avoidance) — DebtMarker nodes SERVE the intent.
+
+**Prose-in-templates decision (2026-06-20, owner-confirmed).** Q: is ALL ponytail
+prose ported into the templates? A: the full teaching prose (persona · persistence ·
+ladder WITH examples · rules · output pattern · intensity examples · safety floor) is
+ported **100%**, single-sourced in `_frugal` and delivered to every agent via FOUR
+runtime surfaces — the SessionStart inject (once/session), `frugal.instructions`/`help`,
+`develop.reference("frugal")`, and `docs/guide/frugal.md`. The walkable `frugal`
+template (`SKILL.md`) carries the STRUCTURE (6 rungs as phases) + the docstring-derived
+doc + POINTERS to that prose; it deliberately does NOT embed a copy — rule 2
+(single-source: the generated `SKILL.md` would drift) and the drop-in bar (a
+frugal-specific `install.generate` edit would be the coupling the bar forbids; the
+alternative was a *generic* capability→skill-body hook). A skill phase's prose is also
+not surfaced to a walking agent (`_skill_walk` returns status/phase only), so the
+phase dict is the wrong home for teaching text. **Owner chose the pointer design** over
+embedding. NOT ported = ILLUSTRATIVE-only prose (review's `L12-38: stdlib:…` tag
+examples, gain's ASCII scoreboard art, 7 of 12 `examples/` survivors) — owner declined;
+decorative, not functional.
