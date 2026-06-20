@@ -24,8 +24,8 @@ from agency.capability import (
 from agency.ontology import OntologyExtension
 from agency.skill import phase as _phase  # Spec 286 — shared phase() builder
 
-from . import (_architecture, _findings, _paths, _performance, _quality,
-                _security)
+from . import (_architecture, _decay, _findings, _paths, _performance,
+                _quality, _security)
 
 
 _AXES = ("quality", "security", "performance", "architecture", "paths")
@@ -271,6 +271,11 @@ class AnalyzeCapability(CapabilityBase):
                     "architecture": _architecture.scan,
                 }[axis]
                 findings = scanner(path)
+            # Spec 354 — enrich decidable findings with the risk code + Iron Law
+            # fields they evidence before recording (a no-op for rules in no
+            # risk's decidable list), so the graph nodes carry the decay
+            # diagnosis the judgment pass (355) later enriches in place.
+            findings = _decay.tag(findings)
             totals[axis] = _findings.count_by_severity(findings)
             for fnd in findings:
                 fid = self.ctx.record("Finding", fnd.to_dict())
