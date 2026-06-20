@@ -421,3 +421,11 @@ consumer before five more depend on it. Today 339 absorbs all paths at once.
 not redesigns), state P3, and re-order 339 per P4.** Overall **7.1/10** (up from
 6.7 — the reframe fixed more than it cost). P1 and P2 are exactly the kind of
 open design questions a brainstorm should settle before implementation.
+
+> **RESOLVED 2026-06-20 (owner forks, see `brainstorm.md`):** P1 → index the
+> `lifecycle_*` substrate-tools into `search` (no shell cap); P2 → one
+> `ctx.lifecycle.advance` reducer at the cap layer (parameterization declares the
+> observer; `advance` dispatches via `ctx.registry`); P3 → 339 updates CORE.md
+> §CapabilityContext; P4 → 339 re-ordered proof-first (`delegate` migrated first,
+> `SessionLifecycle` fold last). Folded into 338/339/342. **No open blockers
+> remain;** the corpus is buildable.

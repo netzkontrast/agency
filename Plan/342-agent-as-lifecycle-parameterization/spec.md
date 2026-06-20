@@ -93,29 +93,53 @@ extra states, extra transitions, extra observers. Data, not code (CLAUDE.md
   lifecycle's `move(→completed)` from `working` **raises** (must go through
   `verify`), while a `default` lifecycle's does not.
 
-### The `verify` observer — who runs it (panel B2, the keystone)
+### The observer dispatch — `ctx.lifecycle.advance(lc)` (panel B2 + owner fork Q2)
 
-The panel's #1 blocker: `jules.verify` is a `role="transform"` that returns
-`{done}` and **writes nothing**; nothing in the dispatch path calls it. This slice
-pins the invocation contract so the `working→verify→completed` path actually
-fires:
+The panel's #1 blocker was that `jules.verify` (a `role="transform"`) returns
+`{done}` and **writes nothing**, and nothing calls it. The first fold put the call
+in `delegate.join` — but the 2nd-pass panel (P2) showed that **hardcodes
+`delegate`→`jules`** and doesn't generalize (the `reviewed` parameterization's
+observer is `gate.check`, run by `subagent`). That is per-agent special-casing one
+layer up — the very thing Goal 3 removes.
 
-1. A remote-async driver reports completion → its child enters **`verify`** (the
-   driver's "completed" is `move(working→verify)`, NOT `→completed`).
-2. **`delegate.join` is the trigger** (it already reduces over children, Spec 040).
-   For each child in `verify`, `join` calls `jules.verify(state, branch)` and:
-   - `done=True` → `ctx.lifecycle.move(child, "completed")`.
-   - `done=False` (branch absent) → `ctx.lifecycle.move(child, "input-required")`
-     (the silent-fail recovery; `jules.verify` already emits `silent_fail_detected`).
-   - **lookup failure** (network/auth — `remote_exists.ok=False`, panel N-3) →
-     **stay in `verify`** (ret, not a false terminal); `join.done=False`.
-3. So `delegate.join`'s `done` **is** `jules.verify`'s `done` — one notion, the N3
-   disconnect closed. The `default` parameterization has no `verify` state, so a
-   local child's `join` reduces over raw `completed` exactly as today.
+**Owner decision (Q2): one `advance()` reducer at the capability layer.** The
+parameterization **declares its observer by name** (registry data); a single
+reducer `ctx.lifecycle.advance(lifecycle_id)` looks it up and runs it through
+`ctx.registry`, then performs the resulting move. Every driver caller calls the
+SAME `advance` — none hardcodes jules/gate:
 
-This is the message-exchange contract the panel said was missing: producer
-(driver) → `move(→verify)`; reducer (`join`) → `verify` → `move(→completed|
-input-required)` / stay. No daemon; `join` is the existing pull point.
+```jsonc
+// parameterizations.json — the observer is declared, not hardcoded in a caller
+"remote-async": { "states": ["verify"],
+                  "transitions": {"working": ["verify"], "verify": ["completed","input-required","failed"]},
+                  "observer": {"capability": "jules", "verb": "verify",
+                               "on_done": "completed", "on_not_done": "input-required",
+                               "on_error": "verify"} },   // N-3: lookup failure stays in verify
+"reviewed":     { "states": ["in-review"],
+                  "transitions": {"working": ["in-review"], "in-review": ["completed","input-required"]},
+                  "observer": {"capability": "gate", "verb": "check", "on_done": "completed",
+                               "on_not_done": "input-required"} }
+```
+
+The flow, uniform across agents:
+
+1. A driver reports completion → its child enters **`verify`** / **`in-review`**
+   (the driver's "completed" is `move(working→verify)`, NOT `→completed`).
+2. Whoever reduces (`delegate.join`, `subagent.develop`) calls
+   **`ctx.lifecycle.advance(child)`** — ONE call. `advance` reads the child's
+   parameterization, invokes the declared `observer` via `ctx.registry`, and maps
+   its verdict to a `move` (`on_done`/`on_not_done`/`on_error`).
+3. So `delegate.join`'s "done" **is** the observer's "done" (N3 closed), and a
+   *new* parameterization needs **zero caller edits** — it declares an observer and
+   `advance` runs it. The `default` parameterization has no observer, so `advance`
+   is a no-op and a local child reduces over raw `completed` as today.
+
+> **Layering (panel P2 resolution).** `advance` is reachable as `ctx.lifecycle.
+> advance` for ergonomics but is implemented at the **capability layer** (it calls
+> out through `ctx.registry` to a capability verb like `jules.verify`, which needs
+> `vcs`/network injection). The deep substrate (`agency/lifecycle.py`) never calls
+> *into* a capability — that inversion is avoided. `advance` is the one place the
+> pillar reaches its members, by declared name, never hardcoded.
 
 ### The 10 caps register, they don't reimplement
 
@@ -171,9 +195,15 @@ Scenario: jules declares remote-async and dispatch wires it
 Scenario: delegate.join and jules.verify agree on "done" (N3 — close the disconnect)
   Given a remote-async child Lifecycle whose run reports state "completed"
   But whose branch is NOT on origin (jules.verify → done=False)
-  When delegate.join reduces the delegation
-  Then the child is NOT counted done (it is still in "verify", not "completed")
-  And join's "done" equals jules.verify's "done" — one notion, not two
+  When delegate.join calls ctx.lifecycle.advance(child)
+  Then advance runs the declared "jules.verify" observer and moves verify→input-required
+  And the child is NOT counted done; join's "done" equals the observer's "done"
+
+Scenario: advance is the ONE path — a new parameterization needs no caller edit (Q2/P2)
+  Given a new parameterization "audited" declaring observer {capability:"X", verb:"y"}
+  When any reducer calls ctx.lifecycle.advance(child)
+  Then advance runs X.y via ctx.registry and moves per on_done/on_not_done
+  And neither delegate.join nor subagent.develop is edited to add it
 
 Scenario: verify lookup failure stays in verify, not failed (panel N-3)
   Given a remote-async child in "verify"

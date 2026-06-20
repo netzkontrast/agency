@@ -268,6 +268,7 @@ verb:
 | `open(intent_id, kind, agent_id=, parameterization=)` | method · `ctx.lifecycle.open` · `lifecycle_open` tool | Mint a `Lifecycle` SERVING the intent in state `submitted` | the 3 minting paths (`Lifecycle` class · `delegate.fan_out` hand-roll · `develop.SessionLifecycle`) |
 | `move(lifecycle_id, to_state, evidence=)` | method · `ctx.lifecycle.move` · `lifecycle_move` tool | The **sole** writer of `state`; enforces the transition table (340); **emits a `LifecycleEvent`** (344) | the unguarded `update({"state":…})` sites (`gate.check` · `lifecycle_gate` · `Lifecycle.move/complete` · `subagent.develop:66` · `delegate`) |
 | `close(lifecycle_id, outcome)` | method · `ctx.lifecycle.close` · `lifecycle_close` tool | Terminal `move`; records a Spec 328 **completion `Gate`** keyed to the intent (W-2) | — |
+| `advance(lifecycle_id)` | `ctx.lifecycle.advance` (cap-layer reducer) | Run the child's parameterization-declared **observer** (e.g. `jules.verify`) via `ctx.registry` and `move` per its verdict — the ONE observer-dispatch path (Q2/342) | replaces `delegate.join`/`subagent` each hardcoding their observer |
 | `read · find` (observe) | `manage.state` / `manage.find` (Memory pillar read-API) | one/many lifecycles + serving intent + agent | **REUSE `manage`** (Spec 290/330) — not re-implemented |
 | `check` (observe) | `gate.check` (member cap, Spec 303) → routes its pause through `ctx.lifecycle.move(→input-required)` | a gate predicate that pauses the lifecycle as a *guarded transition* | `gate` member cap, predicate reused |
 | `watch` (observe) | `manage.timeline` over the 344 events + `jules.watch` (member) + monitor channel | the recorded transition trail (pull) + the existing pushers | REUSE — see N-2 (it is a pull; push is `jules.watch`) |
@@ -279,6 +280,14 @@ verb:
 > the existing `jules.watch`. The pillar OWNS the write machine (`open/move/close`)
 > + the parameterization; observation is the Memory pillar's job, reused. This
 > kills the dormant-duplicate risk the panel flagged.
+
+> **Discoverability of the substrate frame (panel P1, owner fork Q1 → decided).**
+> Substrate-tools don't auto-surface like capability verbs. Decision: **index the
+> `lifecycle_open/move/close/advance` tools into `search`** (the same way
+> `intent_bootstrap`/`agency_welcome` are surfaced), so the frame is findable
+> without a shell capability. No `home="lifecycle"` discovery-cap is added — the
+> owner's "it's a pillar" ruling stands; the *index entry*, not a fake cap,
+> provides the surface.
 
 ### The sole-writer invariant is ENFORCED, not asserted (panel B3)
 
@@ -386,10 +395,12 @@ resolved in-spec (the 307 precedent — fix in place, retain the review as recor
 - **B1 (substrate/capability trust boundary) — RESOLVED by the owner's "it's a
   pillar" directive.** Lifecycle is substrate (`agency/lifecycle.py`), not a
   capability, so it never crosses the SERVES guard. §Architecture rewritten.
-- **B2 (the `verify` observer invocation model) — `delegate.join` runs it.** A
-  remote-async child sits in `verify` after the driver reports completion; `join`
-  (the reducer) calls `jules.verify` and `move`s `verify→completed` on done /
-  `verify→input-required` on not-done or lookup failure (N-3). Pinned in 342.
+- **B2 (the `verify` observer invocation model) — `ctx.lifecycle.advance(lc)`.**
+  The parameterization *declares* its observer (`jules.verify` for remote-async,
+  `gate.check` for reviewed); a single cap-layer reducer `advance` runs it via
+  `ctx.registry` and moves per its verdict (`on_done`/`on_not_done`/`on_error`).
+  `delegate.join` + `subagent.develop` both call `advance` — no hardcoded
+  member→member dependency. **Updated by the 2nd-pass panel (P2) + owner fork Q2.**
 - **B3 (unfalsifiable sole-writer) — static guard.** `# AGENCY-DRIFT:
   lifecycle-state-writer` + a `check-drift` grep (see §Architecture).
 - **B4 (344 vs shipped Spec 336) — split by transition class.** Terminal/blocked
@@ -405,6 +416,24 @@ pull — observe is `manage`/`jules`, named honestly) · S-1 (legacy nodes read
 `parameterization=""→"default"`; `open→submitted` affects only new lifecycles) ·
 auth-required (producer = a future auth-pending parameterization, not the base
 flow). Deferred with rationale: C-1 ownership rule + Hi-1 stall detection → 343.
+
+### Second-pass panel folds (post-reframe, owner forks decided 2026-06-20)
+
+The 2nd-pass panel (review §9) raised 2 new blockers on the reframe; both decided
+by the owner and folded:
+
+- **P1 (substrate frame discoverability) — Q1: index the `lifecycle_*` tools into
+  `search`** (the `intent_bootstrap` precedent); no shell discovery-cap. See
+  §"Discoverability" above.
+- **P2 (who runs the observer) — Q2: one `ctx.lifecycle.advance` reducer** at the
+  capability layer (parameterization declares the observer; `advance` dispatches
+  via `ctx.registry`). See B2 (updated) + 342 §"observer dispatch".
+- **P3 (`ctx.lifecycle` is a CORE.md change) — accepted:** 339 updates CORE.md
+  §CapabilityContext (8→9 fields) + the substrate-tool list. Stated, not silent.
+- **P4 (migration risk) — Q3: proof-first.** 339 re-ordered: substrate +
+  `ctx.lifecycle` + migrate **`delegate` end-to-end first** as the proof-of-pillar,
+  then the other members; `SessionLifecycle`→`session` parameterization is the
+  LAST migration slice (Q4), behind a develop/reflect-readers-still-pass gate.
 
 ## Followup — Implementation Status (2026-06-20)
 

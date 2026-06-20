@@ -80,9 +80,18 @@ synthesize_session`). Two reads:
 `delegate`), and behind its own acceptance that the develop/reflect readers still
 pass. Not a fork unless the owner wants to keep `SessionLifecycle` separate.
 
-## What needs the owner (the two ★ forks)
+## Decisions (owner, 2026-06-20) — all four resolved
 
-Q1 (discoverability approach) and Q2 (observer-dispatch home) both re-touch the
-capability/substrate boundary the owner just set, so they go to the owner before
-339 builds. Q3/Q4 are sequencing/risk calls I can apply with the panel's
-recommendations unless the owner objects.
+- **Q1 ★ → Option A.** Index the `lifecycle_*` substrate-tools into `search`
+  (the `intent_bootstrap` precedent); no shell discovery-cap. Folded into 338
+  §Discoverability + 339.
+- **Q2 ★ → one `advance()` reducer at the cap layer.** The parameterization
+  declares its observer by name; `ctx.lifecycle.advance(lc)` runs it via
+  `ctx.registry` and moves per verdict. `delegate.join` + `subagent.develop` both
+  call `advance`; no hardcoded member→member dependency. Folded into 342 + 338 B2.
+- **Q3 → proof-first.** 339 re-ordered: migrate `delegate` end-to-end first, then
+  the rest. Folded into 339.
+- **Q4 → fold, last slice.** `SessionLifecycle`→`session` parameterization is the
+  final migration slice, behind a develop/reflect-readers-still-pass gate.
+
+All four are now reflected in the specs; the brainstorm is closed.

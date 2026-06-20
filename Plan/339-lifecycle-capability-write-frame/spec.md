@@ -134,10 +134,25 @@ OPTIONAL props via the extension: `kind` (task | session | gate | dispatch …) 
 transition table (340) and parameterization registry (342) add theirs. The
 `lifecycle-management` skill slot is declared (populated by 343).
 
+### Decisions folded (owner forks, 2026-06-20)
+
+- **Q1 (discoverability):** the `lifecycle_open/move/close/advance` substrate-tools
+  are **indexed into `search`** (the `intent_bootstrap` precedent) — the pillar
+  frame is findable without a shell capability.
+- **Q3 (proof-first migration):** this slice is **re-ordered** — 339a ships the
+  hardened substrate + `ctx.lifecycle` + the `lifecycle_*` tools + migrates
+  **`delegate` only** (the richest consumer) as the proof-of-pillar; 339b migrates
+  `subagent`/`jules`/`gate`/`music`; `SessionLifecycle`→`session` parameterization
+  is the LAST slice (Q4), behind a gate that `develop.session_check/resume` +
+  `reflect.synthesize_session` still pass.
+- **P3 (canon):** 339 updates **CORE.md** §CapabilityContext (8→9 fields: add
+  `ctx.lifecycle`) and the substrate-tool list — the new surface is documented in
+  canon, not silent.
+
 ### What this slice does NOT do
 
 - No transition-table enforcement (340) — `move` only checks enum + no-op.
-- No observe verbs (341) and no parameterization variants (342).
+- No `advance`/parameterization variants (342) and no new observe surface (341).
 - No new typed table — `TypedLifecycleState` (Spec 329) mirrors the graph write
   for free.
 
