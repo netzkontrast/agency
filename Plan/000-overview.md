@@ -47,6 +47,23 @@ as the format reference. Required fields: `spec_id`, `slug`, `status`,
 | **021** [`engine-monitor-channel`](021-engine-monitor-channel/spec.md) | Engine-level Monitor channel: ONE `monitors/monitors.json` entry; capabilities fan in via `ctx.emit_monitor(...)`. Same shape principle as code-mode (one wire surface; many tools). | 020 |
 | **022** [`jules-monitor-capability`](022-jules-monitor-capability/spec.md) | First use of 021: Jules watcher state transitions + `dispatch`/`recover`/`verify` surface through the engine monitor stream. No new monitors.json entry. | 012, 013, 021 |
 
+### Wave `adr-workflow` — ADR × agency port + repo-development lifecycle (drafted 2026-06-20)
+
+Port the `adr` repo (enhanced WH(Y) ADR) onto the substrate as a *binding*, and
+build the repo's own development lifecycle around it with ADRs at the centre.
+Build order: 354 → 355 → (357 ‖ 359) → 356 → 358. See the master for the full
+mapping + reconciliations.
+
+| Spec | What it proposes | depends_on |
+|---|---|---|
+| **353** [`adr-agency-port`](353-adr-agency-port/spec.md) | **Master.** Maps every ADR concept onto a substrate primitive; the four owner-confirmed reconciliations; reserved ontology; child sequencing. | 290, 292, 293, 307, 091, 018, 339, 047 |
+| **354** [`adr-ontology-capability`](354-adr-ontology-capability/spec.md) | `AdrTheme`/`Decision` nodes (WH(Y) schema) + dependency edges + the dedicated `adr` capability (draft·validate·link·supersede·theme_status·render·impact). | 353, 293, 292, 339 |
+| **355** [`adr-definition-of-done-gate`](355-adr-definition-of-done-gate/spec.md) | Definition of Done (ECADR+Dp/Rf/M) as a `ctx.elicit` Gate; decision status as a Lifecycle; cadence-driven `expired`. | 354, 339 |
+| **356** [`spec-decision-extraction`](356-spec-decision-extraction/spec.md) | `extract_decisions` (spec→ADR draft) + `spec_decisions_ready` (the `/open→/inprogress` predicate) + `hints` (architecture hints loaded at impl start). | 354, 355, 292, 290 |
+| **357** [`spec-state-lifecycle`](357-spec-state-lifecycle/spec.md) | Physical `Plan/<state>/` folders + `SpecLifecycle` graph mirror + `state:` frontmatter + `move_spec`·`index`·`board`; legacy grandfathered. | 353, 292, 339, 351 |
+| **358** [`workflow-capability`](358-workflow-capability/spec.md) | The `workflow` capability: the walkable `develop-spec` 14-phase lifecycle + chainable per-step verbs; the ADR hinge. | 353-357, 359, 307, 018, 047 |
+| **359** [`brooks-lint`](359-brooks-lint/spec.md) | A 9th `intent` critical-thinking method — conceptual integrity / essential-vs-accidental complexity / second-system effect; folds like panel findings. | 091, 092, 283 |
+
 ### Wave-1 backlog (early planning era — revisit when canon needs new ground)
 
 | Spec | What it proposed |
