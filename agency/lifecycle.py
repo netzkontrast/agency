@@ -121,8 +121,7 @@ class Lifecycle:
         return extend_table(self._base_table, extra)
 
     def open(self, intent_id: str, *, kind: str = "task",
-             agent: str = "", parameterization: str = "",
-             machine: str = "a2a") -> str:
+             agent: str = "", parameterization: str = "") -> str:
         # Spec 339 — mint in `submitted` (was `working`): submitted = admitted/
         # queued, working = actually running. The distinction makes `whats_next`
         # accurate and matches CORE.md §3's A2A start state.
@@ -131,12 +130,7 @@ class Lifecycle:
         # (the 342 seam — e.g. "remote-async" for a delegated child, "session"
         # for a SessionLifecycle) are OPTIONAL props recorded only when set, so
         # legacy/default lifecycles stay byte-identical.
-        # Spec 345 — per-machine initial state; default machine "a2a" → SUBMITTED (byte-identical)
-        from ._lifecycle_machines import resolve_machine as _resolve_machine
-        _m = _resolve_machine(machine)
-        props: dict = {"state": _m["initial"], "phase": 0}
-        if machine != "a2a":
-            props["machine"] = machine
+        props = {"state": SUBMITTED, "phase": 0}
         if kind and kind != "task":
             props["kind"] = kind
         if parameterization:
@@ -164,33 +158,19 @@ class Lifecycle:
         # AGENCY-DRIFT: lifecycle-state-writer — the ONE legitimate site that
         # writes Lifecycle.state. A new `update({"state": ...})` / `record(
         # "Lifecycle"/"SessionLifecycle", ...)` elsewhere is drift (Spec 340 guard).
-        node = self.m.recall(lc_id) or {}
-        current = node.get("state")
-        machine_name = node.get("machine", "a2a")
-
-        # Spec 345: per-machine state + transition validation.
-        # A2A branch reuses _effective_table() for graph-override support (Spec 340);
-        # other machines use resolve_machine() from the seed registry.
-        if machine_name == "a2a":
-            valid_states = LIFECYCLE_STATES
-            table = self._effective_table()
-        else:
-            from ._lifecycle_machines import resolve_machine as _resolve_machine
-            _m = _resolve_machine(machine_name)
-            valid_states = _m["states"]
-            table = _m["transitions"]
-
-        if to_state not in valid_states:
+        if to_state not in LIFECYCLE_STATES:
             raise ValueError(
-                f"unknown state {to_state!r} for machine {machine_name!r}; "
-                f"valid: {sorted(valid_states)}")
+                f"unknown lifecycle state {to_state!r}; "
+                f"valid: {sorted(LIFECYCLE_STATES)}")
+        current = (self.m.recall(lc_id) or {}).get("state")
         if current == to_state:
             raise ValueError(
                 f"no-op transition: lifecycle {lc_id!r} is already {to_state!r}")
-        # A well-formed lifecycle (any state set by `open`) must follow a legal
-        # edge; a lifecycle with no state yet (pre-`open` legacy) is exempt.
+        # Spec 340 — enforce the A2A transition table. A well-formed lifecycle
+        # (any state set by `open`) must follow a legal edge; a lifecycle with no
+        # state yet (pre-`open` legacy) can't be reasoned about, so it is exempt.
         if current:
-            assert_transition(current, to_state, table)
+            assert_transition(current, to_state, self._effective_table())
         self.m.update(lc_id, {"state": to_state})
         self._emit_transition(lc_id, current or "", to_state, evidence)
         return to_state
@@ -208,13 +188,6 @@ class Lifecycle:
         serving = self.m.neighbors(lc_id, "SERVES", direction="out")
         if serving:
             intent_id = serving[0].get("id", "")
-        # Spec 347 — frugal stamp: active discipline level at transition time.
-        # Single source: _frugal.frugal_level() (Spec 332); never redefined here.
-        try:
-            from ._frugal import frugal_level as _frugal_level
-            fl = _frugal_level()
-        except Exception:
-            fl = ""
         if is_durable_transition(to_state):
             # Reuse Spec 076: a new *kind* of Event, exactly as Spec 156 records
             # `loop_detected`. `from_state`/`to_state` (not `from`/`to` — both are
@@ -222,13 +195,13 @@ class Lifecycle:
             eid = self.m.record("Event", {
                 "name": TRANSITION_EVENT_NAME, "session": "lifecycle",
                 "lifecycle": lc_id, "from_state": from_state,
-                "to_state": to_state, "evidence": evidence, "frugal": fl})
+                "to_state": to_state, "evidence": evidence})
             if intent_id:
                 self.m.link(eid, intent_id, "OBSERVED_DURING")
             self.m.link(eid, lc_id, "OBSERVED_DURING")
         ev = {"lifecycle_id": lc_id, "from_state": from_state,
               "to_state": to_state, "intent_id": intent_id, "evidence": evidence,
-              "durable": is_durable_transition(to_state), "frugal": fl}
+              "durable": is_durable_transition(to_state)}
         if self.engine is not None:
             _events.run(self.engine, LIFECYCLE_TRANSITION_EVENT, ev)
         else:                                    # bare Lifecycle(memory, monitor) — no bus

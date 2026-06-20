@@ -1,7 +1,7 @@
 ---
 spec_id: "347"
 slug: frugal-embedded-lifecycle
-status: shipped
+status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [3]
@@ -108,22 +108,12 @@ Scenario: the floor definition has a single source (Spec 332)
 
 ## Followup — Implementation Status (2026-06-20)
 
-**Shipped.** All three depths implemented and acceptance-tested (5/5 scenarios green).
-
-**Done:**
-- Depth 1 — floor gate invariant: `_check_floor_gates` BFS in `agency/_lifecycle_machines.py`;
-  if `floor_gates` declared, every path to terminal must pass through a gate. Raises
-  `ValueError` with "floor" in message on violation. `register_machine` / `_normalise` /
-  `_apply_delta` all wire through this check. `floor_gates` propagated in resolve result.
-- Depth 2 — frugal stamp on transition events: `_emit_transition` in `agency/lifecycle.py`
-  calls `frugal_level()` (Spec 332 single source, lazy import + try/except fallback to `""`).
-  Stamp lands on both the durable `Event` graph node and the bus event dict. Verified via
-  `memory.query_nodes("Event", {"lifecycle": …, "to_state": "completed"})`.
-- Depth 3 — `frugal` drivable machine: registered in `agency/_lifecycle_data/machines.json`
-  with states `assess→yagni→(stdlib|implement)→…→floor-check→done`, `floor_gates:["floor-check"]`,
-  terminal `["done"]`. `lifecycle.open(intent, machine="frugal")` → initial state `"assess"`.
-- 5 Gherkin scenarios in `tests/acceptance/features/frugal_embedded.feature` + step
-  definitions in `tests/acceptance/test_frugal_embedded.py`. All pass in 8.6s.
+Not started — opened by the owner's "deeply embed frugal into lifecycle" directive.
+Three depths: (1) the frugal floor (validate·secure·a11y) becomes a non-removable
+cross-machine invariant in `resolve_machine` (345); (2) transition events (344)
+carry the frugal stamp; (3) `frugal` is registered as a drivable machine (the
+ladder). Reuses Spec 332 (single source for the floor/ladder); only the floor is
+hard, the ladder stays advisory. Builds on 345 (machine registry) + 344 (events).
 
 **Spec 348/349 cross-ref.** The drivable `frugal` machine's verbs (depth 3) live
 in the `frugal` capability (Spec 348, the ponytail port). The transition
