@@ -372,28 +372,3 @@ the wire return adds the full `findings` count beside the token-bounded
 `decidable_findings`. The acceptance bloat scenario asserts the FrugalFinding node
 count equals the reported findings count (computed, not pinned) — the full judgment
 is a graph query, not a dropped tail.
-
-**Refinement 2026-06-20 — robustness (Jules review, two deferred findings + a
-test-isolation defect).**
-- **First-use hint had a silent gap.** `_FIRST_USE_HINTS` was a closed
-  `{Bash, Write, Edit}` map, so `on_first_tool_use` returned `""` for ANY other
-  tool (Grep, Read, an MCP verb, a future tool) — the first-use nudge silently
-  never fired. Added a generic `_GENERIC_FIRST_USE_HINT` fallback so every tool's
-  first use carries the frugal reflex (the floor still named); the three entries
-  now only REFINE it. New scenario fires PreToolUse for an unlisted tool and
-  asserts the hint lands once.
-- **`review` saw nothing on a repo with no commits.** `_changed_files` ran
-  `git diff --name-only HEAD`, which errors on an unborn HEAD; staged files aren't
-  `--others` either, so the changed-file list came back empty and a brand-new
-  repo's first commit was unreviewable. Now `_has_commit()` detects the unborn
-  HEAD and falls back to `git ls-files --cached` (+ untracked), so staged bloat is
-  reviewed. New scenario stages a bloated file in a no-commit repo and asserts the
-  decidable cut is flagged.
-- **Test-isolation fix (same class as the conftest `engine` fix).**
-  `test_hooks.py::_fresh_hook_engine` built `Engine(mktemp())` WITHOUT setting
-  `AGENCY_TOOLCALLS_DB`, so its Spec 336 store resolved to the single shared
-  `/tmp/toolcalls.db` (accumulating capture across tests + runs). The
-  `rows[-1] == "Bash"` BoundaryUse assertion was order-dependent in a cross-file
-  run (a PreToolUse from another test leaked in as the latest row). Isolated the
-  store per test, mirroring the conftest fixture; `test_hooks` + the
-  hook/event/toolcall/frugal slice are deterministically green.

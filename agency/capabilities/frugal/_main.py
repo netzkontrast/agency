@@ -199,35 +199,16 @@ class FrugalCapability(CapabilityBase):
     # ── helpers ───────────────────────────────────────────────────────────────
     def _changed_files(self, ref: str) -> list[str]:
         """Files changed vs ``ref`` (default HEAD) — tracked modifications AND new
-        untracked files, so a freshly-added over-built file is reviewed too. On an
-        unborn HEAD (a repo with no commits yet) there is no revision to diff against:
-        ``git diff HEAD`` errors and the list came back empty (Jules review), so a
-        brand-new repo's first commit was unreviewable. Fall back to every staged +
-        untracked file instead."""
-        base = ref or "HEAD"
-        if base == "HEAD" and not self._has_commit():
-            cmds = (["git", "ls-files", "--cached"],
-                    ["git", "ls-files", "--others", "--exclude-standard"])
-        else:
-            cmds = (["git", "diff", "--name-only", base],
-                    ["git", "ls-files", "--others", "--exclude-standard"])
+        untracked files, so a freshly-added over-built file is reviewed too."""
         out: list[str] = []
-        for cmd in cmds:
+        for cmd in (["git", "diff", "--name-only", ref or "HEAD"],
+                    ["git", "ls-files", "--others", "--exclude-standard"]):
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
                 out += [ln for ln in r.stdout.splitlines() if ln.strip()]
             except Exception:
                 pass
         return sorted(set(out))
-
-    def _has_commit(self) -> bool:
-        """True when HEAD resolves to a commit; False on an unborn HEAD or non-repo."""
-        try:
-            r = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"],
-                               capture_output=True, text=True, timeout=10)
-            return r.returncode == 0
-        except Exception:
-            return False
 
     def _tracked_files(self, paths: str) -> list[str]:
         """Tracked source under ``paths`` via ``git ls-files`` (honours .gitignore
@@ -269,14 +250,6 @@ class FrugalCapability(CapabilityBase):
 
 
 # ── Spec 349a — the first-use-once event subscriber (the reference subscriber) ──
-# A generic frugal nudge for ANY tool without a tailored hint — so a new or unlisted
-# tool (Grep, Read, an MCP verb, a future tool) is never silently skipped (Jules
-# review: the map was a closed set of Bash/Write/Edit). The entries below only
-# REFINE the reflex for the common additive tools.
-_GENERIC_FIRST_USE_HINT = (
-    "laziest solution that works first — reach for a dedicated verb or a stdlib / "
-    "native feature before new code or a new dependency; smallest change that does "
-    "the job (the floor still holds: validate / secure / accessible).")
 _FIRST_USE_HINTS = {
     "Bash": "prefer a dedicated tool/verb over raw bash where one fits; shortest command that works.",
     "Write": "does this file need to exist? (YAGNI) — stdlib/native before new code; shortest working file.",
@@ -286,16 +259,12 @@ _FIRST_USE_HINTS = {
 
 def on_first_tool_use(engine, event) -> str:
     """Spec 349a — on the FIRST PreToolUse of a tool in a session, return a frugal
-    hint for that tool; the bus dedups (once per session.tool) so it fires once. A
-    tool with no tailored hint gets the generic reflex — never a silent gap (Jules
-    review). Silent at frugal level 'off'. The reference subscriber for the bus."""
+    hint for that tool; the bus dedups (once per session.tool) so it fires once.
+    Silent at frugal level 'off'. The reference subscriber for the pillar event bus."""
     if _frugal.frugal_level() == "off":
         return ""
-    tool = (event or {}).get("tool_name", "")
-    if not tool:
-        return ""
-    hint = _FIRST_USE_HINTS.get(tool, _GENERIC_FIRST_USE_HINT)
-    return f"[frugal] {hint}"
+    hint = _FIRST_USE_HINTS.get((event or {}).get("tool_name", ""))
+    return f"[frugal] {hint}" if hint else ""
 
 
 _events.subscribe("PreToolUse", on_first_tool_use,

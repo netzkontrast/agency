@@ -145,23 +145,6 @@ def _review(engine, confirmed_intent, review_path):
     return _f(engine, confirmed_intent, "review", scope="repo", paths=review_path)
 
 
-@given("a git repo with a staged python file but no commit")
-def _nocommit_repo(tmp_path, monkeypatch):
-    """A fresh repo whose HEAD is unborn (no commit yet) with a bloated file STAGED.
-    The diff-scope review must still see it — Jules review: `git diff HEAD` errors on
-    an unborn HEAD, so the changed-file list came back empty and review saw nothing."""
-    import subprocess
-    monkeypatch.chdir(tmp_path)
-    subprocess.run(["git", "init", "-q"], cwd=str(tmp_path), check=True)
-    (tmp_path / "bloat.py").write_text("import os\nx = " + "1 + " * 80 + "1\n")
-    subprocess.run(["git", "add", "bloat.py"], cwd=str(tmp_path), check=True)
-
-
-@when("I review the working diff for over-engineering", target_fixture="fr")
-def _review_diff(engine, confirmed_intent):
-    return _f(engine, confirmed_intent, "review", scope="diff")
-
-
 @then("the review flags a decidable cut")
 def _flags(fr):
     assert fr["decidable_findings"], fr

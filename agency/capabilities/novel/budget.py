@@ -29,7 +29,9 @@ def apply_output_budget(
     capability_set_hash: str,
     items: List[Dict[str, Any]],
     fields: Optional[List[str]] = None,
-    max_bytes: int = MAX_BODY_BYTES
+    max_bytes: int = MAX_BODY_BYTES,
+    list_key: str = "items",
+    count_key: str = "total"
 ) -> ToolResult:
     try:
         projected_items = project_fields(items, fields)
@@ -67,15 +69,17 @@ def apply_output_budget(
             "capability_set_hash": capability_set_hash
         },
         "body": {
-            "items": shown_items,
-            "total": len(items),
+            list_key: shown_items,
+            count_key: len(items),
             "shown": len(shown_items),
             "overflow_handle": overflow_handle,
             "next_cursor": None
-        }
+        },
+        list_key: shown_items,
+        count_key: len(items)
     }
 
-    return ToolResult(data=result)
+    return ToolResult.success(data=result)
 
 def recall_overflow(handle: str, grep: str = "") -> ToolResult:
     if handle not in _OVERFLOW_STORE:

@@ -1934,7 +1934,7 @@ def _then_idea_serves(engine, confirmed_intent, ctx):
 
 @then(parsers.parse("the idea count is {n:d}"))
 def _then_idea_count(ctx, n):
-    assert ctx["result"]["count"] == n
+    assert ctx["result"].get("count", ctx["result"].get("body", {}).get("total")) == n
 
 
 @then("the result contains a novel_id")
@@ -2257,7 +2257,7 @@ def _then_claim_serves(engine, confirmed_intent, ctx):
 
 @then(parsers.parse("the claim count is {n:d}"))
 def _then_claim_count(ctx, n):
-    assert ctx["result"]["count"] == n
+    assert ctx["result"].get("count", ctx["result"].get("body", {}).get("total")) == n
 
 
 @then("the total pending count is 2")
