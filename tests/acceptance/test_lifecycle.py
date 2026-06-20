@@ -213,3 +213,64 @@ def _timeline_has_transition(engine, confirmed_intent):
                     for_intent_id=confirmed_intent)
     names = [item.get("name") for item in res.get("timeline", [])]
     assert "lifecycle_transition" in names, names
+
+
+# ── Spec 340 — the enforced A2A transition table ──────────────────────────────
+
+
+@when(parsers.parse('I move the lifecycle to "{to_state}" expecting an illegal transition'))
+def _move_illegal(engine, lc, to_state, box):
+    try:
+        engine.lifecycle.move(lc, to_state)
+        box["illegal"] = None
+    except Exception as exc:  # noqa: BLE001
+        box["illegal"] = exc
+
+
+@then(parsers.parse('the move is rejected as an illegal transition with allowed "{allowed}"'))
+def _rejected_illegal_allowed(box, allowed):
+    from agency._lifecycle_transitions import IllegalTransition
+    err = box.get("illegal")
+    assert isinstance(err, IllegalTransition), err
+    assert str(err.allowed) == allowed, err.allowed
+
+
+@then("the move is rejected as an illegal transition")
+def _rejected_illegal(box):
+    from agency._lifecycle_transitions import IllegalTransition
+    assert isinstance(box.get("illegal"), IllegalTransition), box.get("illegal")
+
+
+@then("every state in the transition table is a valid lifecycle state")
+def _table_consistent():
+    from agency._lifecycle_transitions import load_base_table
+    from agency.ontology import LIFECYCLE_STATES
+    table = load_base_table()
+    for state, targets in table.items():
+        assert state in LIFECYCLE_STATES, state
+        for target in targets:
+            assert target in LIFECYCLE_STATES, target
+
+
+@given(parsers.parse('a transition-table override adding "{src}" to "{dst}"'))
+def _override(engine, confirmed_intent, src, dst):
+    import json
+    from agency.lifecycle import TRANSITION_TABLE_KIND
+    aid = engine.memory.record("Artefact", {"kind": TRANSITION_TABLE_KIND,
+                                            "table": json.dumps({src: [dst]})})
+    engine.memory.link(aid, confirmed_intent, "SERVES")
+    return aid
+
+
+@when(parsers.parse('I move an opened lifecycle to "{to_state}"'), target_fixture="lc")
+def _open_and_move(engine, confirmed_intent, to_state):
+    lc = engine.lifecycle.open(confirmed_intent)
+    engine.lifecycle.move(lc, to_state)
+    return lc
+
+
+@then("loading the effective table is rejected")
+def _effective_rejected(engine):
+    from agency._lifecycle_transitions import IllegalTransition
+    with pytest.raises(IllegalTransition):
+        engine.lifecycle._effective_table()

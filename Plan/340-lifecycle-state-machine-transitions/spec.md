@@ -1,7 +1,7 @@
 ---
 spec_id: "340"
 slug: lifecycle-state-machine-transitions
-status: draft
+status: partial
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 4]
@@ -126,6 +126,41 @@ Scenario: the seed table is internally consistent
 
 ## Followup — Implementation Status (2026-06-20)
 
-Not started. Adds `data/transitions.json` + `_assert_transition` behind 339's
-`move`. The three former unguarded writes (routed through `move` in 339) inherit
-enforcement automatically. Parameterization variant data lands in 342.
+**Partial — Slice 1 SHIPPED 2026-06-20.** The enforced table lands behind 339's
+`move`; the build-order note (after 340 → 344) is moot now that both are in (344
+shipped first per owner request; the guard layered in cleanly without touching the
+emit path).
+
+Done:
+- `agency/_lifecycle_data/transitions.json` — the base A2A table as **data**
+  (`# AGENCY-DRIFT: lifecycle-transitions`), validated against `LIFECYCLE_STATES`
+  at load (a typo is a startup error).
+- `agency/_lifecycle_transitions.py` — pure module: typed `IllegalTransition`
+  (`{from_state, to_state, allowed}`), `load_base_table`, `assert_transition`,
+  `extend_table` (monotone union + terminal-floor: a graph override can never
+  remove a base edge nor reopen a terminal state), `terminal_states`.
+- `Lifecycle.move` (the SOLE writer) calls `assert_transition(current, to_state,
+  self._effective_table())` before writing — so the three routed writers
+  (delegate/gate/lifecycle_gate) inherit enforcement for free. `_effective_table`
+  reads the graph override (`Artefact{kind:"transition-table"}`, the `shell.define`
+  pattern) per-move, seed fallback. A well-formed lifecycle is guarded; a
+  state-less legacy node is exempt (can't be reasoned about).
+- 6 acceptance scenarios (legal succeeds · terminal→illegal with `allowed=[]` ·
+  skip raises · seed table internally consistent · override read + floor-safe ·
+  override can't reopen a terminal). Full suite green.
+
+**Table refinement (grounded, not a magic-number edit — CLAUDE.md #8).** The spec
+sketch's `submitted: [working, canceled]` rejected `submitted→input-required`,
+which broke 15 real consumer gate tests (music/prompt): a **readiness/pre-flight
+gate fires before work starts** and pauses a freshly-opened (`submitted`)
+lifecycle. So `submitted` also reaches `input-required`/`auth-required`. The core
+invariant the spec defends — *no `completed` without passing `working`* — is
+intact (`submitted` still can NOT skip to `completed`/`failed`).
+
+Still (Slice 2): the **B3 static drift guard** (`scripts/check-drift` grep that
+fails CI on any `update(...{"state"` / `record("Lifecycle"` outside
+`agency/lifecycle.py`) is deferred to **339b** — `subagent`/`music` still write
+`state` directly, so the guard would red CI today; it lands once those writers are
+routed through `move`. Parameterization *variant data* (the `verify`-insert) lands
+in **342** (340 only proves the extension mechanism is monotone + floor-safe). The
+reachability/orphan check (F-2 b) activates when 342 supplies replacement edges.

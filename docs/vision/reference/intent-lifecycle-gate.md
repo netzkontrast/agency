@@ -1,7 +1,7 @@
 # Intent · Lifecycle · Gate — three of the four concepts
 
 <!-- doc-source: agency/intent.py agency/lifecycle.py agency/capabilities/gate/_main.py -->
-<!-- doc-hash: 66345573b9ea7c4e -->
+<!-- doc-hash: 7965841abc814702 -->
 
 ## Intent (`agency/intent.py`)
 
@@ -34,8 +34,13 @@ surface, Spec 339).
   `parameterization` (the agent-as-Lifecycle seam, e.g. `"remote-async"`) are
   optional props recorded only when set. Returns the lifecycle id.
 - **`move(lc_id, to_state)`** is the **sole** state-shaped writer — it validates
-  `to_state` against the closed enum and refuses a no-op; every state change flows
-  through this one chokepoint. Each accepted transition **emits** (Spec 344):
+  `to_state` against the closed enum, refuses a no-op, and **enforces the A2A
+  transition table** (Spec 340): the legal edges live as data in
+  `agency/_lifecycle_data/transitions.json` (overridable by an
+  `Artefact{kind:"transition-table"}` graph node, monotone + terminal-floor checked
+  via `extend_table`), and an illegal edge (`completed→working`,
+  `submitted→completed`) raises a typed `IllegalTransition{from_state, to_state,
+  allowed}`. Each accepted transition **emits** (Spec 344):
   terminal/blocked states (`completed·failed·canceled·input-required·auth-required`)
   become a durable graph `Event{name:"lifecycle_transition"}` (`OBSERVED_DURING` the
   intent + lifecycle, reusing the Spec 076 node); every transition also fans a
