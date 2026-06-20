@@ -16,6 +16,7 @@ from . import _config
 
 LEVELS = ("off", "lite", "full", "ultra")
 DEFAULT_LEVEL = "full"
+SESSION_INJECT = ("off", "discipline", "full")   # SessionStart inject detail (Spec 348)
 
 # The safety-floor invariants — pinned verbatim so no level (bar off) and no
 # Spec 333 adapter copy can silently drop one (the Slice-4 gate asserts these).
@@ -88,6 +89,46 @@ def render(level: str | None = None, *, mode: str = "full") -> str:
     )
 
 
+def help_text(level: str | None = None) -> str:
+    """The COMPLETE frugal help (the ponytail-help info): the discipline (ladder +
+    floor) + the levels table + how to switch + what's configurable. This is the
+    SessionStart inject when ``frugal.session_inject=full`` (the default, Spec 348)
+    — the agent's full initial briefing, not just the one-line stamp."""
+    lvl = _norm(level) if level is not None else frugal_level()
+    if lvl == "off":
+        return ""
+    rows = [("lite", _LEVEL_NOTE["lite"]), ("full", _LEVEL_NOTE["full"]),
+            ("ultra", _LEVEL_NOTE["ultra"]), ("off", "disable the discipline injection.")]
+    levels = "\n".join(f"  {k:<5} — {v}" for k, v in rows)
+    return (
+        f"{render(lvl, mode='full')}\n\n"
+        f"Levels (active: {lvl}):\n{levels}\n"
+        "Switch the level — set AGENCY_FRUGAL_LEVEL (env) or frugal.level in "
+        ".agency/config.yaml; resolution env > config > full.\n"
+        "Inject detail — frugal.session_inject = off | discipline | full (this card)."
+    )
+
+
+def session_inject_text(level: str | None = None, *, path: str | None = None) -> str:
+    """The SessionStart inject content (Spec 348 mandatory wiring), configurable via
+    ``frugal.session_inject``: ``off`` → nothing · ``discipline`` → the ladder +
+    floor (the M1 render) · ``full`` → the complete help card (default). Never
+    raises — a bad/missing config degrades to the full help."""
+    lvl = _norm(level) if level is not None else frugal_level()
+    if lvl == "off":
+        return ""
+    try:
+        what = _config.config_get("frugal.session_inject", path=path)
+        what = str(what).strip().lower() if what else "full"
+    except Exception:
+        what = "full"
+    if what == "off":
+        return ""
+    if what == "discipline":
+        return render(lvl, mode="full")
+    return help_text(lvl)
+
+
 def safety_floor_intact(render_fn=None) -> dict:
     """Spec 332 Slice 4 — the safety-floor gate predicate. The floor is a
     first-class clause no level (bar ``off``) can strip: at every non-off level
@@ -135,4 +176,7 @@ _config.register_config_section("frugal", [
                       "minimal-code discipline level", enum=LEVELS),
     _config.ConfigKey("stamp_every_verb", "AGENCY_FRUGAL_STAMP", True,
                       "M2: stamp the discipline on every verb's envelope prefix"),
+    _config.ConfigKey("session_inject", "AGENCY_FRUGAL_SESSION_INJECT", "full",
+                      "SessionStart inject detail: off|discipline|full (Spec 348)",
+                      enum=SESSION_INJECT),
 ])

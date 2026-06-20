@@ -482,8 +482,12 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
         level = _frugal.frugal_level()
         if level == "off":
             return inject
-        mode = "full" if (not prompt or level == "ultra") else "compact"
-        text = _frugal.render(level, mode=mode)
+        if prompt:
+            mode = "full" if level == "ultra" else "compact"
+            text = _frugal.render(level, mode=mode)
+        else:
+            # SessionStart: the configurable full help (Spec 348 mandatory wiring).
+            text = _frugal.session_inject_text(level)
     except Exception:
         return inject
     if not text:
