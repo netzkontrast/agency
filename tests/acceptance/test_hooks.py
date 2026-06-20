@@ -67,7 +67,14 @@ def _call_wire(eng: Engine, tool: str, args: dict) -> dict:
 # ── shared Given override ─────────────────────────────────────────────────────
 
 @given("a fresh agency engine in code-mode", target_fixture="hook_engine")
-def _fresh_hook_engine():
+def _fresh_hook_engine(tmp_path, monkeypatch):
+    # Isolate the Spec 336 tool-call store PER TEST (mirrors the conftest `engine`
+    # fixture). Without this, every mktemp graph db shares one dir (/tmp), so the
+    # derived toolcalls.db (resolve_path: ".agency/toolcalls.db" beside the graph
+    # db) is ONE shared, persistent file accumulating capture across tests + runs.
+    # That makes the `rows[-1]` store assertions order-dependent in a cross-file run
+    # — a PreToolUse from another test leaks in as the latest row.
+    monkeypatch.setenv("AGENCY_TOOLCALLS_DB", str(tmp_path / "toolcalls.db"))
     e = Engine(tempfile.mktemp(suffix=".db"))
     return e
 
