@@ -7,10 +7,10 @@ help card. Config is isolated to a temp path so set_level never pollutes the rep
 from __future__ import annotations
 
 import pytest
-from pytest_bdd import parsers, scenarios, then, when
+from pytest_bdd import given, parsers, scenarios, then, when
 
 from agency import _frugal
-from conftest import invoke
+from conftest import invoke, served
 
 scenarios("features/frugal_capability.feature")
 
@@ -66,3 +66,57 @@ def _instr_empty(fr):
 @then(parsers.parse('the frugal help contains "{needle}"'))
 def _help_has(fr, needle):
     assert needle in fr["help"], fr["help"][:200]
+
+
+# ── debt + gain (Slice 2) ─────────────────────────────────────────────────────
+
+
+@given("a source tree with frugal markers", target_fixture="debt_path")
+def _tree(tmp_path):
+    (tmp_path / "a.py").write_text(
+        "x = 1  # frugal: global lock, per-account locks if throughput matters\n")
+    (tmp_path / "b.html").write_text(
+        "<div><!-- frugal: inline style, extract to CSS when reused --></div>\n")
+    (tmp_path / "c.js").write_text("// frugal: naive O(n^2) scan\n")
+    return str(tmp_path)
+
+
+@given("a source file with a frugal string literal", target_fixture="debt_path")
+def _strlit(tmp_path):
+    (tmp_path / "d.py").write_text('msg = "frugal: this is not a comment marker"\n')
+    return str(tmp_path)
+
+
+@when("I harvest the frugal debt for that tree", target_fixture="fr")
+def _debt(engine, confirmed_intent, debt_path):
+    return _f(engine, confirmed_intent, "debt", paths=debt_path)
+
+
+@when("I get the frugal gain scoreboard", target_fixture="fr")
+def _gain(engine, confirmed_intent):
+    return _f(engine, confirmed_intent, "gain")
+
+
+@then(parsers.parse("the debt ledger has {n:d} markers"))
+def _ledger_n(fr, n):
+    assert fr["markers"] == n, fr
+
+
+@then(parsers.parse("{n:d} marker has no upgrade trigger"))
+def _no_trig(fr, n):
+    assert fr["no_trigger"] == n, fr
+
+
+@then("a DebtMarker node serves the intent")
+def _served(engine, confirmed_intent, fr):
+    assert served(engine, confirmed_intent, "DebtMarker") >= 1
+
+
+@then("the scoreboard names the ponytail benchmark source")
+def _bench_src(fr):
+    assert "ponytail" in fr["benchmark"]["source"].lower()
+
+
+@then("the scoreboard points to frugal.debt for the only real per-repo number")
+def _points_debt(fr):
+    assert "frugal.debt" in fr["this_repo"]

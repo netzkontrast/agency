@@ -13,10 +13,12 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## frugal verb audit — 2 of 4 verbs need work
+## frugal verb audit — 3 of 6 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
+| `frugal.debt` | effect | ✓ clean |
+| `frugal.gain` | transform | `missing_inputs` |
 | `frugal.help` | transform | `missing_inputs` |
 | `frugal.instructions` | transform | ✓ clean |
 | `frugal.level` | transform | `missing_inputs` |

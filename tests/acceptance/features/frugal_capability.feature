@@ -24,3 +24,20 @@ Feature: frugal capability — the ponytail port (Spec 348 Slice 1)
     When I get the frugal help
     Then the frugal help contains "Levels (active:"
     And the frugal help contains "YAGNI"
+
+  Scenario: debt harvests comment-prefixed markers (incl. an HTML comment) as provenance
+    Given a source tree with frugal markers
+    When I harvest the frugal debt for that tree
+    Then the debt ledger has 3 markers
+    And 1 marker has no upgrade trigger
+    And a DebtMarker node serves the intent
+
+  Scenario: debt ignores a frugal: string that is not in a comment (M3)
+    Given a source file with a frugal string literal
+    When I harvest the frugal debt for that tree
+    Then the debt ledger has 0 markers
+
+  Scenario: gain shows the published benchmark and never invents a per-repo number
+    When I get the frugal gain scoreboard
+    Then the scoreboard names the ponytail benchmark source
+    And the scoreboard points to frugal.debt for the only real per-repo number

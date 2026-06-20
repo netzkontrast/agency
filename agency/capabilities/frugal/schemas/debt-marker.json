@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DebtMarker",
+  "description": "A deliberate frugal:/ponytail: shortcut marker harvested from a comment (agency/capabilities/frugal; Spec 348). Records file:line, the named ceiling, and the upgrade trigger so a deferral is a query, not a re-grep. has_trigger=false marks the rot risk (a shortcut with no named upgrade path).",
+  "type": "object",
+  "required": ["file", "line"],
+  "properties": {
+    "file": {
+      "type": "string",
+      "description": "Path of the file containing the marker."
+    },
+    "line": {
+      "type": "integer",
+      "description": "1-based line number of the marker."
+    },
+    "text": {
+      "type": "string",
+      "description": "The full marker text after the frugal:/ponytail: prefix."
+    },
+    "ceiling": {
+      "type": "string",
+      "description": "The named limit of the deliberate shortcut (the part before the comma)."
+    },
+    "upgrade": {
+      "type": "string",
+      "description": "The trigger/condition to revisit the shortcut (empty = no trigger named)."
+    },
+    "has_trigger": {
+      "type": "boolean",
+      "description": "Whether an upgrade trigger was named; false flags a shortcut that can silently rot."
+    }
+  }
+}

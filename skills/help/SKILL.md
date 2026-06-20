@@ -73,7 +73,7 @@ agency execute --code \
 - **doctrine** — cite, principles, resolve, rules
 - **document** — convergence, explain, index_repo, ingest, mirror, render, reopen, restore_session, revisions, session, session_analytics, sync
 - **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, recall_overflow_slice, record_decision, render, replay_events
-- **frugal** — help, instructions, level, set_level
+- **frugal** — debt, gain, help, instructions, level, set_level
 - **gate** — adjudicate, check
 - **intent** — assumptions, decompose, first_principles, inversion, premortem, second_order, steelman, suggests, tradeoffs
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch
