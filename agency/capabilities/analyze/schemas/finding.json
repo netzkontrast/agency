@@ -29,6 +29,22 @@
     "evidence": {
       "type": "string",
       "description": "Optional code excerpt or additional evidence from the analyzer."
+    },
+    "risk_code": {
+      "type": "string",
+      "description": "Spec 354 — decay-risk code this finding evidences ('R1'-'R6' code, 'T1'-'T6' test, or a defined custom 'Cx'); empty for a plain decidable finding."
+    },
+    "source": {
+      "type": "string",
+      "description": "Spec 354 — the Iron Law Source: the book/principle grounding the risk (e.g. 'Martin — Clean Architecture — Acyclic Dependencies Principle')."
+    },
+    "consequence": {
+      "type": "string",
+      "description": "Spec 354 — the Iron Law Consequence: what decays if the finding is left unfixed."
+    },
+    "remedy": {
+      "type": "string",
+      "description": "Spec 354 — the Iron Law Remedy: the concrete corrective action."
     }
   }
 }

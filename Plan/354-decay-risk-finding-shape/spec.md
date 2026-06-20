@@ -233,3 +233,43 @@ per `(risk_code, span)`, no double-count (Hohpe); `decay-risks.json` carries a
 data is drift-tracked symmetrically with 359's prose (Newman). Next: RED→GREEN on
 the `Finding` extension + `decay-risks.json` (+ `_source`) + `_decay.py` tagging,
 then 355/356.
+
+**IMPLEMENTED 2026-06-20 (TDD, branch `claude/stoic-cannon-hqv1te`).** The
+foundation slice ships GREEN — behaviour-tested via
+`tests/acceptance/features/decay_risk.feature` + `test_decay_risk.py`
+(**13 Gherkin scenarios**); full suite green; drift / doc-drift / prefix-lint clean.
+
+- **§1 Finding shape + tier** — `agency/capabilities/analyze/_findings.py`: four
+  optional Iron Law fields (`risk_code/source/consequence/remedy`, defaulted `""` so
+  every existing `make_finding` call site stays valid unchanged); `to_dict()` emits
+  them additively (Spec 286 six-key contract preserved); `make_finding` keeps the
+  message/evidence truncation but routes the prose fields through `keep_full`
+  (CLAUDE.md #9 — captured prose never silently cut); a derived `tier` **property**
+  maps the single `FindingSeverity` enum → critical/warning/suggestion (no second
+  stored field — rule 2/8). `schemas/finding.json` grown additively (the 4 keys,
+  optional).
+- **§2 vendored data** — `agency/capabilities/analyze/data/decay-risks.json`: the 12
+  risks R1–R6 + T1–T6 from brooks-lint `decay-risks.md`/`test-decay-risks.md`, each
+  with name · diagnostic · consequence · remedy · symptoms · sources (book+principle)
+  · severity_guide (critical/warning/suggestion) · what_not_to_flag · decidable; a
+  top-level `_source: brooks-lint@ec44ec8` provenance key. `_decay.load_risks()` is
+  the single reader (excludes `_`-prefixed metadata); the risk count is derived from
+  the data, never a pinned literal (rule 8).
+- **§3 the bridge** — `agency/capabilities/analyze/_decay.py`:
+  `tag(findings, risks=None)` enriches the decidable findings analyze already
+  produces with the risk code + Iron Law fields read from the data. High-confidence
+  decidable map (the spec's illustrative names resolved to the REAL rule-ids):
+  `Q003`(long function)→R1, `Q004`(long file)→R4, `A001`(import cycle)/`A004`(high
+  fan-out)→R5; everything else stays judgment-only (OQ1's conservative default —
+  `A005`/`A006`/`Q001`/`Q002` left for the 355 judgment pass). It is the WRITE side
+  of the 355 §3b merge contract (join key `(risk_code, file, line)`), and is **wired
+  into `analyze.run`** so the recorded Finding graph nodes carry the decay diagnosis.
+- **§4 open set** — `tag(risks=)` is the seam Spec 356's config-driven custom-`Cx`
+  merge plugs into; a custom registry over an existing rule-id tags exactly like a
+  built-in (tested). No closed risk-code enum anywhere.
+
+**Remaining in 354:** the `check-drift` `_source`-vs-upstream comparison guard — the
+`_source` MARKER ships now (drift-trackable), but the automated comparison needs an
+upstream-reference mechanism (agency has no brooks-lint submodule), so it folds into
+357's CI work. **Next sibling:** 355 (the `develop`/`analyze` review seam + judgment
+pass) builds directly on this `Finding` shape + the `_decay.tag` bridge.
