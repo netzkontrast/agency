@@ -113,7 +113,10 @@ quality:
 ### 4. Report rendering — the Iron Law template via `document.render`
 
 The human-readable report is rendered graph→file (Spec 292 `document.render`),
-porting brooks' `common.md` Report Template:
+porting brooks' `common.md` Report Template. **The template FILE itself
+(`analyze/templates/quality-report.md` + `iron-law-finding.md`) is authored in
+Spec 359** (the prose port); this slice owns the *render path* that projects it
+from the graph. The template carries these as `<!-- AGENT: -->` blocks:
 
 - Header: `Mode · Scope · Health Score [· Trend]` (trend from 356's `QualityRun`).
 - `Config:` line when a config was applied (preset, N disabled, M ignored).

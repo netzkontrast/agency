@@ -50,7 +50,8 @@ Agency already owns a code-quality surface — `analyze` (Spec 042) — but it i
 | Health Score (base 100; strict/balanced/legacy-friendly presets) | ❌ | **Spec 356** — computed score + presets |
 | `.brooks-lint.yaml` config (disable/severity/ignore/focus/strictness/suppress/custom_risks) | ⚠️ unified `config` (Spec 334) exists | **Spec 356** — map onto agency config |
 | history `.brooks-lint-history.json` + trend | ❌ (graph + `manage.timeline`) | **Spec 356** — runs as graph nodes; trend is a query |
-| triage (accept/dismiss/defer/skip) + suppress w/ expiry | ❌ | **Spec 356** — graph-recorded suppressions |
+| triage (accept/dismiss/defer/skip) + suppress w/ expiry | ❌ | **Spec 356** (scoring read) + **`intent.triage`** verb (owner directive — triage is an intent judgment) |
+| 12 markdown prose files (Report Template · 6 mode guides · remedy · source-coverage · decay-risks · custom-risks) | ⚠️ template surface exists (Spec 060) | **Spec 359** — ported as agency templates (`<!-- AGENT: -->`) + `develop.reference` docs |
 | SARIF output (`sarif.mjs`) | ❌ | **Spec 357** — `analyze.sarif` emit |
 | report-parse (`report-parse.mjs`) | n/a — findings already structured | **Spec 357** — *dropped* (port-forward: no prose to parse) |
 | CI GitHub Action + ci-gate | ⚠️ `.github/workflows/test.yml` + `gate` cap | **Spec 357** — review-on-diff CI step + score gate |
@@ -111,7 +112,14 @@ quality/review cluster at implementation time.
   `develop`". `develop` already owns walkable disciplines + `skill_walk`; the six
   modes are walkable skills it drives (355). `develop.review(mode, scope)`
   dispatches the mode skill, which calls `analyze.*`. The verb-routing table
-  (CLAUDE.md) gains a "review code for decay → `develop.review`" row.
+  (CLAUDE.md) gains a "review code for decay → `develop.review`" row. The brooks
+  **prose** (Report Template, mode guides, remedy) ports onto `develop`/`analyze`
+  **templates** + `develop.reference` docs (Spec 359).
+- **One judgment touchpoint in `intent`** — `intent.triage` (356 §4, owner
+  directive): triaging a `Finding` (accept/dismiss/defer) is a judgment about that
+  finding relative to the goal, so it lands beside `intent.assumptions` /
+  `intent.tradeoffs`, not in `analyze`. A small, principled third seam — the
+  `Finding` engine stays in `analyze`, the *stance on a finding* is `intent`'s.
 
 > **Tension resolved (analyze-vs-develop split):** the *heavy machinery* lives in
 > `analyze` (where the `Finding` model and scanners already are — no second copy);
@@ -169,14 +177,20 @@ graph node SERVING the intent, so:
 353 (this umbrella)
  └─ 354  decay-risk Finding shape + knowledge data   ← FOUNDATION (no dep)
      ├─ 355  six modes as skills + develop.review     ← needs 354
-     ├─ 356  Health Score + config + triage + history ← needs 354
+     ├─ 356  Health Score + config + history          ← needs 354
+     │        + intent.triage (suppression write)     ← + intent (091)
      ├─ 357  SARIF + CI + quality gate                ← needs 354 (+356 score)
-     └─ 358  acceptance + source-coverage + evals      ← needs 354,355
+     ├─ 358  acceptance + source-coverage + evals      ← needs 354,355
+     └─ 359  brooks PROSE → templates + references      ← needs 354,355,357
 ```
 
 354 ships first (everything depends on the extended `Finding` + the data). 355
 and 356 are parallelizable on top of 354. 357 needs the score from 356. 358
-(tests/docs) lands last, validating the rest.
+(tests/docs) + 359 (prose/templates) land last: 359 renders 357's report path and
+binds 355's mode skills, so it follows them; 358 validates the rest. The triage
+verb (`intent.triage`) is an `intent` addition carried under 356 (owner directive
+2026-06-20: a `Finding` SERVES an intent, so triaging it is a judgment the
+`intent` capability owns — beside `intent.assumptions`/`tradeoffs`).
 
 ### What this program does NOT do
 
@@ -238,4 +252,16 @@ directive; codegraph-grounded familiarization of both repos (agency 364 files /
 7,829 nodes; brooks-lint 22 files / 292 nodes) established the analyze-vs-brooks
 lens factoring. Brainstorm forks decided (replace=brooks-itself · home=extend-
 analyze+develop-seam · engine=hybrid · 5+1 specs). Children 354–358 drafted in
-the same commit. Next: spec-panel pass on the program, then 354 (foundation) TDD.
+the same commit.
+
+**Amended 2026-06-20 (two owner directives, post critical-thinking pass):**
+(1) **Prose → templates** — the twelve brooks markdown files become agency
+templates (`<!-- AGENT: -->`, Spec 060) + `develop.reference` docs; promoted to a
+dedicated child **Spec 359** (the "use EVERYTHING from brooks" prose layer the
+critical-thinking pass flagged as the underspecified gap). (2) **Triage → intent**
+— the triage verb moves from `analyze.triage` to **`intent.triage`** (a `Finding`
+SERVES an intent; its accept/dismiss/defer stance is an `intent` judgment), with
+`Suppression`/`Acknowledgement` nodes on the `intent` ontology; carried as a 356
+amendment. The program is now **umbrella + 6 children (354–359)**.
+
+Next: spec-panel pass on the program, then 354 (foundation) TDD.

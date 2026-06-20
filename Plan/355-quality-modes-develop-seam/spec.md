@@ -74,10 +74,18 @@ Every mode skill walks the Spec 353 §3 phases, with mode-specific bodies:
    emit Iron Law `Finding`s; **HARD GATE**: a finding without Consequence +
    Remedy is rejected (the Iron Law, enforced — `gate.check`).
 4. **score+report** — Health Score (356) + render the Iron Law report (357).
-5. **remedy/triage** (sweep + `--fix` only) — §3 below.
+5. **remedy/triage** (sweep + `--fix` only) — §3 below; the triage step calls
+   `intent.triage` (Spec 356 §4 — triage is an intent judgment), interactive only.
 
 The engine records a `SkillRun` (Spec 018/346) over the walk, so "which review,
 when, what did it find" is provenance, and the walk is resumable.
+
+Each phase's **guidance prose** (the brooks `{mode}-guide.md` steps) is rendered
+from a `develop/templates/quality-{mode}.md` template (Spec 359), not inlined in
+the skill docstring — so the engine still delivers one phase at a time, but the
+diagnostic voice lives in a lint-enforced template (`<!-- AGENT: -->`, Spec 060).
+The judgment-pass how-to (`decay-risks`, `source-coverage`) is fetched on demand
+via `develop.reference(...)` (Spec 359).
 
 ### 3. The `develop.review` seam (the entry verb)
 

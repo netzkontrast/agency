@@ -5,7 +5,7 @@ status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 4]
-depends_on: ["353", "354", "334", "336", "290"]
+depends_on: ["353", "354", "334", "336", "290", "091"]
 domain: analyze
 wave: brooks-port
 parent_spec: "353"
@@ -103,25 +103,38 @@ warning, suggestion, recorded_at}` SERVING the intent, edged to the `SkillRun`
 - **No `.brooks-lint-history.json`** — it disappears (port-forward, like
   `report-parse` in 357).
 
-### 4. Triage + suppression — provenance, with expiry
+### 4. Triage + suppression — the verb lives in `intent` (owner directive)
 
 brooks' interactive triage (accept/dismiss/defer/skip) and `suppress:` entries
-become graph state:
+become graph state. The **triage verb is an `intent` concern, not `analyze`**
+(owner directive 2026-06-20): a `Finding` SERVES an intent, and triage is a
+*judgment about that finding relative to the goal* — accept it, dismiss it as
+not-worth-it, defer it. That is the same family as `intent.assumptions` /
+`intent.tradeoffs` / `intent.steelman` (codegraph: `intent/_main.py:40` — the
+judgment surface). Mechanical `analyze` detects; the intent decides its stance.
+So:
 
-- `analyze.triage(finding_id, action, reason="", expires="")` (`role="effect"`) —
-  `dismiss` records a `Suppression{risk, pattern, reason}` node SUPPRESSES the
-  finding pattern; `defer` adds `expires` (default +90d); `accept` records an
-  acknowledgement; `skip` no-ops.
-- **Scan-time matching**: on the next run, a finding matching a live `Suppression`
-  (risk + file glob) is downgraded to `info` and shown under a collapsed
-  "Suppressed" section — not counted in the score. An **expired** suppression is
-  ignored (finding resurfaces at original severity) and the Summary notes "N
-  suppressed findings expired and are active again" (brooks `common.md` behaviour,
-  now a graph query: `Suppression` where `expires < now`).
+- **`intent.triage(finding_id, action, reason="", expires="")`** (`role="act"`,
+  lands on `IntentCapability`) — `dismiss` records a `Suppression{risk, pattern,
+  reason}` node that SUPPRESSES the finding pattern AND SERVES the intent; `defer`
+  adds `expires` (default +90d); `accept` records an `Acknowledgement` (OQ2);
+  `skip` no-ops. The `Suppression` + `Acknowledgement` nodes live in the
+  **`intent` ontology** (the capability that writes them owns the declaration);
+  the `SUPPRESSES` edge points at the `analyze` `Finding` node — a cross-capability
+  edge on the one shared graph (the substrate is single; edges cross freely).
+- **Scan-time matching stays an `analyze`/score concern** (this spec): on the next
+  run, the score path reads live `Suppression`s cross-capability
+  (`ctx.find("Suppression")`) and a finding matching one (risk + file glob) is
+  downgraded to `info`, shown under a collapsed "Suppressed" section, NOT counted
+  in the score. An **expired** suppression is ignored (finding resurfaces at
+  original severity) and the Summary notes "N suppressed findings expired and are
+  active again" — a graph query: `Suppression` where `expires < now`. So the
+  *write* surface is `intent`, the *scoring* read is `analyze` — one node model,
+  two readers.
 - Interactive triage (the one-finding-at-a-time prompt) is the **Post-Report
   Triage** phase of the mode skill (355), guarded to interactive sessions only
-  (skip in CI/headless — brooks' guard). The state it writes is the same
-  `Suppression` nodes, so CI and interactive share one model.
+  (skip in CI/headless — brooks' guard). It calls `intent.triage` per finding, so
+  CI and interactive share one write path.
 
 > **Tension resolved — suppression is keep-both, not delete (Spec 292).** A
 > suppressed finding is still *recorded* (the run produced it); the `Suppression`
@@ -134,6 +147,9 @@ become graph state:
 - No report rendering / SARIF (357) — it computes the score + the suppressed set;
   357 renders them.
 - No new findings — it scores/filters the findings 354/355 produce.
+- **No triage VERB here** — `intent.triage` lands on `IntentCapability` (§4); this
+  spec owns only the scan-time suppression *scoring* read. The `Suppression` /
+  `Acknowledgement` node declarations move to the `intent` ontology.
 - No deletion of suppressed findings (keep-both).
 - No frozen score constants (rule 8) — only the named preset weights, which are
   documented tunable budgets.
@@ -164,10 +180,11 @@ Scenario: trend comes from the graph, not a file
   And no .brooks-lint-history.json is written
 
 Scenario: a dismissed finding is suppressed next run, with provenance
-  Given I dismiss an R3 finding in src/util.py with a reason
+  Given I dismiss an R3 finding in src/util.py via intent.triage with a reason
   When the same review runs again
   Then the finding is downgraded to info under a collapsed Suppressed section
-  And a Suppression node records the risk, pattern, and reason
+  And a Suppression node (in the intent ontology) records the risk, pattern, and reason
+  And the Suppression SERVES the intent and SUPPRESSES the analyze Finding (cross-capability edge)
   And the finding node still exists (keep-both — history is not rewritten)
 
 Scenario: a deferred suppression expires and resurfaces
@@ -183,13 +200,22 @@ Scenario: a deferred suppression expires and resurfaces
   `.agency/config.yaml quality:`? (Default: read both for one release, deprecate.)
 - **OQ2** — should `accept` (acknowledge) also create a `Suppression`-like node so
   "acknowledged, won't fix" is queryable, or stay a no-op? (Default: record an
-  `Acknowledgement` node — the provenance is cheap and useful.)
+  `Acknowledgement` node in the `intent` ontology — the provenance is cheap and
+  useful.)
+- **OQ3** — does `intent.triage` need the `Finding`'s `risk_code` + `file` to build
+  the `Suppression` pattern, or does it take them as args? (Default: read them from
+  the `Finding` node by `finding_id` — one source, no caller duplication.)
 
 ## Followup — Implementation Status (2026-06-20)
 
 **DRAFTED 2026-06-20** — the scoring/config/triage slice of the Spec 353 program.
 No code yet. Reuses Spec 334 (unified config), Spec 290 (`manage.timeline` for
 trend), Spec 336/292 (keep-both, no sidecar files). Depends on 354 (the `tier`
-mapping + finding shape). Next (after 354): `_score.py` + `score-presets.json` +
-the `quality:` config block + `QualityRun`/`Suppression` nodes + `analyze.triage`,
-RED→GREEN.
+mapping + finding shape). **Amended 2026-06-20 (owner directive):** the triage
+verb moves to `intent.triage` (judgment about a finding = an intent concern); the
+`Suppression`/`Acknowledgement` nodes move to the `intent` ontology, with the
+`SUPPRESSES` edge crossing to the `analyze` `Finding`. This spec keeps the
+score/config/history machinery + the scan-time suppression *scoring* read. Next
+(after 354): `_score.py` + `score-presets.json` + the `quality:` config block +
+`QualityRun` node + the score-side suppression read, RED→GREEN; `intent.triage` +
+the `Suppression`/`Acknowledgement` ontology land on `IntentCapability`.
