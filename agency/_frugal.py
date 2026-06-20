@@ -56,6 +56,12 @@ def _norm(level: str | None) -> str:
     return lvl if lvl in LEVELS else DEFAULT_LEVEL
 
 
+def normalized(level: str | None) -> str:
+    """Public: coerce a level string to a known level (invalid/empty → default).
+    The one public normalizer so callers don't import the private ``_norm``."""
+    return _norm(level)
+
+
 def frugal_level(*, path: str | None = None) -> str:
     """The active level (env > config.yaml > full), validated."""
     return _norm(_config.config_get("frugal.level", path=path))
@@ -97,8 +103,7 @@ def help_text(level: str | None = None) -> str:
     lvl = _norm(level) if level is not None else frugal_level()
     if lvl == "off":
         return ""
-    rows = [("lite", _LEVEL_NOTE["lite"]), ("full", _LEVEL_NOTE["full"]),
-            ("ultra", _LEVEL_NOTE["ultra"]), ("off", "disable the discipline injection.")]
+    rows = list(_LEVEL_NOTE.items()) + [("off", "disable the discipline injection.")]
     levels = "\n".join(f"  {k:<5} — {v}" for k, v in rows)
     return (
         f"{render(lvl, mode='full')}\n\n"

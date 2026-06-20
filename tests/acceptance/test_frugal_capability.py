@@ -78,6 +78,8 @@ def _tree(tmp_path):
     (tmp_path / "b.html").write_text(
         "<div><!-- frugal: inline style, extract to CSS when reused --></div>\n")
     (tmp_path / "c.js").write_text("// frugal: naive O(n^2) scan\n")
+    # a markdown heading is NOT a code comment — must be skipped (no 4th marker)
+    (tmp_path / "notes.md").write_text("# frugal: this is a heading, not a marker\n")
     return str(tmp_path)
 
 
@@ -119,7 +121,7 @@ def _bench_src(fr):
 
 @then("the scoreboard points to frugal.debt for the only real per-repo number")
 def _points_debt(fr):
-    assert "frugal.debt" in fr["this_repo"]
+    assert fr["this_repo"]["use"] == "frugal.debt", fr
 
 
 # ── review (Slice 3) ──────────────────────────────────────────────────────────
@@ -146,6 +148,8 @@ def _review(engine, confirmed_intent, review_path):
 @then("the review flags a decidable cut")
 def _flags(fr):
     assert fr["decidable_findings"], fr
+    # the unused import → 'delete' tag — guards the analyze rule-code → tag mapping
+    assert any(f["tag"] == "delete" for f in fr["decidable_findings"]), fr
 
 
 @then("the review flags no decidable cuts")

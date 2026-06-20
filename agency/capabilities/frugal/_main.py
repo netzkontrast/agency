@@ -22,6 +22,7 @@ Red flags:
 """
 from __future__ import annotations
 
+import functools
 import json
 import re
 import subprocess
@@ -37,11 +38,21 @@ from ...ontology import OntologyExtension
 _MARKER = re.compile(
     r"(?:#|//|--|;|%|<!--|/\*)\s*(?:ponytail|frugal):\s*(.+?)\s*(?:-->|\*/)?\s*$")
 _SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "dist", "build", ".codegraph"}
+# prose files: '#' is a heading, '--'/'%' are text — a marker there is a false
+# positive (debt harvests deliberate shortcuts in CODE comments, not prose).
+_PROSE_EXT = {".md", ".markdown", ".rst", ".txt"}
 _DATA = Path(__file__).parent / "data"
 _TOP_N = 10   # tunable: the wire return caps at the top-N findings (full set lives in the graph)
-# map analyze.quality's decidable rules onto the ponytail over-engineering tags.
-_TAG = {"unused-import": "delete", "long-function": "shrink",
-        "long-file": "yagni", "long-line": "shrink"}
+# AGENCY-DRIFT: frugal-analyze-tags — map analyze.quality's rule CODES onto the
+# ponytail over-engineering tags (analyze/_quality.py: Q001 unused-import, Q002
+# long-line, Q003 long-function, Q004 long-file). Keep synced if analyze adds a rule.
+_TAG = {"Q001": "delete", "Q002": "shrink", "Q003": "shrink", "Q004": "yagni"}
+
+
+@functools.cache
+def _bench() -> dict:
+    """The published benchmark medians (a static committed constant; read once)."""
+    return json.loads((_DATA / "benchmark.json").read_text(encoding="utf-8"))
 
 
 class FrugalCapability(CapabilityBase):
@@ -82,7 +93,7 @@ class FrugalCapability(CapabilityBase):
         Returns: ``{level, instructions}`` (instructions is empty at level off).
         chain_next: inject the returned text as the session's discipline.
         """
-        lvl = _frugal._norm(level) if level else _frugal.frugal_level()
+        lvl = _frugal.normalized(level) if level else _frugal.frugal_level()
         return {"level": lvl, "instructions": _frugal.render(lvl)}
 
     @verb(role="transform")
@@ -114,12 +125,9 @@ class FrugalCapability(CapabilityBase):
         """
         rows: list[dict] = []
         for f in self._tracked_files(paths):
-            for ln, text, ceiling, upgrade, has_trigger in self._scan(f):
-                self.ctx.record_and_serve("DebtMarker", {
-                    "file": f, "line": ln, "text": text, "ceiling": ceiling,
-                    "upgrade": upgrade, "has_trigger": has_trigger})
-                rows.append({"file": f, "line": ln, "text": text, "ceiling": ceiling,
-                             "upgrade": upgrade, "has_trigger": has_trigger})
+            for row in self._scan(f):
+                self.ctx.record_and_serve("DebtMarker", row)
+                rows.append(row)
         no_trigger = sum(1 for r in rows if not r["has_trigger"])
         rows.sort(key=lambda r: (r["has_trigger"], r["file"], r["line"]))
         return {"markers": len(rows), "no_trigger": no_trigger, "top": rows[:_TOP_N]}
@@ -135,11 +143,10 @@ class FrugalCapability(CapabilityBase):
         Returns: ``{benchmark, this_repo}``.
         chain_next: ``frugal.debt`` for the live ledger; ``frugal.instructions`` for the ruleset.
         """
-        bench = json.loads((_DATA / "benchmark.json").read_text(encoding="utf-8"))
-        return {"benchmark": bench,
-                "this_repo": "per-repo savings are not computable (the unbuilt "
-                             "version was never written) — run frugal.debt for the "
-                             "only real per-repo number."}
+        return {"benchmark": _bench(),
+                "this_repo": {"computable": False,
+                              "reason": "the unbuilt version was never written — no baseline",
+                              "use": "frugal.debt"}}
 
     @verb(role="effect")
     def review(self, scope: str = "diff", ref: str = "", paths: str = "") -> dict:
@@ -178,17 +185,22 @@ class FrugalCapability(CapabilityBase):
                 "note": "Decidable bloat only (unused imports + long functions/files "
                         "via analyze). The stdlib/native/shrink JUDGMENT is the "
                         "reviewer's — frame the diff with the tags above; a Driver "
-                        "(LLM) sharpens it (Spec 147 seam)."}
+                        "(LLM) sharpens it (Spec 147 seam). Non-Python files are "
+                        "skipped (analyze is Python-only in v1)."}
 
     # ── helpers ───────────────────────────────────────────────────────────────
     def _changed_files(self, ref: str) -> list[str]:
-        """Files changed in the working tree vs ``ref`` (default HEAD)."""
-        try:
-            r = subprocess.run(["git", "diff", "--name-only", ref or "HEAD"],
-                               capture_output=True, text=True, timeout=10)
-            return [ln for ln in r.stdout.splitlines() if ln.strip()]
-        except Exception:
-            return []
+        """Files changed vs ``ref`` (default HEAD) — tracked modifications AND new
+        untracked files, so a freshly-added over-built file is reviewed too."""
+        out: list[str] = []
+        for cmd in (["git", "diff", "--name-only", ref or "HEAD"],
+                    ["git", "ls-files", "--others", "--exclude-standard"]):
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                out += [ln for ln in r.stdout.splitlines() if ln.strip()]
+            except Exception:
+                pass
+        return sorted(set(out))
 
     def _tracked_files(self, paths: str) -> list[str]:
         """Tracked source under ``paths`` via ``git ls-files`` (honours .gitignore
@@ -207,25 +219,23 @@ class FrugalCapability(CapabilityBase):
         return [str(f) for f in base.rglob("*")
                 if f.is_file() and not (_SKIP_DIRS & set(f.parts))]
 
-    @staticmethod
-    def _parse(text: str) -> tuple[str, str, bool]:
-        """``<ceiling>, <upgrade>`` → (ceiling, upgrade, has_trigger). No comma =
-        no named upgrade path (a rot risk — surfaced, never dropped)."""
-        if "," in text:
-            ceiling, upgrade = (p.strip() for p in text.split(",", 1))
-        else:
-            ceiling, upgrade = text.strip(), ""
-        return ceiling, upgrade, bool(upgrade)
-
     def _scan(self, path: str):
-        """Yield (line_no, text, ceiling, upgrade, has_trigger) per marker in a file."""
+        """Yield one marker dict per comment-prefixed ``frugal:``/``ponytail:`` marker
+        in a CODE file — prose files are skipped (a markdown ``# frugal:`` heading is
+        not a code comment). Shape ``{file, line, text, ceiling, upgrade, has_trigger}``;
+        the convention is ``<ceiling>, <upgrade>`` (no comma = no named upgrade path)."""
+        if Path(path).suffix.lower() in _PROSE_EXT:
+            return
         try:
             lines = Path(path).read_text(encoding="utf-8", errors="ignore").splitlines()
         except (OSError, ValueError):
             return
         for i, line in enumerate(lines, 1):
             m = _MARKER.search(line)
-            if m:
-                text = m.group(1).strip()
-                ceiling, upgrade, has_trigger = self._parse(text)
-                yield i, text, ceiling, upgrade, has_trigger
+            if not m:
+                continue
+            text = m.group(1).strip()
+            ceiling, _, upgrade = text.partition(",")
+            upgrade = upgrade.strip()
+            yield {"file": path, "line": i, "text": text, "ceiling": ceiling.strip(),
+                   "upgrade": upgrade, "has_trigger": bool(upgrade)}
