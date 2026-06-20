@@ -137,7 +137,7 @@ extends the cluster master's pattern; it does not break it.
 | `workflow` re-implements brainstorm/panel/tdd instead of binding them | Phases `invoke`-bind existing verbs (Spec 018); a test asserts no duplicated discipline logic |
 | The 14-phase walk dumps everything into context at once | Walker discloses one phase at a time (Goal 1); asserted by the per-phase return contract |
 | Step sugar verbs bypass the provenance moat | Sugar verbs route through the same caps/walker; provenance recorded identically (tested) |
-| `discover` (phase 2) is still a scaffold (Spec 307/308) | Phase 2 degrades gracefully to a documented interview prompt until `discover` ships its verbs (Spec 309); the binding is forward-compatible |
+| `discover` triage (phase 2) under-delivers on a vague seed | `discover.interview` **shipped** (Spec 309 — adaptive beat-chain) + `discover.clarify`/`clarity_gate` (311/322); phase 2 binds them directly. Forward-compatible with the remaining `discover` children |
 | ADR hinge gate (11) deadlocks a spec | Owner override (provenance-stamped) per 355; `board`/`index` show exactly what's blocking |
 
 ## Interconnects
@@ -150,11 +150,37 @@ extends the cluster master's pattern; it does not break it.
   at a time.
 - **047 (clusters)** — the plan/spec/review/build through-line.
 
+## Spec-panel findings folded in (panel 2026-06-20)
+
+- **B1 (Fowler — is `workflow` a new capability, or a `develop` discipline?).**
+  The `develop-spec` skill mostly *re-binds* `develop`'s own disciplines
+  (brainstorm/plan/spec-panel/tdd/review/execute already live there). The
+  conceptually-cheaper shape is: **`develop-spec` is a new `develop` discipline**
+  (a peer Lifecycle template), and the **only genuinely-new surface** — the
+  spec-state verbs `move_spec`/`index`/`board` (357) — lands on `develop` or
+  `manage`, not a standalone cap. **Recommended shape: discipline-in-`develop` +
+  spec-state verbs on `develop`.** The owner framed this as "the workflow
+  capability thing", so this spec preserves the standalone-`workflow`-capability
+  option as an **owner decision at implementation** — but the panel's
+  recommendation (and Spec 359's own Brooks-lint, applied reflexively) favours not
+  minting a capability that exists only to call other capabilities' verbs.
+  *Net: the 14-phase skill + the spec-state verbs ship regardless; only their
+  HOME is the open decision.*
+- **B2.3 (Crispin — the improve-gate exit criterion).** Phase 9 ("improve") is no
+  longer a vibe: the design gate passes iff **(a)** spec-panel findings are folded,
+  **(b)** `intent.brooks_lint` returns **no `block` finding** (359), and **(c)**
+  the owner confirms. Decidable + human-gated; the loop re-enters phases 7–8 until
+  (a)+(b) hold, then waits on (c).
+- **M2 — discover triage:** `discover.interview` shipped (Spec 309); phase 2 binds
+  it directly (failure-mode row corrected above).
+
 ## Followup — Implementation Status (2026-06-20)
 
 ### Done
-- Spec authored (design depth).
+- Spec authored (design depth) + spec-panel folded (B1 home-decision, B2.3 gate, M2).
 
 ### Still
-- Slice 1 (capability + walk) then Slice 2 (ADR hinge + step verbs + e2e dogfood)
-  via TDD. Land after 354–357 + 359.
+- Resolve B1 (discipline-in-`develop` vs standalone `workflow` cap) with the owner
+  before Slice 1.
+- Slice 1 (skill + spec-state verbs) then Slice 2 (ADR hinge + step verbs + e2e
+  dogfood) via TDD. Land after 354–357 + 359.

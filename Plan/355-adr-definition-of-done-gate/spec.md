@@ -125,6 +125,18 @@ table that rots.
 | Gate too strict → no spec ever reaches `/inprogress` | Provenance-stamped owner override; gate predicate is "decisions approved", not "perfect" |
 | `status` mutated directly, bypassing the Lifecycle | Status writes only via `ctx.lifecycle.move`; a guard rejects raw `status=` updates on `Decision` |
 
+## Spec-panel findings folded in (panel 2026-06-20)
+
+- **B2.1 (Cockburn/Nygard — approver identity):** the normal approver is the
+  **intent owner** (`Intent` is human-owned, CORE.md §Intent). In an autonomous
+  remote-async session with no owner present, `adr.approve` pauses at
+  `input-required` and the decision (and the spec's `SpecLifecycle`) **stays in
+  place** — it never auto-approves, and the **agent may not self-approve**. The
+  provenance-stamped override is the *owner's* escape hatch only; an override
+  records the owner identity, so an agent-issued override is detectable and
+  rejected. This keeps the hinge a real gate, not a rubber stamp, while never
+  silently deadlocking (the owner sees the pending approval via `manage`/`board`).
+
 ## Interconnects
 
 - **354** — reuses `validate`; same `adr` capability.

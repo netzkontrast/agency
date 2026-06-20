@@ -149,8 +149,10 @@ child forgets (the "full suite on a migration" heuristic).
 
 ### Reserved ontology (children bind it; reserved here to avoid collision)
 
-- **Nodes:** `AdrTheme`, `Decision`, `SpecLifecycle` (+ reuse `Gate`, `Document`,
-  `Intent`, `Lifecycle`, `Reflection`).
+- **Nodes:** `Decision`, `SpecLifecycle` (+ reuse `Gate`, `Document`, `Intent`,
+  `Lifecycle`, `Reflection`). **`AdrTheme` is NOT a new label** — it is a
+  `Document` with `kind="adr-theme"` + a `layer` tag (panel B1, 2026-06-20); the
+  theme has no behaviour a `Document` lacks.
 - **Edges:** `PART_OF` (Decision→AdrTheme; Spec→AdrTheme), `DEPENDS_ON`,
   `RELATES_TO`, `REFINES` (Decision↔Decision, Decision↔Spec); reuse existing
   `SUPERSEDES`, `SERVES`, `PRODUCES`, `CONFORMS_TO`.
@@ -210,10 +212,33 @@ child forgets (the "full suite on a migration" heuristic).
 - **047 (cluster-integration)** — the workflow spans the *plan/spec/review/build*
   clusters; this initiative is their coherent through-line.
 
+## Spec-panel findings folded in (panel 2026-06-20)
+
+Full review: [`spec-panel-review.md`](spec-panel-review.md). Resolutions folded
+into the children:
+
+- **B1 — conceptual integrity (two constructs the substrate already covers):**
+  `AdrTheme` → a `Document` kind (above + 354); `develop-spec` recommended as a
+  `develop` discipline rather than a new `workflow` capability (358, owner decides
+  the home). The set passing its own Spec 359 Brooks-lint is the validation.
+- **B2 — the ADR hinge's three failure paths:** approver = intent owner, no
+  agent self-approve (355); zero-decision specs return `ready=false`, never a
+  vacuous pass (356); the improve-gate has a decidable exit criterion (358).
+- **B3 — audit trail:** `adr.render` keeps a collapsed superseded-history
+  appendix (354).
+- **M1 — strict schemas:** verb I/O are registered `Schema` nodes, not prose
+  (354/356), satisfying the owner's "super strict schemas" directive.
+- **Theme-creation rule:** a theme == an architecture **layer** (the reserved
+  set: Datalayer · Substrate · Capabilities · Lifecycle · Workflow). A new theme
+  is an **owner decision**, never an extraction default — `extract_decisions`
+  (356) routes to an existing theme or flags `theme=unrouted` for the owner. This
+  is what keeps "only a handful of ADRs" true.
+
 ## Followup — Implementation Status (2026-06-20)
 
 ### Done — Slice 1
-- Master + children 354–359 authored at design depth (this commit).
+- Master + children 354–359 authored at design depth + spec-panel reviewed
+  (critique mode) and findings folded (this branch).
 
 ### Still — Slice 2
 - Implement children in build order (354 first). Each is its own TDD PR.

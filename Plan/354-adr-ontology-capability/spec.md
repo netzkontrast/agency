@@ -39,11 +39,15 @@ Without this, "extract decisions from a spec" (356) and "approve before
 
 ### Node types (`ontology.py`, contributed via `AdrCapability.ontology`)
 
-**`AdrTheme`** — the file-level Document for one architecture layer/theme (the
-ported *Master ADR*). Required fields: `id` (`ADR-<slug>`, e.g. `ADR-datalayer`),
-`title`, `layer` (the architecture layer), `scope` (the Master-ADR *scope
-boundary*). A theme is bound to a `Document` (Spec 292) so it round-trips to
-`docs/adr/<id>.md`. Aggregate status is **derived**, never stored (rule 8).
+**`AdrTheme` — a `Document` with `kind="adr-theme"`, NOT a new node label**
+(panel B1, 2026-06-20). The theme is the file-level container for one
+architecture layer/theme (the ported *Master ADR*); it has no behaviour a
+`Document` lacks (it round-trips to `docs/adr/<id>.md`, `CONFORMS_TO` a Schema,
+decisions edge to it). So a theme is a `Document` carrying `id` (`ADR-<slug>`,
+e.g. `ADR-datalayer`), `title`, `layer` (the architecture layer), `scope` (the
+Master-ADR *scope boundary*). Introducing a separate `AdrTheme` label would be
+two nodes for one thing — the substrate already has the primitive. Aggregate
+status is **derived**, never stored (rule 8).
 
 **`Decision`** — one architectural decision in WH(Y) form, `PART_OF` exactly one
 `AdrTheme`. Required fields (the six WH(Y) elements are first-class, not prose):
@@ -154,10 +158,30 @@ whole point of the WH(Y) format).
 - **355** consumes `validate` to build the DoD gate; **356** adds
   `extract_decisions`/`hints` to this same capability.
 
+## Spec-panel findings folded in (panel 2026-06-20)
+
+- **B1 (Fowler — conceptual integrity):** `AdrTheme` is **not** a new node label —
+  it is a `Document` with `kind="adr-theme"` + a `layer` tag (folded into §Node
+  types above). Only `Decision` is a genuinely new label.
+- **B5 (Fowler — `Decision` vs `Reflection`):** kept as a distinct label, justified:
+  a `Reflection` is an observation/lesson; a `Decision` is a *chosen course with
+  neglected alternatives + accepted trade-offs*, gate-able (355) and status-bearing.
+  A future audit must not collapse the two.
+- **B3 (Newman — audit trail):** `adr.render` emits **current decisions + a
+  collapsed "Superseded / history" appendix** (one line per superseded decision:
+  id · title · superseded-by · date), so the file is honest about the past without
+  re-inflating. The MIN-001 line budget applies to the **active** section only; the
+  appendix is an index, the full superseded body stays in the graph (`as_of`). This
+  resolves the living-file-vs-minimalism conflict.
+- **M1 (Wiegers/Adzic — strict schemas):** each verb's input/output is a registered
+  `Schema` node the produced artefact `CONFORMS_TO` (CORE.md generate/validate
+  pair), enforced on `record` — not merely documented prose. The owner's
+  "super strict schemas" directive is met at the substrate, not on paper.
+
 ## Followup — Implementation Status (2026-06-20)
 
 ### Done
-- Spec authored (design depth).
+- Spec authored (design depth) + spec-panel folded (B1, B3, B5, M1).
 
 ### Still
 - Implement Slice 1 (ontology + author/validate) via TDD, then Slice 2.

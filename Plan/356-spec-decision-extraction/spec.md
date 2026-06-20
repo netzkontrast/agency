@@ -79,8 +79,16 @@ A spec in `/open` carries `REFINES`-linked draft Decisions. The workflow's
 `adr.spec_decisions_ready(spec_id)` — role `transform` → `{ready: bool,
 decisions:[{id, status}], blocking:[ids not yet approved]}`.
 
-`ready` is true iff every `Decision` that `REFINES` the spec is `approved`
-(355 gate). This is the mechanism behind "erst wenn freigegeben → `/inprogress`".
+`ready` is true iff **≥1** `Decision` `REFINES` the spec AND every such decision
+is `approved` (355 gate). This is the mechanism behind "erst wenn freigegeben →
+`/inprogress`".
+
+**Zero-decision specs (panel B2.2).** A docs-only or trivial spec from which
+extraction surfaced **no** decisions returns `{ready: false, reason:
+"no-decisions"}` — it does **not** vacuously pass the gate. The owner clears it
+with an explicit ack (a provenance-stamped `move_spec` override, 357), so a spec
+can never skip the hinge by simply having nothing extracted. "No decisions" is a
+decision the owner makes, not a default the system makes for them.
 
 ### Verb: `hints(spec_id, budget=2000)` — role `transform` (the payoff)
 
