@@ -176,6 +176,92 @@ class LifecycleClose(SubstrateTool):
         return lifecycle_close
 
 
+class LifecycleRead(SubstrateTool):
+    name = "lifecycle_read"
+
+    def make_impl(self, engine):
+        def lifecycle_read(lifecycle_id: str) -> dict:
+            """Full lifecycle node — state, kind, parameterization, serving intent (Spec 341).
+
+            The richer read complement to ``lifecycle_open``: returns all recorded
+            props plus the ``intent_id`` resolved via the ``SERVES`` edge.
+
+            Inputs:
+              - ``lifecycle_id`` (str, required)
+            Returns: ``{lifecycle_id, state, intent_id, …}`` or ``{}`` if unknown.
+            chain_next: ``lifecycle_watch(lifecycle_id)`` for its transition trail.
+            """
+            result = engine.lifecycle.read(lifecycle_id)
+            if result:
+                result.setdefault("lifecycle_id", lifecycle_id)
+            return result
+
+        return lifecycle_read
+
+
+class LifecycleFind(SubstrateTool):
+    name = "lifecycle_find"
+
+    def make_impl(self, engine):
+        def lifecycle_find(intent_id: str, state: str = "") -> dict:
+            """All Lifecycle nodes SERVING an intent, optionally filtered by state (Spec 341).
+
+            Inputs:
+              - ``intent_id`` (str, required) — the Intent whose lifecycles to find
+              - ``state`` (str, optional) — filter to this A2A state only
+            Returns: ``{intent_id, state, count, lifecycles: [<node>, …]}``
+            chain_next: ``lifecycle_read(lifecycle_id)`` for a single node's detail.
+            """
+            lifecycles = engine.lifecycle.find(intent_id, state=state)
+            return {"intent_id": intent_id, "state": state, "count": len(lifecycles),
+                    "lifecycles": lifecycles}
+
+        return lifecycle_find
+
+
+class LifecycleCheck(SubstrateTool):
+    name = "lifecycle_check"
+
+    def make_impl(self, engine):
+        def lifecycle_check(lifecycle_id: str, state: str) -> dict:
+            """Boolean state test — True if lifecycle is in ``state`` (Spec 341).
+
+            Non-throwing: returns ``{match: false}`` for an unknown lifecycle_id
+            or state, so it is safe as a non-raising pipeline guard.
+
+            Inputs:
+              - ``lifecycle_id`` (str, required)
+              - ``state`` (str, required) — the A2A state to test against
+            Returns: ``{lifecycle_id, state, match: bool}``
+            """
+            return {"lifecycle_id": lifecycle_id, "state": state,
+                    "match": engine.lifecycle.check(lifecycle_id, state)}
+
+        return lifecycle_check
+
+
+class LifecycleWatch(SubstrateTool):
+    name = "lifecycle_watch"
+
+    def make_impl(self, engine):
+        def lifecycle_watch(lifecycle_id: str) -> dict:
+            """Durable lifecycle_transition trail — no poll (Spec 341 / 344).
+
+            Returns the Spec 344 Events linked OBSERVED_DURING the lifecycle,
+            oldest-first. Only terminal/blocked transitions appear (churn goes
+            to the monitor channel only). The read side of the 344 write trail.
+
+            Inputs:
+              - ``lifecycle_id`` (str, required)
+            Returns: ``{lifecycle_id, count, trail: [{from_state, to_state, …}]}``
+            chain_next: ``lifecycle_read(lifecycle_id)`` for the current state.
+            """
+            trail = engine.lifecycle.watch(lifecycle_id)
+            return {"lifecycle_id": lifecycle_id, "count": len(trail), "trail": trail}
+
+        return lifecycle_watch
+
+
 class MemoryGraphProvenance(SubstrateTool):
     name = "memory_graph_provenance"
 
@@ -844,6 +930,10 @@ SUBSTRATE_TOOLS: tuple[SubstrateTool, ...] = (
     LifecycleOpen(),
     LifecycleMove(),
     LifecycleClose(),
+    LifecycleRead(),
+    LifecycleFind(),
+    LifecycleCheck(),
+    LifecycleWatch(),
     MemoryGraphProvenance(),
     HookEvent(),
     IntentBootstrap(),
