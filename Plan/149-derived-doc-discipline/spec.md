@@ -201,6 +201,14 @@ Then:   exits with Codes.DERIVE_AMBIGUOUS naming both specs;
   not-found / rewrite / idempotent / no-marker / multiple-ids / unclosed
   raises / render_test_count / apply round-trip.
 
+> ⚠ **Drift note (reconciled 2026-06-20):** `tests/test_derive_docs.py`
+> (the 29 unit tests above) was DELETED in commit `c6bebbb` (phase-c
+> flat-test→Gherkin migration, "delete the 193 superseded flat tests")
+> and was NOT replaced with an acceptance scenario. `scripts/derive_docs.py`
+> Slice 2.1/2.2 code is still present and importable, but is currently
+> **untested in-tree**. Slice 2.3 should restore coverage as a Gherkin
+> acceptance scenario (rule 7) alongside the `check-doc-drift` CI gate.
+
 ### Still — Slice 2.3+
 
 - **Slice 2.3 — `check-doc-drift` extension**: fail CI when a derived

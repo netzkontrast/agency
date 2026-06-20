@@ -22,7 +22,7 @@
 
 ## Macro-structure
 
-**Capabilities:** `analyze/`, `branch/`, `clusters/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `gate/`, `intent/`, `jules/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `workspace/`
+**Capabilities:** `analyze/`, `branch/`, `clusters/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `gate/`, `intent/`, `jules/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `toolcalls/`, `workspace/`
 
 ### `./` (1 files)
 - **conftest.py** (3 symbols)
@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (61 files)
+### `agency/` (64 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -53,6 +53,11 @@ Three console-script entry points (Spec 039):
   `agency-doctor` — bare-CLI health check; this module's
                     :func:`doctor_main`. (12 symbols)
 - **_capability_loader.py** — Spec 032 §B — capability folder loader. (13 symbols)
+- **_capture.py** — Capture-full helper — the no-truncate policy (user directive 2026-06-19).
+
+Captured DATA — tool calls (pre/post), command output, stored provenance text —
+is NEVER silently truncated: a dropped tail makes the record LIE about what
+actually happened, which is worse than a larger record. (6 symbols)
 - **_checks.py** — Spec 011 — structural Lifecycle checks (the auditable residue of a run).
 
 A Lifecycle `check` is the post-hoc read over whatever a delegation/subagent
@@ -152,11 +157,12 @@ that produced the observation (Spec 076 unified-hook discipline).
 
 Spec 173 Slice 1 ships the typed lint finding so the audit + the CI
 gate consume one shape. (9 symbols)
-- **_llm.py** — Spec 092 G3 — the LLM-decider boundary (an ``llm`` Driver on the Spec-002 registry).
+- **_llm.py** — Spec 092 G3 / Spec 331 — the LLM-decider boundary (an ``llm`` Driver on the
+Spec-002 registry).
 
 A constrained classifier the engine uses where a small judgement is needed without an
-autonomous agent — today `intent.suggests`'s ``llm_select`` Matcher; later the agentic
-pressure-test deciders (Spec 011). (14 symbols)
+autonomous agent — today `intent.suggests`'s ``llm_select`` Matcher and
+`delegate.dispatch_decision`'s optional S12 LLM tie-breaker. (18 symbols)
 - **_loop_events.py** — Spec 156 Slice 1 — typed LoopEvent shape + pure loop detector.
 
 The dogfood loop needs to know when an agent is repeating itself: 3 raw
@@ -224,7 +230,8 @@ toolchain verbs can be exercised in tests without shelling out. (5 symbols)
 
 Moved out of ``scripts/check_schema_coverage.py`` (Spec 153 Slice 3) so the
 engine — ``agency_doctor`` — can import the audit WITHOUT depending on the
-dev-only ``scripts/`` tree (the wheel packages only ``agency``). (14 symbols)
+dev-only ``scripts/`` tree (the wheel packages only ``agency``). (15 symbols)
+- **_session_snapshot.py** — Session-graph snapshot — portable SQLModel export/import (user directive 2026-06-19). (16 symbols)
 - **_skill_parse.py** — Spec 152 Slice 1 — typed Skill/Phase parse boundary.
 
 A single parse + validate point for skill / phase dicts so the walker
@@ -256,10 +263,15 @@ The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
 
 ONE place to count tokens, with tiers (best first):
   1. (14 symbols)
+- **_toolcalls.py** — Ephemeral tool-call store — Spec 336 S2.
+
+Pre/post tool calls are high-volume and full-payload (no-truncate, Spec 336 S1).
+Keeping them as `Event` nodes in the durable bi-temporal graph bloated
+`session.db` (~95% of nodes were Events). (14 symbols)
 - **_typed_shapes_wave1.py** — Spec 171 + 175 + 176 Slice 1 — typed shapes for the wave-1 batch. (17 symbols)
 - **_typed_shapes_wave1_part2.py** — Wave-1 enhancement Slice 1 batch — 8 typed shapes.
 
-Specs 155 / 160 / 163 / 166 / 167 / 172 / 174 / 177. (30 symbols)
+Specs 155 / 160 / 163 / 166 / 167 / 172 / 174 / 177. (32 symbols)
 - **_typed_shapes_wave3.py** — Wave-3 enhancement Slice 1 batch — substantive typed shapes (Specs 178/179/180/182/183).
 
 Promotes 5 wave-3 specs from catalogue stub (agency/_enhancement_stubs.py)
@@ -295,22 +307,22 @@ duplicated across `engine._wire`/`engine._shape_wire_result` and
 
 The cache lives at <cache_dir>/skill-cache.json — a single document mapping
 capability name → {hash, files: [paths]}. (10 symbols)
-- **capability.py** — Capability — the craft (the open concept). (80 symbols)
+- **capability.py** — Capability — the craft (the open concept). (81 symbols)
 - **cli.py** — Bash-callable engine — the L3 layer of the harness-in-harness ladder (Click).
 
 A bash-only agent (Jules, Codex, a raw LLM with a shell) has no MCP client and no
-Skill loader. (35 symbols)
+Skill loader. (46 symbols)
 - **disclosure.py** — Adaptive disclosure renderer — Spec 023 Phase 1.
 
 A pure rendering pass over Capability/Verb/Skill nodes. (22 symbols)
 - **engine.py** — Engine — one FastMCP server + one graph.
 
-**Code-mode IS the contract** (lean: no separate four-verb surface). (66 symbols)
+**Code-mode IS the contract** (lean: no separate four-verb surface). (69 symbols)
 - **install.py** — Setup for the Agency Plugin for Claude Code.
 
 This is the "in setup" that maps the harness-in-harness MICRO-skills (the engine's
 capability verbs) into MACRO-skills (the capabilities themselves) behind a single
-`help` discovery surface. (61 symbols)
+`help` discovery surface. (63 symbols)
 - **intent.py** — Intent — the human-owned root (why/what merged; deliverable is an attribute).
 
 capture -> confirm -> (amend via supersede). (12 symbols)
@@ -440,17 +452,17 @@ the same: walk a tree for ``.py`` files (skipping ``__pycache__``,
 - **__init__.py** — branch — finish a development branch. (2 symbols)
 - **_main.py** — branch — finish a development branch: detect state, then merge / open a PR /
 
-Branch inspects the working tree and remote state and finishes the branch the appropriate way — merge when clean, a PR when review is needed, or a clear report of what blocks completion. (13 symbols)
+Branch inspects the working tree and remote state and finishes the branch the appropriate way — merge when clean, a PR when review is needed, or a clear report of what blocks completion. (14 symbols)
 
 ### `agency/capabilities/delegate/` (2 files)
 - **__init__.py** — delegate — agent orchestration: fan-out + quota + join. (2 symbols)
-- **_main.py** — delegate — agent orchestration: fan-out + quota + join. (24 symbols)
+- **_main.py** — delegate — agent orchestration: fan-out + quota + join. (26 symbols)
 
 ### `agency/capabilities/develop/` (2 files)
 - **__init__.py** — develop — discipline-walk templates + scaffolds. (2 symbols)
 - **_main.py** — develop — the development-workflow capability.
 
-Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance. (48 symbols)
+Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance. (49 symbols)
 
 ### `agency/capabilities/discover/` (3 files)
 - **__init__.py** — discover — guided intent-discovery capability (Spec 307 program · 308 scaffold).
@@ -680,7 +692,7 @@ inheritance (``_main.py``). (11 symbols)
 
 The per-cluster file split (Spec 094 design §"Module layout") relocates the
 ``MusicCapability`` god-class into cluster mixin classes, one per domain
-cluster. (22 symbols)
+cluster. (25 symbols)
 - **audio.py** — music audio cluster — mastering / mixing / QC / sheet-music / promo-video.
 
 Spec 096 — 16 audio verbs + 2 composite gate verbs (measure · qc), plus the
@@ -780,7 +792,7 @@ the composed ``NovelCapability`` inherit. (11 symbols)
 
 A native reimplementation of SuperClaude's Business Panel: nine strategic
 thinkers, three interaction modes (discussion · debate · socratic), decidable
-content-based mode selection. (14 symbols)
+content-based mode selection. (15 symbols)
 
 ### `agency/capabilities/persona/` (2 files)
 - **__init__.py** — persona — specialist engineering personas, first-class (Spec 297). (2 symbols)
@@ -788,7 +800,7 @@ content-based mode selection. (14 symbols)
 
 A native reimplementation of SuperClaude's specialist agents (architects,
 engineers, analysts, mentors) as a built-in, dispatchable persona registry —
-NOT ingested prompt files. (11 symbols)
+NOT ingested prompt files. (12 symbols)
 
 ### `agency/capabilities/plugin/` (3 files)
 - **__init__.py** — plugin — develop the agency Claude Code plugin from inside the engine.
@@ -867,7 +879,7 @@ agent imperative). (20 symbols)
 - **frameworks.py** — prompt.frameworks — the 27-framework library, first-class (Spec 304).
 
 prompt-architect (ckelsoe, MIT) ships 27 research-backed prompt-engineering
-frameworks across 7 intent categories. (33 symbols)
+frameworks across 7 intent categories. (34 symbols)
 - **gates.py** — prompt.gates — composite gate verbs (Spec 109 Slice 1).
 
 Spec 286 P3 — extracted verbatim from ``prompt/_main.py``; behaviour-frozen
@@ -881,7 +893,7 @@ audit_gate. (7 symbols)
 - **_main.py** — recommend — request → capability routing, first-class (Spec 298).
 
 A native reimplementation of SuperClaude's `sc-recommend`: given a free-text
-request, recommend the most suitable agency capability + verb to use. (11 symbols)
+request, recommend the most suitable agency capability + verb to use. (12 symbols)
 
 ### `agency/capabilities/reflect/` (2 files)
 - **__init__.py** — reflect — durable, scope-tagged cross-session memory.
@@ -907,7 +919,7 @@ Three roles ship in v1:
   doc-corpus       — keyword + semantic match over docs/ (confidence = score)
 
 The `web` role is reserved (Spec 044 line 102) but defers to v2 when
-the WebSearchClient injector is non-None. (12 symbols)
+the WebSearchClient injector is non-None. (13 symbols)
 - **_verify.py** — research.verify — adversarial citation check. (11 symbols)
 - **_web.py** — Web-search boundary driver (Spec 044 + Spec 052).
 
@@ -921,13 +933,13 @@ Two shipped backends:
 A native, generalized reimplementation of SuperClaude's `sc-select-tool`: score
 an operation's complexity and route it to the right approach archetype —
 `semantic` (structure-aware, accurate), `pattern` (fast bulk edits), or `native`
-(safe default). (12 symbols)
+(safe default). (13 symbols)
 
 ### `agency/capabilities/shell/` (2 files)
 - **__init__.py** — shell — a token-efficient, recorded, templated host-command boundary (Spec 073).
 
 Folder-form per Spec 060 §Phase 3 / Spec 286 Goal 4. (2 symbols)
-- **_main.py** — shell — a token-efficient, recorded, templated host-command boundary (Spec 073). (18 symbols)
+- **_main.py** — shell — a token-efficient, recorded, templated host-command boundary (Spec 073). (20 symbols)
 
 ### `agency/capabilities/skill_generator/` (2 files)
 - **__init__.py** — skill_generator — generate a deploy-ready skill in one call. (2 symbols)
@@ -960,9 +972,19 @@ recursive questioning (socratic). (3 symbols)
 Each method is a transform: returns a structured scaffold the agent fills
 out. (21 symbols)
 
+### `agency/capabilities/toolcalls/` (3 files)
+- **__init__.py** — toolcalls — the ephemeral tool-call capture surface (Spec 336). (2 symbols)
+- **_export.py** — Spec 336 S4 — distil the ephemeral tool-call capture into a durable export. (8 symbols)
+- **_main.py** — toolcalls — the ephemeral tool-call capture surface (Spec 336).
+
+Every pre/post tool call (Bash/Read/Edit/…) is captured in FULL into a local,
+gitignored `.agency/toolcalls.db` — OFF the durable provenance graph, so the graph
+stays the moat (Intents/Invocations/Gates) while **no capture data is lost**
+(Spec 336 S2). (10 symbols)
+
 ### `agency/capabilities/workspace/` (2 files)
 - **__init__.py** — workspace — isolate work in a git worktree + record a green baseline. (2 symbols)
-- **_main.py** — workspace — isolate work in a git worktree + record a green baseline. (7 symbols)
+- **_main.py** — workspace — isolate work in a git worktree + record a green baseline. (8 symbols)
 
 ### `agency/render/` (1 files)
 - **__init__.py** — Spec 032 §H — engine-owned template files. (1 symbols)
@@ -1035,7 +1057,7 @@ Skills) are DERIVED from the live registry, never hand-maintained — re-run to
 refresh. (13 symbols)
 - **mcp_wire_smoke.py** — Drive the agency MCP server over stdio with raw JSON-RPC. (11 symbols)
 
-### `tests/` (13 files)
+### `tests/` (15 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1044,6 +1066,7 @@ the legacy duplicates used `tempfile.mktemp(suffix=".db")` which is
 deprecated since Python 2 (race condition — the predicted path isn't
 guaranteed unique). (13 symbols)
 - **test_analyze_subprocess_analyzer.py** — Spec 286 — the shared SubprocessAnalyzer template scaffold. (21 symbols)
+- **test_cli_chain_fields.py** (15 symbols)
 - **test_develop_plan_execute.py** — Spec 287 — develop `plan-execute` discipline + Plan/PlanStep provenance.
 
 A first-class plan-authoring → execution-with-checkpoints discipline
@@ -1076,9 +1099,10 @@ Closes the documented ENGINE GAP: the storyform gates + checks read a
 `Storyform` node, but no verb minted one. (13 symbols)
 - **test_projected_enum.py** — Spec 284 — projected-enum substrate. (19 symbols)
 - **test_render_driver_substrate.py** — Spec 283 Slice 1 (Workstream F) — capability render substrate. (21 symbols)
+- **test_session_snapshot.py** — Session-graph snapshot export/import — round-trip + value-only (Spec follow-up). (5 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
 
-### `tests/acceptance/` (69 files)
+### `tests/acceptance/` (71 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.
 
 Phase C — the flat `tests/test_*.py` are converted into behaviour scenarios
@@ -1212,6 +1236,11 @@ Dropped (implementation / structural / not observable behaviour):
   dataclass validators; we keep only the construction-rejection (ValueError)
   behaviours since those are observable contracts.
 - test_guard_typed_shape / test_capability_row_typed_shape / etc. (76 symbols)
+- **test_fidelity.py** — Acceptance — no-truncate-or-paginate data fidelity (Spec 336 S1).
+
+Behaviour: `paginate` returns one page + a read-continuation cursor + instruction,
+and walking the cursor reconstructs the COMPLETE set — the tail is reachable, never
+truncated. (12 symbols)
 - **test_frugal.py** — Acceptance — frugal core discipline level + render (Spec 332 Slice 1). (27 symbols)
 - **test_frugal_floor.py** — Acceptance — frugal safety-floor gate (Spec 332 Slice 4).
 
@@ -1224,7 +1253,7 @@ Every capability verb's wire return carries a byte-stable compact frugal stamp
 (via engine._shape_wire_result); off omits it; agency_welcome carries it in its
 cache-stable prefix. (22 symbols)
 - **test_gate.py** — Acceptance — gate capability + gate predicates (Spec 011). (34 symbols)
-- **test_hooks.py** — Acceptance — hook dispatch, BoundaryUse, foreign-hook install (Spec 076 / 195 / 280). (92 symbols)
+- **test_hooks.py** — Acceptance — hook dispatch, BoundaryUse, foreign-hook install (Spec 076 / 195 / 280). (94 symbols)
 - **test_implicit_intent.py** — Acceptance — implicit intent_id via AGENCY_INTENT env var (Spec 018 Win 3).
 
 Converted from tests/test_implicit_intent.py. (21 symbols)
@@ -1430,9 +1459,13 @@ Converted from:
 
 Dropped as implementation/structural (not observable behaviour):
   test_path_safety.py — exercises an internal helper `_safe_path` that
-    validates path-traversal guards inside the template loader. (72 symbols)
+    validates path-traversal guards inside the template loader. (104 symbols)
 - **test_thinking.py** — Acceptance — thinking capability: critical-thinking method scaffolds (Spec 110). (16 symbols)
 - **test_token_budget.py** — Acceptance — token budget (Spec 023 / 082). (20 symbols)
+- **test_toolcalls.py** — Acceptance — the toolcalls capability (Spec 336 S2).
+
+The clear, discoverable MCP surface over the ephemeral tool-call store: stats,
+top (frequency ranking), and prune. (22 symbols)
 - **test_typed_entities.py** — Acceptance — Spec 327: typed Intent + Capability core (the four-concept
 interweave's load-bearing slice). (27 symbols)
 - **test_typed_fulfilment.py** — Acceptance — Spec 328: typed Intent fulfilment (the Intent-owned Gate +
