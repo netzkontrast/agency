@@ -59,7 +59,7 @@ Feature: frugal core discipline — level + render (Spec 332 Slice 1)
     Given a frugal engine with no level override
     When a SessionStart event fires
     Then the injected text contains "YAGNI"
-    And the injected text contains "Levels (active:"
+    And the injected text contains "Intensity levels (active:"
     And the injected text contains "Switch the level"
     And the injected text contains every safety-floor marker
 
@@ -67,7 +67,7 @@ Feature: frugal core discipline — level + render (Spec 332 Slice 1)
     Given a frugal engine with session_inject "discipline"
     When a SessionStart event fires
     Then the injected text contains "YAGNI"
-    And the injected text does not contain "Levels (active:"
+    And the injected text does not contain "Intensity levels (active:"
 
   Scenario: session_inject off injects no frugal at session start
     Given a frugal engine with session_inject "off"
