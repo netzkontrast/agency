@@ -237,12 +237,24 @@ class ManageCapability(CapabilityBase):
         chain_next: manage.timeline(intent_id) for an intent's event order.
         """
         rows = []
-        for i in self._live(self.ctx.find("Intent")):
+        live_intents = self._live(self.ctx.find("Intent"))
+
+        if not live_intents:
+            return {"count": 0, "intents": []}
+
+        # Batch query for serves counts to fix N+1
+        iids = [i["id"] for i in live_intents]
+
+        # We can write a single cypher query to get counts for all intents at once
+        q = "MATCH (s)-[:SERVES]->(t) WHERE t.id IN $iids RETURN t.id AS iid, count(s) AS c"
+        counts = {r["iid"]: r["c"] for r in self.ctx.memory.g.query(q, {"iids": iids})}
+
+        for i in live_intents:
             iid = i["id"]
             rows.append({"id": iid, "purpose": i.get("purpose", ""),
                          "acceptance": i.get("acceptance", ""),
                          "status": i.get("status", ""),
-                         "serves_count": len(self.ctx.nodes_serving(iid))})
+                         "serves_count": counts.get(iid, 0)})
         rows.sort(key=lambda r: r["serves_count"], reverse=True)
         return {"count": len(rows), "intents": rows[:top]}
 
