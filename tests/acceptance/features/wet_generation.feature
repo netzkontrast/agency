@@ -56,6 +56,23 @@ Feature: Use-case model selection + OpenRouter-first generation (Spec 338)
     When I select the text generator
     Then a dependency-missing error is raised
 
+  # ── config-file registry (.agency/config.yaml llm.models) ──────────────────
+
+  Scenario: a config file llm.models block builds the registry
+    Given a config file with an llm.models block mapping "prose" to "y/cfg:free"
+    When I load the registry from that config file
+    Then selecting "prose" from that registry yields "y/cfg:free"
+
+  Scenario: an absent config block falls back to the built-in registry
+    Given a config file with no llm block
+    When I load the registry from that config file
+    Then the loaded registry equals the built-in registry
+
+  Scenario: config validation ignores the structured llm.models block
+    Given a config file with an llm.models block mapping "prose" to "y/cfg:free"
+    When I validate that config file
+    Then no issue mentions "llm.models"
+
   # ── typed generation result ─────────────────────────────────────────────────
 
   Scenario: generate returns a typed result with a use-case-chosen free model

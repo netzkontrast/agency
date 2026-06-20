@@ -244,6 +244,21 @@ Then:   the config registry REPLACES the built-in default (override, rule 8)
   `generate` round-trip. Existing `decide`/dispatch suite stays green; drift
   clean (no install regen — internal boundary, not an MCP verb).
 
+### Done — Slice 2a (config-file `llm.models` read, 2026-06-20)
+
+- **`load_registry_from_config(path=None)`** — reads the `llm.models` block raw
+  via `_config._read` (a list of model objects, not scalar config keys), builds
+  the registry, falls back to the built-in default on absence / read error.
+- **`LLMClient(registry=None)`** now hydrates from `load_registry_from_config()`
+  by default — `.agency/config.yaml` `llm.models:` is the live override with
+  zero ceremony; an explicit `registry=` still wins (tests).
+- **`config_validate` skips structured (list/dict) blocks** — the
+  unregistered-key check is for scalar typos, so a legitimate `llm.models:` list
+  no longer trips it (general fix; `models:` is an opt-in advanced block, not
+  scaffolded).
+- 3 acceptance scenarios (config block → registry, absent block → built-in,
+  validate ignores the structured block); existing config suite green.
+
 ### Still — Slice 2+
 
 - Wire the `-wet` consumers (204/220/226/230/240/249/311/317) to
@@ -251,5 +266,3 @@ Then:   the config registry REPLACES the built-in default (override, rule 8)
 - `generate_stream()` (OpenRouter SSE).
 - Hydrate `flags` live in selection (`select_model(..., live_ids=_openrouter_models())`)
   + the per-(use_case, model) success/failure feedback loop (Meadows leverage).
-- `.agency/config.yaml` `models:` block wired through the engine's config load
-  (Spec 334); Slice 1 ships `load_registry(dict)`, not the file read.

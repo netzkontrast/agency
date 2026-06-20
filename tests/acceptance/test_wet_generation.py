@@ -164,6 +164,52 @@ def _dep_missing(ctx):
         "dependency_missing" in str(ctx["raised"]).lower()
 
 
+# ── config-file registry ─────────────────────────────────────────────────────
+@given(parsers.parse('a config file with an llm.models block mapping "{uc}" to "{mid}"'),
+       target_fixture="cfg_path")
+def _cfg_with_models(tmp_path, uc, mid):
+    p = tmp_path / "config.yaml"
+    p.write_text(
+        "core:\n  db_path: .agency/session.db\n"
+        f"llm:\n  models:\n    - id: {mid}\n      use_cases: [{uc}]\n"
+        "      priority: 5\n",
+        encoding="utf-8")
+    return str(p)
+
+
+@given("a config file with no llm block", target_fixture="cfg_path")
+def _cfg_no_llm(tmp_path):
+    p = tmp_path / "config.yaml"
+    p.write_text("core:\n  db_path: .agency/session.db\n", encoding="utf-8")
+    return str(p)
+
+
+@when("I load the registry from that config file")
+def _load_from_cfg(ctx, cfg_path):
+    ctx["registry"] = _llm.load_registry_from_config(cfg_path)
+
+
+@then(parsers.parse('selecting "{uc}" from that registry yields "{mid}"'))
+def _select_from_loaded(ctx, uc, mid):
+    assert _llm.select_model(uc, registry=ctx["registry"]) == mid
+
+
+@then("the loaded registry equals the built-in registry")
+def _loaded_is_builtin(ctx):
+    assert ctx["registry"] == _llm.default_registry()
+
+
+@when("I validate that config file")
+def _validate_cfg(ctx, cfg_path):
+    from agency import _config
+    ctx["issues"] = _config.config_validate(path=cfg_path)
+
+
+@then(parsers.parse('no issue mentions "{needle}"'))
+def _no_issue_mentions(ctx, needle):
+    assert not any(needle in i for i in ctx["issues"]), ctx["issues"]
+
+
 # ── generate (stub client, network-free) ────────────────────────────────────
 class _StubResp:
     def __init__(self, text):
