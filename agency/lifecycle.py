@@ -44,11 +44,22 @@ class Lifecycle:
     def __init__(self, memory: Memory):
         self.m = memory
 
-    def open(self, intent_id: str, agent: Optional[str] = None) -> str:
+    def open(self, intent_id: str, *, kind: str = "task",
+             agent: str = "", parameterization: str = "") -> str:
         # Spec 339 — mint in `submitted` (was `working`): submitted = admitted/
         # queued, working = actually running. The distinction makes `whats_next`
         # accurate and matches CORE.md §3's A2A start state.
-        lc = self.m.record("Lifecycle", {"state": SUBMITTED, "phase": 0})
+        #
+        # `kind` (task | session | gate | dispatch …) and `parameterization`
+        # (the 342 seam — e.g. "remote-async" for a delegated child, "session"
+        # for a SessionLifecycle) are OPTIONAL props recorded only when set, so
+        # legacy/default lifecycles stay byte-identical.
+        props = {"state": SUBMITTED, "phase": 0}
+        if kind and kind != "task":
+            props["kind"] = kind
+        if parameterization:
+            props["parameterization"] = parameterization
+        lc = self.m.record("Lifecycle", props)
         self.m.link(lc, intent_id, "SERVES")
         if agent:
             agent_id = f"agent:{agent}"

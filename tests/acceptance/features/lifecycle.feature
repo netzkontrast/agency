@@ -33,3 +33,25 @@ Feature: Lifecycle pillar substrate — the open/move/close state machine (Spec 
     When I move the lifecycle to "working"
     And I close the lifecycle as "completed"
     Then the opened lifecycle state is "completed"
+
+  # Spec 339a-cont — wire the substrate frame to the engine: ctx.lifecycle
+  # delegator, the lifecycle_* substrate tools, and the delegate migration.
+
+  Scenario: open records the parameterization seam
+    When I open a remote-async lifecycle serving the intent
+    Then the opened lifecycle state is "submitted"
+    And the opened lifecycle parameterization is "remote-async"
+
+  Scenario: the lifecycle_open substrate tool mints through the substrate
+    Given an opened lifecycle via the lifecycle_open substrate tool
+    Then the opened lifecycle state is "submitted"
+
+  Scenario: the lifecycle_move substrate tool transitions through the substrate
+    Given an opened lifecycle via the lifecycle_open substrate tool
+    When I move the lifecycle to "working" via the lifecycle_move substrate tool
+    Then the opened lifecycle state is "working"
+
+  Scenario: delegate fan_out opens children through the lifecycle substrate
+    When delegate fans out one item
+    Then the child lifecycle parameterization is "remote-async"
+    And the child lifecycle state is "working"

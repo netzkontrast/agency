@@ -13,6 +13,8 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from agency.engine import Engine
+from agency._substrate_tools import LifecycleOpen, LifecycleMove
+from conftest import invoke
 
 scenarios("features/lifecycle.feature")
 
@@ -102,3 +104,47 @@ def _move_rejected(box):
 @then("the second move is rejected")
 def _second_rejected(box):
     assert box.get("second_error") is not None
+
+
+# ── Spec 339a-cont — ctx.lifecycle + lifecycle_* substrate tools + delegate ───
+
+
+@when("I open a remote-async lifecycle serving the intent", target_fixture="lc")
+def _open_param(engine, confirmed_intent):
+    return engine.lifecycle.open(confirmed_intent, parameterization="remote-async")
+
+
+@then(parsers.parse('the opened lifecycle parameterization is "{expected}"'))
+def _check_param(engine, lc, expected):
+    assert engine.memory.recall(lc).get("parameterization") == expected
+
+
+@given("an opened lifecycle via the lifecycle_open substrate tool", target_fixture="lc")
+def _open_via_substrate(engine, confirmed_intent):
+    lifecycle_open = LifecycleOpen().bind(engine)
+    return lifecycle_open(confirmed_intent)["lifecycle_id"]
+
+
+@when(parsers.parse('I move the lifecycle to "{to_state}" via the lifecycle_move substrate tool'))
+def _move_via_substrate(engine, lc, to_state):
+    lifecycle_move = LifecycleMove().bind(engine)
+    lifecycle_move(lc, to_state)
+
+
+@when("delegate fans out one item", target_fixture="lc")
+def _fan_out_one(engine, confirmed_intent):
+    res, _ = invoke(engine, confirmed_intent, "delegate", "fan_out",
+                    driver="reflect", driver_verb="note",
+                    items=[{"scope": "observation", "text": "x"}], quota=1)
+    result = res.get("result", res) if isinstance(res, dict) else res
+    return result["children"][0]["lifecycle"]
+
+
+@then(parsers.parse('the child lifecycle parameterization is "{expected}"'))
+def _child_param(engine, lc, expected):
+    assert engine.memory.recall(lc).get("parameterization") == expected
+
+
+@then(parsers.parse('the child lifecycle state is "{expected}"'))
+def _child_state(engine, lc, expected):
+    assert engine.memory.recall(lc).get("state") == expected

@@ -1,7 +1,7 @@
 # Intent · Lifecycle · Gate — three of the four concepts
 
 <!-- doc-source: agency/intent.py agency/lifecycle.py agency/capabilities/gate/_main.py -->
-<!-- doc-hash: 07942f4032920752 -->
+<!-- doc-hash: 1d09922d91348bfa -->
 
 ## Intent (`agency/intent.py`)
 
@@ -23,12 +23,23 @@ this core class, which owns capture/confirm.
 
 ## Lifecycle (`agency/lifecycle.py`)
 
-A task/agent state machine: `open · move · close`.
+A task/agent state machine: `open · move · close` — the **Lifecycle PILLAR
+substrate** (peer to `intent.py`/`memory.py`), reached three isomorphic ways:
+`engine.lifecycle.*`, `ctx.lifecycle.*` (the member-capability delegator), and
+the `lifecycle_open`/`lifecycle_move`/`lifecycle_close` substrate-tools (the wire
+surface, Spec 339).
 
-- **`open(intent_id, agent=None)`** → records a `Lifecycle` (state `working`, phase 0)
-  that `SERVES` the intent. Returns the lifecycle id.
-- The lifecycle advances through phases; a gate can pause it (`input-required`).
-- `delegate.fan_out` opens one child Lifecycle per dispatched item.
+- **`open(intent_id, *, kind="task", agent="", parameterization="")`** → records a
+  `Lifecycle` (state `submitted`, phase 0) that `SERVES` the intent. `kind` and
+  `parameterization` (the agent-as-Lifecycle seam, e.g. `"remote-async"`) are
+  optional props recorded only when set. Returns the lifecycle id.
+- **`move(lc_id, to_state)`** is the **sole** state-shaped writer — it validates
+  `to_state` against the closed enum and refuses a no-op; every state change flows
+  through this one chokepoint.
+- **`close(lc_id, outcome="completed")`** drives to a terminal state through `move`.
+- `delegate.fan_out` opens one child Lifecycle per dispatched item via
+  `ctx.lifecycle.open(parameterization="remote-async")` (Spec 339), then `move`s it
+  to `working` at dispatch.
 
 ## Gate (the `gate` capability)
 
