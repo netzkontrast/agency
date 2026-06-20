@@ -187,19 +187,41 @@ Feature: per-tool output filters distil the capture view losslessly
 - A profile that grows past a couple of strategies for one tool MAY promote to
   its own spec (the Spec 015→017/018/019 precedent) — not now.
 
-## Followup — Implementation Status (drafted 2026-06-19)
+## Followup — Implementation Status (Shipped 2026-06-20)
 
-**Done:** spec drafted; profile model + strategy set + seed table defined;
-acceptance scenarios written; no-truncate reconciliation stated as the
-controlling invariant; integration points named against the shipped Spec 336
-surface.
+**Done (Slice 1 — shipped 2026-06-20):**
+- `_FILTER_PROFILES` registry in `agency/capabilities/shell/_main.py` — 13 entries,
+  first-match ordered; Bash shapes are regexes; non-Bash tools match by tool name
+  (exact or prefix-wildcard `mcp__github__*`, `codegraph_*`).
+- New strategies in `_apply_filter`: `head+tail:N`, `count+head:N`, `stat`,
+  `fields:<a,b,...>`, `names` (added alongside existing head/tail/grep/count/last/full/lines).
+- `_resolve_profile(tool, command)` — first-match lookup; returns the strategy string;
+  falls back to `"head:20"` (Spec 336 back-compat).
+- `capture_filter(command, output, *, tool="Bash", spec=None)` updated — `spec=None`
+  auto-resolves via `_resolve_profile`; explicit `spec=` still wins; `locator` strategy
+  handled inline (builds `path — N lines — sha16:...` from command + sha256 of body,
+  no body copy); tool-appropriate header (`$ cmd` for Bash, `[Read path]` for Read, etc.).
+- `agency/engine.py` `_default_hook_handler` widened — ALL captured tools route through
+  `capture_filter(..., tool=tool_name, spec=None)` (not just Bash); Read extracts
+  `file_path`, Edit/Write extract `file_path`, others stringify the input dict.
+- 5 new Gherkin acceptance scenarios in `tests/acceptance/features/toolcalls.feature`
+  + step implementations in `tests/acceptance/test_toolcalls.py` (all 10 scenarios green).
+- S3 scenario updated: command changed from `ls -la /tmp` → `custom-script.sh --run`
+  so the assertion `count("line") <= 20` holds under `head:20` fallback (ls now uses
+  `count+head:20`).
+- `scripts/check-drift` → NO DRIFT; `scripts/check-doc-drift --update` → 7 docs
+  re-stamped (engine.py + capability-system sources changed).
 
-**Still:** RED→GREEN the acceptance scenarios; implement the `FilterProfile`
-registry + strategies in `shell/_main.py`; widen `capture_filter` resolution +
-the hook capture path to all tools; render the `filtered` view in
-`toolcalls.export`; wire the graph-override read path; run `scripts/check-drift`
-+ install regen; flip TODO.md row to Shipped.
+**Still (deferred):**
+- Graph-override read path for `FilterProfile` — analogous to `shell.define` for command
+  templates; a graph-stored `FilterProfile` Artefact could override a seed profile without
+  a code change (CLAUDE.md rule 8). Not blocking Slice 1 (the seed registry is the
+  AGENCY-DRIFT: site that protects the live surface).
+- `--fix-baseline` flag for `scripts/check_schema_coverage.py` (Spec 153 Slice 5;
+  deferred from the 005 handover).
+- Re-grounding the seed table against a larger session census (refinement note above).
 
-**Refinement:** the seed table is grounded in ONE merge-heavy session's census —
-re-ground the strategy choices against a larger sample (the snapshotted durable
-graph + a few more sessions of `toolcalls.db`) before freezing the defaults.
+**Evidence:**
+- 10/10 `test_toolcalls.py` scenarios green; 14/14 `test_shell.py` green.
+- `scripts/check-drift` → NO DRIFT (dormant-schemas gate also clean).
+- `scripts/check-doc-drift` → 0 STALE after `--update`.
