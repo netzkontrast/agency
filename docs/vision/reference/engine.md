@@ -1,7 +1,7 @@
 # Engine — bootstrap, discovery, the substrate tools
 
 <!-- doc-source: agency/engine.py -->
-<!-- doc-hash: 3e8084913e51d39a -->
+<!-- doc-hash: 68da5e431ed0f168 -->
 
 `agency/engine.py` is the heart: it builds the graph, discovers capabilities, wires the
 boundaries, and presents the three-tool wire contract.

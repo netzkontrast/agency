@@ -346,21 +346,30 @@ def _default_hook_handler(engine, event: dict) -> dict:
         # FULL capture to the ephemeral store — off the durable graph. A capture
         # failure must never break the session.
         phase = "pre" if name == "PreToolUse" else "post"
-        # Spec 336 S3 — every Bash call's data is routed (MANDATORILY) through the
-        # shell capture-filter for a clean structured `filtered` view. Capture &
-        # filter only: Claude Code still executes the command unchanged.
+        # Spec 336 S3 / Spec 337 — EVERY captured tool's output is routed through
+        # the per-tool capture-filter for a clean structured `filtered` view.
+        # Bash uses the profile registry (Spec 337); non-Bash tools have their own
+        # profiles (Read → locator, mcp__github__* → decision fields, etc.).
+        # Capture & filter only — execution is unchanged; output_json is always FULL.
         filtered = ""
-        if (tool or "") == "Bash":
-            try:
-                from .capabilities.shell import capture_filter
-                tin = event.get("tool_input") or {}
+        try:
+            from .capabilities.shell import capture_filter
+            tin = event.get("tool_input") or {}
+            resp = event.get("tool_response")
+            tool_name = tool or ""
+            if tool_name == "Bash":
                 cmd = tin.get("command", "") if isinstance(tin, dict) else ""
-                resp = event.get("tool_response")
-                out = resp if isinstance(resp, str) else (
-                    _json.dumps(resp, default=str) if resp else "")
-                filtered = capture_filter(cmd, out)
-            except Exception:                                   # noqa: BLE001
-                filtered = ""
+            elif tool_name == "Read":
+                cmd = tin.get("file_path", "") if isinstance(tin, dict) else ""
+            elif tool_name in ("Edit", "Write"):
+                cmd = tin.get("file_path", "") if isinstance(tin, dict) else ""
+            else:
+                cmd = _json.dumps(tin, default=str) if isinstance(tin, dict) else str(tin or "")
+            out = resp if isinstance(resp, str) else (
+                _json.dumps(resp, default=str) if resp else "")
+            filtered = capture_filter(cmd, out, tool=tool_name, spec=None)
+        except Exception:                                       # noqa: BLE001
+            filtered = ""
         try:
             engine.toolcalls.record(
                 phase=phase, tool=tool or "", session=session, intent=iid,

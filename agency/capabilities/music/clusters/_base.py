@@ -21,6 +21,8 @@ Behaviour is byte-identical to the prior single-module form — pure relocation.
 """
 from __future__ import annotations
 
+import re
+import functools
 from typing import Optional
 
 from agency.capability import CapabilityBase
@@ -194,6 +196,11 @@ class _MusicBase(CapabilityBase):
         return super()._require_drv(name)
 
     @staticmethod
+    @functools.lru_cache(maxsize=1024)
+    def _compile_name_pattern(name: str):
+        return re.compile(r"\b" + re.escape(name) + r"\b", re.I)
+
+    @staticmethod
     def _name_exposure_hits(text: str, roster: list[str]) -> list[dict]:
         """Deterministic whole-word, case-insensitive scan of `text` vs `roster`.
 
@@ -202,13 +209,12 @@ class _MusicBase(CapabilityBase):
         A name fires only on a whole-word match (so "Lex" never matches inside
         "lexicon"). Returns ``[{name, count}]`` for any name with ≥ 1 hit.
         """
-        import re
         hits: list[dict] = []
         for name in roster:
             name = (name or "").strip()
             if not name:
                 continue
-            count = len(re.findall(r"\b" + re.escape(name) + r"\b", text, re.I))
+            count = len(_MusicBase._compile_name_pattern(name).findall(text))
             if count:
                 hits.append({"name": name, "count": count})
         return hits
