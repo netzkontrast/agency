@@ -1,23 +1,23 @@
 ---
-spec_id: "354"
+spec_id: "363"
 slug: loop-goal-coaching
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 6]
-depends_on: ["091", "307", "312", "315", "322", "353"]
-parent_spec: "353"
+depends_on: ["091", "307", "312", "315", "322", "362"]
+parent_spec: "362"
 domain: loop / intent
 wave: looper-port
 ---
 
-# Spec 354 — Loop goal coaching (the goal becomes an Intent)
+# Spec 363 — Loop goal coaching (the goal becomes an Intent)
 
-> Child of Spec 353 (looper-complete-port). Ports looper's **goal stage** +
+> Child of Spec 362 (looper-complete-port). Ports looper's **goal stage** +
 > `references/goal-rubric.md`. The wedge looper opens here: *"Garbage goal in,
 > confidently-wrong loop out."* Agency already has the primitive looper lacked —
 > the **Intent** — plus a clarity gate (Spec 322) and critical-thinking methods
-> (Spec 091). 354 wires the goal rubric onto them.
+> (Spec 091). 363 wires the goal rubric onto them.
 
 ## Why
 
@@ -43,9 +43,9 @@ goal:
 In agency, **a loop's goal IS the loop's root Intent.** `intent_bootstrap` already
 takes `purpose` / `deliverable` / `acceptance` — a near-exact match for
 looper's `statement` / (implicit output) / `definition_of_done`. The
-contribution of 354 is (a) the **goal rubric** as the critique source, and (b)
+contribution of 363 is (a) the **goal rubric** as the critique source, and (b)
 binding `context_sources` and `definition_of_done` onto the Intent so the loop
-machine (357) and the council (356) can read them.
+machine (366) and the council (365) can read them.
 
 ## Design
 
@@ -66,7 +66,7 @@ def frame_goal(self, ctx, statement: str, definition_of_done: str,
     loop may inspect (resolved at compile/run time, never shell-interpolated).
 
     Returns: {goal_id, intent_id, clarity}. chain_next: loop.critique_goal to
-    coach it, then loop.add_criterion (355).
+    coach it, then loop.add_criterion (364).
     """
 ```
 
@@ -91,22 +91,22 @@ def critique_goal(self, ctx, goal_id: str) -> dict:
     Reuses intent.clarity_score (Spec 322) for the falsifiability signal and
     intent critical-thinking (Spec 091) for the framing critique. Returns
     {findings: [{dimension, verdict, rubric_ref, suggestion}], clarity}.
-    chain_next: re-frame_goal on a failing dimension, or proceed to 355.
+    chain_next: re-frame_goal on a failing dimension, or proceed to 364.
     """
 ```
 
 - **Falsifiable done-state** maps to the **Spec 322 intent-clarity-score gate** —
   reuse it; a goal whose `definition_of_done` scores below threshold is flagged
-  (not blocked — the wizard, 358, decides whether to hard-gate).
+  (not blocked — the wizard, 367, decides whether to hard-gate).
 - **Outcome vs activity / scope / gather-vs-assume** reuse **Spec 091** intent
   critical-thinking methods + **Spec 315** framing frameworks. No new coaching
-  engine — 354 is the rubric + the binding, the reasoning is borrowed.
+  engine — 363 is the rubric + the binding, the reasoning is borrowed.
 
 ### Coaching is advisory by default (looper parity)
 
 Looper warns loudly but lets the user accept a weak goal ("unless the user
-explicitly accepts that risk"). 354 mirrors this: `critique_goal` returns findings;
-it does not block. The hard gate (if any) is the wizard's call (358), and even
+explicitly accepts that risk"). 363 mirrors this: `critique_goal` returns findings;
+it does not block. The hard gate (if any) is the wizard's call (367), and even
 there a user override is recorded as provenance, not refused.
 
 ## Acceptance (Gherkin)
@@ -148,7 +148,7 @@ Scenario: a sharp goal passes critique clean
 
 ## Followup — Implementation Status (2026-06-20)
 
-**Verdict:** Not started — drafted under the 353 wave. Goal-as-Intent binding +
+**Verdict:** Not started — drafted under the 362 wave. Goal-as-Intent binding +
 the goal rubric as critique source, reusing the clarity gate (322) and intent
 critical-thinking (091). Advisory-not-blocking parity with looper. Foundation
-sibling to 355/356/357; consumed by the wizard (358).
+sibling to 364/365/366; consumed by the wizard (367).

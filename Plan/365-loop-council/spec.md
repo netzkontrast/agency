@@ -1,24 +1,24 @@
 ---
-spec_id: "356"
+spec_id: "365"
 slug: loop-council
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [3, 8]
-depends_on: ["002", "040", "271", "285", "294", "297", "353"]
-parent_spec: "353"
+depends_on: ["002", "040", "271", "285", "294", "297", "362"]
+parent_spec: "362"
 domain: loop / delegation
 wave: looper-port
 ---
 
-# Spec 356 — Loop council (cross-model reviewer / judge)
+# Spec 365 — Loop council (cross-model reviewer / judge)
 
-> Child of Spec 353. Ports looper's **council stage** +
+> Child of Spec 362. Ports looper's **council stage** +
 > `references/council-rubric.md` + §6 (model detection/selection). This is
 > looper's defining wedge: **a reviewer or judge from a *different* model family
 > than the host** — closing the blind spot of a model grading its own homework.
 > Agency already has the convening primitives (`panel`, `persona`) and the
-> cross-model dispatch primitives (`delegate`, `jules`). 356 binds them into a
+> cross-model dispatch primitives (`delegate`, `jules`). 365 binds them into a
 > loop council.
 
 ## Why
@@ -59,7 +59,7 @@ Agency's pieces:
 - **`ctx.host`** (Spec 285) is the in-session host LLM (sampling) when the host
   role runs natively.
 
-356 expresses a council member as **a persona bound to a model driver**, and
+365 expresses a council member as **a persona bound to a model driver**, and
 `convene` as a scoped `panel` over the gated artefact.
 
 ## Design
@@ -75,15 +75,15 @@ def add_member(self, ctx, loop_id: str, role: str, *, model: str = "",
 
     role ∈ {reviewer, judge}: a reviewer emits notes; a judge emits a verdict.
     `model`/`cli`/`family` resolve to a driver invocation (delegate/jules) via
-    the registry (360). `scope` ⊆ {plan, delivery} limits which gates it serves.
+    the registry (369). `scope` ⊆ {plan, delivery} limits which gates it serves.
     `local=True` flags a no-egress member (e.g. ollama). Returns
     {member_id, role, family, local}. chain_next: loop.recommend_council to
-    check cross-family hygiene; gates (357) reference members by id.
+    check cross-family hygiene; gates (366) reference members by id.
     """
 ```
 
 A member is a **persona** (Spec 297) — its review voice — bound to a **driver**
-(`delegate`/`jules`, resolved by 360). `family` (anthropic / openai / google /
+(`delegate`/`jules`, resolved by 369). `family` (anthropic / openai / google /
 local) is what the cross-family rule reasons over.
 
 ### `convene` — a scoped panel that returns role-correct output
@@ -99,7 +99,7 @@ def convene(self, ctx, loop_id: str, gate: str, artefact: str,
                                  confidence, notes}, parsed leniently.
     Returns {notes:[…], verdict?:{…}, member_verdicts:[…]}. The verdict is
     present only if a judge member is in `members`. chain_next: the machine
-    (357) applies revise_until_clean using verdict.verdict.
+    (366) applies revise_until_clean using verdict.verdict.
     """
 ```
 
@@ -116,7 +116,7 @@ def parse_verdict(text: str) -> dict:
 ```
 
 This is looper's `parse_judge_output`, ported. The structured verdict shape
-(`verdict / blocking_issues / confidence / notes`) is the contract 355 and 357
+(`verdict / blocking_issues / confidence / notes`) is the contract 364 and 366
 consume.
 
 ### The reviewer-only rule is enforced, not just documented
@@ -131,14 +131,14 @@ def recommend_council(self, ctx, loop_id: str, host_family: str = "") -> dict:
       - scope coverage: is every gated stage covered by ≥1 member?
     Returns {findings:[{rubric_ref, severity, message, fix}]}. A
     revise_until_clean gate with only reviewers is an ERROR finding (the
-    machine, 357, refuses to open such a loop).
+    machine, 366, refuses to open such a loop).
     """
 ```
 
-The **`verdict_source` invariant** is the one hard rule: 357's `open_loop` calls
+The **`verdict_source` invariant** is the one hard rule: 366's `open_loop` calls
 into this check and **refuses** a loop whose `revise_until_clean` gate lacks a
 judge/human verdict source. Everything else (cross-family, scope) is advisory
-coaching surfaced by the wizard (358).
+coaching surfaced by the wizard (367).
 
 ### Cross-model = a different driver/family (not a different vendor of magic)
 
@@ -147,7 +147,7 @@ member's actual invocation is a **driver** (`delegate`/`jules`, Spec 040/271) �
 the same dispatch substrate agency already uses, which records provenance and
 honours the dispatch-decision heuristic. Looper's "codex→claude / claude→codex
 bridge" is just two members with different families. Local members (`ollama`) set
-`local=True` and skip egress (360).
+`local=True` and skip egress (369).
 
 ## Acceptance (Gherkin)
 
@@ -167,7 +167,7 @@ Scenario: revise_until_clean requires a verdict source (the reviewer-only rule)
   Given a plan gate with verdict_policy revise_until_clean and only reviewer members
   When I recommend_council
   Then it returns an ERROR finding citing council-rubric.md
-  And open_loop (357) refuses to open the loop
+  And open_loop (366) refuses to open the loop
 
 Scenario: a reviewer-only gate may use fixed_passes
   Given a plan gate with only reviewers and verdict_policy fixed_passes
@@ -192,16 +192,16 @@ Scenario: a scoped member only serves its scope
 - [ ] `loop.convene` returns role-correct output (reviewer notes / judge verdict) over `panel`+`persona`.
 - [ ] `parse_verdict` ports looper's lenient JSON parse (degrade to revise + warn; never raises).
 - [ ] `loop.recommend_council` enforces the `verdict_source` invariant (ERROR) and coaches cross-family + scope (advisory).
-- [ ] `open_loop` (357) refuses a `revise_until_clean` gate with no verdict source.
+- [ ] `open_loop` (366) refuses a `revise_until_clean` gate with no verdict source.
 - [ ] `council-rubric.md` ships verbatim under `data/rubrics/`.
 - [ ] `tests/acceptance/test_loop_council.py` covers the scenarios.
 - [ ] `TODO.md` row updated.
 
 ## Followup — Implementation Status (2026-06-20)
 
-**Verdict:** Not started — drafted under the 353 wave. Council members as
+**Verdict:** Not started — drafted under the 362 wave. Council members as
 personas (297) bound to drivers (040/271), convened via `panel` (294);
 reviewer/judge distinction + the `revise_until_clean` verdict-source invariant
 enforced at `open_loop`. Lenient judge parse ported from looper. Foundation
-sibling consumed by 355 (judge path), 357 (gate application), 358 (wizard), 360
+sibling consumed by 364 (judge path), 366 (gate application), 367 (wizard), 369
 (driver/egress resolution).

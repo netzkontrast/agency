@@ -1,30 +1,30 @@
 ---
-spec_id: "360"
+spec_id: "369"
 slug: loop-external-runner-and-egress
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [3, 8]
-depends_on: ["002", "040", "192", "271", "334", "353", "356", "357", "359"]
-parent_spec: "353"
+depends_on: ["002", "040", "192", "271", "334", "362", "365", "366", "368"]
+parent_spec: "362"
 domain: loop / boundary
 wave: looper-port
 ---
 
-# Spec 360 — Loop external runner, model detection & egress consent
+# Spec 369 — Loop external runner, model detection & egress consent
 
-> Child of Spec 353 (ships LAST — composes all upstream children). Ports looper's
+> Child of Spec 362 (ships LAST — composes all upstream children). Ports looper's
 > **external `run-loop.py` runner**, its **model detection/registry** (§6,
 > `detect-models` / `register-model`, `~/.looper/models.json`,
 > `references/model-detection.md`), and its **privacy/security model** (§9 —
 > cross-vendor egress consent + redaction globs). These three are one concern:
 > *executing a resolved loop outside agency by shelling to external model CLIs,
-> safely.* Carries the master 353 E2E + round-trip parity tests.
+> safely.* Carries the master 362 E2E + round-trip parity tests.
 
 ## Why
 
 Looper has two execution surfaces over one resolved spec. The in-session surface
-is the Lifecycle machine walk (357). The **external surface** is `run-loop.py`: a
+is the Lifecycle machine walk (366). The **external surface** is `run-loop.py`: a
 fixed, small, **stdlib-only** runner that reads ONLY `loop.resolved.json` and
 makes **no design decisions** — it parses the resolved spec, gathers context,
 invokes model CLIs via **argv + timeouts**, runs gates, enforces caps, and stops.
@@ -49,7 +49,7 @@ via `register-model`.
 Agency already owns these boundaries: the **DriverRegistry** (Spec 002,
 `ctx.get_driver`) resolves named drivers; **`delegate`/`jules`** (040/271) dispatch
 to other models; **`shell`** (192) is the safe subprocess boundary (argv,
-timeouts); **config** (334) persists settings durably. 360 binds them so the
+timeouts); **config** (334) persists settings durably. 369 binds them so the
 runner and the in-session walk share one model-resolution + egress-consent path.
 
 ## Design
@@ -65,7 +65,7 @@ def detect_models(self, ctx) -> dict:
     NEVER API keys / tokens (looper File Rule; auth stays in each CLI's own
     keychain). Persists to the agency config (Spec 334), not ~/.looper/models.json.
     Returns {models: {id: {invoke, family, local, authed}}}. chain_next:
-    loop.add_member (356) offers these; loop.register_model for unknowns.
+    loop.add_member (365) offers these; loop.register_model for unknowns.
     """
 
 @verb(role="effect")
@@ -89,8 +89,8 @@ key-shaped is rejected). `references/model-detection.md` ships verbatim to
 @verb(role="effect")
 def emit_runner(self, ctx, loop_id: str, target: str) -> dict:
     """Write <target>/run-loop.py — the stdlib-only external runner. The runner
-    reads ONLY loop.resolved.json (359) and executes the SAME contract the
-    in-session machine (357) walks: gather context → host → plan_gate →
+    reads ONLY loop.resolved.json (368) and executes the SAME contract the
+    in-session machine (366) walks: gather context → host → plan_gate →
     deliver → delivery_gate → stop. Argv + timeouts on every call; lenient judge
     parse; consent-gated cross-vendor sends. Copied with a fixed contract
     (looper File Rule: copy run-loop.py exactly unless the runner contract is
@@ -103,7 +103,7 @@ contract. The **round-trip parity test** (below) proves they agree.
 
 ### Egress consent + redaction (the one genuinely new gate)
 
-A council member in a different family means **context leaves the machine**. 360
+A council member in a different family means **context leaves the machine**. 369
 adds a narrow `egress_consent_gate` (a `gate`, Spec 328 shape) consulted before
 any cross-vendor send — in-session (`delegate`/`jules` to a non-local family) AND
 in the external runner:
@@ -121,7 +121,7 @@ def egress_consent_gate(member: CouncilMember, policy: EgressPolicy, state) -> d
 ```
 
 The `EgressPolicy` node (per member: `sends`, `redact`, `consent`) is the
-`privacy.egress` block (354/356 author it; 359 carries it into the resolved spec).
+`privacy.egress` block (363/365 author it; 368 carries it into the resolved spec).
 Consent is recorded as provenance (a graph node), so "consented once" survives the
 session — better than looper's `state.json.consent`.
 
@@ -131,9 +131,9 @@ session — better than looper's `state.json.consent`.
 > applies before the first byte leaves. These are acceptance scenarios, not just
 > prose.
 
-### The master E2E + round-trip parity (the 353 closers)
+### The master E2E + round-trip parity (the 362 closers)
 
-360 carries the two tests that flip 353 to Shipped:
+369 carries the two tests that flip 362 to Shipped:
 
 1. **`test_loop_e2e.py`** — `frame_goal → add_criterion → add_member → open_loop →
    advance×N (plan_gate + delivery_gate) → compile → emit`, then assert
@@ -141,8 +141,8 @@ session — better than looper's `state.json.consent`.
    criteria, members, verdicts, artefacts) — the provenance moat lit on a real
    loop.
 2. **`test_loop_roundtrip.py`** — using looper's ported fake-host / fake-judge /
-   bad-judge / check-contains fixtures: a loop run **in-session** (357) and the
-   SAME loop run by the **emitted `run-loop.py`** (360) over the same fixtures
+   bad-judge / check-contains fixtures: a loop run **in-session** (366) and the
+   SAME loop run by the **emitted `run-loop.py`** (369) over the same fixtures
    reach the **same gate decisions** (pass/revise, stop_reason). Proves the two
    surfaces honour one contract.
 
@@ -194,15 +194,15 @@ Scenario: the provenance moat is lit end-to-end
 - [ ] `egress_consent_gate` ports `ensure_consent` + redaction; consent recorded as provenance; fires in-session AND external.
 - [ ] argv+timeout on every external call (192); no secrets in any emitted artefact (acceptance-tested).
 - [ ] `model-detection.md` + the looper fake fixtures ship; `MODEL_PROBES` + `agents/openai.yaml` seed the registry.
-- [ ] **`test_loop_e2e.py`** (provenance moat) + **`test_loop_roundtrip.py`** (in-session ↔ external parity) pass — the 353 closers.
-- [ ] `TODO.md` row updated; 353 master flipped to Shipped when this lands Green.
+- [ ] **`test_loop_e2e.py`** (provenance moat) + **`test_loop_roundtrip.py`** (in-session ↔ external parity) pass — the 362 closers.
+- [ ] `TODO.md` row updated; 362 master flipped to Shipped when this lands Green.
 
 ## Followup — Implementation Status (2026-06-20)
 
-**Verdict:** Not started — drafted under the 353 wave (ships LAST). The external
+**Verdict:** Not started — drafted under the 362 wave (ships LAST). The external
 execution surface: model detection/registry over the DriverRegistry (002), the
-ported stdlib `run-loop.py` reading the resolved spec (359), and a narrow
+ported stdlib `run-loop.py` reading the resolved spec (368), and a narrow
 egress-consent gate (cross-vendor consent + redaction) that fires for both
 surfaces. Carries the master E2E (provenance moat) + round-trip parity tests that
-flip 353 to Shipped. Depends on 356 (members/families), 357 (the walk contract),
-359 (the resolved spec).
+flip 362 to Shipped. Depends on 365 (members/families), 366 (the walk contract),
+368 (the resolved spec).

@@ -1,19 +1,19 @@
 ---
-spec_id: "359"
+spec_id: "368"
 slug: loop-spec-and-emission
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [7, 9]
-depends_on: ["043", "179", "283", "292", "353", "355", "356", "357"]
-parent_spec: "353"
+depends_on: ["043", "179", "283", "292", "362", "364", "365", "366"]
+parent_spec: "362"
 domain: loop / document
 wave: looper-port
 ---
 
-# Spec 359 — Loop spec + emission (graph → portable artefacts)
+# Spec 368 — Loop spec + emission (graph → portable artefacts)
 
-> Child of Spec 353. Ports looper's **`loop.yaml` authoring format**, the
+> Child of Spec 362. Ports looper's **`loop.yaml` authoring format**, the
 > **compile to `loop.resolved.json`**, the two JSON **schemas**, and the rendered
 > **`LOOP.md`** + **`RUN_IN_SESSION.md`**. This is the **export surface** of the
 > native-first/export-second reconciliation (master §"The reconciliation"): the
@@ -60,17 +60,17 @@ def compile(self, ctx, loop_id: str) -> dict:
     """Resolve a graph-native loop into the loop.resolved.json shape.
       - expand refs; build criteria_by_id + council_by_id (the maps the runner indexes)
       - inline each judge criterion's rubric + each gate's criteria
-      - resolve every council/host model to an argv invocation (via 360 registry)
+      - resolve every council/host model to an argv invocation (via 369 registry)
       - carry loop_control, execution, observability, privacy.egress, workspace
     Validates against loop.resolved.v1 (CONFORMS_TO). Returns
     {resolved: {...}, valid: true} or typed validation findings. No side effects
-    — pure projection. chain_next: loop.emit to write files, loop.emit_runner (360).
+    — pure projection. chain_next: loop.emit to write files, loop.emit_runner (369).
     """
 ```
 
 This is looper's `compile` (`scripts/looper.py`), but reading the graph instead of
 parsing YAML — and emitting the *same* resolved shape, so the ported `run-loop.py`
-(360) reads it unchanged. **Round-trip parity is a master Done-When gate.**
+(369) reads it unchanged. **Round-trip parity is a master Done-When gate.**
 
 ### `loop.emit` + `render_handoff` — `document.render` to files
 
@@ -80,7 +80,7 @@ def emit(self, ctx, loop_id: str, target: str) -> dict:
     """Project the loop to its portable workspace via document.render:
       <target>/loop.yaml             — human-authored form (Document, re-ingestable)
       <target>/loop.resolved.json    — compiled, validated (the runner's contract)
-      <target>/LOOP.md               — human rendering + the ASCII flow preview (358)
+      <target>/LOOP.md               — human rendering + the ASCII flow preview (367)
       <target>/loop-workspace/       — empty handoff dir (plan/delivery/review live here)
       <target>/README.md             — how to run + MIT attribution to looper
     Each rendered file carries the <!-- agency-node: <id> --> anchor so edits
@@ -109,11 +109,11 @@ A user (or another tool) can hand-write `loop.yaml`; `document.ingest` +
 "author in YAML" path while making the graph the canonical store. The
 `loop.v1.schema.json` validates the authored form on ingest.
 
-### What 359 does NOT do
+### What 368 does NOT do
 
-- It does not execute the loop (357 walks it in-session; 360 runs it externally).
-- It does not resolve model CLIs itself — it asks 360's registry for argv
-  (separation: 359 renders, 360 owns the boundary to external processes).
+- It does not execute the loop (366 walks it in-session; 369 runs it externally).
+- It does not resolve model CLIs itself — it asks 369's registry for argv
+  (separation: 368 renders, 369 owns the boundary to external processes).
 
 ## Acceptance (Gherkin)
 
@@ -161,8 +161,8 @@ Scenario: compile of an under-specified loop returns typed findings, not a crash
 
 ## Followup — Implementation Status (2026-06-20)
 
-**Verdict:** Not started — drafted under the 353 wave. The export surface: graph →
+**Verdict:** Not started — drafted under the 362 wave. The export surface: graph →
 `loop.resolved.json` (same shape the ported runner reads) via `loop.compile`, and
 graph → loop.yaml/LOOP.md/RUN_IN_SESSION.md via `document.render` (179/283/292) —
-with two-way round-trip the net gain over looper's one-way emit. Depends on 355/
-356/357 (the nodes it projects); consumed by 360 (the runner reads its output).
+with two-way round-trip the net gain over looper's one-way emit. Depends on 364/
+365/366 (the nodes it projects); consumed by 369 (the runner reads its output).
