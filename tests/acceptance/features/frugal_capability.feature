@@ -41,3 +41,16 @@ Feature: frugal capability — the ponytail port (Spec 348 Slice 1)
     When I get the frugal gain scoreboard
     Then the scoreboard names the ponytail benchmark source
     And the scoreboard points to frugal.debt for the only real per-repo number
+
+  Scenario: review flags decidable bloat and records provenance (composes analyze)
+    Given a python file with over-engineering bloat
+    When I review that tree for over-engineering
+    Then the review flags a decidable cut
+    And the review names the over-engineering tags
+    And a FrugalReview node serves the intent
+
+  Scenario: review on lean code flags nothing but still records the run
+    Given a lean python source tree
+    When I review that tree for over-engineering
+    Then the review flags no decidable cuts
+    And a FrugalReview node serves the intent

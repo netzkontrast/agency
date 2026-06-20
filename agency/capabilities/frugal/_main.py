@@ -38,13 +38,17 @@ _MARKER = re.compile(
     r"(?:#|//|--|;|%|<!--|/\*)\s*(?:ponytail|frugal):\s*(.+?)\s*(?:-->|\*/)?\s*$")
 _SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "dist", "build", ".codegraph"}
 _DATA = Path(__file__).parent / "data"
-_TOP_N = 10   # tunable: the wire return caps at the top-N markers (full ledger lives in the graph)
+_TOP_N = 10   # tunable: the wire return caps at the top-N findings (full set lives in the graph)
+# map analyze.quality's decidable rules onto the ponytail over-engineering tags.
+_TAG = {"unused-import": "delete", "long-function": "shrink",
+        "long-file": "yagni", "long-line": "shrink"}
 
 
 class FrugalCapability(CapabilityBase):
     name = "frugal"
     home = "lifecycle"   # a discipline parameterizing HOW work proceeds (cf. mode/select; Spec 347)
-    ontology = OntologyExtension(nodes={"DebtMarker": ["file", "line"]})
+    ontology = OntologyExtension(
+        nodes={"DebtMarker": ["file", "line"], "FrugalReview": ["scope", "files"]})
     artefact_schemas = ArtefactSchemas.from_module(__file__)
 
     # ── level / set_level / instructions / help (Slice 1) ─────────────────────
@@ -137,7 +141,55 @@ class FrugalCapability(CapabilityBase):
                              "version was never written) — run frugal.debt for the "
                              "only real per-repo number."}
 
+    @verb(role="effect")
+    def review(self, scope: str = "diff", ref: str = "", paths: str = "") -> dict:
+        """Review for over-engineering ONLY (delete/stdlib/native/yagni/shrink) —
+        distinct from analyze's multi-axis pass. ``scope="diff"`` (default) reviews
+        the working-tree changes vs ``ref`` (default HEAD); ``scope="repo"`` reviews
+        tracked source under ``paths``. COMPOSES ``analyze.quality`` on the in-scope
+        Python files for the DECIDABLE bloat subset (unused imports → delete, long
+        functions/files/lines → shrink/yagni), records a ``FrugalReview`` node
+        SERVING the intent, and frames the rest: the stdlib/native/shrink JUDGMENT
+        is the reviewer's call — a deterministic pass cannot decide "reinvents the
+        stdlib", so a Spec 147 Driver seam sharpens it with an LLM when wired.
+
+        Inputs: scope ("diff"|"repo"), ref (str — diff base, default HEAD), paths (str).
+        Returns: token-bounded ``{scope, files, decidable_findings: [top-N
+                 {tag, rule, file, line, message}], tags, note}``.
+        chain_next: apply the cuts; ``frugal.review`` again; ``frugal.debt`` for deferrals.
+        """
+        files = (self._changed_files(ref) if scope == "diff"
+                 else self._tracked_files(paths))
+        py = [f for f in files if f.endswith(".py")]
+        findings: list[dict] = []
+        for f in py:
+            r = self.ctx.call("analyze", "quality", path=f)
+            for fnd in (r.get("findings") or []):
+                rule = fnd.get("rule", "")
+                findings.append({"tag": _TAG.get(rule, "shrink"), "rule": rule,
+                                 "file": f, "line": fnd.get("line", 0),
+                                 "message": fnd.get("message", "")})
+        findings.sort(key=lambda x: (x["file"], x["line"]))
+        self.ctx.record_and_serve("FrugalReview", {
+            "scope": scope, "files": len(py), "decidable": len(findings)})
+        return {"scope": scope, "files": len(py),
+                "decidable_findings": findings[:_TOP_N],
+                "tags": ["delete", "stdlib", "native", "yagni", "shrink"],
+                "note": "Decidable bloat only (unused imports + long functions/files "
+                        "via analyze). The stdlib/native/shrink JUDGMENT is the "
+                        "reviewer's — frame the diff with the tags above; a Driver "
+                        "(LLM) sharpens it (Spec 147 seam)."}
+
     # ── helpers ───────────────────────────────────────────────────────────────
+    def _changed_files(self, ref: str) -> list[str]:
+        """Files changed in the working tree vs ``ref`` (default HEAD)."""
+        try:
+            r = subprocess.run(["git", "diff", "--name-only", ref or "HEAD"],
+                               capture_output=True, text=True, timeout=10)
+            return [ln for ln in r.stdout.splitlines() if ln.strip()]
+        except Exception:
+            return []
+
     def _tracked_files(self, paths: str) -> list[str]:
         """Tracked source under ``paths`` via ``git ls-files`` (honours .gitignore
         — M6); falls back to a noise-skipping walk for an untracked path."""

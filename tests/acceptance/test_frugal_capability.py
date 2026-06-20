@@ -120,3 +120,44 @@ def _bench_src(fr):
 @then("the scoreboard points to frugal.debt for the only real per-repo number")
 def _points_debt(fr):
     assert "frugal.debt" in fr["this_repo"]
+
+
+# ── review (Slice 3) ──────────────────────────────────────────────────────────
+
+
+@given("a python file with over-engineering bloat", target_fixture="review_path")
+def _bloat(tmp_path):
+    # unused import (delete) + a very long line (shrink) — both decidable by analyze.quality
+    (tmp_path / "bloat.py").write_text("import os\nx = " + "1 + " * 80 + "1\n")
+    return str(tmp_path)
+
+
+@given("a lean python source tree", target_fixture="review_path")
+def _lean(tmp_path):
+    (tmp_path / "clean.py").write_text("x = 1\n")
+    return str(tmp_path)
+
+
+@when("I review that tree for over-engineering", target_fixture="fr")
+def _review(engine, confirmed_intent, review_path):
+    return _f(engine, confirmed_intent, "review", scope="repo", paths=review_path)
+
+
+@then("the review flags a decidable cut")
+def _flags(fr):
+    assert fr["decidable_findings"], fr
+
+
+@then("the review flags no decidable cuts")
+def _noflags(fr):
+    assert fr["decidable_findings"] == [], fr
+
+
+@then("the review names the over-engineering tags")
+def _rtags(fr):
+    assert set(fr["tags"]) >= {"stdlib", "native", "yagni"}, fr
+
+
+@then("a FrugalReview node serves the intent")
+def _rserved(engine, confirmed_intent, fr):
+    assert served(engine, confirmed_intent, "FrugalReview") >= 1

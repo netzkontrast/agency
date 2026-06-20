@@ -28,6 +28,7 @@ Frugal forces the laziest solution that actually works: the ladder YAGNI -> stdl
 | `help` | transform | The frugal reference card (the ponytail-help info): the discipline + the levels table + how to switch + what is configurable. | [details](#help) |
 | `instructions` | transform | Return the frugal ruleset text at a level — the ponytail-MCP port (``ponytail_instructions``). | [details](references/instructions.md) |
 | `level` | transform | Report the active frugal level (env AGENCY_FRUGAL_LEVEL -> .agency/config.yaml -> full). | [details](#level) |
+| `review` | effect | Review for over-engineering ONLY (delete/stdlib/native/yagni/shrink) — distinct from analyze's multi-axis pass. | [details](references/review.md) |
 | `set_level` | effect | Persist the frugal level (durable across processes via the Spec 334 config). | [details](references/set_level.md) |
 
 ## Example
