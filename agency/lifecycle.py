@@ -121,7 +121,8 @@ class Lifecycle:
         return extend_table(self._base_table, extra)
 
     def open(self, intent_id: str, *, kind: str = "task",
-             agent: str = "", parameterization: str = "") -> str:
+             agent: str = "", parameterization: str = "",
+             machine: str = "a2a") -> str:
         # Spec 339 — mint in `submitted` (was `working`): submitted = admitted/
         # queued, working = actually running. The distinction makes `whats_next`
         # accurate and matches CORE.md §3's A2A start state.
@@ -130,7 +131,12 @@ class Lifecycle:
         # (the 342 seam — e.g. "remote-async" for a delegated child, "session"
         # for a SessionLifecycle) are OPTIONAL props recorded only when set, so
         # legacy/default lifecycles stay byte-identical.
-        props = {"state": SUBMITTED, "phase": 0}
+        # Spec 345 — per-machine initial state; default machine "a2a" → SUBMITTED (byte-identical)
+        from ._lifecycle_machines import resolve_machine as _resolve_machine
+        _m = _resolve_machine(machine)
+        props: dict = {"state": _m["initial"], "phase": 0}
+        if machine != "a2a":
+            props["machine"] = machine
         if kind and kind != "task":
             props["kind"] = kind
         if parameterization:
@@ -158,19 +164,33 @@ class Lifecycle:
         # AGENCY-DRIFT: lifecycle-state-writer — the ONE legitimate site that
         # writes Lifecycle.state. A new `update({"state": ...})` / `record(
         # "Lifecycle"/"SessionLifecycle", ...)` elsewhere is drift (Spec 340 guard).
-        if to_state not in LIFECYCLE_STATES:
+        node = self.m.recall(lc_id) or {}
+        current = node.get("state")
+        machine_name = node.get("machine", "a2a")
+
+        # Spec 345: per-machine state + transition validation.
+        # A2A branch reuses _effective_table() for graph-override support (Spec 340);
+        # other machines use resolve_machine() from the seed registry.
+        if machine_name == "a2a":
+            valid_states = LIFECYCLE_STATES
+            table = self._effective_table()
+        else:
+            from ._lifecycle_machines import resolve_machine as _resolve_machine
+            _m = _resolve_machine(machine_name)
+            valid_states = _m["states"]
+            table = _m["transitions"]
+
+        if to_state not in valid_states:
             raise ValueError(
-                f"unknown lifecycle state {to_state!r}; "
-                f"valid: {sorted(LIFECYCLE_STATES)}")
-        current = (self.m.recall(lc_id) or {}).get("state")
+                f"unknown state {to_state!r} for machine {machine_name!r}; "
+                f"valid: {sorted(valid_states)}")
         if current == to_state:
             raise ValueError(
                 f"no-op transition: lifecycle {lc_id!r} is already {to_state!r}")
-        # Spec 340 — enforce the A2A transition table. A well-formed lifecycle
-        # (any state set by `open`) must follow a legal edge; a lifecycle with no
-        # state yet (pre-`open` legacy) can't be reasoned about, so it is exempt.
+        # A well-formed lifecycle (any state set by `open`) must follow a legal
+        # edge; a lifecycle with no state yet (pre-`open` legacy) is exempt.
         if current:
-            assert_transition(current, to_state, self._effective_table())
+            assert_transition(current, to_state, table)
         self.m.update(lc_id, {"state": to_state})
         self._emit_transition(lc_id, current or "", to_state, evidence)
         return to_state
