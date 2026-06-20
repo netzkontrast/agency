@@ -263,12 +263,12 @@ section + the live tree:
   `memory.record` required-field enforcement + 2 acceptance scenarios
   (invariant (a) closed; invariant (c) template-per-label deferred per
   #209, so row 004 stays Partial). Done — not a next-step.
-- **Spec 149 Slice 2** — **Slices 2.1 + 2.2 + 2.3 SHIPPED** (2026-06-11/12/20):
-  `scripts/derive_docs.py` carries the derivation engine + the
-  `<!-- derived:<id> -->` fence rewriter (`find_fence` / `rewrite_fence` /
-  `apply_derivations_to_spec_text` + `--write`) + the `--check` drift CI gate
-  (`spec_has_drift` / `check_derivation_drift`). Acceptance coverage restored
-  (9 Gherkin scenarios in `tests/acceptance/`). Remaining: Slice 2.4 (typed Codes).
+- **Spec 149 Slice 2** — **Slices 2.1 + 2.2 + 2.3 + 2.4 SHIPPED** (2026-06-11/12/20):
+  `scripts/derive_docs.py` carries the derivation engine + fence rewriter + drift
+  CI gate + typed `DeriveError(ValueError)` with `Codes.DERIVE_FENCE_BROKEN /
+  DERIVE_AMBIGUOUS / DERIVE_MISSING_GOAL` added to `agency/toolresult.py`.
+  Acceptance coverage: 9 Gherkin scenarios. Remaining: Slice 2.5 (alignment-matrix
+  Goal column), 2.6 (backfill 129 specs), 2.7 (Followup status derive).
 - **Spec 147 Slice 2** — **PARTIAL SHIPPED** (2026-06-11): the Managed-Agents
   `dispatch_session` bridge + `SessionHandle` exist in
   `agency/_drivers/_anthropic.py`. Remaining (Slice 2.x): MonitorEvent
@@ -282,11 +282,11 @@ section + the live tree:
 
 ### Genuinely-open, re-ranked (next 5)
 
-1. **Spec 149 Slice 2.4** — typed Codes (`DERIVE_AMBIGUOUS`/`DERIVE_MISSING_GOAL`/`DERIVE_FENCE_BROKEN`) promoted from inline ValueError. Prerequisite for Spec 261's stop-condition verification. Slice 2.3 drift gate SHIPPED 2026-06-20.
-2. **Spec 147 Slice 2** — Managed-Agents `dispatch_session` bridge. Turns 150/148/177 stub paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
-3. **Spec 146 Slice 2.3** — reachability analysis: restrict the prefix lint scan to functions REACHABLE from substrate-tool prefix builders (Spec 067 family call-graph walk). Slice 2.2 gate re-promoted 2026-06-20.
-4. **Spec 311 Slice 2** — `discover.clarify` wet Driver `ClarifySpec` + grounding-sharp options (depends on 147 Slice 2 for the AnthropicDriver wet path).
-5. **Spec 322 Slice 2** — `clarity_gate` composite + override token + Gate recording; wire as 323's final gate verb. Closes the Intent confirmation gate chain.
+1. **Spec 147 Slice 2** — Managed-Agents `dispatch_session` bridge. Turns 150/148/177 stub paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
+2. **Spec 146 Slice 2.3** — reachability analysis: restrict the prefix lint scan to functions REACHABLE from substrate-tool prefix builders (Spec 067 family call-graph walk). Slice 2.2 gate re-promoted 2026-06-20.
+3. **Spec 311 Slice 2** — `discover.clarify` wet Driver `ClarifySpec` + grounding-sharp options (depends on 147 Slice 2 for the AnthropicDriver wet path).
+4. **Spec 322 Slice 2** — `clarity_gate` composite + override token + Gate recording; wire as 323's final gate verb. Closes the Intent confirmation gate chain.
+5. **Spec 149 Slice 2.5** — alignment-matrix Goal column: derive from each spec's `vision_goals:` frontmatter (Slice 1) + render the matrix. SHIPPED 2026-06-20: Slices 2.1–2.4 complete.
 
 ## When to update this file
 

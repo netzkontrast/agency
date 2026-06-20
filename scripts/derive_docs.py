@@ -33,6 +33,18 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from agency.toolresult import Codes
+
+
+class DeriveError(ValueError):
+    """Typed derive-docs failure (Spec 149 Slice 2.4).
+    Subclasses ValueError for backwards-compatible ``except ValueError`` sites.
+    ``code`` is a ``Codes.DERIVE_*`` constant value."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
 
 # ── parse_affects ──────────────────────────────────────────────────────────
 def parse_affects(spec_path: Path) -> list[str]:
@@ -155,9 +167,11 @@ def find_fence(text: str, fence_id: str) -> tuple[int, int] | None:
         inner_start += 1
     close_at = text.find(close_m, inner_start)
     if close_at < 0:
-        raise ValueError(
+        raise DeriveError(
+            Codes.DERIVE_FENCE_BROKEN,
             f"unclosed fence: `<!-- derived:{fence_id} -->` opened at "
-            f"byte {open_at} has no matching `<!-- /derived:{fence_id} -->`")
+            f"byte {open_at} has no matching `<!-- /derived:{fence_id} -->`",
+        )
     return inner_start, close_at
 
 

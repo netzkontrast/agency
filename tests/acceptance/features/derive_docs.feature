@@ -19,10 +19,12 @@ Feature: Derive-docs fence rewrite — spec.md derived-zone updates
     And I apply derivations to the result again
     Then the two results are identical
 
-  Scenario: an unclosed fence raises ValueError
+  # ── typed Codes (Slice 2.4) ──────────────────────────────────────────────
+
+  Scenario: an unclosed fence raises DeriveError with DERIVE_FENCE_BROKEN code
     Given a spec.md with an unclosed test-count fence
     When I apply derivations to the spec text
-    Then a ValueError is raised mentioning the unclosed fence
+    Then a DeriveError is raised with code "derive_fence_broken"
 
   Scenario: a spec without any fences is unchanged
     Given a spec.md with no derived fences

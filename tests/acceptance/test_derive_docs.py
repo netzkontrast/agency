@@ -260,13 +260,19 @@ def _idempotent(fence_ctx):
         "second apply produced a different result — not idempotent")
 
 
-@then("a ValueError is raised mentioning the unclosed fence")
+@then("a DeriveError is raised with code \"derive_fence_broken\"")
 def _unclosed_raises(fence_ctx):
-    assert fence_ctx["error"] is not None, "expected ValueError but no error was raised"
-    assert isinstance(fence_ctx["error"], ValueError)
-    msg = str(fence_ctx["error"]).lower()
+    from scripts.derive_docs import DeriveError
+    from agency.toolresult import Codes
+    err = fence_ctx["error"]
+    assert err is not None, "expected DeriveError but no error was raised"
+    assert isinstance(err, DeriveError), (
+        f"expected DeriveError (ValueError subclass) but got {type(err).__name__}: {err}")
+    assert err.code == Codes.DERIVE_FENCE_BROKEN, (
+        f"expected code {Codes.DERIVE_FENCE_BROKEN!r} but got {err.code!r}")
+    msg = str(err).lower()
     assert "unclosed" in msg or "fence" in msg, (
-        f"error message does not mention unclosed fence: {fence_ctx['error']}")
+        f"error message does not mention unclosed fence: {err}")
 
 
 @then("the output is identical to the input")

@@ -219,10 +219,24 @@ implemented in Slice 2.1 but had no tests. Slice 2.2 closes that gap:
   3. Spec without fences → no drift (opt-in model).
   4. Live repo `--check` → exits 0 (smoke test).
 
-### Still — Slices 2.4+
+### Done — Slice 2.4 (typed Codes, 2026-06-20)
 
-- **Slice 2.4** — typed Codes (`DERIVE_AMBIGUOUS` / `DERIVE_MISSING_GOAL`
-  / `DERIVE_FENCE_BROKEN`) promoted from inline ValueError.
+- **`DeriveError(ValueError)`** in `scripts/derive_docs.py`: typed exception
+  with a `code` attribute. Subclasses `ValueError` for backwards-compatible
+  `except ValueError` sites.
+- **`Codes.DERIVE_FENCE_BROKEN`** (`"derive_fence_broken"`) added to
+  `agency/toolresult.py`; `find_fence()` now raises `DeriveError` instead of
+  raw `ValueError`.
+- **`Codes.DERIVE_AMBIGUOUS`** (`"derive_ambiguous"`) and
+  **`Codes.DERIVE_MISSING_GOAL`** (`"derive_missing_goal"`) added to `Codes`
+  — wired in future slices (two-specs-claim-same-verb path + missing-frontmatter
+  path).
+- **Acceptance scenario** updated: "an unclosed fence raises DeriveError with
+  DERIVE_FENCE_BROKEN code" — asserts `isinstance(err, DeriveError)` and
+  `err.code == Codes.DERIVE_FENCE_BROKEN`.
+
+### Still — Slices 2.5+
+
 - **Slice 2.5** — alignment-matrix Goal column from `vision_goals:` frontmatter.
 - **Slice 2.6** — backfill `vision_goals:` on the 129 baseline specs.
 - **Slice 2.7** — Followup-status derive (Spec 269).
