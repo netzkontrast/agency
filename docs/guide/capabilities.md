@@ -166,7 +166,7 @@ Use when recording or rendering observation ledgers in the graph — capturing a
 
 Use when you want to read or switch the active frugal level, pull the ruleset
 
-**Walkable skills:** `frugal-usage`
+**Walkable skills:** `frugal`
 
 | verb | role | summary |
 |---|---|---|

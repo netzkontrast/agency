@@ -153,6 +153,64 @@ def _points_debt(fr):
     assert fr["this_repo"]["use"] == "frugal.debt", fr
 
 
+# ── substrate-depth improvements (Spec 348 §7 — templates + core functions) ────
+
+
+@when("I get the frugal gain scoreboard for that tree", target_fixture="fr")
+def _gain_tree(engine, confirmed_intent, debt_path):
+    return _f(engine, confirmed_intent, "gain", paths=debt_path)
+
+
+@then(parsers.parse("the gain scoreboard reports {n:d} live markers"))
+def _gain_count(fr, n):
+    assert fr["this_repo"]["markers"] == n, fr
+
+
+@then("the gain scoreboard still names the ponytail benchmark source")
+def _gain_bench(fr):
+    assert "ponytail" in fr["benchmark"]["source"].lower(), fr
+
+
+@then("gain recorded no DebtMarker node")
+def _gain_readonly(engine, confirmed_intent, fr):
+    # gain is a READ — only debt writes DebtMarker nodes (the live count is a scan)
+    assert served(engine, confirmed_intent, "DebtMarker") == 0
+
+
+@when("I harvest the frugal debt for that tree into a ledger file", target_fixture="fr")
+def _debt_write(engine, confirmed_intent, debt_path, tmp_path):
+    ledger = str(tmp_path / "FRUGAL-DEBT.md")
+    r = _f(engine, confirmed_intent, "debt", paths=debt_path, write=ledger)
+    r["_ledger"] = ledger
+    return r
+
+
+@then("the debt ledger file was written with the markers")
+def _ledger_written(fr):
+    from pathlib import Path
+    body = Path(fr["_ledger"]).read_text(encoding="utf-8")
+    assert "Frugal debt ledger" in body and "global lock" in body, body[:300]
+
+
+@then("the ledger file is bound as a graph Document")
+def _ledger_doc(fr):
+    # composes document.ingest (Spec 292) — the ledger round-trips as a Document node
+    assert fr.get("document_id"), fr
+
+
+@when("I attempt to walk the frugal discipline", target_fixture="fr")
+def _walk_frugal(engine, confirmed_intent):
+    r, _ = invoke(engine, confirmed_intent, "develop", "skill_walk", name="frugal", inputs={})
+    return r
+
+
+@then("the frugal ladder discipline is registered and walkable")
+def _walk_registered(fr):
+    # resolved (NOT 'unknown skill') and the first phase is the ladder's necessity rung
+    assert fr.get("error") != "unknown skill 'frugal'", fr
+    assert fr.get("phase") == "necessity", fr
+
+
 # ── review (Slice 3) ──────────────────────────────────────────────────────────
 
 

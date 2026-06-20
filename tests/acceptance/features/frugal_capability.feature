@@ -35,6 +35,24 @@ Feature: frugal capability — the ponytail port (Spec 348 Slice 1)
     And the frugal reference points to the frugal capability verbs
     And "frugal" is listed among the available develop references
 
+  # ── substrate-depth improvements (Spec 348 §7 — templates + core functions) ──
+  Scenario: gain reports the live per-repo marker count, read-only (core-function scan)
+    Given a source tree with frugal markers
+    When I get the frugal gain scoreboard for that tree
+    Then the gain scoreboard reports 3 live markers
+    And the gain scoreboard still names the ponytail benchmark source
+    And gain recorded no DebtMarker node
+
+  Scenario: debt writes a document-backed ledger file (composes document.ingest, Spec 292)
+    Given a source tree with frugal markers
+    When I harvest the frugal debt for that tree into a ledger file
+    Then the debt ledger file was written with the markers
+    And the ledger file is bound as a graph Document
+
+  Scenario: the frugal ladder is a walkable discipline (templates)
+    When I attempt to walk the frugal discipline
+    Then the frugal ladder discipline is registered and walkable
+
   Scenario: debt harvests comment-prefixed markers (incl. an HTML comment) as provenance
     Given a source tree with frugal markers
     When I harvest the frugal debt for that tree

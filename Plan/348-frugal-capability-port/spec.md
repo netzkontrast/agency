@@ -396,3 +396,32 @@ that were still open, flipping the spec from draft to shipped:
   welcome surface, and provenance nodes were already shipped (above); the live
   engine confirms `frugal` in `agency_welcome`, `frugal.level`/`help` working, and
   `develop.reference("frugal")` resolving. Frugal acceptance suite 17/17 green.
+
+**Substrate-depth pass 2026-06-20** (owner: *"use templates / schemas / ontologies
+/ core functions to improve the port"*; critical-thinking walk `skill:0bf97f14`).
+Audited the full ponytail surface vs the port — verdict: functionally complete and
+superior in places (provenance nodes, per-verb stamp, dedup-over-compact, first-use
+hint, MCP-native). Closed the remaining substrate-depth items the owner selected:
+- **TEMPLATES — the ladder is now a walkable discipline.** `frugal.ontology.skills`
+  declares a `frugal` discipline whose 6 phases mirror the `_frugal._LADDER` rungs
+  (necessity → stdlib → native → installed-dep → one-line → minimum, hard gate at
+  minimum). `develop.skill_walk("frugal")` walks it one rung at a time with
+  provenance — the discipline is no longer prose-only. Single-sourced: only the
+  structural phase graph lives here, the rung TEXT stays in `_frugal`. (Spec 347
+  later derives the drivable lifecycle MACHINE from this walk surface per Spec 346.)
+- **CORE FUNCTIONS — document-backed debt ledger.** `frugal.debt(write=path)`
+  projects the ledger to markdown AND binds it as a graph `Document` via
+  `document.ingest` (Spec 292 file↔graph round-trip) — the ponytail
+  `PONYTAIL-DEBT.md` feature, substrate-native; the DebtMarker nodes stay the
+  canonical queryable ledger.
+- **CORE FUNCTIONS — gain reports the live per-repo count.** `frugal.gain(paths)`
+  scans read-only (no node writes) for the live `frugal:`/`ponytail:` marker count
+  beside the cited benchmark medians — the honest per-repo number (a count, never an
+  invented savings figure).
+- **Docs.** `docs/guide/frugal.md` gains 4 more before/after survivors;
+  `capabilities.md` + the frugal SKILL/CLI mirrors regenerated. 3 new acceptance
+  scenarios (gain read-only count, document-backed ledger, walkable ladder); frugal
+  suite 20/20 green; check-drift clean.
+- Out of scope (tracked elsewhere): installer Wave-2 → 14 agents (Spec 335); the
+  frugal lifecycle MACHINE (Spec 347). The typed DEBT edge stays deliberately
+  un-declared (dormant-surface avoidance) — DebtMarker nodes SERVE the intent.

@@ -1,7 +1,7 @@
 # Frugal — the minimal-code discipline
 
 <!-- doc-source: agency/_frugal.py agency/capabilities/frugal/_main.py Plan/332-frugal-core-discipline/spec.md Plan/348-frugal-capability-port/spec.md -->
-<!-- doc-hash: 3f3553821a5761bf -->
+<!-- doc-hash: 960de0826294c55d -->
 
 > **Lazy means efficient, not careless. The best code is the code never written.**
 
@@ -95,6 +95,18 @@ capability makes it actionable **and queryable** (every run records provenance):
 | `frugal.help` | the full reference card |
 
 The heavy how-to travels on demand: `develop.reference("frugal")`.
+
+## More before/after survivors
+
+The cut is biggest where the platform already ships the feature (ported from
+ponytail's [examples/](https://github.com/DietrichGebert/ponytail/tree/main/examples)):
+
+- **Email validation** — a 75-line regex + class becomes `"@" in email`; the real validation is the confirmation mail.
+- **Number formatting** — drop `numeral`/`accounting`; `Intl.NumberFormat` is locale-aware and zero-dep: `new Intl.NumberFormat("en-US", {style:"currency", currency:"USD"}).format(n)`.
+- **Deep clone** — drop `lodash.cloneDeep` and the lossy `JSON.parse(JSON.stringify(x))`; `structuredClone(x)` is built in.
+- **Debounce** — a 116-line "utility" becomes a 5-line `setTimeout`/`clearTimeout` closure; no library.
+
+Each marks the shortcut in place: `// frugal: Intl.NumberFormat does this, locale-aware` — so `frugal.debt` can surface it.
 
 ## See also
 
