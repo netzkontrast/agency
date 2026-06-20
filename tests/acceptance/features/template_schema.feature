@@ -159,6 +159,15 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
     When I boot the live engine
     Then the analyze-select labels each have a loaded ontology schema
 
+  # ── schema coverage backfill (Slice 6 — foundational-service wave) ───────────
+
+  Scenario: the foundational-service labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the foundational service labels are all schema-covered
+
+  Scenario: the foundational-service schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the foundational service labels each have a loaded ontology schema
   # ── schema coverage backfill (Slice 6 — research + develop-extras wave) ──────
 
   Scenario: the research-develop-extras labels are schema-covered
@@ -178,3 +187,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the recommend-mode-panel-thinking schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the recommend-mode-panel-thinking labels each have a loaded ontology schema
+
+  # ── schema coverage backfill (Slice 6 — plugin + persona + doctrine + dogfood wave) ─
+
+  Scenario: the plugin-persona-doctrine-dogfood labels are schema-covered
+    When I run the schema coverage audit against the live agency tree
+    Then the plugin-persona-doctrine-dogfood labels are all schema-covered
+
+  Scenario: the plugin-persona-doctrine-dogfood schemas are loaded + enforced by the engine
+    When I boot the live engine
+    Then the plugin-persona-doctrine-dogfood labels each have a loaded ontology schema

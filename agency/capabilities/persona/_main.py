@@ -21,7 +21,7 @@ Red flags:
 from __future__ import annotations
 
 from ..._capture import keep_full
-from ...capability import CapabilityBase, verb
+from ...capability import ArtefactSchemas, CapabilityBase, verb
 from ...ontology import OntologyExtension
 
 
@@ -92,6 +92,7 @@ _SPECIALIST_DISPATCH_SKILL = {
 class PersonaCapability(CapabilityBase):
     name = "persona"
     home = "lifecycle"   # a persona parameterizes a dispatched agent's role
+    artefact_schemas = ArtefactSchemas.from_module(__file__)
     ontology = OntologyExtension(
         nodes={"PersonaBrief": ["persona", "task"]},
         enums={("PersonaBrief", "persona"): set(_BY_NAME)},
