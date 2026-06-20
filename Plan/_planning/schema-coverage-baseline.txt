@@ -9,10 +9,7 @@ Album
 BoundaryUse
 Chapter
 CodexEntry
-Command
 Culture
-DecisionRecord
-DoctrineCitation
 Genre
 Idea
 KnownFact
@@ -22,11 +19,8 @@ NarrativeBeat
 Novel
 NovelClaim
 OptimizationPass
-PersonaBrief
-Plugin
 Reference
 Religion
-ResearchBrief
 Scene
 Schema
 StoryTimeEvent

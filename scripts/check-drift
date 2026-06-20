@@ -120,6 +120,41 @@ say "$TE_OUT"
 say
 
 # ----------------------------------------------------------------------
+# 6. Dormant-schemas gate (Spec 153 Slice 4 amendment)
+# ----------------------------------------------------------------------
+say "==> dormant-schemas gate (Spec 153)"
+DORMANT_OUT=$(python - <<'PYEOF' 2>&1 || true
+import sys
+from pathlib import Path
+from agency.engine import Engine
+from agency._schema_coverage import (
+    audit_schemas, truly_inline_schemas, engine_loaded_schema_titles)
+root = Path("agency")
+e = Engine(":memory:")
+merged = dict(e.ontology.schemas)
+ontology_labels = set(e.ontology.nodes)
+e.memory.close()
+inline = truly_inline_schemas(root, merged)
+loaded = engine_loaded_schema_titles(merged)
+rep = audit_schemas(root, ontology_labels=ontology_labels,
+                    ontology_schemas=inline, engine_loaded_titles=loaded)
+if rep.dormant_schemas:
+    print("DRIFT: " + str(len(rep.dormant_schemas)) +
+          " dormant schemas (file-backed but engine-undeclared): " +
+          str(sorted(rep.dormant_schemas)))
+else:
+    print("    dormant schemas: none")
+PYEOF
+)
+if echo "$DORMANT_OUT" | grep -q "^DRIFT:"; then
+  say "    $DORMANT_OUT"
+  DRIFT=1
+else
+  say "$DORMANT_OUT"
+fi
+say
+
+# ----------------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------------
 if [[ "$DRIFT" -eq 0 ]]; then

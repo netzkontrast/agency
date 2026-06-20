@@ -521,15 +521,6 @@ class SqliteDBDriver:
     def update_tweet(self, tweet_id: int, fields: dict) -> None:
         if not fields:
             return
-
-        allowed_columns = {
-            "album", "body", "platform", "status",
-            "scheduled_at", "posted_at", "created_at"
-        }
-        for k in fields:
-            if k not in allowed_columns:
-                raise ValueError(f"Invalid column name: {k}")
-
         sets = ", ".join(f"{k} = ?" for k in fields)
         params = list(fields.values()) + [tweet_id]
         cur = self._conn.cursor()
