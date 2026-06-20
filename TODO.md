@@ -22,7 +22,7 @@
 
 | Verdict | Count | Specs |
 |---|---|---|
-| **Shipped** | 87 | 001, 002, 006, **007**, 011, 012, 013, 015, 016, 017, **018**, 019, 020, 021, 022, 023, **024**, **025**, **026**, 029, 030, **031**, 039, 040, **041**, 042, 043, 044, 045, **046**, 047, 048, 049, 050, **051**, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **101**, **102**, **103**, **104**, **105**, **106**, **107**, **108**, **109**, **110**, **114**, **115**, **117**, **119**, **146**, **147**, **148**, **149**, **150**, **151**, **152**, **153**, **154**, **158**, **161**, **162**, **164**, **165**, **195**, **220**, **279**, **280**, **282**, **284**, **290**, **303**, **331** |
+| **Shipped** | 88 | 001, 002, 006, **007**, 011, 012, 013, 015, 016, 017, **018**, 019, 020, 021, 022, 023, **024**, **025**, **026**, 029, 030, **031**, 039, 040, **041**, 042, 043, 044, 045, **046**, 047, 048, 049, 050, **051**, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 064, 065, 072, **093**, **100**, **101**, **102**, **103**, **104**, **105**, **106**, **107**, **108**, **109**, **110**, **114**, **115**, **117**, **119**, **146**, **147**, **148**, **149**, **150**, **151**, **152**, **153**, **154**, **158**, **161**, **162**, **164**, **165**, **195**, **220**, **279**, **280**, **282**, **284**, **290**, **303**, **331**, **336** |
 
 > **094-099 cluster-children stay Partial until the deferred per-cluster
 > file-split lands** (Done-When line: "verbs imported from
@@ -120,7 +120,7 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 | 001 | toolresult-and-typed-errors | **Shipped (carry-over → 059)** | Internal `ToolResult` envelope (Option C) + `Registry.invoke` unwraps `.data` + records warnings/archived_to/PRODUCES from artefacts_written | Q-2 wire-contract territory superseded by Spec 019; remaining convenience-layer work (Codes, .success/.failure, trace_id stamping, "when to use" doctrine) carried over to Spec 059. Spec text + frontmatter kept verbatim per supersede pattern (GOALS.md #7) |
 | 002 | boundary-driver-protocol | **Shipped** | Boundary/Driver + DriverRegistry — 6 boundaries unified; ctx.get_driver; injectors derived | Unblocks 007's music surface (driver-fanout deferred) |
 | 003 | skill-phase-objects | **Partial (Slice 1 in PR #127)** | Typed `Skill`/`Phase` parse/validate boundary | Spec 152 (typed-skill-phase-parse-boundary) Slice 1 complete, in CI iteration (Codex review rounds). Will merge post-review. |
-| 004 | template-schema-coverage | **Partial (Slice 6 foundational-service wave + check-drift gate)** | Wire generate/validate loop for uncovered kinds | Spec 153: Slices 1–6 shipped 2026-06-11–19. Coverage 43→46/89 (0.517). Added dormant-schemas gate to check-drift. Remaining: 43 baseline labels still uncovered. |
+| 004 | template-schema-coverage | **Partial (Slice 6 full-coverage backfill complete 2026-06-19)** | Wire generate/validate loop for uncovered kinds | Spec 153 Slices 1–6 complete: schema_coverage 1.0 (89/89 labels covered), baseline cleared to empty. Remaining: Slice 4 generate→validate round-trip invariant; Slice 5 deferred-tag. |
 | 005 | context-mode-and-token-economics | **Partial (Slice 1 in PR #129)** | Output-overflow capture + recall | Spec 154 (output-overflow-capture-recall) Slice 1 complete, in CI iteration. Will merge post-review. |
 | 006 | core-hardening | **Shipped** | All 4 red-team fixes: #1 O(1) max(vfrom) clock seed, #2 pagination exhaustion+seen_tokens guard, #3 fail-closed jules.verify, #4 API-key value never captured | `tests/test_hardening.py` (9) green |
 | 007 | music-domain-capability | **Shipped (superseded → 093 cluster)** | 15 verbs / 11 clusters via 5 Drivers; ToolResult + provenance moat; computed gates; sheet-music/mixing/streaming/ideas/health. Core surface SHIPPED as the proof-of-contract slice + Spec 094 master MIGRATION-IN-PROGRESS (verbs exist, file-split batched per row 129). | The cluster file-split is batched bookkeeping (verbs + tests green today). Music capability is the live, working domain reference per CLAUDE.md Spec 094 doctrine exception. |
@@ -252,13 +252,13 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 
 ## Suggested implementation order (next 5)
 
-Refreshed 2026-06-11 (post Wave-1 Slice 1 wave: 5 chain anchors + 3 substrate enhancements landed; 152 + 154 in flight). Ranked by leverage — finishing the chain anchors unblocks the rest of the Vision Charter.
+Refreshed 2026-06-19 (post Spec 153 Slice 6 full-coverage + Spec 336 all-4-slices shipped; 88 specs shipped total). Ranked by leverage given current state.
 
-1. **Spec 149 Slice 2** — `scripts/derive-docs` (TODO/matrix/SkillDoc/Followup auto-derivation). Single highest-leverage move: unlocks the 129-baseline `vision_goals:` backfill, makes the alignment matrix self-updating, and is a prerequisite for Spec 261's stop-condition verification.
-2. **Spec 147 Slice 2** — Managed-Agents bridge (`dispatch_session`). Turns 150/148/177's "stub" paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
-3. **Spec 146 Slice 2** — `_check_response_prefix` AST lint rule. Promotes prefix discipline to a CI gate per Spec 058 WARN→error doctrine.
-4. **Spec 150 Slice 2** — swap keyword classifier for AnthropicDriver structured-output classification (depends on 147 Slice 2).
-5. **Spec 191** — vision-alignment live matrix. Derives goal coverage from `vision_goals:` frontmatter (depends on 149 Slice 2); unblocks every retrospective.
+1. **Spec 153 round-trip invariant** — generate→validate: `memory.record()` validates node props against the cap's file-backed JSON Schema (jsonschema Draft-7); typed `Codes.SCHEMA_VALIDATION_FAILED` on mismatch. Invariant (c) from the spec: every covered label fails on missing required fields. Now that all 89 labels are schema-covered, this closes the enforcement loop.
+2. **Spec 149 Slice 2** — `scripts/derive-docs` (spec.md derived-zone rewrite via `<!-- derived:<id> -->` HTML fences). Prerequisite for Spec 261's stop-condition verification and the 129-baseline `vision_goals:` backfill.
+3. **Spec 147 Slice 2** — Managed-Agents `dispatch_session` bridge. Turns 150/148/177 stub paths into real fan-out; prerequisite for any "real LLM driver does the work" slice.
+4. **Spec 146 Slice 2.2** — WARN→error promotion + `Plan/_planning/prefix-lint-baseline.txt` for the 3 engine.py OS_ENVIRON sites. Closes the prefix discipline as a CI gate.
+5. **Spec 311 Slice 2** — `discover.clarify` wet Driver `ClarifySpec` + grounding-sharp options (depends on 147 Slice 2 for the AnthropicDriver wet path).
 
 ## When to update this file
 
