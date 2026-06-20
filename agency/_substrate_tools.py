@@ -86,8 +86,11 @@ class LifecycleGate(SubstrateTool):
             approved = getattr(res, "data", None) == "approve"
             g = mem.record("Gate", {"name": "human-confirm", "question": question, "passed": approved})
             mem.link(lifecycle_id, g, "PASSED" if approved else "BLOCKED_ON")
-            if not approved:                              # a rejected gate pauses the lifecycle for re-entry
-                mem.update(lifecycle_id, {"state": "input-required"})
+            if not approved and engine.lifecycle.status(lifecycle_id) != "input-required":
+                # Spec 339/344 — route the pause through the SOLE state writer so
+                # the blocked transition emits a durable transition Event (the
+                # guard keeps the old raw-update idempotency on a re-reject).
+                engine.lifecycle.move(lifecycle_id, "input-required")
             return {"approved": approved, "gate_id": g}
 
         return lifecycle_gate

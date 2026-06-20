@@ -55,3 +55,41 @@ Feature: Lifecycle pillar substrate — the open/move/close state machine (Spec 
     When delegate fans out one item
     Then the child lifecycle parameterization is "remote-async"
     And the child lifecycle state is "working"
+
+  # Spec 344 — lifecycle transition events (the event bus). move emits:
+  # terminal/blocked → durable graph Event; churn → monitor channel only.
+
+  Scenario: intermediate churn goes to the monitor, not the graph
+    Given an opened lifecycle
+    When I move the lifecycle to "working"
+    Then no lifecycle_transition Event exists in the graph
+    And a lifecycle transition MonitorEvent was emitted
+
+  Scenario: a terminal transition is durable graph provenance
+    Given an opened lifecycle
+    When I move the lifecycle to "working"
+    And I move the lifecycle to "completed"
+    Then a lifecycle_transition Event to "completed" exists in the graph
+    And that Event is OBSERVED_DURING the intent and the lifecycle
+    And a lifecycle transition MonitorEvent was emitted
+
+  Scenario: a blocked transition is durable graph provenance
+    Given an opened lifecycle
+    When I move the lifecycle to "input-required"
+    Then a lifecycle_transition Event to "input-required" exists in the graph
+
+  Scenario: a gate pause emits a durable transition event for free
+    Given an opened lifecycle
+    When a gate fails on the lifecycle
+    Then a lifecycle_transition Event to "input-required" exists in the graph
+
+  Scenario: the durable transition trail is recoverable without polling
+    Given an opened lifecycle
+    When I move the lifecycle to "working"
+    And I move the lifecycle to "completed"
+    Then the durable transition trail has 1 events
+
+  Scenario: transitions appear in the intent timeline
+    Given an opened lifecycle
+    When I move the lifecycle to "completed"
+    Then a lifecycle_transition event appears in manage.timeline for the intent

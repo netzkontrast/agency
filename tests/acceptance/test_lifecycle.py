@@ -148,3 +148,68 @@ def _child_param(engine, lc, expected):
 @then(parsers.parse('the child lifecycle state is "{expected}"'))
 def _child_state(engine, lc, expected):
     assert engine.memory.recall(lc).get("state") == expected
+
+
+# ── Spec 344 — lifecycle transition events (the event bus) ────────────────────
+
+
+def _transition_events(engine):
+    return [e for e in engine.memory.find("Event")
+            if e.get("name") == "lifecycle_transition"]
+
+
+def _monitor_events(engine):
+    import json
+    import os
+    p = engine.monitor.path
+    if not os.path.exists(p):
+        return []
+    return [json.loads(line) for line in open(p).read().splitlines() if line]
+
+
+@when("a gate fails on the lifecycle")
+def _gate_fails(engine, confirmed_intent, lc):
+    invoke(engine, confirmed_intent, "gate", "check",
+           lifecycle_id=lc, name="probe", passed=False, evidence="nope")
+
+
+@then("no lifecycle_transition Event exists in the graph")
+def _no_transition_event(engine):
+    assert _transition_events(engine) == []
+
+
+@then("a lifecycle transition MonitorEvent was emitted")
+def _monitor_emitted(engine):
+    hits = [e for e in _monitor_events(engine)
+            if e.get("source") == "lifecycle" and e.get("kind") == "transition"]
+    assert hits, "expected a lifecycle/transition MonitorEvent on the channel"
+
+
+@then(parsers.parse('a lifecycle_transition Event to "{state}" exists in the graph'))
+def _transition_event_to(engine, state):
+    matches = [e for e in _transition_events(engine) if e.get("to_state") == state]
+    assert matches, f"no lifecycle_transition Event with to_state={state!r}"
+
+
+@then("that Event is OBSERVED_DURING the intent and the lifecycle")
+def _event_observed_during(engine, confirmed_intent, lc):
+    ev = _transition_events(engine)[0]
+    observed = {n.get("id") for n in
+                engine.memory.neighbors(ev["id"], "OBSERVED_DURING", direction="out")}
+    assert confirmed_intent in observed, observed
+    assert lc in observed, observed
+
+
+@then(parsers.parse("the durable transition trail has {n:d} events"))
+def _trail_count(engine, lc, n):
+    trail = [e for e in engine.memory.neighbors(lc, "OBSERVED_DURING", direction="in")
+             if e.get("name") == "lifecycle_transition"]
+    assert len(trail) == n, f"expected {n} durable transitions, got {len(trail)}"
+
+
+@then("a lifecycle_transition event appears in manage.timeline for the intent")
+def _timeline_has_transition(engine, confirmed_intent):
+    res, _ = invoke(engine, confirmed_intent, "manage", "timeline",
+                    for_intent_id=confirmed_intent)
+    names = [item.get("name") for item in res.get("timeline", [])]
+    assert "lifecycle_transition" in names, names

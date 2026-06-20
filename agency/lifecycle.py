@@ -17,8 +17,9 @@ append-only bi-temporality is demonstrated on Intent (see intent.py).
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
+from ._lifecycle_events import TRANSITION_EVENT_NAME, is_durable_transition
 from .memory import Memory
 from .ontology import LIFECYCLE_STATES, LifecycleState
 
@@ -41,8 +42,12 @@ CLOSE_OUTCOMES = {COMPLETED, FAILED, CANCELED}
 
 
 class Lifecycle:
-    def __init__(self, memory: Memory):
+    def __init__(self, memory: Memory, monitor: Any = None):
         self.m = memory
+        # Spec 344 — the Spec 021 monitor channel (engine.monitor). Optional so a
+        # bare ``Lifecycle(memory)`` (no engine) still records durable graph
+        # transitions; only the high-volume churn telemetry needs the channel.
+        self.monitor = monitor
 
     def open(self, intent_id: str, *, kind: str = "task",
              agent: str = "", parameterization: str = "") -> str:
@@ -72,8 +77,11 @@ class Lifecycle:
         """The SOLE state-shaped writer of ``Lifecycle.state`` (Spec 339).
 
         Validates ``to_state`` against the closed A2A enum and refuses a no-op.
-        The full transition-table guard (340) and transition events (344) layer
-        on top of this one chokepoint.
+        The full transition-table guard (340) layers on top of this chokepoint.
+        Every accepted transition then **emits** (Spec 344): terminal/blocked
+        states become durable graph ``Event``s, all transitions fan onto the
+        monitor channel — because emission lives here, every former unguarded
+        writer routed through ``move`` (Spec 339) emits *for free*.
         """
         # AGENCY-DRIFT: lifecycle-state-writer — the ONE legitimate site that
         # writes Lifecycle.state. A new `update({"state": ...})` / `record(
@@ -87,7 +95,37 @@ class Lifecycle:
             raise ValueError(
                 f"no-op transition: lifecycle {lc_id!r} is already {to_state!r}")
         self.m.update(lc_id, {"state": to_state})
+        self._emit_transition(lc_id, current or "", to_state, evidence)
         return to_state
+
+    def _emit_transition(self, lc_id: str, from_state: str, to_state: str,
+                         evidence: str) -> None:
+        """Broadcast a transition (Spec 344). Terminal/blocked transitions become
+        durable graph ``Event``s (reusing the Spec 076 node + ``OBSERVED_DURING``
+        edge); EVERY transition also fans onto the Spec 021 monitor channel as
+        telemetry. Split by class so high-volume churn never bloats the graph
+        (panel B4 — preserving the Spec 336 win)."""
+        intent_id = ""
+        serving = self.m.neighbors(lc_id, "SERVES", direction="out")
+        if serving:
+            intent_id = serving[0].get("id", "")
+        if is_durable_transition(to_state):
+            # Reuse Spec 076: a new *kind* of Event, exactly as Spec 156 records
+            # `loop_detected`. `from_state`/`to_state` (not `from`/`to` — both are
+            # graphqlite reserved words). `session` is required → the origin tag.
+            eid = self.m.record("Event", {
+                "name": TRANSITION_EVENT_NAME, "session": "lifecycle",
+                "lifecycle": lc_id, "from_state": from_state,
+                "to_state": to_state, "evidence": evidence})
+            if intent_id:
+                self.m.link(eid, intent_id, "OBSERVED_DURING")
+            self.m.link(eid, lc_id, "OBSERVED_DURING")
+        if self.monitor is not None:
+            from ._monitor import MonitorEvent
+            self.monitor.emit(MonitorEvent(
+                source="lifecycle", kind="transition",
+                message=f"{from_state or '∅'}→{to_state}",
+                intent_id=intent_id))
 
     def close(self, lc_id: str, *, outcome: str = COMPLETED, evidence: str = "") -> str:
         """Drive a lifecycle to a terminal outcome through ``move`` (Spec 339).
