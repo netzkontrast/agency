@@ -4,7 +4,7 @@
 
 > **Generated** from the live registry by `scripts/gen-capability-docs`. Every capability self-registers from `agency/capabilities/`; this page is rendered from the running engine, so it is always current. Per-capability deep docs (the L1/L2/L3 Agent Skill) live in `skills/<capability>/SKILL.md`.
 
-**32 core capabilities.** Domain capabilities (e.g. `music`) load out-of-tree via `Engine(..., extra_capabilities=[…])` — see `examples/music.py` + [../vision/reference/drivers.md](../vision/reference/drivers.md).
+**33 core capabilities.** Domain capabilities (e.g. `music`) load out-of-tree via `Engine(..., extra_capabilities=[…])` — see `examples/music.py` + [../vision/reference/drivers.md](../vision/reference/drivers.md).
 
 The wire contract is always the same three substrate tools — **`search` · `get_schema` · `execute`** — plus a few bootstrap tools; every verb below is reached through `execute` (code-mode) or its `agency <cap> <verb>` CLI mirror.
 
@@ -162,6 +162,22 @@ Use when recording or rendering observation ledgers in the graph — capturing a
 | `dogfood.render` | transform | Project plan_slug observations into DOGFOOD-NOTES.md. |
 | `dogfood.replay_events` | transform | Replay every Event recorded OBSERVED_DURING the given intent |
 
+## `frugal`  (lifecycle)
+
+Use when you want to read or switch the active frugal level, pull the ruleset
+
+**Walkable skills:** `frugal-usage`
+
+| verb | role | summary |
+|---|---|---|
+| `frugal.debt` | effect | Harvest deliberate ``frugal:``/``ponytail:`` shortcut markers into a |
+| `frugal.gain` | transform | The frugal impact scoreboard — the published benchmark medians (a |
+| `frugal.help` | transform | The frugal reference card (the ponytail-help info): the discipline + |
+| `frugal.instructions` | transform | Return the frugal ruleset text at a level — the ponytail-MCP port |
+| `frugal.level` | transform | Report the active frugal level (env AGENCY_FRUGAL_LEVEL -> .agency/config.yaml -> full). |
+| `frugal.review` | effect | Review for over-engineering ONLY (delete/stdlib/native/yagni/shrink) — |
+| `frugal.set_level` | effect | Persist the frugal level (durable across processes via the Spec 334 config). |
+
 ## `gate`  (lifecycle)
 
 Use when a programmatic, reusable predicate must pass before work proceeds — an acceptance check recorded as a Gate in the provenance graph.
@@ -199,7 +215,7 @@ Use when fanning a coding task out to a remote Jules agent session and driving i
 
 | verb | role | summary |
 |---|---|---|
-| `jules.activities` | transform | A session's activity stream, trimmed to summaries (the costliest Jules read). |
+| `jules.activities` | transform | A session's activity stream. Trimmed to summaries by default (the |
 | `jules.alias` | act | Read or upsert a stable alias for a Jules sid. |
 | `jules.apply_patch` | transform | Compute a recovery plan for a session's patch (verb mirror of `recover_apply_plan`). |
 | `jules.approve_awaiting` | effect | Bulk-approve every session in AWAITING_PLAN_APPROVAL (up to `limit`). |

@@ -1,7 +1,7 @@
 ---
 spec_id: "348"
 slug: frugal-capability-port
-status: draft
+status: shipped
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [3]
@@ -372,3 +372,27 @@ the wire return adds the full `findings` count beside the token-bounded
 `decidable_findings`. The acceptance bloat scenario asserts the FrugalFinding node
 count equals the reported findings count (computed, not pinned) — the full judgment
 is a graph query, not a dropped tail.
+
+**Finalization 2026-06-20 — status → SHIPPED (deep integration closed).** Owner
+directive: *"finalize the ponytail port and make sure it's deeply integrated."* The
+capability + wiring shipped earlier; this pass closed the §7/§8 integration seams
+that were still open, flipping the spec from draft to shipped:
+- **§7 develop cross-link.** `develop.reference("frugal")` now returns the heavy
+  how-to on demand (the T3 disclosure parallel to `develop.reference("codegraph")`).
+  It is **derived**, not copied (rule 2): a `_COMPUTED_REFERENCES` builder renders
+  `_frugal.help_text()` (the single source) + the capability verb-map, so the
+  ladder/floor text can never drift from `_frugal`. A locking acceptance scenario
+  (`frugal_capability.feature`) asserts the reference carries every safety-floor
+  marker, points to the verbs, and that `frugal` is in the discoverable
+  `available` set. The CLAUDE.md verb-routing table gains the
+  *review for over-engineering → `frugal.review`* row.
+- **§8 docs.** `docs/guide/capabilities.md` regenerated (32 → 33 caps; the frugal
+  section with all 7 verbs was missing — the generated page was stale).
+  Hand-written `docs/guide/frugal.md` added (the before/after pitch + the ladder +
+  the safety floor + the levels + the verb table), `<!-- doc-source: -->`-marked
+  against `_frugal.py` + the capability + Specs 332/348, and linked from the guide
+  index `docs/guide/README.md`.
+- The verb surface, SessionStart-once inject, per-verb stamp, first-use hint,
+  welcome surface, and provenance nodes were already shipped (above); the live
+  engine confirms `frugal` in `agency_welcome`, `frugal.level`/`help` working, and
+  `develop.reference("frugal")` resolving. Frugal acceptance suite 17/17 green.

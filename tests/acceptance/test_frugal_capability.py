@@ -68,6 +68,35 @@ def _help_has(fr, needle):
     assert needle in fr["help"], fr["help"][:200]
 
 
+# ── develop cross-link: the heavy how-to on demand (Spec 348 §7) ───────────────
+
+
+@when(parsers.parse('I fetch the develop reference for "{topic}"'), target_fixture="ref")
+def _develop_reference(engine, confirmed_intent, topic):
+    r, _ = invoke(engine, confirmed_intent, "develop", "reference", topic=topic)
+    return r["result"]
+
+
+@then("the frugal reference names every safety-floor marker")
+def _ref_floor(ref):
+    # derived from _frugal (single source) — so it carries the floor for free
+    for m in _frugal.SAFETY_FLOOR_MARKERS:
+        assert m in ref["doc"], (m, ref["doc"][:200])
+
+
+@then("the frugal reference points to the frugal capability verbs")
+def _ref_verbs(ref):
+    # the reference is the how-to, not just the discipline: it surfaces the actionable verbs
+    assert "frugal.review" in ref["doc"] and "frugal.debt" in ref["doc"], ref["doc"][-400:]
+
+
+@then('"frugal" is listed among the available develop references')
+def _ref_available(engine, confirmed_intent):
+    # discoverability: a miss reports the available set, which must include frugal
+    r, _ = invoke(engine, confirmed_intent, "develop", "reference", topic="__nope__")
+    assert "frugal" in r["result"]["available"], r["result"]
+
+
 # ── debt + gain (Slice 2) ─────────────────────────────────────────────────────
 
 

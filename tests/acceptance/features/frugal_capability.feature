@@ -26,6 +26,15 @@ Feature: frugal capability — the ponytail port (Spec 348 Slice 1)
     And the frugal help contains "YAGNI"
     And the frugal help contains "skipped:"
 
+  # ── develop cross-link: the heavy how-to on demand (Spec 348 §7) ────────────
+  # frugal is deeply integrated when its discipline how-to is reachable from the
+  # develop reference surface — the same T3 disclosure as develop.reference("codegraph").
+  Scenario: the frugal how-to is reachable via develop.reference, derived not copied (Spec 348 §7)
+    When I fetch the develop reference for "frugal"
+    Then the frugal reference names every safety-floor marker
+    And the frugal reference points to the frugal capability verbs
+    And "frugal" is listed among the available develop references
+
   Scenario: debt harvests comment-prefixed markers (incl. an HTML comment) as provenance
     Given a source tree with frugal markers
     When I harvest the frugal debt for that tree
