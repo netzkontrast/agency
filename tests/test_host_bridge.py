@@ -184,16 +184,23 @@ class _Driver:
 
 _MSGS = [{"role": "user", "content": "draft this"}]
 
+# Spec 348 — the seam now routes plain text to an OpenRouter free model FIRST
+# whenever OPENROUTER_API_KEY is set (which it is in the dev/CI env). These
+# precedence tests target the driver / host-sampling / delegate branches, so
+# they explicitly pass an env WITHOUT the key to opt out of free-first; the
+# free-first branch gets its own test below.
+_NO_FREE: dict = {}
+
 
 def test_precedence_driver_wins_over_sample() -> None:
-    out = complete_or_delegate(_Driver("anthropic"), messages=_MSGS,
+    out = complete_or_delegate(_Driver("anthropic"), messages=_MSGS, env=_NO_FREE,
                                host=HostBridge(_FakeCtx(), sampling_enabled=True))
     assert out.text == "DRIVER"                       # driver beats sample
 
 
 def test_precedence_sample_wins_over_envelope() -> None:
     # driver backend "none" → host sampling is used before the envelope.
-    out = complete_or_delegate(_Driver("none"), messages=_MSGS,
+    out = complete_or_delegate(_Driver("none"), messages=_MSGS, env=_NO_FREE,
                                host=HostBridge(_FakeCtx(), sampling_enabled=True))
     assert isinstance(out, Completion)
     assert out.text == "GENERATED"
@@ -202,7 +209,8 @@ def test_precedence_sample_wins_over_envelope() -> None:
 
 def test_precedence_no_host_falls_back_to_envelope() -> None:
     # no capable host → the Spec 279 envelope path is intact.
-    out = complete_or_delegate(_Driver("none"), messages=_MSGS, host=HostBridge(None))
+    out = complete_or_delegate(_Driver("none"), messages=_MSGS, env=_NO_FREE,
+                               host=HostBridge(None))
     assert isinstance(out, HostLLMRequest)
     assert out.kind == "llm_delegate"
 
@@ -211,9 +219,24 @@ def test_precedence_sample_failure_falls_back_to_envelope() -> None:
     class _Boom:
         async def sample(self, *a, **k):
             raise RuntimeError("no sampling")
-    out = complete_or_delegate(_Driver("none"), messages=_MSGS,
+    out = complete_or_delegate(_Driver("none"), messages=_MSGS, env=_NO_FREE,
                                host=HostBridge(_Boom(), sampling_enabled=True))
     assert isinstance(out, HostLLMRequest)            # HostUnavailable → envelope
+
+
+def test_precedence_free_first_wins_over_driver() -> None:
+    # Spec 348: with OPENROUTER_API_KEY set, plain text routes free-first —
+    # ahead of even a capable anthropic driver. A stub LLMClient keeps it
+    # network-free; the marker is the openrouter_free stop_reason.
+    class _StubGen:
+        def generate(self, prompt, **kw):
+            from agency._llm import GenerationResult
+            return GenerationResult(text="FREE", model="x/m:free",
+                                    backend="openrouter", finish_reason="stop")
+    out = complete_or_delegate(_Driver("anthropic"), messages=_MSGS,
+                               env={"OPENROUTER_API_KEY": "or"}, llm=_StubGen())
+    assert out.stop_reason == "openrouter_free"
+    assert out.text == "FREE"                          # free beats the driver
 
 
 # ─────────────────────── agency_doctor host block ───────────────────────

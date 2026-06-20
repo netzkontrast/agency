@@ -1,5 +1,5 @@
 ---
-spec_id: "326"
+spec_id: "332"
 slug: frugal-core-discipline
 status: draft
 last_updated: 2026-06-19

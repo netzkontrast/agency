@@ -39,7 +39,7 @@ _FREE_SUFFIX = ":free"
 _MODELS_URL = "https://openrouter.ai/api/v1/models"
 
 
-# ── Spec 338 — use-case-tagged model registry ────────────────────────────────
+# ── Spec 348 — use-case-tagged model registry ────────────────────────────────
 @dataclass(frozen=True)
 class ModelProfile:
     """One free OpenRouter model + the use-cases it serves. ``flags`` (e.g.
@@ -139,7 +139,7 @@ def select_model(use_case: str, *, registry: tuple[ModelProfile, ...] | None = N
 
 @dataclass(frozen=True)
 class GenerationResult:
-    """Spec 338 — the typed plain-text generation return."""
+    """Spec 348 — the typed plain-text generation return."""
     text: str
     model: str
     backend: str            # "openrouter"
@@ -170,10 +170,10 @@ class LLMClient:
                 f"or leave AGENCY_LLM_MODEL unset to use the default ({_DEFAULT_MODEL})."
             )
         self.model = resolved
-        # Spec 338 — driver flags + use-case registry.
+        # Spec 348 — driver flags + use-case registry.
         self.use_case = use_case
         self.require = require
-        # Config `llm.models:` overrides the built-in registry (Spec 338 Slice 2);
+        # Config `llm.models:` overrides the built-in registry (Spec 348 Slice 2);
         # falls back to the built-in default when no block / read error.
         self._registry = (registry if registry is not None
                           else load_registry_from_config())
@@ -183,7 +183,7 @@ class LLMClient:
     def generate(self, prompt: str, *, use_case: str | None = None,
                  system: str | None = None, max_tokens: int = 1024,
                  model: str | None = None) -> GenerationResult:
-        """Spec 338 — plain-text free generation. The model is selected by
+        """Spec 348 — plain-text free generation. The model is selected by
         ``use_case`` from the registry (explicit ``model`` wins; must be
         ``:free``). Returns a typed :class:`GenerationResult`."""
         uc = use_case or self.use_case
@@ -350,7 +350,7 @@ class LLMClient:
         return {"choice": options[0] if options else "", "confidence": 0.0}
 
 
-# ── Spec 338 — the single plain-text generator-selection rule ─────────────────
+# ── Spec 348 — the single plain-text generator-selection rule ─────────────────
 def _dep_missing(msg: str) -> RuntimeError:
     from .toolresult import Codes
     e = RuntimeError(f"{Codes.DEPENDENCY_MISSING}: {msg}")
@@ -358,8 +358,32 @@ def _dep_missing(msg: str) -> RuntimeError:
     return e
 
 
+def force_anthropic(env=None, require: str | None = None) -> bool:
+    """Spec 348 — True when the caller has explicitly opted plain text OUT of
+    free-first: ``require == "anthropic"`` (per-call escape) OR the
+    ``AGENCY_GENERATE=anthropic`` all-session override. The single anthropic-pin
+    rule shared by :func:`select_text_generator` and the ``complete_or_delegate``
+    seam — one source, no drift (CLAUDE.md derivability)."""
+    env = env if env is not None else os.environ
+    return (require == "anthropic"
+            or env.get("AGENCY_GENERATE", "").strip().lower() == "anthropic")
+
+
+def prefers_openrouter(env=None, require: str | None = None) -> bool:
+    """Spec 348 — the shared free-first gate: True when plain text should route to
+    an OpenRouter free model — ``OPENROUTER_API_KEY`` is set AND the caller has not
+    pinned anthropic (:func:`force_anthropic`). Non-raising (a falsy result means
+    "fall through", not "error"), so the ``complete_or_delegate`` seam can defer to
+    its driver / host-sampling / delegate branches. :func:`select_text_generator`
+    reuses this gate so both surfaces honor ONE free-first rule."""
+    env = env if env is not None else os.environ
+    if force_anthropic(env, require):
+        return False
+    return bool(env.get("OPENROUTER_API_KEY"))
+
+
 def select_text_generator(drivers, *, env=None, require: str | None = None):
-    """The SOLE provider-selection rule for plain-text generation (Spec 338).
+    """The SOLE provider-selection rule for plain-text generation (Spec 348).
 
     Returns ``(name, driver)``: ``"llm"`` (OpenRouter) when ``OPENROUTER_API_KEY``
     is set — the owner directive wins even when ``ANTHROPIC_API_KEY`` is also set;
@@ -369,16 +393,13 @@ def select_text_generator(drivers, *, env=None, require: str | None = None):
     silent paid fallback — a free failure is the caller's cue to re-invoke with
     ``require="anthropic"`` (the barbell)."""
     env = env if env is not None else os.environ
-    has_or = bool(env.get("OPENROUTER_API_KEY"))
     has_an = bool(env.get("ANTHROPIC_API_KEY"))
-    force_an = (require == "anthropic"
-                or env.get("AGENCY_GENERATE", "").strip().lower() == "anthropic")
-    if force_an:
+    if force_anthropic(env, require):
         if not has_an:
             raise _dep_missing(
                 "Anthropic generation requested but ANTHROPIC_API_KEY is unset")
         return ("anthropic", drivers.get("anthropic"))
-    if has_or:
+    if prefers_openrouter(env, require):
         return ("llm", drivers.get("llm"))
     if has_an:
         return ("anthropic", drivers.get("anthropic"))
