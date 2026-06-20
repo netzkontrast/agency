@@ -1,7 +1,7 @@
 # ToolResult — the return envelope
 
 <!-- doc-source: agency/toolresult.py -->
-<!-- doc-hash: e7e3c888f8c80adf -->
+<!-- doc-hash: 6410df8263e3c4b4 -->
 
 `agency/toolresult.py` defines the in-sandbox return envelope (Spec 001/059). A verb may
 return a plain `dict` (simple path) or a `ToolResult` (when it needs typed errors,
