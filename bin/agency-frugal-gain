@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_frugal_gain
-# The frugal impact scoreboard — the published benchmark medians (a documented external constant sourced from ``data/benchmark.json``, the CLAUDE.md #8 exception, NOT a frozen snapshot) plus a pointer to the only real per-repo number (``frugal.debt``).
-# Usage: agency-frugal-gain [--intent-id ID]
+# The frugal impact scoreboard — the published benchmark medians (a documented external constant sourced from ``data/benchmark.json``, the CLAUDE.md #8 exception, NOT a frozen snapshot) PLUS the LIVE per-repo marker count (a read-only scan — the only honest per-repo number; never an invented savings figure, since the unbuilt version was never written).
+# Usage: agency-frugal-gain [--intent-id ID] [paths]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,7 +19,7 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-# no positional args for this verb (only --intent-id required)
+# all positional args are optional; verb defaults apply when omitted
 
 kwargs=$(python3 -c '
 import json, sys
@@ -65,6 +65,7 @@ def _coerce(raw, ann):
         return {}
     return raw
 _kw = {"intent_id": sys.argv[1]}
+if len(sys.argv) > 2: _kw["paths"] = _coerce(sys.argv[2], str)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
