@@ -51,7 +51,11 @@ is to be read and tuned needs inline explanation per key. So `.agency/config.yam
   **Core** registers its section; **each capability registers its own** (the same
   reflection-discovery pattern that registers verbs), so the generated file is the
   **union of all live config = "all agency config values"** and stays complete as
-  capabilities are added — no frozen audit to rot.
+  capabilities are added — no frozen audit to rot. A capability that already keeps
+  its config in a dataclass uses `register_dataclass_section(name, dc)` — keys are
+  **derived** from the dataclass fields (single source, no literals), and each
+  derived key gets a **derived env alias** `AGENCY_<SECTION>_<FIELD>` so env
+  override (C2) holds uniformly for capability keys, not only hand-written ones.
 - **Writer** — `config_set(key, value)` persists to `.agency/config.yaml`
   (non-destructive: preserves user edits + comments via a round-tripping dump),
   the durable store Spec 332's `frugal_level(level)` writes through.
@@ -108,6 +112,28 @@ doctor reports *presence*, not the value.
 4. **Doctor report + validate + `--write-config`.**
 5. **Capability registry proof.** `frugal`/`core` register; migrate `novel`/`music`
    config onto `register_config_section` as the open-set proof.
+6. **Read-path unification (additive fallback).** `novel`/`music` `*.load()`
+   consult the unified `config_get("<cap>.<key>")` as a **live but lowest-priority**
+   source, so an edit to `.agency/config.yaml` actually takes effect. Per-key
+   precedence: cap-local nested file → unified `config.yaml` → dataclass default.
+   Backward-compatible (the registered `ConfigKey` default *is* the dataclass
+   default, so an empty unified section is byte-identical to today); the cap's
+   `_LOAD_CACHE` signature gains the unified file's `(path, mtime)` so a unified
+   edit invalidates. Scalar keys only — unregistered `list` fields keep their
+   literal fallback.
+7. **Env aliases for capability keys (C2 uniformity).** `register_dataclass_section`
+   derives an `AGENCY_<SECTION>_<FIELD>` env alias for every key, so `config_get`
+   resolves env → unified file → default for `novel.*`/`music.*` exactly as it does
+   for hand-written core keys. Derived (no literals); the alias surfaces in the
+   scaffold comment for discoverability. String/int coercion mirrors the file path
+   (env values are strings; the cap coerces on read).
+8. **User-facing `config` capability.** A thin `agency/capabilities/config/` cap
+   (`home="capability"`, no graph artefacts) exposing `get` / `set` / `list` over
+   the `_config` resolver — so an agent or the CLI reads/persists config without
+   hand-editing the file. Drop-in: the install regen mints the CLI mirror
+   (`bin/agency-config-{get,set,list}`), the derived skill, and the MCP wiring with
+   no edits elsewhere. Safety floor: `set` refuses secrets + unregistered keys with
+   a clean `{error}`; `list` redacts secrets; no traceback escapes a verb.
 
 ## Acceptance criteria
 
@@ -115,7 +141,9 @@ doctor reports *presence*, not the value.
   `.agency/config.yaml` exists with **every registered key** at a sensible default
   + a per-key comment; frugal `level: full`.
 - **C2 (precedence)** — `config_get` returns env over file over default; an
-  `AGENCY_*` override still wins (back-compat).
+  `AGENCY_*` override still wins (back-compat). **Holds uniformly for capability
+  keys**: a `register_dataclass_section` key resolves its derived
+  `AGENCY_<SECTION>_<FIELD>` env over the unified file over the default.
 - **C3 (extensible = "all values")** — a capability's `register_config_section`
   causes its keys to appear in the generated file with no edit elsewhere (Goal 4).
 - **C4 (non-destructive)** — re-scaffold / SessionStart repair preserves user edits
@@ -124,6 +152,13 @@ doctor reports *presence*, not the value.
   flags invalid/unknown/missing in `next_steps`, and `--write-config` repairs.
 - **C6 (substrate)** — Spec 332 `frugal_level` reads/writes the `frugal:` section
   through `_config`; Spec 333 reads any installer toggles from it.
+- **C7 (read-path unification)** — with no cap-local `.agency/<cap>-config.yaml`,
+  a value set under `<cap>.<key>` in the unified `.agency/config.yaml` is returned
+  by `<Cap>Config.load()`; a present cap-local file still wins; with neither set
+  the dataclass default is returned (floor unchanged).
+- **C8 (user-facing surface)** — `config.get/set/list` read and persist config
+  through the resolver from the agent + CLI; `set` refuses secrets and unregistered
+  keys with a clean error (no traceback); `list` redacts secrets.
 
 ## Acceptance scenarios (Gherkin sketch)
 
@@ -156,6 +191,25 @@ Scenario: doctor names a bad value
 Scenario: secrets are never written as literals
   When the config is scaffolded
   Then secrets keys reference ${env:...}, not the value
+
+Scenario: the unified file is a live fallback for a capability
+  Given no cap-local .agency/novel-config.yaml exists
+  And .agency/config.yaml sets novel.content_root "/data/novels"
+  When NovelConfig.load() resolves
+  Then content_root is "/data/novels"
+
+Scenario: a cap-local file wins over the unified file
+  Given .agency/novel-config.yaml sets paths.content_root "/local/novels"
+  And .agency/config.yaml sets novel.content_root "/data/novels"
+  When NovelConfig.load() resolves
+  Then content_root is "/local/novels"
+
+Scenario: a per-key env var overrides the unified file for a capability key
+  Given no cap-local .agency/novel-config.yaml exists
+  And .agency/config.yaml sets novel.content_root "/data/novels"
+  And AGENCY_NOVEL_CONTENT_ROOT is "/env/novels"
+  When NovelConfig.load() resolves
+  Then content_root is "/env/novels"
 ```
 
 ## Open questions
@@ -211,8 +265,49 @@ Scenario: secrets are never written as literals
   now self-registers via `_ensure_all_registered()`, which globs
   `capabilities/*/config.py` (open-set, drift-free) before reading the union; the
   S5 acceptance scenario proves it with NO explicit import.
-- **Follow-up (tracked):** unify the novel/music READ path onto `config_get`
-  (precedence design + cache-invalidation) so an edit to the unified file is live.
+- **Done — Slice 6** (read-path unification, additive fallback): `novel`/`music`
+  `*.load()` now consult `config_get("<cap>.<key>")` as a live but lowest-priority
+  source via a best-effort `_unified(field, fallback)` helper — per-key precedence
+  is cap-local nested file → unified `.agency/config.yaml` → dataclass default.
+  Backward-compatible by construction (the registered `ConfigKey` default *is* the
+  dataclass default, so an empty unified section resolves byte-identically to the
+  prior literal fallback); `_load_uncached`'s no-file path returns `_from_dict({})`
+  so the unified file is consulted even with zero cap-local files; each cap's
+  `_LOAD_CACHE` signature gained the unified file's `(path, mtime)` so editing
+  `.agency/config.yaml` invalidates the cached load. Scalar keys only —
+  `register_dataclass_section` skips `list` fields, so those keep their literal
+  fallback (the `_unified` `KeyError` guard). `defaults()` stays pure (built-in
+  defaults, no unified consultation). Acceptance: 3 scenarios in
+  `features/config_readpath.feature` (unified-is-live, cap-local-wins, default-floor)
+  covering both caps. Closes Q1's deferred "the rest".
+- **Done — Slice 7** (env aliases for capability keys, C2 uniformity):
+  `register_dataclass_section` now derives an `AGENCY_<SECTION>_<FIELD>` env alias
+  per key, so `config_get`/`config_resolve` resolve env → unified file → default
+  for `novel.*`/`music.*` exactly as for hand-written core keys — closing the C2
+  gap where dataclass-section keys had no env layer. Derived, no literals; the
+  alias surfaces in the scaffold comment (`[env: …]`) for discoverability and is
+  redacted-safe (these keys are non-secret). Env values are strings; the cap's
+  existing scalar coercion on read (`int(...)`, `_expand(...)`) applies, mirroring
+  the file path. Acceptance: 1 scenario in `features/config_readpath.feature`
+  (per-key env overrides the unified file for a cap key) + the resolver source is
+  `env`. No new env-var collisions (cap dir-overrides `AGENCY_<CAP>_HOME` are
+  distinct from the per-key `AGENCY_<CAP>_<FIELD>`).
+- **Done — Slice 8** (user-facing `config` capability): `agency/capabilities/config/`
+  (`home="capability"`, no artefact schemas) exposes `get`/`set`/`list` as thin
+  wrappers over `_config` — `get`→`config_resolve`, `set`→`config_set` (then
+  re-resolve), `list`→`config_report`+`config_validate`. `get`/`set` call
+  `_ensure_all_registered()` first so any capability key resolves. Safety floor:
+  `set` refuses a secret (`config_set`'s `ValueError` surfaced as `{error}`) and an
+  unregistered key (`_lookup` guard); `get`/`list` never leak a secret literal or a
+  traceback. Verbs are `role="act"` (the `Role` enum has no `read`; mirrors
+  `manage`/`mode`/`persona` `list`). Drop-in: `python -m agency.install` minted
+  `bin/agency-config-{get,set,list}`, `commands/agency-config-usage.md`,
+  `skills/config/`, and the plugin-registry updates with no hand edits. Acceptance:
+  5 scenarios in `features/config_capability.feature` (get-source, set+get-roundtrip,
+  list-with-redaction, secret-refusal, unregistered-key-error). SkillDoc lint forced
+  two docstring fixes (overview must avoid the `\d+[.)]\s` workflow-summary pattern;
+  red flags need a ` → ` delimiter). 118 naming/install/discovery tests stay green;
+  drift clean.
 - **Self-review hardening (2026-06-19):** (1) a `secret` key now resolves env →
   default, **never** the file `${env:VAR}` placeholder (`config_resolve` skips the
   file for secrets — was leaking the literal string to `config_get`); (2)

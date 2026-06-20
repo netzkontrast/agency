@@ -1,7 +1,7 @@
 ---
 spec_id: "344"
 slug: lifecycle-transition-events
-status: draft
+status: partial
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 3]
@@ -163,15 +163,40 @@ Scenario: transitions appear in the intent timeline
 
 ## Followup — Implementation Status (2026-06-20)
 
-Not started — opened by the codegraph deep-analysis pass (Spec 338 refinement).
-Adds `agency/_lifecycle_events.py` (typed `LifecycleEvent`, pure) + emission folded
-into `lifecycle.move` (reusing the Spec 076 `Event` node + Spec 021 monitor
-channel). Build-order: lands after 340 (so transitions are guarded before they are
-broadcast) and before 341 (which consumes the trail).
+**Partial — Slice 1 SHIPPED 2026-06-20 (intent f6aac283).** The emission core +
+the B4 split land; the build-order note (after 340) is relaxed — 344 builds on the
+shipped 339 `move` chokepoint, and 340's table guard layers in later without
+touching the emit path.
 
-**Spec 349 cross-ref (the event bus).** The pillar event-registration bus
-generalizes this emission: `LifecycleEvent` becomes the lifecycle-shaped case of
-`event.emit`, and subscribers (capability/intent/memory) react to
-`lifecycle:transition:*` through the bus instead of polling. 344 stays the source
-of the transition *shape* (the typed record + the B4 graph/monitor split); 349
-adds the *fan-out* to declared subscribers. No change to this slice's contract.
+Done:
+- `agency/_lifecycle_events.py` — pure, engine-free `LifecycleEvent` dataclass
+  (mirrors `LoopEvent`, Spec 156) + the B4 classifier (`is_durable_transition`,
+  `DURABLE_STATES = terminal ∪ blocked`, derived from the `LifecycleState` enum —
+  no hand-listed copy) + `TRANSITION_EVENT_NAME`.
+- Emission folded into substrate `Lifecycle.move` (`_emit_transition`): **terminal/
+  blocked** (`completed·failed·canceled·input-required·auth-required`) → durable
+  graph `Event{name:"lifecycle_transition", from_state, to_state, lifecycle,
+  evidence}` reusing the Spec 076 node, linked `OBSERVED_DURING` BOTH the serving
+  Intent and the Lifecycle; **every** transition also fans a `MonitorEvent{source:
+  "lifecycle", kind:"transition"}` onto the Spec 021 channel. Because emission
+  lives in the SOLE writer, every routed writer emits for free.
+- `engine.lifecycle` now built with `monitor=self.monitor` (monitor constructed
+  first). `Lifecycle(memory)` without a monitor still records durable graph events
+  (churn telemetry is the only monitor-gated part).
+- **Gate pause routed through `move`** (advances 339b): `gate.check` +
+  `lifecycle_gate`'s `input-required` write now call `ctx.lifecycle.move(…,
+  "input-required")` (guarded against a no-op re-reject) — so a blocked transition
+  is durable provenance, satisfying acceptance scenario 3.
+- 6 acceptance scenarios in `tests/acceptance/features/lifecycle.feature` (churn→
+  monitor-not-graph, terminal→durable+OBSERVED_DURING, blocked→durable, gate-pause-
+  for-free, trail recoverable, appears in `manage.timeline`). Full lifecycle suite
+  (15) green; gate/manage/jules/delegate/typed-fulfilment (128) green.
+
+Storage note: `from`/`to` are graphqlite-Cypher reserved words (raw syntax error),
+so the Event stores `from_state`/`to_state` (matching the dataclass fields) — the
+spec sketch's `from:/to:` keys are renamed accordingly.
+
+Still (Slice 2): the `lifecycle.watch` consumer (Spec 341) reads this trail; the
+dogfood loop-detector gains stall visibility over transition events; 340's table
+guard runs before emit. The remaining unguarded writers (`subagent`, `music`) move
+to `move` under 339b → they then emit for free too.

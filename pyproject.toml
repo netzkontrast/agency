@@ -18,6 +18,12 @@ dependencies = [
     # Core dep per user directive (2026-06-13): used for every data object.
     "sqlmodel>=0.0.14",
     "httpx",
+    # Spec 338 (owner directive 2026-06-20) — the official OpenRouter SDK is a
+    # CORE dep: the LLM driver fetches the live free-model catalogue (model info
+    # + flags) and runs free-model generation through it. Type-safe, tracks the
+    # live OpenRouter OpenAPI. Imported lazily (no network at import); the
+    # use-case registry + selection logic work without it installed.
+    "openrouter>=0.10",
     # Spec 001 — load OPENROUTER_API_KEY / JULES_API_KEY (and any other secrets)
     # from a .env file at startup so operators can configure the plugin without
     # hand-exporting variables in the shell.  `load_dotenv()` is a no-op when

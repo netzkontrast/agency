@@ -32,30 +32,130 @@ from __future__ import annotations
 import json
 import os
 import re
+from dataclasses import dataclass, field
 
 _DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 _FREE_SUFFIX = ":free"
 _MODELS_URL = "https://openrouter.ai/api/v1/models"
 
-# Preference-ranked list of known good free models used by `resolve_model()`
-# when AGENCY_LLM_MODEL=auto.  The first model that appears in the live
-# OpenRouter catalogue is selected; order reflects community usage prevalence
-# (as of 2026-06, DeepSeek models dominate OpenRouter free-tier traffic).
-_MODEL_PREFERENCE: list[str] = [
-    "deepseek/deepseek-r1:free",
-    "deepseek/deepseek-chat-v3-0324:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen3-coder:free",
-    "google/gemma-3-27b-it:free",
-    "mistralai/mistral-7b-instruct:free",
-]
+
+# ── Spec 338 — use-case-tagged model registry ────────────────────────────────
+@dataclass(frozen=True)
+class ModelProfile:
+    """One free OpenRouter model + the use-cases it serves. ``flags`` (e.g.
+    ``context_length``) are HYDRATED from live OpenRouter model info, never
+    hand-frozen (rule 8); the built-in registry carries only id/use_cases/
+    priority. ``general`` is the catch-all every model declares."""
+    id: str
+    use_cases: tuple[str, ...]
+    priority: int = 100
+    flags: dict = field(default_factory=dict)
+
+
+# Built-in default registry — priority-ordered (lower wins). Overridable by a
+# ``models:`` block in ``.agency/config.yaml`` (load_registry). The flat
+# `_MODEL_PREFERENCE` used by `resolve_model()` is DERIVED from this (single
+# source — no drift between the two).
+_DEFAULT_REGISTRY: tuple[ModelProfile, ...] = (
+    ModelProfile("deepseek/deepseek-r1:free", ("reasoning", "decision", "general"), 10),
+    ModelProfile("deepseek/deepseek-chat-v3-0324:free", ("decision", "general"), 20),
+    ModelProfile("qwen/qwen3-coder:free", ("code", "general"), 25),
+    ModelProfile("meta-llama/llama-3.3-70b-instruct:free", ("prose", "general"), 30),
+    ModelProfile("google/gemma-3-27b-it:free", ("prose", "general"), 40),
+    ModelProfile("mistralai/mistral-7b-instruct:free", ("general",), 50),
+)
+
+# Preference-ranked free-model list for `resolve_model()` (AGENCY_LLM_MODEL=auto)
+# — DERIVED from the registry so there is one source of truth.
+_MODEL_PREFERENCE: list[str] = [p.id for p in sorted(_DEFAULT_REGISTRY,
+                                                     key=lambda p: p.priority)]
+
+
+def default_registry() -> tuple[ModelProfile, ...]:
+    """The built-in registry (read-only)."""
+    return _DEFAULT_REGISTRY
+
+
+def load_registry(config: dict | None) -> tuple[ModelProfile, ...]:
+    """Build a registry from a ``{"models": [{id, use_cases, priority, flags}]}``
+    config block; an absent / malformed block falls back to the built-in default
+    (fail-closed, Spec 058). Each model defaults to the ``general`` use-case."""
+    models = (config or {}).get("models")
+    if not isinstance(models, list):
+        return _DEFAULT_REGISTRY
+    out: list[ModelProfile] = []
+    for m in models:
+        if not isinstance(m, dict) or not m.get("id"):
+            continue
+        out.append(ModelProfile(
+            id=str(m["id"]),
+            use_cases=tuple(m.get("use_cases") or ("general",)),
+            priority=int(m.get("priority", 100)),
+            flags=dict(m.get("flags") or {}),
+        ))
+    return tuple(out) or _DEFAULT_REGISTRY
+
+
+def load_registry_from_config(path: str | None = None) -> tuple[ModelProfile, ...]:
+    """Build the registry from the `.agency/config.yaml` ``llm.models`` block,
+    falling back to the built-in default. The block is a list of model objects
+    (not scalar config keys), so it is read raw via ``_config._read`` rather than
+    the registered-key surface. Best-effort: any read error → built-in default."""
+    try:
+        from . import _config
+        data = _config._read(path or _config._resolve_config_path())
+    except Exception:                                   # pragma: no cover - defensive
+        return _DEFAULT_REGISTRY
+    llm = data.get("llm") if isinstance(data, dict) else None
+    models = llm.get("models") if isinstance(llm, dict) else None
+    return load_registry({"models": models}) if models else _DEFAULT_REGISTRY
+
+
+def select_model(use_case: str, *, registry: tuple[ModelProfile, ...] | None = None,
+                 live_ids: set[str] | None = None, model: str | None = None,
+                 default: str = _DEFAULT_MODEL) -> str:
+    """Pick the highest-priority free model serving ``use_case``, restricted to
+    ``live_ids`` when supplied. Resolution: explicit ``model`` (must be ``:free``)
+    → use-case pick → ``general`` pick → ``default``. Never raises except on a
+    non-free explicit override (cost-safety)."""
+    if model:
+        if not model.endswith(_FREE_SUFFIX):
+            raise ValueError(
+                f"explicit model must be a free OpenRouter model "
+                f"(end with '{_FREE_SUFFIX}', got {model!r})")
+        return model
+    reg = registry if registry is not None else _DEFAULT_REGISTRY
+
+    def _first(cands: list[ModelProfile]) -> str | None:
+        for p in sorted(cands, key=lambda p: p.priority):
+            if live_ids is None or p.id in live_ids:
+                return p.id
+        return None
+
+    return (_first([p for p in reg if use_case in p.use_cases])
+            or _first([p for p in reg if "general" in p.use_cases])
+            or default)
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    """Spec 338 — the typed plain-text generation return."""
+    text: str
+    model: str
+    backend: str            # "openrouter"
+    finish_reason: str
+
+
 _URL = "https://openrouter.ai/api/v1/chat/completions"
 _SYSTEM = ('You are a constrained decider. Choose EXACTLY ONE option and a confidence in '
            '[0,1]. Reply ONLY with JSON: {"choice": "<one option>", "confidence": <float>}.')
 
 
 class LLMClient:
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, *, use_case: str = "general",
+                 require: str | None = None,
+                 registry: tuple[ModelProfile, ...] | None = None,
+                 client=None):
         raw = model or os.environ.get("AGENCY_LLM_MODEL") or _DEFAULT_MODEL
         if raw == "auto":
             resolved = self.resolve_model()
@@ -70,6 +170,53 @@ class LLMClient:
                 f"or leave AGENCY_LLM_MODEL unset to use the default ({_DEFAULT_MODEL})."
             )
         self.model = resolved
+        # Spec 338 — driver flags + use-case registry.
+        self.use_case = use_case
+        self.require = require
+        # Config `llm.models:` overrides the built-in registry (Spec 338 Slice 2);
+        # falls back to the built-in default when no block / read error.
+        self._registry = (registry if registry is not None
+                          else load_registry_from_config())
+        self._client = client                # injectable OpenRouter SDK (tests)
+        self._model_pinned = model is not None
+
+    def generate(self, prompt: str, *, use_case: str | None = None,
+                 system: str | None = None, max_tokens: int = 1024,
+                 model: str | None = None) -> GenerationResult:
+        """Spec 338 — plain-text free generation. The model is selected by
+        ``use_case`` from the registry (explicit ``model`` wins; must be
+        ``:free``). Returns a typed :class:`GenerationResult`."""
+        uc = use_case or self.use_case
+        chosen = select_model(
+            uc, registry=self._registry,
+            model=model or (self.model if self._model_pinned else None))
+        text, finish = self._send(prompt, chosen, system, max_tokens)
+        return GenerationResult(text=text, model=chosen, backend="openrouter",
+                                finish_reason=finish)
+
+    def _send(self, prompt: str, model: str, system: str | None,
+              max_tokens: int) -> tuple[str, str]:
+        client = self._client if self._client is not None else self._sdk()
+        messages: list[dict] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        resp = client.chat.send(model=model, messages=messages,
+                                max_tokens=max_tokens)
+        choice = resp.choices[0]
+        return (getattr(choice.message, "content", "") or "",
+                getattr(choice, "finish_reason", "") or "")
+
+    def _sdk(self):                                   # pragma: no cover - network
+        import openrouter
+        key = os.environ.get("OPENROUTER_API_KEY")
+        if not key:
+            raise RuntimeError(
+                "OPENROUTER_API_KEY required for generation — get one at "
+                "https://openrouter.ai/keys")
+        return openrouter.OpenRouter(
+            api_key=key, http_referer="https://github.com/netzkontrast/agency",
+            x_open_router_title="agency")
 
     def backend(self) -> str:
         """The live backend name (what ``agency_doctor`` reports) — never the key."""
@@ -201,3 +348,63 @@ class LLMClient:
             if opt.lower() in low:
                 return {"choice": opt, "confidence": float(conf) if conf else 0.5}
         return {"choice": options[0] if options else "", "confidence": 0.0}
+
+
+# ── Spec 338 — the single plain-text generator-selection rule ─────────────────
+def _dep_missing(msg: str) -> RuntimeError:
+    from .toolresult import Codes
+    e = RuntimeError(f"{Codes.DEPENDENCY_MISSING}: {msg}")
+    e.code = Codes.DEPENDENCY_MISSING                           # typed (Spec 151)
+    return e
+
+
+def select_text_generator(drivers, *, env=None, require: str | None = None):
+    """The SOLE provider-selection rule for plain-text generation (Spec 338).
+
+    Returns ``(name, driver)``: ``"llm"`` (OpenRouter) when ``OPENROUTER_API_KEY``
+    is set — the owner directive wins even when ``ANTHROPIC_API_KEY`` is also set;
+    ``"anthropic"`` when ``require == "anthropic"`` (the explicit quality/feature
+    escape), the ``AGENCY_GENERATE=anthropic`` override is active, or only the
+    Anthropic key is present; else a typed ``Codes.DEPENDENCY_MISSING``. NEVER a
+    silent paid fallback — a free failure is the caller's cue to re-invoke with
+    ``require="anthropic"`` (the barbell)."""
+    env = env if env is not None else os.environ
+    has_or = bool(env.get("OPENROUTER_API_KEY"))
+    has_an = bool(env.get("ANTHROPIC_API_KEY"))
+    force_an = (require == "anthropic"
+                or env.get("AGENCY_GENERATE", "").strip().lower() == "anthropic")
+    if force_an:
+        if not has_an:
+            raise _dep_missing(
+                "Anthropic generation requested but ANTHROPIC_API_KEY is unset")
+        return ("anthropic", drivers.get("anthropic"))
+    if has_or:
+        return ("llm", drivers.get("llm"))
+    if has_an:
+        return ("anthropic", drivers.get("anthropic"))
+    raise _dep_missing(
+        "no generation key — set OPENROUTER_API_KEY (free, preferred) "
+        "or ANTHROPIC_API_KEY")
+
+
+def _openrouter_models() -> dict:                     # pragma: no cover - network
+    """Live free-model catalogue from the OpenRouter SDK → ``{id: flags}``.
+    Hydrates the registry's ``flags`` (context_length, supported_parameters)
+    from live model info — derived, never hand-frozen (rule 8). Best-effort:
+    a fetch failure leaves the built-in registry unflagged."""
+    import openrouter
+    key = os.environ.get("OPENROUTER_API_KEY")
+    sdk = openrouter.OpenRouter(
+        api_key=key or None,
+        http_referer="https://github.com/netzkontrast/agency",
+        x_open_router_title="agency")
+    out: dict = {}
+    for m in (sdk.models.list(max_price=0).data or []):
+        mid = getattr(m, "id", "")
+        if mid.endswith(_FREE_SUFFIX):
+            out[mid] = {
+                "context_length": getattr(m, "context_length", 0),
+                "supported_parameters": list(
+                    getattr(m, "supported_parameters", []) or []),
+            }
+    return out

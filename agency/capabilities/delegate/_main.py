@@ -485,8 +485,14 @@ class DelegateCapability(CapabilityBase):
             self.ctx.record("Agent", {"runtime": "delegated"}, node_id=aid)
         children = []
         for item in admitted:
-            lc = self.ctx.record_and_serve("Lifecycle", {"state": "working", "phase": 0})
-            self.ctx.link(lc, aid, "DISPATCHED_TO")        # an agent IS a Lifecycle parameterization
+            # Spec 339 — mint the child through the Lifecycle PILLAR substrate
+            # (ctx.lifecycle.open) instead of hand-rolling record_and_serve(
+            # "Lifecycle", {state}). open mints `submitted` + SERVES the intent +
+            # DISPATCHED_TO the agent (an agent IS a Lifecycle parameterization);
+            # dispatch then advances it to `working` via the SOLE state writer.
+            lc = self.ctx.lifecycle.open(self.ctx.intent_id, agent=driver,
+                                         parameterization="remote-async")
+            self.ctx.lifecycle.move(lc, "working")         # submitted → working at dispatch
             self.ctx.link(d, lc, "DELEGATES_TO")
             result, inv = self.ctx.spawn(driver, driver_verb, **item)
             self.ctx.link(lc, inv, "DRIVES")               # the child Lifecycle drives its dispatch
