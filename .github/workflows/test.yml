@@ -84,12 +84,10 @@ jobs:
       # `Plan/_planning/prefix-lint-baseline.txt`; the gate fails ONLY on
       # regressions (new sites NOT in the baseline). Stop condition #5 for
       # the autonomous-completion goal.
-      # ADVISORY (2026-06-14): the Spec 286 OOP refactor moved call sites, so
-      # the baseline drifted (pre-existing on main, unrelated to the acceptance
-      # gate). Demoted to advisory until the baseline is refreshed
-      # (`check_response_prefix.py … --update`); the acceptance suite is the gate.
-      - name: Response-prefix lint (advisory)
-        continue-on-error: true
+      # Baseline refreshed 2026-06-20 (Spec 146 Slice 2.2 — promoted from
+      # advisory; was demoted 2026-06-14 due to the Spec 286 refactor
+      # moving call sites; baseline now reflects the live tree).
+      - name: Response-prefix lint
         run: |
           python scripts/check_response_prefix.py --root agency \
             --baseline Plan/_planning/prefix-lint-baseline.txt --strict
