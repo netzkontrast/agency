@@ -57,9 +57,12 @@ def _normalise(name: str, defn: dict) -> dict:
     terminal: set[str] = set(defn.get(
         "terminal", [s for s, t in transitions.items() if not t]))
     initial: str = defn.get("initial", "")
+    floor_gates: set[str] = set(defn.get("floor_gates", []))
     _validate_floor(name, initial, states, transitions, terminal)
+    _check_floor_gates(name, initial, transitions, terminal, floor_gates)
     return {"initial": initial, "states": states,
-            "transitions": transitions, "terminal": terminal}
+            "transitions": transitions, "terminal": terminal,
+            "floor_gates": floor_gates}
 
 
 def _apply_delta(name: str, base: dict, delta: dict) -> dict:
@@ -79,9 +82,12 @@ def _apply_delta(name: str, base: dict, delta: dict) -> dict:
             transitions[src] = sorted(existing)
     terminal: set[str] = {s for s, t in transitions.items() if not t}
     initial: str = base["initial"]
+    floor_gates: set[str] = set(delta.get("floor_gates", base.get("floor_gates", [])))
     _validate_floor(name, initial, states, transitions, terminal)
+    _check_floor_gates(name, initial, transitions, terminal, floor_gates)
     return {"initial": initial, "states": states,
-            "transitions": transitions, "terminal": terminal}
+            "transitions": transitions, "terminal": terminal,
+            "floor_gates": floor_gates}
 
 
 def _validate_floor(name: str, initial: str, states: set[str],
@@ -95,6 +101,32 @@ def _validate_floor(name: str, initial: str, states: set[str],
             raise ValueError(
                 f"machine {name!r}: terminal state {t!r} has outgoing "
                 f"transitions (floor violated)")
+
+
+def _check_floor_gates(name: str, initial: str, transitions: dict,
+                       terminal: set[str], floor_gates: set[str]) -> None:
+    """Spec 347 frugal floor invariant: if floor_gates are declared, every path
+    to a terminal state must pass through at least one floor gate.
+    BFS from initial; gate states are visited but NOT expanded — so downstream
+    states are only reachable THROUGH the gate. Raises ValueError on violation."""
+    if not floor_gates:
+        return
+    visited: set[str] = {initial}
+    queue = [initial]
+    while queue:
+        s = queue.pop(0)
+        if s in floor_gates:
+            continue
+        for nxt in transitions.get(s, []):
+            if nxt not in visited:
+                visited.add(nxt)
+                queue.append(nxt)
+    for t in terminal:
+        if t in visited:
+            raise ValueError(
+                f"machine {name!r}: terminal {t!r} reachable without "
+                f"floor gate {sorted(floor_gates)} — frugal floor "
+                f"non-removable (Spec 347: validate/secure/a11y never cut)")
 
 
 def all_machine_states() -> set[str]:
