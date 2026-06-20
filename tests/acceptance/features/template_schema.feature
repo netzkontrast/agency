@@ -217,3 +217,13 @@ Feature: Template and schema bootstrap — loading, lint, and coverage audit
   Scenario: the novel-core schemas are loaded + enforced by the engine
     When I boot the live engine
     Then the novel-core labels each have a loaded ontology schema
+
+  # ── schema coverage round-trip invariant (Spec 153 remaining) ────────────────
+
+  Scenario: recording a covered label with all required fields succeeds
+    When I boot the live engine for round-trip validation
+    Then recording an Intent node with valid required fields succeeds
+
+  Scenario: recording a covered label with a missing required field raises ValueError
+    When I boot the live engine for round-trip validation
+    Then recording an Intent node with a missing required field raises ValueError

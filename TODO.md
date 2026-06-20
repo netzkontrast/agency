@@ -252,14 +252,15 @@ Each child: alias-and-deprecate migration, TDD, merged green. See
 
 ## Suggested implementation order (next 5)
 
-**Reconciled 2026-06-20** (deconfliction + tree-verified). The 2026-06-19
-refresh below ranked work that was ALREADY shipped or claimed. Each item
-verified against its spec's `## Followup` section + the live tree:
+**Reconciled 2026-06-20** (deconfliction + tree-verified). Both the
+2026-06-19 refresh and PR #209's post-merge re-refresh ranked work that
+was ALREADY shipped. Each item verified against its spec's `## Followup`
+section + the live tree:
 
-- **Spec 153 round-trip invariant** — IN FLIGHT on **PR #209**
-  (`claude/affectionate-fermi-wsik9u`): `memory.record` required-field
-  enforcement + 2 acceptance scenarios. Do NOT start; let #209 land
-  (flips row 004 → Shipped on merge).
+- **Spec 153 round-trip invariant** — **MERGED via PR #209**:
+  `memory.record` required-field enforcement + 2 acceptance scenarios
+  (invariant (a) closed; invariant (c) template-per-label deferred per
+  #209, so row 004 stays Partial). Done — not a next-step.
 - **Spec 149 Slice 2** — **Slice 2.1 + 2.2 SHIPPED** (2026-06-11/12):
   `scripts/derive_docs.py` carries the derivation engine + the
   `<!-- derived:<id> -->` fence rewriter (`find_fence` / `rewrite_fence` /
