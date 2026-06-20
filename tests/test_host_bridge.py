@@ -184,7 +184,7 @@ class _Driver:
 
 _MSGS = [{"role": "user", "content": "draft this"}]
 
-# Spec 348 — the seam now routes plain text to an OpenRouter free model FIRST
+# Spec 352 — the seam now routes plain text to an OpenRouter free model FIRST
 # whenever OPENROUTER_API_KEY is set (which it is in the dev/CI env). These
 # precedence tests target the driver / host-sampling / delegate branches, so
 # they explicitly pass an env WITHOUT the key to opt out of free-first; the
@@ -225,7 +225,7 @@ def test_precedence_sample_failure_falls_back_to_envelope() -> None:
 
 
 def test_precedence_free_first_wins_over_driver() -> None:
-    # Spec 348: with OPENROUTER_API_KEY set, plain text routes free-first —
+    # Spec 352: with OPENROUTER_API_KEY set, plain text routes free-first —
     # ahead of even a capable anthropic driver. A stub LLMClient keeps it
     # network-free; the marker is the openrouter_free stop_reason.
     class _StubGen:

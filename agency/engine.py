@@ -722,7 +722,8 @@ class Engine:
         # telemetry onto it (Spec 344).
         from ._monitor import MonitorEmitter, resolve_monitor_log_path
         self.monitor = MonitorEmitter(resolve_monitor_log_path(db_path=path))
-        self.lifecycle = Lifecycle(self.memory, monitor=self.monitor)  # Spec 344 — emits transitions
+        self.lifecycle = Lifecycle(self.memory, monitor=self.monitor,  # Spec 344 — emits transitions
+                                   engine=self)                        # Spec 349b — onto the event bus
         # Spec 076 — the unified hook-handler surface (open set). "*" is the
         # default catch-all; register_hook_handler adds per-event overrides.
         self._hook_handlers = {"*": _default_hook_handler,
