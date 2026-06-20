@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MagicSystem",
+  "description": "A magic system within a World (Spec 123). Links to World via PART_OF_WORLD.",
+  "type": "object",
+  "required": ["slug", "name"],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Kebab-case unique identifier."
+    },
+    "name": {
+      "type": "string",
+      "description": "Magic system name."
+    },
+    "hard_or_soft": {
+      "type": "string",
+      "enum": ["hard", "soft"],
+      "description": "Sanderson classification: hard = rules-based; soft = mystery-based."
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief prose description of the magic system's rules."
+    }
+  }
+}

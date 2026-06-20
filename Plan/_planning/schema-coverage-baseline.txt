@@ -5,28 +5,5 @@
 #
 # Format: one label per line
 #
-Album
-BoundaryUse
-Chapter
-CodexEntry
-Culture
-Genre
-Idea
-KnownFact
-Language
-MagicSystem
-NarrativeBeat
-Novel
-NovelClaim
-OptimizationPass
-Reference
-Religion
-Scene
-Schema
-StoryTimeEvent
-Storyform
-Tool
-Track
-Tweet
-World
-WorldAxiom
+# ✅ All ontology labels are now schema-covered (Spec 153 Slice 6 Wave 6 —
+# novel + core Schema/Tool backfill, coverage 0.809 → 1.0)

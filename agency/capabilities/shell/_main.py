@@ -112,6 +112,21 @@ def _apply_filter(text: str, spec: str) -> str:
     return out[:_MAX_OUTPUT]
 
 
+def capture_filter(command: str, output: str, *, spec: str = "head:20") -> str:
+    """Spec 336 S3 — a clean, token-filtered VIEW of a bash call for the ephemeral
+    capture's ``filtered`` column (the cheap structured view the export prefers).
+
+    The FULL command + output are stored separately in the tool-call store
+    (``keep_full``); this is a derived convenience over the shell token-economy
+    filter, so bounding the VIEW loses no data. Returns
+    ``"$ <command>\\n<filtered output>"``. Used MANDATORILY by the hook capture
+    path for every Bash call — execution is unchanged (capture & filter only).
+    """
+    head = f"$ {command}".rstrip()
+    body = _apply_filter(output or "", spec) if output else ""
+    return f"{head}\n{body}".rstrip() if body else head
+
+
 
 
 class ShellCapability(CapabilityBase):

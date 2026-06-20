@@ -34,7 +34,7 @@ Red flags:
 """
 from __future__ import annotations
 
-from agency.capability import CapabilityBase, RenderTemplates
+from agency.capability import ArtefactSchemas, CapabilityBase, RenderTemplates
 
 from .ontology import music_ontology
 
@@ -87,3 +87,4 @@ class MusicCapability(LifecycleCluster, LyricsCluster, AudioCluster,
     home = "capability"
     ontology = music_ontology
     render_templates = RenderTemplates.from_module(__file__)
+    artefact_schemas = ArtefactSchemas.from_module(__file__)

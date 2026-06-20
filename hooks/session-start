@@ -33,6 +33,12 @@ _agency_index_on_start() {
   [ -n "${CLAUDE_PROJECT_DIR:-}" ] || return 0
   (
     cd "${CLAUDE_PROJECT_DIR}" || exit 0
+    # Restore the durable graph from the committed snapshot when session.db is
+    # missing (it is gitignored; .agency/sql/session-snapshot.sql is the source of
+    # truth). The migrations replay BEFORE the index opens the db.
+    if [ ! -f .agency/session.db ] && [ -f .agency/sql/session-snapshot.sql ] && command -v agency >/dev/null 2>&1; then
+      agency snapshot import >/dev/null 2>&1 || true
+    fi
     if [ "${AGENCY_CODEGRAPH_ON_START:-1}" != "0" ] && command -v codegraph >/dev/null 2>&1; then
       if codegraph status 2>/dev/null | grep -q "Not initialized"; then
         codegraph init . >/dev/null 2>&1 || true

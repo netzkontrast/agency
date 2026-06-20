@@ -35,3 +35,6 @@ novel:
   default_target_word_count: 80000  # novel default — resolved by the novel capability (default_target_word_count)
   db_backend: sqlite  # novel default — resolved by the novel capability (db_backend)
   db_path: .agency/novel.db  # novel default — resolved by the novel capability (db_path)
+toolcalls:
+  export_top_n: 20  # how many top tool-call shapes the Stop-hook export lists [env: AGENCY_TOOLCALLS_TOP_N]
+  suggest_via_llm: false  # also propose new specs via the LLM driver (heuristic always runs) [env: AGENCY_TOOLCALLS_LLM]
