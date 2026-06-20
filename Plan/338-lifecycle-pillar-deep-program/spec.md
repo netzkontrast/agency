@@ -114,10 +114,12 @@ A shallow Lifecycle is a *label written ad-hoc*. A deep Lifecycle is a **managed
 state machine** with exactly one writer, an enforced transition table, and a
 parameterization seam. The pillar becomes complete when:
 
-1. **One capability owns the canonical frame** (`open · move · close` +
-   `read · find · check · watch`) — Lifecycle stops being a side-effect of
-   `session_start`/invocation and becomes a first-class entity an agent opens,
-   moves, and closes deliberately.
+1. **The pillar substrate owns the canonical frame** (`open · move · close` in
+   `agency/lifecycle.py`, reached via `ctx.lifecycle` + `lifecycle_*` wire tools;
+   `read · find · check · watch` reused from `manage`/`gate`/`jules`) — Lifecycle
+   stops being a side-effect of `session_start`/invocation and three hand-rolled
+   paths, and becomes one first-class machine an agent opens, moves, and closes
+   deliberately. **Not a capability** — a pillar, peer to Intent and Memory.
 
 2. **`move` is the SOLE writer of `Lifecycle.state`, and it enforces the
    transition table.** Every state change routes through one guard that rejects
@@ -196,62 +198,97 @@ mistake:
   `Lifecycle` node the graph already holds; `move` replaces the unguarded
   `update` calls — it does not add a second store.
 
-## Architecture — the `lifecycle` capability (drop-in)
+## Architecture — Lifecycle is a PILLAR, not a capability (owner directive, 2026-06-20)
+
+> **Course correction (owner, 2026-06-20): "lifecycle isn't a capability — it's
+> its own pillar."** The earlier drafts of this program proposed a `lifecycle`
+> *capability* (`agency/capabilities/lifecycle/`). That was wrong, and it created
+> the panel's blocker **B1** (a capability verb is subject to the SERVES
+> intent-guard, but the engine opens lifecycles internally with no ambient
+> intent). Lifecycle is one of the **four pillars** (Intent · Capability ·
+> Lifecycle · Memory) — peer to Intent and Memory, **above** the open set of
+> capabilities. So it lives where the other concept-pillars live: in the
+> **substrate**, not in `capabilities/`.
+
+**The symmetry that fixes it.** Each pillar = a substrate module + a `ctx`
+delegator + substrate wire-tools + the capabilities that are its *members*:
+
+| Pillar | Substrate module | `ctx` access | Wire substrate-tool | Member caps (`home=`) |
+|---|---|---|---|---|
+| **Intent** | `agency/intent.py` (`engine.intent`) | `ctx.intent_id` | `intent_bootstrap` | `discover`, `thinking`, … |
+| **Memory** | `agency/memory.py` (`engine.memory`) | `ctx.memory` | `memory_graph_provenance` | `manage`, `reflect`, `document`, … |
+| **Capability** | the registry | `ctx.registry` | (search/get_schema/execute) | every craft cap |
+| **Lifecycle** | **`agency/lifecycle.py` (`engine.lifecycle`)** ← harden it | **`ctx.lifecycle`** ← NEW | **`lifecycle_open`/`_move`/`_close`** ← NEW | `delegate`, `jules`, `gate`, `subagent`, `branch`, `mode`, `persona`, `select`, `workspace` |
+
+Lifecycle is the **only pillar whose substrate already exists but is unfinished**
+— `agency/lifecycle.py` is a real substrate class (`engine.lifecycle`), not a
+capability (codegraph-verified). This program **hardens that substrate** and gives
+it the two missing arms its peers have: a `ctx` delegator and wire tools.
 
 ```
-agency/capabilities/lifecycle/          # auto-discovered like any cap (Goal 4)
-  __init__.py                           # exports LifecycleCapability; re-home anchor for Spec 291
-  _main.py                              # LifecycleCapability(CapabilityBase): name="lifecycle", home="lifecycle"
-  ontology.py                           # OntologyExtension — reuses core Lifecycle node + adds the
-                                        #   transition-table + parameterization registry node types
-  clusters/
-    _base.py                            #   LifecycleCluster mixin: _recall, _serving, transition-guard helper
-    machine.py                          #   open · move · close (the write frame; move = sole state writer)
-    observe.py                          #   read · find · check · watch (compose manage + jules; no dup)
-    parameterize.py                     #   the agent=parameterization model (Spec 342)
-  data/
-    transitions.json                    #   the A2A transition table (definable registry, CLAUDE.md #8/#75)
-    parameterizations.json              #   variant transition/observer sets (remote-async inserts `verify`)
-  templates/
-    lifecycle-board.md                  #   the management board Document (Spec 292 convergence)
-  references/
-    state-machine.md                    #   <!-- doc-source: agency/capabilities/lifecycle/clusters/machine.py -->
-    parameterization.md                 #   the agent-as-parameterization contract
+agency/lifecycle.py            # THE PILLAR SUBSTRATE (harden in place; peer to intent.py/memory.py)
+  class Lifecycle:             #   the state machine — engine.lifecycle
+    open / move / close        #   the write frame (move = SOLE state writer + emits events, 344)
+    _transition_table          #   the A2A table (data: agency/_lifecycle_data/transitions.json, 340)
+    _parameterizations         #   the variant registry (data: parameterizations.json, 342)
+agency/_lifecycle_events.py    # typed LifecycleEvent (344; mirrors _loop_events.py)
+agency/_substrate_tools.py     # + LifecycleOpen/Move/Close SubstrateTool (wire; requires_intent like intent_bootstrap)
+agency/capability.py           # CapabilityContext gains `ctx.lifecycle` (delegator to engine.lifecycle)
 ```
 
-> **Re-home note (Spec 291).** The pillar-package reorg targets
-> `agency/lifecycle/lifecycle/` (the canonical cap of its own pillar). This
-> program lands at the current discoverable path (`agency/capabilities/lifecycle/`)
-> so it ships before the reorg; the loader transition moves it with the other
-> lifecycle-pillar caps (branch · delegate · gate · jules · mode · persona ·
-> select · subagent · workspace). No code change at re-home — only the path.
+> **The SERVES-guard is no longer crossed (B1 resolved).** Substrate (`intent.py`,
+> `memory.py`, now `lifecycle.py`) is NOT subject to the per-verb SERVES guard —
+> that guard is for `capability_*_*` verbs only. The engine opens a lifecycle via
+> `engine.lifecycle.open(...)`; a member capability opens one via
+> `ctx.lifecycle.open(...)` (the same machine, intent supplied from `ctx.intent_id`);
+> the wire reaches it via the `lifecycle_open` substrate-tool (which takes
+> `intent_id` explicitly, exactly as `intent_bootstrap` does). One machine, three
+> isomorphic surfaces — the CORE.md "harness-in-harness" ladder.
 
-**The drop-in bar (CLAUDE.md).** Adding `lifecycle/` adds verbs + ontology + a
-docstring-derived SkillDoc + the `lifecycle-management` walkable discipline — and
-**nothing else**. The engine `discover()`s it; the CLI mirrors it (Spec 079); MCP
-wires it; emit produces its SKILL.md (Spec 080). If landing it needs an edit
-anywhere else, that coupling is the bug to fix — *except* the deliberate,
-in-scope replacement of the three unguarded `state` writes (§Why item 2), which
-this program OWNS routing through `move`.
+> **Re-home (Spec 291).** The pillar-package reorg's `agency/<pillar>/<cap>/`
+> layout makes this literal: `agency/lifecycle/` becomes the pillar dir holding the
+> substrate (`agency/lifecycle/_machine.py`) AND its member caps (`delegate/`,
+> `jules/`, `gate/`, …). This program lands the substrate at `agency/lifecycle.py`
+> now; 291 moves it into the pillar dir with no behaviour change.
 
-## The canonical verb surface (CORE.md §3 — verbatim frame)
+**What this is NOT.** There is **no** `agency/capabilities/lifecycle/` folder, no
+`LifecycleCapability(CapabilityBase)`, no `home="lifecycle"` *self*-cap. The
+"drop-in capability bar" does not apply — Lifecycle is a pillar, hardened like
+Intent (Spec 307 deepened `intent.py`, it did not add an `intent` cap for the
+substrate). The member caps already exist and keep their `home="lifecycle"`.
 
-| Verb | Role | What it does | Replaces / reuses |
+## The canonical frame (CORE.md §3 — substrate methods + ctx + wire tools)
+
+The frame is **substrate `Lifecycle` methods**, surfaced three isomorphic ways
+(method · `ctx.lifecycle.*` · `lifecycle_*` substrate-tool) — never a capability
+verb:
+
+| Frame member | Surface | What it does | Replaces / reuses |
 |---|---|---|---|
-| `open(intent_id, kind, agent_id=, parameterization=)` | act | Mint a `Lifecycle` SERVING the intent in state `submitted` | the ad-hoc `record("SessionLifecycle"/"Lifecycle")` sites |
-| `move(lifecycle_id, to_state, evidence=)` | act | The **sole** writer of `state`; enforces the transition table; **emits a `LifecycleEvent`** (344) | the 3 unguarded `update({"state":…})` sites |
-| `close(lifecycle_id, outcome)` | act | Terminal `move` to `completed`/`failed`/`canceled` (+ done-gate) | — |
-| `read(lifecycle_id)` | act | One lifecycle's full state + serving intent + agent | composes `manage.state` |
-| `find(state=, intent_id=, agent_id=)` | act | All lifecycles matching a filter | composes `manage.open_intents` / graph find |
-| `check(lifecycle_id, name, passed, evidence=)` | act | A gate predicate → `PASSED` or a `move(→input-required)` | folds `gate.check` semantics |
-| `watch(lifecycle_id=, scope=)` | act | Observe transitions via the 344 `LifecycleEvent` trail + `jules.watch` + the monitor channel (no poll) | composes existing watchers + 344 events |
+| `open(intent_id, kind, agent_id=, parameterization=)` | method · `ctx.lifecycle.open` · `lifecycle_open` tool | Mint a `Lifecycle` SERVING the intent in state `submitted` | the 3 minting paths (`Lifecycle` class · `delegate.fan_out` hand-roll · `develop.SessionLifecycle`) |
+| `move(lifecycle_id, to_state, evidence=)` | method · `ctx.lifecycle.move` · `lifecycle_move` tool | The **sole** writer of `state`; enforces the transition table (340); **emits a `LifecycleEvent`** (344) | the unguarded `update({"state":…})` sites (`gate.check` · `lifecycle_gate` · `Lifecycle.move/complete` · `subagent.develop:66` · `delegate`) |
+| `close(lifecycle_id, outcome)` | method · `ctx.lifecycle.close` · `lifecycle_close` tool | Terminal `move`; records a Spec 328 **completion `Gate`** keyed to the intent (W-2) | — |
+| `read · find` (observe) | `manage.state` / `manage.find` (Memory pillar read-API) | one/many lifecycles + serving intent + agent | **REUSE `manage`** (Spec 290/330) — not re-implemented |
+| `check` (observe) | `gate.check` (member cap, Spec 303) → routes its pause through `ctx.lifecycle.move(→input-required)` | a gate predicate that pauses the lifecycle as a *guarded transition* | `gate` member cap, predicate reused |
+| `watch` (observe) | `manage.timeline` over the 344 events + `jules.watch` (member) + monitor channel | the recorded transition trail (pull) + the existing pushers | REUSE — see N-2 (it is a pull; push is `jules.watch`) |
 
-> **`check` and `gate`.** The `gate` capability (`home="lifecycle"`, Spec 303)
-> stays — it owns reusable *predicates* and `adjudicate`. `lifecycle.check` is the
-> thin frame verb that records a gate **and** performs the `move(→input-required)`
-> on failure, so a blocked gate is a *transition*, not an unguarded `update`. The
-> gate cap's predicate logic is reused, not reimplemented (the §"observe reuses"
-> rule applied to gates).
+> **No new `lifecycle.check`/`lifecycle.watch` verbs (panel F-1).** The observe
+> arm is NOT a new surface — `read`/`find` are `manage` (the Memory-pillar read-API
+> that already reads lifecycles), `check` stays `gate.check` (now routing its pause
+> through the substrate `move`), `watch` is `manage.timeline` over 344's events plus
+> the existing `jules.watch`. The pillar OWNS the write machine (`open/move/close`)
+> + the parameterization; observation is the Memory pillar's job, reused. This
+> kills the dormant-duplicate risk the panel flagged.
+
+### The sole-writer invariant is ENFORCED, not asserted (panel B3)
+
+`move` being the only `state` writer is guarded statically, not just claimed:
+an `# AGENCY-DRIFT: lifecycle-state-writer` tag marks the legitimate site
+(`Lifecycle.move`), and `scripts/check-drift` (+ an acceptance test) greps
+`agency/` for `update(...{"state"` / `record("Lifecycle"` / `record("SessionLifecycle"`
+outside `agency/lifecycle.py` and fails on a new occurrence. The invariant is
+executable (the Spec 327 `serves_intent_id`-non-null precedent), so it cannot
+silently decay.
 
 ## The state machine (A2A transition table)
 
@@ -274,21 +311,30 @@ canceled        → (terminal)
 
 Anything not in the table raises (`completed → working`, `submitted → completed`
 skipping `working`). The table is **parameterization-aware**: a parameterization
-(Spec 342) may *insert* states/edges (the remote-async set inserts `verify` and
-rewires `working → verify → completed`, so `completed` is reachable only after
-verification — CORE.md `COMPLETED ≠ done`). It may **never** *remove* a base edge
-(monotone extension — the safety floor).
+(Spec 342) may *insert* states/edges and *replace* an edge with an
+insert-intermediate (the remote-async set replaces `working → completed` with
+`working → verify → completed`, so `completed` is reachable only after
+verification — CORE.md `COMPLETED ≠ done`).
+
+> **Safety floor (panel F-2 fix — supersedes the earlier "never remove an edge"
+> framing).** "Monotone, never remove" was wrong: 342 legitimately replaces
+> `working→completed` to force `verify`. The real invariant a parameterization
+> must satisfy is **structural, not additive**: (1) every terminal base state
+> (`completed · canceled`) stays terminal — no parameterization adds an out-edge
+> from it; (2) no base state is **orphaned** — every base state stays reachable
+> from `submitted`. Edge *replacement* is allowed under (1)+(2); the
+> orphan-check, not edge-monotonicity, is the floor 340 enforces at load.
 
 ## Core-feature coverage matrix (what each child ships)
 
 | Child | Slice | Delivers | CORE.md §3 clause |
 |---|---|---|---|
-| **339** | scaffold + write frame | the `lifecycle` cap folder + `open · move · close`; `move` becomes sole state writer | "verb frame: open · move · close" |
-| **340** | state-machine transitions | the enforced A2A transition table (definable registry); the single guard all writes route through | "states align with A2A tasks" |
-| **344** | transition events | every `move` emits a typed `LifecycleEvent` (recorded as an `Event` node, `OBSERVED_DURING` the intent) — the "lifecycle Events" gap; consumable by `watch`/`manage`/`monitor`/dogfood (N4) | (substrate for) "read · find · check · watch (observe)" |
-| **341** | observe suite | `read · find · check · watch` composing `manage` + `jules.watch` + the monitor channel + the 344 events (no poll) | "read · find · check · watch (observe)" |
-| **342** | agent-as-parameterization | the parameterization model (Goal 3 — no per-agent special-casing); the 10 `home=lifecycle` caps plug variant transitions/observers; remote-async inserts `verify`, wiring `jules.verify`+`delegate.join` to one "done" | "an agent IS a Lifecycle parameterization … inserts verify; COMPLETED ≠ done" |
-| **343** | management discipline | `lifecycle-management` walkable skill + `resume`/phases (bridges `SkillRun.resume`) | "Gates = input-required → Intent re-entry"; the recursion (a skill IS a Lifecycle) |
+| **339** | harden the substrate + write frame | harden `agency/lifecycle.py` (`open · move · close`; `open→submitted`; split gate-shaped `move`); add `ctx.lifecycle` + `lifecycle_*` wire tools; `move` = sole state writer; absorb the 3 minting paths. **Substrate, not a capability** | "verb frame: open · move · close" |
+| **340** | state-machine transitions | the enforced A2A transition table (definable registry); the single guard all writes route through; the orphan/terminal floor | "states align with A2A tasks" |
+| **344** | transition events | every `move` emits a typed `LifecycleEvent`; **terminal/blocked → durable `Event` node; intermediate churn → monitor channel** (B4 — respects Spec 336) | (substrate for) "read · find · check · watch (observe)" |
+| **341** | observe arm (REUSE) | `read · find` ARE `manage`; `check` IS `gate.check`; `watch` IS `manage.timeline` over 344 events + `jules.watch`. **No new observe verbs** (panel F-1) | "read · find · check · watch (observe)" |
+| **342** | agent-as-parameterization | the parameterization registry on the substrate (Goal 3 — no per-agent special-casing); member caps declare a parameterization; remote-async inserts `verify`, with `delegate.join` running `jules.verify` so both "done"s are one (B2) | "an agent IS a Lifecycle parameterization … inserts verify; COMPLETED ≠ done" |
+| **343** | management discipline | `lifecycle-management` walkable skill (homed on a member cap, e.g. `manage`) + `resume` bridging `SkillRun.resume` | "Gates = input-required → Intent re-entry"; the recursion (a skill IS a Lifecycle) |
 
 ## Scoped OUT (already shipped or deliberately deferred)
 
@@ -315,31 +361,69 @@ the events 344 emits.
 
 ## Acceptance (the program is "done" when)
 
-1. Opening a Lifecycle, moving it through `submitted → working → completed`, and
-   reading it back is a pure `lifecycle.*` flow — no hand-written graph query, no
-   ad-hoc `update`.
-2. An illegal transition (`completed → working`) **raises**; the three former
-   unguarded `state` writes now route through `move` and inherit the guard.
+1. Opening a Lifecycle (`ctx.lifecycle.open` / `lifecycle_open`), moving it
+   `submitted → working → completed`, and reading it back via `manage` is one
+   substrate flow — the three minting paths and the ad-hoc `update`s are gone.
+2. An illegal transition (`completed → working`) **raises**; every former
+   unguarded `state` writer (incl. `subagent.develop:66`) routes through `move`;
+   the `# AGENCY-DRIFT: lifecycle-state-writer` guard fails CI on a new writer.
 3. A remote-async parameterization inserts `verify`, so a Lifecycle cannot reach
-   `completed` without passing through `verify` (`COMPLETED ≠ done` is enforced).
-4. A failed `check` is a `move(→input-required)`; resuming is the only permitted
-   exit, looping back to the Intent (`input-required` → Intent re-entry).
-5. The `lifecycle-management` discipline walks the whole pillar over existing
-   `manage` reads + the new frame, recording its own SkillRun provenance.
+   `completed` without passing through `verify`; `delegate.join`'s "done" equals
+   `jules.verify`'s "done" (`COMPLETED ≠ done` enforced, one notion).
+4. A failed `check` (`gate.check`) is a `move(→input-required)`; resuming is the
+   only permitted exit, looping back to the Intent.
+5. Lifecycle is a **pillar** — `agency/lifecycle.py` substrate + `ctx.lifecycle` +
+   `lifecycle_*` wire tools — with **no** `agency/capabilities/lifecycle/` folder;
+   the `home="lifecycle"` member caps drive the one machine.
 6. `scripts/check-drift`, the naming audit, and schema-coverage stay clean; the
    full suite is green; CI is green.
+
+## Panel resolution — blockers folded (2026-06-20)
+
+The `sc:sc-spec-panel` review (`spec-panel-review.md`) raised 5 blockers; all are
+resolved in-spec (the 307 precedent — fix in place, retain the review as record):
+
+- **B1 (substrate/capability trust boundary) — RESOLVED by the owner's "it's a
+  pillar" directive.** Lifecycle is substrate (`agency/lifecycle.py`), not a
+  capability, so it never crosses the SERVES guard. §Architecture rewritten.
+- **B2 (the `verify` observer invocation model) — `delegate.join` runs it.** A
+  remote-async child sits in `verify` after the driver reports completion; `join`
+  (the reducer) calls `jules.verify` and `move`s `verify→completed` on done /
+  `verify→input-required` on not-done or lookup failure (N-3). Pinned in 342.
+- **B3 (unfalsifiable sole-writer) — static guard.** `# AGENCY-DRIFT:
+  lifecycle-state-writer` + a `check-drift` grep (see §Architecture).
+- **B4 (344 vs shipped Spec 336) — split by transition class.** Terminal/blocked
+  transitions → durable graph `Event` (low-volume provenance); intermediate churn
+  → the Spec 021 monitor channel (not the graph). Folded into 344.
+- **B5 (no cross-cap e2e) — added.** A `delegate`+`jules`+`lifecycle` round-trip
+  acceptance (injected vcs) lands in 342.
+
+Majors folded: W-2 (`close` records a Spec 328 completion `Gate`) · F-2
+(monotonicity → orphan/terminal floor, above) · F-3 (unified node schema incl.
+`SessionLifecycle` props as the `session` parameterization) · N-2 (`watch` is a
+pull — observe is `manage`/`jules`, named honestly) · S-1 (legacy nodes read
+`parameterization=""→"default"`; `open→submitted` affects only new lifecycles) ·
+auth-required (producer = a future auth-pending parameterization, not the base
+flow). Deferred with rationale: C-1 ownership rule + Hi-1 stall detection → 343.
 
 ## Followup — Implementation Status (2026-06-20)
 
 Drafted — program master + 6 children (339–344) opened. No code yet; this is the
-design record. **Refined 2026-06-20 after a codegraph deep-analysis pass** (the
-"think Ultra about the Vision goal / what capabilities need" directive): the §Why
-was corrected to the verified reality (three divergent lifecycle paths —
-`agency/lifecycle.py` + `delegate.fan_out` hand-roll + `develop.SessionLifecycle`;
-the `jules.verify`/`delegate.join` "done" disconnect; the no-transition-events
-gap), the §"What every capability needs" matrix (N1–N6) was added grounding the
-program bottom-up, the north star was set to **Goal 3 (agent-uniform lifecycle —
-no special-casing per agent)**, and a new slice **344 (transition events)** was
-opened for the "lifecycle Events" gap. Children are pure additions of a cluster
-module + verbs onto the 339 scaffold, except the in-scope absorption of the three
-minting paths + the unguarded `state` writes (339/340), which the program owns.
+design record. Two refinement passes on 2026-06-20:
+
+1. **Codegraph deep-analysis** (the "think Ultra / what capabilities need"
+   directive): §Why corrected to the verified reality (three divergent lifecycle
+   paths; the `jules.verify`/`delegate.join` "done" disconnect; the
+   no-transition-events gap), the §"What every capability needs" matrix (N1–N6),
+   Goal 3 set as north star, and slice **344 (transition events)** opened.
+2. **Architecture correction (owner: "lifecycle isn't a capability — it's its own
+   pillar") + spec-panel fold.** Lifecycle reframed from a `lifecycle` capability
+   to a **pillar**: substrate `agency/lifecycle.py` + `ctx.lifecycle` + `lifecycle_*`
+   wire tools + the existing `home="lifecycle"` member caps (peer to Intent/Memory,
+   not a drop-in cap). This dissolved panel blocker **B1**; B2–B5 + majors folded
+   in §"Panel resolution". The observe arm is REUSE (`manage`/`gate`/`jules`), not
+   new verbs.
+
+The pillar owns the WRITE machine (`open/move/close` + transitions + events +
+parameterization); observation is the Memory pillar's job, reused. Children remain
+substrate additions, not a new capability folder.

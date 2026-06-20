@@ -18,6 +18,18 @@ parent_spec: "338"
 > Lifecycle template — so the discipline that manages lifecycles is itself a
 > Lifecycle, the recursion the canon names), and closes the phase/resume surface
 > so `skill_walk` is understood as a Lifecycle projection.
+>
+> **Pillar + panel notes (2026-06-20).** Since Lifecycle is a *pillar* (no
+> `lifecycle` cap), the discipline is a **skill contributed by a member cap** — it
+> homes on `manage` (the Memory-pillar read-API it orchestrates) or a `home=
+> "lifecycle"` member, not a `lifecycle` capability. `resume` is a thin
+> substrate/`ctx.lifecycle` method, not a new cap verb. **Panel C-1 (ownership):**
+> the discipline may `move` lifecycles serving *sub-intents* of the session's
+> intent, but not lifecycles under an unrelated intent tree — the move asserts the
+> target SERVES the active intent's chain (the `gate.check` SUPERSEDED_BY-aware
+> guard precedent). **Hi-1 (stall detection):** surfacing a lifecycle stuck in
+> `input-required`/`verify` is a phase-1 `manage` query over the 344 events (a
+> transition older than a threshold with no successor) — owned here, not a daemon.
 
 ## Why
 

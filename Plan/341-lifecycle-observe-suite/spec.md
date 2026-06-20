@@ -11,13 +11,22 @@ wave: program-master
 parent_spec: "338"
 ---
 
-# Spec 341 — The observe suite (`read · find · check · watch`)
+# Spec 341 — The observe arm (`read · find · check · watch`) — REUSE, no new verbs
 
-> Child of the Lifecycle-pillar deep program (Spec 338). Lands the *observe* half
-> of the CORE.md §3 frame — and lands it by **composing** the already-shipped
-> `manage` reads, the `jules` watcher, and the Spec 076 hook, never by
-> re-implementing them (CLAUDE.md heuristic #1 — a `read` that duplicates
-> `manage.state` is the bug).
+> Child of the Lifecycle-pillar deep program (Spec 338). The *observe* half of the
+> CORE.md §3 frame.
+>
+> **Panel + pillar reframe (2026-06-20, panel F-1 + owner "it's a pillar").** The
+> Lifecycle pillar owns the WRITE machine (`open/move/close` on the substrate);
+> **observation is the Memory pillar's job, REUSED — this slice adds NO new
+> `lifecycle.*` verbs.** `read`/`find` ARE `manage.state`/`manage.find` (Spec
+> 290/330); `check` IS `gate.check` (which now routes its pause through
+> `ctx.lifecycle.move(→input-required)`); `watch` IS `manage.timeline` over the 344
+> events + the existing `jules.watch`. The slice's real work is the *wiring +
+> contract*, not a verb surface. **N-2:** `watch` is a **pull** (it reads the
+> recorded transition trail) — it is named for the frame, but live *push*
+> notification remains `jules.watch`/the monitor channel; the spec says so plainly
+> rather than implying a daemon.
 
 ## Why
 

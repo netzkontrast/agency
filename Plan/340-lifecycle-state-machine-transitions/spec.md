@@ -13,9 +13,21 @@ parent_spec: "338"
 
 # Spec 340 — Enforced A2A transition table (the state machine)
 
-> Child of the Lifecycle-pillar deep program (Spec 338). Hardens `lifecycle.move`
-> (Spec 339) with an **enforced transition table** so the A2A state machine stops
+> Child of the Lifecycle-pillar deep program (Spec 338). Hardens the **substrate**
+> `agency/lifecycle.py::Lifecycle.move` (Spec 339 — Lifecycle is a *pillar*, not a
+> capability) with an **enforced transition table** so the A2A state machine stops
 > being decorative: any state can no longer jump to any state.
+>
+> **Panel folds (2026-06-20):** the safety property is the **orphan/terminal
+> floor**, not "monotone, never remove an edge" (F-2) — a parameterization (342)
+> may *replace* `working→completed` with `working→verify→completed`; the load-check
+> rejects only (a) an out-edge from a terminal base state and (b) a base state made
+> unreachable from `submitted`. The transition data lives at
+> `agency/_lifecycle_data/transitions.json` (substrate), not in a capability folder.
+> The **sole-writer invariant (B3)** is guarded statically: `# AGENCY-DRIFT:
+> lifecycle-state-writer` + a `scripts/check-drift` grep that fails CI on any
+> `update(...{"state"` / `record("Lifecycle"` / `record("SessionLifecycle"` outside
+> `agency/lifecycle.py`.
 
 ## Why
 

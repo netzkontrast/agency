@@ -312,3 +312,29 @@ pillar build in the repo.
 **Suggested next step:** fold B1–B5 into 338/339/342/344 in place (the 307
 precedent: blockers fixed in-spec, panel doc retained as the record), then proceed
 to `develop.implement` on the 339 scaffold.
+
+---
+
+## 8. Resolution — folded 2026-06-20 (this review retained as the record)
+
+All 5 blockers + the majors are resolved in-spec. The decisive move was an owner
+directive that landed alongside the fold: **"lifecycle isn't a capability — it's
+its own pillar."** That reframed the architecture and dissolved B1 outright.
+
+| Item | Resolution | Where |
+|---|---|---|
+| **B1** trust boundary | **Lifecycle is a pillar, not a capability** — substrate `agency/lifecycle.py` + `ctx.lifecycle` + `lifecycle_*` substrate-tools (peer to Intent/Memory). Substrate is not under the SERVES guard, so the boundary is never crossed. | 338 §Architecture; 339 retitled "harden the substrate" |
+| **B2** verify observer | `delegate.join` is the trigger: a `verify`-state child → `join` runs `jules.verify` → `move(verify→completed|input-required)`; lookup failure stays in `verify`. join.done == verify.done. | 342 §"The verify observer" + 2 scenarios |
+| **B3** sole-writer | static `# AGENCY-DRIFT: lifecycle-state-writer` + `check-drift` grep (incl. the newly-found `subagent.develop:66` writer). | 338 §Architecture; 340 note |
+| **B4** 344 vs 336 | split by class: terminal/blocked → durable graph `Event`; intermediate churn → the Spec 021 monitor channel (never the graph). | 344 §Emission + scenarios |
+| **B5** no e2e | a delegate+jules+lifecycle round-trip acceptance (injected vcs). | 342 §Acceptance |
+
+**Majors folded:** W-2 (`close`→Spec 328 completion Gate), F-1 (observe arm is
+REUSE of `manage`/`gate`/`jules`, no new verbs), F-2 (orphan/terminal floor, not
+"never remove"), F-3 (unified node schema incl. `SessionLifecycle`→`session`
+parameterization), N-2 (`watch` is an honest pull), N-3 (verify lookup-failure
+stays in `verify`), S-1 (legacy `parameterization=""→"default"`; `open→submitted`
+new-only), A-2 (event dedup/class split), H-2 (ordering by `recorded_at`), C-1 +
+Hi-1 (ownership rule + stall detection → 343). The unified-node schema (F-3) and
+the `session` parameterization remain the largest implementation risk and are
+flagged for the 339/342 build.

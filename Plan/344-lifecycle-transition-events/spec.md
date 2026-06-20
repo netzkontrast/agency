@@ -67,22 +67,33 @@ class LifecycleEvent:
 A pure, engine-free dataclass (like `LoopEvent`) so tests/doctor/audit can build
 and assert one without an engine.
 
-### Emission — folded into `move` (Spec 339), zero new call sites
+### Emission — folded into substrate `move`, split by transition class (panel B4)
 
-`lifecycle.move` (the SOLE state writer, Spec 339) — after the transition guard
-(340) passes and the `state` is written — records the event on the **existing
-`Event` node type** (rule 2 — no new node type; reuse Spec 076):
+> **The B4 decision: do NOT graph-record every transition.** Spec 336 (SHIPPED)
+> moved high-volume capture OFF the graph precisely because `Event`s were ~95% of
+> `session.db` bloat. A graph `Event` per `move` (per child, per retry) would
+> re-introduce it. So 344 **splits by transition class**:
+>
+> | Transition class | Sink | Why |
+> |---|---|---|
+> | **terminal/blocked** (`→completed·failed·canceled·input-required·auth-required`) | durable graph **`Event`** | low-volume, real provenance ("the state it reached") |
+> | **intermediate churn** (`submitted→working`, `working→verify`) | the Spec 021 **monitor channel** (`MonitorEvent`) | high-volume telemetry, not provenance — never hits the graph |
+
+`agency/lifecycle.py::Lifecycle.move` (the SOLE state writer) — after the guard
+(340) passes and `state` is written — emits via `_emit_transition`:
 
 ```
+# terminal/blocked → durable graph Event (reuse Spec 076 node + edge):
 Event{name:"lifecycle_transition", lifecycle, from, to, intent, at}
-  -[:OBSERVED_DURING]-> Intent        # the Spec 076 edge, already enforced
-  -[:OBSERVED_DURING]-> Lifecycle     # so watch(lifecycle_id) finds its own trail
+  -[:OBSERVED_DURING]-> Intent
+  -[:OBSERVED_DURING]-> Lifecycle
+# intermediate churn → monitor only (no graph node):
+engine.monitor.emit(MonitorEvent(source="lifecycle", kind="transition", ...))
 ```
 
-Because emission lives in `move`, and 339 routes the three former unguarded
-writes through `move`, **every** state change — including a gate's
-`→input-required` and a dispatch child's `working→…` — emits an event *for free*.
-No capability adds an emit call.
+Because emission lives in substrate `move`, and 339 routes every former unguarded
+writer through it, **every** state change emits *for free* (no capability adds an
+emit call) — but only the load-bearing ones become durable graph provenance.
 
 > **Reuse, not a new event system.** The `Event` node + `OBSERVED_DURING` edge +
 > `dispatch_hook` recording path already exist (Spec 076). This slice records a
@@ -111,17 +122,33 @@ No capability adds an emit call.
 ## Acceptance (Gherkin)
 
 ```gherkin
-Scenario: every move emits a transition event
+Scenario: intermediate churn goes to the monitor, NOT the graph (panel B4)
   Given an open Lifecycle in state "submitted"
   When I call lifecycle.move(lid, to_state="working")
-  Then an Event{name:"lifecycle_transition", from:"submitted", to:"working"} exists
+  Then NO graph Event node is recorded for submitted→working
+  And a MonitorEvent{source:"lifecycle", kind:"transition"} is emitted
+
+Scenario: a terminal/blocked transition is durable graph provenance
+  Given a Lifecycle in state "working"
+  When I call lifecycle.move(lid, to_state="completed")
+  Then an Event{name:"lifecycle_transition", to:"completed"} exists in the graph
   And it is OBSERVED_DURING the serving intent and the lifecycle
 
-Scenario: a gate pause emits a transition event for free
+Scenario: a gate pause emits a durable transition event for free
   Given a Lifecycle serving the current intent
   When a gate fails (routing through lifecycle.move(→input-required))
-  Then a lifecycle_transition Event to "input-required" exists
+  Then a lifecycle_transition Event to "input-required" exists (blocked = durable)
   And a MonitorEvent for the blocked transition is emitted
+
+Scenario: a repeated identical transition does not spam graph events (panel A-2)
+  Given a Lifecycle that moves failed→working→failed→working→failed
+  Then the durable graph carries each distinct terminal transition once per occurrence
+  But churn (working) stays on the monitor, never the graph
+
+Scenario: transition events carry a sequence key for ordering (panel H-2)
+  Given concurrent child transitions under one intent
+  When manage.timeline orders them
+  Then ordering is by the event's recorded_at (the bi-temporal vfrom), deterministic
 
 Scenario: the transition trail is recoverable without polling
   Given a Lifecycle moved submitted→working→completed
