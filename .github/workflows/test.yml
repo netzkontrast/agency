@@ -77,6 +77,13 @@ jobs:
       - name: Vision-goals frontmatter
         run: python -m scripts.check_vision_goals
 
+      # Spec 149 Slice 2.3 — derived-zone drift gate. Fails CI when any
+      # spec.md that declares `<!-- derived:<id> -->` fences has stale
+      # content that does not match the live derivation. Exit 0 = all
+      # derived zones up to date (or no specs have declared fences).
+      - name: Derived-zone drift
+        run: python -m scripts.derive_docs --check --plan-root Plan
+
       # Spec 146 Slice 2.2 — response-prefix lint gate. Walks `agency/` and
       # flags any new non-deterministic call site (datetime.now / time.time /
       # uuid4 / os.environ read / unsorted json.dumps) that would poison the

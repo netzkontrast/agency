@@ -90,7 +90,7 @@ def _run_chain(ctx, db_value, chain_file):
         try:
             steps.append(ChainStep(**item))
         except Exception as e:
-            click.echo(json.dumps({"error": "Codes.CHAIN_UNSAFE_YAML", "message": f"Step {i}: {e}"}))
+            click.echo(json.dumps({"error": "Codes.CHAIN_UNSAFE_YAML", "message": f"Step {i}: {e}"}, sort_keys=True))
             return 1
 
     db_path = _resolve_db(db_value)

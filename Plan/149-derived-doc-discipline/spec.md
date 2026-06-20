@@ -196,10 +196,31 @@ implemented in Slice 2.1 but had no tests. Slice 2.2 closes that gap:
   the planned-but-absent `tests/test_derive_docs.py`).
 - All 5 scenarios pass; drift clean.
 
-### Still — Slices 2.3+
+### Done — Slice 2.3 (derived-zone drift CI gate, 2026-06-20)
 
-- **Slice 2.3** — `check-doc-drift` CI extension: fails when a
-  derived zone's rendered content does not match a `--dry-run` output hash.
+- **`spec_has_drift(text, derivation) → str | None`** — pure function: returns
+  a unified-diff hint when the spec text's derived zones diverge from the
+  live derivation; None when all derived zones are up-to-date or the spec
+  declares no fences (opt-in model). Raises ValueError on unclosed fences.
+- **`check_derivation_drift(plan_root, counts) → [(path, hint)]`** — walks
+  `Plan/*/spec.md`, calls `spec_has_drift` for each, returns a list of
+  `(spec_path, diff_hint)` for stale specs.
+- **CLI `--check` flag** — exits 1 with a compact diff hint when any spec
+  has stale derived zones; exits 0 when all are up to date (or no spec
+  declares fences). Exit 0 = clean; exit 1 = stale.
+- **CI step `Derived-zone drift`** added to `.github/workflows/test.yml` —
+  runs `python -m scripts.derive_docs --check --plan-root Plan` on every
+  push + PR. Zero regressions on the live tree (no specs currently declare
+  `test-count` fences).
+- **4 new acceptance scenarios** in `tests/acceptance/features/derive_docs.feature`
+  + `tests/acceptance/test_derive_docs.py`:
+  1. Stale fence (count 42 vs live 7) → drift detected, non-empty diff hint.
+  2. Up-to-date fence (count 7 vs live 7) → no drift.
+  3. Spec without fences → no drift (opt-in model).
+  4. Live repo `--check` → exits 0 (smoke test).
+
+### Still — Slices 2.4+
+
 - **Slice 2.4** — typed Codes (`DERIVE_AMBIGUOUS` / `DERIVE_MISSING_GOAL`
   / `DERIVE_FENCE_BROKEN`) promoted from inline ValueError.
 - **Slice 2.5** — alignment-matrix Goal column from `vision_goals:` frontmatter.

@@ -210,6 +210,55 @@ def apply_derivations_to_spec_text(text: str, derivation: "Derivation") -> str:
     return out
 
 
+def spec_has_drift(text: str, derivation: "Derivation") -> str | None:
+    """Return a compact unified-diff hint string if the spec text's derived
+    zones are stale (i.e. `--write` would change them); None when the zones
+    are up to date OR the spec declares no known fences (opt-in model).
+
+    Raises ValueError when a fence is opened-but-unclosed (same as
+    `apply_derivations_to_spec_text`).
+    """
+    has_fence = any(f"<!-- derived:{fid} -->" in text for fid in _KNOWN_FENCES)
+    if not has_fence:
+        return None
+    expected = apply_derivations_to_spec_text(text, derivation)
+    if expected == text:
+        return None
+    import difflib
+    diff = list(difflib.unified_diff(
+        text.splitlines(keepends=True),
+        expected.splitlines(keepends=True),
+        fromfile="current",
+        tofile="derived",
+        n=2,
+    ))
+    return "".join(diff[:40])
+
+
+def check_derivation_drift(plan_root: Path, *,
+                           counts: dict[str, int]) -> list[tuple[Path, str]]:
+    """Walk `<plan_root>/*/spec.md`; return `(path, diff_hint)` for every
+    spec whose derived zones diverge from the live derivation. Empty list =
+    all clean (or no specs declare derived fences)."""
+    rep = derive_tree(plan_root, counts=counts)
+    per_spec = {d.spec_id: d for d in rep.derivations}
+    stale: list[tuple[Path, str]] = []
+    for sp in sorted(Path(plan_root).glob("*/spec.md")):
+        spec_id = _spec_id_from_dir(sp)
+        d = per_spec.get(spec_id)
+        if d is None:
+            continue
+        src = sp.read_text(encoding="utf-8")
+        try:
+            hint = spec_has_drift(src, d)
+        except ValueError as e:
+            stale.append((sp, f"FENCE ERROR: {e}"))
+            continue
+        if hint is not None:
+            stale.append((sp, hint))
+    return stale
+
+
 # ── CLI entry ──────────────────────────────────────────────────────────────
 def _collect_live_test_counts(repo_root: Path) -> dict[str, int]:
     """Run `pytest --collect-only -q` and parse its output into a
@@ -248,10 +297,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--write", action="store_true",
                         help="rewrite spec.md derived zones in-place via "
                              "`<!-- derived:<id> -->` HTML fences (Slice 2.2)")
+    parser.add_argument("--check", action="store_true",
+                        help="check derived zones for drift; exit 1 if any "
+                             "spec has stale content (Slice 2.3 CI gate)")
     parser.add_argument("--repo-root", default=".",
                         help="repo root (for the pytest collect call)")
     args = parser.parse_args(argv)
     counts = _collect_live_test_counts(Path(args.repo_root))
+    if args.check:
+        stale = check_derivation_drift(Path(args.plan_root), counts=counts)
+        if stale:
+            print(f"DERIVED-ZONE DRIFT: {len(stale)} spec(s) have stale "
+                  f"derived zones — run `--write` to update")
+            for sp, hint in stale:
+                print(f"\n--- {sp}")
+                if hint:
+                    print(hint[:800])
+            return 1
+        print("derive-docs --check: all derived zones up to date (or no "
+              "specs declare derived fences)")
+        return 0
     rep = derive_tree(Path(args.plan_root), counts=counts)
     print(f"derive-docs: {len(rep.derivations)} specs, "
           f"{sum(d.test_count for d in rep.derivations)} test count total")
