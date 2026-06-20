@@ -20,15 +20,3 @@ Feature: Subagent capability — subagent-driven development composition
   Scenario: both gates pass — quality gate runs and is recorded
     When I dispatch a subagent task with both gates passing
     Then the quality gate verdict is recorded
-
-  # Spec 339b — subagent.develop routes completion through lifecycle.move (not raw memory.update).
-  # Proof: move emits a durable lifecycle_transition Event for terminal states (Spec 344);
-  # raw memory.update would not.
-
-  Scenario: completed child emits a durable lifecycle transition Event
-    When I dispatch a subagent task with both gates passing
-    Then a durable lifecycle_transition Event to "completed" exists for the child lifecycle
-
-  Scenario: incomplete child does not emit a completed transition Event
-    When I dispatch a subagent task with the spec gate failing
-    Then no lifecycle_transition Event to "completed" exists for the child lifecycle

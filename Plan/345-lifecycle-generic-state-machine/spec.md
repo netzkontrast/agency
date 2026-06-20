@@ -1,7 +1,7 @@
 ---
 spec_id: "345"
 slug: lifecycle-generic-state-machine
-status: shipped
+status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [3, 4]
@@ -131,16 +131,10 @@ Scenario: the ontology accepts any registered machine's state
 
 ## Followup — Implementation Status (2026-06-20)
 
-**SHIPPED 2026-06-20.** 5 acceptance scenarios green; 22 existing lifecycle tests unaffected; drift clean.
-
-### Done
-- [x] `agency/_lifecycle_data/machines.json` — `a2a` base + `remote-async` derived
-- [x] `agency/_lifecycle_machines.py` — `resolve_machine`, `register_machine`, `_all_states` live set
-- [x] `agency/lifecycle.py` — `open(machine=)` (default `"a2a"` → byte-identical); `move` per-machine dispatch
-- [x] `agency/ontology.py` — `Ontology.__init__` holds live `_LIFECYCLE_ALL_STATES` reference (post-construction `register_machine` widens enum in place)
-- [x] 5 acceptance scenarios (`lifecycle_generic_sm.feature` / `test_lifecycle_generic_sm.py`)
-
-### Still (foundations for follow-on specs)
-- 342 parameterizations formally re-expressed as derived machines (both `parameterization` + `machine` props coexist; full migration is 342's slice)
-- 346 `skill:<name>` machines derived from the phase graph
-- 347 frugal floor as a cross-machine invariant
+Not started — opened by the owner's "any kind of state machine" directive. Generalizes
+340's per-target table into a **machine registry**; `open(machine=)` + per-machine
+`move` validation; 342's parameterizations re-express as derived machines; the
+ontology `(Lifecycle,state)` enum relaxes to the union of registered machines'
+states with precise per-machine checks at the substrate. Backward compatible
+(`machine="a2a"` default). Foundation for 346 (skill machines) + 347 (frugal floor
+per machine).

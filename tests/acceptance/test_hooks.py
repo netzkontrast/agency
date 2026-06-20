@@ -63,14 +63,7 @@ def _call_wire(eng: Engine, tool: str, args: dict) -> dict:
 # ── shared Given override ─────────────────────────────────────────────────────
 
 @given("a fresh agency engine in code-mode", target_fixture="hook_engine")
-def _fresh_hook_engine(tmp_path, monkeypatch):
-    # Isolate the Spec 336 tool-call store PER TEST (mirrors the conftest `engine`
-    # fixture). Without this, every mktemp graph db shares one dir (/tmp), so the
-    # derived toolcalls.db (resolve_path: ".agency/toolcalls.db" beside the graph
-    # db) is ONE shared, persistent file accumulating capture across tests + runs.
-    # That makes the `rows[-1]` store assertions order-dependent in a cross-file run
-    # — a PreToolUse from another test leaks in as the latest row.
-    monkeypatch.setenv("AGENCY_TOOLCALLS_DB", str(tmp_path / "toolcalls.db"))
+def _fresh_hook_engine():
     e = Engine(tempfile.mktemp(suffix=".db"))
     return e
 
@@ -209,7 +202,7 @@ def _store_payload_full(hook_engine):
     payload = rows[-1]["input_json"] + rows[-1]["output_json"]
     # FULL capture (no-truncate policy): every one of the 500 lines survives,
     # uncapped (the value is NOT cut to the old 600-char budget).
-    assert payload.count("x\\n") == 500 or payload.count("x") == 500, payload.count("x")
+    assert payload.count("x") == 500, payload.count("x")
     assert len(payload) > 600
 
 
@@ -297,7 +290,7 @@ def _bu_serves(hook_engine, active_intent):
 def _pretooluse_in_store(hook_engine):
     rows = hook_engine.toolcalls.rows(where="phase='pre'")
     assert rows, "the PreToolUse call must be captured in the tool-call store"
-    assert "Bash" in [r["tool"] for r in rows], rows[-1]
+    assert any(r["tool"] == "Bash" for r in rows), rows[-1]
 
 
 @then("the BoundaryUse is RECORDED_BY the Event")

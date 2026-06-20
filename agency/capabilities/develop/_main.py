@@ -256,30 +256,6 @@ REFERENCES: dict[str, str] = {
 }
 
 
-# A computed reference — a topic whose doc DERIVES from a live source (rule 2), so
-# it can't drift the way a static copy would. `frugal`'s discipline is single-sourced
-# in `agency/_frugal.py` (Spec 332); the reference renders it on demand PLUS the
-# capability verb-map (Spec 348 §7), never re-authoring the ladder/floor text.
-def _frugal_reference() -> str:
-    from ... import _frugal
-    return (
-        _frugal.help_text() + "\n\n"
-        "## Driving frugal as a capability (the ponytail port — Spec 348)\n"
-        "The discipline above is always-on (the SessionStart inject + the per-verb "
-        "stamp). The `frugal` capability makes it actionable AND queryable:\n"
-        "- `frugal.instructions(level)` — pull the ruleset for a host with no always-on hook (the MCP port).\n"
-        "- `frugal.review(scope=\"diff\"|\"repo\")` — flag over-engineering; records FrugalFinding provenance.\n"
-        "- `frugal.debt(paths)` — harvest `frugal:` shortcut markers into a queryable DebtMarker ledger.\n"
-        "- `frugal.gain` — the published benchmark scoreboard + the live debt count.\n"
-        "- `frugal.level` / `frugal.set_level(level)` — read / switch off|lite|full|ultra.\n"
-        "Mark a deliberate shortcut with `# frugal: <ceiling>, <upgrade path>` so `debt` surfaces it."
-    )
-
-
-# topic -> builder(); merged into the static REFERENCES on lookup + discovery.
-_COMPUTED_REFERENCES = {"frugal": _frugal_reference}
-
-
 def checklist(discipline: str) -> dict:
     """Return a development discipline's ordered phases (its checklist). Pure
     compute over the shipped skill schemas — the agent asks 'what are the steps of
@@ -1036,18 +1012,14 @@ class DevelopCapability(CapabilityBase):
     def reference(self, topic: str) -> dict:
         """Fetch a discipline's heavy how-to on demand (T3 disclosure).
 
-        Inputs: topic (one of testing-skills | skill-descriptions | best-practices | frugal | …).
+        Inputs: topic (one of testing-skills | skill-descriptions | best-practices | …).
         Returns: ``{topic, doc}`` on hit; ``{error, available}`` on miss
                  (both at the wire — engine strips the internal envelope).
         chain_next: terminal — caller reads the doc.
         """
-        builder = _COMPUTED_REFERENCES.get(topic)
-        if builder is not None:
-            return {"result": {"topic": topic, "doc": builder()}}
         doc = REFERENCES.get(topic)
         if doc is None:
-            available = sorted([*REFERENCES, *_COMPUTED_REFERENCES])
-            return {"result": {"error": f"unknown reference {topic!r}", "available": available}}
+            return {"result": {"error": f"unknown reference {topic!r}", "available": sorted(REFERENCES)}}
         return {"result": {"topic": topic, "doc": doc}}
 
     @verb(role="transform")

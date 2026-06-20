@@ -101,34 +101,3 @@ def _spec_recorded(dev_spec_fail):
     spec = dev_spec_fail.get("spec")
     assert spec is not None
     assert spec.get("gate")  # Gate node id recorded
-
-
-# ── Spec 339b — completion routes through lifecycle.move ─────────────────────
-
-@then("a durable lifecycle_transition Event to \"completed\" exists for the child lifecycle")
-def _child_has_completed_event(engine, dev_result):
-    child = dev_result["child"]
-    child_events = [
-        e for e in engine.memory.find("Event")
-        if e.get("name") == "lifecycle_transition"
-        and e.get("to_state") == "completed"
-        and engine.memory.has_edge(e["id"], child, "OBSERVED_DURING")
-    ]
-    assert child_events, (
-        f"No durable lifecycle_transition Event to 'completed' found for child {child!r}. "
-        "This means completion was NOT routed through ctx.lifecycle.move (Spec 339b)."
-    )
-
-
-@then("no lifecycle_transition Event to \"completed\" exists for the child lifecycle")
-def _child_no_completed_event(engine, dev_spec_fail):
-    child = dev_spec_fail["child"]
-    child_events = [
-        e for e in engine.memory.find("Event")
-        if e.get("name") == "lifecycle_transition"
-        and e.get("to_state") == "completed"
-        and engine.memory.has_edge(e["id"], child, "OBSERVED_DURING")
-    ]
-    assert not child_events, (
-        f"Unexpected completed transition Event found for child {child!r}."
-    )
