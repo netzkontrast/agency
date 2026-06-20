@@ -7,7 +7,7 @@ read-only (scoring writes no discovery node).
 """
 from __future__ import annotations
 
-from pytest_bdd import scenarios, then, when
+from pytest_bdd import given, scenarios, then, when
 
 from conftest import invoke
 
@@ -93,3 +93,84 @@ def _read_only(engine, confirmed_intent, clar):
     # exactly the ONE AcceptanceCriterion the test added — clarity wrote none.
     rows = engine.memory.neighbors(clar["draft"], "VALIDATES", direction="in")
     assert len(rows) == 1, rows
+
+
+# ── clarity_gate steps (Spec 322 Slice 2) ────────────────────────────────────
+
+@given("an open lifecycle", target_fixture="lifecycle_id")
+def _open_lifecycle(engine, confirmed_intent):
+    lc = engine.memory.record("Lifecycle", {"state": "working", "phase": 0})
+    engine.memory.link(lc, confirmed_intent, "SERVES")
+    return lc
+
+
+@when("I interview a vague intent and run clarity_gate without override",
+      target_fixture="gate_result")
+def _gate_no_override(engine, confirmed_intent, lifecycle_id):
+    # A vague two-beat interview typically scores below the threshold (missing signals).
+    invoke(engine, confirmed_intent, "discover", "interview",
+           agent_id="agent:test", seed="vague", answers=["one", "two"], max_beats=2)
+    # invoke() returns (data, invocation_id); data is None on ToolResult.failure.
+    data, _ = invoke(engine, confirmed_intent, "discover", "clarity_gate",
+                     agent_id="agent:test", lifecycle_id=lifecycle_id)
+    return {"data": data, "passed": data is not None}
+
+
+@when("I interview a vague intent and run clarity_gate with an override token",
+      target_fixture="gate_result")
+def _gate_with_override(engine, confirmed_intent, lifecycle_id):
+    invoke(engine, confirmed_intent, "discover", "interview",
+           agent_id="agent:test", seed="vague", answers=["one", "two"], max_beats=2)
+    data, _ = invoke(engine, confirmed_intent, "discover", "clarity_gate",
+                     agent_id="agent:test", lifecycle_id=lifecycle_id,
+                     override_token="deliberate-bypass")
+    return {"data": data, "passed": data is not None}
+
+
+@when("I satisfy all signals and run clarity_gate", target_fixture="gate_result")
+def _gate_ready(engine, confirmed_intent, lifecycle_id):
+    invoke(engine, confirmed_intent, "discover", "interview",
+           agent_id="agent:test", seed="build a CLI",
+           answers=_ANSWERS, max_beats=6)
+    ac = engine.memory.record("AcceptanceCriterion",
+                              {"text": "binary runs", "gherkin": "G/W/T",
+                               "measurable": True})
+    engine.memory.link(ac, confirmed_intent, "VALIDATES")
+    sb = engine.memory.record("ScopeBoundary", {"item": "GUI", "side": "out"})
+    engine.memory.link(sb, confirmed_intent, "BOUNDS")
+    data, _ = invoke(engine, confirmed_intent, "discover", "clarity_gate",
+                     agent_id="agent:test", lifecycle_id=lifecycle_id)
+    return {"data": data, "passed": data is not None}
+
+
+@when("I interview a vague intent and run clarity_gate with min_clarity 0.0",
+      target_fixture="gate_result")
+def _gate_zero_threshold(engine, confirmed_intent, lifecycle_id):
+    invoke(engine, confirmed_intent, "discover", "interview",
+           agent_id="agent:test", seed="vague", answers=["one", "two"], max_beats=2)
+    data, _ = invoke(engine, confirmed_intent, "discover", "clarity_gate",
+                     agent_id="agent:test", lifecycle_id=lifecycle_id,
+                     min_clarity=0.0)
+    return {"data": data, "passed": data is not None}
+
+
+@then("clarity_gate returns GATE_FAILED")
+def _gate_failed(gate_result):
+    assert not gate_result["passed"], \
+        f"expected GATE_FAILED (None data) but gate passed: {gate_result['data']}"
+
+
+@then("clarity_gate passes and records the override")
+def _gate_override_passes(gate_result):
+    assert gate_result["passed"], \
+        f"expected gate to pass with override but got None (failure)"
+    assert gate_result["data"].get("override_used") is True, gate_result["data"]
+    assert gate_result["data"].get("passed") is True, gate_result["data"]
+
+
+@then("clarity_gate passes without override")
+def _gate_passes(gate_result):
+    assert gate_result["passed"], \
+        f"expected gate to pass but got None (failure)"
+    assert gate_result["data"].get("passed") is True, gate_result["data"]
+    assert not gate_result["data"].get("override_used"), gate_result["data"]

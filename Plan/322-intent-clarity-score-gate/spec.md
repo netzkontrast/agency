@@ -156,3 +156,35 @@ serves it. The threshold is a documented tunable budget, not a snapshot.
 - **Open question (resolve at build):** weight the five signals equally vs.
   weight acceptance-measurable + grounded higher. Default equal weights (simplest
   monotone), documented + overridable, per CLAUDE.md #8.
+
+## Followup — Implementation Status (Slice 2, 2026-06-20)
+
+### Done — Slice 2 (`clarity_gate` composite verb)
+
+- **`discover.clarity_gate`** in `agency/capabilities/discover/clusters/refine.py`
+  (`RefineCluster.clarity_gate`, `role=effect`):
+  - Computes the clarity score inline from `_clarity_inputs()` (same signals as
+    `clarity`, no second source — rule 4).
+  - Calls `gate.check(lifecycle_id, name="clarity", passed, evidence)` for
+    provenance recording (mirrors `prompt.audit_gate` pattern exactly).
+  - Returns `ToolResult.failure(Codes.GATE_FAILED, ...)` when `score < min_clarity`
+    AND no `override_token` supplied.
+  - Returns `ToolResult.success(data={gate, passed, score, missing, override_used})`
+    on pass.
+  - `min_clarity` is an overridable documented budget (default `CLARITY_THRESHOLD`
+    from `agency._clarity`) — tests flip it to 0.0 to prove the gate is config,
+    not a constant (CLAUDE.md rule 8).
+  - `override_token` is the deliberate escape hatch — recorded in `evidence` so the
+    provenance moat shows the bypass.
+- **4 acceptance scenarios** in `tests/acceptance/features/discover_clarity.feature`
+  + `tests/acceptance/test_discover_clarity.py`:
+  1. `clarity_gate` refuses a below-threshold intent without override → `GATE_FAILED`.
+  2. `clarity_gate` passes with an override token despite low score → `override_used=True`.
+  3. `clarity_gate` passes when the intent is already ready → no override.
+  4. `clarity_gate` threshold is a documented budget (`min_clarity=0.0` flips the gate).
+- All 7 scenarios (3 Slice-1 + 4 Slice-2) green; drift clean.
+
+### Still — Slice 3
+
+- Wire `clarity_gate` as the `guided-discovery` discipline's final `gate_verb`
+  (Spec 323 wiring).
