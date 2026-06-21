@@ -63,6 +63,47 @@ def render_reflections(memory, intent_id: str = "") -> tuple[str, int]:
     return "".join(parts), len(rows)
 
 
+def render_lifecycle_board(memory) -> tuple[str, int]:
+    """``lifecycle-board`` scope (Spec 343 phase 6) — the in-flight board.
+
+    Schema: H1 "Lifecycle board"; H2 "By state" (markdown table state | count
+    over ALL lifecycles); H2 "In flight" (markdown table id | state | machine |
+    parameterization | intent over the NON-terminal lifecycles — the ones still
+    needing attention). Terminal = ``completed`` / ``canceled`` (the universal
+    A2A endings; ``failed`` stays on the board as retry-able). Read-only graph→
+    markdown — the discipline's report phase mirrors this to ``lifecycle-board.md``
+    as a Spec 292 file peer (``document.mirror``).
+    """
+    terminal = {"completed", "canceled"}
+    lcs = list(memory.find("Lifecycle"))
+    by_state: dict[str, int] = {}
+    for lc in lcs:
+        s = lc.get("state", "?")
+        by_state[s] = by_state.get(s, 0) + 1
+    parts = [h1("Lifecycle board")]
+    parts.append(h2("By state"))
+    if by_state:
+        parts.append(table(["state", "count"],
+                           [[s, str(by_state[s])] for s in sorted(by_state)]))
+    else:
+        parts.append("\n_no lifecycles_\n")
+    in_flight = [lc for lc in lcs if lc.get("state") not in terminal]
+    in_flight.sort(key=lambda lc: (lc.get("state", ""), lc.get("vfrom", 0)))
+    parts.append(h2("In flight"))
+    if in_flight:
+        rows = []
+        for lc in in_flight:
+            lid = lc.get("id", "?")
+            serving = memory.neighbors(lid, "SERVES", direction="out")
+            intent = serving[0].get("id", "") if serving else ""
+            rows.append([lid, lc.get("state", "?"), lc.get("machine", "a2a"),
+                         lc.get("parameterization", "") or "—", intent or "—"])
+        parts.append(table(["id", "state", "machine", "parameterization", "intent"], rows))
+    else:
+        parts.append("\n_nothing in flight_\n")
+    return "".join(parts), len(in_flight)
+
+
 def render_provenance(memory, intent_id: str) -> tuple[str, int]:
     """``provenance`` scope — per-intent provenance brief.
 
