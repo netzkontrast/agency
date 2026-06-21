@@ -343,3 +343,189 @@ def verify_report(host: Any, loop_id: str) -> dict[str, Any]:
         })
     return {"criteria": criteria, "programmatic_ratio": ratio, "warnings": warnings,
             "rubric_source": str(rubric_path(VERIFICATION_RUBRIC))}
+
+
+# --- Spec 365: the cross-model council (reuse persona + panel) ----------------
+# A council member is a reviewer (notes) or a judge (a gating verdict), scoped to
+# plan/delivery/both and bound to a model family/driver. Reuse target: a member
+# promotes to a `persona` (297) bound to a `driver` (002); convene reuses `panel`
+# (294); cross-vendor dispatch routes through `delegate`/`jules` (040/271) + the
+# egress gate (369). Stored here as JSON on the loop node — the spine interim,
+# parity with 364's criteria. The verdict SHAPE is owned by `_parse_judge_verdict`
+# (above): judge JSON degrades to revise + warn, never a crash.
+
+COUNCIL_RUBRIC = "council-rubric.md"
+_MEMBER_ROLES = ("reviewer", "judge")
+_MEMBER_SCOPES = ("plan", "delivery", "both")
+# The loop's two gating states (366) and the council scope each one needs covered.
+_LOOP_GATES = {"plan_gate": "plan", "delivery_gate": "delivery"}
+
+
+def _loop_members(host: Any, loop_id: str) -> list[dict[str, Any]]:
+    raw = (host.memory.recall(loop_id) or {}).get("council")
+    return json.loads(raw) if raw else []
+
+
+def add_member(host: Any, loop_id: str, role: str, *, scope: str = "both",
+               family: str = "", local: bool = False, driver: str = "",
+               mid: str = "") -> dict[str, Any]:
+    """Add a council member to a loop (Spec 365). ``role`` ∈ reviewer|judge;
+    ``scope`` ∈ plan|delivery|both; ``family``/``driver`` name the model it speaks
+    for; ``local`` flags a privacy-preserving on-device model. A reviewer emits
+    notes; a judge emits the gating verdict. Returns ``{member_id, role, family}``.
+    """
+    if role not in _MEMBER_ROLES:
+        raise ValueError(f"member role must be one of {_MEMBER_ROLES}, got {role!r}")
+    if scope not in _MEMBER_SCOPES:
+        raise ValueError(f"member scope must be one of {_MEMBER_SCOPES}, got {scope!r}")
+    members = _loop_members(host, loop_id)
+    member = {"id": mid or f"m{len(members) + 1}", "role": role, "scope": scope,
+              "family": family, "local": bool(local), "driver": driver or family}
+    members.append(member)
+    host.memory.update(loop_id, {"council": json.dumps(members)})
+    return {"member_id": member["id"], "role": role, "family": family}
+
+
+def recommend_council(host: Any, loop_id: str, *, host_family: str = "") -> dict[str, Any]:
+    """Report the council's verdict-source coverage + a cross-family recommendation
+    (Spec 365). **The reviewer-only rule:** a ``revise_until_clean`` gate REQUIRES a
+    verdict source — a judge member covering its scope, or a human criterion —
+    because nothing else can declare a delivery "clean." Cross-model review (a
+    member from a DIFFERENT family than the host) is the coaching default, not a
+    hard rule. Returns ``{members, verdict_sources_ok, missing, recommended,
+    host_family, rubric_source}``.
+    """
+    members = _loop_members(host, loop_id)
+    has_human = any(c.get("kind") == "human" for c in _loop_criteria(host, loop_id))
+    judges = [m for m in members if m.get("role") == "judge"]
+
+    def _covered(gate_scope: str) -> bool:
+        if has_human:
+            return True
+        return any(m.get("scope") in ("both", gate_scope) for m in judges)
+
+    missing = [gate for gate, gscope in _LOOP_GATES.items() if not _covered(gscope)]
+    member_view = [
+        {**m, "cross_family": bool(host_family) and m.get("family") != host_family}
+        for m in members
+    ]
+    recommended = [
+        {"role": "judge", "scope": _LOOP_GATES[gate],
+         "family": f"a family other than {host_family or 'the host'}"}
+        for gate in missing
+    ]
+    return {"members": member_view, "verdict_sources_ok": not missing,
+            "missing": missing, "recommended": recommended,
+            "host_family": host_family, "rubric_source": str(rubric_path(COUNCIL_RUBRIC))}
+
+
+# --- Spec 366: the walk reducer (advance) ------------------------------------
+# `advance` is the SOLE in-session walk step. It reads the current machine state,
+# runs the gate (criteria 364 + council verdict 365), asks control_evaluate
+# whether a move is still permitted, then ctx.lifecycle.move(...) — the pillar is
+# the only state writer (Spec 339). Status/stop_reason DERIVE from the graph
+# (loop node progress + the 344 transition trail via manage.lifecycle*, 341) —
+# no state.json/run-log.md is written in-session (looper's files are an EXPORT
+# concern, Spec 368). control-rubric.md is vendored under the loop rubrics.
+
+CONTROL_RUBRIC = "control-rubric.md"
+
+# plan_gate → {pass: delivering, revise: planning, counter: revisions};
+# delivery_gate → {pass: completed, revise: delivering, counter: iterations}.
+_GATE_FLOW = {
+    "plan_gate": {"scope": "plan", "on_pass": "delivering", "on_revise": "planning", "counter": "revisions"},
+    "delivery_gate": {"scope": "delivery", "on_pass": "completed", "on_revise": "delivering", "counter": "iterations"},
+}
+_FORWARD = {"planning": "plan_gate", "delivering": "delivery_gate"}
+_TERMINAL = ("completed", "failed", "canceled")
+
+
+def _loop_progress(host: Any, loop_id: str) -> dict[str, Any]:
+    raw = (host.memory.recall(loop_id) or {}).get("progress")
+    return json.loads(raw) if raw else {"iterations": 0, "revisions": 0, "stalled": 0, "signature": ""}
+
+
+def _save_progress(host: Any, loop_id: str, progress: dict[str, Any]) -> None:
+    host.memory.update(loop_id, {"progress": json.dumps(progress)})
+
+
+def _gate_decision(host: Any, loop_id: str, *, judge_output: str = "",
+                   criteria_cwd: str | None = None) -> dict[str, Any]:
+    """Run the loop's criteria to ONE gate decision + a no-progress signature.
+    Any human criterion → ``input-required``; any revise → ``revise`` (signature =
+    the joined revise evidence, looper's failure-signature); else ``pass``."""
+    verdicts = [check_criterion(c, cwd=criteria_cwd, judge_output=judge_output)
+                for c in _loop_criteria(host, loop_id)]
+    if any(v["verdict"] == "input-required" for v in verdicts):
+        return {"decision": "input-required", "signature": "", "verdicts": verdicts}
+    revises = [v for v in verdicts if v["verdict"] == "revise"]
+    if revises:
+        sig = "|".join(sorted(
+            str(v.get("evidence") or v.get("notes") or v.get("warning") or "revise")
+            for v in revises))
+        return {"decision": "revise", "signature": sig, "verdicts": verdicts}
+    return {"decision": "pass", "signature": "", "verdicts": verdicts}
+
+
+def advance(host: Any, loop_id: str, *, artefact: str = "", judge_output: str = "",
+            criteria_cwd: str | None = None) -> dict[str, Any]:
+    """Advance the loop ONE transition (Spec 366) — the in-session walk step.
+
+    - planning/delivering: the host drafts the artefact; transition forward.
+    - plan_gate/delivery_gate: run the gate (criteria + council verdict), ask
+      ``control_evaluate``, then ``lifecycle.move``. pass → forward; revise →
+      back (counter++); a denied guard → ``failed`` carrying the stop_reason.
+    Returns ``{state, decision, stop_reason?, review?, revisions?, iterations?}``.
+    """
+    props = host.memory.recall(loop_id) or {}
+    state = props.get("state")
+    control = json.loads(props.get("loop_control") or "{}")
+    progress = _loop_progress(host, loop_id)
+
+    if state in _TERMINAL:
+        return {"state": state, "decision": "terminal", "stop_reason": progress.get("stop_reason", "")}
+
+    if state in _FORWARD:  # host drafts the plan / delivery artefact, then move on
+        nxt = _FORWARD[state]
+        host.lifecycle.move(loop_id, nxt, evidence=artefact or f"{state} drafted")
+        return {"state": nxt, "decision": "drafted"}
+
+    flow = _GATE_FLOW.get(state)
+    if flow is None:
+        raise ValueError(f"cannot advance from state {state!r}")
+
+    result = _gate_decision(host, loop_id, judge_output=judge_output, criteria_cwd=criteria_cwd)
+    decision = result["decision"]
+
+    if decision == "input-required":  # a human criterion pauses the walk (Spec 285)
+        return {"state": state, "decision": "input-required", "review": result["verdicts"]}
+
+    def _fail(stop_reason: str) -> dict[str, Any]:
+        progress["stop_reason"] = stop_reason
+        _save_progress(host, loop_id, progress)
+        host.lifecycle.move(loop_id, "failed", evidence=f"stop:{stop_reason}")
+        return {"state": "failed", "decision": decision, "stop_reason": stop_reason,
+                "review": result["verdicts"]}
+
+    if decision == "pass":
+        guard = control_evaluate(control, progress)
+        if not guard["permit"]:
+            return _fail(guard["stop_reason"])
+        host.lifecycle.move(loop_id, flow["on_pass"], evidence=artefact or "gate passed")
+        return {"state": flow["on_pass"], "decision": "pass", "review": result["verdicts"]}
+
+    # revise: count the cycle + track the no-progress signature BEFORE the guard.
+    progress[flow["counter"]] = progress.get(flow["counter"], 0) + 1
+    sig = result["signature"]
+    if sig and sig == progress.get("signature"):
+        progress["stalled"] = progress.get("stalled", 0) + 1
+    else:
+        progress["stalled"] = 1
+        progress["signature"] = sig
+    guard = control_evaluate(control, progress)
+    _save_progress(host, loop_id, progress)
+    if not guard["permit"]:
+        return _fail(guard["stop_reason"])
+    host.lifecycle.move(loop_id, flow["on_revise"], evidence=f"revise:{sig}")
+    return {"state": flow["on_revise"], "decision": "revise", "review": result["verdicts"],
+            "revisions": progress.get("revisions", 0), "iterations": progress.get("iterations", 0)}

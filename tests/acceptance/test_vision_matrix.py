@@ -165,3 +165,33 @@ def _no_orphans(ctx):
 def _no_unknown(ctx):
     rep = vm.coverage_report(ctx["specs"], ctx["rows"])
     assert rep["unknown_goal_refs"] == [], rep["unknown_goal_refs"]
+
+
+# ── doc-bound specs: the Spec 292 anchor must not hide frontmatter ────────────
+@given("a spec whose first line is a Spec 292 agency-node anchor before its frontmatter")
+def _anchored_spec(ctx, tmp_path):
+    d = tmp_path / "777-anchored"
+    d.mkdir()
+    (d / "spec.md").write_text(
+        "<!-- agency-node: spec-777 -->\n"
+        "---\n"
+        'spec_id: "777"\n'
+        "slug: anchored\n"
+        "vision_goals: [1, 2]\n"
+        "status: draft\n"
+        "---\n\n# body\n",
+        encoding="utf-8",
+    )
+    ctx["plan_root"] = tmp_path
+
+
+@when("I collect specs from that tree")
+def _collect_from_tree(ctx):
+    ctx["collected"] = vm.collect_specs(ctx["plan_root"])
+
+
+@then("the anchored spec is collected with its vision_goals")
+def _anchored_collected(ctx):
+    by_id = {s.spec_id: s for s in ctx["collected"]}
+    assert "777" in by_id, f"doc-bound spec dropped from matrix: {sorted(by_id)}"
+    assert by_id["777"].goals == (1, 2)

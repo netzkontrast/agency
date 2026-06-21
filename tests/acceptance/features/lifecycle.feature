@@ -52,8 +52,10 @@ Feature: Lifecycle pillar substrate — the open/move/close state machine (Spec 
     Then the opened lifecycle state is "working"
 
   Scenario: delegate fan_out opens children through the lifecycle substrate
+    # Spec 342 — the child's parameterization derives from the DRIVER, not a
+    # hardcoded constant: a local `reflect` driver declares none → default a2a.
     When delegate fans out one item
-    Then the child lifecycle parameterization is "remote-async"
+    Then the child lifecycle has the default parameterization
     And the child lifecycle state is "working"
 
   # Spec 344 — lifecycle transition events (the event bus). move emits:

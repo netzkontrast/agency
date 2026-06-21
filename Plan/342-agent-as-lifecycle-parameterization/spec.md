@@ -1,7 +1,7 @@
 ---
 spec_id: "342"
 slug: agent-as-lifecycle-parameterization
-status: draft
+status: shipped
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 4, 9]
@@ -227,14 +227,56 @@ Scenario: subagent uses the reviewed parameterization
   And subagent.develop:66's old raw update({"state":"completed"}) is gone
 ```
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-Not started. Adds the parameterization registry (`agency/_lifecycle_data/
-parameterizations.json`) + `effective_table`/`extend_table` on the **substrate**
-`agency/lifecycle.py` (not a capability) + a `parameterization` declaration attr on
-`home="lifecycle"` member caps. **Panel B2 pinned:** `delegate.join` runs
-`jules.verify` for `verify`-state children and performs the `verify→completed|
-input-required` move, so the two "done"s become one (Goal 3). **B5:** the cross-cap
-e2e (delegate+jules+lifecycle, injected vcs) added above. Realizes CORE.md §3's
-"agent = Lifecycle parameterization" and `COMPLETED ≠ done`. Member caps register;
-they do not reimplement.
+**SHIPPED** (branch `claude/lifecycle-342`). Re-grounded onto the **Spec 345
+machine registry** that landed after this spec was drafted: a "parameterization"
+IS a derived machine (no separate `parameterizations.json` — the registry is
+`machines.json`). The unifying model holds end-to-end.
+
+**Done:**
+- **Observer declared as data, by name.** `machines.json` — `remote-async` gains
+  `observer:{capability:"jules",verb:"verify",on_done:"completed",
+  on_not_done:"input-required",on_error:"verify"}`; new `reviewed` machine
+  (`working→in-review→{completed,input-required}`) declares `gate.check`.
+  `resolve_machine`/`_normalise`/`_apply_delta` carry `observer` through the
+  `derives` chain (`agency/_lifecycle_machines.py`).
+- **The ONE reducer (owner fork Q2).** `ctx.lifecycle.advance(lc_id)`
+  (`agency/lifecycle.py`) reads the child's machine observer, runs it
+  **generically through `engine.registry.invoke`** (never a hardcoded jules/gate
+  import — the deep substrate reaches members only by declared name; observer args
+  built from the verb signature + node props, `state="completed"` implied by the
+  observer source state derived via `_observer_source_state`), and maps the
+  verdict → a `move`: `done`→`on_done`; `done=False`+`error`→`on_error` (**stays in
+  `verify`**, panel N-3); else→`on_not_done`. No observer (default `a2a`) → no-op.
+  A new parameterization needs **zero caller edits**.
+- **Declaration seam.** `Capability.parameterization` class-attr (carried through
+  `as_capability`); `jules.parameterization="remote-async"`,
+  `subagent.parameterization="reviewed"`.
+- **The two "done"s become one (B2/N3).** `delegate.fan_out` derives the child's
+  machine from the **driver's** declared parameterization (replacing the old
+  hardcoded `"remote-async"` constant) + stamps the observer's `branch` via new
+  `lifecycle.annotate`; `delegate.join` calls `advance` per child before reducing,
+  so join's "done" IS `jules.verify`'s "done".
+- **subagent through the reviewed machine (B-scenario).** `subagent.develop` opens
+  the child `reviewed` and drives `working→in-review→completed` via the SOLE state
+  writer `lifecycle.move` — the raw `Lifecycle().close()` at `:66` is gone (the
+  reviewed machine forbids `working→completed` directly, proving the gate path).
+- **Latent 345 gap fixed.** `_declared_states` widens the `(Lifecycle,state)`
+  ontology enum with a derived machine's `add_states`/`replace` targets, so a
+  `move` to `verify`/`in-review` passes validation (was rejected — the state never
+  reached the enum union).
+
+**Tests:** 11 acceptance scenarios in
+`tests/acceptance/features/lifecycle_parameterization.feature` (cannot complete
+without verify; default completes directly; observer declared by name; jules
+declares the param; fan_out wires it; advance completes / →input-required /
+stays-in-verify-on-error; default no-op; new-param-no-caller-edit; join==observer
+done). The pre-existing `delegate fan_out` lifecycle scenario reframed (a local
+`reflect` driver → default parameterization, not the old hardcoded constant).
+Drift + no-truncate + doc-drift clean; install regenerated.
+
+**Not done (out of this slice):** the `default` lifecycle E2E with an injected
+vcs is exercised via the unit-level advance scenarios rather than a separate
+full-stack `Background` (the fan_out→join→advance path IS the cross-cap e2e). No
+new observer daemons (YAGNI per spec §"What this slice does NOT do").

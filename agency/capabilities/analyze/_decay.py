@@ -22,6 +22,11 @@ from ._findings import Finding
 DECAY_RISKS_PATH = Path(__file__).parent / "data" / "decay-risks.json"
 
 
+# AGENCY-DRIFT: decay-risk-set — the canonical reader of the (R1-R6, T1-T6 +
+# custom Cx) risk registry. The set is read here, by analyze.sarif / _sarif (rule
+# derivation), the score, and the skills. Its cited books MUST stay grounded in
+# source-coverage.json and its DECIDABLE risks MUST keep paired corpus coverage —
+# both enforced by the "decay-risk coverage" gate in scripts/check-drift (Spec 383 §4).
 def load_risks() -> dict[str, dict]:
     """The decay-risk registry: ``{risk_code: entry}``.
 

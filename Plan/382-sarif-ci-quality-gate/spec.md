@@ -1,7 +1,7 @@
 ---
 spec_id: "382"
 slug: sarif-ci-quality-gate
-status: draft
+status: shipped
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 6]
@@ -309,3 +309,19 @@ new Gherkin scenario** (headless review records the gate + reports a score) in
 `quality_gate.feature`; gate+review slice green (24). install regen + check-drift
 + doc-drift clean. **Still (§4):** the Iron-Law report render path via
 `document.render` (the template FILE is authored in Spec 384).
+
+**Slice 4 SHIPPED 2026-06-21 (TDD) — the Iron-Law report render (§4); 382 COMPLETE.**
+`analyze/_report.py` `render_report(findings, mode, scope, score)` (pure) +
+`analyze.report` (role=`transform`): projects the structured findings into the
+human-readable report — header with the Health Score, findings sorted by tier
+(critical→warning→suggestion) each as the Iron Law block (Symptom / Source /
+Consequence / Remedy), **empty tiers omitted**, a mermaid **Module Dependency
+Graph in audit mode only** (R5), and a Summary. The render PATH lives here; the
+template FILE (Spec 060 `<!-- AGENT: -->`) is authored in Spec 384 and adopted via
+`document.render` then (chain_next). **3 Gherkin scenarios**
+(`tests/acceptance/features/quality_report.feature`): sorted-by-tier + Iron-Law +
+empty-tier-omitted, audit-has-mermaid, review-omits-mermaid. Analyze slice green;
+install regen + check-drift + doc-drift clean.
+
+**Spec 382 COMPLETE** — §1 SARIF · §2 gate · §3 CI job · §4 report all shipped
+(Slices 1–4, TDD). status → shipped.
