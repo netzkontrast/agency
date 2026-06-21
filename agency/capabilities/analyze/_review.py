@@ -10,10 +10,13 @@ import json
 import re
 import subprocess
 from dataclasses import replace
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ._findings import Finding
+
+REVIEW_CHAIN_PATH = Path(__file__).parent / "data" / "review-chain.json"
 
 
 def scope_detect(scope: str = "") -> str:
@@ -142,26 +145,75 @@ def judgment_risks(risks: dict) -> dict:
     return {c: e for c, e in risks.items() if not e.get("decidable")}
 
 
-def build_judgment_prompt(code_units: list[tuple[str, str]],
-                          j_risks: dict) -> tuple[list[dict], str]:
-    """Pure — build ``(messages, system)`` for the judgment pass. ``code_units``
-    is a list of ``(path, source)``; ``j_risks`` the judgment-only registry
-    subset. The prompt carries each risk's diagnostic + symptoms + the
-    ``what_not_to_flag`` guard + its cited books, so the model judges against the
-    principle, not a keyword."""
-    risk_lines = []
-    for code, e in sorted(j_risks.items()):
-        cites = "; ".join(f"{s.get('book', '')} — {s.get('principle', '')}"
-                          for s in e.get("sources", []))
-        risk_lines.append(
-            f"- {code} ({e.get('name', '')}): {e.get('diagnostic', '')}\n"
-            f"    symptoms: {', '.join(e.get('symptoms', []))}\n"
-            f"    do NOT flag: {'; '.join(e.get('what_not_to_flag', []))}\n"
-            f"    cite: {cites}")
+# AGENCY-DRIFT: review-chain — the vendored, mode-aware Brooks review chain (the
+# ordered review methodology the judgment subagent walks). Its step risk-codes MUST
+# stay a subset of decay-risks.json and its _source MUST track the pinned upstream
+# rev — both enforced by the "review-chain grounding" gate in scripts/check-drift.
+def load_review_chain() -> dict:
+    """The vendored, mode-aware Brooks review chain ``{mode: {title, purpose,
+    steps:[…]}}`` PLUS the shared ``_methodology`` block. Returns the FULL dict
+    (the ``_``-prefixed metadata stays — ``_methodology`` is read by the prompt
+    builder; mode entries are the non-``_`` keys). Single source (rule 2); the per-
+    risk prose is NOT here — it derives from decay-risks.json at build time."""
+    return json.loads(REVIEW_CHAIN_PATH.read_text(encoding="utf-8"))
+
+
+def _risk_detail(code: str, j_risks: dict) -> str:
+    """One judgment-risk's diagnostic + symptoms + 'do NOT flag' guard + cites,
+    DERIVED from decay-risks.json (rule 2). A code NOT in ``j_risks`` is decidable —
+    already caught mechanically — so it's marked context-only (don't re-flag)."""
+    e = j_risks.get(code)
+    if e is None:
+        return (f"    [{code}] already caught mechanically — context only, "
+                f"do NOT emit a finding for it")
+    cites = "; ".join(f"{s.get('book', '')} — {s.get('principle', '')}"
+                      for s in e.get("sources", []))
+    return (f"    [{code}] {e.get('name', '')}: {e.get('diagnostic', '')}\n"
+            f"        symptoms: {', '.join(e.get('symptoms', []))}\n"
+            f"        do NOT flag: {'; '.join(e.get('what_not_to_flag', []))}\n"
+            f"        cite: {cites}")
+
+
+def build_judgment_prompt(code_units: list[tuple[str, str]], j_risks: dict, *,
+                          mode: str = "review",
+                          chain: dict | None = None) -> tuple[list[dict], str]:
+    """Pure — build ``(messages, system)`` for the judgment pass, driving the
+    subagent with the mode's BROOKS REVIEW CHAIN (Spec 380 §judgment) rather than a
+    flat risk-dump. ``code_units`` is a list of ``(path, source)``; ``j_risks`` the
+    judgment-only registry subset; ``mode`` selects the chain. The prompt carries
+    the shared methodology (Iron Law, severity, scope calibration, fix order,
+    restraint) + the mode's ORDERED steps, each step naming its risks; per-risk
+    detail derives from ``j_risks`` (decay-risks.json). Decidable risks are shown as
+    CONTEXT-ONLY — the subagent emits findings only for the judgment-only codes."""
+    if chain is None:
+        chain = load_review_chain()
+    methodology = chain.get("_methodology", {})
+    mode_chain = chain.get(mode) or chain.get("review") or {}
+
+    meth_lines = [f"- {methodology[k]}" for k in
+                  ("iron_law", "severity", "scope_calibration", "fix_order", "restraint")
+                  if methodology.get(k)]
+
+    step_blocks = []
+    for i, step in enumerate(mode_chain.get("steps", []), start=1):
+        head = f"{i}. {step.get('name', '')} — {step.get('intent', '')}"
+        detail = [_risk_detail(code, j_risks) for code in step.get("risks", [])]
+        step_blocks.append(head + ("\n" + "\n".join(detail) if detail else ""))
+
     code_blocks = "\n\n".join(f"### {p}\n```\n{src}\n```" for p, src in code_units)
-    user = ("Judge the code below against these decay risks. Emit one JSON object "
-            "per genuine issue.\n\n## Decay risks (judgment-only)\n"
-            + "\n".join(risk_lines) + "\n\n## Code\n" + code_blocks)
+    judgment_only = ", ".join(sorted(j_risks))
+    user = (
+        f"# {mode_chain.get('title', mode)} — Brooks review chain\n"
+        f"{mode_chain.get('purpose', '')}\n\n"
+        f"## Methodology\n" + "\n".join(meth_lines) + "\n\n"
+        f"## Review chain — walk these steps in order\n" + "\n".join(step_blocks) + "\n\n"
+        f"## Your task\n"
+        f"Walk the chain over the code below. EMIT findings ONLY for the "
+        f"judgment-only risks ({judgment_only}); the decidable risks are already "
+        f"caught mechanically and are shown for context. Emit one JSON object per "
+        f"genuine issue {{risk_code,file,line,message,source,consequence,remedy}}; "
+        f"reply [] when nothing genuinely applies.\n\n"
+        f"## Code\n" + code_blocks)
     return [{"role": "user", "content": user}], _JUDGMENT_SYSTEM
 
 
@@ -217,6 +269,7 @@ def parse_judgment(text: str, valid_codes: set) -> list["Finding"]:
 
 
 def judgment(code_units: list[tuple[str, str]], risks: dict, *,
+             mode: str = "review",
              driver=None, host=None, llm=None, host_completion: dict | None = None,
              require: str | None = None,
              model_hint: str | None = None) -> tuple[list["Finding"], dict | None]:
@@ -234,7 +287,7 @@ def judgment(code_units: list[tuple[str, str]], risks: dict, *,
     j_risks = judgment_risks(risks)
     if not j_risks or not code_units:
         return [], None
-    messages, system = build_judgment_prompt(code_units, j_risks)
+    messages, system = build_judgment_prompt(code_units, j_risks, mode=mode)
     if driver is None:                                   # resume/host paths ignore it
         class _NoDriver:
             def backend(self) -> str:

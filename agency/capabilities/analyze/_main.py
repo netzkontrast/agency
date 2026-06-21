@@ -363,7 +363,7 @@ class AnalyzeCapability(CapabilityBase):
         except Exception:
             driver = None
         j_findings, delegate = _run_judgment(
-            code_units, _decay.load_risks(), driver=driver,
+            code_units, _decay.load_risks(), mode=mode, driver=driver,
             host=getattr(self.ctx, "host", None), host_completion=host_completion)
         findings = merge_findings(findings, j_findings)
 

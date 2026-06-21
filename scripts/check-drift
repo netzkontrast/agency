@@ -260,9 +260,27 @@ elif (uncovered := [c for c in decidable
     print("DRIFT: decidable risks lacking a quality_corpus.feature Examples row: "
           + ", ".join(uncovered))
 
-if not orphans and feat_path.exists() and not uncovered:
+# 3. Review-chain grounding (Spec 380 §judgment) — every risk code the vendored,
+#    mode-aware Brooks review chain names MUST be a real decay-risks code, and every
+#    quality mode MUST carry a non-empty chain (no orphan code, no dormant mode).
+from agency.capabilities.analyze._review import load_review_chain
+chain = load_review_chain()
+chain_modes = {m for m in chain if not m.startswith("_")}
+chain_codes = {c for m in chain_modes for step in chain[m].get("steps", [])
+               for c in step.get("risks", [])}
+chain_orphans = sorted(chain_codes - set(risks))
+if chain_orphans:
+    print("DRIFT: review-chain.json names risk codes absent from decay-risks.json: "
+          + ", ".join(chain_orphans))
+empty_modes = sorted(m for m in chain_modes if not chain[m].get("steps"))
+if empty_modes:
+    print("DRIFT: review-chain.json modes with no steps: " + ", ".join(empty_modes))
+
+if (not orphans and feat_path.exists() and not uncovered
+        and not chain_orphans and not empty_modes):
     print(f"    decay-risk coverage: {len(cited)} cited books grounded; "
-          f"{len(decidable)} decidable risks paired")
+          f"{len(decidable)} decidable risks paired; "
+          f"{len(chain_modes)} review-chain modes grounded")
 PYEOF
 )
 if echo "$DECAY_OUT" | grep -q "^DRIFT:"; then

@@ -405,6 +405,35 @@ alternative drivers "later", and there **must be a final elicit for approval**.
   delegate envelope), deterministic via injected `host_completion` + a fake
   elicit host (`bind_host_context`). Install regenerated.
 
+**The subagent walks the BROOKS REVIEW CHAIN — SHIPPED 2026-06-21 (owner-directed:
+"the subagent should use the new Brooks Review Chain", mode-aware, vendored).** The
+judgment subagent was being driven by a flat risk-dump; it now walks the real,
+ordered Brooks review methodology, per mode:
+- `agency/capabilities/analyze/data/review-chain.json` — the vendored, mode-aware
+  chain (`brooks-lint@ec44ec8`), one ordered step-sequence per mode
+  (review/audit/debt/test/health/sweep) + a shared `_methodology` block (Iron Law ·
+  severity tiers · scope calibration · fix order · restraint). It carries ONLY the
+  ordering + methodology — per-risk symptom/"do NOT flag"/source prose is NOT
+  duplicated; it derives from `decay-risks.json` at build time (rule 2). Risk codes
+  are mapped by SMELL NAME (T1=Test Obscurity, T5=Coverage Illusion, …), verified
+  against the registry.
+- `_review.load_review_chain()` + the rewritten `build_judgment_prompt(code_units,
+  j_risks, *, mode, chain=None)` emit the chain title/purpose/methodology + the
+  mode's ordered steps; each step's judgment-only risks get the derived detail,
+  while decidable risks (R1/R4/R5) are shown CONTEXT-ONLY ("already caught
+  mechanically — do not re-flag"), scoping the subagent's output to the judgment set.
+- `mode` is threaded `judgment(…, mode=)` → both call sites (`analyze.review`,
+  `develop.review`); the chain rides the `llm_delegate` envelope's prompt to the
+  dispatched subagent.
+- Grounding gate (`scripts/check-drift`, extended): every chain step code ⊆
+  decay-risks codes + every mode non-empty ("6 review-chain modes grounded").
+- Acceptance: `tests/acceptance/test_quality_chain.py` + `.feature` (3 scenarios —
+  review-mode delegate carries the PR-review chain; mode-aware audit≠review;
+  every chain code grounded). Behaviour-tested via the delegate envelope (no
+  network). 17 quality + 196 related tests green. NO install regen (no verb surface
+  changed — internals only). Single-source note: **Spec 384** should DERIVE its
+  per-mode guidance prose from this chain, not re-vendor it.
+
 **Remaining in 380:** the implement/tdd cross-link (optional review phase before
 pre-commit gate); `develop.reference("brooks")`/`("decay-risks")` entries; CLAUDE.md
 verb-routing row for `develop.review`; first-class **Jules / OpenRouter** judgment

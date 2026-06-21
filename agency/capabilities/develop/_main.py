@@ -1511,7 +1511,7 @@ class DevelopCapability(CapabilityBase):
                 break
         host = getattr(self.ctx, "host", None)
         j_findings, delegate = _run_judgment(
-            code_units, _decay.load_risks(), host=host,
+            code_units, _decay.load_risks(), mode=mode, host=host,
             host_completion=host_completion, model_hint="subagent")
 
         # The FINAL approval elicit (interactive only — Spec 380 §3a): the human
