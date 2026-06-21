@@ -255,7 +255,38 @@ per-risk/per-mode check-drift rule.
   per finding. The grounding test IS the live consumer (contract-guarded, not dead
   code). `python -m pytest tests/acceptance/test_quality_coverage.py` → 3 passed.
 
-**Still (Slice 2):** the paired fixture-backed per-risk/per-mode acceptance corpus
-(`fixtures/quality/<risk>/{positive,negative}.py`, deterministic + `-m wet`) and the
-per-risk/per-mode coverage **check-drift rule** that promotes the grounding +
-coverage invariants from test-only to a CI drift gate.
+### Slice 2 — SHIPPED 2026-06-21 (paired decidable corpus + coverage matrix)
+
+Verification/grounding slice over existing `develop.review` behaviour (§"does NOT
+do" — no new findings/score/SARIF). TDD, but GREEN-on-write by nature (it grounds
+behaviour that already ships):
+- **`tests/acceptance/{features/quality_corpus.feature,test_quality_corpus.py}`** —
+  the **paired decidable corpus**. For every DECIDABLE risk (R1→Q003 long-function,
+  R4→Q004 long-file, R5→A001/A004 cycle/fan-out — the set DERIVED from each risk's
+  `decidable` array, rule 8) a positive fixture trips it (asserts the structured
+  `Finding` carries the risk code + a complete Iron Law: Source · Consequence ·
+  Remedy) and a negative **"What Not to Flag"** fixture is spared (the load-bearing
+  half — a short function / small file / acyclic-low-fan-out package). Fixtures are
+  real compilable code GENERATED from the live thresholds (`_FUNC_LOC_LIMIT` /
+  `_FILE_LOC_LIMIT`) — rule 8, no frozen snapshot — exercised through the real
+  `develop.review` path (Adzic — not prose Givens), mirroring `test_decay_risk`.
+- **Coverage matrix (derived invariants):** (a) every decidable risk in the live
+  registry is covered by the corpus manifest (a new decidable rule ⇒ the meta-test
+  fails until a builder + Examples row is added — the drift guard); (b) all six
+  quality modes (review/audit/debt/test/health/sweep) run a decidable scan. 5
+  scenarios, `python -m pytest tests/acceptance/test_quality_corpus.py` → 5 passed.
+
+**Design choice — generated fixtures over committed `fixtures/quality/<risk>/*.py`
+for the decidable risks.** The spec sketched committed fixture files; the decidable
+risks are all THRESHOLD/STRUCTURAL, so a committed `>500`-line file would FREEZE the
+threshold (rule 8) and a retune would silently flip negative→positive. Generating
+from the live limit is rule-8-clean AND meets the Adzic concern (real compilable
+code, structured-`Finding` assertion). Committed hand-authored fixtures remain the
+right form for the **wet judgment** risks (Slice 3), where the pattern SHAPE is the
+point and there is no numeric threshold to derive.
+
+**Still (Slice 3):** the `-m wet` judgment corpus for the nine judgment-only risks
+(R2/R3/R6/T1–T6) as committed fixtures + the per-risk/per-mode coverage
+**check-drift rule** that promotes the grounding (Slice 1) + coverage (Slice 2)
+invariants from test-only to a fast standalone CI drift gate, plus
+`# AGENCY-DRIFT: decay-risk-set` tags at the risk-set read sites.
