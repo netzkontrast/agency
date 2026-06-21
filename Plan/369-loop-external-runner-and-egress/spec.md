@@ -1,150 +1,118 @@
+<!-- agency-node: spec-369 -->
 ---
 spec_id: "369"
 slug: loop-external-runner-and-egress
 status: draft
-last_updated: 2026-06-20
+last_updated: 2026-06-21
 owner: "@agency"
 vision_goals: [3, 8]
-depends_on: ["002", "040", "192", "271", "334", "362", "365", "366", "368"]
+depends_on: ["002", "040", "192", "271", "328", "334", "339", "345", "349", "362", "366", "368"]
 parent_spec: "362"
-domain: loop / boundary
+affects:
+  - agency/_lifecycle_data/loop/          # emitted run-loop.py template + model-detection rubric + seed probes (data)
+  - agency/_loop.py                        # spine module: emit_runner + egress evaluator (control evaluator lands in 366)
+  - agency/capabilities/delegate/          # detect_models / register_model over the DriverRegistry (no new cap)
+  - agency/capabilities/gate/              # the egress_consent gate registration
+domain: loop / boundary / lifecycle-spine
 wave: looper-port
 ---
 
-# Spec 369 — Loop external runner, model detection & egress consent
+# Spec 369 — Loop external runner, model detection & egress (the spine's out-of-session twin)
 
-> Child of Spec 362 (ships LAST — composes all upstream children). Ports looper's
-> **external `run-loop.py` runner**, its **model detection/registry** (§6,
-> `detect-models` / `register-model`, `~/.looper/models.json`,
-> `references/model-detection.md`), and its **privacy/security model** (§9 —
-> cross-vendor egress consent + redaction globs). These three are one concern:
-> *executing a resolved loop outside agency by shelling to external model CLIs,
-> safely.* Carries the master 362 E2E + round-trip parity tests.
+> Child of Spec 362 (ships LAST — composes the upstream children). **Reframed
+> 2026-06-21: the loop is the lifecycle SPINE, not a `capabilities/loop/`
+> capability.** Lifecycle IS the system's **state machine + event bus** (Spec
+> 339/345 + 349b) and wires both **loops and workflows** onto one substrate, so
+> looper's loop maps 1:1. 369 ports looper's **external `run-loop.py`**, **model
+> detection** (§6), and **egress consent** (§9) as the *out-of-session twin* of
+> walking the `loop` machine. Frugal port: reuse `shell` / DriverRegistry /
+> `config` / `gate`; the net-new is one emitted template + one gate + seed data +
+> the two closing tests.
 
-## Why
+## Why — two surfaces over one spine
 
-Looper has two execution surfaces over one resolved spec. The in-session surface
-is the Lifecycle machine walk (366). The **external surface** is `run-loop.py`: a
-fixed, small, **stdlib-only** runner that reads ONLY `loop.resolved.json` and
-makes **no design decisions** — it parses the resolved spec, gathers context,
-invokes model CLIs via **argv + timeouts**, runs gates, enforces caps, and stops.
-Its contract (from `templates/run-loop.py`, 542 LOC):
+The loop runs in two places over ONE resolved contract (`loop.resolved.json`, 368):
 
-- `gather_context` — read `context_sources` (file/cmd) into the workspace, redacted
-- `run_host` / `run_gate` — host drafts plan/delivery; gate runs
-  programmatic/human/reviewer/judge; `revise_until_clean` / `fixed_passes`
-- `call_model` — `subprocess.run(argv, timeout=…)`, never a shell string
-- `parse_judge_output` — lenient structured-verdict parse (degrade → revise + warn)
-- termination — `enforce_wall_clock`, `no_progress_reached`, `max_revisions`,
-  `max_iterations`
-- privacy — `ensure_consent` (first cross-vendor send), `redactions_for`,
-  `is_redacted`
+- **In-session = the spine walk.** `ctx.lifecycle.open(intent, machine="loop")`
+  then `.move(...)` per transition (Spec 345; `move` is the sole state writer).
+  Every transition fans onto the **lifecycle event bus** (Spec 349b), so the
+  gate (364), council (365), and control evaluator (366) **react as subscribers**
+  — looper's `state.json` / `run-log.md` are graph reads, recorded for free.
+- **External = looper's `run-loop.py`.** A fixed, **stdlib-only** runner that
+  reads ONLY `loop.resolved.json` and makes no design decisions: gather context →
+  host drafts → plan_gate → deliver → delivery_gate → stop. Argv + timeout on
+  every model call; lenient judge parse (degrade → revise + warn); consent-gated
+  cross-vendor sends.
 
-Model resolution (§6): on first run, `detect-models` probes `PATH` for an
-allowlist (`claude`, `codex`, `gemini`, `llm`, `ollama`), records **invocation
-metadata only — never API keys** (`MODEL_PROBES` in `scripts/looper.py`), and
-writes a registry. The wizard offers detected/authed models; unknowns are added
-via `register-model`.
+Both honour the same resolved spec. The spine is the source of truth; the runner
+is the portable projection. Looper is honest that it is "a scaffolder + handoff,
+not a durable orchestrator" (its principle #6); 369 keeps that boundary — the
+external runner is for non-agency execution, the spine walk is canonical in-agency.
 
-Agency already owns these boundaries: the **DriverRegistry** (Spec 002,
-`ctx.get_driver`) resolves named drivers; **`delegate`/`jules`** (040/271) dispatch
-to other models; **`shell`** (192) is the safe subprocess boundary (argv,
-timeouts); **config** (334) persists settings durably. 369 binds them so the
-runner and the in-session walk share one model-resolution + egress-consent path.
+## Frugal mapping — agency already owns these boundaries
 
-## Design
+| Looper piece | Agency primitive (REUSE) | Net-new |
+|---|---|---|
+| `call_model` (subprocess, argv + timeout) | **`shell`** (Spec 192) — the safe argv/timeout boundary | — |
+| `detect-models` / `register-model` / `~/.looper/models.json` | **DriverRegistry** (002) + **`config`** (334) | a probe over the allowlist; seed `MODEL_PROBES` |
+| `ensure_consent` / `redactions_for` (§9) | a **`gate`** (Spec 328 shape) | the `egress_consent` gate (the one genuinely new gate) |
+| `run-loop.py` (542 LOC) | the resolved Document (368) it reads | the template, emitted ~verbatim |
+| `state.json.consent` | **provenance** (a graph node) | — (free; survives the session) |
 
-### `loop.detect_models` / `register_model` — over the DriverRegistry
+**No new capability.** `detect_models`/`register_model` extend the existing driver
+surface (`delegate`); `emit_runner` is a `document`-rendered template; the egress
+gate registers like any `gate`; the walk is the lifecycle pillar.
 
-```python
-@verb(role="transform")
-def detect_models(self, ctx) -> dict:
-    """Probe for available model CLIs (the looper allowlist: claude, codex,
-    gemini, llm, ollama) by checking PATH + a --version probe, and report which
-    are authed. Records invocation metadata ONLY (argv + family + local flag) —
-    NEVER API keys / tokens (looper File Rule; auth stays in each CLI's own
-    keychain). Persists to the agency config (Spec 334), not ~/.looper/models.json.
-    Returns {models: {id: {invoke, family, local, authed}}}. chain_next:
-    loop.add_member (365) offers these; loop.register_model for unknowns.
-    """
+### `detect_models` / `register_model` — over the DriverRegistry (002) + config (334)
 
-@verb(role="effect")
-def register_model(self, ctx, mid: str, invoke: list[str], *, family: str = "",
-                   local: bool = False) -> dict:
-    """Register a custom model CLI by invocation metadata (argv array).
-    Rejects non-argv invoke and any value that looks like a secret. This is
-    looper's `register-model`, persisted to agency config + exposed as a driver."""
-```
+Probe the looper allowlist (`claude`, `codex`, `gemini`, `llm`, `ollama`) by
+`PATH` + a `--version` check; report which are authed. **Records invocation
+metadata ONLY — argv + family + local flag — NEVER API keys/tokens** (looper File
+Rule; auth stays in each CLI's keychain). `MODEL_PROBES` and `agents/openai.yaml`
+port as seed data; `references/model-detection.md` ships verbatim to
+`agency/_lifecycle_data/loop/rubrics/`. Persisted via `config` (334), not a
+`~/.looper/models.json` file. `register_model` rejects a non-argv invoke and any
+secret-shaped value.
 
-`MODEL_PROBES` (claude/codex/gemini/llm/ollama + their `invoke`/`probe`/`local`/
-`install` metadata) ports verbatim as seed data; `agents/openai.yaml` becomes a
-seed registry entry. The registry holds **invocation metadata only** — the
-secret-free invariant is enforced (a registered `invoke` containing something
-key-shaped is rejected). `references/model-detection.md` ships verbatim to
-`data/rubrics/`.
+### `emit_runner` — the ported `run-loop.py` template
 
-### `loop.emit_runner` — the ported `run-loop.py` template
+Writes `<target>/run-loop.py`: the stdlib-only runner that reads ONLY
+`loop.resolved.json` and executes the SAME contract the spine walk runs. Copied
+with a fixed contract (looper File Rule: copy `run-loop.py` exactly unless the
+runner contract changes). The template ships under `agency/_lifecycle_data/loop/`;
+emission goes through `document.render` (368).
 
-```python
-@verb(role="effect")
-def emit_runner(self, ctx, loop_id: str, target: str) -> dict:
-    """Write <target>/run-loop.py — the stdlib-only external runner. The runner
-    reads ONLY loop.resolved.json (368) and executes the SAME contract the
-    in-session machine (366) walks: gather context → host → plan_gate →
-    deliver → delivery_gate → stop. Argv + timeouts on every call; lenient judge
-    parse; consent-gated cross-vendor sends. Copied with a fixed contract
-    (looper File Rule: copy run-loop.py exactly unless the runner contract is
-    explicitly changed). Returns {path}."""
-```
+### The `egress_consent` gate (the one genuinely new gate)
 
-The template is looper's `run-loop.py`, parameterized only by the resolved spec it
-loads — so the external runner and the in-session walk are two readers of one
-contract. The **round-trip parity test** (below) proves they agree.
+A cross-family council member means context leaves the machine. A narrow gate
+(Spec 328 shape), consulted before any cross-vendor send **in-session AND in the
+external runner**:
 
-### Egress consent + redaction (the one genuinely new gate)
+- local member → permit (no egress);
+- no `consent:required` policy → permit;
+- first cross-vendor send → require explicit consent (`elicit` in-session; prompt
+  in the runner) and record it as **provenance** (not `state.json`);
+- apply redaction globs (default `.env`, `.env.*`, `secrets/**`, `**/*.key`)
+  before the send; redacted paths are stubbed, not transmitted.
 
-A council member in a different family means **context leaves the machine**. 369
-adds a narrow `egress_consent_gate` (a `gate`, Spec 328 shape) consulted before
-any cross-vendor send — in-session (`delegate`/`jules` to a non-local family) AND
-in the external runner:
+Ports looper's `ensure_consent` + `redactions_for`. Safe-by-construction (looper
+principle #7) is enforced as acceptance, not prose: every external call is argv +
+timeout (`shell`, 192); no secret is ever written into `loop.yaml` /
+`loop.resolved.json` / the registry; redaction applies before the first byte.
 
-```python
-def egress_consent_gate(member: CouncilMember, policy: EgressPolicy, state) -> dict:
-    """Ports run-loop.py ensure_consent + redactions_for:
-      - local member → permit (no egress)
-      - no consent:required policy → permit
-      - first cross-vendor send → require explicit consent (elicit in-session;
-        prompt in the runner), record consent in provenance (state.consent)
-      - apply redaction globs (default: .env, .env.*, secrets/**, **/*.key)
-        before the send; redacted paths are stubbed, not sent
-    Returns {permit, redactions, needs_consent}."""
-```
+### The 362 closers (carried here — they flip the master to Shipped)
 
-The `EgressPolicy` node (per member: `sends`, `redact`, `consent`) is the
-`privacy.egress` block (363/365 author it; 368 carries it into the resolved spec).
-Consent is recorded as provenance (a graph node), so "consented once" survives the
-session — better than looper's `state.json.consent`.
-
-> **Safe-by-construction (looper principle #7), enforced:** every external
-> invocation is an argv array with a timeout (via `shell`, Spec 192); no secret is
-> ever written into `loop.yaml` / `loop.resolved.json` / the registry; redaction
-> applies before the first byte leaves. These are acceptance scenarios, not just
-> prose.
-
-### The master E2E + round-trip parity (the 362 closers)
-
-369 carries the two tests that flip 362 to Shipped:
-
-1. **`test_loop_e2e.py`** — `frame_goal → add_criterion → add_member → open_loop →
-   advance×N (plan_gate + delivery_gate) → compile → emit`, then assert
-   `memory_graph_provenance(intent_id)` returns the full chain (goal Intent,
-   criteria, members, verdicts, artefacts) — the provenance moat lit on a real
-   loop.
-2. **`test_loop_roundtrip.py`** — using looper's ported fake-host / fake-judge /
-   bad-judge / check-contains fixtures: a loop run **in-session** (366) and the
-   SAME loop run by the **emitted `run-loop.py`** (369) over the same fixtures
-   reach the **same gate decisions** (pass/revise, stop_reason). Proves the two
-   surfaces honour one contract.
+1. **`test_loop_e2e`** — drive the full pipeline (frame goal Intent → add criteria
+   → add members → open the `loop` machine → advance through plan_gate +
+   delivery_gate → compile → emit), then assert `manage.provenance(intent_id)`
+   (Spec 330) returns the whole chain: goal Intent, criteria, members, verdicts,
+   artefacts. The provenance moat lit on a real loop — the thing looper (flat
+   files) cannot do.
+2. **`test_loop_roundtrip`** — using looper's ported fake-host / fake-judge /
+   bad-judge / check-contains fixtures: the SAME resolved loop run **in-session**
+   (the spine walk) and by the **emitted `run-loop.py`** reaches the **same gate
+   decisions and the same `stop_reason`**. Proves the two surfaces honour one
+   contract.
 
 ## Acceptance (Gherkin)
 
@@ -162,10 +130,10 @@ Scenario: the emitted runner reads only the resolved spec
   When I emit_runner and inspect run-loop.py
   Then it loads loop.resolved.json and imports only the Python stdlib
 
-Scenario: a cross-vendor send requires first-send consent
+Scenario: a cross-vendor send requires first-send consent, recorded as provenance
   Given a non-local judge member with consent required and no prior consent
-  When the runner (or in-session walk) is about to send the plan
-  Then it requires explicit consent before sending and records the consent
+  When the spine walk (or the runner) is about to send the plan
+  Then it requires explicit consent before sending and records the consent as a graph node
 
 Scenario: a local member sends with no consent prompt
   Given an ollama judge member flagged local
@@ -179,30 +147,33 @@ Scenario: redaction globs apply before any send
 
 Scenario: in-session and external runs agree (round-trip parity)
   Given the ported fake-host and fake-judge fixtures
-  When the same resolved loop runs in-session and via the emitted run-loop.py
+  When the same resolved loop runs in-session (the spine walk) and via the emitted run-loop.py
   Then both reach the same gate decisions and the same stop_reason
 
 Scenario: the provenance moat is lit end-to-end
-  When I run the full loop pipeline and call memory_graph_provenance(intent_id)
+  When I run the full loop pipeline and call manage.provenance(intent_id)
   Then it returns the goal Intent, every criterion, every member, every verdict, and every artefact
 ```
 
 ## Done When
 
-- [ ] `loop.detect_models` / `register_model` resolve models over the DriverRegistry (002) + config (334); metadata-only, secret-free (enforced).
-- [ ] `loop.emit_runner` writes the stdlib-only `run-loop.py` reading only `loop.resolved.json`.
-- [ ] `egress_consent_gate` ports `ensure_consent` + redaction; consent recorded as provenance; fires in-session AND external.
-- [ ] argv+timeout on every external call (192); no secrets in any emitted artefact (acceptance-tested).
+- [ ] `detect_models` / `register_model` resolve models over the DriverRegistry (002) + `config` (334); metadata-only, secret-free (enforced), no new capability.
+- [ ] `emit_runner` writes the stdlib-only `run-loop.py` (reads only `loop.resolved.json`) via `document.render`; template ships under `agency/_lifecycle_data/loop/`.
+- [ ] the `egress_consent` gate ports `ensure_consent` + redaction; consent recorded as provenance; fires for the spine walk AND the external runner.
+- [ ] argv + timeout on every external call (`shell`, 192); no secret in any emitted artefact (acceptance-tested).
 - [ ] `model-detection.md` + the looper fake fixtures ship; `MODEL_PROBES` + `agents/openai.yaml` seed the registry.
-- [ ] **`test_loop_e2e.py`** (provenance moat) + **`test_loop_roundtrip.py`** (in-session ↔ external parity) pass — the 362 closers.
-- [ ] `TODO.md` row updated; 362 master flipped to Shipped when this lands Green.
+- [ ] **`test_loop_e2e`** (provenance moat) + **`test_loop_roundtrip`** (spine ↔ external parity) pass — the 362 closers.
+- [ ] `TODO.md` row updated; 362 master flips to Shipped when this lands Green.
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Not started — drafted under the 362 wave (ships LAST). The external
-execution surface: model detection/registry over the DriverRegistry (002), the
-ported stdlib `run-loop.py` reading the resolved spec (368), and a narrow
-egress-consent gate (cross-vendor consent + redaction) that fires for both
-surfaces. Carries the master E2E (provenance moat) + round-trip parity tests that
-flip 362 to Shipped. Depends on 365 (members/families), 366 (the walk contract),
-368 (the resolved spec).
+**Verdict:** Re-drafted spine-framed (2026-06-21). The external execution surface
+as the **out-of-session twin of the lifecycle-spine walk**: model resolution over
+the DriverRegistry (002) + `config` (334), looper's stdlib `run-loop.py` emitted
+as a `document`-rendered template reading the resolved spec (368), and one narrow
+`egress_consent` gate (cross-vendor consent + redaction) firing for both surfaces.
+Carries the master E2E (provenance moat via `manage.provenance`) + round-trip
+parity tests that flip 362 to Shipped. **Frugal port — net-new is one template,
+one gate, seed probes, two tests; everything else reuses `shell`/driver/`config`/
+`gate`.** Depends on 366 (the `loop` machine on the spine) + 368 (the resolved
+Document).
