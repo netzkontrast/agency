@@ -23,8 +23,15 @@ SPEC-001-C edges, enforcing DEP-001 no-cycle + DEP-003 no-depend-on-rejected),
 `supersede` (the SPEC-001-C automatic actions over the core `SUPERSEDED_BY`
 edge), `theme_status` (the SPEC-001-D aggregate, derived), `impact` (incoming
 dependents to depth), and `render` (live decisions → the theme Document, with a
-collapsed superseded-history appendix — panel B3). The Definition-of-Done gate
-(355) and spec→decision extraction + hints (356) build on this.
+collapsed superseded-history appendix — panel B3).
+
+Spec 355 Slice 1 adds the Definition-of-Done hinge: `dod_check` (the eight
+SPEC-001-E criteria as decidable findings — DOCUMENTATION reuses 354 `validate`)
+and `approve` (the gate — blocks on a failed automated criterion, pauses at the
+human criteria via `ctx.elicit`, records a `Gate` node, and only the intent
+OWNER may confirm or override; an agent may not self-approve). The full
+status-as-a-Lifecycle model + cadence sweep are 355 Slice 2; spec→decision
+extraction + hints are 356.
 """
 from __future__ import annotations
 
@@ -434,3 +441,185 @@ class AdrCapability(CapabilityBase):
                 lines.append(
                     f"- {d.get('id')} · {d.get('decision')} · superseded-by {by}")
         return "\n".join(lines)
+
+    # ── Spec 355 Slice 1 — the Definition-of-Done gate ───────────────────────
+
+    @staticmethod
+    def _is_owner(approver: str) -> bool:
+        """The approver is a human owner iff it is a non-empty identity that is
+        not the reserved agent marker (panel B2.1 — an agent may NOT self-approve
+        or self-override; only the intent owner clears the hinge)."""
+        return bool(approver) and approver.strip().lower() != "agent"
+
+    def _count_alternatives(self, neglected: str) -> int:
+        """Count the distinct alternatives a `neglected` field documents —
+        comma / semicolon / 'and' / slash separated, dropping the empty tokens."""
+        import re
+        parts = re.split(r"[;,/]|\band\b", str(neglected))
+        return sum(1 for p in parts if p.strip().lower() not in _EMPTY_ALTERNATIVES)
+
+    def _has_cycle(self, decision_id: str) -> bool:
+        for nb in self.ctx.neighbors(decision_id, "DEPENDS_ON", direction="out"):
+            t = nb.get("id")
+            if t and (t == decision_id or self._reaches(t, decision_id, "DEPENDS_ON")):
+                return True
+        return False
+
+    def _dod_criteria(self, decision_id: str, props: dict) -> list[dict]:
+        """The eight SPEC-001-E criteria as decidable findings. The DOCUMENTATION
+        check reuses 354 `validate` (no duplicated WH(Y) rule logic — rule 2)."""
+        val_ok = bool(self.validate(decision_id).data.get("ok"))
+        alts = self._count_alternatives(props.get("neglected", ""))
+        part_of_theme = bool(self.ctx.neighbors(decision_id, "PART_OF", direction="out"))
+        refs = (self.ctx.neighbors(decision_id, "REFINES", direction="out")
+                + self.ctx.neighbors(decision_id, "RELATES_TO", direction="out"))
+        depends = self.ctx.neighbors(decision_id, "DEPENDS_ON", direction="out")
+        evidence = bool(str(props.get("context", "")).strip()
+                        and str(props.get("facing", "")).strip())
+        gov = bool(str(props.get("review_board", "")).strip())
+        cadence = bool(str(props.get("review_cadence", "")).strip())
+
+        def c(cid, criterion, mode, severity, passed, msg):
+            return {"id": cid, "criterion": criterion, "mode": mode,
+                    "severity": severity, "passed": bool(passed), "msg": msg}
+
+        return [
+            c("DOD-E01", "Evidence", "partial", "warn", evidence,
+              "context+facing reference prior art (human confirm)"),
+            c("DOD-C01", "Criteria", "auto", "error", alts >= 2,
+              f"{alts} neglected alternative(s); need ≥2"),
+            c("DOD-A01", "Agreement", "partial", "warn", gov,
+              "governance populated (human confirm)"),
+            c("DOD-D01", "Documentation", "auto", "error", val_ok,
+              "WH(Y) validate passes"),
+            c("DOD-D02", "Documentation", "auto", "error", part_of_theme,
+              "PART_OF a theme Document"),
+            c("DOD-R01", "Review", "auto", "warn", cadence,
+              "review_cadence set"),
+            c("DOD-DP01", "Dependencies", "auto", "warn", bool(depends),
+              "has dependency edges"),
+            c("DOD-DP02", "Dependencies", "auto", "error", not self._has_cycle(decision_id),
+              "no DEP-001 cycle"),
+            c("DOD-RF01", "References", "auto", "warn", all(r.get("id") for r in refs),
+              "REFINES/RELATES_TO targets resolve"),
+            c("DOD-M01", "Master", "auto", "error", part_of_theme,
+              "PART_OF an AdrTheme"),
+        ]
+
+    @verb(role="transform")
+    def dod_check(self, decision_id: str) -> ToolResult:
+        """DOD_CHECK — run the ported SPEC-001-E Definition-of-Done criteria over a
+        Decision (pure compute; never flips status). Each criterion is **auto**,
+        **partial**, or **human**; the auto checks are decidable (no LLM/key).
+
+        Inputs: decision_id (str).
+        Returns: ``{decision_id, criteria: [{id, criterion, mode, passed, severity,
+                 msg}], auto_passed, human_pending: [id…], score}`` — ``auto_passed``
+                 is True iff every ``error``-severity auto/partial check passes;
+                 ``score`` is the SPEC-001-E weighted fraction (surfaced, NOT gating
+                 — rule 8). Or ``{error}`` if absent.
+        chain_next: adr.approve(decision_id, approver=…) to clear the gate.
+        """
+        props = self.ctx.recall_typed(decision_id, "Decision")
+        if not props:
+            return ToolResult.success(data={"error": f"no decision {decision_id!r}",
+                                            "decision_id": decision_id})
+        criteria = self._dod_criteria(decision_id, props)
+        auto_passed = all(c["passed"] for c in criteria
+                          if c["mode"] in ("auto", "partial") and c["severity"] == "error")
+        human_pending = [c["id"] for c in criteria if c["mode"] in ("partial", "human")]
+        decidable = [c for c in criteria if c["mode"] != "human"]
+        score = round(sum(1 for c in decidable if c["passed"]) / len(decidable), 3) \
+            if decidable else 0.0
+        return ToolResult.success(data={"decision_id": decision_id, "criteria": criteria,
+                                        "auto_passed": auto_passed,
+                                        "human_pending": human_pending, "score": score})
+
+    def _record_gate(self, decision_id: str, name: str, passed: bool,
+                     evidence: str, approver: str) -> str:
+        gid = self.ctx.record_and_serve("Gate", {
+            "name": name, "passed": bool(passed),
+            "evidence": evidence, "approver": approver})
+        self.ctx.link(decision_id, gid, "GATED_BY")
+        return gid
+
+    @verb(role="act")
+    def approve(self, decision_id: str, approver: str = "",
+                override: bool = False) -> ToolResult:
+        """APPROVE — the DoD hinge (SPEC-001-E pre-approval gate). Runs `dod_check`;
+        a decision advances to ``approved`` ONLY when the automated criteria pass
+        AND a human OWNER confirms. Records a ``Gate`` node (passed/blocked) either
+        way; never silently passes, never lets the agent self-approve (panel B2.1).
+
+        - automated criterion fails → ``{blocked: True, failing}`` (no approval),
+          unless a provenance-stamped OWNER ``override`` is supplied.
+        - automated pass, no ``approver`` → tries `ctx.elicit`; with no host bound
+          it returns ``{input_required: True, pending}`` (the owner resumes later).
+        - OWNER ``approver`` given → advances to ``approved``.
+
+        Inputs: decision_id (str), approver (str — the human owner's identity;
+                ``"agent"`` is rejected), override (bool — owner-only escape hatch).
+        Returns: ``{decision_id, approved, …}`` — see the branches above.
+        chain_next: adr.render(theme_id); the spec's /open→/inprogress gate (356).
+        """
+        props = self.ctx.recall_typed(decision_id, "Decision")
+        if not props:
+            return ToolResult.success(data={"error": f"no decision {decision_id!r}",
+                                            "decision_id": decision_id, "approved": False})
+        chk = self.dod_check(decision_id).data
+        owner = self._is_owner(approver)
+
+        if not chk["auto_passed"]:
+            failing = [c["id"] for c in chk["criteria"]
+                       if c["mode"] == "auto" and c["severity"] == "error" and not c["passed"]]
+            if override and owner:
+                gate = self._record_gate(decision_id, "dod-override", True,
+                                         f"owner override by {approver}; failing={failing}",
+                                         approver)
+                self.ctx.update(decision_id, {"status": "approved"})
+                return ToolResult.success(data={"decision_id": decision_id, "approved": True,
+                                                "override": True, "approver": approver,
+                                                "failing": failing, "gate": gate,
+                                                "status": "approved"})
+            if override:                                   # override by a non-owner / agent
+                return ToolResult.success(data={"decision_id": decision_id, "approved": False,
+                                                "error": "an agent may not self-approve; "
+                                                "override requires an owner identity",
+                                                "approver": approver})
+            gate = self._record_gate(decision_id, "dod", False,
+                                     f"blocked: {failing}", approver)
+            return ToolResult.success(data={"decision_id": decision_id, "approved": False,
+                                            "blocked": True, "failing": failing, "gate": gate})
+
+        # automated checks pass → require a human OWNER confirmation
+        if approver and not owner:                         # an explicit "agent"
+            return ToolResult.success(data={"decision_id": decision_id, "approved": False,
+                                            "error": "an agent may not self-approve"})
+        if owner:
+            gate = self._record_gate(decision_id, "dod", True,
+                                     f"approved by {approver}; pending={chk['human_pending']}",
+                                     approver)
+            self.ctx.update(decision_id, {"status": "approved"})
+            return ToolResult.success(data={"decision_id": decision_id, "approved": True,
+                                            "approver": approver, "gate": gate,
+                                            "status": "approved", "override": bool(override)})
+
+        # no approver supplied → ask the owner in the flow, else pause for resume
+        from agency._host_bridge import HostUnavailable
+        msg = f"Approve decision {decision_id}? Human-pending: {chk['human_pending']}"
+        try:
+            outcome = self.ctx.host.elicit(msg, options=["approve", "reject"])
+        except HostUnavailable:
+            gate = self._record_gate(decision_id, "dod", False,
+                                     f"awaiting human approval; pending={chk['human_pending']}", "")
+            return ToolResult.success(data={"decision_id": decision_id, "approved": False,
+                                            "input_required": True,
+                                            "pending": chk["human_pending"], "gate": gate})
+        if outcome.accepted and str(getattr(outcome, "data", "")).lower() != "reject":
+            gate = self._record_gate(decision_id, "dod", True, "approved via elicit", "owner")
+            self.ctx.update(decision_id, {"status": "approved"})
+            return ToolResult.success(data={"decision_id": decision_id, "approved": True,
+                                            "approver": "owner", "gate": gate,
+                                            "status": "approved"})
+        return ToolResult.success(data={"decision_id": decision_id, "approved": False,
+                                        "declined": True})

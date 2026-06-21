@@ -23,6 +23,8 @@ allowed-tools:
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `approve` | act | APPROVE — the DoD hinge (SPEC-001-E pre-approval gate). | [details](references/approve.md) |
+| `dod_check` | transform | DOD_CHECK — run the ported SPEC-001-E Definition-of-Done criteria over a Decision (pure compute; never flips status). | [details](references/dod_check.md) |
 | `draft` | act | DRAFT — record a WH(Y) ``Decision`` (status ``proposed``) ``PART_OF`` the theme, SERVING the intent (SPEC-001-A). | [details](references/draft.md) |
 | `impact` | transform | IMPACT — what ``DEPENDS_ON`` / ``REFINES`` / ``PART_OF`` this decision, to ``depth`` hops (SPEC-001-C ``adr impact``). | [details](references/impact.md) |
 | `link` | act | LINK — add a typed SPEC-001-C dependency edge between two Decisions. | [details](references/link.md) |
@@ -37,7 +39,7 @@ allowed-tools:
 ## Example
 
 ```bash
-await call_tool('capability_adr_draft', {'intent_id': 'intent:abc'})
+await call_tool('capability_adr_approve', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
