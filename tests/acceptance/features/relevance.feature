@@ -76,3 +76,26 @@ Feature: Relevance filter — content-aware output trimmer (Spec 350 Slice 1)
     Given a config file with filters.toolcall.include=["IMPORTANT"]
     When a PostToolUse event with output containing "IMPORTANT" and "noise" is dispatched with the config
     Then the toolcall store filtered view contains "IMPORTANT" and not "noise"
+
+  # ── Slice 3: graph FilterProfile override ────────────────────────────────────
+
+  Scenario: shell.define_profile stores a FilterProfile in the graph
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    When I define a profile named "graph-profile" with include=["SIGNAL"] via shell.define_profile
+    Then define_profile returns a profile_id
+    And load_filter_profile "graph-profile" with engine memory returns include containing "SIGNAL"
+
+  Scenario: graph-stored profile overrides the config file
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And a config file with "override-me" include=["FROM-CONFIG"]
+    When I define a profile named "override-me" with include=["FROM-GRAPH"] via shell.define_profile
+    And I load "override-me" with engine memory
+    Then the loaded profile include is ["FROM-GRAPH"]
+
+  Scenario: load_filter_profile falls back to config when no graph profile exists
+    Given a fresh agency engine in code-mode
+    And a config file with "config-only" include=["FROM-CONFIG"]
+    When I load "config-only" with engine memory but no graph entry
+    Then the loaded profile include contains "FROM-CONFIG"

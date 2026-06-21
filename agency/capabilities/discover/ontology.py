@@ -7,8 +7,10 @@ Registers the WHOLE intent-pillar program's node/edge/enum/schema surface ONCE
 NOT redeclared — the ``GROUNDS`` edge reuses the ``research`` capability's
 existing ``Citation`` node (Spec 044), per CLAUDE.md's no-duplicate rule.
 
-The ``guided-discovery`` walkable skill slot is populated by Spec 323; until
-then the engine's derived ``discover-usage`` walk (Spec 081) stands.
+``GUIDED_DISCOVERY_SKILL`` (Spec 322 Slice 3 / 323) is the authored discipline
+that overrides the derived ``discover-usage`` default. Its final ``decide``
+phase carries ``gate: "computed"`` + ``gate_verb: "clarity_gate"`` so the
+clarity gate is a structural walk property, not a reviewer's hope.
 """
 from __future__ import annotations
 
@@ -68,6 +70,63 @@ _SCHEMAS: dict[str, list[str]] = {
 }
 
 
+# ───────────────────── guided-discovery skill (Spec 322 Slice 3 / 323) ──────────
+# Authored discipline — overrides the derived ``discover-usage`` walk (Spec 081).
+# 7 phases follow the Spec 307 §"The guided-discovery flow" diagram exactly:
+# seed → elicit → ground → clarify → frame → examine → scope+acceptance → decide.
+# The ``decide`` phase is a computed gate: the walker calls ``clarity_gate``
+# (Spec 322 Slice 2) before confirming the Intent, making an underspecified
+# Intent structurally un-confirmable via the walk (not just a human check).
+GUIDED_DISCOVERY_SKILL: dict = {
+    "name": "guided-discovery",
+    "kind": "discipline",
+    "applies_when": {
+        "kind": "pattern",
+        "pattern": r"new|fresh|not sure|vague|what do i want|where do i start|start",
+        "confidence": 0.7,
+    },
+    "phases": [
+        {
+            "index": 1, "name": "elicit",
+            "produces": ["draft_intent", "elicitation_turns"],
+            "verbs": ["interview"],
+        },
+        {
+            "index": 2, "name": "ground",
+            "produces": ["citations", "feasibility_signal"],
+            "verbs": ["ground", "feasibility"],
+        },
+        {
+            "index": 3, "name": "clarify",
+            "produces": ["ambiguities_resolved"],
+            "verbs": ["clarify"],
+        },
+        {
+            "index": 4, "name": "frame",
+            "produces": ["sharp_intent"],
+            "verbs": ["frame"],
+        },
+        {
+            "index": 5, "name": "examine",
+            "produces": ["thinking_findings"],
+            "verbs": ["examine"],
+        },
+        {
+            "index": 6, "name": "scope",
+            "produces": ["scope_boundaries", "acceptance_criteria"],
+            "verbs": ["scope", "acceptance"],
+        },
+        {
+            "index": 7, "name": "decide",
+            "produces": ["confirmed_intent"],
+            "verbs": ["clarity"],
+            "gate": "computed",
+            "gate_verb": "clarity_gate",
+        },
+    ],
+}
+
+
 discover_ontology = OntologyExtension(
     nodes=_NODES,
     edges=_EDGES,
@@ -78,4 +137,5 @@ discover_ontology = OntologyExtension(
         ("FeasibilitySignal", "verdict"): FEASIBILITY_VERDICT,
     },
     schemas=_SCHEMAS,
+    skills={"guided-discovery": GUIDED_DISCOVERY_SKILL},
 )
