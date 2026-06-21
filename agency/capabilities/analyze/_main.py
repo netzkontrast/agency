@@ -271,10 +271,10 @@ class AnalyzeCapability(CapabilityBase):
                     "architecture": _architecture.scan,
                 }[axis]
                 findings = scanner(path)
-            # Spec 354 — enrich decidable findings with the risk code + Iron Law
+            # Spec 360 — enrich decidable findings with the risk code + Iron Law
             # fields they evidence before recording (a no-op for rules in no
             # risk's decidable list), so the graph nodes carry the decay
-            # diagnosis the judgment pass (372) later enriches in place.
+            # diagnosis the judgment pass (380) later enriches in place.
             findings = _decay.tag(findings)
             totals[axis] = _findings.count_by_severity(findings)
             for fnd in findings:
@@ -287,7 +287,7 @@ class AnalyzeCapability(CapabilityBase):
     def review(self, path: str = ".", mode: str = "review", scope: str = "") -> dict:
         """Headless code-quality review for CI — never pauses; risky remedies auto-declined.
 
-        The CI actor's entry point (Spec 372 §3a, Cockburn + Hightower fix).
+        The CI actor's entry point (Spec 380 §3a, Cockburn + Hightower fix).
         Shares the same decidable engine as develop.review but NEVER blocks on a
         gate or confirmation prompt: risky remedies are reported in gated:[] and
         auto-declined, not applied. Decidable-only output when no LLM key
@@ -297,7 +297,7 @@ class AnalyzeCapability(CapabilityBase):
                 mode (one of review/audit/debt/test/health/sweep),
                 scope (str — informational scope description; '' = auto-detect).
         Returns: {scope_line, findings:[...], iron_law_passed, mode, headless:True, gated:[...]}.
-        chain_next: analyze.sarif(...) for SARIF / code-scanning upload (Spec 374).
+        chain_next: analyze.sarif(...) for SARIF / code-scanning upload (Spec 382).
 
         Use when: running code-quality diagnosis in CI or any non-interactive context
             where blocking for confirmation is forbidden.
@@ -340,20 +340,20 @@ class AnalyzeCapability(CapabilityBase):
 
     @verb(role="transform")
     def score(self, findings: list = None, preset: str = "balanced") -> dict:
-        """Compute the Health Score (Spec 373) from findings × preset — READ-ONLY.
+        """Compute the Health Score (Spec 381) from findings × preset — READ-ONLY.
 
         ``score = max(0, 100 - Σ deduction(tier, preset))`` — the per-tier
         deductions are a documented tunable budget (strict/balanced/legacy-friendly,
         ``data/score-presets.json``), computed live every run, never pinned
         (rule 8). ``top_leverage`` names the highest-impact fixes
         (deduction_weight × occurrence_count — Wiegers). An unknown preset falls
-        back to balanced (Spec 373 §2). Pure transform — no graph write; the
+        back to balanced (Spec 381 §2). Pure transform — no graph write; the
         QualityRun history node is a later slice.
 
         Inputs: findings (list of wire-shape finding dicts — severity + risk_code),
                 preset (strict|balanced|legacy-friendly; default balanced).
         Returns: {score, preset, top_leverage:[finding,...], deductions:{tier:int}}.
-        chain_next: analyze.sarif / document.render the report (Spec 374).
+        chain_next: analyze.sarif / document.render the report (Spec 382).
 
         Use when: turning a finding set into a tunable Health Score + the
             highest-leverage fixes (CI gate, report Summary).

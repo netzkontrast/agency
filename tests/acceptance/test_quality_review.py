@@ -1,4 +1,4 @@
-"""Acceptance — Spec 372: six quality modes + develop.review seam.
+"""Acceptance — Spec 380: six quality modes + develop.review seam.
 
 Behaviour-only: assert what the verbs and pure functions DO (roles, phase structure,
 return shapes, Iron Law gate predicate, merge contract). No internals, no mocks.

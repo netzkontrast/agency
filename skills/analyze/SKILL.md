@@ -33,7 +33,7 @@ Analyze runs decidable transforms over source and reports findings on the qualit
 | `quality` | transform | Decidable lint findings: unused imports, long lines, long functions, long files. | [details](references/quality.md) |
 | `review` | act | Headless code-quality review for CI — never pauses; risky remedies auto-declined. | [details](references/review.md) |
 | `run` | act | Run the requested analysis axes and record an Analysis + per-Finding nodes. | [details](references/run.md) |
-| `score` | transform | Compute the Health Score (Spec 373) from findings × preset — READ-ONLY. | [details](references/score.md) |
+| `score` | transform | Compute the Health Score (Spec 381) from findings × preset — READ-ONLY. | [details](references/score.md) |
 | `security` | transform | Decidable security patterns: eval/exec, hardcoded credentials, pickle.load, shell=True. | [details](references/security.md) |
 
 ## Example

@@ -1,4 +1,4 @@
-"""Acceptance — Spec 373: Health Score (computed, preset-weighted).
+"""Acceptance — Spec 381: Health Score (computed, preset-weighted).
 
 Behaviour-only: the score is asserted as a RELATIONSHIP across presets and a
 computed value from live findings (rule 8 — never a pinned snapshot). Exercised

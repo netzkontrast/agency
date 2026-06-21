@@ -99,14 +99,18 @@ table that rots.
 
 ### Slice 1 — dod_check + approve gate
 
-- [ ] `adr.dod_check` returns the eight ported criteria with correct mode and
-      severity; auto checks reuse 354 `validate` (no duplicated rule logic).
-- [ ] `adr.approve` blocks when an automated criterion fails (returns
-      `input-required` naming the failure), and pauses at the human criteria via
-      `ctx.elicit`, recording a `Gate` node either way.
-- [ ] On confirm, the decision advances to `approved` through `ctx.lifecycle.move`;
-      the transition is queryable provenance.
-- [ ] Owner override path records who/what; tested.
+- [x] `adr.dod_check` returns the eight ported criteria with correct mode and
+      severity; the DOCUMENTATION check reuses 354 `validate` (no duplicated rule
+      logic). `auto_passed` gates on `error`-severity auto/partial checks; `score`
+      is surfaced, not gating (rule 8).
+- [x] `adr.approve` blocks when an automated criterion fails (`{blocked, failing}`,
+      no approval), pauses at the human criteria via `ctx.elicit` (falling back to
+      `{input_required, pending}` with no host bound), recording a `Gate` node
+      (`GATED_BY` the Decision) either way.
+- [x] On owner confirmation the decision advances to `approved` (via `ctx.update`
+      in Slice 1 — see the deferral note); the `Gate` is queryable provenance.
+- [x] Owner override path records who/what (`dod-override` Gate); an agent
+      self-approve / agent override is rejected (panel B2.1). Tested.
 
 ### Slice 2 — governance lifecycle + cadence
 
@@ -145,10 +149,43 @@ table that rots.
   "all decisions extracted from this spec are `approved`" → this gate.
 - **gate capability / CORE.md §elicit** — the human approval step.
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-### Done
-- Spec authored (design depth).
+### Done — Slice 1 (TDD, shipped)
+- `adr.dod_check` — the eight SPEC-001-E criteria as decidable findings
+  (E·C·A·D·D·R·Dp·Rf·M → DOD-E01/C01/A01/D01/D02/R01/DP01/DP02/RF01/M01), each
+  tagged `auto` / `partial` / `human` with an `error`/`warn` severity. The
+  DOCUMENTATION check **reuses 354 `validate`** (calls `self.validate(id).data.ok`
+  — no duplicated WH(Y) rule logic, rule 2). `auto_passed` = every `error`-severity
+  auto/partial check passes; `human_pending` = the partial/human ids; `score` is
+  the SPEC-001-E fraction, surfaced not gating (rule 8).
+- `adr.approve` — the hinge. Blocks on a failed automated `error` criterion
+  (`{blocked, failing}`, status untouched); on automated pass with no `approver`
+  tries `ctx.host.elicit` and falls back to `{input_required, pending}` when no
+  host is bound (the deterministic test + remote-async path); an OWNER `approver`
+  advances the decision to `approved`. Records a `Gate` node (`GATED_BY` the
+  Decision, SERVES the intent) on every path. **Panel B2.1 enforced:** an agent
+  (`approver="agent"` / empty identity on override) may NOT self-approve or
+  self-override — only a human owner identity clears the gate; the provenance-
+  stamped owner `override` is the escape hatch (records who + which `failing`).
+- New edge `GATED_BY` (Decision→Gate) added to the adr ontology + traversed.
+- **6 acceptance scenarios** (`tests/acceptance/features/adr_dod.feature`): auto
+  pass + human-pending listed · blocked-on-auto-fail · owner confirm · owner
+  override · agent-override rejected · no-approver input-required pause. adr+dod
+  21 green; schema-coverage 44 green; check-drift clean (after install regen).
 
-### Still
-- Implement Slice 1 (dod_check + approve) then Slice 2 (lifecycle + cadence) via TDD.
+### Deferred to Slice 2 (deliberate scoping)
+- **Status-as-a-Lifecycle (`ctx.lifecycle.move`) + the raw-`status=` write guard.**
+  Slice 1 advances status via `ctx.update`, consistent with the already-shipped
+  `adr.update`/`adr.supersede` (354 Slice 2) which also write `status` directly.
+  Modelling a Decision's status as a Lifecycle machine and adding a guard that
+  rejects raw `status=` writes is **architecturally significant** — it touches all
+  three writers at once — so it belongs in one coherent Slice 2 change, not a
+  half-done split. The DoD gate's *value* (decidable checks + owner-only approval
+  + provenance) lands fully in Slice 1 regardless of the status-write mechanism.
+
+### Still — Slice 2
+- The full status Lifecycle (proposed→…→retired, +rejected/superseded/expired) as
+  a walkable machine via `ctx.lifecycle.move`; the raw-write guard; reconcile
+  `update`/`supersede`/`approve` onto the one state writer.
+- `adr.review_sweep` (cadence → `expired`).

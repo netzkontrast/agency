@@ -1,4 +1,4 @@
-Feature: Health Score — computed, preset-weighted (Spec 373)
+Feature: Health Score — computed, preset-weighted (Spec 381)
 
   The Health Score is a pure function over the recorded findings:
   score = max(0, 100 - Σ deduction(tier, preset)). The per-tier deductions are a

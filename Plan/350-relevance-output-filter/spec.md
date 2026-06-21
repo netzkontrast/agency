@@ -187,9 +187,28 @@ Scenario: jules.activities full=True bypasses the filter
   — 7 Gherkin scenarios covering pure helper, `_apply_filter` integration,
   `jules.activities` filter, and `full=True` bypass.
 
-**Still needed (Slice 2):**
-- `filters:` config registry in `.agency/config.yaml` read via `_config._read()` so
-  users can override profiles per-tool without code changes.
-- PostToolUse hook call site (third consumer after shell + jules).
+### Slice 2 — SHIPPED (steward run, 2026-06-21)
+
+**Done:**
+- `agency/_relevance.py` — `_DEFAULT_FILTER_PROFILES` dict (3 seeded entries: activities,
+  shell, toolcall) with `# AGENCY-DRIFT: filter-profiles` tag; `load_filter_profile(name,
+  path=None) -> dict` reads raw `_config._read()["filters"][name]` (OPT-IN: absent section
+  → `{}`, so no existing behavior changes without user opting in via config.yaml).
+- `agency/capabilities/jules/_main.py` — `activities(filter=)` now tries a named config
+  profile lookup (via `load_filter_profile(filter)`) before treating the string as a keyword
+  include; backward-compatible (unknown names fall through to `{"include": [filter]}`).
+- `agency/capabilities/shell/_main.py` — `capture_filter` applies `load_filter_profile("shell")`
+  after structural `_apply_filter`, Bash-only (OPT-IN: only runs when user sets
+  `filters.shell:` in config.yaml).
+- `agency/engine.py` — `_default_hook_handler` PostToolUse path applies
+  `load_filter_profile("toolcall")` to the `filtered` field after `capture_filter`
+  (OPT-IN; fail-open on any error).
+- 3 new Gherkin scenarios (10 total green, 1.96 s): named config profile drives
+  `jules.activities`; `capture_filter` applies shell profile; PostToolUse applies
+  toolcall profile.
+
+**Still needed (Slice 3+):**
 - Graph `FilterProfile` node override (mirrors Spec 337 structural profiles).
-- LLM-scored relevance strategy (Slice 3+).
+- LLM-scored relevance strategy.
+- `filters:` section auto-generated in `config_scaffold` (with seeded `_DEFAULT_FILTER_PROFILES`
+  as the initial content, so users see examples out of the box).

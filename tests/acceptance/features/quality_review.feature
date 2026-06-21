@@ -1,4 +1,4 @@
-Feature: Spec 372 — Six quality modes as walkable skills + develop.review seam
+Feature: Spec 380 — Six quality modes as walkable skills + develop.review seam
 
   The brooks-lint port's "integrate linting into develop" half: six walkable
   disciplines (quality-review/audit/debt/test/health/sweep) on develop.ontology.skills,

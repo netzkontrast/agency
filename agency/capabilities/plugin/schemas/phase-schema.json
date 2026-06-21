@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Phase",
+  "description": "Spec 371 — a walkable-skill phase. Structural fields drive the walker (gate/invoke/verbs); the inline content fields (goal/instructions/example/done_when/freedom) make the phase self-contained (A1) and the single source for both the walk and the rendered file (A2). The authoritative validator is agency/_skill_parse.py::parse_phase; this schema is the published contract.",
+  "type": "object",
+  "required": ["name", "produces"],
+  "properties": {
+    "name": {"type": "string"},
+    "index": {"type": "integer"},
+    "kind": {
+      "type": "string",
+      "enum": ["step", "hard-gate", "soft-gate", "computed-gate", "verb-bound"]
+    },
+    "produces": {"type": "array", "items": {"type": "string"}},
+    "verbs": {"type": "array", "items": {"type": "string"}},
+    "inputs": {"type": "array", "items": {"type": "string"}},
+    "cue": {"type": "string"},
+    "gate": {"type": "string", "enum": ["hard", "soft", "computed"]},
+    "gate_verb": {"type": "string"},
+    "invoke": {
+      "type": "object",
+      "required": ["capability", "verb"],
+      "properties": {
+        "capability": {"type": "string"},
+        "verb": {"type": "string"}
+      }
+    },
+    "reference": {"type": "string"},
+    "goal": {"type": "string", "description": "one-line phase objective (A2)"},
+    "instructions": {"type": "string", "description": "the inline steps a non-skill-walk agent follows top-to-bottom (A1/A2)"},
+    "example": {"type": "string", "description": "one concrete, runnable example (R9)"},
+    "done_when": {"type": "string", "description": "the phase's done-criterion"},
+    "freedom": {
+      "type": "string",
+      "enum": ["high", "medium", "low"],
+      "description": "degrees of freedom — match to fragility (R8)"
+    }
+  }
+}

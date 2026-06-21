@@ -1,4 +1,4 @@
-"""Spec 373 — Health Score (computed, preset-weighted) + leverage ranking.
+"""Spec 381 — Health Score (computed, preset-weighted) + leverage ranking.
 
 Pure functions over the recorded Findings. The score is COMPUTED every run,
 never a stored magic number (CLAUDE.md rule 8):
@@ -8,7 +8,7 @@ never a stored magic number (CLAUDE.md rule 8):
 The per-tier deductions are a documented tunable budget vendored from brooks-lint
 ``common.md``, kept in ``data/score-presets.json`` (a definable registry — a team
 adds a preset without a code edit). "Leverage" is a defined computed quantity
-(Wiegers fix, Spec 373 §1): ``deduction_weight(tier) × occurrence_count(risk_code)``
+(Wiegers fix, Spec 381 §1): ``deduction_weight(tier) × occurrence_count(risk_code)``
 — the score points recovered by fixing it × how often that risk recurs.
 
 Accepts either wire-shape finding dicts or ``Finding`` objects; ``tier`` is read
@@ -23,7 +23,7 @@ SCORE_PRESETS_PATH = Path(__file__).parent / "data" / "score-presets.json"
 DEFAULT_PRESET = "balanced"
 BASE_SCORE = 100
 
-# fail/warn/info → the brooks tier vocabulary (mirrors Finding.tier, Spec 354 §1).
+# fail/warn/info → the brooks tier vocabulary (mirrors Finding.tier, Spec 360 §1).
 _SEVERITY_TIER = {"fail": "critical", "warn": "warning", "info": "suggestion"}
 
 
@@ -49,7 +49,7 @@ def _risk_of(finding) -> str:
 
 def weights(preset: str = DEFAULT_PRESET, presets: dict | None = None) -> dict:
     """The per-tier deduction weights for ``preset`` — falls back to balanced for
-    an unknown preset (Spec 373 §2 config-validation default)."""
+    an unknown preset (Spec 381 §2 config-validation default)."""
     presets = presets or load_presets()
     return presets.get(preset) or presets[DEFAULT_PRESET]
 
@@ -64,7 +64,7 @@ def score(findings, preset: str = DEFAULT_PRESET, presets: dict | None = None) -
 def leverage(finding, findings, preset: str = DEFAULT_PRESET,
              presets: dict | None = None) -> int:
     """``deduction_weight(tier) × occurrence_count(risk_code)`` — a finding with
-    no risk_code counts as a single occurrence (Wiegers fix, Spec 373 §1)."""
+    no risk_code counts as a single occurrence (Wiegers fix, Spec 381 §1)."""
     w = weights(preset, presets)
     weight = w.get(_tier_of(finding), 0)
     rc = _risk_of(finding)

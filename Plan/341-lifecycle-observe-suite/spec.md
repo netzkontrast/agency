@@ -1,7 +1,7 @@
 ---
 spec_id: "341"
 slug: lifecycle-observe-suite
-status: draft
+status: partial
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 4]
@@ -109,6 +109,27 @@ Scenario: watch returns the transition trail without polling
 
 ## Followup — Implementation Status (2026-06-20)
 
-Not started. Composes `manage` (Spec 290/330), `jules` watcher (Spec 022), and the
-Spec 076 hook into the `read · find · check · watch` frame. The reuse contract is
-the acceptance bar — duplication of `manage.state` is a defect.
+**Slice 1 SHIPPED 2026-06-20** — the observe frame, REUSED on the Memory pillar
+(`manage`), resolving the spec's reframe-vs-design tension: the frame lands as
+`manage` verbs (observation is the Memory pillar's job), NOT new `lifecycle.*`
+verbs (Lifecycle is the WRITE substrate). The mapping:
+
+- **`find` = `manage.list("Lifecycle", where={state})`** — pure reuse (the
+  existing generic list + `_live`); NO new verb.
+- **`check` = `gate.check`** — pure reuse; a failed check already routes its pause
+  through `ctx.lifecycle.move(→input-required)` (Spec 339/344); NO new verb.
+- **`read` = NEW `manage.lifecycle(lifecycle_id)`** — a one-call rollup
+  (state · phase · kind · parameterization · serving intent · agent · gates),
+  composing `recall_typed` + the SERVES/DISPATCHED_TO/PASSED/BLOCKED_ON edges. No
+  new storage.
+- **`watch` = NEW `manage.lifecycle_trail(lifecycle_id)`** — the ordered Spec 344
+  `lifecycle_transition` Event trail `OBSERVED_DURING` the lifecycle (a PULL over
+  the durable history; only terminal/blocked transitions are durable per the 344
+  B4 split). Live PUSH stays `jules.watch` (Spec 022) + the Spec 021 monitor.
+
+4 acceptance scenarios (`tests/acceptance/features/lifecycle_observe.feature`);
+the reuse contract held (no duplication of `manage`'s `_live`/`list`). manage +
+gate + lifecycle suites green; install regen + the lifecycle reference doc
+updated. **Still (Slice 2):** the `lifecycle-board.md` convergence Document
+(render the in-flight board via `manage.render`); folding `jules.watch` into a
+unified `manage.lifecycle_trail(scope="jules")` view.

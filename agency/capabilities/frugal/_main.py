@@ -86,6 +86,16 @@ class FrugalCapability(CapabilityBase):
                "FrugalFinding": ["file", "line"]},
         skills={"frugal": _LADDER_SKILL})
     artefact_schemas = ArtefactSchemas.from_module(__file__)
+    # Spec 349b §2 — declarative event-bus subscriptions (were import-time
+    # `_events.subscribe` calls). Each `handler` names a module-level function
+    # below; the engine bootstrap loop resolves + registers them.
+    subscriptions = (
+        _events.Subscription(event="PreToolUse", handler="on_first_tool_use",
+                             once_per="session.tool", name="frugal.first_use"),
+        _events.Subscription(event="SessionStart", handler="on_session_start",
+                             once_per="session", once_fail_emit=True,
+                             name="frugal.session_inject"),
+    )
 
     # ── level / set_level / instructions / help (Slice 1) ─────────────────────
     @verb(role="transform")
@@ -359,10 +369,6 @@ def on_first_tool_use(engine, event) -> str:
     return f"[frugal] {hint}"
 
 
-_events.subscribe("PreToolUse", on_first_tool_use,
-                  once_per="session.tool", name="frugal.first_use")
-
-
 def on_session_start(engine, event) -> str:
     """Spec 348/349a — deliver the FULL frugal discipline (the deep ponytail-port
     card) ONCE per session. SessionStart fires on startup AND resume AND every
@@ -373,7 +379,6 @@ def on_session_start(engine, event) -> str:
     at frugal level 'off' / session_inject='off' (session_inject_text returns '')."""
     return _frugal.session_inject_text()
 
-
-_events.subscribe("SessionStart", on_session_start,
-                  once_per="session", once_fail_emit=True,
-                  name="frugal.session_inject")
+# Spec 349b §2 — both subscriptions are DECLARED as data on FrugalCapability
+# (`subscriptions = (...)`), registered by the engine bootstrap loop. The
+# import-time `_events.subscribe` calls were removed (the loop is the one reader).

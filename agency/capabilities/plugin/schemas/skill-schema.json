@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Skill",
+  "description": "Spec 371 — the v2 layered, type-classified skill. `type` is the R15 classification (orthogonal to `kind`, the walk-shape); `owner` records the author (A6); each field is tagged in the committed skill.yaml with a `source` (derived|authored|sampled, A4/A5). Validation is LAYERED: when `type` is declared, a small required CORE per type applies (description for all; technique→phases, pattern/pillar→overview, reference→references, discipline→common_mistakes); legacy skills with no `type` keep the name+kind floor. The authoritative validator is agency/_skill_parse.py::parse_skill; this schema is the published contract.",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": {"type": "string", "description": "kebab on the wire, <=64 chars (R2)"},
+    "kind": {
+      "type": "string",
+      "description": "the walk-shape (usage|discipline|gate|workflow|conceptualizer|...) — orthogonal to `type`"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["pillar", "capability", "technique", "pattern", "reference", "discipline"],
+      "description": "the R15 best-practices classification"
+    },
+    "owner": {
+      "type": "string",
+      "enum": ["auto", "capability"],
+      "description": "who authored the skill — the auto-generator or the capability itself (A6)"
+    },
+    "description": {
+      "type": "string",
+      "description": "'use when…' — third person, search keywords, NEVER a workflow summary (R1)"
+    },
+    "overview": {"type": "string", "description": "the mental map (pattern/pillar core)"},
+    "when_to_use": {"type": "string"},
+    "when_not": {"type": "string"},
+    "phases": {"type": "array", "items": {"$ref": "phase-schema.json"}},
+    "references": {
+      "type": "array",
+      "description": "one-deep progressive-disclosure refs (R4)",
+      "items": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": {"type": "string"},
+          "title": {"type": "string"}
+        }
+      }
+    },
+    "common_mistakes": {
+      "type": "array",
+      "description": "the rationalization table — symptom + counter (R13, discipline core)",
+      "items": {
+        "type": "object",
+        "required": ["symptom", "counter"],
+        "properties": {
+          "symptom": {"type": "string"},
+          "counter": {"type": "string"}
+        }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "description": "concrete input/output pairs (R9)",
+      "items": {
+        "type": "object",
+        "required": ["input", "output"],
+        "properties": {
+          "input": {"type": "string"},
+          "output": {"type": "string"}
+        }
+      }
+    },
+    "eval_scenarios": {
+      "type": "array",
+      "description": ">=3 baseline-first eval scenarios (R14)",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {"name": {"type": "string"}}
+      }
+    },
+    "source_stamp": {
+      "type": "string",
+      "description": "source-hash for the staleness gate — install never auto-rewrites (A7)"
+    }
+  }
+}

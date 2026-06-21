@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_analyze_score
-# Compute the Health Score (Spec 373) from findings × preset — READ-ONLY.
+# Compute the Health Score (Spec 381) from findings × preset — READ-ONLY.
 # Usage: agency-analyze-score [--intent-id ID] [findings] [preset]
 set -euo pipefail
 
