@@ -63,8 +63,11 @@ def _call_wire(eng: Engine, tool: str, args: dict) -> dict:
 # ── shared Given override ─────────────────────────────────────────────────────
 
 @given("a fresh agency engine in code-mode", target_fixture="hook_engine")
-def _fresh_hook_engine():
-    e = Engine(tempfile.mktemp(suffix=".db"))
+def _fresh_hook_engine(tmp_path):
+    # Use tmp_path (unique per-test dir) so toolcalls.db is also unique and
+    # never shared across parallel workers (which all write /tmp/toolcalls.db
+    # when mktemp puts the graph db in /tmp/).
+    e = Engine(str(tmp_path / "agency.db"))
     return e
 
 
