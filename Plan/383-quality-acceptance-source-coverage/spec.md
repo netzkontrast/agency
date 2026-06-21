@@ -285,8 +285,30 @@ code, structured-`Finding` assertion). Committed hand-authored fixtures remain t
 right form for the **wet judgment** risks (Slice 3), where the pattern SHAPE is the
 point and there is no numeric threshold to derive.
 
-**Still (Slice 3):** the `-m wet` judgment corpus for the nine judgment-only risks
-(R2/R3/R6/T1–T6) as committed fixtures + the per-risk/per-mode coverage
-**check-drift rule** that promotes the grounding (Slice 1) + coverage (Slice 2)
-invariants from test-only to a fast standalone CI drift gate, plus
-`# AGENCY-DRIFT: decay-risk-set` tags at the risk-set read sites.
+### Slice 3 — SHIPPED 2026-06-21 (check-drift coverage gate + AGENCY-DRIFT tags)
+
+The §4 drift-coverage half — promotes the Slice 1 + 2 invariants from test-only to
+a fast standalone CI gate:
+- **`scripts/check-drift` — "decay-risk coverage gate"**: (1) **grounding** — every
+  book a decay risk cites (`decay-risks.json` `sources[].book`) MUST exist in
+  `source-coverage.json` (no shallow name-dropping); (2) **decidable corpus** —
+  every risk with a `decidable` rule-id mapping MUST have a paired Examples row in
+  `quality_corpus.feature`. Both sets are DERIVED from the registry (rule 8); the
+  corpus side reads the feature file (decoupled from the test module). Verified to
+  CATCH both drift modes (remove a cited book → flagged; drop a decidable row →
+  flagged), so it is live surface, not a dormant gate. Clean run reports
+  "12 cited books grounded; 3 decidable risks paired".
+- **`# AGENCY-DRIFT` tags** at the two registry readers: `decay-risk-set` on
+  `_decay.load_risks()` (the canonical risk-set reader) and `source-coverage` on
+  `_coverage.load_source_coverage()`, each naming the gate that guards them.
+
+**BLOCKED — the `-m wet` judgment corpus (deferred, not a Spec 383 gap).** §2's wet
+half (happy + false-positive scenarios for the nine JUDGMENT-only risks
+R2/R3/R6/T1–T6) needs a path that takes a code file and emits an R2/R3/T1 *judgment*
+finding. **That capability does not exist yet:** `develop.review` runs the DECIDABLE
+scanners + `_decay.tag` only, and `_wet_verify` (Spec 164) is phase-DISCIPLINE
+verification, not decay-judgment over code. Authoring `-m wet` scenarios now would
+test a non-existent path (vaporware). The wet corpus lands when the LLM
+code-judgment pass ships (a Spec 352/380 follow-on); until then Spec 383 stays
+`partial` on a genuine dependency, with everything decidable DONE (grounding · SARIF
+property · decidable corpus · coverage matrix · check-drift gate · drift tags).
