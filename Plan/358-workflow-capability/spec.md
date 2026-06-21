@@ -111,11 +111,16 @@ extends the cluster master's pattern; it does not break it.
 
 ### Slice 1 — capability + skill walk
 
-- [ ] `workflow` self-registers; `develop.skill_walk("develop-spec", …)` walks the
-      14 phases one at a time, each phase recorded as provenance under the intent.
-- [ ] Phases 1–9 bind their existing verbs and produce their outputs; the
-      improve-loop (9) is a hard design gate that re-enters 7–8 until passed.
-- [ ] Substrate-set tests green with `workflow` added; full suite run before done.
+- [x] `workflow` self-registers (357); the **`develop-spec`** Lifecycle skill on
+      `workflow.ontology.skills` walks the 14 phases one at a time via
+      `develop.skill_walk`, each phase recorded as a `Phase` node SERVING the
+      intent (provenance asserted: ≥8 Phase nodes after the design walk).
+- [x] Phases carry `verbs` cues binding existing verbs (no re-implementation,
+      panel B1); the improve-loop (9) is a HARD design gate that pauses at
+      `input-required`, and the **ADR-approval (11)** is the second hard gate (the
+      hinge — a spec can't pass it to `inprogress` until decisions are approved).
+- [x] Schema-coverage + check-drift green (a skill, not a verb — no new wire
+      surface); full suite run before done.
 
 ### Slice 2 — the ADR hinge + step verbs
 
@@ -174,13 +179,36 @@ extends the cluster master's pattern; it does not break it.
 - **M2 — discover triage:** `discover.interview` shipped (Spec 309); phase 2 binds
   it directly (failure-mode row corrected above).
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-### Done
-- Spec authored (design depth) + spec-panel folded (B1 home-decision, B2.3 gate, M2).
+### B1 home-decision — RESOLVED
+The owner directed "the workflow capability thing" and 357 already shipped the
+standalone **`workflow` capability** (hosting the spec-state verbs). So the
+`develop-spec` discipline lands on `workflow.ontology.skills` — no relitigation.
 
-### Still
-- Resolve B1 (discipline-in-`develop` vs standalone `workflow` cap) with the owner
-  before Slice 1.
-- Slice 1 (skill + spec-state verbs) then Slice 2 (ADR hinge + step verbs + e2e
-  dogfood) via TDD. Land after 354–357 + 359.
+### Done — Slice 1 (TDD, shipped 2026-06-21)
+- The **`develop-spec`** walkable Lifecycle skill (14 phases) on
+  `workflow.ontology.skills`, modelled as a discipline (each phase carries
+  `verbs` cues binding the SHIPPED verbs — `intent.capture` · `discover.interview`
+  · `develop.brainstorm` · `research.fetch`/`codegraph_explore` ·
+  `discover.acceptance` · `develop.write_spec` · `develop.spec_panel` ·
+  `intent.brooks_lint` · `workflow.move_spec`+`adr.extract_decisions` ·
+  `adr.approve` · `workflow.move_spec`+`adr.hints` · `develop.tdd` ·
+  `develop.verify`+`workflow.move_spec`). No re-implementation (panel B1).
+- Three HARD gates: **improve** (9, the design gate), **adr-approve** (11, the
+  ADR hinge), **done** (14). `develop.skill_walk` delivers one phase at a time
+  and pauses at each; resume confirms the gate and continues.
+- 3 acceptance scenarios (`workflow_skill.feature`): registered+walkable · pauses
+  at the improve gate (+≥8 Phase provenance nodes) · resume → pauses at the
+  adr-approve hinge. workflow_skill + spec_state 9 green; schema 44; drift clean.
+
+### Still — Slice 2 (step verbs + e2e dogfood)
+- The step sugar verbs (`start`/`design`/`open_spec`*/`approve_decisions`/
+  `begin_impl`/`finish`) — individually callable, chainable, same provenance.
+  (*357 already has `workflow.open_spec` minting the SpecLifecycle; the 358
+  phase-10 step needs a different name, e.g. `to_open`, to avoid the collision.)
+- The end-to-end dogfood (353 Slice-2 acceptance): a real intent walked through
+  develop-spec → /draft → folded findings → /open + decision drafts → approved
+  ADR → guarded /inprogress + hints → /done, one provenance tree.
+- Optional: promote phases to executable `invoke` bindings (auto-run the bound
+  verb) where the phase IS a single deterministic verb call.

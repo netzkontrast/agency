@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# agency-generated: v1 — capability_delegate_fan_out
-# Open one child Lifecycle per item (capped at `quota`), dispatch the driver for each, and record a Delegation that DELEGATES_TO every child.
-# Usage: agency-delegate-fan_out [--intent-id ID] <driver> <driver_verb> <items> [quota] [parameterization]
+# agency-generated: v1 — capability_intent_brooks_lint
+# BROOKS-LINT — the 9th critical-thinking method: a conceptual-integrity pass grounded in Fred Brooks (*Mythical Man-Month* / *No Silver Bullet*).
+# Usage: agency-intent-brooks_lint [--intent-id ID] [target] [kind]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,10 +19,7 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 3 ]; then
-  echo "error: expected at least 3 required arg(s) (driver driver_verb items); got ${#args[@]}" >&2
-  exit 2
-fi
+# all positional args are optional; verb defaults apply when omitted
 
 kwargs=$(python3 -c '
 import json, sys
@@ -68,15 +65,12 @@ def _coerce(raw, ann):
         return {}
     return raw
 _kw = {"intent_id": sys.argv[1]}
-_kw["driver"] = _coerce(sys.argv[2], str)
-_kw["driver_verb"] = _coerce(sys.argv[3], str)
-_kw["items"] = _coerce(sys.argv[4], list)
-if len(sys.argv) > 5: _kw["quota"] = _coerce(sys.argv[5], int)
-if len(sys.argv) > 6: _kw["parameterization"] = _coerce(sys.argv[6], str)
+if len(sys.argv) > 2: _kw["target"] = _coerce(sys.argv[2], str)
+if len(sys.argv) > 3: _kw["kind"] = _coerce(sys.argv[3], str)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "
 import json
-return await call_tool('capability_delegate_fan_out', json.loads(r'''${kwargs}'''))
+return await call_tool('capability_intent_brooks_lint', json.loads(r'''${kwargs}'''))
 "

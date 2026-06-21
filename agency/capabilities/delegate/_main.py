@@ -459,7 +459,8 @@ class DelegateCapability(CapabilityBase):
         return {"hints": hints, "block": block}
 
     @verb(role="effect")
-    def fan_out(self, driver: str, driver_verb: str, items: list, quota: int = 8) -> dict:
+    def fan_out(self, driver: str, driver_verb: str, items: list, quota: int = 8,
+                parameterization: str = "") -> dict:
         """Open one child Lifecycle per item (capped at `quota`), dispatch the driver
         for each, and record a Delegation that DELEGATES_TO every child.
 
@@ -478,6 +479,13 @@ class DelegateCapability(CapabilityBase):
             return {"result": {"error": "every item must be a mapping of driver kwargs",
                                "offending": nonmap[:3]}}
         admitted = items[:quota]
+        # Spec 342 — an agent IS a Lifecycle parameterization. The child's machine
+        # comes from the DRIVER's declared `parameterization` (jules → "remote-async",
+        # enforcing verify), not a hardcoded constant — so a local driver (no attr)
+        # runs the default a2a machine and a remote one inserts its observer state.
+        # An explicit `parameterization=` argument (e.g. subagent → "reviewed") wins.
+        driver_cap = self.ctx.registry._caps.get(driver)
+        param = parameterization or (getattr(driver_cap, "parameterization", "") if driver_cap else "")
         d = self.ctx.record_and_serve("Delegation", {"driver": driver, "driver_verb": driver_verb,
                                                       "count": len(admitted), "quota": quota})
         aid = f"agent:{driver}"
@@ -487,11 +495,16 @@ class DelegateCapability(CapabilityBase):
         for item in admitted:
             # Spec 339 — mint the child through the Lifecycle PILLAR substrate
             # (ctx.lifecycle.open) instead of hand-rolling record_and_serve(
-            # "Lifecycle", {state}). open mints `submitted` + SERVES the intent +
-            # DISPATCHED_TO the agent (an agent IS a Lifecycle parameterization);
-            # dispatch then advances it to `working` via the SOLE state writer.
+            # "Lifecycle", {state}). open mints the machine's initial state +
+            # SERVES the intent + DISPATCHED_TO the agent; dispatch then advances
+            # it to `working` via the SOLE state writer.
             lc = self.ctx.lifecycle.open(self.ctx.intent_id, agent=driver,
-                                         parameterization="remote-async")
+                                         parameterization=param,
+                                         machine=param or "a2a")
+            # Spec 342 — stamp the observer context the parameterization needs at
+            # advance time (e.g. the branch jules.verify re-checks on origin).
+            if isinstance(item, dict) and item.get("branch"):
+                self.ctx.lifecycle.annotate(lc, branch=item["branch"])
             self.ctx.lifecycle.move(lc, "working")         # submitted → working at dispatch
             self.ctx.link(d, lc, "DELEGATES_TO")
             result, inv = self.ctx.spawn(driver, driver_verb, **item)
@@ -518,6 +531,17 @@ class DelegateCapability(CapabilityBase):
                                  src_label="Delegation", dst_label="Intent"):
             return {"result": {"error": "delegation does not serve the current intent",
                                "delegation": delegation}}
+        child_lcs = self.ctx.neighbors(delegation, "DELEGATES_TO", direction="out")
+        # Spec 342 — close the N3 disconnect: run each child's declared observer
+        # through the ONE reducer (ctx.lifecycle.advance) BEFORE reducing. For a
+        # remote-async child in `verify`, advance runs jules.verify and moves
+        # verify→completed|input-required — so join's "done" IS the observer's
+        # "done", not the raw `completed`. A default child (no observer) → no-op.
+        for lc in child_lcs:
+            cid = lc.get("id", "")
+            if cid:
+                self.ctx.lifecycle.advance(cid)
+        # Re-read post-advance: the observer may have moved children.
         child_lcs = self.ctx.neighbors(delegation, "DELEGATES_TO", direction="out")
         states: dict[str, int] = {}
         for lc in child_lcs:

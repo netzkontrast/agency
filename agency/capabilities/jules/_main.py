@@ -136,6 +136,11 @@ class JulesClient:
 class JulesCapability(CapabilityBase):
     name = "jules"
     home = "lifecycle"
+    # Spec 342 — jules IS the "remote-async" Lifecycle parameterization: its
+    # children run on a machine whose `verify` state inserts COMPLETED != done.
+    # delegate.fan_out reads this attr and opens each child on that machine; the
+    # remote-async observer is `jules.verify` (machines.json), run by advance.
+    parameterization = "remote-async"
     render_templates = RenderTemplates.from_module(__file__)
     artefact_schemas = ArtefactSchemas.from_module(__file__)
     # Spec-012 ontology extension: typed nodes for the session registry, alias
