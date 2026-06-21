@@ -69,8 +69,9 @@ DECISION_SCHEMA = {
 adr_ontology = OntologyExtension(
     nodes={"Decision": _NODE_REQUIRED},
     # PART_OF (Decision→theme/Spec), DEPENDS_ON / RELATES_TO (Decision↔Decision).
-    # REFINES is unioned (already present); SUPERSEDED_BY is core.
-    edges={"PART_OF", "DEPENDS_ON", "RELATES_TO", "REFINES"},
+    # REFINES is unioned (already present); SUPERSEDED_BY is core. GATED_BY links a
+    # Decision to the DoD-approval Gate it cleared (Spec 355 — traversable audit).
+    edges={"PART_OF", "DEPENDS_ON", "RELATES_TO", "REFINES", "GATED_BY"},
     enums={("Decision", "status"): DECISION_STATUS},
     # The typed contract for a Decision artefact (powers validate; covers the
     # `Decision` label for the Spec 153 schema-coverage audit via `title`).
