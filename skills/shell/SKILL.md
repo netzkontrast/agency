@@ -24,6 +24,7 @@ Shell is a token-efficient host-command boundary: allowlisted execution, output 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `define` | act | Define a named shell template (command + output filter + doc) in the graph. | [details](references/define.md) |
+| `define_profile` | act | Define a named filter profile (include/exclude/context/budget) in the graph. | [details](references/define_profile.md) |
 | `filter` | transform | Filter text to a token-bounded slice — pure, no execution (hook-ready). | [details](references/filter.md) |
 | `run` | effect | Run an ALLOWLISTED command (or a named template), FILTER its output, record it. | [details](references/run.md) |
 | `templates` | transform | Discover named query templates — built-in seeds ∪ graph-defined (Spec 075). | [details](references/templates.md) |

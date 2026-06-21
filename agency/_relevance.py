@@ -122,14 +122,44 @@ _DEFAULT_FILTER_PROFILES: dict[str, dict] = {
 }
 
 
-def load_filter_profile(name: str, path: str | None = None) -> dict:
-    """Return the named filter profile from ``.agency/config.yaml`` ``filters:``
-    section.  Profiles are OPT-IN via config (no seeded auto-apply): an absent or
-    empty section returns ``{}`` so the call site skips relevance filtering.
+_FILTER_PROFILE_KIND = "filter-profile"   # Spec 350 Slice 3 — graph-stored FilterProfile Artefacts
 
-    The ``filters:`` block is a non-scalar nested dict — read raw via
-    ``_config._read``, same pattern as ``llm.models`` (Spec 352 Slice 2a).
+
+def _graph_filter_profile(memory, name: str) -> dict:
+    """Look up a named FilterProfile Artefact in the graph (Spec 350 Slice 3).
+    Returns the deserialized profile dict, or {} when not found."""
+    import json as _json
+    try:
+        for a in memory.find("Artefact"):
+            if a.get("kind") != _FILTER_PROFILE_KIND:
+                continue
+            if a.get("name") == name:
+                profile_str = a.get("profile", "")
+                if profile_str:
+                    return _json.loads(profile_str)
+    except Exception:  # noqa: BLE001 - fail-open
+        pass
+    return {}
+
+
+def load_filter_profile(name: str, path: str | None = None, memory=None) -> dict:
+    """Return the named filter profile, checking the graph first (Slice 3), then
+    ``.agency/config.yaml`` ``filters:`` section (Slice 2).
+
+    Graph-stored profiles override same-named config-file profiles (Spec 350 Slice 3).
+    Profiles are OPT-IN (no seeded auto-apply): absent from both returns ``{}``
+    so the call site skips relevance filtering.
+
     Best-effort: any read / parse error returns ``{}`` (fail-open for hook path)."""
+    # Graph-first: graph-stored profile overrides config (Spec 350 Slice 3).
+    if memory is not None:
+        try:
+            graph_profile = _graph_filter_profile(memory, name)
+            if graph_profile:
+                return graph_profile
+        except Exception:  # noqa: BLE001 - fail-open
+            pass
+    # Config file fallback (Spec 350 Slice 2).
     try:
         from . import _config
         data = _config._read(path or _config._resolve_config_path())
