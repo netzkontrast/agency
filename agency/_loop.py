@@ -343,3 +343,77 @@ def verify_report(host: Any, loop_id: str) -> dict[str, Any]:
         })
     return {"criteria": criteria, "programmatic_ratio": ratio, "warnings": warnings,
             "rubric_source": str(rubric_path(VERIFICATION_RUBRIC))}
+
+
+# --- Spec 365: the cross-model council (reuse persona + panel) ----------------
+# A council member is a reviewer (notes) or a judge (a gating verdict), scoped to
+# plan/delivery/both and bound to a model family/driver. Reuse target: a member
+# promotes to a `persona` (297) bound to a `driver` (002); convene reuses `panel`
+# (294); cross-vendor dispatch routes through `delegate`/`jules` (040/271) + the
+# egress gate (369). Stored here as JSON on the loop node — the spine interim,
+# parity with 364's criteria. The verdict SHAPE is owned by `_parse_judge_verdict`
+# (above): judge JSON degrades to revise + warn, never a crash.
+
+COUNCIL_RUBRIC = "council-rubric.md"
+_MEMBER_ROLES = ("reviewer", "judge")
+_MEMBER_SCOPES = ("plan", "delivery", "both")
+# The loop's two gating states (366) and the council scope each one needs covered.
+_LOOP_GATES = {"plan_gate": "plan", "delivery_gate": "delivery"}
+
+
+def _loop_members(host: Any, loop_id: str) -> list[dict[str, Any]]:
+    raw = (host.memory.recall(loop_id) or {}).get("council")
+    return json.loads(raw) if raw else []
+
+
+def add_member(host: Any, loop_id: str, role: str, *, scope: str = "both",
+               family: str = "", local: bool = False, driver: str = "",
+               mid: str = "") -> dict[str, Any]:
+    """Add a council member to a loop (Spec 365). ``role`` ∈ reviewer|judge;
+    ``scope`` ∈ plan|delivery|both; ``family``/``driver`` name the model it speaks
+    for; ``local`` flags a privacy-preserving on-device model. A reviewer emits
+    notes; a judge emits the gating verdict. Returns ``{member_id, role, family}``.
+    """
+    if role not in _MEMBER_ROLES:
+        raise ValueError(f"member role must be one of {_MEMBER_ROLES}, got {role!r}")
+    if scope not in _MEMBER_SCOPES:
+        raise ValueError(f"member scope must be one of {_MEMBER_SCOPES}, got {scope!r}")
+    members = _loop_members(host, loop_id)
+    member = {"id": mid or f"m{len(members) + 1}", "role": role, "scope": scope,
+              "family": family, "local": bool(local), "driver": driver or family}
+    members.append(member)
+    host.memory.update(loop_id, {"council": json.dumps(members)})
+    return {"member_id": member["id"], "role": role, "family": family}
+
+
+def recommend_council(host: Any, loop_id: str, *, host_family: str = "") -> dict[str, Any]:
+    """Report the council's verdict-source coverage + a cross-family recommendation
+    (Spec 365). **The reviewer-only rule:** a ``revise_until_clean`` gate REQUIRES a
+    verdict source — a judge member covering its scope, or a human criterion —
+    because nothing else can declare a delivery "clean." Cross-model review (a
+    member from a DIFFERENT family than the host) is the coaching default, not a
+    hard rule. Returns ``{members, verdict_sources_ok, missing, recommended,
+    host_family, rubric_source}``.
+    """
+    members = _loop_members(host, loop_id)
+    has_human = any(c.get("kind") == "human" for c in _loop_criteria(host, loop_id))
+    judges = [m for m in members if m.get("role") == "judge"]
+
+    def _covered(gate_scope: str) -> bool:
+        if has_human:
+            return True
+        return any(m.get("scope") in ("both", gate_scope) for m in judges)
+
+    missing = [gate for gate, gscope in _LOOP_GATES.items() if not _covered(gscope)]
+    member_view = [
+        {**m, "cross_family": bool(host_family) and m.get("family") != host_family}
+        for m in members
+    ]
+    recommended = [
+        {"role": "judge", "scope": _LOOP_GATES[gate],
+         "family": f"a family other than {host_family or 'the host'}"}
+        for gate in missing
+    ]
+    return {"members": member_view, "verdict_sources_ok": not missing,
+            "missing": missing, "recommended": recommended,
+            "host_family": host_family, "rubric_source": str(rubric_path(COUNCIL_RUBRIC))}
