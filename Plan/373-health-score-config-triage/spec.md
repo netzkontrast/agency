@@ -245,3 +245,22 @@ slice (Spec 377). Next (after 354): `_score.py` + `score-presets.json` + the
 `quality:` config block + `QualityRun{status}` node + the score-side suppression
 read, RED→GREEN; `intent.triage` + the `Suppression`/`Acknowledgement` ontology
 land on `IntentCapability`.
+
+**Slice 1 SHIPPED 2026-06-21 (TDD) — the Health Score engine (§1).**
+`analyze/_score.py` (pure: `score = max(0, 100 - Σ deduction(tier, preset))`
+floored at 0; `leverage = deduction_weight(tier) × occurrence_count(risk_code)`;
+`top_leverage` ranks one representative per recurring risk) + the per-tier
+deduction budgets in `analyze/data/score-presets.json` (definable registry,
+`_source`-stamped — strict/balanced/legacy-friendly, a documented tunable budget
+NOT a snapshot, rule 8); `analyze.score(findings, preset)` (role=`transform`,
+READ-ONLY — folds nothing into the graph yet, the QualityRun node is Slice 2).
+`tier` reads `Finding.tier` (Spec 354 §1 — one severity source); unknown preset
+falls back to balanced (§2 default). **4 Gherkin scenarios**
+(`tests/acceptance/features/health_score.feature`) assert the score as a
+RELATIONSHIP (strict ≤ balanced ≤ legacy-friendly), the zero floor, the
+preset fallback, and leverage ranking — never a pinned snapshot. Install regen +
+analyze test slice green (60 passed). **Still (Slice 2+):** the `quality:` config
+block (disable/severity/ignore/focus/strictness/custom_risks) onto Spec 334 +
+validation; the `QualityRun{status}` history node + trend query; the scan-time
+suppression *scoring* read; and `intent.triage` + the `Suppression`/
+`Acknowledgement` ontology on `IntentCapability`.
