@@ -1,207 +1,110 @@
+<!-- agency-node: spec-365 -->
 ---
 spec_id: "365"
 slug: loop-council
 status: draft
-last_updated: 2026-06-20
+last_updated: 2026-06-21
 owner: "@agency"
-vision_goals: [3, 8]
-depends_on: ["002", "040", "271", "285", "294", "297", "362"]
+vision_goals: [3, 4]
+depends_on: ["002", "040", "271", "294", "297", "362", "364"]
 parent_spec: "362"
-domain: loop / delegation
+affects:
+  - agency/_loop.py                        # recommend_council helper (cross-family + verdict-source check)
+  - agency/_lifecycle_data/loop/rubrics/   # council-rubric.md (verbatim from looper)
+  - agency/capabilities/persona/           # reuse — a council member IS a persona
+  - agency/capabilities/panel/             # reuse — convene IS a panel
+domain: loop / delegation / lifecycle-spine
 wave: looper-port
 ---
 
-# Spec 365 — Loop council (cross-model reviewer / judge)
+# Spec 365 — The cross-model council (reuse persona + panel + delegate)
 
-> Child of Spec 362. Ports looper's **council stage** +
-> `references/council-rubric.md` + §6 (model detection/selection). This is
-> looper's defining wedge: **a reviewer or judge from a *different* model family
-> than the host** — closing the blind spot of a model grading its own homework.
-> Agency already has the convening primitives (`panel`, `persona`) and the
-> cross-model dispatch primitives (`delegate`, `jules`). 365 binds them into a
-> loop council.
+> Child of Spec 362. **Spine-framed + frugal (2026-06-21):** looper's cross-model
+> review council maps 1:1 onto primitives that already exist — a council member
+> **IS a `persona` (297)** bound to a model **driver (002)**; convening **IS a
+> `panel` (294)**; dispatch to another model **IS `delegate`/`jules` (040/271)**.
+> 365 adds only the council rubric (data) + a cross-family recommendation helper.
+> **No new capability.**
 
 ## Why
 
-Looper's council members each carry a role, a CLI/model, an invoke argv, a
-timeout, and a scope:
+Looper wires a **reviewer or judge from a different model family than the host** —
+the "codex → claude / claude → codex" bridge — because a second, different model
+catches what the author misses. Two roles:
 
-```yaml
-council:
-  - id: reviewer-1
-    role: judge            # reviewer (notes only) | judge (verdict)
-    cli: claude
-    model: opus-4.8-high
-    invoke: ["claude", "-p"]
-    timeout_sec: 600
-    scope: [plan, delivery]
-```
+- **reviewer** → notes; the host revises against them. No verdict.
+- **judge** → a structured verdict that **gates progression**.
 
-Two hard rules looper settled (v0.1 ambiguity removed):
-
-1. **reviewer vs judge are distinct.** A *reviewer* emits notes; the host revises
-   against them; it casts no verdict. A *judge* emits a **structured verdict** that
-   gates progression.
-2. **`revise_until_clean` requires a `verdict_source`** — a judge member or
-   `human`. A gate with only reviewers (nothing can declare "clean") may use
-   `fixed_passes` (apply notes N times, then proceed) but **not**
-   `revise_until_clean`.
-
-And the cultural default: **recommend a different model family than the host** and
-explain why (self-review by the same family is the blind spot the council exists
-to close).
-
-Agency's pieces:
-- **`panel`** (Spec 294) convenes multiple expert voices over an artefact.
-- **`persona`** (Spec 297) is a named specialist reviewer.
-- **`delegate`** (Spec 040) + **`jules`** (Spec 271) dispatch to other models /
-  drivers, recording provenance.
-- **`ctx.host`** (Spec 285) is the in-session host LLM (sampling) when the host
-  role runs natively.
-
-365 expresses a council member as **a persona bound to a model driver**, and
-`convene` as a scoped `panel` over the gated artefact.
+**The reviewer-only rule:** `verdict_policy: revise_until_clean` **requires a
+`verdict_source`** (a judge member or `human`); a reviewer-only gate may use
+`fixed_passes` but not `revise_until_clean` — nothing can declare "clean."
 
 ## Design
 
-### `CouncilMember` = persona + driver + role
+### A council member = a `persona` bound to a model driver
+
+`persona.create` (297) mints a role-scoped reviewer; binding it to a named model
+**driver** (`ctx.get_driver`, 002 — resolved/registered by 369) supplies the
+"which model, which family" part. `role` (reviewer|judge), `scope`
+(plan|delivery), `family`, and `local` are persona/driver props — no new node type.
+
+### Convene = `panel`; verdict via `delegate`/`jules`; degrade parity
+
+`panel.convene` (294) runs the members over an artefact; a **judge** member's
+output is a structured verdict `{verdict, blocking_issues, confidence, notes}`.
+A cross-vendor send goes through `delegate`/`jules` (040/271) + the
+`egress_consent` gate (369). **Judge JSON degrades to revise + warn** on
+unparseable output (looper `parse_judge_output`, ported) — never a crash.
+
+### `_loop.recommend_council` — the one helper (cross-family + the rule)
 
 ```python
-@verb(role="effect")
-def add_member(self, ctx, loop_id: str, role: str, *, model: str = "",
-               cli: str = "", family: str = "", scope: list[str] | None = None,
-               local: bool = False, timeout_sec: int = 600, mid: str = "") -> dict:
-    """Add a council member to a loop.
-
-    role ∈ {reviewer, judge}: a reviewer emits notes; a judge emits a verdict.
-    `model`/`cli`/`family` resolve to a driver invocation (delegate/jules) via
-    the registry (369). `scope` ⊆ {plan, delivery} limits which gates it serves.
-    `local=True` flags a no-egress member (e.g. ollama). Returns
-    {member_id, role, family, local}. chain_next: loop.recommend_council to
-    check cross-family hygiene; gates (366) reference members by id.
-    """
+def recommend_council(ctx, loop_id) -> dict:
+    """For each revise_until_clean gate, report whether a verdict source exists
+    (judge member or human) — the reviewer-only rule (enforced at _loop.open, 366).
+    Recommend a member from a DIFFERENT family than the host (cross-model is the
+    coaching default, NOT a hard rule). Returns {verdict_sources_ok, missing:[gate],
+    recommended:[{persona, family}]}. Surfaces council-rubric.md."""
 ```
 
-A member is a **persona** (Spec 297) — its review voice — bound to a **driver**
-(`delegate`/`jules`, resolved by 369). `family` (anthropic / openai / google /
-local) is what the cross-family rule reasons over.
-
-### `convene` — a scoped panel that returns role-correct output
-
-```python
-@verb(role="transform")
-def convene(self, ctx, loop_id: str, gate: str, artefact: str,
-            members: list[str]) -> dict:
-    """Convene a loop's council over a gated artefact.
-
-    Reviewers (role=reviewer) → notes only (panel voices, no verdict).
-    Judges (role=judge)       → a structured verdict {verdict, blocking_issues,
-                                 confidence, notes}, parsed leniently.
-    Returns {notes:[…], verdict?:{…}, member_verdicts:[…]}. The verdict is
-    present only if a judge member is in `members`. chain_next: the machine
-    (366) applies revise_until_clean using verdict.verdict.
-    """
-```
-
-Implemented over `panel.convene` (multi-voice) + `persona` for each member's
-frame. Reviewer voices append to `notes`; judge voices run the **structured
-verdict prompt** and are parsed by:
-
-```python
-def parse_verdict(text: str) -> dict:
-    """Looper-parity lenient parse: prefer a fenced ```json block; on any
-    parse failure or a verdict not in {pass, revise}, degrade to
-    {verdict:"revise", blocking_issues:[…], confidence:0.0, warning:"unparseable_judge_output"}.
-    Never raises."""
-```
-
-This is looper's `parse_judge_output`, ported. The structured verdict shape
-(`verdict / blocking_issues / confidence / notes`) is the contract 364 and 366
-consume.
-
-### The reviewer-only rule is enforced, not just documented
-
-```python
-@verb(role="transform")
-def recommend_council(self, ctx, loop_id: str, host_family: str = "") -> dict:
-    """Coach a loop's council against council-rubric.md. Returns:
-      - cross_family_ok: are any members a DIFFERENT family than the host?
-      - verdict_source_ok per gate: does every revise_until_clean gate name a
-        judge member or 'human'? (the v0.1 ambiguity, enforced)
-      - scope coverage: is every gated stage covered by ≥1 member?
-    Returns {findings:[{rubric_ref, severity, message, fix}]}. A
-    revise_until_clean gate with only reviewers is an ERROR finding (the
-    machine, 366, refuses to open such a loop).
-    """
-```
-
-The **`verdict_source` invariant** is the one hard rule: 366's `open_loop` calls
-into this check and **refuses** a loop whose `revise_until_clean` gate lacks a
-judge/human verdict source. Everything else (cross-family, scope) is advisory
-coaching surfaced by the wizard (367).
-
-### Cross-model = a different driver/family (not a different vendor of magic)
-
-"Cross-model" is mechanically "the member's `family` ≠ the host's `family`." The
-member's actual invocation is a **driver** (`delegate`/`jules`, Spec 040/271) —
-the same dispatch substrate agency already uses, which records provenance and
-honours the dispatch-decision heuristic. Looper's "codex→claude / claude→codex
-bridge" is just two members with different families. Local members (`ollama`) set
-`local=True` and skip egress (369).
+`council-rubric.md` ships verbatim to `agency/_lifecycle_data/loop/rubrics/`.
 
 ## Acceptance (Gherkin)
 
 ```gherkin
-Scenario: a reviewer emits notes, a judge emits a verdict
-  Given a loop with a reviewer member and a judge member
-  When I convene over a plan artefact
-  Then the reviewer contributes notes with no verdict
-  And the judge returns a structured verdict {verdict, blocking_issues, confidence, notes}
+Scenario: a council member is a persona bound to a model driver
+  When I add a judge member on the codex family while the host is claude
+  Then a persona role=judge family=codex is recorded, bound to a driver
+  And recommend_council notes it is cross-family (the coaching default)
 
-Scenario: an unparseable judge verdict degrades to revise
-  Given a judge member whose driver returns prose, not JSON
-  When I convene
-  Then the verdict is revise with warning "unparseable_judge_output" and it does not raise
+Scenario: a judge verdict is structured and gates progression
+  When a judge convenes over a plan artefact and returns revise with blocking issues
+  Then the verdict parses structurally and the gate does not pass
 
-Scenario: revise_until_clean requires a verdict source (the reviewer-only rule)
-  Given a plan gate with verdict_policy revise_until_clean and only reviewer members
+Scenario: an unparseable judge verdict degrades to revise + warn
+  When a judge returns non-JSON text
+  Then it is treated as revise, tagged unparseable (no crash)
+
+Scenario: the reviewer-only rule is reported for a revise_until_clean gate
+  Given a revise_until_clean gate with only reviewer members
   When I recommend_council
-  Then it returns an ERROR finding citing council-rubric.md
-  And open_loop (366) refuses to open the loop
-
-Scenario: a reviewer-only gate may use fixed_passes
-  Given a plan gate with only reviewers and verdict_policy fixed_passes
-  When I recommend_council
-  Then verdict_source_ok is true (no judge required for fixed_passes)
-
-Scenario: cross-family hygiene is coached, not forced
-  Given a host family "anthropic" and a single judge member also "anthropic"
-  When I recommend_council with host_family anthropic
-  Then cross_family_ok is false with an advisory finding to add a different family
-  But the loop may still open (override recorded as provenance)
-
-Scenario: a scoped member only serves its scope
-  Given a judge member with scope [plan]
-  When I convene the delivery gate
-  Then that member is not consulted for delivery
+  Then verdict_sources_ok is false and the gate is listed as missing a verdict source
 ```
 
 ## Done When
 
-- [ ] `loop.add_member` records `CouncilMember` (persona + driver + role + family + scope + local).
-- [ ] `loop.convene` returns role-correct output (reviewer notes / judge verdict) over `panel`+`persona`.
-- [ ] `parse_verdict` ports looper's lenient JSON parse (degrade to revise + warn; never raises).
-- [ ] `loop.recommend_council` enforces the `verdict_source` invariant (ERROR) and coaches cross-family + scope (advisory).
-- [ ] `open_loop` (366) refuses a `revise_until_clean` gate with no verdict source.
-- [ ] `council-rubric.md` ships verbatim under `data/rubrics/`.
+- [ ] A council member is a `persona` (297) bound to a model driver (002); role/scope/family/local as props; no new node type.
+- [ ] Convene reuses `panel.convene` (294); cross-vendor sends route through `delegate`/`jules` + the 369 egress gate.
+- [ ] Judge output is structured; unparseable degrades to revise + warn (ported `parse_judge_output`).
+- [ ] `_loop.recommend_council` reports verdict-source presence + a cross-family recommendation.
+- [ ] `council-rubric.md` ships verbatim under `agency/_lifecycle_data/loop/rubrics/`.
 - [ ] `tests/acceptance/test_loop_council.py` covers the scenarios.
 - [ ] `TODO.md` row updated.
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Not started — drafted under the 362 wave. Council members as
-personas (297) bound to drivers (040/271), convened via `panel` (294);
-reviewer/judge distinction + the `revise_until_clean` verdict-source invariant
-enforced at `open_loop`. Lenient judge parse ported from looper. Foundation
-sibling consumed by 364 (judge path), 366 (gate application), 367 (wizard), 369
-(driver/egress resolution).
+**Verdict:** Re-drafted spine-framed (2026-06-21). The council as **reuse**:
+member = `persona`+driver, convene = `panel`, dispatch = `delegate`/`jules`.
+**Frugal: net-new is council-rubric (data) + one `recommend_council` helper — no
+new capability.** The reviewer-only rule is reported here, enforced at
+`_loop.open` (366); the verdict feeds 366's `advance`.

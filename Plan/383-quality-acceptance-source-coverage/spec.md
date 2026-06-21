@@ -1,8 +1,8 @@
 ---
 spec_id: "383"
 slug: quality-acceptance-source-coverage
-status: draft
-last_updated: 2026-06-20
+status: partial
+last_updated: 2026-06-21
 owner: "@agency"
 vision_goals: [6, 2]
 depends_on: ["379", "360", "380", "053", "077"]
@@ -234,3 +234,28 @@ scenarios run in the default PR gate while wet-LLM judgment scenarios are
 360/380): `source-coverage.json` (+ `_source` marker) + the paired fixture-backed
 acceptance features (deterministic + `-m wet`) + the SARIF property test + the
 per-risk/per-mode check-drift rule.
+
+### Slice 1 — SHIPPED 2026-06-21 (source-coverage + grounding + SARIF property)
+
+`status: draft → partial`. TDD RED→GREEN:
+- **`agency/capabilities/analyze/data/source-coverage.json`** — the 12-book matrix
+  (Brooks…Google), keys in the SAME `"Author — Title"` form as
+  `decay-risks.json` `sources[].book` (one book registry, two consumers). Each
+  entry carries `encoded` (principles the book contributes) + `do_not_ignore`
+  (false-positive guardrails). Stamped `_source: brooks-lint@ec44ec8`.
+- **`agency/capabilities/analyze/_coverage.py`** — `load_source_coverage()`,
+  the single reader (mirrors `_decay.load_risks()`); excludes `_`-prefixed
+  metadata; book COUNT derived from the file (rule 8).
+- **`tests/acceptance/{features/quality_coverage.feature,test_quality_coverage.py}`**
+  — 3 scenarios, behaviour-only (rule 7): (a) book registry DERIVED (≥12 canonical
+  books as a SUBSET assertion, each shaped, count from the file); (b) **grounding
+  invariant** — every book a decay risk cites exists in source-coverage (no
+  name-dropping); (c) **SARIF property** over a frozen 5-finding fixture (R1/R5/T1/
+  custom-Cx/decidable-only) — valid 2.1.0, rule set == live registry, one result
+  per finding. The grounding test IS the live consumer (contract-guarded, not dead
+  code). `python -m pytest tests/acceptance/test_quality_coverage.py` → 3 passed.
+
+**Still (Slice 2):** the paired fixture-backed per-risk/per-mode acceptance corpus
+(`fixtures/quality/<risk>/{positive,negative}.py`, deterministic + `-m wet`) and the
+per-risk/per-mode coverage **check-drift rule** that promotes the grounding +
+coverage invariants from test-only to a CI drift gate.

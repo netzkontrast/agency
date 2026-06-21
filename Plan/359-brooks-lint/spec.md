@@ -86,16 +86,19 @@ on any spec, any time.
 
 ## Done When
 
-- [ ] `intent.brooks_lint(spec_id)` returns findings across the five principles
-      with correct severities; decidable path works with **no API key**; LLM only
-      sharpens wording when keyed.
-- [ ] A clean spec yields `conceptual_integrity_ok=true`; a fixture spec that
+- [x] `intent.brooks_lint(target, kind="spec")` returns findings across the five
+      principles with correct severities; decidable path works with **no API key**
+      (LLM sharpening is a later barbell add).
+- [x] A clean spec yields `conceptual_integrity_ok=true`; a fixture spec that
       introduces a parallel store yields a `block` conceptual-integrity finding; a
       gold-plated fixture yields a second-system `warn`.
-- [ ] Brooks-lint output folds into a spec's `## Brooks-lint findings folded in`
-      section via the existing panel-fold plumbing; recorded as provenance.
-- [ ] Acceptance scenarios (behaviour, rule 7); no unit tests on the heuristics'
-      internals.
+- [~] Brooks-lint folds into a spec's `## Brooks-lint findings folded in` section
+      via the panel-fold plumbing — DEFERRED to the 358 improve-loop (which runs
+      the lint + folds); the method + its `critical-thinking` stress-test phase
+      wiring shipped here.
+- [x] Acceptance scenarios (behaviour, rule 7); no unit tests on the heuristics'
+      internals (the heuristics live in `intent/_brooks.py`, exercised only
+      through the verb).
 
 ## Failure modes (Nygard)
 
@@ -113,11 +116,33 @@ on any spec, any time.
 - **358 (workflow)** — runs Brooks-lint in the design improve-loop.
 - **353** master.
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-### Done
-- Spec authored (design depth).
+### Done — the lint method (TDD, shipped)
+- `intent.brooks_lint(target, kind="spec")` — the 9th critical-thinking method
+  (joins the Spec 091/092 family on `intent`), but an ANALYSER not a scaffold:
+  decidable, evidence-anchored findings across the five Brooks principles. Pure
+  heuristics live in `agency/capabilities/intent/_brooks.py` (`brooks_findings`):
+  - **conceptual-integrity** (block): a `parallel/second/separate … store/system/
+    index` or a `bypass the substrate` regex match.
+  - **essential-vs-accidental** (warn): `len(## Design) > 3×len(## Why)` (tunable).
+  - **second-system** (warn): ≥2 gold-plating markers (nice-to-have / future
+    enhancement / while-we're-at-it / wish-list …).
+  - **no-silver-bullet** (warn): a 10×/"solves all"/"just works" claim with a thin
+    (<40-char) Failure-modes section.
+  - **plan-to-throw-one-away** (block): an irreversible surface (wire contract /
+    breaking change / remove-the-X-edge) touched with NO additive-migration note.
+  Every finding cites `evidence` (no evidence ⇒ never emitted — Nygard row);
+  `conceptual_integrity_ok` = no block. `target` resolves a Document id → latest
+  revision body, "" → the serving intent's deliverable, else raw text.
+- Wired into the `critical-thinking` skill's **stress-test** phase (verb list).
+- **4 acceptance scenarios** (`brooks_lint.feature`): coherent → ok · parallel-store
+  → block · gold-plated → second-system warn · every finding cites evidence.
+- Distinct from the 380s brooks-lint **code-quality** program (that lints code
+  decay on `analyze`; this lints **design conceptual integrity** on `intent`).
 
 ### Still
-- Implement the five-principle lint (decidable + optional LLM) + panel surfacing
-  via TDD.
+- Panel surfacing + the `## Brooks-lint findings folded in` fold — lands with the
+  358 improve-loop (it runs the lint + folds the findings).
+- Optional LLM sharpening of finding wording when keyed (barbell; decidable
+  stands alone).
