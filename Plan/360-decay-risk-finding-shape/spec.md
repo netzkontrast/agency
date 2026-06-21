@@ -1,5 +1,5 @@
 ---
-spec_id: "354"
+spec_id: "360"
 slug: decay-risk-finding-shape
 status: draft
 last_updated: 2026-06-20
@@ -11,9 +11,18 @@ wave: brooks-port
 parent_spec: "353"
 ---
 
-# Spec 354 — Decay-risk Finding shape + decay-risk knowledge (the foundation)
+# Spec 360 — Decay-risk Finding shape + decay-risk knowledge (the foundation)
 
-> Part of the Spec 353 brooks-lint port. This is the **foundation slice**: it
+> **Renumbered 354 → 360 (2026-06-20).** This brooks-lint-port foundation spec
+> (merged via PR #248) collided on `spec_id: 354` with `354-adr-ontology-capability`
+> (the ADR×agency port, merged first via PR #250). Per CLAUDE.md rule 4's
+> renumber clause + the Spec 352 precedent (first-merged stays; the
+> less-entangled leaf moves), this standalone leaf moved to the free **360**,
+> leaving the 7-spec ADR program (353–359) contiguous. Only this spec's own
+> `spec_id`/title changed; its `parent_spec`/`depends_on` and the brooks-port
+> program's own internal references are untouched.
+
+> Part of the brooks-lint port. This is the **foundation slice**: it
 > teaches agency's `Finding` value object the Iron Law, vendors the decay-risk
 > knowledge as data, and tags the decidable findings `analyze` already produces
 > with the risk code + book source they evidence. 355–358 build on it.
