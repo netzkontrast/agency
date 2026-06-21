@@ -609,3 +609,211 @@ def preview(host: Any, loop_id: str) -> dict[str, Any]:
     ]
     return {"ascii": "\n".join(lines), "states": machine["states"],
             "criteria": criteria, "council": members, "control": control}
+
+
+# --- Spec 368: compile (graph → resolved) + emit (render portable files) ------
+# The graph is the source of truth; files are a peer projection (CLAUDE.md rule 2).
+# `compile` resolves the spine nodes into looper's loop.resolved.json shape (the
+# SAME contract the ported run-loop.py reads, 369); `emit` projects the portable
+# workspace. Schemas are vendored under loop/schemas/; validation reuses jsonschema
+# against the self-contained loop.v1 schema + the reviewer-only rule (365).
+
+_SCHEMA_DIR = Path(__file__).parent / "_lifecycle_data" / "loop" / "schemas"
+_TEMPLATE_DIR = Path(__file__).parent / "_lifecycle_data" / "loop" / "templates"
+
+
+def _now_iso() -> str:
+    import datetime
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _member_argv(member: dict[str, Any]) -> list[str]:
+    """Resolve a council member to an argv invocation (369 registry shape) — NEVER
+    a shell string. The CLI is the member's family/driver; argv is `[cli, "-p"]`."""
+    cli = member.get("driver") or member.get("family") or "host"
+    return [cli, "-p"]
+
+
+def _validate_resolved(resolved: dict[str, Any]) -> list[dict[str, str]]:
+    """Validate the resolved spec against loop.v1 (self-contained, jsonschema) +
+    the resolved-extra keys + the reviewer-only rule. Returns typed findings."""
+    findings: list[dict[str, str]] = []
+    try:
+        import jsonschema
+        base = json.loads((_SCHEMA_DIR / "loop.v1.schema.json").read_text(encoding="utf-8"))
+        for e in jsonschema.Draft202012Validator(base).iter_errors(resolved):
+            findings.append({"path": "/".join(str(p) for p in e.path), "message": e.message})
+    except ImportError:  # jsonschema is a dev/analyze extra — degrade to structural
+        for key in ("version", "goal", "host", "gates", "loop_control", "workspace"):
+            if key not in resolved:
+                findings.append({"path": key, "message": f"missing required key {key!r}"})
+    for key in ("compiled_at", "source", "criteria_by_id", "council_by_id"):
+        if key not in resolved:
+            findings.append({"path": key, "message": f"missing resolved field {key!r}"})
+    # The reviewer-only rule (365) — schema can't express it; enforce semantically.
+    for gname, g in resolved.get("gates", {}).items():
+        if g.get("verdict_policy") == "revise_until_clean" and not g.get("verdict_source"):
+            findings.append({"path": f"gates/{gname}",
+                             "message": "revise_until_clean gate has no verdict_source (reviewer-only rule, 365)"})
+    return findings
+
+
+def compile(host: Any, loop_id: str) -> dict[str, Any]:
+    """Resolve a graph-native loop into looper's loop.resolved.json shape (Spec
+    368): expand refs, build ``criteria_by_id`` + ``council_by_id``, inline judge
+    rubrics, resolve every member to an argv invocation, carry loop_control +
+    workspace. Validates against loop.resolved.v1. Pure — no side effects. Returns
+    ``{resolved, valid, findings}``.
+    """
+    props = host.memory.recall(loop_id) or {}
+    control = json.loads(props.get("loop_control") or "{}")
+    criteria_raw = _loop_criteria(host, loop_id)
+    members_raw = _loop_members(host, loop_id)
+    rows = host.memory.g.query(
+        "MATCH (l)-[:SERVES]->(i:Intent) WHERE l.id=$lid "
+        "RETURN i.purpose AS purpose, i.acceptance AS acceptance, "
+        "i.context_sources AS context_sources",
+        {"lid": loop_id})
+    intent = rows[0] if rows else {}
+
+    criteria: list[dict[str, Any]] = []
+    criteria_by_id: dict[str, Any] = {}
+    for c in criteria_raw:
+        cr: dict[str, Any] = {"id": c["id"], "type": c["kind"]}   # spine `kind` → looper `type`
+        if c["kind"] == "programmatic":
+            cr["check"] = list(c.get("check", []))
+            cr["expect"] = c.get("expect", "exit_zero")
+            if c.get("contains"):
+                cr["contains"] = c["contains"]
+        elif c["kind"] == "judge":
+            cr["rubric"] = c.get("rubric", "")                     # inline the rubric
+        else:
+            cr["prompt"] = c.get("prompt", "")
+        criteria.append(cr)
+        criteria_by_id[cr["id"]] = cr
+
+    council: list[dict[str, Any]] = []
+    council_by_id: dict[str, Any] = {}
+    for m in members_raw:
+        entry = {"id": m["id"], "role": m["role"],
+                 "cli": m.get("family") or m.get("driver") or "host",
+                 "invoke": _member_argv(m), "scope": [m.get("scope", "both")],
+                 "local": bool(m.get("local"))}
+        council.append(entry)
+        council_by_id[m["id"]] = entry
+
+    def _gate(scope: str) -> dict[str, Any]:
+        member_ids = [m["id"] for m in members_raw if m.get("scope") in ("both", scope)]
+        judges = [m["id"] for m in members_raw
+                  if m["role"] == "judge" and m.get("scope") in ("both", scope)]
+        g: dict[str, Any] = {"when": f"after_{scope}", "members": member_ids,
+                             "verdict_policy": "revise_until_clean",
+                             "criteria": [c["id"] for c in criteria],
+                             "max_revisions": control.get("max_revisions", DEFAULT_MAX_REVISIONS)}
+        if judges:
+            g["verdict_source"] = judges[0]
+        return g
+
+    lc: dict[str, Any] = {"max_iterations": control.get("max_iterations", DEFAULT_MAX_ITERATIONS)}
+    if control.get("budget"):
+        lc["budget"] = control["budget"]
+    if control.get("no_progress_stall"):
+        lc["no_progress"] = {"max_stalled_iterations": control["no_progress_stall"], "action": "stop"}
+    # stop_conditions are DERIVED from the control fields (derivability), not authored.
+    lc["stop_conditions"] = [f"max_iterations:{lc['max_iterations']}",
+                             f"max_revisions:{control.get('max_revisions', DEFAULT_MAX_REVISIONS)}"]
+    if control.get("no_progress_stall"):
+        lc["stop_conditions"].append(f"no_progress:{control['no_progress_stall']}")
+    if control.get("budget"):
+        lc["stop_conditions"].append("budget")
+
+    context_sources = []
+    if intent.get("context_sources"):
+        try:
+            context_sources = json.loads(intent["context_sources"])
+        except (json.JSONDecodeError, TypeError):
+            context_sources = []
+
+    resolved = {
+        "version": 1,
+        "goal": {
+            "statement": intent.get("purpose", ""),
+            "definition_of_done": intent.get("acceptance", ""),
+            "verification": criteria,
+            "context_sources": context_sources,
+        },
+        "host": {"cli": "host", "invoke": ["host", "-p"], "timeout_sec": 600},
+        "council": council,
+        "gates": {"plan_gate": _gate("plan"), "delivery_gate": _gate("delivery")},
+        "loop_control": lc,
+        "execution": {"mode": "in_session"},
+        "workspace": {"dir": "loop-workspace", "layout": ["plan", "delivery", "review"]},
+        "compiled_at": _now_iso(),
+        "source": f"graph:{loop_id}",
+        "criteria_by_id": criteria_by_id,
+        "council_by_id": council_by_id,
+    }
+    findings = _validate_resolved(resolved)
+    return {"resolved": resolved, "valid": not findings, "findings": findings}
+
+
+def _anchored(loop_id: str, body: str) -> str:
+    """Prefix the Spec 292 document-binding anchor so an on-disk edit round-trips
+    via document.sync."""
+    return f"<!-- agency-node: {loop_id} -->\n{body}"
+
+
+def emit(host: Any, loop_id: str, target: str) -> dict[str, Any]:
+    """Project the loop to its portable workspace (Spec 368): loop.yaml,
+    loop.resolved.json, LOOP.md, RUN_IN_SESSION.md, README.md, loop-workspace/.
+    Each rendered markdown carries the agency-node anchor (Spec 292 round-trip).
+    Returns ``{files, valid, findings}``.
+    """
+    out = Path(target)
+    out.mkdir(parents=True, exist_ok=True)
+    compiled = compile(host, loop_id)
+    resolved = compiled["resolved"]
+
+    # loop.yaml — the human-authored (loop.v1) form: resolved minus resolved-only keys.
+    authoring = {k: v for k, v in resolved.items()
+                 if k not in ("compiled_at", "source", "criteria_by_id", "council_by_id")}
+    try:
+        import yaml
+        loop_yaml = yaml.safe_dump(authoring, sort_keys=False)
+    except ImportError:
+        loop_yaml = json.dumps(authoring, indent=2)
+
+    pv = preview(host, loop_id)
+    files: list[str] = []
+
+    def _write(name: str, text: str) -> None:
+        (out / name).write_text(text, encoding="utf-8")
+        files.append(str(out / name))
+
+    _write("loop.yaml", loop_yaml)
+    _write("loop.resolved.json", json.dumps(resolved, indent=2, sort_keys=True))
+    _write("LOOP.md", _anchored(loop_id,
+        f"# Loop — {resolved['goal']['statement'] or '(goal)'}\n\n"
+        f"**Definition of done:** {resolved['goal']['definition_of_done']}\n\n"
+        f"```\n{pv['ascii']}\n```\n"))
+    _write("RUN_IN_SESSION.md", _anchored(loop_id,
+        "# Run this loop in-session (the spine walk)\n\n"
+        "Walk the `loop` lifecycle machine (Spec 366):\n\n"
+        "1. Read `loop.resolved.json` + the context sources.\n"
+        "2. Draft the plan artefact; `advance` planning → plan_gate.\n"
+        "3. At plan_gate run the criteria + council verdict; pass → delivering, "
+        "revise → planning (counts a revision).\n"
+        "4. Draft delivery-N; `advance` delivering → delivery_gate; pass → completed.\n"
+        "5. Stop on pass / cap / no-progress — the control guards are enforced.\n"))
+    _write("README.md", _anchored(loop_id,
+        "# Loop workspace\n\n"
+        "Run in-session (see `RUN_IN_SESSION.md`) or externally: "
+        "`python run-loop.py loop.resolved.json` (emitted by 369).\n\n"
+        "Ported from [looper](https://github.com/ksimback/looper) "
+        "(Kevin Simback, MIT) — the loop-design discipline, rubrics, the "
+        "loop.yaml/run-loop.py shapes, and the termination model.\n"))
+    for sub in ("plan", "delivery", "review"):
+        (out / "loop-workspace" / sub).mkdir(parents=True, exist_ok=True)
+    files.append(str(out / "loop-workspace"))
+
+    return {"files": files, "valid": compiled["valid"], "findings": compiled["findings"]}
