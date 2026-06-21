@@ -25,6 +25,7 @@ Intent is the reasoning capability: it turns the human-owned goal into structure
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `assumptions` | transform | Surface + classify the implicit assumptions a goal rests on (load-bearing vs not). | [details](references/assumptions.md) |
+| `brooks_lint` | transform | BROOKS-LINT — the 9th critical-thinking method: a conceptual-integrity pass grounded in Fred Brooks (*Mythical Man-Month* / *No Silver Bullet*). | [details](references/brooks_lint.md) |
 | `decompose` | transform | Decompose a goal into MECE sub-problems — the structured break-down method. | [details](references/decompose.md) |
 | `first_principles` | transform | Strip a goal to fundamental truths and rebuild — bypassing inherited assumptions. | [details](references/first_principles.md) |
 | `inversion` | transform | Invert the goal — ask what would GUARANTEE failure, then avoid exactly that. | [details](references/inversion.md) |
