@@ -326,6 +326,77 @@ class ManageCapability(CapabilityBase):
         return {"intent_id": for_intent_id, "count": len(items),
                 "timeline": items[:limit]}
 
+    # ── Spec 341 — the Lifecycle observe frame (read · find · check · watch),
+    #    REUSED on the Memory pillar. `find` IS `manage.list("Lifecycle",
+    #    where={state})`; `check` IS `gate.check`; `read`/`watch` are these two
+    #    thin projections over the existing graph + the Spec 344 transition trail.
+    @verb(role="act")
+    def lifecycle(self, lifecycle_id: str) -> dict:
+        """LIFECYCLE READ — the Spec 341 `read` frame: one Lifecycle's full state
+        rolled up in ONE call (state · phase · kind · serving intent · agent ·
+        gates), so the agent need not know which surface holds each piece.
+        Composes the existing reads — `recall_typed` for props, the
+        SERVES/DISPATCHED_TO/PASSED/BLOCKED_ON edges for the rest — no new storage.
+
+        Inputs: lifecycle_id (str).
+        Returns: ``{lifecycle_id, state, phase, kind, parameterization, intent_id,
+                 agent_id, gates}`` or ``{error}`` if absent / not a Lifecycle.
+        chain_next: manage.lifecycle_trail(lifecycle_id) for its transition history;
+                    gate.check(lifecycle_id, …) to gate it (the `check` frame).
+        """
+        props = self.ctx.recall_typed(lifecycle_id, "Lifecycle")
+        if props is None:
+            return {"error": f"{lifecycle_id!r} is not a Lifecycle id",
+                    "lifecycle_id": lifecycle_id}
+        serving = self.ctx.neighbors(lifecycle_id, "SERVES", direction="out")
+        agents = self.ctx.neighbors(lifecycle_id, "DISPATCHED_TO", direction="out")
+        gates = []
+        for edge in ("PASSED", "BLOCKED_ON"):
+            for g in self.ctx.neighbors(lifecycle_id, edge, direction="out"):
+                gates.append({"gate": g.get("id", ""), "name": g.get("name", ""),
+                              "edge": edge, "passed": g.get("passed")})
+        return {
+            "lifecycle_id": lifecycle_id,
+            "state": props.get("state", ""),
+            "phase": props.get("phase", 0),
+            "kind": props.get("kind", "task"),
+            "parameterization": props.get("parameterization", ""),
+            "intent_id": serving[0].get("id", "") if serving else "",
+            "agent_id": agents[0].get("id", "") if agents else "",
+            "gates": gates,
+        }
+
+    @verb(role="act")
+    def lifecycle_trail(self, lifecycle_id: str, limit: int = 100) -> dict:
+        """LIFECYCLE WATCH — the Spec 341 `watch` frame: the ordered Spec 344
+        `lifecycle_transition` Event trail recorded `OBSERVED_DURING` this
+        lifecycle (what `move` emits), so an observer reads the durable history
+        instead of polling `state`. A PULL over the recorded trail; live PUSH
+        stays `jules.watch` (Spec 022) + the Spec 021 monitor channel. Only
+        terminal/blocked transitions are durable (the Spec 344 B4 split — churn
+        like `submitted→working` rides the monitor only).
+
+        Inputs: lifecycle_id (str), limit (int — max events).
+        Returns: ``{lifecycle_id, count, transitions: [{from_state, to_state,
+                 evidence, at}]}`` or ``{error}`` if absent / not a Lifecycle.
+        chain_next: manage.lifecycle(lifecycle_id) for the current rolled-up state.
+        """
+        if self.ctx.recall_typed(lifecycle_id, "Lifecycle") is None:
+            return {"error": f"{lifecycle_id!r} is not a Lifecycle id",
+                    "lifecycle_id": lifecycle_id, "count": 0, "transitions": []}
+        trail = []
+        for e in self.ctx.sources_via_edge("OBSERVED_DURING", lifecycle_id,
+                                           "Lifecycle", label="Event"):
+            if e.get("name") != "lifecycle_transition":
+                continue
+            trail.append({"from_state": e.get("from_state", ""),
+                          "to_state": e.get("to_state", ""),
+                          "evidence": e.get("evidence", ""),
+                          "at": e.get("vfrom", 0)})
+        trail.sort(key=lambda x: x["at"])
+        return {"lifecycle_id": lifecycle_id, "count": len(trail),
+                "transitions": trail[:limit]}
+
     @verb(role="act")
     def project(self, label: str, query: str = "", budget: int = 2000) -> dict:
         """PROJECT — a query-ranked, token-budgeted slice of a label's live nodes
