@@ -302,13 +302,16 @@ a fast standalone CI gate:
   `_decay.load_risks()` (the canonical risk-set reader) and `source-coverage` on
   `_coverage.load_source_coverage()`, each naming the gate that guards them.
 
-**BLOCKED — the `-m wet` judgment corpus (deferred, not a Spec 383 gap).** §2's wet
-half (happy + false-positive scenarios for the nine JUDGMENT-only risks
-R2/R3/R6/T1–T6) needs a path that takes a code file and emits an R2/R3/T1 *judgment*
-finding. **That capability does not exist yet:** `develop.review` runs the DECIDABLE
-scanners + `_decay.tag` only, and `_wet_verify` (Spec 164) is phase-DISCIPLINE
-verification, not decay-judgment over code. Authoring `-m wet` scenarios now would
-test a non-existent path (vaporware). The wet corpus lands when the LLM
-code-judgment pass ships (a Spec 352/380 follow-on); until then Spec 383 stays
-`partial` on a genuine dependency, with everything decidable DONE (grounding · SARIF
-property · decidable corpus · coverage matrix · check-drift gate · drift tags).
+**UNBLOCKED 2026-06-21 — the judgment pass now exists (Spec 380).** §2's wet half
+(scenarios for the nine JUDGMENT-only risks R2/R3/R6/T1–T6) needed a path that takes
+a code file and emits an R2/R3/T1 *judgment* finding. That path was missing —
+`develop.review` ran the DECIDABLE scanners only, and `_wet_verify` (Spec 164) is
+phase-discipline verification, not decay-judgment over code. It is now **built**:
+`_review.judgment(...)` (Spec 380 §judgment) runs the LLM judgment pass through the
+Spec 352/279 `complete_or_delegate` seam (OpenRouter free-first → driver → MCP
+host-sampling → host-delegate — no key required), and `analyze.review` runs it +
+merges. So the `-m wet` corpus is now AUTHORABLE on a real path; its frozen
+deterministic proof already ships in `test_quality_judgment.py` (the same pass,
+driven by an injected `host_completion`). Spec 383 stays `partial` only on the
+remaining `-m wet` scenario authoring + the per-risk/per-mode wet coverage in the
+check-drift gate; everything decidable + the judgment plumbing is DONE.

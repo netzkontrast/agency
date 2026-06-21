@@ -6,6 +6,8 @@ logic — pure functions here, no graph writes.
 """
 from __future__ import annotations
 
+import json
+import re
 import subprocess
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -111,3 +113,135 @@ def quality_gate(score: int, critical: int,
     evidence = (f"score {score} (min {min_score}); "
                 f"{critical} critical (max {max_critical})")
     return passed, evidence
+
+
+# ── the judgment pass (Spec 380 §judgment — the reasoning half) ───────────────
+# The decidable scanners catch the mechanical risks; the JUDGMENT pass produces
+# the reasoning-heavy ones (R2/R3/R6/T1–T6) by asking an LLM to reason over the
+# code against each risk's principle + its "what NOT to flag" guard. It routes
+# through the Spec 352/279 `complete_or_delegate` seam (OpenRouter free-first →
+# driver → MCP host-sampling → host-delegate), so no API key is required — inside
+# Claude Code the host runs inference and resumes via `host_completion`. Plain
+# text (`output_schema=None`) keeps a free OpenRouter model eligible.
+
+_JUDGMENT_SYSTEM = (
+    "You are a senior software reviewer applying the brooks-lint Iron Law: every "
+    "finding is Symptom -> Source -> Consequence -> Remedy. Judge ONLY the "
+    "reasoning-heavy risks listed (the mechanical ones are already caught). Cite a "
+    "book ONLY when the symptom matches its principle; a threshold crossing is a "
+    "hint, not a verdict; honor each risk's 'do NOT flag' guard. Reply with ONLY a "
+    "JSON array of objects {risk_code,file,line,message,source,consequence,remedy}; "
+    "reply [] when nothing genuinely applies."
+)
+
+
+def judgment_risks(risks: dict) -> dict:
+    """The judgment-only subset of the registry — risks with NO ``decidable``
+    rule-id mapping (the reasoning-heavy ones a scanner cannot decide). DERIVED
+    from the data (rule 8), the complement of ``_decay._decidable_index``."""
+    return {c: e for c, e in risks.items() if not e.get("decidable")}
+
+
+def build_judgment_prompt(code_units: list[tuple[str, str]],
+                          j_risks: dict) -> tuple[list[dict], str]:
+    """Pure — build ``(messages, system)`` for the judgment pass. ``code_units``
+    is a list of ``(path, source)``; ``j_risks`` the judgment-only registry
+    subset. The prompt carries each risk's diagnostic + symptoms + the
+    ``what_not_to_flag`` guard + its cited books, so the model judges against the
+    principle, not a keyword."""
+    risk_lines = []
+    for code, e in sorted(j_risks.items()):
+        cites = "; ".join(f"{s.get('book', '')} — {s.get('principle', '')}"
+                          for s in e.get("sources", []))
+        risk_lines.append(
+            f"- {code} ({e.get('name', '')}): {e.get('diagnostic', '')}\n"
+            f"    symptoms: {', '.join(e.get('symptoms', []))}\n"
+            f"    do NOT flag: {'; '.join(e.get('what_not_to_flag', []))}\n"
+            f"    cite: {cites}")
+    code_blocks = "\n\n".join(f"### {p}\n```\n{src}\n```" for p, src in code_units)
+    user = ("Judge the code below against these decay risks. Emit one JSON object "
+            "per genuine issue.\n\n## Decay risks (judgment-only)\n"
+            + "\n".join(risk_lines) + "\n\n## Code\n" + code_blocks)
+    return [{"role": "user", "content": user}], _JUDGMENT_SYSTEM
+
+
+def _extract_json_array(text: str) -> list:
+    """Tolerant JSON-array extraction (fence-strip + bracket-extract), mirroring
+    ``_llm._parse`` — a model that wraps the array in prose or ```json fences
+    still parses. Returns ``[]`` on anything unparseable."""
+    if not text:
+        return []
+    s = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
+    try:
+        data = json.loads(s)
+    except Exception:
+        m = re.search(r"\[.*\]", s, re.DOTALL)
+        if not m:
+            return []
+        try:
+            data = json.loads(m.group(0))
+        except Exception:
+            return []
+    return data if isinstance(data, list) else []
+
+
+def parse_judgment(text: str, valid_codes: set) -> list["Finding"]:
+    """Pure — parse the LLM's JSON-array reply into ``Finding``s. Two guards
+    applied at the source: a finding whose ``risk_code`` is not a REAL registry
+    code is dropped (hallucination guard), and one missing ``consequence`` or
+    ``remedy`` is dropped (the Iron Law gate — Wiegers, Spec 380 §2 — enforced
+    where the judgment enters, not after)."""
+    from ._findings import make_finding
+    out: list["Finding"] = []
+    for item in _extract_json_array(text):
+        if not isinstance(item, dict):
+            continue
+        code = str(item.get("risk_code", "")).strip()
+        if code not in valid_codes:
+            continue
+        consequence = str(item.get("consequence", "")).strip()
+        remedy = str(item.get("remedy", "")).strip()
+        if not (consequence and remedy):
+            continue
+        message = str(item.get("message", ""))
+        try:
+            line = int(item.get("line", 1) or 1)
+        except (TypeError, ValueError):
+            line = 1
+        out.append(make_finding(
+            rule=code, severity="warn", file=str(item.get("file", "")),
+            line=line, message=message, evidence=message,
+            risk_code=code, source=str(item.get("source", "")),
+            consequence=consequence, remedy=remedy))
+    return out
+
+
+def judgment(code_units: list[tuple[str, str]], risks: dict, *,
+             driver=None, host=None, llm=None, host_completion: dict | None = None,
+             require: str | None = None) -> tuple[list["Finding"], dict | None]:
+    """Run the LLM judgment pass over ``code_units``. Returns
+    ``(findings, delegate)`` — ``delegate`` is ``None`` when findings were
+    produced (or none applied), or the ``llm_delegate`` envelope dict when the
+    host must run inference (Spec 279). The decidable pass has already run, so
+    judgment is purely ADDITIVE: any failure degrades to ``([], None)`` and the
+    decidable findings still stand (Hightower CI-degradation path)."""
+    from agency._host_llm import complete_or_delegate, HostLLMRequest
+    j_risks = judgment_risks(risks)
+    if not j_risks or not code_units:
+        return [], None
+    messages, system = build_judgment_prompt(code_units, j_risks)
+    if driver is None:                                   # resume/host paths ignore it
+        class _NoDriver:
+            def backend(self) -> str:
+                return "none"
+        driver = _NoDriver()
+    try:
+        result = complete_or_delegate(
+            driver, messages=messages, system=system, output_schema=None,
+            host_completion=host_completion, host=host, llm=llm,
+            use_case="code", require=require)
+    except Exception:
+        return [], None
+    if isinstance(result, HostLLMRequest):
+        return [], result.to_dict()
+    return parse_judgment(result.text, set(risks)), None

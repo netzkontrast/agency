@@ -1,7 +1,7 @@
 ---
 spec_id: "380"
 slug: quality-modes-develop-seam
-status: draft
+status: partial
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 3, 6]
@@ -350,8 +350,43 @@ foundation of the develop-seam slice ships GREEN — behaviour-tested via
   `docs/vision/reference/skills.md` + `intent-lifecycle-gate.md` re-stamped after
   `develop/_main.py` changed. Drift clean.
 
+### The JUDGMENT PASS — SHIPPED 2026-06-21 (the reasoning half of the §core)
+
+Until now `_review.py` had `scope_detect / merge_findings / iron_law_passed /
+classify_remedy` but the actual **judgment pass** — the thing that PRODUCES the
+reasoning-heavy findings (R2/R3/R6/T1–T6) the decidable scanners can't — existed
+only as a walkable-skill phase (agent-in-the-loop), so the headless
+`analyze.review` twin and any programmatic caller (e.g. the Spec 383 wet corpus)
+had no path to a judgment finding. Now it does. TDD, RED→GREEN, behaviour-tested
+via `tests/acceptance/{features/quality_judgment.feature,test_quality_judgment.py}`
+(3 scenarios).
+
+- **`_review.judgment(code_units, risks, *, driver, host, llm, host_completion,
+  require) -> (findings, delegate)`** — the programmatic pass. Routes through the
+  Spec 352/279 **`complete_or_delegate`** seam: OpenRouter free-first (plain text,
+  `output_schema=None`, so a `:free` model is eligible) → Anthropic driver → MCP
+  host-sampling → host-delegate. **No API key required** — inside Claude Code the
+  host runs inference and resumes via `host_completion` (the owner env: "OpenRouter
+  / or MCP / elicit"). Additive + fail-safe: any failure or missing backend
+  degrades to `([], None|envelope)` and the decidable findings still stand
+  (Hightower CI path).
+- **`build_judgment_prompt`** carries each judgment risk's diagnostic + symptoms +
+  its `what_not_to_flag` guard + cited books, so the model judges against the
+  PRINCIPLE (the brooks cite-discipline), not a keyword.
+- **`parse_judgment`** applies two guards at the source: drops a hallucinated
+  `risk_code` (not in the live registry) and drops an Iron-Law-incomplete entry
+  (missing consequence/remedy — the Wiegers gate where judgment ENTERS).
+- **`judgment_risks`** derives the judgment-only subset (no `decidable` mapping) —
+  the complement of `_decay._decidable_index` (rule 8).
+- **`analyze.review`** now runs BOTH passes — decidable scan + judgment (bounded by
+  `_JUDGMENT_FILE_CAP`, reported as `judged_files`; an `llm_delegate` envelope is
+  surfaced when no backend is available) — merged via `merge_findings`. The score /
+  Iron-Law gate / counts compute on the MERGED set.
+
 **Remaining in 380:** the implement/tdd cross-link (optional review phase before
 pre-commit gate); `develop.reference("brooks")`/`("decay-risks")` entries; CLAUDE.md
-verb-routing row for `develop.review`. Next sibling: **381** (Health Score + config +
-`quality:` config block + `QualityRun` graph nodes for trend). The `analyze.review`
-headless core defined here is what **382** (SARIF + CI gate) calls.
+verb-routing row for `develop.review`; wiring the judgment pass into the
+INTERACTIVE `develop.review` too (today only the headless `analyze.review` runs it).
+Next sibling: **381** (Health Score + config + `quality:` config block + `QualityRun`
+graph nodes for trend). The `analyze.review` headless core defined here is what
+**382** (SARIF + CI gate) calls.
