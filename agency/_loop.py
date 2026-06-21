@@ -529,3 +529,83 @@ def advance(host: Any, loop_id: str, *, artefact: str = "", judge_output: str = 
     host.lifecycle.move(loop_id, flow["on_revise"], evidence=f"revise:{sig}")
     return {"state": flow["on_revise"], "decision": "revise", "review": result["verdicts"],
             "revisions": progress.get("revisions", 0), "iterations": progress.get("iterations", 0)}
+
+
+# --- Spec 367: the loop-design wizard (a walkable skill) ----------------------
+# Looper's 7-stage interview as a walkable skill (Spec 081/152): one phase per
+# turn, each composing the REUSE verbs (intent/gate/persona/panel + the lifecycle
+# pillar + _loop). Registered into the develop ontology (no new capability), so it
+# walks via `develop.skill_walk` and is discoverable. The council + control phases
+# are HARD gates — the two invariants looper itself refuses to emit without: a
+# verdict source for every revise_until_clean gate (365) and a termination guard
+# (366). The ASCII preview (phase 6) is DERIVED from the graph, never authored.
+
+from .skill import phase  # canonical phase-dict builder (Spec 286)
+
+LOOP_DESIGN_SKILL: dict[str, Any] = {
+    "name": "loop-design",
+    "kind": "discipline",
+    "applies_when": {"kind": "pattern",
+                     "pattern": r"design.*loop|loop.?design|agent.*loop|looper",
+                     "confidence": 0.8},
+    "phases": [
+        phase(1, "goal", produces=["goal_id"], verbs=["intent.capture", "intent.confirm"]),
+        phase(2, "verification", produces=["criteria"], verbs=["gate.check"]),
+        phase(3, "host", produces=["host"], verbs=["persona.create"]),
+        phase(4, "council", produces=["council"], gate="hard",
+              verbs=["persona.create", "panel.convene"]),
+        phase(5, "control", produces=["loop_id"], gate="hard", verbs=["lifecycle.open"]),
+        phase(6, "confirm", produces=["preview_ok"], requires_input=["preview_ok"],
+              verbs=["_loop.preview"]),
+        phase(7, "emit", produces=["emitted"], verbs=["_loop.emit"]),
+    ],
+}
+
+
+def termination_guard_present(control: dict[str, Any]) -> bool:
+    """Phase-5 gate predicate (366 invariant): the loop declares ≥1 termination guard."""
+    return _has_termination_guard(control.get("max_iterations", 0),
+                                  control.get("budget"),
+                                  control.get("no_progress_stall", 0))
+
+
+def verdict_source_present(host: Any, loop_id: str, *, host_family: str = "") -> bool:
+    """Phase-4 gate predicate (365 reviewer-only rule): every revise_until_clean
+    gate has a verdict source (a judge member or a human criterion)."""
+    return recommend_council(host, loop_id, host_family=host_family)["verdict_sources_ok"]
+
+
+def preview(host: Any, loop_id: str) -> dict[str, Any]:
+    """Render the terminal-friendly ASCII flow looper shows before emission (Spec
+    367 phase 6) — DERIVED from the loop machine (366) + criteria (364) + council
+    (365), so it can never drift from what will actually run. Returns
+    ``{ascii, states, criteria, council, control}``.
+    """
+    from ._lifecycle_machines import resolve_machine
+    machine = resolve_machine("loop")
+    criteria = _loop_criteria(host, loop_id)
+    members = _loop_members(host, loop_id)
+    control = json.loads((host.memory.recall(loop_id) or {}).get("loop_control") or "{}")
+
+    crit_txt = ", ".join(f"{c['kind']}:{c['id']}" for c in criteria) or "none"
+    council_txt = ", ".join(f"{m['role']}/{m.get('family') or '?'}" for m in members) or "none"
+    caps = [f"{k}={control[k]}" for k in ("max_iterations", "max_revisions", "no_progress_stall")
+            if control.get(k)]
+    if control.get("budget"):
+        caps.append(f"budget={control['budget']}")
+    stops = ", ".join(caps) or "NONE — a guard-free loop is refused"
+
+    lines = [
+        "loop-design preview",
+        "===================",
+        "  planning → plan_gate ──pass──▶ delivering → delivery_gate ──pass──▶ completed",
+        "                │ revise                          │ revise",
+        "                ▼                                  ▼",
+        "             planning                          delivering",
+        "",
+        f"criteria ({len(criteria)}): {crit_txt}",
+        f"council ({len(members)}): {council_txt}",
+        f"stops: {stops}",
+    ]
+    return {"ascii": "\n".join(lines), "states": machine["states"],
+            "criteria": criteria, "council": members, "control": control}
