@@ -1,9 +1,9 @@
 <!-- doc-source: docs/vision/SKILL-CONTRACT.md agency/skill_emit.py agency/capabilities/plugin/clusters/lint.py -->
-# Assembled skill best-practices (the foundation for Spec 362)
+# Assembled skill best-practices (the foundation for Spec 370)
 
 > Synthesis of the three authorities for skill authoring, distilled into numbered
 > rules and mapped to what they demand of the v2 **schema** and the **skill-creator
-> prompts**. Spec 362 (skill-system-v2) and its children cite these rule IDs.
+> prompts**. Spec 370 (skill-system-v2) and its children cite these rule IDs.
 >
 > Sources: superpowers `writing-skills` (TDD-for-skills) · Anthropic
 > `anthropic-best-practices.md` (official) · agency `skill-creation`

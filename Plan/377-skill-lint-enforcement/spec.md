@@ -1,18 +1,18 @@
 ---
-spec_id: "369"
+spec_id: "377"
 slug: skill-lint-enforcement
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [1, 3]
-depends_on: ["032", "054", "363", "365"]
-parent_spec: "362"
+depends_on: ["032", "054", "371", "373"]
+parent_spec: "370"
 domain: skills
 ---
 
-# Spec 369 — Strict per-type lint + schema enforcement (graduated)
+# Spec 377 — Strict per-type lint + schema enforcement (graduated)
 
-> Child 7 of Spec 362. Make the contract enforceable: per-type schema + the new
+> Child 7 of Spec 370. Make the contract enforceable: per-type schema + the new
 > quality rules gate generation, graduated warn→block so the existing 33 don't all
 > break at once.
 
@@ -27,11 +27,11 @@ enforces nothing. So low-quality skills ship.
   A1), **no-stub** (no `_(Tier B…)_` text), **verb-resolves** (every referenced verb
   exists), and the R1/R3/R4 checks (description-when-not-what, ≤500 lines, refs
   one-deep).
-- Validate the `Skill`/`Phase` schema (363) at `install.generate` AND in
+- Validate the `Skill`/`Phase` schema (371) at `install.generate` AND in
   `check-drift` (Spec 054).
 - **Graduated rollout** (Spec 032 `AGENCY_BOOTSTRAP_LINT={strict,warn,off}` precedent):
-  warn repo-wide; **block** for new/changed skills + the pillars (367) + frugal as
-  first exemplars; flip to repo-wide block when 370 finishes the 33.
+  warn repo-wide; **block** for new/changed skills + the pillars (375) + frugal as
+  first exemplars; flip to repo-wide block when 378 finishes the 33.
 - Rewrite `docs/vision/SKILL-CONTRACT.md` → v2 (the R1–A7 contract).
 
 ## Slices (TDD)

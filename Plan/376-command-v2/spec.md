@@ -1,18 +1,18 @@
 ---
-spec_id: "368"
+spec_id: "376"
 slug: command-v2
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [1]
-depends_on: ["148", "363", "365"]
-parent_spec: "362"
+depends_on: ["148", "371", "373"]
+parent_spec: "370"
 domain: skills
 ---
 
-# Spec 368 — Command v2 (curated, launch-not-stub)
+# Spec 376 — Command v2 (curated, launch-not-stub)
 
-> Child 6 of Spec 362. Rethink the generated slash-commands: a curated few that
+> Child 6 of Spec 370. Rethink the generated slash-commands: a curated few that
 > each LAUNCH their skill, instead of the top-12 near-identical "walk the skill"
 > stubs.
 
@@ -27,7 +27,7 @@ explosion the owner wants gone.
   discoverable via `agency search` — no per-every-skill command.
 - **Launch-not-stub:** each command body launches its skill — for a read-only host it
   points at the self-contained SKILL.md (A1); for a skill-walk host it invokes the
-  walk. Generated from the same schema (363) so the command and its skill never drift.
+  walk. Generated from the same schema (371) so the command and its skill never drift.
 - Replace `_generate_per_skill_commands`' top-N loop with a curated selector keyed on
   `type ∈ {discipline, pillar}`.
 
