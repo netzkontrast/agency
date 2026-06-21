@@ -47,7 +47,7 @@ Slice 2 ships the OPT-IN config registry and wires all three call sites listed i
 - `scripts/check-doc-drift --update` → 6 docs re-stamped (engine.py, shell/_main.py, etc. touched).
 - `python -m agency.install` → no regen needed (no capability surface changed).
 - TODO.md: Spec 350 row updated (Slice 1→Slices 1+2 shipped 2026-06-21).
-- `Plan/350-relevance-output-filter/spec.md` Followup updated with Slice 2 done/still.
+- `Plan/inprogress/350-relevance-output-filter/spec.md` Followup updated with Slice 2 done/still.
 
 ## Lessons learned
 

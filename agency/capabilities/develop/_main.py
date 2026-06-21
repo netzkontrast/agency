@@ -512,7 +512,7 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
 # A SessionLifecycle node tracks the agent's current mode + the intent it serves;
 # ModeShift records explicit transitions; DecisionRecord captures binding
 # decisions; SessionReflection is the synthesize_session artefact at end-of-
-# session. See Plan/114-plugin-as-session-driver/spec.md.
+# session. See Plan/inprogress/114-plugin-as-session-driver/spec.md.
 SESSION_MODE = {"brainstorming", "spec-authoring", "coding", "review",
                 "synthesize"}
 SESSION_STATUS = {"active", "paused", "archived"}
@@ -1200,7 +1200,7 @@ class DevelopCapability(CapabilityBase):
     # Spec 114 — plugin-as-session-driver: 3 verbs for the session lifecycle
     # (init / check / mode-select). reflect.synthesize_session +
     # dogfood.record_decision + dogfood.boundary_use_audit live on their own
-    # caps. See Plan/114-plugin-as-session-driver/spec.md.
+    # caps. See Plan/inprogress/114-plugin-as-session-driver/spec.md.
     # ════════════════════════════════════════════════════════════════════════
 
     @verb(role="act")

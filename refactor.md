@@ -7,7 +7,7 @@
 > **Role:** this session is the **refactor agent** on
 > `claude/agency-error-enum-fixes-13tpnf` — full **Spec 286** OOP refactor
 > (spine + ports + leaf decomposition + capability-per-folder).
-> Spec: `Plan/286-substrate-oop-refactor/spec.md`.
+> Spec: `Plan/inprogress/286-substrate-oop-refactor/spec.md`.
 >
 > **Mode (owner directive 2026-06-13): refactor-FIRST, hardcore.** The refactor
 > may **break internal structure + tests** where the new design needs it; I do

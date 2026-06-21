@@ -142,7 +142,7 @@ Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
    (cluster-integration master) maps the 13 SDLC+meta clusters onto the
    agency surface. Every new verb / skill / substrate tool lands in one
    of those clusters. Before adding, find the cluster's section in
-   `Plan/047-cluster-integration/spec.md` and check the integration
+   `Plan/inprogress/047-cluster-integration/spec.md` and check the integration
    pattern + coherence interactions — does your addition extend the
    pattern, or break it? When the cluster's integration plan grows past
    ~150 lines OR you trigger ≥ 3 named cross-cluster decisions, promote

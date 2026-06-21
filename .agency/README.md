@@ -32,4 +32,4 @@ The DB is binary; git can't auto-merge. Recovery: each branch can
 export to JSON via `dogfood.export` (Spec 020 deliverable), then both
 exports replay against a fresh DB on the merged commit.
 
-See `Plan/020-central-graph-db/spec.md` for the full design.
+See `Plan/inprogress/020-central-graph-db/spec.md` for the full design.

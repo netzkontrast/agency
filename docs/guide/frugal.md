@@ -1,6 +1,6 @@
 # Frugal — the minimal-code discipline
 
-<!-- doc-source: agency/_frugal.py agency/capabilities/frugal/_main.py Plan/332-frugal-core-discipline/spec.md Plan/348-frugal-capability-port/spec.md -->
+<!-- doc-source: agency/_frugal.py agency/capabilities/frugal/_main.py Plan/done/332-frugal-core-discipline/spec.md Plan/done/348-frugal-capability-port/spec.md -->
 <!-- doc-hash: 089b26f3af5f1147 -->
 
 > **Lazy means efficient, not careless. The best code is the code never written.**
@@ -111,5 +111,5 @@ Each marks the shortcut in place: `// frugal: Intl.NumberFormat does this, local
 ## See also
 
 - [`docs/guide/capabilities.md`](capabilities.md) — the generated verb reference (frugal section).
-- `Plan/332-frugal-core-discipline/spec.md` · `Plan/348-frugal-capability-port/spec.md` — the design.
+- `Plan/done/332-frugal-core-discipline/spec.md` · `Plan/done/348-frugal-capability-port/spec.md` — the design.
 - `.claude/skills/ponytail/SKILL.md` — the upstream reference pointer.

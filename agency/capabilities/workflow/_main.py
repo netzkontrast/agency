@@ -186,7 +186,11 @@ class WorkflowCapability(CapabilityBase):
                     body = f.read()
             except OSError:
                 continue
-            fm = _interconnect.parse_frontmatter(body)
+            # Strip a leading Spec-292 anchor (`<!-- agency-node: … -->`) so an
+            # anchored spec's frontmatter still parses — parse_frontmatter wants
+            # `---` at byte 0, and an interconnected Document carries the anchor first.
+            _anchor, fm_body = _interconnect.extract_anchor(body)
+            fm = _interconnect.parse_frontmatter(fm_body)
             fstate = str(fm.get("state", "")).strip().strip('"')
             spec_id = str(fm.get("spec_id", "")).strip().strip('"')
             node_state = ""

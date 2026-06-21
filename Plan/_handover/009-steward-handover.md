@@ -22,7 +22,7 @@ structural property of the discovery walk, not a reviewer's hope.
 - `tests/acceptance/features/discover.feature` + `test_discover.py`: `_usage_walk`
   now asserts `"guided-discovery"` (authored) not `"discover-usage"` (suppressed).
 - `skills/discover/SKILL.md`: auto-regenerated (`python -m agency.install`).
-- `TODO.md` + `Plan/322-intent-clarity-score-gate/spec.md`: updated per rule 4.
+- `TODO.md` + `Plan/done/322-intent-clarity-score-gate/spec.md`: updated per rule 4.
 
 ### Test results (local)
 

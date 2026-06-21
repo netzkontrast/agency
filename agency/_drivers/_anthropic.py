@@ -14,7 +14,7 @@ inject a fake client.
 
 **Slice 1** ships the inference surface (``complete`` / ``count_tokens`` / typed errors
 / readiness). The Managed-Agents bridge (``dispatch_session``) is **Slice 2** — it raises
-a clear deferred error today. See ``Plan/147-anthropic-driver-boundary/spec.md``.
+a clear deferred error today. See ``Plan/inprogress/147-anthropic-driver-boundary/spec.md``.
 """
 from __future__ import annotations
 

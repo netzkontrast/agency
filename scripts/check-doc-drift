@@ -6,7 +6,7 @@ Doc-drift markers (per CLAUDE.md §"Address drift before committing", extended t
 Every hand-written doc under ``docs/`` that describes specific source declares, near its
 top, the files it documents:
 
-    <!-- doc-source: agency/engine.py agency/capability.py Plan/002-boundary-driver-protocol/spec.md -->
+    <!-- doc-source: agency/engine.py agency/capability.py Plan/inprogress/002-boundary-driver-protocol/spec.md -->
     <!-- doc-hash: a1b2c3… -->
 
 This script recomputes a hash over the listed sources (their current bytes) and compares

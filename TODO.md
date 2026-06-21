@@ -1,11 +1,17 @@
 # TODO — spec index
 
 Compact index of every spec by number (slug for context). Per-spec status,
-evidence, and next steps live in each `Plan/NNN-…/spec.md` `## Followup`
+evidence, and next steps live in each `Plan/<state>/NNN-…/spec.md` `## Followup`
 section (CLAUDE.md rule 4 — TODO rolls up; the Followup grounds).
 
+Specs now live under physical **state folders** (Spec 357 —
+`Plan/{draft,open,inprogress,superseded,done}/NNN-slug/`); a spec's lifecycle
+state IS its parent folder. Query live state with `workflow.board` /
+`workflow.index`; the folder ↔ `state:` frontmatter agreement is gated by
+`scripts/check-drift`.
+
 Rebuild (derived from the Plan/ tree):
-`for d in Plan/[0-9]*-*/; do basename "$d"; done | sort -t- -k1,1n`
+`for d in Plan/*/[0-9]*-*/; do basename "$d"; done | sort -t- -k1,1n`
 
 - 001  toolresult-and-typed-errors
 - 002  boundary-driver-protocol
