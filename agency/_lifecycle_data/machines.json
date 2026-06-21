@@ -53,5 +53,17 @@
       "canceled":      []
     },
     "terminal": ["completed", "failed", "canceled"]
+  },
+  "spec": {
+    "initial": "draft",
+    "states": ["draft", "open", "inprogress", "superseded", "done"],
+    "transitions": {
+      "draft":      ["open", "superseded"],
+      "open":       ["inprogress", "draft", "superseded"],
+      "inprogress": ["done", "superseded"],
+      "superseded": [],
+      "done":       []
+    },
+    "terminal": ["superseded", "done"]
   }
 }

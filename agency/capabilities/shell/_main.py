@@ -19,6 +19,7 @@ import shlex
 
 from ..._capture import keep_full
 from ...capability import CapabilityBase, verb
+from ...toolresult import ToolResult
 
 # AGENCY-DRIFT: shell-allowlist — the tools shell.run may invoke (command's first
 # token). Extend deliberately; wire input is NEVER executed unless its tool is here.
@@ -48,6 +49,7 @@ _TEMPLATES = {
 _MAX_OUTPUT = 4000   # hard token guard on returned/recorded output
 
 _TEMPLATE_KIND = "command-template"   # Spec 075 — graph-stored template Artefacts
+_FILTER_PROFILE_KIND = "filter-profile"   # Spec 350 Slice 3 — graph-stored FilterProfile Artefacts
 
 
 def _first_token(command: str):
@@ -72,6 +74,17 @@ def _graph_templates(memory) -> dict:
             "command": a.get("command", ""), "filter": a.get("filter", ""),
             "doc": a.get("doc", ""), "tags": a.get("tags", ""), "id": a.get("id"),
         }
+    return out
+
+
+def _graph_filter_profiles(memory) -> dict:
+    """Current filter-profile Artefacts as {name: {profile, id}}.
+    Bi-temporal: latest definition per name wins (supersede keeps history)."""
+    out: dict = {}
+    for a in memory.find("Artefact"):
+        if a.get("kind") != _FILTER_PROFILE_KIND:
+            continue
+        out[a.get("name")] = {"profile": a.get("profile", ""), "id": a.get("id")}
     return out
 
 
@@ -366,6 +379,33 @@ class ShellCapability(CapabilityBase):
         self.ctx.link(tid, self.ctx.intent_id, "OBSERVED_DURING")
         return {"result": {"name": name, "template_id": tid,
                            "command": command, "filter": filter}}
+
+    @verb(role="act")
+    def define_profile(self, name: str, profile: str) -> dict:
+        """Define a named filter profile (include/exclude/context/budget) in the graph.
+
+        Records an ``Artefact{kind:"filter-profile", name, profile=<JSON>}`` so named
+        profiles can be referenced by name via ``load_filter_profile`` (Spec 350 Slice 3).
+        Re-defining a name SUPERSEDES the prior version (bi-temporal trail kept).
+        Graph-stored profiles override same-named config-file profiles.
+
+        Inputs: name (str), profile (JSON string — ``{include, exclude, context, budget}``).
+        Returns: ``{profile_id, name}``; or ``{error}`` on invalid JSON.
+        chain_next: reference by name in relevance calls.
+        """
+        import json as _json
+        try:
+            _json.loads(profile)   # validate JSON
+        except Exception as e:
+            return ToolResult.success(data={"error": f"invalid JSON profile: {e}"})
+        props = {"kind": _FILTER_PROFILE_KIND, "name": name, "profile": profile}
+        existing = _graph_filter_profiles(self.ctx.memory).get(name)
+        if existing:
+            pid = self.ctx.memory.supersede(existing["id"], props)
+        else:
+            pid = self.ctx.record("Artefact", props)
+        self.ctx.link(pid, self.ctx.intent_id, "SERVES")
+        return ToolResult.success(data={"profile_id": pid, "name": name})
 
     @verb(role="transform")
     def filter(self, text: str, spec: str = "tail:20") -> dict:

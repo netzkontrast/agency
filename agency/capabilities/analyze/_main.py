@@ -271,10 +271,10 @@ class AnalyzeCapability(CapabilityBase):
                     "architecture": _architecture.scan,
                 }[axis]
                 findings = scanner(path)
-            # Spec 354 — enrich decidable findings with the risk code + Iron Law
+            # Spec 360 — enrich decidable findings with the risk code + Iron Law
             # fields they evidence before recording (a no-op for rules in no
             # risk's decidable list), so the graph nodes carry the decay
-            # diagnosis the judgment pass (355) later enriches in place.
+            # diagnosis the judgment pass (380) later enriches in place.
             findings = _decay.tag(findings)
             totals[axis] = _findings.count_by_severity(findings)
             for fnd in findings:
@@ -282,6 +282,91 @@ class AnalyzeCapability(CapabilityBase):
                 self.ctx.link(analysis_id, fid, "HAS_FINDING")
                 self.ctx.link(fid, self.ctx.intent_id, "OBSERVED_DURING")
         return {"analysis_id": analysis_id, "totals": totals}
+
+    @verb(role="act")
+    def review(self, path: str = ".", mode: str = "review", scope: str = "") -> dict:
+        """Headless code-quality review for CI — never pauses; risky remedies auto-declined.
+
+        The CI actor's entry point (Spec 380 §3a, Cockburn + Hightower fix).
+        Shares the same decidable engine as develop.review but NEVER blocks on a
+        gate or confirmation prompt: risky remedies are reported in gated:[] and
+        auto-declined, not applied. Decidable-only output when no LLM key
+        (Hightower fix — the CI degradation path).
+
+        Inputs: path (str — filesystem scope; '' = current dir),
+                mode (one of review/audit/debt/test/health/sweep),
+                scope (str — informational scope description; '' = auto-detect).
+        Returns: {scope_line, findings:[...], iron_law_passed, mode, headless:True, gated:[...]}.
+        chain_next: analyze.sarif(...) for SARIF / code-scanning upload (Spec 382).
+
+        Use when: running code-quality diagnosis in CI or any non-interactive context
+            where blocking for confirmation is forbidden.
+        Do NOT use when: interactive triage or remedy is needed — use develop.review +
+            develop.remediate instead.
+        """
+        from . import _decay, _quality, _architecture, _performance, _security
+        from ._review import scope_detect, iron_law_passed, classify_remedy
+
+        scope_line = scope_detect(scope)
+        scan_path = path or "."
+
+        _AXES_FOR_MODE: dict = {
+            "review":  [_quality.scan, _architecture.scan],
+            "audit":   [_architecture.scan, _quality.scan],
+            "debt":    [_quality.scan, _performance.scan],
+            "test":    [_quality.scan, _security.scan],
+            "health":  [_quality.scan, _security.scan,
+                        _performance.scan, _architecture.scan],
+            "sweep":   [_quality.scan, _security.scan,
+                        _performance.scan, _architecture.scan],
+        }
+        scanners = _AXES_FOR_MODE.get(mode, [_quality.scan])
+        raw: list = []
+        for scan_fn in scanners:
+            raw.extend(scan_fn(scan_path))
+
+        findings = _decay.tag(raw)
+        iron_law = iron_law_passed(findings)
+        gated = [f.to_dict() for f in findings if classify_remedy(f) == "risky"]
+
+        return {
+            "scope_line": scope_line,
+            "findings": [f.to_dict() for f in findings[:20]],
+            "iron_law_passed": iron_law,
+            "mode": mode,
+            "headless": True,
+            "gated": gated,
+        }
+
+    @verb(role="transform")
+    def score(self, findings: list = None, preset: str = "balanced") -> dict:
+        """Compute the Health Score (Spec 381) from findings × preset — READ-ONLY.
+
+        ``score = max(0, 100 - Σ deduction(tier, preset))`` — the per-tier
+        deductions are a documented tunable budget (strict/balanced/legacy-friendly,
+        ``data/score-presets.json``), computed live every run, never pinned
+        (rule 8). ``top_leverage`` names the highest-impact fixes
+        (deduction_weight × occurrence_count — Wiegers). An unknown preset falls
+        back to balanced (Spec 381 §2). Pure transform — no graph write; the
+        QualityRun history node is a later slice.
+
+        Inputs: findings (list of wire-shape finding dicts — severity + risk_code),
+                preset (strict|balanced|legacy-friendly; default balanced).
+        Returns: {score, preset, top_leverage:[finding,...], deductions:{tier:int}}.
+        chain_next: analyze.sarif / document.render the report (Spec 382).
+
+        Use when: turning a finding set into a tunable Health Score + the
+            highest-leverage fixes (CI gate, report Summary).
+        """
+        from ._score import score as _score, top_leverage as _top, load_presets, weights
+        findings = findings or []
+        presets = load_presets()
+        return {
+            "score": _score(findings, preset, presets),
+            "preset": preset,
+            "top_leverage": _top(findings, preset, 3, presets),
+            "deductions": weights(preset, presets),
+        }
 
     @verb(role="act")
     def improve(self, analysis_id: str, axes: list = None,

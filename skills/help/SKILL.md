@@ -65,11 +65,12 @@ agency execute --code \
 
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
-- **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, run, security
+- **adr** — approve, dod_check, draft, impact, link, read, render, supersede, theme, theme_status, update, validate
+- **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, review, run, score, security
 - **branch** — assess, commit_smart, finish
 - **config** — get, list, set
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
-- **develop** — checklist, draft_plan, estimate, index, maintain, mode_select, optimize_skilldoc, plan_status, record_authoring_outcome, record_step_outcome, reference, reload, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
+- **develop** — checklist, draft_plan, estimate, index, maintain, mode_select, optimize_skilldoc, plan_status, record_authoring_outcome, record_step_outcome, reference, reload, remediate, review, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
 - **discover** — acceptance, ask, clarify, clarity, clarity_gate, interview, scope, status
 - **doctrine** — cite, principles, resolve, rules
 - **document** — convergence, explain, index_repo, ingest, mirror, render, reopen, restore_session, revisions, session, session_analytics, sync
@@ -90,13 +91,14 @@ agency execute --code \
 - **reflect** — batch_note, note, recall, recall_semantic, search, synthesize_session
 - **research** — ingest_gdoc, lead, record_ingested_source, specialist, verify
 - **select** — archetypes, route
-- **shell** — define, filter, run, templates
+- **shell** — define, define_profile, filter, run, templates
 - **skill_generator** — generate
 - **skills** — find, index, lint, rank, render
 - **subagent** — develop
 - **symbols** — compress, expand, legend
 - **thinking** — apply_full_review, assumptions, decompose, first_principles, inversion, premortem, red_team, second_order, socratic, steelman, tradeoffs
 - **toolcalls** — export, prune, recent, stats, top
+- **workflow** — board, index, move_spec, open_spec
 - **workspace** — baseline, isolate
 
 ## Discovery

@@ -112,22 +112,27 @@ Red on drift. This is the enforcement that keeps the three surfaces honest.
 
 ### Slice 1 — folders + frontmatter + index
 
-- [ ] The five `Plan/<state>/` folders exist (with a `.gitkeep`); a new spec can
+- [x] The five `Plan/<state>/` folders exist (with a `.gitkeep`); a new spec can
       be authored into `Plan/draft/NNN-slug/`.
-- [ ] `state:` is documented in the spec frontmatter schema; `workflow.index`
-      lists every spec with its three state readings and flags any drift, orphan,
-      or invalid frontmatter. Legacy flat specs are indexed in place (no move).
-- [ ] `check-drift` fails on a deliberately drifted fixture; green on the repo.
+- [x] `workflow.index(root)` lists every spec with its three state readings
+      (folder · frontmatter `state:` · node) and flags `drift` / `missing-state` /
+      `invalid-state` / `node-drift`; legacy flat specs are indexed in place with a
+      `legacy` flag (grandfathered, never failed). `ok` = no drift flag.
+- [~] `check-drift` spec-state gate: `index.ok` is the predicate; wiring it into
+      the `scripts/check-drift` bash gate (without reddening the legacy tree) is the
+      remaining follow-up.
 
-### Slice 2 — move_spec + board + guards
+### Slice 2 — move_spec + board + guards (the lifecycle integration — shipped first)
 
-- [ ] `workflow.move_spec` moves folder + frontmatter + `SpecLifecycle` node
-      atomically; illegal transitions rejected; `open→inprogress` blocked until
-      `adr.spec_decisions_ready` (356).
-- [ ] `workflow.board` answers "what's in each state" from the graph.
-- [ ] Superseding a spec records `SUPERSEDES` and moves it to `superseded/`.
-- [ ] Acceptance scenarios cover a clean draft→open→inprogress→done walk and a
-      blocked open→inprogress (rule 7).
+- [x] `workflow.move_spec` advances the `SpecLifecycle` node via
+      `ctx.lifecycle.move`; illegal transitions rejected; `open→inprogress`
+      blocked until `adr.spec_decisions_ready` (356). (Folder + frontmatter
+      atomicity is the deferred human-surface slice.)
+- [x] `workflow.board` answers "what's in each state" from the graph.
+- [~] Superseding: `move_spec(..., "superseded")` advances the Lifecycle; the
+      `SUPERSEDES` edge to the replacing spec + the folder move are deferred.
+- [x] Acceptance scenarios cover the staged walk and a blocked open→inprogress
+      (rule 7).
 
 ## Failure modes (Nygard)
 
@@ -148,11 +153,48 @@ Red on drift. This is the enforcement that keeps the three surfaces honest.
 - **351 (liveness doctor) / 054 (check-drift)** — the spec-state check joins the
   existing drift gate.
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-### Done
-- Spec authored (design depth).
+> Build order **reprioritised by owner directive** ("357 — we need the integration
+> in the lifecycle"): the **lifecycle integration** (the `SpecLifecycle` machine +
+> `move_spec`/`board` + the ADR-hinge guard, the spec's "Slice 2") shipped FIRST;
+> the physical `Plan/` folders + `state:` frontmatter index + `check-drift` gate
+> (the spec's "Slice 1", the human surface over this spine) are the follow-up.
 
-### Still
-- Slice 1 (folders + index) then Slice 2 (move_spec + guards) via TDD.
-- Decide `.gitkeep` vs a README seed in each state folder at implementation.
+### Done — lifecycle-integration slice (TDD, shipped 2026-06-21)
+- **The `spec` machine** (`agency/_lifecycle_data/machines.json`, Spec 345
+  data-seam — no engine edit): `draft → open → inprogress → done`, any →
+  `superseded`; terminals `done`/`superseded`. Its states widen the
+  `(Lifecycle, state)` enum automatically (the shared `_all_states` union), so
+  `ctx.lifecycle.move` accepts them.
+- **`workflow` capability** (`home="lifecycle"`) — the spec's state IS a Lifecycle,
+  no new node label; the only new edge is `TRACKS` (SpecLifecycle→Document,
+  declared AND traversed):
+  - `open_spec(spec_id)` — mints a SpecLifecycle (`machine="spec"`, state `draft`)
+    `TRACKS`-bound to the spec Document, SERVING the intent; idempotent.
+  - `move_spec(spec_id, to_state, override=False)` — advances via
+    **`ctx.lifecycle.move`** (the SOLE state writer, Spec 339; illegal edges
+    rejected by the machine table). **The ADR hinge:** `open→inprogress` calls
+    `adr.spec_decisions_ready` and refuses (naming `blocking`) until every
+    extracted decision is `approved` (Spec 356/355), unless an owner `override`.
+  - `board(state="")` — live SpecLifecycles grouped by state, from the graph.
+- **5 acceptance scenarios** (`spec_state.feature`): draft mint · draft→open ·
+  illegal edge rejected · **open→inprogress blocked-until-approved** (the
+  356→357 weave) · any→superseded. spec_state 5 green; schema + adr + lifecycle
+  98 green; capabilities.md regenerated (35 caps); check-drift clean.
+
+### Done — human-surface slice (TDD, shipped 2026-06-21)
+- The five physical `Plan/{draft,open,inprogress,superseded,done}/` folders exist
+  (`.gitkeep` documents each state).
+- `workflow.index(root="Plan")` — walks `*/spec.md`, reports each spec's three
+  state readings + flags (`drift`/`missing-state`/`invalid-state`/`node-drift`/
+  `legacy`); `ok` = no drift. Legacy flat specs grandfathered (reported, not
+  failed). 1 acceptance scenario over a clean/drifted/legacy fixture tree;
+  spec_state 6 green.
+
+### Still — gate wiring + superseding edge
+- Wire `index.ok` into the `scripts/check-drift` spec-state gate (without
+  reddening the grandfathered legacy tree).
+- `move_spec(..., "superseded")` currently advances the Lifecycle; recording the
+  `SUPERSEDES` edge to the replacing spec + the physical folder move are deferred.
+- `move_spec` re-anchoring intra-repo links on a physical move.

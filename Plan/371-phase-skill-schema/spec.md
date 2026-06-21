@@ -1,7 +1,7 @@
 ---
 spec_id: "371"
 slug: phase-skill-schema
-status: draft
+status: partial
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [1, 3]
@@ -53,3 +53,44 @@ skill. This slice defines the data model; 372–378 consume it.
 - A malformed skill (missing a per-type required section) fails with a typed code.
 - Back-compat: every existing capability still produces a valid (minimal) Skill.
 - The schema can express each R1–A7 field (a coverage test maps rule → field).
+
+## Followup — Implementation Status (2026-06-21)
+
+**Slice 1 — SHIPPED.** The v2 layered `Phase`+`Skill` schema is the data model
+372–378 consume.
+
+Done (file:line evidence):
+- `agency/_skill_parse.py` — `Phase` gains inline content (`goal`,
+  `instructions`, `example`, `done_when`, `freedom`) (A1/A2/R8/R9); `Skill`
+  gains the best-practices structure (`type`, `owner`, `description`,
+  `overview`, `when_to_use`, `when_not`, `references`, `common_mistakes`,
+  `examples`, `eval_scenarios`, `source_stamp`) (R1/R15/A4/A6). All fields are
+  optional on the dataclass; both `to_dict()` round-trips preserve them.
+- Vocabulary: `_SKILL_TYPES` (R15: pillar|capability|technique|pattern|
+  reference|discipline), `_OWNERS` (auto|capability), `_FREEDOM` (high|medium|
+  low), `_TYPE_REQUIRED` (the layered per-type required CORE).
+- `parse_phase` validates `freedom` (closed enum → `PHASE_UNKNOWN_KIND`) +
+  the optional content strings; `parse_skill` validates `type`/`owner` (closed
+  enums → `SKILL_PARSE_INVALID`), the v2 strings, and the dict-list fields
+  (`references`/`common_mistakes`/`examples`/`eval_scenarios` via the new
+  `_parse_dict_list` helper). The per-type required CORE is enforced **only**
+  when a `type` is declared — legacy skills (no `type`) keep the name+kind
+  floor (back-compat).
+- Published JSON schemas: `agency/capabilities/plugin/schemas/phase-schema.json`
+  + `skill-schema.json` (named to avoid the `skills` cap's graph-node
+  `phase`/`skill` schemas + the kebab-stem loader rule). They are
+  non-dormant (read by the acceptance suite).
+- Tests: `tests/acceptance/features/skill_schema_v2.feature` +
+  `test_skill_schema_v2.py` (14 scenarios) — phase round-trip, per-type
+  required failures, unknown type/owner/freedom, full round-trip, back-compat,
+  live-ontology-clean, R1–A7 rule→field coverage, JSON-schema declaration.
+  Existing `test_skill_phase_parse.py` (+ skill_walk / skills_registry /
+  skill_generator) stay green; `install regen` clean; schemas non-dormant.
+
+Still (this spec's later slices):
+- Slice 2 — the per-capability `skill.yaml` loader + back-compat shim (a cap
+  with no `skill.yaml` derives a minimal Skill from today's SkillDoc).
+- Slice 3 — the `source`/`owner`/`source_stamp` metadata read API.
+
+Note: the `kind` axis (walk-shape) is kept REQUIRED for back-compat and is
+orthogonal to `type` (the R15 classification) — no cross-check between them.

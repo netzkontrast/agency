@@ -1,4 +1,4 @@
-"""Acceptance — relevance filter (Spec 350 Slices 1 and 2).
+"""Acceptance — relevance filter (Spec 350 Slices 1, 2, and 3).
 
 Behaviour contract:
   - ``relevance_filter(text, profile)`` extracts matching lines, reports elided
@@ -371,3 +371,105 @@ def _toolcall_has_important(ctx):
     filt = ctx["tc_filtered"]
     assert "IMPORTANT" in filt, f"Expected IMPORTANT in filtered:\n{filt}"
     assert "noise" not in filt, f"Expected noise excluded from filtered:\n{filt}"
+
+
+# ── Slice 3: graph FilterProfile override ────────────────────────────────────
+
+@given("a fresh agency engine in code-mode")
+def _fresh_engine_slice3(ctx, engine):
+    ctx["engine"] = engine
+
+
+@given("a confirmed intent")
+def _confirmed_intent_slice3(ctx):
+    eng = ctx["engine"]
+    iid = eng.intent.capture("test", "test", "test")
+    eng.intent.confirm(iid)
+    ctx["intent_id"] = iid
+
+
+@given(parsers.parse('a config file with "{profile_name}" include=["{include_val}"]'))
+def _config_with_named_profile(ctx, tmp_path, profile_name, include_val):
+    cfg = tmp_path / "profile_config.yaml"
+    _write_config(str(cfg), {"filters": {profile_name: {"include": [include_val]}}})
+    ctx["config_path"] = str(cfg)
+
+
+@when(parsers.parse('I define a profile named "{name}" with include=["{include_val}"] via shell.define_profile'))
+def _define_profile_via_verb(ctx, name, include_val):
+    import json
+    eng = ctx["engine"]
+    iid = ctx["intent_id"]
+    result, _ = eng.registry.invoke(
+        eng.memory, iid, "shell", "define_profile",
+        name=name,
+        profile=json.dumps({"include": [include_val]}),
+    )
+    ctx["define_result"] = result
+    ctx["defined_name"] = name
+
+
+@then("define_profile returns a profile_id")
+def _define_profile_returns_id(ctx):
+    r = ctx["define_result"]
+    assert "profile_id" in r, f"expected profile_id in result: {r}"
+    assert r["profile_id"], f"profile_id is empty: {r}"
+
+
+@then(parsers.parse('load_filter_profile "{name}" with engine memory returns include containing "{expected}"'))
+def _load_from_graph_returns_expected(ctx, name, expected):
+    from agency._relevance import load_filter_profile
+    eng = ctx["engine"]
+    profile = load_filter_profile(name, memory=eng.memory)
+    assert profile, f"expected non-empty profile, got: {profile}"
+    assert expected in profile.get("include", []), (
+        f"expected '{expected}' in include, got: {profile.get('include')}"
+    )
+
+
+@when(parsers.parse('I load "{name}" with engine memory'))
+def _load_named_with_engine_memory(ctx, name):
+    from agency._config import _READ_CACHE
+    from agency._relevance import load_filter_profile
+    _READ_CACHE.clear()
+    old = os.environ.get("AGENCY_CONFIG")
+    if "config_path" in ctx:
+        os.environ["AGENCY_CONFIG"] = ctx["config_path"]
+    try:
+        ctx["loaded_profile"] = load_filter_profile(name, memory=ctx["engine"].memory)
+    finally:
+        if old is None:
+            os.environ.pop("AGENCY_CONFIG", None)
+        else:
+            os.environ["AGENCY_CONFIG"] = old
+        _READ_CACHE.clear()
+
+
+@then(parsers.parse('the loaded profile include is ["{expected}"]'))
+def _loaded_profile_include_is(ctx, expected):
+    inc = ctx["loaded_profile"].get("include", [])
+    assert inc == [expected], f"expected include=['{expected}'], got: {inc}"
+
+
+@when(parsers.parse('I load "{name}" with engine memory but no graph entry'))
+def _load_no_graph_entry(ctx, name):
+    from agency._config import _READ_CACHE
+    from agency._relevance import load_filter_profile
+    _READ_CACHE.clear()
+    old = os.environ.get("AGENCY_CONFIG")
+    if "config_path" in ctx:
+        os.environ["AGENCY_CONFIG"] = ctx["config_path"]
+    try:
+        ctx["loaded_profile"] = load_filter_profile(name, memory=ctx["engine"].memory)
+    finally:
+        if old is None:
+            os.environ.pop("AGENCY_CONFIG", None)
+        else:
+            os.environ["AGENCY_CONFIG"] = old
+        _READ_CACHE.clear()
+
+
+@then(parsers.parse('the loaded profile include contains "{expected}"'))
+def _loaded_profile_include_contains(ctx, expected):
+    inc = ctx["loaded_profile"].get("include", [])
+    assert expected in inc, f"expected '{expected}' in include, got: {inc}"

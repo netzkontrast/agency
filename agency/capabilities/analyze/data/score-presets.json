@@ -1,0 +1,7 @@
+{
+  "_source": "brooks-lint@ec44ec8 _shared/common.md (Health Score deductions)",
+  "_note": "Per-tier deduction budgets (documented tunable budgets, CLAUDE.md #8 — NOT a current-state snapshot). score = max(0, 100 - Σ deduction(tier, preset)). A team adds a preset here without a code edit (definable registry).",
+  "strict":          {"critical": 20, "warning": 8, "suggestion": 2},
+  "balanced":        {"critical": 15, "warning": 5, "suggestion": 1},
+  "legacy-friendly": {"critical": 8,  "warning": 3, "suggestion": 1}
+}

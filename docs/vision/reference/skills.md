@@ -1,7 +1,7 @@
 # Skills — schemas, the walker, derivation, emission
 
 <!-- doc-source: agency/skill.py agency/skill_emit.py agency/disclosure.py agency/capabilities/skills/_main.py agency/capabilities/develop/_main.py -->
-<!-- doc-hash: a256eb44363d7f4c -->
+<!-- doc-hash: fc308a6d68a629c1 -->
 
 A **skill** is a phase-graph (a Lifecycle template) a capability ships on its
 `ontology.skills`. Skills are how workflow guard-rails become *walkable* discipline
