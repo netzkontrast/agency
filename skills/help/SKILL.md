@@ -77,7 +77,7 @@ agency execute --code \
 - **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, recall_overflow_slice, record_decision, render, replay_events
 - **frugal** — debt, gain, help, instructions, level, review, set_level
 - **gate** — adjudicate, check
-- **intent** — assumptions, decompose, first_principles, inversion, premortem, second_order, steelman, suggests, tradeoffs
+- **intent** — assumptions, brooks_lint, decompose, first_principles, inversion, premortem, second_order, steelman, suggests, tradeoffs
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch
 - **manage** — amend, artefacts, create, lifecycle, lifecycle_trail, list, open_intents, project, provenance, read, render, research_state, retract, state, subtree, timeline, update, whats_next
 - **mode** — activate, detect, list

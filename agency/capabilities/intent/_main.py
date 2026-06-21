@@ -30,7 +30,7 @@ _CRITICAL_THINKING_SKILL = {
     "phases": [
         {"index": 1, "name": "frame", "produces": ["problem_statement"], "verbs": ["decompose"]},
         {"index": 2, "name": "surface", "produces": ["assumptions"], "verbs": ["assumptions"]},
-        {"index": 3, "name": "stress-test", "produces": ["failure_modes"], "verbs": ["premortem", "inversion"]},
+        {"index": 3, "name": "stress-test", "produces": ["failure_modes"], "verbs": ["premortem", "inversion", "brooks_lint"]},
         {"index": 4, "name": "weigh", "produces": ["tradeoffs"], "verbs": ["tradeoffs", "second_order"]},
         {"index": 5, "name": "decide", "produces": ["chosen_approach"], "gate": "hard"},
     ],
@@ -164,6 +164,50 @@ class IntentCapability(CapabilityBase):
             "And then what? — third order, incl. how people/systems adapt + game it.",
             "Which downstream effect is the one you'd regret missing?",
         ], "output": "the consequence chain past the first-order effect"}
+
+    @verb(role="transform")
+    def brooks_lint(self, target: str = "", kind: str = "spec") -> dict:
+        """BROOKS-LINT — the 9th critical-thinking method: a conceptual-integrity
+        pass grounded in Fred Brooks (*Mythical Man-Month* / *No Silver Bullet*).
+        Unlike the scaffold methods, this one ANALYSES a target and returns
+        decidable, evidence-anchored findings across five principles —
+        conceptual-integrity · essential-vs-accidental · second-system ·
+        no-silver-bullet · plan-to-throw-one-away. Catches the spec that is
+        *clever but incoherent* (a class spec-panel's market lens misses). Decidable
+        with NO API key; advisory — `block` is reserved for conceptual-integrity /
+        irreversible-surface violations (the owner overrides in the improve-loop).
+
+        Inputs: target (a spec Document id, raw spec/design text, or "" → the
+                serving intent's deliverable), kind (label — default "spec").
+        Returns: ``{target, kind, findings: [{principle, severity, msg, evidence}],
+                 conceptual_integrity_ok, summary}``.
+        chain_next: fold the findings into the spec's "## Brooks-lint findings
+                    folded in" section (workflow 358 improve-loop).
+        """
+        from ._brooks import brooks_findings
+        body = self._brooks_target(target)
+        findings = brooks_findings(body)
+        ok = not any(f["severity"] == "block" for f in findings)
+        counts: dict[str, int] = {}
+        for f in findings:
+            counts[f["severity"]] = counts.get(f["severity"], 0) + 1
+        head = ("conceptual integrity OK" if ok
+                else "BLOCK — conceptual-integrity/irreversible violation")
+        return {"target": target or "intent", "kind": kind, "findings": findings,
+                "conceptual_integrity_ok": ok,
+                "summary": f"{head}; {len(findings)} finding(s) {counts}"}
+
+    def _brooks_target(self, target: str) -> str:
+        """Resolve a brooks_lint target to body text: a Document id → its latest
+        revision body; "" → the serving intent's deliverable; else raw text."""
+        if not target:
+            node = self.ctx.memory.recall(self.ctx.intent_id) or {}
+            return (node.get("deliverable") or node.get("purpose") or "").strip()
+        if self.ctx.recall_typed(target, "Document"):
+            revs = self.ctx.neighbors(target, "REVISION_OF", direction="in")
+            if revs:
+                return max(revs, key=lambda r: r.get("recorded_at", 0)).get("text", "")
+        return target
 
     @verb(role="transform")
     def suggests(self, called_capability: str = "", called_verb: str = "",
