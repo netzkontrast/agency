@@ -383,10 +383,32 @@ via `tests/acceptance/{features/quality_judgment.feature,test_quality_judgment.p
   surfaced when no backend is available) — merged via `merge_findings`. The score /
   Iron-Law gate / counts compute on the MERGED set.
 
+**Interactive `develop.review` + the subagent driver + the final approval elicit —
+SHIPPED 2026-06-21 (owner-approved design).** Per the owner: judgment runs on a
+**subagent** (a Claude agent — no external LLM key), with OpenRouter/Jules as
+alternative drivers "later", and there **must be a final elicit for approval**.
+- `_review.judgment` gained a `model_hint` param threaded into the delegate
+  envelope; `develop.review` passes `model_hint="subagent"`, so when no inference
+  backend is wired the envelope tells the host to FULFIL it by dispatching a
+  subagent (demonstrated live: `build_judgment_prompt` → subagent → `parse_judgment`
+  → Findings, zero external calls).
+- `develop.review` (interactive) now runs BOTH passes and adds the **final
+  human-approval elicit** (`develop._elicit_judgment_approval` → `ctx.host.elicit`
+  approve/reject): the LLM-PROPOSED judgment findings merge only on explicit
+  approval; a reject / decline / no-elicit-host drops them, the decidable findings
+  always stand. Returns `judgment:{proposed, approved, judged_files}` + an
+  `llm_delegate` (hint "subagent") when delegating. The headless `analyze.review`
+  stays non-pausing (Spec 380 §3a interactive/headless split — owner chose
+  "interactive develop.review only" for the gate).
+- Behaviour-tested via `tests/acceptance/quality_review_approval` (3 scenarios:
+  approve folds in, reject drops + decidable stands, no-backend → subagent
+  delegate envelope), deterministic via injected `host_completion` + a fake
+  elicit host (`bind_host_context`). Install regenerated.
+
 **Remaining in 380:** the implement/tdd cross-link (optional review phase before
 pre-commit gate); `develop.reference("brooks")`/`("decay-risks")` entries; CLAUDE.md
-verb-routing row for `develop.review`; wiring the judgment pass into the
-INTERACTIVE `develop.review` too (today only the headless `analyze.review` runs it).
-Next sibling: **381** (Health Score + config + `quality:` config block + `QualityRun`
-graph nodes for trend). The `analyze.review` headless core defined here is what
-**382** (SARIF + CI gate) calls.
+verb-routing row for `develop.review`; first-class **Jules / OpenRouter** judgment
+drivers (today the subagent path is the no-key default; both are documented future
+backends). Next sibling: **381** (Health Score + config + `quality:` config block +
+`QualityRun` graph nodes for trend). The `analyze.review` headless core defined here
+is what **382** (SARIF + CI gate) calls.

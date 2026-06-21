@@ -218,13 +218,18 @@ def parse_judgment(text: str, valid_codes: set) -> list["Finding"]:
 
 def judgment(code_units: list[tuple[str, str]], risks: dict, *,
              driver=None, host=None, llm=None, host_completion: dict | None = None,
-             require: str | None = None) -> tuple[list["Finding"], dict | None]:
+             require: str | None = None,
+             model_hint: str | None = None) -> tuple[list["Finding"], dict | None]:
     """Run the LLM judgment pass over ``code_units``. Returns
     ``(findings, delegate)`` — ``delegate`` is ``None`` when findings were
     produced (or none applied), or the ``llm_delegate`` envelope dict when the
     host must run inference (Spec 279). The decidable pass has already run, so
     judgment is purely ADDITIVE: any failure degrades to ``([], None)`` and the
-    decidable findings still stand (Hightower CI-degradation path)."""
+    decidable findings still stand (Hightower CI-degradation path).
+
+    ``model_hint`` tags the delegate envelope with how the host should fulfil it
+    (e.g. ``"subagent"`` — dispatch a Claude subagent, no external LLM; ``"jules"``
+    — a remote agent). The host reads the hint off the returned envelope."""
     from agency._host_llm import complete_or_delegate, HostLLMRequest
     j_risks = judgment_risks(risks)
     if not j_risks or not code_units:
@@ -239,7 +244,7 @@ def judgment(code_units: list[tuple[str, str]], risks: dict, *,
         result = complete_or_delegate(
             driver, messages=messages, system=system, output_schema=None,
             host_completion=host_completion, host=host, llm=llm,
-            use_case="code", require=require)
+            use_case="code", require=require, model_hint=model_hint)
     except Exception:
         return [], None
     if isinstance(result, HostLLMRequest):
