@@ -69,3 +69,17 @@ Feature: Skill walk — atomic discipline execution (develop.skill_walk)
     Given a fresh agency engine in code-mode
     Then the "develop" capability has its authored "tdd" skill
     And the "develop" capability does not have a "develop-usage" skill
+
+  # ── Spec 372 — phase = single source (the walk surfaces instructions) ─────────
+
+  Scenario: a paused walk surfaces the current phase's inline instructions
+    When I walk the "tdd" skill with all phase inputs provided
+    Then the blocked phase carries non-empty instructions
+    And the blocked phase carries a goal
+
+  Scenario: the surfaced instructions match the skill's authored single source
+    When I walk the "tdd" skill with all phase inputs provided
+    Then the surfaced instructions equal the instructions authored on that phase
+
+  Scenario: progressive disclosure surfaces a phase's authored instructions from one source
+    Then the walker surfaces the tdd "red" phase instructions from one source

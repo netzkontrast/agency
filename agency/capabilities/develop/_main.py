@@ -66,10 +66,39 @@ DEV_SKILLS = {
     ]},
     # the Iron Law (RED before GREEN) is enforced by the phase ordering itself.
     "tdd": {"name": "tdd", "kind": "discipline", "phases": [
-        _phase(1, "red", ["failing_test"]),
-        _phase(2, "green", ["implementation"]),
-        _phase(3, "refactor", ["refactored"]),
-        _phase(4, "verify", ["tests_pass"], gate="hard"),
+        # Spec 372 — the tdd discipline is the first exemplar of inline phase
+        # content (A1/A2): each phase carries goal/instructions/(example) so the
+        # walk delivers what to DO, not just the phase name. ONE source — the
+        # rendered SKILL.md reads the same fields (373).
+        _phase(1, "red", ["failing_test"],
+               goal="Write ONE failing test that pins the behaviour before any "
+                    "production code.",
+               instructions="State the behaviour as a single, clearly-named test. "
+                            "Use real calls, not mocks. Run it and watch it FAIL "
+                            "for the right reason (feature missing, not a typo). If "
+                            "it passes, you are testing existing behaviour — fix the "
+                            "test.",
+               example="test_retries_three_times(): call retry(op); assert op ran "
+                       "3x. Run -> FAIL: retry is undefined.",
+               freedom="high"),
+        _phase(2, "green", ["implementation"],
+               goal="Write the simplest code that makes the failing test pass.",
+               instructions="Implement the minimum to go green — no extra features, "
+                            "no refactor yet (YAGNI). Re-run the test; it must pass.",
+               freedom="medium"),
+        _phase(3, "refactor", ["refactored"],
+               goal="Clean up while staying green.",
+               instructions="Remove duplication, improve names, extract helpers. "
+                            "Keep every test green; add no new behaviour.",
+               freedom="medium"),
+        _phase(4, "verify", ["tests_pass"], gate="hard",
+               goal="Confirm the suite is green before claiming the phase done.",
+               instructions="Run the focused slice, then the suite. Read the output "
+                            "— it must be pristine (no errors/warnings). Confirm this "
+                            "gate ONLY when tests actually pass; COMPLETED != done.",
+               example="python -m pytest -q tests/acceptance/test_skill_walk.py -> "
+                       "'N passed'. Then confirm.",
+               freedom="low"),
     ]},
     "debug": {"name": "debug", "kind": "discipline", "phases": [
         _phase(1, "gather", ["evidence"]),
@@ -499,6 +528,13 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
                     "resume_with": list(phase["produces"]),
                     "hint": res.get("hint",
                                     f"resume with resume_from={res['phase']!r}"),
+                    # Spec 372 — surface the paused phase's inline content (from
+                    # current()) so the agent sees WHAT to do at this rung, not
+                    # just its name (A1/A2). Empty when the phase authored none.
+                    "goal": phase.get("goal", ""),
+                    "instructions": phase.get("instructions", ""),
+                    "example": phase.get("example", ""),
+                    "freedom": phase.get("freedom", ""),
                     "skill_id": run.skill_id,
                     "partial_outputs": accumulated}
         accumulated.update(res.get("outputs", {}))

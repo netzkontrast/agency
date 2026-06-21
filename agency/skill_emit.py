@@ -157,10 +157,37 @@ def _render_tier_b_anchor(verb_name: str, fn, brief: str) -> str:
     )
 
 
+def _render_phase_detail(sk: dict) -> str:
+    """Spec 372/373 — render a skill's phases' inline TEACHING content
+    (`goal`/`instructions` from the single source) beneath its walk row, so the
+    file is self-contained (A1) and the rendered content equals what the walk
+    surfaces (372 parity — one source, two surfaces).
+
+    Returns "" when no phase authored inline content, so legacy disciplines
+    (phase name only) render byte-identically. Deterministic: same schema ⇒
+    same bytes (A7)."""
+    phases = sk.get("phases", [])
+    if not any(p.get("goal") or p.get("instructions") for p in phases):
+        return ""
+    lines = []
+    for n, p in enumerate(phases, start=1):
+        head = f"  {n}. **{p.get('name', '?')}**"
+        if p.get("goal"):
+            head += f" — {p['goal']}"
+        lines.append(head)
+        if p.get("instructions"):
+            lines.append(f"     {p['instructions']}")
+    return "\n" + "\n".join(lines)
+
+
 def _render_walk_section(skills: dict) -> str:
     """Spec 081 — render the '## Walk this capability' section from the cap's
     ontology.skills (derived `<cap>-usage` or authored disciplines). Lists each
-    walkable skill, its phase chain, and the develop.skill_walk invocation."""
+    walkable skill, its phase chain, and the develop.skill_walk invocation.
+
+    Spec 372/373 — a discipline whose phases carry inline content renders that
+    content inline (`_render_phase_detail`) so a reader gets the same
+    instructions a walking agent does (walk↔file parity)."""
     if not skills:
         return ""
     rows = []
@@ -169,7 +196,8 @@ def _render_walk_section(skills: dict) -> str:
         phases = " → ".join(p.get("name", "?") for p in sk.get("phases", []))
         rows.append(f"- **`{name}`** ({sk.get('kind', 'skill')}): {phases}\n"
                     f"  — walk it: `await call_tool('capability_develop_skill_walk', "
-                    f"{{'name': '{name}', 'inputs': {{}}, 'intent_id': '…'}})`")
+                    f"{{'name': '{name}', 'inputs': {{}}, 'intent_id': '…'}})`"
+                    + _render_phase_detail(sk))
     return ("\n## Walk this capability\n\n"
             "Drive this capability's verbs by WALKING a skill one phase at a time "
             "(progressive disclosure, recorded as provenance):\n\n"

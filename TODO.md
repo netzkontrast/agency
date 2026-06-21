@@ -373,3 +373,4 @@ Rebuild (derived from the Plan/ tree):
 - 384  quality-prose-templates
 - 385  quality-migration
 - 386  multilang-decidable-scanners
+- 387  loop-activation

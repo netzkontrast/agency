@@ -214,3 +214,54 @@ def _develop_has_tdd(engine):
 def _develop_no_usage(engine):
     dev = engine.registry.get("develop")
     assert "develop-usage" not in (dev.ontology.skills or {})
+
+
+# ── Then steps — Spec 372 (phase = single source) ─────────────────────────────
+
+@then("the blocked phase carries non-empty instructions")
+def _blocked_has_instructions(walk_result):
+    assert walk_result.get("instructions"), (
+        "a paused walk must surface the current phase's instructions, not just "
+        f"its name; got {walk_result.get('instructions')!r}")
+
+
+@then("the blocked phase carries a goal")
+def _blocked_has_goal(walk_result):
+    assert walk_result.get("goal"), "a paused walk must surface the phase's goal"
+
+
+@then("the surfaced instructions equal the instructions authored on that phase")
+def _surfaced_matches_source(engine, walk_result):
+    # One source, two surfaces: the instructions the walk delivers for the
+    # paused phase MUST equal the instructions authored on that phase in the
+    # capability's ontology (read live, not snapshotted — rule 8).
+    blocked = walk_result["phase"]
+    skills = engine.registry.get("develop").ontology.skills
+    src = next(p for p in skills["tdd"]["phases"] if p["name"] == blocked)
+    assert src.get("instructions"), (
+        "fixture: the tdd discipline must author this phase's instructions")
+    assert walk_result.get("instructions") == src["instructions"], (
+        "the walk must surface the SAME instructions authored on the phase "
+        "(one source, two surfaces)")
+
+
+@then(parsers.parse('the walker surfaces the tdd "{phase_name}" phase '
+                    'instructions from one source'))
+def _current_surfaces_phase(engine, confirmed_intent, phase_name):
+    # Progressive disclosure (skill.py current()) is the walk's source of truth.
+    # It must surface the phase's authored content, covering a NON-gate phase.
+    from agency.skill import SkillRun
+    schema = engine.registry.get("develop").ontology.skills["tdd"]
+    src = next(p for p in schema["phases"] if p["name"] == phase_name)
+    assert src.get("instructions"), (
+        f"fixture: the tdd {phase_name!r} phase must author instructions")
+    run = SkillRun(engine.memory, confirmed_intent, schema, registry=engine.registry)
+    cur = run.current()
+    while cur is not None and cur["name"] != phase_name:
+        sp = next(p for p in schema["phases"] if p["name"] == cur["name"])
+        run.submit({k: "x" for k in sp["produces"]},
+                   confirmed=sp.get("gate") == "hard")
+        cur = run.current()
+    assert cur is not None, f"walker never reached phase {phase_name!r}"
+    assert cur.get("instructions") == src["instructions"], (
+        "current() must surface the phase's authored instructions from one source")
