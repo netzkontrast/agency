@@ -121,8 +121,35 @@ Scenario: verify_report warns on an all-vibe criteria set
 
 ## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Re-drafted spine-framed (2026-06-21). The three-way taxonomy on the
-`gate` capability: programmatic via `gate.check`, judge via the 365 council, human
-via `elicit`. **Frugal: net-new is verification-rubric (data) + a `verify_report`
-helper — reuse `gate.check`, no new capability.** Depends on 365 for the judge
-path; consumed by the machine (366) and wizard (367).
+**Verdict:** Implemented (spine slice; 2026-06-21). The three-way taxonomy
+produces ONE typed verdict shape per criterion. **Frugal: net-new is
+verification-rubric (data) + criterion/verdict/report helpers — no new capability,
+no engine edit.**
+
+### Done
+- `agency/_loop.py::add_criterion` — typed criterion (programmatic/judge/human);
+  programmatic `check` argv-validated (shell-string rejected, Spec 192). Stored as
+  a JSON list on the loop node.
+- `agency/_loop.py::check_criterion` — one typed verdict (`pass|revise|input-
+  required`): programmatic runs the argv safely (argv-only, timeout) + matches
+  `expect`; judge parses the council verdict (`_parse_judge_verdict`, looper
+  degrade-on-unparseable → `revise` + `unparseable_judge_output`); human → typed
+  `input-required` pause naming the prompt.
+- `agency/_loop.py::verify_report` — audits the SET vs the rubric; flags all-vibe
+  (no deterministic floor); `programmatic_ratio` computed live (rule 8).
+- `verification-rubric.md` vendored → `agency/_lifecycle_data/loop/rubrics/`.
+- `tests/acceptance/{features/loop_verify.feature,test_loop_verify.py}` — 6
+  scenarios GREEN; all loop slices together = 24 green.
+
+### Still / Refinement (deferred by dependency, not skipped)
+- **Criteria are JSON-on-loop, not typed nodes.** The ontology is closed
+  (`memory.record("VerificationCriterion")` is rejected); the `VerificationCriterion`
+  node + edge land with the loop capability's `OntologyExtension` (capability
+  folder), promoting the JSON list to graph-native criteria + a gate ledger
+  (provenance moat).
+- **Judge council DISPATCH is Spec 365.** 364 owns the verdict SHAPE + degradation;
+  `check_criterion(judge_output=…)` consumes the council member's text. 365 wires
+  `panel`/`persona` to produce it.
+- **programmatic routing.** The argv runs via a stdlib subprocess (same argv-only +
+  timeout safety as `shell`/192) in the spine; it routes through the `gate.check`
+  verb + records a ledger entry when the capability folder lands.
