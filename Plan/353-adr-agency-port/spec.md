@@ -9,7 +9,7 @@ vision_goals: [2, 6, 7, 9]
 domain: core
 wave: adr-workflow
 affects:
-  - Plan/360-adr-ontology-capability/spec.md
+  - Plan/354-adr-ontology-capability/spec.md
   - Plan/355-adr-definition-of-done-gate/spec.md
   - Plan/356-spec-decision-extraction/spec.md
   - Plan/357-spec-state-lifecycle/spec.md
@@ -21,7 +21,7 @@ affects:
 
 > **Master spec.** Decomposes the port of the `adr` repository (the *enhanced
 > WH(Y) ADR format*) into agency, and the new repo-development **workflow** that
-> puts ADRs at its centre. Children: **360** (ADR ontology + capability),
+> puts ADRs at its centre. Children: **354** (ADR ontology + capability),
 > **355** (Definition-of-Done gate + governance lifecycle), **356** (spec→decision
 > extraction + architecture-hint loading), **357** (spec-state lifecycle: physical
 > folders + graph mirror), **358** (the `workflow` capability), **359**
@@ -118,21 +118,21 @@ decision, not just a Reflection).
 
 ```
 353 (this master)
- ├─ 360  ADR ontology + `adr` capability      ← foundation; everything binds here
- ├─ 355  Definition-of-Done gate + governance ← depends on 360
- ├─ 356  spec→decision extraction + hints     ← depends on 360, 355
- ├─ 357  spec-state lifecycle (folders+graph)  ← independent of 360; needed by 358
- ├─ 358  `workflow` capability (orchestration) ← depends on 355–357, 360, 359
+ ├─ 354  ADR ontology + `adr` capability      ← foundation; everything binds here
+ ├─ 355  Definition-of-Done gate + governance ← depends on 354
+ ├─ 356  spec→decision extraction + hints     ← depends on 354, 355
+ ├─ 357  spec-state lifecycle (folders+graph)  ← independent of 354; needed by 358
+ ├─ 358  `workflow` capability (orchestration) ← depends on 354–357, 359
  └─ 359  Brooks-lint critical-thinking pass    ← extends 091/092; used by 358
 ```
 
-**Build order:** 360 → 355 → (357 ‖ 359) → 356 → 358. 357 and 359 have no
+**Build order:** 354 → 355 → (357 ‖ 359) → 356 → 358. 357 and 359 have no
 dependency on the ADR core and can land in parallel; 358 is the capstone that
 chains all of them into one walkable lifecycle.
 
 ### Two new capabilities + one new critical-thinking method
 
-- **`adr`** (355, 356, 360) — the decision-record craft: draft · validate · link ·
+- **`adr`** (354–356) — the decision-record craft: draft · validate · link ·
   supersede · theme_status · render · impact · dod_check · extract_decisions ·
   hints.
 - **`workflow`** (357–358) — the repo-development lifecycle: the spec-state verbs
@@ -165,7 +165,7 @@ child forgets (the "full suite on a migration" heuristic).
 
 ### Slice 1 — the spec set is authored (this cycle)
 
-- [ ] Children 355–360 exist as `Plan/NNN-…/spec.md` with valid frontmatter and
+- [ ] Children 354–359 exist as `Plan/NNN-…/spec.md` with valid frontmatter and
       the standard sections (Why / Design / Done When / Failure modes /
       Interconnects / Followup).
 - [ ] This master's mapping table, reconciliations, sequencing, and reserved
@@ -176,7 +176,7 @@ child forgets (the "full suite on a migration" heuristic).
 
 ### Slice 2 — the children ship (follow-up, tracked per child)
 
-- [ ] 360 → 355 → 357 ‖ 359 → 356 → 358 land green per their own acceptance.
+- [ ] 354 → 355 → 357 ‖ 359 → 356 → 358 land green per their own acceptance.
 - [ ] An end-to-end dogfood proves the loop: a fresh intent walked through
       `workflow.develop-spec` produces a spec in `/draft`, panel+Brooks-lint
       findings folded, the spec moved to `/open`, decisions extracted into a
@@ -189,7 +189,7 @@ child forgets (the "full suite on a migration" heuristic).
 | Failure | Response |
 |---|---|
 | Two new caps (`adr`, `workflow`) drift the substrate set; naming-audit/`check-drift` go red on merge | Each child updates the documented set + `# AGENCY-DRIFT` tags in the same commit; this master names the obligation (rule 6) |
-| Thematic ADRs become a dumping ground — one giant file, the minimalism win lost | 360 ports MIN-001..005 as live `validate` rules (theme line budget, "decisions not implementations"); the file renders *live* decisions only |
+| Thematic ADRs become a dumping ground — one giant file, the minimalism win lost | 354 ports MIN-001..005 as live `validate` rules (theme line budget, "decisions not implementations"); the file renders *live* decisions only |
 | The ADR-approval gate (356) blocks all spec progress if it is too strict or unkeyed | Gate is a `ctx.elicit` human step (no API key needed); the predicate is "drafted decisions approved", not "perfect" — and `workflow` can record an explicit owner override (provenance-stamped) |
 | The port reimplements the `adr` CLI surface verbatim and bloats | Bind, don't reimplement: verbs over the substrate; the bash CLI mirror is auto-generated (Goal 5), so `adr new`-style ergonomics come free |
 | Master + 6 specs over-scope a single review | Design depth only this cycle; implementation is per-child TDD with its own PR-sized acceptance |
@@ -218,16 +218,16 @@ Full review: [`spec-panel-review.md`](spec-panel-review.md). Resolutions folded
 into the children:
 
 - **B1 — conceptual integrity (two constructs the substrate already covers):**
-  `AdrTheme` → a `Document` kind (above + 360); `develop-spec` recommended as a
+  `AdrTheme` → a `Document` kind (above + 354); `develop-spec` recommended as a
   `develop` discipline rather than a new `workflow` capability (358, owner decides
   the home). The set passing its own Spec 359 Brooks-lint is the validation.
 - **B2 — the ADR hinge's three failure paths:** approver = intent owner, no
   agent self-approve (355); zero-decision specs return `ready=false`, never a
   vacuous pass (356); the improve-gate has a decidable exit criterion (358).
 - **B3 — audit trail:** `adr.render` keeps a collapsed superseded-history
-  appendix (360).
+  appendix (354).
 - **M1 — strict schemas:** verb I/O are registered `Schema` nodes, not prose
-  (360/356), satisfying the owner's "super strict schemas" directive.
+  (354/356), satisfying the owner's "super strict schemas" directive.
 - **Theme-creation rule:** a theme == an architecture **layer** (the reserved
   set: Datalayer · Substrate · Capabilities · Lifecycle · Workflow). A new theme
   is an **owner decision**, never an extraction default — `extract_decisions`
@@ -237,9 +237,9 @@ into the children:
 ## Followup — Implementation Status (2026-06-20)
 
 ### Done — Slice 1
-- Master + children 355–360 authored at design depth + spec-panel reviewed
+- Master + children 354–359 authored at design depth + spec-panel reviewed
   (critique mode) and findings folded (this branch).
 
 ### Still — Slice 2
-- Implement children in build order (360 first). Each is its own TDD PR.
+- Implement children in build order (354 first). Each is its own TDD PR.
 - End-to-end dogfood of `workflow.develop-spec` (the Slice-2 acceptance above).

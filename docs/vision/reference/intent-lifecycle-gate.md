@@ -56,6 +56,14 @@ surface, Spec 339).
   `ctx.lifecycle.open(parameterization="remote-async")` (Spec 339), then `move`s it
   to `working` at dispatch.
 
+The **observe arm** (`read · find · check · watch`, Spec 341) is the Memory
+pillar's job, REUSED — no new lifecycle verbs: `read` = `manage.lifecycle(lid)`
+(a one-call rollup of state · intent · agent · gates), `find` =
+`manage.list("Lifecycle", where={state})`, `check` = `gate.check` (a failed
+check IS a `→input-required` transition), `watch` = `manage.lifecycle_trail(lid)`
+over the Spec 344 transition trail (a PULL; live PUSH stays `jules.watch` + the
+monitor channel).
+
 ## Gate (the `gate` capability)
 
 The machine-vs-human split the canon draws (CORE.md:57-62):

@@ -24,27 +24,52 @@ Contracts honoured:
 - **no graph record per delivery** — the dedup marker lives in the EPHEMERAL
   store, not the durable graph (Spec 349 review S1 / Spec 336).
 
-``event.emit`` for custom + lifecycle events are later slices (349b+).
+Spec 349b §2 — subscriptions are **declarative**: a capability declares a tuple of
+:class:`Subscription` (DATA) and ONE engine-bootstrap loop
+(:func:`register_capability_subscriptions`) resolves each handler by name + calls
+:func:`subscribe`. Subscribers fire in ascending ``priority`` (§7).
+``event.emit`` for custom + lifecycle events are later slices (349c+).
 """
 from __future__ import annotations
 
-# [(event, handler(engine, event) -> str, once_per, once_fail_emit, name)] —
-# append-only, idempotent by (event, name). Module-level: the engine consumes it
+from dataclasses import dataclass
+
+# [(event, handler(engine, event) -> str, once_per, once_fail_emit, name, priority)]
+# — append-only, idempotent by (event, name). Module-level: the engine consumes it
 # as substrate; capabilities only declare subscriptions.
 _SUBSCRIPTIONS: list[tuple] = []
 
 _ONCE_SCOPES = ("", "session", "session.tool")
 
 
+@dataclass(frozen=True)
+class Subscription:
+    """Spec 349b §2 — a capability's declared event interest as DATA (not an
+    imperative ``subscribe`` call). ``handler`` is the NAME of a module-level
+    ``handler(engine, event) -> str`` function on the capability's module,
+    resolved against that module at engine bootstrap (so definition order in the
+    file never matters). Declaring it as data makes it inspectable, driftable, and
+    registered in ONE loop. ``once_fail_emit``/``priority`` mirror :func:`subscribe`."""
+
+    event: str
+    handler: str
+    once_per: str = ""
+    once_fail_emit: bool = False
+    priority: int = 50
+    name: str = ""
+
+
 def subscribe(event: str, handler, *, once_per: str = "",
-              once_fail_emit: bool = False, name: str = "") -> None:
+              once_fail_emit: bool = False, name: str = "",
+              priority: int = 50) -> None:
     """Declare a hook-event subscription. ``handler(engine, event) -> str`` returns
     the context fragment to inject (empty = nothing).
 
     ``once_per``: ``""`` = every occurrence; ``"session.tool"`` = once per
     (session, tool); ``"session"`` = once per session. ``once_fail_emit`` picks the
     fail-open direction when the dedup store is unavailable — ``True`` emits anyway
-    (a mandatory inject), ``False`` skips (an optional hint).
+    (a mandatory inject), ``False`` skips (an optional hint). ``priority`` orders
+    multiple subscribers on one event (lower runs first, §7).
 
     ``name`` is REQUIRED and must be stable + unique per event (the idempotency
     key): a re-imported module re-subscribing with the same (event, name) REPLACES
@@ -59,12 +84,40 @@ def subscribe(event: str, handler, *, once_per: str = "",
     if once_per not in _ONCE_SCOPES:
         raise ValueError(f"once_per must be one of {_ONCE_SCOPES}; got {once_per!r}")
     _SUBSCRIPTIONS[:] = [s for s in _SUBSCRIPTIONS if (s[0], s[4]) != (event, name)]
-    _SUBSCRIPTIONS.append((event, handler, once_per, once_fail_emit, name))
+    _SUBSCRIPTIONS.append((event, handler, once_per, once_fail_emit, name, priority))
 
 
 def subscriptions_for(event: str) -> list[tuple]:
-    """Every subscription registered for ``event``, in registration order."""
-    return [s for s in _SUBSCRIPTIONS if s[0] == event]
+    """Every subscription for ``event``, ordered by ascending ``priority`` then
+    registration order (a stable sort — the §7 deterministic-ordering contract)."""
+    return sorted((s for s in _SUBSCRIPTIONS if s[0] == event),
+                  key=lambda s: s[5])
+
+
+def register_capability_subscriptions(caps) -> int:
+    """Spec 349b §2 — THE missing loop. Walk every registered capability, read its
+    declarative ``subscriptions`` tuple, resolve each handler by name against the
+    capability's module, and ``subscribe`` it. This is the *reader* the infra
+    audit found missing: capabilities self-register verbs by reflection but could
+    not self-register event interest. Returns the count registered."""
+    import importlib
+    # AGENCY-DRIFT: event-subscribers — every declarative subscription flows
+    # through this loop; `grep -rn 'subscriptions =' agency/capabilities` lists
+    # the declarations, `subscriptions_for(event)` lists the live registrations.
+    count = 0
+    for cap in caps:
+        module = getattr(cap, "module", "")
+        for sub in getattr(cap, "subscriptions", ()) or ():
+            try:                                 # a broken sub never breaks bootstrap
+                handler = getattr(importlib.import_module(module), sub.handler)
+            except (ImportError, AttributeError):
+                continue
+            subscribe(sub.event, handler, once_per=sub.once_per,
+                      once_fail_emit=sub.once_fail_emit,
+                      name=sub.name or f"{cap.name}.{sub.handler}",
+                      priority=sub.priority)
+            count += 1
+    return count
 
 
 def _deliver_once(store, once_per: str, session: str, tool: str, name: str,
@@ -89,14 +142,15 @@ def _deliver_once(store, once_per: str, session: str, tool: str, name: str,
 
 
 def run(engine, event_name: str, event: dict) -> list[str]:
-    """Fan ``event_name`` out to its subscriptions, applying each one's ``once_per``
-    dedup, and return the emitted context fragments in registration order.
-    Fail-isolated: a raising subscriber is skipped (and surfaced on the monitor)."""
+    """Fan ``event_name`` out to its subscriptions (ascending priority, §7),
+    applying each one's ``once_per`` dedup, and return the emitted context
+    fragments. Fail-isolated: a raising subscriber is skipped (and surfaced on the
+    monitor)."""
     out: list[str] = []
     ev = event or {}
     session, tool = ev.get("session_id", ""), ev.get("tool_name", "")
     store = getattr(engine, "toolcalls", None)
-    for _evt, handler, once_per, fail_emit, name in subscriptions_for(event_name):
+    for _evt, handler, once_per, fail_emit, name, _prio in subscriptions_for(event_name):
         try:
             if once_per and not _deliver_once(
                     store, once_per, session, tool, name, fail_emit=fail_emit):
