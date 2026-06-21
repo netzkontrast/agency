@@ -52,7 +52,7 @@ Slice 2.
 - `scripts/check-doc-drift` → NO DOC DRIFT.
 - `python -m agency.install` → install clean (no regen needed).
 - TODO.md: Spec 350 row updated (Drafted → Partial; Partially-implemented count 0→1).
-- `Plan/350-relevance-output-filter/spec.md` Followup updated with Slice 1 done/still.
+- `Plan/inprogress/350-relevance-output-filter/spec.md` Followup updated with Slice 1 done/still.
 
 ## Candidate investigation notes
 

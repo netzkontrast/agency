@@ -1,0 +1,82 @@
+{
+  "_source": "brooks-lint@ec44ec8 skills/brooks-*/{pr-review,architecture,debt,test,health,sweep}-guide.md + _shared/common.md",
+  "_note": "Vendored ORDERED review methodology (the 'chain') the judgment subagent walks, per mode. This carries ONLY the step ordering + cross-cutting methodology — the per-risk symptom / 'do NOT flag' / source prose is NOT duplicated here; it derives from decay-risks.json at prompt-build time (CLAUDE.md rule 2). Risk codes here are mapped by SMELL NAME to decay-risks.json (e.g. T1=Test Obscurity, T5=Coverage Illusion), not by step position. Drift-tracked: scripts/check-drift verifies every step code is a real decay-risks code and that _source matches the pinned upstream rev. Spec 384 (quality-prose-templates) should DERIVE its per-mode guidance prose from this single source, not re-vendor it.",
+  "_methodology": {
+    "iron_law": "EVERY finding follows Symptom -> Source -> Consequence -> Remedy. A finding without a consequence AND a remedy is noise, not a finding -- drop it.",
+    "severity": "Critical = breaks velocity / creates production risk today; Warning = will degrade through the next few features if left; Suggestion = worth fixing when nearby, not urgent.",
+    "scope_calibration": "Skip generated files (protobuf stubs, OpenAPI clients, ORM migrations, lock files, minified bundles). For a large change, sample the highest-risk areas and say the review is sampled.",
+    "fix_order": "List Critical findings first; with more than five findings, end with a one-line recommended fix order.",
+    "restraint": "A threshold crossing is a hint, not a verdict. Honor each risk's 'do NOT flag' guard. Reply [] when nothing genuinely applies."
+  },
+  "review": {
+    "title": "PR Review",
+    "purpose": "Analyze a diff or files for decay risks directly visible in the changed code.",
+    "steps": [
+      {"name": "Understand the scope", "intent": "State the change's purpose and the files touched; a PR touching more than ~10 unrelated files is itself a Change Propagation signal."},
+      {"name": "Scan for Change Propagation", "risks": ["R2"], "intent": "Scan first -- most visible in a diff: cross-module edits beyond what the feature needs, divergent change, feature envy, inappropriate intimacy."},
+      {"name": "Scan for Cognitive Overload", "risks": ["R1"], "intent": "Long, deeply-nested or over-parameterised new functions; magic values; cryptic names; train-wreck chains."},
+      {"name": "Scan for Knowledge Duplication", "risks": ["R3"], "intent": "Logic, a concept name, or a class hierarchy that already exists elsewhere in the codebase."},
+      {"name": "Scan for Accidental Complexity", "risks": ["R4"], "intent": "One-use abstractions, pure wrappers/delegators, extension points serving no current requirement."},
+      {"name": "Scan for Dependency Disorder", "risks": ["R5"], "intent": "High-level modules importing low-level ones, new cycles, interfaces forcing unused dependencies. Skip if no new imports."},
+      {"name": "Scan for Domain Model Distortion", "risks": ["R6"], "intent": "Names that mismatch the business language; pure data bags where behavior was expected; domain logic stranded in a utility layer."},
+      {"name": "Quick Test Check", "risks": ["T5", "T4", "T1"], "intent": "Three signals only: new behavior shipped without tests (Coverage Illusion); mock setup longer than the test logic (Mock Abuse); vague test names with no assertion messages (Test Obscurity). Skip for docs/config-only changes."}
+    ]
+  },
+  "audit": {
+    "title": "Architecture Audit",
+    "purpose": "Assess module structure, dependency direction, and domain fidelity across the codebase.",
+    "steps": [
+      {"name": "Gather codebase context", "intent": "Map the modules, entry points, and layering before judging any single edge."},
+      {"name": "Draw the module dependency graph", "intent": "Trace imports between modules; a cycle or a high-to-low edge is the audit's primary signal."},
+      {"name": "Scan for Dependency Disorder", "risks": ["R5"], "intent": "Dependencies flowing against the abstraction gradient; cycles; fat interfaces; fan-out above five."},
+      {"name": "Scan for Domain Model Distortion", "risks": ["R6"], "intent": "Anemic models, domain logic leaked into services/utilities, names that mismatch the domain."},
+      {"name": "Scan the remaining risks", "risks": ["R1", "R2", "R3", "R4"], "intent": "Cognitive overload, change propagation, knowledge duplication, and accidental complexity at module scope."},
+      {"name": "Testability seam assessment", "risks": ["T6"], "intent": "Can modules be tested in isolation, or do hard-wired dependencies block the seams (Architecture Mismatch)?"},
+      {"name": "Conway's Law check", "intent": "Does the module structure mirror the team and communication structure, or fight it?"}
+    ]
+  },
+  "debt": {
+    "title": "Tech Debt Assessment",
+    "purpose": "Inventory decay across the codebase and rank it by remediation leverage.",
+    "steps": [
+      {"name": "Full decay-risk scan", "risks": ["R1", "R2", "R3", "R4", "R5", "R6"], "intent": "Scan all six code-decay risks across the scope -- breadth first, not depth."},
+      {"name": "Score each finding by Pain x Spread", "intent": "Pain = how much it hurts to work near it; Spread = how much code it touches. The product ranks leverage."},
+      {"name": "Classify debt intent", "intent": "Deliberate vs inadvertent, prudent vs reckless (Fowler's debt quadrant) -- frames remedy urgency."},
+      {"name": "Group by decay risk", "intent": "Cluster findings by risk so the report shows systemic patterns, not a flat list."}
+    ]
+  },
+  "test": {
+    "title": "Test Quality Review",
+    "purpose": "Diagnose test-suite decay -- the six test risks T1-T6.",
+    "steps": [
+      {"name": "Scan for Test Obscurity", "risks": ["T1"], "intent": "Vague test names; no assertion messages; the scenario and expected outcome are not expressed by the name."},
+      {"name": "Scan for Test Brittleness", "risks": ["T2"], "intent": "Tests coupled to implementation detail that break on a safe refactor."},
+      {"name": "Scan for Mock Abuse", "risks": ["T4"], "intent": "Mock setup longer than the test logic; assertions only that a mock was called, with no behavior verified."},
+      {"name": "Scan for Test Duplication", "risks": ["T3"], "intent": "The same scenario asserted many times; copy-pasted setup that should be a shared fixture."},
+      {"name": "Scan for Coverage Illusion and Architecture Mismatch", "risks": ["T5", "T6"], "intent": "Behavior that looks covered but is not (Coverage Illusion); a test structure that cannot reach the design's seams (Architecture Mismatch)."},
+      {"name": "Apply the Iron Law and output the report", "intent": "Every test finding still needs Symptom -> Source -> Consequence -> Remedy."}
+    ]
+  },
+  "health": {
+    "title": "Health Dashboard",
+    "purpose": "A fast four-dimension health snapshot rather than a deep per-risk review.",
+    "steps": [
+      {"name": "PR dimension", "risks": ["R2", "R1"], "intent": "Abbreviated diff scan for Change Propagation and Cognitive Overload; cap at three findings."},
+      {"name": "Architecture dimension", "risks": ["R5"], "intent": "Dependency Disorder at module scope: circular deps, upward flows, fan-out above five."},
+      {"name": "Debt dimension", "risks": ["R1", "R2", "R3", "R4", "R5", "R6"], "intent": "All six code-decay risks, severity-tier only (skip Pain x Spread); cap at two per code, three overall."},
+      {"name": "Test dimension", "risks": ["T1", "T2"], "intent": "Test Obscurity and Test Brittleness across the test files; cap at three findings."},
+      {"name": "Compute dashboard scores and output", "intent": "Roll each dimension into a score; the dashboard plus the one or two highest-leverage actions is the deliverable, not a flat finding list."}
+    ]
+  },
+  "sweep": {
+    "title": "Full Sweep",
+    "purpose": "Run every mode's pass in sequence for a complete decay picture.",
+    "steps": [
+      {"name": "Review pass (R1-R6 code decay)", "risks": ["R1", "R2", "R3", "R4", "R5", "R6"], "intent": "The full PR-review chain over the scope."},
+      {"name": "Test pass (T1-T6 test decay)", "risks": ["T1", "T2", "T3", "T4", "T5", "T6"], "intent": "The full test-quality chain over the test suite."},
+      {"name": "Debt pass", "intent": "Rank the accumulated findings by Pain x Spread."},
+      {"name": "Architecture pass", "risks": ["R5", "R6"], "intent": "Dependency direction and domain fidelity at module scope."},
+      {"name": "Aggregate residuals and report", "intent": "De-duplicate across passes; produce one ranked report, Critical first."}
+    ]
+  }
+}

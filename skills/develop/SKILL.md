@@ -38,7 +38,7 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | `reference` | transform | Fetch a discipline's heavy how-to on demand (T3 disclosure). | [details](references/reference.md) |
 | `reload` | effect | Reload edited capability code into the live session (effect). | [details](references/reload.md) |
 | `remediate` | effect | Apply the remedy phase of a prior review — safe fixes auto-applied, risky ones reported as gated (MUTATES → role=effect). | [details](references/remediate.md) |
-| `review` | transform | Diagnose code decay using the brooks Iron Law — READ-ONLY (transform). | [details](references/review.md) |
+| `review` | transform | Diagnose code decay using the brooks Iron Law — INTERACTIVE (transform). | [details](references/review.md) |
 | `scaffold_capability` | act | Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton. | [details](references/scaffold_capability.md) |
 | `session_check` | transform | Read the current SessionLifecycle state (transform). | [details](references/session_check.md) |
 | `session_init` | act | Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb. | [details](references/session_init.md) |

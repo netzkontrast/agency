@@ -33,7 +33,7 @@ disciplines as walkable skills (`brainstorm`, `plan`, `spec-panel`, `tdd`, `veri
 - The **vision specs** (the authoritative per-part contracts) are in
   [../vision/specs/](../vision/specs/).
 - The **cluster map** (which of the 13 SDLC+meta clusters a verb/skill lands in) is
-  Spec 047 (`Plan/047-cluster-integration/`).
+  Spec 047 (`Plan/inprogress/047-cluster-integration/`).
 
 ## Recently shipped (this generation)
 
