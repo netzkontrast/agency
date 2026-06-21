@@ -4,7 +4,7 @@ slug: adr-definition-of-done-gate
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
-depends_on: ["354", "339"]
+depends_on: ["360", "339"]
 vision_goals: [3, 6]
 domain: core
 wave: adr-workflow
@@ -16,7 +16,7 @@ affects:
 
 # Spec 355 — ADR Definition-of-Done gate + governance lifecycle
 
-> Child of **353**, builds on **354**. Ports SPEC-001-E (the extended Definition
+> Child of **353**, builds on **360**. Ports SPEC-001-E (the extended Definition
 > of Done — ECADR + Dp/Rf/M) as a real **Gate**, and models a decision's status
 > progression as a **Lifecycle**. This is the gate 356/358 require before a spec
 > may leave `/open`.
@@ -41,7 +41,7 @@ Eight criteria. Each maps to a check that is **automated**, **partial**, or
 | Criterion | Check id | Mode | How agency decides it |
 |---|---|---|---|
 | **E** Evidence | DOD-E01 | partial | context/`facing` references a PoC/prior-art (heuristic) + human confirm |
-| **C** Criteria | DOD-C01 | auto | ≥2 alternatives in `neglected` (reuses 354 `validate` WHY-003+) |
+| **C** Criteria | DOD-C01 | auto | ≥2 alternatives in `neglected` (reuses 360 `validate` WHY-003+) |
 | **A** Agreement | DOD-A01 | partial | governance fields populated + human confirm |
 | **D** Documentation | DOD-D01/02 | auto | WH(Y) `validate` passes; theme Document exists & published |
 | **R** Realization/Review | DOD-R01 | auto | `review_cadence` set; `next_review` computed |
@@ -87,7 +87,7 @@ the `adr` verbs drive through `ctx.lifecycle`:
 ```
 proposed → under-review → approved → implemented → retired
                        ↘ rejected
-        (any approved) → superseded   (via adr.supersede, 354)
+        (any approved) → superseded   (via adr.supersede, 360)
         (cadence lapsed) → expired     (automated review-cadence sweep)
 ```
 
@@ -100,7 +100,7 @@ table that rots.
 ### Slice 1 — dod_check + approve gate
 
 - [ ] `adr.dod_check` returns the eight ported criteria with correct mode and
-      severity; auto checks reuse 354 `validate` (no duplicated rule logic).
+      severity; auto checks reuse 360 `validate` (no duplicated rule logic).
 - [ ] `adr.approve` blocks when an automated criterion fails (returns
       `input-required` naming the failure), and pauses at the human criteria via
       `ctx.elicit`, recording a `Gate` node either way.
@@ -139,7 +139,7 @@ table that rots.
 
 ## Interconnects
 
-- **354** — reuses `validate`; same `adr` capability.
+- **360** — reuses `validate`; same `adr` capability.
 - **339 (lifecycle pillar)** — decision status IS a Lifecycle.
 - **356/358** — the workflow's `/open → /inprogress` transition predicate is
   "all decisions extracted from this spec are `approved`" → this gate.

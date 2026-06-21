@@ -1,5 +1,5 @@
 ---
-spec_id: "354"
+spec_id: "360"
 slug: adr-ontology-capability
 status: draft
 last_updated: 2026-06-20
@@ -16,7 +16,7 @@ affects:
   - tests/acceptance/test_adr.py
 ---
 
-# Spec 354 — ADR ontology + `adr` capability
+# Spec 360 — ADR ontology + `adr` capability
 
 > Child of **353**. The foundation: the strict ontology for architecture
 > decisions (the ported WH(Y) format) and the dedicated `adr` capability that

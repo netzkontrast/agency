@@ -4,7 +4,7 @@ slug: workflow-capability
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
-depends_on: ["353", "354", "355", "356", "357", "359", "307", "018", "047"]
+depends_on: ["353", "360", "355", "356", "357", "359", "307", "018", "047"]
 vision_goals: [1, 2, 6]
 domain: core
 wave: adr-workflow
@@ -33,7 +33,7 @@ improve, im Loop bis das Design gut ist — und dann anfangen mit Entwicklung. F
 jeden Workflow-Step eigene MCP-Tools (die aber auch gechaint werden können)."*
 
 agency already owns every *step* — `discover` (interview), `develop`
-(brainstorm/plan/tdd), `develop.spec_panel`, `research`, `adr` (354–356),
+(brainstorm/plan/tdd), `develop.spec_panel`, `research`, `adr` (355, 356, 360),
 `workflow` spec-state (357), `intent.brooks_lint` (359). What it lacks is the
 **through-line**: a single Lifecycle template that orders them, delivers one phase
 at a time (Spec 018 walker, token-bounded), guards the ADR hinge, and records the
@@ -142,7 +142,7 @@ extends the cluster master's pattern; it does not break it.
 
 ## Interconnects
 
-- **354/355/356** — the ADR craft + gate + extraction the hinge phases drive.
+- **360/355/356** — the ADR craft + gate + extraction the hinge phases drive.
 - **357** — the spec-state verbs this capability hosts and drives.
 - **359** — Brooks-lint phase in the improve-loop.
 - **307/309 (discover)** — the triage phase.
@@ -183,4 +183,4 @@ extends the cluster master's pattern; it does not break it.
 - Resolve B1 (discipline-in-`develop` vs standalone `workflow` cap) with the owner
   before Slice 1.
 - Slice 1 (skill + spec-state verbs) then Slice 2 (ADR hinge + step verbs + e2e
-  dogfood) via TDD. Land after 354–357 + 359.
+  dogfood) via TDD. Land after 355–357, 360 + 359.

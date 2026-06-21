@@ -4,7 +4,7 @@ slug: spec-decision-extraction
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
-depends_on: ["354", "355", "292", "290"]
+depends_on: ["360", "355", "292", "290"]
 vision_goals: [2, 6, 9]
 domain: core
 wave: adr-workflow
@@ -16,7 +16,7 @@ affects:
 
 # Spec 356 — spec→decision extraction + architecture-hint loading
 
-> Child of **353**, builds on **354/355**. The hinge the owner asked for: when a
+> Child of **353**, builds on **360/355**. The hinge the owner asked for: when a
 > spec lands in `/open`, an MCP tool **extracts its key decisions into an ADR
 > draft**; the spec may not advance to `/inprogress` until that draft is
 > approved (355). And the payoff — at the start of implementation, the approved
@@ -35,7 +35,7 @@ A spec already contains its decisions — buried in prose under `## Why`,
 `## Design`, and the spec-panel/Brooks-lint findings. Today that signal is lost
 the moment implementation starts; the implementer re-derives intent from scratch.
 This spec turns those decisions into **first-class, approved, queryable
-`Decision` nodes** (354) and then **re-projects** them — distilled to code +
+`Decision` nodes** (360) and then **re-projects** them — distilled to code +
 architecture hints — into the implementer's context. That closes Goal 6 (the
 loop ends in an approved decision, not just a Reflection) and Goal 2 (the
 decisions are provenance, traversable from the intent).
@@ -64,7 +64,7 @@ decisions are provenance, traversable from the intent).
    context, facing, decision, neglected, benefits, tradeoffs, evidence_span}]}` —
    token-budgeted (rule 9: never truncate the *stored* record, but a *preview* may
    be budgeted, like `manage.project`). **`apply=True`** drafts each candidate as a
-   `Decision` (354 `adr.draft`, status `proposed`) `PART_OF` its theme and
+   `Decision` (360 `adr.draft`, status `proposed`) `PART_OF` its theme and
    `REFINES` ← the spec, recording provenance.
 
 The verb is **chainable**: `apply=False` → human edits the candidates →
@@ -146,7 +146,7 @@ the minimum an implementer needs to not contradict an approved decision.
 
 ## Interconnects
 
-- **354** — drafts via `adr.draft`; links via `REFINES`/`PART_OF`.
+- **360** — drafts via `adr.draft`; links via `REFINES`/`PART_OF`.
 - **355** — `spec_decisions_ready` reads the approval Gate; "ready" == all approved.
 - **292 (Document)** — the spec body is ingested as the extraction source.
 - **290 (manage.project)** — the budgeted hint projection reuses the ranking/split.
