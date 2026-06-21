@@ -264,3 +264,21 @@ block (disable/severity/ignore/focus/strictness/custom_risks) onto Spec 334 +
 validation; the `QualityRun{status}` history node + trend query; the scan-time
 suppression *scoring* read; and `intent.triage` + the `Suppression`/
 `Acknowledgement` ontology on `IntentCapability`.
+
+**Slice 2 SHIPPED 2026-06-21 (TDD) — the `quality:` config block (§2).**
+`analyze/_score.py` gains pure `parse_quality_config(raw, preset_names) →
+(config, notes)` (validation, NEVER fatal — focus+disable both set → ignore both
++ note; unknown strictness → balanced + note) and `apply_quality_config(findings,
+config)` (filter: `ignore` glob excludes files, `disable` drops risks, `focus`
+keeps ONLY listed risks, `severity` overrides a risk's tier). `analyze.score`
+grows a `config` param + `preset` now defaults to `""` so the config `strictness`
+selects the preset when none is passed explicitly; returns `config_notes` +
+`scored_findings`. **4 Gherkin scenarios** (`tests/acceptance/features/
+quality_config.feature`): disable, focus, the focus/disable conflict note,
+strictness→preset. Slice-1 scenarios still green under the new default. Install
+regen + analyze slice green (51 passed); check-drift + doc-drift clean. **Still
+(Slice 3+):** reading the block from `.agency/config.yaml` (Spec 334 wiring — the
+verb takes the config dict today; the review verbs pass it); the
+`QualityRun{status}` history node + trend query; the scan-time suppression
+*scoring* read; and `intent.triage` + the `Suppression`/`Acknowledgement`
+ontology on `IntentCapability`.
