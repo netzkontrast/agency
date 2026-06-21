@@ -202,13 +202,25 @@ standalone **`workflow` capability** (hosting the spec-state verbs). So the
   at the improve gate (+≥8 Phase provenance nodes) · resume → pauses at the
   adr-approve hinge. workflow_skill + spec_state 9 green; schema 44; drift clean.
 
-### Still — Slice 2 (step verbs + e2e dogfood)
-- The step sugar verbs (`start`/`design`/`open_spec`*/`approve_decisions`/
-  `begin_impl`/`finish`) — individually callable, chainable, same provenance.
-  (*357 already has `workflow.open_spec` minting the SpecLifecycle; the 358
-  phase-10 step needs a different name, e.g. `to_open`, to avoid the collision.)
-- The end-to-end dogfood (353 Slice-2 acceptance): a real intent walked through
-  develop-spec → /draft → folded findings → /open + decision drafts → approved
-  ADR → guarded /inprogress + hints → /done, one provenance tree.
-- Optional: promote phases to executable `invoke` bindings (auto-run the bound
-  verb) where the phase IS a single deterministic verb call.
+### Done — Slice 2 (TDD, shipped 2026-06-21)
+- The **ADR-hinge step verbs** (phases 10–12), composable sugar that routes
+  through the real caps (provenance recorded identically — the moat is not
+  bypassed): `to_open` (move draft→open + `adr.extract_decisions apply=True`),
+  `approve_decisions(spec, approver, override)` (the `adr.approve` loop — owner
+  only), `begin_impl` (the guarded open→inprogress move BLOCKED until
+  `spec_decisions_ready`, then loads `adr.hints`). The phase-10 step is `to_open`
+  (not `open_spec` — that 357 name mints the SpecLifecycle).
+- **End-to-end dogfood scenario:** an ingested spec → `to_open` (extract) →
+  `begin_impl` BLOCKED on unapproved decisions → `approve_decisions` (owner
+  override) → `begin_impl` advances to `inprogress` with hints loaded. 1 scenario;
+  workflow_skill 4 green.
+
+### Deliberately NOT built (frugal floor — second-system check)
+- The thin `start`/`design`/`finish` sugar verbs: they would only re-wrap
+  `intent.capture` / the walker / `develop.verify`+`move_spec` with no composition
+  value — the walker already delivers those phases. Adding them is the
+  second-system smell `intent.brooks_lint` (359) flags. The hinge verbs (which
+  genuinely COMPOSE multiple caps + the gate) are the ones worth the surface.
+- Promoting phases to executable `invoke` bindings — deferred (the discipline
+  stays walkable-by-hand; an `invoke` phase would auto-run a verb that often needs
+  rich args, which the cue form leaves to the agent).

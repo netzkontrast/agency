@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# agency-generated: v1 — capability_adr_update
-# UPDATE a ``Decision`` in place — advance its ``status`` and/or fill WH(Y) elements + governance incrementally (the DOMAIN mutator; never reach into `manage` for an ADR).
-# Usage: agency-adr-update [--intent-id ID] <decision_id> [status] [context] [facing] [decision] [neglected] [benefits] [tradeoffs] [proposed_by] [next_review] [review_cadence]
+# agency-generated: v1 — capability_workflow_approve_decisions
+# APPROVE_DECISIONS — phase 11: run `adr.approve` over every decision that `REFINES` the spec (the ADR hinge's human step).
+# Usage: agency-workflow-approve_decisions [--intent-id ID] <spec_id> <approver> [override]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,8 +19,8 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 1 ]; then
-  echo "error: expected at least 1 required arg(s) (decision_id); got ${#args[@]}" >&2
+if [ "${#args[@]}" -lt 2 ]; then
+  echo "error: expected at least 2 required arg(s) (spec_id approver); got ${#args[@]}" >&2
   exit 2
 fi
 
@@ -68,21 +68,13 @@ def _coerce(raw, ann):
         return {}
     return raw
 _kw = {"intent_id": sys.argv[1]}
-_kw["decision_id"] = _coerce(sys.argv[2], str)
-if len(sys.argv) > 3: _kw["status"] = _coerce(sys.argv[3], str)
-if len(sys.argv) > 4: _kw["context"] = _coerce(sys.argv[4], str)
-if len(sys.argv) > 5: _kw["facing"] = _coerce(sys.argv[5], str)
-if len(sys.argv) > 6: _kw["decision"] = _coerce(sys.argv[6], str)
-if len(sys.argv) > 7: _kw["neglected"] = _coerce(sys.argv[7], str)
-if len(sys.argv) > 8: _kw["benefits"] = _coerce(sys.argv[8], str)
-if len(sys.argv) > 9: _kw["tradeoffs"] = _coerce(sys.argv[9], str)
-if len(sys.argv) > 10: _kw["proposed_by"] = _coerce(sys.argv[10], str)
-if len(sys.argv) > 11: _kw["next_review"] = _coerce(sys.argv[11], str)
-if len(sys.argv) > 12: _kw["review_cadence"] = _coerce(sys.argv[12], str)
+_kw["spec_id"] = _coerce(sys.argv[2], str)
+_kw["approver"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["override"] = _coerce(sys.argv[4], bool)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "
 import json
-return await call_tool('capability_adr_update', json.loads(r'''${kwargs}'''))
+return await call_tool('capability_workflow_approve_decisions', json.loads(r'''${kwargs}'''))
 "

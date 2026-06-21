@@ -192,9 +192,18 @@ Red on drift. This is the enforcement that keeps the three surfaces honest.
   failed). 1 acceptance scenario over a clean/drifted/legacy fixture tree;
   spec_state 6 green.
 
-### Still — gate wiring + superseding edge
-- Wire `index.ok` into the `scripts/check-drift` spec-state gate (without
-  reddening the grandfathered legacy tree).
-- `move_spec(..., "superseded")` currently advances the Lifecycle; recording the
-  `SUPERSEDES` edge to the replacing spec + the physical folder move are deferred.
-- `move_spec` re-anchoring intra-repo links on a physical move.
+### Done — gate + superseding edge (TDD, shipped 2026-06-21)
+- **check-drift spec-state gate**: `scripts/check-drift` now enforces folder ==
+  frontmatter `state:` for every spec under `Plan/<state>/` (pure bash, no Engine);
+  legacy flat `Plan/NNN-slug/` specs are grandfathered (not under a state folder →
+  not checked). Validated: a deliberately drifted fixture (folder `open`,
+  frontmatter `draft`) trips DRIFT DETECTED; the repo (state folders hold only
+  `.gitkeep`) is clean.
+- **`SUPERSEDES` edge**: `workflow.move_spec(spec, "superseded", superseded_by=…)`
+  records the forward reference via the core `SUPERSEDED_BY` edge (this spec → its
+  replacement). 1 acceptance scenario.
+
+### Still — physical folder move
+- `move_spec` physically moving the `Plan/<state>/NNN-slug/` directory + re-anchoring
+  intra-repo links on the move (today the `SpecLifecycle` node is the queryable
+  spine; the folder is managed by hand / a later `migrate` verb).

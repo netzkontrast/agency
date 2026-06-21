@@ -24,3 +24,14 @@ Feature: the develop-spec repo-development workflow (Spec 358)
     When I walk develop-spec with the design inputs
     And I resume the walk past the improve gate
     Then the walk pauses at the "adr-approve" hard gate
+
+  # ── Slice 2 — the ADR-hinge step verbs (end-to-end dogfood) ───────────────────
+
+  Scenario: the hinge step verbs carry a spec from open to inprogress with hints
+    Given an ingested spec with decisions
+    When I open the spec to extract its decisions
+    And I attempt to begin implementation
+    Then implementation is blocked on unapproved decisions
+    When I approve the spec decisions as owner "owner-alice"
+    And I attempt to begin implementation
+    Then implementation begins with hints loaded
