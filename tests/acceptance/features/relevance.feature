@@ -58,3 +58,21 @@ Feature: Relevance filter — content-aware output trimmer (Spec 350 Slice 1)
     Given a stub backend returning activities of kinds agentMessaged and heartbeat
     When I call jules.activities with full=True and filter including "agentMessaged"
     Then the returned activities list contains both activities
+
+  # ── Slice 2: config registry ─────────────────────────────────────────────────
+
+  Scenario: jules.activities accepts a named config profile as the filter arg
+    Given a config file with a "testprofile" filter including "agentMessaged"
+    And a stub backend returning activities of kinds agentMessaged and heartbeat
+    When I call jules.activities with filter name "testprofile" and the config path
+    Then only the agentMessaged activity is returned via the named profile
+
+  Scenario: capture_filter applies config filters.shell profile to Bash output
+    Given a config file with filters.shell.exclude containing "SKIPME"
+    When I capture Bash output containing a "SKIPME" line via capture_filter with the config
+    Then the capture_filter filtered result does not contain "SKIPME"
+
+  Scenario: PostToolUse capture uses filters.toolcall profile from config
+    Given a config file with filters.toolcall.include=["IMPORTANT"]
+    When a PostToolUse event with output containing "IMPORTANT" and "noise" is dispatched with the config
+    Then the toolcall store filtered view contains "IMPORTANT" and not "noise"

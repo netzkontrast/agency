@@ -379,6 +379,16 @@ def _default_hook_handler(engine, event: dict) -> dict:
             out = resp if isinstance(resp, str) else (
                 _json.dumps(resp, default=str) if resp else "")
             filtered = capture_filter(cmd, out, tool=tool_name, spec=None)
+            # Spec 350 Slice 2 — apply config filters.toolcall profile for PostToolUse
+            # (OPT-IN: only runs when the user has set filters.toolcall in config.yaml)
+            if phase == "post" and filtered:
+                try:
+                    from ._relevance import load_filter_profile as _lfp, relevance_filter as _rf
+                    _tp = _lfp("toolcall")
+                    if _tp:
+                        filtered = _rf(filtered, _tp)["kept"]
+                except Exception:  # noqa: BLE001 - fail-open on hook path
+                    pass
         except Exception:                                       # noqa: BLE001
             filtered = ""
         try:

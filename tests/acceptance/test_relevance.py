@@ -1,4 +1,4 @@
-"""Acceptance — relevance filter (Spec 350 Slice 1).
+"""Acceptance — relevance filter (Spec 350 Slices 1 and 2).
 
 Behaviour contract:
   - ``relevance_filter(text, profile)`` extracts matching lines, reports elided
@@ -9,10 +9,16 @@ Behaviour contract:
   - ``_apply_filter`` dispatches ``relevance:<json>`` to the same helper.
   - ``jules.activities(filter=)`` keeps only activities matching the profile.
   - ``jules.activities(full=True)`` bypasses the filter entirely.
+  Slice 2:
+  - ``load_filter_profile(name)`` reads named profiles from config ``filters:`` section.
+  - ``jules.activities(filter="<name>")`` resolves a named profile from config.
+  - ``capture_filter`` applies config ``filters.shell`` profile for Bash (OPT-IN).
+  - PostToolUse capture applies config ``filters.toolcall`` profile (OPT-IN).
 """
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from contextlib import contextmanager
 
@@ -248,3 +254,120 @@ def _both_activities(ctx):
     acts = ctx["act_result"]["activities"]
     kinds = {a["kind"] for a in acts}
     assert "agentMessaged" in kinds and "heartbeat" in kinds, kinds
+
+
+# ── Slice 2: config registry ──────────────────────────────────────────────────
+
+def _write_config(path: str, content: dict) -> None:
+    """Write a minimal YAML config file for testing."""
+    import yaml
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        yaml.safe_dump(content, f, default_flow_style=False)
+
+
+@given('a config file with a "testprofile" filter including "agentMessaged"')
+def _config_testprofile(ctx, tmp_path):
+    cfg = tmp_path / "config.yaml"
+    _write_config(str(cfg), {"filters": {"testprofile": {"include": ["agentMessaged"]}}})
+    ctx["config_path"] = str(cfg)
+
+
+@when('I call jules.activities with filter name "testprofile" and the config path')
+def _activities_named_profile(ctx, stub_engine, stub_iid):
+    from agency._config import _READ_CACHE
+    _READ_CACHE.clear()
+    old = os.environ.get("AGENCY_CONFIG")
+    os.environ["AGENCY_CONFIG"] = ctx["config_path"]
+    try:
+        result, _ = stub_engine.registry.invoke(
+            stub_engine.memory, stub_iid, "jules", "activities",
+            session="session:test",
+            filter="testprofile",
+        )
+    finally:
+        if old is None:
+            os.environ.pop("AGENCY_CONFIG", None)
+        else:
+            os.environ["AGENCY_CONFIG"] = old
+        _READ_CACHE.clear()
+    ctx["act_result"] = result
+
+
+@then("only the agentMessaged activity is returned via the named profile")
+def _only_agent_via_named_profile(ctx):
+    acts = ctx["act_result"]["activities"]
+    assert len(acts) == 1, f"expected 1 activity, got {len(acts)}: {acts}"
+    assert acts[0]["kind"] == "agentMessaged", acts[0]
+
+
+@given('a config file with filters.shell.exclude containing "SKIPME"')
+def _config_shell_exclude(ctx, tmp_path):
+    cfg = tmp_path / "config.yaml"
+    _write_config(str(cfg), {"filters": {"shell": {"exclude": ["SKIPME"]}}})
+    ctx["config_path"] = str(cfg)
+
+
+@when('I capture Bash output containing a "SKIPME" line via capture_filter with the config')
+def _capture_filter_skipme(ctx):
+    from agency._config import _READ_CACHE
+    from agency.capabilities.shell._main import capture_filter
+    _READ_CACHE.clear()
+    old = os.environ.get("AGENCY_CONFIG")
+    os.environ["AGENCY_CONFIG"] = ctx["config_path"]
+    try:
+        ctx["filtered"] = capture_filter(
+            "echo test", "INFO: ok\nSKIPME: this line\nINFO: done", tool="Bash"
+        )
+    finally:
+        if old is None:
+            os.environ.pop("AGENCY_CONFIG", None)
+        else:
+            os.environ["AGENCY_CONFIG"] = old
+        _READ_CACHE.clear()
+
+
+@then('the capture_filter filtered result does not contain "SKIPME"')
+def _filtered_no_skipme(ctx):
+    assert "SKIPME" not in ctx["filtered"], f"SKIPME should be excluded:\n{ctx['filtered']}"
+
+
+@given('a config file with filters.toolcall.include=["IMPORTANT"]')
+def _config_toolcall_include(ctx, tmp_path):
+    cfg = tmp_path / "config.yaml"
+    _write_config(str(cfg), {"filters": {"toolcall": {"include": ["IMPORTANT"]}}})
+    ctx["config_path"] = str(cfg)
+
+
+@when('a PostToolUse event with output containing "IMPORTANT" and "noise" is dispatched with the config')
+def _dispatch_post_tool_use(ctx, stub_engine):
+    from agency._config import _READ_CACHE
+    _READ_CACHE.clear()
+    old = os.environ.get("AGENCY_CONFIG")
+    os.environ["AGENCY_CONFIG"] = ctx["config_path"]
+    try:
+        event = {
+            "hook_event_name": "PostToolUse",
+            "session_id": "session:s1",
+            "tool_name": "Bash",
+            "tool_input": {"command": "echo test"},
+            "tool_response": "IMPORTANT: watch this\nnoise line",
+        }
+        from agency.engine import _default_hook_handler
+        _default_hook_handler(stub_engine, event)
+    finally:
+        if old is None:
+            os.environ.pop("AGENCY_CONFIG", None)
+        else:
+            os.environ["AGENCY_CONFIG"] = old
+        _READ_CACHE.clear()
+    # Read back the last toolcall entry
+    rows = stub_engine.toolcalls.rows()
+    ctx["tc_filtered"] = rows[-1]["filtered"] if rows else ""
+
+
+@then('the toolcall store filtered view contains "IMPORTANT" and not "noise"')
+def _toolcall_has_important(ctx):
+    filt = ctx["tc_filtered"]
+    assert "IMPORTANT" in filt, f"Expected IMPORTANT in filtered:\n{filt}"
+    assert "noise" not in filt, f"Expected noise excluded from filtered:\n{filt}"

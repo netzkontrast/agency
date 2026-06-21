@@ -99,3 +99,44 @@ def _compile_all(patterns: list[str]) -> list[re.Pattern]:
         except re.error:
             pass
     return out
+
+
+# AGENCY-DRIFT: filter-profiles — seeded profile set; extend here when adding a
+# new consumer call site; update tests/acceptance/features/relevance.feature.
+_DEFAULT_FILTER_PROFILES: dict[str, dict] = {
+    "activities": {
+        "include": ["agentMessaged", "sessionFailed", "error", "blocked"],
+        "exclude": ["heartbeat", "progressUpdated"],
+        "context": 0,
+        "budget": 1500,
+    },
+    "shell": {
+        "exclude": [r"^\s*$", "DEBUG", r"^\s*at "],
+        "budget": 800,
+    },
+    "toolcall": {
+        "include": ["error", "warning", "FAIL", "Traceback"],
+        "context": 2,
+        "budget": 600,
+    },
+}
+
+
+def load_filter_profile(name: str, path: str | None = None) -> dict:
+    """Return the named filter profile from ``.agency/config.yaml`` ``filters:``
+    section.  Profiles are OPT-IN via config (no seeded auto-apply): an absent or
+    empty section returns ``{}`` so the call site skips relevance filtering.
+
+    The ``filters:`` block is a non-scalar nested dict — read raw via
+    ``_config._read``, same pattern as ``llm.models`` (Spec 352 Slice 2a).
+    Best-effort: any read / parse error returns ``{}`` (fail-open for hook path)."""
+    try:
+        from . import _config
+        data = _config._read(path or _config._resolve_config_path())
+        filters = data.get("filters") if isinstance(data, dict) else None
+        profile = filters.get(name) if isinstance(filters, dict) else None
+        if isinstance(profile, dict):
+            return profile
+    except Exception:  # noqa: BLE001 - fail-open on hook path
+        pass
+    return {}

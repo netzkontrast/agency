@@ -292,11 +292,13 @@ class JulesCapability(CapabilityBase):
                                             page_token, summary_only=not full)
         if filter and not full:
             import json as _json
-            from ..._relevance import relevance_filter as _rf
+            from ..._relevance import relevance_filter as _rf, load_filter_profile as _lfp
             try:
                 profile = _json.loads(filter)
             except (ValueError, TypeError):
-                profile = {"include": [filter]}
+                # Slice 2: try as a named config profile before treating as keyword
+                _loaded = _lfp(filter)
+                profile = _loaded if _loaded else {"include": [filter]}
             kept: list[dict] = []
             for act in result.get("activities") or []:
                 text = f"{act.get('kind', '')} {act.get('summary', '')}"
