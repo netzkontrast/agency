@@ -283,3 +283,21 @@ def _architecture_counts(arch_result, n, m):
     assert arch_result.get("decisions") == m, arch_result
     # the superseded appendix line must NOT count as a decision
     assert "old-one" not in arch_result.get("body", ""), arch_result
+
+
+@when("I publish that theme to a temp file", target_fixture="publish_result")
+def _publish(engine, confirmed_intent, theme_id, tmp_path):
+    import pathlib
+    out = str(tmp_path / "adr-theme.md")
+    r, _ = invoke(engine, confirmed_intent, "adr", "publish", theme_id=theme_id, out=out)
+    r2, _ = invoke(engine, confirmed_intent, "adr", "publish",
+                   theme_id=theme_id, out=out + ".2")
+    return {"r": r, "a": pathlib.Path(out).read_text(encoding="utf-8"),
+            "b": pathlib.Path(out + ".2").read_text(encoding="utf-8")}
+
+
+@then("the published file has adr-theme frontmatter and is byte-idempotent")
+def _publish_ok(publish_result):
+    assert publish_result["r"].get("written") is True, publish_result["r"]
+    assert "kind: adr-theme" in publish_result["a"], publish_result["a"][:200]
+    assert publish_result["a"] == publish_result["b"], "publish is not idempotent"

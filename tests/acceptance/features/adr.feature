@@ -161,3 +161,11 @@ Feature: ADR ontology + capability — author & validate (Spec 354 Slice 1)
     And a confirmed intent
     When I rebuild the architecture digest over two thematic adr files
     Then the digest covers 2 layers with 3 decisions
+
+  Scenario: publish writes a theme to a deterministic ADR file
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "datalayer"
+    When I draft a well-formed decision under that theme
+    And I publish that theme to a temp file
+    Then the published file has adr-theme frontmatter and is byte-idempotent
