@@ -1,8 +1,8 @@
 ---
 spec_id: "343"
 slug: lifecycle-management-discipline
-status: draft
-last_updated: 2026-06-20
+status: shipped
+last_updated: 2026-06-21
 owner: "@agency"
 vision_goals: [2, 4, 9]
 depends_on: ["018", "078", "081", "290", "338", "339", "341"]
@@ -140,10 +140,50 @@ Scenario: the board renders as a file peer
   Then lifecycle-board.md is written with the in-flight board
 ```
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-Not started — capstone slice. Adds the `lifecycle-management` walkable discipline
-(orchestrating 339–342 + `manage`, ~zero new verbs) and `lifecycle.resume` (the
-phase/state bridge to `develop.skill_walk`). Completes the Lifecycle pillar: write
-frame (339) + enforced machine (340) + observe suite (341) + parameterization
-(342) + discipline (343).
+**SHIPPED** (branch `claude/lifecycle-343`). The capstone — the Lifecycle pillar is
+complete: write frame (339) · enforced machine (340) · observe suite (341) ·
+parameterization (342) · **discipline (343)**.
+
+A prior pass had landed a thin STUB (the skill registered as a bare literal, a
+`pass` walk test, no board); this slice brings it to a real ship.
+
+**Done:**
+- **The `lifecycle-management` walkable discipline** (`manage.ontology.skills`,
+  home=`memory` — the Memory-pillar read-API it orchestrates). Six phases —
+  `survey → triage → unblock → advance → close → report` — each carrying a
+  non-binding `runs` hint naming the verbs the agent invokes (cross-cap:
+  `manage.*` · `lifecycle.resume`/`move`/`advance`/`close` · `gate.check` ·
+  `document.mirror`). It is a GUIDE (the walker steps phases; the agent
+  orchestrates), so `develop.skill_walk("lifecycle-management", …)` genuinely
+  walks to completion and records its own **`Skill` provenance** — the recursion
+  made literal (managing lifecycles runs AS a lifecycle). The stub's ugly
+  formatting + glued `_phase_of`/class were cleaned.
+- **`lifecycle.resume`** (the phase/state bridge, already on the substrate from
+  339): asserts the lifecycle is `input-required`/`auth-required` (340's only
+  resumable states), `move(→working)`, returns `phase`/`resume_from` so the caller
+  re-enters `develop.skill_walk(resume_from=…)`. It is the state half bolted to the
+  shipped walker half (`SkillRun.resume`, Spec 018) — no walker duplication.
+- **The board as a Spec 292 file peer (phase 6 / acceptance §4).** New
+  `document.render` scope `lifecycle-board` (`_render.render_lifecycle_board`:
+  H1 + a by-state count table + an in-flight table of `id · state · machine ·
+  parameterization · intent` over the non-terminal lifecycles). Phase 6 runs
+  `document.mirror(scope="lifecycle-board", apply_path="lifecycle-board.md")` —
+  the canonical graph→file projection with the `agency-node:` anchor + a
+  graph-sourced `DocRevision` (keep-both), reusing the 292 machinery rather than
+  re-rolling a writer.
+- **`_phase_of(ctx, lifecycle_id)`** reads the current phase (the projection made
+  explicit; no new node type — `Phase`/`HAS_PHASE`/`Lifecycle.phase` already exist).
+
+**Tests:** 4 acceptance scenarios in `features/lifecycle_management.feature` — the
+discipline genuinely walks the six named phases + records `Skill` provenance;
+`resume` re-enters at the recorded phase; `resume` refuses a terminal state; the
+report phase writes `lifecycle-board.md` with the in-flight board + the file-peer
+anchor. lifecycle-management + document + lifecycle + manage (90) green; drift +
+no-truncate clean; install regen no-diff (no new verbs — only a render scope +
+discipline metadata).
+
+**Not done (out of scope per §"What this slice does NOT do"):** no new walker
+(reuses `develop.skill_walk`); no auto-bound cross-cap phase execution (the
+discipline is a guide); no FastAPI surface (Spec 338 §"Scoped OUT").

@@ -1,7 +1,7 @@
 # The capability system
 
 <!-- doc-source: agency/capability.py -->
-<!-- doc-hash: 53421fc3e4e9bfff -->
+<!-- doc-hash: 2a49315ff2552175 -->
 
 `agency/capability.py` defines how a capability is authored, compiled, registered, and
 invoked. It is the single most load-bearing module.
@@ -34,6 +34,12 @@ class MyCapability(CapabilityBase):
   str` function), `once_per`, `priority`, `name`. One engine-bootstrap loop
   (`_events.register_capability_subscriptions`) resolves + registers each handler;
   `frugal`'s first-use-once hint is the reference subscriber.
+- **`parameterization = "<machine>"`** (Spec 342) declares the Lifecycle
+  parameterization (a machine-registry key) a `home="lifecycle"` member's
+  dispatched children run under — `jules → "remote-async"`, a review-gated
+  `subagent → "reviewed"`. `delegate.fan_out` reads it and opens each child on
+  that machine, so the observer state (`verify` / `in-review`) is enforced
+  (COMPLETED ≠ done). `""` = the default `a2a` machine (no observer).
 
 `as_capability()` compiles the class to a frozen `Capability`: it collects `@verb`
 methods, deep-copies the ontology, carries the `subscriptions` + source `module`,

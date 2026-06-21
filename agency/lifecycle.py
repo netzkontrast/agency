@@ -59,6 +59,21 @@ TRANSITION_TABLE_NODE_ID = "artefact:lifecycle-transition-table"
 LIFECYCLE_TRANSITION_EVENT = "lifecycle:transition"
 
 
+def _observer_source_state(machine: dict) -> str:
+    """Spec 342 — the machine state an observer reduces FROM: the state whose
+    outgoing transitions reach BOTH the observer's ``on_done`` and ``on_not_done``
+    (``verify`` for remote-async, ``in-review`` for reviewed). Derived, never
+    hardcoded — a new parameterization's source state falls out of its table."""
+    obs = machine.get("observer")
+    if not obs:
+        return ""
+    targets = {obs.get("on_done"), obs.get("on_not_done")}
+    for state, outs in machine.get("transitions", {}).items():
+        if targets <= set(outs):
+            return state
+    return ""
+
+
 def _monitor_transition(monitor, from_state: str, to_state: str,
                         intent_id: str) -> None:
     """Fan one lifecycle transition onto the Spec 021 monitor channel (the single
@@ -133,6 +148,15 @@ class Lifecycle:
         # legacy/default lifecycles stay byte-identical.
         # Spec 345 — per-machine initial state; default machine "a2a" → SUBMITTED (byte-identical)
         from ._lifecycle_machines import resolve_machine as _resolve_machine
+        # Spec 342 — a parameterization IS a derived machine. When the caller
+        # names a parameterization that is a registered machine and leaves the
+        # machine at the default, the parameterization selects the machine (so
+        # `open(parameterization="remote-async")` enforces verify without a
+        # redundant `machine=` argument). An explicit machine always wins.
+        if parameterization and machine == "a2a":
+            from ._lifecycle_machines import _ensure_loaded as _lm_load
+            if parameterization in _lm_load():
+                machine = parameterization
         _m = _resolve_machine(machine)
         props: dict = {"state": _m["initial"], "phase": 0}
         if machine != "a2a":
@@ -233,6 +257,122 @@ class Lifecycle:
             _events.run(self.engine, LIFECYCLE_TRANSITION_EVENT, ev)
         else:                                    # bare Lifecycle(memory, monitor) — no bus
             _monitor_transition(self.monitor, from_state, to_state, intent_id)
+
+    def annotate(self, lc_id: str, **props: Any) -> None:
+        """Stamp non-state observer context (e.g. ``branch``) on a Lifecycle node.
+
+        ``state`` stays the exclusive province of ``move`` (Spec 339 — the SOLE
+        state writer); ``annotate`` refuses it. Used by a driver caller
+        (``delegate.fan_out``) to record what the parameterization's observer
+        needs at ``advance`` time (e.g. the branch ``jules.verify`` re-checks)."""
+        if "state" in props:
+            raise ValueError("annotate cannot write state; use move()")
+        if props:
+            self.m.update(lc_id, props)
+
+    def advance(self, lc_id: str) -> dict:
+        """Spec 342 — the ONE observer-dispatch reducer (panel B2 + owner fork Q2).
+
+        An *agent* is a Lifecycle parameterization: a named machine (Spec 345)
+        whose ``observer`` is declared BY NAME in ``machines.json``
+        (``{capability, verb, on_done, on_not_done, on_error}``). ``advance``
+        reads the child's machine observer, runs it **generically** through the
+        engine registry (never a hardcoded ``jules``/``gate`` import — the
+        substrate reaches its members only by declared name), and maps the
+        verdict to a ``move``:
+
+        - ``done`` truthy → ``on_done`` (e.g. ``verify→completed``)
+        - ``done`` falsy + an ``error`` in the result → ``on_error`` (stay in
+          ``verify`` — a lookup/network failure must NOT look like ``failed``,
+          panel N-3)
+        - ``done`` falsy, no error → ``on_not_done`` (``verify→input-required``)
+
+        So ``delegate.join``'s "done" **is** the observer's "done" (N3 closed),
+        and a NEW parameterization needs zero caller edits — it declares an
+        observer and ``advance`` runs it. A machine with no observer (default
+        ``a2a``) is a no-op: ``advance`` returns ``{advanced: False}`` and a
+        local child reduces over raw ``completed`` as before.
+
+        Returns ``{advanced, observer, state, done}`` (+ ``error``/``result``).
+        ``advance`` only fires when the child is in the observer's source state
+        (the state whose transitions reach both ``on_done`` and ``on_not_done``);
+        in any other state it is a no-op (the driver has not reported yet).
+        """
+        from ._lifecycle_machines import resolve_machine as _resolve_machine
+        node = self.m.recall(lc_id) or {}
+        current = node.get("state")
+        machine_name = node.get("machine", "a2a")
+        observer = _resolve_machine(machine_name).get("observer")
+        if not observer:
+            return {"advanced": False, "observer": None, "state": current, "done": None}
+        # Fire only from the observer's source state — the driver must have
+        # reported completion (move →verify/→in-review) first.
+        source = _observer_source_state(_resolve_machine(machine_name))
+        if current != source:
+            return {"advanced": False, "observer": f"{observer['capability']}.{observer['verb']}",
+                    "state": current, "done": None}
+        if self.engine is None:
+            return {"advanced": False, "observer": f"{observer['capability']}.{observer['verb']}",
+                    "state": current, "done": None,
+                    "error": "no engine/registry to dispatch the observer"}
+        cap, verb = observer["capability"], observer["verb"]
+        intent_id = ""
+        serving = self.m.neighbors(lc_id, "SERVES", direction="out")
+        if serving:
+            intent_id = serving[0].get("id", "")
+        args = self._observer_args(cap, verb, node)
+        try:
+            result, _inv = self.engine.registry.invoke(
+                self.m, intent_id, cap, verb, **args)
+        except Exception as e:                       # dispatch/lookup failure → stay (N-3)
+            target = observer.get("on_error", current)
+            if target and target != current:
+                self.move(lc_id, target, evidence=f"advance:error:{e}")
+            return {"advanced": True, "observer": f"{cap}.{verb}", "done": False,
+                    "state": self.status(lc_id), "error": str(e)}
+        verdict = result.get("done") if isinstance(result, dict) else result
+        if verdict is None and isinstance(result, dict):
+            verdict = result.get("passed")           # some observers report `passed`
+        done = bool(verdict)
+        err = result.get("error") if isinstance(result, dict) else None
+        if done:
+            target = observer["on_done"]
+        elif err:                                    # lookup errored, not a clean "not done" → stay
+            target = observer.get("on_error", current)
+        else:
+            target = observer["on_not_done"]
+        if target and target != current:
+            self.move(lc_id, target,
+                      evidence=f"advance:{cap}.{verb}:done={done}")
+        return {"advanced": True, "observer": f"{cap}.{verb}", "done": done,
+                "state": self.status(lc_id), "error": err, "result": result}
+
+    def _observer_args(self, cap: str, verb: str, node: dict) -> dict:
+        """Build the observer verb's kwargs from the Lifecycle node — generically,
+        from the verb's public signature (no hardcoded jules/gate param lists).
+
+        - a ``state`` param receives ``"completed"`` (the driver-reported terminal
+          implied by the child reaching the observer source state — its OWN
+          machine state is ``verify``, not the session state ``jules.verify``
+          inspects),
+        - a ``lifecycle_id``/``lifecycle`` param receives the node id,
+        - any other param present as a node prop (e.g. ``branch``) is passed
+          through; absent params fall back to the verb's own default. Injected
+          params (``ctx``/``vcs``/…) are filled by the registry, never here."""
+        import inspect
+        vobj = self.engine.registry._caps[cap].verbs[verb]
+        injected = set(getattr(vobj, "inject", ()) or ())
+        args: dict = {}
+        for pname in inspect.signature(vobj.fn).parameters:
+            if pname in injected or pname == "ctx":
+                continue
+            if pname == "state":
+                args["state"] = "completed"
+            elif pname in ("lifecycle_id", "lifecycle"):
+                args[pname] = node.get("id", "")
+            elif pname in node:
+                args[pname] = node[pname]
+        return args
 
     def close(self, lc_id: str, *, outcome: str = COMPLETED, evidence: str = "") -> str:
         """Drive a lifecycle to a terminal outcome through ``move`` (Spec 339).

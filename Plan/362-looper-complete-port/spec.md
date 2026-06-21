@@ -194,4 +194,24 @@ unaccounted content.
 intent/gate/persona/panel/document/manage/shell/config. Brainstormed spine-first
 under the brainstorming discipline (owner forks: spine-not-capability · one
 `_loop.py` module · frugal port). All 8 specs (362–369) rewritten spine-framed.
-**Implementation starting** — RED→GREEN per child, machine + `_loop.py` first.
+**SHIPPED 2026-06-21** — all 8 children (362–369) implemented spine-framed,
+RED→GREEN, on the lifecycle spine with ZERO engine edits and no new capability:
+
+- **363 goal · 364 verify · 366 machine/control/open** — foundation (merged).
+- **365 council** — `add_member`/`recommend_council` + the reviewer-only rule.
+- **366 advance** — the walk reducer wiring gates end-to-end (pass/revise/stop).
+- **367 wizard** — `LOOP_DESIGN_SKILL` (7 phases) registered into the develop
+  ontology; `preview` + the two gate predicates.
+- **368 emit** — `compile` (graph → `loop.resolved.json`, jsonschema-validated)
+  + `emit` (anchored portable workspace).
+- **369 runner + egress** — `detect_models`/`register_model` (secret-free),
+  `emit_runner` (stdlib runner), the `egress_consent` gate; **the closers pass**:
+  the provenance moat (full loop recoverable from the graph) + contract parity.
+
+Net-new is the `loop` machine (data), the one `agency/_loop.py` module, vendored
+data under `agency/_lifecycle_data/loop/` (rubrics · schemas · templates), and the
+acceptance suites — **63 loop scenarios green**, all CI guards + install clean.
+**Deferred (honest, tracked on 368/369):** the two-way `document.sync` round-trip
+and full subprocess execution parity — wiring follow-ups, not re-designs.
+
+**Prior note:** Implementation starting — RED→GREEN per child, machine + `_loop.py` first.

@@ -529,6 +529,29 @@ class AnalyzeCapability(CapabilityBase):
         return {"passed": passed, "blocked": not passed, "evidence": evidence,
                 "gate": gid, "name": name}
 
+    @verb(role="transform")
+    def report(self, findings: list = None, mode: str = "review", scope: str = "",
+               score: int = 100) -> dict:
+        """Render the Iron-Law quality report (Spec 382 §4) — READ-ONLY markdown.
+
+        Projects the structured findings: a header with the Health Score, findings
+        sorted by tier (critical→warning→suggestion) each as the Iron Law block
+        (Symptom / Source / Consequence / Remedy), empty tiers omitted, a mermaid
+        Module Dependency Graph in audit mode (R5), and a Summary. The render PATH
+        is here; the template FILE is authored in Spec 384 (adopted via
+        document.render then).
+
+        Inputs: findings (wire-shape finding dicts), mode (review/audit/…),
+                scope (str), score (int — the Health Score, Spec 381).
+        Returns: {report, mode}.
+        chain_next: document.render / document.sync to persist + round-trip (Spec 292).
+
+        Use when: producing the human-readable code-quality report from a review.
+        """
+        from ._report import render_report
+        findings = findings or []
+        return {"report": render_report(findings, mode, scope, score), "mode": mode}
+
     @verb(role="act")
     def improve(self, analysis_id: str, axes: list = None,
                 apply: bool = False) -> dict:

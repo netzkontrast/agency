@@ -103,8 +103,15 @@ Scenario: the reviewer-only rule is reported for a revise_until_clean gate
 
 ## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Re-drafted spine-framed (2026-06-21). The council as **reuse**:
-member = `persona`+driver, convene = `panel`, dispatch = `delegate`/`jules`.
-**Frugal: net-new is council-rubric (data) + one `recommend_council` helper — no
-new capability.** The reviewer-only rule is reported here, enforced at
-`_loop.open` (366); the verdict feeds 366's `advance`.
+**Verdict:** Implemented 2026-06-21 (spine-framed). `_loop.add_member` +
+`_loop.recommend_council` ship in `agency/_loop.py`; `council-rubric.md` vendored
+verbatim under `agency/_lifecycle_data/loop/rubrics/`. Members are stored as JSON
+on the loop node (the spine interim, parity with 364's criteria) — role
+(reviewer|judge), scope (plan|delivery|both), family/driver, local. The
+reviewer-only rule is reported by `recommend_council` (a `revise_until_clean`
+gate needs a judge member or human criterion as its verdict source); cross-family
+is surfaced as the coaching default. Judge-verdict degradation reuses the existing
+`_parse_judge_verdict` (364). Covered by `tests/acceptance/test_loop_council.py`
+(4 scenarios green). **Frugal: net-new is council-rubric (data) + two helpers — no
+new capability.** Promotion path: members → `persona` (297) bound to a `driver`
+(002); convene → `panel` (294). The verdict feeds 366's `advance`.

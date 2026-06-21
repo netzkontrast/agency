@@ -65,8 +65,8 @@ agency execute --code \
 
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
-- **adr** — approve, catalogue, dod_check, draft, extract_decisions, hints, impact, link, read, render, review_sweep, spec_decisions_ready, supersede, theme, theme_status, update, validate
-- **analyze** — architecture, cleanup, gate, graph, improve, paths, performance, quality, record_run, review, run, sarif, score, security
+- **adr** — approve, catalogue, dod_check, draft, extract_decisions, hints, impact, link, read, render, spec_decisions_ready, supersede, theme, theme_status, update, validate
+- **analyze** — architecture, cleanup, gate, graph, improve, paths, performance, quality, record_run, report, review, run, sarif, score, security
 - **branch** — assess, commit_smart, finish
 - **config** — get, list, set
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join

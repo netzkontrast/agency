@@ -30,6 +30,7 @@ from ..._capture import keep_full
 from ...capability import ArtefactSchemas, RenderTemplates, CapabilityBase, verb
 from ...ontology import OntologyExtension
 from ...skill import SkillRun, phase as _phase  # Spec 286 — shared phase() builder
+from ..._loop import LOOP_DESIGN_SKILL          # Spec 367 — loop-design wizard (spine skill data)
 
 
 # Spec 287 — PlanStep execution states (closed enum; ontology-enforced).
@@ -533,7 +534,10 @@ SESSION_DRIVER_SKILL = {
 }
 
 develop_ontology = OntologyExtension(
-    skills={**DEV_SKILLS, "session-driver-pass": SESSION_DRIVER_SKILL},
+    # Spec 367 — the looper-port loop-design wizard is a walkable skill; it lives
+    # as spine data on `agency/_loop.py` and registers here (no new capability).
+    skills={**DEV_SKILLS, "session-driver-pass": SESSION_DRIVER_SKILL,
+            "loop-design": LOOP_DESIGN_SKILL},
     edges={"HAS_STEP"},                          # Spec 287 — Plan → PlanStep
     nodes={
         "SessionLifecycle": ["mode", "status"],

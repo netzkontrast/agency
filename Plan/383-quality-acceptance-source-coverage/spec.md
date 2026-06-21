@@ -1,8 +1,8 @@
 ---
 spec_id: "383"
 slug: quality-acceptance-source-coverage
-status: draft
-last_updated: 2026-06-20
+status: partial
+last_updated: 2026-06-21
 owner: "@agency"
 vision_goals: [6, 2]
 depends_on: ["379", "360", "380", "053", "077"]
@@ -234,3 +234,81 @@ scenarios run in the default PR gate while wet-LLM judgment scenarios are
 360/380): `source-coverage.json` (+ `_source` marker) + the paired fixture-backed
 acceptance features (deterministic + `-m wet`) + the SARIF property test + the
 per-risk/per-mode check-drift rule.
+
+### Slice 1 — SHIPPED 2026-06-21 (source-coverage + grounding + SARIF property)
+
+`status: draft → partial`. TDD RED→GREEN:
+- **`agency/capabilities/analyze/data/source-coverage.json`** — the 12-book matrix
+  (Brooks…Google), keys in the SAME `"Author — Title"` form as
+  `decay-risks.json` `sources[].book` (one book registry, two consumers). Each
+  entry carries `encoded` (principles the book contributes) + `do_not_ignore`
+  (false-positive guardrails). Stamped `_source: brooks-lint@ec44ec8`.
+- **`agency/capabilities/analyze/_coverage.py`** — `load_source_coverage()`,
+  the single reader (mirrors `_decay.load_risks()`); excludes `_`-prefixed
+  metadata; book COUNT derived from the file (rule 8).
+- **`tests/acceptance/{features/quality_coverage.feature,test_quality_coverage.py}`**
+  — 3 scenarios, behaviour-only (rule 7): (a) book registry DERIVED (≥12 canonical
+  books as a SUBSET assertion, each shaped, count from the file); (b) **grounding
+  invariant** — every book a decay risk cites exists in source-coverage (no
+  name-dropping); (c) **SARIF property** over a frozen 5-finding fixture (R1/R5/T1/
+  custom-Cx/decidable-only) — valid 2.1.0, rule set == live registry, one result
+  per finding. The grounding test IS the live consumer (contract-guarded, not dead
+  code). `python -m pytest tests/acceptance/test_quality_coverage.py` → 3 passed.
+
+### Slice 2 — SHIPPED 2026-06-21 (paired decidable corpus + coverage matrix)
+
+Verification/grounding slice over existing `develop.review` behaviour (§"does NOT
+do" — no new findings/score/SARIF). TDD, but GREEN-on-write by nature (it grounds
+behaviour that already ships):
+- **`tests/acceptance/{features/quality_corpus.feature,test_quality_corpus.py}`** —
+  the **paired decidable corpus**. For every DECIDABLE risk (R1→Q003 long-function,
+  R4→Q004 long-file, R5→A001/A004 cycle/fan-out — the set DERIVED from each risk's
+  `decidable` array, rule 8) a positive fixture trips it (asserts the structured
+  `Finding` carries the risk code + a complete Iron Law: Source · Consequence ·
+  Remedy) and a negative **"What Not to Flag"** fixture is spared (the load-bearing
+  half — a short function / small file / acyclic-low-fan-out package). Fixtures are
+  real compilable code GENERATED from the live thresholds (`_FUNC_LOC_LIMIT` /
+  `_FILE_LOC_LIMIT`) — rule 8, no frozen snapshot — exercised through the real
+  `develop.review` path (Adzic — not prose Givens), mirroring `test_decay_risk`.
+- **Coverage matrix (derived invariants):** (a) every decidable risk in the live
+  registry is covered by the corpus manifest (a new decidable rule ⇒ the meta-test
+  fails until a builder + Examples row is added — the drift guard); (b) all six
+  quality modes (review/audit/debt/test/health/sweep) run a decidable scan. 5
+  scenarios, `python -m pytest tests/acceptance/test_quality_corpus.py` → 5 passed.
+
+**Design choice — generated fixtures over committed `fixtures/quality/<risk>/*.py`
+for the decidable risks.** The spec sketched committed fixture files; the decidable
+risks are all THRESHOLD/STRUCTURAL, so a committed `>500`-line file would FREEZE the
+threshold (rule 8) and a retune would silently flip negative→positive. Generating
+from the live limit is rule-8-clean AND meets the Adzic concern (real compilable
+code, structured-`Finding` assertion). Committed hand-authored fixtures remain the
+right form for the **wet judgment** risks (Slice 3), where the pattern SHAPE is the
+point and there is no numeric threshold to derive.
+
+### Slice 3 — SHIPPED 2026-06-21 (check-drift coverage gate + AGENCY-DRIFT tags)
+
+The §4 drift-coverage half — promotes the Slice 1 + 2 invariants from test-only to
+a fast standalone CI gate:
+- **`scripts/check-drift` — "decay-risk coverage gate"**: (1) **grounding** — every
+  book a decay risk cites (`decay-risks.json` `sources[].book`) MUST exist in
+  `source-coverage.json` (no shallow name-dropping); (2) **decidable corpus** —
+  every risk with a `decidable` rule-id mapping MUST have a paired Examples row in
+  `quality_corpus.feature`. Both sets are DERIVED from the registry (rule 8); the
+  corpus side reads the feature file (decoupled from the test module). Verified to
+  CATCH both drift modes (remove a cited book → flagged; drop a decidable row →
+  flagged), so it is live surface, not a dormant gate. Clean run reports
+  "12 cited books grounded; 3 decidable risks paired".
+- **`# AGENCY-DRIFT` tags** at the two registry readers: `decay-risk-set` on
+  `_decay.load_risks()` (the canonical risk-set reader) and `source-coverage` on
+  `_coverage.load_source_coverage()`, each naming the gate that guards them.
+
+**BLOCKED — the `-m wet` judgment corpus (deferred, not a Spec 383 gap).** §2's wet
+half (happy + false-positive scenarios for the nine JUDGMENT-only risks
+R2/R3/R6/T1–T6) needs a path that takes a code file and emits an R2/R3/T1 *judgment*
+finding. **That capability does not exist yet:** `develop.review` runs the DECIDABLE
+scanners + `_decay.tag` only, and `_wet_verify` (Spec 164) is phase-DISCIPLINE
+verification, not decay-judgment over code. Authoring `-m wet` scenarios now would
+test a non-existent path (vaporware). The wet corpus lands when the LLM
+code-judgment pass ships (a Spec 352/380 follow-on); until then Spec 383 stays
+`partial` on a genuine dependency, with everything decidable DONE (grounding · SARIF
+property · decidable corpus · coverage matrix · check-drift gate · drift tags).
