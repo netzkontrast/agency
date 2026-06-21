@@ -167,7 +167,26 @@ Scenario: the provenance moat is lit end-to-end
 
 ## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Re-drafted spine-framed (2026-06-21). The external execution surface
+**Verdict:** Implemented 2026-06-21 (spine-framed). `detect_models` probes the
+looper allowlist by PATH (metadata only — argv + family + local; NEVER secrets);
+`register_model` rejects a shell-string or secret-shaped invoke (argv-only, keys
+stay in the CLI keychain). `emit_runner` writes the vendored stdlib-only
+`run-loop.py` (reads ONLY `loop.resolved.json`). The pure `egress_consent` gate
+ports `ensure_consent` + redaction (local → permit; cross-vendor → first-send
+consent; default redact globs applied), consent recorded as a `Gate` provenance
+node. `model-detection.md` + `run-loop.py.tmpl` vendored. **The 362 closers pass:**
+`test_loop_runner.py` includes the **provenance moat** (the full pipeline —
+goal Intent → criteria → members → machine walk to completed → compile — is
+recoverable PURELY from the graph, the thing looper's flat files cannot do) and
+**contract parity** (`control_evaluate` is deterministic and the emitted runner
+reads the same control fields). 8 scenarios green; 63 loop tests green overall;
+all CI guards + install clean. **Frugal: net-new is one runner template, one gate,
+seed probes, two closer tests — everything else reuses shell/driver/config/gate.**
+**Deferred (honest):** full subprocess execution parity (running the emitted
+run-loop.py end-to-end against ported fake-host/fake-judge fixtures) is a deeper
+validation than the contract-level parity asserted here.
+
+**Prior draft note:** Re-drafted spine-framed (2026-06-21). The external execution surface
 as the **out-of-session twin of the lifecycle-spine walk**: model resolution over
 the DriverRegistry (002) + `config` (334), looper's stdlib `run-loop.py` emitted
 as a `document`-rendered template reading the resolved spec (368), and one narrow

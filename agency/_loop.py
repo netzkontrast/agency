@@ -817,3 +817,109 @@ def emit(host: Any, loop_id: str, target: str) -> dict[str, Any]:
     files.append(str(out / "loop-workspace"))
 
     return {"files": files, "valid": compiled["valid"], "findings": compiled["findings"]}
+
+
+# --- Spec 369: external runner, model detection & egress (out-of-session twin) -
+# The loop runs in two surfaces over ONE resolved contract (368): the in-session
+# spine walk (366) and looper's external stdlib run-loop.py. 369 ports model
+# detection (§6), the egress-consent gate (§9), and the runner template — reusing
+# shell/driver/config/gate. Metadata-only, secret-free, argv + consent enforced.
+
+MODEL_DETECTION_RUBRIC = "model-detection.md"
+
+# Looper's model allowlist (§6) — family + local flag per CLI. `local` marks an
+# on-device model (no egress). Probed by PATH; auth stays in each CLI's keychain.
+_MODEL_ALLOWLIST = {
+    "claude":  {"family": "anthropic", "local": False},
+    "codex":   {"family": "openai",    "local": False},
+    "gemini":  {"family": "google",    "local": False},
+    "llm":     {"family": "llm",       "local": False},
+    "ollama":  {"family": "ollama",    "local": True},
+}
+# Secret-shaped material that must NEVER enter the registry / an emitted artefact
+# (looper File Rule — auth lives in the CLI keychain, not in invoke argv).
+_SECRET_RE = re.compile(r"(sk-[A-Za-z0-9]{8,}|--?key\b|--?token\b|secret|password|bearer\s)", re.I)
+# Default redaction globs applied before any cross-vendor send (looper §9).
+_DEFAULT_REDACT = ("**/.env", "**/.env.*", "secrets/**", "**/*.key")
+
+
+def _model_store(store_path: str | None) -> list[dict[str, Any]]:
+    if not store_path:
+        return []
+    p = Path(store_path)
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+
+
+def detect_models(*, which: Any = None, store_path: str | None = None) -> dict[str, Any]:
+    """Probe the looper model allowlist by PATH (Spec 369 §6). Records invocation
+    metadata ONLY — argv + family + local flag — NEVER API keys/tokens (auth stays
+    in each CLI's keychain). Returns ``{models, available}``; persists the available
+    set to ``store_path`` (config, 334) when given.
+    """
+    import shutil
+    which = which or shutil.which
+    models = []
+    for cli, meta in _MODEL_ALLOWLIST.items():
+        models.append({"cli": cli, "family": meta["family"], "local": meta["local"],
+                       "invoke": [cli, "-p"], "available": bool(which(cli))})
+    available = [m for m in models if m["available"]]
+    if store_path:
+        Path(store_path).write_text(json.dumps(available, indent=2), encoding="utf-8")
+    return {"models": models, "available": available}
+
+
+def register_model(cli: str, family: str, invoke: Any, *, local: bool = False,
+                   store_path: str | None = None) -> dict[str, Any]:
+    """Register a model invocation (Spec 369 §6). ``invoke`` MUST be an argv array
+    (never a shell string) and MUST NOT carry secret-shaped material. Returns
+    ``{registered, ...}`` or ``{error}``.
+    """
+    if not (isinstance(invoke, list) and invoke and all(isinstance(t, str) for t in invoke)):
+        return {"error": "invoke must be an argv array, not a shell string (argv-only, Spec 192)"}
+    if _SECRET_RE.search(" ".join(invoke)):
+        return {"error": "invocation carries secret-shaped material; auth stays in the CLI keychain"}
+    entry = {"cli": cli, "family": family, "invoke": list(invoke), "local": bool(local)}
+    if store_path:
+        reg = _model_store(store_path)
+        reg.append(entry)
+        Path(store_path).write_text(json.dumps(reg, indent=2), encoding="utf-8")
+    return {"registered": True, **entry}
+
+
+def emit_runner(host: Any, loop_id: str, target: str) -> dict[str, Any]:
+    """Write the ported stdlib-only ``run-loop.py`` (Spec 369) — reads ONLY
+    ``loop.resolved.json`` and runs the SAME contract the spine walk runs. Copied
+    from the vendored template (looper File Rule: copy verbatim). Returns ``{file}``.
+    """
+    out = Path(target)
+    out.mkdir(parents=True, exist_ok=True)
+    runner = (_TEMPLATE_DIR / "run-loop.py.tmpl").read_text(encoding="utf-8")
+    (out / "run-loop.py").write_text(runner, encoding="utf-8")
+    return {"file": str(out / "run-loop.py")}
+
+
+def egress_consent(member: dict[str, Any], *, consent_given: bool = False,
+                   policy: str = "required", redact_globs: Any = None,
+                   context_paths: Any = None) -> dict[str, Any]:
+    """The cross-vendor egress gate (Spec 369 §9), consulted before any cross-vendor
+    send IN-SESSION and in the external runner. local member → permit (no egress);
+    no ``required`` policy → permit; first cross-vendor send → require consent;
+    redaction globs are applied (redacted paths stubbed, not transmitted). Pure —
+    the consent is recorded as provenance by the caller. Returns ``{permit,
+    requires_consent, redacted, reason}``.
+    """
+    import fnmatch
+    globs = list(redact_globs) if redact_globs is not None else list(_DEFAULT_REDACT)
+    redacted = [p for p in (context_paths or [])
+                if any(fnmatch.fnmatch(p, g) for g in globs)]
+    if member.get("local"):
+        return {"permit": True, "requires_consent": False, "redacted": redacted,
+                "reason": "local member — no egress"}
+    if policy != "required":
+        return {"permit": True, "requires_consent": False, "redacted": redacted,
+                "reason": "no consent policy"}
+    if not consent_given:
+        return {"permit": False, "requires_consent": True, "redacted": redacted,
+                "reason": "cross-vendor send requires first-send consent"}
+    return {"permit": True, "requires_consent": False, "redacted": redacted,
+            "reason": "consent recorded"}
