@@ -28,7 +28,7 @@ import asyncio
 import json
 
 import pytest
-from pytest_bdd import given, scenarios, then, when
+from pytest_bdd import given, parsers, scenarios, then, when
 
 from agency.engine import Engine
 from agency.disclosure import parse_slices, render_verb
@@ -430,3 +430,58 @@ def _handle_truncated(overflow_truncate_result):
 def _prefix_stable_overflow(overflow_truncate_result):
     original = {"schema_version": 1}
     assert overflow_truncate_result.envelope.prefix == original
+
+
+# ── Spec 373 — per-type render: phase instructions inline (walk↔file parity) ──
+
+@when(parsers.parse('I render the "{cap}" capability skill'),
+      target_fixture="rendered_skill")
+def _render_cap_skill(render_engine, cap):
+    from agency.skill_emit import emit_skill
+    c = render_engine.registry.get(cap)
+    files = emit_skill(cap, c.skill_doc, c.verbs,
+                       getattr(c.ontology, "skills", None))
+    return next(v for k, v in files.items() if k.endswith("/SKILL.md"))
+
+
+@then(parsers.parse('the rendered skill inlines the "{skill}" phase instructions'))
+def _rendered_inlines_instructions(render_engine, rendered_skill, skill):
+    # The rendered SKILL.md must carry each phase's authored instructions inline
+    # (self-contained render, A1) — read live from the ontology, not snapshotted
+    # (rule 8). A discipline that authored inline content (372) must surface it.
+    phases = render_engine.registry.get("develop").ontology.skills[skill]["phases"]
+    authored = [p for p in phases if p.get("instructions")]
+    assert authored, (
+        f"fixture: the {skill!r} discipline must author phase instructions")
+    for p in authored:
+        assert p["instructions"] in rendered_skill, (
+            f"rendered SKILL.md must inline phase {p['name']!r} instructions "
+            "(self-contained render, A1; one source, two surfaces — 373)")
+
+
+@then(parsers.parse('every walked "{skill}" phase\'s instructions appear in the '
+                    'rendered skill'))
+def _walk_render_parity(render_engine, rendered_skill, skill):
+    # The parity invariant 372 deferred: the instructions the WALK surfaces for
+    # each phase MUST appear in the RENDERED file (walk content == rendered
+    # content — one source, two surfaces). Drive the actual walker so the
+    # comparison is against what an agent really receives.
+    from agency.skill import SkillRun
+    schema = render_engine.registry.get("develop").ontology.skills[skill]
+    iid = render_engine.memory.record("Intent", {
+        "purpose": "render-parity", "deliverable": "parity check",
+        "acceptance": "walk==render", "status": "active", "owner": "system"})
+    run = SkillRun(render_engine.memory, iid, schema, registry=render_engine.registry)
+    seen = 0
+    cur = run.current()
+    while cur is not None:
+        if cur.get("instructions"):
+            assert cur["instructions"] in rendered_skill, (
+                f"walk surfaces phase {cur['name']!r} instructions the rendered "
+                "file omits — walk≠render (Spec 372 parity, 373 render side)")
+            seen += 1
+        sp = next(p for p in schema["phases"] if p["name"] == cur["name"])
+        run.submit({k: "x" for k in sp["produces"]},
+                   confirmed=sp.get("gate") == "hard")
+        cur = run.current()
+    assert seen >= 1, "fixture: the skill must surface ≥1 phase with instructions"

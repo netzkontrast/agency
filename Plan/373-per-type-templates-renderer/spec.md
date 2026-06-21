@@ -1,8 +1,8 @@
 ---
 spec_id: "373"
 slug: per-type-templates-renderer
-status: draft
-last_updated: 2026-06-20
+status: partial
+last_updated: 2026-06-21
 owner: "@agency"
 vision_goals: [1, 3]
 depends_on: ["031", "371", "372"]
@@ -47,3 +47,38 @@ truncates the description. `_(Tier B…)_` stubs ship to disk.
 - No truncated descriptions; no `_(Tier B…)_` text on disk.
 - `install regen` twice ⇒ identical bytes (deterministic, A7).
 - pillar/capability/discipline each render their type's required sections.
+
+## Followup — Implementation Status (2026-06-21)
+
+**Slice 2 (partial) — SHIPPED: phase instructions render inline (walk↔file parity,
+the hinge 372 deferred).** Per-type templates + path convergence (Slices 1 & 3)
+remain.
+
+Done (file:line evidence):
+- `agency/skill_emit.py` — new `_render_phase_detail(sk)` renders a skill's
+  phases' inline `goal`/`instructions` (the 371/372 single source) beneath its
+  walk row; `_render_walk_section` appends it. Returns "" when no phase authored
+  inline content, so legacy disciplines (phase-name-only) render byte-identically
+  and `install regen` stays diff-free except where content was actually authored.
+  Deterministic — same schema ⇒ same bytes (A7; verified regen-twice identical).
+- `skills/develop/SKILL.md` — regenerated: the `tdd` row now shows each phase's
+  goal + full instructions inline (the first self-contained discipline render);
+  every other capability/skill byte-identical. `scripts/check-drift` → NO DRIFT.
+- Tests: `tests/acceptance/features/render_substrate.feature` +
+  `test_render_substrate.py` — 2 new scenarios: (1) a rendered capability skill
+  inlines its phases' authored instructions; (2) **parity** — every instruction
+  the *walker* surfaces for a `tdd` phase appears verbatim in the *rendered* file
+  (drives the real `SkillRun`, reads live source — rule 8). 17/17 render + 14/14
+  skill_walk + v2 schema all green (45 passed across the blast radius).
+
+Still:
+- **Slice 1 — per-type templates** (`render/skill/<type>.md` for
+  pillar/capability/discipline driven by the 371 `Skill.type`), replacing the
+  single `capability-skill.md` substitution.
+- **Slice 3 — converge the two render paths** (`plugin.author_skill` via
+  `templates.SKILL_MD` onto the same renderer) and kill the defects
+  (`_first_sentence_brief` description truncation; the `_(Tier B…)_` on-disk
+  stub → a lint failure per 377).
+- Self-containment beyond the walk section (overview / when-to-use / when-not /
+  one example / common-mistakes inline; references one-deep, R4) — the rest of
+  Slice 2.

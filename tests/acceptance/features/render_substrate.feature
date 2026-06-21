@@ -84,3 +84,15 @@ Feature: render substrate — docstring slicing and output envelope (Spec 023 / 
     Then the returned envelope body contains _overflow_preview and _overflow_handle
     And the overflow handle reports truncated True
     And the prefix is byte-identical to the original prefix
+
+  # ── Spec 373 — per-type render: phase instructions inline (walk↔file parity) ──
+
+  Scenario: a rendered capability skill inlines its phases' authored instructions
+    Given a fresh agency engine in code-mode
+    When I render the "develop" capability skill
+    Then the rendered skill inlines the "tdd" phase instructions
+
+  Scenario: the rendered phase content matches what the walk surfaces (one source)
+    Given a fresh agency engine in code-mode
+    When I render the "develop" capability skill
+    Then every walked "tdd" phase's instructions appear in the rendered skill
