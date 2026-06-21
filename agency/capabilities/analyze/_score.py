@@ -16,7 +16,9 @@ Accepts either wire-shape finding dicts or ``Finding`` objects; ``tier`` is read
 """
 from __future__ import annotations
 
+import fnmatch
 import json
+import time
 from pathlib import Path
 
 SCORE_PRESETS_PATH = Path(__file__).parent / "data" / "score-presets.json"
@@ -90,3 +92,110 @@ def top_leverage(findings, preset: str = DEFAULT_PRESET, n: int = 3,
         ranked.append((leverage(f, findings, preset, presets), f))
     ranked.sort(key=lambda t: t[0], reverse=True)
     return [f for _, f in ranked[:n]]
+
+
+# ── Spec 381 §2 — the quality: config block (tunability + validation) ──────────
+
+_TIER_SEVERITY = {"critical": "fail", "warning": "warn", "suggestion": "info"}
+
+
+def _with_tier(finding, tier: str):
+    """A copy of the finding with its tier overridden — wire dict sets ``tier``;
+    a ``Finding`` maps the tier back to its canonical severity."""
+    if isinstance(finding, dict):
+        f = dict(finding)
+        f["tier"] = tier
+        return f
+    from dataclasses import replace
+    try:
+        from ._findings import FindingSeverity
+        return replace(finding, severity=FindingSeverity(_TIER_SEVERITY.get(tier, "info")))
+    except Exception:
+        return finding
+
+
+def parse_quality_config(raw: dict | None,
+                         preset_names: set | None = None) -> tuple[dict, list[str]]:
+    """Validate + normalise the ``quality:`` config block (Spec 381 §2). NEVER
+    fatal — surfaced as notes: ``focus`` AND ``disable`` both set → ignore both +
+    note; unknown ``strictness`` → fall back balanced + note. Returns
+    ``(effective_config, notes)``."""
+    raw = raw or {}
+    names = preset_names or set(load_presets())
+    notes: list[str] = []
+    disable = list(raw.get("disable") or [])
+    focus = list(raw.get("focus") or [])
+    if disable and focus:
+        notes.append("config: 'focus' and 'disable' both set — both ignored")
+        disable, focus = [], []
+    strictness = raw.get("strictness") or DEFAULT_PRESET
+    if strictness not in names:
+        notes.append(f"config: invalid strictness {strictness!r} — using {DEFAULT_PRESET}")
+        strictness = DEFAULT_PRESET
+    return ({"disable": disable, "focus": focus,
+             "severity": dict(raw.get("severity") or {}),
+             "ignore": list(raw.get("ignore") or []),
+             "strictness": strictness}, notes)
+
+
+def apply_quality_config(findings, config: dict) -> list:
+    """Filter findings per the config (Spec 381 §2), pure → new list:
+    ``ignore`` glob excludes files, ``disable`` drops risks, ``focus`` keeps ONLY
+    listed risks, ``severity`` overrides a risk's tier."""
+    disable = set(config.get("disable") or [])
+    focus = set(config.get("focus") or [])
+    ignore = config.get("ignore") or []
+    severity = config.get("severity") or {}
+    out = []
+    for f in findings:
+        rc = _risk_of(f)
+        path = (f.get("file", "") if isinstance(f, dict) else getattr(f, "file", ""))
+        if any(fnmatch.fnmatch(path, g) for g in ignore):
+            continue
+        if rc and rc in disable:
+            continue
+        if focus and rc not in focus:
+            continue
+        if rc and rc in severity:
+            f = _with_tier(f, severity[rc])
+        out.append(f)
+    return out
+
+
+# ── Spec 381 §4 — scan-time suppression read (the score-side of triage) ─────────
+
+def _as_epoch(v):
+    """Parse a suppression ``expires`` to an epoch float; unparseable → None
+    (treated as no-expiry, i.e. still active — never accidentally resurface)."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def apply_suppressions(findings, suppressions, now: float | None = None):
+    """Drop findings matching a LIVE (non-expired) Suppression (risk + file glob);
+    an expired suppression is ignored so its finding resurfaces (keep-both — the
+    finding is never deleted, Spec 292). Pure. Returns
+    ``(kept, suppressed, expired_count)``."""
+    now = time.time() if now is None else now
+    active: list = []
+    expired = 0
+    for s in suppressions:
+        exp = s.get("expires")
+        ep = _as_epoch(exp) if exp not in (None, "") else None
+        if ep is not None and ep < now:
+            expired += 1
+        else:
+            active.append(s)
+    kept, suppressed = [], []
+    for f in findings:
+        rc = _risk_of(f)
+        path = (f.get("file", "") if isinstance(f, dict) else getattr(f, "file", ""))
+        if rc and any(s.get("risk") == rc
+                      and fnmatch.fnmatch(path, s.get("glob", ""))
+                      for s in active):
+            suppressed.append(f)
+        else:
+            kept.append(f)
+    return kept, suppressed, expired

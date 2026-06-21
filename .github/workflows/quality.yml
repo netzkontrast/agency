@@ -1,0 +1,88 @@
+# Spec 382 §3 — the brooks-lint quality CI job: review the diff (headless),
+# emit SARIF for code-scanning, and record + read the quality gate.
+#
+# ADVISORY for now: every quality step is `continue-on-error: true`, so this
+# workflow never blocks a PR while the thresholds bed in. Promote it to a hard
+# gate by removing `continue-on-error` from the "Quality gate verdict" step (and
+# adding it to branch protection) once the score baseline is trusted — the
+# substrate (analyze.review records a Gate; gate.verdict reads it) is already in
+# place. The CI actor is the HEADLESS `analyze.review` twin (Spec 380 §3a) — it
+# never pauses.
+name: quality
+
+on:
+  pull_request:
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write   # code-scanning SARIF upload needs this
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # base ref needed for --scope diff
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install agency with dev + analyze extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,analyze]"
+
+      - name: Restore the .agency graph (trend survives ephemeral CI)
+        # Spec 382 §3 (Hightower) — the QualityRun trend reads prior runs; cache
+        # .agency keyed by the base branch so the delta survives across CI runs.
+        uses: actions/cache@v4
+        with:
+          path: .agency
+          key: agency-quality-${{ github.base_ref }}
+
+      - name: Review the diff + record the quality gate (headless)
+        continue-on-error: true
+        env:
+          AGENCY_DB: .agency/session.db
+        run: |
+          mkdir -p .agency
+          iid=$(agency intent --purpose "CI quality review" \
+                  --deliverable "gated diff" --acceptance "score>=70; 0 critical" \
+                | python3 -c 'import sys,json; print(json.load(sys.stdin)["intent_id"])')
+          echo "AGENCY_INTENT=$iid" >> "$GITHUB_ENV"
+          # Headless review: produces findings + score and records the Gate.
+          # Decidable-only when no LLM key (Hightower degradation) — free/keyless.
+          AGENCY_INTENT=$iid agency analyze review --mode review --scope diff
+
+      - name: Emit SARIF
+        continue-on-error: true
+        env:
+          AGENCY_DB: .agency/session.db
+        run: |
+          AGENCY_INTENT=$AGENCY_INTENT agency analyze sarif --max-results 5000 \
+            | python3 -c 'import sys,json; json.dump(json.load(sys.stdin)["sarif"], open("quality.sarif","w"))' \
+            || echo '{"version":"2.1.0","runs":[]}' > quality.sarif
+
+      - name: Upload SARIF to code-scanning
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: quality.sarif
+
+      - name: Quality gate verdict (advisory)
+        continue-on-error: true     # remove to promote to a hard PR gate
+        env:
+          AGENCY_DB: .agency/session.db
+        run: |
+          agency gate verdict --name "quality:review" | tee verdict.json
+          python3 -c 'import json,sys; v=json.load(open("verdict.json")); sys.exit(1 if v.get("blocked") else 0)' \
+            || echo "::warning::quality gate BLOCKED — see the code-scanning SARIF (advisory)"

@@ -65,8 +65,8 @@ agency execute --code \
 
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
-- **adr** — approve, dod_check, draft, impact, link, read, render, supersede, theme, theme_status, update, validate
-- **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, review, run, score, security
+- **adr** — approve, catalogue, dod_check, draft, extract_decisions, hints, impact, link, read, render, spec_decisions_ready, supersede, theme, theme_status, update, validate
+- **analyze** — architecture, cleanup, gate, graph, improve, paths, performance, quality, record_run, review, run, sarif, score, security
 - **branch** — assess, commit_smart, finish
 - **config** — get, list, set
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
@@ -76,8 +76,8 @@ agency execute --code \
 - **document** — convergence, explain, index_repo, ingest, mirror, render, reopen, restore_session, revisions, session, session_analytics, sync
 - **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, recall_overflow_slice, record_decision, render, replay_events
 - **frugal** — debt, gain, help, instructions, level, review, set_level
-- **gate** — adjudicate, check
-- **intent** — assumptions, decompose, first_principles, inversion, premortem, second_order, steelman, suggests, tradeoffs
+- **gate** — adjudicate, check, verdict
+- **intent** — assumptions, decompose, first_principles, inversion, premortem, second_order, steelman, suggests, tradeoffs, triage
 - **jules** — activities, alias, apply_patch, approve_awaiting, approve_plan, detect_mode, dispatch, lint_prompt, list, message, patch, patch_body, plan, quota, recover, resolve_source, review_comment, status, status_all, stop, verify, watch
 - **manage** — amend, artefacts, create, lifecycle, lifecycle_trail, list, open_intents, project, provenance, read, render, research_state, retract, state, subtree, timeline, update, whats_next
 - **mode** — activate, detect, list

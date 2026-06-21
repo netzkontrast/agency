@@ -261,3 +261,51 @@ for a wedged PR, recorded as `Gate{overridden_by}` (Nygard); a partial-walk
 resolved (job-in-`test.yml` + scheduled `quality-audit.yml`; thin `gate.assert`
 reader verb). Next (after 360/381): `_sarif.py` + `analyze.sarif` (+ `--max-results`)
 + `gate.assert` + the CI job + the report template, RED→GREEN.
+
+**Slice 1 SHIPPED 2026-06-21 (TDD) — the SARIF emit (§1).** `analyze/_sarif.py`
+(pure `to_sarif(findings, risks, max_results)` → SARIF 2.1.0: `rules` DERIVED
+one-per-risk from the live `decay-risks.json` registry [never pinned — rule 8],
+`level` from the tier [critical→error/warning→warning/suggestion→note], `message`
+= the Iron Law [Symptom + Consequence + Remedy], `partialFingerprints` stable for
+code-scanning dedup) + `analyze.sarif(findings, max_results)` (role=`transform`;
+`max_results` caps with a `properties.truncated` "N of M shown" locator — never a
+silent drop, #9; full set stays in the graph). No parsing — findings born
+structured (Spec 360); brooks' `report-parse.mjs` stays dropped. **3 Gherkin
+scenarios** (`tests/acceptance/features/quality_sarif.feature`): valid-2.1.0 +
+level + Iron-Law message, rule-set-derived-from-registry, truncation locator. 91
+green across the analyze slice; install regen + check-drift + doc-drift clean.
+**Still (Slice 2+):** the quality gate (score/critical threshold via `gate` +
+`gate.assert` reader verb, §2), the CI job (§3), and the report render path (§4,
+template authored in 384).
+
+**Slice 2 SHIPPED 2026-06-21 (TDD) — the quality gate (§2).** `_review.py`
+`quality_gate(score, critical, min_score=70, max_critical=0) → (passed, evidence)`
+(pure decision; thresholds are documented tunable budgets — rule 8). `analyze.gate`
+(role=`act`) records a `Gate{name:"quality:<mode>", passed, evidence}` SERVING the
+intent — auditable provenance, not a bare exit code. `gate.verdict(name)`
+(role=`act`, the §2/OQ2 CI reader — named `verdict` since `assert` is a Python
+keyword) reads the LATEST Gate by name → `{found, passed, blocked, evidence}`, so
+CI exits non-zero on a block; an unknown gate is `found=False, blocked=False`.
+(Adding `verdict` made `gate` a 3-verb cap, so its docstring gained the required
+`Red flags:` section.) **5 Gherkin scenarios** (`tests/acceptance/features/
+quality_gate.feature`): blocks-below-score, critical-over-max-blocks,
+passes-above, verdict-reads-blocked, verdict-unknown-not-blocked. Gate+analyze
+slice green; install regen + check-drift + doc-drift clean. **Still (Slice 3):**
+the CI workflow job (§3) wiring `analyze review` → `analyze sarif` → upload-sarif
+→ `gate verdict`; and the report render path (§4, template in 384).
+
+**Slice 3 SHIPPED 2026-06-21 (TDD) — the CI job (§3).** The headless CI entry
+`analyze.review` now computes the Health Score from its findings and records the
+quality `Gate{name:"quality:<mode>"}` inline (one `analyze review` produces
+findings + score + an auditable gate; returns `score`/`counts`/`gate`) — recorded
+SERVING the intent, never pauses (Cockburn). `.github/workflows/quality.yml`: a PR
+job that installs agency, caches `.agency` keyed by the base branch (trend
+survives ephemeral CI — Hightower), runs `analyze review --scope diff` → `analyze
+sarif --max-results 5000` → `upload-sarif` (code-scanning) → `gate verdict`.
+**ADVISORY for now** (every quality step `continue-on-error`) so it never
+spuriously blocks while thresholds bed in; promotion to a hard gate is a one-line
+flip (remove `continue-on-error` from the verdict step + branch protection). **1
+new Gherkin scenario** (headless review records the gate + reports a score) in
+`quality_gate.feature`; gate+review slice green (24). install regen + check-drift
++ doc-drift clean. **Still (§4):** the Iron-Law report render path via
+`document.render` (the template FILE is authored in Spec 384).

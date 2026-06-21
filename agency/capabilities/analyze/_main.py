@@ -105,12 +105,18 @@ class AnalyzeCapability(CapabilityBase):
         nodes={
             "Analysis": ["path", "axes", "started_at"],
             "Finding": ["rule", "severity", "file", "line", "message", "evidence"],
+            # Spec 381 §3 — a review run recorded as a graph node (history is a
+            # query, not a .brooks-lint-history.json sidecar).
+            "QualityRun": ["mode", "score", "status"],
         },
         enums={
             ("Finding", "severity"): {"info", "warn", "fail"},
             # Spec 048: 'paths' joins the axis set as a graph-walking
             # analyzer; the others are file-tree walkers.
             ("Analysis", "axis"): set(_AXES),
+            # Spec 381 §3 — an incomplete (crashed) walk is recorded but excluded
+            # from the trend (Nygard).
+            ("QualityRun", "status"): {"complete", "incomplete"},
         },
         edges={"HAS_FINDING", "IMPROVES", "CLEANS"},
         schemas={"improvement-plan": _IMPROVEMENT_PLAN_SCHEMA},
@@ -329,6 +335,21 @@ class AnalyzeCapability(CapabilityBase):
         iron_law = iron_law_passed(findings)
         gated = [f.to_dict() for f in findings if classify_remedy(f) == "risky"]
 
+        # Spec 382 §2/§3 — the CI entry computes the Health Score and records the
+        # quality Gate inline (so a single `analyze review` produces findings +
+        # score + an auditable gate; `gate.verdict` reads it back, non-zero on a
+        # block). Gate recorded SERVING the intent — never pauses (headless).
+        from ._score import score as _score, load_presets
+        from ._review import quality_gate
+        counts = {"critical": 0, "warning": 0, "suggestion": 0}
+        for f in findings:
+            counts[f.tier] = counts.get(f.tier, 0) + 1
+        score = _score(findings, "balanced", load_presets())
+        passed, evidence = quality_gate(score, counts["critical"])
+        gate_name = f"quality:{mode}"
+        self.ctx.record_and_serve(
+            "Gate", {"name": gate_name, "passed": passed, "evidence": evidence})
+
         return {
             "scope_line": scope_line,
             "findings": [f.to_dict() for f in findings[:20]],
@@ -336,37 +357,177 @@ class AnalyzeCapability(CapabilityBase):
             "mode": mode,
             "headless": True,
             "gated": gated,
+            "score": score,
+            "counts": counts,
+            "gate": {"name": gate_name, "passed": passed, "blocked": not passed,
+                     "evidence": evidence},
         }
 
     @verb(role="transform")
-    def score(self, findings: list = None, preset: str = "balanced") -> dict:
-        """Compute the Health Score (Spec 381) from findings × preset — READ-ONLY.
+    def score(self, findings: list = None, preset: str = "",
+              config: dict = None) -> dict:
+        """Compute the Health Score (Spec 381) from findings × preset/config — READ-ONLY.
 
         ``score = max(0, 100 - Σ deduction(tier, preset))`` — the per-tier
         deductions are a documented tunable budget (strict/balanced/legacy-friendly,
         ``data/score-presets.json``), computed live every run, never pinned
         (rule 8). ``top_leverage`` names the highest-impact fixes
         (deduction_weight × occurrence_count — Wiegers). An unknown preset falls
-        back to balanced (Spec 381 §2). Pure transform — no graph write; the
-        QualityRun history node is a later slice.
+        back to balanced.
+
+        §2 config: an optional ``quality:`` block tunes the bar — ``disable``
+        (drop risks), ``focus`` (keep ONLY these), ``ignore`` (glob-exclude files),
+        ``severity`` (override a risk's tier), ``strictness`` (the preset when
+        ``preset`` is not given explicitly). Validation is surfaced in
+        ``config_notes``, never fatal (focus+disable → both ignored; bad
+        strictness → balanced). Pure transform — no graph write; the QualityRun
+        history node is a later slice.
 
         Inputs: findings (list of wire-shape finding dicts — severity + risk_code),
-                preset (strict|balanced|legacy-friendly; default balanced).
-        Returns: {score, preset, top_leverage:[finding,...], deductions:{tier:int}}.
+                preset (strict|balanced|legacy-friendly; '' → config strictness),
+                config (dict — the quality: block; optional).
+        Returns: {score, preset, top_leverage, deductions, config_notes,
+                  scored_findings}.
         chain_next: analyze.sarif / document.render the report (Spec 382).
 
         Use when: turning a finding set into a tunable Health Score + the
             highest-leverage fixes (CI gate, report Summary).
         """
-        from ._score import score as _score, top_leverage as _top, load_presets, weights
+        from ._score import (score as _score, top_leverage as _top, load_presets,
+                             weights, parse_quality_config, apply_quality_config,
+                             apply_suppressions)
         findings = findings or []
         presets = load_presets()
+        cfg, notes = parse_quality_config(config, set(presets))
+        findings = apply_quality_config(findings, cfg)
+        # Spec 381 §4 — read live Suppressions cross-capability (written by
+        # intent.triage) and drop matching findings from the score; an expired
+        # suppression lets its finding resurface (keep-both).
+        findings, suppressed, expired = apply_suppressions(
+            findings, self.ctx.find("Suppression"))
+        eff_preset = preset or cfg["strictness"]
         return {
-            "score": _score(findings, preset, presets),
-            "preset": preset,
-            "top_leverage": _top(findings, preset, 3, presets),
-            "deductions": weights(preset, presets),
+            "score": _score(findings, eff_preset, presets),
+            "preset": eff_preset,
+            "top_leverage": _top(findings, eff_preset, 3, presets),
+            "deductions": weights(eff_preset, presets),
+            "config_notes": notes,
+            "scored_findings": len(findings),
+            "suppressed": len(suppressed),
+            "expired_suppressions": expired,
         }
+
+    @verb(role="act")
+    def record_run(self, mode: str = "review", scope: str = "", findings: list = None,
+                   preset: str = "", status: str = "complete",
+                   config: dict = None) -> dict:
+        """Record a QualityRun history node + return the trend (Spec 381 §3).
+
+        History is a GRAPH QUERY, never a ``.brooks-lint-history.json`` sidecar
+        (Goal 2; survives ephemeral containers). Computes the Health Score + tier
+        counts from the findings (honouring the quality: config), records a
+        ``QualityRun{mode, scope, score, critical, warning, suggestion, status}``
+        SERVING the intent (vfrom IS the recorded-at), then derives the trend: the delta from
+        the most recent prior **complete** same-mode run. An incomplete/crashed
+        walk is recorded but EXCLUDED from the delta (Nygard); a first run reports
+        ``first=True``.
+
+        Inputs: mode, scope (str), findings (wire dicts), preset ('' → config
+                strictness), status (complete|incomplete), config (quality: block).
+        Returns: {run_id, mode, score, counts, status, trend:{first, prior, delta}}.
+        chain_next: manage.timeline(intent_id) / analyze.graph('QualityRun') for the series.
+
+        Use when: persisting a review run so its score trend survives across
+            sessions/CI as a durable, queryable node.
+        """
+        from ._score import (score as _score, load_presets, parse_quality_config,
+                             apply_quality_config, _tier_of)
+        findings = findings or []
+        presets = load_presets()
+        cfg, _notes = parse_quality_config(config, set(presets))
+        findings = apply_quality_config(findings, cfg)
+        eff_preset = preset or cfg["strictness"]
+        sc = _score(findings, eff_preset, presets)
+        counts = {"critical": 0, "warning": 0, "suggestion": 0}
+        for f in findings:
+            counts[_tier_of(f)] = counts.get(_tier_of(f), 0) + 1
+        # trend BEFORE recording this run — prior COMPLETE same-mode runs only
+        prior = [r for r in self.ctx.find("QualityRun")
+                 if r.get("mode") == mode and r.get("status") == "complete"]
+        if prior:
+            prior.sort(key=lambda r: r.get("vfrom", 0))
+            last = prior[-1].get("score")
+            trend = {"first": False, "prior": last, "delta": sc - last}
+        else:
+            trend = {"first": True, "prior": None, "delta": None}
+        # recorded_at is the substrate's vfrom tick (rule 2 — don't duplicate the
+        # temporal stamp); the trend orders by it.
+        run_id = self.ctx.record_and_serve("QualityRun", {
+            "mode": mode, "scope": scope, "score": sc,
+            "critical": counts["critical"], "warning": counts["warning"],
+            "suggestion": counts["suggestion"], "status": status})
+        return {"run_id": run_id, "mode": mode, "score": sc, "counts": counts,
+                "status": status, "trend": trend}
+
+    @verb(role="transform")
+    def sarif(self, findings: list = None, max_results: int = 0) -> dict:
+        """Render Findings as SARIF 2.1.0 for code-scanning — READ-ONLY (Spec 382 §1).
+
+        Straight from the structured findings, NO parsing (brooks' report-parse is
+        dropped — findings are born structured). The ``rules`` set is DERIVED from
+        the live decay-risk registry (``decay-risks.json`` + any custom ``Cx``), so
+        it never drifts (rule 8); ``level`` maps from the finding's tier
+        (critical→error, warning→warning, suggestion→note); the ``message`` is the
+        Iron Law (Symptom + Consequence + Remedy). ``max_results`` caps the emit
+        with a truncation locator ("N of M shown") — never a silent drop (#9); the
+        full set stays in the graph.
+
+        Inputs: findings (list of wire-shape finding dicts), max_results (int — 0 =
+                uncapped).
+        Returns: {sarif, rule_count, result_count, total, truncated}.
+        chain_next: upload `sarif` to GitHub code-scanning in CI (Spec 382 §3).
+
+        Use when: emitting code-quality findings for GitHub code-scanning / a CI
+            SARIF artefact.
+        """
+        from . import _decay
+        from ._sarif import to_sarif
+        findings = findings or []
+        risks = _decay.load_risks()
+        doc, total, truncated = to_sarif(findings, risks, max_results or None)
+        return {
+            "sarif": doc,
+            "rule_count": len(doc["runs"][0]["tool"]["driver"]["rules"]),
+            "result_count": len(doc["runs"][0]["results"]),
+            "total": total,
+            "truncated": truncated,
+        }
+
+    @verb(role="act")
+    def gate(self, score: int = 100, critical: int = 0, min_score: int = 70,
+             max_critical: int = 0, mode: str = "review") -> dict:
+        """Record the quality gate verdict as an auditable Gate node (Spec 382 §2).
+
+        PASSED iff ``score >= min_score`` AND ``critical <= max_critical`` —
+        documented tunable budgets (rule 8). Records a ``Gate{name:"quality:<mode>",
+        passed, evidence}`` SERVING the intent — auditable provenance, unlike
+        brooks' bare ``ci-gate.mjs`` exit code. The headless CI twin computes the
+        score (analyze.score) then calls this; ``gate.verdict`` reads it back.
+
+        Inputs: score (int), critical (int — critical-tier finding count),
+                min_score / max_critical (int — tunable budgets), mode (str).
+        Returns: {passed, blocked, evidence, gate, name}.
+        chain_next: gate.verdict("quality:<mode>") — non-zero exit on a block in CI.
+
+        Use when: gating a PR/commit on the Health Score + critical count.
+        """
+        from ._review import quality_gate
+        passed, evidence = quality_gate(score, critical, min_score, max_critical)
+        name = f"quality:{mode}"
+        gid = self.ctx.record_and_serve(
+            "Gate", {"name": name, "passed": passed, "evidence": evidence})
+        return {"passed": passed, "blocked": not passed, "evidence": evidence,
+                "gate": gid, "name": name}
 
     @verb(role="act")
     def improve(self, analysis_id: str, axes: list = None,
