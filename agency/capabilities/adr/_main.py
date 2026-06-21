@@ -326,6 +326,25 @@ class AdrCapability(CapabilityBase):
         return [f for f in self._decision_schema().get("properties", {})
                 if f != "status"]
 
+    def _status_transition_error(self, current: str, new: str) -> str:
+        """'' if ``current``→``new`` is a legal decision-status transition (the
+        ``decision`` machine in machines.json — Spec 355 S2), else a typed error
+        message. A no-op or a fresh decision (no current) is allowed. NOTE: a
+        Decision's status is governed by the ``decision`` MACHINE'S transition
+        table (enforced here in the domain writers), NOT by a separate Lifecycle
+        node — the Decision IS the bi-temporally-versioned tracked entity, so a
+        second tracking node would be the parallel-system smell `brooks_lint`
+        flags. The machine is the single source of legal transitions."""
+        if not current or current == new:
+            return ""
+        from agency._lifecycle_machines import resolve_machine
+        from agency._lifecycle_transitions import assert_transition, IllegalTransition
+        try:
+            assert_transition(current, new, resolve_machine("decision")["transitions"])
+        except IllegalTransition as exc:
+            return str(exc)
+        return ""
+
     def _reaches(self, start: str, target: str, edge: str) -> bool:
         """True iff ``target`` is reachable from ``start`` following ``edge``
         outward (the cycle probe behind DEP-001). Traverses via
@@ -367,30 +386,38 @@ class AdrCapability(CapabilityBase):
     @verb(role="act", param_enums={"status": DECISION_STATUS})
     def update(self, decision_id: str, status: str = "", context: str = "",
                facing: str = "", decision: str = "", neglected: str = "",
-               benefits: str = "", tradeoffs: str = "",
-               proposed_by: str = "") -> ToolResult:
+               benefits: str = "", tradeoffs: str = "", proposed_by: str = "",
+               next_review: str = "", review_cadence: str = "") -> ToolResult:
         """UPDATE a ``Decision`` in place — advance its ``status`` and/or fill WH(Y)
-        elements incrementally (the DOMAIN mutator; never reach into `manage` for
-        an ADR). Only the NON-empty args are written, so a partial completion
-        leaves the rest untouched (the draft→complete→approve lifecycle, Spec 356).
-        Bi-temporal: a revision with a stable id — append-only revision history is
-        `supersede`'s job, not a status flip.
+        elements + governance incrementally (the DOMAIN mutator; never reach into
+        `manage` for an ADR). Only the NON-empty args are written. A ``status``
+        change is GOVERNED by the ``decision`` machine (Spec 355 S2): an illegal
+        transition (e.g. ``proposed→retired``, or any move off a terminal state)
+        is REJECTED with ``DEC-001`` — status no longer poked arbitrarily.
 
-        Inputs: decision_id (str), status (the decision_status enum), and any WH(Y)
-                element to (over)write; empty = leave unchanged.
-        Returns: ``{id, updated: [field…]}`` or ``{error}`` (e.g. an out-of-enum
-                 status the ontology rejects).
-        chain_next: adr.validate(id); adr.theme_status(theme_id) to see the roll-up.
+        Inputs: decision_id (str), status (the decision_status enum — transition
+                must be legal), any WH(Y) element, next_review (ISO date — the
+                cadence `review_sweep` reads), review_cadence (str). Empty = unchanged.
+        Returns: ``{id, updated: [field…]}`` or ``{error, rule}``.
+        chain_next: adr.validate(id); adr.review_sweep() for the cadence sweep.
         """
-        if not self.ctx.recall_typed(decision_id, "Decision"):
+        props = self.ctx.recall_typed(decision_id, "Decision")
+        if not props:
             return ToolResult.success(data={"error": f"no decision {decision_id!r}",
                                             "decision_id": decision_id})
         changes = {k: v for k, v in {
             "status": status, "context": context, "facing": facing,
             "decision": decision, "neglected": neglected, "benefits": benefits,
-            "tradeoffs": tradeoffs, "proposed_by": proposed_by}.items() if v}
+            "tradeoffs": tradeoffs, "proposed_by": proposed_by,
+            "next_review": next_review, "review_cadence": review_cadence}.items() if v}
         if not changes:
             return ToolResult.success(data={"id": decision_id, "updated": []})
+        if "status" in changes:                                   # DEC-001 — legal transition
+            err = self._status_transition_error(str(props.get("status", "")),
+                                                changes["status"])
+            if err:
+                return ToolResult.success(data={"error": err, "rule": "DEC-001",
+                                                "decision_id": decision_id})
         try:
             self.ctx.update(decision_id, changes)
         except (KeyError, ValueError) as exc:
@@ -455,6 +482,10 @@ class AdrCapability(CapabilityBase):
         old = self.ctx.recall_typed(old_id, "Decision")
         if not old:
             return ToolResult.success(data={"error": f"no decision {old_id!r}",
+                                            "old_id": old_id})
+        terr = self._status_transition_error(str(old.get("status", "")), "superseded")
+        if terr:                                                  # DEC-001 — can't supersede a terminal decision
+            return ToolResult.success(data={"error": terr, "rule": "DEC-001",
                                             "old_id": old_id})
         themes = self.ctx.neighbors(old_id, "PART_OF", direction="out")
         theme_id = themes[0].get("id") if themes else ""
@@ -699,6 +730,10 @@ class AdrCapability(CapabilityBase):
         if not props:
             return ToolResult.success(data={"error": f"no decision {decision_id!r}",
                                             "decision_id": decision_id, "approved": False})
+        terr = self._status_transition_error(str(props.get("status", "")), "approved")
+        if terr:                                                  # DEC-001 — e.g. a rejected/superseded decision
+            return ToolResult.success(data={"decision_id": decision_id, "approved": False,
+                                            "error": terr, "rule": "DEC-001"})
         chk = self.dod_check(decision_id).data
         owner = self._is_owner(approver)
 
@@ -972,3 +1007,27 @@ class AdrCapability(CapabilityBase):
         rows.sort(key=lambda r: r["layer"])
         return ToolResult.success(data={"themes": rows, "total_themes": len(rows),
                                         "total_decisions": total_decisions})
+
+    @verb(role="effect")
+    def review_sweep(self, today: str = "") -> ToolResult:
+        """REVIEW_SWEEP — cadence governance (Spec 355 S2, SPEC-001-A): flip every
+        live ``approved``/``implemented`` decision whose ``next_review`` date has
+        lapsed (< today) to ``expired`` — a legal `decision`-machine transition.
+        Makes governance LIVE rather than a table that rots. Decidable (no key):
+        an ISO-date string compare.
+
+        Inputs: today (ISO 'YYYY-MM-DD'; default = the system date).
+        Returns: ``{swept: [decision_ids], count, as_of}``.
+        chain_next: adr.catalogue(status="expired") to review what lapsed.
+        """
+        import datetime
+        as_of = today or datetime.date.today().isoformat()
+        swept: list[str] = []
+        for d in self.ctx.find("Decision"):
+            if str(d.get("status")) in ("approved", "implemented"):
+                nr = str(d.get("next_review", "")).strip()
+                if nr and nr < as_of:
+                    self.ctx.update(d.get("id"), {"status": "expired"})
+                    swept.append(d.get("id"))
+        return ToolResult.success(data={"swept": swept, "count": len(swept),
+                                        "as_of": as_of})

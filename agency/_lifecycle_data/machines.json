@@ -65,5 +65,21 @@
       "done":       []
     },
     "terminal": ["superseded", "done"]
+  },
+  "decision": {
+    "initial": "proposed",
+    "states": ["proposed", "under-review", "approved", "implemented",
+               "superseded", "rejected", "retired", "expired"],
+    "transitions": {
+      "proposed":     ["under-review", "approved", "rejected", "superseded"],
+      "under-review": ["approved", "rejected", "superseded"],
+      "approved":     ["implemented", "superseded", "expired", "rejected"],
+      "implemented":  ["retired", "superseded", "expired"],
+      "rejected":     [],
+      "superseded":   [],
+      "retired":      [],
+      "expired":      []
+    },
+    "terminal": ["rejected", "superseded", "retired", "expired"]
   }
 }
