@@ -58,7 +58,9 @@ def _skilldoc(engine):
     assert getattr(cap, "skill_doc", None) is not None, "no SkillDoc derived"
 
 
-@then("a discover-usage walkable skill is registered")
+@then("the guided-discovery walkable skill is registered")
 def _usage_walk(engine):
-    assert "discover-usage" in (engine.ontology.skills or {}), \
-        "derived discover-usage walk missing"
+    # Spec 322 Slice 3: the authored discipline replaces the derived discover-usage
+    # (Spec 081 — authored skills are the override, never replaced).
+    assert "guided-discovery" in (engine.ontology.skills or {}), \
+        "guided-discovery discipline skill missing"
