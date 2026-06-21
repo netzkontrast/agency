@@ -46,3 +46,10 @@ Feature: Live vision-alignment matrix — derived from spec frontmatter
     Given the matrix is built over the live Plan tree
     Then every spec with vision_goals appears in at least one goal row
     And no spec references a goal id absent from GOALS.md
+
+  # ── doc-bound specs: the Spec 292 anchor must not hide frontmatter ──────────
+
+  Scenario: a Document-bound spec keeps its vision_goals despite the node anchor
+    Given a spec whose first line is a Spec 292 agency-node anchor before its frontmatter
+    When I collect specs from that tree
+    Then the anchored spec is collected with its vision_goals
