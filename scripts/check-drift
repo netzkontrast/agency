@@ -242,6 +242,31 @@ fi
 say
 
 # ----------------------------------------------------------------------
+# spec-state gate (Spec 357 — a spec filed under Plan/<state>/ must declare the
+# matching `state:` frontmatter). Legacy flat Plan/NNN-slug/ specs are
+# grandfathered (not under a state folder → not checked).
+# ----------------------------------------------------------------------
+say "==> spec-state gate (Spec 357)"
+SPEC_STATE_DRIFT=""
+for st in draft open inprogress superseded done; do
+  for f in Plan/"$st"/*/spec.md; do
+    [[ -e "$f" ]] || continue
+    fstate=$(grep -m1 '^state:' "$f" | sed -E 's/^state:[[:space:]]*//; s/["'"'"']//g; s/[[:space:]]*$//')
+    if [[ "$fstate" != "$st" ]]; then
+      SPEC_STATE_DRIFT+="      $f: folder=$st frontmatter=${fstate:-<missing>}"$'\n'
+    fi
+  done
+done
+if [[ -n "$SPEC_STATE_DRIFT" ]]; then
+  say "    DRIFT: spec folder ≠ frontmatter state:"
+  [[ "$QUIET" -eq 0 ]] && printf '%s' "$SPEC_STATE_DRIFT"
+  DRIFT=1
+else
+  say "    spec-state: folder == frontmatter state (legacy flat specs grandfathered)"
+fi
+say
+
+# ----------------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------------
 if [[ "$DRIFT" -eq 0 ]]; then

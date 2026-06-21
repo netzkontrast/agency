@@ -75,16 +75,19 @@ class WorkflowCapability(CapabilityBase):
 
     @verb(role="effect", param_enums={"to_state": SPEC_STATES})
     def move_spec(self, spec_id: str, to_state: str,
-                  override: bool = False) -> ToolResult:
+                  override: bool = False, superseded_by: str = "") -> ToolResult:
         """MOVE_SPEC — advance the spec's Lifecycle to ``to_state`` via
         ``ctx.lifecycle.move`` (the SOLE state writer — Spec 339; an illegal edge
         is rejected by the ``spec`` machine's transition table). The
         **open→inprogress** transition is GATED by the ADR hinge:
         ``adr.spec_decisions_ready(spec)`` must be true (every extracted decision
         approved — Spec 356/355), unless a provenance-stamped owner ``override``.
+        Moving to ``superseded`` with ``superseded_by`` set records the forward
+        reference (the core ``SUPERSEDED_BY`` edge: this spec → its replacement).
 
         Inputs: spec_id (the spec Document id), to_state (a ``spec`` machine state),
-                override (bool — owner bypass of the ADR gate).
+                override (bool — owner bypass of the ADR gate), superseded_by (the
+                replacing spec's Document id — only when to_state="superseded").
         Returns: ``{spec_id, lifecycle_id, moved, state, …}``; on the gate,
                  ``{moved: False, blocked: True, reason, blocking}``; on an illegal
                  edge / no-op, ``{moved: False, error}``.
@@ -116,9 +119,17 @@ class WorkflowCapability(CapabilityBase):
             # Illegal edge (IllegalTransition) / no-op / unknown state → typed error.
             return ToolResult.success(data={"error": str(exc), "spec_id": spec_id,
                                             "moved": False, "state": current})
+        # SPEC-001-C supersession: record the forward reference to the replacement
+        # spec (the core SUPERSEDED_BY edge — this spec → its replacement).
+        superseded_by_recorded = ""
+        if state == "superseded" and superseded_by and \
+                self.ctx.recall_typed(superseded_by, "Document"):
+            self.ctx.link(spec_id, superseded_by, "SUPERSEDED_BY")
+            superseded_by_recorded = superseded_by
         return ToolResult.success(data={"spec_id": spec_id, "lifecycle_id": lid,
                                         "moved": True, "state": state,
-                                        "override": bool(override)})
+                                        "override": bool(override),
+                                        "superseded_by": superseded_by_recorded})
 
     @verb(role="transform")
     def board(self, state: str = "") -> ToolResult:
