@@ -1,5 +1,5 @@
 ---
-spec_id: "362"
+spec_id: "370"
 slug: skill-system-v2
 status: draft
 last_updated: 2026-06-20
@@ -10,7 +10,7 @@ domain: skills
 wave: program-master
 ---
 
-# Spec 362 — Skill & Command system v2 (the generation overhaul) — MASTER
+# Spec 370 — Skill & Command system v2 (the generation overhaul) — MASTER
 
 > Owner directive (2026-06-20): *"Rethink how we generate skill files AND commands.
 > First a Set of Rules describing what skills ideally contain so every part of the
@@ -22,7 +22,7 @@ wave: program-master
 > sampling with proper skill-creator prompts. This is several specs — it touches
 > every part of the plugin."*
 
-This is the **master** for a program (children 363–370). It is the single source
+This is the **master** for a program (children 371–378). It is the single source
 for *how the skill/command generation overhaul composes*; promoted children win
 within their slice once shipped (047/307/338 precedent).
 
@@ -97,17 +97,17 @@ flip to repo-wide block once the 33 are migrated.
 
 | # | Spec | Scope | Key files |
 |---|---|---|---|
-| 363 | **phase-skill-schema** | the powerful layered `Phase`+`Skill` JSON schema; typed parse; committed per-cap `skill.yaml`; back-compat | `skill.py`, `_skill_parse.py`, `capability.py`, schemas/ |
-| 364 | **phase-single-source** | `SkillRun.current/submit` + `develop.skill_walk` surface `goal/instructions/example`; walk↔file parity | `skill.py`, `develop/_main.py` |
-| 365 | **per-type-templates-renderer** | pillar/capability/discipline templates w/ variables; deterministic self-contained render; kill truncation | `skill_emit.py`, `render/`, `templates.py`, `disclosure.py` |
-| 366 | **skill-creator-sampling** | authoring-time `skill.author`/`regenerate`: MCP-sampling, per-type prompts, code+spec grounding, registry-validation, staleness stamp | new cluster, `_host_llm.py`, `skill_generator` cap |
-| 367 | **pillar-skills** | author `intent`·`lifecycle`·`memory` concept skills + their generation path | new pillar source, `install.py`, ontology |
-| 368 | **command-v2** | curated command set; launch-not-stub; drop top-N | `install.py`, `author_command`, `command-md.tpl` |
-| 369 | **skill-lint-enforcement** | per-type + phase-instruction + self-containment lint; validate at generate + check-drift; graduated warn→block | `lint.py`, `check-drift`, `SKILL-CONTRACT`→v2 |
-| 370 | **capability-skill-migration** | author phase/judgment content per cap (A6 path); flip to block; docs/doctrine v2 | every capability + docs |
+| 371 | **phase-skill-schema** | the powerful layered `Phase`+`Skill` JSON schema; typed parse; committed per-cap `skill.yaml`; back-compat | `skill.py`, `_skill_parse.py`, `capability.py`, schemas/ |
+| 372 | **phase-single-source** | `SkillRun.current/submit` + `develop.skill_walk` surface `goal/instructions/example`; walk↔file parity | `skill.py`, `develop/_main.py` |
+| 373 | **per-type-templates-renderer** | pillar/capability/discipline templates w/ variables; deterministic self-contained render; kill truncation | `skill_emit.py`, `render/`, `templates.py`, `disclosure.py` |
+| 374 | **skill-creator-sampling** | authoring-time `skill.author`/`regenerate`: MCP-sampling, per-type prompts, code+spec grounding, registry-validation, staleness stamp | new cluster, `_host_llm.py`, `skill_generator` cap |
+| 375 | **pillar-skills** | author `intent`·`lifecycle`·`memory` concept skills + their generation path | new pillar source, `install.py`, ontology |
+| 376 | **command-v2** | curated command set; launch-not-stub; drop top-N | `install.py`, `author_command`, `command-md.tpl` |
+| 377 | **skill-lint-enforcement** | per-type + phase-instruction + self-containment lint; validate at generate + check-drift; graduated warn→block | `lint.py`, `check-drift`, `SKILL-CONTRACT`→v2 |
+| 378 | **capability-skill-migration** | author phase/judgment content per cap (A6 path); flip to block; docs/doctrine v2 | every capability + docs |
 
-**Build order:** 363 → 364 → 365 → 366 → (367 ‖ 368) → 369 → 370. 363–366 are the
-substrate; 370 is the long tail. Each child is independently shippable.
+**Build order:** 371 → 372 → 373 → 374 → (375 ‖ 376) → 377 → 378. 371–374 are the
+substrate; 378 is the long tail. Each child is independently shippable.
 
 ## Cross-cluster coherence (Spec 047)
 Skills/commands span clusters C01–C13; this program touches the **generation
@@ -115,13 +115,13 @@ substrate** they all share, so it lands as a cross-cutting program, not in one
 cluster. Coherence risks: (1) the walk (`develop`, C03) vs the rendered file must
 not diverge → A2 single-source; (2) the plugin authoring cap (C12) `author_skill`
 path must converge onto the same schema/renderer (no third path); (3) the lint
-(C04) must gate without blocking the existing 33 until migrated → graduated (369).
+(C04) must gate without blocking the existing 33 until migrated → graduated (377).
 
 ## Acceptance (program-level)
 - **C1** A `Skill`/`Phase` schema exists, is strictly validated, and is powerful
-  enough to express R1–A7 (363).
+  enough to express R1–A7 (371).
 - **C2** A walked phase AND the rendered SKILL.md deliver the SAME instructions from
-  ONE source (364); a read-only agent can follow a skill without skill-walk (A1).
+  ONE source (372); a read-only agent can follow a skill without skill-walk (A1).
 - **C3** `install.generate` is deterministic (no LLM; `install regen` diff-free);
   the skill-creator's LLM output is authoring-time + committed (A7).
 - **C4** Skill text is optimized (no docstring truncation, no `_(Tier B…)_` stubs);
@@ -145,4 +145,4 @@ directive after the ponytail port exposed that auto-generated skills are shallow
 docstring extracts. Grounded via codegraph (current-state map) + assembled
 best-practices (R1–A7) + a critical-thinking/brainstorm pass that corrected the
 sampling model from install-time to authoring-time (the reproducibility landmine).
-No code yet — this master + children 363–370 are the design record.
+No code yet — this master + children 371–378 are the design record.

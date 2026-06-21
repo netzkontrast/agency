@@ -1,25 +1,25 @@
 ---
-spec_id: "363"
+spec_id: "371"
 slug: phase-skill-schema
 status: draft
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [1, 3]
 depends_on: ["152", "286"]
-parent_spec: "362"
+parent_spec: "370"
 domain: skills
 ---
 
-# Spec 363 — The powerful, layered Phase + Skill schema (the data model)
+# Spec 371 — The powerful, layered Phase + Skill schema (the data model)
 
-> Child 1 of the Spec 362 program. The foundation everything else builds on: a
+> Child 1 of the Spec 370 program. The foundation everything else builds on: a
 > typed, validated, committed `Skill`/`Phase` schema rich enough to express the
-> R1–A7 best-practices (`Plan/362-…/reference/SKILL-BEST-PRACTICES.md`).
+> R1–A7 best-practices (`Plan/370-…/reference/SKILL-BEST-PRACTICES.md`).
 
 ## Why
 Today a phase is `{index,name,produces,gate?,verbs?,sample?,…}` (no content) and a
 skill is `{name,description,body}` (enforces nothing). Neither can hold a good
-skill. This slice defines the data model; 364–370 consume it.
+skill. This slice defines the data model; 372–378 consume it.
 
 ## Design (sketch)
 - **`Phase`** gains content fields: `goal` (one line), `instructions` (the inline
