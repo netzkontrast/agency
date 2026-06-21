@@ -15,7 +15,7 @@ Diagnose code decay using the brooks Iron Law — READ-ONLY (transform).
 
 ## Chain-next
 
-develop.remediate(review_id) to apply fixes; analyze.sarif(...) for SARIF / CI output (Spec 357).
+develop.remediate(review_id) to apply fixes; analyze.sarif(...) for SARIF / CI output (Spec 374).
 
 ## Details
 

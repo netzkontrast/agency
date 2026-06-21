@@ -274,7 +274,7 @@ class AnalyzeCapability(CapabilityBase):
             # Spec 354 — enrich decidable findings with the risk code + Iron Law
             # fields they evidence before recording (a no-op for rules in no
             # risk's decidable list), so the graph nodes carry the decay
-            # diagnosis the judgment pass (355) later enriches in place.
+            # diagnosis the judgment pass (372) later enriches in place.
             findings = _decay.tag(findings)
             totals[axis] = _findings.count_by_severity(findings)
             for fnd in findings:
@@ -287,7 +287,7 @@ class AnalyzeCapability(CapabilityBase):
     def review(self, path: str = ".", mode: str = "review", scope: str = "") -> dict:
         """Headless code-quality review for CI — never pauses; risky remedies auto-declined.
 
-        The CI actor's entry point (Spec 355 §3a, Cockburn + Hightower fix).
+        The CI actor's entry point (Spec 372 §3a, Cockburn + Hightower fix).
         Shares the same decidable engine as develop.review but NEVER blocks on a
         gate or confirmation prompt: risky remedies are reported in gated:[] and
         auto-declined, not applied. Decidable-only output when no LLM key
@@ -297,7 +297,7 @@ class AnalyzeCapability(CapabilityBase):
                 mode (one of review/audit/debt/test/health/sweep),
                 scope (str — informational scope description; '' = auto-detect).
         Returns: {scope_line, findings:[...], iron_law_passed, mode, headless:True, gated:[...]}.
-        chain_next: analyze.sarif(...) for SARIF / code-scanning upload (Spec 357).
+        chain_next: analyze.sarif(...) for SARIF / code-scanning upload (Spec 374).
 
         Use when: running code-quality diagnosis in CI or any non-interactive context
             where blocking for confirmation is forbidden.

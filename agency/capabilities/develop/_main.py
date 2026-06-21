@@ -144,11 +144,11 @@ DEV_SKILLS = {
         _phase(5, "token-check", ["budget_ok"]),
         _phase(6, "commit", ["reflection_recorded"], gate="hard"),
     ]},
-    # Spec 355 — Six quality modes as walkable skills (brooks-lint port).
+    # Spec 372 — Six quality modes as walkable skills (brooks-lint port).
     # The hybrid shape: scope → decidable (analyze.* axes) → judgment (Iron Law
     # HARD GATE: all(f.consequence and f.remedy for f in findings if f.risk_code))
-    # → score-report (356) → [remedy: sweep only].
-    # Guidance prose rendered from develop/templates/quality-{mode}.md (Spec 359).
+    # → score-report (373) → [remedy: sweep only].
+    # Guidance prose rendered from develop/templates/quality-{mode}.md (Spec 376).
     "quality-review": {"name": "quality-review", "kind": "discipline", "phases": [
         _phase(1, "scope",        ["scope_line"]),
         _phase(2, "decidable",    ["decidable_findings"],
@@ -1429,7 +1429,7 @@ class DevelopCapability(CapabilityBase):
         return {"result": rid}
 
     # ════════════════════════════════════════════════════════════════════════
-    # Spec 355 — brooks-lint port: quality-review seam
+    # Spec 372 — brooks-lint port: quality-review seam
     # Two verbs — develop.review (transform, READ-ONLY) and
     # develop.remediate (effect, writes) — not one verb with a fix bool
     # (Fowler fix: @verb(role=…) is static per verb).
@@ -1449,7 +1449,7 @@ class DevelopCapability(CapabilityBase):
                  Token-bounded preview (≤20 findings); full detail records via
                  the decidable phase of the quality-{mode} skill walk.
         chain_next: develop.remediate(review_id) to apply fixes;
-                    analyze.sarif(...) for SARIF / CI output (Spec 357).
+                    analyze.sarif(...) for SARIF / CI output (Spec 374).
 
         Use when: diagnosing code decay or maintainability using the Iron Law
             (Symptom → Source → Consequence → Remedy) across six scopes

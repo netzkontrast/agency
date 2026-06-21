@@ -1,4 +1,4 @@
-"""Shared review core (Spec 355): scope-detect · merge · Iron Law gate · classify.
+"""Shared review core (Spec 372): scope-detect · merge · Iron Law gate · classify.
 
 This module is the single engine both develop.review (interactive) and
 analyze.review (headless/CI) drive. The actors differ in pause behaviour, not
@@ -78,7 +78,7 @@ def merge_findings(
 def iron_law_passed(findings: list["Finding"]) -> bool:
     """Pure predicate: every brooks finding (non-empty risk_code) must carry
     both consequence AND remedy. This is the Iron Law gate — a decidable check
-    over Finding fields, not agent self-assertion (Wiegers fix, Spec 355 §2).
+    over Finding fields, not agent self-assertion (Wiegers fix, Spec 372 §2).
     """
     return all(f.consequence and f.remedy for f in findings if f.risk_code)
 
