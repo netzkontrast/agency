@@ -114,3 +114,30 @@ def _status_is(engine, confirmed_intent, decision_id, status):
 def _status_remains(engine, confirmed_intent, decision_id, status):
     res, _ = invoke(engine, confirmed_intent, "adr", "read", decision_id=decision_id)
     assert res.get("status") == status, res
+
+
+# ── Slice 2 — decision-status machine governance ──────────────────────────────
+
+@when(parsers.parse('I update the decision status to "{status}"'),
+      target_fixture="update_res")
+def _update_status(engine, confirmed_intent, decision_id, status):
+    res, _ = invoke(engine, confirmed_intent, "adr", "update",
+                    decision_id=decision_id, status=status)
+    return res
+
+
+@when(parsers.parse('I set the decision next_review to "{date}"'))
+def _set_next_review(engine, confirmed_intent, decision_id, date):
+    invoke(engine, confirmed_intent, "adr", "update",
+           decision_id=decision_id, next_review=date)
+
+
+@when("I run the review sweep")
+def _review_sweep(engine, confirmed_intent):
+    invoke(engine, confirmed_intent, "adr", "review_sweep")
+
+
+@then(parsers.parse('the status update is rejected with rule "{rule}"'))
+def _update_rejected(update_res, rule):
+    assert update_res.get("error"), update_res
+    assert update_res.get("rule") == rule, update_res

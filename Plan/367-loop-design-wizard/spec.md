@@ -147,7 +147,25 @@ Scenario: walking the skill records a SkillRun provenance trail (a lifecycle on 
 
 ## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Re-drafted spine-framed (2026-06-21). Looper's 7-stage interview as
+**Verdict:** Implemented 2026-06-21 (spine-framed). `LOOP_DESIGN_SKILL` (7 phases,
+built with the canonical `phase()` helper) ships in `agency/_loop.py` and is
+registered into the **develop** ontology (`develop_ontology.skills["loop-design"]`)
+— no new capability — so it walks via `develop.skill_walk` and surfaces in
+`agency search` + the regenerated `skills/develop/SKILL.md` install manifest. The
+council + control phases are `gate="hard"` (the walker pauses for confirmation);
+their SEMANTIC conditions are the predicates `verdict_source_present` (365
+reviewer-only rule) and `termination_guard_present` (366 invariant). `_loop.preview`
+renders the graph-derived ASCII flow (machine 366 + criteria 364 + council 365)
+for phase-6 sign-off. Walking records a `SkillRun` (`Skill` SERVES the Intent + 7
+`HAS_PHASE` records) for free. Covered by `tests/acceptance/test_loop_wizard.py`
+(6 scenarios green); `test_develop.py` still green (28). **Frugal: net-new is the
+phase graph + preview + two predicates — no new capability verbs.**
+**Refinement deferred:** auto-evaluating the predicates AS the phase gate (vs. the
+walker's generic confirm-pause), and the explicit `skill:loop-design` machine
+derivation (346), are follow-ups; the predicates + hard-gate marks carry the
+behaviour today.
+
+**Prior draft note:** Re-drafted spine-framed (2026-06-21). Looper's 7-stage interview as
 the `loop-design` walkable skill = a `skill:loop-design` machine (346), composing
 the **reuse** verbs (intent/gate/persona/panel + the lifecycle pillar + `_loop`)
 one phase at a time; rubric progressive disclosure per phase; the two looper

@@ -50,3 +50,8 @@ Feature: ADR spec→decision extraction + ready predicate (Spec 356 Slice 1)
     And I load the implementation hints with budget 2000
     Then at least one hint is returned
     And the returned tokens are within budget
+
+  Scenario: extraction infers the theme from the spec's domain frontmatter
+    Given an ingested spec in the "datalayer" domain
+    When I extract decisions from it as a preview
+    Then the candidates are themed "datalayer"

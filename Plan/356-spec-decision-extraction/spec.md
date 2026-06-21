@@ -134,8 +134,11 @@ the minimum an implementer needs to not contradict an approved decision.
       (`returned_tokens ≤ budget`, via the shared `budget_take` split) and sets
       `truncated` honestly — the underlying `Decision` nodes stay **full** (rule 9;
       the budget governs only the projection). Only `approved` decisions appear.
-- [ ] Theme inference from `affects`/`domain` + multi-theme routing (still: Slice 1
-      files all candidates under one get-or-created theme).
+- [x] Theme inference from the spec's `domain` frontmatter (newline-agnostic regex,
+      since the graph store flattens the DocRevision body) — `extract_decisions`
+      with no `theme_id` files decisions under the inferred-layer theme.
+- [ ] Per-candidate multi-theme routing (one spec's decisions spanning several
+      themes) — needs a classifier; deferred.
 
 ## Failure modes (Nygard)
 

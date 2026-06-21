@@ -70,6 +70,32 @@ def parse_frontmatter(body: str) -> dict:
     return loaded if isinstance(loaded, dict) else {}
 
 
+def section_after(body: str, header: str) -> str:
+    """Text of the ``## <header>`` section up to the next ``## `` heading.
+
+    Substring-anchored (NOT line-anchored) so it survives the graph store
+    flattening a Document's newlines to spaces on read — the one ``## section``
+    slicer shared by every body parser (adr extraction, brooks-lint).
+    """
+    low = body.lower()
+    key = "## " + header.lower()
+    i = low.find(key)
+    if i == -1:
+        return ""
+    start = i + len(key)
+    nxt = low.find("## ", start)
+    return body[start: nxt if nxt != -1 else len(body)].strip()
+
+
+def latest_revision_text(revisions: list[dict]) -> str:
+    """The body of the latest ``DocRevision`` (keep-both, latest-``recorded_at``
+    wins — Spec 292). ``revisions`` is the ``REVISION_OF``-in neighbour list; the
+    one "latest revision wins" read rule, shared rather than re-rolled per caller."""
+    if not revisions:
+        return ""
+    return max(revisions, key=lambda r: r.get("recorded_at", 0)).get("text", "")
+
+
 def stamp_anchor(body: str, node_id: str) -> str:
     """Return ``body`` with the anchor for ``node_id`` on its first line.
 

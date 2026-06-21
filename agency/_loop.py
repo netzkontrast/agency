@@ -529,3 +529,397 @@ def advance(host: Any, loop_id: str, *, artefact: str = "", judge_output: str = 
     host.lifecycle.move(loop_id, flow["on_revise"], evidence=f"revise:{sig}")
     return {"state": flow["on_revise"], "decision": "revise", "review": result["verdicts"],
             "revisions": progress.get("revisions", 0), "iterations": progress.get("iterations", 0)}
+
+
+# --- Spec 367: the loop-design wizard (a walkable skill) ----------------------
+# Looper's 7-stage interview as a walkable skill (Spec 081/152): one phase per
+# turn, each composing the REUSE verbs (intent/gate/persona/panel + the lifecycle
+# pillar + _loop). Registered into the develop ontology (no new capability), so it
+# walks via `develop.skill_walk` and is discoverable. The council + control phases
+# are HARD gates — the two invariants looper itself refuses to emit without: a
+# verdict source for every revise_until_clean gate (365) and a termination guard
+# (366). The ASCII preview (phase 6) is DERIVED from the graph, never authored.
+
+from .skill import phase  # canonical phase-dict builder (Spec 286)
+
+LOOP_DESIGN_SKILL: dict[str, Any] = {
+    "name": "loop-design",
+    "kind": "discipline",
+    "applies_when": {"kind": "pattern",
+                     "pattern": r"design.*loop|loop.?design|agent.*loop|looper",
+                     "confidence": 0.8},
+    "phases": [
+        phase(1, "goal", produces=["goal_id"], verbs=["intent.capture", "intent.confirm"]),
+        phase(2, "verification", produces=["criteria"], verbs=["gate.check"]),
+        phase(3, "host", produces=["host"], verbs=["persona.create"]),
+        phase(4, "council", produces=["council"], gate="hard",
+              verbs=["persona.create", "panel.convene"]),
+        phase(5, "control", produces=["loop_id"], gate="hard", verbs=["lifecycle.open"]),
+        phase(6, "confirm", produces=["preview_ok"], requires_input=["preview_ok"],
+              verbs=["_loop.preview"]),
+        phase(7, "emit", produces=["emitted"], verbs=["_loop.emit"]),
+    ],
+}
+
+
+def termination_guard_present(control: dict[str, Any]) -> bool:
+    """Phase-5 gate predicate (366 invariant): the loop declares ≥1 termination guard."""
+    return _has_termination_guard(control.get("max_iterations", 0),
+                                  control.get("budget"),
+                                  control.get("no_progress_stall", 0))
+
+
+def verdict_source_present(host: Any, loop_id: str, *, host_family: str = "") -> bool:
+    """Phase-4 gate predicate (365 reviewer-only rule): every revise_until_clean
+    gate has a verdict source (a judge member or a human criterion)."""
+    return recommend_council(host, loop_id, host_family=host_family)["verdict_sources_ok"]
+
+
+def preview(host: Any, loop_id: str) -> dict[str, Any]:
+    """Render the terminal-friendly ASCII flow looper shows before emission (Spec
+    367 phase 6) — DERIVED from the loop machine (366) + criteria (364) + council
+    (365), so it can never drift from what will actually run. Returns
+    ``{ascii, states, criteria, council, control}``.
+    """
+    from ._lifecycle_machines import resolve_machine
+    machine = resolve_machine("loop")
+    criteria = _loop_criteria(host, loop_id)
+    members = _loop_members(host, loop_id)
+    control = json.loads((host.memory.recall(loop_id) or {}).get("loop_control") or "{}")
+
+    crit_txt = ", ".join(f"{c['kind']}:{c['id']}" for c in criteria) or "none"
+    council_txt = ", ".join(f"{m['role']}/{m.get('family') or '?'}" for m in members) or "none"
+    caps = [f"{k}={control[k]}" for k in ("max_iterations", "max_revisions", "no_progress_stall")
+            if control.get(k)]
+    if control.get("budget"):
+        caps.append(f"budget={control['budget']}")
+    stops = ", ".join(caps) or "NONE — a guard-free loop is refused"
+
+    lines = [
+        "loop-design preview",
+        "===================",
+        "  planning → plan_gate ──pass──▶ delivering → delivery_gate ──pass──▶ completed",
+        "                │ revise                          │ revise",
+        "                ▼                                  ▼",
+        "             planning                          delivering",
+        "",
+        f"criteria ({len(criteria)}): {crit_txt}",
+        f"council ({len(members)}): {council_txt}",
+        f"stops: {stops}",
+    ]
+    return {"ascii": "\n".join(lines), "states": machine["states"],
+            "criteria": criteria, "council": members, "control": control}
+
+
+# --- Spec 368: compile (graph → resolved) + emit (render portable files) ------
+# The graph is the source of truth; files are a peer projection (CLAUDE.md rule 2).
+# `compile` resolves the spine nodes into looper's loop.resolved.json shape (the
+# SAME contract the ported run-loop.py reads, 369); `emit` projects the portable
+# workspace. Schemas are vendored under loop/schemas/; validation reuses jsonschema
+# against the self-contained loop.v1 schema + the reviewer-only rule (365).
+
+_SCHEMA_DIR = Path(__file__).parent / "_lifecycle_data" / "loop" / "schemas"
+_TEMPLATE_DIR = Path(__file__).parent / "_lifecycle_data" / "loop" / "templates"
+
+
+def _now_iso() -> str:
+    import datetime
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _member_argv(member: dict[str, Any]) -> list[str]:
+    """Resolve a council member to an argv invocation (369 registry shape) — NEVER
+    a shell string. The CLI is the member's family/driver; argv is `[cli, "-p"]`."""
+    cli = member.get("driver") or member.get("family") or "host"
+    return [cli, "-p"]
+
+
+def _validate_resolved(resolved: dict[str, Any]) -> list[dict[str, str]]:
+    """Validate the resolved spec against loop.v1 (self-contained, jsonschema) +
+    the resolved-extra keys + the reviewer-only rule. Returns typed findings."""
+    findings: list[dict[str, str]] = []
+    try:
+        import jsonschema
+        base = json.loads((_SCHEMA_DIR / "loop.v1.schema.json").read_text(encoding="utf-8"))
+        for e in jsonschema.Draft202012Validator(base).iter_errors(resolved):
+            findings.append({"path": "/".join(str(p) for p in e.path), "message": e.message})
+    except ImportError:  # jsonschema is a dev/analyze extra — degrade to structural
+        for key in ("version", "goal", "host", "gates", "loop_control", "workspace"):
+            if key not in resolved:
+                findings.append({"path": key, "message": f"missing required key {key!r}"})
+    for key in ("compiled_at", "source", "criteria_by_id", "council_by_id"):
+        if key not in resolved:
+            findings.append({"path": key, "message": f"missing resolved field {key!r}"})
+    # The reviewer-only rule (365) — schema can't express it; enforce semantically.
+    for gname, g in resolved.get("gates", {}).items():
+        if g.get("verdict_policy") == "revise_until_clean" and not g.get("verdict_source"):
+            findings.append({"path": f"gates/{gname}",
+                             "message": "revise_until_clean gate has no verdict_source (reviewer-only rule, 365)"})
+    return findings
+
+
+def compile(host: Any, loop_id: str) -> dict[str, Any]:
+    """Resolve a graph-native loop into looper's loop.resolved.json shape (Spec
+    368): expand refs, build ``criteria_by_id`` + ``council_by_id``, inline judge
+    rubrics, resolve every member to an argv invocation, carry loop_control +
+    workspace. Validates against loop.resolved.v1. Pure — no side effects. Returns
+    ``{resolved, valid, findings}``.
+    """
+    props = host.memory.recall(loop_id) or {}
+    control = json.loads(props.get("loop_control") or "{}")
+    criteria_raw = _loop_criteria(host, loop_id)
+    members_raw = _loop_members(host, loop_id)
+    rows = host.memory.g.query(
+        "MATCH (l)-[:SERVES]->(i:Intent) WHERE l.id=$lid "
+        "RETURN i.purpose AS purpose, i.acceptance AS acceptance, "
+        "i.context_sources AS context_sources",
+        {"lid": loop_id})
+    intent = rows[0] if rows else {}
+
+    criteria: list[dict[str, Any]] = []
+    criteria_by_id: dict[str, Any] = {}
+    for c in criteria_raw:
+        cr: dict[str, Any] = {"id": c["id"], "type": c["kind"]}   # spine `kind` → looper `type`
+        if c["kind"] == "programmatic":
+            cr["check"] = list(c.get("check", []))
+            cr["expect"] = c.get("expect", "exit_zero")
+            if c.get("contains"):
+                cr["contains"] = c["contains"]
+        elif c["kind"] == "judge":
+            cr["rubric"] = c.get("rubric", "")                     # inline the rubric
+        else:
+            cr["prompt"] = c.get("prompt", "")
+        criteria.append(cr)
+        criteria_by_id[cr["id"]] = cr
+
+    council: list[dict[str, Any]] = []
+    council_by_id: dict[str, Any] = {}
+    for m in members_raw:
+        entry = {"id": m["id"], "role": m["role"],
+                 "cli": m.get("family") or m.get("driver") or "host",
+                 "invoke": _member_argv(m), "scope": [m.get("scope", "both")],
+                 "local": bool(m.get("local"))}
+        council.append(entry)
+        council_by_id[m["id"]] = entry
+
+    def _gate(scope: str) -> dict[str, Any]:
+        member_ids = [m["id"] for m in members_raw if m.get("scope") in ("both", scope)]
+        judges = [m["id"] for m in members_raw
+                  if m["role"] == "judge" and m.get("scope") in ("both", scope)]
+        g: dict[str, Any] = {"when": f"after_{scope}", "members": member_ids,
+                             "verdict_policy": "revise_until_clean",
+                             "criteria": [c["id"] for c in criteria],
+                             "max_revisions": control.get("max_revisions", DEFAULT_MAX_REVISIONS)}
+        if judges:
+            g["verdict_source"] = judges[0]
+        return g
+
+    lc: dict[str, Any] = {"max_iterations": control.get("max_iterations", DEFAULT_MAX_ITERATIONS)}
+    if control.get("budget"):
+        lc["budget"] = control["budget"]
+    if control.get("no_progress_stall"):
+        lc["no_progress"] = {"max_stalled_iterations": control["no_progress_stall"], "action": "stop"}
+    # stop_conditions are DERIVED from the control fields (derivability), not authored.
+    lc["stop_conditions"] = [f"max_iterations:{lc['max_iterations']}",
+                             f"max_revisions:{control.get('max_revisions', DEFAULT_MAX_REVISIONS)}"]
+    if control.get("no_progress_stall"):
+        lc["stop_conditions"].append(f"no_progress:{control['no_progress_stall']}")
+    if control.get("budget"):
+        lc["stop_conditions"].append("budget")
+
+    context_sources = []
+    if intent.get("context_sources"):
+        try:
+            context_sources = json.loads(intent["context_sources"])
+        except (json.JSONDecodeError, TypeError):
+            context_sources = []
+
+    resolved = {
+        "version": 1,
+        "goal": {
+            "statement": intent.get("purpose", ""),
+            "definition_of_done": intent.get("acceptance", ""),
+            "verification": criteria,
+            "context_sources": context_sources,
+        },
+        "host": {"cli": "host", "invoke": ["host", "-p"], "timeout_sec": 600},
+        "council": council,
+        "gates": {"plan_gate": _gate("plan"), "delivery_gate": _gate("delivery")},
+        "loop_control": lc,
+        "execution": {"mode": "in_session"},
+        "workspace": {"dir": "loop-workspace", "layout": ["plan", "delivery", "review"]},
+        "compiled_at": _now_iso(),
+        "source": f"graph:{loop_id}",
+        "criteria_by_id": criteria_by_id,
+        "council_by_id": council_by_id,
+    }
+    findings = _validate_resolved(resolved)
+    return {"resolved": resolved, "valid": not findings, "findings": findings}
+
+
+def _anchored(loop_id: str, body: str) -> str:
+    """Prefix the Spec 292 document-binding anchor so an on-disk edit round-trips
+    via document.sync."""
+    return f"<!-- agency-node: {loop_id} -->\n{body}"
+
+
+def emit(host: Any, loop_id: str, target: str) -> dict[str, Any]:
+    """Project the loop to its portable workspace (Spec 368): loop.yaml,
+    loop.resolved.json, LOOP.md, RUN_IN_SESSION.md, README.md, loop-workspace/.
+    Each rendered markdown carries the agency-node anchor (Spec 292 round-trip).
+    Returns ``{files, valid, findings}``.
+    """
+    out = Path(target)
+    out.mkdir(parents=True, exist_ok=True)
+    compiled = compile(host, loop_id)
+    resolved = compiled["resolved"]
+
+    # loop.yaml — the human-authored (loop.v1) form: resolved minus resolved-only keys.
+    authoring = {k: v for k, v in resolved.items()
+                 if k not in ("compiled_at", "source", "criteria_by_id", "council_by_id")}
+    try:
+        import yaml
+        loop_yaml = yaml.safe_dump(authoring, sort_keys=False)
+    except ImportError:
+        loop_yaml = json.dumps(authoring, indent=2)
+
+    pv = preview(host, loop_id)
+    files: list[str] = []
+
+    def _write(name: str, text: str) -> None:
+        (out / name).write_text(text, encoding="utf-8")
+        files.append(str(out / name))
+
+    _write("loop.yaml", loop_yaml)
+    _write("loop.resolved.json", json.dumps(resolved, indent=2, sort_keys=True))
+    _write("LOOP.md", _anchored(loop_id,
+        f"# Loop — {resolved['goal']['statement'] or '(goal)'}\n\n"
+        f"**Definition of done:** {resolved['goal']['definition_of_done']}\n\n"
+        f"```\n{pv['ascii']}\n```\n"))
+    _write("RUN_IN_SESSION.md", _anchored(loop_id,
+        "# Run this loop in-session (the spine walk)\n\n"
+        "Walk the `loop` lifecycle machine (Spec 366):\n\n"
+        "1. Read `loop.resolved.json` + the context sources.\n"
+        "2. Draft the plan artefact; `advance` planning → plan_gate.\n"
+        "3. At plan_gate run the criteria + council verdict; pass → delivering, "
+        "revise → planning (counts a revision).\n"
+        "4. Draft delivery-N; `advance` delivering → delivery_gate; pass → completed.\n"
+        "5. Stop on pass / cap / no-progress — the control guards are enforced.\n"))
+    _write("README.md", _anchored(loop_id,
+        "# Loop workspace\n\n"
+        "Run in-session (see `RUN_IN_SESSION.md`) or externally: "
+        "`python run-loop.py loop.resolved.json` (emitted by 369).\n\n"
+        "Ported from [looper](https://github.com/ksimback/looper) "
+        "(Kevin Simback, MIT) — the loop-design discipline, rubrics, the "
+        "loop.yaml/run-loop.py shapes, and the termination model.\n"))
+    for sub in ("plan", "delivery", "review"):
+        (out / "loop-workspace" / sub).mkdir(parents=True, exist_ok=True)
+    files.append(str(out / "loop-workspace"))
+
+    return {"files": files, "valid": compiled["valid"], "findings": compiled["findings"]}
+
+
+# --- Spec 369: external runner, model detection & egress (out-of-session twin) -
+# The loop runs in two surfaces over ONE resolved contract (368): the in-session
+# spine walk (366) and looper's external stdlib run-loop.py. 369 ports model
+# detection (§6), the egress-consent gate (§9), and the runner template — reusing
+# shell/driver/config/gate. Metadata-only, secret-free, argv + consent enforced.
+
+MODEL_DETECTION_RUBRIC = "model-detection.md"
+
+# Looper's model allowlist (§6) — family + local flag per CLI. `local` marks an
+# on-device model (no egress). Probed by PATH; auth stays in each CLI's keychain.
+_MODEL_ALLOWLIST = {
+    "claude":  {"family": "anthropic", "local": False},
+    "codex":   {"family": "openai",    "local": False},
+    "gemini":  {"family": "google",    "local": False},
+    "llm":     {"family": "llm",       "local": False},
+    "ollama":  {"family": "ollama",    "local": True},
+}
+# Secret-shaped material that must NEVER enter the registry / an emitted artefact
+# (looper File Rule — auth lives in the CLI keychain, not in invoke argv).
+_SECRET_RE = re.compile(r"(sk-[A-Za-z0-9]{8,}|--?key\b|--?token\b|secret|password|bearer\s)", re.I)
+# Default redaction globs applied before any cross-vendor send (looper §9).
+_DEFAULT_REDACT = ("**/.env", "**/.env.*", "secrets/**", "**/*.key")
+
+
+def _model_store(store_path: str | None) -> list[dict[str, Any]]:
+    if not store_path:
+        return []
+    p = Path(store_path)
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+
+
+def detect_models(*, which: Any = None, store_path: str | None = None) -> dict[str, Any]:
+    """Probe the looper model allowlist by PATH (Spec 369 §6). Records invocation
+    metadata ONLY — argv + family + local flag — NEVER API keys/tokens (auth stays
+    in each CLI's keychain). Returns ``{models, available}``; persists the available
+    set to ``store_path`` (config, 334) when given.
+    """
+    import shutil
+    which = which or shutil.which
+    models = []
+    for cli, meta in _MODEL_ALLOWLIST.items():
+        models.append({"cli": cli, "family": meta["family"], "local": meta["local"],
+                       "invoke": [cli, "-p"], "available": bool(which(cli))})
+    available = [m for m in models if m["available"]]
+    if store_path:
+        Path(store_path).write_text(json.dumps(available, indent=2), encoding="utf-8")
+    return {"models": models, "available": available}
+
+
+def register_model(cli: str, family: str, invoke: Any, *, local: bool = False,
+                   store_path: str | None = None) -> dict[str, Any]:
+    """Register a model invocation (Spec 369 §6). ``invoke`` MUST be an argv array
+    (never a shell string) and MUST NOT carry secret-shaped material. Returns
+    ``{registered, ...}`` or ``{error}``.
+    """
+    if not (isinstance(invoke, list) and invoke and all(isinstance(t, str) for t in invoke)):
+        return {"error": "invoke must be an argv array, not a shell string (argv-only, Spec 192)"}
+    if _SECRET_RE.search(" ".join(invoke)):
+        return {"error": "invocation carries secret-shaped material; auth stays in the CLI keychain"}
+    entry = {"cli": cli, "family": family, "invoke": list(invoke), "local": bool(local)}
+    if store_path:
+        reg = _model_store(store_path)
+        reg.append(entry)
+        Path(store_path).write_text(json.dumps(reg, indent=2), encoding="utf-8")
+    return {"registered": True, **entry}
+
+
+def emit_runner(host: Any, loop_id: str, target: str) -> dict[str, Any]:
+    """Write the ported stdlib-only ``run-loop.py`` (Spec 369) — reads ONLY
+    ``loop.resolved.json`` and runs the SAME contract the spine walk runs. Copied
+    from the vendored template (looper File Rule: copy verbatim). Returns ``{file}``.
+    """
+    out = Path(target)
+    out.mkdir(parents=True, exist_ok=True)
+    runner = (_TEMPLATE_DIR / "run-loop.py.tmpl").read_text(encoding="utf-8")
+    (out / "run-loop.py").write_text(runner, encoding="utf-8")
+    return {"file": str(out / "run-loop.py")}
+
+
+def egress_consent(member: dict[str, Any], *, consent_given: bool = False,
+                   policy: str = "required", redact_globs: Any = None,
+                   context_paths: Any = None) -> dict[str, Any]:
+    """The cross-vendor egress gate (Spec 369 §9), consulted before any cross-vendor
+    send IN-SESSION and in the external runner. local member → permit (no egress);
+    no ``required`` policy → permit; first cross-vendor send → require consent;
+    redaction globs are applied (redacted paths stubbed, not transmitted). Pure —
+    the consent is recorded as provenance by the caller. Returns ``{permit,
+    requires_consent, redacted, reason}``.
+    """
+    import fnmatch
+    globs = list(redact_globs) if redact_globs is not None else list(_DEFAULT_REDACT)
+    redacted = [p for p in (context_paths or [])
+                if any(fnmatch.fnmatch(p, g) for g in globs)]
+    if member.get("local"):
+        return {"permit": True, "requires_consent": False, "redacted": redacted,
+                "reason": "local member — no egress"}
+    if policy != "required":
+        return {"permit": True, "requires_consent": False, "redacted": redacted,
+                "reason": "no consent policy"}
+    if not consent_given:
+        return {"permit": False, "requires_consent": True, "redacted": redacted,
+                "reason": "cross-vendor send requires first-send consent"}
+    return {"permit": True, "requires_consent": False, "redacted": redacted,
+            "reason": "consent recorded"}

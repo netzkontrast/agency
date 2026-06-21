@@ -112,13 +112,26 @@ table that rots.
 - [x] Owner override path records who/what (`dod-override` Gate); an agent
       self-approve / agent override is rejected (panel B2.1). Tested.
 
-### Slice 2 — governance lifecycle + cadence
+### Slice 2 — governance lifecycle + cadence (SHIPPED 2026-06-21, TDD)
 
-- [ ] The full status Lifecycle (proposed→…→retired, +rejected/superseded/expired)
-      is walkable; illegal transitions are rejected.
-- [ ] `adr.review_sweep` flips overdue decisions to `expired` and records it.
-- [ ] Acceptance scenarios cover a green approval, a blocked approval, a
-      human-pending approval, and an expiry sweep (behaviour, rule 7).
+- [x] Decision status is governed by the `decision` MACHINE (machines.json —
+      `proposed→under-review→approved→implemented→retired`, +rejected/superseded/
+      expired); illegal transitions are rejected (`DEC-001`) in `adr`'s own
+      writers (`update`/`approve`/`supersede`).
+- [x] `adr.review_sweep` flips overdue (`next_review < today`) approved/implemented
+      decisions to `expired` (a legal transition); `next_review`/`review_cadence`
+      are settable via `adr.update`.
+- [x] Acceptance scenarios cover the illegal-transition rejection + the expiry
+      sweep (behaviour, rule 7); the Slice-1 approval scenarios still green.
+
+> **Design note (deviation from the literal spec, justified):** "status IS a
+> Lifecycle" is honoured via the `decision` machine's transition TABLE enforced
+> in the domain writers — NOT a separate Lifecycle node per Decision. A Decision
+> already IS the bi-temporally-versioned tracked entity; a second tracking node
+> would be the parallel-system smell `intent.brooks_lint` (Spec 359) flags. The
+> machine is the single source of legal transitions; the decision's node history
+> is the audit trail. (The generic-`manage` raw-write bypass stays possible but
+> discouraged — the domain mutator `adr.update` is the enforced path.)
 
 ## Failure modes (Nygard)
 

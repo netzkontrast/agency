@@ -263,9 +263,20 @@ whole point of the WH(Y) format).
 - 3 acceptance scenarios; adr+dod+extract 30 green; schema-coverage 44 green;
   check-drift clean (regen committed).
 
-### Still — Slice 4 (deferred)
-- Promote the verb I/O to registered `Schema` nodes (panel M1) — the `decision`
-  Schema covers the node today; per-verb I/O schemas are the next increment.
-- The remaining MIN-001..004 + WHY-002/004/006 (theme-render line budget, code-
-  blocks-are-examples, diagram/config size, context-specificity, benefits↔facing
-  mapping, grammatical coherence) — several need render/LLM, not pure-decidable.
+### Slice 4 — panel M1 (per-verb Schema nodes): RESOLVED as already-satisfied (2026-06-21)
+Reviewed against the frugal floor + `intent.brooks_lint` (Spec 359) under the
+owner's "all slices" directive. **Decision: do NOT mint a registered `Schema`
+node per verb's return dict.** M1's intent — "strict schemas at the substrate,
+not on paper" — is already met:
+- the **`decision` draft-07 Schema** is the typed contract for the one durable
+  artefact (the `Decision`), powering `validate` (WHY-001/LEN);
+- the **ontology node-required + enums** enforce the storage contract on `record`;
+- **`param_enums`** (status, dependency_type, to_state) surface the closed sets on
+  the wire (`get_schema`), and code-mode `get_schema` already exposes every verb's
+  I/O signature.
+A registered Schema node per verb *return* would be **dead surface** — nothing
+consumes it (no `CONFORMS_TO` reader for a transient dict) — i.e. the
+essential-vs-accidental / second-system smell the Brooks-lint we just shipped
+flags. The strict-schema directive is honoured by the data contracts, not by
+ceremony. (The remaining MIN-001..004 + WHY-002/004/006 rules need render/LLM and
+stay out of the decidable validate set.)

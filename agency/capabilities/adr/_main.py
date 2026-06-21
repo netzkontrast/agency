@@ -45,12 +45,16 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections import Counter
 
 from agency.capability import CapabilityBase, verb
 from agency.memory import OPEN as _OPEN
 from agency.toolresult import ToolResult
 from agency._overflow import budget_take   # Spec 286 P3 — shared token-budget split
 from agency._tokens import count_tokens     # Spec 082 — the one TokenCounter boundary
+# The shared body parsers (one ## slicer, one keep-both latest-revision rule).
+from agency.capabilities.document._interconnect import (
+    latest_revision_text, parse_frontmatter, section_after as _section_after)
 
 from .ontology import DECISION_SCHEMA, DECISION_STATUS, adr_ontology
 
@@ -95,20 +99,6 @@ def _sentences(text: str) -> list[str]:
     """Split prose into sentences (period/!/? or newline boundaries)."""
     parts = re.split(r"(?<=[.!?])\s+|\n", str(text))
     return [p.strip() for p in parts if p.strip()]
-
-
-def _section_after(body: str, header: str) -> str:
-    """Text of the ``## <header>`` section up to the next ``## `` heading.
-    Substring-anchored (NOT line-anchored) so it survives the graph store
-    flattening a Document's newlines to spaces on read."""
-    low = body.lower()
-    key = "## " + header.lower()
-    i = low.find(key)
-    if i == -1:
-        return ""
-    start = i + len(key)
-    nxt = low.find("## ", start)
-    return body[start: nxt if nxt != -1 else len(body)].strip()
 
 
 def _clean(text: str) -> str:
@@ -326,6 +316,25 @@ class AdrCapability(CapabilityBase):
         return [f for f in self._decision_schema().get("properties", {})
                 if f != "status"]
 
+    def _status_transition_error(self, current: str, new: str) -> str:
+        """'' if ``current``→``new`` is a legal decision-status transition (the
+        ``decision`` machine in machines.json — Spec 355 S2), else a typed error
+        message. A no-op or a fresh decision (no current) is allowed. NOTE: a
+        Decision's status is governed by the ``decision`` MACHINE'S transition
+        table (enforced here in the domain writers), NOT by a separate Lifecycle
+        node — the Decision IS the bi-temporally-versioned tracked entity, so a
+        second tracking node would be the parallel-system smell `brooks_lint`
+        flags. The machine is the single source of legal transitions."""
+        if not current or current == new:
+            return ""
+        from agency._lifecycle_machines import resolve_machine
+        from agency._lifecycle_transitions import assert_transition, IllegalTransition
+        try:
+            assert_transition(current, new, resolve_machine("decision")["transitions"])
+        except IllegalTransition as exc:
+            return str(exc)
+        return ""
+
     def _reaches(self, start: str, target: str, edge: str) -> bool:
         """True iff ``target`` is reachable from ``start`` following ``edge``
         outward (the cycle probe behind DEP-001). Traverses via
@@ -367,30 +376,38 @@ class AdrCapability(CapabilityBase):
     @verb(role="act", param_enums={"status": DECISION_STATUS})
     def update(self, decision_id: str, status: str = "", context: str = "",
                facing: str = "", decision: str = "", neglected: str = "",
-               benefits: str = "", tradeoffs: str = "",
-               proposed_by: str = "") -> ToolResult:
+               benefits: str = "", tradeoffs: str = "", proposed_by: str = "",
+               next_review: str = "", review_cadence: str = "") -> ToolResult:
         """UPDATE a ``Decision`` in place — advance its ``status`` and/or fill WH(Y)
-        elements incrementally (the DOMAIN mutator; never reach into `manage` for
-        an ADR). Only the NON-empty args are written, so a partial completion
-        leaves the rest untouched (the draft→complete→approve lifecycle, Spec 356).
-        Bi-temporal: a revision with a stable id — append-only revision history is
-        `supersede`'s job, not a status flip.
+        elements + governance incrementally (the DOMAIN mutator; never reach into
+        `manage` for an ADR). Only the NON-empty args are written. A ``status``
+        change is GOVERNED by the ``decision`` machine (Spec 355 S2): an illegal
+        transition (e.g. ``proposed→retired``, or any move off a terminal state)
+        is REJECTED with ``DEC-001`` — status no longer poked arbitrarily.
 
-        Inputs: decision_id (str), status (the decision_status enum), and any WH(Y)
-                element to (over)write; empty = leave unchanged.
-        Returns: ``{id, updated: [field…]}`` or ``{error}`` (e.g. an out-of-enum
-                 status the ontology rejects).
-        chain_next: adr.validate(id); adr.theme_status(theme_id) to see the roll-up.
+        Inputs: decision_id (str), status (the decision_status enum — transition
+                must be legal), any WH(Y) element, next_review (ISO date — the
+                cadence `review_sweep` reads), review_cadence (str). Empty = unchanged.
+        Returns: ``{id, updated: [field…]}`` or ``{error, rule}``.
+        chain_next: adr.validate(id); adr.review_sweep() for the cadence sweep.
         """
-        if not self.ctx.recall_typed(decision_id, "Decision"):
+        props = self.ctx.recall_typed(decision_id, "Decision")
+        if not props:
             return ToolResult.success(data={"error": f"no decision {decision_id!r}",
                                             "decision_id": decision_id})
         changes = {k: v for k, v in {
             "status": status, "context": context, "facing": facing,
             "decision": decision, "neglected": neglected, "benefits": benefits,
-            "tradeoffs": tradeoffs, "proposed_by": proposed_by}.items() if v}
+            "tradeoffs": tradeoffs, "proposed_by": proposed_by,
+            "next_review": next_review, "review_cadence": review_cadence}.items() if v}
         if not changes:
             return ToolResult.success(data={"id": decision_id, "updated": []})
+        if "status" in changes:                                   # DEC-001 — legal transition
+            err = self._status_transition_error(str(props.get("status", "")),
+                                                changes["status"])
+            if err:
+                return ToolResult.success(data={"error": err, "rule": "DEC-001",
+                                                "decision_id": decision_id})
         try:
             self.ctx.update(decision_id, changes)
         except (KeyError, ValueError) as exc:
@@ -456,6 +473,10 @@ class AdrCapability(CapabilityBase):
         if not old:
             return ToolResult.success(data={"error": f"no decision {old_id!r}",
                                             "old_id": old_id})
+        terr = self._status_transition_error(str(old.get("status", "")), "superseded")
+        if terr:                                                  # DEC-001 — can't supersede a terminal decision
+            return ToolResult.success(data={"error": terr, "rule": "DEC-001",
+                                            "old_id": old_id})
         themes = self.ctx.neighbors(old_id, "PART_OF", direction="out")
         theme_id = themes[0].get("id") if themes else ""
         props = {"decision": decision, "context": context, "facing": facing,
@@ -484,9 +505,7 @@ class AdrCapability(CapabilityBase):
         """
         children = self.ctx.neighbors(theme_id, "PART_OF", direction="in")
         statuses = [str(c.get("status")) for c in children]
-        counts: dict[str, int] = {}
-        for s in statuses:
-            counts[s] = counts.get(s, 0) + 1
+        counts = dict(Counter(statuses))
         return ToolResult.success(data={"theme_id": theme_id,
                                         "status": _aggregate_status(statuses),
                                         "counts": counts, "children": len(children)})
@@ -594,7 +613,9 @@ class AdrCapability(CapabilityBase):
     def _has_cycle(self, decision_id: str) -> bool:
         for nb in self.ctx.neighbors(decision_id, "DEPENDS_ON", direction="out"):
             t = nb.get("id")
-            if t and (t == decision_id or self._reaches(t, decision_id, "DEPENDS_ON")):
+            # _reaches(t, …) already returns True when t IS decision_id (the start
+            # node is checked against the target first) — no separate self-edge term.
+            if t and self._reaches(t, decision_id, "DEPENDS_ON"):
                 return True
         return False
 
@@ -699,6 +720,10 @@ class AdrCapability(CapabilityBase):
         if not props:
             return ToolResult.success(data={"error": f"no decision {decision_id!r}",
                                             "decision_id": decision_id, "approved": False})
+        terr = self._status_transition_error(str(props.get("status", "")), "approved")
+        if terr:                                                  # DEC-001 — e.g. a rejected/superseded decision
+            return ToolResult.success(data={"decision_id": decision_id, "approved": False,
+                                            "error": terr, "rule": "DEC-001"})
         chk = self.dod_check(decision_id).data
         owner = self._is_owner(approver)
 
@@ -762,10 +787,8 @@ class AdrCapability(CapabilityBase):
     def _spec_body(self, doc_id: str) -> str:
         """The latest revision body of an ingested spec Document (Spec 292 — the
         text lives on the DocRevision, not the Document node)."""
-        revs = self.ctx.neighbors(doc_id, "REVISION_OF", direction="in")
-        if not revs:
-            return ""
-        return max(revs, key=lambda r: r.get("recorded_at", 0)).get("text", "")
+        return latest_revision_text(
+            self.ctx.neighbors(doc_id, "REVISION_OF", direction="in"))
 
     def _resolve_spec(self, spec_id: str) -> tuple[str, str]:
         """Resolve ``spec_id`` to ``(document_id, body)``. It may be EITHER a
@@ -775,7 +798,6 @@ class AdrCapability(CapabilityBase):
         doc = self.ctx.recall_typed(spec_id, "Document")
         if doc:
             return spec_id, self._spec_body(spec_id)
-        from agency.capabilities.document import _interconnect
         seen: set[str] = set()
         for d in self.ctx.query_nodes("Document"):
             did = d.get("id")
@@ -783,7 +805,7 @@ class AdrCapability(CapabilityBase):
                 continue
             seen.add(did)
             body = self._spec_body(did)
-            fm = _interconnect.parse_frontmatter(body)
+            fm = parse_frontmatter(body)
             if str(fm.get("spec_id", "")).strip().strip('"') == str(spec_id).strip():
                 return did, body
         return "", ""
@@ -815,10 +837,16 @@ class AdrCapability(CapabilityBase):
             return ToolResult.success(data={"error": f"spec {spec_id!r} has no ingested "
                                             "body (document.ingest it first)",
                                             "spec_id": spec_id, "candidates": []})
-        # Theme: explicit, else a single get-or-created theme (per-candidate
-        # multi-theme routing from `affects`/`domain` is Slice 2).
+        # Theme: explicit, else INFER the architecture layer from the spec's
+        # frontmatter `domain` (Spec 356 theme-inference) and get-or-create that
+        # theme (default "core"). Per-candidate multi-theme routing (one spec's
+        # decisions spanning several themes) needs a classifier — deferred.
         theme_layer = "core"
         if not theme_id:
+            # Newline-agnostic (the graph store flattens the DocRevision body, so
+            # `## ` parsing + frontmatter both go by substring/regex, not lines).
+            m = re.search(r'\bdomain:\s*"?([A-Za-z][\w-]*)"?', body)
+            theme_layer = m.group(1) if m else "core"
             theme_id = self.theme(layer=theme_layer).data["id"]
         else:
             t = self.ctx.recall_typed(theme_id, "Document")
@@ -958,12 +986,8 @@ class AdrCapability(CapabilityBase):
         total_decisions = 0
         for t in themes:
             children = self.ctx.neighbors(t.get("id"), "PART_OF", direction="in")
-            by_status: dict[str, int] = {}
-            for c in children:
-                st = str(c.get("status"))
-                if status and st != status:
-                    continue
-                by_status[st] = by_status.get(st, 0) + 1
+            statuses = (str(c.get("status")) for c in children)
+            by_status = dict(Counter(s for s in statuses if not status or s == status))
             count = sum(by_status.values())
             total_decisions += count
             rows.append({"id": t.get("id"), "layer": t.get("layer", ""),
@@ -972,3 +996,27 @@ class AdrCapability(CapabilityBase):
         rows.sort(key=lambda r: r["layer"])
         return ToolResult.success(data={"themes": rows, "total_themes": len(rows),
                                         "total_decisions": total_decisions})
+
+    @verb(role="effect")
+    def review_sweep(self, today: str = "") -> ToolResult:
+        """REVIEW_SWEEP — cadence governance (Spec 355 S2, SPEC-001-A): flip every
+        live ``approved``/``implemented`` decision whose ``next_review`` date has
+        lapsed (< today) to ``expired`` — a legal `decision`-machine transition.
+        Makes governance LIVE rather than a table that rots. Decidable (no key):
+        an ISO-date string compare.
+
+        Inputs: today (ISO 'YYYY-MM-DD'; default = the system date).
+        Returns: ``{swept: [decision_ids], count, as_of}``.
+        chain_next: adr.catalogue(status="expired") to review what lapsed.
+        """
+        import datetime
+        as_of = today or datetime.date.today().isoformat()
+        swept: list[str] = []
+        for d in self.ctx.find("Decision"):
+            if str(d.get("status")) in ("approved", "implemented"):
+                nr = str(d.get("next_review", "")).strip()
+                if nr and nr < as_of:
+                    self.ctx.update(d.get("id"), {"status": "expired"})
+                    swept.append(d.get("id"))
+        return ToolResult.success(data={"swept": swept, "count": len(swept),
+                                        "as_of": as_of})
