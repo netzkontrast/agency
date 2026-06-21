@@ -150,7 +150,24 @@ Scenario: compile of an under-specified loop returns typed findings, not a crash
 
 ## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Re-drafted spine-framed (2026-06-21). The export surface: graph →
+**Verdict:** Implemented 2026-06-21 (spine-framed). `_loop.compile` projects the
+spine loop into looper's `loop.resolved.json` shape — `criteria_by_id` +
+`council_by_id`, inlined judge rubrics, criterion `kind`→`type`, every member
+resolved to an argv invocation (never a shell string), derived `stop_conditions`.
+Validation reuses `jsonschema` against the vendored self-contained `loop.v1`
+schema + the reviewer-only rule (a `revise_until_clean` gate with no
+`verdict_source` → typed finding, never a crash). `_loop.emit` writes the portable
+workspace (loop.yaml, loop.resolved.json, LOOP.md, RUN_IN_SESSION.md, README.md,
+loop-workspace/), each markdown anchored (Spec 292). Both looper schemas +
+loop.yaml template vendored under `agency/_lifecycle_data/loop/`. Covered by
+`tests/acceptance/test_loop_emit.py` (4 scenarios green). **Frugal: compile/emit
+are functions in the one `_loop.py`; file I/O is stdlib + pyyaml.**
+**Deferred (honest):** the two-way `document.sync` round-trip (the net gain over
+looper) needs full Document binding (register the rendered files as `Document`
+nodes `CONFORMS_TO` a `Schema`); the anchor is already emitted, so the round-trip
+is a follow-up wiring, not a re-design.
+
+**Prior draft note:** Re-drafted spine-framed (2026-06-21). The export surface: graph →
 `loop.resolved.json` via `_loop.compile` (same shape the ported runner reads),
 graph → loop.yaml/LOOP.md/RUN_IN_SESSION.md via `document.render` (179/283/292),
 with two-way round-trip the net gain over looper's one-way emit. **Frugal:**
