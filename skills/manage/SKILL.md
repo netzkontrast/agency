@@ -26,6 +26,8 @@ The write/read management surface that completes the Memory pillar: a single, ca
 | `amend` | effect | AMEND append-only — close the old version, create a new one linked ``SUPERSEDED_BY`` (Spec 293). | [details](references/amend.md) |
 | `artefacts` | act | ARTEFACTS produced under an intent + their source invocations (Spec 290, Memory pillar). | [details](references/artefacts.md) |
 | `create` | effect | CREATE a node of any ontology ``label`` that SERVES the intent (Spec 293). | [details](references/create.md) |
+| `lifecycle` | act | LIFECYCLE READ — the Spec 341 `read` frame: one Lifecycle's full state rolled up in ONE call (state · phase · kind · serving intent · agent · gates), so the agent need not know which surface holds each piece. | [details](references/lifecycle.md) |
+| `lifecycle_trail` | act | LIFECYCLE WATCH — the Spec 341 `watch` frame: the ordered Spec 344 `lifecycle_transition` Event trail recorded `OBSERVED_DURING` this lifecycle (what `move` emits), so an observer reads the durable history instead of polling `state`. | [details](references/lifecycle_trail.md) |
 | `list` | act | LIST nodes of a ``label``, optionally filtered by exact-match ``where`` (Spec 293). | [details](references/list.md) |
 | `open_intents` | act | OPEN-INTENTS — live intents + acceptance + SERVES subtree size, busiest first (Spec 290, Intent pillar). | [details](references/open_intents.md) |
 | `project` | act | PROJECT — a query-ranked, token-budgeted slice of a label's live nodes (Spec 290/293: the `project(query, budget)` read primitive, Goal 1). | [details](references/project.md) |

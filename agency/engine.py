@@ -379,6 +379,16 @@ def _default_hook_handler(engine, event: dict) -> dict:
             out = resp if isinstance(resp, str) else (
                 _json.dumps(resp, default=str) if resp else "")
             filtered = capture_filter(cmd, out, tool=tool_name, spec=None)
+            # Spec 350 Slice 2 — apply config filters.toolcall profile for PostToolUse
+            # (OPT-IN: only runs when the user has set filters.toolcall in config.yaml)
+            if phase == "post" and filtered:
+                try:
+                    from ._relevance import load_filter_profile as _lfp, relevance_filter as _rf
+                    _tp = _lfp("toolcall")
+                    if _tp:
+                        filtered = _rf(filtered, _tp)["kept"]
+                except Exception:  # noqa: BLE001 - fail-open on hook path
+                    pass
         except Exception:                                       # noqa: BLE001
             filtered = ""
         try:
@@ -677,6 +687,11 @@ class Engine:
                 continue
             seen_names.add(cap.name)
             self._register_capability(cap)
+        # Spec 349b §2 — THE missing loop: register every capability's declarative
+        # event-bus subscriptions in one place (the `frugal` first-use hint is the
+        # reference subscriber). Replaces scattered import-time `subscribe` calls.
+        from . import _events
+        _events.register_capability_subscriptions(self.registry._caps.values())
         # the Registry needs the effective ontology to build a CapabilityContext
         self.registry.ontology = self.ontology
         # Spec 031 §A + Spec 080 — bootstrap-time skill_doc REQUIREMENT.
@@ -1193,6 +1208,8 @@ class Engine:
                 self.registry._caps.pop(name, None)
         for cap in fresh.values():
             self._register_capability(cap)
+        from . import _events                  # Spec 349b §2 — re-register subscriptions
+        _events.register_capability_subscriptions(self.registry._caps.values())
         self.registry.ontology = self.ontology
         self.registry.engine = self
         self.memory.ont = self.ontology
