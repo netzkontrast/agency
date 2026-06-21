@@ -1,55 +1,55 @@
+<!-- agency-node: spec-366 -->
 ---
 spec_id: "366"
 slug: loop-control-machine
 status: draft
-last_updated: 2026-06-20
+last_updated: 2026-06-21
 owner: "@agency"
 vision_goals: [3, 4]
-depends_on: ["338", "339", "340", "342", "345", "362", "364", "365"]
+depends_on: ["338", "339", "340", "342", "344", "345", "349", "362", "364", "365"]
 parent_spec: "362"
-domain: loop / lifecycle
+affects:
+  - agency/_lifecycle_data/machines.json   # register the "loop" machine (the 345 data-seam)
+  - agency/_loop.py                         # open / advance reducer + control_evaluate (the guards)
+  - agency/_lifecycle_data/loop/rubrics/    # control-rubric.md (verbatim from looper)
+domain: loop / lifecycle-spine
 wave: looper-port
 ---
 
-# Spec 366 — The loop control machine (a derived Lifecycle state machine)
+# Spec 366 — The loop control machine (a registered Lifecycle machine + a guard)
 
-> Child of Spec 362. Ports looper's **loop runtime + `loop_control` +
-> `references/control-rubric.md`**, and the in-session execution contract
-> (`RUN_IN_SESSION.md`). Spec 345 made the Lifecycle pillar *any* state machine;
-> 366 registers the `loop` machine and the termination evaluator. **The loop's
-> in-session runtime IS this machine being walked** — `state.json` / `run-log.md`
-> evaporate into graph reads.
+> Child of Spec 362. **Spine-framed (2026-06-21):** the loop's in-session runtime
+> IS a machine on the lifecycle spine being walked. Spec 345 already made the
+> pillar *any* state machine; 366 registers the `loop` machine in `machines.json`
+> (data) and adds the **termination evaluator** in `agency/_loop.py`. `state.json`
+> / `run-log.md` evaporate into graph reads (Spec 341 + the 344/349b event bus).
+> **No new capability** — the walk is the pillar `ctx.lifecycle.open/move`; the
+> loop-specific control flow is functions in the one spine module.
 
 ## Why
 
-Looper's runner (`templates/run-loop.py`) walks a fixed shape: gather context →
-host drafts `plan.md` → **plan gate** (revise ≤ N) → host writes `delivery-N.md` →
-**delivery gate** (revise ≤ N) → stop on pass / cap / no-progress. It enforces
-`loop_control`:
+Looper's runner walks a fixed shape — gather context → draft `plan.md` → **plan
+gate** (revise ≤ N) → write `delivery-N.md` → **delivery gate** (revise ≤ N) →
+stop on pass/cap/no-progress — enforcing `loop_control`:
 
 ```yaml
 loop_control:
   max_iterations: 12
   budget: { usd: 5.00, tokens: 2_000_000, wall_clock_min: 30 }
-  no_progress: { max_stalled_iterations: 2, action: stop }   # same blocker repeats
+  no_progress: { max_stalled_iterations: 2, action: stop }
   human_checkpoints: [after_plan]
-  stop_conditions: ["all deliveries pass clean", "max_iterations reached",
-                    "same blocker repeats for 2 iterations", "any budget cap exceeded"]
 ```
 
-> Looper's design principle #6 ("honest durability") and its own README are blunt:
-> looper is a **scaffolder + session handoff, not a durable orchestration
-> engine.** 366 honours that boundary — it provides the machine, the guards, and
-> gate-level resume (graph-backed), and explicitly does **not** promise step-level
-> checkpoint/restart, concurrency control, or a production run history. The
-> `execution.mode: orchestrated` escape hatch (hand off to a real orchestrator)
-> stays a named non-goal, exactly as in looper.
+> Looper is honest (its principle #6): a **scaffolder + handoff, not a durable
+> orchestrator**. 366 keeps that boundary — it provides the machine, the guards,
+> and **gate-level resume** (graph-backed, via Spec 343 `lifecycle.resume`), and
+> does NOT promise step-level checkpoint/restart, concurrency, or a production run
+> history. The `execution.mode: orchestrated` escape hatch stays a named non-goal.
 
 In agency this is not bespoke control flow — it is a **registered Lifecycle
-machine** (Spec 345) plus a **termination evaluator**. `Lifecycle.open/move/close`
+machine** (345) plus a **termination evaluator**. `Lifecycle.open/move/close`
 (`agency/lifecycle.py`) is already the guarded sole state writer; `move` validates
-against the per-machine transition table. 366 adds the `loop` machine and a
-`control_gate` that the machine consults before each `move`.
+the per-machine table and **emits on the event bus** (344/349b).
 
 ## Design
 
@@ -70,103 +70,77 @@ against the per-machine transition table. 366 adds the `loop` machine and a
 }
 ```
 
-Registering this is **data, not an engine edit** (the drop-in bar, master §Done
-When). The orphan/terminal floor (340/345) holds at load. `# AGENCY-DRIFT:
-lifecycle-machines` tags the entry.
+Registering this is **data, not an engine edit** (`# AGENCY-DRIFT:
+lifecycle-machines`). The orphan/terminal floor (340/345) holds per machine at
+load; the 347 frugal floor invariant applies (no path skips a required floor gate).
 
-### `open_loop` mints a `Lifecycle{machine:"loop"}` + `LoopControl`
-
-```python
-@verb(role="effect")
-def open_loop(self, ctx, goal_id: str, *, max_iterations: int = 12, max_revisions: int = 3,
-              budget: dict | None = None, no_progress_stall: int = 2,
-              human_checkpoints: list[str] | None = None) -> dict:
-    """Open a loop: a Lifecycle on the "loop" machine, SERVING the goal's Intent.
-
-    Records a LoopControl node (the termination guards). REFUSES to open if any
-    revise_until_clean gate lacks a verdict source (delegates to
-    loop.recommend_council, 365). Returns {loop_id, lifecycle_id, state:"planning"}.
-    chain_next: loop.advance to walk it.
-    """
-    # ctx.lifecycle.open(ctx.intent_id, machine="loop")  — the pillar write frame
-```
-
-`max_iterations` / `max_revisions` / `budget` (`usd` / `tokens` / `wall_clock_min`)
-/ `no_progress_stall` / `human_checkpoints` are the looper `loop_control`,
-recorded on a `LoopControl` node. **`open_loop` enforces the master invariant:** it
-will not open a loop with a termination-guard-free control (looper "won't emit a
-loop with no termination guard").
-
-### `advance` is the only mover; `control_gate` guards every transition
+### `_loop.open` — open the machine + record the control (no new verb)
 
 ```python
-@verb(role="effect")
-def advance(self, ctx, loop_id: str, *, artefact: str = "") -> dict:
-    """Advance the loop one transition (the in-session walk step). Reads the
-    current state, runs the relevant gate's criteria (loop.check, 364) +
-    council (loop.convene, 365), then asks control_gate whether a move is
-    still permitted, then ctx.lifecycle.move(...) to the next state.
-
-    Returns {state, decision, stop_reason?, review?}. chain_next: advance again
-    until a terminal state, or stop_reason is set.
-    """
+def open(ctx, goal_id, *, max_iterations=12, max_revisions=3, budget=None,
+         no_progress_stall=2, human_checkpoints=None) -> dict:
+    """ctx.lifecycle.open(ctx.intent_id, machine="loop") SERVING the goal's Intent,
+    + record the termination guards (on the Lifecycle node / a linked control).
+    REFUSES to open a guard-free loop, or one whose revise_until_clean gate lacks
+    a verdict source (delegates to 365). Returns {loop_id, state:"planning"}."""
 ```
 
-The per-state behaviour mirrors looper's `run()`:
+Enforces the master invariant: **never open a loop with no termination guard**
+(looper) and **never with a verdict-source-less gate** (the reviewer-only rule,
+365). Called by the wizard's control phase (367 phase 5).
 
-| From state | Gate run (364/365) | On pass | On revise | Guard (control_gate) |
+### `_loop.advance` — the walk reducer; the guard runs before every move
+
+```python
+def advance(ctx, loop_id, *, artefact="") -> dict:
+    """Advance one transition (the in-session walk step). Read the current state,
+    run the relevant gate's criteria (gate.check, 364) + council (panel.convene,
+    365), ask control_evaluate whether a move is still permitted, then
+    ctx.lifecycle.move(...). Returns {state, decision, stop_reason?, review?}."""
+```
+
+Per-state behaviour mirrors looper's `run()`:
+
+| From state | Gate (364/365) | On pass | On revise | Guard (control_evaluate) |
 |---|---|---|---|---|
-| `planning` | — (host drafts plan artefact) | → `plan_gate` | — | budget/wall-clock |
+| `planning` | — (host drafts the plan artefact) | → `plan_gate` | — | budget/wall-clock |
 | `plan_gate` | plan criteria + council verdict | → `delivering` | → `planning` (revision++) | `max_revisions`, `no_progress` |
 | `delivering` | — (host writes delivery-N) | → `delivery_gate` | — | `max_iterations`, budget |
 | `delivery_gate` | delivery criteria + council verdict | → `completed` | → `delivering` (iteration++) | `max_revisions`, `no_progress` |
 
-The "host drafts the artefact" step runs natively via `ctx.host` sampling (Spec
-285) or a delegated host driver (365); the external runner (369) does the same via
-argv. Either way the artefact is recorded as a `LoopArtefact` (kind plan/delivery/
-review), so resume is a graph read, not a `state.json` parse.
+"Host drafts the artefact" runs natively via `ctx.host` sampling (Spec 285) or a
+delegated host driver (365); the external runner (369) does the same via argv.
+Either way the artefact is recorded (a graph node), so resume is a graph read.
 
-### `control_gate` — the termination evaluator (ports looper's guards)
+### `control_evaluate` — the termination evaluator (ports looper's guards)
 
-A pure evaluator (a `gate`, Spec 328 shape) consulted before each `move`:
+A pure function in `_loop.py`, consulted before each `move`:
 
 ```python
-def control_gate(control: LoopControl, history: list[Transition]) -> dict:
-    """Return {permit: bool, stop_reason: str|""}. Ports run-loop.py guards:
-      - max_revisions: revisions into a gate's predecessor exceed the cap → stop("max_revisions")
-      - max_iterations: delivery cycles exceed the cap → stop("max_iterations")
+def control_evaluate(control, history) -> dict:
+    """Return {permit, stop_reason}. Ports run-loop.py guards:
+      - max_revisions: revisions into a gate's predecessor exceed the cap → stop
+      - max_iterations: delivery cycles exceed the cap → stop
       - no_progress: the SAME failure signature repeats max_stalled_iterations
-        times at the same gate → stop("no_progress")   (looper no_progress_reached)
-      - budget: wall_clock_min elapsed, or usd/tokens estimate exceeded → stop("budget")
+        at the same gate → stop (looper no_progress_reached)
+      - budget: wall_clock_min elapsed (from the Lifecycle's opened_at), or
+        usd/tokens estimate exceeded → stop (advisory estimates, no fake precision)
       - human_checkpoints: state ∈ checkpoints → pause for elicit (Spec 285)
     """
 ```
 
-- **no-progress** reuses looper's signature comparison: a failure-set hash per
-  gate; if it repeats `max_stalled_iterations` times, stop (or, with
-  `action: human_checkpoint`, pause for an override — both ported).
-- **budget** wall-clock is measured against the lifecycle's `opened_at`; usd/token
-  caps are estimates recorded as evidence (agency does not bill, so these are
-  advisory stop signals, honest about being estimates — `CLAUDE.md` rule 8: no
-  fake precision).
-- **stop_conditions** are *derived* from the control fields, not authored twice
-  (derivability audit) — `loop.stop_reason(loop_id)` renders them for `LOOP.md`.
+`no_progress` reuses looper's failure-signature comparison. `stop_conditions` are
+**derived** from the control fields, not authored twice (derivability) — rendered
+for `LOOP.md` by 368.
 
-### `loop_status` / `stop_reason` — observability for free
-
-```python
-@verb(role="transform")
-def loop_status(self, ctx, loop_id: str) -> dict:
-    """The loop's live state from the graph: current machine state, iteration,
-    revision counts per gate, last verdict, artefacts produced, stop_reason if
-    terminal. This is looper's state.json + run-log.md — but READ from
-    provenance, never written by hand. chain_next: advance, or compile (368)."""
-```
+### Status & stop reason — reuse `manage` (341), no new verbs
 
 Looper's `state.json` (status/iteration/no_progress/consent) and `run-log.md`
-(append-only step log) are both **derived** from the Lifecycle transitions + the
-`LoopArtefact` / gate ledger nodes. The export (368) renders them back to files
-for the portable workspace.
+(step log) are **derived** from the Lifecycle transitions + the 344 event trail:
+`manage.lifecycle(loop_id)` (current rolled-up state) and
+`manage.lifecycle_trail(loop_id)` (the transition history with `stop_reason` as
+move evidence). The export (368) renders them back to files for the portable
+workspace.
 
 ## Acceptance (Gherkin)
 
@@ -176,19 +150,19 @@ Scenario: the loop machine is registered and floor-valid
   Then a machine "loop" exists with initial "planning" and terminals completed/failed/canceled
   And no loop state is orphaned from "planning" (the 340/345 floor holds)
 
-Scenario: open_loop refuses a termination-guard-free loop
-  When I open_loop with max_iterations 0 and no budget and no caps
+Scenario: open refuses a termination-guard-free loop
+  When I open a loop with max_iterations 0 and no budget and no caps
   Then it refuses (looper: never emit a loop with no termination guard)
 
-Scenario: open_loop refuses a revise_until_clean gate with no verdict source
+Scenario: open refuses a revise_until_clean gate with no verdict source
   Given a plan gate revise_until_clean with only reviewers (365)
-  When I open_loop
+  When I open the loop
   Then it refuses citing the missing verdict_source
 
 Scenario: a clean plan advances to delivering
   Given an open loop whose plan criteria pass and judge verdict is pass
   When I advance from plan_gate
-  Then the state moves to delivering
+  Then ctx.lifecycle.move takes the state to delivering
 
 Scenario: a revise verdict loops back and counts a revision
   Given a plan_gate judge verdict revise
@@ -196,42 +170,40 @@ Scenario: a revise verdict loops back and counts a revision
   Then the state returns to planning and the revision count increments
 
 Scenario: max_revisions stops the loop
-  Given a plan_gate that has revised max_revisions times with the same failures
+  Given a plan_gate revised max_revisions times with the same failures
   When I advance
-  Then control_gate denies the move and stop_reason is "max_revisions"
+  Then control_evaluate denies the move and stop_reason is "max_revisions"
 
 Scenario: no-progress stops on a repeated blocker
   Given a delivery_gate failing with the same signature for max_stalled_iterations
   When I advance
   Then stop_reason is "no_progress"
 
-Scenario: a human checkpoint pauses the walk
-  Given human_checkpoints includes "after_plan" and no host bound
-  When the plan passes its gate
-  Then advance returns a typed input-required pause before delivering
-
 Scenario: status and stop conditions are read from the graph
   Given a loop that ran two delivery iterations
-  When I loop_status
-  Then iteration counts and artefacts come from provenance with no state.json written
+  When I manage.lifecycle / manage.lifecycle_trail it
+  Then iteration counts and stop_reason come from provenance with no state.json written
 ```
 
 ## Done When
 
 - [ ] The `loop` machine is registered in `machines.json` (data only; no engine edit) and passes the per-machine floor.
-- [ ] `loop.open_loop` mints `Lifecycle{machine:"loop"}` + `LoopControl`, refuses guard-free and verdict-source-less loops.
-- [ ] `loop.advance` is the sole mover; per-state behaviour matches the table; artefacts recorded as `LoopArtefact`.
-- [ ] `control_gate` ports max_revisions / max_iterations / no_progress / budget / human_checkpoints.
-- [ ] `loop.loop_status` + `loop.stop_reason` derive state from provenance (no hand-written state.json in-session).
-- [ ] `control-rubric.md` ships verbatim under `data/rubrics/`.
+- [ ] `_loop.open` mints `Lifecycle{machine:"loop"}` + records the control; refuses guard-free and verdict-source-less loops.
+- [ ] `_loop.advance` is the sole walk reducer (moves via `ctx.lifecycle.move`); per-state behaviour matches the table; artefacts recorded.
+- [ ] `control_evaluate` ports max_revisions / max_iterations / no_progress / budget / human_checkpoints.
+- [ ] Status/stop_reason derive from provenance via `manage.lifecycle`/`lifecycle_trail` (341) — no hand-written state.json in-session.
+- [ ] `control-rubric.md` ships verbatim under `agency/_lifecycle_data/loop/rubrics/`.
 - [ ] `tests/acceptance/test_loop_machine.py` covers the scenarios.
 - [ ] `TODO.md` row updated.
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Not started — drafted under the 362 wave. The loop runtime as a
-registered Lifecycle machine (345) walked by `advance`, guarded by a
-`control_gate` that ports looper's termination logic; `state.json`/`run-log.md`
-derived from provenance. Honest-durability boundary preserved (gate-level resume,
-no orchestration promises). Depends on 364 (gate criteria) + 365 (council verdict);
+**Verdict:** Re-drafted spine-framed (2026-06-21). The loop runtime as the `loop`
+machine (data, the 345 seam) walked via the pillar `ctx.lifecycle.open/move`,
+with the loop-specific control flow (`open`/`advance`/`control_evaluate`) in the
+one `_loop.py` module; `state.json`/`run-log.md` derived from provenance
+(`manage` 341 + the 344/349b event bus). Honest-durability boundary preserved
+(gate-level resume via 343, no orchestration promises). **Frugal: net-new is the
+machine entry (data) + the `_loop.py` reducer + control-rubric (data) — no new
+capability verbs.** Depends on 364 (gate criteria) + 365 (council verdict);
 consumed by the wizard (367) and emission (368).
