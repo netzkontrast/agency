@@ -1,31 +1,45 @@
-"""Spec 349a — the pillar event bus (first slice).
+"""Spec 349a — the pillar event bus.
 
 A capability/intent/memory SUBSCRIBES to a hook event by declaring a handler;
 the engine fans each hook out to the matching subscriptions, with a ``once_per``
-dedup backed by the Spec 336 ephemeral tool-call store (so it survives the
-fresh-process-per-hook model — Spec 349 review M5). This is SUBSTRATE, not a
-capability (Spec 349 review B1): a module registry the engine consumes;
-capabilities only declare subscriptions + handlers.
+dedup backed by the Spec 336 ephemeral store's SEPARATE ``event_marker`` table (so
+it survives the fresh-process-per-hook model — Spec 349 review M5 — WITHOUT
+polluting the captured tool-call rows). This is SUBSTRATE, not a capability (Spec
+349 review B1): a module registry the engine consumes; capabilities only declare
+subscriptions + handlers.
+
+Two ``once_per`` scopes:
+- ``"session.tool"`` — once per (session, tool): the frugal FIRST-USE hint (a hint
+  per tool; fail-open to SKIP — a missed hint is harmless);
+- ``"session"`` — once per session (tool ignored): the frugal SESSION-DISCIPLINE
+  inject (the deep card, delivered ONCE even though SessionStart fires on
+  startup/resume/compact; fail-open to EMIT — the mandatory port must land).
 
 Contracts honoured:
-- **fail-OPEN** — a dedup/store error never blocks the triggering tool call;
-- **fail-ISOLATED** — a raising subscriber is skipped, never breaks the hook;
+- **fail-OPEN** — a dedup/store error never blocks the triggering event; the
+  per-subscription ``once_fail_emit`` flag picks the safe direction (emit vs skip);
+- **fail-ISOLATED** — a raising subscriber is skipped, never breaks the hook; the
+  exception is surfaced on the Spec 021 monitor (diagnosable, not silently lost —
+  Spec 349 review S3);
 - **no graph record per delivery** — the dedup marker lives in the EPHEMERAL
-  store, not the durable graph (Spec 349 review S1 / Spec 336), so a high-volume
-  event like ``PreToolUse`` can never recreate the graph bloat Spec 336 removed.
+  store, not the durable graph (Spec 349 review S1 / Spec 336).
 
-This first slice wires the ``PreToolUse`` event (the frugal first-use hint is the
-reference subscriber); ``event.emit`` for custom events + lifecycle events are
-later slices (349b+).
+Spec 349b §2 — subscriptions are **declarative**: a capability declares a tuple of
+:class:`Subscription` (DATA) and ONE engine-bootstrap loop
+(:func:`register_capability_subscriptions`) resolves each handler by name + calls
+:func:`subscribe`. Subscribers fire in ascending ``priority`` (§7).
+``event.emit`` for custom + lifecycle events are later slices (349c+).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# [(event_name, handler(engine, event) -> str, once_per, name, priority)] —
-# append-only, idempotent by (event, name). Module-level so the engine consumes
-# it as substrate.
+# [(event, handler(engine, event) -> str, once_per, once_fail_emit, name, priority)]
+# — append-only, idempotent by (event, name). Module-level: the engine consumes it
+# as substrate; capabilities only declare subscriptions.
 _SUBSCRIPTIONS: list[tuple] = []
+
+_ONCE_SCOPES = ("", "session", "session.tool")
 
 
 @dataclass(frozen=True)
@@ -34,33 +48,50 @@ class Subscription:
     imperative ``subscribe`` call). ``handler`` is the NAME of a module-level
     ``handler(engine, event) -> str`` function on the capability's module,
     resolved against that module at engine bootstrap (so definition order in the
-    file never matters). Declaring it as data makes it inspectable
-    (``event.subscribers``), driftable, and registered in ONE loop."""
+    file never matters). Declaring it as data makes it inspectable, driftable, and
+    registered in ONE loop. ``once_fail_emit``/``priority`` mirror :func:`subscribe`."""
 
     event: str
     handler: str
     once_per: str = ""
+    once_fail_emit: bool = False
     priority: int = 50
     name: str = ""
 
 
-def subscribe(event: str, handler, *, once_per: str = "", name: str = "",
+def subscribe(event: str, handler, *, once_per: str = "",
+              once_fail_emit: bool = False, name: str = "",
               priority: int = 50) -> None:
     """Declare a hook-event subscription. ``handler(engine, event) -> str`` returns
-    the context fragment to inject (empty = nothing). ``once_per="session.tool"``
-    fires at most once per (session, tool). ``priority`` orders multiple
-    subscribers (lower runs first, §7). Idempotent by (event, name) so a
-    re-imported capability module / a re-run bootstrap loop never double-registers."""
-    nm = name or getattr(handler, "__name__", "")
-    _SUBSCRIPTIONS[:] = [s for s in _SUBSCRIPTIONS if (s[0], s[3]) != (event, nm)]
-    _SUBSCRIPTIONS.append((event, handler, once_per, nm, priority))
+    the context fragment to inject (empty = nothing).
+
+    ``once_per``: ``""`` = every occurrence; ``"session.tool"`` = once per
+    (session, tool); ``"session"`` = once per session. ``once_fail_emit`` picks the
+    fail-open direction when the dedup store is unavailable — ``True`` emits anyway
+    (a mandatory inject), ``False`` skips (an optional hint). ``priority`` orders
+    multiple subscribers on one event (lower runs first, §7).
+
+    ``name`` is REQUIRED and must be stable + unique per event (the idempotency
+    key): a re-imported module re-subscribing with the same (event, name) REPLACES
+    its prior entry rather than double-registering. An empty name is rejected — a
+    ``__name__`` fallback silently clobbers same-named or anonymous handlers (Spec
+    349 review M2)."""
+    if not name:
+        raise ValueError(
+            f"subscribe(event={event!r}) requires an explicit, stable `name=` "
+            "(the idempotency key); a derived __name__ silently clobbers "
+            "same-named/anonymous handlers")
+    if once_per not in _ONCE_SCOPES:
+        raise ValueError(f"once_per must be one of {_ONCE_SCOPES}; got {once_per!r}")
+    _SUBSCRIPTIONS[:] = [s for s in _SUBSCRIPTIONS if (s[0], s[4]) != (event, name)]
+    _SUBSCRIPTIONS.append((event, handler, once_per, once_fail_emit, name, priority))
 
 
 def subscriptions_for(event: str) -> list[tuple]:
     """Every subscription for ``event``, ordered by ascending ``priority`` then
     registration order (a stable sort — the §7 deterministic-ordering contract)."""
     return sorted((s for s in _SUBSCRIPTIONS if s[0] == event),
-                  key=lambda s: s[4])
+                  key=lambda s: s[5])
 
 
 def register_capability_subscriptions(caps) -> int:
@@ -82,46 +113,65 @@ def register_capability_subscriptions(caps) -> int:
             except (ImportError, AttributeError):
                 continue
             subscribe(sub.event, handler, once_per=sub.once_per,
+                      once_fail_emit=sub.once_fail_emit,
                       name=sub.name or f"{cap.name}.{sub.handler}",
                       priority=sub.priority)
             count += 1
     return count
 
 
-def _first_use(store, session: str, tool: str, name: str) -> bool:
-    """True the FIRST time this subscriber sees (session, tool); writes a marker so
-    later calls return False. Per-subscriber (the phase carries ``name``) and
-    reuses the Spec 336 store (survives the per-event process model). Fail-open:
-    any error → False. A concurrent double is acceptable — a duplicate snippet
-    beats a blocked tool call (Spec 349 review S1)."""
-    if not store or not session or not tool:
-        return False
-    phase = f"first_use:{name}"
+def _deliver_once(store, once_per: str, session: str, tool: str, name: str,
+                  *, fail_emit: bool) -> bool:
+    """The dedup gate: ``True`` = deliver this occurrence, ``False`` = already
+    delivered (skip). Builds the marker scope from ``once_per`` (``"session"`` →
+    ``name``; ``"session.tool"`` → ``f"{name}:{tool}"``) and delegates to the
+    store's atomic ``mark_seen``. ``fail_emit`` is returned when the marker cannot
+    be checked (no session id / no store / sqlite error) — the caller's chosen
+    fail-open direction."""
+    if not session:
+        return fail_emit
+    if once_per == "session.tool" and not tool:
+        return fail_emit
+    if store is None:
+        return fail_emit
+    scope = name if once_per == "session" else f"{name}:{tool}"
     try:
-        if store.rows(where="phase = ? AND tool = ? AND session = ?",
-                      params=(phase, tool, session)):
-            return False
-        store.record(phase=phase, tool=tool, session=session)
-        return True
-    except Exception:
-        return False
+        return store.mark_seen(scope=scope, session=session)
+    except Exception:                                           # noqa: BLE001
+        return fail_emit
 
 
 def run(engine, event_name: str, event: dict) -> list[str]:
-    """Fan ``event_name`` out to its subscriptions, applying each one's ``once_per``
-    dedup, and return the emitted context fragments in registration order.
-    Fail-isolated: a raising subscriber is skipped."""
+    """Fan ``event_name`` out to its subscriptions (ascending priority, §7),
+    applying each one's ``once_per`` dedup, and return the emitted context
+    fragments. Fail-isolated: a raising subscriber is skipped (and surfaced on the
+    monitor)."""
     out: list[str] = []
     ev = event or {}
     session, tool = ev.get("session_id", ""), ev.get("tool_name", "")
-    for _evt, handler, once_per, name, _prio in subscriptions_for(event_name):
+    store = getattr(engine, "toolcalls", None)
+    for _evt, handler, once_per, fail_emit, name, _prio in subscriptions_for(event_name):
         try:
-            if once_per == "session.tool" and not _first_use(
-                    getattr(engine, "toolcalls", None), session, tool, name):
+            if once_per and not _deliver_once(
+                    store, once_per, session, tool, name, fail_emit=fail_emit):
                 continue
             text = handler(engine, event) or ""
-        except Exception:
+        except Exception as exc:                                # noqa: BLE001
+            _note_handler_error(engine, event_name, name, exc)
             continue
         if text:
             out.append(text)
     return out
+
+
+def _note_handler_error(engine, event_name: str, name: str, exc: Exception) -> None:
+    """Surface a swallowed subscriber exception on the Spec 021 monitor so a broken
+    handler is diagnosable (Spec 349 review S3) — without breaking fail-isolation.
+    Best-effort: the diagnostic itself must never raise."""
+    try:
+        from ._monitor import MonitorEvent
+        engine.monitor.emit(MonitorEvent(
+            source="events", kind="handler_error",
+            message=f"{event_name}/{name}: {type(exc).__name__}: {exc}"))
+    except Exception:                                           # noqa: BLE001
+        pass

@@ -1,5 +1,3 @@
-import pytest
-import inspect
 from unittest.mock import patch
 from agency.skill_emit import _render_tier_b_anchor
 

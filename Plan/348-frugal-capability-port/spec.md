@@ -1,7 +1,7 @@
 ---
 spec_id: "348"
 slug: frugal-capability-port
-status: draft
+status: shipped
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [3]
@@ -329,9 +329,9 @@ both folded (authoritative):
 
 ## Followup — Implementation Status (2026-06-20)
 
-Not started — design record. Opened by the owner's "port ponytail completely +
-make it mandatory + setup into SessionStart" directive. Graduates `frugal` from
-the `_frugal.py` core module (Spec 332, shipped) into
+**SHIPPED 2026-06-20 (+ depth/once refinement).** Opened by the owner's "port
+ponytail completely + make it mandatory + setup into SessionStart" directive.
+Graduated `frugal` from the `_frugal.py` core module (Spec 332, shipped) into
 `agency/capabilities/frugal/` (the `gate/` drop-in template), porting the five
 ponytail sub-commands as provenance-emitting verbs + `frugal.instructions` as the
 MCP port, wiring the discipline mandatorily into SessionStart + `agency_welcome`
@@ -339,5 +339,131 @@ MCP port, wiring the discipline mandatorily into SessionStart + `agency_welcome`
 doctrine hazards a faithful port would import (gain's frozen medians, debt's
 comment-prefix gap, help's drift). Reuses Spec 332 (content), Spec 333 (install),
 Spec 076/195 (hook seams), Spec 347 (floor/machine). Research:
-`research/ponytail-port/{scenario-analysis,agency-infra}.md`. Build-order:
-independent of Spec 349, but `frugal` is 349's reference emitter/subscriber.
+`research/ponytail-port/{scenario-analysis,agency-infra}.md`.
+
+**Refinement 2026-06-20 — DEEP + delivered ONCE** (owner: *"the injected
+instructions are too shallow"* + *"make sure the frugal inject only happens once
+via the new event"*).
+- **Depth.** The inject was a bare bullet list. `render(mode="full")` + `help_text`
+  now carry the FULL ponytail discipline: persona ("lazy senior dev — efficient,
+  not careless") + persistence (ACTIVE every response) + the ladder WITH examples
+  (`<input type="date">`, CSS-over-JS) + the rules (no unrequested abstractions,
+  deletion over addition, mark shortcuts) + the output pattern
+  (`[code] -> skipped: X, add when Y`) + the one-runnable-check rule + the safety
+  floor + per-level worked examples. ~45× the compact stamp; every
+  `SAFETY_FLOOR_MARKER` survives (the Slice-4 gate still passes).
+- **Once.** The deep card is delivered exactly ONCE per session via a Spec 349a
+  `frugal.session_inject` subscription (`once_per="session"`, fail-open to EMIT) —
+  SessionStart fires on startup/resume/**compact**, so a direct inject repeated the
+  heavy card on every compaction. `engine._session_start_handler` now routes
+  through `_events.run(engine, "SessionStart", event)`.
+- **Guarantee tests.** The frugal acceptance suite (16 scenarios) adds the
+  SessionStart-once GUARANTEE, a depth guard (fails if the inject is ever
+  shallowed), and capture-cleanliness (the dedup marker never pollutes the
+  tool-call store); 66 store/hook/event tests green. These are the regression lock
+  that the NEXT session uses the ponytail port for sure.
+
+**Refinement 2026-06-20 — `review` provenance (Jules review Sev1).** `review`
+recorded only the FrugalReview aggregate (scope/files/decidable COUNT), dropping
+the file/line/rule/message judgment from the graph. Now it records EACH finding as
+a durable `FrugalFinding` node SERVING the intent (mirrors `debt` → `DebtMarker`;
+no foreign-key-prop anti-pattern, no dormant edge) + a `frugal-finding.json` schema;
+the wire return adds the full `findings` count beside the token-bounded
+`decidable_findings`. The acceptance bloat scenario asserts the FrugalFinding node
+count equals the reported findings count (computed, not pinned) — the full judgment
+is a graph query, not a dropped tail.
+
+**Finalization 2026-06-20 — status → SHIPPED (deep integration closed).** Owner
+directive: *"finalize the ponytail port and make sure it's deeply integrated."* The
+capability + wiring shipped earlier; this pass closed the §7/§8 integration seams
+that were still open, flipping the spec from draft to shipped:
+- **§7 develop cross-link.** `develop.reference("frugal")` now returns the heavy
+  how-to on demand (the T3 disclosure parallel to `develop.reference("codegraph")`).
+  It is **derived**, not copied (rule 2): a `_COMPUTED_REFERENCES` builder renders
+  `_frugal.help_text()` (the single source) + the capability verb-map, so the
+  ladder/floor text can never drift from `_frugal`. A locking acceptance scenario
+  (`frugal_capability.feature`) asserts the reference carries every safety-floor
+  marker, points to the verbs, and that `frugal` is in the discoverable
+  `available` set. The CLAUDE.md verb-routing table gains the
+  *review for over-engineering → `frugal.review`* row.
+- **§8 docs.** `docs/guide/capabilities.md` regenerated (32 → 33 caps; the frugal
+  section with all 7 verbs was missing — the generated page was stale).
+  Hand-written `docs/guide/frugal.md` added (the before/after pitch + the ladder +
+  the safety floor + the levels + the verb table), `<!-- doc-source: -->`-marked
+  against `_frugal.py` + the capability + Specs 332/348, and linked from the guide
+  index `docs/guide/README.md`.
+- The verb surface, SessionStart-once inject, per-verb stamp, first-use hint,
+  welcome surface, and provenance nodes were already shipped (above); the live
+  engine confirms `frugal` in `agency_welcome`, `frugal.level`/`help` working, and
+  `develop.reference("frugal")` resolving. Frugal acceptance suite 17/17 green.
+
+**Substrate-depth pass 2026-06-20** (owner: *"use templates / schemas / ontologies
+/ core functions to improve the port"*; critical-thinking walk `skill:0bf97f14`).
+Audited the full ponytail surface vs the port — verdict: functionally complete and
+superior in places (provenance nodes, per-verb stamp, dedup-over-compact, first-use
+hint, MCP-native). Closed the remaining substrate-depth items the owner selected:
+- **TEMPLATES — the ladder is now a walkable discipline.** `frugal.ontology.skills`
+  declares a `frugal` discipline whose 6 phases mirror the `_frugal._LADDER` rungs
+  (necessity → stdlib → native → installed-dep → one-line → minimum, hard gate at
+  minimum). `develop.skill_walk("frugal")` walks it one rung at a time with
+  provenance — the discipline is no longer prose-only. Single-sourced: only the
+  structural phase graph lives here, the rung TEXT stays in `_frugal`. (Spec 347
+  later derives the drivable lifecycle MACHINE from this walk surface per Spec 346.)
+- **CORE FUNCTIONS — document-backed debt ledger.** `frugal.debt(write=path)`
+  projects the ledger to markdown AND binds it as a graph `Document` via
+  `document.ingest` (Spec 292 file↔graph round-trip) — the ponytail
+  `PONYTAIL-DEBT.md` feature, substrate-native; the DebtMarker nodes stay the
+  canonical queryable ledger.
+- **CORE FUNCTIONS — gain reports the live per-repo count.** `frugal.gain(paths)`
+  scans read-only (no node writes) for the live `frugal:`/`ponytail:` marker count
+  beside the cited benchmark medians — the honest per-repo number (a count, never an
+  invented savings figure).
+- **Docs.** `docs/guide/frugal.md` gains 4 more before/after survivors;
+  `capabilities.md` + the frugal SKILL/CLI mirrors regenerated. 3 new acceptance
+  scenarios (gain read-only count, document-backed ledger, walkable ladder); frugal
+  suite 20/20 green; check-drift clean.
+- Out of scope (tracked elsewhere): installer Wave-2 → 14 agents (Spec 335); the
+  frugal lifecycle MACHINE (Spec 347). The typed DEBT edge stays deliberately
+  un-declared (dormant-surface avoidance) — DebtMarker nodes SERVE the intent.
+
+**Prose-in-templates decision (2026-06-20, owner-confirmed).** Q: is ALL ponytail
+prose ported into the templates? A: the full teaching prose (persona · persistence ·
+ladder WITH examples · rules · output pattern · intensity examples · safety floor) is
+ported **100%**, single-sourced in `_frugal` and delivered to every agent via FOUR
+runtime surfaces — the SessionStart inject (once/session), `frugal.instructions`/`help`,
+`develop.reference("frugal")`, and `docs/guide/frugal.md`. The walkable `frugal`
+template (`SKILL.md`) carries the STRUCTURE (6 rungs as phases) + the docstring-derived
+doc + POINTERS to that prose; it deliberately does NOT embed a copy — rule 2
+(single-source: the generated `SKILL.md` would drift) and the drop-in bar (a
+frugal-specific `install.generate` edit would be the coupling the bar forbids; the
+alternative was a *generic* capability→skill-body hook). A skill phase's prose is also
+not surfaced to a walking agent (`_skill_walk` returns status/phase only), so the
+phase dict is the wrong home for teaching text. **Owner chose the pointer design** over
+embedding. NOT ported = ILLUSTRATIVE-only prose (review's `L12-38: stdlib:…` tag
+examples, gain's ASCII scoreboard art, 7 of 12 `examples/` survivors) — owner declined;
+decorative, not functional.
+
+**Refinement 2026-06-20 — robustness (Jules review, two deferred findings + a
+test-isolation defect).**
+- **First-use hint had a silent gap.** `_FIRST_USE_HINTS` was a closed
+  `{Bash, Write, Edit}` map, so `on_first_tool_use` returned `""` for ANY other
+  tool (Grep, Read, an MCP verb, a future tool) — the first-use nudge silently
+  never fired. Added a generic `_GENERIC_FIRST_USE_HINT` fallback so every tool's
+  first use carries the frugal reflex (the floor still named); the three entries
+  now only REFINE it. New scenario fires PreToolUse for an unlisted tool and
+  asserts the hint lands once.
+- **`review` saw nothing on a repo with no commits.** `_changed_files` ran
+  `git diff --name-only HEAD`, which errors on an unborn HEAD; staged files aren't
+  `--others` either, so the changed-file list came back empty and a brand-new
+  repo's first commit was unreviewable. Now `_has_commit()` detects the unborn
+  HEAD and falls back to `git ls-files --cached` (+ untracked), so staged bloat is
+  reviewed. New scenario stages a bloated file in a no-commit repo and asserts the
+  decidable cut is flagged.
+- **Test-isolation fix (same class as the conftest `engine` fix).**
+  `test_hooks.py::_fresh_hook_engine` built `Engine(mktemp())` WITHOUT setting
+  `AGENCY_TOOLCALLS_DB`, so its Spec 336 store resolved to the single shared
+  `/tmp/toolcalls.db` (accumulating capture across tests + runs). The
+  `rows[-1] == "Bash"` BoundaryUse assertion was order-dependent in a cross-file
+  run (a PreToolUse from another test leaked in as the latest row). Isolated the
+  store per test, mirroring the conftest fixture; `test_hooks` + the
+  hook/event/toolcall/frugal slice are deterministically green.

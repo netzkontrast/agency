@@ -379,6 +379,16 @@ def _default_hook_handler(engine, event: dict) -> dict:
             out = resp if isinstance(resp, str) else (
                 _json.dumps(resp, default=str) if resp else "")
             filtered = capture_filter(cmd, out, tool=tool_name, spec=None)
+            # Spec 350 Slice 2 — apply config filters.toolcall profile for PostToolUse
+            # (OPT-IN: only runs when the user has set filters.toolcall in config.yaml)
+            if phase == "post" and filtered:
+                try:
+                    from ._relevance import load_filter_profile as _lfp, relevance_filter as _rf
+                    _tp = _lfp("toolcall")
+                    if _tp:
+                        filtered = _rf(filtered, _tp)["kept"]
+                except Exception:  # noqa: BLE001 - fail-open on hook path
+                    pass
         except Exception:                                       # noqa: BLE001
             filtered = ""
         try:
@@ -507,13 +517,20 @@ def _append_frugal(inject: str, *, prompt: bool) -> str:
 
 
 def _session_start_handler(engine, event: dict) -> dict:
-    """Spec 332 M1 — inject the full frugal discipline at session start. Records
-    the Event (default handler) then adds the discipline; degrades silently.
-    Spec 334 Slice 3 — also repair an existing config (add newly-registered
-    sections), non-destructively."""
+    """Spec 332 M1 / Spec 348 / Spec 349a — inject the full frugal discipline at
+    session start, delivered VIA THE EVENT BUS with a once-per-session dedup so the
+    deep card lands exactly ONCE even though SessionStart fires on startup AND
+    resume AND every compaction (a direct inject repeated the heavy card each
+    time). Records the Event (default handler) first; the `frugal.session_inject`
+    subscriber returns the deep card (fail-open to EMIT). Degrades silently. Spec
+    334 Slice 3 — also repair an existing config (add newly-registered sections),
+    non-destructively."""
+    from . import _events
     base = _default_hook_handler(engine, event)
     _maybe_repair_config()
-    return {**base, "inject": _append_frugal("", prompt=False)}
+    frags = _events.run(engine, "SessionStart", event)
+    inject = "\n".join(f"[agency] {f}" for f in frags if f)
+    return {**base, "inject": inject}
 
 
 def _maybe_repair_config() -> None:

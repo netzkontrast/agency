@@ -135,8 +135,8 @@ def run_pressure_test(ctx: Any, scenario: dict, transcript: Optional[str] = None
                                        "skill_under_test": scen["skill_under_test"]})
     ctx.link(scen_art, ctx.intent_id, "SERVES")
 
-    lc = ctx.record("Lifecycle", {"state": "working", "phase": 0})
-    ctx.link(lc, ctx.intent_id, "SERVES")
+    from .lifecycle import Lifecycle
+    lc = Lifecycle(ctx.memory, engine=getattr(ctx, "engine", None), monitor=getattr(ctx, "engine", None).monitor if getattr(ctx, "engine", None) and hasattr(getattr(ctx, "engine", None), "monitor") else None).open(ctx.intent_id)
 
     if dry_run:
         result = {"score": 50, "verdict": "ambiguous",

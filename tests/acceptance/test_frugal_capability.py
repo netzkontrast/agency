@@ -68,6 +68,35 @@ def _help_has(fr, needle):
     assert needle in fr["help"], fr["help"][:200]
 
 
+# ── develop cross-link: the heavy how-to on demand (Spec 348 §7) ───────────────
+
+
+@when(parsers.parse('I fetch the develop reference for "{topic}"'), target_fixture="ref")
+def _develop_reference(engine, confirmed_intent, topic):
+    r, _ = invoke(engine, confirmed_intent, "develop", "reference", topic=topic)
+    return r["result"]
+
+
+@then("the frugal reference names every safety-floor marker")
+def _ref_floor(ref):
+    # derived from _frugal (single source) — so it carries the floor for free
+    for m in _frugal.SAFETY_FLOOR_MARKERS:
+        assert m in ref["doc"], (m, ref["doc"][:200])
+
+
+@then("the frugal reference points to the frugal capability verbs")
+def _ref_verbs(ref):
+    # the reference is the how-to, not just the discipline: it surfaces the actionable verbs
+    assert "frugal.review" in ref["doc"] and "frugal.debt" in ref["doc"], ref["doc"][-400:]
+
+
+@then('"frugal" is listed among the available develop references')
+def _ref_available(engine, confirmed_intent):
+    # discoverability: a miss reports the available set, which must include frugal
+    r, _ = invoke(engine, confirmed_intent, "develop", "reference", topic="__nope__")
+    assert "frugal" in r["result"]["available"], r["result"]
+
+
 # ── debt + gain (Slice 2) ─────────────────────────────────────────────────────
 
 
@@ -124,6 +153,64 @@ def _points_debt(fr):
     assert fr["this_repo"]["use"] == "frugal.debt", fr
 
 
+# ── substrate-depth improvements (Spec 348 §7 — templates + core functions) ────
+
+
+@when("I get the frugal gain scoreboard for that tree", target_fixture="fr")
+def _gain_tree(engine, confirmed_intent, debt_path):
+    return _f(engine, confirmed_intent, "gain", paths=debt_path)
+
+
+@then(parsers.parse("the gain scoreboard reports {n:d} live markers"))
+def _gain_count(fr, n):
+    assert fr["this_repo"]["markers"] == n, fr
+
+
+@then("the gain scoreboard still names the ponytail benchmark source")
+def _gain_bench(fr):
+    assert "ponytail" in fr["benchmark"]["source"].lower(), fr
+
+
+@then("gain recorded no DebtMarker node")
+def _gain_readonly(engine, confirmed_intent, fr):
+    # gain is a READ — only debt writes DebtMarker nodes (the live count is a scan)
+    assert served(engine, confirmed_intent, "DebtMarker") == 0
+
+
+@when("I harvest the frugal debt for that tree into a ledger file", target_fixture="fr")
+def _debt_write(engine, confirmed_intent, debt_path, tmp_path):
+    ledger = str(tmp_path / "FRUGAL-DEBT.md")
+    r = _f(engine, confirmed_intent, "debt", paths=debt_path, write=ledger)
+    r["_ledger"] = ledger
+    return r
+
+
+@then("the debt ledger file was written with the markers")
+def _ledger_written(fr):
+    from pathlib import Path
+    body = Path(fr["_ledger"]).read_text(encoding="utf-8")
+    assert "Frugal debt ledger" in body and "global lock" in body, body[:300]
+
+
+@then("the ledger file is bound as a graph Document")
+def _ledger_doc(fr):
+    # composes document.ingest (Spec 292) — the ledger round-trips as a Document node
+    assert fr.get("document_id"), fr
+
+
+@when("I attempt to walk the frugal discipline", target_fixture="fr")
+def _walk_frugal(engine, confirmed_intent):
+    r, _ = invoke(engine, confirmed_intent, "develop", "skill_walk", name="frugal", inputs={})
+    return r
+
+
+@then("the frugal ladder discipline is registered and walkable")
+def _walk_registered(fr):
+    # resolved (NOT 'unknown skill') and the first phase is the ladder's necessity rung
+    assert fr.get("error") != "unknown skill 'frugal'", fr
+    assert fr.get("phase") == "necessity", fr
+
+
 # ── review (Slice 3) ──────────────────────────────────────────────────────────
 
 
@@ -143,6 +230,23 @@ def _lean(tmp_path):
 @when("I review that tree for over-engineering", target_fixture="fr")
 def _review(engine, confirmed_intent, review_path):
     return _f(engine, confirmed_intent, "review", scope="repo", paths=review_path)
+
+
+@given("a git repo with a staged python file but no commit")
+def _nocommit_repo(tmp_path, monkeypatch):
+    """A fresh repo whose HEAD is unborn (no commit yet) with a bloated file STAGED.
+    The diff-scope review must still see it — Jules review: `git diff HEAD` errors on
+    an unborn HEAD, so the changed-file list came back empty and review saw nothing."""
+    import subprocess
+    monkeypatch.chdir(tmp_path)
+    subprocess.run(["git", "init", "-q"], cwd=str(tmp_path), check=True)
+    (tmp_path / "bloat.py").write_text("import os\nx = " + "1 + " * 80 + "1\n")
+    subprocess.run(["git", "add", "bloat.py"], cwd=str(tmp_path), check=True)
+
+
+@when("I review the working diff for over-engineering", target_fixture="fr")
+def _review_diff(engine, confirmed_intent):
+    return _f(engine, confirmed_intent, "review", scope="diff")
 
 
 @then("the review flags a decidable cut")
@@ -165,6 +269,15 @@ def _rtags(fr):
 @then("a FrugalReview node serves the intent")
 def _rserved(engine, confirmed_intent, fr):
     assert served(engine, confirmed_intent, "FrugalReview") >= 1
+
+
+@then("every finding is a durable FrugalFinding node serving the intent")
+def _findings_durable(engine, confirmed_intent, fr):
+    # the moat: the FULL judgment is in the graph, not just the FrugalReview count
+    # (Jules Sev1). The node count equals the reported full findings count, NOT the
+    # token-bounded wire slice — computed, not a pinned magic number (rule 8).
+    n = served(engine, confirmed_intent, "FrugalFinding")
+    assert n == fr["findings"] >= 1, (n, fr.get("findings"))
 
 
 # ── event bus first-use-once (Spec 349a) ──────────────────────────────────────
@@ -200,3 +313,83 @@ def _has_hint(ev_ctx):
 @then("the injected context omits the frugal first-use hint")
 def _no_hint(ev_ctx):
     assert "[frugal]" not in ev_ctx, ev_ctx
+
+
+# ── SessionStart deep inject, delivered once per session (Spec 348/349a) ───────
+
+
+@pytest.fixture
+def injects():
+    """SessionStart inject(s) captured per session id, in order — a list so a
+    repeated SessionStart for ONE session shows the once-per-session dedup."""
+    return {}
+
+
+@when(parsers.parse('a SessionStart hook fires for session "{sid}"'))
+def _session_start(engine, injects, sid):
+    out = engine.dispatch_hook({"hook_event_name": "SessionStart", "session_id": sid})
+    injects.setdefault(sid, []).append(out.get("inject", ""))
+
+
+def _first_inject(injects, sid):
+    got = injects.get(sid, [])
+    return got[0] if got else ""
+
+
+@then(parsers.parse('the session "{sid}" inject names every safety-floor marker'))
+def _ss_floor(injects, sid):
+    inj = _first_inject(injects, sid)
+    for m in _frugal.SAFETY_FLOOR_MARKERS:
+        assert m in inj, (m, inj[:200])
+
+
+@then(parsers.parse('the session "{sid}" inject teaches the ladder, the rules, and the output pattern'))
+def _ss_depth(injects, sid):
+    # the DEPTH guard: shallow bullets fail this — ladder + rules + output pattern
+    inj = _first_inject(injects, sid).lower()
+    assert "yagni" in inj and "stdlib" in inj, "ladder missing"
+    assert "no unrequested abstractions" in inj or "deletion over addition" in inj, "rules missing"
+    assert "skipped:" in inj, "output pattern missing"
+
+
+@then(parsers.parse('the session "{sid}" inject is far deeper than the one-line per-verb stamp'))
+def _ss_deeper(injects, sid):
+    inj = _first_inject(injects, sid)
+    stamp = _frugal.render(mode="compact")
+    assert len(inj) > 3 * len(stamp), (len(inj), len(stamp))
+
+
+@then(parsers.parse('the session "{sid}" discipline is injected exactly once'))
+def _ss_once(injects, sid):
+    got = injects.get(sid, [])
+    disciplined = [i for i in got if "FRUGAL DISCIPLINE" in i]
+    assert len(disciplined) == 1, [len(i) for i in got]
+
+
+@then(parsers.parse('the second session "{sid}" inject is empty'))
+def _ss_second_empty(injects, sid):
+    got = injects.get(sid, [])
+    assert len(got) >= 2 and got[1] == "", got
+
+
+@then(parsers.parse('the session "{sid}" inject carries the frugal discipline'))
+def _ss_carries(injects, sid):
+    assert "FRUGAL DISCIPLINE" in _first_inject(injects, sid), injects.get(sid)
+
+
+@then(parsers.parse('the session "{sid}" inject is empty'))
+def _ss_empty(injects, sid):
+    assert _first_inject(injects, sid) == "", injects.get(sid)
+
+
+@given(parsers.parse('the frugal level is "{level}"'))
+def _set_level(level):
+    _frugal.set_frugal_level(level)
+
+
+@then("the tool-call capture stats carry no event-bus marker")
+def _clean_capture(engine, confirmed_intent):
+    # the bus dedup marker lives in a SEPARATE table — never a captured tool-call
+    r, _ = invoke(engine, confirmed_intent, "toolcalls", "stats", agent_id="agent:test")
+    phases = r.get("by_phase", {})
+    assert not any("first_use" in p or "session" in p for p in phases), phases

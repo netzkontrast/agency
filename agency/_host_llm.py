@@ -208,7 +208,7 @@ def complete_or_delegate(
        driver state, so a retry with ``host_completion`` keeps the
        verb's flow on the resume rail.
 
-    2. (Spec 348) free-first — PLAIN TEXT only (``output_schema is None``)
+    2. (Spec 352) free-first — PLAIN TEXT only (``output_schema is None``)
        and not pinned to anthropic (``require != "anthropic"`` and no
        ``AGENCY_GENERATE=anthropic``): when ``OPENROUTER_API_KEY`` is set
        (``_llm.prefers_openrouter``), generate through an OpenRouter free
@@ -254,7 +254,7 @@ def complete_or_delegate(
             parsed=host_completion.get("parsed"),
         )
 
-    # Branch 2 (free-first) — Spec 348: plain text routes to an OpenRouter free
+    # Branch 2 (free-first) — Spec 352: plain text routes to an OpenRouter free
     # model when OPENROUTER_API_KEY is set and the caller hasn't pinned anthropic.
     # Structured output (output_schema) is NOT routed free — a free model can't
     # honor output_config.format / adaptive thinking / managed-agents dispatch, so

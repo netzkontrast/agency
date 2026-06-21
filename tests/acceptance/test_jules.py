@@ -75,13 +75,12 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from agency.capabilities.jules.preambles import (
     DISPATCH_SELF_SOURCE,
-    PREAMBLE,
     assemble,
 )
 from agency.capabilities.jules.watch import INSTRUCTIONS, _classify
 from agency.engine import Engine
 from agency.skill import SkillRun
-from conftest import call_tool, invoke, served
+from conftest import invoke, served
 
 scenarios("features/jules.feature")
 

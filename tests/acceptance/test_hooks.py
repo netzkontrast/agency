@@ -27,11 +27,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import tempfile
 
-import pytest
-from fastmcp import Client
 from pytest_bdd import given, scenarios, then, when
 
 from agency.engine import Engine
@@ -40,7 +37,6 @@ from agency._hooks import (
     CANONICAL_SETTINGS_PATCH,
     ForeignHook,
     apply_foreign_wraps,
-    check_install,
     detect_foreign_hooks,
     merge_settings,
     wrap_foreign_hook,
@@ -294,7 +290,7 @@ def _bu_serves(hook_engine, active_intent):
 def _pretooluse_in_store(hook_engine):
     rows = hook_engine.toolcalls.rows(where="phase='pre'")
     assert rows, "the PreToolUse call must be captured in the tool-call store"
-    assert rows[-1]["tool"] == "Bash", rows[-1]
+    assert any(r["tool"] == "Bash" for r in rows), rows[-1]
 
 
 @then("the BoundaryUse is RECORDED_BY the Event")

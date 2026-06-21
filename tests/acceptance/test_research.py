@@ -645,7 +645,6 @@ def _backend_disabled(engine, confirmed_intent):
 @when("I create a fresh engine with no web_search override",
       target_fixture="fresh_engine")
 def _fresh_engine_default(monkeypatch):
-    import tempfile
     from agency.engine import Engine
     monkeypatch.delenv("AGENCY_WEB_BACKEND", raising=False)
     e = Engine(tempfile.mktemp(suffix=".db"))
@@ -662,7 +661,6 @@ def _engine_ws_name(fresh_engine, name):
 @when(parsers.parse('I create a fresh engine with a stub web search client named "{name}"'),
       target_fixture="fresh_engine")
 def _fresh_engine_stub(name):
-    import tempfile
     from agency.engine import Engine
 
     class _Stub:

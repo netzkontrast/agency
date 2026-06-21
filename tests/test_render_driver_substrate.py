@@ -16,7 +16,6 @@ from agency._render import (
     RenderSpec,
     render_node,
 )
-from agency.capability import DriverRegistry
 from agency.engine import Engine
 
 

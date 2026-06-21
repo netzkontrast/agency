@@ -1,9 +1,6 @@
 import pytest
 from click.testing import CliRunner
 import json
-import yaml
-import tempfile
-import os
 from agency.cli import cli
 from agency._typed_shapes_wave1_part2 import ChainStep
 

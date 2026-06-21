@@ -63,5 +63,6 @@ class SubagentCapability(CapabilityBase):
                                     passed=bool(quality_passed), evidence=quality_evidence)["result"]
         done = bool(spec_passed and quality_passed)
         if done:
-            self.ctx.memory.update(child, {"state": "completed"})    # verified join: both gates passed
+            from ...lifecycle import Lifecycle
+            Lifecycle(self.ctx.memory, engine=getattr(self.ctx, "engine", None), monitor=getattr(self.ctx, "engine", None).monitor if getattr(self.ctx, "engine", None) and hasattr(getattr(self.ctx, "engine", None), "monitor") else None).close(child, outcome="completed")    # verified join: both gates passed
         return {"result": {"child": child, "done": done, "spec": spec, "quality": quality}}

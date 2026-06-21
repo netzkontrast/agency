@@ -1,7 +1,7 @@
 # Ontology — the graph schema
 
 <!-- doc-source: agency/ontology.py -->
-<!-- doc-hash: b83c28a37e34d8d0 -->
+<!-- doc-hash: 250a7b8750e254b8 -->
 
 `agency/ontology.py` defines the node/edge/enum backbone every capability's data is
 built on, and how a capability *extends* it.

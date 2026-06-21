@@ -267,7 +267,8 @@ class JulesCapability(CapabilityBase):
 
     @verb(role="transform")
     def activities(self, session: str, page_size: int = 10, only_kinds: str = "",
-                   page_token: str = "", full: bool = False) -> dict:
+                   page_token: str = "", full: bool = False,
+                   filter: str = "") -> dict:
         """A session's activity stream. Trimmed to summaries by default (the
         costliest Jules read); pass ``full=True`` for the UNTRIMMED activities —
         the only way to recover a long ``agentMessaged`` body (e.g. a review the
@@ -276,7 +277,10 @@ class JulesCapability(CapabilityBase):
         Inputs: session (sid), page_size (int), only_kinds (comma-separated kinds),
                 page_token (str — empty for newest page),
                 full (bool — False = {id,originator,kind,summary} preview;
-                      True = the complete raw activity, nothing dropped — CLAUDE.md #9).
+                      True = the complete raw activity, nothing dropped — CLAUDE.md #9),
+                filter (str — JSON relevance profile, Spec 350; keeps only activities
+                        whose ``kind + summary`` matches include/exclude patterns;
+                        ignored when full=True; "" = no filter).
         Returns: ``{activities: [...], next_page_token}``.
         chain_next: walk pages via ``next_page_token``; ``jules.plan`` /
                     ``jules.patch`` for typed slices.
@@ -284,8 +288,26 @@ class JulesCapability(CapabilityBase):
         Without ``page_token`` older `agentMessaged` / failure details become
         unreachable (Codex review ccb8f03 / jules.py:139).
         """
-        return self._backend().activities(session, page_size, only_kinds,
-                                          page_token, summary_only=not full)
+        result = self._backend().activities(session, page_size, only_kinds,
+                                            page_token, summary_only=not full)
+        if filter and not full:
+            import json as _json
+            from ..._relevance import relevance_filter as _rf, load_filter_profile as _lfp
+            try:
+                profile = _json.loads(filter)
+            except (ValueError, TypeError):
+                # Slice 2: try as a named config profile before treating as keyword
+                _loaded = _lfp(filter)
+                profile = _loaded if _loaded else {"include": [filter]}
+            kept: list[dict] = []
+            for act in result.get("activities") or []:
+                text = f"{act.get('kind', '')} {act.get('summary', '')}"
+                r = _rf(text, {**profile, "context": 0})
+                if r["matched"] > 0:
+                    kept.append(act)
+            result["activities"] = kept
+            result["filter_applied"] = filter
+        return result
 
     @verb(role="transform")
     def plan(self, session: str, max_pages: int = 5) -> dict:

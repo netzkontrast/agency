@@ -9,7 +9,7 @@ from __future__ import annotations
 import tempfile
 
 import pytest
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import parsers, scenarios, then, when
 
 from conftest import invoke
 from agency import _config

@@ -1,0 +1,406 @@
+{
+  "_source": "brooks-lint@ec44ec8",
+  "_note": "Vendored from brooks-lint skills/_shared/decay-risks.md (R1-R6) + test-decay-risks.md (T1-T6). Single source for every risk definition the scanners + skills read (CLAUDE.md rule 2). The `decidable` array names the existing analyze rule-ids that mechanically evidence each risk (Spec 354 §3); empty = judgment-only. The 12-book matrix is owned by Spec 358 source-coverage.json; books here use the same canonical titles. Drift-tracked: scripts/check-drift compares `_source` against the pinned upstream rev (Spec 354 §2).",
+  "R1": {
+    "name": "Cognitive Overload",
+    "diagnostic": "How much mental effort does a human need to understand this?",
+    "consequence": "Cognitive load beyond working memory causes mistakes, avoidance, and blocks the refactoring that would fix it.",
+    "remedy": "Extract cohesive blocks into well-named functions, flatten nesting with guard clauses, and replace magic values and cryptic names with intention-revealing ones (Fowler — Extract Function; McConnell — High-Quality Routines).",
+    "symptoms": [
+      "Function longer than 20 lines where multiple levels of abstraction are mixed together",
+      "Nesting depth greater than 3 levels",
+      "Parameter list with more than 4 parameters",
+      "Magic numbers or unexplained constants",
+      "Variable names that require reading the implementation to understand (e.g. d, tmp2, flag)",
+      "Boolean expressions with 3 or more conditions combined",
+      "Train-wreck chains: a.getB().getC().doD()",
+      "Code names that do not match what the business calls the same concept",
+      "Flag Arguments: a boolean parameter that makes the function do two fundamentally different things",
+      "Primitive Obsession: domain concepts represented as primitive types rather than purpose-built value types",
+      "Shallow module: the interface is more complex relative to the functionality it provides"
+    ],
+    "sources": [
+      {"symptom": "Long Method", "book": "Fowler — Refactoring", "principle": "Long Method"},
+      {"symptom": "Long Parameter List", "book": "Fowler — Refactoring", "principle": "Long Parameter List"},
+      {"symptom": "Message Chains", "book": "Fowler — Refactoring", "principle": "Message Chains"},
+      {"symptom": "Flag Arguments", "book": "Fowler — Refactoring", "principle": "Flag Arguments"},
+      {"symptom": "Primitive Obsession", "book": "Fowler — Refactoring", "principle": "Primitive Obsession"},
+      {"symptom": "Function length and nesting", "book": "McConnell — Code Complete", "principle": "Ch. 7: High-Quality Routines"},
+      {"symptom": "Variable naming", "book": "McConnell — Code Complete", "principle": "Ch. 11: The Power of Variable Names"},
+      {"symptom": "Magic numbers", "book": "McConnell — Code Complete", "principle": "Ch. 12: Fundamental Data Types"},
+      {"symptom": "Domain name mismatch", "book": "Evans — Domain-Driven Design", "principle": "Ubiquitous Language"},
+      {"symptom": "Shallow Module", "book": "Ousterhout — A Philosophy of Software Design", "principle": "Ch. 4: Modules Should Be Deep"}
+    ],
+    "severity_guide": {
+      "critical": "function > 50 lines, nesting > 5, or virtually no meaningful names",
+      "warning": "function 20-50 lines, nesting 4-5, some unclear names",
+      "suggestion": "minor naming issues, 1-2 magic numbers, isolated train-wreck chains"
+    },
+    "what_not_to_flag": [
+      "Linear code with clear names and guard clauses is not automatically high cognitive load",
+      "Internal implementation detail hidden behind a deep, simple module boundary is not a shallow-module problem",
+      "Domain-specific terminology should not be flagged if it matches how experts actually speak"
+    ],
+    "decidable": ["Q003"]
+  },
+  "R2": {
+    "name": "Change Propagation",
+    "diagnostic": "How many unrelated things break when you change one thing?",
+    "consequence": "Each change ripples to unrelated modules, slowing velocity and multiplying regression risk.",
+    "remedy": "Localise the decision: gather the divergent reasons-to-change into one module and depend on abstractions rather than concretions, so a change has one home (Martin — DIP; Fowler — Move Method).",
+    "symptoms": [
+      "Modifying one feature requires touching more than 3 files in unrelated modules",
+      "One class changes for multiple different business reasons (Divergent Change)",
+      "A method uses more data from another class than from its own class (Feature Envy)",
+      "Two classes know each other's internal state directly (Inappropriate Intimacy)",
+      "Changing one module requires recompiling or retesting many unrelated modules",
+      "Hyrum's Law: with enough callers, every observable behavior becomes an implicit contract",
+      "Orthogonality violation: changing one dimension forces edits in unrelated dimensions",
+      "Information Leakage: a design decision is encoded in more than one module"
+    ],
+    "sources": [
+      {"symptom": "Shotgun Surgery", "book": "Fowler — Refactoring", "principle": "Shotgun Surgery"},
+      {"symptom": "Divergent Change", "book": "Fowler — Refactoring", "principle": "Divergent Change"},
+      {"symptom": "Feature Envy", "book": "Fowler — Refactoring", "principle": "Feature Envy"},
+      {"symptom": "Inappropriate Intimacy", "book": "Fowler — Refactoring", "principle": "Inappropriate Intimacy"},
+      {"symptom": "Orthogonality violation", "book": "Hunt & Thomas — The Pragmatic Programmer", "principle": "Ch. 2: Orthogonality"},
+      {"symptom": "DIP violation", "book": "Martin — Clean Architecture", "principle": "Dependency Inversion Principle"},
+      {"symptom": "High change propagation radius", "book": "Brooks — The Mythical Man-Month", "principle": "Ch. 2: Brooks's Law (communication overhead)"},
+      {"symptom": "Hyrum's Law", "book": "Winters et al. — Software Engineering at Google", "principle": "Ch. 1: Hyrum's Law"},
+      {"symptom": "Information Leakage", "book": "Ousterhout — A Philosophy of Software Design", "principle": "Ch. 5: Information Hiding and Leakage"}
+    ],
+    "severity_guide": {
+      "critical": "one change touches > 5 files, or there is a structural dependency inversion (domain depends on infrastructure)",
+      "warning": "one change touches 3-5 files, mild coupling between modules",
+      "suggestion": "minor coupling, easily isolatable"
+    },
+    "what_not_to_flag": [
+      "A composition root wiring concrete dependencies is not a DIP violation by itself",
+      "A stable public API with intentionally supported behavior is not automatically Hyrum's Law debt",
+      "Similar edits inside one bounded context may be normal coordinated change, not shotgun surgery"
+    ],
+    "decidable": []
+  },
+  "R3": {
+    "name": "Knowledge Duplication",
+    "diagnostic": "Is the same decision expressed in more than one place?",
+    "consequence": "Multiple copies drift apart silently — DRY is about decisions, not code lines.",
+    "remedy": "Extract the duplicated decision into a single source of truth and have every site reference it (Hunt & Thomas — DRY; Fowler — Extract Function/Class).",
+    "symptoms": [
+      "Same logic copy-pasted across multiple files or functions",
+      "Same concept named differently in different parts of the codebase (user/account/member/customer)",
+      "Parallel class hierarchies that must change in sync",
+      "Configuration values repeated as literals in multiple places",
+      "Two modules that implement the same algorithm independently"
+    ],
+    "sources": [
+      {"symptom": "Code duplication", "book": "Fowler — Refactoring", "principle": "Duplicate Code"},
+      {"symptom": "Parallel Inheritance", "book": "Fowler — Refactoring", "principle": "Parallel Inheritance Hierarchies"},
+      {"symptom": "DRY violation", "book": "Hunt & Thomas — The Pragmatic Programmer", "principle": "DRY: Don't Repeat Yourself"},
+      {"symptom": "Inconsistent naming", "book": "Evans — Domain-Driven Design", "principle": "Ubiquitous Language"},
+      {"symptom": "Alternative Classes", "book": "Fowler — Refactoring", "principle": "Alternative Classes with Different Interfaces"}
+    ],
+    "severity_guide": {
+      "critical": "core business logic duplicated across modules, or same domain concept named 3+ different ways",
+      "warning": "utility code duplicated, naming inconsistent within a subsystem",
+      "suggestion": "minor literal duplication, single naming inconsistency"
+    },
+    "what_not_to_flag": [
+      "Repetition across separate bounded contexts is not automatically duplicate knowledge",
+      "Temporary duplication during an active extraction or migration is not necessarily debt",
+      "Shared protocol constants repeated at explicit boundaries may be acceptable when local ownership is clearer"
+    ],
+    "decidable": []
+  },
+  "R4": {
+    "name": "Accidental Complexity",
+    "diagnostic": "Is the code more complex than the problem it solves?",
+    "consequence": "Accidental complexity accumulates addition by addition until developers fight scaffolding more than solving the problem.",
+    "remedy": "Delete the speculative abstraction and inline lazy classes and middle-men until a real second consumer appears (Fowler — Inline Function/Class; YAGNI).",
+    "symptoms": [
+      "Abstractions built for future use with no current consumer (Speculative Generality)",
+      "Classes that barely justify their existence — wrap a single method call (Lazy Class)",
+      "Classes that only delegate to another class without adding behavior (Middle Man)",
+      "Second attempt at a system significantly more elaborate than the first (Second System Effect)",
+      "Switch statements that signal missing polymorphism",
+      "Configuration options that have never been changed from their defaults",
+      "Framework code larger than the application it powers",
+      "Code grown under sustained tactical shortcuts"
+    ],
+    "sources": [
+      {"symptom": "Speculative Generality", "book": "Fowler — Refactoring", "principle": "Speculative Generality"},
+      {"symptom": "Lazy Class", "book": "Fowler — Refactoring", "principle": "Lazy Class"},
+      {"symptom": "Middle Man", "book": "Fowler — Refactoring", "principle": "Middle Man"},
+      {"symptom": "Switch Statements", "book": "Fowler — Refactoring", "principle": "Switch Statements"},
+      {"symptom": "Second System Effect", "book": "Brooks — The Mythical Man-Month", "principle": "Ch. 5: The Second-System Effect"},
+      {"symptom": "YAGNI violations", "book": "McConnell — Code Complete", "principle": "Ch. 5: Design in Construction"},
+      {"symptom": "Over-engineering", "book": "Hunt & Thomas — The Pragmatic Programmer", "principle": "Topic 4: Good-Enough Software"},
+      {"symptom": "Tactical programming debt", "book": "Ousterhout — A Philosophy of Software Design", "principle": "Ch. 3: Strategic vs. Tactical Programming"}
+    ],
+    "severity_guide": {
+      "critical": "an entire subsystem built around a speculative requirement, or framework overhead dominates domain logic",
+      "warning": "several unnecessary abstractions or wrapper classes, unused configuration systems",
+      "suggestion": "one or two lazy classes or middle-man patterns in non-critical paths"
+    },
+    "what_not_to_flag": [
+      "A switch over an external protocol, wire format, or closed enum is not automatically missing polymorphism",
+      "Thin wrappers that absorb vendor churn or hide instability may be justified",
+      "A larger second version is not second-system effect unless the added generality exceeds present needs"
+    ],
+    "decidable": ["Q004"]
+  },
+  "R5": {
+    "name": "Dependency Disorder",
+    "diagnostic": "Do dependencies flow in a consistent, predictable direction?",
+    "consequence": "When business logic depends on infrastructure, infrastructure changes cascade into domain changes, and cycles prevent isolation.",
+    "remedy": "Break the cycle by inverting the dependency behind an interface and pointing it toward stable abstractions; keep fan-out within a single layer (Martin — ADP/DIP/SDP).",
+    "symptoms": [
+      "Circular dependencies between modules or packages",
+      "High-level business logic directly imports from low-level infrastructure",
+      "Stable, widely-used components depend on unstable, frequently-changing ones",
+      "Abstract components depending on concrete implementations",
+      "Law of Demeter violations: order.getCustomer().getAddress().getCity()",
+      "Module fan-out greater than 5 (imports from more than 5 other modules)",
+      "A module implements an interface but uses only a subset of its methods (ISP violation)",
+      "Different modules use incompatible architectural patterns with no clear rule",
+      "Direct version-pinned dependencies on transitive packages (diamond dependency risk)"
+    ],
+    "sources": [
+      {"symptom": "Dependency cycles", "book": "Martin — Clean Architecture", "principle": "Acyclic Dependencies Principle (ADP)"},
+      {"symptom": "DIP violation", "book": "Martin — Clean Architecture", "principle": "Dependency Inversion Principle (DIP)"},
+      {"symptom": "Instability direction", "book": "Martin — Clean Architecture", "principle": "Stable Dependencies Principle (SDP)"},
+      {"symptom": "Abstraction mismatch", "book": "Martin — Clean Architecture", "principle": "Stable Abstractions Principle (SAP)"},
+      {"symptom": "ISP violation", "book": "Martin — Clean Architecture", "principle": "Interface Segregation Principle (ISP)"},
+      {"symptom": "Conceptual integrity", "book": "Brooks — The Mythical Man-Month", "principle": "Ch. 4: Conceptual Integrity"},
+      {"symptom": "Law of Demeter", "book": "Hunt & Thomas — The Pragmatic Programmer", "principle": "Ch. 5: Decoupling and the Law of Demeter"},
+      {"symptom": "SOLID violations", "book": "Martin — Clean Architecture", "principle": "Single Responsibility, Open/Closed Principles"},
+      {"symptom": "Diamond dependency / upgrade blockage", "book": "Winters et al. — Software Engineering at Google", "principle": "Ch. 21: Dependency Management"}
+    ],
+    "severity_guide": {
+      "critical": "dependency cycles present, or domain layer directly depends on infrastructure layer",
+      "warning": "several SDP or DIP violations but no cycles; conceptual inconsistency across modules",
+      "suggestion": "minor Demeter violations, slightly elevated fan-out in isolated modules"
+    },
+    "what_not_to_flag": [
+      "High fan-out in an orchestration layer or composition root is not automatically disorder",
+      "Adapter modules may depend on both domain and infrastructure when they explicitly translate across the boundary",
+      "A stable facade over many leaf dependencies can be healthy if dependency policy is clear"
+    ],
+    "decidable": ["A001", "A004"]
+  },
+  "R6": {
+    "name": "Domain Model Distortion",
+    "diagnostic": "Does the code faithfully represent the problem it is solving?",
+    "consequence": "Code that mismatches business language forces mental translation; over time it models schemas instead of the domain, with logic bleeding into service layers.",
+    "remedy": "Move behaviour onto the domain objects and align names with the ubiquitous language, adding an anti-corruption layer at context boundaries (Evans — Domain Model / Ubiquitous Language).",
+    "symptoms": [
+      "Business logic scattered across service layers while domain objects have only getters and setters (anemic domain model)",
+      "Code names that do not match what business stakeholders call the concept",
+      "A class whose only purpose is to hold data with no behavior (pure data bag)",
+      "A subclass that ignores or overrides most of its parent's behavior (Refused Bequest)",
+      "Bounded context boundaries crossed without any translation or anti-corruption layer",
+      "Methods more interested in the data of another class than their own (Feature Envy)",
+      "LSP violation: a subclass overrides parent methods with incompatible behavior",
+      "Value Objects treated as Entities: a concept defined by its attributes given a mutable ID and lifecycle"
+    ],
+    "sources": [
+      {"symptom": "Anemic Domain Model", "book": "Evans — Domain-Driven Design", "principle": "Domain Model pattern"},
+      {"symptom": "Ubiquitous Language drift", "book": "Evans — Domain-Driven Design", "principle": "Ubiquitous Language"},
+      {"symptom": "Bounded context violation", "book": "Evans — Domain-Driven Design", "principle": "Bounded Context"},
+      {"symptom": "Data Class", "book": "Fowler — Refactoring", "principle": "Data Class"},
+      {"symptom": "Refused Bequest", "book": "Fowler — Refactoring", "principle": "Refused Bequest"},
+      {"symptom": "Feature Envy", "book": "Fowler — Refactoring", "principle": "Feature Envy"},
+      {"symptom": "LSP violation", "book": "Martin — Clean Architecture", "principle": "Liskov Substitution Principle (LSP)"}
+    ],
+    "severity_guide": {
+      "critical": "domain logic entirely in service layer, domain objects are pure data bags with no behavior",
+      "warning": "partial anemia, some naming inconsistency between code and domain language",
+      "suggestion": "minor naming drift in non-core areas, isolated cases of Feature Envy"
+    },
+    "what_not_to_flag": [
+      "CRUD-heavy workflows may legitimately use transaction scripts instead of rich domain objects",
+      "DTOs, persistence records, and API payload models are allowed to be data-only",
+      "Shared infrastructure language should not be mistaken for domain drift if the business model itself is simple"
+    ],
+    "decidable": []
+  },
+  "T1": {
+    "name": "Test Obscurity",
+    "diagnostic": "How much effort does it take to understand what this test verifies?",
+    "consequence": "Unclear test intent breeds distrust, missed failures, and duplicates — one step from an abandoned suite.",
+    "remedy": "Name each test by scenario and expected outcome, inline the mystery guest into the test body, and give every assertion a message (Osherove — naming; Meszaros).",
+    "symptoms": [
+      "Assertion Roulette: multiple assertions with no message string",
+      "Mystery Guest: test depends on external state not visible in the test body",
+      "Test names that do not express the scenario and expected outcome (test1, shouldWork)",
+      "General Fixture: an oversized setUp shared by unrelated tests",
+      "Test body requires reading production code to understand what is being verified"
+    ],
+    "sources": [
+      {"symptom": "Assertion Roulette", "book": "Meszaros — xUnit Test Patterns", "principle": "Assertion Roulette (p.224)"},
+      {"symptom": "Mystery Guest", "book": "Meszaros — xUnit Test Patterns", "principle": "Mystery Guest (p.411)"},
+      {"symptom": "General Fixture", "book": "Meszaros — xUnit Test Patterns", "principle": "General Fixture (p.316)"},
+      {"symptom": "Test naming", "book": "Osherove — The Art of Unit Testing", "principle": "method_scenario_expected naming convention"}
+    ],
+    "severity_guide": {
+      "critical": "no test name in the file describes the behavior being tested; all assertions lack messages",
+      "warning": "multiple Mystery Guests; several ambiguous test names",
+      "suggestion": "minor naming issues; isolated General Fixture"
+    },
+    "what_not_to_flag": [
+      "Multiple assertions are acceptable when they describe one coherent behavior and fail with a clear story",
+      "Shared setup is fine when every initialized value is relevant to nearly every test",
+      "Concise test names are acceptable if scenario and expected outcome are still obvious"
+    ],
+    "decidable": []
+  },
+  "T2": {
+    "name": "Test Brittleness",
+    "diagnostic": "Do tests break when you refactor without changing behavior?",
+    "consequence": "Brittle tests punish refactoring — eventually developers stop refactoring and the codebase stagnates to protect the suite.",
+    "remedy": "Assert observable behaviour rather than implementation, and split eager tests so a single behavior change fails a single test (Meszaros; Osherove — test isolation).",
+    "symptoms": [
+      "Tests assert on private method results or internal state rather than observable behavior",
+      "Eager Test: one test method verifies multiple unrelated behaviors",
+      "Over-specified: assertions enforce mock call order or exact parameter values irrelevant to the behavior",
+      "Renaming or extracting a method causes 5 or more tests to fail though no behavior changed",
+      "Erratic Test: produces different results across runs without production changes"
+    ],
+    "sources": [
+      {"symptom": "Eager Test", "book": "Meszaros — xUnit Test Patterns", "principle": "Eager Test (p.228)"},
+      {"symptom": "Erratic Test", "book": "Meszaros — xUnit Test Patterns", "principle": "Erratic Test"},
+      {"symptom": "Implementation coupling", "book": "Osherove — The Art of Unit Testing", "principle": "Test isolation principle"},
+      {"symptom": "Orthogonality violation", "book": "Hunt & Thomas — The Pragmatic Programmer", "principle": "Ch. 2: Orthogonality"}
+    ],
+    "severity_guide": {
+      "critical": "refactoring with no behavior change causes test failures; > 5 tests coupled to a single implementation detail",
+      "warning": "Eager Tests common across the suite; moderate implementation-detail assertions",
+      "suggestion": "isolated over-specification in non-critical tests"
+    },
+    "what_not_to_flag": [
+      "Verifying an externally observable event or emitted command is not implementation coupling",
+      "One test with several assertions is acceptable when all assertions support one behavior claim",
+      "A fake or in-memory adapter is not brittleness if the test still asserts behavior, not wiring"
+    ],
+    "decidable": []
+  },
+  "T3": {
+    "name": "Test Duplication",
+    "diagnostic": "Is the same test scenario expressed in more than one place?",
+    "consequence": "Duplicated tests must change in multiple places and create false confidence without testing distinct behavior.",
+    "remedy": "Extract shared setup and assertions into named helpers, and delete lazy duplicate tests that verify no distinct behavior (Meszaros — Test Code Duplication; DRY).",
+    "symptoms": [
+      "Test Code Duplication: same setup or assertion logic copy-pasted across multiple tests",
+      "Lazy Test: multiple tests verifying identical behavior with no differentiation",
+      "Same boundary condition tested identically at unit, integration, and E2E level",
+      "Test helper functions or fixtures duplicated across test files instead of shared"
+    ],
+    "sources": [
+      {"symptom": "Test Code Duplication", "book": "Meszaros — xUnit Test Patterns", "principle": "Test Code Duplication (p.213)"},
+      {"symptom": "Lazy Test", "book": "Meszaros — xUnit Test Patterns", "principle": "Lazy Test (p.232)"},
+      {"symptom": "DRY violation in tests", "book": "Hunt & Thomas — The Pragmatic Programmer", "principle": "DRY: Don't Repeat Yourself"}
+    ],
+    "severity_guide": {
+      "critical": "core business scenario fully duplicated across all three test layers with no differentiation",
+      "warning": "common scenario setup repeated in 5 or more tests without extraction",
+      "suggestion": "minor helper duplication; isolated Lazy Tests"
+    },
+    "what_not_to_flag": [
+      "The same scenario may appear at unit and integration level when each layer verifies a distinct risk",
+      "Small local setup duplication can be clearer than an over-abstracted fixture maze",
+      "Similar assertions against different domain rules are not Lazy Tests if the business intent differs"
+    ],
+    "decidable": []
+  },
+  "T4": {
+    "name": "Mock Abuse",
+    "diagnostic": "Is the test more complex than the behavior it tests?",
+    "consequence": "Mock abuse produces tests that pass while verifying nothing — production code can be fully broken as long as the mocks are wired up.",
+    "remedy": "Replace mock-interaction assertions with state and behaviour checks, cap mocks per test, and remove test-only methods from production classes (Osherove; Meszaros — Behavior Verification).",
+    "symptoms": [
+      "Mock setup code is longer than the test logic itself",
+      "Primary assertion is expect(mock).toHaveBeenCalledWith(...) — verifies a call, not behavior",
+      "Test-only methods added to production classes for lifecycle management in tests",
+      "Single unit test uses more than 3 mocks",
+      "Incomplete Mock: mock missing fields downstream code will access",
+      "Hard-Coded Test Data: test data has no resemblance to real data shapes or constraints"
+    ],
+    "sources": [
+      {"symptom": "Mock count > 3", "book": "Osherove — The Art of Unit Testing", "principle": "Mock usage guidelines"},
+      {"symptom": "Testing mock behavior", "book": "Meszaros — xUnit Test Patterns", "principle": "Behavior Verification (p.544)"},
+      {"symptom": "Test-only production methods", "book": "Feathers — Working Effectively with Legacy Code", "principle": "Ch. 3: Sensing and Separation"},
+      {"symptom": "Hard-Coded Test Data", "book": "Meszaros — xUnit Test Patterns", "principle": "Hard-Coded Test Data (p.534)"},
+      {"symptom": "Incomplete Mock", "book": "Osherove — The Art of Unit Testing", "principle": "Mock completeness requirement"}
+    ],
+    "severity_guide": {
+      "critical": "mock setup > 50% of test code; production class has methods only called from tests",
+      "warning": "mocks consistently > 3 per test; primary assertions are mock call verifications",
+      "suggestion": "isolated Incomplete Mocks; minor Hard-Coded Test Data"
+    },
+    "what_not_to_flag": [
+      "A small number of mocks around nondeterministic dependencies is acceptable when assertions still verify behavior",
+      "Fakes and spies used to observe state transitions are not mock abuse by default",
+      "One interaction assertion may be appropriate when the interaction itself is the behavior under test"
+    ],
+    "decidable": []
+  },
+  "T5": {
+    "name": "Coverage Illusion",
+    "diagnostic": "Does the test suite actually protect against the failures that matter?",
+    "consequence": "Coverage measures execution, not verification; 90% line coverage can still miss every critical failure mode.",
+    "remedy": "Add tests for the change paths that matter — sad paths, null/empty/boundary inputs, and important side effects — rather than chasing a line-coverage number (Feathers; Google — change coverage).",
+    "symptoms": [
+      "High line coverage but error-handling branches, boundary conditions, and exception paths have no tests",
+      "Happy-path only: no sad paths, no null/empty/zero inputs, no concurrency edge cases",
+      "Legacy code areas actively modified with no tests present",
+      "Coverage percentage treated as a sign-off criterion; critical change paths untested",
+      "Tests assert on return values but not on important side effects (DB writes, events, state transitions)"
+    ],
+    "sources": [
+      {"symptom": "Legacy code = no tests", "book": "Feathers — Working Effectively with Legacy Code", "principle": "Ch. 1: Legacy code is code without tests"},
+      {"symptom": "Change coverage vs line coverage", "book": "Google — How Google Tests Software", "principle": "Ch. 11: Testing at Google Scale"},
+      {"symptom": "Happy-path only", "book": "Osherove — The Art of Unit Testing", "principle": "Test completeness principle"}
+    ],
+    "severity_guide": {
+      "critical": "legacy code area actively being modified with no tests; error-handling paths entirely absent",
+      "warning": "coverage > 80% but edge and exception paths are systematically absent",
+      "suggestion": "a few non-critical paths missing sad-path tests"
+    },
+    "what_not_to_flag": [
+      "High line coverage is useful when paired with branch, boundary, and change-path coverage",
+      "A new module may have limited coverage early if it is still private and low-risk",
+      "Side-effect assertions may live in integration tests rather than unit tests without implying a gap"
+    ],
+    "decidable": []
+  },
+  "T6": {
+    "name": "Architecture Mismatch",
+    "diagnostic": "Does the test suite structure reflect the system's actual risk profile?",
+    "consequence": "Wrong suite shape is slow and expensive — not from bad tests, but from using the wrong type at the wrong layer.",
+    "remedy": "Rebalance the pyramid toward fast unit tests, introduce seams for isolation, and add characterization tests before modifying legacy areas (Feathers — Seam Model; Google — 70:20:10).",
+    "symptoms": [
+      "Inverted test pyramid: E2E or integration test count exceeds unit test count",
+      "Legacy code with no seam points: no interfaces, DI, or seams to test in isolation",
+      "Legacy areas modified with no Characterization Tests to capture current behavior first",
+      "Full suite execution time exceeds 10 minutes (architectural, not performance, problem)",
+      "High-risk and low-risk paths tested at identical density; no risk-based prioritization"
+    ],
+    "sources": [
+      {"symptom": "Inverted pyramid", "book": "Google — How Google Tests Software", "principle": "70:20:10 unit:integration:E2E ratio"},
+      {"symptom": "No seam points", "book": "Feathers — Working Effectively with Legacy Code", "principle": "Ch. 4: Seam Model"},
+      {"symptom": "Missing Characterization Tests", "book": "Feathers — Working Effectively with Legacy Code", "principle": "Ch. 13: Characterization Tests"},
+      {"symptom": "Suite execution time", "book": "Meszaros — xUnit Test Patterns", "principle": "Slow Tests (p.253)"}
+    ],
+    "severity_guide": {
+      "critical": "legacy code being modified has no seams and no characterization tests; pyramid fully inverted",
+      "warning": "suite execution > 10 minutes; integration/E2E count exceeds unit tests",
+      "suggestion": "localized pyramid ratio deviation; a few legacy areas missing characterization tests"
+    },
+    "what_not_to_flag": [
+      "Deviating from 70:20:10 can be justified by platform constraints or product risk",
+      "A suite heavy on integration tests can still be healthy if feedback is fast and purposefully layered",
+      "A small number of critical-path E2E tests is desirable, not a smell"
+    ],
+    "decidable": []
+  }
+}

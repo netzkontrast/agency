@@ -32,11 +32,9 @@ import importlib.util
 import sys
 import textwrap
 
-import pytest
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import parsers, scenarios, then, when
 
 from agency.capability import CapabilityBase
-from conftest import invoke
 
 scenarios("features/develop.feature")
 
@@ -154,7 +152,7 @@ def _load_cap_from_source(src: str, tmp_path, name: str):
         import inspect as _i
         if _i.isclass(v) and issubclass(v, CapabilityBase) and v is not CapabilityBase:
             return v.as_capability(), str(p)
-    raise RuntimeError(f"no Capability found in source")
+    raise RuntimeError("no Capability found in source")
 
 
 def _kinds_fired(result):

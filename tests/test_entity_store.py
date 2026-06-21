@@ -7,7 +7,7 @@ the graph, one db, query inline' vision.
 """
 from __future__ import annotations
 
-from agency._entity_store import EntityStore, EntityRecord
+from agency._entity_store import EntityStore
 from agency.memory import Memory
 
 

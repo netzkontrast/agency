@@ -13,7 +13,7 @@ Dropped as structural/meta (not behaviour):
 """
 from __future__ import annotations
 
-from pytest_bdd import given, parsers, scenarios, then, when
+from pytest_bdd import parsers, scenarios, then, when
 
 from conftest import invoke
 

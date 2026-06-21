@@ -156,7 +156,8 @@ def _apply_filter(text: str, spec: str) -> str:
     """Reduce text to the requested slice (the token-economy core).
 
     spec ∈ full | tail:N | head:N | head+tail:N | grep:PAT | lines:A-B |
-           count | count+head:N | last | stat | fields:A,B,... | names
+           count | count+head:N | last | stat | fields:A,B,... | names |
+           relevance:<JSON profile>   (Spec 350 — content-aware, include/exclude)
     """
     import json as _json
     lines = (text or "").splitlines()
@@ -228,6 +229,15 @@ def _apply_filter(text: str, spec: str) -> str:
                 out = str(data)[:200]
         except Exception:                                   # noqa: BLE001
             out = "\n".join(ln for ln in lines if ln.strip())[:200]
+    elif spec.startswith("relevance:"):
+        # Spec 350 — content-aware include/exclude filter (fail-open on bad profile)
+        try:
+            profile = _json.loads(spec[10:])
+        except Exception:                                   # noqa: BLE001
+            profile = {}
+        from ..._relevance import relevance_filter as _rf
+        r = _rf(text, profile)
+        out = r["kept"]
     else:
         out = "\n".join(lines)
     return out[:_MAX_OUTPUT]
@@ -269,6 +279,16 @@ def capture_filter(command: str, output: str, *,
         body = f"{path} — {n} lines — sha16:{sha16}"
     else:
         body = _apply_filter(output or "", spec) if output else ""
+        # Spec 350 Slice 2 — apply config filters.shell relevance profile for Bash
+        # (OPT-IN: only runs when the user has set filters.shell in config.yaml)
+        if tool == "Bash" and body:
+            try:
+                from ..._relevance import load_filter_profile as _lfp, relevance_filter as _rf
+                _sp = _lfp("shell")
+                if _sp:
+                    body = _rf(body, _sp)["kept"]
+            except Exception:  # noqa: BLE001 - fail-open on hook path
+                pass
     return f"{head}\n{body}".rstrip() if body else head
 
 

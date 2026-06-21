@@ -55,19 +55,46 @@ def _bench() -> dict:
     return json.loads((_DATA / "benchmark.json").read_text(encoding="utf-8"))
 
 
+# The frugal ladder as a WALKABLE discipline (Spec 348 §7 — the templates primitive):
+# the rungs of agency/_frugal._LADDER expressed as skill phases, so the discipline is a
+# recorded `develop.skill_walk("frugal")` (one phase at a time, provenance per rung), not
+# just injected prose. Spec 347 later derives the drivable lifecycle MACHINE from this walk
+# surface (Spec 346); this is the walk. Phase names mirror the ladder rungs (single source:
+# the rung TEXT lives in _frugal._LADDER; here only the structural phase graph).
+_LADDER_SKILL = {
+    "name": "frugal",
+    "kind": "discipline",
+    "applies_when": {"kind": "pattern",
+                     "pattern": r"over-?engineer|simplif|bloat|yagni|minimal|lazy|do less|shortest",
+                     "confidence": 0.7},
+    "phases": [
+        {"index": 1, "name": "necessity", "produces": ["necessity_decision"]},     # YAGNI rung
+        {"index": 2, "name": "stdlib", "produces": ["stdlib_check"]},
+        {"index": 3, "name": "native", "produces": ["native_check"]},
+        {"index": 4, "name": "installed-dep", "produces": ["dep_check"]},
+        {"index": 5, "name": "one-line", "produces": ["one_line_check"]},
+        {"index": 6, "name": "minimum", "produces": ["minimum_impl"], "gate": "hard"},
+    ],
+}
+
+
 class FrugalCapability(CapabilityBase):
     name = "frugal"
     home = "lifecycle"   # a discipline parameterizing HOW work proceeds (cf. mode/select; Spec 347)
     ontology = OntologyExtension(
-        nodes={"DebtMarker": ["file", "line"], "FrugalReview": ["scope", "files"]})
+        nodes={"DebtMarker": ["file", "line"], "FrugalReview": ["scope", "files"],
+               "FrugalFinding": ["file", "line"]},
+        skills={"frugal": _LADDER_SKILL})
     artefact_schemas = ArtefactSchemas.from_module(__file__)
-    # Spec 349b §2 — declarative event-bus subscription (was an import-time
-    # `_events.subscribe`). `handler` names the module-level `on_first_tool_use`
-    # below; the engine bootstrap loop resolves + registers it.
+    # Spec 349b §2 — declarative event-bus subscriptions (were import-time
+    # `_events.subscribe` calls). Each `handler` names a module-level function
+    # below; the engine bootstrap loop resolves + registers them.
     subscriptions = (
         _events.Subscription(event="PreToolUse", handler="on_first_tool_use",
-                             once_per="session.tool", priority=50,
-                             name="frugal.first_use"),
+                             once_per="session.tool", name="frugal.first_use"),
+        _events.Subscription(event="SessionStart", handler="on_session_start",
+                             once_per="session", once_fail_emit=True,
+                             name="frugal.session_inject"),
     )
 
     # ── level / set_level / instructions / help (Slice 1) ─────────────────────
@@ -116,7 +143,7 @@ class FrugalCapability(CapabilityBase):
 
     # ── debt / gain (Slice 2 — analysis verbs) ────────────────────────────────
     @verb(role="effect")
-    def debt(self, paths: str = "") -> dict:
+    def debt(self, paths: str = "", write: str = "") -> dict:
         """Harvest deliberate ``frugal:``/``ponytail:`` shortcut markers into a
         debt ledger — each a ``DebtMarker`` node SERVING the intent, so "what did
         we defer" is a query, not a re-grep (the substrate's edge over the JS
@@ -124,12 +151,16 @@ class FrugalCapability(CapabilityBase):
         fold — native ignore, not a hand-rolled set) under ``paths``, falling back
         to a filesystem walk for an untracked path. Matches **comment-prefixed**
         markers only (M3) across ``#`` ``//`` ``--`` ``<!-- -->`` ``;`` ``%`` ``/* */``.
+        When ``write`` is set, ALSO project the ledger to that markdown file and
+        bind it as a graph ``Document`` (``document.ingest``, Spec 292) — the
+        ponytail ``PONYTAIL-DEBT.md`` feature, substrate-native + round-trippable.
 
-        Inputs: paths (str — optional path filter; empty = all tracked source).
-        Returns: token-bounded ``{markers, no_trigger, top: [...]}`` — the FULL
-                 ledger is in the graph (DebtMarker nodes); the wire caps at the
-                 top-N (Spec 348-review Sev3#5: full capture, bounded return).
-        chain_next: query the DebtMarker nodes for the full ledger.
+        Inputs: paths (str — optional path filter; empty = all tracked source),
+                write (str — optional markdown path for the document-backed ledger).
+        Returns: token-bounded ``{markers, no_trigger, top: [...]}`` (+ ``written``
+                 / ``document_id`` when ``write`` is set) — the FULL ledger is in
+                 the graph (DebtMarker nodes); the wire caps at the top-N.
+        chain_next: query the DebtMarker nodes, or open the written ledger Document.
         """
         rows: list[dict] = []
         for f in self._tracked_files(paths):
@@ -138,23 +169,29 @@ class FrugalCapability(CapabilityBase):
                 rows.append(row)
         no_trigger = sum(1 for r in rows if not r["has_trigger"])
         rows.sort(key=lambda r: (r["has_trigger"], r["file"], r["line"]))
-        return {"markers": len(rows), "no_trigger": no_trigger, "top": rows[:_TOP_N]}
+        result = {"markers": len(rows), "no_trigger": no_trigger, "top": rows[:_TOP_N]}
+        if write:
+            result.update(self._write_ledger(rows, write))
+        return result
 
     @verb(role="transform")
-    def gain(self) -> dict:
+    def gain(self, paths: str = "") -> dict:
         """The frugal impact scoreboard — the published benchmark medians (a
         documented external constant sourced from ``data/benchmark.json``, the
-        CLAUDE.md #8 exception, NOT a frozen snapshot) plus a pointer to the only
-        real per-repo number (``frugal.debt``). Never invents a per-repo savings
-        figure — the unbuilt version was never written, so there is no baseline.
+        CLAUDE.md #8 exception, NOT a frozen snapshot) PLUS the LIVE per-repo
+        marker count (a read-only scan — the only honest per-repo number; never an
+        invented savings figure, since the unbuilt version was never written).
+        Read-only: ``debt`` owns the DebtMarker nodes; gain only counts.
 
-        Returns: ``{benchmark, this_repo}``.
-        chain_next: ``frugal.debt`` for the live ledger; ``frugal.instructions`` for the ruleset.
+        Inputs: paths (str — optional scope for the live count; empty = all tracked source).
+        Returns: ``{benchmark, this_repo: {markers, computable, use, note}}``.
+        chain_next: ``frugal.debt`` for the full queryable ledger; ``frugal.instructions``.
         """
+        markers = sum(1 for f in self._tracked_files(paths) for _ in self._scan(f))
         return {"benchmark": _bench(),
-                "this_repo": {"computable": False,
-                              "reason": "the unbuilt version was never written — no baseline",
-                              "use": "frugal.debt"}}
+                "this_repo": {"markers": markers, "computable": True, "use": "frugal.debt",
+                              "note": "live frugal:/ponytail: marker count (read-only); "
+                                      "run frugal.debt for the full queryable ledger"}}
 
     @verb(role="effect")
     def review(self, scope: str = "diff", ref: str = "", paths: str = "") -> dict:
@@ -185,9 +222,16 @@ class FrugalCapability(CapabilityBase):
                                  "file": f, "line": fnd.get("line", 0),
                                  "message": fnd.get("message", "")})
         findings.sort(key=lambda x: (x["file"], x["line"]))
+        # Record the review aggregate AND each finding as a durable FrugalFinding
+        # node SERVING the intent (mirrors debt → DebtMarker) — so the judgment is
+        # a query, not a dropped tail. The wire return stays token-bounded (top-N),
+        # but the FULL findings live in the graph (Jules review Sev1: a counts-only
+        # FrugalReview lost the file/line/rule judgment to the graph).
         self.ctx.record_and_serve("FrugalReview", {
             "scope": scope, "files": len(py), "decidable": len(findings)})
-        return {"scope": scope, "files": len(py),
+        for fnd in findings:
+            self.ctx.record_and_serve("FrugalFinding", fnd)
+        return {"scope": scope, "files": len(py), "findings": len(findings),
                 "decidable_findings": findings[:_TOP_N],
                 "tags": ["delete", "stdlib", "native", "yagni", "shrink"],
                 "note": "Decidable bloat only (unused imports + long functions/files "
@@ -199,16 +243,35 @@ class FrugalCapability(CapabilityBase):
     # ── helpers ───────────────────────────────────────────────────────────────
     def _changed_files(self, ref: str) -> list[str]:
         """Files changed vs ``ref`` (default HEAD) — tracked modifications AND new
-        untracked files, so a freshly-added over-built file is reviewed too."""
+        untracked files, so a freshly-added over-built file is reviewed too. On an
+        unborn HEAD (a repo with no commits yet) there is no revision to diff against:
+        ``git diff HEAD`` errors and the list came back empty (Jules review), so a
+        brand-new repo's first commit was unreviewable. Fall back to every staged +
+        untracked file instead."""
+        base = ref or "HEAD"
+        if base == "HEAD" and not self._has_commit():
+            cmds = (["git", "ls-files", "--cached"],
+                    ["git", "ls-files", "--others", "--exclude-standard"])
+        else:
+            cmds = (["git", "diff", "--name-only", base],
+                    ["git", "ls-files", "--others", "--exclude-standard"])
         out: list[str] = []
-        for cmd in (["git", "diff", "--name-only", ref or "HEAD"],
-                    ["git", "ls-files", "--others", "--exclude-standard"]):
+        for cmd in cmds:
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
                 out += [ln for ln in r.stdout.splitlines() if ln.strip()]
             except Exception:
                 pass
         return sorted(set(out))
+
+    def _has_commit(self) -> bool:
+        """True when HEAD resolves to a commit; False on an unborn HEAD or non-repo."""
+        try:
+            r = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"],
+                               capture_output=True, text=True, timeout=10)
+            return r.returncode == 0
+        except Exception:
+            return False
 
     def _tracked_files(self, paths: str) -> list[str]:
         """Tracked source under ``paths`` via ``git ls-files`` (honours .gitignore
@@ -248,8 +311,43 @@ class FrugalCapability(CapabilityBase):
             yield {"file": path, "line": i, "text": text, "ceiling": ceiling.strip(),
                    "upgrade": upgrade, "has_trigger": bool(upgrade)}
 
+    def _write_ledger(self, rows: list[dict], path: str) -> dict:
+        """Project the debt rows to a markdown ledger file AND bind it as a graph
+        ``Document`` via ``document.ingest`` (Spec 292 file<->graph round-trip).
+        The DebtMarker nodes stay the canonical queryable ledger; the file is a
+        round-trippable view. Returns ``{written, document_id}`` (document_id
+        omitted if the bind fails — a ledger write must never break ``debt``)."""
+        out_lines = ["# Frugal debt ledger", "",
+                     f"{len(rows)} marker(s); "
+                     f"{sum(1 for r in rows if not r['has_trigger'])} with no upgrade trigger.",
+                     ""]
+        cur = ""
+        for r in sorted(rows, key=lambda r: (r["file"], r["line"])):
+            if r["file"] != cur:
+                cur = r["file"]
+                out_lines.append(f"\n## {cur}")
+            trigger = r["upgrade"] or "_(no upgrade path — rot risk)_"
+            out_lines.append(f"- L{r['line']}: {r['ceiling']} → {trigger}")
+        Path(path).write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+        out = {"written": path}
+        try:                       # bind as a Document (core-function compose; Spec 292)
+            doc = self.ctx.call("document", "ingest", path=path, audit=False)
+            if isinstance(doc, dict) and doc.get("document_id"):
+                out["document_id"] = doc["document_id"]
+        except Exception:          # a ledger write must never break debt
+            pass
+        return out
+
 
 # ── Spec 349a — the first-use-once event subscriber (the reference subscriber) ──
+# A generic frugal nudge for ANY tool without a tailored hint — so a new or unlisted
+# tool (Grep, Read, an MCP verb, a future tool) is never silently skipped (Jules
+# review: the map was a closed set of Bash/Write/Edit). The entries below only
+# REFINE the reflex for the common additive tools.
+_GENERIC_FIRST_USE_HINT = (
+    "laziest solution that works first — reach for a dedicated verb or a stdlib / "
+    "native feature before new code or a new dependency; smallest change that does "
+    "the job (the floor still holds: validate / secure / accessible).")
 _FIRST_USE_HINTS = {
     "Bash": "prefer a dedicated tool/verb over raw bash where one fits; shortest command that works.",
     "Write": "does this file need to exist? (YAGNI) — stdlib/native before new code; shortest working file.",
@@ -259,9 +357,28 @@ _FIRST_USE_HINTS = {
 
 def on_first_tool_use(engine, event) -> str:
     """Spec 349a — on the FIRST PreToolUse of a tool in a session, return a frugal
-    hint for that tool; the bus dedups (once per session.tool) so it fires once.
-    Silent at frugal level 'off'. The reference subscriber for the pillar event bus."""
+    hint for that tool; the bus dedups (once per session.tool) so it fires once. A
+    tool with no tailored hint gets the generic reflex — never a silent gap (Jules
+    review). Silent at frugal level 'off'. The reference subscriber for the bus."""
     if _frugal.frugal_level() == "off":
         return ""
-    hint = _FIRST_USE_HINTS.get((event or {}).get("tool_name", ""))
-    return f"[frugal] {hint}" if hint else ""
+    tool = (event or {}).get("tool_name", "")
+    if not tool:
+        return ""
+    hint = _FIRST_USE_HINTS.get(tool, _GENERIC_FIRST_USE_HINT)
+    return f"[frugal] {hint}"
+
+
+def on_session_start(engine, event) -> str:
+    """Spec 348/349a — deliver the FULL frugal discipline (the deep ponytail-port
+    card) ONCE per session. SessionStart fires on startup AND resume AND every
+    compaction, so a direct inject would repeat the heavy card each time; the bus
+    dedups (once_per='session') so it lands exactly once. Fail-open to EMIT
+    (once_fail_emit=True) — the mandatory discipline must reach the agent even if
+    the dedup store is unavailable (a duplicate card beats a missing one). Silent
+    at frugal level 'off' / session_inject='off' (session_inject_text returns '')."""
+    return _frugal.session_inject_text()
+
+# Spec 349b §2 — both subscriptions are DECLARED as data on FrugalCapability
+# (`subscriptions = (...)`), registered by the engine bootstrap loop. The
+# import-time `_events.subscribe` calls were removed (the loop is the one reader).

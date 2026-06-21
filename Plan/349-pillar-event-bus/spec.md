@@ -420,20 +420,50 @@ a tool in a session (silent at level `off`), merged into the PreToolUse
 `additionalContext` by `engine._pre_tool_use_handler`. Behaviour-tested (first →
 hint; second identical call → silent).
 
+**349a Slice 2 SHIPPED 2026-06-20** — the `once_per="session"` scope + the
+mandatory-delivery direction + three Jules-review hardenings. The bus now carries
+TWO once-scopes: `session.tool` (the first-use hint — fail-open to SKIP, a missed
+hint is harmless) and `session` (the frugal SESSION-DISCIPLINE inject — fail-open
+to EMIT via `once_fail_emit=True`, the mandatory port must land even if the dedup
+store is down). `engine._session_start_handler` now delivers the deep discipline
+card THROUGH the bus (`_events.run(engine, "SessionStart", event)`), so it lands
+exactly ONCE per session even though SessionStart fires on startup / resume /
+**compact** — a direct inject repeated the now-deep card on every compaction.
+Three hardenings from the Jules review (session 7159268168794458738):
+1. **Marker moved off the captured rows.** The dedup marker is now an atomic
+   `event_marker(session, scope)` PK row in the Spec 336 store — a SEPARATE table,
+   so it never pollutes the captured tool-call rows that
+   `toolcalls.stats/recent/top/export` read (the prior `phase="first_use:…"` rows
+   leaked into capture). The PK conflict makes a concurrent first-occurrence
+   deterministic (replaces the SELECT-then-INSERT race).
+2. **`subscribe` requires an explicit `name`.** An empty name's `__name__`
+   fallback silently clobbered same-named/anonymous handlers (review M2) — now a
+   hard `ValueError` at registration.
+3. **Swallowed subscriber exceptions are surfaced.** `run` emits a Spec 021
+   `MonitorEvent(source="events", kind="handler_error")` instead of vanishing the
+   exception (review S3) — fail-isolation preserved, diagnosability restored.
+Behaviour-tested: SessionStart injects the FULL discipline (every safety-floor
+marker + ladder + rules + output pattern), fires exactly once per session,
+re-injects for a NEW session, silent at `off`, and the markers never appear in the
+tool-call capture. Test isolation: the acceptance `engine` fixture now isolates
+`toolcalls.db` per test (a pre-existing shared-`/tmp` leak the cleanliness scenario
+exposed).
+
 **349b §2 SHIPPED 2026-06-20 — declarative subscriptions + the bootstrap loop
-(THE missing reader).** `_events.Subscription(event, handler, once_per, priority,
-name)` is DATA a capability declares (`subscriptions = (...)`); `as_capability`
-carries it + the source `module` onto the compiled `Capability`; the engine
-bootstrap (`__init__` + `reload`) runs ONE loop
+(THE missing reader).** `_events.Subscription(event, handler, once_per,
+once_fail_emit, priority, name)` is DATA a capability declares (`subscriptions =
+(...)`); `as_capability` carries it + the source `module` onto the compiled
+`Capability`; the engine bootstrap (`__init__` + `reload`) runs ONE loop
 (`_events.register_capability_subscriptions`) that resolves each `handler` NAME
 against the cap's module and `subscribe`s it. `subscribe`/`run` gained `priority`
-(ascending, then registration order — the §7 deterministic-ordering contract).
-`frugal` migrated off its import-time `_events.subscribe` to the declarative form
-(the reference subscriber). Substrate subscribers (`lifecycle.monitor`, Spec
-344/349b) keep their import-time `subscribe` — they are not capabilities.
+(ascending, then registration order — the §7 deterministic-ordering contract); the
+subscription tuple is `(event, handler, once_per, once_fail_emit, name, priority)`.
+`frugal` migrated BOTH its import-time `_events.subscribe` calls (first-use +
+session-inject) to the declarative form. Substrate subscribers (`lifecycle.monitor`,
+Spec 344/349b) keep their import-time `subscribe` — they are not capabilities.
 `# AGENCY-DRIFT: event-subscribers` tags the loop. 2 new acceptance scenarios
-(bootstrap registration + priority ordering); the existing frugal first-use test
-stays green through the declarative path.
+(bootstrap registration + priority ordering); the existing frugal first-use +
+session-inject behaviour tests stay green through the declarative path.
 
 **Still (349c+):** the lifecycle/`intent`/`memory` pillars as symmetric declarative
 subscribers (§3); `event.emit` for custom + lifecycle events (§5); the

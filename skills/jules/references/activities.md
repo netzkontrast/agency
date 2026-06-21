@@ -7,7 +7,7 @@ A session's activity stream.
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `session (sid), page_size (int), only_kinds (comma-separated kinds), page_token (str — empty for newest page), full (bool — False = {id,originator,kind,summary} preview; True = the complete raw activity, nothing dropped — CLAUDE.md #9).` |  |  |
+| `session (sid), page_size (int), only_kinds (comma-separated kinds), page_token (str — empty for newest page), full (bool — False = {id,originator,kind,summary} preview; True = the complete raw activity, nothing dropped — CLAUDE.md #9), filter (str — JSON relevance profile, Spec 350; keeps only activities whose ``kind + summary`` matches include/exclude patterns; ignored when full=True; "" = no filter).` |  |  |
 
 ## Returns
 

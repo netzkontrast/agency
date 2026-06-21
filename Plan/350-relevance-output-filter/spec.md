@@ -172,13 +172,43 @@ Scenario: jules.activities full=True bypasses the filter
 
 ## Followup — Implementation Status (2026-06-20)
 
-Not started — design record (owner: *"write a spec for this"*). Adds ONE pure
-`relevance_filter(text, profile)` helper as a new **`relevance`** strategy on the
-shipped Spec 337 `capture_filter` registry, a `filters:` config registry (Spec 334
-— needs the list-valued `_config` branch shared with Spec 349 §6), and three thin
-call sites (jules.activities `filter=`, shell/Bash capture, PostToolUse tool-call
-capture). Reuses Spec 336 storage + cursor locator; never truncates silently
-(CLAUDE.md #9 — `elided`+`locator` always reported); `budget` bounds the wire
-return, never the stored capture (Spec 348-review Sev3#5). Pairs with the shipped
-`jules.activities(full=True)` escape hatch (the raw bypass). Deferred: a graph
-`FilterProfile` override (mirrors Spec 337) + an LLM-scored relevance strategy.
+### Slice 1 — SHIPPED (steward run, 2026-06-20)
+
+**Done:**
+- `agency/_relevance.py` — pure `relevance_filter(text, profile) -> dict` with
+  include/exclude/context/budget logic; returns `{kept, matched, elided, locator}`;
+  fail-open on bad patterns (CLAUDE.md #9). 7/7 acceptance scenarios green.
+- `agency/capabilities/shell/_main.py` — `relevance:<JSON>` strategy wired into
+  `_apply_filter`; dispatches to `relevance_filter`; fail-open on bad profile JSON.
+- `agency/capabilities/jules/_main.py` — `filter: str = ""` param on `activities`;
+  filters by `kind + summary` text when `full=False`; adds `filter_applied` to result;
+  `full=True` bypasses filter entirely (existing escape hatch preserved).
+- `tests/acceptance/features/relevance.feature` + `tests/acceptance/test_relevance.py`
+  — 7 Gherkin scenarios covering pure helper, `_apply_filter` integration,
+  `jules.activities` filter, and `full=True` bypass.
+
+### Slice 2 — SHIPPED (steward run, 2026-06-21)
+
+**Done:**
+- `agency/_relevance.py` — `_DEFAULT_FILTER_PROFILES` dict (3 seeded entries: activities,
+  shell, toolcall) with `# AGENCY-DRIFT: filter-profiles` tag; `load_filter_profile(name,
+  path=None) -> dict` reads raw `_config._read()["filters"][name]` (OPT-IN: absent section
+  → `{}`, so no existing behavior changes without user opting in via config.yaml).
+- `agency/capabilities/jules/_main.py` — `activities(filter=)` now tries a named config
+  profile lookup (via `load_filter_profile(filter)`) before treating the string as a keyword
+  include; backward-compatible (unknown names fall through to `{"include": [filter]}`).
+- `agency/capabilities/shell/_main.py` — `capture_filter` applies `load_filter_profile("shell")`
+  after structural `_apply_filter`, Bash-only (OPT-IN: only runs when user sets
+  `filters.shell:` in config.yaml).
+- `agency/engine.py` — `_default_hook_handler` PostToolUse path applies
+  `load_filter_profile("toolcall")` to the `filtered` field after `capture_filter`
+  (OPT-IN; fail-open on any error).
+- 3 new Gherkin scenarios (10 total green, 1.96 s): named config profile drives
+  `jules.activities`; `capture_filter` applies shell profile; PostToolUse applies
+  toolcall profile.
+
+**Still needed (Slice 3+):**
+- Graph `FilterProfile` node override (mirrors Spec 337 structural profiles).
+- LLM-scored relevance strategy.
+- `filters:` section auto-generated in `config_scaffold` (with seeded `_DEFAULT_FILTER_PROFILES`
+  as the initial content, so users see examples out of the box).

@@ -31,7 +31,8 @@ def _given_engine(engine):
 
 @then(parsers.parse('the bus has a subscription named "{name}" for "{event}"'))
 def _has_subscription(engine, name, event):
-    names = [s[3] for s in _events.subscriptions_for(event)]
+    # tuple shape: (event, handler, once_per, once_fail_emit, name, priority)
+    names = [s[4] for s in _events.subscriptions_for(event)]
     assert name in names, names
 
 

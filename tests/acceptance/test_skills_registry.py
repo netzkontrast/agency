@@ -14,10 +14,8 @@ from __future__ import annotations
 
 import tempfile
 
-import pytest
 from pytest_bdd import scenarios, then, when
 
-from conftest import invoke
 
 scenarios("features/skills_registry.feature")
 
