@@ -279,6 +279,16 @@ def capture_filter(command: str, output: str, *,
         body = f"{path} — {n} lines — sha16:{sha16}"
     else:
         body = _apply_filter(output or "", spec) if output else ""
+        # Spec 350 Slice 2 — apply config filters.shell relevance profile for Bash
+        # (OPT-IN: only runs when the user has set filters.shell in config.yaml)
+        if tool == "Bash" and body:
+            try:
+                from ..._relevance import load_filter_profile as _lfp, relevance_filter as _rf
+                _sp = _lfp("shell")
+                if _sp:
+                    body = _rf(body, _sp)["kept"]
+            except Exception:  # noqa: BLE001 - fail-open on hook path
+                pass
     return f"{head}\n{body}".rstrip() if body else head
 
 
