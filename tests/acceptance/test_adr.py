@@ -237,3 +237,17 @@ def _render_counts(render_result, n, m):
 def _render_idempotent(engine, confirmed_intent, theme_id, render_result):
     res, _ = invoke(engine, confirmed_intent, "adr", "render", theme_id=theme_id)
     assert res.get("content_sha") == render_result.get("content_sha"), res
+
+
+# ── Slice 3 — catalogue ───────────────────────────────────────────────────────
+
+@when("I list the adr catalogue", target_fixture="catalogue")
+def _catalogue(engine, confirmed_intent):
+    res, _ = invoke(engine, confirmed_intent, "adr", "catalogue")
+    return res
+
+
+@then(parsers.parse("the catalogue has {n:d} theme with {m:d} decisions"))
+def _catalogue_counts(catalogue, n, m):
+    assert catalogue.get("total_themes") == n, catalogue
+    assert catalogue.get("total_decisions") == m, catalogue

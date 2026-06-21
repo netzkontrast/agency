@@ -24,6 +24,7 @@ allowed-tools:
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `approve` | act | APPROVE — the DoD hinge (SPEC-001-E pre-approval gate). | [details](references/approve.md) |
+| `catalogue` | transform | CATALOGUE — the "handful of ADRs" index (SPEC-001-B minimalism): every theme + its `PART_OF` decision counts grouped by status. | [details](references/catalogue.md) |
 | `dod_check` | transform | DOD_CHECK — run the ported SPEC-001-E Definition-of-Done criteria over a Decision (pure compute; never flips status). | [details](references/dod_check.md) |
 | `draft` | act | DRAFT — record a WH(Y) ``Decision`` (status ``proposed``) ``PART_OF`` the theme, SERVING the intent (SPEC-001-A). | [details](references/draft.md) |
 | `extract_decisions` | act | EXTRACT_DECISIONS — surface a spec's key decisions as WH(Y) candidates and (``apply=True``) draft them as ``proposed`` ``Decision``s that ``REFINES`` the spec. **Decidable-first** (no API key): a canonical WH(Y) statement is parsed verbatim (SPEC-001-A), else the ``## Design`` cue sentences + ``## Why``/``## Failure modes`` sections are mined. | [details](references/extract_decisions.md) |

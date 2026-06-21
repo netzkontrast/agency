@@ -129,3 +129,29 @@ Feature: ADR ontology + capability — author & validate (Spec 354 Slice 1)
     And I render that theme
     Then the render reports 2 active and 1 superseded decisions
     And re-rendering produces the same content hash
+
+  # ── Slice 3 — deeper validate rules + the catalogue ──────────────────────────
+
+  Scenario: validate flags insubstantial tradeoffs as a WHY-005 warning
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "substrate"
+    When I draft a decision whose "tradeoffs" field is "none" under that theme
+    And I validate that decision
+    Then the validate findings include rule "WHY-005" with severity "warn"
+
+  Scenario: validate notes a decision with no referenced spec as MIN-005
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "capabilities"
+    When I draft a well-formed decision under that theme
+    And I validate that decision
+    Then the validate findings include rule "MIN-005" with severity "info"
+
+  Scenario: catalogue lists themes with their decision counts
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "datalayer"
+    When I draft decisions "A" and "B" under that theme
+    And I list the adr catalogue
+    Then the catalogue has 1 theme with 2 decisions

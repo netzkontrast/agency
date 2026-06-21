@@ -47,6 +47,7 @@ import json
 import re
 
 from agency.capability import CapabilityBase, verb
+from agency.memory import OPEN as _OPEN
 from agency.toolresult import ToolResult
 from agency._overflow import budget_take   # Spec 286 P3 — shared token-budget split
 from agency._tokens import count_tokens     # Spec 082 — the one TokenCounter boundary
@@ -57,6 +58,9 @@ from .ontology import DECISION_SCHEMA, DECISION_STATUS, adr_ontology
 # WHY-003 (at least one alternative must be documented). The ontology cannot
 # catch this (the field is non-empty), so it is `validate`'s job.
 _EMPTY_ALTERNATIVES = {"", "none", "n/a", "na", "-", "nil"}
+# A tradeoffs statement shorter than this reads as a flimsy acknowledgement
+# (WHY-005, SPEC-001-A — tunable budget, not a magic snapshot; rule 8).
+_MIN_SUBSTANTIVE = 15
 
 # Dependency edges `adr.link` accepts (SPEC-001-C). SUPERSEDES is NOT here — it
 # is the `supersede` verb's job (it reuses the core `SUPERSEDED_BY` edge).
@@ -296,6 +300,22 @@ class AdrCapability(CapabilityBase):
             if cap and len(str(props.get(elem, ""))) > cap:
                 findings.append({"rule": "WHY-LEN", "severity": "warn",
                                  "msg": f"'{elem}' exceeds the {cap}-char budget"})
+        # WHY-005 (warn) — tradeoffs must be SUBSTANTIVE, not an empty
+        # acknowledgement (SPEC-001-A). Fires only when non-empty-but-flimsy
+        # (an empty tradeoffs is already a WHY-001 error).
+        tradeoffs = str(props.get("tradeoffs", "")).strip()
+        if tradeoffs and (tradeoffs.lower() in _EMPTY_ALTERNATIVES
+                          or len(tradeoffs) < _MIN_SUBSTANTIVE):
+            findings.append({"rule": "WHY-005", "severity": "warn",
+                             "msg": "tradeoffs look insubstantial — state a real cost/risk"})
+        # MIN-005 (info) — a decision should reference ≥1 spec (SPEC-001-B
+        # separation): a REFINES/RELATES_TO edge to a Document/Spec. Traversed,
+        # not a foreign-key scan (dormant-edge rule).
+        refs = (self.ctx.neighbors(decision_id, "REFINES", direction="out")
+                + self.ctx.neighbors(decision_id, "RELATES_TO", direction="out"))
+        if not refs:
+            findings.append({"rule": "MIN-005", "severity": "info",
+                             "msg": "no referenced spec — REFINES/RELATES_TO a spec Document"})
         ok = not any(f["severity"] == "error" for f in findings)
         return ToolResult.success(data={"decision_id": decision_id,
                                         "findings": findings, "ok": ok})
@@ -911,3 +931,44 @@ class AdrCapability(CapabilityBase):
             "hints": kept, "budget": budget,
             "returned_tokens": sum(_cost(h) for h in kept),
             "truncated": bool(skipped)})
+
+    # ── Spec 354 Slice 3 — the "handful of ADRs" index ───────────────────────
+
+    @verb(role="transform")
+    def catalogue(self, status: str = "", layer: str = "") -> ToolResult:
+        """CATALOGUE — the "handful of ADRs" index (SPEC-001-B minimalism): every
+        theme + its `PART_OF` decision counts grouped by status. Optionally filter
+        to one architecture ``layer`` and/or count only one ``status``.
+
+        (Named `catalogue`, not `list`, to avoid a bare-name collision with
+        `manage.list` — Spec 074 collision discipline.)
+
+        Inputs: status (str — count only this decision status), layer (str — only
+                this theme's layer).
+        Returns: ``{themes: [{id, layer, title, decisions, by_status}],
+                 total_themes, total_decisions}``.
+        chain_next: adr.theme_status(theme_id) for one theme's aggregate;
+                    adr.render(theme_id) to project its live decisions.
+        """
+        themes = [t for t in self.ctx.query_nodes("Document", where={"kind": "adr-theme"})
+                  if t.get("vto", _OPEN) >= _OPEN]
+        if layer:
+            themes = [t for t in themes if t.get("layer") == layer]
+        rows: list[dict] = []
+        total_decisions = 0
+        for t in themes:
+            children = self.ctx.neighbors(t.get("id"), "PART_OF", direction="in")
+            by_status: dict[str, int] = {}
+            for c in children:
+                st = str(c.get("status"))
+                if status and st != status:
+                    continue
+                by_status[st] = by_status.get(st, 0) + 1
+            count = sum(by_status.values())
+            total_decisions += count
+            rows.append({"id": t.get("id"), "layer": t.get("layer", ""),
+                         "title": t.get("title", ""), "decisions": count,
+                         "by_status": by_status})
+        rows.sort(key=lambda r: r["layer"])
+        return ToolResult.success(data={"themes": rows, "total_themes": len(rows),
+                                        "total_decisions": total_decisions})
