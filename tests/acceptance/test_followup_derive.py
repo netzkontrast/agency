@@ -132,8 +132,12 @@ def _identical(ctx):
 # ── live tree ─────────────────────────────────────────────────────────────────
 @given("the Spec 191 spec which has affects test files")
 def _spec191(ctx):
-    ctx["spec_path"] = _PLAN / "191-vision-alignment-live-matrix" / "spec.md"
-    assert ctx["spec_path"].exists()
+    # Specs live in physical Plan/<state>/<id>-*/ folders (Spec 357); discover
+    # the path wherever 191 currently sits rather than pinning a layout.
+    matches = (sorted(_PLAN.glob("*/191-vision-alignment-live-matrix/spec.md"))
+               + sorted(_PLAN.glob("191-vision-alignment-live-matrix/spec.md")))
+    assert matches, "Spec 191 spec.md not found under Plan/"
+    ctx["spec_path"] = matches[0]
 
 
 @when("I derive its FollowupBlock over the live tree")
