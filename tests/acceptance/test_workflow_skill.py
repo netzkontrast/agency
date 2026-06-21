@@ -6,7 +6,7 @@ ADR-approval hinge — recording each phase as provenance under the intent.
 """
 from __future__ import annotations
 
-from pytest_bdd import parsers, scenarios, then, when
+from pytest_bdd import given, parsers, scenarios, then, when
 
 from conftest import invoke, served
 
@@ -56,3 +56,61 @@ def _pauses(walk, phase):
 @then("the walked phases are recorded as provenance")
 def _provenance(engine, confirmed_intent):
     assert served(engine, confirmed_intent, "Phase") >= 8, "expected ≥8 Phase nodes"
+
+
+# ── Slice 2 — the ADR-hinge step verbs (end-to-end) ───────────────────────────
+
+_SPEC_WITH_DECISIONS = """---
+spec_id: "WF-E2E"
+domain: datalayer
+---
+# E2E spec
+
+## Why
+The store needs cross-session persistence.
+
+## Design
+We decided for a single append-only GraphQLite graph instead of a relational mirror.
+We chose bi-temporal versioning rather than destructive overwrites.
+
+## Failure modes
+Reads must be supersession-aware.
+"""
+
+
+@given("an ingested spec with decisions", target_fixture="spec_id")
+def _ingested_spec(engine, confirmed_intent, tmp_path):
+    p = tmp_path / "e2e.md"
+    p.write_text(_SPEC_WITH_DECISIONS, encoding="utf-8")
+    res, _ = invoke(engine, confirmed_intent, "document", "ingest", path=str(p))
+    return res.get("document_id")
+
+
+@when("I open the spec to extract its decisions")
+def _to_open(engine, confirmed_intent, spec_id):
+    invoke(engine, confirmed_intent, "workflow", "to_open", spec_id=spec_id)
+
+
+@when("I attempt to begin implementation", target_fixture="begin")
+def _begin(engine, confirmed_intent, spec_id):
+    res, _ = invoke(engine, confirmed_intent, "workflow", "begin_impl", spec_id=spec_id)
+    return res
+
+
+@when(parsers.parse('I approve the spec decisions as owner "{approver}"'))
+def _approve_decisions(engine, confirmed_intent, spec_id, approver):
+    invoke(engine, confirmed_intent, "workflow", "approve_decisions",
+           spec_id=spec_id, approver=approver, override=True)
+
+
+@then("implementation is blocked on unapproved decisions")
+def _impl_blocked(begin):
+    assert begin.get("begun") is False, begin
+    assert begin.get("blocked") is True, begin
+
+
+@then("implementation begins with hints loaded")
+def _impl_begins(begin):
+    assert begin.get("begun") is True, begin
+    assert begin.get("state") == "inprogress", begin
+    assert begin.get("hint_count", 0) >= 1, begin

@@ -213,3 +213,76 @@ class WorkflowCapability(CapabilityBase):
         return ToolResult.success(data={"root": base, "count": len(rows),
                                         "rows": rows, "drift": drift,
                                         "ok": not drift})
+
+    # ── Spec 358 Slice 2 — the ADR-hinge step verbs (composable sugar over the
+    #    walker's phases 10–12; each routes through the real caps so provenance is
+    #    recorded identically — the moat is never bypassed).
+
+    @verb(role="effect")
+    def to_open(self, spec_id: str) -> ToolResult:
+        """TO_OPEN — phase 10: move the spec ``draft→open`` and extract its
+        decisions into ``proposed`` drafts (`adr.extract_decisions apply=True`).
+        Idempotent: opens the SpecLifecycle if absent; skips the move if already
+        past draft.
+
+        Inputs: spec_id (the spec Document id).
+        Returns: ``{spec_id, state, drafted: [decision_ids], candidates}``.
+        chain_next: workflow.approve_decisions then workflow.begin_impl.
+        """
+        if not self._spec_lifecycle(spec_id):
+            self.ctx.call("workflow", "open_spec", spec_id=spec_id)
+        lc = self._spec_lifecycle(spec_id)
+        if lc and lc.get("state") == "draft":
+            self.ctx.call("workflow", "move_spec", spec_id=spec_id, to_state="open")
+        ext = self.ctx.call("adr", "extract_decisions", spec_id=spec_id, apply=True)
+        cur = self._spec_lifecycle(spec_id) or {}
+        return ToolResult.success(data={"spec_id": spec_id, "state": cur.get("state"),
+                                        "drafted": ext.get("drafted", []),
+                                        "candidates": len(ext.get("candidates", []))})
+
+    @verb(role="effect")
+    def approve_decisions(self, spec_id: str, approver: str,
+                          override: bool = False) -> ToolResult:
+        """APPROVE_DECISIONS — phase 11: run `adr.approve` over every decision that
+        `REFINES` the spec (the ADR hinge's human step). Only the intent OWNER may
+        approve (agent self-approve is rejected by `adr.approve`).
+
+        Inputs: spec_id, approver (owner identity), override (owner bypass of the
+                automated DoD gate for a skeleton decision).
+        Returns: ``{spec_id, approved: [{id, approved}], ready}`` — ``ready`` is the
+                 post-approval /open→/inprogress predicate.
+        chain_next: workflow.begin_impl(spec_id).
+        """
+        ready = self.ctx.call("adr", "spec_decisions_ready", spec_id=spec_id)
+        approved = []
+        for d in ready.get("decisions", []):
+            r = self.ctx.call("adr", "approve", decision_id=d["id"],
+                              approver=approver, override=override)
+            approved.append({"id": d["id"], "approved": r.get("approved")})
+        after = self.ctx.call("adr", "spec_decisions_ready", spec_id=spec_id)
+        return ToolResult.success(data={"spec_id": spec_id, "approved": approved,
+                                        "ready": after.get("ready")})
+
+    @verb(role="effect")
+    def begin_impl(self, spec_id: str, budget: int = 2000) -> ToolResult:
+        """BEGIN_IMPL — phase 12: the guarded ``open→inprogress`` move (BLOCKED by
+        the ADR hinge until every decision is approved — `spec_decisions_ready`),
+        then load the approved decisions' `adr.hints` into the build context.
+
+        Inputs: spec_id, budget (hint token budget).
+        Returns: ``{spec_id, begun, state, hints, hint_count}`` or, when the hinge
+                 blocks, ``{begun: False, blocked: True, reason, blocking}``.
+        chain_next: implement against the hints; workflow.move_spec(→done) when verified.
+        """
+        mv = self.ctx.call("workflow", "move_spec", spec_id=spec_id,
+                           to_state="inprogress")
+        if not mv.get("moved"):
+            return ToolResult.success(data={"spec_id": spec_id, "begun": False,
+                                            "blocked": mv.get("blocked", False),
+                                            "reason": mv.get("reason") or mv.get("error"),
+                                            "blocking": mv.get("blocking", [])})
+        hints = self.ctx.call("adr", "hints", spec_id=spec_id, budget=budget)
+        return ToolResult.success(data={"spec_id": spec_id, "begun": True,
+                                        "state": "inprogress",
+                                        "hints": hints.get("hints", []),
+                                        "hint_count": len(hints.get("hints", []))})

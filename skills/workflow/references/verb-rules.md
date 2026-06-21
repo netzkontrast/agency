@@ -13,14 +13,17 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## workflow verb audit — 0 of 4 verbs need work
+## workflow verb audit — 0 of 7 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
+| `workflow.approve_decisions` | effect | ✓ clean |
+| `workflow.begin_impl` | effect | ✓ clean |
 | `workflow.board` | transform | ✓ clean |
 | `workflow.index` | transform | ✓ clean |
 | `workflow.move_spec` | effect | ✓ clean |
 | `workflow.open_spec` | act | ✓ clean |
+| `workflow.to_open` | effect | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The
