@@ -335,6 +335,21 @@ class AnalyzeCapability(CapabilityBase):
         iron_law = iron_law_passed(findings)
         gated = [f.to_dict() for f in findings if classify_remedy(f) == "risky"]
 
+        # Spec 382 §2/§3 — the CI entry computes the Health Score and records the
+        # quality Gate inline (so a single `analyze review` produces findings +
+        # score + an auditable gate; `gate.verdict` reads it back, non-zero on a
+        # block). Gate recorded SERVING the intent — never pauses (headless).
+        from ._score import score as _score, load_presets
+        from ._review import quality_gate
+        counts = {"critical": 0, "warning": 0, "suggestion": 0}
+        for f in findings:
+            counts[f.tier] = counts.get(f.tier, 0) + 1
+        score = _score(findings, "balanced", load_presets())
+        passed, evidence = quality_gate(score, counts["critical"])
+        gate_name = f"quality:{mode}"
+        self.ctx.record_and_serve(
+            "Gate", {"name": gate_name, "passed": passed, "evidence": evidence})
+
         return {
             "scope_line": scope_line,
             "findings": [f.to_dict() for f in findings[:20]],
@@ -342,6 +357,10 @@ class AnalyzeCapability(CapabilityBase):
             "mode": mode,
             "headless": True,
             "gated": gated,
+            "score": score,
+            "counts": counts,
+            "gate": {"name": gate_name, "passed": passed, "blocked": not passed,
+                     "evidence": evidence},
         }
 
     @verb(role="transform")

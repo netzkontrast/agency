@@ -293,3 +293,19 @@ passes-above, verdict-reads-blocked, verdict-unknown-not-blocked. Gate+analyze
 slice green; install regen + check-drift + doc-drift clean. **Still (Slice 3):**
 the CI workflow job (§3) wiring `analyze review` → `analyze sarif` → upload-sarif
 → `gate verdict`; and the report render path (§4, template in 384).
+
+**Slice 3 SHIPPED 2026-06-21 (TDD) — the CI job (§3).** The headless CI entry
+`analyze.review` now computes the Health Score from its findings and records the
+quality `Gate{name:"quality:<mode>"}` inline (one `analyze review` produces
+findings + score + an auditable gate; returns `score`/`counts`/`gate`) — recorded
+SERVING the intent, never pauses (Cockburn). `.github/workflows/quality.yml`: a PR
+job that installs agency, caches `.agency` keyed by the base branch (trend
+survives ephemeral CI — Hightower), runs `analyze review --scope diff` → `analyze
+sarif --max-results 5000` → `upload-sarif` (code-scanning) → `gate verdict`.
+**ADVISORY for now** (every quality step `continue-on-error`) so it never
+spuriously blocks while thresholds bed in; promotion to a hard gate is a one-line
+flip (remove `continue-on-error` from the verdict step + branch protection). **1
+new Gherkin scenario** (headless review records the gate + reports a score) in
+`quality_gate.feature`; gate+review slice green (24). install regen + check-drift
++ doc-drift clean. **Still (§4):** the Iron-Law report render path via
+`document.render` (the template FILE is authored in Spec 384).

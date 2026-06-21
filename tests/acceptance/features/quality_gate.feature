@@ -29,3 +29,8 @@ Feature: the quality CI gate (Spec 382 §2/§3)
   Scenario: gate.verdict on an unknown gate is not blocked
     When I read the gate verdict for "quality:never-run"
     Then the verdict is not found and not blocked
+
+  Scenario: the headless review computes a score and records the quality gate
+    When I run the headless review on "agency/capabilities/gate"
+    Then the review reports a numeric score
+    And a Gate named "quality:review" is recorded

@@ -72,3 +72,23 @@ def _verdict_blocked(verdict):
 @then("the verdict is not found and not blocked")
 def _verdict_absent(verdict):
     assert verdict["found"] is False and verdict["blocked"] is False, verdict
+
+
+@when(parsers.re(r'I run the headless review on "(?P<path>[^"]+)"'),
+      target_fixture="review_result")
+def _headless_review(path, engine_iid):
+    engine, iid = engine_iid
+    result, _ = invoke(engine, iid, "analyze", "review", path=path, mode="review")
+    return result
+
+
+@then("the review reports a numeric score")
+def _review_has_score(review_result):
+    assert isinstance(review_result.get("score"), int), review_result
+
+
+@then(parsers.re(r'a Gate named "(?P<name>[^"]+)" is recorded'))
+def _gate_named_recorded(name, engine_iid):
+    engine, _ = engine_iid
+    assert any(g.get("name") == name for g in engine.memory.find("Gate")), \
+        f"no Gate named {name!r}"
