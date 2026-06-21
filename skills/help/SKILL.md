@@ -91,7 +91,7 @@ agency execute --code \
 - **reflect** — batch_note, note, recall, recall_semantic, search, synthesize_session
 - **research** — ingest_gdoc, lead, record_ingested_source, specialist, verify
 - **select** — archetypes, route
-- **shell** — define, filter, run, templates
+- **shell** — define, define_profile, filter, run, templates
 - **skill_generator** — generate
 - **skills** — find, index, lint, rank, render
 - **subagent** — develop

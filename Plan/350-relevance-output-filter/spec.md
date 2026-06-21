@@ -212,3 +212,24 @@ Scenario: jules.activities full=True bypasses the filter
 - LLM-scored relevance strategy.
 - `filters:` section auto-generated in `config_scaffold` (with seeded `_DEFAULT_FILTER_PROFILES`
   as the initial content, so users see examples out of the box).
+
+## Followup — Implementation Status (Slice 3, 2026-06-21)
+
+**Done — Slice 3 (graph FilterProfile override):**
+- `agency/_relevance.py`: `_FILTER_PROFILE_KIND = "filter-profile"` constant;
+  `_graph_filter_profile(memory, name)` helper (scans `Artefact` nodes by kind + name,
+  deserializes JSON profile); `load_filter_profile(name, path=None, memory=None)` updated
+  to check graph first (when `memory` is provided) before falling back to config file.
+  Graph-stored profiles override same-named config profiles (Spec 350 Slice 3).
+- `agency/capabilities/shell/_main.py`: `_FILTER_PROFILE_KIND = "filter-profile"` constant;
+  `_graph_filter_profiles(memory)` helper (returns `{name: {profile, id}}` dict);
+  `shell.define_profile(name, profile)` verb (`role=act`) — stores `Artefact{kind:"filter-profile",
+  name, profile=<JSON str>}`, supersedes prior version on redefine (bi-temporal trail),
+  links `SERVES` intent, returns `ToolResult.success(data={"profile_id", "name"})`.
+- 3 new Gherkin scenarios (13 total green, ~3.7 s): `define_profile` stores and `load_filter_profile`
+  retrieves from graph; graph overrides config on name collision; config fallback when no
+  graph entry.
+
+**Still needed (Slice 4+):**
+- LLM-scored relevance strategy.
+- `filters:` section auto-generated in `config_scaffold`.
