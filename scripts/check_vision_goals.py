@@ -48,13 +48,24 @@ def valid_goals(goals_md: Path = _GOALS_MD) -> set[int]:
 
 
 # ── frontmatter parsing ──────────────────────────────────────────────────────
-# Spec 292 Document binding: a spec bound to a Document carries a stable anchor
-# `<!-- agency-node: <id> -->` on its FIRST line, pushing the `---` frontmatter
-# to line 2. Skip a single leading anchor line so the binding and the
-# frontmatter validator coexist — the anchor is a peer surface, not a parse
-# blocker (without this, an anchored-but-valid spec reads as `vision_goals:`
-# missing and trips the regression gate spuriously).
-_ANCHOR_LINE = re.compile(r"^<!--\s*agency-node:.*?-->[^\n]*\n")
+def _strip_leading_anchor(body: str) -> str:
+    """Drop leading blank lines and single-line HTML/anchor comments so the
+    `---` frontmatter fence is reachable on a Document-bound spec.
+
+    Spec 292 binds a spec to its graph node with a stable anchor on the file's
+    FIRST line — `<!-- agency-node: <id> -->` — ahead of the frontmatter. Without
+    this skip the fence no longer sits at byte 0, the YAML never parses, and the
+    spec reads as having no `vision_goals:` (a false regression the moment a spec
+    is `document.sync`'d)."""
+    lines = body.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if stripped == "" or (stripped.startswith("<!--") and stripped.endswith("-->")):
+            i += 1
+            continue
+        break
+    return "".join(lines[i:])
 
 
 def parse_frontmatter(body: str) -> dict:
@@ -62,9 +73,9 @@ def parse_frontmatter(body: str) -> dict:
     parsed dict; returns `{}` when there's no frontmatter or when YAML parsing
     fails (a malformed spec is treated as missing — Spec 058 fail-closed).
 
-    A leading Spec 292 `<!-- agency-node: … -->` Document-binding anchor is
-    skipped first so the frontmatter behind it is still seen."""
-    body = _ANCHOR_LINE.sub("", body, count=1)
+    Tolerates a leading Spec 292 document-binding anchor
+    (`<!-- agency-node: ... -->`) on the file's first line, ahead of the fence."""
+    body = _strip_leading_anchor(body)
     if not body.startswith("---\n"):
         return {}
     end = body.find("\n---\n", 4)
