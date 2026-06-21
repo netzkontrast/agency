@@ -850,10 +850,16 @@ class AdrCapability(CapabilityBase):
             return ToolResult.success(data={"error": f"spec {spec_id!r} has no ingested "
                                             "body (document.ingest it first)",
                                             "spec_id": spec_id, "candidates": []})
-        # Theme: explicit, else a single get-or-created theme (per-candidate
-        # multi-theme routing from `affects`/`domain` is Slice 2).
+        # Theme: explicit, else INFER the architecture layer from the spec's
+        # frontmatter `domain` (Spec 356 theme-inference) and get-or-create that
+        # theme (default "core"). Per-candidate multi-theme routing (one spec's
+        # decisions spanning several themes) needs a classifier — deferred.
         theme_layer = "core"
         if not theme_id:
+            # Newline-agnostic (the graph store flattens the DocRevision body, so
+            # `## ` parsing + frontmatter both go by substring/regex, not lines).
+            m = re.search(r'\bdomain:\s*"?([A-Za-z][\w-]*)"?', body)
+            theme_layer = m.group(1) if m else "core"
             theme_id = self.theme(layer=theme_layer).data["id"]
         else:
             t = self.ctx.recall_typed(theme_id, "Document")
