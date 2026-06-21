@@ -261,3 +261,19 @@ for a wedged PR, recorded as `Gate{overridden_by}` (Nygard); a partial-walk
 resolved (job-in-`test.yml` + scheduled `quality-audit.yml`; thin `gate.assert`
 reader verb). Next (after 360/381): `_sarif.py` + `analyze.sarif` (+ `--max-results`)
 + `gate.assert` + the CI job + the report template, RED→GREEN.
+
+**Slice 1 SHIPPED 2026-06-21 (TDD) — the SARIF emit (§1).** `analyze/_sarif.py`
+(pure `to_sarif(findings, risks, max_results)` → SARIF 2.1.0: `rules` DERIVED
+one-per-risk from the live `decay-risks.json` registry [never pinned — rule 8],
+`level` from the tier [critical→error/warning→warning/suggestion→note], `message`
+= the Iron Law [Symptom + Consequence + Remedy], `partialFingerprints` stable for
+code-scanning dedup) + `analyze.sarif(findings, max_results)` (role=`transform`;
+`max_results` caps with a `properties.truncated` "N of M shown" locator — never a
+silent drop, #9; full set stays in the graph). No parsing — findings born
+structured (Spec 360); brooks' `report-parse.mjs` stays dropped. **3 Gherkin
+scenarios** (`tests/acceptance/features/quality_sarif.feature`): valid-2.1.0 +
+level + Iron-Law message, rule-set-derived-from-registry, truncation locator. 91
+green across the analyze slice; install regen + check-drift + doc-drift clean.
+**Still (Slice 2+):** the quality gate (score/critical threshold via `gate` +
+`gate.assert` reader verb, §2), the CI job (§3), and the report render path (§4,
+template authored in 384).

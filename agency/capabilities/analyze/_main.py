@@ -450,6 +450,40 @@ class AnalyzeCapability(CapabilityBase):
         return {"run_id": run_id, "mode": mode, "score": sc, "counts": counts,
                 "status": status, "trend": trend}
 
+    @verb(role="transform")
+    def sarif(self, findings: list = None, max_results: int = 0) -> dict:
+        """Render Findings as SARIF 2.1.0 for code-scanning — READ-ONLY (Spec 382 §1).
+
+        Straight from the structured findings, NO parsing (brooks' report-parse is
+        dropped — findings are born structured). The ``rules`` set is DERIVED from
+        the live decay-risk registry (``decay-risks.json`` + any custom ``Cx``), so
+        it never drifts (rule 8); ``level`` maps from the finding's tier
+        (critical→error, warning→warning, suggestion→note); the ``message`` is the
+        Iron Law (Symptom + Consequence + Remedy). ``max_results`` caps the emit
+        with a truncation locator ("N of M shown") — never a silent drop (#9); the
+        full set stays in the graph.
+
+        Inputs: findings (list of wire-shape finding dicts), max_results (int — 0 =
+                uncapped).
+        Returns: {sarif, rule_count, result_count, total, truncated}.
+        chain_next: upload `sarif` to GitHub code-scanning in CI (Spec 382 §3).
+
+        Use when: emitting code-quality findings for GitHub code-scanning / a CI
+            SARIF artefact.
+        """
+        from . import _decay
+        from ._sarif import to_sarif
+        findings = findings or []
+        risks = _decay.load_risks()
+        doc, total, truncated = to_sarif(findings, risks, max_results or None)
+        return {
+            "sarif": doc,
+            "rule_count": len(doc["runs"][0]["tool"]["driver"]["rules"]),
+            "result_count": len(doc["runs"][0]["results"]),
+            "total": total,
+            "truncated": truncated,
+        }
+
     @verb(role="act")
     def improve(self, analysis_id: str, axes: list = None,
                 apply: bool = False) -> dict:

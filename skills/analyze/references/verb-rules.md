@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## analyze verb audit — 1 of 12 verbs need work
+## analyze verb audit — 1 of 13 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -27,6 +27,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `analyze.record_run` | act | ✓ clean |
 | `analyze.review` | act | `long_brief` |
 | `analyze.run` | act | ✓ clean |
+| `analyze.sarif` | transform | ✓ clean |
 | `analyze.score` | transform | ✓ clean |
 | `analyze.security` | transform | ✓ clean |
 

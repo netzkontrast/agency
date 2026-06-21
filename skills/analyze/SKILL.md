@@ -34,6 +34,7 @@ Analyze runs decidable transforms over source and reports findings on the qualit
 | `record_run` | act | Record a QualityRun history node + return the trend (Spec 381 §3). | [details](references/record_run.md) |
 | `review` | act | Headless code-quality review for CI — never pauses; risky remedies auto-declined. | [details](references/review.md) |
 | `run` | act | Run the requested analysis axes and record an Analysis + per-Finding nodes. | [details](references/run.md) |
+| `sarif` | transform | Render Findings as SARIF 2.1.0 for code-scanning — READ-ONLY (Spec 382 §1). | [details](references/sarif.md) |
 | `score` | transform | Compute the Health Score (Spec 381) from findings × preset/config — READ-ONLY. | [details](references/score.md) |
 | `security` | transform | Decidable security patterns: eval/exec, hardcoded credentials, pickle.load, shell=True. | [details](references/security.md) |
 
