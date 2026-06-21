@@ -216,9 +216,9 @@ class IntentCapability(CapabilityBase):
             node = self.ctx.memory.recall(self.ctx.intent_id) or {}
             return (node.get("deliverable") or node.get("purpose") or "").strip()
         if self.ctx.recall_typed(target, "Document"):
-            revs = self.ctx.neighbors(target, "REVISION_OF", direction="in")
-            if revs:
-                return max(revs, key=lambda r: r.get("recorded_at", 0)).get("text", "")
+            from agency.capabilities.document._interconnect import latest_revision_text
+            return latest_revision_text(
+                self.ctx.neighbors(target, "REVISION_OF", direction="in"))
         return target
 
     @verb(role="transform")

@@ -290,27 +290,39 @@ fi
 say
 
 # ----------------------------------------------------------------------
-# spec-state gate (Spec 357 — a spec filed under Plan/<state>/ must declare the
-# matching `state:` frontmatter). Legacy flat Plan/NNN-slug/ specs are
-# grandfathered (not under a state folder → not checked).
+# spec-state gate (Spec 357/358 — a spec filed under Plan/<state>/ must declare
+# the matching `state:` frontmatter, a valid state, and a non-drifted node).
+# This shells into `workflow.index` rather than re-deriving the predicate in
+# bash: `index.ok` is the single definition of spec-state drift (it catches
+# missing-state / invalid-state / node-drift that a bare folder-vs-grep misses).
+# Legacy flat Plan/NNN-slug/ specs are grandfathered by `index` (legacy flag).
 # ----------------------------------------------------------------------
-say "==> spec-state gate (Spec 357)"
-SPEC_STATE_DRIFT=""
-for st in draft open inprogress superseded done; do
-  for f in Plan/"$st"/*/spec.md; do
-    [[ -e "$f" ]] || continue
-    fstate=$(grep -m1 '^state:' "$f" | sed -E 's/^state:[[:space:]]*//; s/["'"'"']//g; s/[[:space:]]*$//')
-    if [[ "$fstate" != "$st" ]]; then
-      SPEC_STATE_DRIFT+="      $f: folder=$st frontmatter=${fstate:-<missing>}"$'\n'
-    fi
-  done
-done
-if [[ -n "$SPEC_STATE_DRIFT" ]]; then
-  say "    DRIFT: spec folder ≠ frontmatter state:"
-  [[ "$QUIET" -eq 0 ]] && printf '%s' "$SPEC_STATE_DRIFT"
+say "==> spec-state gate (Spec 357/358 — via workflow.index)"
+SPEC_STATE_OUT=$(python - <<'PYEOF' 2>&1 || true
+from agency.engine import Engine
+e = Engine(":memory:")
+iid = e.intent.capture("check-drift", "spec-state gate", "no drift")
+e.intent.confirm(iid)
+res, _ = e.registry.invoke(e.memory, iid, "workflow", "index", root="Plan")
+e.memory.close()
+rows = {r["spec"]: r for r in res.get("rows", [])}
+drift = res.get("drift", [])
+if drift:
+    for spec in drift:
+        r = rows.get(spec, {})
+        print(f"DRIFT: {spec}: folder={r.get('folder_state') or '<none>'} "
+              f"frontmatter={r.get('frontmatter_state') or '<missing>'} "
+              f"node={r.get('node_state') or '<none>'} flags={r.get('flags')}")
+else:
+    print(f"    spec-state: {res.get('count', 0)} specs indexed, folder == "
+          "frontmatter == node (legacy flat specs grandfathered)")
+PYEOF
+)
+if echo "$SPEC_STATE_OUT" | grep -q "^DRIFT:"; then
+  [[ "$QUIET" -eq 0 ]] && echo "$SPEC_STATE_OUT" | sed 's/^/    /'
   DRIFT=1
 else
-  say "    spec-state: folder == frontmatter state (legacy flat specs grandfathered)"
+  say "$SPEC_STATE_OUT"
 fi
 say
 

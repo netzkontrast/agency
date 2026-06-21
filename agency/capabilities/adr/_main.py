@@ -45,12 +45,16 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections import Counter
 
 from agency.capability import CapabilityBase, verb
 from agency.memory import OPEN as _OPEN
 from agency.toolresult import ToolResult
 from agency._overflow import budget_take   # Spec 286 P3 — shared token-budget split
 from agency._tokens import count_tokens     # Spec 082 — the one TokenCounter boundary
+# The shared body parsers (one ## slicer, one keep-both latest-revision rule).
+from agency.capabilities.document._interconnect import (
+    latest_revision_text, parse_frontmatter, section_after as _section_after)
 
 from .ontology import DECISION_SCHEMA, DECISION_STATUS, adr_ontology
 
@@ -95,20 +99,6 @@ def _sentences(text: str) -> list[str]:
     """Split prose into sentences (period/!/? or newline boundaries)."""
     parts = re.split(r"(?<=[.!?])\s+|\n", str(text))
     return [p.strip() for p in parts if p.strip()]
-
-
-def _section_after(body: str, header: str) -> str:
-    """Text of the ``## <header>`` section up to the next ``## `` heading.
-    Substring-anchored (NOT line-anchored) so it survives the graph store
-    flattening a Document's newlines to spaces on read."""
-    low = body.lower()
-    key = "## " + header.lower()
-    i = low.find(key)
-    if i == -1:
-        return ""
-    start = i + len(key)
-    nxt = low.find("## ", start)
-    return body[start: nxt if nxt != -1 else len(body)].strip()
 
 
 def _clean(text: str) -> str:
@@ -515,9 +505,7 @@ class AdrCapability(CapabilityBase):
         """
         children = self.ctx.neighbors(theme_id, "PART_OF", direction="in")
         statuses = [str(c.get("status")) for c in children]
-        counts: dict[str, int] = {}
-        for s in statuses:
-            counts[s] = counts.get(s, 0) + 1
+        counts = dict(Counter(statuses))
         return ToolResult.success(data={"theme_id": theme_id,
                                         "status": _aggregate_status(statuses),
                                         "counts": counts, "children": len(children)})
@@ -625,7 +613,9 @@ class AdrCapability(CapabilityBase):
     def _has_cycle(self, decision_id: str) -> bool:
         for nb in self.ctx.neighbors(decision_id, "DEPENDS_ON", direction="out"):
             t = nb.get("id")
-            if t and (t == decision_id or self._reaches(t, decision_id, "DEPENDS_ON")):
+            # _reaches(t, …) already returns True when t IS decision_id (the start
+            # node is checked against the target first) — no separate self-edge term.
+            if t and self._reaches(t, decision_id, "DEPENDS_ON"):
                 return True
         return False
 
@@ -797,10 +787,8 @@ class AdrCapability(CapabilityBase):
     def _spec_body(self, doc_id: str) -> str:
         """The latest revision body of an ingested spec Document (Spec 292 — the
         text lives on the DocRevision, not the Document node)."""
-        revs = self.ctx.neighbors(doc_id, "REVISION_OF", direction="in")
-        if not revs:
-            return ""
-        return max(revs, key=lambda r: r.get("recorded_at", 0)).get("text", "")
+        return latest_revision_text(
+            self.ctx.neighbors(doc_id, "REVISION_OF", direction="in"))
 
     def _resolve_spec(self, spec_id: str) -> tuple[str, str]:
         """Resolve ``spec_id`` to ``(document_id, body)``. It may be EITHER a
@@ -810,7 +798,6 @@ class AdrCapability(CapabilityBase):
         doc = self.ctx.recall_typed(spec_id, "Document")
         if doc:
             return spec_id, self._spec_body(spec_id)
-        from agency.capabilities.document import _interconnect
         seen: set[str] = set()
         for d in self.ctx.query_nodes("Document"):
             did = d.get("id")
@@ -818,7 +805,7 @@ class AdrCapability(CapabilityBase):
                 continue
             seen.add(did)
             body = self._spec_body(did)
-            fm = _interconnect.parse_frontmatter(body)
+            fm = parse_frontmatter(body)
             if str(fm.get("spec_id", "")).strip().strip('"') == str(spec_id).strip():
                 return did, body
         return "", ""
@@ -999,12 +986,8 @@ class AdrCapability(CapabilityBase):
         total_decisions = 0
         for t in themes:
             children = self.ctx.neighbors(t.get("id"), "PART_OF", direction="in")
-            by_status: dict[str, int] = {}
-            for c in children:
-                st = str(c.get("status"))
-                if status and st != status:
-                    continue
-                by_status[st] = by_status.get(st, 0) + 1
+            statuses = (str(c.get("status")) for c in children)
+            by_status = dict(Counter(s for s in statuses if not status or s == status))
             count = sum(by_status.values())
             total_decisions += count
             rows.append({"id": t.get("id"), "layer": t.get("layer", ""),
