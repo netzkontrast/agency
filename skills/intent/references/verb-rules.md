@@ -27,6 +27,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `intent.steelman` | transform | ✓ clean |
 | `intent.suggests` | transform | ✓ clean |
 | `intent.tradeoffs` | transform | ✓ clean |
+| `intent.triage` | act | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The

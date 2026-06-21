@@ -34,6 +34,7 @@ Intent is the reasoning capability: it turns the human-owned goal into structure
 | `steelman` | transform | Build the STRONGEST version of the opposing or alternative position. | [details](references/steelman.md) |
 | `suggests` | transform | Project the serving intent + the last verb's state to the next applicable skill (Spec 026 Part B — Intent owns the intent→skill projection; a RECOMMENDATION, not a dispatch). | [details](references/suggests.md) |
 | `tradeoffs` | transform | Build an explicit trade-off matrix — options × criteria — for a decision. | [details](references/tradeoffs.md) |
+| `triage` | act | Triage a Finding — the intent's stance on it (Spec 381 §4). | [details](references/triage.md) |
 
 ## Example
 

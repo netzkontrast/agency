@@ -98,3 +98,16 @@ def classify_remedy(finding: "Finding") -> str:
         if kw in remedy_lower:
             return "risky"
     return "safe"
+
+
+def quality_gate(score: int, critical: int,
+                 min_score: int = 70, max_critical: int = 0) -> tuple[bool, str]:
+    """The quality-gate decision (Spec 382 §2): PASSED iff ``score >= min_score``
+    AND ``critical <= max_critical``. ``min_score`` / ``max_critical`` are
+    documented tunable budgets (CLAUDE.md #8 — brooks-lint defaults), not magic
+    snapshots. Returns ``(passed, evidence)`` — the evidence string is the
+    auditable rationale recorded on the Gate node."""
+    passed = score >= min_score and critical <= max_critical
+    evidence = (f"score {score} (min {min_score}); "
+                f"{critical} critical (max {max_critical})")
+    return passed, evidence

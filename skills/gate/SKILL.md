@@ -24,6 +24,7 @@ Gate evaluates a reusable predicate and records the outcome as a Gate node edged
 |------|------|-------|-----------|
 | `adjudicate` | act | Adjudicate two CONFLICTING concerns at a decision point by consulting ``doctrine.resolve`` — the priority-hierarchy winner (safety > correctness > maintainability > speed), recorded as a Gate (Spec 303). | [details](references/adjudicate.md) |
 | `check` | act | Record a gate outcome on a Lifecycle: PASSED, or BLOCKED_ON + an input-required pause on failure. | [details](references/check.md) |
+| `verdict` | act | Read the LATEST Gate by name and report its pass/block verdict — the reusable CI reader (Spec 382 §2, OQ2). | [details](references/verdict.md) |
 
 ## Example
 
@@ -33,7 +34,8 @@ await call_tool('capability_gate_adjudicate', {'intent_id': 'intent:abc'})
 
 ## Red flags — stop and re-read this skill
 
-- (none documented)
+- Proceeding past a decision point on an assumption → record it with capability_gate_check
+- Reading a CI/quality verdict from a bare exit code instead of auditable provenance → use capability_gate_verdict
 
 ## Walk this capability
 

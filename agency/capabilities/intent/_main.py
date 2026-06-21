@@ -40,7 +40,19 @@ _CRITICAL_THINKING_SKILL = {
 class IntentCapability(CapabilityBase):
     name = "intent"
     home = "capability"
-    ontology = OntologyExtension(skills={"critical-thinking": _CRITICAL_THINKING_SKILL})
+    # Spec 381 §4 — triage is an intent judgment about a Finding (a Finding SERVES
+    # an intent). The Suppression/Acknowledgement nodes live here; the SUPPRESSES /
+    # ACKNOWLEDGES edges cross to the analyze Finding (one shared graph).
+    ontology = OntologyExtension(
+        skills={"critical-thinking": _CRITICAL_THINKING_SKILL},
+        nodes={
+            # ``glob`` not ``pattern`` — graphqlite reserves ``pattern`` (it
+            # round-trips as ``Pattern``, breaking case-sensitive reads).
+            "Suppression": ["risk", "glob"],
+            "Acknowledgement": ["risk", "glob"],
+        },
+        edges={"SUPPRESSES", "ACKNOWLEDGES"},
+    )
     # Spec 153 Slice 6 — the engine loads + enforces the Intent/Invocation
     # provenance-spine schemas from schemas/ (declared, not glob-discovered).
     artefact_schemas = ArtefactSchemas.from_module(__file__)
@@ -298,3 +310,50 @@ class IntentCapability(CapabilityBase):
             "Weight the remaining criteria; the highest weighted-score wins.",
             "Name the tie-breaker you'd use, and the option you'd pick if forced now.",
         ], "output": "a scored options × criteria matrix with a decision + tie-breaker"}
+
+    @verb(role="act")
+    def triage(self, finding_id: str = "", action: str = "skip",
+               reason: str = "", expires: str = "") -> dict:
+        """Triage a Finding — the intent's stance on it (Spec 381 §4). A Finding
+        SERVES an intent, so accept/dismiss/defer is a judgment the intent owns
+        (beside assumptions / tradeoffs).
+
+        - ``dismiss`` → records a ``Suppression{risk, pattern, reason}`` SERVING the
+          intent + SUPPRESSES the Finding; the next scan drops a matching finding
+          from the score (analyze reads it cross-capability).
+        - ``defer`` → a Suppression with an expiry (default +90d); the finding
+          resurfaces once expired.
+        - ``accept`` → an ``Acknowledgement`` ACKNOWLEDGES the Finding ("known,
+          won't fix" — queryable).
+        - ``skip`` → no-op.
+
+        ``risk`` + ``pattern`` are READ from the Finding node by ``finding_id`` (one
+        source, no caller duplication). Keep-both: the Finding is never deleted; a
+        Suppression only changes its tier on the scoring read (Spec 292).
+
+        Inputs: finding_id (str), action (dismiss|defer|accept|skip), reason (str),
+                expires (str — epoch; defer defaults +90d).
+        Returns: {action, finding_id, node_id, risk, pattern} (or {action: skip}).
+        chain_next: analyze.score / analyze.record_run — honoured on the next run.
+        """
+        import time
+        if action == "skip" or not finding_id:
+            return {"action": "skip", "finding_id": finding_id}
+        finding = self.ctx.recall(finding_id) or {}
+        risk = finding.get("risk_code", "")
+        glob = finding.get("file", "")
+        if action == "accept":
+            node_id = self.ctx.record_and_serve(
+                "Acknowledgement", {"risk": risk, "glob": glob, "reason": reason})
+            self.ctx.link(node_id, finding_id, "ACKNOWLEDGES")
+            return {"action": "accept", "finding_id": finding_id, "node_id": node_id,
+                    "risk": risk, "glob": glob}
+        props = {"risk": risk, "glob": glob, "reason": reason}
+        if action == "defer":
+            props["expires"] = expires or (time.time() + 90 * 86400)
+        elif expires:
+            props["expires"] = expires
+        node_id = self.ctx.record_and_serve("Suppression", props)
+        self.ctx.link(node_id, finding_id, "SUPPRESSES")
+        return {"action": action, "finding_id": finding_id, "node_id": node_id,
+                "risk": risk, "glob": glob}
