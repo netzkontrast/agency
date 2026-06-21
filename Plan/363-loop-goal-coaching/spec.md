@@ -110,9 +110,29 @@ Scenario: a sharp goal passes critique clean
 
 ## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Re-drafted spine-framed (2026-06-21). Goal-as-root-Intent + the goal
-rubric as critique source, reusing the clarity gate (322) and intent
-critical-thinking (091); `context_sources` stored argv-safe on the Intent.
-Advisory-not-blocking parity with looper. **Frugal: net-new is goal-rubric (data)
-— no new capability verb.** Foundation sibling to 364/365/366; consumed by the
-wizard (367).
+**Verdict:** Implemented (spine slice; 2026-06-21). Goal-as-root-Intent + the goal
+rubric as critique source, reusing `clarity_score` (322); `context_sources` stored
+argv-safe on the Intent. Advisory-not-blocking parity with looper. **Frugal:
+net-new is goal-rubric (data) + two spine functions — no new capability verb.**
+
+### Done
+- `agency/_loop.py::frame_goal` — goal → root Intent (`intent.capture` purpose=
+  statement, acceptance=definition_of_done); `context_sources` argv-validated
+  (`_validate_context_sources` rejects shell-string `cmd`s) + stored JSON on the
+  Intent.
+- `agency/_loop.py::critique_goal` — advisory rubric findings (outcome-vs-activity,
+  falsifiable done-state, gather-vs-assume), each citing `goal-rubric.md`; reuses
+  `clarity_score` (322) as a reported signal; never blocks.
+- `goal-rubric.md` vendored verbatim → `agency/_lifecycle_data/loop/rubrics/`
+  (referenced at runtime via `rubric_path` — not dormant).
+- `tests/acceptance/{features/loop_goal.feature,test_loop_goal.py}` — 4 scenarios
+  GREEN (framing+argv-safety, shell-string rejection, advisory critique, sharp goal
+  clean). All loop slices together = 18 green.
+
+### Still / Refinement
+- Clarity is surfaced as an advisory signal in the critique result (not a hard
+  threshold finding) — a fresh goal scores below `CLARITY_THRESHOLD` until scope/
+  measurable-acceptance/grounding nodes exist; the wizard (367) decides any hard
+  gate, matching looper's advisory model.
+- `frame_goal`/`critique_goal` are spine functions today; they surface as cap verbs
+  when the `agency/capabilities/loop/` folder lands (367 composes them as phases).

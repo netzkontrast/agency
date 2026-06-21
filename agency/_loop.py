@@ -24,6 +24,7 @@ looper (Kevin Simback, MIT).
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 # Defaults mirror looper's loop_control (templates/loop.yaml) — tunable budgets
@@ -105,3 +106,114 @@ def open_loop(host: Any, intent_id: str, *, max_iterations: int = DEFAULT_MAX_IT
     host.memory.update(loop_id, {"loop_control": json.dumps(control)})
     state = (host.memory.recall(loop_id) or {}).get("state")
     return {"loop_id": loop_id, "state": state, "control": control}
+
+
+# --- Spec 363: goal coaching (the goal IS a root Intent) ---------------------
+
+_RUBRIC_DIR = Path(__file__).parent / "_lifecycle_data" / "loop" / "rubrics"
+GOAL_RUBRIC = "goal-rubric.md"
+
+# Heuristics derived from goal-rubric.md (the vendored looper rubric is the
+# authority; these are the decidable signals it describes — not a second source).
+_ACTIVITY_LEADERS = (
+    "work on", "improve", "improving", "do ", "deal with", "handle",
+    "look at", "focus on", "help with", "try to", "make our", "make the",
+)
+_VAGUE_DONE_TERMS = ("good", "better", "nice", "great", "quality", "robust", "clean", "solid")
+_CHECKABLE_MARKERS = (
+    "every", "all ", "each", "no ", "none", "must", "contains", "passes", "exit", "<", ">", "=", "%",
+)
+
+
+def rubric_path(name: str) -> Path:
+    """Resolve a vendored loop rubric (looper references → agency loop data)."""
+    return _RUBRIC_DIR / name
+
+
+def _validate_context_sources(sources: Any) -> list[dict[str, Any]]:
+    """Normalize + argv-validate goal context sources. Each is ``{file: str}`` or
+    ``{cmd: [argv]}`` — a ``cmd`` MUST be an argv array, never a shell string
+    (looper File Rule + shell safety, Spec 192). A ``cmd`` is resolved by the
+    machine/runner, not at framing time."""
+    normalized: list[dict[str, Any]] = []
+    for src in sources or []:
+        if not isinstance(src, dict):
+            raise ValueError("each context source must be a {file} or {cmd:[argv]} mapping")
+        if "cmd" in src:
+            cmd = src["cmd"]
+            if not (isinstance(cmd, list) and cmd and all(isinstance(t, str) for t in cmd)):
+                raise ValueError(
+                    "context source cmd must be an argv array, not a shell string "
+                    "(looper: argv arrays only — no shell interpolation)")
+            normalized.append({"cmd": list(cmd)})
+        elif "file" in src:
+            if not isinstance(src["file"], str) or not src["file"].strip():
+                raise ValueError("context source file must be a non-empty string")
+            normalized.append({"file": src["file"]})
+        else:
+            raise ValueError("each context source needs a 'file' or 'cmd' key")
+    return normalized
+
+
+def frame_goal(host: Any, statement: str, definition_of_done: str, *,
+               deliverable: str = "", context_sources: Any = None) -> dict[str, Any]:
+    """Frame a loop goal as a root Intent (Spec 363). ``statement`` → Intent
+    purpose, ``definition_of_done`` → acceptance; ``context_sources`` bind argv-safe
+    onto the Intent (resolved at compile/run time, never shell-interpolated).
+    ``host`` exposes ``.intent`` + ``.memory``. Returns ``{goal_id, context_sources}``.
+    """
+    sources = _validate_context_sources(context_sources)
+    goal_id = host.intent.capture(
+        purpose=statement,
+        deliverable=deliverable or statement,
+        acceptance=definition_of_done,
+    )
+    if sources:
+        host.memory.update(goal_id, {"context_sources": json.dumps(sources)})
+    return {"goal_id": goal_id, "context_sources": sources}
+
+
+def critique_goal(host: Any, intent_id: str) -> dict[str, Any]:
+    """Critique a framed goal against goal-rubric.md (Spec 363) — ADVISORY, never
+    blocks (looper parity). Surfaces rubric findings (outcome-vs-activity,
+    falsifiable done-state, gather-vs-assume) and reuses the clarity score
+    (Spec 322) as a reported signal. The wizard (367) decides any hard gate.
+    Returns ``{findings, clarity, ok, rubric_source}``.
+    """
+    intent = host.memory.recall(intent_id) or {}
+    statement = str(intent.get("purpose", ""))
+    done = str(intent.get("acceptance", ""))
+    raw_sources = intent.get("context_sources")
+    sources = json.loads(raw_sources) if raw_sources else []
+
+    findings: list[dict[str, str]] = []
+    if any(statement.strip().lower().startswith(lead) for lead in _ACTIVITY_LEADERS):
+        findings.append({
+            "dimension": "outcome_vs_activity",
+            "message": "goal is activity-framed; name the concrete outcome/artifact, not only the activity",
+            "rubric": GOAL_RUBRIC,
+        })
+    done_low = done.lower()
+    has_vague = any(term in done_low for term in _VAGUE_DONE_TERMS)
+    has_checkable = any(m in done_low for m in _CHECKABLE_MARKERS) or any(c.isdigit() for c in done_low)
+    if not done.strip() or (has_vague and not has_checkable):
+        findings.append({
+            "dimension": "falsifiable_done",
+            "message": "done-state is not falsifiable; define the artifact/state that proves the loop finished",
+            "rubric": GOAL_RUBRIC,
+        })
+    if not sources:
+        findings.append({
+            "dimension": "gather_vs_assume",
+            "message": "no context sources named; gather context the host must read instead of assuming it",
+            "rubric": GOAL_RUBRIC,
+        })
+
+    from ._clarity import clarity_score
+    clarity = clarity_score(host.memory, intent_id)
+    return {
+        "findings": findings,
+        "clarity": clarity,
+        "ok": not findings,
+        "rubric_source": str(rubric_path(GOAL_RUBRIC)),
+    }
