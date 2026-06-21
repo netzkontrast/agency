@@ -4,11 +4,35 @@
 
 > **Generated** from the live registry by `scripts/gen-capability-docs`. Every capability self-registers from `agency/capabilities/`; this page is rendered from the running engine, so it is always current. Per-capability deep docs (the L1/L2/L3 Agent Skill) live in `skills/<capability>/SKILL.md`.
 
-**33 core capabilities.** Domain capabilities (e.g. `music`) load out-of-tree via `Engine(..., extra_capabilities=[…])` — see `examples/music.py` + [../vision/reference/drivers.md](../vision/reference/drivers.md).
+**35 core capabilities.** Domain capabilities (e.g. `music`) load out-of-tree via `Engine(..., extra_capabilities=[…])` — see `examples/music.py` + [../vision/reference/drivers.md](../vision/reference/drivers.md).
 
 The wire contract is always the same three substrate tools — **`search` · `get_schema` · `execute`** — plus a few bootstrap tools; every verb below is reached through `execute` (code-mode) or its `agency <cap> <verb>` CLI mirror.
 
 ---
+## `adr`  (memory)
+
+Use when an architectural decision must be RECORDED as a first-class,
+
+**Walkable skills:** `adr-usage`
+
+| verb | role | summary |
+|---|---|---|
+| `adr.approve` | act | APPROVE — the DoD hinge (SPEC-001-E pre-approval gate). Runs `dod_check`; |
+| `adr.dod_check` | transform | DOD_CHECK — run the ported SPEC-001-E Definition-of-Done criteria over a |
+| `adr.draft` | act | DRAFT — record a WH(Y) ``Decision`` (status ``proposed``) ``PART_OF`` |
+| `adr.extract_decisions` | act | EXTRACT_DECISIONS — surface a spec's key decisions as WH(Y) candidates |
+| `adr.hints` | transform | HINTS — the payoff: at implementation start, project the spec's |
+| `adr.impact` | transform | IMPACT — what ``DEPENDS_ON`` / ``REFINES`` / ``PART_OF`` this decision, |
+| `adr.link` | act | LINK — add a typed SPEC-001-C dependency edge between two Decisions. |
+| `adr.read` | act | READ a ``Decision``'s current WH(Y) fields + status (the domain read — |
+| `adr.render` | act | RENDER — project a theme's **live** decisions into a markdown body and |
+| `adr.spec_decisions_ready` | transform | SPEC_DECISIONS_READY — the /open→/inprogress predicate (358). ``ready`` |
+| `adr.supersede` | act | SUPERSEDE — the SPEC-001-C automatic actions: mint a replacement |
+| `adr.theme` | act | THEME — get-or-create a thematic-living ADR for one architecture |
+| `adr.theme_status` | transform | THEME_STATUS — the SPEC-001-D aggregate status DERIVED from the theme's |
+| `adr.update` | act | UPDATE a ``Decision`` in place — advance its ``status`` and/or fill WH(Y) |
+| `adr.validate` | transform | VALIDATE — run the decidable WH(Y) rules over a Decision; return |
+
 ## `analyze`  (capability)
 
 Use when assessing a codebase or diff for quality, security, performance, or architecture problems before review or shipping — surfaces decidable findings as graph artefacts.
@@ -249,6 +273,8 @@ Use when an agent must directly create / read / update / amend / soft-delete a
 | `manage.amend` | effect | AMEND append-only — close the old version, create a new one linked |
 | `manage.artefacts` | act | ARTEFACTS produced under an intent + their source invocations |
 | `manage.create` | effect | CREATE a node of any ontology ``label`` that SERVES the intent (Spec 293). |
+| `manage.lifecycle` | act | LIFECYCLE READ — the Spec 341 `read` frame: one Lifecycle's full state |
+| `manage.lifecycle_trail` | act | LIFECYCLE WATCH — the Spec 341 `watch` frame: the ordered Spec 344 |
 | `manage.list` | act | LIST nodes of a ``label``, optionally filtered by exact-match |
 | `manage.open_intents` | act | OPEN-INTENTS — live intents + acceptance + SERVES subtree size, |
 | `manage.project` | act | PROJECT — a query-ranked, token-budgeted slice of a label's live nodes |
@@ -703,6 +729,18 @@ Use when reviewing what a session actually did — which tool calls ran, how oft
 | `toolcalls.recent` | act | The most recent captured tool calls, in FULL (read-only). |
 | `toolcalls.stats` | act | Capture counts broken down by phase and tool (read-only). |
 | `toolcalls.top` | act | The top captured tool-call shapes by frequency × payload cost (read-only). |
+
+## `workflow`  (lifecycle)
+
+Use when a spec must move through its development stages (draft → open →
+
+**Walkable skills:** `workflow-usage`
+
+| verb | role | summary |
+|---|---|---|
+| `workflow.board` | transform | BOARD — the graph-native spec board: live SpecLifecycles grouped by |
+| `workflow.move_spec` | effect | MOVE_SPEC — advance the spec's Lifecycle to ``to_state`` via |
+| `workflow.open_spec` | act | OPEN_SPEC — mint a SpecLifecycle (machine ``spec``, state ``draft``) for |
 
 ## `workspace`  (lifecycle)
 
