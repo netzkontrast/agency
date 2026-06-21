@@ -126,6 +126,20 @@ def _plan_tree(tmp_path):
     return str(root)
 
 
+@when("I supersede the spec with a replacement", target_fixture="move_res")
+def _supersede_spec(engine, confirmed_intent, spec_id, tmp_path):
+    repl = _ingest(engine, confirmed_intent, tmp_path, _PLAIN, "replacement.md")
+    res, _ = invoke(engine, confirmed_intent, "workflow", "move_spec",
+                    spec_id=spec_id, to_state="superseded", superseded_by=repl)
+    return res
+
+
+@then("the supersession records the replacement")
+def _supersession_recorded(move_res):
+    assert move_res.get("moved") is True, move_res
+    assert move_res.get("superseded_by"), move_res
+
+
 @when("I index the Plan tree", target_fixture="index_res")
 def _index(engine, confirmed_intent, plan_root):
     res, _ = invoke(engine, confirmed_intent, "workflow", "index", root=plan_root)

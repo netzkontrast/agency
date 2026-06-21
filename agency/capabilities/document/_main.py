@@ -42,6 +42,9 @@ _REPO_BRIEFING_SKILL = {
 _SUPPORTED_SCOPES = frozenset({
     "install-artefacts", "reflections", "provenance", "capability-catalogue",
     "research-report",
+    # Spec 343 — the lifecycle-management discipline's report phase (phase 6)
+    # mirrors this to `lifecycle-board.md` as a file peer (Spec 292).
+    "lifecycle-board",
 })
 
 
@@ -134,6 +137,8 @@ class DocumentCapability(CapabilityBase):
             content, node_count = _render.render_provenance(memory, for_intent_id)
         elif scope == "capability-catalogue":
             content, node_count = _render.render_capability_catalogue(self.ctx.registry)
+        elif scope == "lifecycle-board":
+            content, node_count = _render.render_lifecycle_board(memory)
         else:  # research-report — Spec 044 §"Render"
             content, node_count = _render.render_research_report(memory, for_intent_id)
         return {

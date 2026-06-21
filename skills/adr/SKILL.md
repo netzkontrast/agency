@@ -33,11 +33,12 @@ allowed-tools:
 | `link` | act | LINK — add a typed SPEC-001-C dependency edge between two Decisions. | [details](references/link.md) |
 | `read` | act | READ a ``Decision``'s current WH(Y) fields + status (the domain read — no need to reach into the generic `manage` tool for an ADR). | [details](references/read.md) |
 | `render` | act | RENDER — project a theme's **live** decisions into a markdown body and stamp the theme ``Document``'s ``content_sha`` (graph-side projection; the file round-trip is `document.sync`'s job, keep-both — Spec 292). | [details](references/render.md) |
+| `review_sweep` | effect | REVIEW_SWEEP — cadence governance (Spec 355 S2, SPEC-001-A): flip every live ``approved``/``implemented`` decision whose ``next_review`` date has lapsed (< today) to ``expired`` — a legal `decision`-machine transition. | [details](references/review_sweep.md) |
 | `spec_decisions_ready` | transform | SPEC_DECISIONS_READY — the /open→/inprogress predicate (358). | [details](references/spec_decisions_ready.md) |
 | `supersede` | act | SUPERSEDE — the SPEC-001-C automatic actions: mint a replacement ``Decision`` (status ``proposed``) ``PART_OF`` the same theme, flip the old one to ``superseded``, and write the forward reference (the core ``SUPERSEDED_BY`` edge). | [details](references/supersede.md) |
 | `theme` | act | THEME — get-or-create a thematic-living ADR for one architecture ``layer`` (the ported Master ADR). | [details](references/theme.md) |
 | `theme_status` | transform | THEME_STATUS — the SPEC-001-D aggregate status DERIVED from the theme's ``PART_OF`` children (never stored — rule 8). | [details](references/theme_status.md) |
-| `update` | act | UPDATE a ``Decision`` in place — advance its ``status`` and/or fill WH(Y) elements incrementally (the DOMAIN mutator; never reach into `manage` for an ADR). | [details](references/update.md) |
+| `update` | act | UPDATE a ``Decision`` in place — advance its ``status`` and/or fill WH(Y) elements + governance incrementally (the DOMAIN mutator; never reach into `manage` for an ADR). | [details](references/update.md) |
 | `validate` | transform | VALIDATE — run the decidable WH(Y) rules over a Decision; return findings + an ``ok`` flag. | [details](references/validate.md) |
 
 ## Example
@@ -56,5 +57,5 @@ await call_tool('capability_adr_approve', {'intent_id': 'intent:abc'})
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`adr-usage`** (usage): use-transform → use-act → confirm
+- **`adr-usage`** (usage): use-transform → use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'adr-usage', 'inputs': {}, 'intent_id': '…'})`

@@ -43,6 +43,12 @@ Feature: spec-state lifecycle — specs as Lifecycles on the `spec` machine (Spe
     And I move the spec to "superseded"
     Then the spec state is "superseded"
 
+  Scenario: superseding a spec records the forward reference to its replacement
+    Given an ingested spec document
+    When I open the spec lifecycle
+    And I supersede the spec with a replacement
+    Then the supersession records the replacement
+
   # ── the human surface: physical folders + the indexer ────────────────────────
 
   Scenario: index reports every spec with its state readings and flags drift

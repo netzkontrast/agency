@@ -45,3 +45,18 @@ Feature: ADR Definition-of-Done gate (Spec 355 Slice 1)
     When I approve it with no approver
     Then the approval is input-required
     And the decision status remains "proposed"
+
+  # ── Slice 2 — decision-status governed by the `decision` machine ─────────────
+
+  Scenario: an illegal decision-status transition is rejected (DEC-001)
+    Given a well-formed decision under a theme
+    When I update the decision status to "retired"
+    Then the status update is rejected with rule "DEC-001"
+    And the decision status remains "proposed"
+
+  Scenario: a cadence-lapsed approved decision is swept to expired
+    Given a well-formed decision under a theme
+    When I override-approve it as "owner-alice"
+    And I set the decision next_review to "2000-01-01"
+    And I run the review sweep
+    Then the decision status is "expired"

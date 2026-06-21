@@ -22,6 +22,10 @@ from pathlib import Path
 SOURCE_COVERAGE_PATH = Path(__file__).parent / "data" / "source-coverage.json"
 
 
+# AGENCY-DRIFT: source-coverage — the book registry's second consumer (decay-risks
+# is the first). Every book a decay risk cites (decay-risks.json sources[].book)
+# MUST appear here; the "decay-risk coverage" gate in scripts/check-drift (Spec 383
+# §4) fails on a cited-but-absent book (no shallow name-dropping).
 def load_source_coverage() -> dict[str, dict]:
     """The per-book source-coverage matrix: ``{book: entry}``.
 

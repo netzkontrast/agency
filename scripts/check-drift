@@ -226,6 +226,54 @@ fi
 say
 
 # ----------------------------------------------------------------------
+# decay-risk coverage gate (Spec 383 §4) — grounding + decidable corpus
+# ----------------------------------------------------------------------
+say "==> decay-risk coverage gate (Spec 383)"
+DECAY_OUT=$(python - <<'PYEOF' 2>&1 || true
+import re
+from pathlib import Path
+from agency.capabilities.analyze import _decay, _coverage
+
+risks = _decay.load_risks()
+coverage = set(_coverage.load_source_coverage())
+
+# 1. Grounding — every book a decay risk cites MUST exist in source-coverage.json
+#    (no shallow book-name-dropping; the Slice-1 invariant promoted to a fast gate).
+cited = {s.get("book", "") for e in risks.values()
+         for s in e.get("sources", []) if s.get("book")}
+orphans = sorted(b for b in cited if b not in coverage)
+if orphans:
+    print("DRIFT: decay risks cite books absent from source-coverage.json: "
+          + ", ".join(orphans))
+
+# 2. Decidable corpus — every risk with a `decidable` rule-id mapping MUST have a
+#    paired (positive + negative) fixture row in the acceptance corpus. The set is
+#    DERIVED from the registry (rule 8); coverage is read from the feature file
+#    (decoupled from the test module — the spec-by-example is the source).
+decidable = sorted(c for c, e in risks.items() if e.get("decidable"))
+feat_path = Path("tests/acceptance/features/quality_corpus.feature")
+if not feat_path.exists():
+    print("DRIFT: quality_corpus.feature missing — the decidable corpus is gone")
+elif (uncovered := [c for c in decidable
+                    if not re.search(rf"\|\s*{re.escape(c)}\s*\|",
+                                     feat_path.read_text(encoding='utf-8'))]):
+    print("DRIFT: decidable risks lacking a quality_corpus.feature Examples row: "
+          + ", ".join(uncovered))
+
+if not orphans and feat_path.exists() and not uncovered:
+    print(f"    decay-risk coverage: {len(cited)} cited books grounded; "
+          f"{len(decidable)} decidable risks paired")
+PYEOF
+)
+if echo "$DECAY_OUT" | grep -q "^DRIFT:"; then
+  say "    $DECAY_OUT"
+  DRIFT=1
+else
+  say "$DECAY_OUT"
+fi
+say
+
+# ----------------------------------------------------------------------
 # tracked db binaries (Spec 351 — local rebuild artefacts stay untracked)
 # ----------------------------------------------------------------------
 say "==> tracked db binaries (Spec 351)"
@@ -238,6 +286,43 @@ if [[ -n "$TRACKED_DB" ]]; then
   DRIFT=1
 else
   say "    tracked db binaries: none"
+fi
+say
+
+# ----------------------------------------------------------------------
+# spec-state gate (Spec 357/358 — a spec filed under Plan/<state>/ must declare
+# the matching `state:` frontmatter, a valid state, and a non-drifted node).
+# This shells into `workflow.index` rather than re-deriving the predicate in
+# bash: `index.ok` is the single definition of spec-state drift (it catches
+# missing-state / invalid-state / node-drift that a bare folder-vs-grep misses).
+# Legacy flat Plan/NNN-slug/ specs are grandfathered by `index` (legacy flag).
+# ----------------------------------------------------------------------
+say "==> spec-state gate (Spec 357/358 — via workflow.index)"
+SPEC_STATE_OUT=$(python - <<'PYEOF' 2>&1 || true
+from agency.engine import Engine
+e = Engine(":memory:")
+iid = e.intent.capture("check-drift", "spec-state gate", "no drift")
+e.intent.confirm(iid)
+res, _ = e.registry.invoke(e.memory, iid, "workflow", "index", root="Plan")
+e.memory.close()
+rows = {r["spec"]: r for r in res.get("rows", [])}
+drift = res.get("drift", [])
+if drift:
+    for spec in drift:
+        r = rows.get(spec, {})
+        print(f"DRIFT: {spec}: folder={r.get('folder_state') or '<none>'} "
+              f"frontmatter={r.get('frontmatter_state') or '<missing>'} "
+              f"node={r.get('node_state') or '<none>'} flags={r.get('flags')}")
+else:
+    print(f"    spec-state: {res.get('count', 0)} specs indexed, folder == "
+          "frontmatter == node (legacy flat specs grandfathered)")
+PYEOF
+)
+if echo "$SPEC_STATE_OUT" | grep -q "^DRIFT:"; then
+  [[ "$QUIET" -eq 0 ]] && echo "$SPEC_STATE_OUT" | sed 's/^/    /'
+  DRIFT=1
+else
+  say "$SPEC_STATE_OUT"
 fi
 say
 

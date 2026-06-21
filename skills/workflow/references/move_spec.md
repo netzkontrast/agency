@@ -7,7 +7,7 @@ MOVE_SPEC — advance the spec's Lifecycle to ``to_state`` via ``ctx.lifecycle.m
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `spec_id (the spec Document id), to_state (a ``spec`` machine state), override (bool — owner bypass of the ADR gate).` |  |  |
+| `spec_id (the spec Document id), to_state (a ``spec`` machine state), override (bool — owner bypass of the ADR gate), superseded_by (the replacing spec's Document id — only when to_state="superseded").` |  |  |
 
 ## Returns
 

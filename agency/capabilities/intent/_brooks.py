@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import re
 
+from agency.capabilities.document._interconnect import section_after as _section
+
 # Tunable budgets (rule 8 — documented, overridable; not frozen snapshots).
 _DESIGN_WHY_RATIO = 3.0      # Design >> Why ⇒ accidental-complexity smell
 _SECOND_SYSTEM_MIN = 2       # ≥ this many gold-plating markers ⇒ second-system
@@ -38,17 +40,6 @@ _ADDITIVE = ("additive", "backward-compat", "backward compat", "backwards-compat
 
 PRINCIPLES = ("conceptual-integrity", "essential-vs-accidental", "second-system",
               "no-silver-bullet", "plan-to-throw-one-away")
-
-
-def _section(body: str, header: str) -> str:
-    low = body.lower()
-    key = "## " + header.lower()
-    i = low.find(key)
-    if i == -1:
-        return ""
-    start = i + len(key)
-    nxt = low.find("## ", start)
-    return body[start: nxt if nxt != -1 else len(body)].strip()
 
 
 def _f(principle: str, severity: str, msg: str, evidence: str) -> dict:

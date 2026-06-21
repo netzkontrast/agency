@@ -59,9 +59,28 @@ def _spec_two(engine, confirmed_intent, tmp_path):
     return _ingest(engine, confirmed_intent, tmp_path, _TWO, "spec-two.md")
 
 
+_DATALAYER = """---
+spec_id: "TEST-DL"
+domain: datalayer
+---
+# Datalayer spec
+
+## Why
+The store needs cross-session persistence.
+
+## Design
+We decided for an append-only graph instead of a relational mirror.
+"""
+
+
 @given("an ingested spec with no decisions", target_fixture="spec_id")
 def _spec_none(engine, confirmed_intent, tmp_path):
     return _ingest(engine, confirmed_intent, tmp_path, _NONE, "spec-none.md")
+
+
+@given('an ingested spec in the "datalayer" domain', target_fixture="spec_id")
+def _spec_datalayer(engine, confirmed_intent, tmp_path):
+    return _ingest(engine, confirmed_intent, tmp_path, _DATALAYER, "spec-dl.md")
 
 
 @when("I extract decisions from it as a preview", target_fixture="extract")
@@ -160,3 +179,9 @@ def _hints_present(hints_res):
 @then("the returned tokens are within budget")
 def _within_budget(hints_res):
     assert hints_res["returned_tokens"] <= hints_res["budget"], hints_res
+
+
+@then(parsers.parse('the candidates are themed "{layer}"'))
+def _themed(extract, layer):
+    cands = extract.get("candidates", [])
+    assert cands and all(c.get("theme") == layer for c in cands), extract
