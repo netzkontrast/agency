@@ -26,8 +26,22 @@ def _ensure_loaded() -> dict[str, dict]:
     if _registry is None:
         _registry = json.loads(_MACHINES_PATH.read_text())
         for defn in _registry.values():
-            _all_states.update(defn.get("states", []))
+            _all_states.update(_declared_states(defn))
     return _registry
+
+
+def _declared_states(defn: dict) -> set[str]:
+    """Every state a machine definition can reach — base ``states`` PLUS a derived
+    machine's ``add_states`` and the source/target states of its ``replace`` delta.
+    The ontology widens on this union, so a derived state (e.g. ``verify``,
+    ``in-review``) passes ``Lifecycle.state`` validation when ``move`` writes it
+    (Spec 345 latent gap surfaced by Spec 342's observer states)."""
+    states: set[str] = set(defn.get("states", []))
+    states.update(defn.get("add_states", []))
+    for src, changes in defn.get("replace", {}).items():
+        states.add(src)
+        states.update(changes if isinstance(changes, list) else changes.get("add", []))
+    return states
 
 
 def resolve_machine(name: str) -> dict:
@@ -62,7 +76,7 @@ def _normalise(name: str, defn: dict) -> dict:
     _check_floor_gates(name, initial, transitions, terminal, floor_gates)
     return {"initial": initial, "states": states,
             "transitions": transitions, "terminal": terminal,
-            "floor_gates": floor_gates}
+            "floor_gates": floor_gates, "observer": defn.get("observer")}
 
 
 def _apply_delta(name: str, base: dict, delta: dict) -> dict:
@@ -85,9 +99,12 @@ def _apply_delta(name: str, base: dict, delta: dict) -> dict:
     floor_gates: set[str] = set(delta.get("floor_gates", base.get("floor_gates", [])))
     _validate_floor(name, initial, states, transitions, terminal)
     _check_floor_gates(name, initial, transitions, terminal, floor_gates)
+    # Spec 342 — a derived machine's observer (declared by name) overrides the
+    # base's; absent, it inherits the base observer so a deeper derivation keeps it.
+    observer = delta.get("observer", base.get("observer"))
     return {"initial": initial, "states": states,
             "transitions": transitions, "terminal": terminal,
-            "floor_gates": floor_gates}
+            "floor_gates": floor_gates, "observer": observer}
 
 
 def _validate_floor(name: str, initial: str, states: set[str],
@@ -144,4 +161,4 @@ def register_machine(name: str, defn: dict) -> None:
     """
     reg = _ensure_loaded()
     reg[name] = defn
-    _all_states.update(defn.get("states", []))
+    _all_states.update(_declared_states(defn))

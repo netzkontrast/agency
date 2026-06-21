@@ -22,6 +22,22 @@
     "replace": {
       "working": {"remove": ["completed"], "add": ["verify"]},
       "verify":  ["completed", "input-required", "failed"]
+    },
+    "observer": {
+      "capability": "jules", "verb": "verify",
+      "on_done": "completed", "on_not_done": "input-required", "on_error": "verify"
+    }
+  },
+  "reviewed": {
+    "derives": "a2a",
+    "add_states": ["in-review"],
+    "replace": {
+      "working":   {"remove": ["completed"], "add": ["in-review"]},
+      "in-review": ["completed", "input-required"]
+    },
+    "observer": {
+      "capability": "gate", "verb": "check",
+      "on_done": "completed", "on_not_done": "input-required"
     }
   },
   "frugal": {
