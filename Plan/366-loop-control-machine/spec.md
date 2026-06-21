@@ -198,7 +198,21 @@ Scenario: status and stop conditions are read from the graph
 
 ## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Re-drafted spine-framed (2026-06-21). The loop runtime as the `loop`
+**Verdict:** Implemented 2026-06-21 (spine-framed). The `loop` machine is
+registered in `machines.json` (data); `_loop.open_loop` mints the lifecycle +
+records the control and refuses a guard-free loop; `control_evaluate` ports the
+termination guards (budget → no_progress → max_revisions → max_iterations);
+**`_loop.advance` is the sole walk reducer** — it reads the state, runs the gate
+(`check_criterion` 364 + council verdict 365), consults `control_evaluate`, then
+moves via `ctx.lifecycle.move` (the sole state writer), failing the loop with the
+stop_reason when the guard denies. Progress (iterations/revisions/stalled/
+signature/stop_reason) is JSON on the loop node; status derives from the graph
+(no state.json in-session — files are an export concern, 368). `control-rubric.md`
+vendored verbatim. Covered by `test_loop_machine.py` (registration) +
+`test_loop_advance.py` (5 walk scenarios green). Consumed by the wizard (367)
+and emission (368).
+
+**Prior draft note:** Re-drafted spine-framed (2026-06-21). The loop runtime as the `loop`
 machine (data, the 345 seam) walked via the pillar `ctx.lifecycle.open/move`,
 with the loop-specific control flow (`open`/`advance`/`control_evaluate`) in the
 one `_loop.py` module; `state.json`/`run-log.md` derived from provenance
