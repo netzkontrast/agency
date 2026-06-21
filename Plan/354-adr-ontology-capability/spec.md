@@ -50,25 +50,36 @@ two nodes for one thing — the substrate already has the primitive. Aggregate
 status is **derived**, never stored (rule 8).
 
 **`Decision`** — one architectural decision in WH(Y) form, `PART_OF` exactly one
-`AdrTheme`. Required fields (the six WH(Y) elements are first-class, not prose):
+theme. **Two layers, deliberately separated** (the think-hard-about-ontology-and-Schema
+correction, 2026-06-20):
 
-| Field | Source (SPEC-001-A) | Tunable max (documented, overridable — rule 8) |
+- **Node-required (STORAGE — Memory enforces on `record`):** minimal —
+  `["decision", "status"]`. You must state *what* was decided (the record's
+  identity) and its state; the rest of the WH(Y) justification is recordable
+  **empty**, so a `proposed` skeleton from `extract_decisions` (356) persists and
+  is completed incrementally. WHY-001 is an *approval*-gating validation rule, not
+  a storage constraint — conflating them would make incremental drafting
+  impossible.
+- **The `decision` Schema (the typed COMPLETENESS contract — powers `validate`):**
+  a **draft-07 schema** whose `required` is the full six WH(Y) elements + `status`
+  and whose `properties` carry the per-element `maxLength` budgets (SPEC-001-A;
+  tunable — rule 8). `validate` *derives* WHY-001 (required) + WHY-LEN (maxLength)
+  from this ONE Schema (rule 2 — no second list). `title: "Decision"` covers the
+  node label for the Spec 153 schema-coverage audit.
+
+| WH(Y) element | Source (SPEC-001-A) | Schema `maxLength` (tunable) |
 |---|---|---|
-| `id` | `ADR-NNN` (monotonic) | — |
 | `context` | *In the context of …* | 200 |
 | `facing` | *facing …* (non-functional concern) | 250 |
-| `decision` | *we decided for …* | 150 |
+| `decision` | *we decided for …* (also node-required) | 150 |
 | `neglected` | *and neglected …* (≥1 alternative) | 200 |
 | `benefits` | *to achieve …* | 250 |
 | `tradeoffs` | *accepting that …* | 300 |
-| `status` | `decision_status` enum | — |
-| `proposed_by`, `date` | governance header | — |
 
-Optional governance fields (SPEC-001-A/E): `review_board`, `review_cadence`,
-`next_review`, `status_history` (an append-only list — but the *real* history is
-the bi-temporal node chain, so `status_history` is a rendered convenience, not a
-second source). Optional `references` — but references are better as **edges**
-(`REFINES`/`RELATES_TO` to a Spec/Document), per the dormant-edge heuristic.
+`status` is the `decision_status` enum. Optional fields: `proposed_by`, `date`,
+governance (`review_board`, `review_cadence`, `next_review`). `status_history` is
+a *rendered convenience* — the real history is the bi-temporal node chain.
+References are **edges** (`REFINES`/`RELATES_TO` to a Spec/Document), not a field.
 
 ### Edges
 
@@ -130,14 +141,19 @@ whole point of the WH(Y) format).
 
 ### Slice 2 — link / supersede / render / aggregate
 
-- [ ] `adr.link` enforces DEP-001 (no cycles) and DEP-003 (no deps on rejected).
-- [ ] `adr.supersede` performs all three SPEC-001-C automatic actions and the
-      old node remains queryable as history (`as_of`).
-- [ ] `adr.theme_status` reproduces the SPEC-001-D aggregate table from children.
-- [ ] `adr.render` writes a Document containing only live decisions; re-render is
-      idempotent (Goal 9 round-trip).
-- [ ] Substrate-set tests (`test_naming_audit`) green with `adr` added; full suite
-      (not just the slice) run before declaring done.
+- [x] `adr.link` enforces DEP-001 (no cycles) and DEP-003 (no deps on rejected).
+- [x] `adr.supersede` performs the SPEC-001-C automatic actions (mint replacement,
+      flip old → `superseded`, write the `SUPERSEDED_BY` forward reference); the
+      old node remains queryable (status `superseded`; the render appendix lists it).
+- [x] `adr.theme_status` reproduces the SPEC-001-D aggregate table from children.
+- [x] `adr.render` projects only live decisions (+ a collapsed superseded appendix,
+      panel B3); re-render is idempotent (stable `content_sha` — Goal 9 round-trip).
+- [x] `adr.read` + `adr.update` — the domain read + in-place mutator (the owner's
+      "this should be adr.update — manage is a different tool" directive): an ADR's
+      status/WH(Y) edits never reach into the generic `manage` capability.
+- [x] Substrate-set invariants green with the 7 new verbs added (`scripts/check-drift`
+      surface_size / bare-name / skill-parity / token-budget); full suite run before
+      declaring done.
 
 ## Failure modes (Nygard)
 
@@ -180,9 +196,61 @@ whole point of the WH(Y) format).
 
 ## Followup — Implementation Status (2026-06-20)
 
-### Done
-- Spec authored (design depth) + spec-panel folded (B1, B3, B5, M1).
+### Done — Slice 1 (TDD, shipped)
+- `agency/capabilities/adr/` self-registers (drop-in bar held — only the cap
+  folder + `tests/acceptance/{features/adr.feature,test_adr.py}` were hand-written;
+  the CLI mirrors, `skills/adr/`, the command, and `plugin.json`/`marketplace.json`
+  were auto-generated by `python -m agency.install`).
+- Ontology — **two layers** (the think-hard correction): `Decision` node-required
+  is minimal `["decision","status"]` (a `proposed` skeleton is recordable); the
+  `decision` **draft-07 Schema** carries the completeness contract (all six WH(Y)
+  `required` + per-element `maxLength`). `decision_status` enum +
+  `PART_OF`/`DEPENDS_ON`/`RELATES_TO` edges (`REFINES` unioned with `discover`'s).
+  `AdrTheme` = `Document(kind="adr-theme")` per panel B1.
+- Verbs: `adr.theme` (get-or-create the themed Document), `adr.draft` (WH(Y)
+  `Decision` `PART_OF` the theme — only `decision` required, rest fillable later),
+  `adr.validate` (WHY-001 + WHY-LEN **derived from the Schema**, plus WHY-003).
+- **The correction that mattered (owner directive — reread concept + think hard
+  about the ontology AND Schema):** an earlier cut made all six WH(Y) elements
+  *node-required*; since Memory treats empty == missing, that would have made a
+  `proposed` skeleton impossible to record — breaking the incremental
+  draft→complete→approve lifecycle Spec 356 needs. Fixed by separating the
+  **node storage contract** (minimal) from the **`decision` Schema completeness
+  contract** (the full WH(Y), powering `validate`), per CORE.md §Schemas. WHY-001
+  + WHY-LEN derive from the one Schema (rules 2 + 8); the DoD gate (355) enforces
+  completeness at approval.
+- 8 acceptance scenarios green; schema-coverage stays 1.0 (the `decision` Schema
+  covers the `Decision` label); install regenerated; drift clean; `spec_id`
+  collision with the brooks-port `354-decay` resolved (that leaf renumbered → 360).
 
-### Still
-- Implement Slice 1 (ontology + author/validate) via TDD, then Slice 2.
-- Update the documented substrate set + `scripts/check-drift` when the cap lands.
+### Done — Slice 2 (TDD, shipped)
+- `adr.link` — typed SPEC-001-C dependency edges (`DEPENDS_ON` · `RELATES_TO` ·
+  `REFINES` · `PART_OF`), enforced at write time: **DEP-001** (no cycle in the
+  acyclic edges, via a `ctx.neighbors`-out reachability probe — declared edge ⇒
+  traversed) and **DEP-003** (no `DEPENDS_ON` a `rejected` decision). A rejected
+  edge is never created; the finding returns `{error, rule}`.
+- `adr.supersede` — the SPEC-001-C automatic actions: mint the replacement
+  `Decision` (`proposed`) `PART_OF` the same theme, flip the old to `superseded`,
+  write the core `SUPERSEDED_BY` forward reference. Old node stays queryable.
+- `adr.theme_status` — the SPEC-001-D aggregate (`blocked` / `completed` /
+  `partially-implemented` / `approved` / `in-progress` / `proposed`) ported
+  verbatim, DERIVED over `PART_OF` children (never stored — rule 8).
+- `adr.impact` — incoming `DEPENDS_ON`/`REFINES`/`PART_OF` dependents to `depth`.
+- `adr.render` — live decisions → the theme `Document` body + `content_sha`
+  stamp; superseded decisions collapse to a one-line history appendix (panel B3);
+  deterministic ⇒ idempotent re-render. (Graph-side projection; the file
+  round-trip stays `document.sync`'s job — keep-both, Spec 292.)
+- **`adr.read` + `adr.update`** (owner directive mid-Slice-2: *"this should be
+  adr.update — manage is a different tool"*): the capability owns its read +
+  in-place mutator, so an ADR's status/WH(Y) edits never reach into the generic
+  `manage` tool. `update` writes only non-empty args (incremental completion);
+  status is `param_enums`-hinted on the wire (strict-schema directive).
+- 7 new verbs; **15 acceptance scenarios green** (8 Slice 1 + 7 Slice 2);
+  `scripts/check-drift` clean after `python -m agency.install` regenerated the
+  `bin/` mirrors + `skills/adr/references/*` for the new verbs.
+
+### Still — Slice 3 (deferred)
+- Promote the verb I/O to registered `Schema` nodes (panel M1) — the `decision`
+  Schema covers the node today; per-verb I/O schemas are the next increment.
+- `adr.list` (the "handful of ADRs" index) + the MIN-001..005 minimalism findings
+  in `validate` (theme-render line budget, ≥1 referenced spec).
