@@ -1,7 +1,7 @@
 ---
 spec_id: "381"
 slug: health-score-config-triage
-status: draft
+status: shipped
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 4]
@@ -264,3 +264,61 @@ block (disable/severity/ignore/focus/strictness/custom_risks) onto Spec 334 +
 validation; the `QualityRun{status}` history node + trend query; the scan-time
 suppression *scoring* read; and `intent.triage` + the `Suppression`/
 `Acknowledgement` ontology on `IntentCapability`.
+
+**Slice 2 SHIPPED 2026-06-21 (TDD) — the `quality:` config block (§2).**
+`analyze/_score.py` gains pure `parse_quality_config(raw, preset_names) →
+(config, notes)` (validation, NEVER fatal — focus+disable both set → ignore both
++ note; unknown strictness → balanced + note) and `apply_quality_config(findings,
+config)` (filter: `ignore` glob excludes files, `disable` drops risks, `focus`
+keeps ONLY listed risks, `severity` overrides a risk's tier). `analyze.score`
+grows a `config` param + `preset` now defaults to `""` so the config `strictness`
+selects the preset when none is passed explicitly; returns `config_notes` +
+`scored_findings`. **4 Gherkin scenarios** (`tests/acceptance/features/
+quality_config.feature`): disable, focus, the focus/disable conflict note,
+strictness→preset. Slice-1 scenarios still green under the new default. Install
+regen + analyze slice green (51 passed); check-drift + doc-drift clean. **Still
+(Slice 3+):** reading the block from `.agency/config.yaml` (Spec 334 wiring — the
+verb takes the config dict today; the review verbs pass it); the
+`QualityRun{status}` history node + trend query; the scan-time suppression
+*scoring* read; and `intent.triage` + the `Suppression`/`Acknowledgement`
+ontology on `IntentCapability`.
+
+**Slice 3 SHIPPED 2026-06-21 (TDD) — QualityRun history node + trend (§3).**
+`QualityRun{mode, scope, score, critical, warning, suggestion, status,
+recorded_at}` registered in the analyze ontology (+ a `status` enum
+complete|incomplete). `analyze.record_run(mode, scope, findings, preset, status,
+config)` (role=`act`) computes the score + tier counts (honouring the config),
+records the node SERVING the intent, and derives the **trend** — the delta from
+the most recent prior **complete** same-mode run; an incomplete/crashed walk is
+recorded but EXCLUDED from the delta (Nygard), a first run reports `first=True`.
+History is a graph query (`analyze.graph('QualityRun')` / `manage.timeline`),
+never a `.brooks-lint-history.json` sidecar (Goal 2). **4 Gherkin scenarios**
+(`tests/acceptance/features/quality_run.feature`): node-not-sidecar, trend delta,
+incomplete-excluded, first-run. Analyze slice green (55 passed); install regen +
+check-drift + doc-drift clean. **Still (Slice 4):** the scan-time suppression
+*scoring* read + `intent.triage` + the `Suppression`/`Acknowledgement` ontology
+on `IntentCapability`; plus the `QualityRun`→`SkillRun` edge + base-branch CI
+cache (folds with 382).
+
+**Slice 4 SHIPPED 2026-06-21 (TDD) — triage + suppression (§4); 381 core complete.**
+WRITE side (intent): `Suppression`/`Acknowledgement` nodes (+ `SUPPRESSES`/
+`ACKNOWLEDGES` edges) on the **intent** ontology (owner directive — triage is an
+intent judgment about a Finding) + `intent.triage(finding_id, action, reason,
+expires)` (role=`act`): `dismiss`→Suppression SERVING the intent + SUPPRESSES the
+Finding; `defer`→+expiry (default +90d); `accept`→Acknowledgement ACKNOWLEDGES;
+`skip`→no-op. risk+glob READ from the Finding by id (one source). READ side
+(analyze): `_score.apply_suppressions` drops findings matching a LIVE Suppression
+(risk + file glob), an expired one resurfaces (keep-both, Spec 292); wired into
+`analyze.score` (reads `ctx.find("Suppression")` cross-capability, returns
+`suppressed`/`expired_suppressions`). The stored file-glob prop is **`glob`** not
+`pattern` (graphqlite reserves `pattern`). **4 Gherkin scenarios**
+(`tests/acceptance/features/quality_triage.feature`): dismiss→provenance,
+accept→Acknowledgement, dismissed-excluded-from-score, expired-resurfaces. 86
+green across the analyze+intent slices; schema-coverage clean (3 new nodes got
+schemas); check-drift + doc-drift clean. **Refinements deferred (fold with 382):**
+config-file read from `.agency/config.yaml quality:` (Spec 334 — the verbs take
+the config dict today); the `QualityRun`→`SkillRun` edge; base-branch CI cache;
+applying the suppression read inside `record_run` (today it's on `score`).
+
+**Spec 381 v1 COMPLETE** — §1 score · §2 config · §3 history/trend · §4
+triage/suppression all shipped (Slices 1–4, TDD). status → shipped.

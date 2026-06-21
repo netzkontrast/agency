@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## intent verb audit — 0 of 9 verbs need work
+## intent verb audit — 0 of 10 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -26,6 +26,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `intent.steelman` | transform | ✓ clean |
 | `intent.suggests` | transform | ✓ clean |
 | `intent.tradeoffs` | transform | ✓ clean |
+| `intent.triage` | act | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The
