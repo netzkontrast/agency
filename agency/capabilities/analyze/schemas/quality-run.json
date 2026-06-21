@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QualityRun",
+  "description": "A recorded code-quality review run (agency/capabilities/analyze/_main.py; Spec 381 §3). SERVES the intent; the score trend is a query over prior same-mode complete runs (analyze.graph('QualityRun') / manage.timeline), never a .brooks-lint-history.json sidecar. An incomplete (crashed) walk is recorded but excluded from the trend.",
+  "type": "object",
+  "required": ["mode", "score", "status"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "description": "The quality mode the run scored: review | audit | debt | test | health | sweep."
+    },
+    "scope": {
+      "type": "string",
+      "description": "The scope description the run covered (e.g. 'staged changes', 'whole repo')."
+    },
+    "score": {
+      "type": "integer",
+      "description": "The computed Health Score (0-100): max(0, 100 - Σ deduction(tier, preset))."
+    },
+    "critical": {
+      "type": "integer",
+      "description": "Count of critical-tier findings in the run."
+    },
+    "warning": {
+      "type": "integer",
+      "description": "Count of warning-tier findings in the run."
+    },
+    "suggestion": {
+      "type": "integer",
+      "description": "Count of suggestion-tier findings in the run."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["complete", "incomplete"],
+      "description": "'complete' runs feed the trend; 'incomplete' (a crashed/partial walk) is recorded but excluded from the delta (Nygard)."
+    },
+    "recorded_at": {
+      "type": "number",
+      "description": "Wall-clock timestamp the run was recorded."
+    }
+  }
+}
