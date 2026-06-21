@@ -26,10 +26,12 @@ allowed-tools:
 | `approve` | act | APPROVE — the DoD hinge (SPEC-001-E pre-approval gate). | [details](references/approve.md) |
 | `dod_check` | transform | DOD_CHECK — run the ported SPEC-001-E Definition-of-Done criteria over a Decision (pure compute; never flips status). | [details](references/dod_check.md) |
 | `draft` | act | DRAFT — record a WH(Y) ``Decision`` (status ``proposed``) ``PART_OF`` the theme, SERVING the intent (SPEC-001-A). | [details](references/draft.md) |
+| `extract_decisions` | act | EXTRACT_DECISIONS — surface a spec's key decisions as WH(Y) candidates and (``apply=True``) draft them as ``proposed`` ``Decision``s that ``REFINES`` the spec. **Decidable-first** (no API key): a canonical WH(Y) statement is parsed verbatim (SPEC-001-A), else the ``## Design`` cue sentences + ``## Why``/``## Failure modes`` sections are mined. | [details](references/extract_decisions.md) |
 | `impact` | transform | IMPACT — what ``DEPENDS_ON`` / ``REFINES`` / ``PART_OF`` this decision, to ``depth`` hops (SPEC-001-C ``adr impact``). | [details](references/impact.md) |
 | `link` | act | LINK — add a typed SPEC-001-C dependency edge between two Decisions. | [details](references/link.md) |
 | `read` | act | READ a ``Decision``'s current WH(Y) fields + status (the domain read — no need to reach into the generic `manage` tool for an ADR). | [details](references/read.md) |
 | `render` | act | RENDER — project a theme's **live** decisions into a markdown body and stamp the theme ``Document``'s ``content_sha`` (graph-side projection; the file round-trip is `document.sync`'s job, keep-both — Spec 292). | [details](references/render.md) |
+| `spec_decisions_ready` | transform | SPEC_DECISIONS_READY — the /open→/inprogress predicate (358). | [details](references/spec_decisions_ready.md) |
 | `supersede` | act | SUPERSEDE — the SPEC-001-C automatic actions: mint a replacement ``Decision`` (status ``proposed``) ``PART_OF`` the same theme, flip the old one to ``superseded``, and write the forward reference (the core ``SUPERSEDED_BY`` edge). | [details](references/supersede.md) |
 | `theme` | act | THEME — get-or-create a thematic-living ADR for one architecture ``layer`` (the ported Master ADR). | [details](references/theme.md) |
 | `theme_status` | transform | THEME_STATUS — the SPEC-001-D aggregate status DERIVED from the theme's ``PART_OF`` children (never stored — rule 8). | [details](references/theme_status.md) |

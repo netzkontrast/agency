@@ -114,15 +114,17 @@ the minimum an implementer needs to not contradict an approved decision.
 
 ### Slice 1 — extract + ready-predicate
 
-- [ ] `adr.extract_decisions(spec_id, apply=False)` returns WH(Y) candidates with
+- [x] `adr.extract_decisions(spec_id, apply=False)` returns WH(Y) candidates with
       an `evidence_span` pointing back into the spec body; decidable path works
-      with **no API key** (LLM only sharpens when keyed).
-- [ ] `apply=True` drafts `Decision` nodes `REFINES`→spec, `PART_OF`→theme, status
-      `proposed`; idempotent re-run does not duplicate (keyed on evidence_span +
-      theme).
-- [ ] `adr.spec_decisions_ready(spec_id)` returns `ready=false` while any linked
-      decision is unapproved, `true` once all are `approved` (355).
-- [ ] Acceptance: a fixture spec → candidates → drafts → blocked-ready → approve →
+      with **no API key** (canonical WH(Y) statement parsed verbatim — Layer 1; LLM
+      sharpening deferred to Slice 2). `spec_id` accepts a Document id OR a
+      frontmatter `spec_id` (owner directive).
+- [x] `apply=True` drafts `Decision` nodes `REFINES`→spec, `PART_OF`→theme, status
+      `proposed`; idempotent re-run does not duplicate (keyed on evidence_span).
+- [x] `adr.spec_decisions_ready(spec_id)` returns `ready=false` while any linked
+      decision is unapproved, `true` once all are `approved` (355); zero-decision
+      spec → `{ready:false, reason:"no-decisions"}` (no vacuous pass).
+- [x] Acceptance: a fixture spec → candidates → drafts → blocked-ready → approve →
       ready (behaviour, rule 7).
 
 ### Slice 2 — hints / context loading
@@ -153,10 +155,46 @@ the minimum an implementer needs to not contradict an approved decision.
 - **358 (workflow)** — calls `extract_decisions` on entry to `/open`,
   `spec_decisions_ready` to guard `/inprogress`, and `hints` at the build phase.
 
-## Followup — Implementation Status (2026-06-20)
+## Followup — Implementation Status (2026-06-21)
 
-### Done
-- Spec authored (design depth).
+### Done — Slice 1 (TDD, shipped)
+- **`adr.extract_decisions(spec_id, theme_id="", apply=False)`** — decidable,
+  evidence-anchored extraction (no API key), grounded in a **reread of the ADR
+  source repo** (owner directive "deeply reimplement it"). **Layered fidelity:**
+  - *Layer 1 (canonical):* an explicit **WH(Y) statement** (the six SPEC-001-A
+    marker phrases — *In the context of / facing / we decided for / and neglected
+    / to achieve / accepting that*) is parsed **verbatim** into a complete 6-part
+    candidate. Fires only when ALL six markers are present (never on prose that
+    merely contains "facing"). This is the format ADR-001 itself demonstrates.
+  - *Layer 3 (fallback):* `## Design` decision-cue sentences (*we decided / chose
+    / instead of / rather than …*) mined into candidates, with `context` from
+    `## Why` and `tradeoffs` from `## Failure modes`; `neglected` split from the
+    in-sentence marker. Every candidate keeps an `evidence_span` (anti-
+    hallucination anchor + idempotency key).
+  - `apply=True` drafts each NEW candidate as a `proposed` `Decision`
+    `REFINES`→spec + `PART_OF`→theme; **idempotent** (re-apply skips spans already
+    linked). `spec_id` resolves **either a Document id OR a frontmatter `spec_id`**
+    (owner directive) via `_resolve_spec`.
+- **`adr.spec_decisions_ready(spec_id)`** — the /open→/inprogress predicate:
+  `ready` iff ≥1 `Decision` `REFINES` the spec AND every one is `approved` (355
+  gate); a zero-decision spec returns `{ready:False, reason:"no-decisions"}` —
+  never a vacuous pass (panel B2.2).
+- **4 acceptance scenarios** (`adr_extract.feature`): evidence-anchored preview ·
+  idempotent apply (exactly two) · not-ready-until-approved (owner-override path,
+  since extracted skeletons fail the automated DoD) · zero-decision no-vacuous-pass.
+  adr+dod+extract 25 green; schema-coverage 44 green; check-drift clean.
+- **Discovered constraint (noted, out of scope):** the graph store returns a
+  `DocRevision`'s `text` with newlines **flattened to spaces**, so extraction is
+  newline-agnostic (substring-anchored `## ` section parsing + the marker-based
+  WH(Y) parser). A faithful document round-trip may want to preserve newlines —
+  tracked for a `document`/Spec 292 follow-up, not this slice.
 
-### Still
-- Implement Slice 1 (extract + ready predicate), then Slice 2 (hints) via TDD.
+### Still — Slice 2
+- `adr.hints(spec_id, budget)` — token-bounded architecture-hint projection over
+  approved decisions + depth-1 neighbours (reuse `manage.project`).
+- Per-candidate multi-theme routing from `affects`/`domain` (Slice 1 files all
+  candidates under one get-or-created theme).
+- Optional LLM sharpening of candidates when `OPENROUTER_API_KEY` present
+  (decidable skeleton stands without a key — barbell).
+- Faithful SPEC-001-E weighted scoring + the remaining WHY-002/004/005/006
+  validate rules (354 refinement).
