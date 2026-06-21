@@ -141,14 +141,19 @@ whole point of the WH(Y) format).
 
 ### Slice 2 — link / supersede / render / aggregate
 
-- [ ] `adr.link` enforces DEP-001 (no cycles) and DEP-003 (no deps on rejected).
-- [ ] `adr.supersede` performs all three SPEC-001-C automatic actions and the
-      old node remains queryable as history (`as_of`).
-- [ ] `adr.theme_status` reproduces the SPEC-001-D aggregate table from children.
-- [ ] `adr.render` writes a Document containing only live decisions; re-render is
-      idempotent (Goal 9 round-trip).
-- [ ] Substrate-set tests (`test_naming_audit`) green with `adr` added; full suite
-      (not just the slice) run before declaring done.
+- [x] `adr.link` enforces DEP-001 (no cycles) and DEP-003 (no deps on rejected).
+- [x] `adr.supersede` performs the SPEC-001-C automatic actions (mint replacement,
+      flip old → `superseded`, write the `SUPERSEDED_BY` forward reference); the
+      old node remains queryable (status `superseded`; the render appendix lists it).
+- [x] `adr.theme_status` reproduces the SPEC-001-D aggregate table from children.
+- [x] `adr.render` projects only live decisions (+ a collapsed superseded appendix,
+      panel B3); re-render is idempotent (stable `content_sha` — Goal 9 round-trip).
+- [x] `adr.read` + `adr.update` — the domain read + in-place mutator (the owner's
+      "this should be adr.update — manage is a different tool" directive): an ADR's
+      status/WH(Y) edits never reach into the generic `manage` capability.
+- [x] Substrate-set invariants green with the 7 new verbs added (`scripts/check-drift`
+      surface_size / bare-name / skill-parity / token-budget); full suite run before
+      declaring done.
 
 ## Failure modes (Nygard)
 
@@ -218,10 +223,34 @@ whole point of the WH(Y) format).
   covers the `Decision` label); install regenerated; drift clean; `spec_id`
   collision with the brooks-port `354-decay` resolved (that leaf renumbered → 360).
 
-### Still — Slice 2
-- `adr.link` (typed dependency edges; DEP-001 cycle + DEP-003 deps-on-rejected),
-  `adr.supersede` (reuse the core `SUPERSEDED_BY` edge + forward ref + status
-  flip), `adr.theme_status` (aggregate), `adr.render` (theme → Document with the
-  superseded-history appendix, panel B3), `adr.impact`. The DEP-001 cycle
-  acceptance case lands here (it needs `link`).
-- Promote the verb I/O to registered `Schema` nodes (panel M1).
+### Done — Slice 2 (TDD, shipped)
+- `adr.link` — typed SPEC-001-C dependency edges (`DEPENDS_ON` · `RELATES_TO` ·
+  `REFINES` · `PART_OF`), enforced at write time: **DEP-001** (no cycle in the
+  acyclic edges, via a `ctx.neighbors`-out reachability probe — declared edge ⇒
+  traversed) and **DEP-003** (no `DEPENDS_ON` a `rejected` decision). A rejected
+  edge is never created; the finding returns `{error, rule}`.
+- `adr.supersede` — the SPEC-001-C automatic actions: mint the replacement
+  `Decision` (`proposed`) `PART_OF` the same theme, flip the old to `superseded`,
+  write the core `SUPERSEDED_BY` forward reference. Old node stays queryable.
+- `adr.theme_status` — the SPEC-001-D aggregate (`blocked` / `completed` /
+  `partially-implemented` / `approved` / `in-progress` / `proposed`) ported
+  verbatim, DERIVED over `PART_OF` children (never stored — rule 8).
+- `adr.impact` — incoming `DEPENDS_ON`/`REFINES`/`PART_OF` dependents to `depth`.
+- `adr.render` — live decisions → the theme `Document` body + `content_sha`
+  stamp; superseded decisions collapse to a one-line history appendix (panel B3);
+  deterministic ⇒ idempotent re-render. (Graph-side projection; the file
+  round-trip stays `document.sync`'s job — keep-both, Spec 292.)
+- **`adr.read` + `adr.update`** (owner directive mid-Slice-2: *"this should be
+  adr.update — manage is a different tool"*): the capability owns its read +
+  in-place mutator, so an ADR's status/WH(Y) edits never reach into the generic
+  `manage` tool. `update` writes only non-empty args (incremental completion);
+  status is `param_enums`-hinted on the wire (strict-schema directive).
+- 7 new verbs; **15 acceptance scenarios green** (8 Slice 1 + 7 Slice 2);
+  `scripts/check-drift` clean after `python -m agency.install` regenerated the
+  `bin/` mirrors + `skills/adr/references/*` for the new verbs.
+
+### Still — Slice 3 (deferred)
+- Promote the verb I/O to registered `Schema` nodes (panel M1) — the `decision`
+  Schema covers the node today; per-verb I/O schemas are the next increment.
+- `adr.list` (the "handful of ADRs" index) + the MIN-001..005 minimalism findings
+  in `validate` (theme-render line budget, ≥1 referenced spec).

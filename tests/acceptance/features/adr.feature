@@ -62,3 +62,70 @@ Feature: ADR ontology + capability — author & validate (Spec 354 Slice 1)
     When I draft a well-formed decision under that theme
     And I validate that decision
     Then the validate result is ok
+
+  # ── Slice 2 — link / supersede / theme_status / impact / render ──────────────
+
+  Scenario: link adds a typed dependency edge that impact can traverse
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "datalayer"
+    When I draft decisions "A" and "B" under that theme
+    And I link "A" DEPENDS_ON "B"
+    Then the link result is linked
+    And the impact of "B" includes at least one dependent
+
+  Scenario: link rejects a circular dependency (DEP-001)
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "datalayer"
+    When I draft decisions "A" and "B" under that theme
+    And I link "A" DEPENDS_ON "B"
+    And I link "B" DEPENDS_ON "A"
+    Then the link result is an error with rule "DEP-001"
+
+  Scenario: link rejects a dependency on a rejected decision (DEP-003)
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "datalayer"
+    When I draft decisions "A" and "B" under that theme
+    And I set "B" to status "rejected"
+    And I link "A" DEPENDS_ON "B"
+    Then the link result is an error with rule "DEP-003"
+
+  Scenario: supersede mints a replacement and flips the old to superseded
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "substrate"
+    When I draft decisions "A" and "B" under that theme
+    And I supersede "A" with a new decision
+    Then the supersede result has a new decision id
+    And the superseded decision "A" now has status "superseded"
+
+  Scenario: theme_status aggregates approved children as approved
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "capabilities"
+    When I draft decisions "A" and "B" under that theme
+    And I set "A" to status "approved"
+    And I set "B" to status "approved"
+    And I check the theme status
+    Then the aggregate status is "approved"
+
+  Scenario: theme_status reports blocked when a child is rejected
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "capabilities"
+    When I draft decisions "A" and "B" under that theme
+    And I set "B" to status "rejected"
+    And I check the theme status
+    Then the aggregate status is "blocked"
+
+  Scenario: render projects live decisions and is idempotent
+    Given a fresh agency engine in code-mode
+    And a confirmed intent
+    And an adr theme "datalayer"
+    When I draft decisions "A" and "B" under that theme
+    And I supersede "A" with a new decision
+    And I render that theme
+    Then the render reports 2 active and 1 superseded decisions
+    And re-rendering produces the same content hash

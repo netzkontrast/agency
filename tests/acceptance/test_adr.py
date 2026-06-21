@@ -139,3 +139,101 @@ def _not_ok(validate_result):
 @then("the validate result is ok")
 def _ok(validate_result):
     assert validate_result.get("ok") is True, validate_result
+
+
+# ── Slice 2 — link / supersede / theme_status / impact / render ───────────────
+
+@when(parsers.parse('I draft decisions "{a}" and "{b}" under that theme'),
+      target_fixture="decisions")
+def _draft_two(engine, confirmed_intent, theme_id, a, b):
+    out: dict[str, str] = {}
+    for name in (a, b):
+        res, _ = invoke(engine, confirmed_intent, "adr", "draft",
+                        theme_id=theme_id,
+                        **dict(_GOOD, decision=f"{name}: {_GOOD['decision']}"))
+        out[name] = res.get("id")
+    return out
+
+
+@when(parsers.parse('I link "{a}" DEPENDS_ON "{b}"'), target_fixture="link_result")
+def _link(engine, confirmed_intent, decisions, a, b):
+    res, _ = invoke(engine, confirmed_intent, "adr", "link",
+                    source_id=decisions[a], dependency_type="DEPENDS_ON",
+                    target_id=decisions[b])
+    return res
+
+
+@when(parsers.parse('I set "{name}" to status "{status}"'))
+def _set_status(engine, confirmed_intent, decisions, name, status):
+    # The DOMAIN mutator — adr.update, not the generic manage tool.
+    invoke(engine, confirmed_intent, "adr", "update",
+           decision_id=decisions[name], status=status)
+
+
+@when(parsers.parse('I supersede "{name}" with a new decision'),
+      target_fixture="supersede_result")
+def _supersede(engine, confirmed_intent, decisions, name):
+    res, _ = invoke(engine, confirmed_intent, "adr", "supersede",
+                    old_id=decisions[name],
+                    **dict(_GOOD, decision="revised: " + _GOOD["decision"]))
+    return res
+
+
+@when("I check the theme status", target_fixture="status_result")
+def _theme_status(engine, confirmed_intent, theme_id):
+    res, _ = invoke(engine, confirmed_intent, "adr", "theme_status",
+                    theme_id=theme_id)
+    return res
+
+
+@when("I render that theme", target_fixture="render_result")
+def _render(engine, confirmed_intent, theme_id):
+    res, _ = invoke(engine, confirmed_intent, "adr", "render", theme_id=theme_id)
+    return res
+
+
+@then("the link result is linked")
+def _link_ok(link_result):
+    assert link_result.get("linked") is True, link_result
+
+
+@then(parsers.parse('the impact of "{name}" includes at least one dependent'))
+def _impact_has(engine, confirmed_intent, decisions, name):
+    res, _ = invoke(engine, confirmed_intent, "adr", "impact",
+                    decision_id=decisions[name])
+    assert res.get("total", 0) >= 1, res
+
+
+@then(parsers.parse('the link result is an error with rule "{rule}"'))
+def _link_err(link_result, rule):
+    assert link_result.get("error"), link_result
+    assert link_result.get("rule") == rule, link_result
+
+
+@then("the supersede result has a new decision id")
+def _supersede_new(supersede_result):
+    assert supersede_result.get("new_id"), supersede_result
+
+
+@then(parsers.parse('the superseded decision "{name}" now has status "{status}"'))
+def _old_superseded(engine, confirmed_intent, decisions, name, status):
+    res, _ = invoke(engine, confirmed_intent, "adr", "read",
+                    decision_id=decisions[name])
+    assert res.get("status") == status, res
+
+
+@then(parsers.parse('the aggregate status is "{agg}"'))
+def _agg_is(status_result, agg):
+    assert status_result.get("status") == agg, status_result
+
+
+@then(parsers.parse('the render reports {n:d} active and {m:d} superseded decisions'))
+def _render_counts(render_result, n, m):
+    assert render_result.get("active") == n, render_result
+    assert render_result.get("superseded") == m, render_result
+
+
+@then("re-rendering produces the same content hash")
+def _render_idempotent(engine, confirmed_intent, theme_id, render_result):
+    res, _ = invoke(engine, confirmed_intent, "adr", "render", theme_id=theme_id)
+    assert res.get("content_sha") == render_result.get("content_sha"), res
