@@ -1,0 +1,52 @@
+{
+  "_source": "brooks-lint@ec44ec8 _shared/source-coverage.md (the 12-book matrix)",
+  "_note": "Per-book source-coverage matrix (Spec 383 §1). Read before writing a finding's Iron-Law Source so a book is cited ONLY when the observed symptom matches its principle — prevents shallow book-name-citation. Book IDs match decay-risks.json sources (one book registry, two consumers). The book COUNT is derived from this file (rule 8) — adding a book needs no code edit.",
+  "Brooks — The Mythical Man-Month": {
+    "encoded": ["Ch. 4: Conceptual Integrity", "Ch. 5: The Second-System Effect", "Ch. 2: Brooks's Law (communication overhead)"],
+    "do_not_ignore": ["A single coherent design owner is not 'too few cooks' — conceptual integrity outranks parallelism"]
+  },
+  "McConnell — Code Complete": {
+    "encoded": ["Ch. 5: Design in Construction", "Ch. 7: High-Quality Routines", "Ch. 11: The Power of Variable Names", "Ch. 12: Fundamental Data Types"],
+    "do_not_ignore": ["A long routine that is a single cohesive sequence is not automatically a smell — measure responsibilities, not lines alone"]
+  },
+  "Fowler — Refactoring": {
+    "encoded": ["Long Method", "Long Parameter List", "Duplicate Code", "Feature Envy", "Data Class", "Primitive Obsession", "Switch Statements", "Shotgun Surgery", "Divergent Change", "Message Chains", "Middle Man", "Inappropriate Intimacy", "Refused Bequest", "Lazy Class", "Speculative Generality", "Flag Arguments", "Parallel Inheritance Hierarchies", "Alternative Classes with Different Interfaces"],
+    "do_not_ignore": ["A smell is a hint to investigate, not a verdict; a justified deviation with a comment is not debt"]
+  },
+  "Martin — Clean Architecture": {
+    "encoded": ["Dependency Inversion Principle (DIP)", "Acyclic Dependencies Principle (ADP)", "Stable Dependencies Principle (SDP)", "Stable Abstractions Principle (SAP)", "Interface Segregation Principle (ISP)", "Liskov Substitution Principle (LSP)", "Single Responsibility, Open/Closed Principles"],
+    "do_not_ignore": ["A composition root legitimately wires concrete dependencies — it is not DIP debt"]
+  },
+  "Hunt & Thomas — The Pragmatic Programmer": {
+    "encoded": ["DRY: Don't Repeat Yourself", "Ch. 2: Orthogonality", "Ch. 5: Decoupling and the Law of Demeter", "Topic 4: Good-Enough Software"],
+    "do_not_ignore": ["Coincidental duplication (two things that look alike but change for different reasons) is not a DRY violation"]
+  },
+  "Evans — Domain-Driven Design": {
+    "encoded": ["Domain Model pattern", "Ubiquitous Language", "Bounded Context"],
+    "do_not_ignore": ["A CRUD transaction-script is a legitimate choice for a simple subdomain — not every workflow needs a rich domain model"]
+  },
+  "Ousterhout — A Philosophy of Software Design": {
+    "encoded": ["Ch. 4: Modules Should Be Deep", "Ch. 5: Information Hiding and Leakage", "Ch. 3: Strategic vs. Tactical Programming"],
+    "do_not_ignore": ["A thin module that is a genuine adapter/boundary is not automatically shallow-by-smell"]
+  },
+  "Winters et al. — Software Engineering at Google": {
+    "encoded": ["Ch. 1: Hyrum's Law", "Ch. 21: Dependency Management"],
+    "do_not_ignore": ["Not every observable behaviour is a contract you must freeze — weigh the dependency surface"]
+  },
+  "Meszaros — xUnit Test Patterns": {
+    "encoded": ["Assertion Roulette (p.224)", "Eager Test (p.228)", "Lazy Test (p.232)", "Mystery Guest (p.411)", "General Fixture (p.316)", "Hard-Coded Test Data (p.534)", "Test Code Duplication (p.213)", "Slow Tests (p.253)", "Erratic Test", "Behavior Verification (p.544)"],
+    "do_not_ignore": ["Multiple assertions on ONE logical concept are not Assertion Roulette — count concepts, not assert calls"]
+  },
+  "Osherove — The Art of Unit Testing": {
+    "encoded": ["Test isolation principle", "Test completeness principle", "Mock usage guidelines", "Mock completeness requirement", "method_scenario_expected naming convention"],
+    "do_not_ignore": ["An integration test that legitimately touches a real collaborator is not a 'not isolated' unit-test failure"]
+  },
+  "Feathers — Working Effectively with Legacy Code": {
+    "encoded": ["Ch. 1: Legacy code is code without tests", "Ch. 3: Sensing and Separation", "Ch. 4: Seam Model", "Ch. 13: Characterization Tests"],
+    "do_not_ignore": ["Untested code that is about to be deleted is not worth a characterization test — weigh the change vector"]
+  },
+  "Google — How Google Tests Software": {
+    "encoded": ["70:20:10 unit:integration:E2E ratio", "Ch. 11: Testing at Google Scale"],
+    "do_not_ignore": ["The 70:20:10 ratio is a guideline, not a quota — a domain with heavy integration risk legitimately skews"]
+  }
+}
