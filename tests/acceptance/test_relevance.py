@@ -58,8 +58,8 @@ class _StubJulesBackend:
 
 
 @pytest.fixture
-def stub_engine():
-    eng = Engine(tempfile.mktemp(suffix=".db"), jules_client=_StubJulesBackend())
+def stub_engine(tmp_path):
+    eng = Engine(str(tmp_path / "graph.db"), jules_client=_StubJulesBackend())
     yield eng
     eng.memory.close()
 
