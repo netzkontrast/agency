@@ -320,6 +320,52 @@ provenance (`Invocation` SERVES intent + `Artefact` PRODUCES edges).
 Raw-tool actions don't. The provenance moat IS the moat; bypass it
 and the session is one-shot.
 
+## The repo-development workflow (Spec 353–359 — ADR-centred)
+
+Work on the repo itself runs through one walkable lifecycle, the **`workflow`**
+capability + the **`adr`** capability. Don't improvise the SDLC — drive it.
+
+**Specs live in physical state folders.** Every spec is
+`Plan/<state>/NNN-slug/spec.md` where `<state>` ∈
+`draft · open · inprogress · superseded · done` — **the folder IS the spec's
+lifecycle state**, mirrored by a `SpecLifecycle` graph node (keep-both, Spec
+292; latest `recorded_at` wins). The `state:` frontmatter field equals the
+folder, and `scripts/check-drift` gates `folder == frontmatter == node`. Query
+live state from the graph, never by eyeballing the tree:
+
+- `workflow.index(root="Plan")` — every spec's three state readings + drift flags
+  (`drift`/`missing-state`/`invalid-state`/`node-drift`); `ok` is the CI predicate.
+- `workflow.board(state="")` — specs grouped by state ("what's in `/inprogress`?").
+- `workflow.move_spec(spec_id, to_state, override=False)` — the SOLE state writer
+  (via `ctx.lifecycle.move`, Spec 339); illegal transitions rejected by the `spec`
+  machine. `open→inprogress` is **blocked** until the ADR hinge clears.
+
+**The `develop-spec` lifecycle skill** (on `workflow.ontology.skills`, walked one
+phase at a time via `develop.skill_walk` so context stays bounded) chains the
+existing disciplines — no re-implementation. The 14 phases: intent → triage
+(`discover.interview`) → brainstorm → research (**incl. `codegraph_explore` over
+what already exists**) → acceptance → spec (`develop.write_spec` into
+`Plan/draft/`) → spec-panel → **brooks-lint** (`intent.brooks_lint`, the 9th
+critical-thinking method — conceptual integrity, essential-vs-accidental, second-
+system) → improve-loop → open → adr-approve → inprogress → build (TDD) → done.
+Three **hard gates**: *improve* (design gate — loops 7–8 until no `block` finding
++ owner confirm), *adr-approve* (the ADR hinge), *done* (verify; COMPLETED ≠ done).
+
+**The ADR hinge (`adr` capability).** When a spec moves to `/open`,
+`adr.extract_decisions` pulls its key decisions into **WH(Y) `Decision` drafts**
+(`proposed`); the spec **cannot** advance to `/inprogress` until every decision is
+`approved` (`adr.spec_decisions_ready`; owner-only `adr.approve`, no agent self-
+approve). ADRs are **thematic, living** — a handful of `Document`s with
+`kind="adr-theme"` per architecture **layer** (Datalayer · Substrate ·
+Capabilities · Lifecycle · Workflow), each holding its decisions `PART_OF` it
+(the ported Master-ADR); `adr.render` projects a theme's live decisions to
+`docs/adr/<layer>.md`. The point of an ADR is to extract the **code + architecture
+hints** (`adr.hints`) re-loaded into context the moment implementation begins.
+
+**State of the port:** 354/358/360 shipped; 353/355/356/357/359 are
+shipped-with-remaining-slices (`/inprogress`). The legacy spec tree has been
+migrated into state folders (Spec 357 final slice).
+
 ## Code navigation — CodeGraph (when `.codegraph/` exists)
 
 This repo is indexed by **CodeGraph** — a pre-built symbol / call-graph /
@@ -371,7 +417,10 @@ deps (`graphqlite`, `fastmcp`) → silent collection errors. Use
 - Feature branches; PRs target `main`; additive history; never rewrite or
   force-push.
 - Add a capability = add a file (folder-per-capability when Spec 016 lands).
-- Spec lifecycle: research → design → spec-panel → refine → IMPLEMENTATION-PLAN → TDD.
-  Per-phase: RED → GREEN → green `python -m pytest -q` → commit → push.
+- Spec lifecycle: walk the **`develop-spec`** workflow (see *The repo-development
+  workflow* above) — intent → triage → brainstorm → research → acceptance → spec
+  → panel → brooks-lint → improve → ADR-approve → implement → done. Specs live in
+  physical `Plan/<state>/` folders; the TDD per-phase loop is RED → GREEN → green
+  `python -m pytest -q` → commit → push.
 - Doctrine evolves through dogfooding: surface lessons via
   `reflect.note(scope="observation", …)` — NOT new markdown files.
