@@ -29,34 +29,35 @@ from ...ontology import OntologyExtension
 
 
 
+# Spec 343 — the capstone walkable discipline for the Lifecycle PILLAR. A guide
+# (delivered one phase at a time via develop.skill_walk) that ORCHESTRATES existing
+# verbs across the substrate + manage + gate + document — ~zero new code (the 307
+# refinement lesson: the discipline is the surface, not new verbs). The per-phase
+# `runs` hints are non-binding documentation of what the agent invokes; the walker
+# steps the phases (no auto-bound cross-cap execution). The walk records its own
+# Skill provenance — the recursion made literal: managing lifecycles runs AS one.
 _LIFECYCLE_MANAGEMENT_SKILL = {
-
     "name": "lifecycle-management",
-
     "kind": "discipline",
-
-    "applies_when": {"kind": "pattern",
-
-                     "pattern": r"manage lifecycle|unblock|what's in flight|advance.*lifecycle",
-
-                     "confidence": 0.8},
-
+    "applies_when": {
+        "kind": "pattern",
+        "pattern": r"manage lifecycle|unblock|what's in flight|advance.*lifecycle",
+        "confidence": 0.8,
+    },
     "phases": [
-
-        {"index": 1, "name": "survey", "produces": ["board_state"]},
-
-        {"index": 2, "name": "triage", "produces": ["blockers"]},
-
-        {"index": 3, "name": "unblock", "produces": ["unblocked_lifecycles"]},
-
-        {"index": 4, "name": "advance", "produces": ["progress_recorded"]},
-
-        {"index": 5, "name": "close", "produces": ["terminal_closed"]},
-
-        {"index": 6, "name": "report", "produces": ["lifecycle_board"]},
-
+        {"index": 1, "name": "survey", "produces": ["board_state"],
+         "runs": ["manage.open_intents", "manage.list(Lifecycle, where={state})"]},
+        {"index": 2, "name": "triage", "produces": ["blockers"],
+         "runs": ["manage.whats_next", "manage.lifecycle"]},
+        {"index": 3, "name": "unblock", "produces": ["unblocked_lifecycles"],
+         "runs": ["lifecycle.resume", "gate.check"]},
+        {"index": 4, "name": "advance", "produces": ["progress_recorded"],
+         "runs": ["lifecycle.move", "lifecycle.advance"]},
+        {"index": 5, "name": "close", "produces": ["terminal_closed"],
+         "runs": ["lifecycle.close", "gate.check"]},
+        {"index": 6, "name": "report", "produces": ["lifecycle_board"],
+         "runs": ["document.mirror(scope='lifecycle-board', apply_path='lifecycle-board.md')"]},
     ],
-
 }
 
 
@@ -90,6 +91,7 @@ def _phase_of(ctx, lifecycle_id: str) -> str:
     if not props:
         raise ValueError(f"lifecycle {lifecycle_id!r} not found")
     return props.get("phase", "")
+
 
 class ManageCapability(CapabilityBase):
     name = "manage"
