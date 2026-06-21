@@ -160,6 +160,10 @@ discipline) projected into each agent's native instruction format.
 
 Mirrors ``_loop_events.py`` (Spec 156): a pure, engine-free record so tests /
 doctor / audit can build and assert a transition without an engine.
+- **_lifecycle_machines.py** — Spec 345 — machine registry for the generic state-machine substrate.
+
+Reads machines.json at first access, resolves `derives` chains, validates
+the terminal floor per-machine.
 - **_lifecycle_transitions.py** — Spec 340 — the enforced A2A transition table (the substrate state machine).
 
 `ontology.py::LifecycleState` constrains the *value* of `state`; this module
@@ -221,6 +225,10 @@ heuristic, two implementations, drift risk").
 Both music's `lyric_report` family and novel's `analyze_readability`
 need a syllable count; promoting to a shared module so one fix lands
 in one place.
+- **_relevance.py** — Spec 350 Slice 1 — relevance filter (content-aware output trimmer).
+
+Pure ``relevance_filter(text, profile) -> dict`` that extracts signal lines from
+verbose output by include/exclude regex patterns + neighbour context.
 - **_render.py** — Spec 283 Slice 1 — the capability render substrate (graph → markdown view).
 
 A capability declares a `RenderSpec`: a list of `RenderRule`s binding a node
