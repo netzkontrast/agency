@@ -28,6 +28,8 @@ status: proposed
 **to achieve** adding a folder gains a discoverable, walkable, CLI-exposed and MCP-wired capability for free,  
 **accepting that** auto-discovery hides load order and a malformed folder can fail registration at import time.
 
+**Source:** [`Plan/inprogress/016-capability-authoring-doctrine/spec.md`](../../Plan/inprogress/016-capability-authoring-doctrine/spec.md) — "The Core canon (`docs/vision/CORE.md`) defines WHAT a capability is — an invokable action with role-tagged verbs, owning an ontology fragment, exposed isomorphically over MCP / Skills / bash CLI"
+
 ## keep manage as capability-agnostic generic CRUD; domain verbs live in their own capability
 
 | Decision ID | Status | Proposed By |
@@ -40,4 +42,6 @@ status: proposed
 **and neglected** ADR verbs on manage, or a single god-capability,  
 **to achieve** manage keeps a clean generic charter while the adr capability owns its domain,  
 **accepting that** two surfaces to learn (generic CRUD versus domain) and some duplicated create/read ergonomics.
+
+**Source:** [`Plan/done/290-management-capability/spec.md`](../../Plan/done/290-management-capability/spec.md) — "(evidence + doctrine) An agent today cannot ask *"what is the current state — open intents, lifecycle status, research, artefacts — across the whole graph?"* without either raw Cypher…"
 

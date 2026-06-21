@@ -105,6 +105,61 @@ def _clean(text: str) -> str:
     return text.strip(" ,.\n*_:").replace("**", "").strip()
 
 
+def _spec_path(spec_id: str) -> str:
+    """Resolve a spec_id to its repo-root-relative ``spec.md`` path across the
+    physical ``Plan/<state>/`` folders (Spec 357), with a legacy flat fallback.
+    Returns "" when no spec matches. Resolved LIVE so the link tracks the spec
+    as it moves toward ``done`` (the digest is rebuilt on spec-done)."""
+    import glob
+    sid = str(spec_id).strip()
+    if not sid:
+        return ""
+    matches = sorted(glob.glob(f"Plan/*/{sid}-*/spec.md")
+                     + glob.glob(f"Plan/{sid}-*/spec.md"))
+    return matches[0] if matches else ""
+
+
+def _truncate_words(text: str, limit: int) -> str:
+    """Truncate to ``limit`` chars on a WORD boundary (never mid-word), adding an
+    ellipsis when cut — a central sentence sliced mid-word reads as a defect."""
+    s = text.strip()
+    if len(s) <= limit:
+        return s
+    return s[:limit].rsplit(" ", 1)[0].rstrip(" ,;:—-") + "…"
+
+
+def _central_sentence(spec_path: str, limit: int = 200) -> str:
+    """Derive ONE central sentence from a spec file — the frontmatter
+    ``summary`` if present, else the first SUBSTANTIVE sentence of its ``## Why``
+    section (skipping headings, list items and short label fragments), else the
+    H1 title. Read LIVE from the spec so the quote is always a real, current
+    sentence of that spec, never a hand-copied (driftable) anchor — rule 8:
+    derive, don't pin. ``limit`` caps display width only."""
+    import pathlib
+    p = pathlib.Path(spec_path)
+    if not p.exists():
+        return ""
+    body = p.read_text(encoding="utf-8")
+    fm = parse_frontmatter(body)
+    for key in ("summary", "one_liner", "oneliner"):
+        s = str(fm.get(key, "")).strip().strip('"').strip()
+        if s:
+            return _truncate_words(s, limit)
+    # Flatten the Why section to one line first so a sentence spanning several
+    # physical lines is captured whole, then split on sentence boundaries only
+    # (not newlines, unlike _sentences) so we never quote a mid-line fragment.
+    flat = re.sub(r"\s+", " ", _section_after(body, "why")).strip()
+    for raw in re.split(r"(?<=[.!?])\s+", flat):
+        c = _clean(raw)
+        # Substantive = a real sentence, not a sub-heading / list item / short
+        # label fragment (e.g. a parenthetical like "(evidence + doctrine)").
+        if len(c) >= 40 and " " in c and not c.startswith(("#", "-", "*", "|", ">")) \
+                and not c.endswith(":"):
+            return _truncate_words(c, limit)
+    m = re.search(r"(?m)^#\s+(.+?)\s*$", body)
+    return _truncate_words(_clean(m.group(1)), limit) if m else ""
+
+
 def _parse_why_block(body: str) -> dict | None:
     """LAYER 1 (highest fidelity) — parse an explicit WH(Y) 6-part statement
     (SPEC-001-A) into a complete candidate. Marker-anchored + order-tolerant;
@@ -225,7 +280,8 @@ class AdrCapability(CapabilityBase):
     @verb(role="act")
     def draft(self, theme_id: str, decision: str, context: str = "",
               facing: str = "", neglected: str = "", benefits: str = "",
-              tradeoffs: str = "", proposed_by: str = "agent") -> ToolResult:
+              tradeoffs: str = "", proposed_by: str = "agent",
+              spec: str = "") -> ToolResult:
         """DRAFT — record a WH(Y) ``Decision`` (status ``proposed``) ``PART_OF``
         the theme, SERVING the intent (SPEC-001-A). Only ``decision`` (what was
         decided) is required to record; the rest of the WH(Y) justification may
@@ -234,7 +290,9 @@ class AdrCapability(CapabilityBase):
 
         Inputs: theme_id (str), decision (str — the chosen course; required),
                 context/facing/neglected/benefits/tradeoffs (str — optional at
-                draft), proposed_by (str).
+                draft), proposed_by (str), spec (str — the source spec_id this
+                decision derives from; renders a Source link + a derived central
+                sentence in the ADR body and the architecture digest).
         Returns: ``{id, status, theme_id}`` or ``{error}`` on an ontology violation.
         chain_next: adr.validate(id) to check the WHY rules; adr.approve (355).
         """
@@ -242,6 +300,8 @@ class AdrCapability(CapabilityBase):
                  "neglected": neglected, "benefits": benefits,
                  "tradeoffs": tradeoffs, "status": "proposed",
                  "proposed_by": proposed_by}
+        if spec:
+            props["spec"] = str(spec).strip()
         try:
             did = self.ctx.record_and_serve("Decision", props)
         except ValueError as exc:
@@ -617,6 +677,17 @@ class AdrCapability(CapabilityBase):
                    for conn, field in self._WHY_BLOCK]
             lines.append(",  \n".join(why) + ".")
             lines.append("")
+            # Source: link to the spec that established this decision + ONE central
+            # sentence derived live from it (the evidence anchor). The link is
+            # ../../-relative so it resolves from docs/adr/; the architecture digest
+            # re-parses this line back to a root-relative link.
+            spec_path = _spec_path(d.get("spec", ""))
+            if spec_path:
+                sent = _central_sentence(spec_path)
+                src = f"**Source:** [`{spec_path}`](../../{spec_path})"
+                if sent:
+                    src += f' — "{sent}"'
+                lines += [src, ""]
             # Typed dependencies (only when present — ADR-minimalism, SPEC-001-B).
             deprows: list[str] = []
             for edge, label in self._DEP_EDGES:
@@ -1102,9 +1173,25 @@ class AdrCapability(CapabilityBase):
             if fm.get("kind") != "adr-theme":
                 continue
             layer = str(fm.get("layer", md.stem)).strip()
-            # Decision headings = `## …`, minus the superseded-history appendix.
-            decisions = [m.strip() for m in re.findall(r"(?m)^##\s+(.+?)\s*$", fm_body)
-                         if not m.strip().lower().startswith("superseded")]
+            # Per-decision blocks (split on `## ` headings), minus the superseded
+            # appendix. Each carries its source-spec link + central sentence,
+            # parsed back from the ADR's `**Source:**` line.
+            decisions = []
+            for blk in re.split(r"(?m)^##\s+", fm_body)[1:]:
+                head, _, rest = blk.partition("\n")
+                head = head.strip()
+                if head.lower().startswith("superseded"):
+                    continue
+                spec_path = sentence = ""
+                m = re.search(r"\*\*Source:\*\*\s+\[[^\]]*\]\(([^)]+)\)", rest)
+                if m:
+                    spec_path = re.sub(r"^(\.\./)+", "", m.group(1).strip())
+                    # Derive the central sentence straight from the spec (not by
+                    # re-parsing the ADR's quoted text — a sentence containing a
+                    # double-quote would break that, and a live read stays fresh).
+                    sentence = _central_sentence(spec_path)
+                decisions.append({"title": head, "spec": spec_path,
+                                  "sentence": sentence})
             layers[layer] = {"title": str(fm.get("title", layer)).strip().strip('"'),
                              "scope": str(fm.get("scope", "")).strip().strip('"'),
                              "decisions": decisions}
@@ -1113,18 +1200,31 @@ class AdrCapability(CapabilityBase):
         total = sum(len(layers[l]["decisions"]) for l in order)
         lines = ["# agency — architecture digest", "",
                  f"Every recorded WH(Y) decision as a one-liner ({total} across "
-                 f"{len(order)} layers), grouped by architecture layer. The decision "
-                 "IS what ships — **code is the final decision**; the full rationale, "
-                 "neglected alternatives and trade-offs live in "
-                 "[`docs/adr/`](docs/adr/). Rebuilt on spec-done via "
-                 "`adr.architecture(apply=True)`; emitted by the SessionStart hook.", ""]
+                 f"{len(order)} layers), grouped by architecture layer — each links "
+                 "to the spec that established it with one central sentence from that "
+                 "spec. Linked specs are **approved**: a spec reaches `/inprogress` "
+                 "(and later `/done`) only once its decisions clear the ADR hinge, so "
+                 "an `/inprogress` spec is an approved one still shipping its last "
+                 "slices. The decision IS what ships — **code is the final "
+                 "decision**; the full rationale, neglected alternatives and "
+                 "trade-offs live in [`docs/adr/`](docs/adr/). Refreshed on spec-done "
+                 "via `adr.architecture(apply=True)`; emitted by the SessionStart "
+                 "hook.", ""]
         for layer in order:
             t = layers[layer]
             lines.append(f"## {layer.title()}")
             if t["scope"]:
                 lines.append(f"_{t['scope']}_")
             lines.append("")
-            lines += [f"- {d}" for d in t["decisions"]] or ["- (no decisions yet)"]
+            if not t["decisions"]:
+                lines.append("- (no decisions yet)")
+            for d in t["decisions"]:
+                if d["spec"]:
+                    lines.append(f"- {d['title']} — [`{d['spec']}`]({d['spec']})")
+                    if d["sentence"]:
+                        lines.append(f'  > "{d["sentence"]}"')
+                else:
+                    lines.append(f"- {d['title']}")
             lines.append("")
         from agency.capabilities.document._interconnect import stamp_anchor
         body = stamp_anchor("\n".join(lines).rstrip() + "\n", "architecture-digest")

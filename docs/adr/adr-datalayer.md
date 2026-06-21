@@ -28,6 +28,8 @@ status: proposed
 **to achieve** one query surface, one provenance spine, and zero cross-store synchronisation,  
 **accepting that** graph queries over a SQLite-backed store are less tunable than hand-rolled SQL and a single store is a single blast radius for a corruption bug.
 
+**Source:** [`Plan/inprogress/020-central-graph-db/spec.md`](../../Plan/inprogress/020-central-graph-db/spec.md) — "The graph IS the moat (GOALS.md goal #2; CORE.md Memory)"
+
 ## keep-both reconciliation — never overwrite, the latest recorded_at wins on read
 
 | Decision ID | Status | Proposed By |
@@ -41,6 +43,8 @@ status: proposed
 **to achieve** no lost edits, full history retained, and files and graph stay peers,  
 **accepting that** storage grows monotonically and a read must resolve the latest of N revisions rather than read a single row.
 
+**Source:** [`Plan/inprogress/292-graph-markdown-interconnect/spec.md`](../../Plan/inprogress/292-graph-markdown-interconnect/spec.md) — "Spec 292 — Graph↔Markdown Interconnect · the Document as convergence artefact"
+
 ## project the hot typed entities (Intent, Agent, Invocation) onto SQLModel tables beside the graph
 
 | Decision ID | Status | Proposed By |
@@ -53,4 +57,6 @@ status: proposed
 **and neglected** graph-only with Python-side filtering, or a separate analytics database,  
 **to achieve** cheap typed joins while the graph stays the source of truth (a projection, not a fork),  
 **accepting that** the projection must be kept in sync with the graph and adds a second schema to migrate.
+
+**Source:** [`Plan/inprogress/289-sqlmodel-entity-store/spec.md`](../../Plan/inprogress/289-sqlmodel-entity-store/spec.md) — "Spec 289 — SQLModel typed entities for every graph data object"
 

@@ -7,7 +7,7 @@ DRAFT — record a WH(Y) ``Decision`` (status ``proposed``) ``PART_OF`` the them
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `theme_id (str), decision (str — the chosen course; required), context/facing/neglected/benefits/tradeoffs (str — optional at draft), proposed_by (str).` |  |  |
+| `theme_id (str), decision (str — the chosen course; required), context/facing/neglected/benefits/tradeoffs (str — optional at draft), proposed_by (str), spec (str — the source spec_id this decision derives from; renders a Source link + a derived central sentence in the ADR body and the architecture digest).` |  |  |
 
 ## Returns
 

@@ -285,6 +285,36 @@ def _architecture_counts(arch_result, n, m):
     assert "old-one" not in arch_result.get("body", ""), arch_result
 
 
+@when("I rebuild the architecture digest over an adr file whose decision cites a spec",
+      target_fixture="arch_src_result")
+def _arch_with_source(engine, confirmed_intent, tmp_path, monkeypatch):
+    # A real spec on disk (under cwd) + an ADR whose decision carries a Source
+    # link to it; the digest must resolve the link and derive a central sentence.
+    monkeypatch.chdir(tmp_path)
+    spec = tmp_path / "Plan" / "done" / "999-sample-spec" / "spec.md"
+    spec.parent.mkdir(parents=True)
+    spec.write_text('---\nspec_id: "999"\nstate: done\n---\n\n# Sample\n\n'
+                    "## Why\n\nThe substrate keeps one queryable spine so every "
+                    "concept shares a single provenance store.\n", encoding="utf-8")
+    adr = tmp_path / "adr"
+    adr.mkdir()
+    (adr / "adr-datalayer.md").write_text(
+        '---\nkind: adr-theme\nlayer: datalayer\ntitle: "Datalayer"\n---\n\n'
+        "# Datalayer\n\n## one store for every concept\n\n"
+        "**Source:** [`Plan/done/999-sample-spec/spec.md`]"
+        "(../../Plan/done/999-sample-spec/spec.md)\n", encoding="utf-8")
+    res, _ = invoke(engine, confirmed_intent, "adr", "architecture",
+                    adr_dir=str(adr), apply=False)
+    return res
+
+
+@then("the digest links that decision to the spec and quotes a central sentence from it")
+def _arch_src_ok(arch_src_result):
+    body = arch_src_result.get("body", "")
+    assert "(Plan/done/999-sample-spec/spec.md)" in body, body
+    assert '> "The substrate keeps one queryable spine' in body, body
+
+
 @when("I publish that theme to a temp file", target_fixture="publish_result")
 def _publish(engine, confirmed_intent, theme_id, tmp_path):
     import pathlib
