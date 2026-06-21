@@ -28,6 +28,8 @@ status: proposed
 **to achieve** a queryable board, enforced folder-frontmatter-node agreement, and the transition guard the ADR gate needs,  
 **accepting that** moving a spec churns links and git history and three surfaces must be kept in agreement by a drift gate.
 
+**Source:** [`Plan/inprogress/357-spec-state-lifecycle/spec.md`](../../Plan/inprogress/357-spec-state-lifecycle/spec.md) — "Owner directive: *"Es gibt mehrere Verzeichnisse in Plan, dann neu: `/draft /open /inprogress /superseded /done`"
+
 ## the ADR hinge — open to inprogress is blocked until the spec's decisions are approved
 
 | Decision ID | Status | Proposed By |
@@ -41,6 +43,8 @@ status: proposed
 **to achieve** decisions are captured and owner-approved before code begins, with hints re-loaded into context at implementation start,  
 **accepting that** a hard gate can deadlock a spec — mitigated by a provenance-stamped owner override — and adds a human step.
 
+**Source:** [`Plan/done/358-workflow-capability/spec.md`](../../Plan/done/358-workflow-capability/spec.md) — "Owner directive: *"Ziel ist … einen Lifecycle für die Arbeit am Repo zu erstellen … beginnend mit Intent-Erfassung und Interview-Triage — Brainstorm und ggf"
+
 ## thematic, living ADRs — a Document per architecture layer, extended inline
 
 | Decision ID | Status | Proposed By |
@@ -53,4 +57,6 @@ status: proposed
 **and neglected** one file per decision, or a flat append-only ADR log,  
 **to achieve** a handful of files while full decision history lives in the graph, immutability preserved at the node grain via SUPERSEDES,  
 **accepting that** a theme file can become a dumping ground without the MIN-rule validators and the file is a render of the graph rather than its source.
+
+**Source:** [`Plan/done/354-adr-ontology-capability/spec.md`](../../Plan/done/354-adr-ontology-capability/spec.md) — "The `adr` repo (`/adr/specs/SPEC-001-A..E`) defines the *enhanced WH(Y) ADR* on paper"
 

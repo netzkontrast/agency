@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_adr_draft
 # DRAFT — record a WH(Y) ``Decision`` (status ``proposed``) ``PART_OF`` the theme, SERVING the intent (SPEC-001-A).
-# Usage: agency-adr-draft [--intent-id ID] <theme_id> <decision> [context] [facing] [neglected] [benefits] [tradeoffs] [proposed_by]
+# Usage: agency-adr-draft [--intent-id ID] <theme_id> <decision> [context] [facing] [neglected] [benefits] [tradeoffs] [proposed_by] [spec]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -76,6 +76,7 @@ if len(sys.argv) > 6: _kw["neglected"] = _coerce(sys.argv[6], str)
 if len(sys.argv) > 7: _kw["benefits"] = _coerce(sys.argv[7], str)
 if len(sys.argv) > 8: _kw["tradeoffs"] = _coerce(sys.argv[8], str)
 if len(sys.argv) > 9: _kw["proposed_by"] = _coerce(sys.argv[9], str)
+if len(sys.argv) > 10: _kw["spec"] = _coerce(sys.argv[10], str)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

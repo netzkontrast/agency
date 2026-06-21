@@ -28,6 +28,8 @@ status: proposed
 **to achieve** uniform success and failure handling, retry on transient severity, and a trace_id on every call,  
 **accepting that** verbs must wrap their returns and callers unwrap an envelope rather than read a value directly.
 
+**Source:** [`Plan/done/282-error-severity-taxonomy/spec.md`](../../Plan/done/282-error-severity-taxonomy/spec.md) — "Spec 282 — Error Severity Taxonomy"
+
 ## exactly three wire verbs — search, get_schema, execute
 
 | Decision ID | Status | Proposed By |
@@ -41,6 +43,8 @@ status: proposed
 **to achieve** a fixed tiny tool surface that capabilities grow behind without changing the contract,  
 **accepting that** an extra discover-schema-execute indirection and the client must compose code rather than call a named tool.
 
+**Source:** [`Plan/inprogress/001-toolresult-and-typed-errors/spec.md`](../../Plan/inprogress/001-toolresult-and-typed-errors/spec.md) — "The PR1 engine exposes a clean external surface (`search` · `get_schema` · `execute`; `agency/engine.py:1-16`), but internally every capability verb returns an ad-hoc dict, and there are at least…"
+
 ## run multi-step work in code-mode execute so chains stay inside the sandbox
 
 | Decision ID | Status | Proposed By |
@@ -53,4 +57,6 @@ status: proposed
 **and neglected** step-by-step tool calls returning a result each hop,  
 **to achieve** only the final return crosses back, for far fewer tokens and round-trips,  
 **accepting that** errors surface as code exceptions rather than per-tool results and the sandbox must host the capability surface.
+
+**Source:** [`Plan/inprogress/005-context-mode-and-token-economics/spec.md`](../../Plan/inprogress/005-context-mode-and-token-economics/spec.md) — "The engine already pays the boot token cost well: `Engine.build_mcp` wraps the server in FastMCP's `CodeMode()` transform (`agency/engine.py:91-95`), so the only tools the model sees at start are…"
 

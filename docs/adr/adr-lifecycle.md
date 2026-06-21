@@ -28,6 +28,8 @@ status: proposed
 **to achieve** one guarded bi-temporal writer, illegal transitions rejected centrally, and a single writer check-drift can enforce,  
 **accepting that** an extra indirection for a simple status change and a guard that must know every machine.
 
+**Source:** [`Plan/inprogress/339-lifecycle-capability-write-frame/spec.md`](../../Plan/inprogress/339-lifecycle-capability-write-frame/spec.md) — "Spec 338 §Architecture calls for a `lifecycle` capability that owns the CORE.md §3 verb frame"
+
 ## lifecycle machines are data (machines.json), not code
 
 | Decision ID | Status | Proposed By |
@@ -40,4 +42,6 @@ status: proposed
 **and neglected** hard-coded Python transition tables, or a per-capability state enum,  
 **to achieve** adding a machine is a data entry and its states widen the shared enum automatically,  
 **accepting that** transition legality is validated at runtime from data rather than checked by the type system.
+
+**Source:** [`Plan/inprogress/340-lifecycle-state-machine-transitions/spec.md`](../../Plan/inprogress/340-lifecycle-state-machine-transitions/spec.md) — "`ontology.py:58 LifecycleState` constrains the *value* of `state`, but Spec 338 §Why item 2 documents the real defect — no transition is enforced"
 
