@@ -249,8 +249,23 @@ whole point of the WH(Y) format).
   `scripts/check-drift` clean after `python -m agency.install` regenerated the
   `bin/` mirrors + `skills/adr/references/*` for the new verbs.
 
-### Still — Slice 3 (deferred)
+### Done — Slice 3 (TDD, shipped 2026-06-21)
+- `adr.catalogue(status="", layer="")` — the "handful of ADRs" index (SPEC-001-B
+  minimalism): every theme + its `PART_OF` decision counts grouped by status,
+  filterable by layer/status. (Named `catalogue` not `list` — Spec 074 bare-name
+  collision discipline; the collision-with-`music` count is auto-accepted.)
+- `validate` deepened with two more ported decidable rules (grounded in the ADR
+  reread): **WHY-005** (warn — tradeoffs must be substantive, not an empty
+  acknowledgement; fires on non-empty-but-flimsy, since empty is already WHY-001)
+  and **MIN-005** (info — a decision should `REFINES`/`RELATES_TO` ≥1 spec
+  Document; traversed, not a foreign-key scan). Both additive (warn/info — never
+  flip `ok`), so existing scenarios stay green.
+- 3 acceptance scenarios; adr+dod+extract 30 green; schema-coverage 44 green;
+  check-drift clean (regen committed).
+
+### Still — Slice 4 (deferred)
 - Promote the verb I/O to registered `Schema` nodes (panel M1) — the `decision`
   Schema covers the node today; per-verb I/O schemas are the next increment.
-- `adr.list` (the "handful of ADRs" index) + the MIN-001..005 minimalism findings
-  in `validate` (theme-render line budget, ≥1 referenced spec).
+- The remaining MIN-001..004 + WHY-002/004/006 (theme-render line budget, code-
+  blocks-are-examples, diagram/config size, context-specificity, benefits↔facing
+  mapping, grammatical coherence) — several need render/LLM, not pure-decidable.
