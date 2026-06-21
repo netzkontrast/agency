@@ -42,8 +42,8 @@ the ceiling + upgrade path (ponytail's `ponytail:` → agency's `# frugal:`).
 
 ## Where the reference lives (durable, in-repo)
 
-- `Plan/332-frugal-core-discipline/reference/DISCIPLINE.md` — the discipline design.
-- `Plan/333-multi-agent-installer/reference/INSTALLER.md` — the installer design
+- `Plan/done/332-frugal-core-discipline/reference/DISCIPLINE.md` — the discipline design.
+- `Plan/done/333-multi-agent-installer/reference/INSTALLER.md` — the installer design
   (one source → many agents' native formats: `.cursor/rules/`, `.windsurf/rules/`,
   `.clinerules/`, `.kiro/steering/`, `AGENTS.md`, `.github/copilot-instructions.md`).
 - Upstream (full source, 14-agent installer, benchmarks): the GitHub repo above —

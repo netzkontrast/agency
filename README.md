@@ -389,7 +389,7 @@ guardrails:
    gap check + tag inventory. CI runs this as a PR gate. Exit code 0
    = clean; 1 = drift.
 
-Read [`Plan/054-drift-management/spec.md`](Plan/054-drift-management/spec.md)
+Read [`Plan/done/054-drift-management/spec.md`](Plan/done/054-drift-management/spec.md)
 for the rationale + the 8 canonical drift tags.
 
 ### Discipline

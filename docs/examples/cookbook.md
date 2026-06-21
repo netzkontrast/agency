@@ -138,6 +138,6 @@ r = await call_tool("agency_reload", {})
   search → get_schema → execute loop.
 - [`docs/guide/capabilities.md`](../guide/capabilities.md) — the generated
   reference for every capability + verb.
-- [`Plan/292`](../../Plan/292-graph-markdown-interconnect/spec.md) …
-  [`Plan/302`](../../Plan/302-plugin-accessibility-and-reload/spec.md) — the
+- [`Plan/292`](../../Plan/inprogress/292-graph-markdown-interconnect/spec.md) …
+  [`Plan/302`](../../Plan/done/302-plugin-accessibility-and-reload/spec.md) — the
   specs behind the recipes above.

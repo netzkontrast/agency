@@ -100,7 +100,7 @@ and advances. The terminal `gate: "hard"` phase requires explicit human approval
 ### Real example
 
 - `examples/music.py` — `album-concept` (single-domain reference).
-- `Plan/010-novel-domain/spec.md` — `work-concept` (multi-phase, gates).
+- `Plan/superseded/010-novel-domain/spec.md` — `work-concept` (multi-phase, gates).
 
 ## Pattern 3: Add a boundary driver
 

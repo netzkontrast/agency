@@ -1,0 +1,680 @@
+---
+spec_id: "102"
+slug: novel-lifecycle-cluster
+status: draft
+state: inprogress
+last_updated: 2026-06-07
+owner: "@agency"
+depends_on: ["101", "093", "094"]
+affects:
+  - agency/capabilities/novel/__init__.py
+  - agency/capabilities/novel/ontology.py
+  - agency/capabilities/novel/drivers.py
+  - agency/capabilities/novel/clusters/lifecycle.py
+  - agency/capabilities/novel/templates/
+  - agency/capabilities/novel/data/
+  - tests/test_novel_lifecycle.py
+domain: novel / lifecycle
+wave: 8
+parent_spec: "101"
+mvp-source:
+  - "Plan/_research/novel-mvp-source/templates/ (11 files — port verbatim)"
+  - "Plan/_research/novel-mvp-source/prior-specs/010-on-disk-layout.md"
+  - "Plan/_research/novel-mvp-source/prior-specs/011-handlers-core.md"
+---
+
+# Spec 102 — Novel Lifecycle Cluster (foundation + migration)
+
+## Why
+
+The first child of Spec 101 — and the foundation that lands the novel
+capability folder under `agency/capabilities/novel/`. Like music's Spec
+094, 102 carries:
+
+- The consolidated `OntologyExtension` (all nodes/edges/enums/templates/
+  schemas declared additively; children attach to it)
+- The five Driver protocols (reused from music; new methods this child
+  needs)
+- The novel-concept walkable skill (10-phase conceptualizer)
+- The 11 templates ported VERBATIM from the-agency-system
+- The base lifecycle verbs (Novel/Series/Chapter/Scene CRUD, idea capture,
+  status flips, resume/session)
+
+This spec also lands the **decision to host the Dramatica ontology +
+NCP schema as static data** under `agency/capabilities/novel/data/` so
+103's coherence checks have a stable read source.
+
+## Done When
+
+- [ ] `agency/capabilities/novel/{__init__.py,ontology.py,drivers.py,
+      clusters/lifecycle.py}` exists; `NovelCapability(CapabilityBase)`
+      registers.
+- [ ] 11 templates ported VERBATIM from
+      `Plan/_research/novel-mvp-source/templates/` to
+      `agency/capabilities/novel/templates/`; declared on
+      `OntologyExtension.templates` (Spec 060 substrate). Test asserts
+      `ctx.template(name).template` for each name returns a non-empty
+      body that matches the imported source.
+- [ ] **Data assets ported under `agency/capabilities/novel/data/`**:
+      - `data/dramatica/ontology.json` (304 entries; read by 103 verbs)
+      - `data/schemas/ncp-schema-v1.3.0.json` (NCP validation)
+      - `data/dramatica/scenarios.json` (12 scenarios; 6 novel + 6 lyric)
+      - `data/reference/research-domains.yaml` (10 domains — copied from
+        099 + tweaked for novels)
+- [ ] **14 user-facing verbs ship** (see "Verb manifest").
+- [ ] **StateDriver extended** with the 14 new methods listed below;
+      deterministic fake.
+- [ ] **`novel-concept` walkable skill** ships as the 10-phase
+      conceptualizer (modeled on music's `album-concept` 7-phase pattern
+      but extended with dramatica-seed + outline-shape phases).
+- [ ] **pytest markers extended** (per 094-style fix): `_AUTO_MARKER_
+      PATTERNS` gains `(re.compile(r"test_novel_"), "novel")` (single
+      marker for now; cluster subdivisions can come later).
+- [ ] **`tests/test_novel_lifecycle.py` Green** (~12 tests).
+- [ ] **`TODO.md` updated** with 102 row.
+
+## Verb manifest
+
+| # | Verb | Role | Driver | Notes |
+|---|---|---|---|---|
+| 1 | `conceptualize` | act | (driver-free) | Renders the work+premise artefact pair via templates |
+| 2 | `capture_idea` | effect | StateDriver | Records an `Idea` (renaming music's Idea node — same shape) |
+| 3 | `promote_idea` | effect | StateDriver | Idea → Novel transition |
+| 4 | `list_ideas` | transform | StateDriver | Filter by status |
+| 5 | `create_novel` | effect | StateDriver | Creates novel root + renders the 8 startup templates |
+| 6 | `find_novel` | transform | StateDriver | Fuzzy + filter |
+| 7 | `set_novel_status` | effect | StateDriver | Enum-checked |
+| 8 | `create_chapter` | effect | StateDriver | Renders chapter.md template |
+| 9 | `list_chapters` | transform | StateDriver | |
+| 10 | `create_scene` | effect | StateDriver | Renders scene.md template |
+| 11 | `set_chapter_status` | effect | StateDriver | Enum-checked |
+| 12 | `rename_novel` | effect | StateDriver | Mirror-paths via StateDriver |
+| 13 | `novel_progress` | transform | StateDriver | Word-count + beat-completion + chapter-status aggregate |
+| 14 | `resume_session` | transform | StateDriver | Restores last-novel context |
+| 15 | `import_from_markdown` | effect | StateDriver | Iteration-6 — see IMPORT-EXPORT.md |
+| 16 | `import_from_scrivener` | effect | StateDriver | Iteration-6 |
+| 17 | `import_from_docx` | effect | StateDriver | Iteration-6 (deferred to Wave-4 PR-K2) |
+| 18 | `import_from_md_file` | effect | StateDriver | Iteration-6 |
+| 19 | `export_for_editor` | effect | StateDriver+FormatDriver | Iteration-6 |
+| 20 | `reconcile_disk_with_graph` | transform | StateDriver | Iteration-6 |
+| 21 | `migrate_to_volume_hierarchy` | effect | StateDriver | Iteration-6 (schema migration) |
+
+**Total: 21 verbs (14 base + 7 iteration-6 import/export/migration).**
+
+The 7 iteration-6 verbs are documented in `IMPORT-EXPORT.md`. They ship
+in Wave 4 PR-K2 (import/export feature PR) — NOT the base 102 PR
+(which keeps to the first-PR scope above).
+
+## Design
+
+### Module layout
+
+```
+agency/capabilities/novel/
+├── __init__.py              # NovelCapability + module docstring → SkillDoc
+├── ontology.py              # the consolidated OntologyExtension
+├── drivers.py               # the 5 Driver protocols + fake_drivers()
+├── clusters/
+│   ├── __init__.py
+│   └── lifecycle.py         # the 14 verbs (this spec)
+├── templates/               # 11 .md/.json ported verbatim
+└── data/
+    ├── dramatica/
+    │   ├── ontology.json    # 304-entry Dramatica ontology
+    │   └── scenarios.json   # 12 NCP scenarios
+    ├── schemas/
+    │   └── ncp-schema-v1.3.0.json
+    └── reference/
+        └── research-domains.yaml
+```
+
+### StateDriver method delta
+
+```python
+class StateDriver(Boundary):
+    # reused from music
+    def put(self, key: str, value: dict) -> None: ...
+    def get(self, key: str) -> dict | None: ...
+    def read_data(self, kind: str, slug: str) -> dict: ...
+
+    # new methods (102)
+    def create_novel_root(self, author: str, genre: str, slug: str) -> str: ...
+    def find_novel(self, query: str) -> list[dict]: ...
+    def list_novels(self) -> list[dict]: ...
+    def create_chapter(self, novel: str, slug: str, number: int) -> str: ...
+    def list_chapters(self, novel: str) -> list[dict]: ...
+    def create_scene(self, chapter: str, slug: str, pov: str) -> str: ...
+    def set_chapter_status(self, novel: str, chapter: str, status: str) -> None: ...
+    def rename_novel(self, old_slug: str, new_slug: str) -> dict: ...
+    def novel_progress(self, novel: str) -> dict: ...
+    def get_session(self) -> dict: ...
+    def update_session(self, fields: dict) -> None: ...
+    def read_ncp(self, novel: str) -> dict: ...
+    def write_ncp(self, novel: str, ncp: dict) -> None: ...
+    def list_ideas(self, status: str = "") -> list[dict]: ...
+```
+
+### `novel-concept` walkable skill (10 phases)
+
+```python
+NOVEL_CONCEPT_SKILL = {
+    "name": "novel-concept",
+    "kind": "conceptualizer",
+    "phases": [
+        {"index": 1, "name": "premise",
+         "produces": ["logline", "central_question"]},
+        {"index": 2, "name": "genre",
+         "produces": ["genre", "subgenre", "tone"]},
+        {"index": 3, "name": "audience",
+         "produces": ["target_reader", "comp_titles"]},
+        {"index": 4, "name": "pov",
+         "produces": ["pov_choice", "narrator_voice"]},
+        {"index": 5, "name": "setting",
+         "produces": ["world", "time_period", "geography"]},
+        {"index": 6, "name": "characters-core",
+         "produces": ["protagonist_seed", "antagonist_seed",
+                      "supporting_seeds"]},
+        {"index": 7, "name": "dramatica-seed",
+         "produces": ["resolve_intent", "growth_intent",
+                      "approach_intent", "mental_sex_intent"]},
+        {"index": 8, "name": "outline-shape",
+         "produces": ["act_structure", "midpoint_intent",
+                      "ending_intent"]},
+        {"index": 9, "name": "series-hypothesis",
+         "produces": ["standalone_or_series", "series_arc"]},
+        {"index": 10, "name": "confirmation",
+         "produces": ["user_confirmed"], "gate": "hard"},
+    ],
+}
+```
+
+**Primary actor**: human-curator (the user); agent assists by populating
+each phase's `produces` keys but does NOT auto-advance phase 10.
+
+### Character psychology layer (iteration 7)
+
+Per the imported ncp-author character-appreciations + the parity table's
+`character-architect` skill (uses TSDP/IFS, Big Five (OCEAN), Enneagram,
+Jung archetypes). The Character node already declares `big_five` and
+`enneagram` properties. iteration 7 adds the corresponding verbs +
+sub-node structure:
+
+```python
+# Character node (extended):
+Character (slug, novel, archetype, role_in_OS, voice_signature,
+           big_five: dict,        # {O: 0-100, C: 0-100, E: 0-100,
+                                  #  A: 0-100, N: 0-100}
+           enneagram: str,        # "1"..."9" or "1w2" etc
+           ifs_parts: list,       # [{name, role: manager|firefighter|exile, age, voice}]
+           jung_archetype: str,   # closed enum (per Jungian list)
+           moral_alignment: str)  # closed enum (D&D-style optional)
+
+# Additional sub-nodes:
+PsychProfile  (slug, character, lens, body, generated_by)
+                # lens: big-five | enneagram | ifs | jung
+                # one profile per character per lens
+Trait         (slug, character, name, expression, conflict_potential)
+                # one Trait node per OCEAN-derived behavioral pattern
+```
+
+iter-7 verbs (effects + transforms):
+
+```python
+@verb(role="effect")
+def generate_psych_profile(self, character: str,
+                           lens: str = "big-five") -> ToolResult:
+    """Per the kohaerenz parity table's character-architect skill —
+    produce a PsychologicalProfileNode for the character via the
+    chosen lens. Default Big Five; Enneagram/IFS/Jung opt-in."""
+
+@verb(role="effect")
+def select_psych_framework(self, novel: str,
+                           genre: str = "") -> ToolResult:
+    """Recommend psychology frameworks for this novel based on genre.
+    Per kohaerenz SYNTHESIS verb-catalogue (slice 04):
+    - Genre: literary → [big-five, enneagram]
+    - Genre: thriller → [big-five, jung]
+    - Genre: psychological → [ifs, big-five, enneagram]
+    - Genre: SF/F → [big-five, jung, ifs]"""
+
+@verb(role="transform")
+def validate_dramatica_mapping(self, character: str) -> ToolResult:
+    """Per kohaerenz SYNTHESIS — verifies psychological traits don't
+    contradict the assigned Dramatica role. Example: a Protagonist with
+    big_five.A=10 (very low agreeableness) + Logic-archetype = warning;
+    a Sidekick with big_five.E=10 (introvert) + Faith-archetype = warning."""
+```
+
+### Worldbuilding verbs (iteration 7)
+
+iteration 2 declared the World sub-graph nodes; iteration 7 adds the
+verbs that populate + query them:
+
+```python
+@verb(role="effect")
+def create_world(self, novel: str, slug: str) -> ToolResult: ...
+@verb(role="effect")
+def create_culture(self, world: str, slug: str, name: str) -> ToolResult: ...
+@verb(role="effect")
+def create_religion(self, world: str, slug: str, name: str) -> ToolResult: ...
+@verb(role="effect")
+def create_language(self, world: str, slug: str, name: str,
+                    written_script: str = "latin") -> ToolResult: ...
+@verb(role="effect")
+def create_magic_system(self, world: str, slug: str, name: str,
+                        hard_or_soft: str = "hard") -> ToolResult: ...
+@verb(role="effect")
+def create_world_axiom(self, world: str, slug: str, text: str,
+                       severity: str = "hard") -> ToolResult: ...
+
+@verb(role="transform")
+def list_world(self, novel: str) -> ToolResult:
+    """Return the full World sub-graph as a tree:
+    {world: {cultures: [...], religions: [...], languages: [...],
+             magic_systems: [...], axioms: [...]}}"""
+
+@verb(role="transform")
+def find_axiom_contradictions(self, novel: str) -> ToolResult:
+    """Per kohaerenz SYNTHESIS — flag CONTRADICTS edges between
+    WorldAxioms; used by 108's world_canon_gate."""
+
+@verb(role="effect")
+def link_character_to_world(self, character: str, world_node_id: str,
+                            edge_type: str) -> ToolResult:
+    """One verb covering: BELONGS_TO (Faction), INHABITS (Culture),
+    WORSHIPS (Religion), SPEAKS (Language), WIELDS (MagicSystem).
+    edge_type is validated against the declared edge set."""
+
+@verb(role="effect")
+def draft_research_brief(self, world: str,
+                         domain: str = "history") -> ToolResult:
+    """Per kohaerenz SYNTHESIS — draft a domain research brief for the
+    world; 105's dispatch_research consumes it."""
+
+@verb(role="effect")
+def integrate_research_findings(self, world: str,
+                                research_id: str) -> ToolResult:
+    """Per kohaerenz SYNTHESIS — extract WorldAxiomNodes from research
+    findings; stage the canonical world data."""
+```
+
+### Conflict + Theme tracking (iteration 7)
+
+Two new node types + verbs:
+
+```python
+# Added to 102's consolidated ontology:
+Conflict   (slug, novel, scope, type, intensity, resolution_status)
+            # scope: scene | chapter | volume | series
+            # type: internal | interpersonal | societal | environmental | metaphysical
+            # intensity: 1-10 scale
+Theme      (slug, novel, name, motif_words, central: bool)
+            # central: is this the OS theme or a subordinate theme?
+
+@verb(role="effect")
+def track_conflict(self, scope: str, scope_id: str,
+                   conflict_type: str, intensity: int) -> ToolResult: ...
+
+@verb(role="transform")
+def conflict_density_report(self, novel: str) -> ToolResult:
+    """Per-chapter conflict intensity. Identifies 'flat' chapters
+    (no conflict) — flag for revision."""
+
+@verb(role="effect")
+def declare_theme(self, novel: str, slug: str, name: str,
+                  motif_words: list[str], central: bool = False) -> ToolResult: ...
+
+@verb(role="transform")
+def check_thematic_motif_distribution(self, novel: str) -> ToolResult:
+    """Scan motif_words across all chapters; report per-theme density
+    + chapters where the central theme is ABSENT (concerning)."""
+```
+
+### Foreshadowing + callbacks (iteration 7)
+
+The "Chekhov's gun" discipline — every planted element gets paid off:
+
+```python
+# Added to 102's consolidated ontology:
+PlantedElement (slug, novel, chapter_planted, description,
+                payoff_chapter, payoff_scene, status)
+                # status: planted | partially-paid | paid | orphaned
+
+@verb(role="effect")
+def plant_element(self, novel: str, chapter: int,
+                  description: str) -> ToolResult: ...
+
+@verb(role="effect")
+def mark_paid_off(self, planted_slug: str,
+                  chapter: int, scene: str = "") -> ToolResult: ...
+
+@verb(role="transform")
+def orphaned_foreshadowing_report(self, novel: str) -> ToolResult:
+    """Identifies PlantedElement nodes with status='planted' or
+    'partially-paid' beyond chapter X (X = total_chapters - 5).
+    Returns: {planted: [...], close_to_end_unresolved: [...]}."""
+```
+
+The `developmental-editor` skill (104) consumes this report — orphaned
+foreshadowing is a standard dev-edit flag.
+
+### Research-entity ontology (iteration 10 — complex research workflows)
+
+For research-informed fiction (hard SF, literary fiction with deep
+philosophy, historical fiction with academic backing), the design needs
+to ingest long-form research material (papers, books, treatises) and
+extract structured entities that can be:
+
+1. Mapped to chapters that need them
+2. Re-rendered as prompt snippets for LLM-assisted writing
+
+New nodes (declared in 102's consolidated extension):
+
+```python
+# Research-source layer:
+ResearchSource    (slug, novel, kind, title, author, year, body_uri,
+                   ingestion_status)
+                   # kind: paper | book | treatise | lecture-transcript |
+                   #       interview | dataset | image-set
+                   # ingestion_status: pending | chunked | extracted | indexed
+
+ResearchChunk     (slug, source, position, body, byte_range,
+                   chunk_kind)
+                   # chunk_kind: paragraph | section | quote | figure-caption
+
+# Extracted entity layer:
+ResearchEntity    (slug, source_chunk, kind, name, body,
+                   confidence, generated_by)
+                   # kind: concept | mechanism | definition | example |
+                   #       counterexample | lineage | theorem | anecdote |
+                   #       quote | analogy | empirical-fact
+
+EntityTag         (slug, entity, taxonomy, tag)
+                   # taxonomy: subject | discipline | era | author |
+                   #            applicability | mood
+                   # tag: free-form within the taxonomy (e.g.
+                   #      "quantum-mechanics", "kant.categorical-imperative",
+                   #      "stoicism.virtue", "renaissance.humanism")
+
+EntityRelation    (slug, source_entity, target_entity, kind)
+                   # kind: depends-on | contradicts | illustrates |
+                   #       refines | derives-from | inspired-by
+
+# Chapter-context layer:
+ChapterContext    (slug, chapter, entity, weight, declared_or_inferred,
+                   purpose)
+                   # weight: 0.0-1.0 (relevance score)
+                   # declared_or_inferred: declared | inferred
+                   # purpose: backbone | flavor | factcheck |
+                   #          counterpoint | metaphor-source
+
+# Prompt-snippet layer:
+PromptSnippet     (slug, chapter, scene, snippet_kind, body,
+                   entity_refs, generated_at)
+                   # snippet_kind: writing-assist | dialogue-prompt |
+                   #               description-prompt | exposition-prompt |
+                   #               metaphor-prompt
+                   # body: the rendered prompt text (~500-2000 tokens)
+                   # entity_refs: list[entity_id] — which entities were
+                   #              bundled into the snippet
+```
+
+Closed enums:
+- `(ResearchSource, kind)`: `paper / book / treatise / lecture-transcript /
+  interview / dataset / image-set`
+- `(ResearchSource, ingestion_status)`: `pending / chunked / extracted /
+  indexed`
+- `(ResearchChunk, chunk_kind)`: `paragraph / section / quote / figure-caption`
+- `(ResearchEntity, kind)`: `concept / mechanism / definition / example /
+  counterexample / lineage / theorem / anecdote / quote / analogy /
+  empirical-fact`
+- `(EntityRelation, kind)`: `depends-on / contradicts / illustrates /
+  refines / derives-from / inspired-by`
+- `(ChapterContext, declared_or_inferred)`: `declared / inferred`
+- `(ChapterContext, purpose)`: `backbone / flavor / factcheck /
+  counterpoint / metaphor-source`
+- `(PromptSnippet, snippet_kind)`: `writing-assist / dialogue-prompt /
+  description-prompt / exposition-prompt / metaphor-prompt`
+
+New edges:
+- `EXTRACTED_FROM` (ResearchEntity → ResearchChunk)
+- `TAGGED_AS` (ResearchEntity → EntityTag)
+- `RELATES_TO_ENTITY` (EntityRelation source → target)
+- `CONTEXTUALIZES` (ChapterContext → ResearchEntity)
+- `BUNDLES` (PromptSnippet → ResearchEntity)
+
+### Ontology declaration (with iteration-2 complexity extensions)
+
+The base schema (Spec 101) plus iteration-2 additions for complex novels.
+**All iteration-2 nodes are optional** — simple novels need only the base set.
+
+**Base set** (simple novel: Novel → Chapter → Scene):
+- Novel, Series, Chapter, Scene, Character, Beat, Idea (declared in
+  Spec 101's consolidated extension)
+- Novel.outline_hierarchy: `["chapter", "scene"]` (default)
+
+**Iteration-2 additions** (complex novel — opt-in via
+`Novel.outline_hierarchy` or per-novel frontmatter):
+
+```python
+# Volume/Part/Book hierarchy (ADR-5):
+Volume      (slug, series, number, title, word_count)
+Part        (slug, volume, number, title)
+Book        (slug, part_or_volume, number, title, word_count)
+
+# Worldbuilding sub-graph (ADR-4):
+World       (slug, novel, body_uri)
+Culture     (slug, world, body)
+Religion    (slug, world, body)
+Language    (slug, world, body, written_script)
+MagicSystem (slug, world, body, hard_or_soft)
+Politics    (slug, world, body)
+Economy     (slug, world, body)
+Geography   (slug, world, body)
+Bestiary    (slug, world, body)
+WorldAxiom  (slug, world, text, severity)        # hard / soft canon
+Canon       (slug, novel, axiom, scene_or_chapter)  # ENCODES edges
+
+# Large-cast hierarchy:
+Faction     (slug, novel, body)
+House       (slug, faction, name, sigil)
+Family      (slug, house_or_faction, name, members)
+
+# Character arc tracking (ADR-6):
+Arc         (slug, character, novel_or_series, phases)
+ArcPhase    (arc, position, growth_state, voice_signature_version)
+
+# Non-linear narrative (ADR-3):
+# Scene gains: narrative_order (manuscript position) + story_time
+# (in-world timestamp); same for Chapter
+
+# Multilingual (ADR-1):
+# Chapter.canon_language: str (e.g. "de", "en"); never translated.
+# CharacterSpeechLanguage: closed enum {de, en, fr, …} on Character node.
+```
+
+Closed enums added in iter-2:
+- `(Arc, growth_state)`: `seed / setback / commitment / crisis / change / mastery`
+- `(WorldAxiom, severity)`: `hard / soft` — hard axioms are inviolable;
+  soft are bendable for dramatic effect
+- `(MagicSystem, hard_or_soft)`: `hard / soft` — Sanderson's distinction
+- `(Language, written_script)`: `latin / cyrillic / arabic / kanji /
+  invented / pictographic`
+
+Edges added in iter-2:
+- `ENCODES` (Scene → WorldAxiom) — Scene establishes or relies on a Canon fact
+- `BELONGS_TO` (Character → Faction / House / Family)
+- `INHABITS` (Character → Culture)
+- `WORSHIPS` (Character → Religion)
+- `SPEAKS` (Character → Language)
+- `WIELDS` (Character → MagicSystem)
+- `CONTRADICTS` (WorldAxiom → WorldAxiom) — series-coherence flag
+
+(Full schema declared in 102's ontology.py; children attach their own
+nodes additively per ADR-5.)
+
+### Pytest markers
+
+`tests/conftest.py` gains:
+```python
+(re.compile(r"test_novel_"), "novel"),
+```
+(One marker per cluster — `novel_lifecycle`, `novel_storyform`, etc — is a
+v2 enhancement; for now `novel` is sufficient and matches the 094-style
+single-marker approach.)
+
+## Test plan
+
+```python
+# tests/test_novel_lifecycle.py — ~12 tests
+def test_novel_capability_discovers_all_lifecycle_verbs(): ...
+def test_ontology_merges_strictly_on_core_engine(): ...
+def test_all_11_templates_registered_and_non_empty(): ...
+def test_dramatica_ontology_loaded_from_data_assets(): ...
+def test_ncp_schema_validates_a_well_formed_ncp(): ...
+def test_conceptualize_renders_premise_artefact_with_produces_edge(): ...
+def test_novel_concept_skill_walks_to_phase_10_hard_gate(): ...
+def test_set_novel_status_rejects_unknown_status(): ...
+def test_capture_idea_records_idea_node_serves_intent(): ...
+def test_promote_idea_flips_status_and_links_to_novel(): ...
+def test_rename_novel_emits_mirrored_path_manifest(): ...
+def test_resume_session_restores_last_novel_context(): ...
+```
+
+## Implementation guidance (iteration 3) — First-PR scope
+
+102 is the foundation spec; its PR carries the heaviest scope of any
+child. Use this prioritized scope to keep the first PR tractable
+(target: ~600 LoC implementation + ~200 LoC tests). Defer everything
+below the cutoff to follow-up PRs.
+
+### First-PR scope (MUST land in 102's initial PR)
+
+1. **The module skeleton** (`__init__.py` + `ontology.py` + `drivers.py`
+   + `clusters/__init__.py`).
+2. **`OntologyExtension` declaration** — full schema (base + iteration-2
+   nodes). Even nodes whose verbs aren't yet implemented MUST be declared
+   so children can attach.
+3. **11 templates ported VERBATIM** from
+   `Plan/_research/novel-mvp-source/templates/` to
+   `agency/capabilities/novel/templates/`. No content edits.
+4. **Data assets ported VERBATIM**:
+   - `data/dramatica/ontology.json` (304 entries)
+   - `data/dramatica/scenarios.json` (12 scenarios)
+   - `data/schemas/ncp-schema-v1.3.0.json` (from
+     `legacy-skills/ncp-author/upstream/schema/`)
+   - `data/reference/research-domains.yaml`
+5. **Base lifecycle verbs (1-7)**: `conceptualize`, `capture_idea`,
+   `promote_idea`, `list_ideas`, `create_novel`, `find_novel`,
+   `set_novel_status`. Cover the simple-novel happy path.
+6. **`novel-concept` walkable skill** (the 10-phase conceptualizer).
+7. **`tests/test_novel_lifecycle.py`** — 12 tests focused on the
+   simple-novel happy path + the doctrine-exception assertions (zero
+   engine edits, ontology merges strictly).
+8. **pytest marker addition** to `conftest.py`.
+
+### Second-PR scope (DEFERRED — opens follow-up PR after 102 base lands)
+
+- Chapter / Scene / Beat verbs (8-14)
+- Iteration-2 Volume/Part/Book lifecycle verbs (`create_volume`,
+  `create_part`, `create_book`) — gated on `outline_hierarchy`
+  declaration
+- Iteration-2 World sub-schema effect verbs (`create_culture`,
+  `create_religion`, `create_language`, `create_magic_system`, …)
+- Iteration-2 Faction / House / Family / Arc / ArcPhase verbs
+- Complex-novel fixture tests (multi-volume, multi-POV, multi-subplot)
+- The `novel-concept` skill's iteration-2 phases (dramatica-seed,
+  outline-shape, series-hypothesis — currently phases 7-9)
+
+### Build order within the first PR
+
+1. Declare `OntologyExtension` first (no behaviour, just structure).
+2. Implement StateDriver method delta with fake.
+3. Port templates + data assets (file copies).
+4. Implement verbs 1-7 in `clusters/lifecycle.py`.
+5. Implement `novel-concept` skill phase-graph.
+6. Write tests covering each verb + the skill walk.
+7. Run `scripts/test-cap novel` Green.
+8. Run install regen + commit.
+
+### Risk register (first PR)
+
+| Risk | Mitigation |
+|---|---|
+| Ontology merge fails because a node label already exists in core | Use namespacing — every novel-specific label is unique (Novel, Series, Storyform, etc.) |
+| Template port fails because mustache `{{var}}` syntax conflicts with `string.Template` `$var` | Use `template.template` (raw body access) until Spec 060 mustache support lands; document as Open Q |
+| `data/dramatica/ontology.json` size (304 entries, ~50KB) bloats wheel | Acceptable — under the 100KB threshold for data assets |
+| 102's StateDriver method count grows past the music 094 baseline (which had 14) | Acceptable — novels need richer state ops; document the delta in the followup |
+
+## Open questions
+
+1. **Idea node — Novel-specific or reuse music's `Idea` label?** Reuse the
+   label (it's already in the core ontology via 094 music). Add an
+   optional `kind` field to distinguish music vs novel ideas.
+2. **NCP round-trip granularity**: 102 ships read/write of the top-level
+   `{storyform, players, scenes, metadata}` blocks. Storybeat/Moment-level
+   modification ships in 103.
+3. **Templates: substituter vs raw?** Templates use `{{var}}` mustache
+   placeholders (per the imported source). `ctx.template(name).template`
+   returns the raw string; the agent substitutes inline. Acceptable for
+   v1; `string.Template` migration is a followup.
+
+## Followup — Implementation Status (2026-06-09)
+
+**Slice 1 SHIPPED** on branch `claude/spec-102-novel-lifecycle` (stacks on
+PR #78 / branch `claude/music-todo-flip-and-novel-start`). Commit:
+extends `agency/capabilities/novel/_main.py` with the 5 new lifecycle
+verbs + Idea ontology + 10-phase skill.
+
+### Done in Slice 1 (the first-PR scope per §"First-PR scope")
+- 5 NEW verbs ship: `capture_idea` (effect, Idea node + SERVES),
+  `promote_idea` (effect, Idea→Novel transition with PROMOTED_TO edge +
+  status flip to `promoted`), `list_ideas` (transform, optional status
+  filter rejected with INVALID_ARGUMENT for unknown values),
+  `find_novel` (transform, case-insensitive substring on title),
+  `set_novel_status` (effect, NOVEL_STATUS enum-checked).
+- `Idea` node + `IDEA_STATUS` enum (`new`/`promoted`/`dropped`) +
+  `PROMOTED_TO` edge added to `novel_ontology`.
+- `novel-concept` walkable skill extended from 5 → 10 phases:
+  `premise` → `genre` → `audience` → `pov` → `setting` →
+  `characters-core` → `dramatica-seed` → `outline-shape` →
+  `series-hypothesis` → `confirmation` (hard gate). Test asserts the
+  full walk + phase-name list.
+- 17 dedicated tests in `tests/test_novel_lifecycle.py`: verb
+  registration, ontology declarations, status enum bites, happy paths
+  for all 5 verbs, NOT_FOUND failures, invalid-status rejections,
+  10-phase skill walk.
+- Existing 14 `tests/test_novel_capability.py` tests updated for the
+  10-phase shape — the 5-MVN-verbs assertion relaxed to a SUBSET check
+  so the cap can grow as cluster children land.
+
+### Carve-outs from §"First-PR scope" (deferred to Slice 2+)
+- **StateDriver Protocol + FakeStateDriver**: Slice 1 is graph-only
+  (Idea + Novel + PROMOTED_TO live on the bi-temporal graph). The
+  disk-layer (`agency/capabilities/novel/data/<slug>/`) follows the
+  Spec-115 production-binding split: real disk write lands in a
+  follow-up paired with the StateDriver protocol declaration.
+- **`agency/capabilities/novel/ontology.py` + `drivers.py` + `clusters/lifecycle.py`
+  module split**: ontology + verbs still co-located in `_main.py` per
+  music's per-cluster-split-deferred precedent. Batch migration when
+  all 102-108 children ship.
+- **Templates port** (11 .md/.json): SHIPPED — 10 markdown verbatim
+  from `Plan/_research/novel-mvp-source/templates/` + ncp.json under
+  `data/ncp/`. Already in Spec 101 Slice 1.
+- **Data assets port**: SHIPPED — Dramatica ontology.json (304
+  entries) + decidability matrix doc already in Spec 101 Slice 1.
+  Remaining (`dramatica/scenarios.json`, `schemas/ncp-schema-v1.3.0.json`,
+  `reference/research-domains.yaml`) are Slice 2/3 (consumed by Specs
+  103/105).
+- **Verbs 8-14**: `list_chapters`, `create_scene`, `set_chapter_status`,
+  `rename_novel`, `novel_progress`, `resume_session` — Slice 2.
+  `create_chapter` shipped in Spec 101 Slice 1.
+- **pytest marker for `novel`**: SHIPPED in PR #78's marker-drift fix
+  (commit 813ed76; `conftest._AUTO_MARKER_PATTERNS` + `pyproject.toml`
+  markers + `scripts/test-changed`).
+
+### Done When status
+
+5 of 10 Done-When boxes ticked. The remaining 5 (StateDriver delta,
+verbs 8-14, per-cluster file split, Slice-2 data assets, the 21-verb
+total) are deferred per the §"Second-PR scope" enumeration.

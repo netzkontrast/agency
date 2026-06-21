@@ -60,7 +60,7 @@ role-tag). A second, SDLC+meta-discipline-grounded view came out of the PR #17
 audit conversation (deep dive on SuperClaude's 33 commands + Superpowers' 14
 skills). That overlay groups the wider ecosystem's surface into **13 clusters**
 and maps each onto the agency surface — see
-[`Plan/047-cluster-integration/spec.md`](../../Plan/047-cluster-integration/spec.md)
+[`Plan/inprogress/047-cluster-integration/spec.md`](../../Plan/inprogress/047-cluster-integration/spec.md)
 for the per-cluster integration plan.
 
 | # | Cluster | Implementing specs in agency | This-doc primitive |

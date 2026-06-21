@@ -558,12 +558,14 @@ class AdrCapability(CapabilityBase):
             return ToolResult.success(data={"error": f"no theme {theme_id!r}",
                                             "theme_id": theme_id})
         children = self.ctx.neighbors(theme_id, "PART_OF", direction="in")
+        # Sort by the decision TEXT (stable across sessions) — NOT the graph id
+        # (a fresh UUID each session would churn the committed file every render).
         active = sorted((c for c in children
                          if str(c.get("status")) != "superseded"),
-                        key=lambda c: c.get("id", ""))
+                        key=lambda c: str(c.get("decision", "")))
         superseded = sorted((c for c in children
                              if str(c.get("status")) == "superseded"),
-                            key=lambda c: c.get("id", ""))
+                            key=lambda c: str(c.get("decision", "")))
         body = self._render_body(theme, active, superseded)
         sha = hashlib.sha256(body.encode("utf-8")).hexdigest()
         self.ctx.update(theme_id, {"content_sha": sha})
@@ -571,19 +573,64 @@ class AdrCapability(CapabilityBase):
                                         "content_sha": sha, "active": len(active),
                                         "superseded": len(superseded), "body": body})
 
+    # The five WH(Y) connectors, in canonical order (SPEC-001-A / adr ADR-001):
+    # rendered as a bolded six-part block, one line per element.
+    _WHY_BLOCK = (("In the context of", "context"), ("facing", "facing"),
+                  ("we decided for", "decision"), ("and neglected", "neglected"),
+                  ("to achieve", "benefits"), ("accepting that", "tradeoffs"))
+    # Typed dependency edges surfaced per decision (SPEC-001-C; SUPERSEDED_BY is
+    # the history appendix, and PART_OF — membership in this very theme — is
+    # implied by the file, not a dependency).
+    _DEP_EDGES = (("DEPENDS_ON", "Depends On"), ("REFINES", "Refines"),
+                  ("RELATES_TO", "Relates To"))
+
     def _render_body(self, theme: dict, active: list[dict],
                      superseded: list[dict]) -> str:
+        """Project a theme (a Master ADR — SPEC-001-D) to the canonical enhanced
+        WH(Y) markdown of the `adr` repo: an aggregate-status header, then each
+        live decision as a metadata table + a bolded six-part WH(Y) statement
+        (SPEC-001-A) + a typed Dependencies table, and a collapsed superseded
+        appendix. Deterministic (children pre-sorted by id, no timestamps)."""
         title = theme.get("title") or f"{theme.get('layer', '')} decisions"
+        agg = _aggregate_status([str(d.get("status")) for d in active + superseded])
         lines = [f"# {title}", ""]
-        for d in active:
+        if theme.get("scope"):
+            lines += [f"> {theme.get('scope')}", ""]
+        # Master-ADR aggregate status (SPEC-001-D — status over the children).
+        lines += ["| Master ADR | Layer | Aggregate Status | Decisions |",
+                  "|---|---|---|---|",
+                  f"| {title} | {theme.get('layer', '—')} | {agg} | "
+                  f"{len(active)} live · {len(superseded)} superseded |", ""]
+        layer_id = (theme.get("layer") or "adr").upper()
+        for i, d in enumerate(active, start=1):
+            did = d.get("id", "—")              # graph id — for edge traversal only
+            disp = f"{layer_id}-{i:02d}"         # stable human Decision ID (SPEC-001-A)
             lines += [
                 f"## {d.get('decision')}", "",
-                f"In the context of {d.get('context')}, facing {d.get('facing')}, "
-                f"we decided for {d.get('decision')} and neglected "
-                f"{d.get('neglected')}, to achieve {d.get('benefits')}, accepting "
-                f"that {d.get('tradeoffs')}.",
-                f"_status: {d.get('status')}_", "",
+                "| Decision ID | Status | Proposed By |",
+                "|---|---|---|",
+                f"| {disp} | {d.get('status')} | {d.get('proposed_by', '—')} |", "",
             ]
+            # The WH(Y) statement — bolded connectors, one element per line
+            # (markdown hard breaks via trailing two spaces), the canonical shape.
+            why = [f"**{conn}** {str(d.get(field, '')).strip()}"
+                   for conn, field in self._WHY_BLOCK]
+            lines.append(",  \n".join(why) + ".")
+            lines.append("")
+            # Typed dependencies (only when present — ADR-minimalism, SPEC-001-B).
+            deprows: list[str] = []
+            for edge, label in self._DEP_EDGES:
+                # Sort + reference by the target's TEXT (decision/title/path), never
+                # its graph id — a fresh UUID each session would churn the file.
+                for nb in sorted(self.ctx.neighbors(did, edge, direction="out"),
+                                 key=lambda n: str(n.get("decision") or n.get("title")
+                                                    or n.get("path") or n.get("id", ""))):
+                    ref = (nb.get("decision") or nb.get("title")
+                           or nb.get("path") or nb.get("id", "—"))
+                    deprows.append(f"| {label} | {ref} |")
+            if deprows:
+                lines += ["| Relationship | Decision / Spec |", "|---|---|",
+                          *deprows, ""]
         if superseded:
             lines += ["## Superseded / history", ""]
             for d in superseded:
@@ -1020,3 +1067,122 @@ class AdrCapability(CapabilityBase):
                     swept.append(d.get("id"))
         return ToolResult.success(data={"swept": swept, "count": len(swept),
                                         "as_of": as_of})
+
+    # The architecture layers in canonical order (the reserved theme set, Spec
+    # 353); unknown layers sort after, alphabetically. AGENCY-DRIFT: adr-layers.
+    _LAYER_ORDER = ("datalayer", "substrate", "capabilities", "lifecycle", "workflow")
+
+    @verb(role="act")
+    def architecture(self, adr_dir: str = "docs/adr", out: str = "architecture.md",
+                     apply: bool = False) -> ToolResult:
+        """ARCHITECTURE — rebuild the shorthand architecture digest: every recorded
+        WH(Y) decision as a ONE-LINER, grouped by architecture layer, rolled up from
+        the durable thematic ADRs (``docs/adr/<layer>.md``). The digest is the
+        token-cheap, high-signal artefact the SessionStart hook emits so every
+        session opens knowing the load-bearing decisions; the full rationale lives in
+        the ADRs. "Code is the final decision" — this is derived from the shipped
+        ADRs, never authored ahead of them. Rebuilt when a spec is marked done (the
+        owner's word is the approval) and its ADR is appended/updated.
+
+        Inputs: adr_dir (where the thematic ADRs live), out (the digest path,
+                repo-root-relative), apply (write the file; else preview only).
+        Returns: ``{path, layers, decisions, body, written}``.
+        chain_next: the SessionStart hook emits ``out``; `adr.hints` for the
+                    per-spec deep cut at implementation start.
+        """
+        import pathlib
+        base = pathlib.Path(adr_dir)
+        layers: dict[str, dict] = {}
+        for md in sorted(base.glob("*.md")):
+            if md.name == "README.md":
+                continue
+            raw = md.read_text(encoding="utf-8")
+            _anchor, fm_body = self._strip_anchor(raw)
+            fm = parse_frontmatter(fm_body)
+            if fm.get("kind") != "adr-theme":
+                continue
+            layer = str(fm.get("layer", md.stem)).strip()
+            # Decision headings = `## …`, minus the superseded-history appendix.
+            decisions = [m.strip() for m in re.findall(r"(?m)^##\s+(.+?)\s*$", fm_body)
+                         if not m.strip().lower().startswith("superseded")]
+            layers[layer] = {"title": str(fm.get("title", layer)).strip().strip('"'),
+                             "scope": str(fm.get("scope", "")).strip().strip('"'),
+                             "decisions": decisions}
+        order = sorted(layers, key=lambda l: (self._LAYER_ORDER.index(l)
+                       if l in self._LAYER_ORDER else len(self._LAYER_ORDER), l))
+        total = sum(len(layers[l]["decisions"]) for l in order)
+        lines = ["# agency — architecture digest", "",
+                 f"Every recorded WH(Y) decision as a one-liner ({total} across "
+                 f"{len(order)} layers), grouped by architecture layer. The decision "
+                 "IS what ships — **code is the final decision**; the full rationale, "
+                 "neglected alternatives and trade-offs live in "
+                 "[`docs/adr/`](docs/adr/). Rebuilt on spec-done via "
+                 "`adr.architecture(apply=True)`; emitted by the SessionStart hook.", ""]
+        for layer in order:
+            t = layers[layer]
+            lines.append(f"## {layer.title()}")
+            if t["scope"]:
+                lines.append(f"_{t['scope']}_")
+            lines.append("")
+            lines += [f"- {d}" for d in t["decisions"]] or ["- (no decisions yet)"]
+            lines.append("")
+        from agency.capabilities.document._interconnect import stamp_anchor
+        body = stamp_anchor("\n".join(lines).rstrip() + "\n", "architecture-digest")
+        written = False
+        if apply:
+            pathlib.Path(out).write_text(body, encoding="utf-8")
+            written = True
+        return ToolResult.success(data={"path": out, "layers": order,
+                                        "decisions": total, "body": body,
+                                        "written": written})
+
+    @verb(role="effect")
+    def publish(self, theme_id: str, out: str = "", apply: bool = True) -> ToolResult:
+        """PUBLISH — project a theme to its ``docs/adr/<layer>.md`` FILE: the
+        keep-both file side of `render`. The full file = a Spec-292 anchor +
+        DETERMINISTIC frontmatter (kind/layer/title/scope/aggregate-status, no
+        timestamp — git history is the clock, so re-publish is byte-idempotent)
+        + the rendered canonical WH(Y) body. This is the "append/update the ADR"
+        step of the done-cascade; `workflow.mark_done` calls it per affected theme.
+
+        Inputs: theme_id, out (override the theme's path — for tests), apply
+                (write the file; else preview the body).
+        Returns: ``{theme_id, path, written, content_sha, body}`` or ``{error}``.
+        chain_next: adr.architecture(apply=True) to roll the published ADRs up.
+        """
+        theme = self.ctx.recall_typed(theme_id, "Document")
+        if not theme:
+            return ToolResult.success(data={"error": f"no theme {theme_id!r}",
+                                            "theme_id": theme_id})
+        r = self.render(theme_id).data
+        if "error" in r:
+            return ToolResult.success(data=r)
+        layer = theme.get("layer", "")
+        children = self.ctx.neighbors(theme_id, "PART_OF", direction="in")
+        agg = _aggregate_status([str(c.get("status")) for c in children])
+        title = theme.get("title") or f"{layer} decisions"
+        fm = ["---", "kind: adr-theme", f"layer: {layer}", f'title: "{title}"']
+        if theme.get("scope"):
+            fm.append(f'scope: "{theme.get("scope")}"')
+        fm += [f"status: {agg}", "---", ""]
+        from agency.capabilities.document._interconnect import stamp_anchor
+        body = stamp_anchor("\n".join(fm) + "\n" + r["body"] + "\n",
+                            f"adr-theme-{layer}")
+        path = out or theme.get("path") or f"docs/adr/{_theme_slug(layer)}.md"
+        written = False
+        if apply:
+            import pathlib
+            pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+            pathlib.Path(path).write_text(body, encoding="utf-8")
+            written = True
+        return ToolResult.success(data={"theme_id": theme_id, "path": path,
+                                        "written": written,
+                                        "content_sha": r["content_sha"],
+                                        "body": body})
+
+    @staticmethod
+    def _strip_anchor(raw: str):
+        """Split a leading Spec-292 anchor off a doc body (delegates to the one
+        interconnect helper — rule 2) so frontmatter still parses."""
+        from agency.capabilities.document._interconnect import extract_anchor
+        return extract_anchor(raw)

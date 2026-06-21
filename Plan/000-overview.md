@@ -18,7 +18,7 @@ the next spec by depends_on order; answer its **Open Questions** first
 implement (TDD); keep `pytest` green; flip `status: draft → done`.
 
 Spec frontmatter convention: see
-[`Plan/014-observation-to-spec-amendment/spec.md`](014-observation-to-spec-amendment/spec.md)
+[`Plan/inprogress/014-observation-to-spec-amendment/spec.md`](014-observation-to-spec-amendment/spec.md)
 as the format reference. Required fields: `spec_id`, `slug`, `status`,
 `owner`, `depends_on`, `affects`, `domain`, `wave`.
 

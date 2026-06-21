@@ -49,7 +49,7 @@ distils each high-volume tool's output to its *signal*, not its first 20 lines.
 - `scripts/check-doc-drift --update` → 7 docs re-stamped (engine.py + shell sources
   changed; pre-existing drift closed).
 - TODO.md Spec 337 row updated (Drafted → Shipped; count 88→89).
-- `Plan/337-per-tool-output-filters/spec.md` Followup updated.
+- `Plan/done/337-per-tool-output-filters/spec.md` Followup updated.
 - Reflections: `reflection:9bd15b10` (candidate selection), `reflection:b7aa89a8` (lessons).
 
 ## Next 3 candidates (ranked)

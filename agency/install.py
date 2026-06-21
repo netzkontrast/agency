@@ -663,6 +663,27 @@ _SESSION_START_HOOK_SCRIPT = """\
 #    .agency/ dir + .gitattributes binary marker, nothing else.
 set -e
 
+# --- Spec 353/354: emit the architecture digest as SessionStart context ---
+# architecture.md (repo root) is the shorthand rollup of every recorded WH(Y)
+# decision — token-cheap, high-signal. Emitting it on stdout as
+# `additionalContext` opens every session knowing the load-bearing decisions
+# (the full rationale stays in docs/adr/). Shorthand by design, so it is never
+# truncated (CLAUDE.md rule 9). stderr below carries install diagnostics; this
+# is the only stdout writer, so the JSON stays clean.
+_agency_emit_architecture() {
+  local proj="${CLAUDE_PROJECT_DIR:-$PWD}"
+  local arch="${proj}/architecture.md"
+  [ -f "$arch" ] || return 0
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 - "$arch" <<'PY' 2>/dev/null || true
+import json, sys
+txt = open(sys.argv[1], encoding="utf-8").read()
+print(json.dumps({"hookSpecificOutput": {
+    "hookEventName": "SessionStart", "additionalContext": txt}}))
+PY
+}
+_agency_emit_architecture
+
 # --- Spec 292: CodeGraph + repo index refresh on session start ---
 # ONE backgrounded, non-fatal job (never blocks session start), ORDERED:
 #   1. CodeGraph — `init` on the first session, `sync` thereafter, so the repo
@@ -1256,7 +1277,7 @@ The DB is binary; git can't auto-merge. Recovery: each branch can
 export to JSON via `dogfood.export` (Spec 020 deliverable), then both
 exports replay against a fresh DB on the merged commit.
 
-See `Plan/020-central-graph-db/spec.md` for the full design.
+See `Plan/inprogress/020-central-graph-db/spec.md` for the full design.
 """
 
 _GITATTRS_MARKER = "# Spec 020 — central graph DB"

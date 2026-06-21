@@ -35,3 +35,11 @@ Feature: the develop-spec repo-development workflow (Spec 358)
     When I approve the spec decisions as owner "owner-alice"
     And I attempt to begin implementation
     Then implementation begins with hints loaded
+
+  Scenario: the owner marks the spec done (the done-cascade)
+    Given an ingested spec with decisions
+    When I open the spec to extract its decisions
+    And I approve the spec decisions as owner "owner-alice"
+    And I attempt to begin implementation
+    And I mark the spec done as owner "owner-alice"
+    Then the spec is recorded done

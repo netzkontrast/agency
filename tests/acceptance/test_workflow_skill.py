@@ -114,3 +114,18 @@ def _impl_begins(begin):
     assert begin.get("begun") is True, begin
     assert begin.get("state") == "inprogress", begin
     assert begin.get("hint_count", 0) >= 1, begin
+
+
+@when(parsers.parse('I mark the spec done as owner "{approver}"'),
+      target_fixture="done_result")
+def _mark_done(engine, confirmed_intent, spec_id, approver):
+    # apply=False — assert the graph cascade (approve + move→done) without
+    # writing architecture.md / docs/adr into the working tree during tests.
+    res, _ = invoke(engine, confirmed_intent, "workflow", "mark_done",
+                    spec_id=spec_id, approver=approver, apply=False, override=True)
+    return res
+
+
+@then("the spec is recorded done")
+def _is_done(done_result):
+    assert done_result.get("done") is True, done_result
