@@ -40,6 +40,20 @@
     "terminal": ["done"],
     "floor_gates": ["floor-check"]
   },
+  "loop": {
+    "initial": "planning",
+    "states": ["planning", "plan_gate", "delivering", "delivery_gate", "completed", "failed", "canceled"],
+    "transitions": {
+      "planning":      ["plan_gate", "canceled", "failed"],
+      "plan_gate":     ["planning", "delivering", "failed", "canceled"],
+      "delivering":    ["delivery_gate", "canceled", "failed"],
+      "delivery_gate": ["delivering", "completed", "failed", "canceled"],
+      "completed":     [],
+      "failed":        [],
+      "canceled":      []
+    },
+    "terminal": ["completed", "failed", "canceled"]
+  },
   "spec": {
     "initial": "draft",
     "states": ["draft", "open", "inprogress", "superseded", "done"],
