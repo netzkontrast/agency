@@ -4,7 +4,13 @@ This repo IS the plugin: a **FastMCP engine + bi-temporal GraphQLite graph**,
 exposing exactly **`search` · `get_schema` · `execute`** as the wire contract.
 Four concepts (Intent · Capability · Lifecycle · Memory) on one substrate.
 
-> **Read first:** [`docs/vision/GOALS.md`](docs/vision/GOALS.md) (why),
+> **Read first (MANDATORY):** [`architecture.md`](architecture.md) — the
+> shorthand digest of every recorded WH(Y) decision (one-liner per decision,
+> grouped by layer; **code is the final decision**, full rationale in
+> [`docs/adr/`](docs/adr/)). It is DERIVED — rebuilt on spec-done via
+> `adr.architecture(apply=True)`, and the SessionStart hook emits it as
+> `additionalContext`, so every session opens already knowing the load-bearing
+> decisions. Then: [`docs/vision/GOALS.md`](docs/vision/GOALS.md) (why),
 > [`docs/vision/CORE.md`](docs/vision/CORE.md) (canon),
 > [`AGENTS.md`](AGENTS.md) (operational), [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md)
 > (remote-agent doctrine).
