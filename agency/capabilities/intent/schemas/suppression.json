@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Suppression",
+  "description": "An intent's judgment to dismiss/defer a Finding (agency/capabilities/intent/_main.py; Spec 381 §4). SERVES the intent; SUPPRESSES the analyze Finding (cross-capability edge). Scan-time scoring drops a finding matching a live Suppression (risk + file glob); an expired one lets the finding resurface (keep-both — the Finding is never deleted).",
+  "type": "object",
+  "required": ["risk", "glob"],
+  "properties": {
+    "risk": {
+      "type": "string",
+      "description": "The decay-risk code being suppressed ('R1'-'R6', 'T1'-'T6', or a custom 'Cx')."
+    },
+    "glob": {
+      "type": "string",
+      "description": "The file glob the suppression applies to (named 'glob' not 'pattern' — graphqlite reserves 'pattern')."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Why the finding was dismissed/deferred — the judgment's provenance."
+    },
+    "expires": {
+      "type": "number",
+      "description": "Optional epoch after which the suppression lapses and the finding resurfaces (defer defaults +90d); absent = no expiry."
+    }
+  }
+}

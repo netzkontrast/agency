@@ -19,7 +19,7 @@ manage.timeline(intent_id) / analyze.graph('QualityRun') for the series.
 
 ## Details
 
-History is a GRAPH QUERY, never a ``.brooks-lint-history.json`` sidecar (Goal 2; survives ephemeral containers). Computes the Health Score + tier counts from the findings (honouring the quality: config), records a ``QualityRun{mode, scope, score, critical, warning, suggestion, status, recorded_at}`` SERVING the intent, then derives the trend: the delta from the most recent prior **complete** same-mode run. An incomplete/crashed walk is recorded but EXCLUDED from the delta (Nygard); a first run reports ``first=True``. Use when: persisting a review run so its score trend survives across sessions/CI as a durable, queryable node.
+History is a GRAPH QUERY, never a ``.brooks-lint-history.json`` sidecar (Goal 2; survives ephemeral containers). Computes the Health Score + tier counts from the findings (honouring the quality: config), records a ``QualityRun{mode, scope, score, critical, warning, suggestion, status}`` SERVING the intent (vfrom IS the recorded-at), then derives the trend: the delta from the most recent prior **complete** same-mode run. An incomplete/crashed walk is recorded but EXCLUDED from the delta (Nygard); a first run reports ``first=True``. Use when: persisting a review run so its score trend survives across sessions/CI as a durable, queryable node.
 
 ## Example
 

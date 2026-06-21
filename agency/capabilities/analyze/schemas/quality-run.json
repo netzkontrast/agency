@@ -33,10 +33,6 @@
       "type": "string",
       "enum": ["complete", "incomplete"],
       "description": "'complete' runs feed the trend; 'incomplete' (a crashed/partial walk) is recorded but excluded from the delta (Nygard)."
-    },
-    "recorded_at": {
-      "type": "number",
-      "description": "Wall-clock timestamp the run was recorded."
     }
   }
 }

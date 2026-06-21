@@ -1,7 +1,7 @@
 ---
 spec_id: "381"
 slug: health-score-config-triage
-status: draft
+status: shipped
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 4]
@@ -299,3 +299,26 @@ check-drift + doc-drift clean. **Still (Slice 4):** the scan-time suppression
 *scoring* read + `intent.triage` + the `Suppression`/`Acknowledgement` ontology
 on `IntentCapability`; plus the `QualityRun`→`SkillRun` edge + base-branch CI
 cache (folds with 382).
+
+**Slice 4 SHIPPED 2026-06-21 (TDD) — triage + suppression (§4); 381 core complete.**
+WRITE side (intent): `Suppression`/`Acknowledgement` nodes (+ `SUPPRESSES`/
+`ACKNOWLEDGES` edges) on the **intent** ontology (owner directive — triage is an
+intent judgment about a Finding) + `intent.triage(finding_id, action, reason,
+expires)` (role=`act`): `dismiss`→Suppression SERVING the intent + SUPPRESSES the
+Finding; `defer`→+expiry (default +90d); `accept`→Acknowledgement ACKNOWLEDGES;
+`skip`→no-op. risk+glob READ from the Finding by id (one source). READ side
+(analyze): `_score.apply_suppressions` drops findings matching a LIVE Suppression
+(risk + file glob), an expired one resurfaces (keep-both, Spec 292); wired into
+`analyze.score` (reads `ctx.find("Suppression")` cross-capability, returns
+`suppressed`/`expired_suppressions`). The stored file-glob prop is **`glob`** not
+`pattern` (graphqlite reserves `pattern`). **4 Gherkin scenarios**
+(`tests/acceptance/features/quality_triage.feature`): dismiss→provenance,
+accept→Acknowledgement, dismissed-excluded-from-score, expired-resurfaces. 86
+green across the analyze+intent slices; schema-coverage clean (3 new nodes got
+schemas); check-drift + doc-drift clean. **Refinements deferred (fold with 382):**
+config-file read from `.agency/config.yaml quality:` (Spec 334 — the verbs take
+the config dict today); the `QualityRun`→`SkillRun` edge; base-branch CI cache;
+applying the suppression read inside `record_run` (today it's on `score`).
+
+**Spec 381 v1 COMPLETE** — §1 score · §2 config · §3 history/trend · §4
+triage/suppression all shipped (Slices 1–4, TDD). status → shipped.

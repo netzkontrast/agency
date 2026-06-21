@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import time
 from pathlib import Path
 
 SCORE_PRESETS_PATH = Path(__file__).parent / "data" / "score-presets.json"
@@ -159,3 +160,42 @@ def apply_quality_config(findings, config: dict) -> list:
             f = _with_tier(f, severity[rc])
         out.append(f)
     return out
+
+
+# ── Spec 381 §4 — scan-time suppression read (the score-side of triage) ─────────
+
+def _as_epoch(v):
+    """Parse a suppression ``expires`` to an epoch float; unparseable → None
+    (treated as no-expiry, i.e. still active — never accidentally resurface)."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def apply_suppressions(findings, suppressions, now: float | None = None):
+    """Drop findings matching a LIVE (non-expired) Suppression (risk + file glob);
+    an expired suppression is ignored so its finding resurfaces (keep-both — the
+    finding is never deleted, Spec 292). Pure. Returns
+    ``(kept, suppressed, expired_count)``."""
+    now = time.time() if now is None else now
+    active: list = []
+    expired = 0
+    for s in suppressions:
+        exp = s.get("expires")
+        ep = _as_epoch(exp) if exp not in (None, "") else None
+        if ep is not None and ep < now:
+            expired += 1
+        else:
+            active.append(s)
+    kept, suppressed = [], []
+    for f in findings:
+        rc = _risk_of(f)
+        path = (f.get("file", "") if isinstance(f, dict) else getattr(f, "file", ""))
+        if rc and any(s.get("risk") == rc
+                      and fnmatch.fnmatch(path, s.get("glob", ""))
+                      for s in active):
+            suppressed.append(f)
+        else:
+            kept.append(f)
+    return kept, suppressed, expired

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Acknowledgement",
+  "description": "An intent's judgment to accept a Finding as known/won't-fix (agency/capabilities/intent/_main.py; Spec 381 §4). SERVES the intent; ACKNOWLEDGES the analyze Finding (cross-capability edge). Unlike a Suppression it does not change scan-time scoring — it makes 'accepted debt' queryable.",
+  "type": "object",
+  "required": ["risk", "glob"],
+  "properties": {
+    "risk": {
+      "type": "string",
+      "description": "The decay-risk code being acknowledged ('R1'-'R6', 'T1'-'T6', or a custom 'Cx')."
+    },
+    "glob": {
+      "type": "string",
+      "description": "The file glob the acknowledgement applies to (named 'glob' not 'pattern' — graphqlite reserves 'pattern')."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Why the finding is accepted as known/won't-fix — the judgment's provenance."
+    }
+  }
+}

@@ -375,11 +375,17 @@ class AnalyzeCapability(CapabilityBase):
             highest-leverage fixes (CI gate, report Summary).
         """
         from ._score import (score as _score, top_leverage as _top, load_presets,
-                             weights, parse_quality_config, apply_quality_config)
+                             weights, parse_quality_config, apply_quality_config,
+                             apply_suppressions)
         findings = findings or []
         presets = load_presets()
         cfg, notes = parse_quality_config(config, set(presets))
         findings = apply_quality_config(findings, cfg)
+        # Spec 381 §4 — read live Suppressions cross-capability (written by
+        # intent.triage) and drop matching findings from the score; an expired
+        # suppression lets its finding resurface (keep-both).
+        findings, suppressed, expired = apply_suppressions(
+            findings, self.ctx.find("Suppression"))
         eff_preset = preset or cfg["strictness"]
         return {
             "score": _score(findings, eff_preset, presets),
@@ -388,6 +394,8 @@ class AnalyzeCapability(CapabilityBase):
             "deductions": weights(eff_preset, presets),
             "config_notes": notes,
             "scored_findings": len(findings),
+            "suppressed": len(suppressed),
+            "expired_suppressions": expired,
         }
 
     @verb(role="act")
@@ -399,8 +407,8 @@ class AnalyzeCapability(CapabilityBase):
         History is a GRAPH QUERY, never a ``.brooks-lint-history.json`` sidecar
         (Goal 2; survives ephemeral containers). Computes the Health Score + tier
         counts from the findings (honouring the quality: config), records a
-        ``QualityRun{mode, scope, score, critical, warning, suggestion, status,
-        recorded_at}`` SERVING the intent, then derives the trend: the delta from
+        ``QualityRun{mode, scope, score, critical, warning, suggestion, status}``
+        SERVING the intent (vfrom IS the recorded-at), then derives the trend: the delta from
         the most recent prior **complete** same-mode run. An incomplete/crashed
         walk is recorded but EXCLUDED from the delta (Nygard); a first run reports
         ``first=True``.
@@ -413,7 +421,6 @@ class AnalyzeCapability(CapabilityBase):
         Use when: persisting a review run so its score trend survives across
             sessions/CI as a durable, queryable node.
         """
-        import time
         from ._score import (score as _score, load_presets, parse_quality_config,
                              apply_quality_config, _tier_of)
         findings = findings or []
@@ -434,11 +441,12 @@ class AnalyzeCapability(CapabilityBase):
             trend = {"first": False, "prior": last, "delta": sc - last}
         else:
             trend = {"first": True, "prior": None, "delta": None}
+        # recorded_at is the substrate's vfrom tick (rule 2 — don't duplicate the
+        # temporal stamp); the trend orders by it.
         run_id = self.ctx.record_and_serve("QualityRun", {
             "mode": mode, "scope": scope, "score": sc,
             "critical": counts["critical"], "warning": counts["warning"],
-            "suggestion": counts["suggestion"], "status": status,
-            "recorded_at": time.time()})
+            "suggestion": counts["suggestion"], "status": status})
         return {"run_id": run_id, "mode": mode, "score": sc, "counts": counts,
                 "status": status, "trend": trend}
 
