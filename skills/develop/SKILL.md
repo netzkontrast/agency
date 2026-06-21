@@ -37,6 +37,8 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | `record_step_outcome` | act | Mark a PlanStep's execution outcome (Spec 287). | [details](references/record_step_outcome.md) |
 | `reference` | transform | Fetch a discipline's heavy how-to on demand (T3 disclosure). | [details](references/reference.md) |
 | `reload` | effect | Reload edited capability code into the live session (effect). | [details](references/reload.md) |
+| `remediate` | effect | Apply the remedy phase of a prior review — safe fixes auto-applied, risky ones reported as gated (MUTATES → role=effect). | [details](references/remediate.md) |
+| `review` | transform | Diagnose code decay using the brooks Iron Law — READ-ONLY (transform). | [details](references/review.md) |
 | `scaffold_capability` | act | Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton. | [details](references/scaffold_capability.md) |
 | `session_check` | transform | Read the current SessionLifecycle state (transform). | [details](references/session_check.md) |
 | `session_init` | act | Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb. | [details](references/session_init.md) |
@@ -73,6 +75,18 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan', 'inputs': {}, 'intent_id': '…'})`
 - **`plan-execute`** (discipline): frame → draft-plan → plan-signoff → execute-step → checkpoint → synthesize
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan-execute', 'inputs': {}, 'intent_id': '…'})`
+- **`quality-audit`** (discipline): scope → decidable → judgment → score-report
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-audit', 'inputs': {}, 'intent_id': '…'})`
+- **`quality-debt`** (discipline): scope → decidable → judgment → score-report
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-debt', 'inputs': {}, 'intent_id': '…'})`
+- **`quality-health`** (discipline): scope → decidable → judgment → score-report
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-health', 'inputs': {}, 'intent_id': '…'})`
+- **`quality-review`** (discipline): scope → decidable → judgment → score-report
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-review', 'inputs': {}, 'intent_id': '…'})`
+- **`quality-sweep`** (discipline): scope → decidable → judgment → score-report → remedy
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-sweep', 'inputs': {}, 'intent_id': '…'})`
+- **`quality-test`** (discipline): scope → decidable → judgment → score-report
+  — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-test', 'inputs': {}, 'intent_id': '…'})`
 - **`review`** (discipline): request → dispatch → resolve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'review', 'inputs': {}, 'intent_id': '…'})`
 - **`session-driver-pass`** (workflow): init → mode-select → work-loop → synthesize → archive
