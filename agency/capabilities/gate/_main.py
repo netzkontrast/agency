@@ -7,6 +7,9 @@ Use when: a programmatic, reusable predicate must pass before work proceeds — 
 Triggers:
 - A decision point that must be enforced, not assumed
 - An acceptance condition that should be recorded as provenance
+Red flags:
+- Proceeding past a decision point on an assumption → record it with capability_gate_check
+- Reading a CI/quality verdict from a bare exit code instead of auditable provenance → use capability_gate_verdict
 """
 from __future__ import annotations
 
@@ -56,6 +59,27 @@ class GateCapability(CapabilityBase):
             # lifecycle — same idempotency the old raw `update` had).
             self.ctx.lifecycle.move(lifecycle_id, "input-required", evidence=evidence)
         return {"result": {"passed": bool(passed), "gate": g}}
+
+    @verb(role="act")
+    def verdict(self, name: str) -> dict:
+        """Read the LATEST Gate by name and report its pass/block verdict — the
+        reusable CI reader (Spec 382 §2, OQ2). Named ``verdict`` because ``assert``
+        is a Python keyword. READ-ONLY over the graph (records no new Gate); in CI
+        the caller exits non-zero iff ``blocked`` is True.
+
+        Inputs: name (str — the gate name, e.g. "quality:review").
+        Returns: ``{name, found, passed, blocked, evidence}``; an unknown name is
+        ``found=False, blocked=False`` (nothing to block on).
+        chain_next: in CI, exit non-zero when ``blocked``; else proceed.
+        """
+        gates = [g for g in self.ctx.find("Gate") if g.get("name") == name]
+        if not gates:
+            return {"name": name, "found": False, "passed": None, "blocked": False}
+        gates.sort(key=lambda g: g.get("vfrom", 0))
+        latest = gates[-1]
+        passed = bool(latest.get("passed"))
+        return {"name": name, "found": True, "passed": passed,
+                "blocked": not passed, "evidence": latest.get("evidence", "")}
 
     @verb(role="act")
     def adjudicate(self, a: str, b: str, lifecycle_id: str = "") -> dict:

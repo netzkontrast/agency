@@ -26,6 +26,7 @@ Analyze runs decidable transforms over source and reports findings on the qualit
 |------|------|-------|-----------|
 | `architecture` | transform | Dependency-graph + structural checks: import cycles, file LOC thresholds. | [details](references/architecture.md) |
 | `cleanup` | act | Focused mode: analyse for dead-code findings only, draft a patch plan. | [details](references/cleanup.md) |
+| `gate` | act | Record the quality gate verdict as an auditable Gate node (Spec 382 §2). | [details](references/gate.md) |
 | `graph` | transform | Query the provenance graph — a census of node types + a typed listing (read the graph). | [details](references/graph.md) |
 | `improve` | act | Read prior Analysis findings, draft an improvement plan as a Reflection. | [details](references/improve.md) |
 | `paths` | transform | Spec 048 intent-path analysis: long chains + verb sequences. | [details](references/paths.md) |

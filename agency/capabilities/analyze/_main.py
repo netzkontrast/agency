@@ -485,6 +485,32 @@ class AnalyzeCapability(CapabilityBase):
         }
 
     @verb(role="act")
+    def gate(self, score: int = 100, critical: int = 0, min_score: int = 70,
+             max_critical: int = 0, mode: str = "review") -> dict:
+        """Record the quality gate verdict as an auditable Gate node (Spec 382 §2).
+
+        PASSED iff ``score >= min_score`` AND ``critical <= max_critical`` —
+        documented tunable budgets (rule 8). Records a ``Gate{name:"quality:<mode>",
+        passed, evidence}`` SERVING the intent — auditable provenance, unlike
+        brooks' bare ``ci-gate.mjs`` exit code. The headless CI twin computes the
+        score (analyze.score) then calls this; ``gate.verdict`` reads it back.
+
+        Inputs: score (int), critical (int — critical-tier finding count),
+                min_score / max_critical (int — tunable budgets), mode (str).
+        Returns: {passed, blocked, evidence, gate, name}.
+        chain_next: gate.verdict("quality:<mode>") — non-zero exit on a block in CI.
+
+        Use when: gating a PR/commit on the Health Score + critical count.
+        """
+        from ._review import quality_gate
+        passed, evidence = quality_gate(score, critical, min_score, max_critical)
+        name = f"quality:{mode}"
+        gid = self.ctx.record_and_serve(
+            "Gate", {"name": name, "passed": passed, "evidence": evidence})
+        return {"passed": passed, "blocked": not passed, "evidence": evidence,
+                "gate": gid, "name": name}
+
+    @verb(role="act")
     def improve(self, analysis_id: str, axes: list = None,
                 apply: bool = False) -> dict:
         """Read prior Analysis findings, draft an improvement plan as a Reflection.

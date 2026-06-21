@@ -277,3 +277,19 @@ green across the analyze slice; install regen + check-drift + doc-drift clean.
 **Still (Slice 2+):** the quality gate (score/critical threshold via `gate` +
 `gate.assert` reader verb, §2), the CI job (§3), and the report render path (§4,
 template authored in 384).
+
+**Slice 2 SHIPPED 2026-06-21 (TDD) — the quality gate (§2).** `_review.py`
+`quality_gate(score, critical, min_score=70, max_critical=0) → (passed, evidence)`
+(pure decision; thresholds are documented tunable budgets — rule 8). `analyze.gate`
+(role=`act`) records a `Gate{name:"quality:<mode>", passed, evidence}` SERVING the
+intent — auditable provenance, not a bare exit code. `gate.verdict(name)`
+(role=`act`, the §2/OQ2 CI reader — named `verdict` since `assert` is a Python
+keyword) reads the LATEST Gate by name → `{found, passed, blocked, evidence}`, so
+CI exits non-zero on a block; an unknown gate is `found=False, blocked=False`.
+(Adding `verdict` made `gate` a 3-verb cap, so its docstring gained the required
+`Red flags:` section.) **5 Gherkin scenarios** (`tests/acceptance/features/
+quality_gate.feature`): blocks-below-score, critical-over-max-blocks,
+passes-above, verdict-reads-blocked, verdict-unknown-not-blocked. Gate+analyze
+slice green; install regen + check-drift + doc-drift clean. **Still (Slice 3):**
+the CI workflow job (§3) wiring `analyze review` → `analyze sarif` → upload-sarif
+→ `gate verdict`; and the report render path (§4, template in 384).
