@@ -140,9 +140,12 @@ def _fan_out_one(engine, confirmed_intent):
     return result["children"][0]["lifecycle"]
 
 
-@then(parsers.parse('the child lifecycle parameterization is "{expected}"'))
-def _child_param(engine, lc, expected):
-    assert engine.memory.recall(lc).get("parameterization") == expected
+@then("the child lifecycle has the default parameterization")
+def _child_param_default(engine, lc):
+    # A default (a2a) child records no parameterization prop (Spec 342 — the
+    # parameterization derives from the driver; a local reflect declares none).
+    actual = engine.memory.recall(lc).get("parameterization", "")
+    assert actual == "", actual
 
 
 @then(parsers.parse('the child lifecycle state is "{expected}"'))

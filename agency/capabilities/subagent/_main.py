@@ -36,6 +36,12 @@ _SUBAGENT_DRIVEN_SKILL = {
 class SubagentCapability(CapabilityBase):
     name = "subagent"
     home = "lifecycle"
+    # Spec 342 — a review-gated subagent IS the "reviewed" Lifecycle
+    # parameterization: its child runs on a machine whose `in-review` state
+    # inserts COMPLETED != done. `develop` opens the child reviewed and moves it
+    # working→in-review→completed through the SOLE state writer (lifecycle.move)
+    # only when both gates pass — so the gate path is enforced, not assumed.
+    parameterization = "reviewed"
     ontology = OntologyExtension(skills={"subagent-driven-development": _SUBAGENT_DRIVEN_SKILL})
     artefact_schemas = ArtefactSchemas.from_module(__file__)
 
@@ -52,8 +58,11 @@ class SubagentCapability(CapabilityBase):
         chain_next: terminal — ``done=True`` flips the child Lifecycle to
                     ``completed``; ``done=False`` leaves it ``input-required``.
         """
+        # Spec 342 — dispatch the child under the "reviewed" parameterization so
+        # its machine inserts the `in-review` observer state (COMPLETED != done).
         fan = self.ctx.call("delegate", "fan_out",
-                            driver=driver, driver_verb=driver_verb, items=[item], quota=1)
+                            driver=driver, driver_verb=driver_verb, items=[item], quota=1,
+                            parameterization="reviewed")
         child = fan["result"]["children"][0]["lifecycle"]
         spec = self.ctx.call("gate", "check", lifecycle_id=child, name="spec-review",
                             passed=bool(spec_passed), evidence=spec_evidence)["result"]
@@ -63,6 +72,11 @@ class SubagentCapability(CapabilityBase):
                                     passed=bool(quality_passed), evidence=quality_evidence)["result"]
         done = bool(spec_passed and quality_passed)
         if done:
-            from ...lifecycle import Lifecycle
-            Lifecycle(self.ctx.memory, engine=getattr(self.ctx, "engine", None), monitor=getattr(self.ctx, "engine", None).monitor if getattr(self.ctx, "engine", None) and hasattr(getattr(self.ctx, "engine", None), "monitor") else None).close(child, outcome="completed")    # verified join: both gates passed
+            # Spec 342 — drive working→in-review→completed through the SOLE state
+            # writer (lifecycle.move), NOT a raw Lifecycle().close(): the reviewed
+            # machine forbids working→completed directly, so this path proves both
+            # gates were the route. (A failed gate already moved the child to
+            # input-required via gate.check.)
+            self.ctx.lifecycle.move(child, "in-review", evidence="spec+quality passed")
+            self.ctx.lifecycle.move(child, "completed", evidence="verified join")
         return {"result": {"child": child, "done": done, "spec": spec, "quality": quality}}

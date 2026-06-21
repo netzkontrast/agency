@@ -50,6 +50,12 @@ class Capability:
     # name and register it on the pillar event bus (`agency/_events.py`).
     subscriptions: tuple = ()
     module: str = ""
+    # Spec 342 — a `home="lifecycle"` member may declare the parameterization
+    # (a key into the machine registry, machines.json) its dispatched children
+    # run under: `jules` → "remote-async", a review-gated `subagent` → "reviewed".
+    # The dispatch path (delegate.fan_out) reads this and opens the child on that
+    # machine, so verify/in-review is enforced. "" = the default a2a machine.
+    parameterization: str = ""
 
     def role(self, verb: str) -> str:
         return self.verbs[verb].role
@@ -723,6 +729,10 @@ class CapabilityBase:
     # `_events.Subscription`). Empty by default; `as_capability` carries them +
     # the module onto the compiled `Capability` for the bootstrap loop.
     subscriptions: ClassVar[tuple] = ()
+    # Spec 342 — the parameterization (machine-registry key) a member cap's
+    # dispatched children run under; carried onto the compiled Capability so
+    # delegate.fan_out reads it. "" = default a2a (no observer).
+    parameterization: ClassVar[str] = ""
 
     def __init__(self, ctx: CapabilityContext):
         self.ctx = ctx
@@ -797,7 +807,10 @@ class CapabilityBase:
             # Spec 349b §2 — carry declarative subscriptions + the source module
             # so the engine's bootstrap loop can resolve each handler by name.
             subscriptions=tuple(getattr(cls, "subscriptions", ()) or ()),
-            module=cls.__module__)
+            module=cls.__module__,
+            # Spec 342 — carry the parameterization declaration so delegate.fan_out
+            # opens dispatched children on the declared machine.
+            parameterization=getattr(cls, "parameterization", ""))
 
 
 class Registry:
