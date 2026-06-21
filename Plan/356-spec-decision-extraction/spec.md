@@ -129,12 +129,13 @@ the minimum an implementer needs to not contradict an approved decision.
 
 ### Slice 2 — hints / context loading
 
-- [ ] `adr.hints(spec_id, budget)` returns a token-bounded hint block over approved
-      decisions + depth-1 neighbours; the block fits the budget (`returned_tokens
-      ≤ budget`) and sets `truncated` honestly — but the underlying `Decision`
-      nodes are stored in **full** (rule 9; the budget governs the *projection*).
-- [ ] Theme inference from `affects`/`domain` is covered; multi-theme specs route
-      candidates independently.
+- [x] `adr.hints(spec_id, budget)` returns a token-bounded hint block over approved
+      decisions + depth-1 `DEPENDS_ON` neighbours; the block fits the budget
+      (`returned_tokens ≤ budget`, via the shared `budget_take` split) and sets
+      `truncated` honestly — the underlying `Decision` nodes stay **full** (rule 9;
+      the budget governs only the projection). Only `approved` decisions appear.
+- [ ] Theme inference from `affects`/`domain` + multi-theme routing (still: Slice 1
+      files all candidates under one get-or-created theme).
 
 ## Failure modes (Nygard)
 
@@ -189,11 +190,23 @@ the minimum an implementer needs to not contradict an approved decision.
   WH(Y) parser). A faithful document round-trip may want to preserve newlines —
   tracked for a `document`/Spec 292 follow-up, not this slice.
 
-### Still — Slice 2
-- `adr.hints(spec_id, budget)` — token-bounded architecture-hint projection over
-  approved decisions + depth-1 neighbours (reuse `manage.project`).
-- Per-candidate multi-theme routing from `affects`/`domain` (Slice 1 files all
-  candidates under one get-or-created theme).
+### Done — Slice 2 (TDD, shipped 2026-06-21)
+- `adr.hints(spec_id, budget=2000)` — the payoff verb (owner vision: "ADRs exist
+  primarily to extract code + architecture hints loaded into context at
+  implementation start"). Projects the spec's **approved** decisions (+ depth-1
+  `DEPENDS_ON` neighbours) into a token-BOUNDED block `[{decision_id, theme,
+  decision, why (facing→benefits), constraints (tradeoffs), touches, related}]`
+  via the shared `budget_take` split (`agency/_overflow.py`) + the `count_tokens`
+  boundary (`agency/_tokens.py`) — reuse, not a second ranker (rule 2). Only
+  `approved` decisions appear (a `proposed` draft is not yet a constraint); the
+  stored Decision nodes stay full (rule 9 — the budget governs only the
+  projection). `returned_tokens ≤ budget`; `truncated` honest. 2 acceptance
+  scenarios (empty-until-approved · token-bounded over approved); extract suite
+  6 green; adr+dod+schema 65 green.
+
+### Still — later
+- Per-candidate multi-theme routing from `affects`/`domain` (Slice 1+2 file all
+  candidates/hints under one get-or-created theme).
 - Optional LLM sharpening of candidates when `OPENROUTER_API_KEY` present
   (decidable skeleton stands without a key — barbell).
 - Faithful SPEC-001-E weighted scoring + the remaining WHY-002/004/005/006

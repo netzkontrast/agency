@@ -137,3 +137,26 @@ def _is_ready(engine, confirmed_intent, spec_id):
 @then(parsers.parse('the not-ready reason is "{reason}"'))
 def _reason(ready, reason):
     assert ready.get("reason") == reason, ready
+
+
+@when(parsers.parse('I load the implementation hints with budget {budget:d}'),
+      target_fixture="hints_res")
+def _load_hints(engine, confirmed_intent, spec_id, budget):
+    res, _ = invoke(engine, confirmed_intent, "adr", "hints",
+                    spec_id=spec_id, budget=budget)
+    return res
+
+
+@then("the hints are empty")
+def _hints_empty(hints_res):
+    assert hints_res.get("hints") == [], hints_res
+
+
+@then("at least one hint is returned")
+def _hints_present(hints_res):
+    assert len(hints_res.get("hints", [])) >= 1, hints_res
+
+
+@then("the returned tokens are within budget")
+def _within_budget(hints_res):
+    assert hints_res["returned_tokens"] <= hints_res["budget"], hints_res

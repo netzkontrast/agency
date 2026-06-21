@@ -43,10 +43,13 @@ zero-decision spec never vacuously passes). `hints` (context loading) is Slice 2
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 
 from agency.capability import CapabilityBase, verb
 from agency.toolresult import ToolResult
+from agency._overflow import budget_take   # Spec 286 P3 — shared token-budget split
+from agency._tokens import count_tokens     # Spec 082 — the one TokenCounter boundary
 
 from .ontology import DECISION_SCHEMA, DECISION_STATUS, adr_ontology
 
@@ -855,3 +858,56 @@ class AdrCapability(CapabilityBase):
         blocking = [r["id"] for r in rows if r["status"] != "approved"]
         return ToolResult.success(data={"spec_id": doc_id, "ready": not blocking,
                                         "decisions": rows, "blocking": blocking})
+
+    # ── Spec 356 Slice 2 — architecture-hint loading (the payoff) ────────────
+
+    @verb(role="transform")
+    def hints(self, spec_id: str, budget: int = 2000) -> ToolResult:
+        """HINTS — the payoff: at implementation start, project the spec's
+        **approved** decisions (+ their depth-1 ``DEPENDS_ON`` neighbours) into a
+        compact, token-BOUNDED architecture-hint block — *decisions and their
+        consequences*, not the spec re-stated (the minimum an implementer needs to
+        not contradict an approved decision). Owner's vision: "ADRs exist primarily
+        to extract code + architecture hints loaded into context at implementation
+        start." Only `approved` decisions appear (a `proposed` draft is not yet a
+        constraint). Reuses the shared ``budget_take`` split (rule 2); the stored
+        Decision nodes remain FULL — the budget governs only this projection (rule 9).
+
+        Inputs: spec_id (a Document id OR a frontmatter spec_id), budget (int —
+                max tokens of returned hints).
+        Returns: ``{spec_id, themes, hints: [{decision_id, theme, decision, why,
+                 constraints, touches, related}], budget, returned_tokens,
+                 truncated}`` or ``{error}``.
+        chain_next: load the block into the implementer's context (workflow 358).
+        """
+        doc_id, _ = self._resolve_spec(spec_id)
+        if not doc_id:
+            return ToolResult.success(data={"error": f"no spec {spec_id!r}",
+                                            "spec_id": spec_id, "hints": []})
+        decisions = self.ctx.sources_via_edge("REFINES", doc_id, "Document",
+                                              label="Decision")
+        approved = [d for d in decisions if str(d.get("status")) == "approved"]
+        hints: list[dict] = []
+        for d in approved:
+            did = d.get("id")
+            facing, benefits = d.get("facing", ""), d.get("benefits", "")
+            why = " → ".join(p for p in (facing, benefits) if str(p).strip()) or d.get("context", "")
+            related = [nb.get("id") for nb in self.ctx.neighbors(did, "DEPENDS_ON",
+                       direction="out") if nb.get("id")]
+            themes = self.ctx.neighbors(did, "PART_OF", direction="out")
+            touches = themes[0].get("layer", "") if themes else ""
+            hints.append({"decision_id": did, "theme": touches,
+                          "decision": d.get("decision", ""), "why": why,
+                          "constraints": d.get("tradeoffs", ""), "touches": touches,
+                          "related": related})
+
+        def _cost(h: dict) -> int:
+            return count_tokens(json.dumps(h, default=str, sort_keys=True))
+
+        kept, skipped = budget_take(hints, _cost, budget)
+        return ToolResult.success(data={
+            "spec_id": doc_id,
+            "themes": sorted({h["theme"] for h in kept if h["theme"]}),
+            "hints": kept, "budget": budget,
+            "returned_tokens": sum(_cost(h) for h in kept),
+            "truncated": bool(skipped)})

@@ -34,3 +34,19 @@ Feature: ADR spec→decision extraction + ready predicate (Spec 356 Slice 1)
     When I check whether the spec is ready
     Then the spec is not ready to advance
     And the not-ready reason is "no-decisions"
+
+  # ── Slice 2 — architecture-hint loading ──────────────────────────────────────
+
+  Scenario: hints are empty until decisions are approved
+    Given an ingested spec with two design decisions
+    When I apply extraction to draft the decisions
+    And I load the implementation hints with budget 2000
+    Then the hints are empty
+
+  Scenario: hints return a token-bounded block over approved decisions
+    Given an ingested spec with two design decisions
+    When I apply extraction to draft the decisions
+    And I approve every decision of the spec as owner "owner-alice"
+    And I load the implementation hints with budget 2000
+    Then at least one hint is returned
+    And the returned tokens are within budget
