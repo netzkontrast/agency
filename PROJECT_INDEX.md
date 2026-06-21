@@ -22,7 +22,7 @@
 
 ## Macro-structure
 
-**Capabilities:** `analyze/`, `branch/`, `clusters/`, `config/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `frugal/`, `gate/`, `intent/`, `jules/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `toolcalls/`, `workspace/`
+**Capabilities:** `adr/`, `analyze/`, `branch/`, `clusters/`, `config/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `frugal/`, `gate/`, `intent/`, `jules/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `toolcalls/`, `workspace/`
 
 ### `./` (1 files)
 - **conftest.py**
@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings.
 
-### `agency/` (67 files)
+### `agency/` (69 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -160,6 +160,10 @@ discipline) projected into each agent's native instruction format.
 
 Mirrors ``_loop_events.py`` (Spec 156): a pure, engine-free record so tests /
 doctor / audit can build and assert a transition without an engine.
+- **_lifecycle_machines.py** — Spec 345 — machine registry for the generic state-machine substrate.
+
+Reads machines.json at first access, resolves `derives` chains, validates
+the terminal floor per-machine.
 - **_lifecycle_transitions.py** — Spec 340 — the enforced A2A transition table (the substrate state machine).
 
 `ontology.py::LifecycleState` constrains the *value* of `state`; this module
@@ -221,20 +225,16 @@ heuristic, two implementations, drift risk").
 Both music's `lyric_report` family and novel's `analyze_readability`
 need a syllable count; promoting to a shared module so one fix lands
 in one place.
+- **_relevance.py** — Spec 350 Slice 1 — relevance filter (content-aware output trimmer).
+
+Pure ``relevance_filter(text, profile) -> dict`` that extracts signal lines from
+verbose output by include/exclude regex patterns + neighbour context.
 - **_render.py** — Spec 283 Slice 1 — the capability render substrate (graph → markdown view).
 
 A capability declares a `RenderSpec`: a list of `RenderRule`s binding a node
 `label` to (output_path, frontmatter, body, kind).
 - **_replay_invariants.py** — Spec 195 Slice 3 — monotone invariant verification for replay chains.
 
-Spec 195 Slice 2 ships `dogfood.replay_events(for_intent_id)` which
-returns events ordered with each event's `prior_event_id` pointing at
-the previous event's id.
-- **_research_citation.py** — Spec 168 Slice 1 — typed Citation shape + backend-selection invariant.
-- **_retry.py** — Spec 282 — ``retry_transient``: the correct retry primitive.
-
-Replaces the anti-pattern that produced the evidence retry storm
-(``scripts/ingest_canon.py`` looping ``for attempt in range(1, 40)`` "while
-progress is made"): retry a call ONLY
+Spec 195 Slice 2 ships `dogfood.replay_events(for_intent_id)` whi
 
 _…(content omitted to fit token budget)_
