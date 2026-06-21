@@ -24,6 +24,7 @@ allowed-tools:
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `board` | transform | BOARD — the graph-native spec board: live SpecLifecycles grouped by their ``spec``-machine state (optionally filtered to one ``state``). | [details](references/board.md) |
+| `index` | transform | INDEX — the "alle Specs sind indiziert, korrekte Frontmatter" guarantee (Spec 357). | [details](references/index.md) |
 | `move_spec` | effect | MOVE_SPEC — advance the spec's Lifecycle to ``to_state`` via ``ctx.lifecycle.move`` (the SOLE state writer — Spec 339; an illegal edge is rejected by the ``spec`` machine's transition table). | [details](references/move_spec.md) |
 | `open_spec` | act | OPEN_SPEC — mint a SpecLifecycle (machine ``spec``, state ``draft``) for a spec ``Document``, ``TRACKS``-bound to it and SERVING the intent. | [details](references/open_spec.md) |
 

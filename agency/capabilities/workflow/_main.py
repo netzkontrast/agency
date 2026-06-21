@@ -15,20 +15,27 @@ Red flags:
 - Moving open→inprogress before its ADR decisions are approved → the gate refuses
 - Writing ``Lifecycle.state`` directly → only ``ctx.lifecycle.move`` may (Spec 339)
 
-Spec 357 — the spec-state lifecycle. This slice lands the **lifecycle
-integration** the owner asked for: the SpecLifecycle on the ``spec`` machine
-(``open_spec`` · ``move_spec`` with the ADR-hinge guard · ``board``). The
-physical ``Plan/`` state folders + ``state:`` frontmatter index + the
-``check-drift`` spec-state gate are a follow-up slice (the human surface over
-this spine).
+Spec 357 — the spec-state lifecycle. Lands the **lifecycle integration** the
+owner asked for: the SpecLifecycle on the ``spec`` machine (``open_spec`` ·
+``move_spec`` with the ADR-hinge guard · ``board``), plus the **human surface** —
+the physical ``Plan/<state>/`` folders + the ``index`` indexer (folder vs
+``state:`` frontmatter vs node, "alle Specs indiziert / korrekte Frontmatter").
+Wiring ``index.ok`` into the ``check-drift`` spec-state gate is the remaining
+follow-up.
 """
 from __future__ import annotations
+
+import os
 
 from agency.capability import CapabilityBase, verb
 from agency.memory import OPEN as _OPEN
 from agency.toolresult import ToolResult
 
 from .ontology import SPEC_STATES, workflow_ontology
+
+# Drift-worthy flags (a legacy flat spec is reported, NOT a failure — Spec 357
+# grandfathers the 339 flat specs; only specs IN a state folder must agree).
+_DRIFT_FLAGS = {"drift", "missing-state", "invalid-state", "node-drift"}
 
 
 class WorkflowCapability(CapabilityBase):
@@ -135,3 +142,63 @@ class WorkflowCapability(CapabilityBase):
                 "spec_id": tracked[0].get("id") if tracked else ""})
         return ToolResult.success(data={"board": board, "states": sorted(board),
                                         "total": sum(len(v) for v in board.values())})
+
+    @verb(role="transform")
+    def index(self, root: str = "Plan") -> ToolResult:
+        """INDEX — the "alle Specs sind indiziert, korrekte Frontmatter" guarantee
+        (Spec 357). Walks ``root`` for ``*/spec.md`` and reports each spec with its
+        THREE state readings — ``folder_state`` (the ``Plan/<state>/`` parent),
+        ``frontmatter_state`` (the ``state:`` field), ``node_state`` (the
+        SpecLifecycle, best-effort) — and flags any disagreement. Legacy flat specs
+        (Spec 339, grandfathered) are reported with a ``legacy`` flag, NOT failed —
+        only specs filed under a state folder must have all three agree.
+
+        Inputs: root (str — the Plan dir to index; default "Plan").
+        Returns: ``{root, count, rows: [{spec, spec_id, folder_state,
+                 frontmatter_state, node_state, flags}], drift, ok}`` — ``ok`` is
+                 True iff no spec carries a drift flag (the check-drift predicate).
+        chain_next: workflow.move_spec to reconcile a drifted spec; the check-drift
+                    spec-state gate consumes ``ok`` (follow-up).
+        """
+        from agency.capabilities.document import _interconnect
+        base = os.path.abspath(root)
+        rows: list[dict] = []
+        for dirpath, _dirs, files in os.walk(base):
+            if "spec.md" not in files:
+                continue
+            spec_path = os.path.join(dirpath, "spec.md")
+            rel = os.path.relpath(spec_path, base)
+            top = rel.split(os.sep)[0]
+            folder_state = top if top in SPEC_STATES else ""
+            try:
+                with open(spec_path, encoding="utf-8") as f:
+                    body = f.read()
+            except OSError:
+                continue
+            fm = _interconnect.parse_frontmatter(body)
+            fstate = str(fm.get("state", "")).strip().strip('"')
+            spec_id = str(fm.get("spec_id", "")).strip().strip('"')
+            node_state = ""
+            docs = self.ctx.query_nodes("Document", where={"path": spec_path})
+            if docs:
+                lc = self._spec_lifecycle(docs[0].get("id"))
+                node_state = lc.get("state", "") if lc else ""
+            flags: list[str] = []
+            if not folder_state:
+                flags.append("legacy")
+            else:
+                if not fstate:
+                    flags.append("missing-state")
+                elif fstate != folder_state:
+                    flags.append("drift")
+                if node_state and node_state != folder_state:
+                    flags.append("node-drift")
+            if fstate and fstate not in SPEC_STATES:
+                flags.append("invalid-state")
+            rows.append({"spec": rel, "spec_id": spec_id,
+                         "folder_state": folder_state, "frontmatter_state": fstate,
+                         "node_state": node_state, "flags": flags})
+        drift = [r["spec"] for r in rows if _DRIFT_FLAGS & set(r["flags"])]
+        return ToolResult.success(data={"root": base, "count": len(rows),
+                                        "rows": rows, "drift": drift,
+                                        "ok": not drift})

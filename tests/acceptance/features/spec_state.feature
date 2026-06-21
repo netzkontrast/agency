@@ -42,3 +42,12 @@ Feature: spec-state lifecycle — specs as Lifecycles on the `spec` machine (Spe
     When I open the spec lifecycle
     And I move the spec to "superseded"
     Then the spec state is "superseded"
+
+  # ── the human surface: physical folders + the indexer ────────────────────────
+
+  Scenario: index reports every spec with its state readings and flags drift
+    Given a Plan tree with a clean, a drifted, and a legacy spec
+    When I index the Plan tree
+    Then the index flags the drifted spec
+    And the index marks the legacy spec
+    And the clean spec has no flags

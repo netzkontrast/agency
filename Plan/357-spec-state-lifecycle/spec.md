@@ -112,12 +112,15 @@ Red on drift. This is the enforcement that keeps the three surfaces honest.
 
 ### Slice 1 — folders + frontmatter + index
 
-- [ ] The five `Plan/<state>/` folders exist (with a `.gitkeep`); a new spec can
+- [x] The five `Plan/<state>/` folders exist (with a `.gitkeep`); a new spec can
       be authored into `Plan/draft/NNN-slug/`.
-- [ ] `state:` is documented in the spec frontmatter schema; `workflow.index`
-      lists every spec with its three state readings and flags any drift, orphan,
-      or invalid frontmatter. Legacy flat specs are indexed in place (no move).
-- [ ] `check-drift` fails on a deliberately drifted fixture; green on the repo.
+- [x] `workflow.index(root)` lists every spec with its three state readings
+      (folder · frontmatter `state:` · node) and flags `drift` / `missing-state` /
+      `invalid-state` / `node-drift`; legacy flat specs are indexed in place with a
+      `legacy` flag (grandfathered, never failed). `ok` = no drift flag.
+- [~] `check-drift` spec-state gate: `index.ok` is the predicate; wiring it into
+      the `scripts/check-drift` bash gate (without reddening the legacy tree) is the
+      remaining follow-up.
 
 ### Slice 2 — move_spec + board + guards (the lifecycle integration — shipped first)
 
@@ -180,10 +183,18 @@ Red on drift. This is the enforcement that keeps the three surfaces honest.
   356→357 weave) · any→superseded. spec_state 5 green; schema + adr + lifecycle
   98 green; capabilities.md regenerated (35 caps); check-drift clean.
 
-### Still — the human-surface slice + superseding edge
-- Physical `Plan/<state>/` folders (`.gitkeep`) + `state:` frontmatter + the
-  `workflow.index` indexer + the `check-drift` spec-state gate (folder ==
-  frontmatter == node).
+### Done — human-surface slice (TDD, shipped 2026-06-21)
+- The five physical `Plan/{draft,open,inprogress,superseded,done}/` folders exist
+  (`.gitkeep` documents each state).
+- `workflow.index(root="Plan")` — walks `*/spec.md`, reports each spec's three
+  state readings + flags (`drift`/`missing-state`/`invalid-state`/`node-drift`/
+  `legacy`); `ok` = no drift. Legacy flat specs grandfathered (reported, not
+  failed). 1 acceptance scenario over a clean/drifted/legacy fixture tree;
+  spec_state 6 green.
+
+### Still — gate wiring + superseding edge
+- Wire `index.ok` into the `scripts/check-drift` spec-state gate (without
+  reddening the grandfathered legacy tree).
 - `move_spec(..., "superseded")` currently advances the Lifecycle; recording the
   `SUPERSEDES` edge to the replacing spec + the physical folder move are deferred.
 - `move_spec` re-anchoring intra-repo links on a physical move.

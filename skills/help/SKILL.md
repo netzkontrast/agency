@@ -98,7 +98,7 @@ agency execute --code \
 - **symbols** — compress, expand, legend
 - **thinking** — apply_full_review, assumptions, decompose, first_principles, inversion, premortem, red_team, second_order, socratic, steelman, tradeoffs
 - **toolcalls** — export, prune, recent, stats, top
-- **workflow** — board, move_spec, open_spec
+- **workflow** — board, index, move_spec, open_spec
 - **workspace** — baseline, isolate
 
 ## Discovery
