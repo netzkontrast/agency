@@ -48,10 +48,23 @@ def valid_goals(goals_md: Path = _GOALS_MD) -> set[int]:
 
 
 # ── frontmatter parsing ──────────────────────────────────────────────────────
+# Spec 292 Document binding: a spec bound to a Document carries a stable anchor
+# `<!-- agency-node: <id> -->` on its FIRST line, pushing the `---` frontmatter
+# to line 2. Skip a single leading anchor line so the binding and the
+# frontmatter validator coexist — the anchor is a peer surface, not a parse
+# blocker (without this, an anchored-but-valid spec reads as `vision_goals:`
+# missing and trips the regression gate spuriously).
+_ANCHOR_LINE = re.compile(r"^<!--\s*agency-node:.*?-->[^\n]*\n")
+
+
 def parse_frontmatter(body: str) -> dict:
     """Parse the YAML frontmatter block at the top of a spec file. Returns the
     parsed dict; returns `{}` when there's no frontmatter or when YAML parsing
-    fails (a malformed spec is treated as missing — Spec 058 fail-closed)."""
+    fails (a malformed spec is treated as missing — Spec 058 fail-closed).
+
+    A leading Spec 292 `<!-- agency-node: … -->` Document-binding anchor is
+    skipped first so the frontmatter behind it is still seen."""
+    body = _ANCHOR_LINE.sub("", body, count=1)
     if not body.startswith("---\n"):
         return {}
     end = body.find("\n---\n", 4)
