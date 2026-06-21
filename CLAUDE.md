@@ -362,6 +362,26 @@ Capabilities · Lifecycle · Workflow), each holding its decisions `PART_OF` it
 `docs/adr/<layer>.md`. The point of an ADR is to extract the **code + architecture
 hints** (`adr.hints`) re-loaded into context the moment implementation begins.
 
+**Code is the final decision.** What is *in the code* IS the decision of record —
+ADRs and the digest are DERIVED from what shipped, never authored ahead of it (the
+spec-state migration was driven this way: CodeGraph-verified, not status-frontmatter
+trusted). So **when the owner says a spec is done, that is the approval**: an agent
+never self-approves (panel B2.1). The done-cascade the owner triggers by saying
+"this spec is done":
+
+1. `adr.approve` the spec's decisions (the owner's word IS the approval), and
+   **append/update** the corresponding theme ADR (`adr.draft`/`adr.update` +
+   `adr.render`) so the record reflects what shipped;
+2. `workflow.move_spec(spec, "done")`;
+3. **rebuild `architecture.md`** — `adr.architecture(apply=True)`.
+
+**`architecture.md` (repo root) — the shorthand decision digest.** Every recorded
+WH(Y) decision as a ONE-LINER, grouped by architecture layer, rolled up from the
+thematic ADRs by `adr.architecture`. It is the token-cheap, high-signal artefact
+the **SessionStart hook emits as `additionalContext`**, so every session opens
+knowing the load-bearing decisions; the full rationale stays in `docs/adr/`. It is
+DERIVED — rebuilt on spec-done, never hand-edited.
+
 **State of the port:** 354/358/360 shipped; 353/355/356/357/359 are
 shipped-with-remaining-slices (`/inprogress`). The legacy spec tree has been
 migrated into state folders (Spec 357 final slice).

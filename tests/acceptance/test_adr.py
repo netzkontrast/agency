@@ -251,3 +251,35 @@ def _catalogue(engine, confirmed_intent):
 def _catalogue_counts(catalogue, n, m):
     assert catalogue.get("total_themes") == n, catalogue
     assert catalogue.get("total_decisions") == m, catalogue
+
+
+# ── Spec 353/354 — the architecture digest (adr.architecture) ─────────────────
+
+@when("I rebuild the architecture digest over two thematic adr files",
+      target_fixture="arch_result")
+def _architecture(engine, confirmed_intent):
+    import tempfile, pathlib
+    d = pathlib.Path(tempfile.mkdtemp())
+    # datalayer: 2 live decisions; substrate: 1 live + a superseded appendix
+    # (excluded) — also exercises the leading Spec-292 anchor strip.
+    (d / "adr-datalayer.md").write_text(
+        "<!-- agency-node: adr-theme-datalayer -->\n---\nkind: adr-theme\n"
+        "layer: datalayer\ntitle: \"Datalayer\"\nscope: \"state\"\n---\n\n"
+        "# Datalayer\n\n## one store for every concept\nx\n\n"
+        "## keep-both reconciliation\ny\n", encoding="utf-8")
+    (d / "adr-substrate.md").write_text(
+        "---\nkind: adr-theme\nlayer: substrate\ntitle: \"Substrate\"\n---\n\n"
+        "# Substrate\n\n## three wire verbs\nz\n\n"
+        "## Superseded / history\n- old-one\n", encoding="utf-8")
+    (d / "README.md").write_text("# index — not a theme\n", encoding="utf-8")
+    res, _ = invoke(engine, confirmed_intent, "adr", "architecture",
+                    adr_dir=str(d), apply=False)
+    return res
+
+
+@then(parsers.parse("the digest covers {n:d} layers with {m:d} decisions"))
+def _architecture_counts(arch_result, n, m):
+    assert len(arch_result.get("layers", [])) == n, arch_result
+    assert arch_result.get("decisions") == m, arch_result
+    # the superseded appendix line must NOT count as a decision
+    assert "old-one" not in arch_result.get("body", ""), arch_result
