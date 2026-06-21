@@ -1,7 +1,7 @@
 <!-- agency-node: architecture-digest -->
 # agency — architecture digest
 
-Every recorded WH(Y) decision as a one-liner (13 across 5 layers), grouped by architecture layer — each links to the spec that established it with one central sentence from that spec. The decision IS what ships — **code is the final decision**; the full rationale, neglected alternatives and trade-offs live in [`docs/adr/`](docs/adr/). Rebuilt on spec-done via `adr.architecture(apply=True)`; emitted by the SessionStart hook.
+Every recorded WH(Y) decision as a one-liner (13 across 5 layers), grouped by architecture layer — each links to the spec that established it with one central sentence from that spec. Linked specs are **approved**: a spec reaches `/inprogress` (and later `/done`) only once its decisions clear the ADR hinge, so an `/inprogress` spec is an approved one still shipping its last slices. The decision IS what ships — **code is the final decision**; the full rationale, neglected alternatives and trade-offs live in [`docs/adr/`](docs/adr/). Refreshed on spec-done via `adr.architecture(apply=True)`; emitted by the SessionStart hook.
 
 ## Datalayer
 _how agency stores, versions and reconciles all state_
