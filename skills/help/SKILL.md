@@ -65,11 +65,11 @@ agency execute --code \
 
 # agency — capabilities (macroskills) and their verbs (micro-skills)
 
-- **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, run, security
+- **analyze** — architecture, cleanup, graph, improve, paths, performance, quality, review, run, security
 - **branch** — assess, commit_smart, finish
 - **config** — get, list, set
 - **delegate** — dispatch_bash_hints, dispatch_decision, fan_out, join
-- **develop** — checklist, draft_plan, estimate, index, maintain, mode_select, optimize_skilldoc, plan_status, record_authoring_outcome, record_step_outcome, reference, reload, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
+- **develop** — checklist, draft_plan, estimate, index, maintain, mode_select, optimize_skilldoc, plan_status, record_authoring_outcome, record_step_outcome, reference, reload, remediate, review, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
 - **discover** — acceptance, ask, clarify, clarity, clarity_gate, interview, scope, status
 - **doctrine** — cite, principles, resolve, rules
 - **document** — convergence, explain, index_repo, ingest, mirror, render, reopen, restore_session, revisions, session, session_analytics, sync

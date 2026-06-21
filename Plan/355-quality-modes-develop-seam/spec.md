@@ -317,3 +317,41 @@ no double-count (§3b). (Wiegers) the Iron Law gate is a **decidable predicate**
 (§3c). Next (after 354 GREEN): the six walkable disciplines + `develop.review`/
 `remediate` + the shared `_review.py` core + the implement/tdd cross-link,
 RED→GREEN per phase.
+
+**IMPLEMENTED 2026-06-20 (TDD, branch `claude/stoic-cannon-hqv1te`).** The
+foundation of the develop-seam slice ships GREEN — behaviour-tested via
+`tests/acceptance/features/quality_review.feature` + `test_quality_review.py`
+(**15 Gherkin scenarios**); full suite green; drift/doc-drift/prefix-lint clean.
+
+- **§shared core** — `agency/capabilities/analyze/_review.py`: four pure functions
+  `scope_detect/merge_findings/iron_law_passed/classify_remedy` — the single engine
+  both `develop.review` (interactive) and `analyze.review` (headless) drive.
+  `merge_findings` implements the Hohpe merge contract (join key `(risk_code, file, line)`;
+  judgment enriches in place, no double-count). `iron_law_passed` is the Wiegers
+  decidable predicate (`all(f.consequence and f.remedy for f in findings if f.risk_code)`).
+  `classify_remedy` classifies 'safe' vs 'risky' by keyword heuristics on the remedy text.
+- **§six quality skills** — added to `DEV_SKILLS` in `develop/_main.py`: `quality-review`/
+  `quality-audit`/`quality-debt`/`quality-test`/`quality-health`/`quality-sweep` as
+  walkable disciplines on `develop.ontology.skills`. Each has phases: `scope → decidable
+  (with verbs=[analyze.*]) → judgment (gate="hard") → score-report`. `quality-sweep`
+  additionally has a `remedy` phase (gate="hard"). All six discoverable from the skill
+  registry and walk-compatible with `develop.skill_walk`.
+- **§develop.review** (`role="transform"`, `develop/_main.py`) — READ-ONLY diagnosis verb:
+  `scope_detect` + decidable pass (per-mode axis scanners) + `_decay.tag` bridge + `iron_law_passed`
+  check → returns `{scope_line, findings:[...], iron_law_passed, mode}`.
+- **§develop.remediate** (`role="effect"`, `develop/_main.py`) — MUTATING remedy verb:
+  classifies Finding remedies safe/risky, auto-applies safe (when `apply_safe=True`),
+  reports risky in `gated:[]` (no auto-apply) → returns `{review_id, applied, gated}`.
+- **§analyze.review** (`role="act"`, `analyze/_main.py`) — headless CI twin: same decidable
+  pass + `iron_law_passed` but NEVER pauses; risky remedies go to `gated:[]` automatically
+  (`headless=True` in return shape). The first-class CI actor (Cockburn+Hightower fix,
+  Spec 355 §3a — resolves OQ3).
+- **Install regenerated**; `skills/help/SKILL.md` updated with the three new verbs.
+  `docs/vision/reference/skills.md` + `intent-lifecycle-gate.md` re-stamped after
+  `develop/_main.py` changed. Drift clean.
+
+**Remaining in 355:** the implement/tdd cross-link (optional review phase before
+pre-commit gate); `develop.reference("brooks")`/`("decay-risks")` entries; CLAUDE.md
+verb-routing row for `develop.review`. Next sibling: **356** (Health Score + config +
+`quality:` config block + `QualityRun` graph nodes for trend). The `analyze.review`
+headless core defined here is what **357** (SARIF + CI gate) calls.

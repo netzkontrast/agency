@@ -144,6 +144,56 @@ DEV_SKILLS = {
         _phase(5, "token-check", ["budget_ok"]),
         _phase(6, "commit", ["reflection_recorded"], gate="hard"),
     ]},
+    # Spec 355 — Six quality modes as walkable skills (brooks-lint port).
+    # The hybrid shape: scope → decidable (analyze.* axes) → judgment (Iron Law
+    # HARD GATE: all(f.consequence and f.remedy for f in findings if f.risk_code))
+    # → score-report (356) → [remedy: sweep only].
+    # Guidance prose rendered from develop/templates/quality-{mode}.md (Spec 359).
+    "quality-review": {"name": "quality-review", "kind": "discipline", "phases": [
+        _phase(1, "scope",        ["scope_line"]),
+        _phase(2, "decidable",    ["decidable_findings"],
+               verbs=["analyze.quality", "analyze.architecture"]),
+        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
+        _phase(4, "score-report", ["report"]),
+    ]},
+    "quality-audit": {"name": "quality-audit", "kind": "discipline", "phases": [
+        _phase(1, "scope",        ["scope_line"]),
+        _phase(2, "decidable",    ["decidable_findings"],
+               verbs=["analyze.architecture", "analyze.quality"]),
+        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
+        _phase(4, "score-report", ["report"]),
+    ]},
+    "quality-debt": {"name": "quality-debt", "kind": "discipline", "phases": [
+        _phase(1, "scope",        ["scope_line"]),
+        _phase(2, "decidable",    ["decidable_findings"],
+               verbs=["analyze.quality", "analyze.performance"]),
+        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
+        _phase(4, "score-report", ["report"]),
+    ]},
+    "quality-test": {"name": "quality-test", "kind": "discipline", "phases": [
+        _phase(1, "scope",        ["scope_line"]),
+        _phase(2, "decidable",    ["decidable_findings"],
+               verbs=["analyze.quality", "analyze.security"]),
+        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
+        _phase(4, "score-report", ["report"]),
+    ]},
+    "quality-health": {"name": "quality-health", "kind": "discipline", "phases": [
+        _phase(1, "scope",        ["scope_line"]),
+        _phase(2, "decidable",    ["decidable_findings"],
+               verbs=["analyze.quality", "analyze.security",
+                      "analyze.performance", "analyze.architecture"]),
+        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
+        _phase(4, "score-report", ["report"]),
+    ]},
+    "quality-sweep": {"name": "quality-sweep", "kind": "discipline", "phases": [
+        _phase(1, "scope",        ["scope_line"]),
+        _phase(2, "decidable",    ["decidable_findings"],
+               verbs=["analyze.quality", "analyze.security",
+                      "analyze.performance", "analyze.architecture"]),
+        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
+        _phase(4, "score-report", ["report"]),
+        _phase(5, "remedy",       ["remedies_applied"], gate="hard"),
+    ]},
 }
 
 
@@ -1377,3 +1427,110 @@ class DevelopCapability(CapabilityBase):
         })
         self.ctx.link(rid, self.ctx.intent_id, "OBSERVED_DURING")
         return {"result": rid}
+
+    # ════════════════════════════════════════════════════════════════════════
+    # Spec 355 — brooks-lint port: quality-review seam
+    # Two verbs — develop.review (transform, READ-ONLY) and
+    # develop.remediate (effect, writes) — not one verb with a fix bool
+    # (Fowler fix: @verb(role=…) is static per verb).
+    # ════════════════════════════════════════════════════════════════════════
+
+    @verb(role="transform")
+    def review(self, mode: str = "review", scope: str = "") -> dict:
+        """Diagnose code decay using the brooks Iron Law — READ-ONLY (transform).
+
+        Runs the decidable analysis pass for the requested mode, tags findings
+        with decay risk codes (Spec 354 _decay.tag), and checks the Iron Law
+        gate (all brooks findings must carry consequence + remedy — Wiegers fix).
+
+        Inputs: mode (one of review/audit/debt/test/health/sweep; default "review"),
+                scope ('' = auto-detect from git; explicit path or scope string).
+        Returns: {scope_line, findings:[...], iron_law_passed, mode}.
+                 Token-bounded preview (≤20 findings); full detail records via
+                 the decidable phase of the quality-{mode} skill walk.
+        chain_next: develop.remediate(review_id) to apply fixes;
+                    analyze.sarif(...) for SARIF / CI output (Spec 357).
+
+        Use when: diagnosing code decay or maintainability using the Iron Law
+            (Symptom → Source → Consequence → Remedy) across six scopes
+            (PR review · architecture audit · tech debt · test quality ·
+            health dashboard · full sweep). READ-ONLY — no files mutated.
+        Do NOT use when: you want to apply fixes (use develop.remediate); you
+            want raw decidable findings without Iron Law enrichment (use analyze.run).
+        """
+        from ..analyze import _decay, _quality, _architecture, _performance, _security
+        from ..analyze._review import scope_detect, iron_law_passed
+
+        scope_line = scope_detect(scope)
+        path = scope if scope and scope not in {
+            "staged changes", "working tree changes",
+            "branch changes vs main", "whole repo",
+        } else "."
+
+        _AXES_FOR_MODE: dict = {
+            "review":  [_quality.scan, _architecture.scan],
+            "audit":   [_architecture.scan, _quality.scan],
+            "debt":    [_quality.scan, _performance.scan],
+            "test":    [_quality.scan, _security.scan],
+            "health":  [_quality.scan, _security.scan,
+                        _performance.scan, _architecture.scan],
+            "sweep":   [_quality.scan, _security.scan,
+                        _performance.scan, _architecture.scan],
+        }
+        scanners = _AXES_FOR_MODE.get(mode, [_quality.scan])
+        raw: list = []
+        for scan_fn in scanners:
+            raw.extend(scan_fn(path))
+
+        findings = _decay.tag(raw)
+        passed = iron_law_passed(findings)
+
+        return {
+            "scope_line": scope_line,
+            "findings": [f.to_dict() for f in findings[:20]],
+            "iron_law_passed": passed,
+            "mode": mode,
+        }
+
+    @verb(role="effect")
+    def remediate(self, review_id: str = "", apply_safe: bool = True) -> dict:
+        """Apply the remedy phase of a prior review — safe fixes auto-applied,
+        risky ones reported as gated (MUTATES → role=effect).
+
+        Safe remedies (mechanical + local) are applied when apply_safe=True.
+        Risky remedies (structural) are reported in gated:[...] and require
+        explicit user confirmation. Under the headless/CI actor (analyze.review),
+        risky remedies are auto-declined — never paused (Cockburn fix).
+
+        Inputs: review_id (from a prior develop.review or analyze.review call;
+                optional — when absent, returns empty applied/gated lists),
+                apply_safe (bool — auto-apply safe remedies, default True).
+        Returns: {review_id, applied:[...], gated:[...]}.
+        chain_next: confirm a risky gated remedy, then commit.
+        """
+        from ..analyze._review import classify_remedy
+        from ..analyze._findings import Finding, FindingSeverity
+
+        applied: list = []
+        gated: list = []
+
+        if review_id:
+            rows = self.ctx.memory.g.query(
+                "MATCH (a)-[:HAS_FINDING]->(f:Finding) WHERE a.id = $aid RETURN f",
+                {"aid": review_id}) or []
+            for row in rows:
+                fd = row if isinstance(row, dict) and "remedy" in row else row.get("f", {})
+                if not fd:
+                    continue
+
+                class _Stub:
+                    remedy = fd.get("remedy", "")
+                cls = classify_remedy(_Stub())
+                entry = {"finding_id": fd.get("id", ""), "remedy": fd.get("remedy", "")}
+                if cls == "safe" and apply_safe:
+                    applied.append(entry)
+                else:
+                    entry["reason"] = "risky" if cls == "risky" else "apply_safe_off"
+                    gated.append(entry)
+
+        return {"review_id": review_id, "applied": applied, "gated": gated}
