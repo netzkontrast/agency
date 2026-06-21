@@ -30,15 +30,27 @@ SPEC-001-E criteria as decidable findings — DOCUMENTATION reuses 354 `validate
 and `approve` (the gate — blocks on a failed automated criterion, pauses at the
 human criteria via `ctx.elicit`, records a `Gate` node, and only the intent
 OWNER may confirm or override; an agent may not self-approve). The full
-status-as-a-Lifecycle model + cadence sweep are 355 Slice 2; spec→decision
-extraction + hints are 356.
+status-as-a-Lifecycle model + cadence sweep are 355 Slice 2.
+
+Spec 356 Slice 1 adds the ADR-central hinge: `extract_decisions` (decidable,
+evidence-anchored extraction of a spec's WH(Y) decisions — a canonical WH(Y)
+statement is parsed verbatim per SPEC-001-A, else `## Design` cue sentences are
+mined; `apply=True` drafts `proposed` Decisions that `REFINES` the spec,
+idempotent on `evidence_span`) and `spec_decisions_ready` (the /open→/inprogress
+predicate — true iff ≥1 decision REFINES the spec AND all are `approved`; a
+zero-decision spec never vacuously passes). `hints` (context loading) is Slice 2.
 """
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 
 from agency.capability import CapabilityBase, verb
+from agency.memory import OPEN as _OPEN
 from agency.toolresult import ToolResult
+from agency._overflow import budget_take   # Spec 286 P3 — shared token-budget split
+from agency._tokens import count_tokens     # Spec 082 — the one TokenCounter boundary
 
 from .ontology import DECISION_SCHEMA, DECISION_STATUS, adr_ontology
 
@@ -46,6 +58,9 @@ from .ontology import DECISION_SCHEMA, DECISION_STATUS, adr_ontology
 # WHY-003 (at least one alternative must be documented). The ontology cannot
 # catch this (the field is non-empty), so it is `validate`'s job.
 _EMPTY_ALTERNATIVES = {"", "none", "n/a", "na", "-", "nil"}
+# A tradeoffs statement shorter than this reads as a flimsy acknowledgement
+# (WHY-005, SPEC-001-A — tunable budget, not a magic snapshot; rule 8).
+_MIN_SUBSTANTIVE = 15
 
 # Dependency edges `adr.link` accepts (SPEC-001-C). SUPERSEDES is NOT here — it
 # is the `supersede` verb's job (it reuses the core `SUPERSEDED_BY` edge).
@@ -53,12 +68,114 @@ _LINK_TYPES = {"DEPENDS_ON", "RELATES_TO", "REFINES", "PART_OF"}
 # Acyclic-by-intent edges — a cycle in these is the SPEC-001-C DEP-001 error.
 _ACYCLIC = {"DEPENDS_ON", "REFINES"}
 
+# Spec 356 — the canonical WH(Y) statement (SPEC-001-A): six ordered marker
+# phrases that, when ALL present, are parsed verbatim into a complete Decision
+# (the highest-fidelity extraction layer — the format the ADR repo IS about).
+_WHY_MARKERS = [
+    ("context", "in the context of"),
+    ("facing", "facing"),
+    ("decision", "we decided for"),
+    ("neglected", "and neglected"),
+    ("benefits", "to achieve"),
+    ("tradeoffs", "accepting that"),
+]
+# Decidable decision cues (Layer 3 fallback) — sentences that announce a choice.
+_DECISION_CUES = ("we decided", "we chose", "we will use", "decided to",
+                  "decided for", "chose ", "instead of", "rather than",
+                  "trade-off", "accepting that", "neglected")
+# Markers that introduce the neglected alternative within a cue sentence.
+_NEGLECT_MARKERS = ("instead of", "rather than", "neglected", " over ")
+
 
 def _theme_slug(layer: str) -> str:
     return "adr-" + "".join(c if c.isalnum() else "-" for c in layer.lower()).strip("-")
 
 
+def _sentences(text: str) -> list[str]:
+    """Split prose into sentences (period/!/? or newline boundaries)."""
+    parts = re.split(r"(?<=[.!?])\s+|\n", str(text))
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _section_after(body: str, header: str) -> str:
+    """Text of the ``## <header>`` section up to the next ``## `` heading.
+    Substring-anchored (NOT line-anchored) so it survives the graph store
+    flattening a Document's newlines to spaces on read."""
+    low = body.lower()
+    key = "## " + header.lower()
+    i = low.find(key)
+    if i == -1:
+        return ""
+    start = i + len(key)
+    nxt = low.find("## ", start)
+    return body[start: nxt if nxt != -1 else len(body)].strip()
+
+
+def _clean(text: str) -> str:
+    return text.strip(" ,.\n*_:").replace("**", "").strip()
+
+
+def _parse_why_block(body: str) -> dict | None:
+    """LAYER 1 (highest fidelity) — parse an explicit WH(Y) 6-part statement
+    (SPEC-001-A) into a complete candidate. Marker-anchored + order-tolerant;
+    returns ``None`` unless ALL six markers are present (so it never fires on
+    prose that merely contains the word "facing")."""
+    low = body.lower()
+    positions = []
+    for field, marker in _WHY_MARKERS:
+        idx = low.find(marker)
+        if idx == -1:
+            return None
+        positions.append((idx, field, marker))
+    positions.sort()
+    cand: dict = {}
+    for i, (idx, field, marker) in enumerate(positions):
+        start = idx + len(marker)
+        end = positions[i + 1][0] if i + 1 < len(positions) else len(body)
+        cand[field] = _clean(body[start:end])
+    cand["evidence_span"] = "why-statement"
+    return cand
+
+
+def _split_neglected(sentence: str) -> str:
+    low = sentence.lower()
+    for marker in _NEGLECT_MARKERS:
+        if marker in low:
+            return _clean(sentence[low.index(marker) + len(marker):])
+    return ""
+
+
+def _extract_candidates(body: str, theme_layer: str) -> list[dict]:
+    """Decidable, evidence-anchored extraction (no LLM). When the body carries a
+    canonical WH(Y) statement, parse it verbatim (Layer 1); else mine the
+    structured sections + decision-cue sentences (Layer 3). Each candidate keeps
+    an ``evidence_span`` pointing back into the body (the idempotency key + the
+    anti-hallucination anchor — SPEC-001-A/B fidelity)."""
+    why = _parse_why_block(body)
+    if why:
+        why["theme"] = theme_layer
+        return [why]
+
+    why_sec = _section_after(body, "why")
+    design = _section_after(body, "design")
+    failure = _section_after(body, "failure modes") or _section_after(body, "failure")
+    context = _sentences(why_sec)[0] if _sentences(why_sec) else ""
+    tradeoffs = _sentences(failure)[0] if _sentences(failure) else ""
+
+    cands: list[dict] = []
+    for sentence in _sentences(design):
+        if any(cue in sentence.lower() for cue in _DECISION_CUES):
+            cands.append({
+                "theme": theme_layer, "context": context, "facing": "",
+                "decision": _clean(sentence), "neglected": _split_neglected(sentence),
+                "benefits": "", "tradeoffs": tradeoffs,
+                "evidence_span": _clean(sentence)[:200],
+            })
+    return cands
+
+
 def _aggregate_status(statuses: list[str]) -> str:
+
     """The SPEC-001-D Master-ADR aggregate-status calculation, ported verbatim
     (agency's lowercase enum). The theme's status is DERIVED from its children's
     statuses, never stored (rule 8)."""
@@ -183,6 +300,22 @@ class AdrCapability(CapabilityBase):
             if cap and len(str(props.get(elem, ""))) > cap:
                 findings.append({"rule": "WHY-LEN", "severity": "warn",
                                  "msg": f"'{elem}' exceeds the {cap}-char budget"})
+        # WHY-005 (warn) — tradeoffs must be SUBSTANTIVE, not an empty
+        # acknowledgement (SPEC-001-A). Fires only when non-empty-but-flimsy
+        # (an empty tradeoffs is already a WHY-001 error).
+        tradeoffs = str(props.get("tradeoffs", "")).strip()
+        if tradeoffs and (tradeoffs.lower() in _EMPTY_ALTERNATIVES
+                          or len(tradeoffs) < _MIN_SUBSTANTIVE):
+            findings.append({"rule": "WHY-005", "severity": "warn",
+                             "msg": "tradeoffs look insubstantial — state a real cost/risk"})
+        # MIN-005 (info) — a decision should reference ≥1 spec (SPEC-001-B
+        # separation): a REFINES/RELATES_TO edge to a Document/Spec. Traversed,
+        # not a foreign-key scan (dormant-edge rule).
+        refs = (self.ctx.neighbors(decision_id, "REFINES", direction="out")
+                + self.ctx.neighbors(decision_id, "RELATES_TO", direction="out"))
+        if not refs:
+            findings.append({"rule": "MIN-005", "severity": "info",
+                             "msg": "no referenced spec — REFINES/RELATES_TO a spec Document"})
         ok = not any(f["severity"] == "error" for f in findings)
         return ToolResult.success(data={"decision_id": decision_id,
                                         "findings": findings, "ok": ok})
@@ -623,3 +756,219 @@ class AdrCapability(CapabilityBase):
                                             "status": "approved"})
         return ToolResult.success(data={"decision_id": decision_id, "approved": False,
                                         "declined": True})
+
+    # ── Spec 356 Slice 1 — spec→decision extraction + the /open gate predicate ──
+
+    def _spec_body(self, doc_id: str) -> str:
+        """The latest revision body of an ingested spec Document (Spec 292 — the
+        text lives on the DocRevision, not the Document node)."""
+        revs = self.ctx.neighbors(doc_id, "REVISION_OF", direction="in")
+        if not revs:
+            return ""
+        return max(revs, key=lambda r: r.get("recorded_at", 0)).get("text", "")
+
+    def _resolve_spec(self, spec_id: str) -> tuple[str, str]:
+        """Resolve ``spec_id`` to ``(document_id, body)``. It may be EITHER a
+        Document node id OR a frontmatter ``spec_id`` (owner directive: "the
+        document id can also be a Spec id") — try the node id first, then match
+        the frontmatter ``spec_id`` across ingested spec Documents."""
+        doc = self.ctx.recall_typed(spec_id, "Document")
+        if doc:
+            return spec_id, self._spec_body(spec_id)
+        from agency.capabilities.document import _interconnect
+        seen: set[str] = set()
+        for d in self.ctx.query_nodes("Document"):
+            did = d.get("id")
+            if not did or did in seen:
+                continue
+            seen.add(did)
+            body = self._spec_body(did)
+            fm = _interconnect.parse_frontmatter(body)
+            if str(fm.get("spec_id", "")).strip().strip('"') == str(spec_id).strip():
+                return did, body
+        return "", ""
+
+    @verb(role="act")
+    def extract_decisions(self, spec_id: str, theme_id: str = "",
+                          apply: bool = False) -> ToolResult:
+        """EXTRACT_DECISIONS — surface a spec's key decisions as WH(Y) candidates
+        and (``apply=True``) draft them as ``proposed`` ``Decision``s that
+        ``REFINES`` the spec. **Decidable-first** (no API key): a canonical WH(Y)
+        statement is parsed verbatim (SPEC-001-A), else the ``## Design`` cue
+        sentences + ``## Why``/``## Failure modes`` sections are mined. Every
+        candidate keeps an ``evidence_span`` (anti-hallucination anchor +
+        idempotency key — re-apply never duplicates).
+
+        Inputs: spec_id (a Document id OR a frontmatter spec_id), theme_id (the
+                AdrTheme to file decisions under; inferred/get-or-created when
+                empty), apply (False = preview only; True = draft the Decisions).
+        Returns: ``{spec_id, theme_id, candidates: [...], drafted: [ids]}`` or
+                 ``{error}``.
+        chain_next: human edits the candidates → apply=True → adr.approve (355) →
+                    adr.spec_decisions_ready gates /open→/inprogress (358).
+        """
+        doc_id, body = self._resolve_spec(spec_id)
+        if not doc_id:
+            return ToolResult.success(data={"error": f"no spec {spec_id!r} (Document "
+                                            "id or frontmatter spec_id)", "spec_id": spec_id})
+        if not body:
+            return ToolResult.success(data={"error": f"spec {spec_id!r} has no ingested "
+                                            "body (document.ingest it first)",
+                                            "spec_id": spec_id, "candidates": []})
+        # Theme: explicit, else a single get-or-created theme (per-candidate
+        # multi-theme routing from `affects`/`domain` is Slice 2).
+        theme_layer = "core"
+        if not theme_id:
+            theme_id = self.theme(layer=theme_layer).data["id"]
+        else:
+            t = self.ctx.recall_typed(theme_id, "Document")
+            theme_layer = (t or {}).get("layer", "") if t else ""
+        candidates = _extract_candidates(body, theme_layer)
+        if not apply:
+            return ToolResult.success(data={"spec_id": doc_id, "theme_id": theme_id,
+                                            "candidates": candidates, "drafted": []})
+        # apply=True — draft each NEW candidate (idempotent on evidence_span).
+        existing = self.ctx.sources_via_edge("REFINES", doc_id, "Document",
+                                             label="Decision")
+        seen_spans = {d.get("evidence_span") for d in existing}
+        drafted: list[str] = []
+        for c in candidates:
+            if c["evidence_span"] in seen_spans:
+                continue
+            try:
+                did = self.ctx.record_and_serve("Decision", {
+                    "decision": c["decision"], "context": c.get("context", ""),
+                    "facing": c.get("facing", ""), "neglected": c.get("neglected", ""),
+                    "benefits": c.get("benefits", ""), "tradeoffs": c.get("tradeoffs", ""),
+                    "status": "proposed", "proposed_by": "extractor",
+                    "evidence_span": c["evidence_span"]})
+            except ValueError as exc:
+                return ToolResult.success(data={"error": str(exc), "spec_id": doc_id})
+            self.ctx.link(did, theme_id, "PART_OF")
+            self.ctx.link(did, doc_id, "REFINES")
+            seen_spans.add(c["evidence_span"])
+            drafted.append(did)
+        return ToolResult.success(data={"spec_id": doc_id, "theme_id": theme_id,
+                                        "candidates": candidates, "drafted": drafted})
+
+    @verb(role="transform")
+    def spec_decisions_ready(self, spec_id: str) -> ToolResult:
+        """SPEC_DECISIONS_READY — the /open→/inprogress predicate (358). ``ready``
+        is True iff **≥1** ``Decision`` ``REFINES`` the spec AND every such
+        decision is ``approved`` (the 355 gate). A zero-decision spec returns
+        ``{ready: False, reason: "no-decisions"}`` — it does NOT vacuously pass
+        (panel B2.2); the owner clears it with an explicit override (357).
+
+        Inputs: spec_id (a Document id OR a frontmatter spec_id).
+        Returns: ``{spec_id, ready, decisions: [{id, status}], blocking: [ids],
+                 reason?}``.
+        chain_next: workflow.move_spec(spec, "inprogress") guards on ``ready``.
+        """
+        doc_id, _ = self._resolve_spec(spec_id)
+        if not doc_id:
+            return ToolResult.success(data={"error": f"no spec {spec_id!r}",
+                                            "spec_id": spec_id, "ready": False})
+        decisions = self.ctx.sources_via_edge("REFINES", doc_id, "Document",
+                                              label="Decision")
+        rows = [{"id": d.get("id"), "status": d.get("status")} for d in decisions]
+        if not rows:
+            return ToolResult.success(data={"spec_id": doc_id, "ready": False,
+                                            "reason": "no-decisions", "decisions": [],
+                                            "blocking": []})
+        blocking = [r["id"] for r in rows if r["status"] != "approved"]
+        return ToolResult.success(data={"spec_id": doc_id, "ready": not blocking,
+                                        "decisions": rows, "blocking": blocking})
+
+    # ── Spec 356 Slice 2 — architecture-hint loading (the payoff) ────────────
+
+    @verb(role="transform")
+    def hints(self, spec_id: str, budget: int = 2000) -> ToolResult:
+        """HINTS — the payoff: at implementation start, project the spec's
+        **approved** decisions (+ their depth-1 ``DEPENDS_ON`` neighbours) into a
+        compact, token-BOUNDED architecture-hint block — *decisions and their
+        consequences*, not the spec re-stated (the minimum an implementer needs to
+        not contradict an approved decision). Owner's vision: "ADRs exist primarily
+        to extract code + architecture hints loaded into context at implementation
+        start." Only `approved` decisions appear (a `proposed` draft is not yet a
+        constraint). Reuses the shared ``budget_take`` split (rule 2); the stored
+        Decision nodes remain FULL — the budget governs only this projection (rule 9).
+
+        Inputs: spec_id (a Document id OR a frontmatter spec_id), budget (int —
+                max tokens of returned hints).
+        Returns: ``{spec_id, themes, hints: [{decision_id, theme, decision, why,
+                 constraints, touches, related}], budget, returned_tokens,
+                 truncated}`` or ``{error}``.
+        chain_next: load the block into the implementer's context (workflow 358).
+        """
+        doc_id, _ = self._resolve_spec(spec_id)
+        if not doc_id:
+            return ToolResult.success(data={"error": f"no spec {spec_id!r}",
+                                            "spec_id": spec_id, "hints": []})
+        decisions = self.ctx.sources_via_edge("REFINES", doc_id, "Document",
+                                              label="Decision")
+        approved = [d for d in decisions if str(d.get("status")) == "approved"]
+        hints: list[dict] = []
+        for d in approved:
+            did = d.get("id")
+            facing, benefits = d.get("facing", ""), d.get("benefits", "")
+            why = " → ".join(p for p in (facing, benefits) if str(p).strip()) or d.get("context", "")
+            related = [nb.get("id") for nb in self.ctx.neighbors(did, "DEPENDS_ON",
+                       direction="out") if nb.get("id")]
+            themes = self.ctx.neighbors(did, "PART_OF", direction="out")
+            touches = themes[0].get("layer", "") if themes else ""
+            hints.append({"decision_id": did, "theme": touches,
+                          "decision": d.get("decision", ""), "why": why,
+                          "constraints": d.get("tradeoffs", ""), "touches": touches,
+                          "related": related})
+
+        def _cost(h: dict) -> int:
+            return count_tokens(json.dumps(h, default=str, sort_keys=True))
+
+        kept, skipped = budget_take(hints, _cost, budget)
+        return ToolResult.success(data={
+            "spec_id": doc_id,
+            "themes": sorted({h["theme"] for h in kept if h["theme"]}),
+            "hints": kept, "budget": budget,
+            "returned_tokens": sum(_cost(h) for h in kept),
+            "truncated": bool(skipped)})
+
+    # ── Spec 354 Slice 3 — the "handful of ADRs" index ───────────────────────
+
+    @verb(role="transform")
+    def catalogue(self, status: str = "", layer: str = "") -> ToolResult:
+        """CATALOGUE — the "handful of ADRs" index (SPEC-001-B minimalism): every
+        theme + its `PART_OF` decision counts grouped by status. Optionally filter
+        to one architecture ``layer`` and/or count only one ``status``.
+
+        (Named `catalogue`, not `list`, to avoid a bare-name collision with
+        `manage.list` — Spec 074 collision discipline.)
+
+        Inputs: status (str — count only this decision status), layer (str — only
+                this theme's layer).
+        Returns: ``{themes: [{id, layer, title, decisions, by_status}],
+                 total_themes, total_decisions}``.
+        chain_next: adr.theme_status(theme_id) for one theme's aggregate;
+                    adr.render(theme_id) to project its live decisions.
+        """
+        themes = [t for t in self.ctx.query_nodes("Document", where={"kind": "adr-theme"})
+                  if t.get("vto", _OPEN) >= _OPEN]
+        if layer:
+            themes = [t for t in themes if t.get("layer") == layer]
+        rows: list[dict] = []
+        total_decisions = 0
+        for t in themes:
+            children = self.ctx.neighbors(t.get("id"), "PART_OF", direction="in")
+            by_status: dict[str, int] = {}
+            for c in children:
+                st = str(c.get("status"))
+                if status and st != status:
+                    continue
+                by_status[st] = by_status.get(st, 0) + 1
+            count = sum(by_status.values())
+            total_decisions += count
+            rows.append({"id": t.get("id"), "layer": t.get("layer", ""),
+                         "title": t.get("title", ""), "decisions": count,
+                         "by_status": by_status})
+        rows.sort(key=lambda r: r["layer"])
+        return ToolResult.success(data={"themes": rows, "total_themes": len(rows),
+                                        "total_decisions": total_decisions})

@@ -16,6 +16,6 @@ Feature: discover capability scaffold — the intent pillar's drop-in shell (Spe
   Scenario: discover reuses research's Citation rather than redeclaring it
     Then the discover ontology does not declare a Citation node
 
-  Scenario: discover derives a SkillDoc and a discover-usage walkable from its docstring
+  Scenario: discover derives a SkillDoc and the guided-discovery discipline is registered
     Then discover has a derived SkillDoc
-    And a discover-usage walkable skill is registered
+    And the guided-discovery walkable skill is registered
