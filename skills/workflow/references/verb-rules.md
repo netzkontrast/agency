@@ -1,5 +1,5 @@
 <!-- agency-generated: v1 -->
-# Writing adr verb descriptions
+# Writing workflow verb descriptions
 
 A verb description is a **functional** prompt — its job is invocation + cheap
 discovery, not persuasion, and **not routing** (that is the capability's job:
@@ -13,25 +13,14 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## adr verb audit — 1 of 15 verbs need work
+## workflow verb audit — 0 of 4 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
-| `adr.approve` | act | ✓ clean |
-| `adr.dod_check` | transform | ✓ clean |
-| `adr.draft` | act | ✓ clean |
-| `adr.extract_decisions` | act | ✓ clean |
-| `adr.hints` | transform | ✓ clean |
-| `adr.impact` | transform | ✓ clean |
-| `adr.link` | act | ✓ clean |
-| `adr.read` | act | ✓ clean |
-| `adr.render` | act | ✓ clean |
-| `adr.spec_decisions_ready` | transform | ✓ clean |
-| `adr.supersede` | act | ✓ clean |
-| `adr.theme` | act | ✓ clean |
-| `adr.theme_status` | transform | ✓ clean |
-| `adr.update` | act | ✓ clean |
-| `adr.validate` | transform | `long_brief` |
+| `workflow.board` | transform | ✓ clean |
+| `workflow.index` | transform | ✓ clean |
+| `workflow.move_spec` | effect | ✓ clean |
+| `workflow.open_spec` | act | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The
