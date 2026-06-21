@@ -282,3 +282,20 @@ verb takes the config dict today; the review verbs pass it); the
 `QualityRun{status}` history node + trend query; the scan-time suppression
 *scoring* read; and `intent.triage` + the `Suppression`/`Acknowledgement`
 ontology on `IntentCapability`.
+
+**Slice 3 SHIPPED 2026-06-21 (TDD) — QualityRun history node + trend (§3).**
+`QualityRun{mode, scope, score, critical, warning, suggestion, status,
+recorded_at}` registered in the analyze ontology (+ a `status` enum
+complete|incomplete). `analyze.record_run(mode, scope, findings, preset, status,
+config)` (role=`act`) computes the score + tier counts (honouring the config),
+records the node SERVING the intent, and derives the **trend** — the delta from
+the most recent prior **complete** same-mode run; an incomplete/crashed walk is
+recorded but EXCLUDED from the delta (Nygard), a first run reports `first=True`.
+History is a graph query (`analyze.graph('QualityRun')` / `manage.timeline`),
+never a `.brooks-lint-history.json` sidecar (Goal 2). **4 Gherkin scenarios**
+(`tests/acceptance/features/quality_run.feature`): node-not-sidecar, trend delta,
+incomplete-excluded, first-run. Analyze slice green (55 passed); install regen +
+check-drift + doc-drift clean. **Still (Slice 4):** the scan-time suppression
+*scoring* read + `intent.triage` + the `Suppression`/`Acknowledgement` ontology
+on `IntentCapability`; plus the `QualityRun`→`SkillRun` edge + base-branch CI
+cache (folds with 382).

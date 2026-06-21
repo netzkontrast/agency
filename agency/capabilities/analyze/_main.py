@@ -105,12 +105,18 @@ class AnalyzeCapability(CapabilityBase):
         nodes={
             "Analysis": ["path", "axes", "started_at"],
             "Finding": ["rule", "severity", "file", "line", "message", "evidence"],
+            # Spec 381 §3 — a review run recorded as a graph node (history is a
+            # query, not a .brooks-lint-history.json sidecar).
+            "QualityRun": ["mode", "score", "status"],
         },
         enums={
             ("Finding", "severity"): {"info", "warn", "fail"},
             # Spec 048: 'paths' joins the axis set as a graph-walking
             # analyzer; the others are file-tree walkers.
             ("Analysis", "axis"): set(_AXES),
+            # Spec 381 §3 — an incomplete (crashed) walk is recorded but excluded
+            # from the trend (Nygard).
+            ("QualityRun", "status"): {"complete", "incomplete"},
         },
         edges={"HAS_FINDING", "IMPROVES", "CLEANS"},
         schemas={"improvement-plan": _IMPROVEMENT_PLAN_SCHEMA},
@@ -383,6 +389,58 @@ class AnalyzeCapability(CapabilityBase):
             "config_notes": notes,
             "scored_findings": len(findings),
         }
+
+    @verb(role="act")
+    def record_run(self, mode: str = "review", scope: str = "", findings: list = None,
+                   preset: str = "", status: str = "complete",
+                   config: dict = None) -> dict:
+        """Record a QualityRun history node + return the trend (Spec 381 §3).
+
+        History is a GRAPH QUERY, never a ``.brooks-lint-history.json`` sidecar
+        (Goal 2; survives ephemeral containers). Computes the Health Score + tier
+        counts from the findings (honouring the quality: config), records a
+        ``QualityRun{mode, scope, score, critical, warning, suggestion, status,
+        recorded_at}`` SERVING the intent, then derives the trend: the delta from
+        the most recent prior **complete** same-mode run. An incomplete/crashed
+        walk is recorded but EXCLUDED from the delta (Nygard); a first run reports
+        ``first=True``.
+
+        Inputs: mode, scope (str), findings (wire dicts), preset ('' → config
+                strictness), status (complete|incomplete), config (quality: block).
+        Returns: {run_id, mode, score, counts, status, trend:{first, prior, delta}}.
+        chain_next: manage.timeline(intent_id) / analyze.graph('QualityRun') for the series.
+
+        Use when: persisting a review run so its score trend survives across
+            sessions/CI as a durable, queryable node.
+        """
+        import time
+        from ._score import (score as _score, load_presets, parse_quality_config,
+                             apply_quality_config, _tier_of)
+        findings = findings or []
+        presets = load_presets()
+        cfg, _notes = parse_quality_config(config, set(presets))
+        findings = apply_quality_config(findings, cfg)
+        eff_preset = preset or cfg["strictness"]
+        sc = _score(findings, eff_preset, presets)
+        counts = {"critical": 0, "warning": 0, "suggestion": 0}
+        for f in findings:
+            counts[_tier_of(f)] = counts.get(_tier_of(f), 0) + 1
+        # trend BEFORE recording this run — prior COMPLETE same-mode runs only
+        prior = [r for r in self.ctx.find("QualityRun")
+                 if r.get("mode") == mode and r.get("status") == "complete"]
+        if prior:
+            prior.sort(key=lambda r: r.get("vfrom", 0))
+            last = prior[-1].get("score")
+            trend = {"first": False, "prior": last, "delta": sc - last}
+        else:
+            trend = {"first": True, "prior": None, "delta": None}
+        run_id = self.ctx.record_and_serve("QualityRun", {
+            "mode": mode, "scope": scope, "score": sc,
+            "critical": counts["critical"], "warning": counts["warning"],
+            "suggestion": counts["suggestion"], "status": status,
+            "recorded_at": time.time()})
+        return {"run_id": run_id, "mode": mode, "score": sc, "counts": counts,
+                "status": status, "trend": trend}
 
     @verb(role="act")
     def improve(self, analysis_id: str, axes: list = None,

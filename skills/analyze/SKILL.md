@@ -31,6 +31,7 @@ Analyze runs decidable transforms over source and reports findings on the qualit
 | `paths` | transform | Spec 048 intent-path analysis: long chains + verb sequences. | [details](references/paths.md) |
 | `performance` | transform | AST-based hot-path lint: nested O(n²), += in loop, unbounded while True. | [details](references/performance.md) |
 | `quality` | transform | Decidable lint findings: unused imports, long lines, long functions, long files. | [details](references/quality.md) |
+| `record_run` | act | Record a QualityRun history node + return the trend (Spec 381 §3). | [details](references/record_run.md) |
 | `review` | act | Headless code-quality review for CI — never pauses; risky remedies auto-declined. | [details](references/review.md) |
 | `run` | act | Run the requested analysis axes and record an Analysis + per-Finding nodes. | [details](references/run.md) |
 | `score` | transform | Compute the Health Score (Spec 381) from findings × preset/config — READ-ONLY. | [details](references/score.md) |
