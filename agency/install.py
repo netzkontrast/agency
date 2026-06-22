@@ -1052,7 +1052,16 @@ def generate(engine: Engine) -> dict[str, str]:
     # A pillar whose name collides with a live capability skill (intent) AUGMENTS
     # that skill with its concept section rather than clobbering it; the rest
     # (lifecycle · memory) render standalone.
-    from ._pillars import load_pillars
+    from ._pillars import load_pillars, lint_pillars
+    # Spec 377 Slice 2 — the committed pillars are block-set exemplars: refuse to
+    # render an install if any fails strict lint (per-type · self-containment ·
+    # no-stub · verb-resolves), mirroring emit_skill's PRE-emit lint raise for
+    # capability SkillDocs. A broken pillar must never reach disk.
+    _verbs_index = {c: set(reg.get(c).verbs) for c in reg.names()}
+    _pillar_failures = lint_pillars(verbs_index=_verbs_index)
+    if _pillar_failures:
+        raise ValueError(
+            f"Spec 377 — committed pillar(s) fail strict lint: {_pillar_failures}")
     for pillar in load_pillars():
         path = f"skills/{_skill_name(pillar['name'])}/SKILL.md"
         if path in files:

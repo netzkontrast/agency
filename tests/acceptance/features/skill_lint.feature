@@ -32,3 +32,17 @@ Feature: Strict skill-schema lint (Spec 377 Slice 1)
   Scenario: the committed pillars pass strict lint
     When I strict-lint every committed pillar
     Then every committed pillar passes strict lint
+
+  # ── Spec 377 Slice 2 — the committed-skill gate (install + check-drift) ────────
+
+  Scenario: the committed pillar source passes the strict lint gate
+    When I run the committed-skill lint gate
+    Then the committed-skill lint gate reports no failures
+
+  Scenario: a committed pillar that fails strict lint is caught by the gate
+    When I run the committed-skill lint gate over a lint-failing source
+    Then the committed-skill lint gate flags the failing pillar
+
+  Scenario: install generation is refused when a committed pillar fails strict lint
+    When I generate the install with a lint-failing committed pillar
+    Then install generation is refused
