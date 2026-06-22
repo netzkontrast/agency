@@ -1,0 +1,47 @@
+name: intent
+kind: pillar
+type: pillar
+owner: capability
+description: >-
+  Use when you need to understand or work with Intent — how every agency session
+  serves a confirmed intent, the bootstrap → clarify → confirm clarity gate, and
+  the critical-thinking methods that pressure-test an intent before work begins.
+overview: |
+  Intent is the first of agency's four concepts (Intent · Capability · Lifecycle ·
+  Memory) and the spine the other three ride. Every session SERVES an intent: a
+  typed record of purpose (WHY), deliverable (WHAT), and acceptance (how you will
+  KNOW it is done). No verb runs unanchored — each Invocation links back to the
+  intent it serves and each Artefact to the intent it produces, which is what turns
+  a session's work into queryable provenance rather than a one-shot transcript. The
+  provenance moat IS the moat; an unanchored action is lost the moment the session
+  ends.
+
+  The clarity gate is three steps. `intent.bootstrap` (or `capture`) mints the
+  intent from purpose/deliverable/acceptance. `intent.clarify` surfaces the
+  ambiguities a vague request hides — the questions whose answers would change the
+  plan. `intent.confirm` flips the intent to `confirmed`, the state every
+  downstream verb checks before it will run. The discipline: sharpen a vague intent
+  BEFORE work, not mid-flight.
+
+  Critical-thinking methods (Spec 091) pressure-test an intent: `intent.assumptions`
+  lists the load-bearing assumptions a plan rests on; `intent.socratic` asks the
+  questions that expose gaps; the rest of the eight methods stress different
+  failure modes. Reach for one before a risky or large change — the cheapest place
+  to catch a wrong plan is before any code is written.
+when_to_use: |
+  - Starting any session — bootstrap the intent every verb will serve.
+  - A request is vague or underspecified — clarify, then confirm, before acting.
+  - Before a risky or large change — run a critical-thinking method over the intent.
+when_not: |
+  - A throwaway one-liner with no downstream work to anchor — the bootstrap tax
+    outweighs the provenance value.
+examples:
+  - input: |
+      iid = (await call_tool("intent_bootstrap", {
+          "purpose": "ship the pillar skills",
+          "deliverable": "skills/intent|lifecycle|memory render as type=pillar",
+          "acceptance": "install regen emits all three; they appear in the listing",
+      }))["intent_id"]
+    output: |
+      A confirmed Intent node; every later verb passes intent_id=iid so its
+      Invocation SERVES this intent and its Artefacts PRODUCE against it.

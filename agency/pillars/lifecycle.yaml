@@ -1,0 +1,46 @@
+name: lifecycle
+kind: pillar
+type: pillar
+owner: capability
+description: >-
+  Use when you need to understand or work with Lifecycle — how agency models any
+  stateful thing (a spec, a session, a branch, a Jules run) as a state machine you
+  open, move, and close, and reads its live state with read/find/check/watch.
+overview: |
+  Lifecycle is the third of agency's four concepts (Intent · Capability · Lifecycle
+  · Memory). Anything that has STATES and legal TRANSITIONS between them — a spec
+  moving draft → open → inprogress → done, a session, a branch, a Jules run — is a
+  Lifecycle. Rather than scattering `if status == ...` checks across the code, each
+  lifecycle is a named machine: a set of states, the legal transitions between
+  them, and the guards that gate each move.
+
+  The write side is three verbs. `open` mints a lifecycle instance in its initial
+  state. `move` is the SOLE state writer — it validates the transition against the
+  machine (an illegal move is rejected, not silently applied) and records it. `close`
+  retires the instance. The read side never mutates: `read`/`check` returns one
+  instance's current state, `find` lists instances by state, `watch` subscribes to
+  transitions. Querying live state always goes through these — never by eyeballing a
+  status field, which can drift from the machine's truth.
+
+  Agent-as-parameterization (A2A): the SAME machine drives a local agent, a subagent,
+  or a Jules run — the driver is a parameter, not a fork in the logic. A transition
+  table defines what's legal once; every driver obeys it. This is why a spec's state
+  is trustworthy regardless of who moved it: the folder, the frontmatter, and the
+  graph node are gated to agree (`scripts/check-drift`).
+when_to_use: |
+  - Modelling anything with states + legal transitions — reach for a lifecycle machine.
+  - Moving a stateful thing forward — `move` validates the transition; never write the
+    state field directly.
+  - Asking "what state is X in?" / "what's in state S?" — read/check/find, not a raw scan.
+when_not: |
+  - A value with no transitions (a plain attribute) — a lifecycle machine is overkill;
+    store it as a field.
+examples:
+  - input: |
+      # Move a spec to the next state — the machine rejects an illegal jump.
+      await call_tool("capability_workflow_move_spec",
+                      {"spec_id": "375", "to_state": "inprogress"})
+    output: |
+      The transition is validated against the `spec` machine (open→inprogress is
+      blocked until the ADR hinge clears), recorded as a SpecLifecycle node, and the
+      folder/frontmatter/node are kept in agreement.

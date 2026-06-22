@@ -53,3 +53,27 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`critical-thinking`** (discipline): frame → surface → stress-test → weigh → decide
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'critical-thinking', 'inputs': {}, 'intent_id': '…'})`
+
+## The Intent pillar (concept)
+
+Intent is the first of agency's four concepts (Intent · Capability · Lifecycle ·
+Memory) and the spine the other three ride. Every session SERVES an intent: a
+typed record of purpose (WHY), deliverable (WHAT), and acceptance (how you will
+KNOW it is done). No verb runs unanchored — each Invocation links back to the
+intent it serves and each Artefact to the intent it produces, which is what turns
+a session's work into queryable provenance rather than a one-shot transcript. The
+provenance moat IS the moat; an unanchored action is lost the moment the session
+ends.
+
+The clarity gate is three steps. `intent.bootstrap` (or `capture`) mints the
+intent from purpose/deliverable/acceptance. `intent.clarify` surfaces the
+ambiguities a vague request hides — the questions whose answers would change the
+plan. `intent.confirm` flips the intent to `confirmed`, the state every
+downstream verb checks before it will run. The discipline: sharpen a vague intent
+BEFORE work, not mid-flight.
+
+Critical-thinking methods (Spec 091) pressure-test an intent: `intent.assumptions`
+lists the load-bearing assumptions a plan rests on; `intent.socratic` asks the
+questions that expose gaps; the rest of the eight methods stress different
+failure modes. Reach for one before a risky or large change — the cheapest place
+to catch a wrong plan is before any code is written.

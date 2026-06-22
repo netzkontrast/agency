@@ -40,6 +40,12 @@ _BASH_WRAPPER_TEMPLATE = Template(
 _VERB_RULES_TEMPLATE = Template(
     (_RENDER_DIR / "verb-rules.md").read_text()
 )
+# Spec 373 Slice 1 / Spec 375 — per-type skill templates. The pillar template is
+# the first (its live consumer: the intent/lifecycle/memory concept skills);
+# capability/discipline variants follow the same `render/skill/<type>.md` pattern.
+_PILLAR_SKILL_TEMPLATE = Template(
+    (_RENDER_DIR / "skill" / "pillar.md").read_text()
+)
 
 # Engine-injected params: these are NOT user-facing args in the wrapper.
 _INJECTED_PARAMS = frozenset({"ctx", "client", "vcs", "memory", "caps"})
@@ -222,6 +228,75 @@ def _yaml_quote(s: str) -> str:
     (now possible since the description leads with the overview prose) can't
     break frontmatter parsing."""
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _pillar_sections(skill: dict) -> str:
+    """The pillar's concept body — overview + optional sections — shared by the
+    standalone render and the capability-augment path. No frontmatter, no H1.
+    Sections are appended only when the source carries them (frugal; no empty
+    headers), so the render is deterministic (A7) and self-contained (A1)."""
+    parts: list[str] = []
+    overview = (skill.get("overview") or "").strip()
+    if overview:
+        parts.append(overview)
+    when_to_use = (skill.get("when_to_use") or "").strip()
+    if when_to_use:
+        parts.append(f"## When to use\n\n{when_to_use}")
+    when_not = (skill.get("when_not") or "").strip()
+    if when_not:
+        parts.append(f"## When not to use\n\n{when_not}")
+    examples = skill.get("examples") or []
+    if examples:
+        ex_blocks = []
+        for ex in examples:
+            inp = (ex.get("input") or "").strip()
+            out = (ex.get("output") or "").strip()
+            ex_blocks.append(f"```python\n{inp}\n```\n\n{out}".rstrip())
+        parts.append("## Example\n\n" + "\n\n".join(ex_blocks))
+    mistakes = skill.get("common_mistakes") or []
+    if mistakes:
+        rows = "\n".join(f"| {m.get('symptom', '')} | {m.get('counter', '')} |"
+                         for m in mistakes)
+        parts.append("## Common mistakes\n\n| Symptom | Counter |\n|---|---|\n" + rows)
+    refs = skill.get("references") or []
+    if refs:
+        ref_lines = "\n".join(
+            f"- [{r.get('title') or r.get('path')}]({r.get('path')})" for r in refs)
+        parts.append("## References\n\n" + ref_lines)
+    return "\n\n".join(parts)
+
+
+def render_pillar(skill: dict) -> dict[str, str]:
+    """Spec 375 — render a committed pillar `skill.yaml` (type=pillar) standalone
+    to `skills/<name>/SKILL.md` via the per-type pillar template.
+
+    Deterministic (A7) — no LLM, no I/O beyond the template read; same source ⇒
+    byte-identical output. The body (`_pillar_sections`) is concatenated, NOT run
+    through Template.substitute, so a literal ``$`` in an example never breaks the
+    render. Used for pillars whose name does not collide with a live capability
+    (lifecycle · memory); a colliding pillar (intent) augments the cap skill via
+    `augment_with_pillar` instead."""
+    name = _skill_name(skill["name"])
+    head = _PILLAR_SKILL_TEMPLATE.substitute(
+        gen_version=str(GEN_VERSION),
+        name=name,
+        title=str(skill["name"]).capitalize(),
+        description=_yaml_quote((skill.get("description") or "").strip()),
+    )
+    content = head.rstrip() + "\n\n" + _pillar_sections(skill) + "\n"
+    return {f"skills/{name}/SKILL.md": content}
+
+
+def augment_with_pillar(existing_md: str, skill: dict) -> str:
+    """Spec 375 — append a pillar's concept section to a capability SKILL.md that
+    already owns the pillar's name (the `intent` concept rides the `intent`
+    capability skill rather than clobbering it). Adds the concept overview under a
+    distinct `## The <Title> pillar (concept)` H2 so the capability's own verb
+    table / sections stay intact. Deterministic (A7)."""
+    title = str(skill["name"]).capitalize()
+    overview = (skill.get("overview") or "").strip()
+    section = f"## The {title} pillar (concept)\n\n{overview}"
+    return existing_md.rstrip() + "\n\n" + section + "\n"
 
 
 def emit_skill(cap_name: str, doc, verbs: dict, skills: dict | None = None) -> dict[str, str]:
