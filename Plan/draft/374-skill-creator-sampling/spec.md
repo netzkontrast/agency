@@ -1,9 +1,9 @@
 ---
 spec_id: "374"
 slug: skill-creator-sampling
-status: draft
+status: partial
 state: draft
-last_updated: 2026-06-20
+last_updated: 2026-06-22
 owner: "@agency"
 vision_goals: [1, 3, 8]
 depends_on: ["147", "371", "373"]
@@ -54,3 +54,62 @@ committed; install just renders it (373).
 - The draft carries a `source_stamp`; re-running with unchanged source is stable.
 - No host ⇒ graceful return (grounding + prompt), no crash, deterministic fallback intact.
 - Install never calls the sampler (a test asserts `install.generate` does no sampling).
+
+## Followup — Implementation Status (2026-06-22)
+
+**Slice 1 — SHIPPED: the grounding-context builder.** Slices 2 (host.sample +
+per-type prompts) and 3 (validation + source_stamp + review/commit) remain.
+
+Done (file:line evidence):
+- `agency/capabilities/skill_generator/_main.py` — `build_grounding(cap, spec_text="")`
+  reads a capability's LIVE surface into a structured dict: `{capability, home,
+  verbs:[{name, role, signature, doc}], ontology:{nodes, edges, skills}, spec}`.
+  Pure + deterministic (registry-only, no host, no I/O) — same cap ⇒ same bytes
+  (A7). Verb signatures strip `self`/`ctx`/declared `@verb(inject=…)` params via
+  `_public_signature` (derived from the live `fn`, rule 2); docstrings carried in
+  FULL (rule 9). Surfaced as the `skill_generator.ground(capability, spec_text=)`
+  verb (role=transform) — the no-host fallback an author reads by hand (acceptance
+  "no host ⇒ graceful return"); unknown capability → typed `{error, available}`.
+- Tests: `tests/acceptance/features/skill_author.feature` + `test_skill_author.py`
+  — 3 scenarios: (1) grounding lists EXACTLY the live verbs, each mirroring live
+  role + docstring, signature omitting injected params; (2) determinism (same cap,
+  identical bytes); (3) unknown cap → typed error. All derive from the live
+  registry (rule 8). 3/3 green; install regen committed (help + skill-generator
+  surface gained the `ground` verb); `check-drift` clean.
+
+**Slice 2 — SHIPPED: per-type prompt + host.sample → schema-parsed draft.**
+
+Done (file:line evidence):
+- `agency/capabilities/skill_generator/_main.py` — `_skill_creator_prompt(type,
+  grounding)` composes the (system, user) skill-creator prompt; the per-type
+  required CORE is DERIVED from `_skill_parse._TYPE_REQUIRED` (rule 2 — single
+  source, so prompt and parser never drift). `_parse_draft(text)` strips a
+  ```json fence, JSON-decodes, and validates via `parse_skill` (371) — returns
+  `(draft, "")` or `(None, error)`, never raises on bad model output. The
+  `author(capability, skill_type=, spec_text=, max_tokens=)` verb (role=act,
+  `param_enums={skill_type: _SKILL_TYPES}`) builds the grounding (Slice 1),
+  composes the prompt, and `ctx.host.sample`s it — returning `status` ∈
+  `drafted` (schema-valid `draft`) | `no-host` (grounding + prompt for
+  hand-authoring) | `unparseable` (raw + error) | `error` (unknown cap). No
+  sampling host ⇒ graceful `no-host` return (acceptance met). Docstring gained a
+  `Red flags:` section (the derived SkillDoc needs red_flags once the cap ships
+  ≥3 verbs).
+- Tests: 3 new `skill_author` scenarios — (1) a stub sampling host yields a
+  schema-valid `drafted` skill; (2) the prompt lists EXACTLY the cap's live
+  verbs (F3, derived from the registry) + instructs strict JSON; (3) no host ⇒
+  `no-host` with grounding + the per-type prompt naming the type's required
+  fields (derived from `_TYPE_REQUIRED`). 6/6 skill_author green; 51 across the
+  skill/render/schema blast radius; install regen committed (the `author` verb's
+  wrapper + reference + help entry).
+
+Still:
+- **Slice 3** — registry validation of the draft (a referenced verb not in the
+  live registry is rejected — the F3 *enforcement*, beyond the prompt
+  *instruction* shipped here); `source_stamp = hash(cap code + spec +
+  prompt-version)`; the `dry_run` review/commit path. Plus the guard test that
+  `install.generate` never samples (deterministic install, A7).
+- **Found (out of scope, flag for follow-up):** `scripts/check-drift` runs the
+  install regen as `python -m agency.install … || true`, so an install FAILURE
+  (e.g. a SkillDoc lint error) is swallowed and reported as "install: clean".
+  The real failure only surfaces on an un-suppressed run. The gate should fail on
+  a non-zero install exit, not just on a git diff.

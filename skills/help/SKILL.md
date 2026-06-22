@@ -93,7 +93,7 @@ agency execute --code \
 - **research** — ingest_gdoc, lead, record_ingested_source, specialist, verify
 - **select** — archetypes, route
 - **shell** — define, define_profile, filter, run, templates
-- **skill_generator** — generate
+- **skill_generator** — author, generate, ground
 - **skills** — find, index, lint, rank, render
 - **subagent** — develop
 - **symbols** — compress, expand, legend

@@ -164,6 +164,11 @@ markers = [
     # roundtrip + pipx-install smoke. Run with `pytest -q -m e2e`. Skipped
     # in the default suite to keep CI per-push fast; required on tag builds.
     "e2e: marks tests that spawn an MCP-server subprocess (slow, requires the agency-mcp binary resolvable via PATH | .venv | bin/)",
+    # Spec 383 Slice 2b — the brooks JUDGMENT corpus: real-model review over
+    # known-bad fixtures for the judgment-only risks (R2/R3/R6, T1–T6). Needs a
+    # live inference backend, so the tests skipif no ANTHROPIC_API_KEY/OPENROUTER_API_KEY
+    # (they no-op in the default keyless CI; run them with `pytest -m wet` + a key).
+    "wet: marks tests that require a live LLM inference backend (brooks judgment corpus)",
     # Spec 053 — capability/spec markers. Auto-applied by tests/conftest.py
     # based on the test file path; lets `pytest -m research` pick up tests
     # in tests/test_research_*.py without per-test maintenance.

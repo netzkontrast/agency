@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# agency-generated: v1 — capability_develop_review
-# Diagnose code decay using the brooks Iron Law — INTERACTIVE (transform).
-# Usage: agency-develop-review [--intent-id ID] [mode] [scope] [driver] [host_completion]
+# agency-generated: v1 — capability_skill_generator_author
+# Draft a skill for a capability by sampling the host LLM with a per-type skill-creator prompt grounded in the cap's real surface (Spec 374 Slice 2).
+# Usage: agency-skill_generator-author [--intent-id ID] <capability> [skill_type] [spec_text] [max_tokens]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,7 +19,10 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-# all positional args are optional; verb defaults apply when omitted
+if [ "${#args[@]}" -lt 1 ]; then
+  echo "error: expected at least 1 required arg(s) (capability); got ${#args[@]}" >&2
+  exit 2
+fi
 
 kwargs=$(python3 -c '
 import json, sys
@@ -65,14 +68,14 @@ def _coerce(raw, ann):
         return {}
     return raw
 _kw = {"intent_id": sys.argv[1]}
-if len(sys.argv) > 2: _kw["mode"] = _coerce(sys.argv[2], str)
-if len(sys.argv) > 3: _kw["scope"] = _coerce(sys.argv[3], str)
-if len(sys.argv) > 4: _kw["driver"] = _coerce(sys.argv[4], str)
-if len(sys.argv) > 5: _kw["host_completion"] = _coerce(sys.argv[5], dict)
+_kw["capability"] = _coerce(sys.argv[2], str)
+if len(sys.argv) > 3: _kw["skill_type"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["spec_text"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["max_tokens"] = _coerce(sys.argv[5], int)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "
 import json
-return await call_tool('capability_develop_review', json.loads(r'''${kwargs}'''))
+return await call_tool('capability_skill_generator_author', json.loads(r'''${kwargs}'''))
 "

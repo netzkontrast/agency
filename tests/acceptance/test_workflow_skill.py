@@ -129,3 +129,25 @@ def _mark_done(engine, confirmed_intent, spec_id, approver):
 @then("the spec is recorded done")
 def _is_done(done_result):
     assert done_result.get("done") is True, done_result
+
+
+# ── the complete brooks linting workflow is integrated into the loop ──────────
+# Structural invariant (rule 8 — computed positions, no magic index): the
+# develop-spec discipline runs the brooks code-quality review (develop.review)
+# over the implementation, after `build` and before the `done` gate, and the
+# done gate folds in the headless analyze.review quality gate.
+
+def test_brooks_lint_integrated_into_implement_loop():
+    from agency.capabilities.workflow.ontology import _DEVELOP_SPEC_SKILL
+    phases = _DEVELOP_SPEC_SKILL["phases"]
+    by_name = {p["name"]: p for p in phases}
+    assert "lint" in by_name, "develop-spec has no `lint` phase"
+    lint, build, done = by_name["lint"], by_name["build"], by_name["done"]
+    # the lint phase runs the brooks code review chain
+    assert "develop.review" in lint["verbs"], lint
+    # positioned between implementation and the done gate (computed, not pinned)
+    assert build["index"] < lint["index"] < done["index"], (build, lint, done)
+    # the done gate folds in the headless CI quality gate
+    assert "analyze.review" in done["verbs"], done
+    # lint is advisory (not a hard gate — the existing gates are improve/adr/done)
+    assert lint.get("gate") != "hard", lint

@@ -3,6 +3,7 @@
 spec_id: "387"
 slug: loop-activation
 status: draft
+state: draft
 last_updated: 2026-06-21
 owner: "@agency"
 vision_goals: [1, 2, 4, 5]

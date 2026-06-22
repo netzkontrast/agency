@@ -48,5 +48,5 @@ await call_tool('capability_workflow_approve_decisions', {'intent_id': 'intent:a
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`develop-spec`** (discipline): intent → triage → brainstorm → research → acceptance → spec → spec-panel → brooks-lint → improve → open → adr-approve → inprogress → build → done
+- **`develop-spec`** (discipline): intent → triage → brainstorm → research → acceptance → spec → spec-panel → brooks-lint → improve → open → adr-approve → inprogress → build → lint → done
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'develop-spec', 'inputs': {}, 'intent_id': '…'})`

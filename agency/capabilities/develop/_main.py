@@ -333,6 +333,42 @@ REFERENCES: dict[str, str] = {
         "(then auto-syncs — no manual `sync` needed). `codegraph upgrade` updates. "
         "100% local, no API keys, SQLite only.\n"
     ),
+    # Spec 379/380 — the brooks-lint port. The how-to for the six quality modes +
+    # the Iron Law + the decidable/judgment split, travelling on demand (never in a
+    # system prompt). The risk REGISTRY itself is the computed `decay-risks`
+    # reference below (derived from decay-risks.json — rule 2), not duplicated here.
+    "brooks": (
+        "# Brooks-lint in agency — code-quality diagnosis (Spec 379/380)\n\n"
+        "Twelve classic software-engineering books, ported as a queryable substrate. "
+        "Every finding obeys the **Iron Law**: Symptom → Source → Consequence → "
+        "Remedy. A finding without a consequence AND a remedy is noise — dropped at "
+        "the source.\n\n"
+        "## Two passes, one engine\n"
+        "- **Decidable** — the mechanical scanners (`analyze.*`) evidence the risks a "
+        "tool can decide (R1 Cognitive Overload, R4 Accidental Complexity, R5 "
+        "Dependency Disorder); `_decay.tag` enriches each with its risk code + Iron "
+        "Law fields.\n"
+        "- **Judgment** — an LLM reasons over the reasoning-heavy risks (R2/R3/R6, "
+        "T1–T6) the scanners can't decide. It walks the mode's **review chain** (the "
+        "ordered brooks methodology, `data/review-chain.json`); decidable risks are "
+        "shown context-only so the judgment output is scoped to its set. No API key: "
+        "the pass routes through the Spec 352/279 seam (OpenRouter free-first → "
+        "driver → MCP sampling → host-delegate), and the host fulfils a `subagent` "
+        "delegate (Jules / OpenRouter are alternative `driver=` backends).\n\n"
+        "## The verbs\n"
+        "- `develop.review(mode, scope, driver=)` — INTERACTIVE: runs both passes, "
+        "then a FINAL human-approval elicit before the LLM-proposed judgment findings "
+        "merge (decidable findings always stand).\n"
+        "- `analyze.review(path, mode)` — HEADLESS/CI: same engine, never pauses; "
+        "risky remedies auto-declined; computes the Health Score + records the "
+        "`quality:<mode>` Gate.\n"
+        "- `develop.remediate(review_id)` — applies safe remedies; gates risky ones.\n"
+        "- `analyze.sarif(findings)` — SARIF 2.1.0 for code-scanning upload.\n\n"
+        "## Six modes\n"
+        "review (PR) · audit (architecture) · debt · test · health · sweep — each a "
+        "step-ordered chain over its risk set. `develop.reference('decay-risks')` "
+        "lists the live registry.\n"
+    ),
 }
 
 
@@ -356,8 +392,32 @@ def _frugal_reference() -> str:
     )
 
 
+# A computed reference — the decay-risk REGISTRY, rendered live from
+# decay-risks.json (Spec 354/379; rule 2 — derive, never duplicate the risk prose
+# in code). It can't drift from the data the scanners + judgment pass read: adding
+# a risk to the JSON updates this reference for free.
+def _decay_risks_reference() -> str:
+    from ..analyze import _decay
+    risks = _decay.load_risks()
+    lines = [
+        "# Decay risks — the brooks registry (live from decay-risks.json)\n",
+        "Twelve risks: R1–R6 (code decay) + T1–T6 (test decay). A risk with a "
+        "`decidable` rule-id mapping is caught mechanically by the scanners; the "
+        "rest are JUDGMENT-only (the LLM review-chain pass). See "
+        "`develop.reference('brooks')` for the workflow.\n",
+    ]
+    for code in sorted(risks):
+        e = risks[code]
+        kind = (f"decidable ({', '.join(e['decidable'])})"
+                if e.get("decidable") else "judgment-only")
+        lines.append(f"- **{code} {e.get('name', '')}** [{kind}] — "
+                     f"{e.get('diagnostic', '')}")
+    return "\n".join(lines)
+
+
 # topic -> builder(); merged into the static REFERENCES on lookup + discovery.
-_COMPUTED_REFERENCES = {"frugal": _frugal_reference}
+_COMPUTED_REFERENCES = {"frugal": _frugal_reference,
+                        "decay-risks": _decay_risks_reference}
 
 
 def checklist(discipline: str) -> dict:
@@ -1477,20 +1537,27 @@ class DevelopCapability(CapabilityBase):
 
     @verb(role="transform")
     def review(self, mode: str = "review", scope: str = "",
-               host_completion: dict = None) -> dict:
+               driver: str = "subagent", host_completion: dict = None) -> dict:
         """Diagnose code decay using the brooks Iron Law — INTERACTIVE (transform).
 
         Runs BOTH passes (Spec 380 core): the decidable scanners + the LLM
         JUDGMENT pass (the reasoning-heavy R2/R3/T1… risks), then — unlike the
         headless analyze.review — pauses for a FINAL HUMAN-APPROVAL elicit before
-        the judgment findings are accepted. The judgment pass is fulfilled by a
-        SUBAGENT (model_hint="subagent" — a Claude agent the host dispatches, no
-        external LLM key; Jules / OpenRouter are alternative drivers). Decidable
-        findings always stand; only the LLM-PROPOSED judgment findings are gated
-        by your approval (reject → dropped).
+        the judgment findings are accepted. The judgment backend is FIRST-CLASS and
+        selectable via ``driver`` — all three route through the one Spec 352/279
+        seam (no external key required):
+          - ``subagent`` (default) — a Claude agent the host dispatches; the
+            delegate envelope is tagged ``model_hint="subagent"``.
+          - ``jules`` — a remote Jules agent (envelope ``model_hint="jules"``).
+          - ``openrouter`` — an OpenRouter free model when ``OPENROUTER_API_KEY``
+            is set (the seam routes free-first for plain text); else it delegates
+            tagged ``model_hint="openrouter"``.
+        Decidable findings always stand; only the LLM-PROPOSED judgment findings
+        are gated by your approval (reject → dropped).
 
         Inputs: mode (one of review/audit/debt/test/health/sweep; default "review"),
                 scope ('' = auto-detect from git; explicit path or scope string),
+                driver (judgment backend: subagent|jules|openrouter; default subagent),
                 host_completion (Spec 279 resume — the subagent's inference reply,
                   passed back to fold + gate the judgment findings).
         Returns: {scope_line, findings:[...], iron_law_passed, mode, judgment:{...},
@@ -1545,10 +1612,14 @@ class DevelopCapability(CapabilityBase):
                 code_units.append((fp, src))
             if len(code_units) >= _JUDGMENT_FILE_CAP:
                 break
+        # First-class, selectable judgment backend (Spec 380 §drivers): the hint
+        # tags the delegate envelope so the host fulfils it the right way. Unknown
+        # values fall back to the no-key default (subagent) rather than erroring.
+        hint = driver if driver in {"subagent", "jules", "openrouter"} else "subagent"
         host = getattr(self.ctx, "host", None)
         j_findings, delegate = _run_judgment(
             code_units, _decay.load_risks(), mode=mode, host=host,
-            host_completion=host_completion, model_hint="subagent")
+            host_completion=host_completion, model_hint=hint)
 
         # The FINAL approval elicit (interactive only — Spec 380 §3a): the human
         # approves/rejects the LLM-proposed judgment findings before they merge.
