@@ -59,10 +59,25 @@ DEV_SKILLS = {
         _phase(3, "confirm", ["user_confirmed"], gate="hard"),
     ]},
     "plan": {"name": "plan", "kind": "discipline", "phases": [
-        _phase(1, "map", ["files", "steps"], verbs=["intent.decompose"]),
+        # Spec 378 — inline phase content (A1/A6) for the planning discipline.
+        _phase(1, "map", ["files", "steps"], verbs=["intent.decompose"],
+               goal="Decompose the work into ordered steps + the files each touches.",
+               instructions="Break the goal into the smallest ordered steps that each "
+                            "produce a checkable deliverable; name the files/symbols each "
+                            "step changes. Use intent.decompose to surface the structure.",
+               freedom="high"),
         _phase(2, "self-review", ["gaps_checked"],
-               verbs=["intent.premortem", "intent.inversion"]),
-        _phase(3, "approve", ["user_confirmed"], gate="hard"),
+               verbs=["intent.premortem", "intent.inversion"],
+               goal="Pre-mortem the plan and close the gaps.",
+               instructions="Ask where this plan would FAIL (premortem) and what must NOT "
+                            "break (inversion). Add the missing steps / guards the review "
+                            "surfaces before committing to it.",
+               freedom="medium"),
+        _phase(3, "approve", ["user_confirmed"], gate="hard",
+               goal="Get explicit sign-off before execution.",
+               instructions="Present the plan and proceed ONLY on the owner's explicit "
+                            "confirmation. A plan is a proposal until approved.",
+               freedom="low"),
     ]},
     # the Iron Law (RED before GREEN) is enforced by the phase ordering itself.
     "tdd": {"name": "tdd", "kind": "discipline", "phases": [
@@ -101,15 +116,57 @@ DEV_SKILLS = {
                freedom="low"),
     ]},
     "debug": {"name": "debug", "kind": "discipline", "phases": [
-        _phase(1, "gather", ["evidence"]),
-        _phase(2, "hypothesize", ["hypothesis"]),
-        _phase(3, "trace", ["root_cause"]),
-        _phase(4, "fix", ["fix_verified"], gate="hard"),
+        # Spec 378 — inline phase content (A1/A6): the systematic-debugging
+        # discipline carries what to DO per phase, not just the phase name.
+        _phase(1, "gather", ["evidence"],
+               goal="Collect the hard evidence before theorising.",
+               instructions="Capture the exact error, the input that triggers it, "
+                            "and the last known-good state. REPRODUCE it deterministically "
+                            "— a bug you can't reproduce, you can't fix. Read the full "
+                            "stack/output; don't skim.",
+               freedom="medium"),
+        _phase(2, "hypothesize", ["hypothesis"],
+               goal="Form ONE falsifiable hypothesis about the cause.",
+               instructions="From the evidence, state a single most-likely cause and "
+                            "what you'd EXPECT to observe if it's true. One hypothesis at "
+                            "a time — resist shotgun fixes.",
+               freedom="medium"),
+        _phase(3, "trace", ["root_cause"],
+               goal="Confirm or refute the hypothesis at its site.",
+               instructions="Follow the data/call path to where the hypothesis predicts "
+                            "the fault. Prove it with a probe (a log line, a focused "
+                            "assertion) — don't guess. If refuted, return to hypothesize.",
+               freedom="medium"),
+        _phase(4, "fix", ["fix_verified"], gate="hard",
+               goal="Fix behind a failing test that reproduces the bug.",
+               instructions="Write a failing test that reproduces the bug FIRST, then "
+                            "fix the root cause (not the symptom). Confirm the new test "
+                            "passes AND the suite stays green. Confirm this gate only on "
+                            "green.",
+               example="Repro test asserts retry() stops after 3 tries -> FAIL; fix the "
+                       "off-by-one; re-run -> pass + suite green.",
+               freedom="low"),
     ]},
     "verify": {"name": "verify", "kind": "discipline", "phases": [
-        _phase(1, "identify", ["command"]),
-        _phase(2, "run", ["output"]),
-        _phase(3, "confirm", ["evidence_matches"], gate="hard"),
+        # Spec 378 — evidence-before-assertion, inline (A1/A6).
+        _phase(1, "identify", ["command"],
+               goal="Name the exact check that proves the change works.",
+               instructions="State the single command or observation whose result is the "
+                            "acceptance evidence (the test, the run, the API call). Pick "
+                            "the check that would FAIL if the change were wrong.",
+               freedom="medium"),
+        _phase(2, "run", ["output"],
+               goal="Run the check and capture its full output.",
+               instructions="Execute it and keep the COMPLETE output — never truncate the "
+                            "tail (a dropped error is a missed failure). Don't interpret "
+                            "yet; just capture.",
+               freedom="low"),
+        _phase(3, "confirm", ["evidence_matches"], gate="hard",
+               goal="Confirm the output matches the expectation.",
+               instructions="Read the captured output against what success looks like. "
+                            "Confirm this gate ONLY when it actually matches — evidence "
+                            "before assertion; COMPLETED is not done.",
+               freedom="low"),
     ]},
     "spec-panel": {"name": "spec-panel", "kind": "discipline", "phases": [
         _phase(1, "review", ["expert_findings"],
@@ -130,10 +187,30 @@ DEV_SKILLS = {
     # executing-plans: walk a written plan's steps with review checkpoints, never
     # claiming done without a final verification gate.
     "execute": {"name": "execute", "kind": "discipline", "phases": [
-        _phase(1, "load", ["plan", "steps"]),
-        _phase(2, "execute", ["step_results"]),
-        _phase(3, "checkpoint", ["reviewed"], gate="hard"),
-        _phase(4, "verify", ["all_pass"], gate="hard"),
+        # Spec 378 — inline phase content (A1/A6) for executing-a-written-plan.
+        _phase(1, "load", ["plan", "steps"],
+               goal="Load the written plan and restate the next step.",
+               instructions="Read the plan + its steps; restate the NEXT step's goal and "
+                            "acceptance in your own words before touching code, so you "
+                            "execute against the plan, not your memory of it.",
+               freedom="low"),
+        _phase(2, "execute", ["step_results"],
+               goal="Do exactly ONE step, scoped.",
+               instructions="Implement a single step; keep the change scoped to it (no "
+                            "drive-by edits). Capture what it produced for the checkpoint.",
+               freedom="medium"),
+        _phase(3, "checkpoint", ["reviewed"], gate="hard",
+               goal="Review the step against its goal before moving on.",
+               instructions="Compare the step's result to its stated acceptance. If it "
+                            "drifted, fix before the next step. Confirm the gate only when "
+                            "the step genuinely met its goal.",
+               freedom="low"),
+        _phase(4, "verify", ["all_pass"], gate="hard",
+               goal="Run the full verification across all steps.",
+               instructions="Run the whole verification (tests + the plan's acceptance "
+                            "checks). Confirm every step's acceptance holds — COMPLETED is "
+                            "not done until the evidence is green.",
+               freedom="low"),
     ]},
     # Spec 287 — first-class plan-authoring → execution-with-checkpoints
     # (superpowers writing-plans + executing-plans + subagent-driven-development;
