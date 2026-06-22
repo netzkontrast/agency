@@ -69,12 +69,34 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'brainstorm', 'inputs': {}, 'intent_id': '…'})`
 - **`debug`** (discipline): gather → hypothesize → trace → fix
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'debug', 'inputs': {}, 'intent_id': '…'})`
+  1. **gather** — Collect the hard evidence before theorising.
+     Capture the exact error, the input that triggers it, and the last known-good state. REPRODUCE it deterministically — a bug you can't reproduce, you can't fix. Read the full stack/output; don't skim.
+  2. **hypothesize** — Form ONE falsifiable hypothesis about the cause.
+     From the evidence, state a single most-likely cause and what you'd EXPECT to observe if it's true. One hypothesis at a time — resist shotgun fixes.
+  3. **trace** — Confirm or refute the hypothesis at its site.
+     Follow the data/call path to where the hypothesis predicts the fault. Prove it with a probe (a log line, a focused assertion) — don't guess. If refuted, return to hypothesize.
+  4. **fix** — Fix behind a failing test that reproduces the bug.
+     Write a failing test that reproduces the bug FIRST, then fix the root cause (not the symptom). Confirm the new test passes AND the suite stays green. Confirm this gate only on green.
 - **`execute`** (discipline): load → execute → checkpoint → verify
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'execute', 'inputs': {}, 'intent_id': '…'})`
+  1. **load** — Load the written plan and restate the next step.
+     Read the plan + its steps; restate the NEXT step's goal and acceptance in your own words before touching code, so you execute against the plan, not your memory of it.
+  2. **execute** — Do exactly ONE step, scoped.
+     Implement a single step; keep the change scoped to it (no drive-by edits). Capture what it produced for the checkpoint.
+  3. **checkpoint** — Review the step against its goal before moving on.
+     Compare the step's result to its stated acceptance. If it drifted, fix before the next step. Confirm the gate only when the step genuinely met its goal.
+  4. **verify** — Run the full verification across all steps.
+     Run the whole verification (tests + the plan's acceptance checks). Confirm every step's acceptance holds — COMPLETED is not done until the evidence is green.
 - **`loop-design`** (discipline): goal → verification → host → council → control → confirm → emit
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'loop-design', 'inputs': {}, 'intent_id': '…'})`
 - **`plan`** (discipline): map → self-review → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan', 'inputs': {}, 'intent_id': '…'})`
+  1. **map** — Decompose the work into ordered steps + the files each touches.
+     Break the goal into the smallest ordered steps that each produce a checkable deliverable; name the files/symbols each step changes. Use intent.decompose to surface the structure.
+  2. **self-review** — Pre-mortem the plan and close the gaps.
+     Ask where this plan would FAIL (premortem) and what must NOT break (inversion). Add the missing steps / guards the review surfaces before committing to it.
+  3. **approve** — Get explicit sign-off before execution.
+     Present the plan and proceed ONLY on the owner's explicit confirmation. A plan is a proposal until approved.
 - **`plan-execute`** (discipline): frame → draft-plan → plan-signoff → execute-step → checkpoint → synthesize
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan-execute', 'inputs': {}, 'intent_id': '…'})`
 - **`quality-audit`** (discipline): scope → decidable → judgment → score-report
@@ -107,3 +129,9 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Run the focused slice, then the suite. Read the output — it must be pristine (no errors/warnings). Confirm this gate ONLY when tests actually pass; COMPLETED != done.
 - **`verify`** (discipline): identify → run → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'verify', 'inputs': {}, 'intent_id': '…'})`
+  1. **identify** — Name the exact check that proves the change works.
+     State the single command or observation whose result is the acceptance evidence (the test, the run, the API call). Pick the check that would FAIL if the change were wrong.
+  2. **run** — Run the check and capture its full output.
+     Execute it and keep the COMPLETE output — never truncate the tail (a dropped error is a missed failure). Don't interpret yet; just capture.
+  3. **confirm** — Confirm the output matches the expectation.
+     Read the captured output against what success looks like. Confirm this gate ONLY when it actually matches — evidence before assertion; COMPLETED is not done.
