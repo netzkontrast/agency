@@ -1047,6 +1047,62 @@ def lint_skill_doc(cap_name: str, doc: "_SkillDoc", verbs: dict) -> dict:
     return {"ok": not v, "violations": v}
 
 
+# Spec 377 — the Tier-B render placeholder that must never reach disk (373 Slice 3
+# kills its generation; this blocks it if it ever slips into a committed skill).
+_TIER_B_STUB = "(Tier B"
+
+
+def lint_skill_schema(skill: dict, verbs_index: dict | None = None) -> dict:
+    """Spec 377 — strict lint over a 371 Skill dict (a committed `skill.yaml`,
+    a pillar, or a rendered skill), beyond the SkillDoc shape `lint_skill_doc`
+    checks. Makes a thin / stub / non-self-contained skill FAIL where it used to
+    pass.
+
+    Rules:
+    - ``schema`` — `parse_skill` validates structure AND per-type completeness
+      (a typed skill MUST carry its R15 required core); a failure short-circuits
+      (the typed checks below need a parsed skill).
+    - ``description-trigger-first`` (R1) — the description is a 'Use when…' trigger.
+    - ``phase-self-contained`` (A1) — every phase carries non-empty `instructions`.
+    - ``no-stub`` — no `(Tier B…)` placeholder text anywhere in the skill.
+    - ``verb-resolves`` — a phase's `invoke` binding names a LIVE verb (pass
+      ``verbs_index={cap: {verb, …}}``; the loose advisory `verbs` list is NOT
+      strictly resolved — it legitimately names skills/methods, not just verbs).
+
+    Returns ``{ok, violations: [{rule, message}]}``."""
+    from ...._skill_parse import parse_skill
+
+    res = parse_skill(skill)
+    if not res.ok:
+        return {"ok": False, "violations": [
+            {"rule": "schema", "message": f"{res.code}: {res.message}"}]}
+    sk = res.value
+    v: list[dict] = []
+    desc = (sk.description or "").strip()
+    if desc and not desc.lower().startswith("use when"):
+        v.append({"rule": "description-trigger-first",
+                  "message": "description must start with 'Use when…' (R1)"})
+    for p in sk.phases:
+        if not (p.instructions or "").strip():
+            v.append({"rule": "phase-self-contained",
+                      "message": (f"phase {p.name!r} has empty `instructions` — a "
+                                  f"self-contained skill spells out each phase (A1)")})
+    import json as _json
+    if _TIER_B_STUB in _json.dumps(skill):
+        v.append({"rule": "no-stub",
+                  "message": f"skill carries a {_TIER_B_STUB}…) stub placeholder"})
+    if verbs_index is not None:
+        for p in sk.phases:
+            if p.invoke is None:
+                continue
+            cap, vb = p.invoke
+            if cap in verbs_index and vb not in verbs_index[cap]:
+                v.append({"rule": "verb-resolves",
+                          "message": (f"phase {p.name!r} invokes {cap}.{vb} — "
+                                      f"not a verb of capability {cap!r}")})
+    return {"ok": not v, "violations": v}
+
+
 # ---------------------------------------------------------------------------
 # The orchestrators — iterate the rule registries polymorphically.
 # ---------------------------------------------------------------------------
@@ -1129,6 +1185,20 @@ class LintMixin(CapabilityBase):
         chain_next: fix violations + re-lint OR write the skill if ``ok=True``.
         """
         return lint_skill(name, description)
+
+    @verb(role="transform")
+    def lint_skill_schema(self, skill: dict) -> dict:
+        """Strict per-type + self-containment + no-stub + verb-resolves lint over a
+        371 Skill dict (Spec 377) — beyond the SkillDoc shape ``lint_skill`` checks.
+
+        Inputs: skill (a Skill dict — name, kind, type?, description?, phases?, …).
+        Returns: ``{ok, violations: [{rule, message}]}``.
+        chain_next: fix the flagged sections + re-lint; ``install.generate`` /
+                    ``check-drift`` gate on this (graduated warn→block, Slice 2).
+        """
+        verbs_index = {c: set(self.ctx.registry.get(c).verbs)
+                       for c in self.ctx.registry.names()}
+        return lint_skill_schema(skill, verbs_index=verbs_index)
 
     @verb(role="transform")
     def lint_capability(self, name: str) -> dict:
