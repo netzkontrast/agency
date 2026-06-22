@@ -1,23 +1,16 @@
 ---
-description: Walk the `critical-thinking` skill — `/agency-critical-thinking` drives `develop.skill_walk(name='critical-thinking')` so the engine delivers ONE phase at a time and records the SkillRun provenance (Spec 018 Win 1).
+description: Walk the `critical-thinking` discipline — `/agency-critical-thinking` drives `develop.skill_walk(name='critical-thinking')`, delivering ONE phase at a time and recording the SkillRun provenance (Spec 018 Win 1).
 ---
 
-## `/agency-critical-thinking` — walk `critical-thinking`
+## `/agency-critical-thinking` — walk the `critical-thinking` discipline
 
-Drive the `critical-thinking` skill atomically (Spec 018) so each phase records a `Phase` node + the SkillRun records `SERVES` the active Intent. The engine pauses at hard gates; resume with the gate's `resume_with` keys.
+Phases: frame → surface → stress-test → weigh → decide
 
-### How
+Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
 
 ```python
-await call_tool('capability_develop_skill_walk', {
-    'name': 'critical-thinking',
-    'inputs': {},
-})
+await call_tool('capability_develop_skill_walk', {'name': 'critical-thinking', 'inputs': {}})
 ```
 
-To resume after a paused gate, pass `resume_from='<skill_id>'` and `inputs={<gate.resume_with keys>}`. The walker returns the typed status contract: `completed | input-required | failed`.
-
-### Derived
-
-This command is auto-generated from the live capability registry by `install.generate()` per Spec 148 Slice 2; deleting it WILL NOT remove the skill, but the next install rewrites the file from the live ontology.
+Resume after a paused gate with `resume_from='<skill_id>'` and the gate's `resume_with` keys. Status contract: `completed | input-required | failed`.
 
