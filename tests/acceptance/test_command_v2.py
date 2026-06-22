@@ -99,6 +99,69 @@ def _disciplines_launch(install_files, engine):
     assert checked, "expected at least one discipline command"
 
 
+@then("every discipline command tabulates each phase's produced output")
+def _phase_outputs_explained(install_files, engine):
+    skills = _skills(engine)
+    checked = 0
+    for n, m in skills.items():
+        if m["kind"] != "discipline":
+            continue
+        slug = _slug(n)
+        if slug in _ENTRY_SLUGS:
+            continue
+        body = install_files[f"commands/agency-{slug}.md"]
+        for p in m["_schema"].get("phases", []):
+            for out in (p.get("produces") or []):
+                assert out in body, (
+                    f"{slug}: phase {p.get('name')!r} output {out!r} must be explained")
+        checked += 1
+    assert checked, "expected at least one discipline command"
+
+
+@then("every declared phase input appears in its discipline command")
+def _phase_inputs_explained(install_files, engine):
+    skills = _skills(engine)
+    for n, m in skills.items():
+        if m["kind"] != "discipline":
+            continue
+        slug = _slug(n)
+        if slug in _ENTRY_SLUGS:
+            continue
+        body = install_files[f"commands/agency-{slug}.md"]
+        for p in m["_schema"].get("phases", []):
+            for inp in (p.get("inputs") or []):
+                assert inp in body, (
+                    f"{slug}: phase {p.get('name')!r} input {inp!r} must be explained")
+
+
+@then("a discipline command links each phase verb to its reference doc")
+def _verbs_referenced(install_files, engine):
+    skills = _skills(engine)
+    found = False
+    for n, m in skills.items():
+        if m["kind"] != "discipline":
+            continue
+        slug = _slug(n)
+        if slug in _ENTRY_SLUGS:
+            continue
+        body = install_files[f"commands/agency-{slug}.md"]
+        for p in m["_schema"].get("phases", []):
+            for v in (p.get("verbs") or []):
+                if "." not in v:
+                    continue
+                cap, vb = v.split(".", 1)
+                try:
+                    c = engine.registry.get(cap)
+                except KeyError:
+                    continue
+                if getattr(c, "skill_doc", None) is None or vb not in c.verbs:
+                    continue
+                ref = f"skills/{cap.replace('_', '-')}/references/{vb}.md"
+                assert ref in body, f"{slug}: verb {v!r} must link to {ref}"
+                found = True
+    assert found, "expected at least one discipline command linking a verb to its reference"
+
+
 @then("every pillar command body points at its concept SKILL.md")
 def _pillars_point(install_files, engine):
     skills = _skills(engine)

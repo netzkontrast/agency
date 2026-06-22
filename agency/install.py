@@ -79,28 +79,77 @@ def _skill_name_to_slug(name: str) -> str:
     return s or "unknown"
 
 
-def _discipline_command(sk_name: str, slug: str, meta: dict) -> tuple[str, str]:
-    """The launch body for a discipline command (Spec 376): invoke the skill
-    walk, with the phase chain inlined from the live schema (so the command
-    teaches the discipline's shape, never an identical stub)."""
-    phases = " → ".join(meta.get("phases") or []) or "—"
+def _verb_reference_path(verb_token: str, reg) -> str | None:
+    """The one-deep reference doc for a phase's `cap.verb`, when the cap is a live
+    capability with a skill_doc (so `emit_references` produces the file). Returns
+    None for a non-`cap.verb` token (e.g. an MCP tool like `codegraph_explore`) or
+    an unknown cap/verb — those are listed without a dangling link (Spec 376)."""
+    if "." not in verb_token:
+        return None
+    cap, vb = verb_token.split(".", 1)
+    try:
+        c = reg.get(cap)
+    except KeyError:
+        return None
+    if getattr(c, "skill_doc", None) is None or vb not in c.verbs:
+        return None
+    return f"skills/{cap.replace('_', '-')}/references/{vb}.md"
+
+
+def _discipline_command(sk_name: str, slug: str, meta: dict, reg) -> tuple[str, str]:
+    """The launch body for a discipline command (Spec 376): invoke the skill walk,
+    with a per-phase I/O table (input · output · verbs · gate) inlined from the
+    live schema, plus a one-deep reference link for every verb that implements a
+    phase. Schema-derived, so the command teaches the discipline's full shape and
+    never drifts — never an identical stub."""
+    phases = meta.get("_schema", {}).get("phases", []) or []
+    chain = " → ".join(p.get("name", "?") for p in phases) or "—"
     desc = (
         f"Walk the `{sk_name}` discipline — `/agency-{slug}` drives "
         f"`develop.skill_walk(name='{sk_name}')`, delivering ONE phase at a time "
         f"and recording the SkillRun provenance (Spec 018 Win 1)."
     )
+    # Per-phase I/O table — input (declared walker kwargs) · output (produces) ·
+    # the verbs the phase invokes · gate. The reader sees what each phase takes
+    # and yields without leaving the command.
+    rows = ["| # | Phase | Input | Output | Verbs | Gate |",
+            "|---|-------|-------|--------|-------|------|"]
+    seen_verbs: list[str] = []
+    for i, p in enumerate(phases, start=1):
+        inp = ", ".join(p.get("inputs") or []) or "—"
+        out = ", ".join(p.get("produces") or []) or "—"
+        verbs = p.get("verbs") or []
+        for v in verbs:
+            if v not in seen_verbs:
+                seen_verbs.append(v)
+        verbs_cell = ", ".join(f"`{v}`" for v in verbs) or "—"
+        gate = p.get("gate", "") or ""
+        rows.append(
+            f"| {i} | {p.get('name', '?')} | {inp} | {out} | {verbs_cell} | {gate} |")
+    table = "\n".join(rows)
+    # The verbs that walk/implement these phases — full params one-deep (R4).
+    refs = ""
+    if seen_verbs:
+        ref_lines = []
+        for v in seen_verbs:
+            ref = _verb_reference_path(v, reg)
+            ref_lines.append(f"- `{v}` → `{ref}`" if ref else f"- `{v}`")
+        refs = ("\n\n### Verbs invoked (full params one-deep)\n\n"
+                + "\n".join(ref_lines))
     body = (
         f"## `/agency-{slug}` — walk the `{sk_name}` discipline\n\n"
-        f"Phases: {phases}\n\n"
-        f"Drive the skill atomically — each phase records a `Phase` node and the "
-        f"SkillRun `SERVES` the active Intent; the engine pauses at hard gates.\n\n"
+        f"Phases: {chain}\n\n"
+        f"Each phase records a `Phase` node and the SkillRun `SERVES` the active "
+        f"Intent; the engine pauses at hard gates.\n\n"
+        f"{table}\n\n"
         f"```python\n"
         f"await call_tool('capability_develop_skill_walk', "
         f"{{'name': '{sk_name}', 'inputs': {{}}}})\n"
         f"```\n\n"
         f"Resume after a paused gate with `resume_from='<skill_id>'` and the "
         f"gate's `resume_with` keys. Status contract: "
-        f"`completed | input-required | failed`.\n"
+        f"`completed | input-required | failed`."
+        f"{refs}\n"
     )
     return desc, body
 
@@ -149,7 +198,7 @@ def _generate_per_skill_commands(reg) -> dict[str, str]:
         if kind == "pillar":
             desc, body = _pillar_command(sk_name, slug, meta)
         else:
-            desc, body = _discipline_command(sk_name, slug, meta)
+            desc, body = _discipline_command(sk_name, slug, meta, reg)
         out[f"commands/agency-{slug}.md"] = author_command(
             f"agency-{slug}", desc, body)["result"]
     return out

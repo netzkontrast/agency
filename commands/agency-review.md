@@ -6,7 +6,13 @@ description: Walk the `review` discipline — `/agency-review` drives `develop.s
 
 Phases: request → dispatch → resolve
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | request | — | context, diff | — |  |
+| 2 | dispatch | driver, driver_verb, items | findings | — |  |
+| 3 | resolve | — | addressed | — | hard |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'review', 'inputs': {}})

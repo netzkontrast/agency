@@ -6,7 +6,14 @@ description: Walk the `repo-briefing` discipline — `/agency-repo-briefing` dri
 
 Phases: scope → scan → render → publish
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | scope | — | path, max_tokens | — |  |
+| 2 | scan | — | index_id, tokens | — |  |
+| 3 | render | — | content | — |  |
+| 4 | publish | — | written | — | hard |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'repo-briefing', 'inputs': {}})

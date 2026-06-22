@@ -6,7 +6,14 @@ description: Walk the `mode-selection` discipline — `/agency-mode-selection` d
 
 Phases: assess → detect → activate → confirm
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | assess | — | context | — |  |
+| 2 | detect | — | candidate_modes | — |  |
+| 3 | activate | — | active_mode | — |  |
+| 4 | confirm | — | rationale | — | hard |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'mode-selection', 'inputs': {}})

@@ -6,7 +6,15 @@ description: Walk the `dispatch-decision` discipline — `/agency-dispatch-decis
 
 Phases: estimate-tokens-and-cache → estimate-shape → apply-heuristic → assemble-bash-hints → decide
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | estimate-tokens-and-cache | — | expected_return_tokens, mutates, read_only, driver_hint, context_overlap, cache_warmth, local_budget_relevant | — |  |
+| 2 | estimate-shape | — | file_count, exploration_needed, parallelism, est_duration_min | — |  |
+| 3 | apply-heuristic | — | recommendation, driver, rationale, signals_fired | — |  |
+| 4 | assemble-bash-hints | — | bash_hints | — |  |
+| 5 | decide | — | decision | — | hard |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'dispatch-decision', 'inputs': {}})

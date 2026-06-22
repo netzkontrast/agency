@@ -6,7 +6,14 @@ description: Walk the `specialist-dispatch` discipline — `/agency-specialist-d
 
 Phases: match → brief → dispatch → verify
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | match | — | persona, task | — |  |
+| 2 | brief | — | brief | — |  |
+| 3 | dispatch | — | child | — |  |
+| 4 | verify | — | verified | — | hard |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'specialist-dispatch', 'inputs': {}})

@@ -14,6 +14,15 @@ Feature: Command v2 — curated, launch-not-stub slash commands (Spec 376)
     When the install files are generated
     Then every discipline command body invokes the skill walk naming its real skill
 
+  Scenario: each discipline command explains every phase's input and output
+    When the install files are generated
+    Then every discipline command tabulates each phase's produced output
+    And every declared phase input appears in its discipline command
+
+  Scenario: a discipline command references the verbs that implement its phases
+    When the install files are generated
+    Then a discipline command links each phase verb to its reference doc
+
   Scenario: each pillar command points at its concept skill
     When the install files are generated
     Then every pillar command body points at its concept SKILL.md

@@ -6,7 +6,11 @@ description: Walk the `jules-tool-discipline` discipline — `/agency-jules-tool
 
 Phases: apply-tool-discipline
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | apply-tool-discipline | text, must_name | lint_result | — |  |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'jules-tool-discipline', 'inputs': {}})

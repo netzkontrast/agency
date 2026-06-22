@@ -6,7 +6,13 @@ description: Walk the `jules-fanout` discipline — `/agency-jules-fanout` drive
 
 Phases: plan-batch → fan-out → join
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | plan-batch | — | items | — |  |
+| 2 | fan-out | driver, driver_verb, items, quota | fanout_result | — |  |
+| 3 | join | — | child_outcomes | — | hard |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'jules-fanout', 'inputs': {}})

@@ -6,7 +6,13 @@ description: Walk the `jules-pr-review-cycle` discipline — `/agency-jules-pr-r
 
 Phases: read-comments → draft-replies → reply-on-github
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | read-comments | — | comments | — |  |
+| 2 | draft-replies | body | draft_reply | — |  |
+| 3 | reply-on-github | — | posted | — |  |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'jules-pr-review-cycle', 'inputs': {}})

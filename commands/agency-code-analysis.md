@@ -6,7 +6,15 @@ description: Walk the `code-analysis` discipline — `/agency-code-analysis` dri
 
 Phases: scope → axes → run → review → apply
 
-Drive the skill atomically — each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | scope | — | path, lang | — |  |
+| 2 | axes | — | axes | — |  |
+| 3 | run | — | analysis_id, totals | — |  |
+| 4 | review | — | findings_summary | — |  |
+| 5 | apply | — | applied | — | hard |
 
 ```python
 await call_tool('capability_develop_skill_walk', {'name': 'code-analysis', 'inputs': {}})

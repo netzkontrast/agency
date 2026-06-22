@@ -76,3 +76,17 @@ Done (file:line evidence):
   per-skill bodies are byte-identical (no stubs); (5) determinism. All derive from
   `_all_skills` (rule 8). 5/5 command_v2 + 32 across command/install/pillar green;
   install regen (42 commands, 8 pruned) + check-drift clean.
+
+**Refinement (owner request 2026-06-22): per-phase I/O + implementing-verb refs.**
+The owner asked that discipline commands explain "all parameter — input and output
+— from all phases," chosen shape = compact per-phase table + references to the
+verbs that implement each phase. `_discipline_command` now renders a `# · Phase ·
+Input · Output · Verbs · Gate` table (input = declared walker kwargs; output =
+`produces`; verbs = the phase's invoked verbs; gate) from the live schema, plus a
+"Verbs invoked (full params one-deep)" section linking each `cap.verb` to its
+reference doc (`skills/<cap>/references/<verb>.md`) via `_verb_reference_path` —
+which returns None for an MCP tool (`codegraph_explore`) or a skill/method that
+isn't a live verb (`develop.brainstorm`), so those list plainly with no dangling
+link (R4, one-deep). 2 new command_v2 scenarios (every phase's produced output is
+tabulated; every declared phase input appears; resolvable phase verbs link to
+their reference) — 7/7 green.
