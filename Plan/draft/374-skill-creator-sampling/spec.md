@@ -3,7 +3,8 @@ spec_id: "374"
 slug: skill-creator-sampling
 status: partial
 state: draft
-last_updated: 2026-06-22owner: "@agency"
+last_updated: 2026-06-22
+owner: "@agency"
 vision_goals: [1, 3, 8]
 depends_on: ["147", "371", "373"]
 parent_spec: "370"

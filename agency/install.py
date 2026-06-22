@@ -963,6 +963,7 @@ def generate(engine: Engine) -> dict[str, str]:
     # happens in write(), not generate(). For generate(), always emit fresh.
     from .skill_emit import (
         emit_skill, emit_references, emit_bash_wrappers, emit_verb_rules,
+        render_pillar, augment_with_pillar, _skill_name,
         _capability_hash, GEN_VERSION,
     )
     from . import cache as _cache  # noqa: F401 — reserved for future write()-side cache check
@@ -976,6 +977,19 @@ def generate(engine: Engine) -> dict[str, str]:
         files.update(emit_references(cap_name, cap.verbs))
         files.update(emit_bash_wrappers(cap_name, cap.verbs))
         files.update(emit_verb_rules(cap_name, cap.verbs))   # Spec 306 — per-cap verb-description rules block
+    # Spec 375 — the concept pillars (intent · lifecycle · memory). Committed
+    # skill.yaml of type=pillar, rendered alongside the per-cap skills. No LLM,
+    # deterministic (A7); a malformed pillar fails the install loudly (load_pillars).
+    # A pillar whose name collides with a live capability skill (intent) AUGMENTS
+    # that skill with its concept section rather than clobbering it; the rest
+    # (lifecycle · memory) render standalone.
+    from ._pillars import load_pillars
+    for pillar in load_pillars():
+        path = f"skills/{_skill_name(pillar['name'])}/SKILL.md"
+        if path in files:
+            files[path] = augment_with_pillar(files[path], pillar)
+        else:
+            files.update(render_pillar(pillar))
     return files
 
 
