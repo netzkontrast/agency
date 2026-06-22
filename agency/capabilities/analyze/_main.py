@@ -290,19 +290,27 @@ class AnalyzeCapability(CapabilityBase):
         return {"analysis_id": analysis_id, "totals": totals}
 
     @verb(role="act")
-    def review(self, path: str = ".", mode: str = "review", scope: str = "") -> dict:
+    def review(self, path: str = ".", mode: str = "review", scope: str = "",
+               host_completion: dict = None) -> dict:
         """Headless code-quality review for CI — never pauses; risky remedies auto-declined.
 
         The CI actor's entry point (Spec 380 §3a, Cockburn + Hightower fix).
-        Shares the same decidable engine as develop.review but NEVER blocks on a
-        gate or confirmation prompt: risky remedies are reported in gated:[] and
-        auto-declined, not applied. Decidable-only output when no LLM key
-        (Hightower fix — the CI degradation path).
+        Shares the same engine as develop.review but NEVER blocks on a gate or
+        confirmation prompt: risky remedies are reported in gated:[] and
+        auto-declined, not applied. Runs BOTH passes (Spec 380 core): the decidable
+        scanners + the LLM judgment pass (the reasoning-heavy R2/R3/T1… risks),
+        merged on (risk_code, file, line). Judgment routes through the Spec 352/279
+        seam (OpenRouter free-first → driver → MCP host-sampling → host-delegate),
+        so no API key is needed; with no backend at all it degrades to
+        decidable-only and surfaces an `llm_delegate` envelope (Hightower CI path).
 
         Inputs: path (str — filesystem scope; '' = current dir),
                 mode (one of review/audit/debt/test/health/sweep),
-                scope (str — informational scope description; '' = auto-detect).
-        Returns: {scope_line, findings:[...], iron_law_passed, mode, headless:True, gated:[...]}.
+                scope (str — informational scope description; '' = auto-detect),
+                host_completion (dict — Spec 279 resume: the host's inference reply,
+                  passed back to fold the judgment findings in).
+        Returns: {scope_line, findings:[...], iron_law_passed, mode, headless:True,
+                  gated:[...], score, counts, gate, [llm_delegate], judged_files}.
         chain_next: analyze.sarif(...) for SARIF / code-scanning upload (Spec 382).
 
         Use when: running code-quality diagnosis in CI or any non-interactive context
@@ -311,7 +319,9 @@ class AnalyzeCapability(CapabilityBase):
             develop.remediate instead.
         """
         from . import _decay, _quality, _architecture, _performance, _security
-        from ._review import scope_detect, iron_law_passed, classify_remedy
+        from ._review import (scope_detect, iron_law_passed, classify_remedy,
+                              merge_findings, judgment as _run_judgment)
+        from ._walk import python_files as _pyfiles, read_text as _readtext
 
         scope_line = scope_detect(scope)
         scan_path = path or "."
@@ -332,6 +342,31 @@ class AnalyzeCapability(CapabilityBase):
             raw.extend(scan_fn(scan_path))
 
         findings = _decay.tag(raw)
+
+        # Spec 380 §judgment — the reasoning pass over the in-scope code, merged
+        # with the decidable findings. `_JUDGMENT_FILE_CAP` bounds the prompt
+        # (a documented budget, rule 8 — not a snapshot); `judged_files` reports
+        # the count so the scope is transparent, never a silent drop.
+        _JUDGMENT_FILE_CAP = 25
+        code_units: list = []
+        for fp in _pyfiles(scan_path):
+            src = _readtext(fp)
+            if src is not None:
+                code_units.append((fp, src))
+            if len(code_units) >= _JUDGMENT_FILE_CAP:
+                break
+        driver = None
+        try:
+            reg = getattr(self.ctx, "drivers", None)
+            if reg is not None and reg.has("anthropic"):
+                driver = reg.get("anthropic")
+        except Exception:
+            driver = None
+        j_findings, delegate = _run_judgment(
+            code_units, _decay.load_risks(), mode=mode, driver=driver,
+            host=getattr(self.ctx, "host", None), host_completion=host_completion)
+        findings = merge_findings(findings, j_findings)
+
         iron_law = iron_law_passed(findings)
         gated = [f.to_dict() for f in findings if classify_remedy(f) == "risky"]
 
@@ -350,7 +385,7 @@ class AnalyzeCapability(CapabilityBase):
         self.ctx.record_and_serve(
             "Gate", {"name": gate_name, "passed": passed, "evidence": evidence})
 
-        return {
+        result = {
             "scope_line": scope_line,
             "findings": [f.to_dict() for f in findings[:20]],
             "iron_law_passed": iron_law,
@@ -361,7 +396,14 @@ class AnalyzeCapability(CapabilityBase):
             "counts": counts,
             "gate": {"name": gate_name, "passed": passed, "blocked": not passed,
                      "evidence": evidence},
+            "judged_files": len(code_units),
         }
+        # Spec 279 — when no inference backend was available, surface the
+        # llm_delegate envelope so the host (Claude Code) can run the judgment
+        # pass and resume via `host_completion` (decidable findings already stand).
+        if delegate is not None:
+            result["llm_delegate"] = delegate
+        return result
 
     @verb(role="transform")
     def score(self, findings: list = None, preset: str = "",

@@ -22,17 +22,26 @@ from .memory import Memory
 
 
 def phase(index, name, produces, gate=None, verbs=None,
-          sample=None, requires_input=None, resolve_via=None) -> dict:
+          sample=None, requires_input=None, resolve_via=None,
+          goal=None, instructions=None, example=None,
+          done_when=None, freedom=None) -> dict:
     """Canonical skill-phase dict builder (Spec 286 Phase 3 — one shared
     helper, formerly three near-identical ``_phase`` copies in
     develop/analyze/delegate ``_main.py``).
 
     Builds the ``{index, name, produces, gate?, verbs?, sample?,
-    requires_input?, resolve_via?}`` phase spec the `SkillRun` walker
-    consumes. The signature is the SUPERSET (the develop copy, which
-    carried all the Spec-285 generative + assumption-gate fields); the
-    narrower analyze/delegate callers simply never pass the extra
-    keywords, so their phase dicts stay byte-identical.
+    requires_input?, resolve_via?, goal?, instructions?, example?,
+    done_when?, freedom?}`` phase spec the `SkillRun` walker consumes. The
+    signature is the SUPERSET (the develop copy, which carried all the
+    Spec-285 generative + assumption-gate fields); the narrower
+    analyze/delegate callers simply never pass the extra keywords, so their
+    phase dicts stay byte-identical.
+
+    Spec 371/372 — ``goal``/``instructions``/``example``/``done_when`` +
+    a degrees-of-freedom level (R8 ``freedom``) are the inline TEACHING
+    content: the phase carries it so the walk AND the rendered file read
+    ONE source (A2) and a read-only agent can follow the phase
+    top-to-bottom (A1).
 
     Optional fields are only inserted when truthy, so a caller passing
     just `(idx, name, produces)` yields exactly `{"index", "name",
@@ -50,6 +59,17 @@ def phase(index, name, produces, gate=None, verbs=None,
         p["requires_input"] = list(requires_input)
     if resolve_via:                 # {capability, verb} sourcing structured options for them
         p["resolve_via"] = dict(resolve_via)
+    # Spec 371/372 — inline teaching content (single source for walk + render).
+    if goal:
+        p["goal"] = goal
+    if instructions:
+        p["instructions"] = instructions
+    if example:
+        p["example"] = example
+    if done_when:
+        p["done_when"] = done_when
+    if freedom:
+        p["freedom"] = freedom
     return p
 
 
@@ -106,12 +126,22 @@ class SkillRun:
         return self.i >= len(self.phases)
 
     def current(self) -> Optional[dict]:
-        """Progressive disclosure: only the current phase's spec (required outputs)."""
+        """Progressive disclosure: only the current phase's spec (required outputs).
+
+        Spec 372 — phase = single source: the current phase's inline teaching
+        content (``goal``/``instructions``/``example``/``done_when``/``freedom``
+        from 371) is surfaced ALONGSIDE the structural fields, so a walking agent
+        receives what to DO at this rung — not just the phase name. A phase that
+        authored none returns empty strings (back-compat; legacy phases keep
+        walking)."""
         if self.done:
             return None
         p = self.phases[self.i]
         return {"index": p["index"], "name": p["name"], "produces": list(p["produces"]),
-                "inputs": list(p.get("inputs", [])), "gate": p.get("gate")}
+                "inputs": list(p.get("inputs", [])), "gate": p.get("gate"),
+                "goal": p.get("goal", ""), "instructions": p.get("instructions", ""),
+                "example": p.get("example", ""), "done_when": p.get("done_when", ""),
+                "freedom": p.get("freedom", "")}
 
     def submit(self, outputs: Optional[dict] = None, confirmed: bool = False) -> dict:
         """Advance one phase. An executable phase (`invoke`) runs a REAL capability

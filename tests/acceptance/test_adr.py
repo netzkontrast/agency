@@ -251,3 +251,83 @@ def _catalogue(engine, confirmed_intent):
 def _catalogue_counts(catalogue, n, m):
     assert catalogue.get("total_themes") == n, catalogue
     assert catalogue.get("total_decisions") == m, catalogue
+
+
+# ── Spec 353/354 — the architecture digest (adr.architecture) ─────────────────
+
+@when("I rebuild the architecture digest over two thematic adr files",
+      target_fixture="arch_result")
+def _architecture(engine, confirmed_intent):
+    import tempfile, pathlib
+    d = pathlib.Path(tempfile.mkdtemp())
+    # datalayer: 2 live decisions; substrate: 1 live + a superseded appendix
+    # (excluded) — also exercises the leading Spec-292 anchor strip.
+    (d / "adr-datalayer.md").write_text(
+        "<!-- agency-node: adr-theme-datalayer -->\n---\nkind: adr-theme\n"
+        "layer: datalayer\ntitle: \"Datalayer\"\nscope: \"state\"\n---\n\n"
+        "# Datalayer\n\n## one store for every concept\nx\n\n"
+        "## keep-both reconciliation\ny\n", encoding="utf-8")
+    (d / "adr-substrate.md").write_text(
+        "---\nkind: adr-theme\nlayer: substrate\ntitle: \"Substrate\"\n---\n\n"
+        "# Substrate\n\n## three wire verbs\nz\n\n"
+        "## Superseded / history\n- old-one\n", encoding="utf-8")
+    (d / "README.md").write_text("# index — not a theme\n", encoding="utf-8")
+    res, _ = invoke(engine, confirmed_intent, "adr", "architecture",
+                    adr_dir=str(d), apply=False)
+    return res
+
+
+@then(parsers.parse("the digest covers {n:d} layers with {m:d} decisions"))
+def _architecture_counts(arch_result, n, m):
+    assert len(arch_result.get("layers", [])) == n, arch_result
+    assert arch_result.get("decisions") == m, arch_result
+    # the superseded appendix line must NOT count as a decision
+    assert "old-one" not in arch_result.get("body", ""), arch_result
+
+
+@when("I rebuild the architecture digest over an adr file whose decision cites a spec",
+      target_fixture="arch_src_result")
+def _arch_with_source(engine, confirmed_intent, tmp_path, monkeypatch):
+    # A real spec on disk (under cwd) + an ADR whose decision carries a Source
+    # link to it; the digest must resolve the link and derive a central sentence.
+    monkeypatch.chdir(tmp_path)
+    spec = tmp_path / "Plan" / "done" / "999-sample-spec" / "spec.md"
+    spec.parent.mkdir(parents=True)
+    spec.write_text('---\nspec_id: "999"\nstate: done\n---\n\n# Sample\n\n'
+                    "## Why\n\nThe substrate keeps one queryable spine so every "
+                    "concept shares a single provenance store.\n", encoding="utf-8")
+    adr = tmp_path / "adr"
+    adr.mkdir()
+    (adr / "adr-datalayer.md").write_text(
+        '---\nkind: adr-theme\nlayer: datalayer\ntitle: "Datalayer"\n---\n\n'
+        "# Datalayer\n\n## one store for every concept\n\n"
+        "**Source:** [`Plan/done/999-sample-spec/spec.md`]"
+        "(../../Plan/done/999-sample-spec/spec.md)\n", encoding="utf-8")
+    res, _ = invoke(engine, confirmed_intent, "adr", "architecture",
+                    adr_dir=str(adr), apply=False)
+    return res
+
+
+@then("the digest links that decision to the spec and quotes a central sentence from it")
+def _arch_src_ok(arch_src_result):
+    body = arch_src_result.get("body", "")
+    assert "(Plan/done/999-sample-spec/spec.md)" in body, body
+    assert '> "The substrate keeps one queryable spine' in body, body
+
+
+@when("I publish that theme to a temp file", target_fixture="publish_result")
+def _publish(engine, confirmed_intent, theme_id, tmp_path):
+    import pathlib
+    out = str(tmp_path / "adr-theme.md")
+    r, _ = invoke(engine, confirmed_intent, "adr", "publish", theme_id=theme_id, out=out)
+    r2, _ = invoke(engine, confirmed_intent, "adr", "publish",
+                   theme_id=theme_id, out=out + ".2")
+    return {"r": r, "a": pathlib.Path(out).read_text(encoding="utf-8"),
+            "b": pathlib.Path(out + ".2").read_text(encoding="utf-8")}
+
+
+@then("the published file has adr-theme frontmatter and is byte-idempotent")
+def _publish_ok(publish_result):
+    assert publish_result["r"].get("written") is True, publish_result["r"]
+    assert "kind: adr-theme" in publish_result["a"], publish_result["a"][:200]
+    assert publish_result["a"] == publish_result["b"], "publish is not idempotent"

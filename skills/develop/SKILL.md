@@ -38,7 +38,7 @@ Develop owns the development disciplines as walkable skills, a capability scaffo
 | `reference` | transform | Fetch a discipline's heavy how-to on demand (T3 disclosure). | [details](references/reference.md) |
 | `reload` | effect | Reload edited capability code into the live session (effect). | [details](references/reload.md) |
 | `remediate` | effect | Apply the remedy phase of a prior review — safe fixes auto-applied, risky ones reported as gated (MUTATES → role=effect). | [details](references/remediate.md) |
-| `review` | transform | Diagnose code decay using the brooks Iron Law — READ-ONLY (transform). | [details](references/review.md) |
+| `review` | transform | Diagnose code decay using the brooks Iron Law — INTERACTIVE (transform). | [details](references/review.md) |
 | `scaffold_capability` | act | Emit a CAPABILITY-AUTHORING.md-compliant capability skeleton. | [details](references/scaffold_capability.md) |
 | `session_check` | transform | Read the current SessionLifecycle state (transform). | [details](references/session_check.md) |
 | `session_init` | act | Mint a SessionLifecycle SERVING the intent, detect mode, and suggest the first verb. | [details](references/session_init.md) |
@@ -97,5 +97,13 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'spec-panel', 'inputs': {}, 'intent_id': '…'})`
 - **`tdd`** (discipline): red → green → refactor → verify
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'tdd', 'inputs': {}, 'intent_id': '…'})`
+  1. **red** — Write ONE failing test that pins the behaviour before any production code.
+     State the behaviour as a single, clearly-named test. Use real calls, not mocks. Run it and watch it FAIL for the right reason (feature missing, not a typo). If it passes, you are testing existing behaviour — fix the test.
+  2. **green** — Write the simplest code that makes the failing test pass.
+     Implement the minimum to go green — no extra features, no refactor yet (YAGNI). Re-run the test; it must pass.
+  3. **refactor** — Clean up while staying green.
+     Remove duplication, improve names, extract helpers. Keep every test green; add no new behaviour.
+  4. **verify** — Confirm the suite is green before claiming the phase done.
+     Run the focused slice, then the suite. Read the output — it must be pristine (no errors/warnings). Confirm this gate ONLY when tests actually pass; COMPLETED != done.
 - **`verify`** (discipline): identify → run → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'verify', 'inputs': {}, 'intent_id': '…'})`

@@ -197,11 +197,17 @@ def _spec_id_from_slug(plan_slug: str) -> str:
 
 
 def _resolve_spec_path(spec_id: str) -> str | None:
-    """Find ``Plan/<spec_id>-*/spec.md`` on disk; return None when missing."""
+    """Find a spec's ``spec.md`` on disk; return None when missing.
+
+    Specs live in physical ``Plan/<state>/<spec_id>-*/`` state folders (Spec
+    357); the legacy flat ``Plan/<spec_id>-*/`` layout is still matched for
+    any spec not yet migrated.
+    """
     import glob
     if not spec_id or not spec_id.isdigit():
         return None
-    matches = sorted(glob.glob(f"Plan/{spec_id}-*/spec.md"))
+    matches = sorted(glob.glob(f"Plan/*/{spec_id}-*/spec.md")
+                     + glob.glob(f"Plan/{spec_id}-*/spec.md"))
     return matches[0] if matches else None
 
 

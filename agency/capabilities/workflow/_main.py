@@ -186,7 +186,11 @@ class WorkflowCapability(CapabilityBase):
                     body = f.read()
             except OSError:
                 continue
-            fm = _interconnect.parse_frontmatter(body)
+            # Strip a leading Spec-292 anchor (`<!-- agency-node: … -->`) so an
+            # anchored spec's frontmatter still parses — parse_frontmatter wants
+            # `---` at byte 0, and an interconnected Document carries the anchor first.
+            _anchor, fm_body = _interconnect.extract_anchor(body)
+            fm = _interconnect.parse_frontmatter(fm_body)
             fstate = str(fm.get("state", "")).strip().strip('"')
             spec_id = str(fm.get("spec_id", "")).strip().strip('"')
             node_state = ""
@@ -286,3 +290,56 @@ class WorkflowCapability(CapabilityBase):
                                         "state": "inprogress",
                                         "hints": hints.get("hints", []),
                                         "hint_count": len(hints.get("hints", []))})
+
+    @verb(role="effect")
+    def mark_done(self, spec_id: str, approver: str, apply: bool = True,
+                  override: bool = False) -> ToolResult:
+        """MARK_DONE — phase 14, the owner's done-cascade. The owner declaring a
+        spec done IS the approval (an agent never self-approves — panel B2.1). In
+        one effect: (1) `adr.approve` every decision that REFINES the spec;
+        (2) move the spec ``inprogress→done`` (the SOLE state writer); (3) APPEND/
+        UPDATE the affected theme ADR files (`adr.publish` → ``docs/adr/<layer>.md``);
+        (4) rebuild the root ``architecture.md`` digest (`adr.architecture`). Steps
+        3–4 write the working tree, so they run only when ``apply`` (tests pass
+        False to assert the graph cascade without touching the repo).
+
+        Inputs: spec_id, approver (owner identity — agent is rejected), apply (do
+                the file writes), override (owner bypass of a skeleton-decision gate).
+        Returns: ``{spec_id, done, approved, themes_written, architecture_rebuilt,
+                 decisions}`` or, when the done move is illegal, ``{done: False, error}``.
+        chain_next: workflow.board to see the spec in /done.
+        """
+        appr = self.ctx.call("workflow", "approve_decisions", spec_id=spec_id,
+                             approver=approver, override=override)
+        mv = self.ctx.call("workflow", "move_spec", spec_id=spec_id,
+                           to_state="done", override=override)
+        if not mv.get("moved"):
+            return ToolResult.success(data={
+                "spec_id": spec_id, "done": False,
+                "approved": appr.get("approved", []),
+                "error": mv.get("error") or mv.get("reason"),
+                "blocking": mv.get("blocking", [])})
+        themes_written: list[str] = []
+        architecture_rebuilt = False
+        decisions = None
+        if apply:
+            # (3) append/update each theme the spec's decisions belong to.
+            ready = self.ctx.call("adr", "spec_decisions_ready", spec_id=spec_id)
+            theme_ids: list[str] = []
+            for d in ready.get("decisions", []):
+                for nb in self.ctx.neighbors(d["id"], "PART_OF", direction="out"):
+                    tid = nb.get("id")
+                    if tid and tid not in theme_ids:
+                        theme_ids.append(tid)
+            for tid in theme_ids:
+                pub = self.ctx.call("adr", "publish", theme_id=tid)
+                if pub.get("written"):
+                    themes_written.append(pub.get("path"))
+            # (4) rebuild the architecture digest from the published ADRs.
+            arch = self.ctx.call("adr", "architecture", apply=True)
+            architecture_rebuilt = bool(arch.get("written"))
+            decisions = arch.get("decisions")
+        return ToolResult.success(data={
+            "spec_id": spec_id, "done": True, "approved": appr.get("approved", []),
+            "themes_written": themes_written,
+            "architecture_rebuilt": architecture_rebuilt, "decisions": decisions})

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_analyze_review
 # Headless code-quality review for CI — never pauses; risky remedies auto-declined.
-# Usage: agency-analyze-review [--intent-id ID] [path] [mode] [scope]
+# Usage: agency-analyze-review [--intent-id ID] [path] [mode] [scope] [host_completion]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -68,6 +68,7 @@ _kw = {"intent_id": sys.argv[1]}
 if len(sys.argv) > 2: _kw["path"] = _coerce(sys.argv[2], str)
 if len(sys.argv) > 3: _kw["mode"] = _coerce(sys.argv[3], str)
 if len(sys.argv) > 4: _kw["scope"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["host_completion"] = _coerce(sys.argv[5], dict)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

@@ -66,10 +66,39 @@ DEV_SKILLS = {
     ]},
     # the Iron Law (RED before GREEN) is enforced by the phase ordering itself.
     "tdd": {"name": "tdd", "kind": "discipline", "phases": [
-        _phase(1, "red", ["failing_test"]),
-        _phase(2, "green", ["implementation"]),
-        _phase(3, "refactor", ["refactored"]),
-        _phase(4, "verify", ["tests_pass"], gate="hard"),
+        # Spec 372 — the tdd discipline is the first exemplar of inline phase
+        # content (A1/A2): each phase carries goal/instructions/(example) so the
+        # walk delivers what to DO, not just the phase name. ONE source — the
+        # rendered SKILL.md reads the same fields (373).
+        _phase(1, "red", ["failing_test"],
+               goal="Write ONE failing test that pins the behaviour before any "
+                    "production code.",
+               instructions="State the behaviour as a single, clearly-named test. "
+                            "Use real calls, not mocks. Run it and watch it FAIL "
+                            "for the right reason (feature missing, not a typo). If "
+                            "it passes, you are testing existing behaviour — fix the "
+                            "test.",
+               example="test_retries_three_times(): call retry(op); assert op ran "
+                       "3x. Run -> FAIL: retry is undefined.",
+               freedom="high"),
+        _phase(2, "green", ["implementation"],
+               goal="Write the simplest code that makes the failing test pass.",
+               instructions="Implement the minimum to go green — no extra features, "
+                            "no refactor yet (YAGNI). Re-run the test; it must pass.",
+               freedom="medium"),
+        _phase(3, "refactor", ["refactored"],
+               goal="Clean up while staying green.",
+               instructions="Remove duplication, improve names, extract helpers. "
+                            "Keep every test green; add no new behaviour.",
+               freedom="medium"),
+        _phase(4, "verify", ["tests_pass"], gate="hard",
+               goal="Confirm the suite is green before claiming the phase done.",
+               instructions="Run the focused slice, then the suite. Read the output "
+                            "— it must be pristine (no errors/warnings). Confirm this "
+                            "gate ONLY when tests actually pass; COMPLETED != done.",
+               example="python -m pytest -q tests/acceptance/test_skill_walk.py -> "
+                       "'N passed'. Then confirm.",
+               freedom="low"),
     ]},
     "debug": {"name": "debug", "kind": "discipline", "phases": [
         _phase(1, "gather", ["evidence"]),
@@ -499,6 +528,13 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
                     "resume_with": list(phase["produces"]),
                     "hint": res.get("hint",
                                     f"resume with resume_from={res['phase']!r}"),
+                    # Spec 372 — surface the paused phase's inline content (from
+                    # current()) so the agent sees WHAT to do at this rung, not
+                    # just its name (A1/A2). Empty when the phase authored none.
+                    "goal": phase.get("goal", ""),
+                    "instructions": phase.get("instructions", ""),
+                    "example": phase.get("example", ""),
+                    "freedom": phase.get("freedom", ""),
                     "skill_id": run.skill_id,
                     "partial_outputs": accumulated}
         accumulated.update(res.get("outputs", {}))
@@ -512,7 +548,7 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
 # A SessionLifecycle node tracks the agent's current mode + the intent it serves;
 # ModeShift records explicit transitions; DecisionRecord captures binding
 # decisions; SessionReflection is the synthesize_session artefact at end-of-
-# session. See Plan/114-plugin-as-session-driver/spec.md.
+# session. See Plan/inprogress/114-plugin-as-session-driver/spec.md.
 SESSION_MODE = {"brainstorming", "spec-authoring", "coding", "review",
                 "synthesize"}
 SESSION_STATUS = {"active", "paused", "archived"}
@@ -1200,7 +1236,7 @@ class DevelopCapability(CapabilityBase):
     # Spec 114 — plugin-as-session-driver: 3 verbs for the session lifecycle
     # (init / check / mode-select). reflect.synthesize_session +
     # dogfood.record_decision + dogfood.boundary_use_audit live on their own
-    # caps. See Plan/114-plugin-as-session-driver/spec.md.
+    # caps. See Plan/inprogress/114-plugin-as-session-driver/spec.md.
     # ════════════════════════════════════════════════════════════════════════
 
     @verb(role="act")
@@ -1440,30 +1476,41 @@ class DevelopCapability(CapabilityBase):
     # ════════════════════════════════════════════════════════════════════════
 
     @verb(role="transform")
-    def review(self, mode: str = "review", scope: str = "") -> dict:
-        """Diagnose code decay using the brooks Iron Law — READ-ONLY (transform).
+    def review(self, mode: str = "review", scope: str = "",
+               host_completion: dict = None) -> dict:
+        """Diagnose code decay using the brooks Iron Law — INTERACTIVE (transform).
 
-        Runs the decidable analysis pass for the requested mode, tags findings
-        with decay risk codes (Spec 360 _decay.tag), and checks the Iron Law
-        gate (all brooks findings must carry consequence + remedy — Wiegers fix).
+        Runs BOTH passes (Spec 380 core): the decidable scanners + the LLM
+        JUDGMENT pass (the reasoning-heavy R2/R3/T1… risks), then — unlike the
+        headless analyze.review — pauses for a FINAL HUMAN-APPROVAL elicit before
+        the judgment findings are accepted. The judgment pass is fulfilled by a
+        SUBAGENT (model_hint="subagent" — a Claude agent the host dispatches, no
+        external LLM key; Jules / OpenRouter are alternative drivers). Decidable
+        findings always stand; only the LLM-PROPOSED judgment findings are gated
+        by your approval (reject → dropped).
 
         Inputs: mode (one of review/audit/debt/test/health/sweep; default "review"),
-                scope ('' = auto-detect from git; explicit path or scope string).
-        Returns: {scope_line, findings:[...], iron_law_passed, mode}.
-                 Token-bounded preview (≤20 findings); full detail records via
-                 the decidable phase of the quality-{mode} skill walk.
+                scope ('' = auto-detect from git; explicit path or scope string),
+                host_completion (Spec 279 resume — the subagent's inference reply,
+                  passed back to fold + gate the judgment findings).
+        Returns: {scope_line, findings:[...], iron_law_passed, mode, judgment:{...},
+                  [llm_delegate]}. When no backend is wired yet, returns an
+                  `llm_delegate` envelope (model_hint "subagent") for the host to
+                  fulfil and resume via host_completion.
         chain_next: develop.remediate(review_id) to apply fixes;
                     analyze.sarif(...) for SARIF / CI output (Spec 382).
 
         Use when: diagnosing code decay or maintainability using the Iron Law
             (Symptom → Source → Consequence → Remedy) across six scopes
             (PR review · architecture audit · tech debt · test quality ·
-            health dashboard · full sweep). READ-ONLY — no files mutated.
-        Do NOT use when: you want to apply fixes (use develop.remediate); you
-            want raw decidable findings without Iron Law enrichment (use analyze.run).
+            health dashboard · full sweep), WITH a human approving the judgment.
+        Do NOT use when: you want to apply fixes (use develop.remediate); you want
+            non-interactive CI output (use analyze.review — it never pauses).
         """
         from ..analyze import _decay, _quality, _architecture, _performance, _security
-        from ..analyze._review import scope_detect, iron_law_passed
+        from ..analyze._review import (scope_detect, iron_law_passed,
+                                       merge_findings, judgment as _run_judgment)
+        from ..analyze._walk import python_files as _pyfiles, read_text as _readtext
 
         scope_line = scope_detect(scope)
         path = scope if scope and scope not in {
@@ -1487,14 +1534,65 @@ class DevelopCapability(CapabilityBase):
             raw.extend(scan_fn(path))
 
         findings = _decay.tag(raw)
+
+        # Spec 380 §judgment — the reasoning pass, fulfilled by a SUBAGENT (no
+        # external LLM). Bounded by _JUDGMENT_FILE_CAP, reported as judged_files.
+        _JUDGMENT_FILE_CAP = 25
+        code_units: list = []
+        for fp in _pyfiles(path):
+            src = _readtext(fp)
+            if src is not None:
+                code_units.append((fp, src))
+            if len(code_units) >= _JUDGMENT_FILE_CAP:
+                break
+        host = getattr(self.ctx, "host", None)
+        j_findings, delegate = _run_judgment(
+            code_units, _decay.load_risks(), mode=mode, host=host,
+            host_completion=host_completion, model_hint="subagent")
+
+        # The FINAL approval elicit (interactive only — Spec 380 §3a): the human
+        # approves/rejects the LLM-proposed judgment findings before they merge.
+        # Reject (or no elicit-capable host) drops them; decidable findings stand.
+        proposed = len(j_findings)
+        approved: bool | None = None
+        if j_findings:
+            approved = self._elicit_judgment_approval(j_findings, host)
+            if not approved:
+                j_findings = []
+
+        findings = merge_findings(findings, j_findings)
         passed = iron_law_passed(findings)
 
-        return {
+        result = {
             "scope_line": scope_line,
             "findings": [f.to_dict() for f in findings[:20]],
             "iron_law_passed": passed,
             "mode": mode,
+            "judgment": {"proposed": proposed, "approved": approved,
+                         "judged_files": len(code_units)},
         }
+        if delegate is not None:
+            result["llm_delegate"] = delegate
+        return result
+
+    @staticmethod
+    def _elicit_judgment_approval(j_findings: list, host) -> bool:
+        """Ask the human to approve the LLM-proposed judgment findings (Spec 380
+        final elicit). Returns True only on an explicit approval; a reject, a
+        decline, or no elicit-capable host all withhold approval (the findings are
+        LLM-proposed, so the default is NOT to include them unapproved)."""
+        if host is None:
+            return False
+        from agency._host_bridge import HostUnavailable
+        codes = ", ".join(sorted({f.risk_code for f in j_findings if f.risk_code}))
+        msg = (f"The judgment pass proposes {len(j_findings)} finding(s) "
+               f"[{codes}]. Approve including them in the review?")
+        try:
+            outcome = host.elicit(msg, options=["approve", "reject"])
+        except HostUnavailable:
+            return False
+        return bool(outcome.accepted
+                    and str(getattr(outcome, "data", "")).lower() != "reject")
 
     @verb(role="effect")
     def remediate(self, review_id: str = "", apply_safe: bool = True) -> dict:
