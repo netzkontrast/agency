@@ -26,7 +26,7 @@ Feature: loop detection — middleware and typed LoopEvent (Spec 011 / 156)
     Given a fresh agency engine in code-mode
     When I list all registered capability verbs
     Then detect_loop is not among them
-    And loop is not a registered capability name
+    And detect_loops is not among them
 
   Scenario: LoopEvent requires at least one evidence id
     When I create a LoopEvent with an empty evidence tuple

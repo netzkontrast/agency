@@ -149,9 +149,10 @@ satisfy these or you have shipped dormant code (CLAUDE.md *dormant-surface audit
 |---|---|---|
 | Pure logic (guards, taxonomy, compile, egress) | ✅ correct, 63 tests | — keep |
 | `loop` machine on the spine | ✅ registered, floor-valid | — keep |
-| MCP reach (`search`/`get_schema`/`execute`) | ❌ none | ✅ thin `loop` capability |
-| `Invocation`/`Artefact` provenance | ❌ bypassed | ✅ via capability verbs |
-| Generative `advance` (`ctx.sample`) | ❌ literal params | ✅ host drafts |
+| MCP reach (`search`/`get_schema`/`execute`) | ❌ none | ✅ **W1 done** — thin `loop` capability |
+| `Invocation` provenance (every verb) | ❌ bypassed | ✅ **W1 done** — records `Invocation{capability:"loop"}` |
+| `Artefact` provenance (host drafts) | ❌ none | ⏳ W2 — `ctx.sample` |
+| Generative `advance` (`ctx.sample`) | ❌ literal params | ⏳ W2 — host drafts |
 | Executing wizard (phases `invoke`/`sample`) | ❌ inert phases | ✅ real bodies + per-phase rubric |
 | Enforced gates | ❌ decorative confirm | ✅ predicate-as-gate |
 | Round-trippable emit (`document.render`) | ❌ files + comment | ✅ `Document` nodes |

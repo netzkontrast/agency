@@ -224,15 +224,27 @@ Scenario: the dormant-surface audit fails a verb with no reachable trigger (W7)
 
 ## Followup — Implementation Status (2026-06-21)
 
-**Verdict:** Not started — drafted 2026-06-21 from the critical review + dogfood
-audit of the 363–369 port. 387 is the **activation** layer: the thin `loop`
-capability (trigger + MCP surface + invocation provenance), generative `advance`
-via `ctx.sample`, an executing wizard, enforced gates, real Document emit + a
-runnable runner with behavioural parity, and — the load-bearing deliverable — the
-**dormant-surface audit as a standing CI gate**, so "Shipped" can never again
-outrun "wired." Reverses 362's spine-only entry surface where it cost the moat;
-preserves the spine machine + the tested pure logic. Net-new is one capability
-folder + the `ctx.sample` wiring + the executing skill phases + the audit test.
-**Blocker / next step:** confirm the thin-capability direction (vs. pure spine),
-then implement W1 (capability + reachability audit) RED→GREEN first — it is the
-smallest slice that flips the loop from invisible to provenance-recording.
+**Verdict:** Partial — **W1 shipped 2026-06-21**; W2–W7 remaining. The
+thin-capability direction is taken (reverses 362's spine-only entry surface where
+it cost the moat; preserves the spine machine + tested logic). 387 is the
+**activation** layer: the thin `loop` capability (done), generative `advance` via
+`ctx.sample`, an executing wizard, enforced gates, real Document emit + a runnable
+runner with behavioural parity, and the **dormant-surface audit as a standing CI
+gate** (its W1 form is live), so "Shipped" can never again outrun "wired."
+
+**W1 — DONE (the loop is reachable + provenance-recording).** `agency/capabilities/loop/`
+ships 15 thin verbs delegating to `_loop` (`frame_goal · critique_goal ·
+add_criterion · verify_report · add_member · recommend_council · open · advance ·
+preview · compile · emit · emit_runner · detect_models · register_model ·
+egress_consent`), auto-discovered (drop-in bar). The loop is now found by `search`,
+schema'd by `get_schema`, on the CLI (`bin/agency-loop-*`), and **every invocation
+records an `Invocation{capability:"loop"}` SERVING the intent** — the moat the
+363–369 spine functions bypassed. `tests/acceptance/test_loop_capability.py` is the
+dormant-surface audit (reachability + provenance + discovery, 3 scenarios) — it
+would have FAILED on the spine-only port. (Intent-id params renamed `goal_id` to
+avoid the injected `intent_id` collision.) Interim: ontology stays JSON-on-node;
+typed-node promotion is a later slice.
+
+**Blocker / next step:** **W2 — generative `advance`** via `ctx.sample` (the host
+drafts plan/delivery as `Artefact PRODUCES`) + council verdict from `panel.convene`,
+the slice that makes the loop actually *do* something rather than only move states.

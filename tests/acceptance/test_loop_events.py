@@ -115,9 +115,13 @@ def _no_detect_loop(all_verbs):
     assert "detect_loop" not in all_verbs
 
 
-@then("loop is not a registered capability name")
-def _no_loop_cap(loop_engine):
-    assert "loop" not in set(loop_engine.registry.names())
+@then("detect_loops is not among them")
+def _no_detect_loops(all_verbs):
+    # The loop-DETECTION middleware (Spec 011/156) stays internal — neither
+    # detect_loop nor detect_loops is a discoverable verb. The looper-port `loop`
+    # capability (Spec 387) is a DIFFERENT concept and legitimately registered;
+    # this scenario guards the detector's non-exposure, not the name `loop`.
+    assert "detect_loops" not in all_verbs
 
 
 # ── when — LoopEvent construction ────────────────────────────────────────────
