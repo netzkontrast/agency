@@ -48,6 +48,30 @@ _CANNED_DISCIPLINE = json.dumps({
         {"symptom": "scoring opinions", "counter": "only decidable findings"}],
 })
 
+# A canned capability draft with a hallucinated verb (Slice 3 — F3 enforcement).
+_CANNED_WITH_HALLUCINATION = json.dumps({
+    "name": "analyze-cap", "kind": "capability", "type": "capability",
+    "description": "Use when analyzing code quality.",
+    "phases": [
+        {"name": "run", "produces": ["result"],
+         "verbs": ["review", "nonexistent_xyz"]},
+    ],
+})
+
+
+class _SamplingSpyHost:
+    """Records whether sample() is called — used to assert install never samples."""
+    def __init__(self):
+        self.sampled = False
+
+    def can_sample(self):
+        return True
+
+    async def sample(self, *args, **kwargs):
+        self.sampled = True
+        return type("_R", (), {"text": "{}"})()
+
+
 
 # ── When ──────────────────────────────────────────────────────────────────────
 
@@ -185,3 +209,70 @@ def _prompt_names_required(author_result):
     for field in required:
         assert field in blob, (
             f"prompt for type {stype!r} must name required field {field!r}")
+
+
+# ── Spec 374 Slice 3 — draft validation + source_stamp + install guard ────────
+
+@when('I author a "capability" skill for "analyze" with a stub host that includes a nonexistent verb',
+      target_fixture="author_result")
+def _author_with_hallucination(engine, confirmed_intent):
+    from agency._host_bridge import bind_host_context, reset_host_context
+    token = bind_host_context(_StubHostCtx(_CANNED_WITH_HALLUCINATION))
+    try:
+        return _author(engine, confirmed_intent, GROUND_CAP, "capability")
+    finally:
+        reset_host_context(token)
+
+
+@when("I author the same skill again with a stub sampling host",
+      target_fixture="author_result_again")
+def _author_with_host_again(engine, confirmed_intent):
+    from agency._host_bridge import bind_host_context, reset_host_context
+    token = bind_host_context(_StubHostCtx(_CANNED_DISCIPLINE))
+    try:
+        return _author(engine, confirmed_intent, GROUND_CAP, "discipline")
+    finally:
+        reset_host_context(token)
+
+
+@when("install.generate runs with a sampling-capable host bound",
+      target_fixture="install_spy")
+def _install_with_spy(engine):
+    from agency._host_bridge import bind_host_context, reset_host_context
+    from agency.install import generate
+    spy = _SamplingSpyHost()
+    token = bind_host_context(spy)
+    try:
+        generate(engine)
+    finally:
+        reset_host_context(token)
+    return spy
+
+
+@then("the result names the hallucinated verb")
+def _names_hallucinated_verb(author_result):
+    bad = author_result.get("hallucinated_verbs", [])
+    assert bad, f"expected hallucinated_verbs in result; got {author_result!r}"
+    assert any("nonexistent" in v for v in bad), (
+        f"expected to see the nonexistent verb flagged; got {bad!r}")
+
+
+@then("the result carries a source_stamp")
+def _has_source_stamp(author_result):
+    stamp = author_result.get("source_stamp")
+    assert stamp, f"drafted result must carry a source_stamp; got {author_result!r}"
+
+
+@then("both source_stamps are identical")
+def _stamps_identical(author_result, author_result_again):
+    s1 = author_result.get("source_stamp")
+    s2 = author_result_again.get("source_stamp")
+    assert s1 and s2, f"both results must carry stamps; got {s1!r}, {s2!r}"
+    assert s1 == s2, (
+        f"stamp must be stable for the same source (A7); got {s1!r} vs {s2!r}")
+
+
+@then("the host was never sampled during install")
+def _never_sampled(install_spy):
+    assert not install_spy.sampled, (
+        "install.generate must never invoke host.sample (A7 — deterministic install)")

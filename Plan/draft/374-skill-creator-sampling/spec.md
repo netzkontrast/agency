@@ -3,8 +3,7 @@ spec_id: "374"
 slug: skill-creator-sampling
 status: partial
 state: draft
-last_updated: 2026-06-22
-owner: "@agency"
+last_updated: 2026-06-22owner: "@agency"
 vision_goals: [1, 3, 8]
 depends_on: ["147", "371", "373"]
 parent_spec: "370"
@@ -102,12 +101,26 @@ Done (file:line evidence):
   skill/render/schema blast radius; install regen committed (the `author` verb's
   wrapper + reference + help entry).
 
-Still:
-- **Slice 3** — registry validation of the draft (a referenced verb not in the
-  live registry is rejected — the F3 *enforcement*, beyond the prompt
-  *instruction* shipped here); `source_stamp = hash(cap code + spec +
-  prompt-version)`; the `dry_run` review/commit path. Plus the guard test that
-  `install.generate` never samples (deterministic install, A7).
+**Slice 3 — SHIPPED: draft validation + source_stamp + dry_run param + install guard.**
+
+Done (file:line evidence):
+- `agency/capabilities/skill_generator/_main.py` — `_PROMPT_VERSION = "v1"` constant
+  (bumped when the skill-creator rules change — feeds the Spec 377 staleness gate);
+  `_source_stamp(grounding)` hashes `json.dumps(grounding, sort_keys=True) + "\n" +
+  _PROMPT_VERSION` via SHA-256[:16] — pure + deterministic (same cap/spec ⇒ same
+  stamp, A7); `_validate_draft_verbs(draft, cap)` extracts `phases[*].verbs` and
+  returns any name absent from `cap.verbs` (F3 enforcement — rejects hallucinated
+  verbs, not just instructs the prompt). `author(…, dry_run=True)` now: (1) runs
+  `_validate_draft_verbs` after parse — returns `status:"invalid"` +
+  `hallucinated_verbs` list on failure; (2) stamps the draft dict with
+  `source_stamp` + returns it in the result wrapper on success; (3) when
+  `dry_run=False` writes the draft as YAML to `skills/<name>/skill.yaml`.
+- Tests: 4 new `skill_author` scenarios — (1) stub host returns draft with
+  `nonexistent_xyz` in `phases[*].verbs` → `status:"invalid"` naming the
+  hallucinated verb; (2) stub host → drafted result carries `source_stamp`; (3)
+  same cap/spec → identical stamps (stability, A7); (4) `install.generate` with
+  a sampling-capable spy host bound → spy never sampled (deterministic install
+  guard). 10/10 skill_author green; install regen + check-drift clean.
 - **Found (out of scope, flag for follow-up):** `scripts/check-drift` runs the
   install regen as `python -m agency.install … || true`, so an install FAILURE
   (e.g. a SkillDoc lint error) is swallowed and reported as "install: clean".

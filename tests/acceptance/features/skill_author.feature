@@ -41,3 +41,23 @@ Feature: Skill authoring — grounding context (Spec 374 Slice 1)
     Then the author result status is "no-host"
     And the result carries the grounding and the per-type prompt
     And the per-type prompt names the type's required fields
+
+  # ── Spec 374 Slice 3 — draft validation + source_stamp + install guard ───────
+
+  Scenario: a draft referencing a hallucinated verb is rejected
+    When I author a "capability" skill for "analyze" with a stub host that includes a nonexistent verb
+    Then the author result status is "invalid"
+    And the result names the hallucinated verb
+
+  Scenario: the drafted skill carries a source_stamp
+    When I author a "discipline" skill for "analyze" with a stub sampling host
+    Then the result carries a source_stamp
+
+  Scenario: the source_stamp is stable — same source yields the same stamp
+    When I author a "discipline" skill for "analyze" with a stub sampling host
+    And I author the same skill again with a stub sampling host
+    Then both source_stamps are identical
+
+  Scenario: install.generate never invokes the host sampler — deterministic install (A7)
+    When install.generate runs with a sampling-capable host bound
+    Then the host was never sampled during install

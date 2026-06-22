@@ -19,11 +19,16 @@ Red flags:
 """
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 
 from ...capability import CapabilityBase, verb
 from ..._skill_parse import _SKILL_TYPES, _TYPE_REQUIRED, parse_skill
+
+# Bump when _SKILL_CREATOR_RULES changes so stamps generated with the old
+# prompt template are recognised as stale by the Spec 377 staleness gate.
+_PROMPT_VERSION = "v1"
 
 
 # Spec 374 Slice 2 — the skill-creator system rules (R1/R8/R9/F3 in brief). The
@@ -105,6 +110,28 @@ def _public_signature(fn) -> str:
     return str(sig.replace(parameters=params))
 
 
+def _source_stamp(grounding: dict) -> str:
+    """Stable fingerprint of the grounding + prompt-version (Spec 374 Slice 3).
+    The grounding already encodes the cap's live surface + spec text (pure +
+    deterministic — same inputs → same bytes, A7). _PROMPT_VERSION bumps when
+    the skill-creator rules change so the Spec 377 staleness gate sees a diff."""
+    raw = json.dumps(grounding, sort_keys=True) + "\n" + _PROMPT_VERSION
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _validate_draft_verbs(draft: dict, cap) -> list[str]:
+    """Return verb names in phases[*].verbs that are absent from cap.verbs (Spec 374
+    Slice 3 — F3 anti-hallucination enforcement). The prompt instructs the model to
+    reference only grounded verbs; this rejects any that slipped through."""
+    live = set(cap.verbs)
+    bad = []
+    for phase in draft.get("phases", []):
+        for v in phase.get("verbs", []):
+            if v not in live:
+                bad.append(v)
+    return bad
+
+
 def build_grounding(cap, spec_text: str = "") -> dict:
     """Spec 374 Slice 1 — the structured grounding a skill-creator prompt fills
     (Slice 2), AND the graceful no-host fallback an author reads by hand: a
@@ -161,9 +188,10 @@ class SkillGeneratorCapability(CapabilityBase):
 
     @verb(role="act", param_enums={"skill_type": _SKILL_TYPES})
     def author(self, capability: str, skill_type: str = "capability",
-               spec_text: str = "", max_tokens: int = 8000) -> dict:
+               spec_text: str = "", max_tokens: int = 8000,
+               dry_run: bool = True) -> dict:
         """Draft a skill for a capability by sampling the host LLM with a per-type
-        skill-creator prompt grounded in the cap's real surface (Spec 374 Slice 2).
+        skill-creator prompt grounded in the cap's real surface (Spec 374 Slices 2–3).
 
         Authoring-time only (NOT install — A7): install renders committed skills,
         it never samples. With no sampling host the verb returns the grounding +
@@ -172,14 +200,15 @@ class SkillGeneratorCapability(CapabilityBase):
         Inputs: capability (a name in the live registry), skill_type (R15:
                 pillar|capability|technique|pattern|reference|discipline),
                 spec_text (optional governing-spec excerpt), max_tokens (sampling
-                budget).
+                budget), dry_run (True = return draft for review; False = write
+                ``skills/<name>/skill.yaml`` and return the path — default True).
         Returns: ``{result: {status, ...}}`` where status is ``drafted`` (carries
-                 a schema-valid ``draft``), ``no-host`` (carries ``grounding`` +
+                 a schema-valid ``draft`` + ``source_stamp``), ``invalid`` (a
+                 referenced verb was absent from the live registry — carries
+                 ``hallucinated_verbs``), ``no-host`` (carries ``grounding`` +
                  ``prompt`` for hand-authoring), ``unparseable`` (host output
-                 failed JSON/schema — carries ``raw`` + ``error``), or ``error``
-                 (unknown capability).
-        chain_next: review the draft, then write ``skill.yaml`` + commit (Slice 3
-                    adds registry validation + the ``source_stamp``).
+                 failed JSON/schema), or ``error`` (unknown capability).
+        chain_next: review the draft, edit if needed, then commit ``skill.yaml``.
         """
         try:
             cap = self.ctx.registry.get(capability)
@@ -205,7 +234,22 @@ class SkillGeneratorCapability(CapabilityBase):
             return {"result": {"status": "unparseable", "type": skill_type,
                                "error": err, "raw": getattr(comp, "text", ""),
                                "prompt": prompt}}
-        return {"result": {"status": "drafted", "type": skill_type, "draft": draft}}
+        bad_verbs = _validate_draft_verbs(draft, cap)
+        if bad_verbs:
+            return {"result": {"status": "invalid", "type": skill_type,
+                               "hallucinated_verbs": bad_verbs,
+                               "draft": draft, "prompt": prompt}}
+        stamp = _source_stamp(grounding)
+        draft["source_stamp"] = stamp
+        if not dry_run:
+            import pathlib, yaml  # noqa: E401
+            out = pathlib.Path("skills") / draft["name"] / "skill.yaml"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(yaml.safe_dump(draft, allow_unicode=True, sort_keys=False))
+            return {"result": {"status": "committed", "type": skill_type,
+                               "path": str(out), "source_stamp": stamp}}
+        return {"result": {"status": "drafted", "type": skill_type, "draft": draft,
+                           "source_stamp": stamp}}
 
     @verb(role="act")
     def generate(self, name: str, description: str, body: str) -> dict:

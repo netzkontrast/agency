@@ -23,7 +23,7 @@ Skill_generator builds a skill from a capability's REAL surface: `ground` reads 
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
-| `author` | act | Draft a skill for a capability by sampling the host LLM with a per-type skill-creator prompt grounded in the cap's real surface (Spec 374 Slice 2). | [details](references/author.md) |
+| `author` | act | Draft a skill for a capability by sampling the host LLM with a per-type skill-creator prompt grounded in the cap's real surface (Spec 374 Slices 2–3). | [details](references/author.md) |
 | `generate` | act | Author a SKILL.md and lint it against the CSO rules, flagging if not deploy-ready. | [details](references/generate.md) |
 | `ground` | transform | Build the authoring grounding for a capability — its live verbs, signatures, docstrings, and ontology — the structured input a skill-creator prompt fills, and the no-host fallback an author reads. | [details](references/ground.md) |
 
