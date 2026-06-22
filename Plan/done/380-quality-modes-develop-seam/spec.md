@@ -435,10 +435,27 @@ ordered Brooks review methodology, per mode:
   changed — internals only). Single-source note: **Spec 384** should DERIVE its
   per-mode guidance prose from this chain, not re-vendor it.
 
-**Remaining in 380:** the implement/tdd cross-link (optional review phase before
-pre-commit gate); `develop.reference("brooks")`/`("decay-risks")` entries; CLAUDE.md
-verb-routing row for `develop.review`; first-class **Jules / OpenRouter** judgment
-drivers (today the subagent path is the no-key default; both are documented future
-backends). Next sibling: **381** (Health Score + config + `quality:` config block +
-`QualityRun` graph nodes for trend). The `analyze.review` headless core defined here
-is what **382** (SARIF + CI gate) calls.
+**Followup enhancements — SHIPPED 2026-06-22 (owner directive "do those specs
+Complete" + "integrate the complete linting workflow in the spec-implement and ADR
+loop").** The remaining 380 slices are now closed:
+- **References** — `develop.reference("brooks")` (the port how-to: Iron Law, two
+  passes, the verbs, six modes) + `develop.reference("decay-risks")` (the registry,
+  COMPUTED live from decay-risks.json — rule 2, can't drift). Both discoverable.
+- **CLAUDE.md verb-routing row** for `develop.review` / `analyze.review` (guide
+  → `develop.reference("brooks")`).
+- **First-class, selectable judgment driver** — `develop.review(…, driver=)` ∈
+  `subagent` (default) | `jules` | `openrouter`, threaded to the delegate envelope's
+  `model_hint` through the one Spec 352/279 seam (no external key; unknown → subagent).
+- **The complete linting workflow is integrated into the ADR-centred implement
+  loop** (Spec 358 `develop-spec`): new phase 14 `lint` runs `develop.review` (the
+  decidable scanners + mode-aware review chain + judgment pass + final approval
+  elicit) over the implementation; the `done` gate folds in headless `analyze.review`
+  as the CI quality gate. So the loop now lints both the decision (spec — phase 8
+  `brooks-lint`/`intent.brooks_lint`) and the code it produces (phase 14).
+
+Tests: `test_quality_chain.py` (brooks/decay-risks references discoverable; the
+computed reference lists the live registry; `driver=` routes the envelope hint) +
+`test_workflow_skill.py::test_brooks_lint_integrated_into_implement_loop` (structural
+invariant — lint between build and done, computed positions). Next sibling: **381**
+(Health Score + config); `analyze.review` headless core is what **382** (SARIF + CI
+gate) calls.

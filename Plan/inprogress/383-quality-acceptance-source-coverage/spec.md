@@ -313,6 +313,19 @@ Spec 352/279 `complete_or_delegate` seam (OpenRouter free-first → driver → M
 host-sampling → host-delegate — no key required), and `analyze.review` runs it +
 merges. So the `-m wet` corpus is now AUTHORABLE on a real path; its frozen
 deterministic proof already ships in `test_quality_judgment.py` (the same pass,
-driven by an injected `host_completion`). Spec 383 stays `partial` only on the
-remaining `-m wet` scenario authoring + the per-risk/per-mode wet coverage in the
-check-drift gate; everything decidable + the judgment plumbing is DONE.
+driven by an injected `host_completion`).
+
+**The `-m wet` corpus — SHIPPED 2026-06-22 (owner directive "do those specs
+Complete").** `tests/acceptance/test_quality_wet.py` carries a known-bad fixture for
+EACH of the nine judgment-only risks (R2 Feature Envy · R3 duplicated tax rule · R6
+anemic order + stranded rule · T1 obscure test · T2 brittle private-reaching test ·
+T3 copy-pasted scenario · T4 mock-dwarfs-test · T5 untested branch · T6 hard-wired
+seam). Each runs a REAL `analyze.review(mode="sweep")` and asserts the risk is
+flagged. The `wet` marker is registered in pyproject.toml; the module `skipif`s
+unless `ANTHROPIC_API_KEY`/`OPENROUTER_API_KEY` is set, so it no-ops in the keyless
+PR gate and runs in a dedicated `pytest -m wet` job (Crispin — no PR-gate flakiness).
+The COVERAGE invariant is keyless + DERIVED (rule 8):
+`test_quality_chain.py::test_wet_corpus_covers_every_judgment_risk` asserts the
+fixture set equals `judgment_risks(load_risks())` — adding a judgment risk forces a
+paired wet fixture. Decidable corpus + judgment plumbing + wet corpus are now all
+DONE; 383's residue is the optional per-mode wet breadth.
