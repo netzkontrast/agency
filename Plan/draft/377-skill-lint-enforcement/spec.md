@@ -101,5 +101,16 @@ fills their phase `instructions` and migrates them to the strict contract, at
 which point the gate widens. `frugal` becomes a block exemplar when it lands as a
 committed skill.
 
-Still:
-- **Slice 3** — `docs/vision/SKILL-CONTRACT.md` v2 (the R1–A7 contract).
+**Slice 3 — SHIPPED: `docs/vision/SKILL-CONTRACT.md` v2.** Rewritten from the v1
+five-obligation SkillDoc contract to the layered, per-type, self-contained v2:
+the two skill surfaces (capability SkillDoc vs committed `skill.yaml`), the type
+classification (R15) + per-type required core, self-containment (A1) + walk↔file
+parity (A2), the content layers (R9/R13/R4/R5/R8), F3 verb-resolves, no-stub,
+deterministic install (A7), and BOTH lint rule-sets (`lint_skill_doc` 9 rules +
+`lint_skill_schema` 5 rules) + the graduated gate. DERIVED from shipped code
+(every rule cites its code home — no fabricated rule numbers); carries a
+`doc-source` marker + stamped `doc-hash` (check-doc-drift in sync).
+
+**All three slices SHIPPED.** The strict contract is enforceable and enforced at
+the committed-skill (pillar) block set; the legacy-discipline widening is Spec
+378's job.
