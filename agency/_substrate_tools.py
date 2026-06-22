@@ -746,6 +746,14 @@ class AgencyWelcome(SubstrateTool):
                 "develop.implement", "develop.skill_walk",
                 "develop.session_init",
             ]
+            # Spec 375 — the concept pillars (intent · lifecycle · memory): the
+            # non-capability spine every session rides. Surfaced at onboarding so
+            # a fresh agent learns the concepts, not just the verbs. Static source
+            # ⇒ stays in the cache-stable prefix below.
+            from ._pillars import load_pillars
+            pillar_list = [{"name": p["name"],
+                            "description": (p.get("description") or "").strip()}
+                           for p in load_pillars()]
             # Spec 146 Slice 1 — output-prefix discipline. Split the welcome
             # payload into a cache-friendly `prefix` (byte-stable across calls
             # when the registry is unchanged) and a per-call `body`. The
@@ -812,6 +820,8 @@ class AgencyWelcome(SubstrateTool):
                 # for back-compat.
                 "capability_tier": _capability_tier(engine.registry),
                 "discipline_skills": discipline_skills,
+                # Spec 375 — the four concepts' non-capability pillars.
+                "pillars": pillar_list,
             }
             # Spec 332 M2 — the frugal discipline rides the onboarding payload's
             # cache-stable prefix too (byte-stable at a fixed level; off omits).

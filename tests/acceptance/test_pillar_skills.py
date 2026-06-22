@@ -10,6 +10,9 @@ Assertions derive from the live pillar source (rule 8) — no snapshotted lists.
 """
 from __future__ import annotations
 
+import asyncio
+import json
+
 from pytest_bdd import parsers, scenarios, then, when
 
 
@@ -115,3 +118,72 @@ def _gains_concept(install_files, path):
 def _deterministic(install_files, install_files_again, path):
     assert install_files[path] == install_files_again[path], (
         f"{path} render must be deterministic (A7) — same source, same bytes")
+
+
+# ── Spec 375 Slice 2 — listing integration ────────────────────────────────────
+
+def _welcome(engine):
+    from fastmcp import Client
+    mcp = engine.build_mcp(codemode=False)
+
+    async def _run():
+        async with Client(mcp) as c:
+            r = await c.call_tool("agency_welcome", {})
+            sc = r.structured_content
+            if isinstance(sc, dict):
+                return sc.get("result", sc)
+            return sc
+
+    return asyncio.run(_run())
+
+
+def _find(engine, iid, **kw):
+    raw, _ = engine.registry.invoke(engine.memory, iid, "skills", "find", **kw)
+    return raw["result"] if isinstance(raw, dict) and "result" in raw else raw
+
+
+@when("the agency welcome payload is fetched", target_fixture="welcome_payload")
+def _fetch_welcome(engine):
+    return _welcome(engine)
+
+
+@when("I list all skills", target_fixture="listing")
+def _list_all(engine, confirmed_intent):
+    return _find(engine, confirmed_intent)
+
+
+@when(parsers.parse('I list skills of kind "{kind}"'), target_fixture="listing")
+def _list_kind(engine, confirmed_intent, kind):
+    return _find(engine, confirmed_intent, kind=kind)
+
+
+@then("the welcome payload names every concept pillar")
+def _welcome_names_pillars(welcome_payload):
+    from agency._pillars import load_pillars
+    # A DEDICATED pillars surface — not an incidental substring elsewhere in the
+    # payload (the names appear in capability/next-step text regardless).
+    listed = welcome_payload.get("pillars")
+    assert listed, f"welcome payload must carry a 'pillars' field; got keys {sorted(welcome_payload)}"
+    names = {p["name"] if isinstance(p, dict) else p for p in listed}
+    for p in load_pillars():
+        assert p["name"] in names, (
+            f"welcome 'pillars' must name concept pillar {p['name']!r}; got {names}")
+
+
+@then(parsers.parse('the listing includes every concept pillar with kind "{kind}"'))
+def _listing_has_pillars(listing, kind):
+    from agency._pillars import load_pillars
+    cands = {c["name"]: c for c in listing["candidates"]}
+    for p in load_pillars():
+        assert p["name"] in cands, f"listing must include pillar {p['name']!r}"
+        assert cands[p["name"]]["kind"] == kind, (
+            f"pillar {p['name']!r} must list with kind={kind!r}")
+
+
+@then("the listing is exactly the concept pillars")
+def _listing_exactly_pillars(listing):
+    from agency._pillars import load_pillars
+    got = {c["name"] for c in listing["candidates"]}
+    want = {p["name"] for p in load_pillars()}
+    assert got == want, (
+        f"kind=pillar listing must be exactly the pillars; got {got} vs {want}")

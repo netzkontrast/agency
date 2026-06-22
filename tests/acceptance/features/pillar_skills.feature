@@ -27,3 +27,18 @@ Feature: Pillar skills — the concept skills (Spec 375)
     And the install files are generated again
     Then the two "skills/lifecycle/SKILL.md" renders are byte-identical
     And the two "skills/intent/SKILL.md" renders are byte-identical
+
+  # ── Spec 375 Slice 2 — listing integration ───────────────────────────────────
+
+  Scenario: the onboarding payload lists the concept pillars
+    When the agency welcome payload is fetched
+    Then the welcome payload names every concept pillar
+
+  Scenario: the skill listing includes the concept pillars
+    When I list all skills
+    Then the listing includes every concept pillar with kind "pillar"
+
+  Scenario: the skill listing can filter to just the pillars
+    When I list skills of kind "pillar"
+    Then the listing is exactly the concept pillars
+
