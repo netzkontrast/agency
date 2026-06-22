@@ -15,6 +15,7 @@ authored surface). Pure read + validate, deterministic order (sorted by name) so
 """
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -26,12 +27,17 @@ from ._skill_parse import parse_skill
 PILLARS_DIR = Path(__file__).parent / "pillars"
 
 
+@lru_cache(maxsize=None)
 def load_pillars(directory: Path | str | None = None) -> list[dict]:
     """Load + validate every committed pillar `skill.yaml`.
 
     Returns the pillar dicts sorted by `name` (deterministic — A7). Raises
     `ValueError` if any pillar fails the 371 schema, naming the offending file so
     a broken pillar fails the install loudly rather than disappearing from it.
+
+    Cached (the source is committed + static) — the skill listing calls this on a
+    hot path (`_all_skills` → `skills.find`, 100+ call sites), so the 3-file YAML
+    read happens once per process, not per `find`.
     """
     root = Path(directory) if directory is not None else PILLARS_DIR
     if not root.exists():

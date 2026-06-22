@@ -100,11 +100,17 @@ _TRIAGE_SKILL = {
 
 
 def _all_skills(registry) -> dict:
-    """Map skill_name → metadata, scanning every capability's ontology.skills.
+    """Map skill_name → metadata: every capability's ontology.skills PLUS the
+    committed concept pillars (Spec 375 Slice 2).
 
     Ownership is per-capability (each cap's deepcopied ontology holds only its own
     authored + derived skills), so the owning capability is recoverable here — which
-    the merged engine ontology loses.
+    the merged engine ontology loses. The concept pillars (intent · lifecycle ·
+    memory) are not owned by a capability; they carry kind="pillar" +
+    capability="(pillar)" so the walkable-discipline filters (`find(kind=…)`,
+    `find(capability=…)`) never pick them up by accident, while a bare `find()` /
+    `rank()` lists them alongside the disciplines. A walkable skill of the same
+    name wins the listing slot (pillars are additive, never clobbering).
     """
     out: dict[str, dict] = {}
     for cap_name in registry.names():
@@ -115,6 +121,14 @@ def _all_skills(registry) -> dict:
             out[sname] = {"name": sname, "kind": schema.get("kind", "skill"),
                           "capability": cap_name, "phases": phases,
                           "phase_count": len(phases), "_schema": schema}
+    from ..._pillars import load_pillars
+    for schema in load_pillars():
+        sname = schema.get("name", "")
+        if not sname or sname in out:
+            continue
+        out[sname] = {"name": sname, "kind": schema.get("kind", "pillar"),
+                      "capability": "(pillar)", "phases": [],
+                      "phase_count": 0, "_schema": schema}
     return out
 
 
@@ -130,12 +144,15 @@ class SkillsCapability(CapabilityBase):
 
     @verb(role="transform")
     def find(self, kind: str = "", capability: str = "") -> dict:
-        """Enumerate the walkable skills across all capabilities, with light filters.
+        """Enumerate the skills across all capabilities — walkable disciplines AND
+        the concept pillars (Spec 375) — with light filters.
 
-        Inputs: kind (filter by skill kind, e.g. 'usage'/'discipline'; '' = any);
-                capability (filter by owning capability; '' = any).
+        Inputs: kind (filter by skill kind, e.g. 'usage'/'discipline'/'pillar';
+                '' = any); capability (filter by owning capability, '(pillar)' for
+                the concept pillars; '' = any).
         Returns: ``{candidates: [{name, kind, capability, phases, phase_count}], total}``.
-        chain_next: ``skills.render`` one candidate, or ``develop.skill_walk`` to walk it.
+        chain_next: ``skills.render`` one candidate, or ``develop.skill_walk`` to walk
+        it (a pillar has 0 phases — read its concept skill rather than walking).
         The intent→next-skill projection lives on ``intent.suggests`` (Spec 026 B).
         """
         rows = []

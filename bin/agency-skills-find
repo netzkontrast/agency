@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_skills_find
-# Enumerate the walkable skills across all capabilities, with light filters.
+# Enumerate the skills across all capabilities — walkable disciplines AND the concept pillars (Spec 375) — with light filters.
 # Usage: agency-skills-find [--intent-id ID] [kind] [capability]
 set -euo pipefail
 

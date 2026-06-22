@@ -84,7 +84,29 @@ Done (file:line evidence):
   for both the standalone and augmented paths). 4/4 green; 278 across the
   skill/render/install/schema/naming blast radius; install regen + check-drift clean.
 
-Still:
-- **Slice 2** — listing integration: the pillars appear in `agency_welcome` /
-  `skills.find` (`_all_skills` scans only capability `ontology.skills` today; pillars
-  are not a capability, so they need a source the listing reads). Acceptance #2.
+**Slice 2 — SHIPPED: listing integration (agency_welcome + skills.find).** Both
+acceptance criteria now met; spec moves from `partial` toward done (owner approval).
+
+Done (file:line evidence):
+- `agency/_pillars.py` — `load_pillars` gains `@lru_cache` (the source is committed
+  + static; the listing calls it on a hot path — `_all_skills` → `skills.find`,
+  100+ call sites — so the 3-file YAML read happens once per process, not per find).
+- `agency/capabilities/skills/_main.py` — `_all_skills` now scans the committed
+  pillars after the per-capability ontologies: each lists with `kind="pillar"`,
+  `capability="(pillar)"`, `phases=[]`, `phase_count=0`. A walkable skill of the
+  same name WINS the slot (pillars are additive, never clobber). So the concept
+  pillars surface in `skills.find()` / `skills.rank()` / `skills.render()` /
+  `skills.index()` (graph promotion) while the walkable-discipline filters
+  (`find(kind=…)`, `find(capability=…)`) never pick them up by accident. The `find`
+  docstring is updated to name the broadened surface (disciplines + pillars).
+- `agency/_substrate_tools.py` — `agency_welcome` gains a `pillars` field (name +
+  description per pillar) in the cache-stable PREFIX (static source ⇒ byte-stable,
+  so the Spec 146 prefix caching is preserved). A fresh session now learns the four
+  concepts' non-capability spine at onboarding, not just the verbs.
+- Tests: 3 new `pillar_skills` scenarios — (1) the welcome payload carries a
+  dedicated `pillars` field naming every concept pillar (asserted on the field, not
+  an incidental substring — the names appear elsewhere in the payload regardless);
+  (2) `skills.find()` lists every pillar with `kind="pillar"`; (3) `find(kind=
+  "pillar")` returns EXACTLY the pillars. All derive from `load_pillars()` (rule 8).
+  7/7 pillar_skills green; welcome prefix byte-stability + the find/rank/skill-walk
+  blast radius green; install regen + check-drift clean.
