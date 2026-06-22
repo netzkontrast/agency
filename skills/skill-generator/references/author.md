@@ -1,21 +1,21 @@
 <!-- agency-generated: v1 -->
 # skill_generator.author
 
-Draft a skill for a capability by sampling the host LLM with a per-type skill-creator prompt grounded in the cap's real surface (Spec 374 Slice 2).
+Draft a skill for a capability by sampling the host LLM with a per-type skill-creator prompt grounded in the cap's real surface (Spec 374 Slices 2–3).
 
 ## Inputs
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `capability (a name in the live registry), skill_type (R15` |  | pillar|capability|technique|pattern|reference|discipline), spec_text (optional governing-spec excerpt), max_tokens (sampling budget). |
+| `capability (a name in the live registry), skill_type (R15` |  | pillar|capability|technique|pattern|reference|discipline), spec_text (optional governing-spec excerpt), max_tokens (sampling budget), dry_run (True = return draft for review; False = write ``skills/<name>/skill.yaml`` and return the path — default True). |
 
 ## Returns
 
-``{result: {status, ...}}`` where status is ``drafted`` (carries a schema-valid ``draft``), ``no-host`` (carries ``grounding`` + ``prompt`` for hand-authoring), ``unparseable`` (host output failed JSON/schema — carries ``raw`` + ``error``), or ``error`` (unknown capability).
+``{result: {status, ...}}`` where status is ``drafted`` (carries a schema-valid ``draft`` + ``source_stamp``), ``invalid`` (a referenced verb was absent from the live registry — carries ``hallucinated_verbs``), ``no-host`` (carries ``grounding`` + ``prompt`` for hand-authoring), ``unparseable`` (host output failed JSON/schema), or ``error`` (unknown capability).
 
 ## Chain-next
 
-review the draft, then write ``skill.yaml`` + commit (Slice 3 adds registry validation + the ``source_stamp``).
+review the draft, edit if needed, then commit ``skill.yaml``.
 
 ## Details
 
