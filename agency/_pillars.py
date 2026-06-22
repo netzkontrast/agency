@@ -55,3 +55,23 @@ def load_pillars(directory: Path | str | None = None) -> list[dict]:
         pillars.append(data)
     pillars.sort(key=lambda d: d.get("name", ""))
     return pillars
+
+
+def lint_pillars(verbs_index: dict | None = None,
+                 directory: Path | str | None = None) -> list[dict]:
+    """Spec 377 Slice 2 — strict-lint every committed pillar against the full
+    skill-schema contract (per-type · self-containment · no-stub · verb-resolves),
+    beyond the parse-time schema check `load_pillars` already enforces. Returns
+    ``[{name, violations}]`` for any pillar that FAILS (empty ⇒ all clean).
+
+    The pillars are the block-set exemplars (Spec 375): `install.generate` and
+    `check-drift` refuse to ship a pillar that fails strict lint. Lazy import of
+    the lint rule keeps the pillar loader free of the capability surface."""
+    from .capabilities.plugin.clusters.lint import lint_skill_schema
+    failures: list[dict] = []
+    for p in load_pillars(directory):
+        res = lint_skill_schema(p, verbs_index=verbs_index)
+        if not res["ok"]:
+            failures.append({"name": p.get("name", "?"),
+                             "violations": res["violations"]})
+    return failures

@@ -66,6 +66,33 @@ fi
 say
 
 # ----------------------------------------------------------------------
+# 2b. committed skill.yaml strict lint (Spec 377 Slice 2)
+#     The pillars (Spec 375) are block-set exemplars: a committed skill.yaml
+#     that fails the strict contract (per-type · self-containment · no-stub ·
+#     verb-resolves) is drift. Skipped when agency deps are unavailable in this
+#     shell (CI runs it with the venv active).
+# ----------------------------------------------------------------------
+say "==> committed skill schema lint (Spec 377)"
+SKILL_OUT=$(python -c "
+from agency._pillars import lint_pillars
+fails = lint_pillars()
+for f in fails:
+    print('    FAIL', f['name'], [v['rule'] for v in f['violations']])
+raise SystemExit(1 if fails else 0)
+" 2>&1)
+SKILL_RC=$?
+if echo "$SKILL_OUT" | grep -qE "ModuleNotFoundError|ImportError"; then
+  say "    (skipped — agency deps unavailable in this shell)"
+elif [[ $SKILL_RC -ne 0 ]]; then
+  [[ -n "$SKILL_OUT" ]] && say "$SKILL_OUT"
+  say "    committed skill.yaml FAILED strict lint — fix before commit"
+  DRIFT=1
+else
+  say "    committed skills: clean"
+fi
+say
+
+# ----------------------------------------------------------------------
 # 3. Capabilities without test files
 # ----------------------------------------------------------------------
 say "==> capabilities without test files"

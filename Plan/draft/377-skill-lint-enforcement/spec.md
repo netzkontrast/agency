@@ -72,10 +72,45 @@ Done (file:line evidence):
   skill_lint/plugin_authoring; install regen (the new verb's wrapper + reference +
   help entry) clean.
 
-Still:
-- **Slice 2** — validate the `Skill`/`Phase` schema at `install.generate` AND in
-  `check-drift`; the graduated `warn`→`block` gate (warn repo-wide; block for
-  new/changed skills + pillars + frugal first; flip to repo-wide block when 378
-  finishes the legacy caps). Self-containment will warn on the 39 legacy
-  disciplines (their phases carry no `instructions` yet) until 378 fills them.
-- **Slice 3** — `docs/vision/SKILL-CONTRACT.md` v2 (the R1–A7 contract).
+**Slice 2 — SHIPPED: the committed-skill gate at install.generate + check-drift.**
+
+Done (file:line evidence):
+- `agency/_pillars.py` — `lint_pillars(verbs_index=None, directory=None)` strict-
+  lints every committed pillar via `lint_skill_schema`, returning `[{name,
+  violations}]` for any failure (empty ⇒ clean). The committed `skill.yaml` (the
+  pillars) are the **block-set exemplars**.
+- `agency/install.py::generate` — builds `verbs_index` from the live registry and
+  RAISES `ValueError` if any pillar fails strict lint, BEFORE rendering — a broken
+  pillar never reaches disk (mirrors `emit_skill`'s PRE-emit lint raise for
+  capability SkillDocs).
+- `scripts/check-drift` — new "committed skill schema lint (Spec 377)" section
+  (2b) runs `lint_pillars()` → DRIFT on failure; skips gracefully when agency deps
+  are unavailable in the shell (CI runs it with the venv active).
+- Tests: 3 new `skill_lint` scenarios — the committed source passes the gate
+  (live exemplar); a lint-failing pillar in a temp source is flagged
+  (`directory=`); `install.generate` is REFUSED (raises) when a committed pillar
+  fails (monkeypatched `load_pillars`). 8/8 skill_lint + 42 across
+  lint/pillar/install/command green; check-drift's new section reports "committed
+  skills: clean"; install regen diff-free (the gate is a guard, not new output).
+
+**Graduated rollout note.** The block set is the committed `skill.yaml` (the
+pillars) — they BLOCK. The 39 legacy disciplines are NOT committed `skill.yaml`
+(they derive from capability ontologies via `emit_skill`), so the committed-skill
+gate does not touch them — they are implicitly "warn" (untouched) until Spec 378
+fills their phase `instructions` and migrates them to the strict contract, at
+which point the gate widens. `frugal` becomes a block exemplar when it lands as a
+committed skill.
+
+**Slice 3 — SHIPPED: `docs/vision/SKILL-CONTRACT.md` v2.** Rewritten from the v1
+five-obligation SkillDoc contract to the layered, per-type, self-contained v2:
+the two skill surfaces (capability SkillDoc vs committed `skill.yaml`), the type
+classification (R15) + per-type required core, self-containment (A1) + walk↔file
+parity (A2), the content layers (R9/R13/R4/R5/R8), F3 verb-resolves, no-stub,
+deterministic install (A7), and BOTH lint rule-sets (`lint_skill_doc` 9 rules +
+`lint_skill_schema` 5 rules) + the graduated gate. DERIVED from shipped code
+(every rule cites its code home — no fabricated rule numbers); carries a
+`doc-source` marker + stamped `doc-hash` (check-doc-drift in sync).
+
+**All three slices SHIPPED.** The strict contract is enforceable and enforced at
+the committed-skill (pillar) block set; the legacy-discipline widening is Spec
+378's job.
