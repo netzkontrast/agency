@@ -1,23 +1,34 @@
 ---
-description: Walk the `critical-thinking` skill — `/agency-critical-thinking` drives `develop.skill_walk(name='critical-thinking')` so the engine delivers ONE phase at a time and records the SkillRun provenance (Spec 018 Win 1).
+description: Walk the `critical-thinking` discipline — `/agency-critical-thinking` drives `develop.skill_walk(name='critical-thinking')`, delivering ONE phase at a time and recording the SkillRun provenance (Spec 018 Win 1).
 ---
 
-## `/agency-critical-thinking` — walk `critical-thinking`
+## `/agency-critical-thinking` — walk the `critical-thinking` discipline
 
-Drive the `critical-thinking` skill atomically (Spec 018) so each phase records a `Phase` node + the SkillRun records `SERVES` the active Intent. The engine pauses at hard gates; resume with the gate's `resume_with` keys.
+Phases: frame → surface → stress-test → weigh → decide
 
-### How
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | frame | — | problem_statement | `decompose` |  |
+| 2 | surface | — | assumptions | `assumptions` |  |
+| 3 | stress-test | — | failure_modes | `premortem`, `inversion`, `brooks_lint` |  |
+| 4 | weigh | — | tradeoffs | `tradeoffs`, `second_order` |  |
+| 5 | decide | — | chosen_approach | — | hard |
 
 ```python
-await call_tool('capability_develop_skill_walk', {
-    'name': 'critical-thinking',
-    'inputs': {},
-})
+await call_tool('capability_develop_skill_walk', {'name': 'critical-thinking', 'inputs': {}})
 ```
 
-To resume after a paused gate, pass `resume_from='<skill_id>'` and `inputs={<gate.resume_with keys>}`. The walker returns the typed status contract: `completed | input-required | failed`.
+Resume after a paused gate with `resume_from='<skill_id>'` and the gate's `resume_with` keys. Status contract: `completed | input-required | failed`.
 
-### Derived
+### Verbs invoked (full params one-deep)
 
-This command is auto-generated from the live capability registry by `install.generate()` per Spec 148 Slice 2; deleting it WILL NOT remove the skill, but the next install rewrites the file from the live ontology.
+- `decompose`
+- `assumptions`
+- `premortem`
+- `inversion`
+- `brooks_lint`
+- `tradeoffs`
+- `second_order`
 

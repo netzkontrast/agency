@@ -1,23 +1,23 @@
 ---
-description: Walk the `debug` skill — `/agency-debug` drives `develop.skill_walk(name='debug')` so the engine delivers ONE phase at a time and records the SkillRun provenance (Spec 018 Win 1).
+description: Walk the `debug` discipline — `/agency-debug` drives `develop.skill_walk(name='debug')`, delivering ONE phase at a time and recording the SkillRun provenance (Spec 018 Win 1).
 ---
 
-## `/agency-debug` — walk `debug`
+## `/agency-debug` — walk the `debug` discipline
 
-Drive the `debug` skill atomically (Spec 018) so each phase records a `Phase` node + the SkillRun records `SERVES` the active Intent. The engine pauses at hard gates; resume with the gate's `resume_with` keys.
+Phases: gather → hypothesize → trace → fix
 
-### How
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | gather | — | evidence | — |  |
+| 2 | hypothesize | — | hypothesis | — |  |
+| 3 | trace | — | root_cause | — |  |
+| 4 | fix | — | fix_verified | — | hard |
 
 ```python
-await call_tool('capability_develop_skill_walk', {
-    'name': 'debug',
-    'inputs': {},
-})
+await call_tool('capability_develop_skill_walk', {'name': 'debug', 'inputs': {}})
 ```
 
-To resume after a paused gate, pass `resume_from='<skill_id>'` and `inputs={<gate.resume_with keys>}`. The walker returns the typed status contract: `completed | input-required | failed`.
-
-### Derived
-
-This command is auto-generated from the live capability registry by `install.generate()` per Spec 148 Slice 2; deleting it WILL NOT remove the skill, but the next install rewrites the file from the live ontology.
+Resume after a paused gate with `resume_from='<skill_id>'` and the gate's `resume_with` keys. Status contract: `completed | input-required | failed`.
 

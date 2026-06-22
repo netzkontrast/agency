@@ -61,11 +61,13 @@ def _write_dev_env(root: str) -> str | None:
     return str(path)
 
 
-# Spec 148 Slice 2 — documented per-skill command cap (Open Q4). Slice 3
-# replaces the alpha-sort cap with an invocation-rank cap derived from the
-# live graph; until then the deterministic alpha sort keeps the surface
-# stable across installs.
-AGENCY_SKILL_CMD_TOP_N = 12
+# Spec 376 — Command v2. The slash-command surface is CURATED, not capped: one
+# /agency-<slug> per discipline (walkable method) + one per pillar (concept).
+# Other skill kinds (usage/workflow/gate/…) are discoverable via `agency search`
+# — no per-every-skill command. Each command body LAUNCHES its skill (no
+# identical stubs), rendered from the live schema so command and skill never drift.
+# AGENCY-DRIFT: curated-command-kinds — the skill kinds that get a slash command.
+_CURATED_COMMAND_KINDS = ("discipline", "pillar")
 
 
 def _skill_name_to_slug(name: str) -> str:
@@ -77,61 +79,128 @@ def _skill_name_to_slug(name: str) -> str:
     return s or "unknown"
 
 
-def _generate_per_skill_commands(reg) -> dict[str, str]:
-    """Walk every capability's `ontology.skills` dict; emit one
-    `commands/agency-<slug>.md` per walkable skill, capped at the
-    documented top-N. Each command body calls `develop.skill_walk`
-    with the skill name + a short usage note.
+def _verb_reference_path(verb_token: str, reg) -> str | None:
+    """The one-deep reference doc for a phase's `cap.verb`, when the cap is a live
+    capability with a skill_doc (so `emit_references` produces the file). Returns
+    None for a non-`cap.verb` token (e.g. an MCP tool like `codegraph_explore`) or
+    an unknown cap/verb — those are listed without a dangling link (Spec 376)."""
+    if "." not in verb_token:
+        return None
+    cap, vb = verb_token.split(".", 1)
+    try:
+        c = reg.get(cap)
+    except KeyError:
+        return None
+    if getattr(c, "skill_doc", None) is None or vb not in c.verbs:
+        return None
+    return f"skills/{cap.replace('_', '-')}/references/{vb}.md"
 
-    Slice 2 ordering: alphabetic by skill name (deterministic). Slice 3
-    derives the rank from invocation count."""
-    skill_names: list[str] = []
-    for cap_name in sorted(reg.names()):
-        cap = reg.get(cap_name)
-        skills = getattr(getattr(cap, "ontology", None), "skills", {}) or {}
-        for sk_name in skills:
-            if isinstance(sk_name, str):
-                skill_names.append(sk_name)
-    skill_names = sorted(set(skill_names))
-    picks = skill_names[:AGENCY_SKILL_CMD_TOP_N]
+
+def _discipline_command(sk_name: str, slug: str, meta: dict, reg) -> tuple[str, str]:
+    """The launch body for a discipline command (Spec 376): invoke the skill walk,
+    with a per-phase I/O table (input · output · verbs · gate) inlined from the
+    live schema, plus a one-deep reference link for every verb that implements a
+    phase. Schema-derived, so the command teaches the discipline's full shape and
+    never drifts — never an identical stub."""
+    phases = meta.get("_schema", {}).get("phases", []) or []
+    chain = " → ".join(p.get("name", "?") for p in phases) or "—"
+    desc = (
+        f"Walk the `{sk_name}` discipline — `/agency-{slug}` drives "
+        f"`develop.skill_walk(name='{sk_name}')`, delivering ONE phase at a time "
+        f"and recording the SkillRun provenance (Spec 018 Win 1)."
+    )
+    # Per-phase I/O table — input (declared walker kwargs) · output (produces) ·
+    # the verbs the phase invokes · gate. The reader sees what each phase takes
+    # and yields without leaving the command.
+    rows = ["| # | Phase | Input | Output | Verbs | Gate |",
+            "|---|-------|-------|--------|-------|------|"]
+    seen_verbs: list[str] = []
+    for i, p in enumerate(phases, start=1):
+        inp = ", ".join(p.get("inputs") or []) or "—"
+        out = ", ".join(p.get("produces") or []) or "—"
+        verbs = p.get("verbs") or []
+        for v in verbs:
+            if v not in seen_verbs:
+                seen_verbs.append(v)
+        verbs_cell = ", ".join(f"`{v}`" for v in verbs) or "—"
+        gate = p.get("gate", "") or ""
+        rows.append(
+            f"| {i} | {p.get('name', '?')} | {inp} | {out} | {verbs_cell} | {gate} |")
+    table = "\n".join(rows)
+    # The verbs that walk/implement these phases — full params one-deep (R4).
+    refs = ""
+    if seen_verbs:
+        ref_lines = []
+        for v in seen_verbs:
+            ref = _verb_reference_path(v, reg)
+            ref_lines.append(f"- `{v}` → `{ref}`" if ref else f"- `{v}`")
+        refs = ("\n\n### Verbs invoked (full params one-deep)\n\n"
+                + "\n".join(ref_lines))
+    body = (
+        f"## `/agency-{slug}` — walk the `{sk_name}` discipline\n\n"
+        f"Phases: {chain}\n\n"
+        f"Each phase records a `Phase` node and the SkillRun `SERVES` the active "
+        f"Intent; the engine pauses at hard gates.\n\n"
+        f"{table}\n\n"
+        f"```python\n"
+        f"await call_tool('capability_develop_skill_walk', "
+        f"{{'name': '{sk_name}', 'inputs': {{}}}})\n"
+        f"```\n\n"
+        f"Resume after a paused gate with `resume_from='<skill_id>'` and the "
+        f"gate's `resume_with` keys. Status contract: "
+        f"`completed | input-required | failed`."
+        f"{refs}\n"
+    )
+    return desc, body
+
+
+def _pillar_command(sk_name: str, slug: str, meta: dict) -> tuple[str, str]:
+    """The launch body for a pillar command (Spec 376): a pillar is a CONCEPT,
+    not a walkable discipline — there are no phases to walk, so the command points
+    at the self-contained concept SKILL.md (A1, the teaching surface)."""
+    schema_desc = (meta.get("_schema", {}).get("description") or "").strip()
+    desc = (
+        f"Read the `{sk_name}` pillar — one of agency's four concepts "
+        f"(Intent · Capability · Lifecycle · Memory). "
+        f"{schema_desc}"
+    ).strip()
+    body = (
+        f"## `/agency-{slug}` — the `{sk_name}` pillar (concept)\n\n"
+        f"{schema_desc}\n\n"
+        f"A pillar is a CONCEPT, not a walkable discipline — there are no phases "
+        f"to walk. Read the self-contained concept skill (it teaches `{sk_name}` "
+        f"with a worked example):\n\n"
+        f"`skills/{slug}/SKILL.md`\n"
+    )
+    return desc, body
+
+
+def _generate_per_skill_commands(reg) -> dict[str, str]:
+    """Spec 376 — a CURATED slash-command set: one `commands/agency-<slug>.md`
+    per discipline (walkable method) + one per pillar (concept), NOT a top-N alpha
+    cap of every skill. Each body LAUNCHES its skill — a discipline invokes
+    `develop.skill_walk`; a pillar points at its self-contained concept SKILL.md —
+    rendered from the live skill schema so the command and its skill never drift
+    (no identical stubs). Other kinds (usage/workflow/gate/…) are discoverable via
+    `agency search`, not a per-skill command."""
+    from .capabilities.skills._main import _all_skills
+    skills = _all_skills(reg)
     out: dict[str, str] = {}
-    for sk_name in picks:
+    for sk_name in sorted(skills):
+        meta = skills[sk_name]
+        kind = meta.get("kind", "")
+        if kind not in _CURATED_COMMAND_KINDS:
+            continue
         slug = _skill_name_to_slug(sk_name)
-        # Skip when the slug would collide with the two static Slice 1
-        # commands; doctrine: hand-authored wins (Spec 148 §"author
-        # discipline").
+        # Hand-authored entry commands win the slug (doctrine: Spec 148).
         if slug in ("agency", "onboard"):
             continue
-        path = f"commands/agency-{slug}.md"
-        desc = (
-            f"Walk the `{sk_name}` skill — `/agency-{slug}` drives "
-            f"`develop.skill_walk(name='{sk_name}')` so the engine "
-            f"delivers ONE phase at a time and records the SkillRun "
-            f"provenance (Spec 018 Win 1)."
-        )
-        body = (
-            f"## `/agency-{slug}` — walk `{sk_name}`\n\n"
-            f"Drive the `{sk_name}` skill atomically (Spec 018) so each "
-            f"phase records a `Phase` node + the SkillRun records `SERVES` "
-            f"the active Intent. The engine pauses at hard gates; resume "
-            f"with the gate's `resume_with` keys.\n\n"
-            f"### How\n\n"
-            f"```python\n"
-            f"await call_tool('capability_develop_skill_walk', {{\n"
-            f"    'name': '{sk_name}',\n"
-            f"    'inputs': {{}},\n"
-            f"}})\n"
-            f"```\n\n"
-            f"To resume after a paused gate, pass `resume_from='<skill_id>'` "
-            f"and `inputs={{<gate.resume_with keys>}}`. The walker returns "
-            f"the typed status contract: `completed | input-required | failed`.\n\n"
-            f"### Derived\n\n"
-            f"This command is auto-generated from the live capability "
-            f"registry by `install.generate()` per Spec 148 Slice 2; "
-            f"deleting it WILL NOT remove the skill, but the next install "
-            f"rewrites the file from the live ontology.\n"
-        )
-        out[path] = author_command(f"agency-{slug}", desc, body)["result"]
+        if kind == "pillar":
+            desc, body = _pillar_command(sk_name, slug, meta)
+        else:
+            desc, body = _discipline_command(sk_name, slug, meta, reg)
+        out[f"commands/agency-{slug}.md"] = author_command(
+            f"agency-{slug}", desc, body)["result"]
     return out
 from .engine import Engine
 from . import templates
@@ -1075,6 +1144,21 @@ def _prune_orphans(root: str, expected: set[str], cap_names: list[str]) -> list[
             if rel not in expected:
                 try:
                     os.remove(os.path.join(refdir, fn))
+                    pruned.append(rel)
+                except OSError:
+                    pass
+    # Spec 376 — generator-owned per-skill commands (`commands/agency-<slug>.md`)
+    # no longer in the curated set (a renamed/removed discipline, or the top-N→
+    # curated migration). The hand-authored entry commands (`agency.md`, `help.md`)
+    # are not `agency-`-prefixed; `agency-onboard.md` IS generated, so it stays in
+    # `expected` and survives. Without this, a stale command lingers as drift.
+    cmddir = os.path.join(root, "commands")
+    if os.path.isdir(cmddir):
+        for fn in sorted(os.listdir(cmddir)):
+            rel = f"commands/{fn}"
+            if fn.startswith("agency-") and rel not in expected:
+                try:
+                    os.remove(os.path.join(cmddir, fn))
                     pruned.append(rel)
                 except OSError:
                     pass

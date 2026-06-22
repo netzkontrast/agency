@@ -1,23 +1,23 @@
 ---
-description: Walk the `capability-routing` skill — `/agency-capability-routing` drives `develop.skill_walk(name='capability-routing')` so the engine delivers ONE phase at a time and records the SkillRun provenance (Spec 018 Win 1).
+description: Walk the `capability-routing` discipline — `/agency-capability-routing` drives `develop.skill_walk(name='capability-routing')`, delivering ONE phase at a time and recording the SkillRun provenance (Spec 018 Win 1).
 ---
 
-## `/agency-capability-routing` — walk `capability-routing`
+## `/agency-capability-routing` — walk the `capability-routing` discipline
 
-Drive the `capability-routing` skill atomically (Spec 018) so each phase records a `Phase` node + the SkillRun records `SERVES` the active Intent. The engine pauses at hard gates; resume with the gate's `resume_with` keys.
+Phases: frame → rank → select → confirm
 
-### How
+Each phase records a `Phase` node and the SkillRun `SERVES` the active Intent; the engine pauses at hard gates.
+
+| # | Phase | Input | Output | Verbs | Gate |
+|---|-------|-------|--------|-------|------|
+| 1 | frame | — | request | — |  |
+| 2 | rank | — | recommendations | — |  |
+| 3 | select | — | chosen | — |  |
+| 4 | confirm | — | rationale | — | hard |
 
 ```python
-await call_tool('capability_develop_skill_walk', {
-    'name': 'capability-routing',
-    'inputs': {},
-})
+await call_tool('capability_develop_skill_walk', {'name': 'capability-routing', 'inputs': {}})
 ```
 
-To resume after a paused gate, pass `resume_from='<skill_id>'` and `inputs={<gate.resume_with keys>}`. The walker returns the typed status contract: `completed | input-required | failed`.
-
-### Derived
-
-This command is auto-generated from the live capability registry by `install.generate()` per Spec 148 Slice 2; deleting it WILL NOT remove the skill, but the next install rewrites the file from the live ontology.
+Resume after a paused gate with `resume_from='<skill_id>'` and the gate's `resume_with` keys. Status contract: `completed | input-required | failed`.
 
