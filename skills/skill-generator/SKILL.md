@@ -1,6 +1,6 @@
 ---
 name: skill-generator
-description: "Use when a deploy-ready skill should be produced in one call — a complete, CSO-clean SKILL.md generated from a description."
+description: "Use when a deploy-ready skill should be produced — grounded in a capability's"
 allowed-tools:
   - mcp__plugin_agency_agency__search
   - mcp__plugin_agency_agency__get_schema
@@ -11,29 +11,33 @@ allowed-tools:
 
 # skill-generator capability
 
-Skill_generator produces a deploy-ready skill in a single call, emitting a CSO-clean SKILL.md from a name and description.
+Skill_generator builds a skill from a capability's REAL surface: `ground` reads its live verbs + signatures + docstrings + ontology; `author` samples the host LLM with a per-type skill-creator prompt over that grounding to draft a schema-valid skill; `generate` renders a CSO-clean SKILL.md from a description.
 
 ## When to use
 
 - A new skill needed without hand-assembling its files
 - A skill idea that should become a deployable artefact
+- Authoring a skill that must reference a capability's real verbs (not guesses)
 
 ## Verbs
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `author` | act | Draft a skill for a capability by sampling the host LLM with a per-type skill-creator prompt grounded in the cap's real surface (Spec 374 Slice 2). | [details](references/author.md) |
 | `generate` | act | Author a SKILL.md and lint it against the CSO rules, flagging if not deploy-ready. | [details](references/generate.md) |
 | `ground` | transform | Build the authoring grounding for a capability — its live verbs, signatures, docstrings, and ontology — the structured input a skill-creator prompt fills, and the no-host fallback an author reads. | [details](references/ground.md) |
 
 ## Example
 
 ```bash
-await call_tool('capability_skill_generator_generate', {'intent_id': 'intent:abc'})
+await call_tool('capability_skill_generator_author', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
 
-- (none documented)
+- Hand-writing a SKILL.md from scratch → ground it via capability_skill_generator_ground
+- Authoring a skill that references verbs not in the registry → capability_skill_generator_author grounds in the live surface
+- Sampling the host at install time (breaks reproducibility, A7) → author at authoring time and commit the reviewed result
 
 ## Walk this capability
 

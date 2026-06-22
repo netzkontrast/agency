@@ -23,3 +23,21 @@ Feature: Skill authoring — grounding context (Spec 374 Slice 1)
   Scenario: grounding an unknown capability returns a typed error
     When I ground skill authoring for the "no-such-cap" capability
     Then the grounding result is an error naming the unknown capability
+
+  # ── Spec 374 Slice 2 — per-type prompt + host.sample → schema-parsed draft ────
+
+  Scenario: authoring with a sampling host returns a schema-valid draft
+    When I author a "discipline" skill for "analyze" with a stub sampling host
+    Then the author result status is "drafted"
+    And the draft is a schema-valid skill of type "discipline"
+
+  Scenario: the skill-creator prompt grounds in the capability's real verbs
+    When I author a "discipline" skill for "analyze" with no host bound
+    Then the prompt lists exactly the capability's live verbs
+    And the prompt instructs strict JSON output
+
+  Scenario: no sampling host degrades gracefully to grounding plus prompt
+    When I author a "capability" skill for "analyze" with no host bound
+    Then the author result status is "no-host"
+    And the result carries the grounding and the per-type prompt
+    And the per-type prompt names the type's required fields

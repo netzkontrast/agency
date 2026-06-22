@@ -77,11 +77,39 @@ Done (file:line evidence):
   registry (rule 8). 3/3 green; install regen committed (help + skill-generator
   surface gained the `ground` verb); `check-drift` clean.
 
+**Slice 2 — SHIPPED: per-type prompt + host.sample → schema-parsed draft.**
+
+Done (file:line evidence):
+- `agency/capabilities/skill_generator/_main.py` — `_skill_creator_prompt(type,
+  grounding)` composes the (system, user) skill-creator prompt; the per-type
+  required CORE is DERIVED from `_skill_parse._TYPE_REQUIRED` (rule 2 — single
+  source, so prompt and parser never drift). `_parse_draft(text)` strips a
+  ```json fence, JSON-decodes, and validates via `parse_skill` (371) — returns
+  `(draft, "")` or `(None, error)`, never raises on bad model output. The
+  `author(capability, skill_type=, spec_text=, max_tokens=)` verb (role=act,
+  `param_enums={skill_type: _SKILL_TYPES}`) builds the grounding (Slice 1),
+  composes the prompt, and `ctx.host.sample`s it — returning `status` ∈
+  `drafted` (schema-valid `draft`) | `no-host` (grounding + prompt for
+  hand-authoring) | `unparseable` (raw + error) | `error` (unknown cap). No
+  sampling host ⇒ graceful `no-host` return (acceptance met). Docstring gained a
+  `Red flags:` section (the derived SkillDoc needs red_flags once the cap ships
+  ≥3 verbs).
+- Tests: 3 new `skill_author` scenarios — (1) a stub sampling host yields a
+  schema-valid `drafted` skill; (2) the prompt lists EXACTLY the cap's live
+  verbs (F3, derived from the registry) + instructs strict JSON; (3) no host ⇒
+  `no-host` with grounding + the per-type prompt naming the type's required
+  fields (derived from `_TYPE_REQUIRED`). 6/6 skill_author green; 51 across the
+  skill/render/schema blast radius; install regen committed (the `author` verb's
+  wrapper + reference + help entry).
+
 Still:
-- **Slice 2** — per-type skill-creator prompts (R1–A7 as the system prompt) +
-  the `ctx.host.sample` call (the Spec 147/285 seam; stubbed in tests) → parse the
-  completion into the `Skill`/`Phase` schema (371). Graceful pause when no host.
-- **Slice 3** — registry + type-schema validation of the draft (a referenced verb
-  not in the live registry is rejected); `source_stamp = hash(cap code + spec +
+- **Slice 3** — registry validation of the draft (a referenced verb not in the
+  live registry is rejected — the F3 *enforcement*, beyond the prompt
+  *instruction* shipped here); `source_stamp = hash(cap code + spec +
   prompt-version)`; the `dry_run` review/commit path. Plus the guard test that
   `install.generate` never samples (deterministic install, A7).
+- **Found (out of scope, flag for follow-up):** `scripts/check-drift` runs the
+  install regen as `python -m agency.install … || true`, so an install FAILURE
+  (e.g. a SkillDoc lint error) is swallowed and reported as "install: clean".
+  The real failure only surfaces on an un-suppressed run. The gate should fail on
+  a non-zero install exit, not just on a git diff.
