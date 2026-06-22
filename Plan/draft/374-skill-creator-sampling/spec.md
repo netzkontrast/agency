@@ -1,9 +1,9 @@
 ---
 spec_id: "374"
 slug: skill-creator-sampling
-status: draft
+status: partial
 state: draft
-last_updated: 2026-06-20
+last_updated: 2026-06-22
 owner: "@agency"
 vision_goals: [1, 3, 8]
 depends_on: ["147", "371", "373"]
@@ -54,3 +54,34 @@ committed; install just renders it (373).
 - The draft carries a `source_stamp`; re-running with unchanged source is stable.
 - No host ⇒ graceful return (grounding + prompt), no crash, deterministic fallback intact.
 - Install never calls the sampler (a test asserts `install.generate` does no sampling).
+
+## Followup — Implementation Status (2026-06-22)
+
+**Slice 1 — SHIPPED: the grounding-context builder.** Slices 2 (host.sample +
+per-type prompts) and 3 (validation + source_stamp + review/commit) remain.
+
+Done (file:line evidence):
+- `agency/capabilities/skill_generator/_main.py` — `build_grounding(cap, spec_text="")`
+  reads a capability's LIVE surface into a structured dict: `{capability, home,
+  verbs:[{name, role, signature, doc}], ontology:{nodes, edges, skills}, spec}`.
+  Pure + deterministic (registry-only, no host, no I/O) — same cap ⇒ same bytes
+  (A7). Verb signatures strip `self`/`ctx`/declared `@verb(inject=…)` params via
+  `_public_signature` (derived from the live `fn`, rule 2); docstrings carried in
+  FULL (rule 9). Surfaced as the `skill_generator.ground(capability, spec_text=)`
+  verb (role=transform) — the no-host fallback an author reads by hand (acceptance
+  "no host ⇒ graceful return"); unknown capability → typed `{error, available}`.
+- Tests: `tests/acceptance/features/skill_author.feature` + `test_skill_author.py`
+  — 3 scenarios: (1) grounding lists EXACTLY the live verbs, each mirroring live
+  role + docstring, signature omitting injected params; (2) determinism (same cap,
+  identical bytes); (3) unknown cap → typed error. All derive from the live
+  registry (rule 8). 3/3 green; install regen committed (help + skill-generator
+  surface gained the `ground` verb); `check-drift` clean.
+
+Still:
+- **Slice 2** — per-type skill-creator prompts (R1–A7 as the system prompt) +
+  the `ctx.host.sample` call (the Spec 147/285 seam; stubbed in tests) → parse the
+  completion into the `Skill`/`Phase` schema (371). Graceful pause when no host.
+- **Slice 3** — registry + type-schema validation of the draft (a referenced verb
+  not in the live registry is rejected); `source_stamp = hash(cap code + spec +
+  prompt-version)`; the `dry_run` review/commit path. Plus the guard test that
+  `install.generate` never samples (deterministic install, A7).

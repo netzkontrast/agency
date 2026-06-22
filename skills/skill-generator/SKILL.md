@@ -23,6 +23,7 @@ Skill_generator produces a deploy-ready skill in a single call, emitting a CSO-c
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `generate` | act | Author a SKILL.md and lint it against the CSO rules, flagging if not deploy-ready. | [details](references/generate.md) |
+| `ground` | transform | Build the authoring grounding for a capability — its live verbs, signatures, docstrings, and ontology — the structured input a skill-creator prompt fills, and the no-host fallback an author reads. | [details](references/ground.md) |
 
 ## Example
 
@@ -38,5 +39,5 @@ await call_tool('capability_skill_generator_generate', {'intent_id': 'intent:abc
 
 Drive this capability's verbs by WALKING a skill one phase at a time (progressive disclosure, recorded as provenance):
 
-- **`skill_generator-usage`** (usage): use-act → confirm
+- **`skill_generator-usage`** (usage): use-transform → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'skill_generator-usage', 'inputs': {}, 'intent_id': '…'})`
