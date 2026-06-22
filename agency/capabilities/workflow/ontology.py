@@ -18,13 +18,21 @@ SPEC_STATES = set(resolve_machine("spec")["states"])
 # Spec 358 — the walkable repo-development discipline. A Lifecycle template
 # (Spec 018) that orders the owner's process — intent → triage → brainstorm →
 # research → acceptance → spec → spec-panel → Brooks-lint → improve-loop → the
-# ADR hinge (open → extract → approve → inprogress + hints) → build → done.
+# ADR hinge (open → extract → approve → inprogress + hints) → build → lint → done.
 # Each phase carries `verbs` cues that BIND existing capability verbs (no
 # re-implementation, panel B1); the walker (`develop.skill_walk`) delivers ONE
 # phase at a time (Goal 1) and records each as provenance under the intent
 # (Goal 2). Three HARD gates: the design improve-gate (B2.3), the ADR-approval
 # hinge (the spec cannot reach `inprogress` until decisions are approved —
 # 355/356), and the done gate (COMPLETED ≠ done).
+#
+# The COMPLETE brooks linting workflow is integrated into the implement loop
+# (owner directive): phase 8 `brooks-lint` reasons over the SPEC (intent.brooks_lint,
+# the 9th critical-thinking method), and the new phase 14 `lint` runs the brooks
+# code-quality review (develop.review — decidable scanners + the mode-aware review
+# chain + the judgment pass) over the IMPLEMENTATION before the done gate; the done
+# gate itself folds in the headless analyze.review quality gate. So the ADR-centred
+# loop lints both the decision (spec) and the code it produces.
 _DEVELOP_SPEC_SKILL = {
     "name": "develop-spec",
     "kind": "discipline",
@@ -58,8 +66,15 @@ _DEVELOP_SPEC_SKILL = {
          "verbs": ["workflow.move_spec", "adr.hints"]},
         {"index": 13, "name": "build", "produces": ["implementation"],
          "verbs": ["develop.tdd", "develop.plan_execute"]},
-        {"index": 14, "name": "done", "produces": ["verified"], "gate": "hard",
-         "verbs": ["develop.verify", "workflow.move_spec"]},
+        # The complete brooks linting workflow over the implementation (owner
+        # directive): the mode-aware review chain + judgment pass, with the final
+        # approval elicit. Advisory phase (not a gate) — findings feed the done
+        # verification; the headless analyze.review is the CI quality gate folded
+        # into `done` below.
+        {"index": 14, "name": "lint", "produces": ["lint_findings"],
+         "verbs": ["develop.review", "analyze.review"]},
+        {"index": 15, "name": "done", "produces": ["verified"], "gate": "hard",
+         "verbs": ["develop.verify", "analyze.review", "workflow.move_spec"]},
     ],
 }
 

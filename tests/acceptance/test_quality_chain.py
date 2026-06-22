@@ -94,3 +94,60 @@ def _all_modes_present():
     assert expected <= modes, f"missing chains: {expected - modes}"
     for m in expected:
         assert chain[m].get("steps"), f"mode {m!r} has no steps"
+
+
+# ── Spec 380 — the brooks + decay-risks develop references (on-demand how-to) ──
+
+def test_brooks_reference_resolves(engine, iid):
+    r, _ = invoke(engine, iid, "develop", "reference", topic="brooks")
+    doc = r["result"]["doc"]
+    assert "Iron Law" in doc, doc[:200]
+    assert "develop.review" in doc and "analyze.review" in doc, doc[-400:]
+
+
+def test_decay_risks_reference_lists_the_live_registry(engine, iid):
+    """Computed reference (rule 2): every live decay-risk code appears — derived
+    from decay-risks.json, so it can't drift from what the scanners/judgment read."""
+    from agency.capabilities.analyze import _decay
+    r, _ = invoke(engine, iid, "develop", "reference", topic="decay-risks")
+    doc = r["result"]["doc"]
+    for code in _decay.load_risks():
+        assert code in doc, f"{code} missing from decay-risks reference"
+
+
+def test_brooks_and_decay_risks_are_discoverable(engine, iid):
+    r, _ = invoke(engine, iid, "develop", "reference", topic="__nope__")
+    avail = r["result"]["available"]
+    assert {"brooks", "decay-risks"} <= set(avail), avail
+
+
+# ── Spec 380 — first-class, selectable judgment driver ────────────────────────
+
+def test_wet_corpus_covers_every_judgment_risk():
+    """Spec 383 Slice 2b coverage invariant (keyless — runs in normal CI): the
+    `-m wet` fixtures cover EXACTLY the judgment-only risk set, DERIVED from the
+    registry (rule 8) — adding a judgment risk forces a paired wet fixture."""
+    from agency.capabilities.analyze._review import judgment_risks
+    from agency.capabilities.analyze import _decay
+    from test_quality_wet import JUDGMENT_FIXTURES
+    judgment_only = set(judgment_risks(_decay.load_risks()))
+    covered = set(JUDGMENT_FIXTURES)
+    assert covered == judgment_only, (
+        f"wet corpus drift — missing: {judgment_only - covered}; "
+        f"extra: {covered - judgment_only}")
+
+
+def test_judgment_driver_is_selectable(engine, iid, tmp_path, monkeypatch):
+    """develop.review(driver=…) tags the delegate envelope so the host fulfils it
+    via the chosen backend (subagent default | jules | openrouter), one seam."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    token = bind_host_context(None)                      # no sampling/elicit host
+    try:
+        d = _fixture(tmp_path)
+        for chosen in ("jules", "subagent"):
+            r, _ = invoke(engine, iid, "develop", "review", scope=d, driver=chosen)
+            env = r.get("llm_delegate")
+            assert env and env.get("model_hint") == chosen, (chosen, r)
+    finally:
+        reset_host_context(token)

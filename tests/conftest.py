@@ -101,6 +101,19 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(getattr(pytest.mark, marker))
                 break
 
+    # Spec 383 — the `-m wet` brooks judgment corpus is OPT-IN only. Real-model
+    # judgment is non-deterministic, so it must NEVER run in the default suite or
+    # the PR gate (`-m "not e2e"`) — only when `-m wet` is explicitly requested
+    # (Crispin — no PR-gate flakiness). The module's own skipif still guards the
+    # `-m wet`-without-a-key case.
+    markexpr = config.getoption("markexpr", default="") or ""
+    if "wet" not in markexpr:
+        skip_wet = pytest.mark.skip(
+            reason="wet corpus is opt-in — run with `-m wet` + a backend key")
+        for item in items:
+            if "wet" in item.keywords:
+                item.add_marker(skip_wet)
+
 
 @pytest.fixture
 def engine(tmp_path):
