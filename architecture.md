@@ -1,7 +1,7 @@
 <!-- agency-node: architecture-digest -->
 # agency — architecture digest
 
-Every recorded WH(Y) decision as a one-liner (16 across 5 layers), grouped by architecture layer — each links to the spec that established it with one central sentence from that spec. Linked specs are **approved**: a spec reaches `/inprogress` (and later `/done`) only once its decisions clear the ADR hinge, so an `/inprogress` spec is an approved one still shipping its last slices. The decision IS what ships — **code is the final decision**; the full rationale, neglected alternatives and trade-offs live in [`docs/adr/`](docs/adr/). Refreshed on spec-done via `adr.architecture(apply=True)`; emitted by the SessionStart hook.
+Every recorded WH(Y) decision as a one-liner (19 across 5 layers), grouped by architecture layer — each links to the spec that established it with one central sentence from that spec. Linked specs are **approved**: a spec reaches `/inprogress` (and later `/done`) only once its decisions clear the ADR hinge, so an `/inprogress` spec is an approved one still shipping its last slices. The decision IS what ships — **code is the final decision**; the full rationale, neglected alternatives and trade-offs live in [`docs/adr/`](docs/adr/). Refreshed on spec-done via `adr.architecture(apply=True)`; emitted by the SessionStart hook.
 
 ## Datalayer
 _how agency stores, versions and reconciles all state_
@@ -23,6 +23,34 @@ _the FastMCP engine and the wire contract every capability rides_
 - run multi-step work in code-mode execute so chains stay inside the sandbox — [`Plan/inprogress/005-context-mode-and-token-economics/spec.md`](Plan/inprogress/005-context-mode-and-token-economics/spec.md)
   > "The engine already pays the boot token cost well: `Engine.build_mcp` wraps the server in FastMCP's `CodeMode()` transform (`agency/engine.py:91-95`), so the only tools the model sees at start are…"
 
+## Capabilities
+_how capabilities are authored, discovered and bounded_
+
+- a capability is a self-registering folder under agency/capabilities/ (the drop-in bar) — [`Plan/inprogress/016-capability-authoring-doctrine/spec.md`](Plan/inprogress/016-capability-authoring-doctrine/spec.md)
+  > "The Core canon (`docs/vision/CORE.md`) defines WHAT a capability is — an invokable action with role-tagged verbs, owning an ontology fragment, exposed isomorphically over MCP / Skills / bash CLI"
+- keep manage as capability-agnostic generic CRUD; domain verbs live in their own capability — [`Plan/done/290-management-capability/spec.md`](Plan/done/290-management-capability/spec.md)
+  > "(evidence + doctrine) An agent today cannot ask *"what is the current state — open intents, lifecycle status, research, artefacts — across the whole graph?"* without either raw Cypher…"
+- a capability's skill data derives from its docstring; an authored skill.yaml is the A6 override, not a committed file per capability — [`Plan/done/378-capability-skill-migration/spec.md`](Plan/done/378-capability-skill-migration/spec.md)
+  > "The substrate (371–374) + enforcement (377) are inert until the existing 33 capabilities carry v2 `skill.yaml`"
+- one per-type renderer renders every skill from its type template — no second render path — [`Plan/done/373-per-type-templates-renderer/spec.md`](Plan/done/373-per-type-templates-renderer/spec.md)
+  > "One `render/capability-skill.md` shape for everything + a second `templates.SKILL_MD` path = generic output + a divergent path"
+- the skill surface is bounded by a schema lint and a repo-wide self-containment discipline gate — [`Plan/done/377-skill-lint-enforcement/spec.md`](Plan/done/377-skill-lint-enforcement/spec.md)
+  > "`lint_skill_doc` checks the description/triggers/example shape but passes thin bodies, stub sections, and missing phase instructions"
+
+## Lifecycle
+_how stateful entities transition, with provenance_
+
+- ctx.lifecycle.move is the sole state writer; domain code never writes state directly — [`Plan/inprogress/339-lifecycle-capability-write-frame/spec.md`](Plan/inprogress/339-lifecycle-capability-write-frame/spec.md)
+  > "Spec 338 §Architecture calls for a `lifecycle` capability that owns the CORE.md §3 verb frame"
+- lifecycle machines are data (machines.json), not code — [`Plan/done/340-lifecycle-state-machine-transitions/spec.md`](Plan/done/340-lifecycle-state-machine-transitions/spec.md)
+  > "`ontology.py:58 LifecycleState` constrains the *value* of `state`, but Spec 338 §Why item 2 documents the real defect — no transition is enforced"
+- a skill is a typed phase-graph — six types with a per-type required core, and a phase is a first-class object with inline content — [`Plan/done/371-phase-skill-schema/spec.md`](Plan/done/371-phase-skill-schema/spec.md)
+  > "Today a phase is `{index,name,produces,gate?,verbs?,sample?,…}` (no content) and a skill is `{name,description,body}` (enforces nothing)"
+- the phase graph is the single source — the walk and the rendered file read one phase — [`Plan/done/372-phase-single-source/spec.md`](Plan/done/372-phase-single-source/spec.md)
+  > "`SkillRun.current()` returns only `{index,name,produces,gate}` — the walking agent never receives `goal`/`instructions`/`example`"
+- the four concepts each ship a committed pillar skill — [`Plan/done/375-pillar-skills/spec.md`](Plan/done/375-pillar-skills/spec.md)
+  > "Agency emits a skill per capability but NONE for the concepts themselves"
+
 ## Workflow
 _the ADR-centred repo-development lifecycle (Spec 353 reconciliations)_
 
@@ -32,16 +60,3 @@ _the ADR-centred repo-development lifecycle (Spec 353 reconciliations)_
   > "Owner directive: *"Ziel ist … einen Lifecycle für die Arbeit am Repo zu erstellen … beginnend mit Intent-Erfassung und Interview-Triage — Brainstorm und ggf"
 - thematic, living ADRs — a Document per architecture layer, extended inline — [`Plan/done/354-adr-ontology-capability/spec.md`](Plan/done/354-adr-ontology-capability/spec.md)
   > "The `adr` repo (`/adr/specs/SPEC-001-A..E`) defines the *enhanced WH(Y) ADR* on paper"
-
-## Capabilities
-
-- D1 fix generator+substrate, not 36 skills by hand
-- D2 get_schema renders nested object/array shapes
-- D3 examples use real prefixed wire names + threaded intent_id
-- D4 using-agency stays curated constant, gains naming rule
-- Documentation generation mixes a deterministic template scaffold with MCP-sampled custom sections via document.compose
-- Fix the generator + substrate, never hand-edit the 36 skills
-
-## Lifecycle
-
-- Lifecycle transitions are enforced by a data-driven A2A table with a typed IllegalTransition and a terminal floor; Lifecycle.move is the sole state writer, guarded statically by check-drift (B3)

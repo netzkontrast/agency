@@ -1,96 +1,92 @@
-<!-- agency-node: adr-theme-Capabilities -->
+<!-- agency-node: adr-theme-capabilities -->
 ---
 kind: adr-theme
-layer: Capabilities
-title: "Skills teach the call"
-status: in-progress
+layer: capabilities
+title: "Capabilities — decisions"
+scope: "how capabilities are authored, discovered and bounded"
+status: proposed
 ---
 
-# Skills teach the call
+# Capabilities — decisions
+
+> how capabilities are authored, discovered and bounded
 
 | Master ADR | Layer | Aggregate Status | Decisions |
 |---|---|---|---|
-| Skills teach the call | Capabilities | in-progress | 6 live · 0 superseded |
+| Capabilities — decisions | capabilities | in-progress | 5 live · 0 superseded |
 
-## D1 fix generator+substrate, not 36 skills by hand
-
-| Decision ID | Status | Proposed By |
-|---|---|---|
-| CAPABILITIES-01 | approved | user |
-
-**In the context of** single source = docstring/registry/schema (rule 2),  
-**facing** ,  
-**we decided for** D1 fix generator+substrate, not 36 skills by hand,  
-**and neglected** ,  
-**to achieve** ,  
-**accepting that** .
-
-## D2 get_schema renders nested object/array shapes
+## a capability is a self-registering folder under agency/capabilities/ (the drop-in bar)
 
 | Decision ID | Status | Proposed By |
 |---|---|---|
-| CAPABILITIES-02 | approved | user |
+| CAPABILITIES-01 | proposed | agent |
 
-**In the context of** highest-leverage; closes block-aborting errors for all clients,  
-**facing** ,  
-**we decided for** D2 get_schema renders nested object/array shapes,  
-**and neglected** ,  
-**to achieve** ,  
-**accepting that** .
+**In the context of** agency needing to grow its capability surface without central wiring edits,  
+**facing** registering each capability by hand in an engine manifest, the CLI and the MCP wiring,  
+**we decided for** a capability is a self-registering folder under agency/capabilities/ (the drop-in bar),  
+**and neglected** a central registry list, or explicit per-capability install wiring,  
+**to achieve** adding a folder gains a discoverable, walkable, CLI-exposed and MCP-wired capability for free,  
+**accepting that** auto-discovery hides load order and a malformed folder can fail registration at import time.
 
-## D3 examples use real prefixed wire names + threaded intent_id
+**Source:** [`Plan/inprogress/016-capability-authoring-doctrine/spec.md`](../../Plan/inprogress/016-capability-authoring-doctrine/spec.md) — "The Core canon (`docs/vision/CORE.md`) defines WHAT a capability is — an invokable action with role-tagged verbs, owning an ontology fragment, exposed isomorphically over MCP / Skills / bash CLI"
 
-| Decision ID | Status | Proposed By |
-|---|---|---|
-| CAPABILITIES-03 | approved | user |
-
-**In the context of** the example IS the naming lesson,  
-**facing** ,  
-**we decided for** D3 examples use real prefixed wire names + threaded intent_id,  
-**and neglected** ,  
-**to achieve** ,  
-**accepting that** .
-
-## D4 using-agency stays curated constant, gains naming rule
+## keep manage as capability-agnostic generic CRUD; domain verbs live in their own capability
 
 | Decision ID | Status | Proposed By |
 |---|---|---|
-| CAPABILITIES-04 | approved | user |
+| CAPABILITIES-02 | proposed | agent |
 
-**In the context of** cross-cutting meta-skill; authored prose,  
-**facing** ,  
-**we decided for** D4 using-agency stays curated constant, gains naming rule,  
-**and neglected** ,  
-**to achieve** ,  
-**accepting that** .
+**In the context of** ADR needing WH(Y)-validate, supersede-with-forward-ref and aggregate-status verbs,  
+**facing** the pull to add ADR-specific verbs onto the generic manage surface,  
+**we decided for** keep manage as capability-agnostic generic CRUD; domain verbs live in their own capability,  
+**and neglected** ADR verbs on manage, or a single god-capability,  
+**to achieve** manage keeps a clean generic charter while the adr capability owns its domain,  
+**accepting that** two surfaces to learn (generic CRUD versus domain) and some duplicated create/read ergonomics.
 
-## Documentation generation mixes a deterministic template scaffold with MCP-sampled custom sections via document.compose
+**Source:** [`Plan/done/290-management-capability/spec.md`](../../Plan/done/290-management-capability/spec.md) — "(evidence + doctrine) An agent today cannot ask *"what is the current state — open intents, lifecycle status, research, artefacts — across the whole graph?"* without either raw Cypher…"
+
+## a capability's skill data derives from its docstring; an authored skill.yaml is the A6 override, not a committed file per capability
+
+| Decision ID | Status | Proposed By |
+|---|---|---|
+| CAPABILITIES-03 | approved | agent |
+
+**In the context of** every capability needing v2 skill data while already carrying a module docstring that is its single source of judgment,  
+**facing** hand-authoring and committing a `skill.yaml` per capability (the literal pre-375 plan) that would duplicate every docstring,  
+**we decided for** skills DERIVING from the capability's docstring SkillDoc by default (`owner=auto`); a capability that ships `<cap>/skill.yaml` overrides it (`owner=capability`, A6) — the same v2 schema validates both,  
+**and neglected** a committed-`skill.yaml`-per-capability mandate (duplicates docstrings; violates derive-don't-duplicate),  
+**to achieve** every capability resolving to a valid v2 Skill with zero authored files, richer skill data being an opt-in override,  
+**accepting that** the derived shim is minimal — the docstring is its ceiling until a capability authors more.
+
+**Source:** [`Plan/done/378-capability-skill-migration/spec.md`](../../Plan/done/378-capability-skill-migration/spec.md)
+
+## one per-type renderer renders every skill from its type template — no second render path
+
+| Decision ID | Status | Proposed By |
+|---|---|---|
+| CAPABILITIES-04 | approved | agent |
+
+**In the context of** skills of different types needing different shapes, rendered deterministically at install (A7),  
+**facing** a single generic template for everything plus a divergent second author path (the C2 coherence risk),  
+**we decided for** one `render_typed_skill` that selects `render/skill/<type>.md` by `Skill.type` and inlines the schema-driven self-contained body, with pillars converged onto it,  
+**and neglected** a template per capability, or parallel render functions per type,  
+**to achieve** every skill type rendering its required sections from one deterministic renderer; the apologetic Tier-B stub replaced by a lint finding,  
+**accepting that** a capability's SKILL.md still composes its verb table around the per-type body (its capability-specific concern).
+
+**Source:** [`Plan/done/373-per-type-templates-renderer/spec.md`](../../Plan/done/373-per-type-templates-renderer/spec.md)
+
+## the skill surface is bounded by a schema lint and a repo-wide self-containment discipline gate
 
 | Decision ID | Status | Proposed By |
 |---|---|---|
 | CAPABILITIES-05 | approved | agent |
 
-**In the context of** render/explain give reproducible graph projections; ctx.host.sample (Spec 285 HostBridge) can author prose a projection cannot derive, but no verb assembled the two together.,  
-**facing** How to author docs that are part deterministic-from-graph and part LLM-authored without losing reproducibility or the keep-both round-trip.,  
-**we decided for** Documentation generation mixes a deterministic template scaffold with MCP-sampled custom sections via document.compose,  
-**and neglected** a pure-template generator with no sampled prose; a pure-LLM generator with no grounding; a separate post-processing pass outside the substrate,  
-**to achieve** one verb yields the mix; sampled sections are grounded in the scaffold; degrades honestly without a host (prompt preserved, rule 9); keep-both round-trip; clarity gate stays a separate ingest pass so the sampler never overfits its own score.,  
-**accepting that** sampled sections need a host to fill; without one, the placeholder defers prose to a later agent..
+**In the context of** a typed skill schema being inert unless something enforces it across the open capability set,  
+**facing** schema-valid-but-empty skills (phases with no instructions) shipping unnoticed,  
+**we decided for** `lint_skill_schema` validating every skill against the v2 schema and a repo-wide discipline gate blocking any discipline whose phases are not self-contained (A1),  
+**and neglected** trusting authors, or a permanent warn-only gate (kept only as the migration ramp),  
+**to achieve** a new skill or discipline being unable to ship marker-less or content-less — the gate fails `check-drift`,  
+**accepting that** every discipline must carry real phase instructions before it lands.
 
-| Relationship | Decision / Spec |
-|---|---|
-| Refines | /home/user/agency/Plan/draft/394-document-compose-template-sample/spec.md |
-
-## Fix the generator + substrate, never hand-edit the 36 skills
-
-| Decision ID | Status | Proposed By |
-|---|---|---|
-| CAPABILITIES-06 | proposed | user |
-
-**In the context of** docstring/registry/schema is the single source (rule 2),  
-**facing** ,  
-**we decided for** Fix the generator + substrate, never hand-edit the 36 skills,  
-**and neglected** ,  
-**to achieve** ,  
-**accepting that** .
+**Source:** [`Plan/done/377-skill-lint-enforcement/spec.md`](../../Plan/done/377-skill-lint-enforcement/spec.md)
 
