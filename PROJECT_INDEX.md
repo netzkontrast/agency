@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (73 files)
+### `agency/` (74 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -271,6 +271,15 @@ toolchain verbs can be exercised in tests without shelling out. (5 symbols)
 Moved out of ``scripts/check_schema_coverage.py`` (Spec 153 Slice 3) so the
 engine — ``agency_doctor`` — can import the audit WITHOUT depending on the
 dev-only ``scripts/`` tree (the wheel packages only ``agency``). (15 symbols)
+- **_session_log.py** — Spec 392 — auto-append a per-intent session ACTIVITY log on every invocation.
+
+A post-invocation hook (registered on the Spec 286-A3 ``ResultProcessor`` seam)
+appends ONE line per Invocation to ``<db-dir>/sessions/<intent>.activity.md`` — a
+live, grow-only record of what the session did, updated with each capability call
+(owner directive 2026-06-23: "the file gets auto-appended with each call").
+
+Append-only (CLAUDE.md rule 9 — the captured record is never truncated) and
+best-effort (a write failure NEVER fails a load-bearing verb). (8 symbols)
 - **_session_snapshot.py** — Session-graph snapshot — portable SQLModel export/import (user directive 2026-06-19). (16 symbols)
 - **_skill_load.py** — Spec 371 Slices 2-3 — load a capability's v2 Skill + read its provenance.
 
@@ -362,7 +371,7 @@ Skill loader. (46 symbols)
 A pure rendering pass over Capability/Verb/Skill nodes. (22 symbols)
 - **engine.py** — Engine — one FastMCP server + one graph.
 
-**Code-mode IS the contract** (lean: no separate four-verb surface). (69 symbols)
+**Code-mode IS the contract** (lean: no separate four-verb surface). (70 symbols)
 - **install.py** — Setup for the Agency Plugin for Claude Code.
 
 This is the "in setup" that maps the harness-in-harness MICRO-skills (the engine's
@@ -1248,7 +1257,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (33 symbols)
 
-### `tests/` (19 files)
+### `tests/` (22 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1257,6 +1266,12 @@ the legacy duplicates used `tempfile.mktemp(suffix=".db")` which is
 deprecated since Python 2 (race condition — the predicted path isn't
 guaranteed unique). (13 symbols)
 - **test__research_citation.py** (8 symbols)
+- **test_adr_draft_refines.py** — Spec 393 — adr.draft(spec=…) creates the REFINES edge.
+
+The deep-chain verifier found C14: a manually drafted+approved decision was never
+recognized by `adr.spec_decisions_ready` (the /open→/inprogress hinge) because
+`draft` stored `spec` as a node PROPERTY but never created the `REFINES` EDGE the
+predicate traverses. (6 symbols)
 - **test_analyze_subprocess_analyzer.py** — Spec 286 — the shared SubprocessAnalyzer template scaffold. (21 symbols)
 - **test_cli_chain_fields.py** (13 symbols)
 - **test_develop_plan_execute.py** — Spec 287 — develop `plan-execute` discipline + Plan/PlanStep provenance.
@@ -1291,8 +1306,15 @@ contention (TRANSIENT — retry helps). (30 symbols)
 
 Closes the documented ENGINE GAP: the storyform gates + checks read a
 `Storyform` node, but no verb minted one. (13 symbols)
+- **test_param_shapes.py** — Spec 390 D2 — param_shapes substrate: surface a param's required nested
+object/array shape in the wire description (the get_schema-visible surface), so a
+fresh agent sees `context: [{id, text}]` instead of a bare `any[]`. (6 symbols)
 - **test_projected_enum.py** — Spec 284 — projected-enum substrate. (19 symbols)
 - **test_render_driver_substrate.py** — Spec 283 Slice 1 (Workstream F) — capability render substrate. (20 symbols)
+- **test_session_autolog.py** — Spec 392 — per-intent session activity auto-append.
+
+Every capability call appends one line to ``.agency/sessions/<intent>.activity.md``
+(append-only, grow-only; owner directive). (7 symbols)
 - **test_session_snapshot.py** — Session-graph snapshot export/import — round-trip + value-only (Spec follow-up). (5 symbols)
 - **test_skill_emit.py** (10 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
