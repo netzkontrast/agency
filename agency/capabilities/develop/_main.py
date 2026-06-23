@@ -533,6 +533,37 @@ REFERENCES: dict[str, str] = {
         "step-ordered chain over its risk set. `develop.reference('decay-risks')` "
         "lists the live registry.\n"
     ),
+    # Spec 384 §5 — judgment prose fetched on demand (T3 disclosure). `remedy`
+    # pairs with the quality-remedy template; `custom-risks` explains config-declared
+    # Cx risks. (`decay-risks` + `source-coverage` are COMPUTED below — they point
+    # at the JSON data, never restate it — rule 2.)
+    "remedy": (
+        "# Brooks remedy — the --fix enrichment (read before develop.remediate)\n\n"
+        "The Iron Law first: NEVER write files during diagnosis — remedy runs only "
+        "after the report exists. Then enrich each finding's Remedy as:\n"
+        "- **Target** — the exact file:symbol to change.\n"
+        "- **Action** — the concrete edit (the refactoring move).\n"
+        "- **Rationale** — the principle it restores; cite the finding's Source book.\n\n"
+        "## Fixability tiers (the $fix_tier_label slot)\n"
+        "- **[quick-fix]** — mechanical + local; safe to auto-apply "
+        "(`develop.remediate(apply_safe=True)`).\n"
+        "- **[guided]** — needs a judgement call; propose, await confirm.\n"
+        "- **[manual]** — structural; describe, never auto-apply (reported in "
+        "`gated[]`). `classify_remedy` maps risky structural verbs here.\n\n"
+        "Close with a Fix Summary table (| Finding | Tier | Status |). The render "
+        "asset is the `quality-remedy` template (Spec 384 §4)."
+    ),
+    "custom-risks": (
+        "# Custom risks — project-local Cx codes (read when config declares them)\n\n"
+        "A project extends the open risk set via a `custom_risks` map in its "
+        "`.agency`/quality config (Spec 381 §2). Each entry is a `Cx` code with the "
+        "same shape as a built-in decay risk (name · diagnostic · symptoms · "
+        "what_not_to_flag · sources · severity_guide). The registry is an OPEN set: "
+        "`_decay.tag(findings, risks=merged)` accepts built-ins + the project's `Cx` "
+        "entries with no code edit — the seam the config merge plugs into. Custom "
+        "codes flow through the SAME Iron-Law gate, score, SARIF, and review chain as "
+        "R1–R6/T1–T6; they are facts (data), so they live in config, never in prose."
+    ),
 }
 
 
@@ -579,9 +610,34 @@ def _decay_risks_reference() -> str:
     return "\n".join(lines)
 
 
+# A computed reference — the source-coverage MATRIX (the brooks dozen), rendered
+# live from source-coverage.json (Spec 358/383/384; rule 2). The cite-discipline:
+# read before writing findings so a Source names the book+principle that grounds
+# it, never shallow book-name-dropping. Points at the data, never restates it.
+def _source_coverage_reference() -> str:
+    from ..analyze import _coverage
+    books = _coverage.load_source_coverage()
+    lines = [
+        "# Source coverage — the brooks dozen (live from source-coverage.json)\n",
+        "The cite-discipline (Spec 383): a finding's Iron-Law **Source** must name "
+        "the book + principle that grounds it. Every book a decay risk cites exists "
+        "here (the grounding invariant, gated by scripts/check-drift). Each book "
+        "lists the principles it `encoded` into the risk set + its `do_not_ignore` "
+        "false-positive guardrails — read them before writing findings.\n",
+    ]
+    for book in sorted(books):
+        e = books[book]
+        n_enc = len(e.get("encoded", []))
+        n_guard = len(e.get("do_not_ignore", []))
+        lines.append(f"- **{book}** — {n_enc} principle(s) encoded, "
+                     f"{n_guard} do-not-ignore guardrail(s)")
+    return "\n".join(lines)
+
+
 # topic -> builder(); merged into the static REFERENCES on lookup + discovery.
 _COMPUTED_REFERENCES = {"frugal": _frugal_reference,
-                        "decay-risks": _decay_risks_reference}
+                        "decay-risks": _decay_risks_reference,
+                        "source-coverage": _source_coverage_reference}
 
 
 def checklist(discipline: str) -> dict:
