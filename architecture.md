@@ -42,7 +42,7 @@ _how stateful entities transition, with provenance_
 
 - ctx.lifecycle.move is the sole state writer; domain code never writes state directly — [`Plan/inprogress/339-lifecycle-capability-write-frame/spec.md`](Plan/inprogress/339-lifecycle-capability-write-frame/spec.md)
   > "Spec 338 §Architecture calls for a `lifecycle` capability that owns the CORE.md §3 verb frame"
-- lifecycle machines are data (machines.json), not code — [`Plan/inprogress/340-lifecycle-state-machine-transitions/spec.md`](Plan/inprogress/340-lifecycle-state-machine-transitions/spec.md)
+- lifecycle machines are data (machines.json), not code — [`Plan/done/340-lifecycle-state-machine-transitions/spec.md`](Plan/done/340-lifecycle-state-machine-transitions/spec.md)
   > "`ontology.py:58 LifecycleState` constrains the *value* of `state`, but Spec 338 §Why item 2 documents the real defect — no transition is enforced"
 - a skill is a typed phase-graph — six types with a per-type required core, and a phase is a first-class object with inline content — [`Plan/done/371-phase-skill-schema/spec.md`](Plan/done/371-phase-skill-schema/spec.md)
   > "Today a phase is `{index,name,produces,gate?,verbs?,sample?,…}` (no content) and a skill is `{name,description,body}` (enforces nothing)"

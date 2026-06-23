@@ -43,7 +43,7 @@ status: proposed
 **to achieve** adding a machine is a data entry and its states widen the shared enum automatically,  
 **accepting that** transition legality is validated at runtime from data rather than checked by the type system.
 
-**Source:** [`Plan/inprogress/340-lifecycle-state-machine-transitions/spec.md`](../../Plan/inprogress/340-lifecycle-state-machine-transitions/spec.md) — "`ontology.py:58 LifecycleState` constrains the *value* of `state`, but Spec 338 §Why item 2 documents the real defect — no transition is enforced"
+**Source:** [`Plan/done/340-lifecycle-state-machine-transitions/spec.md`](../../Plan/done/340-lifecycle-state-machine-transitions/spec.md) — "`ontology.py:58 LifecycleState` constrains the *value* of `state`, but Spec 338 §Why item 2 documents the real defect — no transition is enforced"
 
 ## a skill is a typed phase-graph — six types with a per-type required core, and a phase is a first-class object with inline content
 

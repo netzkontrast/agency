@@ -720,7 +720,7 @@ Mechanism (keep-both, bi-temporal, stable anchor):
   reusing the existing HTML-comment marker convention (cf. (11 symbols)
 - **_main.py** — document — graph-native rendering + briefing (Spec 043).
 
-Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph. (27 symbols)
+Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph. (28 symbols)
 - **_render.py** — Scope renderers for ``document.render`` — graph → markdown.
 
 Each function takes a Memory and returns the rendered markdown for
@@ -1257,7 +1257,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (33 symbols)
 
-### `tests/` (22 files)
+### `tests/` (23 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1279,6 +1279,11 @@ predicate traverses. (6 symbols)
 A first-class plan-authoring → execution-with-checkpoints discipline
 (superpowers writing-plans + executing-plans + subagent-driven-development;
 superclaude sc-workflow + sc-task). (10 symbols)
+- **test_document_compose.py** — Spec 394 — document.compose: deterministic template scaffold + sampled sections.
+
+The template+sample MIX in one verb: a deterministic `render`/`explain` scaffold
+plus named sections whose bodies come from an MCP `ctx.host.sample` call grounded
+in that scaffold. (14 symbols)
 - **test_durable_writes.py** — Spec 282 Workstream C — durable batch writes.
 
 Evidence (kohaerenzprotokoll): 97 NarrativeBeat nodes, only 12 PRECEDES edges.
