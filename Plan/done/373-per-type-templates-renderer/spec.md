@@ -1,9 +1,9 @@
 ---
 spec_id: "373"
 slug: per-type-templates-renderer
-status: partial
-state: draft
-last_updated: 2026-06-21
+status: done
+state: done
+last_updated: 2026-06-23
 owner: "@agency"
 vision_goals: [1, 3]
 depends_on: ["031", "371", "372"]
@@ -72,14 +72,50 @@ Done (file:line evidence):
   (drives the real `SkillRun`, reads live source — rule 8). 17/17 render + 14/14
   skill_walk + v2 schema all green (45 passed across the blast radius).
 
-Still:
-- **Slice 1 — per-type templates** (`render/skill/<type>.md` for
-  pillar/capability/discipline driven by the 371 `Skill.type`), replacing the
-  single `capability-skill.md` substitution.
-- **Slice 3 — converge the two render paths** (`plugin.author_skill` via
-  `templates.SKILL_MD` onto the same renderer) and kill the defects
-  (`_first_sentence_brief` description truncation; the `_(Tier B…)_` on-disk
-  stub → a lint failure per 377).
-- Self-containment beyond the walk section (overview / when-to-use / when-not /
-  one example / common-mistakes inline; references one-deep, R4) — the rest of
-  Slice 2.
+**Slice 1 — SHIPPED: the per-type template set + the schema→template renderer.**
+
+Done (file:line evidence):
+- `agency/render/skill/{capability,discipline}.md` — per-type HEAD templates
+  (frontmatter + `# <Title> <type>` heading) joining the existing `pillar.md`,
+  loaded into `_SKILL_TYPE_TEMPLATES` (`agency/skill_emit.py`).
+- `agency/skill_emit.py::render_typed_skill(skill)` — the ONE per-type renderer:
+  selects `render/skill/<type>.md` by `Skill.type` (unknown → capability, the
+  general case) and appends the schema-driven, self-contained data body
+  (`_skill_data_sections` — the renamed type-agnostic `_pillar_sections`):
+  overview + when-to-use/when-not + the one example (R9) + the common-mistakes
+  rationalization table + references one-deep (R4). Body concatenated (not
+  substituted) so a literal `$` never breaks the render; description is the
+  AUTHORED field (no sentence-truncation). Deterministic (A7).
+- **Convergence (Slice 3 path-merge):** `render_pillar` is now a thin wrapper over
+  `render_typed_skill({type: pillar})` — pillars + the new types share ONE render
+  path (the C2 coherence risk closed). Pillar output byte-identical (no pillar
+  SKILL.md changed on regen).
+
+**Slice 3 — SHIPPED (the on-disk defect): the `_(Tier B…)_` apologetic stub is
+gone.** `_render_tier_b_anchor` no longer ships the self-deprecating
+"_(Tier B — verb docstring lacks…)_" prose to disk — a verb missing the Spec 016
+markers is surfaced as a `lint_skill_schema` finding (Spec 377), not as apologetic
+text in the published skill. The verb section keeps its brief + signature. Regen
+diff = exactly the 4 caps that carried the stub (config · frugal · music · novel);
+every other SKILL.md byte-identical. The renderer reads the **authored**
+description (no `_first_sentence_brief` truncation on the skill description).
+
+- Tests: `tests/acceptance/features/skill_render_v2.feature` + `test_skill_render_v2.py`
+  — pillar/capability/discipline each render their type's required sections; the
+  authored multi-sentence description survives intact; the render is deterministic
+  (render-twice byte-identical, A7); NO committed SKILL.md carries the Tier-B stub
+  (scanned live — rule 8). 6/6 green; 44 across pillar/render/walk/render_v2;
+  install regen + check-drift clean.
+
+**Acceptance met.** A capability skill renders self-contained (phase instructions
+inline via 372's `_render_phase_detail`; references one-deep); no truncated
+descriptions; no `_(Tier B…)_` on disk; deterministic regen; pillar/capability/
+discipline each render their type's sections.
+
+Residual refinement (not acceptance-gating, tracked honestly): `plugin.author_skill`
+remains a thin GENERIC skill-md renderer (`templates.SKILL_MD`) for ad-hoc
+user-authored skills — a distinct artifact from a capability/pillar/discipline v2
+Skill; folding its generic path onto `render_typed_skill` is a follow-on (the
+capability/pillar/discipline render paths are already converged on the one
+renderer). `emit_skill`'s capability SKILL.md still composes the verb table +
+walk around the per-type body, which is its capability-specific concern.

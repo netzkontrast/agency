@@ -184,6 +184,25 @@ class SkillsCapability(CapabilityBase):
         return {"candidates": rows, "total": len(rows)}
 
     @verb(role="transform")
+    def source(self, capability: str) -> dict:
+        """Read WHERE a capability's v2 skill data comes from (Spec 371 Slice 3).
+
+        A capability's skill DERIVES from its module docstring (rule 2) unless it
+        SHIPS a ``<cap>/skill.yaml`` (the A6 authored override). This reads back
+        that provenance without re-deriving the whole Skill.
+
+        Inputs: capability (the registry capability name, e.g. 'develop').
+        Returns: ``{name, owner, source, source_stamp}`` — ``source`` ∈
+                 derived|authored, ``owner`` ∈ auto|capability (A6).
+        chain_next: ``skills.render`` to read the skill, or author a
+                    ``<cap>/skill.yaml`` to override the derived default.
+        """
+        from ..._skill_load import skill_source
+        if capability not in self.ctx.registry.names():
+            return {"error": f"unknown capability {capability!r}"}
+        return skill_source(capability)
+
+    @verb(role="transform")
     def render(self, skill_name: str, depth: str = "brief", phase_index: int = -1) -> dict:
         """Render one skill to markdown at a chosen depth (progressive disclosure).
 

@@ -50,20 +50,14 @@ Resolve a config key to its live value + source.
 
 Parameters: `(key: 'str')`.
 
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/get.md.)_
-
 ## list
 
 Every registered config key → value + source, plus validation issues.
 
 Parameters: `()`.
 
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/list.md.)_
-
 ## set
 
 Persist a config value to ``.agency/config.yaml``, then re-resolve it.
 
 Parameters: `(key: 'str', value: 'str')`.
-
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/set.md.)_

@@ -1,9 +1,9 @@
 ---
 spec_id: "372"
 slug: phase-single-source
-status: partial
-state: draft
-last_updated: 2026-06-20
+status: done
+state: done
+last_updated: 2026-06-23
 owner: "@agency"
 vision_goals: [3]
 depends_on: ["018", "371"]
@@ -66,13 +66,20 @@ Done (file:line evidence):
   develop blast radius; `check-drift` clean (install regen diff-free — phase
   content is not rendered yet, so no install drift).
 
-Still:
-- **Render-side parity (the 373 hinge).** 372's "walk content == *rendered*
-  content for every phase" is half-realised: the walk surfaces content, but
-  `emit_skill` still renders the walk section by phase NAME only. The parity
-  test here asserts walk ↔ *authored source* (the single source); walk ↔
-  *rendered file* parity lands when 373 renders phase instructions inline from
-  the same source.
-- Auto-advanced (non-gate) phases are surfaced via `current()` but not via the
-  atomic walker's return (it only pauses at hard gates) — acceptable for option
-  A; a per-phase walk surface is out of scope until a consumer needs it.
+**Slice 2 — SHIPPED (render-side parity, the 373 hinge, now landed).** 373 Slice 2
+shipped `emit_skill._render_phase_detail`, which renders each phase's
+`goal`/`instructions` inline beneath its walk row from the SAME single source the
+walker reads. The walk ↔ *rendered file* parity is realised + tested:
+`tests/acceptance/test_render_substrate.py` asserts every instruction the walker
+surfaces for a `tdd` phase appears verbatim in the rendered file (driven through
+the live `SkillRun`, read live — rule 8). With Slice 1, 372's acceptance ("walk
+content == rendered content for every phase") is fully met.
+
+**Spec 372 COMPLETE.** The phase graph is the ONE source driving both the walk
+(`SkillRun.current()` surfaces goal/instructions/example/freedom) and the rendered
+file (`_render_phase_detail`); a walked agent and a reader get identical phase
+content (A2).
+
+Out of scope (noted, not a gap): auto-advanced (non-gate) phases are surfaced via
+`current()` but not via the atomic walker's return (it pauses only at hard gates)
+— a per-phase walk surface waits until a consumer needs it (option A).
