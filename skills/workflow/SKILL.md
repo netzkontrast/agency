@@ -81,3 +81,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Run the review chain over the implementation — correctness first, then the Iron Law (over-engineering, duplication). Advisory: findings feed the done verification.
   15. **done** — Verify and move to /done — COMPLETED != done.
      develop.verify the acceptance, run the headless analyze.review CI gate, then workflow.move_spec to /done. Confirm this gate ONLY on green evidence — COMPLETED is not done.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_workflow_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_workflow_approve_decisions", {"intent_id": iid})
+await call_tool("capability_workflow_begin_impl", {"intent_id": iid})
+await call_tool("capability_workflow_board", {"intent_id": iid})
+await call_tool("capability_workflow_finish_spec", {"intent_id": iid})
+await call_tool("capability_workflow_index", {"intent_id": iid})
+await call_tool("capability_workflow_mark_done", {"intent_id": iid})
+```
+
+More verbs: `capability_workflow_move_spec`, `capability_workflow_open_spec`, `capability_workflow_to_open`

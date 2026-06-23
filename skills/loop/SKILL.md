@@ -57,3 +57,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`loop-usage`** (usage): use-transform → use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'loop-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_loop_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_loop_add_criterion", {"intent_id": iid})
+await call_tool("capability_loop_add_member", {"intent_id": iid})
+await call_tool("capability_loop_advance", {"intent_id": iid})
+await call_tool("capability_loop_compile", {"intent_id": iid})
+await call_tool("capability_loop_critique_goal", {"intent_id": iid})
+await call_tool("capability_loop_detect_models", {"intent_id": iid})
+```
+
+More verbs: `capability_loop_egress_consent`, `capability_loop_emit`, `capability_loop_emit_runner`, `capability_loop_frame_goal`, `capability_loop_open`, `capability_loop_preview`, `capability_loop_recommend_council`, `capability_loop_register_model` …

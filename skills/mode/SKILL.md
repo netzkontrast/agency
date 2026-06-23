@@ -53,3 +53,14 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Switch to the selected mode and record the ModeShift — the mode biases which disciplines + verbs you reach for next.
   4. **confirm** — Confirm the mode with its rationale.
      State WHY this mode fits the context. Confirm this gate only with a rationale grounded in the assessed work, not a default.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_mode_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_mode_activate", {"intent_id": iid})
+await call_tool("capability_mode_detect", {"intent_id": iid})
+await call_tool("capability_mode_list", {"intent_id": iid})
+```

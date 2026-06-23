@@ -434,7 +434,8 @@ class CapabilityContext:
 
 def verb(role: str, inject: Optional[list] = None,
          name: Optional[str] = None,
-         param_enums: Optional[dict] = None) -> Callable:
+         param_enums: Optional[dict] = None,
+         param_shapes: Optional[dict] = None) -> Callable:
     """Mark a CapabilityBase method as a verb (its role, + any extra injects beyond
     the always-injected `ctx`). `name` lets a verb register under a different
     public name than its Python method (e.g. `import_` → `import` when the
@@ -445,10 +446,17 @@ def verb(role: str, inject: Optional[list] = None,
     references — single source). `engine._wire` surfaces those members in
     `get_schema` (JSON `enum` + a description hint) without forcing wire-level
     rejection, so a *projected enum* param can accept rich free text and project
-    it in the verb body. See `agency/_enums.py::project_enum`."""
+    it in the verb body. See `agency/_enums.py::project_enum`.
+
+    Spec 390 — `param_shapes` maps a parameter name to a short literal of its
+    required nested object/array shape (e.g. ``{"context": "[{id, text}]"}``).
+    `engine._wire` folds it into the tool description as a "Shapes:" hint so
+    `get_schema` shows the shape instead of a bare ``any[]`` — description-only,
+    no wire-level validation (a list/object param stays permissive)."""
     def deco(fn: Callable) -> Callable:
         fn._verb = {"role": role, "inject": list(inject or []), "name": name,
-                    "param_enums": dict(param_enums or {})}
+                    "param_enums": dict(param_enums or {}),
+                    "param_shapes": dict(param_shapes or {})}
         return fn
     return deco
 
@@ -562,7 +570,8 @@ def _wrap_method(cls: type, public: str, mname: str, member: Callable,
     # appends the legitimate ones post-registration.
     return Verb(name=public, role=meta["role"], fn=fn,
                 inject=["ctx"] + meta["inject"],
-                param_enums=dict(meta.get("param_enums") or {}))
+                param_enums=dict(meta.get("param_enums") or {}),
+                param_shapes=dict(meta.get("param_shapes") or {}))
 
 
 @dataclass

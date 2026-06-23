@@ -938,6 +938,16 @@ class Engine:
         # description, not per-param enum/description).
         if enum_hints:
             doc = f"{doc} Enums: {'; '.join(enum_hints)}."
+        # Spec 390 — surface declared param SHAPES (nested object/array literals)
+        # in the description so get_schema shows `context: [{id, text}]` instead of
+        # a bare `any[]`. Description-only, like the enum hint; no wire validation.
+        param_shapes = spec.get("param_shapes") or {}
+        if param_shapes:
+            _names = [p.name for p in user_params]
+            shape_hints = [f"{p}: {param_shapes[p]}" for p in _names
+                           if p in param_shapes]
+            if shape_hints:
+                doc = f"{doc} Shapes: {'; '.join(shape_hints)}."
         impl.__doc__ = doc
         impl.__annotations__ = {p.name: p.annotation for p in params}
         impl.__annotations__["return"] = dict
@@ -1112,6 +1122,17 @@ class Engine:
 
         self._mcp = mcp   # Spec 302 — held so agency_reload can wire new verbs in
         return mcp
+
+    def enable_session_autolog(self) -> None:
+        """Spec 392 — register the per-intent session activity auto-append hook on
+        the post-invocation seam, so every capability call grows
+        ``.agency/sessions/<intent>.activity.md`` (owner directive). Opt-in (the
+        production server calls it in ``__main__``); a bare test Engine stays
+        file-side-effect-free unless it calls this. Idempotent."""
+        from ._session_log import session_append_hook
+        proc = self.registry._processor
+        if session_append_hook not in proc.post_invocation:
+            proc.register_post_invocation(session_append_hook)
 
     @staticmethod
     def _iter_mcp_tools(mcp):

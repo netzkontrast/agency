@@ -61,3 +61,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`adr-usage`** (usage): use-transform → use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'adr-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_adr_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_adr_approve", {"intent_id": iid})
+await call_tool("capability_adr_architecture", {"intent_id": iid})
+await call_tool("capability_adr_catalogue", {"intent_id": iid})
+await call_tool("capability_adr_dod_check", {"intent_id": iid})
+await call_tool("capability_adr_draft", {"intent_id": iid})
+await call_tool("capability_adr_extract_decisions", {"intent_id": iid})
+```
+
+More verbs: `capability_adr_hints`, `capability_adr_impact`, `capability_adr_link`, `capability_adr_publish`, `capability_adr_read`, `capability_adr_render`, `capability_adr_review_sweep`, `capability_adr_spec_decisions_ready` …

@@ -153,6 +153,22 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 - **`world-bible-architect`** (conceptualizer): geography → cultures → religions-languages → magic-systems → canon-lock
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'world-bible-architect', 'inputs': {}, 'intent_id': '…'})`
 
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_novel_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_novel_analyze_readability", {"intent_id": iid})
+await call_tool("capability_novel_archive_codex_entry", {"intent_id": iid})
+await call_tool("capability_novel_audit_novel_provenance", {"intent_id": iid})
+await call_tool("capability_novel_beta_ready_gate", {"intent_id": iid})
+await call_tool("capability_novel_capture_claim", {"intent_id": iid})
+await call_tool("capability_novel_capture_idea", {"intent_id": iid})
+```
+
+More verbs: `capability_novel_chapter_report`, `capability_novel_chapter_report_full`, `capability_novel_check_approach_concern`, `capability_novel_check_content_warnings`, `capability_novel_check_continuity`, `capability_novel_check_crucial_element_placement`, `capability_novel_check_dialogue_attribution`, `capability_novel_check_dynamic_pair_reciprocity` …
+
 ## analyze_readability
 
 Flesch Reading Ease for prose (transform, driver-free).

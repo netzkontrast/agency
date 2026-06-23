@@ -173,6 +173,22 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 - **`validate-structure`** (workflow): album-files → track-files → mirror-paths
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'validate-structure', 'inputs': {}, 'intent_id': '…'})`
 
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_music_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_music_album_coherence_check", {"intent_id": iid})
+await call_tool("capability_music_album_coherence_correct", {"intent_id": iid})
+await call_tool("capability_music_album_progress", {"intent_id": iid})
+await call_tool("capability_music_analyze_audio", {"intent_id": iid})
+await call_tool("capability_music_analyze_mix", {"intent_id": iid})
+await call_tool("capability_music_analyze_readability", {"intent_id": iid})
+```
+
+More verbs: `capability_music_analyze_rhyme_scheme`, `capability_music_audio_release_gate`, `capability_music_capture_claim`, `capability_music_capture_idea`, `capability_music_catalogue_gate`, `capability_music_catalogue_status`, `capability_music_check_cross_track_repetition`, `capability_music_check_explicit_content` …
+
 ## count_syllables
 
 Count syllables in a word — deterministic, driver-free text math.

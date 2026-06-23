@@ -65,3 +65,15 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      delegate.join — wait for ALL workers; collect results + failures. A partial join is a failed fan-out, not a success.
   4. **synthesize** — Merge the results into one coherent output.
      Reconcile the workers' outputs and resolve conflicts at the seams. Confirm this gate only when the merged result is coherent — not merely concatenated.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_delegate_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_delegate_dispatch_bash_hints", {"intent_id": iid})
+await call_tool("capability_delegate_dispatch_decision", {"intent_id": iid})
+await call_tool("capability_delegate_fan_out", {"intent_id": iid})
+await call_tool("capability_delegate_join", {"intent_id": iid})
+```

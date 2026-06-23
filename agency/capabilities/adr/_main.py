@@ -307,8 +307,19 @@ class AdrCapability(CapabilityBase):
         except ValueError as exc:
             return ToolResult.success(data={"error": str(exc)})
         self.ctx.link(did, theme_id, "PART_OF")
+        # Spec 393 — when a source spec is named, create the REFINES EDGE (not just
+        # the `spec` FK property), mirroring extract_decisions. `spec_decisions_ready`
+        # (the /open→/inprogress hinge) traverses the REFINES edge — without it a
+        # manually-drafted+approved decision was invisible to the gate (the
+        # FK-prop-vs-idle-edge dormant-surface anti-pattern; deep-verifier C14).
+        refines = ""
+        if spec:
+            doc_id, _ = self._resolve_spec(str(spec).strip())
+            if doc_id:
+                self.ctx.link(did, doc_id, "REFINES")
+                refines = doc_id
         return ToolResult.success(data={"id": did, "status": "proposed",
-                                        "theme_id": theme_id})
+                                        "theme_id": theme_id, "refines": refines})
 
     @verb(role="transform")
     def validate(self, decision_id: str) -> ToolResult:

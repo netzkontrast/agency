@@ -62,6 +62,22 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   6. **minimum** — Ship the minimum that meets the floor.
      Implement the smallest thing that works — but NEVER cut the floor (validation, security, a11y). Confirm this gate only when the implementation is minimal AND complete.
 
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_frugal_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_frugal_debt", {"intent_id": iid})
+await call_tool("capability_frugal_gain", {"intent_id": iid})
+await call_tool("capability_frugal_help", {"intent_id": iid})
+await call_tool("capability_frugal_instructions", {"intent_id": iid})
+await call_tool("capability_frugal_level", {"intent_id": iid})
+await call_tool("capability_frugal_review", {"intent_id": iid})
+```
+
+More verbs: `capability_frugal_set_level`
+
 ## help
 
 The frugal reference card (the ponytail-help info): the discipline + the levels table + how to switch + what is configurable.

@@ -329,6 +329,42 @@ def augment_with_pillar(existing_md: str, skill: dict) -> str:
     return existing_md.rstrip() + "\n\n" + section + "\n"
 
 
+def _render_call_examples(cap_name: str, verbs: dict, max_verbs: int = 6) -> str:
+    """Spec 390 — a code-mode block teaching HOW to call this capability: bootstrap
+    an intent, then call its verbs by their REAL prefixed wire name
+    (``capability_<cap>_<verb>``, underscores — NOT the hyphenated skill name),
+    threaded with the ``intent_id``. Derived from the live verb registry, so every
+    generated skill gains it — no hand-authoring (rule 2). Verbs beyond ``max_verbs``
+    are named in a trailing pointer (display cap; the full roster is the verb table
+    above — no data is lost)."""
+    if not verbs:
+        return ""
+    names = sorted(verbs)
+    lines = [
+        "## Calling these verbs (code-mode)",
+        "",
+        f"Every verb here is the prefixed wire tool ``capability_{cap_name}_<verb>`` "
+        "(underscores, not the hyphenated skill name). Call it inside an ``execute`` "
+        "block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb "
+        'first (``detail="full"`` reveals nested object-param shapes):',
+        "",
+        "```python",
+        'iid = (await call_tool("intent_bootstrap", '
+        '{"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]',
+    ]
+    for v in names[:max_verbs]:
+        lines.append(
+            f'await call_tool("capability_{cap_name}_{v}", {{"intent_id": iid}})')
+    lines.append("```")
+    if len(names) > max_verbs:
+        more = ", ".join(f"`capability_{cap_name}_{v}`"
+                         for v in names[max_verbs:max_verbs + 8])
+        tail = " …" if len(names) > max_verbs + 8 else ""
+        lines += ["", f"More verbs: {more}{tail}"]
+    lines.append("")
+    return "\n".join(lines)
+
+
 def emit_skill(cap_name: str, doc, verbs: dict, skills: dict | None = None) -> dict[str, str]:
     """Render skills/<cap_name>/SKILL.md from the SkillDoc + verb registry.
 
@@ -388,6 +424,12 @@ def emit_skill(cap_name: str, doc, verbs: dict, skills: dict | None = None) -> d
     walk = _render_walk_section(skills or {})
     if walk:
         rendered = rendered.rstrip() + "\n" + walk
+
+    # Spec 390 — teach the CALL: a derived code-mode examples block (bootstrap →
+    # prefixed-wire-name verb calls), so every skill shows HOW to drive the MCP.
+    examples = _render_call_examples(cap_name, verbs)
+    if examples:
+        rendered = rendered.rstrip() + "\n\n" + examples
 
     if tier_b_anchors:
         rendered = rendered.rstrip() + "\n\n" + "\n\n".join(tier_b_anchors) + "\n"

@@ -54,3 +54,16 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Cross-check the claims against their citations; flag the unsupported ones. Verification is what separates research from a confident guess.
   4. **publish** — Publish the cited report.
      Synthesise the verified findings into a cited report. Confirm this gate only when every load-bearing claim carries a citation.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_research_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_research_ingest_gdoc", {"intent_id": iid})
+await call_tool("capability_research_lead", {"intent_id": iid})
+await call_tool("capability_research_record_ingested_source", {"intent_id": iid})
+await call_tool("capability_research_specialist", {"intent_id": iid})
+await call_tool("capability_research_verify", {"intent_id": iid})
+```

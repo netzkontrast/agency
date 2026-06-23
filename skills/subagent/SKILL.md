@@ -48,3 +48,12 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Verify the implementation does what the SPEC asked — scope, acceptance. A soft gate: note gaps, but the code-review gate is the hard one.
   4. **code-review** — Review the code for correctness + the Iron Law.
      Review for correctness first, then over-engineering / duplication (the Iron Law). Confirm this hard gate only when the code is genuinely mergeable.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_subagent_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_subagent_develop", {"intent_id": iid})
+```

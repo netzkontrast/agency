@@ -44,6 +44,17 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 - **`config-usage`** (usage): use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'config-usage', 'inputs': {}, 'intent_id': '…'})`
 
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_config_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_config_get", {"intent_id": iid})
+await call_tool("capability_config_list", {"intent_id": iid})
+await call_tool("capability_config_set", {"intent_id": iid})
+```
+
 ## get
 
 Resolve a config key to its live value + source.

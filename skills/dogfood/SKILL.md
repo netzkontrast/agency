@@ -52,3 +52,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`dogfood-usage`** (usage): use-transform → use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'dogfood-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_dogfood_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_dogfood_apply_amendment", {"intent_id": iid})
+await call_tool("capability_dogfood_boundary_use_audit", {"intent_id": iid})
+await call_tool("capability_dogfood_collect", {"intent_id": iid})
+await call_tool("capability_dogfood_export", {"intent_id": iid})
+await call_tool("capability_dogfood_import", {"intent_id": iid})
+await call_tool("capability_dogfood_note", {"intent_id": iid})
+```
+
+More verbs: `capability_dogfood_parse_amendment`, `capability_dogfood_recall_overflow_slice`, `capability_dogfood_record_decision`, `capability_dogfood_render`, `capability_dogfood_replay_events`

@@ -43,3 +43,14 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`gate-usage`** (usage): use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'gate-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_gate_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_gate_adjudicate", {"intent_id": iid})
+await call_tool("capability_gate_check", {"intent_id": iid})
+await call_tool("capability_gate_verdict", {"intent_id": iid})
+```

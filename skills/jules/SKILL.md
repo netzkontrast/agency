@@ -109,3 +109,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-tool-discipline', 'inputs': {}, 'intent_id': '…'})`
   1. **apply-tool-discipline** — Lint that a draft prompt names its tools.
      jules.lint_prompt over a draft prompt — the reusable predicate the preamble's phase 3 also invokes. Refuses unless every canonical tool symbol is named; walk it standalone to lint a draft before committing to a dispatch.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_jules_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_jules_activities", {"intent_id": iid})
+await call_tool("capability_jules_alias", {"intent_id": iid})
+await call_tool("capability_jules_apply_patch", {"intent_id": iid})
+await call_tool("capability_jules_approve_awaiting", {"intent_id": iid})
+await call_tool("capability_jules_approve_plan", {"intent_id": iid})
+await call_tool("capability_jules_detect_mode", {"intent_id": iid})
+```
+
+More verbs: `capability_jules_dispatch`, `capability_jules_lint_prompt`, `capability_jules_list`, `capability_jules_message`, `capability_jules_patch`, `capability_jules_patch_body`, `capability_jules_plan`, `capability_jules_quota` …

@@ -71,3 +71,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Close lifecycles that genuinely reached a terminal state; verify the closing gate. COMPLETED is not closed until verified.
   6. **report** — Mirror the board to a readable artefact.
      Project the live board state to the lifecycle-board document so the human sees what's in flight without re-querying.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_manage_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_manage_amend", {"intent_id": iid})
+await call_tool("capability_manage_artefacts", {"intent_id": iid})
+await call_tool("capability_manage_create", {"intent_id": iid})
+await call_tool("capability_manage_lifecycle", {"intent_id": iid})
+await call_tool("capability_manage_lifecycle_trail", {"intent_id": iid})
+await call_tool("capability_manage_list", {"intent_id": iid})
+```
+
+More verbs: `capability_manage_open_intents`, `capability_manage_project`, `capability_manage_provenance`, `capability_manage_read`, `capability_manage_render`, `capability_manage_research_state`, `capability_manage_retract`, `capability_manage_state` …

@@ -43,3 +43,14 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`branch-usage`** (usage): use-transform → use-effect → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'branch-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_branch_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_branch_assess", {"intent_id": iid})
+await call_tool("capability_branch_commit_smart", {"intent_id": iid})
+await call_tool("capability_branch_finish", {"intent_id": iid})
+```

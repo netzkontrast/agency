@@ -55,3 +55,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plugin-dev', 'inputs': {}, 'intent_id': '…'})`
 - **`skill-creation`** (authoring): red-baseline → green-author → lint → refactor → deploy
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'skill-creation', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_plugin_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_plugin_author_command", {"intent_id": iid})
+await call_tool("capability_plugin_author_skill", {"intent_id": iid})
+await call_tool("capability_plugin_help", {"intent_id": iid})
+await call_tool("capability_plugin_lint_capability", {"intent_id": iid})
+await call_tool("capability_plugin_lint_disciplines", {"intent_id": iid})
+await call_tool("capability_plugin_lint_explain", {"intent_id": iid})
+```
+
+More verbs: `capability_plugin_lint_skill`, `capability_plugin_lint_skill_schema`, `capability_plugin_marketplace_entry`, `capability_plugin_publish_skill`, `capability_plugin_scaffold`, `capability_plugin_step_doc`

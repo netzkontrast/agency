@@ -371,6 +371,14 @@ class AgencyDoctor(SubstrateTool):
                 "sampling": _bridge.can_sample(),
                 "elicitation": _bridge.can_elicit(),
                 "sampling_enabled": engine.sampling_enabled,
+                # Spec 390 — honest signal: `sampling`/`elicitation` are ADVERTISED
+                # (the bound Context exposes the method + the flag is on), NOT a
+                # guarantee. Actual client support is verified only at call time; a
+                # request the client declines raises HostUnavailable and the walker
+                # falls back to an `input-required` pause you resume by supplying the
+                # value — the universal mid-chain interaction, client-independent.
+                "note": ("advertised; verified at call time — declines fall back to "
+                         "an input-required pause you resume with the value"),
             }
             import os
             import sys

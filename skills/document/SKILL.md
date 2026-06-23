@@ -64,3 +64,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Render the index to the PROJECT_INDEX briefing — short fixed sections first (so they survive a budget), then the macro structure.
   4. **publish** — Write the briefing in FULL.
      On save the index renders in FULL — every module survives, no omission marker. Confirm this gate only when the saved briefing is complete.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_document_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_document_convergence", {"intent_id": iid})
+await call_tool("capability_document_emit", {"intent_id": iid})
+await call_tool("capability_document_explain", {"intent_id": iid})
+await call_tool("capability_document_index_repo", {"intent_id": iid})
+await call_tool("capability_document_ingest", {"intent_id": iid})
+await call_tool("capability_document_mirror", {"intent_id": iid})
+```
+
+More verbs: `capability_document_render`, `capability_document_reopen`, `capability_document_restore_session`, `capability_document_revisions`, `capability_document_session`, `capability_document_session_analytics`, `capability_document_sync`
