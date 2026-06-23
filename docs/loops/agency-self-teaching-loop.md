@@ -298,13 +298,19 @@ bi-temporal soft-delete confirmed); workflow+adr **8-verb graph lifecycle**. 3 h
 all recovered, NONE get_schema-preventable (ontology/runtime preconditions, not schema
 shapes).
 
-**Precise root cause found → Spec 393 (next).** **C14 is the "FK-prop vs idle-edge"
-anti-pattern:** `adr.draft(spec=docid)` stores `spec` as a node PROPERTY but never creates
-the `REFINES` EDGE that `adr.spec_decisions_ready` traverses — so a manually
-drafted+approved decision is never recognised by the hinge (`ready:false, no-decisions`),
-and `begin_impl` blocks. The canonical `extract_decisions` lane creates the edge but needs
-an ingested body. Fix: `adr.draft` (given a spec) must create the `REFINES` edge so the
-manual lane converges with the hinge.
+**Spec 393 — C14 FIXED (DONE).** `adr.draft(spec=…)` now creates the `REFINES` EDGE
+(mirroring `extract_decisions`, via `_resolve_spec`), not just the `spec` FK property — so a
+manually drafted+approved decision is recognised by `adr.spec_decisions_ready` and clears
+`begin_impl`. The "FK-prop vs idle-edge" dormant-surface anti-pattern, closed. TDD:
+`tests/test_adr_draft_refines.py` (green); 63-test adr/workflow slice green. Moved to
+`Plan/done/393` + architecture rebuilt.
+
+**Loop status after Pass 3:** the deeper acceptance bar is MET (97 SERVES / 34 verbs / 11
+caps, skill_walk to completion, provenance-judged) AND the owner enhancements shipped
+(Spec 392 session auto-append; Spec 393 ADR-hinge fix). Remaining queued caveats (C5
+envelope keys · C6 depth enum · C9/C10/C11/C13 workflow param-naming/ingest) + the
+deep-verifier's "ontology-precondition not in get_schema" observation are low-priority
+polish, not gate-blockers.
 
 ## How to resume
 
