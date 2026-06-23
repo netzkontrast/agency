@@ -276,6 +276,36 @@ elicit/sample signal; the Spec-285 mechanism was already correct). 14 plugin cav
 auto-append) + queued caveats C4/C5/C6/C8/C9–C14. The loop's acceptance condition is met;
 these are enhancements, not gate-blockers.
 
+## Pass 3 — enhancements + DEEPER verification (owner directive 2026-06-23)
+
+**Spec 392 — session activity auto-append (DONE).** Owner directive: extend
+`document.session` so the file auto-grows with each call. New `agency/_session_log.py`
+registers a post-invocation hook (Spec 286-A3 seam) that appends one line per Invocation
+to `.agency/sessions/<intent>.activity.md` — append-only (rule 9), best-effort, opt-in
+(`engine.enable_session_autolog()`; the production server calls it). TDD:
+`tests/test_session_autolog.py` (2, green). Moved to `Plan/done/392`.
+
+**C4 — NOT a bug (resolved by reload).** `manage.list(label="Intent")` returns 11 live
+on the current server; the OBSERVE 0-count was the stale 30-cap server. No fix needed.
+
+**DEEPER independent verification — PASS.** A fresh deep-chain verifier drove **7 chains
+of 4–8 verbs each** (genuine produce→consume) under `intent:9ab1ea53`. Independent judge
+(`memory_graph_provenance`): **97 SERVES edges / 34 distinct verbs / 11 capabilities** (vs
+27/14 in the first run). Highlights: `skill_walk` walked **all 3 phases to `completed`**
+(explore→present→confirm — elicit/sample resume contract, maximal depth); research
+**lead→specialist×2→verify**; full **manage CRUD** (create→read→update→list→retract,
+bi-temporal soft-delete confirmed); workflow+adr **8-verb graph lifecycle**. 3 hard errors,
+all recovered, NONE get_schema-preventable (ontology/runtime preconditions, not schema
+shapes).
+
+**Precise root cause found → Spec 393 (next).** **C14 is the "FK-prop vs idle-edge"
+anti-pattern:** `adr.draft(spec=docid)` stores `spec` as a node PROPERTY but never creates
+the `REFINES` EDGE that `adr.spec_decisions_ready` traverses — so a manually
+drafted+approved decision is never recognised by the hinge (`ready:false, no-decisions`),
+and `begin_impl` blocks. The canonical `extract_decisions` lane creates the edge but needs
+an ingested body. Fix: `adr.draft` (given a spec) must create the `REFINES` edge so the
+manual lane converges with the hinge.
+
 ## How to resume
 
 1. Re-read this file and the provenance intent `intent:6771acf8`

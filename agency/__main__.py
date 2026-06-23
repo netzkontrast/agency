@@ -51,6 +51,9 @@ def main() -> None:
     # lazy-builds `production_drivers(NovelConfig.bootstrap())` on first
     # miss, bootstrapping a default config + content_root if none.
     engine._novel_production = True
+    # Spec 392 — grow .agency/sessions/<intent>.activity.md on every capability
+    # call (owner directive); best-effort, append-only, off for bare tests.
+    engine.enable_session_autolog()
     mcp = engine.build_mcp(codemode=True)
     mcp.run()                    # default transport = stdio
 

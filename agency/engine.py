@@ -1123,6 +1123,17 @@ class Engine:
         self._mcp = mcp   # Spec 302 — held so agency_reload can wire new verbs in
         return mcp
 
+    def enable_session_autolog(self) -> None:
+        """Spec 392 — register the per-intent session activity auto-append hook on
+        the post-invocation seam, so every capability call grows
+        ``.agency/sessions/<intent>.activity.md`` (owner directive). Opt-in (the
+        production server calls it in ``__main__``); a bare test Engine stays
+        file-side-effect-free unless it calls this. Idempotent."""
+        from ._session_log import session_append_hook
+        proc = self.registry._processor
+        if session_append_hook not in proc.post_invocation:
+            proc.register_post_invocation(session_append_hook)
+
     @staticmethod
     def _iter_mcp_tools(mcp):
         """Yield ``(key, tool)`` for every registered tool on a FastMCP server.
