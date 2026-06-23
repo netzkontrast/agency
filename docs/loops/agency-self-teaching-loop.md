@@ -73,19 +73,98 @@ agent chain agency's capabilities through the plugin without mistakes.
 Surfaced while driving the loop through the live agency MCP. Each becomes (or
 feeds) a spec.
 
-- _(populated as the loop runs — see Run log + `reflect.note` observations.)_
+**Pass 1 OBSERVE (fresh subagent `intent:372e7740`, 13 invocations / 11 verbs, MCP lane):**
+
+- **C1 — wire-naming is silently inconsistent (WORST gap).** Bare substrate tools
+  (`agency_welcome`, `intent_bootstrap`, `agency_doctor`, `memory_graph_provenance`)
+  vs prefixed `capability_<cap>_<verb>` — a fresh agent can't predict which, and the
+  `using-agency` skill never teaches the rule. A guessed `manage.provenance` (doesn't
+  exist) burns a call. → Spec A.
+- **C2 — `get_schema` hides nested object shapes.** `detailed` shows `context: any[]`
+  but the verb needs `[{id, text}]`; `gate_check`'s `blocked_on` is an OUTPUT field,
+  not input — passing it raised `unexpected_keyword_argument` and **aborted the whole
+  execute block** (partial-write hazard). → Spec A (enrich schema output).
+- **C3 — elicit/sample advertised live but unreachable from the walker (BUG).**
+  `agency_doctor` reports host `sampling:true, elicitation:true`, yet
+  `skill_walk("brainstorm")` still returned the client-side `input-required` pause
+  (`blocked_on: 'sample:questions'`) instead of round-tripping inline. The live host
+  Context that direct substrate calls see is likely NOT threaded into the walker's
+  nested verb-invoke path. → **Spec B (owner-critical).**
+- **C4 — `manage_list(label="Intent")` returns count 0** though `manage_read` confirms
+  the node is `live` with `labels:['Intent']` → list label-filter / index disagreement
+  with the read path. Likely a real bug. → queued.
+- **C5 — inconsistent result-envelope keys** across caps (`rows` vs `result`) →
+  standardize or document. → queued.
+- **C6 — `research_lead(depth="shallow")` echoed `depth='standard'`** → enum silently
+  normalized/ignored. → queued.
+- **C7 — thinking/intent verbs return prompt scaffolds, not executed analysis**
+  (they're `transform` templates) → document so a fresh agent expects to reason through
+  them. → Spec A (doc).
+- **C8 — `workflow_board`/`adr_catalogue` empty while `workflow_index` finds 381 specs**
+  → board/catalogue read the GRAPH (`SpecLifecycle` unpopulated in this DB); index reads
+  the FILESYSTEM. → queued.
+
+**FEATURE (owner directive 2026-06-23) — not a caveat:** `document.session` writing
+`.agency/sessions/intent_<id>.md` is **wanted**. Extend it so the file **auto-appends
+with each capability call** — a live, grow/append per-intent session log (rule-9
+never-truncate doctrine). → **Spec C.**
+
+### Candidate specs (one per pass, all on the single PR)
+
+- **Spec A — skills teach the call (loop's core deliverable + owner "MCP examples"
+  directive).** Autogenerate richer **code-mode call examples** into every skill
+  (per-verb + one chaining example), make `using-agency` carry the **bare-vs-prefixed
+  naming rule** + bare-tool list + a "`get_schema` before first call" rule, and
+  **enrich `get_schema`** so object/`any[]` params show their required nested shape.
+  Extend the GENERATOR (`disclosure.parse_module_skill` / `skill_emit.emit_skill` /
+  `install.generate`'s static `_USING_AGENCY_SKILL_MD`) — no hand-editing per skill.
+- **Spec B — elicit/sample reachable from the walker (C3).** Thread the
+  sample/elicit-capable host Context through `skill_walk`'s nested invoke so
+  server-initiated `ctx.sample`/`ctx.elicit` round-trip inline.
+- **Spec C — session auto-append (owner directive).** `document.session` appends each
+  invocation to `.agency/sessions/intent_<id>.md` (grow/append, never truncate).
+- **Queued:** C4 · C5 · C6 · C8.
+
+**Pass 1 BUILD — caveats found while driving the `develop-spec` workflow via the MCP
+(dogfooding the workflow itself):**
+
+- **C9 — `document.ingest` re-anchors a spec, breaking the `spec-<id>` convention.**
+  Ingesting `Plan/draft/390-…/spec.md` (which carried `<!-- agency-node: spec-390 -->`)
+  minted a content-hash Document `document:24de285e` and **rewrote the anchor** to it,
+  rather than honoring the `spec-390` anchor. → ingest should respect a pre-existing
+  `spec-<id>` anchor (keep-both). → queued.
+- **C10 — `workflow.open_spec(spec_id=…)` is misleadingly named.** The `spec_id` param
+  is actually the **Document id** (`recall_typed(spec_id, "Document")`), NOT the spec
+  number. Passing `"390"` returns `no spec Document '390'`; you must pass
+  `document:24de285e`. → rename/alias the param or accept the spec number. → queued.
+- **C11 — `adr.extract_decisions` mines only specific headers.** It parses a canonical
+  WH(Y) statement, else `## Design` / `## Why` / `## Failure modes`. A spec with a clear
+  `## Decisions (WH(Y))` + `## Approach` yielded **0 candidates** — the ADR hinge can't
+  populate. → teach the extractor the `## Decisions` header (or document the required
+  shape in `develop.write_spec`). → **blocks the clean ADR-gate path; Spec D candidate.**
+- **C12 — graph-state vs folder-state can diverge.** `workflow.to_open` moved the
+  SpecLifecycle node `draft→open` but left the physical folder at `Plan/draft/390-…`
+  (folder move is `finish_spec`'s job, not `move_spec`'s). Ephemeral here (fresh CI
+  graph has no node), but a live session shows `node-drift`. → confirm/​document which
+  verb owns the folder move. → queued.
 
 ---
 
 ## Run log
 
-### Pass 1 — OBSERVE (in progress)
+### Pass 1 — OBSERVE (complete)
 
-- Anchored provenance intent `intent:6771acf8` via `intent_bootstrap` (MCP, 36
-  caps live after the Spec 302 Slice 4 reload fix).
-- Next: dispatch a fresh subagent to attempt one code-mode chain per capability
-  cluster against the CURRENT `using-agency` skill, maximizing MCP use, to
-  surface the worst capability-chaining gap + plugin caveats.
+- Anchored provenance intent `intent:6771acf8` (MCP, 36 caps after the Spec 302
+  Slice 4 reload fix).
+- Fresh subagent (own `intent:372e7740`) attempted one code-mode chain per cluster
+  through the MCP, recording the caveats ledger above + a cluster-coverage table
+  (8/11 chained-OK; workflow+adr and the gate cluster partial; elicit/sample
+  characterized). Provenance: `memory_graph_provenance('intent:372e7740')`.
+- **Worst gap chosen → Spec A** (skills teach the call). Spec B (elicit/sample) +
+  Spec C (session auto-append) queued; all land on ONE PR.
+
+→ **NEXT:** open Spec A through the `workflow` lifecycle, drive to the ADR hinge,
+   then PAUSE for owner ADR-approval.
 
 ---
 
