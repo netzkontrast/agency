@@ -1,7 +1,7 @@
 # Overview — the four concepts, the wire contract, the bootstrap flow
 
 <!-- doc-source: docs/vision/CORE.md agency/engine.py agency/capability.py -->
-<!-- doc-hash: 31b3e17aea2acb2b -->
+<!-- doc-hash: f9556039e13b13a2 -->
 
 The authoritative model is [../CORE.md](../CORE.md). This page is the
 engineering-level summary: what the pieces are and how a call flows through them.

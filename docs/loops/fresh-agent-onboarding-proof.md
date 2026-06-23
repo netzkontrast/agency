@@ -2,13 +2,18 @@
 
 > **Status:** ACTIVE — running "until no progress" (resumable).
 > **Provenance intent:** `intent:771b09a6` (agency graph, `.agency/session.db`).
-> **Output target:** fold fixes into PR [#296](https://github.com/netzkontrast/agency/pull/296)
-> on branch `claude/docs-agent-onboarding-up91ym`.
-> **Last checkpoint:** Pass 4 ACT — all stale docs reviewed + fixed; `check-doc-drift`
-> now exits 0 (20 in sync, 0 stale). Spec 389 opened for the root-cause generator.
-> **Next (only open item):** live MCP VERIFY — awaits a server reload (harness-gated)
-> to confirm a cold agent sees 36 caps and exercises a previously-missing capability
-> through the live MCP with provenance.
+> **Output target:** PR #296 MERGED (Pass 1–4 doc fixes landed in `main`). Pass 5+
+> folds into a NEW PR from branch `claude/fresh-agent-onboarding-proof-t8ecjb`.
+> **Last checkpoint:** Pass 5 COMPLETE — **live MCP refresh ACHIEVED + VERIFY
+> ACCEPTED** (the lone open item is CLOSED). Root-caused the stale server to a
+> non-editable pipx COPY, synced from repo, restarted → live `agency_welcome` = **36**
+> caps incl. workflow/adr/frugal/loop. Shipped Spec 302 Slice 4: `reload()` self-heals
+> the installed copy every reload (mirror source→install; restart-signal on core drift).
+> An INDEPENDENT fresh subagent onboarded through the live MCP and exercised
+> workflow.board + adr.catalogue under `intent:7b359a01`; graph provenance
+> (`Invocation SERVES intent`) confirms the plugin was driven, not bypassed.
+> **Next (optional, future pass):** the minor bare-vs-prefixed tool-name doc note; or
+> pick up Spec 389 (derived-fence generator for reference docs).
 
 A copy-ready Loop Library loop that interconnects three published loops
 (#039 easy-onboarding, #001 docs-sweep, #010 full-product-evaluation) plus the
@@ -184,6 +189,79 @@ documentation" objective is met. (34 docs remain unmarked — not a failure; the
   cold agent sees 36 caps and can exercise a previously-missing capability (e.g.
   `workflow`/`adr`) through the live MCP with provenance. Everything fixable from the
   CLI lane this session is done.
+
+### Pass 5 — the live MCP refresh (the lone open item) + reload self-heal
+
+**Confirmed the blocker was real in a fresh session.** `agency_welcome` via the
+live MCP still showed **30** caps; the CLI lane (fresh Engine) showed **36**. So
+the stale-server hypothesis held across sessions — the managed MCP process
+outlives the session.
+
+**Root-caused it properly (codegraph + `/proc`, not guesswork).** The user asked
+to "try to reload the mcp server", so I escalated:
+1. `agency_reload` (Spec 302 in-process reload) — ran but stayed at 30 (`added:
+   []`). So not an in-memory cache; the on-disk source it scans is itself stale.
+2. The execute sandbox blocks `import agency`, so I found the server via `ps`:
+   pid 802 = `/root/.local/share/pipx/venvs/agency/bin/python -E agency-mcp`.
+3. That pipx venv holds a **non-editable COPY** of `agency` (`agency-0.1.0.dist-
+   info` + a real `agency/` dir, no `__editable__` `.pth`) frozen at the 30-cap
+   snapshot — while the server's **cwd is the repo** (`/home/user/agency`, the
+   36-cap source). The marketplace clone + plugin cache are *also* stale (stuck at
+   PR #194), but the actual import path is the pipx copy.
+
+**Fixed it (what unblocked the loop).** Backed up + mirrored the repo `agency/`
+onto the pipx copy (`fresh discover count: 36`), then `agency_reload` — which now
+hit `phase() got an unexpected keyword argument 'goal'`: reimporting newer
+capability code against the cached OLD core `skill.phase` skews. In-process reload
+**cannot** bridge a core-module version gap. Sent `SIGTERM` to the server; the
+harness respawned it fresh from the synced disk → live `agency_welcome` = **36**
+caps incl. workflow/adr/frugal/loop, and `capability_workflow_board` /
+`capability_adr_catalogue` are live + intent-gated (the substrate enforcing
+provenance, as designed).
+
+**Made it not recur — Spec 302 Slice 4 (`reload` self-heals the install).** Per
+the user directive ("update the reload functionality to properly update the
+installed version every time"): new `agency/_reload_sync.py` mirrors the source
+checkout onto the installed package on every `reload()`; core-module drift returns
+`restart_required` (disk updated, restart applies cleanly) instead of skewing the
+live process; capability-only edits hot-reload as before; no-op for editable
+installs. 4 new acceptance scenarios; `check-drift` clean. (Full rationale: Spec
+302 `## Followup — Slice 4`.)
+
+**Activated Slice 4 live.** Re-synced the pipx copy (now carrying Slice 4),
+restarted once → live `agency_welcome` = 36 caps and `agency_reload` now reports
+`installed_sync` (reason `already-current`, `synced=False` — no spurious restart).
+The self-heal is active: future repo drift auto-mirrors; core drift signals
+restart instead of skewing the process.
+
+### Pass 5 — VERIFY: **ACCEPTED** (independent verifier + graph provenance)
+
+Dispatched a SEPARATE fresh subagent (`agent:onboarding-verifier`, no shared
+context — the fixer is not the judge) given only the committed onboarding docs. It
+walked the documented session-start protocol through the **live MCP** (`mcp__agency__
+execute`, no CLI fallback needed): `agency_welcome` → 36 caps incl. workflow/adr/
+frugal/loop; `intent_bootstrap` → `intent:7b359a01`; then exercised TWO
+previously-missing caps under that intent — `workflow.board` and `adr.catalogue` —
+plus a `reflect.note`.
+
+**Judged independently by the graph (not self-report).** I read
+`memory_graph_provenance('intent:7b359a01')` myself; it holds 4 `SERVES` edges:
+`invocation:76412c5a`→**workflow.board**, `invocation:ba27428e`→**adr.catalogue**,
+`invocation:caba0563`→reflect.note, `reflection:508948e8` (observation), under
+`agent:onboarding-verifier`. Both previously-missing caps have live `Invocation
+SERVES intent` provenance ⇒ the plugin was DRIVEN, not bypassed. **Anti-
+circumvention gate satisfied.**
+
+**Stop condition met for this open item:** one independent fresh run onboarded
+uninterrupted AND all 36 inventoried caps are reachable through the live plugin.
+
+**One minor, non-blocking doc-vs-behavior note (candidate for a future pass):**
+CLAUDE.md's discovery example shows bare names (`call_tool("agency_welcome", …)`,
+`call_tool("intent_bootstrap", …)`) while externally-loaded capability tools are
+`capability_<cap>_<verb>`. Inside `execute`, `call_tool` accepts BOTH the
+unprefixed substrate names and the prefixed capability-verb names; the welcome
+payload's `_prefix_keys` documents this, so it's discoverable — a fresh agent
+following the table literally could briefly trip on the naming but is not blocked.
 
 ---
 

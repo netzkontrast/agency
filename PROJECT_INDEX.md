@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (71 files)
+### `agency/` (72 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -265,6 +265,10 @@ Moved out of ``scripts/check_schema_coverage.py`` (Spec 153 Slice 3) so the
 engine — ``agency_doctor`` — can import the audit WITHOUT depending on the
 dev-only ``scripts/`` tree (the wheel packages only ``agency``). (15 symbols)
 - **_session_snapshot.py** — Session-graph snapshot — portable SQLModel export/import (user directive 2026-06-19). (16 symbols)
+- **_skill_load.py** — Spec 371 Slices 2-3 — load a capability's v2 Skill + read its provenance.
+
+A capability's skill data DERIVES from its module docstring (rule 2 — no
+duplicated authored file). (12 symbols)
 - **_skill_parse.py** — Spec 152 Slice 1 — typed Skill/Phase parse boundary.
 
 A single parse + validate point for skill / phase dicts so the walker
@@ -374,7 +378,7 @@ schema, the enumerated edge set, and the closed enums. (29 symbols)
 
 A skill is a Lifecycle of ordered Phases (a schema a capability contributes, e.g.
 the `develop` or `plugin` skills). (10 symbols)
-- **skill_emit.py** — Spec 031 §D + Spec 032 §G — per-capability skill emission pipeline. (35 symbols)
+- **skill_emit.py** — Spec 031 §D + Spec 032 §G — per-capability skill emission pipeline. (38 symbols)
 - **templates.py** — Templates — the prestructure for the resulting document of each step of a chain.
 
 A small library of *living document* skeletons a Capability `act` fills in. (14 symbols)
@@ -1109,7 +1113,7 @@ Folder-form per Spec 060 §Phase 3 / Spec 286 Goal 4. (2 symbols)
 - **__init__.py** — skills — the first-class registry over every capability's walkable skills (Spec 026).
 
 Folder-form per Spec 060 §Phase 3 / Spec 286 Goal 4. (2 symbols)
-- **_main.py** — skills — the first-class registry over every capability's walkable skills (Spec 026). (21 symbols)
+- **_main.py** — skills — the first-class registry over every capability's walkable skills (Spec 026). (22 symbols)
 
 ### `agency/capabilities/subagent/` (2 files)
 - **__init__.py** — subagent — subagent-driven-development as a composition. (2 symbols)
@@ -1148,7 +1152,7 @@ stays the moat (Intents/Invocations/Gates) while **no capture data is lost**
 
 Use when: a spec must move through its development stages (draft → open →
 inprogress → done, or superseded) as a TRACKED, queryable Lifecycle — not a
-hand-edited status field. (17 symbols)
+hand-edited status field. (18 symbols)
 - **ontology.py** — workflow ontology — the spec-state Lifecycle binding (Spec 357).
 
 No new node label: a spec's state IS a ``Lifecycle`` on the Spec 345 ``spec``
@@ -1286,7 +1290,7 @@ Closes the documented ENGINE GAP: the storyform gates + checks read a
 - **test_skill_emit.py** (10 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
 
-### `tests/acceptance/` (129 files)
+### `tests/acceptance/` (132 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.
 
 Phase C — the flat `tests/test_*.py` are converted into behaviour scenarios
@@ -1785,6 +1789,11 @@ a structured dict. (38 symbols)
 
 `plugin.lint_skill_schema` validates a 371 Skill dict against the strict contract
 (per-type completeness, R1 trigger, self-containment, no-stub, verb-resolves). (15 symbols)
+- **test_skill_load.py** — Acceptance — load_skill + skill_source (Spec 371 Slices 2-3).
+
+A capability's v2 Skill DERIVES from its docstring SkillDoc (the back-compat
+shim, owner=auto) unless the capability SHIPS a `skill.yaml` (the A6 authored
+override, owner=capability). (13 symbols)
 - **test_skill_phase_parse.py** — Acceptance — Skill/Phase parse boundary behaviour.
 
 Converted from:
@@ -1794,6 +1803,11 @@ Dropped as implementation/structural (not observable behaviour):
   test_skill_walk_slices.py — render_phase / render_verb output format tests
     (T1/T2/T3 depth slices, snippet call_tool syntax, fallback text) are
     internal disclosure-helper details. (36 symbols)
+- **test_skill_render_v2.py** — Acceptance — per-type skill rendering (Spec 373).
+
+`render_typed_skill` is the ONE renderer: it selects `render/skill/<type>.md` by
+the Skill's `type` and inlines the schema-driven data body (overview / when-to-use
+/ example / common-mistakes / references) self-contained (A1). (15 symbols)
 - **test_skill_schema_v2.py** — Acceptance — Skill schema v2 (Spec 371): the layered, type-classified
 Phase + Skill data model.
 
@@ -1809,6 +1823,10 @@ Converted from:
 Dropped as implementation/structural (not observable behaviour):
   test_skills_api_binding.py — verifies the Anthropic Python SDK signature;
     depends on [publish] extra that CI doesn't install. (29 symbols)
+- **test_spec_done_cascade.py** — Acceptance — finish_spec, the done-cascade trigger (Spec 388).
+
+`workflow.finish_spec` moves a spec to /done across all three state
+representations (folder + frontmatter + node) in one call. (11 symbols)
 - **test_spec_state.py** — Acceptance — spec-state lifecycle (Spec 357): specs as Lifecycles. (22 symbols)
 - **test_subagent.py** — Acceptance — subagent capability (Spec 041). (18 symbols)
 - **test_surface_resolution.py** — Acceptance — surface resolution (Spec 023 §F3.2).
@@ -1847,7 +1865,7 @@ AcceptanceCriterion). (23 symbols)
 
 The matrix is DERIVED from each spec's `vision_goals:` + `status:`
 frontmatter (Spec 149), never hand-maintained. (34 symbols)
-- **test_welcome.py** — Acceptance — agency_welcome (Spec 029 / 030). (37 symbols)
+- **test_welcome.py** — Acceptance — agency_welcome (Spec 029 / 030). (38 symbols)
 - **test_wet_generation.py** — Acceptance — use-case model selection + OpenRouter-first generation (Spec 352).
 
 All selection logic is network-free. (68 symbols)

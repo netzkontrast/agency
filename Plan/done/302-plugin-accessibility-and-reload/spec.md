@@ -88,3 +88,33 @@ since `reload()` and `__init__` now share `_register_capability` — `/simplify`
 pass 2026-06-17.)
 
 **Still.** Slice 3 (auto-enable + first-call probe).
+
+## Followup — Slice 4: installed-version sync on reload (2026-06-23)
+
+**Why.** The fresh-agent-onboarding-proof loop hit a hard stale-MCP blocker: the
+live `agency_welcome` was stuck at **30** capabilities while a fresh engine
+discovered **36** (adr/workflow/frugal/loop/config/toolcalls). Root cause —
+codegraph + `/proc` traced the running MCP server (`agency-mcp`, a pipx console
+script) to a **non-editable** pipx site-packages COPY of `agency` frozen at an
+older snapshot, while the server's cwd was the current repo checkout. Slice 2's
+`reload()` purged `agency.capabilities.*` and re-imported, but from that SAME
+stale install dir — so it could never see the newer caps. A manual `rsync`
+source→install + server restart proved the only thing that worked; an in-process
+reload after the sync raised `phase() got an unexpected keyword argument 'goal'`
+because `skill.phase` (a CORE module, not under `capabilities/`) had drifted.
+
+**Done.** New `agency/_reload_sync.py::sync_installed_from_source` mirrors the
+source `agency/` checkout onto the installed package (copy new/changed, drop
+vanished; skips byte-caches). `Engine.reload()` now calls it FIRST and reports
+the result as `installed_sync`. When the drift touches a **core** module
+(anything outside `capabilities/`), reload updates the install on disk but
+**skips** the in-process purge/reimport — returning `restart_required: True`
+rather than skewing the live process — so a restart applies it cleanly.
+Capability-only edits still hot-reload in process exactly as before. No-op for an
+editable install (`source == installed`) or when not run from a checkout, so the
+common dev/CI path is unchanged. 4 new acceptance scenarios in
+`tests/acceptance/test_reload.py` (6 total pass).
+
+**Doctrine note.** The pipx-only install doctrine (Spec 055/065) *intends* an
+editable install (`pipx install --editable`), which would never drift; this slice
+makes `reload` self-heal the non-editable-copy environments the loop ran in.
