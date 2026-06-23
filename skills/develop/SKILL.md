@@ -95,6 +95,20 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Run the whole verification (tests + the plan's acceptance checks). Confirm every step's acceptance holds — COMPLETED is not done until the evidence is green.
 - **`loop-design`** (discipline): goal → verification → host → council → control → confirm → emit
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'loop-design', 'inputs': {}, 'intent_id': '…'})`
+  1. **goal** — Capture and confirm the loop's objective.
+     State what the loop must ACHIEVE (not how it iterates) and confirm it as an intent — every later phase serves this goal.
+  2. **verification** — Define the criteria that decide pass vs revise.
+     Name the checkable criteria each iteration is judged against (the gate predicates). A loop with no verification can't know when it's done — or when to revise.
+  3. **host** — Choose the host that runs each iteration.
+     Select/declare the host persona that executes the loop body and the family it belongs to (local agent, subagent, Jules).
+  4. **council** — Seat a verdict source for every revise-until-clean gate.
+     Every revise gate needs a verdict source — a judge member or a human criterion (Spec 365). Confirm this gate only when each gate has one; a gate with no judge loops forever.
+  5. **control** — Declare the termination guards and open the loop.
+     Declare at least one termination guard (max_iterations, budget, or no-progress stall) — a guard-free loop is REFUSED (Spec 366). Open the loop lifecycle. Confirm only when a guard is present.
+  6. **confirm** — Preview the resolved loop before emission.
+     Render the preview (states + criteria + council + stops, DERIVED from the machine so it can't drift) and review it. The phase pauses for your preview_ok — don't rubber-stamp.
+  7. **emit** — Emit the portable loop artefacts.
+     Compile the resolved loop and emit its portable files. The emitted loop is what actually runs — verify it matches the preview.
 - **`plan`** (discipline): map → self-review → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan', 'inputs': {}, 'intent_id': '…'})`
   1. **map** — Decompose the work into ordered steps + the files each touches.
@@ -105,18 +119,80 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Present the plan and proceed ONLY on the owner's explicit confirmation. A plan is a proposal until approved.
 - **`plan-execute`** (discipline): frame → draft-plan → plan-signoff → execute-step → checkpoint → synthesize
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'plan-execute', 'inputs': {}, 'intent_id': '…'})`
+  1. **frame** — Frame the work: requirements + load-bearing assumptions.
+     Decompose the goal into concrete requirements and name the assumptions they rest on. This frames every step that follows — a vague frame yields a vague plan.
+  2. **draft-plan** — Draft the plan as graph provenance (not a file).
+     The walker mints a Plan + PlanStep nodes SERVING the intent via develop.draft_plan (rule 2 — the plan is graph state, not a markdown file). Give an ordered, checkable step list.
+  3. **plan-signoff** — Get sign-off on the plan before executing.
+     Present the drafted plan and proceed ONLY on explicit owner confirmation.
+  4. **execute-step** — Execute the next step — inline or delegated.
+     Walk dispatch-decision (the 11 signals) to choose inline vs subagent/Jules for this step, then do exactly that one step. Record its result against the PlanStep.
+  5. **checkpoint** — Review the step before moving on.
+     Compare the step's result to its acceptance; fix drift before the next step. Confirm only when the step genuinely met its goal.
+  6. **synthesize** — Synthesise the run and verify the whole.
+     Roll the step results into a summary and verify every requirement from the frame is met — COMPLETED is not done until the whole plan's acceptance holds.
 - **`quality-audit`** (discipline): scope → decidable → judgment → score-report
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-audit', 'inputs': {}, 'intent_id': '…'})`
+  1. **scope** — Name what's under review and the axes that apply.
+     State the path/diff under review and the quality axes in scope. A scoped review beats boil-the-ocean — pick the surface that matters.
+  2. **decidable** — Run the decidable analyzers over the scope.
+     Run the analyze.* axes for this mode and collect the DECIDABLE findings (rule-based, reproducible) — not opinions. These are the evidence the judgment phase reasons over.
+  3. **judgment** — Apply the Iron Law to the findings.
+     For every risk-coded finding, confirm it names a CONSEQUENCE and a REMEDY (the brooks Iron Law). Confirm this gate only when each finding is actionable, not merely flagged.
+  4. **score-report** — Score the findings and report.
+     Roll the findings into a score plus a report the orchestrator can act on; lead with the blocking findings.
 - **`quality-debt`** (discipline): scope → decidable → judgment → score-report
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-debt', 'inputs': {}, 'intent_id': '…'})`
+  1. **scope** — Name what's under review and the axes that apply.
+     State the path/diff under review and the quality axes in scope. A scoped review beats boil-the-ocean — pick the surface that matters.
+  2. **decidable** — Run the decidable analyzers over the scope.
+     Run the analyze.* axes for this mode and collect the DECIDABLE findings (rule-based, reproducible) — not opinions. These are the evidence the judgment phase reasons over.
+  3. **judgment** — Apply the Iron Law to the findings.
+     For every risk-coded finding, confirm it names a CONSEQUENCE and a REMEDY (the brooks Iron Law). Confirm this gate only when each finding is actionable, not merely flagged.
+  4. **score-report** — Score the findings and report.
+     Roll the findings into a score plus a report the orchestrator can act on; lead with the blocking findings.
 - **`quality-health`** (discipline): scope → decidable → judgment → score-report
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-health', 'inputs': {}, 'intent_id': '…'})`
+  1. **scope** — Name what's under review and the axes that apply.
+     State the path/diff under review and the quality axes in scope. A scoped review beats boil-the-ocean — pick the surface that matters.
+  2. **decidable** — Run the decidable analyzers over the scope.
+     Run the analyze.* axes for this mode and collect the DECIDABLE findings (rule-based, reproducible) — not opinions. These are the evidence the judgment phase reasons over.
+  3. **judgment** — Apply the Iron Law to the findings.
+     For every risk-coded finding, confirm it names a CONSEQUENCE and a REMEDY (the brooks Iron Law). Confirm this gate only when each finding is actionable, not merely flagged.
+  4. **score-report** — Score the findings and report.
+     Roll the findings into a score plus a report the orchestrator can act on; lead with the blocking findings.
 - **`quality-review`** (discipline): scope → decidable → judgment → score-report
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-review', 'inputs': {}, 'intent_id': '…'})`
+  1. **scope** — Name what's under review and the axes that apply.
+     State the path/diff under review and the quality axes in scope. A scoped review beats boil-the-ocean — pick the surface that matters.
+  2. **decidable** — Run the decidable analyzers over the scope.
+     Run the analyze.* axes for this mode and collect the DECIDABLE findings (rule-based, reproducible) — not opinions. These are the evidence the judgment phase reasons over.
+  3. **judgment** — Apply the Iron Law to the findings.
+     For every risk-coded finding, confirm it names a CONSEQUENCE and a REMEDY (the brooks Iron Law). Confirm this gate only when each finding is actionable, not merely flagged.
+  4. **score-report** — Score the findings and report.
+     Roll the findings into a score plus a report the orchestrator can act on; lead with the blocking findings.
 - **`quality-sweep`** (discipline): scope → decidable → judgment → score-report → remedy
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-sweep', 'inputs': {}, 'intent_id': '…'})`
+  1. **scope** — Name what's under review and the axes that apply.
+     State the path/diff under review and the quality axes in scope. A scoped review beats boil-the-ocean — pick the surface that matters.
+  2. **decidable** — Run the decidable analyzers over the scope.
+     Run the analyze.* axes for this mode and collect the DECIDABLE findings (rule-based, reproducible) — not opinions. These are the evidence the judgment phase reasons over.
+  3. **judgment** — Apply the Iron Law to the findings.
+     For every risk-coded finding, confirm it names a CONSEQUENCE and a REMEDY (the brooks Iron Law). Confirm this gate only when each finding is actionable, not merely flagged.
+  4. **score-report** — Score the findings and report.
+     Roll the findings into a score plus a report the orchestrator can act on; lead with the blocking findings.
+  5. **remedy** — Apply the safe remedies; gate the risky ones.
+     Apply the low-risk fixes the report identified; leave risky ones gated for human review. Re-run the analyzers to confirm the fixes held.
 - **`quality-test`** (discipline): scope → decidable → judgment → score-report
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-test', 'inputs': {}, 'intent_id': '…'})`
+  1. **scope** — Name what's under review and the axes that apply.
+     State the path/diff under review and the quality axes in scope. A scoped review beats boil-the-ocean — pick the surface that matters.
+  2. **decidable** — Run the decidable analyzers over the scope.
+     Run the analyze.* axes for this mode and collect the DECIDABLE findings (rule-based, reproducible) — not opinions. These are the evidence the judgment phase reasons over.
+  3. **judgment** — Apply the Iron Law to the findings.
+     For every risk-coded finding, confirm it names a CONSEQUENCE and a REMEDY (the brooks Iron Law). Confirm this gate only when each finding is actionable, not merely flagged.
+  4. **score-report** — Score the findings and report.
+     Roll the findings into a score plus a report the orchestrator can act on; lead with the blocking findings.
 - **`review`** (discipline): request → dispatch → resolve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'review', 'inputs': {}, 'intent_id': '…'})`
   1. **request** — Frame what to review and gather the diff.

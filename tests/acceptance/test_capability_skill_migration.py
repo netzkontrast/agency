@@ -51,6 +51,21 @@ def _generate(engine):
     return generate(engine)
 
 
+@when("I strict-lint every develop discipline", target_fixture="disc_lints")
+def _lint_all_develop(engine, confirmed_intent):
+    from agency.capabilities.skills._main import _all_skills
+    skills = _all_skills(engine.registry)
+    targets = [n for n, m in skills.items()
+               if m["capability"] == "develop" and m["kind"] == "discipline"]
+    out = {}
+    for name in targets:
+        raw, _ = engine.registry.invoke(
+            engine.memory, confirmed_intent, "plugin", "lint_skill_schema",
+            skill=skills[name]["_schema"])
+        out[name] = raw["result"] if isinstance(raw, dict) and "result" in raw else raw
+    return out
+
+
 # ── Then ──────────────────────────────────────────────────────────────────────
 
 @then(parsers.parse('the "{name}" discipline is self-contained'))
@@ -58,6 +73,15 @@ def _self_contained(disc_lints, name):
     res = disc_lints[name]
     sc = [v for v in res.get("violations", []) if v["rule"] == "phase-self-contained"]
     assert not sc, f"{name!r} must be self-contained (A1 — every phase has instructions); got {sc}"
+
+
+@then("every develop discipline is self-contained")
+def _all_develop_self_contained(disc_lints):
+    assert disc_lints, "expected develop disciplines"
+    bad = {n: [v for v in r.get("violations", []) if v["rule"] == "phase-self-contained"]
+           for n, r in disc_lints.items()}
+    bad = {n: v for n, v in bad.items() if v}
+    assert not bad, f"these develop disciplines are not self-contained (A1): {sorted(bad)}"
 
 
 @then(parsers.parse('the rendered develop skill inlines the enriched "{name}" phase instructions'))

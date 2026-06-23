@@ -27,3 +27,9 @@ Feature: Capability skill migration — phase-fill + A6 (Spec 378 Slice 1)
     Then the "brainstorm" discipline is self-contained
     And the "review" discipline is self-contained
     And the "spec-panel" discipline is self-contained
+
+  # ── Spec 378 Slice 3 — the whole develop discipline set ───────────────────────
+
+  Scenario: every develop discipline is self-contained after the migration
+    When I strict-lint every develop discipline
+    Then every develop discipline is self-contained

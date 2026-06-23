@@ -96,8 +96,35 @@ Done (file:line evidence):
   `lint_skill_schema` with no `phase-self-contained` violation (rule 8). 3/3
   migration green; 62 across migration/skill_walk/develop/render; check-drift clean.
 
+**Slice 3 — SHIPPED: the remaining develop disciplines — develop is now 16/16
+self-contained (A1).**
+
+Done (file:line evidence):
+- `agency/capabilities/develop/_main.py` — `_quality_phases(decidable_verbs,
+  remedy=)` is ONE shared phase-content source for the six quality modes (Spec 380;
+  identical scope→decidable→judgment[Iron Law]→score-report[→remedy] shape, only
+  the `analyze.*` axes differ) — the instructions live once (rule 2), not six
+  near-identical copies. `plan-execute` (frame/draft-plan/plan-signoff/execute-step/
+  checkpoint/synthesize, incl. the `develop.draft_plan`-bound + `dispatch_decision`
+  phases) gained full inline content.
+- `agency/_loop.py` — `LOOP_DESIGN_SKILL`'s seven phases (goal/verification/host/
+  council/control/confirm/emit) gained `goal`/`instructions`/`freedom` grounded in
+  the looper doctrine (verdict-source-per-gate, guard-free-loop-refused).
+- `skills/develop/SKILL.md` — regenerated (A2 parity for all the new content).
+- Tests: a Slice 3 scenario asserts EVERY develop discipline is self-contained
+  (derived from the live registry — rule 8); 4/4 migration green; 69 across
+  migration/skill_walk/develop/loop_wizard/render; check-drift clean.
+
+**Enforcement blast-radius (surveyed before any block flip).** ~14 disciplines
+across OTHER caps (analyze · delegate · discover · document · frugal · intent ·
+jules×6 · manage · mode · panel · persona · recommend · research · select · skills ·
+subagent · workflow) still lack instructions. A repo-wide block flip would break
+them all, so the gate stays GRADUATED — Slice 4 widens it to block the compliant
+(filled) disciplines + warn the rest; full repo-wide block waits until those caps
+are migrated (the owner can drive that incrementally; the gate now surfaces them).
+
 Still:
-- **Slice 3** — the remaining develop disciplines (the `quality-*` family,
-  loop-design, plan-execute) + an optional domain-cap A6 exemplar; widen the lint
-  gate (377) to block the compliant disciplines (warn the rest); prune the legacy
-  single-template path when all are green.
+- **Slice 4** — widen the lint gate (377) to block compliant disciplines (warn the
+  rest), wired into check-drift; an optional domain-cap A6 exemplar. The legacy
+  single-template prune is 373 Slice 3's concern (per-type capability/discipline
+  templates), tracked there.
