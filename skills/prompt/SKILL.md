@@ -64,3 +64,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'dossier-author', 'inputs': {}, 'intent_id': '…'})`
 - **`prompt-engineering-pass`** (workflow): select-builder → inject-context → specify-constraints → render-prompt → iterate-variants → score-output
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'prompt-engineering-pass', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_prompt_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_prompt_assemble_scene_brief", {"intent_id": iid})
+await call_tool("capability_prompt_audit", {"intent_id": iid})
+await call_tool("capability_prompt_audit_gate", {"intent_id": iid})
+await call_tool("capability_prompt_brief_audit", {"intent_id": iid})
+await call_tool("capability_prompt_brief_finalize", {"intent_id": iid})
+await call_tool("capability_prompt_brief_render", {"intent_id": iid})
+```
+
+More verbs: `capability_prompt_catalog_list`, `capability_prompt_engineer`, `capability_prompt_evaluate`, `capability_prompt_fragment`, `capability_prompt_fragments_for`, `capability_prompt_framework`, `capability_prompt_frameworks_for`, `capability_prompt_intent_capture` …

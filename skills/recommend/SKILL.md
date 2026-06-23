@@ -50,3 +50,12 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Pick the top candidate that actually serves the need; a high rank on a wrong-shaped capability still loses.
   4. **confirm** — Confirm the route with its rationale.
      State why this capability beats the alternatives for THIS request. Confirm only with a grounded rationale.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_recommend_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_recommend_route", {"intent_id": iid})
+```

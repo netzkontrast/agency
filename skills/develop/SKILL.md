@@ -229,3 +229,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Execute it and keep the COMPLETE output — never truncate the tail (a dropped error is a missed failure). Don't interpret yet; just capture.
   3. **confirm** — Confirm the output matches the expectation.
      Read the captured output against what success looks like. Confirm this gate ONLY when it actually matches — evidence before assertion; COMPLETED is not done.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_develop_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_develop_checklist", {"intent_id": iid})
+await call_tool("capability_develop_draft_plan", {"intent_id": iid})
+await call_tool("capability_develop_estimate", {"intent_id": iid})
+await call_tool("capability_develop_index", {"intent_id": iid})
+await call_tool("capability_develop_maintain", {"intent_id": iid})
+await call_tool("capability_develop_mode_select", {"intent_id": iid})
+```
+
+More verbs: `capability_develop_optimize_skilldoc`, `capability_develop_plan_status`, `capability_develop_record_authoring_outcome`, `capability_develop_record_step_outcome`, `capability_develop_reference`, `capability_develop_reload`, `capability_develop_remediate`, `capability_develop_review` …

@@ -64,6 +64,22 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   5. **decide** — Commit to an approach with its rationale.
      Choose, and state WHY this option beats the alternatives given the assumptions + tradeoffs. Confirm this gate only with a decision, not a shortlist.
 
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_intent_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_intent_assumptions", {"intent_id": iid})
+await call_tool("capability_intent_brooks_lint", {"intent_id": iid})
+await call_tool("capability_intent_decompose", {"intent_id": iid})
+await call_tool("capability_intent_first_principles", {"intent_id": iid})
+await call_tool("capability_intent_inversion", {"intent_id": iid})
+await call_tool("capability_intent_premortem", {"intent_id": iid})
+```
+
+More verbs: `capability_intent_second_order`, `capability_intent_steelman`, `capability_intent_suggests`, `capability_intent_tradeoffs`, `capability_intent_triage`
+
 ## The Intent pillar (concept)
 
 Intent is the first of agency's four concepts (Intent · Capability · Lifecycle ·

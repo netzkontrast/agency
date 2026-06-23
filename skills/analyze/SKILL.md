@@ -70,3 +70,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Group the findings by severity; separate the decidable (must-fix) from the advisory. Lead the summary with what blocks shipping.
   5. **apply** — Apply the safe fixes; gate the risky ones.
      Apply the low-risk remediations; leave risky ones flagged for human review. Confirm this gate only after re-running the analyzers to show the fixes held.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_analyze_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_analyze_architecture", {"intent_id": iid})
+await call_tool("capability_analyze_cleanup", {"intent_id": iid})
+await call_tool("capability_analyze_gate", {"intent_id": iid})
+await call_tool("capability_analyze_graph", {"intent_id": iid})
+await call_tool("capability_analyze_improve", {"intent_id": iid})
+await call_tool("capability_analyze_migrate_quality_config", {"intent_id": iid})
+```
+
+More verbs: `capability_analyze_migrate_quality_history`, `capability_analyze_paths`, `capability_analyze_performance`, `capability_analyze_quality`, `capability_analyze_record_run`, `capability_analyze_report`, `capability_analyze_review`, `capability_analyze_run` …

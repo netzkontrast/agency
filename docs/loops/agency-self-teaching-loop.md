@@ -147,6 +147,29 @@ never-truncate doctrine). → **Spec C.**
   (folder move is `finish_spec`'s job, not `move_spec`'s). Ephemeral here (fresh CI
   graph has no node), but a live session shows `node-drift`. → confirm/​document which
   verb owns the folder move. → queued.
+- **C13 — `adr.link` uses `source_id`/`target_id`, not `from_id`/`to_id`.** A natural
+  guess (`from_id`) raised `unexpected_keyword_argument` and (unguarded) aborted the
+  block — the C2 hazard again. → param-name consistency / pre-flight validation. → queued.
+- **C14 — `adr.spec_decisions_ready` sees 0 decisions after manual draft+link+approve.**
+  Drafting 4 decisions via `adr.draft`, linking them `REFINES` the spec via `adr.link`,
+  and `adr.approve`-ing them still left `ready:false, reason:no-decisions`. The hinge
+  predicate only recognizes decisions created by `adr.extract_decisions`, so the
+  MCP-driven ADR path can't satisfy the gate without `move_spec(override=True)`. → the
+  readiness predicate should count any approved `REFINES` decision. → **Spec D candidate
+  (with C11 — the ADR hinge is hard to satisfy via the MCP).**
+
+### Pass 1 — BUILD (in progress, owner-approved 2026-06-23)
+
+- ADR gate: owner approved D1–D4; 4 decisions drafted+approved in-graph (C14 blocked
+  the auto-hinge, so `move_spec(override=True)` advanced the spec → `inprogress`).
+  Folder moved `Plan/draft/390 → Plan/inprogress/390` + frontmatter reconciled.
+- **D3 shipped** — `skill_emit._render_call_examples` emits a `## Calling these verbs
+  (code-mode)` block (bootstrap → prefixed-wire-name verb calls, threaded `intent_id`)
+  into every generated SKILL.md. TDD: `tests/acceptance/test_skill_call_examples.py`
+  (2 scenarios, green); 44-test skill/install/render slice green; all **36 per-cap
+  skills regenerated** (+532 lines, additive). 
+- **Still:** D2 (`get_schema` nested object/array shapes), D4 (`using-agency` naming
+  rule), README regen, then the independent fresh-subagent re-verify.
 
 ---
 

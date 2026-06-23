@@ -52,3 +52,14 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Dispatch the persona as a child Lifecycle + Invocation; only the result crosses back. Walk dispatch-decision first if unsure it beats inline.
   4. **verify** — Verify the specialist's output.
      Check the returned work against the brief's acceptance — a specialist's output is a proposal until verified. Confirm only on a genuine match.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_persona_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_persona_list", {"intent_id": iid})
+await call_tool("capability_persona_recommend", {"intent_id": iid})
+await call_tool("capability_persona_summon", {"intent_id": iid})
+```

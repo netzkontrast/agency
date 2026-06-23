@@ -55,3 +55,17 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      skills.lint the front-runner — a soft gate: note shape issues but don't block on them; the decide gate is the hard one.
   4. **decide** — Decide which skill to walk.
      Choose the skill whose phases genuinely fit; or decide none fits and improvise deliberately. Confirm this gate with the chosen skill (or an explicit 'none').
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_skills_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_skills_find", {"intent_id": iid})
+await call_tool("capability_skills_index", {"intent_id": iid})
+await call_tool("capability_skills_lint", {"intent_id": iid})
+await call_tool("capability_skills_rank", {"intent_id": iid})
+await call_tool("capability_skills_render", {"intent_id": iid})
+await call_tool("capability_skills_source", {"intent_id": iid})
+```

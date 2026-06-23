@@ -51,3 +51,13 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Choose the approach whose tradeoffs best match the characterised operation; name the deciding factor.
   4. **commit** — Commit to the approach with rationale.
      State why this approach wins given the operation + scope. Confirm this gate only with a grounded rationale, not a preference.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_select_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_select_archetypes", {"intent_id": iid})
+await call_tool("capability_select_route", {"intent_id": iid})
+```

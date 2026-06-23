@@ -45,3 +45,15 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`doctrine-usage`** (usage): use-effect → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'doctrine-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_doctrine_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_doctrine_cite", {"intent_id": iid})
+await call_tool("capability_doctrine_principles", {"intent_id": iid})
+await call_tool("capability_doctrine_resolve", {"intent_id": iid})
+await call_tool("capability_doctrine_rules", {"intent_id": iid})
+```

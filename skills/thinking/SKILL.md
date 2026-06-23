@@ -52,3 +52,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`critical-thinking-pass`** (workflow): decompose → surface-assumptions → premortem → steelman-and-inversion → synthesize
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'critical-thinking-pass', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_thinking_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_thinking_apply_full_review", {"intent_id": iid})
+await call_tool("capability_thinking_assumptions", {"intent_id": iid})
+await call_tool("capability_thinking_decompose", {"intent_id": iid})
+await call_tool("capability_thinking_first_principles", {"intent_id": iid})
+await call_tool("capability_thinking_inversion", {"intent_id": iid})
+await call_tool("capability_thinking_premortem", {"intent_id": iid})
+```
+
+More verbs: `capability_thinking_red_team`, `capability_thinking_second_order`, `capability_thinking_socratic`, `capability_thinking_steelman`, `capability_thinking_tradeoffs`

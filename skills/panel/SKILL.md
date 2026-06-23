@@ -51,3 +51,13 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      Where do the lenses DISAGREE? The tensions are the signal — the places the strategy is genuinely contested, not the consensus.
   4. **synthesize** — Synthesise a decision from the tensions.
      Resolve the tensions into a strategic recommendation with its rationale. Confirm this gate only when the synthesis takes a position, not a summary of views.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_panel_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_panel_convene", {"intent_id": iid})
+await call_tool("capability_panel_experts", {"intent_id": iid})
+```

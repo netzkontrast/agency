@@ -2,8 +2,8 @@
 ---
 spec_id: "390"
 slug: skills-teach-the-call
-status: draft
-state: draft
+status: inprogress
+state: inprogress
 last_updated: 2026-06-23
 owner: "@agency"
 vision_goals: [1, 4]

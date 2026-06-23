@@ -47,3 +47,17 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`reflect-usage`** (usage): use-transform → use-act → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'reflect-usage', 'inputs': {}, 'intent_id': '…'})`
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_reflect_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_reflect_batch_note", {"intent_id": iid})
+await call_tool("capability_reflect_note", {"intent_id": iid})
+await call_tool("capability_reflect_recall", {"intent_id": iid})
+await call_tool("capability_reflect_recall_semantic", {"intent_id": iid})
+await call_tool("capability_reflect_search", {"intent_id": iid})
+await call_tool("capability_reflect_synthesize_session", {"intent_id": iid})
+```

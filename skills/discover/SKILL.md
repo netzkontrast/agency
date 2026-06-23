@@ -64,3 +64,19 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
      State what's IN and OUT of scope and the concrete acceptance checks. Boundaries prevent scope creep; acceptance makes 'done' decidable.
   7. **decide** — Confirm the intent through the clarity gate.
      The clarity gate computes whether the intent is confirmable (purpose + deliverable + acceptance all sharp). It passes only when discovery genuinely converged — not on demand.
+
+## Calling these verbs (code-mode)
+
+Every verb here is the prefixed wire tool ``capability_discover_<verb>`` (underscores, not the hyphenated skill name). Call it inside an ``execute`` block, threading the serving ``intent_id``. ``get_schema`` an unfamiliar verb first (``detail="full"`` reveals nested object-param shapes):
+
+```python
+iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_discover_acceptance", {"intent_id": iid})
+await call_tool("capability_discover_ask", {"intent_id": iid})
+await call_tool("capability_discover_clarify", {"intent_id": iid})
+await call_tool("capability_discover_clarity", {"intent_id": iid})
+await call_tool("capability_discover_clarity_gate", {"intent_id": iid})
+await call_tool("capability_discover_interview", {"intent_id": iid})
+```
+
+More verbs: `capability_discover_scope`, `capability_discover_status`
