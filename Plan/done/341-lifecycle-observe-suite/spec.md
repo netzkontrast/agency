@@ -1,8 +1,9 @@
+<!-- agency-node: document:f5d966bd -->
 ---
 spec_id: "341"
 slug: lifecycle-observe-suite
-status: partial
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 4]
@@ -131,6 +132,14 @@ verbs (Lifecycle is the WRITE substrate). The mapping:
 4 acceptance scenarios (`tests/acceptance/features/lifecycle_observe.feature`);
 the reuse contract held (no duplication of `manage`'s `_live`/`list`). manage +
 gate + lifecycle suites green; install regen + the lifecycle reference doc
-updated. **Still (Slice 2):** the `lifecycle-board.md` convergence Document
-(render the in-flight board via `manage.render`); folding `jules.watch` into a
-unified `manage.lifecycle_trail(scope="jules")` view.
+updated. **Shipped (Slice 2, 2026-06-23 — TDD, independently verified):**
+`manage.lifecycle_trail` gained a **scope mode** — `lifecycle_trail(scope="jules")`
+folds the durable Spec 344 transition trail across every live Lifecycle whose
+`kind`/`machine`/`parameterization` matches the scope (each transition tagged with
+its `lifecycle_id`), the unified in-flight-board view; the per-id signature is
+unchanged (additive). `tests/test_lifecycle_trail_scope.py` proves the gate (the
+scope call fails on the old signature, passes with the change). The
+`lifecycle-board.md` convergence Document already renders via
+`document.render(scope="lifecycle-board")` + `manage.render`'s dashboard and
+converges to a file peer through the generic Spec 292 `document.mirror`. **341's
+scope is complete.**

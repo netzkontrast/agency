@@ -394,24 +394,9 @@ class ManageCapability(CapabilityBase):
             "gates": gates,
         }
 
-    @verb(role="act")
-    def lifecycle_trail(self, lifecycle_id: str, limit: int = 100) -> dict:
-        """LIFECYCLE WATCH — the Spec 341 `watch` frame: the ordered Spec 344
-        `lifecycle_transition` Event trail recorded `OBSERVED_DURING` this
-        lifecycle (what `move` emits), so an observer reads the durable history
-        instead of polling `state`. A PULL over the recorded trail; live PUSH
-        stays `jules.watch` (Spec 022) + the Spec 021 monitor channel. Only
-        terminal/blocked transitions are durable (the Spec 344 B4 split — churn
-        like `submitted→working` rides the monitor only).
-
-        Inputs: lifecycle_id (str), limit (int — max events).
-        Returns: ``{lifecycle_id, count, transitions: [{from_state, to_state,
-                 evidence, at}]}`` or ``{error}`` if absent / not a Lifecycle.
-        chain_next: manage.lifecycle(lifecycle_id) for the current rolled-up state.
-        """
-        if self.ctx.recall_typed(lifecycle_id, "Lifecycle") is None:
-            return {"error": f"{lifecycle_id!r} is not a Lifecycle id",
-                    "lifecycle_id": lifecycle_id, "count": 0, "transitions": []}
+    def _lifecycle_transitions(self, lifecycle_id: str) -> list[dict]:
+        """The durable Spec 344 `lifecycle_transition` Event trail OBSERVED_DURING
+        one lifecycle, oldest-first (the shared read for both trail modes)."""
         trail = []
         for e in self.ctx.sources_via_edge("OBSERVED_DURING", lifecycle_id,
                                            "Lifecycle", label="Event"):
@@ -422,6 +407,54 @@ class ManageCapability(CapabilityBase):
                           "evidence": e.get("evidence", ""),
                           "at": e.get("vfrom", 0)})
         trail.sort(key=lambda x: x["at"])
+        return trail
+
+    @verb(role="act")
+    def lifecycle_trail(self, lifecycle_id: str = "", scope: str = "",
+                        limit: int = 100) -> dict:
+        """LIFECYCLE WATCH — the Spec 341 `watch` frame: the ordered Spec 344
+        `lifecycle_transition` Event trail recorded `OBSERVED_DURING` a lifecycle
+        (what `move` emits), so an observer reads the durable history instead of
+        polling `state`. A PULL over the recorded trail; live PUSH stays
+        `jules.watch` (Spec 022) + the Spec 021 monitor channel. Only
+        terminal/blocked transitions are durable (the Spec 344 B4 split — churn
+        like `submitted→working` rides the monitor only).
+
+        Two modes (Spec 341 Slice 2):
+        - ``lifecycle_id`` → one lifecycle's trail (the original `watch` frame).
+        - ``scope`` (no id) → the UNIFIED board trail: every durable transition
+          across all live Lifecycles whose ``kind`` / ``machine`` /
+          ``parameterization`` matches ``scope`` (e.g. ``scope="jules"`` folds the
+          whole jules board's history into one view), each transition tagged with
+          its ``lifecycle_id``. This is how the observe suite surfaces the
+          in-flight board, not only a single id.
+
+        Inputs: lifecycle_id (str) XOR scope (str), limit (int — max events).
+        Returns: per-id ``{lifecycle_id, count, transitions:[{from_state,
+                 to_state, evidence, at}]}``; per-scope ``{scope, lifecycles,
+                 count, transitions:[{…, lifecycle_id}]}``; or ``{error}`` (absent
+                 / not-a-Lifecycle, or neither arg given).
+        chain_next: manage.lifecycle(lifecycle_id) for the current rolled-up state.
+        """
+        if not lifecycle_id and not scope:
+            return {"error": "lifecycle_trail needs a lifecycle_id or a scope",
+                    "count": 0, "transitions": []}
+        if scope and not lifecycle_id:
+            matches = [lc for lc in self._live(self.ctx.find("Lifecycle"))
+                       if scope in (lc.get("kind", ""), lc.get("machine", ""),
+                                    lc.get("parameterization", ""))]
+            agg: list[dict] = []
+            for lc in matches:
+                lid = lc.get("id")
+                for t in self._lifecycle_transitions(lid):
+                    agg.append({**t, "lifecycle_id": lid})
+            agg.sort(key=lambda x: x["at"])
+            return {"scope": scope, "lifecycles": len(matches),
+                    "count": len(agg), "transitions": agg[:limit]}
+        if self.ctx.recall_typed(lifecycle_id, "Lifecycle") is None:
+            return {"error": f"{lifecycle_id!r} is not a Lifecycle id",
+                    "lifecycle_id": lifecycle_id, "count": 0, "transitions": []}
+        trail = self._lifecycle_transitions(lifecycle_id)
         return {"lifecycle_id": lifecycle_id, "count": len(trail),
                 "transitions": trail[:limit]}
 
