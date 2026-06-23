@@ -1181,10 +1181,30 @@ class Engine:
         error during re-discovery leaves the previous registry intact."""
         import sys
         from ._envelope import capability_set_hash
+        from ._reload_sync import sync_installed_from_source
         from .capabilities import discover_capabilities
         from .ontology import Ontology
 
         before = set(self.registry.names())
+        # Spec 302 Slice 3 — first update the INSTALLED package from the source
+        # checkout the server runs in (the durable half of "update the installed
+        # version every time"): a non-editable install drifts behind the repo and
+        # re-imports stale disk. No-op for an editable install / no checkout.
+        sync = sync_installed_from_source()
+        if sync["core_changed"]:
+            # An in-process reload can only safely refresh capability modules;
+            # CORE modules (engine/skill/lifecycle/…) changed on disk and would
+            # skew against already-imported objects (e.g. `skill.phase` gaining a
+            # kwarg). The installed version is now CURRENT on disk, so a restart
+            # applies it cleanly — don't purge/reimport into a broken half-state.
+            return {"reloaded": False, "restart_required": True,
+                    "installed_sync": sync,
+                    "capability_count": len(before),
+                    "capability_set_hash": capability_set_hash(before),
+                    "hint": "installed agency package updated on disk; restart "
+                            "the MCP server to load the new version (in-process "
+                            "reload skipped to avoid core/capability version "
+                            "skew)."}
         # Purge the capability subtree so the next import reads disk afresh. Keep
         # the ``agency.capabilities`` package itself (``discover`` lives there);
         # drop every submodule/subpackage beneath it (``…develop``,
@@ -1199,6 +1219,7 @@ class Engine:
                 fresh.setdefault(cap.name, cap)
         except Exception as exc:                                # noqa: BLE001
             return {"reloaded": False, "error": str(exc),
+                    "installed_sync": sync,
                     "capability_count": len(before)}
         # rebuild the effective ontology + re-register caps in place, via the
         # SAME path as __init__ (so file templates/schemas re-merge too).
@@ -1233,4 +1254,5 @@ class Engine:
                 "added": sorted(after - before),
                 "removed": sorted(before - after),
                 "rewired_tools": rewired,
-                "reimported": len(purged)}
+                "reimported": len(purged),
+                "installed_sync": sync}

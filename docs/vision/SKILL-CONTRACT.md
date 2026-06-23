@@ -1,5 +1,5 @@
-<!-- doc-source: agency/_skill_parse.py agency/capabilities/plugin/clusters/lint.py agency/skill_emit.py Plan/draft/370-skill-system-v2/spec.md -->
-<!-- doc-hash: d0ed53cf0eb63094 -->
+<!-- doc-source: agency/_skill_parse.py agency/capabilities/plugin/clusters/lint.py agency/skill_emit.py Plan/done/370-skill-system-v2/spec.md -->
+<!-- doc-hash: 954aeb315aac828d -->
 # Agency skill contract v2 — the layered, per-type, self-contained skill
 
 > Doctrine reference for the Spec 370 skill-system-v2 program (Specs 371–378).

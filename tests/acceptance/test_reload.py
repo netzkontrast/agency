@@ -40,6 +40,7 @@ def test_agency_reload_picks_up_a_new_capability_mid_session(monkeypatch):
         # idempotent reload — nothing changes
         r0 = eng.reload()
         assert r0["reloaded"] and r0["added"] == [] and r0["removed"] == []
+        assert "installed_sync" in r0          # Spec 302 Slice 3 — sync reported
 
         # inject the probe cap into discovery, then reload mid-session. reload()
         # does `from .capabilities import discover_capabilities` at call time, so patching the
@@ -64,6 +65,90 @@ def test_agency_reload_picks_up_a_new_capability_mid_session(monkeypatch):
         monkeypatch.setattr(capmod, "discover_capabilities", real)
         r2 = eng.reload()
         assert "reloadprobe" in r2["removed"], r2
+    finally:
+        eng.memory.close()
+
+
+def test_reload_mirrors_a_drifted_installed_copy_and_reports_it(tmp_path):
+    """Spec 302 Slice 3 — the durable fix for the stale-MCP blocker: when the
+    server imports a non-editable INSTALLED copy that drifts behind the source
+    checkout, reload mirrors source→installed on disk and reports the sync."""
+    from agency._reload_sync import sync_installed_from_source
+
+    src = tmp_path / "src" / "agency"
+    inst = tmp_path / "inst" / "agency"
+    (src / "capabilities").mkdir(parents=True)
+    (inst / "capabilities").mkdir(parents=True)
+    (src / "__init__.py").write_text("v = 2\n")
+    (inst / "__init__.py").write_text("v = 1\n")          # core file drifted
+    (src / "capabilities" / "newcap.py").write_text("x = 1\n")   # new capability
+
+    r = sync_installed_from_source(installed=inst, source=src)
+
+    assert r["synced"] is True, r
+    assert (inst / "capabilities" / "newcap.py").read_text() == "x = 1\n"  # mirrored
+    assert (inst / "__init__.py").read_text() == "v = 2\n"                 # updated
+    assert "__init__.py" in r["changed"]
+    assert r["core_changed"] is True          # __init__.py is outside capabilities/
+
+
+def test_reload_sync_capabilities_only_change_is_not_a_core_change(tmp_path):
+    """A new/edited CAPABILITY file alone never forces a restart — it hot-reloads
+    in process; only changes OUTSIDE ``capabilities/`` set ``core_changed``."""
+    from agency._reload_sync import sync_installed_from_source
+
+    src = tmp_path / "src" / "agency"
+    inst = tmp_path / "inst" / "agency"
+    (src / "capabilities").mkdir(parents=True)
+    (inst / "capabilities").mkdir(parents=True)
+    (src / "__init__.py").write_text("same\n")
+    (inst / "__init__.py").write_text("same\n")
+    (src / "capabilities" / "adr.py").write_text("a = 1\n")    # capability-only
+
+    r = sync_installed_from_source(installed=inst, source=src)
+
+    assert r["synced"] is True and r["core_changed"] is False, r
+
+
+def test_reload_sync_is_a_noop_for_an_editable_install(tmp_path):
+    """source == installed (editable) — the common dev/CI case — never copies."""
+    from agency._reload_sync import sync_installed_from_source
+
+    pkg = tmp_path / "agency"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("x\n")
+
+    r = sync_installed_from_source(installed=pkg, source=pkg)
+
+    assert r["synced"] is False and r["reason"] == "editable-install", r
+
+
+def test_engine_reload_syncs_installed_and_signals_restart_on_core_change(
+        tmp_path, monkeypatch):
+    """End-to-end: a CORE drift makes ``Engine.reload`` update the installed copy
+    on disk AND return ``restart_required`` WITHOUT purging the live registry
+    (the skew that the manual fix proved an in-process reload cannot bridge)."""
+    import agency._reload_sync as rs
+    from agency.engine import Engine
+
+    src = tmp_path / "src" / "agency"
+    inst = tmp_path / "inst" / "agency"
+    (src / "capabilities").mkdir(parents=True)
+    (inst / "capabilities").mkdir(parents=True)
+    (src / "__init__.py").write_text("v = 2\n")
+    (inst / "__init__.py").write_text("v = 1\n")          # core drift
+    monkeypatch.setattr(rs, "installed_package_dir", lambda: inst)
+    monkeypatch.setattr(rs, "source_package_dir", lambda: src)
+
+    eng = Engine(tempfile.mktemp(suffix=".db"))
+    eng.build_mcp(codemode=True)
+    try:
+        names_before = set(eng.registry.names())
+        r = eng.reload()
+        assert r.get("restart_required") is True, r
+        assert r["installed_sync"]["core_changed"] is True, r
+        assert (inst / "__init__.py").read_text() == "v = 2\n"   # installed updated
+        assert set(eng.registry.names()) == names_before         # registry intact
     finally:
         eng.memory.close()
 
