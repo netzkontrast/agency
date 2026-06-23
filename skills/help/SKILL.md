@@ -94,7 +94,7 @@ agency execute --code \
 - **select** — archetypes, route
 - **shell** — define, define_profile, filter, run, templates
 - **skill_generator** — author, generate, ground
-- **skills** — find, index, lint, rank, render
+- **skills** — find, index, lint, rank, render, source
 - **subagent** — develop
 - **symbols** — compress, expand, legend
 - **thinking** — apply_full_review, assumptions, decompose, first_principles, inversion, premortem, red_team, second_order, socratic, steelman, tradeoffs
