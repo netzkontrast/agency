@@ -251,7 +251,10 @@ def test_agency_doctor_reports_host_block() -> None:
 
     res = asyncio.run(main())
     host = res.structured_content["host"]
-    assert set(host) == {"sampling", "elicitation", "sampling_enabled"}
+    assert set(host) == {"sampling", "elicitation", "sampling_enabled", "note"}
     assert host["sampling_enabled"] is False          # flag honoured
     assert host["sampling"] is False                  # flag off ⇒ never samples
+    # Spec 390 — the host block is HONEST that capability is advertised, not
+    # guaranteed: a declined request falls back to an input-required pause.
+    assert "input-required" in host["note"] and "advertised" in host["note"]
     e.memory.close()

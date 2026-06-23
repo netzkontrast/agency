@@ -208,14 +208,25 @@ cannot `await` the host, so even with `can_sample:true` the walker takes the
 to nested invokes) — so it is NOT a threading bug; it is the **sync-verb / async-host
 impedance**.
 
-**Design for Spec B:** bridge the async host call from the sync walker. FastMCP runs a
-sync tool `impl` in a worker thread, so the verb can hop back to the running event loop —
-`anyio.from_thread.run(host.sample_coro, …)` (or `asyncio.run_coroutine_threadsafe`
-against the loop captured at `bind_host_context`). Add a SYNC `host.sample_sync()` /
-`elicit_sync()` on `HostBridge` that does the from-thread hop; the walker calls those.
-Guard: when not run from a worker thread (CLI/tests), keep the current fallback. TDD with
-a fake host Context that records the round-trip. **Architecturally significant → but
-covered by the owner's standing approval (PR is the gate).**
+**RESOLVED → Spec 391 (DONE).** Investigation overturned the "walker bug" framing:
+the sync↔async bridge ALREADY exists (Spec 285 — `HostBridge.sample`/`elicit` are sync
+and bridge via `anyio.from_thread.run`), and `develop._sample_phase`/`_assumption_gate`
+already advance the walk with a capable host — **proven** by `tests/test_skill_walk_part_b.py`
+(`test_sample_phase_advances_with_host`). Live, `skill_walk` falls back to `input-required`
+because THIS client declines server-initiated `ctx.sample()`; `can_sample()` is optimistic.
+That is correct graceful degradation. The REAL defect was a **misleading signal**:
+`agency_doctor` reported `sampling:true` with no honesty that it's advertised-not-guaranteed.
+
+**Spec 391 shipped:** `agency_doctor` host block gains an honest `note` (advertised;
+verified at call time; declines fall back to `input-required`); `using-agency` documents
+the **`input-required`/resume** cycle as the *universal* mid-chain interaction (works on
+every client; server-initiated sample/elicit is the inline optimisation). TDD:
+`test_host_bridge` + `test_skill_walk_part_b` (20) green. Moved to `Plan/done/391` +
+architecture rebuilt.
+
+**Acceptance implication:** the elicit/sample requirement is met by the
+`input-required`→resume round-trip (zero-error, client-independent) PLUS the proven
+server-initiated mechanism — the independent verifier exercises the former live.
 
 ---
 

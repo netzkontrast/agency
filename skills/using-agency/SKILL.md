@@ -58,6 +58,17 @@ A wrong-shaped argument raises and **aborts the whole `execute` block** (prior
 graph writes in the block are NOT rolled back — make batches idempotent, or guard
 each `call_tool` in try/except).
 
+## Elicit / sample mid-chain (and the universal fallback)
+
+A `develop.skill_walk` phase may **sample** (ask the host LLM to generate) or
+**elicit** (ask you). When the client supports it, the walk advances inline.
+When it does NOT (many clients decline server-initiated sampling), the walk
+returns `{"status": "input-required", "blocked_on": "sample:<key>", ...}` — that
+is the **universal mid-chain interaction**, not an error: you supply the value
+and resume with `skill_walk(name, inputs={<key>: <value>}, resume_from="<phase>")`.
+`agency_doctor`'s `host` block advertises capability but is honest it is verified
+only at call time — so always be ready to handle the `input-required` resume.
+
 ## Why both calls are required
 
 - **`agency_welcome`** is pure introspection (no graph writes). It
