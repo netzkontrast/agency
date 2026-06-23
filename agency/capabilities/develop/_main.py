@@ -49,14 +49,29 @@ DEV_SKILLS = {
         # the agent's to fill (the design judgement the walk preserves).
         _phase(1, "explore", ["questions", "assumptions"],
                verbs=["intent.decompose", "intent.assumptions", "intent.first_principles"],
+               goal="Surface the sharpest open questions and the load-bearing assumptions.",
+               instructions="List the questions whose answers would CHANGE the design, and "
+                            "name the assumptions the plan rests on. When a sampling host is "
+                            "bound the engine drafts the questions — refine them, don't "
+                            "rubber-stamp; the assumptions are yours to state.",
+               freedom="high",
                sample={"produces_key": "questions",
                        "system": "You are a rigorous design partner. List the "
                                  "sharpest open questions for the stated intent.",
                        "prompt": "Enumerate the key open questions to resolve "
                                  "before designing this. One per line."}),
         _phase(2, "present", ["design", "tradeoffs"],
-               verbs=["intent.tradeoffs", "intent.steelman", "intent.second_order"]),
-        _phase(3, "confirm", ["user_confirmed"], gate="hard"),
+               verbs=["intent.tradeoffs", "intent.steelman", "intent.second_order"],
+               goal="Present 2–3 design options with their tradeoffs.",
+               instructions="For each viable approach, state the tradeoff and the "
+                            "second-order consequence; steelman the one you'd reject. "
+                            "Recommend one — a brainstorm ends in a direction, not a menu.",
+               freedom="medium"),
+        _phase(3, "confirm", ["user_confirmed"], gate="hard",
+               goal="Get the owner's design decision before building.",
+               instructions="Present the recommendation and proceed ONLY on explicit "
+                            "confirmation. The design call is the owner's, not the agent's.",
+               freedom="low"),
     ]},
     "plan": {"name": "plan", "kind": "discipline", "phases": [
         # Spec 378 — inline phase content (A1/A6) for the planning discipline.
@@ -170,19 +185,49 @@ DEV_SKILLS = {
     ]},
     "spec-panel": {"name": "spec-panel", "kind": "discipline", "phases": [
         _phase(1, "review", ["expert_findings"],
-               verbs=["intent.steelman", "intent.assumptions", "intent.premortem"]),
-        _phase(2, "synthesize", ["revised_spec"], verbs=["intent.tradeoffs"]),
-        _phase(3, "approve", ["user_confirmed"], gate="hard"),
+               verbs=["intent.steelman", "intent.assumptions", "intent.premortem"],
+               goal="Convene the expert panel over the spec.",
+               instructions="Run the critical-thinking methods as panel voices — steelman "
+                            "the design, list its assumptions, pre-mortem its failure modes "
+                            "— and capture each expert's findings against the spec.",
+               freedom="medium"),
+        _phase(2, "synthesize", ["revised_spec"], verbs=["intent.tradeoffs"],
+               goal="Fold the findings into a revised spec.",
+               instructions="Resolve the panel's findings into concrete spec edits; where "
+                            "experts disagree, weigh the tradeoff and decide. The output is "
+                            "a sharper spec, not a list of comments.",
+               freedom="medium"),
+        _phase(3, "approve", ["user_confirmed"], gate="hard",
+               goal="Owner sign-off on the revised spec.",
+               instructions="Present the revised spec and proceed ONLY on explicit "
+                            "confirmation.",
+               freedom="low"),
     ]},
     # the dispatch phase is BOUND to delegate.fan_out: walking review with a
     # registry dispatches a reviewer for real (a child Lifecycle + Invocation);
     # without one it degrades to a document phase.
     "review": {"name": "review", "kind": "discipline", "phases": [
-        _phase(1, "request", ["context", "diff"]),
+        _phase(1, "request", ["context", "diff"],
+               goal="Frame what to review and gather the diff.",
+               instructions="State the scope and the acceptance to review AGAINST, then "
+                            "collect the diff + context the reviewer needs. A review with "
+                            "no stated bar drifts into bikeshedding.",
+               freedom="medium"),
         {"index": 2, "name": "dispatch", "produces": ["findings"],
          "invoke": {"capability": "delegate", "verb": "fan_out"},
-         "inputs": ["driver", "driver_verb", "items"]},
-        _phase(3, "resolve", ["addressed"], gate="hard"),
+         "inputs": ["driver", "driver_verb", "items"],
+         "goal": "Dispatch a reviewer over the diff.",
+         "instructions": ("The walker dispatches a reviewer via delegate.fan_out (a child "
+                          "Lifecycle + Invocation); with no driver it degrades to a document "
+                          "phase. Review for correctness first, then the Iron Law "
+                          "(over-engineering, duplication)."),
+         "freedom": "medium"},
+        _phase(3, "resolve", ["addressed"], gate="hard",
+               goal="Work through the findings with technical rigor.",
+               instructions="Triage each finding; FIX it or justify skipping with a "
+                            "technical reason — never performative agreement. Confirm this "
+                            "gate only when every blocking finding is addressed.",
+               freedom="low"),
     ]},
     # executing-plans: walk a written plan's steps with review checkpoints, never
     # claiming done without a final verification gate.

@@ -67,6 +67,12 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'authoring-capabilities', 'inputs': {}, 'intent_id': '…'})`
 - **`brainstorm`** (discipline): explore → present → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'brainstorm', 'inputs': {}, 'intent_id': '…'})`
+  1. **explore** — Surface the sharpest open questions and the load-bearing assumptions.
+     List the questions whose answers would CHANGE the design, and name the assumptions the plan rests on. When a sampling host is bound the engine drafts the questions — refine them, don't rubber-stamp; the assumptions are yours to state.
+  2. **present** — Present 2–3 design options with their tradeoffs.
+     For each viable approach, state the tradeoff and the second-order consequence; steelman the one you'd reject. Recommend one — a brainstorm ends in a direction, not a menu.
+  3. **confirm** — Get the owner's design decision before building.
+     Present the recommendation and proceed ONLY on explicit confirmation. The design call is the owner's, not the agent's.
 - **`debug`** (discipline): gather → hypothesize → trace → fix
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'debug', 'inputs': {}, 'intent_id': '…'})`
   1. **gather** — Collect the hard evidence before theorising.
@@ -113,10 +119,22 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'quality-test', 'inputs': {}, 'intent_id': '…'})`
 - **`review`** (discipline): request → dispatch → resolve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'review', 'inputs': {}, 'intent_id': '…'})`
+  1. **request** — Frame what to review and gather the diff.
+     State the scope and the acceptance to review AGAINST, then collect the diff + context the reviewer needs. A review with no stated bar drifts into bikeshedding.
+  2. **dispatch** — Dispatch a reviewer over the diff.
+     The walker dispatches a reviewer via delegate.fan_out (a child Lifecycle + Invocation); with no driver it degrades to a document phase. Review for correctness first, then the Iron Law (over-engineering, duplication).
+  3. **resolve** — Work through the findings with technical rigor.
+     Triage each finding; FIX it or justify skipping with a technical reason — never performative agreement. Confirm this gate only when every blocking finding is addressed.
 - **`session-driver-pass`** (workflow): init → mode-select → work-loop → synthesize → archive
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'session-driver-pass', 'inputs': {}, 'intent_id': '…'})`
 - **`spec-panel`** (discipline): review → synthesize → approve
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'spec-panel', 'inputs': {}, 'intent_id': '…'})`
+  1. **review** — Convene the expert panel over the spec.
+     Run the critical-thinking methods as panel voices — steelman the design, list its assumptions, pre-mortem its failure modes — and capture each expert's findings against the spec.
+  2. **synthesize** — Fold the findings into a revised spec.
+     Resolve the panel's findings into concrete spec edits; where experts disagree, weigh the tradeoff and decide. The output is a sharper spec, not a list of comments.
+  3. **approve** — Owner sign-off on the revised spec.
+     Present the revised spec and proceed ONLY on explicit confirmation.
 - **`tdd`** (discipline): red → green → refactor → verify
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'tdd', 'inputs': {}, 'intent_id': '…'})`
   1. **red** — Write ONE failing test that pins the behaviour before any production code.

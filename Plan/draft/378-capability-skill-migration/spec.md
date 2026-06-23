@@ -79,8 +79,25 @@ Done (file:line evidence):
   2/2 green; 41 across migration/skill_walk/render/lint + 28 develop green;
   install regen + check-drift clean.
 
+**Slice 2 — SHIPPED: the core SDLC develop disciplines (brainstorm · review ·
+spec-panel), phase-filled (A1/A6).**
+
+Done (file:line evidence):
+- `agency/capabilities/develop/_main.py` — `brainstorm` (explore/present/confirm —
+  preserving its generative `sample` + verb cues), `review` (request/dispatch/
+  resolve — including inline content on the `delegate.fan_out`-bound dispatch
+  phase) and `spec-panel` (review/synthesize/approve) gained full `goal`/
+  `instructions`/`freedom`. Real discipline judgment (design-options-not-a-menu,
+  fix-or-justify-never-performative, panel-voices-as-methods). With tdd + the Slice
+  1 four, the **seven core SDLC develop disciplines are now self-contained**.
+- `skills/develop/SKILL.md` — regenerated: those walk rows inline the new content
+  (A2 parity).
+- Tests: a Slice 2 scenario — brainstorm/review/spec-panel each pass
+  `lint_skill_schema` with no `phase-self-contained` violation (rule 8). 3/3
+  migration green; 62 across migration/skill_walk/develop/render; check-drift clean.
+
 Still:
-- **Slice 2** — the remaining develop disciplines + other meta/substrate caps;
-  a domain-cap A6 exemplar (music/novel).
-- **Slice 3** — widen the lint gate (377) to block the compliant disciplines
-  (warn the rest); prune the legacy single-template path when all are green.
+- **Slice 3** — the remaining develop disciplines (the `quality-*` family,
+  loop-design, plan-execute) + an optional domain-cap A6 exemplar; widen the lint
+  gate (377) to block the compliant disciplines (warn the rest); prune the legacy
+  single-template path when all are green.

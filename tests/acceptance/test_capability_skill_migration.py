@@ -13,6 +13,7 @@ from pytest_bdd import parsers, scenarios, then, when
 scenarios("features/capability_skill_migration.feature")
 
 _CORE_DISCIPLINES = ("debug", "verify", "plan", "execute")
+_SDLC_DISCIPLINES = ("brainstorm", "review", "spec-panel")
 
 
 def _schema(engine, name):
@@ -26,6 +27,17 @@ def _schema(engine, name):
 def _lint_core(engine, confirmed_intent):
     out = {}
     for name in _CORE_DISCIPLINES:
+        raw, _ = engine.registry.invoke(
+            engine.memory, confirmed_intent, "plugin", "lint_skill_schema",
+            skill=_schema(engine, name))
+        out[name] = raw["result"] if isinstance(raw, dict) and "result" in raw else raw
+    return out
+
+
+@when("I strict-lint the SDLC develop disciplines", target_fixture="disc_lints")
+def _lint_sdlc(engine, confirmed_intent):
+    out = {}
+    for name in _SDLC_DISCIPLINES:
         raw, _ = engine.registry.invoke(
             engine.memory, confirmed_intent, "plugin", "lint_skill_schema",
             skill=_schema(engine, name))

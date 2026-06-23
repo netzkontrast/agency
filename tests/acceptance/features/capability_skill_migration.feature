@@ -19,3 +19,11 @@ Feature: Capability skill migration — phase-fill + A6 (Spec 378 Slice 1)
   Scenario: an enriched discipline renders its phase instructions (A2 parity)
     When the install files are generated
     Then the rendered develop skill inlines the enriched "debug" phase instructions
+
+  # ── Spec 378 Slice 2 — the core SDLC disciplines ──────────────────────────────
+
+  Scenario: the core SDLC develop disciplines are self-contained after phase-fill
+    When I strict-lint the SDLC develop disciplines
+    Then the "brainstorm" discipline is self-contained
+    And the "review" discipline is self-contained
+    And the "spec-panel" discipline is self-contained
