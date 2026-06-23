@@ -39,13 +39,33 @@ _DISPATCHING_PARALLEL_SKILL = {
                      "pattern": r"parallel|independent|fan.?out|multiple (domains|tasks)",
                      "confidence": 0.7},
     "phases": [
+        # Spec 378 — inline phase content (A1/A6) for parallel fan-out.
         {"index": 1, "name": "partition",
          "produces": ["independent_domains"],            # 2+ NON-overlapping problem domains
-         "verbs": ["delegate.dispatch_decision"]},       # confirm dispatch beats inline first
+         "verbs": ["delegate.dispatch_decision"],        # confirm dispatch beats inline first
+         "goal": "Split the work into independent domains.",
+         "instructions": "Identify 2+ NON-overlapping problem domains that can proceed "
+                         "without shared state. First confirm dispatch beats inline (walk "
+                         "dispatch-decision) — parallelism only pays when the domains are "
+                         "genuinely independent.",
+         "freedom": "medium"},
         {"index": 2, "name": "dispatch", "produces": ["delegations"],
-         "verbs": ["delegate.fan_out"]},
-        {"index": 3, "name": "join", "produces": ["results"], "verbs": ["delegate.join"]},
-        {"index": 4, "name": "synthesize", "produces": ["merged_result"], "gate": "hard"},
+         "verbs": ["delegate.fan_out"],
+         "goal": "Fan out one worker per domain.",
+         "instructions": "delegate.fan_out a worker per independent domain; each gets a "
+                         "self-contained task and does not coordinate mid-flight.",
+         "freedom": "medium"},
+        {"index": 3, "name": "join", "produces": ["results"], "verbs": ["delegate.join"],
+         "goal": "Collect every worker's result.",
+         "instructions": "delegate.join — wait for ALL workers; collect results + failures. "
+                         "A partial join is a failed fan-out, not a success.",
+         "freedom": "low"},
+        {"index": 4, "name": "synthesize", "produces": ["merged_result"], "gate": "hard",
+         "goal": "Merge the results into one coherent output.",
+         "instructions": "Reconcile the workers' outputs and resolve conflicts at the "
+                         "seams. Confirm this gate only when the merged result is coherent "
+                         "— not merely concatenated.",
+         "freedom": "medium"},
     ],
 }
 
@@ -54,6 +74,7 @@ _DISPATCH_DECISION_SKILL = {
     "name": "dispatch-decision",
     "kind": "discipline",
     "phases": [
+        # Spec 378 — inline phase content (A1/A6) for the 11-signal heuristic.
         _phase(1, "estimate-tokens-and-cache", [
             "expected_return_tokens",  # int — subagent return-payload tokens (Spec 040 S1)
             "mutates",                 # bool — task writes graph/disk/external state (S6)
@@ -62,23 +83,48 @@ _DISPATCH_DECISION_SKILL = {
             "context_overlap",         # float 0..1 — parent already-loaded fraction (S9)
             "cache_warmth",            # float 0..1 — prompt-cache hit ratio (S10)
             "local_budget_relevant",   # bool — does this dispatch consume local budget (S11)
-        ]),
+        ],
+            goal="Estimate the token + cost-model signals (S1, S6–S11).",
+            instructions="Estimate the return-token size, whether the task mutates / is "
+                         "read-only, any driver hint, and the cache signals (context "
+                         "overlap, cache warmth, local-budget relevance). These feed the "
+                         "cost half of the heuristic.",
+            freedom="low"),
         _phase(2, "estimate-shape", [
             "file_count",          # int — files the orchestrator has NOT seen (S2)
             "exploration_needed",  # bool — repeated grep/find through unfamiliar subtree (S3)
             "parallelism",         # int — sibling tasks that would dispatch together (S4)
             "est_duration_min",    # int — wall-clock when done inline (S5)
-        ]),
+        ],
+            goal="Estimate the work-shape signals (S2–S5).",
+            instructions="Count the unfamiliar files, whether repeated exploration is "
+                         "needed, parallel siblings, and the inline wall-clock. These are "
+                         "the work-shape inputs.",
+            freedom="low"),
         _phase(3, "apply-heuristic", [
             "recommendation",      # "inline" | "dispatch"
             "driver",              # "inline" | "local" | "jules" | "mcp"
             "rationale",           # one-paragraph why
             "signals_fired",       # list[str] — which of the 11 swung the decision
-        ]),
+        ],
+            goal="Apply the eleven-signal heuristic.",
+            instructions="Run the two disqualifiers FIRST, then score the signals → a "
+                         "recommendation + driver + rationale + which signals fired. Name "
+                         "the signals; don't hand-wave the call.",
+            freedom="low"),
         _phase(4, "assemble-bash-hints", [
             "bash_hints",          # list[str] — grep/sed/find cmds; empty when inline
-        ]),
-        _phase(5, "decide", ["decision"], gate="hard"),  # "inline" | "dispatch"
+        ],
+            goal="Assemble bash hints for the chosen path.",
+            instructions="If dispatching, assemble the grep/sed/find hints the worker "
+                         "needs to find its way; leave empty when the call is inline.",
+            freedom="low"),
+        _phase(5, "decide", ["decision"], gate="hard",  # "inline" | "dispatch"
+            goal="Commit to inline vs dispatch.",
+            instructions="State the final decision (inline | dispatch) with its driver. "
+                         "Confirm this gate only when the rationale is grounded in the "
+                         "fired signals, not a hunch.",
+            freedom="low"),
     ],
 }
 

@@ -37,6 +37,48 @@ from ..._loop import LOOP_DESIGN_SKILL          # Spec 367 — loop-design wizar
 PLAN_STEP_STATES = frozenset({"pending", "done", "blocked", "skipped"})
 
 
+def _quality_phases(decidable_verbs, *, remedy=False):
+    """Spec 378 — the shared phase content for the six quality-mode disciplines
+    (Spec 380). Every mode has the SAME shape (scope → decidable → judgment[Iron
+    Law hard gate] → score-report [→ remedy]); only the decidable axes differ. So
+    the inline instructions (A1) live ONCE here (rule 2 — no six near-identical
+    copies), parameterised by the mode's analyze.* verbs."""
+    phases = [
+        _phase(1, "scope", ["scope_line"],
+               goal="Name what's under review and the axes that apply.",
+               instructions="State the path/diff under review and the quality axes in "
+                            "scope. A scoped review beats boil-the-ocean — pick the "
+                            "surface that matters.",
+               freedom="medium"),
+        _phase(2, "decidable", ["decidable_findings"], verbs=list(decidable_verbs),
+               goal="Run the decidable analyzers over the scope.",
+               instructions="Run the analyze.* axes for this mode and collect the "
+                            "DECIDABLE findings (rule-based, reproducible) — not opinions. "
+                            "These are the evidence the judgment phase reasons over.",
+               freedom="low"),
+        _phase(3, "judgment", ["iron_law_findings"], gate="hard",
+               goal="Apply the Iron Law to the findings.",
+               instructions="For every risk-coded finding, confirm it names a CONSEQUENCE "
+                            "and a REMEDY (the brooks Iron Law). Confirm this gate only "
+                            "when each finding is actionable, not merely flagged.",
+               freedom="low"),
+        _phase(4, "score-report", ["report"],
+               goal="Score the findings and report.",
+               instructions="Roll the findings into a score plus a report the orchestrator "
+                            "can act on; lead with the blocking findings.",
+               freedom="medium"),
+    ]
+    if remedy:
+        phases.append(
+            _phase(5, "remedy", ["remedies_applied"], gate="hard",
+                   goal="Apply the safe remedies; gate the risky ones.",
+                   instructions="Apply the low-risk fixes the report identified; leave "
+                                "risky ones gated for human review. Re-run the analyzers "
+                                "to confirm the fixes held.",
+                   freedom="low"))
+    return phases
+
+
 DEV_SKILLS = {
     # Spec 092 G4 — the `intent` critical-thinking methods are surfaced as phase cues
     # at the step that needs them, so reasoning fires in the workflow instead of staying
@@ -267,15 +309,43 @@ DEV_SKILLS = {
     # the 11 signals.
     "plan-execute": {"name": "plan-execute", "kind": "discipline", "phases": [
         _phase(1, "frame", ["requirements"],
-               verbs=["intent.decompose", "intent.assumptions"]),
+               verbs=["intent.decompose", "intent.assumptions"],
+               goal="Frame the work: requirements + load-bearing assumptions.",
+               instructions="Decompose the goal into concrete requirements and name the "
+                            "assumptions they rest on. This frames every step that follows "
+                            "— a vague frame yields a vague plan.",
+               freedom="high"),
         {"index": 2, "name": "draft-plan", "produces": ["plan"],
          "invoke": {"capability": "develop", "verb": "draft_plan"},
-         "inputs": ["title", "steps"]},
-        _phase(3, "plan-signoff", ["user_confirmed"], gate="hard"),
+         "inputs": ["title", "steps"],
+         "goal": "Draft the plan as graph provenance (not a file).",
+         "instructions": ("The walker mints a Plan + PlanStep nodes SERVING the intent "
+                          "via develop.draft_plan (rule 2 — the plan is graph state, not a "
+                          "markdown file). Give an ordered, checkable step list."),
+         "freedom": "medium"},
+        _phase(3, "plan-signoff", ["user_confirmed"], gate="hard",
+               goal="Get sign-off on the plan before executing.",
+               instructions="Present the drafted plan and proceed ONLY on explicit owner "
+                            "confirmation.",
+               freedom="low"),
         _phase(4, "execute-step", ["step_results"],
-               verbs=["delegate.dispatch_decision"]),
-        _phase(5, "checkpoint", ["reviewed"], gate="hard"),
-        _phase(6, "synthesize", ["summary"], gate="hard"),
+               verbs=["delegate.dispatch_decision"],
+               goal="Execute the next step — inline or delegated.",
+               instructions="Walk dispatch-decision (the 11 signals) to choose inline vs "
+                            "subagent/Jules for this step, then do exactly that one step. "
+                            "Record its result against the PlanStep.",
+               freedom="medium"),
+        _phase(5, "checkpoint", ["reviewed"], gate="hard",
+               goal="Review the step before moving on.",
+               instructions="Compare the step's result to its acceptance; fix drift before "
+                            "the next step. Confirm only when the step genuinely met its goal.",
+               freedom="low"),
+        _phase(6, "synthesize", ["summary"], gate="hard",
+               goal="Synthesise the run and verify the whole.",
+               instructions="Roll the step results into a summary and verify every "
+                            "requirement from the frame is met — COMPLETED is not done "
+                            "until the whole plan's acceptance holds.",
+               freedom="low"),
     ]},
     # Plan/024 PR-A — capability authoring: scaffold then lint behind a
     # hard gate. Phase 2 + 4 are BOUND (the walker runs the verbs, not
@@ -301,51 +371,23 @@ DEV_SKILLS = {
     # HARD GATE: all(f.consequence and f.remedy for f in findings if f.risk_code))
     # → score-report (381) → [remedy: sweep only].
     # Guidance prose rendered from develop/templates/quality-{mode}.md (Spec 384).
-    "quality-review": {"name": "quality-review", "kind": "discipline", "phases": [
-        _phase(1, "scope",        ["scope_line"]),
-        _phase(2, "decidable",    ["decidable_findings"],
-               verbs=["analyze.quality", "analyze.architecture"]),
-        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
-        _phase(4, "score-report", ["report"]),
-    ]},
-    "quality-audit": {"name": "quality-audit", "kind": "discipline", "phases": [
-        _phase(1, "scope",        ["scope_line"]),
-        _phase(2, "decidable",    ["decidable_findings"],
-               verbs=["analyze.architecture", "analyze.quality"]),
-        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
-        _phase(4, "score-report", ["report"]),
-    ]},
-    "quality-debt": {"name": "quality-debt", "kind": "discipline", "phases": [
-        _phase(1, "scope",        ["scope_line"]),
-        _phase(2, "decidable",    ["decidable_findings"],
-               verbs=["analyze.quality", "analyze.performance"]),
-        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
-        _phase(4, "score-report", ["report"]),
-    ]},
-    "quality-test": {"name": "quality-test", "kind": "discipline", "phases": [
-        _phase(1, "scope",        ["scope_line"]),
-        _phase(2, "decidable",    ["decidable_findings"],
-               verbs=["analyze.quality", "analyze.security"]),
-        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
-        _phase(4, "score-report", ["report"]),
-    ]},
-    "quality-health": {"name": "quality-health", "kind": "discipline", "phases": [
-        _phase(1, "scope",        ["scope_line"]),
-        _phase(2, "decidable",    ["decidable_findings"],
-               verbs=["analyze.quality", "analyze.security",
-                      "analyze.performance", "analyze.architecture"]),
-        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
-        _phase(4, "score-report", ["report"]),
-    ]},
-    "quality-sweep": {"name": "quality-sweep", "kind": "discipline", "phases": [
-        _phase(1, "scope",        ["scope_line"]),
-        _phase(2, "decidable",    ["decidable_findings"],
-               verbs=["analyze.quality", "analyze.security",
-                      "analyze.performance", "analyze.architecture"]),
-        _phase(3, "judgment",     ["iron_law_findings"], gate="hard"),
-        _phase(4, "score-report", ["report"]),
-        _phase(5, "remedy",       ["remedies_applied"], gate="hard"),
-    ]},
+    # Spec 378 — the six quality modes share ONE phase-content source
+    # (`_quality_phases`, rule 2); only the decidable axes differ per mode.
+    "quality-review": {"name": "quality-review", "kind": "discipline",
+                       "phases": _quality_phases(["analyze.quality", "analyze.architecture"])},
+    "quality-audit": {"name": "quality-audit", "kind": "discipline",
+                      "phases": _quality_phases(["analyze.architecture", "analyze.quality"])},
+    "quality-debt": {"name": "quality-debt", "kind": "discipline",
+                     "phases": _quality_phases(["analyze.quality", "analyze.performance"])},
+    "quality-test": {"name": "quality-test", "kind": "discipline",
+                     "phases": _quality_phases(["analyze.quality", "analyze.security"])},
+    "quality-health": {"name": "quality-health", "kind": "discipline",
+                       "phases": _quality_phases(["analyze.quality", "analyze.security",
+                                                  "analyze.performance", "analyze.architecture"])},
+    "quality-sweep": {"name": "quality-sweep", "kind": "discipline",
+                      "phases": _quality_phases(["analyze.quality", "analyze.security",
+                                                 "analyze.performance", "analyze.architecture"],
+                                                remedy=True)},
 }
 
 

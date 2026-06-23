@@ -40,3 +40,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`subagent-driven-development`** (discipline): write-spec → dispatch → spec-review → code-review
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'subagent-driven-development', 'inputs': {}, 'intent_id': '…'})`
+  1. **write-spec** — Write a self-contained task spec for the subagent.
+     Spell out the task so a fresh subagent succeeds with NO parent context — goal, acceptance, the files in scope, and what NOT to touch. A vague spec yields a vague implementation.
+  2. **dispatch** — Dispatch the subagent to implement the spec.
+     subagent.develop the spec as a child run; the subagent returns an implementation, not a conversation. Only the result crosses back.
+  3. **spec-review** — Check the implementation against the spec.
+     Verify the implementation does what the SPEC asked — scope, acceptance. A soft gate: note gaps, but the code-review gate is the hard one.
+  4. **code-review** — Review the code for correctness + the Iron Law.
+     Review for correctness first, then over-engineering / duplication (the Iron Law). Confirm this hard gate only when the code is genuinely mergeable.

@@ -549,15 +549,49 @@ LOOP_DESIGN_SKILL: dict[str, Any] = {
                      "pattern": r"design.*loop|loop.?design|agent.*loop|looper",
                      "confidence": 0.8},
     "phases": [
-        phase(1, "goal", produces=["goal_id"], verbs=["intent.capture", "intent.confirm"]),
-        phase(2, "verification", produces=["criteria"], verbs=["gate.check"]),
-        phase(3, "host", produces=["host"], verbs=["persona.create"]),
+        # Spec 378 — inline phase content (A1/A6) for the looper design wizard.
+        phase(1, "goal", produces=["goal_id"], verbs=["intent.capture", "intent.confirm"],
+              goal="Capture and confirm the loop's objective.",
+              instructions="State what the loop must ACHIEVE (not how it iterates) and "
+                           "confirm it as an intent — every later phase serves this goal.",
+              freedom="high"),
+        phase(2, "verification", produces=["criteria"], verbs=["gate.check"],
+              goal="Define the criteria that decide pass vs revise.",
+              instructions="Name the checkable criteria each iteration is judged against "
+                           "(the gate predicates). A loop with no verification can't know "
+                           "when it's done — or when to revise.",
+              freedom="medium"),
+        phase(3, "host", produces=["host"], verbs=["persona.create"],
+              goal="Choose the host that runs each iteration.",
+              instructions="Select/declare the host persona that executes the loop body "
+                           "and the family it belongs to (local agent, subagent, Jules).",
+              freedom="medium"),
         phase(4, "council", produces=["council"], gate="hard",
-              verbs=["persona.create", "panel.convene"]),
-        phase(5, "control", produces=["loop_id"], gate="hard", verbs=["lifecycle.open"]),
+              verbs=["persona.create", "panel.convene"],
+              goal="Seat a verdict source for every revise-until-clean gate.",
+              instructions="Every revise gate needs a verdict source — a judge member or "
+                           "a human criterion (Spec 365). Confirm this gate only when each "
+                           "gate has one; a gate with no judge loops forever.",
+              freedom="medium"),
+        phase(5, "control", produces=["loop_id"], gate="hard", verbs=["lifecycle.open"],
+              goal="Declare the termination guards and open the loop.",
+              instructions="Declare at least one termination guard (max_iterations, budget, "
+                           "or no-progress stall) — a guard-free loop is REFUSED (Spec 366). "
+                           "Open the loop lifecycle. Confirm only when a guard is present.",
+              freedom="low"),
         phase(6, "confirm", produces=["preview_ok"], requires_input=["preview_ok"],
-              verbs=["_loop.preview"]),
-        phase(7, "emit", produces=["emitted"], verbs=["_loop.emit"]),
+              verbs=["_loop.preview"],
+              goal="Preview the resolved loop before emission.",
+              instructions="Render the preview (states + criteria + council + stops, "
+                           "DERIVED from the machine so it can't drift) and review it. The "
+                           "phase pauses for your preview_ok — don't rubber-stamp.",
+              freedom="low"),
+        phase(7, "emit", produces=["emitted"], verbs=["_loop.emit"],
+              goal="Emit the portable loop artefacts.",
+              instructions="Compile the resolved loop and emit its portable files. The "
+                           "emitted loop is what actually runs — verify it matches the "
+                           "preview.",
+              freedom="low"),
     ],
 }
 

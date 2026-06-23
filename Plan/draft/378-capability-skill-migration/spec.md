@@ -96,8 +96,74 @@ Done (file:line evidence):
   `lint_skill_schema` with no `phase-self-contained` violation (rule 8). 3/3
   migration green; 62 across migration/skill_walk/develop/render; check-drift clean.
 
-Still:
-- **Slice 3** — the remaining develop disciplines (the `quality-*` family,
-  loop-design, plan-execute) + an optional domain-cap A6 exemplar; widen the lint
-  gate (377) to block the compliant disciplines (warn the rest); prune the legacy
-  single-template path when all are green.
+**Slice 3 — SHIPPED: the remaining develop disciplines — develop is now 16/16
+self-contained (A1).**
+
+Done (file:line evidence):
+- `agency/capabilities/develop/_main.py` — `_quality_phases(decidable_verbs,
+  remedy=)` is ONE shared phase-content source for the six quality modes (Spec 380;
+  identical scope→decidable→judgment[Iron Law]→score-report[→remedy] shape, only
+  the `analyze.*` axes differ) — the instructions live once (rule 2), not six
+  near-identical copies. `plan-execute` (frame/draft-plan/plan-signoff/execute-step/
+  checkpoint/synthesize, incl. the `develop.draft_plan`-bound + `dispatch_decision`
+  phases) gained full inline content.
+- `agency/_loop.py` — `LOOP_DESIGN_SKILL`'s seven phases (goal/verification/host/
+  council/control/confirm/emit) gained `goal`/`instructions`/`freedom` grounded in
+  the looper doctrine (verdict-source-per-gate, guard-free-loop-refused).
+- `skills/develop/SKILL.md` — regenerated (A2 parity for all the new content).
+- Tests: a Slice 3 scenario asserts EVERY develop discipline is self-contained
+  (derived from the live registry — rule 8); 4/4 migration green; 69 across
+  migration/skill_walk/develop/loop_wizard/render; check-drift clean.
+
+**Enforcement blast-radius (surveyed before any block flip).** ~14 disciplines
+across OTHER caps (analyze · delegate · discover · document · frugal · intent ·
+jules×6 · manage · mode · panel · persona · recommend · research · select · skills ·
+subagent · workflow) still lack instructions. A repo-wide block flip would break
+them all, so the gate stays GRADUATED — Slice 4 widens it to block the compliant
+(filled) disciplines + warn the rest; full repo-wide block waits until those caps
+are migrated (the owner can drive that incrementally; the gate now surfaces them).
+
+**Slice 4 — SHIPPED: the graduated discipline gate (block compliant, warn the tail).**
+
+Done (file:line evidence):
+- `agency/capabilities/plugin/clusters/lint.py` — `partition_discipline_lint(
+  disciplines, verbs_index)` lints every discipline and partitions it: `clean`
+  (self-contained AND passes), `blocked` (self-contained but FAILS another rule — a
+  regression on a migrated discipline → fail the gate), `warned` (not yet
+  self-contained — the migration tail, surfaced not fatal). `ok = not blocked`. The
+  block set **self-widens** — a discipline joins it the moment its phases gain
+  instructions (no manual list). Surfaced as `plugin.lint_disciplines()`.
+- `scripts/check-drift` — new section 2c runs the gate: `blocked` → DRIFT; `clean`
+  / `warned` counts printed; skips gracefully without the venv. Live: clean=16
+  (all develop), warned=23 (the cross-cap tail), blocked=0.
+- Tests: a Slice 4 scenario — no compliant discipline is blocked; every develop
+  discipline is reported clean; the migration tail is surfaced as warnings (all
+  derived from the live registry — rule 8). 5/5 migration green; 39 across
+  migration/plugin/skill_lint; install regen + check-drift clean.
+
+**Spec 378 substrate COMPLETE for the develop layer.** develop is 16/16
+self-contained; the gate enforces no regression on any migrated discipline and
+surfaces the 23-discipline cross-cap tail as warnings. The full repo-wide block
+flip is now a mechanical follow-on (fill each warned discipline's phase
+instructions — each auto-joins the gate as it lands); the owner can drive that
+capability-by-capability. The legacy single-template prune is 373 Slice 3's
+concern (per-type capability/discipline templates), tracked there.
+
+**A6 demonstrated** (acceptance #2): the develop disciplines are capability-authored
+richer skill data validating against the v2 schema the same as auto-derived —
+no duplicated committed file (rule 2).
+
+**Slice 5 — SHIPPED: the cross-capability "understand" cluster (gate auto-widens
+beyond develop).** `code-analysis` (analyze), `critical-thinking` (intent), and
+`guided-discovery` (discover) gained full inline phase content — proving the gate
+mechanism is NOT develop-specific: each moved warned→clean the moment its phases
+were filled, no gate edit. Gate now: clean=19, warned=20, blocked=0. A Slice 5
+scenario asserts all three are reported clean (derived from the live gate — rule 8).
+The remaining 20-discipline tail is the same mechanical fill, owner-drivable
+capability-by-capability; each auto-joins the gate as it lands.
+
+**Slice 6 — SHIPPED: the cross-cap dispatch cluster.** `dispatch-decision` +
+`dispatching-parallel-agents` (delegate) and `subagent-driven-development`
+(subagent) gained full inline phase content (the eleven-signal heuristic, fan-out/
+join, spec→dispatch→review). Gate now: clean=22, warned=17, blocked=0. The
+delegation/parallelism doctrine is now self-contained in the skills themselves.

@@ -1103,6 +1103,38 @@ def lint_skill_schema(skill: dict, verbs_index: dict | None = None) -> dict:
     return {"ok": not v, "violations": v}
 
 
+def partition_discipline_lint(disciplines: dict, verbs_index: dict) -> dict:
+    """Spec 378 Slice 4 — the graduated discipline gate. Lints every discipline and
+    partitions it by whether it has OPTED INTO the self-contained contract:
+
+    - ``clean``   — self-contained (every phase has `instructions`) AND passes lint.
+    - ``blocked`` — self-contained but FAILS another rule (no-stub / verb-resolves /
+                    schema): a regression on a migrated discipline — fail the gate.
+    - ``warned``  — not yet self-contained (the migration tail): surfaced, not fatal,
+                    until its capability is migrated (then it auto-joins the gate).
+
+    `disciplines`: ``{name: skill_dict}``. Returns ``{ok, clean, warned, blocked}``
+    where ``ok = not blocked`` (a filled discipline must stay compliant; an unfilled
+    one only warns). The set self-WIDENS — a discipline joins the block set the
+    moment its phases gain instructions, no manual list."""
+    clean: list[str] = []
+    warned: list[dict] = []
+    blocked: list[dict] = []
+    for name in sorted(disciplines):
+        skill = disciplines[name]
+        phases = skill.get("phases", [])
+        compliant = bool(phases) and all(
+            (p.get("instructions") or "").strip() for p in phases)
+        res = lint_skill_schema(skill, verbs_index=verbs_index)
+        if res["ok"]:
+            clean.append(name)
+        elif compliant:
+            blocked.append({"name": name, "violations": res["violations"]})
+        else:
+            warned.append({"name": name, "violations": res["violations"]})
+    return {"ok": not blocked, "clean": clean, "warned": warned, "blocked": blocked}
+
+
 # ---------------------------------------------------------------------------
 # The orchestrators — iterate the rule registries polymorphically.
 # ---------------------------------------------------------------------------
@@ -1199,6 +1231,27 @@ class LintMixin(CapabilityBase):
         verbs_index = {c: set(self.ctx.registry.get(c).verbs)
                        for c in self.ctx.registry.names()}
         return lint_skill_schema(skill, verbs_index=verbs_index)
+
+    @verb(role="transform")
+    def lint_disciplines(self) -> dict:
+        """The graduated discipline gate (Spec 378 Slice 4): strict-lint every
+        registered discipline, partitioned into clean / warned (the migration tail)
+        / blocked (a self-contained discipline that regressed).
+
+        Inputs: none.
+        Returns: ``{ok, clean: [name], warned: [{name, violations}],
+                 blocked: [{name, violations}]}`` — ``ok`` is False iff a
+                 self-contained discipline fails the contract.
+        chain_next: fix any ``blocked`` discipline; fill a ``warned`` one's phase
+                    instructions to move it into the gate.
+        """
+        from ...skills._main import _all_skills
+        skills = _all_skills(self.ctx.registry)
+        disciplines = {n: m["_schema"] for n, m in skills.items()
+                       if m["kind"] == "discipline"}
+        verbs_index = {c: set(self.ctx.registry.get(c).verbs)
+                       for c in self.ctx.registry.names()}
+        return partition_discipline_lint(disciplines, verbs_index)
 
     @verb(role="transform")
     def lint_capability(self, name: str) -> dict:

@@ -53,6 +53,16 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`critical-thinking`** (discipline): frame → surface → stress-test → weigh → decide
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'critical-thinking', 'inputs': {}, 'intent_id': '…'})`
+  1. **frame** — State the problem precisely before reasoning about it.
+     Decompose the intent into a sharp problem statement — what's actually being decided, and why now. A fuzzy frame produces fuzzy thinking.
+  2. **surface** — Surface the load-bearing assumptions.
+     List the assumptions the approach rests on — the ones that, if wrong, change the decision. Name them explicitly so they can be tested.
+  3. **stress-test** — Stress-test the approach against failure.
+     Pre-mortem it (how does it fail?), invert it (what must NOT happen?), and brooks-lint it (essential vs accidental complexity). Collect the failure modes the methods surface.
+  4. **weigh** — Weigh the tradeoffs and second-order effects.
+     For each viable option, state its tradeoff and its second-order consequence. The best first-order choice often loses on the second order.
+  5. **decide** — Commit to an approach with its rationale.
+     Choose, and state WHY this option beats the alternatives given the assumptions + tradeoffs. Confirm this gate only with a decision, not a shortlist.
 
 ## The Intent pillar (concept)
 

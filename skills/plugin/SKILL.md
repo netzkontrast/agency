@@ -27,6 +27,7 @@ Plugin ports the plugin-development craft into compute: scaffolds, skill and com
 | `author_skill` | act | Render a CSO-compliant SKILL.md. | [details](references/author_skill.md) |
 | `help` | transform | Map the engine's capabilities (macroskills) to their verbs — via ctx.registry. | [details](references/help.md) |
 | `lint_capability` | transform | Lint a capability against Hint #7 structural + role-tag + render-slice rules. | [details](references/lint_capability.md) |
+| `lint_disciplines` | transform | The graduated discipline gate (Spec 378 Slice 4): strict-lint every registered discipline, partitioned into clean / warned (the migration tail) / blocked (a self-contained discipline that regressed). | [details](references/lint_disciplines.md) |
 | `lint_explain` | transform | Return the rework recipe for a lint rule kind (Spec 074) — so you learn HOW to fix it. | [details](references/lint_explain.md) |
 | `lint_skill` | transform | Lint a skill description against the CSO + length rules. | [details](references/lint_skill.md) |
 | `lint_skill_schema` | transform | Strict per-type + self-containment + no-stub + verb-resolves lint over a 371 Skill dict (Spec 377) — beyond the SkillDoc shape ``lint_skill`` checks. | [details](references/lint_skill_schema.md) |
