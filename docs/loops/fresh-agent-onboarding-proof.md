@@ -4,12 +4,16 @@
 > **Provenance intent:** `intent:771b09a6` (agency graph, `.agency/session.db`).
 > **Output target:** PR #296 MERGED (Pass 1–4 doc fixes landed in `main`). Pass 5+
 > folds into a NEW PR from branch `claude/fresh-agent-onboarding-proof-t8ecjb`.
-> **Last checkpoint:** Pass 5 — **live MCP refresh ACHIEVED** (the lone open item):
-> root-caused the stale server to a non-editable pipx COPY, synced it from the repo,
-> restarted → live `agency_welcome` now serves **36** caps incl. workflow/adr/frugal/
-> loop. Shipped Spec 302 Slice 4: `reload()` now self-heals the installed copy every
-> reload (mirror source→install; restart-signal on core drift). Tests green.
-> **Next:** run the independent-verifier VERIFY pass on the fresh MCP (provenance-gated).
+> **Last checkpoint:** Pass 5 COMPLETE — **live MCP refresh ACHIEVED + VERIFY
+> ACCEPTED** (the lone open item is CLOSED). Root-caused the stale server to a
+> non-editable pipx COPY, synced from repo, restarted → live `agency_welcome` = **36**
+> caps incl. workflow/adr/frugal/loop. Shipped Spec 302 Slice 4: `reload()` self-heals
+> the installed copy every reload (mirror source→install; restart-signal on core drift).
+> An INDEPENDENT fresh subagent onboarded through the live MCP and exercised
+> workflow.board + adr.catalogue under `intent:7b359a01`; graph provenance
+> (`Invocation SERVES intent`) confirms the plugin was driven, not bypassed.
+> **Next (optional, future pass):** the minor bare-vs-prefixed tool-name doc note; or
+> pick up Spec 389 (derived-fence generator for reference docs).
 
 A copy-ready Loop Library loop that interconnects three published loops
 (#039 easy-onboarding, #001 docs-sweep, #010 full-product-evaluation) plus the
@@ -224,12 +228,40 @@ live process; capability-only edits hot-reload as before; no-op for editable
 installs. 4 new acceptance scenarios; `check-drift` clean. (Full rationale: Spec
 302 `## Followup — Slice 4`.)
 
-→ **NEXT ACTION (resume here):** activate the new reload live (re-sync the pipx
-copy now that it carries Slice 4, restart once), then run the **independent
-verifier** — a fresh subagent given only the committed onboarding docs — to walk
-the session-start protocol AND exercise a previously-missing cap (workflow/adr)
-through the live MCP, accepted only on graph `Invocation SERVES intent`
-provenance (`manage.provenance`).
+**Activated Slice 4 live.** Re-synced the pipx copy (now carrying Slice 4),
+restarted once → live `agency_welcome` = 36 caps and `agency_reload` now reports
+`installed_sync` (reason `already-current`, `synced=False` — no spurious restart).
+The self-heal is active: future repo drift auto-mirrors; core drift signals
+restart instead of skewing the process.
+
+### Pass 5 — VERIFY: **ACCEPTED** (independent verifier + graph provenance)
+
+Dispatched a SEPARATE fresh subagent (`agent:onboarding-verifier`, no shared
+context — the fixer is not the judge) given only the committed onboarding docs. It
+walked the documented session-start protocol through the **live MCP** (`mcp__agency__
+execute`, no CLI fallback needed): `agency_welcome` → 36 caps incl. workflow/adr/
+frugal/loop; `intent_bootstrap` → `intent:7b359a01`; then exercised TWO
+previously-missing caps under that intent — `workflow.board` and `adr.catalogue` —
+plus a `reflect.note`.
+
+**Judged independently by the graph (not self-report).** I read
+`memory_graph_provenance('intent:7b359a01')` myself; it holds 4 `SERVES` edges:
+`invocation:76412c5a`→**workflow.board**, `invocation:ba27428e`→**adr.catalogue**,
+`invocation:caba0563`→reflect.note, `reflection:508948e8` (observation), under
+`agent:onboarding-verifier`. Both previously-missing caps have live `Invocation
+SERVES intent` provenance ⇒ the plugin was DRIVEN, not bypassed. **Anti-
+circumvention gate satisfied.**
+
+**Stop condition met for this open item:** one independent fresh run onboarded
+uninterrupted AND all 36 inventoried caps are reachable through the live plugin.
+
+**One minor, non-blocking doc-vs-behavior note (candidate for a future pass):**
+CLAUDE.md's discovery example shows bare names (`call_tool("agency_welcome", …)`,
+`call_tool("intent_bootstrap", …)`) while externally-loaded capability tools are
+`capability_<cap>_<verb>`. Inside `execute`, `call_tool` accepts BOTH the
+unprefixed substrate names and the prefixed capability-verb names; the welcome
+payload's `_prefix_keys` documents this, so it's discoverable — a fresh agent
+following the table literally could briefly trip on the naming but is not blocked.
 
 ---
 
