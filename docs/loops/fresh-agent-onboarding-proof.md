@@ -4,7 +4,8 @@
 > **Provenance intent:** `intent:771b09a6` (agency graph, `.agency/session.db`).
 > **Output target:** fold fixes into PR [#296](https://github.com/netzkontrast/agency/pull/296)
 > on branch `claude/docs-agent-onboarding-up91ym`.
-> **Last checkpoint:** Pass 1 OBSERVE complete (see Run Log).
+> **Last checkpoint:** Pass 1 OBSERVE + root-cause confirmed (stale MCP server).
+> **Blocked on:** harness/owner MCP-server reload before VERIFY can run.
 
 A copy-ready Loop Library loop that interconnects three published loops
 (#039 easy-onboarding, #001 docs-sweep, #010 full-product-evaluation) plus the
@@ -83,26 +84,37 @@ surface (entire "repo-development workflow (Spec 353–359)" section) and lists
 `frugal.review` in the verb-routing table — but **none of `adr`, `workflow`,
 `frugal`, `loop` appear in the live registry** (`agency_welcome` or `search`).
 
-**Root cause (primary-source verified):**
-- `agency/capabilities/{adr,workflow,frugal,loop}/` exist as full packages
-  (`_main.py` + `ontology.py`) and **import cleanly** (`importlib.import_module` OK).
-- So this is a **live-registry / discovery gap, not missing code** — the running
-  MCP server's registry excludes capabilities present in the source tree.
-- Impact: a cold agent following `CLAUDE.md` cannot discover these through the
-  plugin → forced to improvise → **circumvents the plugin** (the exact failure
-  this loop exists to prevent).
+**Root cause — CONFIRMED (codegraph-led, primary-source verified):**
+- Codegraph (`codegraph explore` → `codegraph node discover_capabilities`) located
+  the discovery entry point `discover_capabilities()` at
+  `agency/capabilities/__init__.py:24`. It registers **every** top-level
+  `Capability` / `CapabilityBase` in every non-private module — **no filter**
+  excludes adr/workflow/frugal/loop.
+- Decisive test: a **fresh** `discover_capabilities()` returns **36 capabilities
+  including all four** (adr, workflow, frugal, loop). The four also import cleanly.
+- Yet the live MCP server's `agency_welcome` exposes only **30** (missing those four
+  + the infra modules clusters/config/migrations/toolcalls).
+- ∴ **The running agency MCP server is STALE** — its in-memory registry predates the
+  current source tree. The code is correct, discovery is correct, and `CLAUDE.md` is
+  accurate. This is an **operational reload/restart**, NOT a code or doc edit.
+- Impact while stale: a cold agent following `CLAUDE.md` cannot discover
+  workflow/adr/frugal/loop through the live MCP → forced to improvise →
+  **circumvents the plugin** (the exact failure this loop exists to prevent).
 
-**CHOOSE / ACT decision:** This is a code/registry or canonical-doc issue, which
-is **above the loop's "smallest reversible doc change" authority** and gated for
-owner decision. Candidate resolutions (not yet applied):
-1. The MCP server process is stale → restart/reinstall so discovery matches source.
-2. A discovery filter excludes these four → code fix in the registration path.
-3. They are intentionally unshipped → correct `CLAUDE.md` to stop promising them.
+**CHOOSE / ACT decision:** The fix is to **reload/restart the agency MCP server**
+so its registry matches source (`Engine.reload` at `engine.py:1164` re-runs
+`discover_capabilities`; in practice the harness restarts the server / new session).
+This is operational and **owner/harness-gated** — the agent cannot restart the
+managed MCP server itself.
 
-→ **NEXT ACTION (resume here):** determine which of (1)/(2)/(3) is true by
-comparing a fresh `Engine` registry against the running MCP server, then either
-fix discovery (code) or correct `CLAUDE.md` (doc) — with owner approval, since
-both touch load-bearing surfaces.
+→ **NEXT ACTION (resume here):** (a) reload the MCP server (new session or harness
+reload) and re-run OBSERVE — confirm `agency_welcome` then lists 36 caps incl.
+workflow/adr/frugal/loop; (b) once the four are live, VERIFY with a *separate*
+fresh agent that it can walk the documented session-start protocol AND exercise
+one of the previously-missing capabilities through `mcp__agency__execute`, with
+graph provenance proving the plugin path. Secondary hardening (optional, owner
+approval): add a drift guard so `agency_welcome`'s live cap set is checked against
+`discover_capabilities()` — a stale-server smoke test.
 
 ### Pass 1 — VERIFY: not yet run (blocked on the CHOOSE/ACT decision above).
 
