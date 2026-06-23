@@ -41,3 +41,11 @@ Feature: Capability skill migration — phase-fill + A6 (Spec 378 Slice 1)
     Then no compliant discipline is blocked
     And every develop discipline is reported clean
     And the migration tail is reported as warnings
+
+  # ── Spec 378 Slice 5 — the cross-cap understand cluster (gate auto-widens) ─────
+
+  Scenario: the cross-capability understand disciplines join the gate
+    When I lint all registered disciplines
+    Then the "code-analysis" discipline is reported clean
+    And the "critical-thinking" discipline is reported clean
+    And the "guided-discovery" discipline is reported clean

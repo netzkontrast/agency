@@ -152,3 +152,12 @@ concern (per-type capability/discipline templates), tracked there.
 **A6 demonstrated** (acceptance #2): the develop disciplines are capability-authored
 richer skill data validating against the v2 schema the same as auto-derived —
 no duplicated committed file (rule 2).
+
+**Slice 5 — SHIPPED: the cross-capability "understand" cluster (gate auto-widens
+beyond develop).** `code-analysis` (analyze), `critical-thinking` (intent), and
+`guided-discovery` (discover) gained full inline phase content — proving the gate
+mechanism is NOT develop-specific: each moved warned→clean the moment its phases
+were filled, no gate edit. Gate now: clean=19, warned=20, blocked=0. A Slice 5
+scenario asserts all three are reported clean (derived from the live gate — rule 8).
+The remaining 20-discipline tail is the same mechanical fill, owner-drivable
+capability-by-capability; each auto-joins the gate as it lands.

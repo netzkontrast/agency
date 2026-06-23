@@ -86,35 +86,64 @@ GUIDED_DISCOVERY_SKILL: dict = {
         "confidence": 0.7,
     },
     "phases": [
+        # Spec 378 — inline phase content (A1/A6) for the guided-discovery flow.
         {
             "index": 1, "name": "elicit",
             "produces": ["draft_intent", "elicitation_turns"],
             "verbs": ["interview"],
+            "goal": "Draw out a draft intent through a short interview.",
+            "instructions": "Interview the user to surface what they actually want — "
+                            "purpose, deliverable, the rough shape. Capture a draft intent; "
+                            "don't demand precision yet, that's later phases.",
+            "freedom": "high",
         },
         {
             "index": 2, "name": "ground",
             "produces": ["citations", "feasibility_signal"],
             "verbs": ["ground", "feasibility"],
+            "goal": "Ground the draft in evidence + a feasibility read.",
+            "instructions": "Check the draft against reality — cite what exists (code, "
+                            "docs, prior art) and signal whether it's feasible. A grounded "
+                            "intent beats an aspirational one.",
+            "freedom": "medium",
         },
         {
             "index": 3, "name": "clarify",
             "produces": ["ambiguities_resolved"],
             "verbs": ["clarify"],
+            "goal": "Resolve the ambiguities the draft hides.",
+            "instructions": "Ask the questions whose answers would change the work; resolve "
+                            "each ambiguity before it propagates into the plan.",
+            "freedom": "medium",
         },
         {
             "index": 4, "name": "frame",
             "produces": ["sharp_intent"],
             "verbs": ["frame"],
+            "goal": "Sharpen the draft into a precise intent.",
+            "instructions": "Restate the intent as a sharp purpose / deliverable / "
+                            "acceptance triple — the spine every downstream verb serves.",
+            "freedom": "medium",
         },
         {
             "index": 5, "name": "examine",
             "produces": ["thinking_findings"],
             "verbs": ["examine"],
+            "goal": "Pressure-test the sharpened intent.",
+            "instructions": "Run a critical-thinking pass over the framed intent — "
+                            "assumptions, failure modes — and capture what it surfaces "
+                            "before committing scope.",
+            "freedom": "medium",
         },
         {
             "index": 6, "name": "scope",
             "produces": ["scope_boundaries", "acceptance_criteria"],
             "verbs": ["scope", "acceptance"],
+            "goal": "Draw the scope boundaries + acceptance criteria.",
+            "instructions": "State what's IN and OUT of scope and the concrete acceptance "
+                            "checks. Boundaries prevent scope creep; acceptance makes 'done' "
+                            "decidable.",
+            "freedom": "medium",
         },
         {
             "index": 7, "name": "decide",
@@ -122,6 +151,11 @@ GUIDED_DISCOVERY_SKILL: dict = {
             "verbs": ["clarity"],
             "gate": "computed",
             "gate_verb": "clarity_gate",
+            "goal": "Confirm the intent through the clarity gate.",
+            "instructions": "The clarity gate computes whether the intent is confirmable "
+                            "(purpose + deliverable + acceptance all sharp). It passes only "
+                            "when discovery genuinely converged — not on demand.",
+            "freedom": "low",
         },
     ],
 }

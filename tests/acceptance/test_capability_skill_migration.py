@@ -106,6 +106,14 @@ def _tail_warned(disc_gate):
         "expected the cross-capability migration tail surfaced as warnings")
 
 
+@then(parsers.parse('the "{name}" discipline is reported clean'))
+def _disc_reported_clean(disc_gate, name):
+    assert name in disc_gate["clean"], (
+        f"{name!r} expected in the clean set; "
+        f"warned={[w['name'] for w in disc_gate['warned']]}, "
+        f"blocked={[b['name'] for b in disc_gate['blocked']]}")
+
+
 @then("every develop discipline is self-contained")
 def _all_develop_self_contained(disc_lints):
     assert disc_lints, "expected develop disciplines"

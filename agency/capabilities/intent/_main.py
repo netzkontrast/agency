@@ -28,11 +28,38 @@ _CRITICAL_THINKING_SKILL = {
                      "pattern": r"unclear|risky|decide|trade-?off|assumption|approach|why",
                      "confidence": 0.7},
     "phases": [
-        {"index": 1, "name": "frame", "produces": ["problem_statement"], "verbs": ["decompose"]},
-        {"index": 2, "name": "surface", "produces": ["assumptions"], "verbs": ["assumptions"]},
-        {"index": 3, "name": "stress-test", "produces": ["failure_modes"], "verbs": ["premortem", "inversion", "brooks_lint"]},
-        {"index": 4, "name": "weigh", "produces": ["tradeoffs"], "verbs": ["tradeoffs", "second_order"]},
-        {"index": 5, "name": "decide", "produces": ["chosen_approach"], "gate": "hard"},
+        # Spec 378 — inline phase content (A1/A6) for the critical-thinking pass.
+        {"index": 1, "name": "frame", "produces": ["problem_statement"], "verbs": ["decompose"],
+         "goal": "State the problem precisely before reasoning about it.",
+         "instructions": "Decompose the intent into a sharp problem statement — what's "
+                         "actually being decided, and why now. A fuzzy frame produces fuzzy "
+                         "thinking.",
+         "freedom": "high"},
+        {"index": 2, "name": "surface", "produces": ["assumptions"], "verbs": ["assumptions"],
+         "goal": "Surface the load-bearing assumptions.",
+         "instructions": "List the assumptions the approach rests on — the ones that, if "
+                         "wrong, change the decision. Name them explicitly so they can be "
+                         "tested.",
+         "freedom": "medium"},
+        {"index": 3, "name": "stress-test", "produces": ["failure_modes"],
+         "verbs": ["premortem", "inversion", "brooks_lint"],
+         "goal": "Stress-test the approach against failure.",
+         "instructions": "Pre-mortem it (how does it fail?), invert it (what must NOT "
+                         "happen?), and brooks-lint it (essential vs accidental complexity). "
+                         "Collect the failure modes the methods surface.",
+         "freedom": "medium"},
+        {"index": 4, "name": "weigh", "produces": ["tradeoffs"], "verbs": ["tradeoffs", "second_order"],
+         "goal": "Weigh the tradeoffs and second-order effects.",
+         "instructions": "For each viable option, state its tradeoff and its second-order "
+                         "consequence. The best first-order choice often loses on the "
+                         "second order.",
+         "freedom": "medium"},
+        {"index": 5, "name": "decide", "produces": ["chosen_approach"], "gate": "hard",
+         "goal": "Commit to an approach with its rationale.",
+         "instructions": "Choose, and state WHY this option beats the alternatives given "
+                         "the assumptions + tradeoffs. Confirm this gate only with a "
+                         "decision, not a shortlist.",
+         "freedom": "low"},
     ],
 }
 

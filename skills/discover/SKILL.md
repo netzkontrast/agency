@@ -50,3 +50,17 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`guided-discovery`** (discipline): elicit → ground → clarify → frame → examine → scope → decide
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'guided-discovery', 'inputs': {}, 'intent_id': '…'})`
+  1. **elicit** — Draw out a draft intent through a short interview.
+     Interview the user to surface what they actually want — purpose, deliverable, the rough shape. Capture a draft intent; don't demand precision yet, that's later phases.
+  2. **ground** — Ground the draft in evidence + a feasibility read.
+     Check the draft against reality — cite what exists (code, docs, prior art) and signal whether it's feasible. A grounded intent beats an aspirational one.
+  3. **clarify** — Resolve the ambiguities the draft hides.
+     Ask the questions whose answers would change the work; resolve each ambiguity before it propagates into the plan.
+  4. **frame** — Sharpen the draft into a precise intent.
+     Restate the intent as a sharp purpose / deliverable / acceptance triple — the spine every downstream verb serves.
+  5. **examine** — Pressure-test the sharpened intent.
+     Run a critical-thinking pass over the framed intent — assumptions, failure modes — and capture what it surfaces before committing scope.
+  6. **scope** — Draw the scope boundaries + acceptance criteria.
+     State what's IN and OUT of scope and the concrete acceptance checks. Boundaries prevent scope creep; acceptance makes 'done' decidable.
+  7. **decide** — Confirm the intent through the clarity gate.
+     The clarity gate computes whether the intent is confirmable (purpose + deliverable + acceptance all sharp). It passes only when discovery genuinely converged — not on demand.

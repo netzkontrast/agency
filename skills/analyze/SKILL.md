@@ -58,3 +58,13 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`code-analysis`** (discipline): scope → axes → run → review → apply
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'code-analysis', 'inputs': {}, 'intent_id': '…'})`
+  1. **scope** — Fix the path + language under analysis.
+     Name the file/dir to analyse and its language. A scoped target keeps the run fast and the findings relevant.
+  2. **axes** — Choose the quality axes to run.
+     Pick the axes that matter for this target — quality, security, performance, architecture. Don't run every axis by reflex; match them to the risk.
+  3. **run** — Run the decidable analyzers over the scope.
+     Execute the chosen axes; collect the decidable findings + totals as a recorded Analysis (rule-based, reproducible — not opinion).
+  4. **review** — Triage the findings into a summary.
+     Group the findings by severity; separate the decidable (must-fix) from the advisory. Lead the summary with what blocks shipping.
+  5. **apply** — Apply the safe fixes; gate the risky ones.
+     Apply the low-risk remediations; leave risky ones flagged for human review. Confirm this gate only after re-running the analyzers to show the fixes held.

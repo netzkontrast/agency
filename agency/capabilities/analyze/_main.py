@@ -79,11 +79,36 @@ _CODE_ANALYSIS_SKILL = {
     "name": "code-analysis",
     "kind": "discipline",
     "phases": [
-        _phase(1, "scope", ["path", "lang"]),
-        _phase(2, "axes", ["axes"]),
-        _phase(3, "run", ["analysis_id", "totals"]),
-        _phase(4, "review", ["findings_summary"]),
-        _phase(5, "apply", ["applied"], gate="hard"),
+        # Spec 378 — inline phase content (A1/A6) for the code-analysis discipline.
+        _phase(1, "scope", ["path", "lang"],
+               goal="Fix the path + language under analysis.",
+               instructions="Name the file/dir to analyse and its language. A scoped "
+                            "target keeps the run fast and the findings relevant.",
+               freedom="medium"),
+        _phase(2, "axes", ["axes"],
+               goal="Choose the quality axes to run.",
+               instructions="Pick the axes that matter for this target — quality, "
+                            "security, performance, architecture. Don't run every axis by "
+                            "reflex; match them to the risk.",
+               freedom="medium"),
+        _phase(3, "run", ["analysis_id", "totals"],
+               goal="Run the decidable analyzers over the scope.",
+               instructions="Execute the chosen axes; collect the decidable findings + "
+                            "totals as a recorded Analysis (rule-based, reproducible — not "
+                            "opinion).",
+               freedom="low"),
+        _phase(4, "review", ["findings_summary"],
+               goal="Triage the findings into a summary.",
+               instructions="Group the findings by severity; separate the decidable "
+                            "(must-fix) from the advisory. Lead the summary with what "
+                            "blocks shipping.",
+               freedom="medium"),
+        _phase(5, "apply", ["applied"], gate="hard",
+               goal="Apply the safe fixes; gate the risky ones.",
+               instructions="Apply the low-risk remediations; leave risky ones flagged "
+                            "for human review. Confirm this gate only after re-running the "
+                            "analyzers to show the fixes held.",
+               freedom="low"),
     ],
 }
 
