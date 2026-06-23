@@ -1,8 +1,9 @@
+<!-- agency-node: document:1d1ee3f1 -->
 ---
 spec_id: "339"
 slug: lifecycle-substrate-write-frame
-status: partial
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 3, 4]
@@ -214,9 +215,14 @@ Scenario: gate.check routes its pause through lifecycle.move
     welcome/intent/typed-fulfilment/music/prompt suites green (203); drift clean;
     install regen no-diff.
 
-**Still 339b:** migrate the remaining unguarded writers through `move` —
-`subagent.develop`'s `ctx.memory.update(child, {"state":"completed"})`,
-`gate.check` / `lifecycle_gate`'s `input-required` write, `music` —, and
-(Q4, last slice) `SessionLifecycle`→`Lifecycle{parameterization="session"}`
-behind a gate that `develop.session_check/resume` + `reflect.synthesize_session`
-still pass. 340 then hardens `move` with the transition table in place.
+**Shipped 339b (independently verified 2026-06-23):** the remaining unguarded
+writers are all migrated through `move`. `gate.check` routes its `input-required`
+pause via `ctx.lifecycle.move(lid, "input-required", …)` (`gate/_main.py:60`);
+`subagent.develop` drives `working→in-review→completed` through `lifecycle.move`
+(`subagent/_main.py:62-98`); `delegate.fan_out` mints via `ctx.lifecycle.open(...)`
+(`lifecycle.feature:54`). A repo-wide grep for `update({"state"` outside
+`agency/lifecycle.py` returns nothing (the one `develop/_main.py:1244` match is a
+skill-walk `step_id` node, not a Lifecycle node), and `scripts/check-drift` reports
+`lifecycle-state-writer: clean`. 340 then hardened `move` with the transition table.
+Acceptance green: 22 (`test_lifecycle`) + 46 (lifecycle suite) + 30 (`gate`+`delegate`).
+**339's scope is complete.**

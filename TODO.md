@@ -332,7 +332,7 @@ Rebuild (derived from the Plan/ tree):
 - 336  toolcall-capture-export
 - 337  per-tool-output-filters
 - 338  lifecycle-pillar-deep-program
-- 339  lifecycle-capability-write-frame
+- 339  lifecycle-capability-write-frame       # Shipped (done) — ctx.lifecycle.open/move/close sole write-frame; gate/subagent/delegate migrated through move; check-drift lifecycle-state-writer clean; independently verified, 98 tests green
 - 340  lifecycle-state-machine-transitions   # Shipped (done) — data-driven A2A transition table + typed IllegalTransition + terminal floor + B3 static guard (check-drift clean); independently verified, 38 acceptance tests green
 - 341  lifecycle-observe-suite
 - 342  agent-as-lifecycle-parameterization
