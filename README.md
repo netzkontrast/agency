@@ -114,7 +114,12 @@ marketplace plugin updates flow through automatically.
 > command uses the `${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` bash
 > fallback so Cursor / Codex harnesses (which set `PLUGIN_ROOT`)
 > also work. `using-agency` is the broad-trigger entry skill any
-> session calls first.
+> session calls first — it teaches the **wire-naming rule** (bare
+> substrate tools like `intent_bootstrap`/`memory_graph_provenance`
+> vs the prefixed `capability_<cap>_<verb>`) and every generated
+> per-capability skill now carries **code-mode `call_tool` examples**
+> (bootstrap → chained verb calls), so a fresh agent learns *how to
+> call*, not just *when* (Spec 390).
 
 Claude Code prompts for your **Jules API key** (optional — only needed
 for the `jules` remote-async-agent capability; stored in your system

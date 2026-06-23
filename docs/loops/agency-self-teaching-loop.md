@@ -186,7 +186,19 @@ never-truncate doctrine). → **Spec C.**
   (no wire validation). Proven on `discover.ask`; `Verb`/`verb()`/`_wrap_method`
   carry the field. TDD: `tests/test_param_shapes.py` (2 scenarios); 47-test
   wire/skill/welcome/reload/render slice green (param_enums path unregressed).
-- **Still:** README regen, then the independent fresh-subagent re-verify → owner "done".
+- **README updated** — the `using-agency` callout now notes the wire-naming rule +
+  per-cap code-mode `call_tool` examples (Spec 390).
+- **Spec 390 DONE** — `workflow.finish_spec` moved it `inprogress→done`
+  (`Plan/done/390-skills-teach-the-call`) + rebuilt `architecture.md`. Per-spec
+  verification = the acceptance tests (D2/D3/D4 all green); the loop's independent
+  fresh-subagent re-verify runs at the SUCCESS GATE (after Specs B + C land, since the
+  gate requires a working elicit/sample chain). Owner approval = standing delegation
+  (2026-06-23: "this is your loop … PR is the final approval point").
+
+### Pass 2 — next: Spec B (elicit/sample reachable from the walker, C3)
+
+The success-gate blocker. Make server-initiated `ctx.sample`/`ctx.elicit` round-trip
+inline from `skill_walk` instead of falling back to the client `input-required` pause.
 
 ---
 
