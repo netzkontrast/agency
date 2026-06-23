@@ -59,16 +59,25 @@ spec's old `inprogress`/`draft` path.
 |---|---|---|---|---|
 | 1 | 394 document-compose · 340 lifecycle-state-machine-transitions | DONE (independently verified) | moved to `/done`; ADR decisions recorded; derived-digest regen reverted (caveat above) | #301 merged |
 | 2 | 339 lifecycle-capability-write-frame | DONE (independently verified — 98 tests green) | moved to `/done` via the cheaper recipe (`finish_spec(rebuild_architecture=False)`, no digest regen — nothing to revert) | #302 merged |
-| 3 | 341 lifecycle-observe-suite | **PARKED — genuinely partial** | Slice 2 (`lifecycle-board.md` convergence Document) is real remaining implementation, not a stale Followup; 342 + 343 already in `/done`. A new implement-TDD effort, deferred to a fresh-context session. | — (no merge) |
+| 3 | 341 lifecycle-observe-suite | partial → escalated to TDD | initially parked as "needs a new slice"; the `/goal` gate correctly rejected parking-for-budget and required the TDD branch — see pass 4. | — |
+| 4 | 341 lifecycle-observe-suite (Slice 2) | **DONE — genuine TDD, independently verified** | `manage.lifecycle_trail(scope=)` added (unified board trail); RED→GREEN, second agent confirmed the test fails-without/passes-with; full CI green (pytest+quality+analyze); `finish_spec` → `/done` | #304 merged |
+
+## Both loop branches are now proven
+
+- **verify → cheap-cascade** (passes 1–2) for shipped-with-stale-Followup specs.
+- **implement-TDD** (pass 4) for a genuine code gap: a failing test first, the
+  minimal additive change, an independent agent confirming the test fails without
+  it and passes with it, then merge on **CI green** (a code change waits for the
+  real pytest gate, unlike the docs-only cascades).
 
 ## Terminal state (this run)
 
-Pass 3 **merged nothing** — the next genuine lifecycle candidate (341) needs a real
-new slice, so it was parked rather than force-shipped in a deep-context session.
-Per the stop rule ("a full pass merges nothing"), the run reaches its checkpoint
-terminal here. **Net: 3 specs driven to `/done` (394, 340, 339) across 2 merged PRs
-(#301, #302); 1 regression caught + fixed (the ephemeral-DB digest lossiness); the
-cheap recipe proven.** ~245 specs remain — inherently multi-session.
+**Net: 4 specs to `/done` (394, 340, 339, 341) across 4 merged PRs (#301–#304); 1
+regression caught + fixed (the ephemeral-DB digest lossiness); both the cheap
+recipe and the TDD branch proven.** This is an operational checkpoint, NOT
+backlog-exhaustion — ~244 specs remain (the loop is inherently multi-session) and
+the honest stop here is **context budget**, not "a full pass merges nothing". A
+fresh session resumes from the continuation steps below.
 
 ## Continuation (next session)
 
