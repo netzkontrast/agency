@@ -195,10 +195,27 @@ never-truncate doctrine). → **Spec C.**
   gate requires a working elicit/sample chain). Owner approval = standing delegation
   (2026-06-23: "this is your loop … PR is the final approval point").
 
-### Pass 2 — next: Spec B (elicit/sample reachable from the walker, C3)
+### Pass 2 — Spec B (elicit/sample reachable from the walker, C3) — ROOT-CAUSED
 
-The success-gate blocker. Make server-initiated `ctx.sample`/`ctx.elicit` round-trip
-inline from `skill_walk` instead of falling back to the client `input-required` pause.
+The success-gate blocker. **Root cause (codegraph-confirmed, architecturally
+significant):** `SkillRun.submit` (`agency/skill.py:146`) and the `develop.skill_walk`
+verb (`develop/_main.py` ~721, `if host.can_sample()`) are **synchronous** — verbs are
+sync methods run via `reg.invoke`. But `HostBridge.sample`/`elicit`
+(`agency/_host_bridge.py`) are **async** (they await the FastMCP `Context`). A sync verb
+cannot `await` the host, so even with `can_sample:true` the walker takes the
+`HostUnavailable`/`input-required` fallback (`blocked_on: 'sample:<key>'`). The host
+**Context IS bound** (`engine._wire` binds it request-scoped via a contextvar, propagated
+to nested invokes) — so it is NOT a threading bug; it is the **sync-verb / async-host
+impedance**.
+
+**Design for Spec B:** bridge the async host call from the sync walker. FastMCP runs a
+sync tool `impl` in a worker thread, so the verb can hop back to the running event loop —
+`anyio.from_thread.run(host.sample_coro, …)` (or `asyncio.run_coroutine_threadsafe`
+against the loop captured at `bind_host_context`). Add a SYNC `host.sample_sync()` /
+`elicit_sync()` on `HostBridge` that does the from-thread hop; the walker calls those.
+Guard: when not run from a worker thread (CLI/tests), keep the current fallback. TDD with
+a fake host Context that records the round-trip. **Architecturally significant → but
+covered by the owner's standing approval (PR is the gate).**
 
 ---
 
