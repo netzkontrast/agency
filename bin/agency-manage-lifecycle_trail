@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_manage_lifecycle_trail
-# LIFECYCLE WATCH — the Spec 341 `watch` frame: the ordered Spec 344 `lifecycle_transition` Event trail recorded `OBSERVED_DURING` this lifecycle (what `move` emits), so an observer reads the durable history instead of polling `state`.
-# Usage: agency-manage-lifecycle_trail [--intent-id ID] <lifecycle_id> [limit]
+# LIFECYCLE WATCH — the Spec 341 `watch` frame: the ordered Spec 344 `lifecycle_transition` Event trail recorded `OBSERVED_DURING` a lifecycle (what `move` emits), so an observer reads the durable history instead of polling `state`.
+# Usage: agency-manage-lifecycle_trail [--intent-id ID] [lifecycle_id] [scope] [limit]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -19,10 +19,7 @@ if [ -z "$iid" ]; then
   exit 1
 fi
 
-if [ "${#args[@]}" -lt 1 ]; then
-  echo "error: expected at least 1 required arg(s) (lifecycle_id); got ${#args[@]}" >&2
-  exit 2
-fi
+# all positional args are optional; verb defaults apply when omitted
 
 kwargs=$(python3 -c '
 import json, sys
@@ -68,8 +65,9 @@ def _coerce(raw, ann):
         return {}
     return raw
 _kw = {"intent_id": sys.argv[1]}
-_kw["lifecycle_id"] = _coerce(sys.argv[2], str)
-if len(sys.argv) > 3: _kw["limit"] = _coerce(sys.argv[3], int)
+if len(sys.argv) > 2: _kw["lifecycle_id"] = _coerce(sys.argv[2], str)
+if len(sys.argv) > 3: _kw["scope"] = _coerce(sys.argv[3], str)
+if len(sys.argv) > 4: _kw["limit"] = _coerce(sys.argv[4], int)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

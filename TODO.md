@@ -334,7 +334,7 @@ Rebuild (derived from the Plan/ tree):
 - 338  lifecycle-pillar-deep-program
 - 339  lifecycle-capability-write-frame       # Shipped (done) — ctx.lifecycle.open/move/close sole write-frame; gate/subagent/delegate migrated through move; check-drift lifecycle-state-writer clean; independently verified, 98 tests green
 - 340  lifecycle-state-machine-transitions   # Shipped (done) — data-driven A2A transition table + typed IllegalTransition + terminal floor + B3 static guard (check-drift clean); independently verified, 38 acceptance tests green
-- 341  lifecycle-observe-suite
+- 341  lifecycle-observe-suite                # Shipped (done) — observe frame (read/find/check/watch) + Slice 2 manage.lifecycle_trail(scope=) unified board trail (TDD, independently verified); board renders via document.render(lifecycle-board)+manage.render
 - 342  agent-as-lifecycle-parameterization
 - 343  lifecycle-management-discipline
 - 344  lifecycle-transition-events
