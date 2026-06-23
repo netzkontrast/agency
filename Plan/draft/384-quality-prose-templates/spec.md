@@ -264,3 +264,40 @@ the walk templates), 382 (`document.render` path). Lands alongside 382/383. Next
 `quality-{mode}.md` ×6 + `quality-remedy.md` + the four `develop.reference`
 entries, each with a `doc-source` marker, RED→GREEN against the §Acceptance
 scenarios.
+
+**PROSE PORT SHIPPED 2026-06-22 (owner directive "Go on. With 384").** The twelve
+brooks markdown files now live on agency's template + reference surface:
+- **9 templates** (each carries an `<!-- AGENT: -->` block → passes the
+  `RenderSliceRule` lint; each carries a `<!-- doc-source: … -->` marker):
+  output → `analyze/templates/quality-report.md` (the report; the Module Dependency
+  Graph is gated `<!-- BEGIN IF is_audit -->`; the language rule travels in the
+  template) + `analyze/templates/iron-law-finding.md` (the four required Iron-Law
+  slots); walk → `develop/templates/quality-{review,audit,debt,test,health,sweep}.md`
+  + `develop/templates/quality-remedy.md`.
+- **Single-source reconciliation (the spec predates `review-chain.json`):** the six
+  mode walk-guides do NOT re-vendor the brooks `{mode}-guide.md` prose — they
+  **derive** their ordered steps from `analyze/data/review-chain.json` (Spec 380),
+  so their `doc-source` is that agency file (hashable by check-doc-drift) and the
+  step ordering has ONE home (rule 2). Each template carries only the cross-cutting
+  walk framing (scope calibration, ordering rationale, mode-specific notes).
+- **4 references** (`develop.reference`): `decay-risks` + `source-coverage` are
+  **COMPUTED** live from the JSON (rule 2 — point at the data, never restate the
+  list); `remedy` + `custom-risks` are inline how-tos. (OQ2: inline/computed, not
+  file-backed under `develop/references/` — frugal, matches the existing brooks/
+  codegraph reference pattern; drift rides on the templates' `doc-source` + the
+  computed refs can't drift from their source.)
+- **Drift (§6):** `# AGENCY-DRIFT: quality-templates` + a coherence gate
+  (`test_quality_templates.py::test_every_quality_mode_has_a_walk_template`) asserts
+  the walk-template set covers EXACTLY the live `quality-*` skill set (a 7th mode
+  without its template is caught).
+- **Tests:** `test_quality_templates.py` (8) — templates exist + AGENT block +
+  doc-source + audit-gated graph + Iron-Law slots + references resolve + computed
+  refs point at data. check-drift exit 0 (install + committed-skill lint clean).
+
+**Remaining in 384 — the report-render VERB.** The templates are READY but not yet
+WIRED to a render path: the "report renders from `quality-report.md` via
+`document.render` + is a round-trippable `Document` node, finding blocks rendered
+via `iron-law-finding.md`" scenario needs a thin `analyze.report(mode, scope,
+findings, score, …)` verb that composes the finding blocks + records the Document
+(Spec 292/382). Deferred to keep this slice the pure prose port; the next slice
+adds the verb + its acceptance. State stays `draft` (owner drives the ADR hinge).
