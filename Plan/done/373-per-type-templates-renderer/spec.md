@@ -1,8 +1,8 @@
 ---
 spec_id: "373"
 slug: per-type-templates-renderer
-status: shipped
-state: draft
+status: done
+state: done
 last_updated: 2026-06-23
 owner: "@agency"
 vision_goals: [1, 3]

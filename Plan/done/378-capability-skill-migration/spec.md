@@ -1,8 +1,8 @@
 ---
 spec_id: "378"
 slug: capability-skill-migration
-status: partial
-state: draft
+status: done
+state: done
 last_updated: 2026-06-22
 owner: "@agency"
 vision_goals: [1, 3]

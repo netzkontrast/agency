@@ -1,8 +1,8 @@
 ---
 spec_id: "375"
 slug: pillar-skills
-status: partial
-state: draft
+status: done
+state: done
 last_updated: 2026-06-22
 owner: "@agency"
 vision_goals: [3]

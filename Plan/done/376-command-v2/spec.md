@@ -1,8 +1,8 @@
 ---
 spec_id: "376"
 slug: command-v2
-status: partial
-state: draft
+status: done
+state: done
 last_updated: 2026-06-22
 owner: "@agency"
 vision_goals: [1]

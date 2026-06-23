@@ -1,8 +1,8 @@
 ---
 spec_id: "371"
 slug: phase-skill-schema
-status: shipped
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-23
 owner: "@agency"
 vision_goals: [1, 3]
