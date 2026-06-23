@@ -149,3 +149,30 @@ both `role="effect"`, idempotent, non-destructive) + the deinstall timeline +
 the vendored-data `_source` read. Lands alongside 383/384 (late — needs 381's
 config + nodes live). Next (after 381): the two importers + the first-review
 detect-and-suggest, RED→GREEN against the §Acceptance scenarios.
+
+**The two importers — SHIPPED 2026-06-23 (owner: "385 within the same PR").**
+- `analyze.migrate_quality_config(config_path=".brooks-lint.yaml")` — maps the brooks
+  config (disable/severity/ignore/focus/strictness/custom_risks) onto the unified
+  `quality:` block, MERGING into `.agency/config.yaml` (preserves other sections);
+  `suppress` entries become `Suppression{risk, glob}` nodes (Spec 381 §4, read by the
+  score's `apply_suppressions`). Non-destructive — `.brooks-lint.yaml` stays (keep-both).
+- `analyze.migrate_quality_history(history_path=".brooks-lint-history.json")` — mints
+  one back-dated `QualityRun` per record (`recorded_at` = the original date),
+  inserted oldest-first so the bi-temporal `vfrom` order matches the dates and the
+  next `record_run` trend is continuous; idempotent via a per-record content hash
+  (`migrated_key`). Pure helpers in `analyze/_migrate.py` (`map_brooks_config` ·
+  `history_key` · `normalize_record`).
+- **Home decision:** both verbs live on **`analyze`**, NOT `develop` (the draft's
+  suggestion) — analyze owns the `QualityRun` node + the `quality:` config semantics
+  + the score, so the migration into them is cohesive; `develop` would author another
+  capability's node type. The acceptance's `develop.migrate_quality_*` reads as
+  `analyze.migrate_quality_*`.
+- Tests: `test_quality_migration.py` (4) — config→quality block non-destructive +
+  Suppression node; merge preserves other sections; history back-dated + idempotent;
+  missing sidecars degrade gracefully. check-drift exit 0; install regenerated.
+
+**Remaining in 385:** the first-`develop.review` **detect-and-suggest** (OQ2 default
+— surface "legacy brooks-lint state found — run analyze.migrate_quality_*" when a
+`.brooks-lint.*` file is present, never auto-run an effect) + the deinstall-timeline
+doc. Both are advisory polish; the durable migration ships here. State stays `draft`
+(owner drives the ADR hinge).

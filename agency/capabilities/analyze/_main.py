@@ -561,6 +561,102 @@ class AnalyzeCapability(CapabilityBase):
         return {"run_id": run_id, "mode": mode, "score": sc, "counts": counts,
                 "status": status, "trend": trend}
 
+    # ── Spec 385 — one-time brooks-lint → agency quality migration ─────────────
+    # The two importer verbs live HERE (not develop, the draft's suggestion):
+    # analyze owns the QualityRun node + the quality: config semantics + the score,
+    # so the migration into them is cohesive — develop would author another
+    # capability's node type. Non-destructive (keep-both, Spec 292) + idempotent.
+
+    @verb(role="effect")
+    def migrate_quality_config(self, config_path: str = ".brooks-lint.yaml") -> dict:
+        """One-time importer: ``.brooks-lint.yaml`` → ``.agency/config.yaml quality:``
+        block + ``Suppression`` nodes (Spec 385 §1).
+
+        Maps the brooks config (disable/severity/ignore/focus/strictness/
+        custom_risks) onto the unified ``quality:`` block (Spec 381 §2), MERGING
+        into ``.agency/config.yaml`` (never clobbering other sections); ``suppress``
+        entries become ``Suppression{risk, glob}`` nodes (Spec 381 §4, read by the
+        score's ``apply_suppressions``). NON-DESTRUCTIVE — the ``.brooks-lint.yaml``
+        is left in place (keep-both, Spec 292); the 381 compat-read window is the
+        safety net while this makes the migration durable.
+
+        Inputs: config_path (the legacy ``.brooks-lint.yaml``).
+        Returns: {migrated, quality, suppressions, written, source, source_preserved}
+                 — or {migrated: False, reason} when the legacy file is absent.
+        chain_next: analyze.migrate_quality_history, then verify + /plugin uninstall.
+        """
+        import os
+        import yaml
+        from ... import _config
+        from . import _migrate
+        if not os.path.exists(config_path):
+            return {"migrated": False, "reason": f"no {config_path}", "quality": {}}
+        raw = yaml.safe_load(open(config_path, encoding="utf-8")) or {}
+        quality, suppress = _migrate.map_brooks_config(raw)
+        out_path = _config._resolve_config_path()
+        existing = {}
+        if os.path.exists(out_path):
+            existing = yaml.safe_load(open(out_path, encoding="utf-8")) or {}
+        existing["quality"] = {**(existing.get("quality") or {}), **quality}
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as fh:
+            yaml.safe_dump(existing, fh, sort_keys=False)
+        supp_ids = []
+        for s in suppress:
+            risk = str(s.get("risk", "")).strip()
+            glob = str(s.get("glob") or s.get("pattern") or s.get("path") or "*")
+            if not risk:
+                continue
+            props = {"risk": risk, "glob": glob}
+            if s.get("expires"):
+                props["expires"] = str(s["expires"])
+            supp_ids.append(self.ctx.record_and_serve("Suppression", props))
+        return {"migrated": True, "quality": quality, "suppressions": supp_ids,
+                "written": out_path, "source": config_path,
+                "source_preserved": os.path.exists(config_path)}
+
+    @verb(role="effect")
+    def migrate_quality_history(self,
+                               history_path: str = ".brooks-lint-history.json") -> dict:
+        """One-time importer: ``.brooks-lint-history.json`` → back-dated
+        ``QualityRun`` nodes (Spec 385 §2).
+
+        Mints one ``QualityRun`` per record (Spec 381 §3) carrying the original
+        ``recorded_at`` date; records are inserted oldest-first so the bi-temporal
+        ``vfrom`` order matches the dates and the next ``analyze.record_run`` trend
+        is CONTINUOUS across the migration boundary. IDEMPOTENT — a per-record
+        content hash (``migrated_key``) skips an already-imported record, so a
+        re-run never duplicates (keep-both, Spec 292).
+
+        Inputs: history_path (the legacy ``.brooks-lint-history.json``).
+        Returns: {migrated, imported, skipped, run_ids} — or {migrated: False,
+                 reason} when the file is absent / not a JSON array.
+        chain_next: develop.review (its trend now spans the migration boundary).
+        """
+        import json as _json
+        import os
+        from . import _migrate
+        if not os.path.exists(history_path):
+            return {"migrated": False, "reason": f"no {history_path}", "imported": 0}
+        try:
+            records = _json.loads(open(history_path, encoding="utf-8").read() or "[]")
+        except ValueError as exc:
+            return {"migrated": False, "reason": f"bad JSON: {exc}", "imported": 0}
+        if not isinstance(records, list):
+            return {"migrated": False, "reason": "not a JSON array", "imported": 0}
+        existing = {r.get("migrated_key") for r in self.ctx.find("QualityRun")}
+        imported, skipped, ids = 0, 0, []
+        for rec in sorted(records, key=lambda r: str(r.get("date", ""))):
+            props = _migrate.normalize_record(rec)
+            if props["migrated_key"] in existing:
+                skipped += 1
+                continue
+            ids.append(self.ctx.record_and_serve("QualityRun", props))
+            existing.add(props["migrated_key"])
+            imported += 1
+        return {"migrated": True, "imported": imported, "skipped": skipped,
+                "run_ids": ids}
+
     @verb(role="transform")
     def sarif(self, findings: list = None, max_results: int = 0) -> dict:
         """Render Findings as SARIF 2.1.0 for code-scanning — READ-ONLY (Spec 382 §1).
