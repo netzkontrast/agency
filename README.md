@@ -9,10 +9,17 @@ graph; four concepts (Intent · Capability · Lifecycle · Memory);
 a bash CLI.
 
 > v0.1. Capabilities self-register by reflection, and the engine **authors
-> and validates its own plugin install.**
+> and validates its own plugin install.** The live registry currently exposes
+> **36 self-registering capabilities / ~470 verbs** — query the current set
+> with `agency search <keyword>` or `/agency:help`, never a frozen list.
 
 ## Read first
 
+- [`architecture.md`](architecture.md) — the **shorthand decision digest**
+  (every recorded WH(Y) decision as a one-liner, grouped by architecture
+  layer; DERIVED from the thematic ADRs, rebuilt on spec-done, and emitted by
+  the SessionStart hook as `additionalContext`). **Read this first** — full
+  rationale lives in [`docs/adr/`](docs/adr/).
 - [`docs/vision/GOALS.md`](docs/vision/GOALS.md) — the **why** (8 goals
   + 5 non-goals + a goal-to-code map). One page.
 - [`docs/vision/CORE.md`](docs/vision/CORE.md) — the **canon** (how the
@@ -21,8 +28,9 @@ a bash CLI.
   working in this repo (verify via `git ls-remote`, never local HEAD).
 - [`AGENCY_PROTOCOL.md`](AGENCY_PROTOCOL.md) — the **remote-async-agent
   doctrine** (COMPLETED ≠ done; the four-case routing; recovery flow).
-- [`CLAUDE.md`](CLAUDE.md) — three rules for any Claude Code session
-  working here.
+- [`CLAUDE.md`](CLAUDE.md) — the working rules for any Claude Code session
+  here (dogfood the engine · graph↔files are peers · decide before
+  dispatching · keep `TODO.md` current · address drift before committing).
 
 ## Install (Claude Code)
 
@@ -182,40 +190,76 @@ agency install        # rewrites the five files from the live registry
 
 ## What ships
 
-**14 self-registering capabilities** — drop a file (or folder, per
-Spec 060) in `agency/capabilities/` and the engine `discover()`s it
-via reflection, auto-wiring one MCP tool per `@verb`-decorated method.
-Each capability owns its ontology fragment (nodes · edges · enums ·
-skills · templates · schemas).
+**36 self-registering capabilities** — drop a file (or a folder, Spec
+016/060) under `agency/capabilities/` and the engine `discover()`s it via
+reflection, auto-wiring one MCP tool per `@verb`-decorated method. Each
+capability owns its ontology fragment (nodes · edges · enums · skills ·
+templates · schemas) and `home`s on one of the four concepts. The set is OPEN
+— this table is a current snapshot; `agency search <kw>` / `/agency:help`
+list the live registry.
 
-| Capability | Role(s) | What |
+**Memory** (the bi-temporal provenance graph):
+
+| Capability | Verbs | What |
 |---|---|---|
-| `analyze` | transform/effect/act | 4-axis decidable analysis (quality/security/performance/architecture) + Spec 048 `paths` axis. Composes optional ruff/bandit/radon via the `[analyze]` extra. `run` · `improve` · `cleanup` · `architecture` · `security` · `quality` · `performance` · `paths`. |
-| `branch` | transform/effect | Finish a development branch: `assess` + `finish`. |
-| `delegate` | transform/effect | Agent orchestration: `fan_out` + `join` + the **`dispatch-decision`** skill (eleven-signal token-economics heuristic for inline vs local-subagent vs Jules vs MCP). |
-| `develop` | transform/act | Dev-workflow disciplines as walkable skills (brainstorm · plan · tdd · debug · verify · spec-panel · review) + `scaffold_capability` (light/medium/heavy skeletons). |
-| `document` | transform/effect | Project graph state to markdown: `render` (5 scopes incl. `research-report` and `provenance`) · `explain` (3 depths) · `index_repo` (94% token reduction). |
-| `dogfood` | transform/effect/act | Graph-native observation ledgers — `note` (write) + `render` (project to DOGFOOD-NOTES.md) + `export`/`import` (JSON for merge-conflict recovery) + `collect` (legacy markdown-to-graph migration). |
-| `gate` | act | Reusable hard-gate predicate: `check` records PASSED or BLOCKED_ON + an `input-required` pause on failure. |
-| `jules` | effect/transform | Full remote-Jules-session lifecycle: 22 verbs covering dispatch · read · drive · `COMPLETED ≠ done` `verify` · `watch` · `recover` · `apply_patch` · `lint_prompt` · `review_comment` · `detect_mode`. |
-| `plugin` | act/transform | Develop plugins: scaffold manifest, author skill/command, marketplace entry, lint skills (CSO rules), lint capabilities (Hint #7 + wire-shape + reflection-link), help. |
-| `reflect` | act/transform | Durable scope-tagged cross-session memory (`note`/`batch_note`/`recall`/`search`/`recall_semantic`) — the graph-native store for observations; TF-IDF default + optional BGE via the `[recall]` extra. |
-| `research` | act | Deep-research flow: `lead` (mint a Research node) → `specialist` (4 roles: codebase / prior-reflections / doc-corpus / web) → `verify` (adversarial citation check). |
-| `skill_generator` | act | Compose `plugin.author_skill` + `lint_skill` into one deploy-ready-skill verb. |
-| `subagent` | effect | Subagent-driven development: dispatch a worker via `delegate` + two-stage gated review (spec → quality). |
-| `workspace` | effect | Isolate a worktree on a fresh branch + baseline its green/red test result. |
+| `adr` | 19 | WH(Y) decision records: `extract_decisions` from a spec → `proposed` drafts, owner-only `approve`, thematic **living** ADRs per architecture layer, `render` to `docs/adr/`, `architecture` digest → `architecture.md`. |
+| `document` | 14 | The graph↔markdown convergence surface: `render` (graph scopes) · `explain` (code→md) · `index_repo` · `ingest`/`sync`/`mirror`/`emit` (bi-directional keep-both round-trip, Spec 292) · **`compose`** (deterministic template scaffold + MCP-sampled custom sections, Spec 394) · `revisions` · `session`. |
+| `dogfood` | 11 | Graph-native observation ledgers — `note` · `render` (→ DOGFOOD-NOTES.md) · `export`/`import` · `collect` (legacy md→graph). |
+| `manage` | 18 | The graph read/management API — census, typed listing, provenance drills (`analyze.graph`'s surface). |
+| `panel` | 2 | Multi-expert review panels (spec-panel / business-panel synthesis). |
+| `reflect` | 6 | Durable scope-tagged cross-session memory: `note`/`batch_note`/`recall`/`search`/`recall_semantic` (TF-IDF default + optional BGE via `[recall]`). |
+| `toolcalls` | 5 | The ephemeral hook tool-call store (pre/post capture, full — never truncated; rule 9). |
 
-Plus the **engine substrate tools** (not capabilities, wired directly):
-`search` · `get_schema` · `execute` (the code-mode contract) +
-`lifecycle_gate` (mid-flow elicit) + `memory_graph_provenance` (the moat
-read).
+**Capability** (the open verb substrate):
 
-Domain capabilities live in [`examples/`](examples/) — e.g.
-`examples/music.py` (album conceptualizer), loaded via
-`Engine(..., extra_capabilities=[…])`. The bootstrapping harness stays
-minimal while proving the extension contract end to end.
+| Capability | Verbs | What |
+|---|---|---|
+| `analyze` | 17 | Decidable analysis — quality/security/performance/architecture + `paths`, the Iron-Law (`review`) report, `graph` census. Composes optional ruff/bandit/radon via `[analyze]`. |
+| `config` | 3 | `.agency/config.yaml` scaffold + non-destructive repair. |
+| `discover` | 8 | Requirements interview/triage — `interview` · `acceptance` · `clarify` · `clarity_gate` · `scope`. |
+| `doctrine` | 4 | Cite/resolve the repo's own rules — `cite` · `principles` · `resolve` · `rules`. |
+| `intent` | 11 | Intent `capture`/`confirm`/`amend` + critical-thinking methods (assumptions, brooks_lint, …). |
+| `music` | 103 | The **reference clustered domain capability** (Spec 093/094) — a full album-production lifecycle (lyrics · audio · catalogue · promo · research · gates). |
+| `novel` | 95 | Clustered novel-writing domain capability (the MVN flow — conceptualize → chapters/scenes). |
+| `plugin` | 12 | Author/lint Claude Code plugin artefacts — manifest · skill · command · marketplace · CSO + capability lints · help. |
+| `prompt` | 19 | Prompt authoring/audit/evaluate — `audit` (clarity score) · `assemble_*` · `fragments_for`. |
+| `recommend` | 1 | Route a request to the right verb. |
+| `research` | 5 | Deep-research flow — `lead` → `specialist` (codebase/prior-reflections/doc-corpus/web) → `verify` (adversarial citation check). |
+| `shell` | 5 | Allowlisted shell recipes + per-tool filter profiles (Spec 337). |
+| `skill_generator` | 3 | Compose `plugin.author_skill` + `lint_skill` into one deploy-ready-skill verb. |
+| `skills` | 6 | Skill walking/management surface. |
+| `symbols` | 3 | Symbol/call-graph queries (CodeGraph-style). |
+| `thinking` | 11 | Critical-thinking methods (socratic, first-principles, …) recorded as provenance. |
 
-## What it proves (`tests/`, 663 passing)
+**Lifecycle** (walkable disciplines + remote orchestration):
+
+| Capability | Verbs | What |
+|---|---|---|
+| `branch` | 3 | Finish a dev branch — `assess` · `finish` · `commit_smart` (decidable conventional-commit message). |
+| `delegate` | 4 | Agent orchestration — `fan_out`/`join` + the **`dispatch-decision`** skill (eleven-signal token-economics heuristic). |
+| `develop` | 20 | Dev disciplines as walkable skills — `brainstorm`·`plan`·`tdd`·`debug`·`verify`·`review`·`skill_walk`·`reference`·`scaffold_capability`, plus the **`develop-spec`** lifecycle. |
+| `frugal` | 7 | Over-engineering review — the YAGNI floor (`review`·`level`·`debt`). |
+| `gate` | 3 | Reusable hard-gate predicate — `check` records PASSED / BLOCKED_ON + an `input-required` pause. |
+| `jules` | 22 | Full remote-Jules-session lifecycle — dispatch · read · drive · `COMPLETED ≠ done` `verify` · `watch` · `recover` · `apply_patch` · `review_comment`. |
+| `loop` | 15 | The loop-library surface — design/audit/run **bounded feedback loops** (terminal states, not open autonomy). |
+| `mode` | 3 | Session-mode switching. |
+| `persona` | 3 | Summon a specialist persona — compose a dispatch brief + record provenance. |
+| `select` | 2 | Selection helpers. |
+| `subagent` | 1 | Subagent-driven development — dispatch a worker via `delegate` + two-stage gated review. |
+| `workflow` | 9 | The **develop-spec** lifecycle — `index`/`board`/`move_spec`/`open_spec` over `Plan/<state>/` physical spec folders (Spec 353–359). |
+| `workspace` | 2 | Isolate a worktree on a fresh branch + baseline its green/red test result. |
+
+Plus the **engine substrate tools** (bare names, wired directly — not
+capabilities): `search` · `get_schema` · `execute` (the code-mode contract) +
+`agency_welcome` (live capability map) · `intent_bootstrap` · `agency_doctor`
+· `agency_reload` (self-healing install sync) · `lifecycle_gate` (mid-flow
+elicit) · `memory_graph_provenance` (the moat read).
+
+Third-party domain capabilities live in [`examples/`](examples/), loaded via
+`Engine(..., extra_capabilities=[…])`; `music`/`novel` have graduated into
+the core tree as the reference clustered domain capabilities (Spec 094/121).
+
+## What it proves (`tests/` — the real-substrate acceptance suite)
 
 1. **The moat — cross-concern provenance is one graph traversal.**
    `Memory.provenance(intent)` returns, in one Cypher walk, every
@@ -229,7 +273,8 @@ minimal while proving the extension contract end to end.
    *and* via a bash-only subprocess, over the same graph, yields
    identical results (see `AGENTS.md`).
 4. **Capabilities self-register by reflection.** Adding a capability is
-   adding a file (or a folder per Spec 016 when it lands).
+   adding a folder under `agency/capabilities/<name>/` (verbs + ontology +
+   a docstring that derives its Agent Skill) — and nothing else.
 5. **A micro-step skill walker.** Walks a skill one phase at a time
    (progressive disclosure), executes phases bound to real capability
    verbs, blocks at a hard gate until confirmed; every phase + every
@@ -290,36 +335,33 @@ minimal while proving the extension contract end to end.
 
 ## Spec landscape
 
-[`Plan/000-overview.md`](Plan/000-overview.md) — the spec index. Active
-push is wave-3 (specs 012-019). Read [`docs/vision/GOALS.md`](docs/vision/GOALS.md)
-to see which goal each spec advances.
+Specs live in **physical state folders** — `Plan/<state>/NNN-slug/spec.md`
+where `<state>` ∈ `draft · open · inprogress · superseded · done`. The folder
+IS the spec's lifecycle state, mirrored by a `SpecLifecycle` graph node
+(keep-both, Spec 292); `scripts/check-drift` gates
+`folder == frontmatter == node`. The set runs through **Spec 394**
+(`document.compose`, this change). Query live state from the graph, never by
+eyeballing the tree:
 
-[`TODO.md`](TODO.md) is the binding cross-spec status roll-up
-(maintained per CLAUDE.md Rule #4); each spec's `## Followup —
-Implementation Status` section is the ground truth.
+```bash
+agency execute --code 'return await call_tool("capability_workflow_index", {"root":"Plan"})'   # every spec's state + drift flags
+agency execute --code 'return await call_tool("capability_workflow_board", {"state":"inprogress"})'
+```
+
+Work on the repo runs through one walkable lifecycle — the **`develop-spec`**
+skill (on `workflow.ontology.skills`) chaining the disciplines: intent →
+triage → brainstorm → research → acceptance → spec → spec-panel → brooks-lint
+→ improve → **open** → **adr-approve** (the ADR hinge — a spec can't reach
+`/inprogress` until its extracted WH(Y) decisions are owner-`approved`) →
+build (TDD) → done. **Code is the final decision**: ADRs and
+[`architecture.md`](architecture.md) are DERIVED from what shipped, rebuilt on
+spec-done via `adr.architecture(apply=True)`.
+
+[`TODO.md`](TODO.md) is the binding cross-spec status roll-up (maintained per
+CLAUDE.md Rule #4 — every spec-touching commit updates its row); each spec's
+`## Followup — Implementation Status` section is the ground truth.
 [`docs/vision/SPEC-VISION-ALIGNMENT.md`](docs/vision/SPEC-VISION-ALIGNMENT.md)
 maps every spec to the 8 Vision goals.
-
-Shipped (18 — across all waves):
-- Substrate: **020** central .agency/session.db · **029** MCP bootstrap
-  + self-explain · **030** Jules-key + doctor + stateful welcome
-- Jules: **012** complete lifecycle + watcher · **013** skills + protocol
-  doctrine · **015** architecture review (dogfood pass)
-- Distribution: **039** pipx + E2E + console-scripts + discovery shims
-- Memory + Provenance: **017** graph-native dogfood ledgers · **045**
-  reflect.recall_semantic (TF-IDF + optional BGE) · **048** intent chain
-  + owner enum + analyze.paths
-- Capabilities: **040** subagent-decision heuristics · **042** analyze
-  (4 axes + improve/cleanup) · **043** document (render/explain/index_repo)
-  · **044** research (lead+specialist+verify) · **050** ruff+bandit+radon
-  integration · **052** DuckDuckGo web specialist + reachability check
-- Meta: **047** cluster-integration master · **053** test-suite-
-  organization + CI
-
-Drafted: **014** (observation → amendment) · **016** (capability authoring
-doctrine) · **019** (engine output-shape) · **049** (naming + token
-economy review) · **051** (analyze.architecture + networkx) · **054**
-(drift management — code tags + scripts/check-drift).
 
 ## Layout
 
@@ -332,16 +374,18 @@ economy review) · **051** (analyze.architecture + networkx) · **054**
 | `agency/skill.py` | The micro-step skill walker (progressive disclosure + hard-gate persistence per Codex C3) |
 | `agency/ontology.py` | The strict ontology + skill schemas |
 | `agency/templates.py` | Templates (manifest · SKILL.md · command · step-doc) |
-| `agency/engine.py` | **Engine** — FastMCP; code-mode contract; reflection-based auto-wiring; lifespan starts the Jules watcher |
-| `agency/cli.py` + `AGENTS.md` | Bash layer — same code-mode contract for bash-only agents |
+| `agency/engine.py` | **Engine** — FastMCP; code-mode contract; reflection-based auto-wiring; `reload()` (self-healing install sync); lifespan starts the Jules watcher |
+| `agency/_host_bridge.py` | **HostBridge** (Spec 285) — the one boundary a verb reaches the host LLM (`sample`) + the user (`elicit`) through; sync-over-async via AnyIO |
+| `agency/cli.py` + `AGENTS.md` | Bash layer — same code-mode contract for bash-only / no-MCP agents |
 | `agency/install.py` | Self-hosted Claude Code plugin install (generated by the engine) |
-| `agency/capabilities/jules.py` + `_jules_*.py` | The Jules capability (folder migration scheduled in Spec 016) |
-| `agency/capabilities/_jules_watch.py` | The long-polling watcher (state-aware adaptive cadence) |
-| `agency/capabilities/_jules_preambles.py` | Mode A/B preamble assembler + `review_comment` helper |
-| `examples/music.py` | Out-of-tree domain capability (album conceptualizer) |
-| `Plan/` | Specs (one dir per spec; `000-overview.md` is the index) |
-| `tests/` | Real-substrate tests (228 passing on `python -m pytest -q`) |
-| `.github/workflows/test.yml` | CI runs pytest on every PR + verifies the self-hosted install hasn't drifted |
+| `agency/capabilities/<name>/` | One folder per capability — verbs + ontology + a docstring that derives its Agent Skill (the drop-in bar) |
+| `agency/capabilities/jules/` + `_jules_*.py` | The Jules remote-async-agent capability + the long-polling watcher + Mode A/B preamble assembler |
+| `agency/capabilities/{document,adr,workflow}/` | The repo-development surface — graph↔markdown convergence · WH(Y) decision records · the `develop-spec` lifecycle |
+| `examples/` | Third-party out-of-tree domain capabilities (extension-contract proofs) |
+| `architecture.md` + `docs/adr/` | The DERIVED decision digest (one-liner per WH(Y) decision) + the full thematic ADRs |
+| `Plan/<state>/NNN-slug/` | Specs in physical state folders (`draft·open·inprogress·superseded·done`) |
+| `tests/` + `tests/acceptance/` | Real-substrate tests — `pytest-bdd` Gherkin acceptance scenarios are the contract (Spec 053; CI runs the full regression) |
+| `.github/workflows/test.yml` | CI runs `pytest -n auto -m "not e2e"` on every PR + verifies the self-hosted install hasn't drifted |
 
 ## Develop
 
@@ -403,8 +447,10 @@ for the rationale + the 8 canonical drift tags.
   or force-push.
 - Add a capability = add a file (folder-form for the heavier ones —
   see `agency/capabilities/{analyze,document,research}/`).
-- Spec lifecycle: research → design → spec-panel → refine →
-  IMPLEMENTATION-PLAN → TDD. Per-phase: RED → GREEN → green pytest →
+- Spec lifecycle: walk the **`develop-spec`** workflow (intent → triage →
+  brainstorm → research → acceptance → spec → spec-panel → brooks-lint →
+  improve → open → adr-approve → implement → done). Specs live in physical
+  `Plan/<state>/` folders; per-phase TDD: RED → GREEN → green pytest →
   commit → push.
 - **TODO.md update is MANDATORY** in every spec-touching commit
   (CLAUDE.md Rule #4).

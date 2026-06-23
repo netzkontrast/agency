@@ -24,6 +24,7 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
+| `compose` | effect | Compose a doc from a DETERMINISTIC scaffold + CUSTOM SAMPLED sections (Spec 394). | [details](references/compose.md) |
 | `convergence` | act | Audit a Document's convergence facets (Spec 292 C3). | [details](references/convergence.md) |
 | `emit` | effect | Persist ARBITRARY rendered content as a round-trippable Document (Spec 292). | [details](references/emit.md) |
 | `explain` | act | Deterministically explain code as markdown, emitting a Reflection. | [details](references/explain.md) |
@@ -41,7 +42,7 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 ## Example
 
 ```bash
-await call_tool('capability_document_convergence', {'intent_id': 'intent:abc'})
+await call_tool('capability_document_compose', {'intent_id': 'intent:abc'})
 ```
 
 ## Red flags — stop and re-read this skill
@@ -71,12 +72,12 @@ Every verb here is the prefixed wire tool ``capability_document_<verb>`` (unders
 
 ```python
 iid = (await call_tool("intent_bootstrap", {"purpose": "…", "deliverable": "…", "acceptance": "…"}))["intent_id"]
+await call_tool("capability_document_compose", {"intent_id": iid})
 await call_tool("capability_document_convergence", {"intent_id": iid})
 await call_tool("capability_document_emit", {"intent_id": iid})
 await call_tool("capability_document_explain", {"intent_id": iid})
 await call_tool("capability_document_index_repo", {"intent_id": iid})
 await call_tool("capability_document_ingest", {"intent_id": iid})
-await call_tool("capability_document_mirror", {"intent_id": iid})
 ```
 
-More verbs: `capability_document_render`, `capability_document_reopen`, `capability_document_restore_session`, `capability_document_revisions`, `capability_document_session`, `capability_document_session_analytics`, `capability_document_sync`
+More verbs: `capability_document_mirror`, `capability_document_render`, `capability_document_reopen`, `capability_document_restore_session`, `capability_document_revisions`, `capability_document_session`, `capability_document_session_analytics`, `capability_document_sync`
