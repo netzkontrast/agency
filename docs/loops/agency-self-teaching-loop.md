@@ -179,7 +179,14 @@ never-truncate doctrine). → **Spec C.**
   `[{id,text}]` shape lives only in the docstring. Fix = mirror Spec 284's `param_enums`
   with a `param_shapes` declaration folded into the description hint, OR surface the
   docstring `Inputs:` shape in the `get_schema` renderer. Its own TDD pass — not rushed.
-- **Still:** D2, README regen, then the independent fresh-subagent re-verify → owner "done".
+- **D2 shipped** — new `param_shapes` substrate mechanism (mirrors Spec 284
+  `param_enums`): a verb declares `param_shapes={"context": "[{id, text}]"}` and
+  `engine._wire` folds a "Shapes:" hint into the tool description, so `get_schema`
+  shows the nested object/array shape instead of a bare `any[]`. Description-only
+  (no wire validation). Proven on `discover.ask`; `Verb`/`verb()`/`_wrap_method`
+  carry the field. TDD: `tests/test_param_shapes.py` (2 scenarios); 47-test
+  wire/skill/welcome/reload/render slice green (param_enums path unregressed).
+- **Still:** README regen, then the independent fresh-subagent re-verify → owner "done".
 
 ---
 

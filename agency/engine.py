@@ -938,6 +938,16 @@ class Engine:
         # description, not per-param enum/description).
         if enum_hints:
             doc = f"{doc} Enums: {'; '.join(enum_hints)}."
+        # Spec 390 — surface declared param SHAPES (nested object/array literals)
+        # in the description so get_schema shows `context: [{id, text}]` instead of
+        # a bare `any[]`. Description-only, like the enum hint; no wire validation.
+        param_shapes = spec.get("param_shapes") or {}
+        if param_shapes:
+            _names = [p.name for p in user_params]
+            shape_hints = [f"{p}: {param_shapes[p]}" for p in _names
+                           if p in param_shapes]
+            if shape_hints:
+                doc = f"{doc} Shapes: {'; '.join(shape_hints)}."
         impl.__doc__ = doc
         impl.__annotations__ = {p.name: p.annotation for p in params}
         impl.__annotations__["return"] = dict

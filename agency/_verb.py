@@ -58,6 +58,7 @@ class Verb:
     inject: list[str] = field(default_factory=list)
     tags: set = field(default_factory=set)
     param_enums: dict = field(default_factory=dict)
+    param_shapes: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Accept an ontology.Role (or any StrEnum) but store the plain string
@@ -68,7 +69,7 @@ class Verb:
 
     # ---- Mapping-style bridge: keep the dict readers working unchanged -----
 
-    _FIELDS = ("name", "role", "fn", "inject", "tags", "param_enums")
+    _FIELDS = ("name", "role", "fn", "inject", "tags", "param_enums", "param_shapes")
 
     def __getitem__(self, key: str) -> Any:
         if key in self._FIELDS:
@@ -110,4 +111,5 @@ class Verb:
             inject=list(spec.get("inject") or []),
             tags=tags,
             param_enums=dict(spec.get("param_enums") or {}),
+            param_shapes=dict(spec.get("param_shapes") or {}),
         )

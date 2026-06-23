@@ -385,7 +385,7 @@ schema, the enumerated edge set, and the closed enums. (29 symbols)
 
 A skill is a Lifecycle of ordered Phases (a schema a capability contributes, e.g.
 the `develop` or `plugin` skills). (10 symbols)
-- **skill_emit.py** — Spec 031 §D + Spec 032 §G — per-capability skill emission pipeline. (38 symbols)
+- **skill_emit.py** — Spec 031 §D + Spec 032 §G — per-capability skill emission pipeline. (39 symbols)
 - **templates.py** — Templates — the prestructure for the resulting document of each step of a chain.
 
 A small library of *living document* skeletons a Capability `act` fills in. (14 symbols)
@@ -1297,7 +1297,7 @@ Closes the documented ENGINE GAP: the storyform gates + checks read a
 - **test_skill_emit.py** (10 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
 
-### `tests/acceptance/` (132 files)
+### `tests/acceptance/` (133 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.
 
 Phase C — the flat `tests/test_*.py` are converted into behaviour scenarios
@@ -1791,6 +1791,11 @@ Converted from tests/test_session_driver.py. (29 symbols)
 The grounding builder (`skill_generator.ground`) reads a capability's live
 surface — verbs, signatures (sans injected params), docstrings, ontology — into
 a structured dict. (38 symbols)
+- **test_skill_call_examples.py** — Acceptance — Spec 390: generated skills teach the CALL (code-mode examples).
+
+A fresh agent following a SKILL.md must learn not just WHEN to use a capability
+but HOW to call it through the MCP — the prefixed `capability_<cap>_<verb>` wire
+name, threaded with the serving `intent_id`, inside a code-mode block. (6 symbols)
 - **test_skill_generator.py** — Acceptance — skill_generator capability: author + lint a SKILL.md (Spec 028). (10 symbols)
 - **test_skill_lint.py** — Acceptance — strict skill-schema lint (Spec 377 Slice 1).
 

@@ -23,7 +23,7 @@ _RECOMMENDED_SUFFIX = " (Recommended)"
 class AskCluster:
     """The ``ask`` verb — composed into ``DiscoverCapability``."""
 
-    @verb(role="transform")
+    @verb(role="transform", param_shapes={"context": "[{id, text}]"})
     def ask(self, context: list, question: str = "", n_options: int = 3,
             multi: bool = False, ambiguity_kind: str = "underspecified",
             header: str = "") -> ToolResult:
