@@ -46,10 +46,29 @@ _FORCE_SEMANTIC = ("memory", "context", "save", "persist", "cross-session")
 _APPROACH_ROUTING_SKILL = {
     "name": "approach-routing", "kind": "discipline",
     "phases": [
-        {"index": 1, "name": "characterize", "produces": ["operation", "scope"]},
-        {"index": 2, "name": "weigh", "produces": ["candidates"]},
-        {"index": 3, "name": "route", "produces": ["approach"]},
-        {"index": 4, "name": "commit", "produces": ["rationale"], "gate": "hard"},
+        {"index": 1, "name": "characterize", "produces": ["operation", "scope"],
+         "goal": "Characterize the operation + its scope.",
+         "instructions": "Name what kind of operation this is and how big — the inputs "
+                         "that decide which approach fits (one-off vs repeated, small vs "
+                         "broad).",
+         "freedom": "medium"},
+        {"index": 2, "name": "weigh", "produces": ["candidates"],
+         "goal": "Weigh the candidate approaches.",
+         "instructions": "Enumerate the viable approaches and their tradeoffs for this "
+                         "operation + scope. Don't anchor on the first one that comes to "
+                         "mind.",
+         "freedom": "medium"},
+        {"index": 3, "name": "route", "produces": ["approach"],
+         "goal": "Route to the best-fit approach.",
+         "instructions": "Choose the approach whose tradeoffs best match the "
+                         "characterised operation; name the deciding factor.",
+         "freedom": "medium"},
+        {"index": 4, "name": "commit", "produces": ["rationale"], "gate": "hard",
+         "goal": "Commit to the approach with rationale.",
+         "instructions": "State why this approach wins given the operation + scope. "
+                         "Confirm this gate only with a grounded rationale, not a "
+                         "preference.",
+         "freedom": "low"},
     ],
 }
 

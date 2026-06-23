@@ -36,11 +36,11 @@ Feature: Capability skill migration — phase-fill + A6 (Spec 378 Slice 1)
 
   # ── Spec 378 Slice 4 — the graduated discipline gate ──────────────────────────
 
-  Scenario: the discipline gate blocks compliant disciplines and warns the tail
+  Scenario: the discipline gate is fully green — every discipline self-contained
     When I lint all registered disciplines
     Then no compliant discipline is blocked
     And every develop discipline is reported clean
-    And the migration tail is reported as warnings
+    And the discipline migration is complete
 
   # ── Spec 378 Slice 5 — the cross-cap understand cluster (gate auto-widens) ─────
 

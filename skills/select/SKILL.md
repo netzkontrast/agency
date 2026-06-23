@@ -43,3 +43,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`approach-routing`** (discipline): characterize → weigh → route → commit
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'approach-routing', 'inputs': {}, 'intent_id': '…'})`
+  1. **characterize** — Characterize the operation + its scope.
+     Name what kind of operation this is and how big — the inputs that decide which approach fits (one-off vs repeated, small vs broad).
+  2. **weigh** — Weigh the candidate approaches.
+     Enumerate the viable approaches and their tradeoffs for this operation + scope. Don't anchor on the first one that comes to mind.
+  3. **route** — Route to the best-fit approach.
+     Choose the approach whose tradeoffs best match the characterised operation; name the deciding factor.
+  4. **commit** — Commit to the approach with rationale.
+     State why this approach wins given the operation + scope. Confirm this gate only with a grounded rationale, not a preference.

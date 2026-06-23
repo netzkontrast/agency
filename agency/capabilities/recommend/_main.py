@@ -39,10 +39,26 @@ def _tokens(text: str) -> set[str]:
 _CAPABILITY_ROUTING_SKILL = {
     "name": "capability-routing", "kind": "discipline",
     "phases": [
-        {"index": 1, "name": "frame", "produces": ["request"]},
-        {"index": 2, "name": "rank", "produces": ["recommendations"]},
-        {"index": 3, "name": "select", "produces": ["chosen"]},
-        {"index": 4, "name": "confirm", "produces": ["rationale"], "gate": "hard"},
+        {"index": 1, "name": "frame", "produces": ["request"],
+         "goal": "Frame the request to route.",
+         "instructions": "State what the user is trying to do in terms the capability "
+                         "registry can match — the underlying need, not their phrasing.",
+         "freedom": "medium"},
+        {"index": 2, "name": "rank", "produces": ["recommendations"],
+         "goal": "Rank the candidate capabilities.",
+         "instructions": "Score the live capability surface against the framed request; "
+                         "produce a ranked shortlist with why each made it.",
+         "freedom": "low"},
+        {"index": 3, "name": "select", "produces": ["chosen"],
+         "goal": "Select the best-fit capability.",
+         "instructions": "Pick the top candidate that actually serves the need; a high "
+                         "rank on a wrong-shaped capability still loses.",
+         "freedom": "medium"},
+        {"index": 4, "name": "confirm", "produces": ["rationale"], "gate": "hard",
+         "goal": "Confirm the route with its rationale.",
+         "instructions": "State why this capability beats the alternatives for THIS "
+                         "request. Confirm only with a grounded rationale.",
+         "freedom": "low"},
     ],
 }
 

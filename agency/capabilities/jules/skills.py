@@ -36,20 +36,44 @@ JULES_PROTOCOL_PREAMBLE_SKILL: dict = {
         {"index": 1, "name": "detect-mode",
          "produces": ["mode_decision"],
          "invoke": {"capability": "jules", "verb": "detect_mode"},
-         "inputs": ["source"]},
+         "inputs": ["source"],
+         "goal": "Detect dogfood vs delegate mode.",
+         "instructions": "jules.detect_mode resolves whether this dispatch is dogfood "
+                         "(self-source, Mode A) or delegate (another repo, Mode B). The "
+                         "mode drives the preamble and the read-only clone assertion.",
+         "freedom": "low"},
         {"index": 2, "name": "verify-remote-state",
          "produces": ["verify_result"],
          "invoke": {"capability": "jules", "verb": "verify"},
-         "inputs": ["state", "branch", "remote"]},
+         "inputs": ["state", "branch", "remote"],
+         "goal": "Guard against a silent fail before dispatch.",
+         "instructions": "jules.verify checks the remote branch state — the silent-fail "
+                         "guard (COMPLETED != pushed). Don't dispatch onto a dirty or "
+                         "unexpected remote.",
+         "freedom": "low"},
         {"index": 3, "name": "name-canonical-tools",
          "produces": ["lint_result"],
          "invoke": {"capability": "jules", "verb": "lint_prompt"},
-         "inputs": ["text", "must_name"]},
+         "inputs": ["text", "must_name"],
+         "goal": "Lint that the prompt names every canonical tool.",
+         "instructions": "jules.lint_prompt refuses to advance unless the assembled prompt "
+                         "NAMES every canonical tool symbol (read_file, …). A prompt that "
+                         "doesn't name its tools leaves the remote agent guessing.",
+         "freedom": "low"},
         {"index": 4, "name": "set-scope",
          "produces": ["affects_paths", "no_create_outside",
-                      "agency_clone_ro_in_delegate"]},
+                      "agency_clone_ro_in_delegate"],
+         "goal": "Declare the scope allow-list + read-only assertion.",
+         "instructions": "Declare the affects-paths allow-list, the no-create-outside "
+                         "boundary, and (Mode B) the read-only agency-clone assertion. "
+                         "Scope is the safety rail on a remote agent.",
+         "freedom": "medium"},
         {"index": 5, "name": "dispatched",
-         "produces": ["session_id"], "gate": "hard"},
+         "produces": ["session_id"], "gate": "hard",
+         "goal": "Confirm the dispatch landed with a session id.",
+         "instructions": "The walker pauses until a session_id is supplied + confirmed. "
+                         "Confirm this gate only once the Jules session actually exists.",
+         "freedom": "low"},
     ],
 }
 
@@ -70,7 +94,13 @@ JULES_TOOL_DISCIPLINE_SKILL: dict = {
         {"index": 1, "name": "apply-tool-discipline",
          "produces": ["lint_result"],
          "invoke": {"capability": "jules", "verb": "lint_prompt"},
-         "inputs": ["text", "must_name"]},
+         "inputs": ["text", "must_name"],
+         "goal": "Lint that a draft prompt names its tools.",
+         "instructions": "jules.lint_prompt over a draft prompt — the reusable predicate "
+                         "the preamble's phase 3 also invokes. Refuses unless every "
+                         "canonical tool symbol is named; walk it standalone to lint a "
+                         "draft before committing to a dispatch.",
+         "freedom": "low"},
     ],
 }
 
@@ -97,17 +127,36 @@ JULES_RECOVERY_WHEN_STUCK_SKILL: dict = {
         {"index": 1, "name": "classify-state",
          "produces": ["status"],
          "invoke": {"capability": "jules", "verb": "status"},
-         "inputs": ["session"]},
+         "inputs": ["session"],
+         "goal": "Classify the stuck session's state.",
+         "instructions": "jules.status returns the session resource so you can branch on "
+                         "state + has_outputs — is it silently failed, awaiting approval, "
+                         "or genuinely still working?",
+         "freedom": "low"},
         {"index": 2, "name": "probe-once",
          "produces": ["probe"],
          "invoke": {"capability": "jules", "verb": "message"},
-         "inputs": ["session", "prompt"]},
+         "inputs": ["session", "prompt"],
+         "goal": "Probe the agent ONCE to push or reply empty.",
+         "instructions": "jules.message nudges the agent to push its work or reply EMPTY — "
+                         "the canonical recovery probe. Probe once; don't spam a stuck "
+                         "session.",
+         "freedom": "low"},
         {"index": 3, "name": "patch-or-empty",
          "produces": ["patch"],
          "invoke": {"capability": "jules", "verb": "patch"},
-         "inputs": ["session"]},
+         "inputs": ["session"],
+         "goal": "Extract the session's patch outputs.",
+         "instructions": "jules.patch extracts the patch outputs (files/lines/bytes) for "
+                         "the recovery plan — the fallback when the agent won't push.",
+         "freedom": "low"},
         {"index": 4, "name": "recovered",
-         "produces": ["pr_url"], "gate": "hard"},
+         "produces": ["pr_url"], "gate": "hard",
+         "goal": "Confirm recovery — a PR url or EMPTY.",
+         "instructions": "Supply the pr_url (or the sentinel EMPTY when no recovery was "
+                         "needed) + confirm. Confirm only when the session is genuinely "
+                         "recovered or definitively empty.",
+         "freedom": "low"},
     ],
 }
 
@@ -127,13 +176,26 @@ JULES_PR_REVIEW_CYCLE_SKILL: dict = {
     "kind": "discipline",
     "phases": [
         {"index": 1, "name": "read-comments",
-         "produces": ["comments"]},
+         "produces": ["comments"],
+         "goal": "Read the PR review comments.",
+         "instructions": "Fetch the review comments via GitHub MCP and read them for what "
+                         "they actually ask — understand before replying.",
+         "freedom": "medium"},
         {"index": 2, "name": "draft-replies",
          "produces": ["draft_reply"],
          "invoke": {"capability": "jules", "verb": "review_comment"},
-         "inputs": ["body"]},
+         "inputs": ["body"],
+         "goal": "Draft replies carrying the protocol handshake.",
+         "instructions": "jules.review_comment drafts each reply WITH the mandatory "
+                         "protocol handshake tail. Address the comment with technical "
+                         "substance, not performative agreement.",
+         "freedom": "medium"},
         {"index": 3, "name": "reply-on-github",
-         "produces": ["posted"]},
+         "produces": ["posted"],
+         "goal": "Post the replies on GitHub.",
+         "instructions": "Post the drafted replies via GitHub MCP. Be frugal — only reply "
+                         "where a reply genuinely advances the review.",
+         "freedom": "low"},
     ],
 }
 
@@ -152,13 +214,27 @@ JULES_FANOUT_SKILL: dict = {
     "kind": "discipline",
     "phases": [
         {"index": 1, "name": "plan-batch",
-         "produces": ["items"]},
+         "produces": ["items"],
+         "goal": "Plan the batch of independent items.",
+         "instructions": "Enumerate the independent items to fan out across Jules "
+                         "sessions — each must be self-contained (no shared state, no "
+                         "ordering dependency).",
+         "freedom": "medium"},
         {"index": 2, "name": "fan-out",
          "produces": ["fanout_result"],
          "invoke": {"capability": "delegate", "verb": "fan_out"},
-         "inputs": ["driver", "driver_verb", "items", "quota"]},
+         "inputs": ["driver", "driver_verb", "items", "quota"],
+         "goal": "Fan out a Jules session per item.",
+         "instructions": "delegate.fan_out(driver='jules') spawns N child Lifecycles, each "
+                         "driving a Jules session, bounded by the quota arg.",
+         "freedom": "medium"},
         {"index": 3, "name": "join",
-         "produces": ["child_outcomes"], "gate": "hard"},
+         "produces": ["child_outcomes"], "gate": "hard",
+         "goal": "Confirm every child resolved.",
+         "instructions": "This skill does NOT auto-join — it pauses until you confirm "
+                         "every child session resolved to an outcome. Confirm only when "
+                         "the fan-out genuinely completed.",
+         "freedom": "low"},
     ],
 }
 
@@ -187,11 +263,19 @@ JULES_SELF_IMPROVEMENT_SKILL: dict = {
         {"index": 1, "name": "collect-dogfood",
          "produces": ["collection"],
          "invoke": {"capability": "dogfood", "verb": "collect"},
-         "inputs": ["plan_dir"]},
+         "inputs": ["plan_dir"],
+         "goal": "Collect the dogfood observations.",
+         "instructions": "dogfood.collect walks Plan/**/DOGFOOD-NOTES.md and returns the "
+                         "observations + a flat texts list ready for bulk ingestion.",
+         "freedom": "low"},
         {"index": 2, "name": "fold-into-graph",
          "produces": ["reflections"],
          "invoke": {"capability": "reflect", "verb": "batch_note"},
-         "inputs": ["scope", "texts"]},
+         "inputs": ["scope", "texts"],
+         "goal": "Fold the observations into the graph as Reflections.",
+         "instructions": "reflect.batch_note writes one Reflection node per text in a "
+                         "single invocation — the durable-memory half of the dogfood loop.",
+         "freedom": "low"},
     ],
 }
 

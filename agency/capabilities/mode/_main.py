@@ -81,10 +81,26 @@ _BY_NAME = {m["name"]: m for m in _MODES}
 _MODE_SELECTION_SKILL = {
     "name": "mode-selection", "kind": "discipline",
     "phases": [
-        {"index": 1, "name": "assess", "produces": ["context"]},
-        {"index": 2, "name": "detect", "produces": ["candidate_modes"]},
-        {"index": 3, "name": "activate", "produces": ["active_mode"]},
-        {"index": 4, "name": "confirm", "produces": ["rationale"], "gate": "hard"},
+        {"index": 1, "name": "assess", "produces": ["context"],
+         "goal": "Assess the work context.",
+         "instructions": "Read the situation — what kind of work is this (design, build, "
+                         "debug, review)? The context drives which session mode fits.",
+         "freedom": "medium"},
+        {"index": 2, "name": "detect", "produces": ["candidate_modes"],
+         "goal": "Detect the candidate modes.",
+         "instructions": "Surface the modes that match the context; usually 1–2 are "
+                         "plausible. Don't force a mode the work doesn't call for.",
+         "freedom": "medium"},
+        {"index": 3, "name": "activate", "produces": ["active_mode"],
+         "goal": "Activate the chosen mode.",
+         "instructions": "Switch to the selected mode and record the ModeShift — the mode "
+                         "biases which disciplines + verbs you reach for next.",
+         "freedom": "low"},
+        {"index": 4, "name": "confirm", "produces": ["rationale"], "gate": "hard",
+         "goal": "Confirm the mode with its rationale.",
+         "instructions": "State WHY this mode fits the context. Confirm this gate only "
+                         "with a rationale grounded in the assessed work, not a default.",
+         "freedom": "low"},
     ],
 }
 

@@ -46,3 +46,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`deep-research`** (discipline): plan → fan-out → verify → publish
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'deep-research', 'inputs': {}, 'intent_id': '…'})`
+  1. **plan** — Plan the research — lead question + specialist lenses.
+     Frame the research question sharply and pick the specialist lenses (sources/angles) to fan out across. A vague question fans out into noise.
+  2. **fan-out** — Fan out and record every citation.
+     Run each specialist lens; record EVERY source as a Citation node (the report must survive the session). Capture the evidence, not just conclusions.
+  3. **verify** — Adversarially verify the claims.
+     Cross-check the claims against their citations; flag the unsupported ones. Verification is what separates research from a confident guess.
+  4. **publish** — Publish the cited report.
+     Synthesise the verified findings into a cited report. Confirm this gate only when every load-bearing claim carries a citation.

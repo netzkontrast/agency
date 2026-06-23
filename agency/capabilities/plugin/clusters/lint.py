@@ -1103,20 +1103,21 @@ def lint_skill_schema(skill: dict, verbs_index: dict | None = None) -> dict:
     return {"ok": not v, "violations": v}
 
 
-def partition_discipline_lint(disciplines: dict, verbs_index: dict) -> dict:
-    """Spec 378 Slice 4 — the graduated discipline gate. Lints every discipline and
-    partitions it by whether it has OPTED INTO the self-contained contract:
+def partition_discipline_lint(disciplines: dict, verbs_index: dict,
+                              strict: bool = True) -> dict:
+    """Spec 378 — the discipline gate. Lints every discipline against the full
+    self-contained contract and partitions:
 
-    - ``clean``   — self-contained (every phase has `instructions`) AND passes lint.
-    - ``blocked`` — self-contained but FAILS another rule (no-stub / verb-resolves /
-                    schema): a regression on a migrated discipline — fail the gate.
-    - ``warned``  — not yet self-contained (the migration tail): surfaced, not fatal,
-                    until its capability is migrated (then it auto-joins the gate).
+    - ``clean``   — passes the contract (self-contained + no-stub + verb-resolves + schema).
+    - ``blocked`` — FAILS the contract → fail the gate.
+    - ``warned``  — graduated-rollout only (`strict=False`): a not-yet-self-contained
+                    discipline is surfaced, not fatal. Empty under `strict=True`.
 
-    `disciplines`: ``{name: skill_dict}``. Returns ``{ok, clean, warned, blocked}``
-    where ``ok = not blocked`` (a filled discipline must stay compliant; an unfilled
-    one only warns). The set self-WIDENS — a discipline joins the block set the
-    moment its phases gain instructions, no manual list."""
+    The migration is COMPLETE (Spec 378 — all disciplines self-contained), so the
+    gate runs `strict=True` (repo-wide block): EVERY discipline must pass, and a new
+    discipline that ships without phase `instructions` BLOCKS rather than warns.
+    `strict=False` preserves the graduated behavior (block only the already
+    self-contained ones) for a future re-migration. `ok = not blocked`."""
     clean: list[str] = []
     warned: list[dict] = []
     blocked: list[dict] = []
@@ -1128,7 +1129,7 @@ def partition_discipline_lint(disciplines: dict, verbs_index: dict) -> dict:
         res = lint_skill_schema(skill, verbs_index=verbs_index)
         if res["ok"]:
             clean.append(name)
-        elif compliant:
+        elif strict or compliant:
             blocked.append({"name": name, "violations": res["violations"]})
         else:
             warned.append({"name": name, "violations": res["violations"]})

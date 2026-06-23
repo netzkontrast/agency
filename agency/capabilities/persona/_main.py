@@ -81,10 +81,30 @@ _BY_NAME = {p["name"]: p for p in _PERSONAS}
 _SPECIALIST_DISPATCH_SKILL = {
     "name": "specialist-dispatch", "kind": "discipline",
     "phases": [
-        {"index": 1, "name": "match", "produces": ["persona", "task"]},
-        {"index": 2, "name": "brief", "produces": ["brief"]},
-        {"index": 3, "name": "dispatch", "produces": ["child"]},
-        {"index": 4, "name": "verify", "produces": ["verified"], "gate": "hard"},
+        {"index": 1, "name": "match", "produces": ["persona", "task"],
+         "goal": "Match the task to a specialist persona.",
+         "instructions": "Pick the persona whose expertise fits the task (backend, "
+                         "security, frontend, …). The match is the leverage — a mismatched "
+                         "specialist wastes the dispatch.",
+         "freedom": "medium"},
+        {"index": 2, "name": "brief", "produces": ["brief"],
+         "goal": "Write a self-contained brief for the persona.",
+         "instructions": "Brief the specialist so it succeeds with NO parent context — "
+                         "the task, the acceptance, the scope. A persona is only as good "
+                         "as its brief.",
+         "freedom": "medium"},
+        {"index": 3, "name": "dispatch", "produces": ["child"],
+         "goal": "Dispatch the specialist as a child run.",
+         "instructions": "Dispatch the persona as a child Lifecycle + Invocation; only "
+                         "the result crosses back. Walk dispatch-decision first if unsure "
+                         "it beats inline.",
+         "freedom": "medium"},
+        {"index": 4, "name": "verify", "produces": ["verified"], "gate": "hard",
+         "goal": "Verify the specialist's output.",
+         "instructions": "Check the returned work against the brief's acceptance — a "
+                         "specialist's output is a proposal until verified. Confirm only "
+                         "on a genuine match.",
+         "freedom": "low"},
     ],
 }
 

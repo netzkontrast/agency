@@ -46,17 +46,43 @@ _LIFECYCLE_MANAGEMENT_SKILL = {
     },
     "phases": [
         {"index": 1, "name": "survey", "produces": ["board_state"],
-         "runs": ["manage.open_intents", "manage.list(Lifecycle, where={state})"]},
+         "runs": ["manage.open_intents", "manage.list(Lifecycle, where={state})"],
+         "goal": "Survey every in-flight lifecycle's state.",
+         "instructions": "Read the board — open intents + every Lifecycle by state. Query "
+                         "the live state from the graph, never by eyeballing status fields.",
+         "freedom": "low"},
         {"index": 2, "name": "triage", "produces": ["blockers"],
-         "runs": ["manage.whats_next", "manage.lifecycle"]},
+         "runs": ["manage.whats_next", "manage.lifecycle"],
+         "goal": "Triage what's blocked and what's next.",
+         "instructions": "Identify which lifecycles are stalled and WHY — the blocker per "
+                         "stuck item. Separate genuinely-blocked from simply not-started.",
+         "freedom": "medium"},
         {"index": 3, "name": "unblock", "produces": ["unblocked_lifecycles"],
-         "runs": ["lifecycle.resume", "gate.check"]},
+         "runs": ["lifecycle.resume", "gate.check"],
+         "goal": "Clear the blockers you can.",
+         "instructions": "Resume the lifecycles whose gate now passes; for the rest, name "
+                         "the precise unblock action. Don't force a gate that hasn't met "
+                         "its predicate.",
+         "freedom": "medium"},
         {"index": 4, "name": "advance", "produces": ["progress_recorded"],
-         "runs": ["lifecycle.move", "lifecycle.advance"]},
+         "runs": ["lifecycle.move", "lifecycle.advance"],
+         "goal": "Advance the unblocked lifecycles.",
+         "instructions": "Move each unblocked lifecycle to its next legal state via "
+                         "lifecycle.move (the sole state writer) — illegal transitions are "
+                         "rejected by the machine.",
+         "freedom": "low"},
         {"index": 5, "name": "close", "produces": ["terminal_closed"],
-         "runs": ["lifecycle.close", "gate.check"]},
+         "runs": ["lifecycle.close", "gate.check"],
+         "goal": "Close the ones that reached terminal.",
+         "instructions": "Close lifecycles that genuinely reached a terminal state; verify "
+                         "the closing gate. COMPLETED is not closed until verified.",
+         "freedom": "low"},
         {"index": 6, "name": "report", "produces": ["lifecycle_board"],
-         "runs": ["document.mirror(scope='lifecycle-board', apply_path='lifecycle-board.md')"]},
+         "runs": ["document.mirror(scope='lifecycle-board', apply_path='lifecycle-board.md')"],
+         "goal": "Mirror the board to a readable artefact.",
+         "instructions": "Project the live board state to the lifecycle-board document so "
+                         "the human sees what's in flight without re-querying.",
+         "freedom": "low"},
     ],
 }
 

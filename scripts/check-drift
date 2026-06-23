@@ -93,11 +93,11 @@ fi
 say
 
 # ----------------------------------------------------------------------
-# 2c. graduated discipline gate (Spec 378 Slice 4)
-#     A self-contained discipline (all phases carry instructions) is held to the
-#     full contract — a regression on one is drift (blocked). A not-yet-filled
-#     discipline only warns (the migration tail) until its capability is migrated.
-#     Skipped when agency deps are unavailable in this shell (CI runs with venv).
+# 2c. discipline gate — repo-wide block (Spec 378, migration complete)
+#     EVERY discipline must pass the full self-contained contract (all phases
+#     carry instructions + no-stub + verb-resolves + schema). The migration is
+#     complete, so a discipline that ships without phase instructions BLOCKS (it
+#     is drift), not warns. Skipped when agency deps are unavailable (CI has venv).
 # ----------------------------------------------------------------------
 say "==> discipline schema gate (Spec 378)"
 DISC_OUT=$(python -c "

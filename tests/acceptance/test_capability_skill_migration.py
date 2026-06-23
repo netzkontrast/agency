@@ -100,10 +100,15 @@ def _develop_clean(engine, disc_gate):
         f"develop disciplines not in the clean set: {sorted(develop_disc - clean)}")
 
 
-@then("the migration tail is reported as warnings")
-def _tail_warned(disc_gate):
-    assert disc_gate["warned"], (
-        "expected the cross-capability migration tail surfaced as warnings")
+@then("the discipline migration is complete")
+def _migration_complete(disc_gate):
+    assert disc_gate["warned"] == [], (
+        f"unmigrated discipline tail remains: "
+        f"{[w['name'] for w in disc_gate['warned']]}")
+    assert disc_gate["blocked"] == [], (
+        f"a discipline regressed against the contract: "
+        f"{[b['name'] for b in disc_gate['blocked']]}")
+    assert disc_gate["ok"] is True, "the discipline gate must be green when migration is complete"
 
 
 @then(parsers.parse('the "{name}" discipline is reported clean'))

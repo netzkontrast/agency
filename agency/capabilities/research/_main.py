@@ -48,11 +48,30 @@ _DEEP_RESEARCH_SKILL = {
         # verify, publish. scope is the orchestrator's responsibility
         # (refine the question); render is a v2 followup that depends
         # on document.render(scope='research-report').
-        {"index": 1, "name": "plan", "produces": ["research_id", "specialists"]},
-        {"index": 2, "name": "fan-out", "produces": ["citations_recorded"]},
-        {"index": 3, "name": "verify", "produces": ["verification_status"]},
+        {"index": 1, "name": "plan", "produces": ["research_id", "specialists"],
+         "goal": "Plan the research — lead question + specialist lenses.",
+         "instructions": "Frame the research question sharply and pick the specialist "
+                         "lenses (sources/angles) to fan out across. A vague question "
+                         "fans out into noise.",
+         "freedom": "high"},
+        {"index": 2, "name": "fan-out", "produces": ["citations_recorded"],
+         "goal": "Fan out and record every citation.",
+         "instructions": "Run each specialist lens; record EVERY source as a Citation "
+                         "node (the report must survive the session). Capture the evidence, "
+                         "not just conclusions.",
+         "freedom": "medium"},
+        {"index": 3, "name": "verify", "produces": ["verification_status"],
+         "goal": "Adversarially verify the claims.",
+         "instructions": "Cross-check the claims against their citations; flag the "
+                         "unsupported ones. Verification is what separates research from "
+                         "a confident guess.",
+         "freedom": "medium"},
         {"index": 4, "name": "publish", "produces": ["published"],
-          "gate": "hard"},
+          "gate": "hard",
+         "goal": "Publish the cited report.",
+         "instructions": "Synthesise the verified findings into a cited report. Confirm "
+                         "this gate only when every load-bearing claim carries a citation.",
+         "freedom": "low"},
     ],
 }
 

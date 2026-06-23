@@ -50,3 +50,33 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`develop-spec`** (discipline): intent → triage → brainstorm → research → acceptance → spec → spec-panel → brooks-lint → improve → open → adr-approve → inprogress → build → lint → done
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'develop-spec', 'inputs': {}, 'intent_id': '…'})`
+  1. **intent** — Capture the intent the spec serves.
+     intent.capture the purpose / deliverable / acceptance — every spec serves a confirmed intent.
+  2. **triage** — Triage the rough scope.
+     Interview + clarify to bound what's in and out before any design — a vague scope produces a vague spec.
+  3. **brainstorm** — Brainstorm the design.
+     Walk develop.brainstorm — explore options, present tradeoffs, land a direction. Design before code.
+  4. **research** — Research prior art + what already exists.
+     codegraph_explore over the existing code AND research external prior art. Most of the design is already half-built somewhere.
+  5. **acceptance** — Write the acceptance criteria.
+     State the decidable acceptance checks — how you'll KNOW it's done. Acceptance is the contract the build phase satisfies.
+  6. **spec** — Write the spec into Plan/draft/.
+     develop.write_spec the design + acceptance into a Plan/draft/ spec — the why, the slices, the acceptance.
+  7. **spec-panel** — Run the expert spec panel.
+     Convene the panel over the draft — steelman, assumptions, premortem — and capture the findings to fold back in.
+  8. **brooks-lint** — Brooks-lint for conceptual integrity.
+     intent.brooks_lint — the 9th critical-thinking method: essential-vs-accidental complexity, conceptual integrity, second-system effect.
+  9. **improve** — The design gate — loop until no blocker.
+     Loop the improve pass until no `block` finding remains AND the owner confirms. Confirm this gate only when the design is genuinely sound, not merely written.
+  10. **open** — Move to /open and extract the ADR decisions.
+     workflow.move_spec to /open, then adr.extract_decisions pulls the key decisions into proposed WH(Y) Decision drafts.
+  11. **adr-approve** — The ADR hinge — owner approves the decisions.
+     The spec cannot advance until EVERY decision is approved (owner-only — an agent never self-approves). Confirm this gate only on the owner's approval.
+  12. **inprogress** — Move to /inprogress and load the ADR hints.
+     workflow.move_spec to /inprogress, then adr.hints re-loads the code + architecture hints into context as the build begins.
+  13. **build** — Build it TDD, one slice at a time.
+     Walk develop.tdd / plan-execute — RED → GREEN → green suite → commit → push, slice by slice. The tests are the contract.
+  14. **lint** — Lint the implementation (brooks Iron Law).
+     Run the review chain over the implementation — correctness first, then the Iron Law (over-engineering, duplication). Advisory: findings feed the done verification.
+  15. **done** — Verify and move to /done — COMPLETED != done.
+     develop.verify the acceptance, run the headless analyze.review CI gate, then workflow.move_spec to /done. Confirm this gate ONLY on green evidence — COMPLETED is not done.
