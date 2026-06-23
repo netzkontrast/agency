@@ -75,6 +75,37 @@ def _self_contained(disc_lints, name):
     assert not sc, f"{name!r} must be self-contained (A1 — every phase has instructions); got {sc}"
 
 
+@when("I lint all registered disciplines", target_fixture="disc_gate")
+def _lint_disc_gate(engine, confirmed_intent):
+    raw, _ = engine.registry.invoke(
+        engine.memory, confirmed_intent, "plugin", "lint_disciplines")
+    return raw["result"] if isinstance(raw, dict) and "result" in raw else raw
+
+
+@then("no compliant discipline is blocked")
+def _none_blocked(disc_gate):
+    assert disc_gate["blocked"] == [], (
+        f"a self-contained discipline regressed against the contract: "
+        f"{disc_gate['blocked']}")
+
+
+@then("every develop discipline is reported clean")
+def _develop_clean(engine, disc_gate):
+    from agency.capabilities.skills._main import _all_skills
+    skills = _all_skills(engine.registry)
+    develop_disc = {n for n, m in skills.items()
+                    if m["capability"] == "develop" and m["kind"] == "discipline"}
+    clean = set(disc_gate["clean"])
+    assert develop_disc <= clean, (
+        f"develop disciplines not in the clean set: {sorted(develop_disc - clean)}")
+
+
+@then("the migration tail is reported as warnings")
+def _tail_warned(disc_gate):
+    assert disc_gate["warned"], (
+        "expected the cross-capability migration tail surfaced as warnings")
+
+
 @then("every develop discipline is self-contained")
 def _all_develop_self_contained(disc_lints):
     assert disc_lints, "expected develop disciplines"

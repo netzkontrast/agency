@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## plugin verb audit — 0 of 11 verbs need work
+## plugin verb audit — 0 of 12 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -21,6 +21,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `plugin.author_skill` | act | ✓ clean |
 | `plugin.help` | transform | ✓ clean |
 | `plugin.lint_capability` | transform | ✓ clean |
+| `plugin.lint_disciplines` | transform | ✓ clean |
 | `plugin.lint_explain` | transform | ✓ clean |
 | `plugin.lint_skill` | transform | ✓ clean |
 | `plugin.lint_skill_schema` | transform | ✓ clean |

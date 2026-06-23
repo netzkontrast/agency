@@ -93,6 +93,43 @@ fi
 say
 
 # ----------------------------------------------------------------------
+# 2c. graduated discipline gate (Spec 378 Slice 4)
+#     A self-contained discipline (all phases carry instructions) is held to the
+#     full contract — a regression on one is drift (blocked). A not-yet-filled
+#     discipline only warns (the migration tail) until its capability is migrated.
+#     Skipped when agency deps are unavailable in this shell (CI runs with venv).
+# ----------------------------------------------------------------------
+say "==> discipline schema gate (Spec 378)"
+DISC_OUT=$(python -c "
+import tempfile
+from agency.engine import Engine
+from agency.capabilities.skills._main import _all_skills
+from agency.capabilities.plugin.clusters.lint import partition_discipline_lint
+eng = Engine(tempfile.mktemp(suffix='.db'))
+skills = _all_skills(eng.registry)
+disc = {n: m['_schema'] for n, m in skills.items() if m['kind'] == 'discipline'}
+vi = {c: set(eng.registry.get(c).verbs) for c in eng.registry.names()}
+r = partition_discipline_lint(disc, vi)
+eng.memory.close()
+print(f\"    clean={len(r['clean'])} warned={len(r['warned'])} (migration tail) blocked={len(r['blocked'])}\")
+for b in r['blocked']:
+    print('    BLOCKED', b['name'], [v['rule'] for v in b['violations']])
+raise SystemExit(1 if r['blocked'] else 0)
+" 2>&1)
+DISC_RC=$?
+if echo "$DISC_OUT" | grep -qE "ModuleNotFoundError|ImportError"; then
+  say "    (skipped — agency deps unavailable in this shell)"
+elif [[ $DISC_RC -ne 0 ]]; then
+  [[ -n "$DISC_OUT" ]] && say "$DISC_OUT"
+  say "    a self-contained discipline regressed against the contract — fix before commit"
+  DRIFT=1
+else
+  [[ -n "$DISC_OUT" ]] && say "$DISC_OUT"
+  say "    disciplines: no regressions"
+fi
+say
+
+# ----------------------------------------------------------------------
 # 3. Capabilities without test files
 # ----------------------------------------------------------------------
 say "==> capabilities without test files"

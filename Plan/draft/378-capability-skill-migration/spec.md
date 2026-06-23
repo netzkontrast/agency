@@ -123,8 +123,32 @@ them all, so the gate stays GRADUATED — Slice 4 widens it to block the complia
 (filled) disciplines + warn the rest; full repo-wide block waits until those caps
 are migrated (the owner can drive that incrementally; the gate now surfaces them).
 
-Still:
-- **Slice 4** — widen the lint gate (377) to block compliant disciplines (warn the
-  rest), wired into check-drift; an optional domain-cap A6 exemplar. The legacy
-  single-template prune is 373 Slice 3's concern (per-type capability/discipline
-  templates), tracked there.
+**Slice 4 — SHIPPED: the graduated discipline gate (block compliant, warn the tail).**
+
+Done (file:line evidence):
+- `agency/capabilities/plugin/clusters/lint.py` — `partition_discipline_lint(
+  disciplines, verbs_index)` lints every discipline and partitions it: `clean`
+  (self-contained AND passes), `blocked` (self-contained but FAILS another rule — a
+  regression on a migrated discipline → fail the gate), `warned` (not yet
+  self-contained — the migration tail, surfaced not fatal). `ok = not blocked`. The
+  block set **self-widens** — a discipline joins it the moment its phases gain
+  instructions (no manual list). Surfaced as `plugin.lint_disciplines()`.
+- `scripts/check-drift` — new section 2c runs the gate: `blocked` → DRIFT; `clean`
+  / `warned` counts printed; skips gracefully without the venv. Live: clean=16
+  (all develop), warned=23 (the cross-cap tail), blocked=0.
+- Tests: a Slice 4 scenario — no compliant discipline is blocked; every develop
+  discipline is reported clean; the migration tail is surfaced as warnings (all
+  derived from the live registry — rule 8). 5/5 migration green; 39 across
+  migration/plugin/skill_lint; install regen + check-drift clean.
+
+**Spec 378 substrate COMPLETE for the develop layer.** develop is 16/16
+self-contained; the gate enforces no regression on any migrated discipline and
+surfaces the 23-discipline cross-cap tail as warnings. The full repo-wide block
+flip is now a mechanical follow-on (fill each warned discipline's phase
+instructions — each auto-joins the gate as it lands); the owner can drive that
+capability-by-capability. The legacy single-template prune is 373 Slice 3's
+concern (per-type capability/discipline templates), tracked there.
+
+**A6 demonstrated** (acceptance #2): the develop disciplines are capability-authored
+richer skill data validating against the v2 schema the same as auto-derived —
+no duplicated committed file (rule 2).

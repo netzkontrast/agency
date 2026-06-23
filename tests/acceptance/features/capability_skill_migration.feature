@@ -33,3 +33,11 @@ Feature: Capability skill migration — phase-fill + A6 (Spec 378 Slice 1)
   Scenario: every develop discipline is self-contained after the migration
     When I strict-lint every develop discipline
     Then every develop discipline is self-contained
+
+  # ── Spec 378 Slice 4 — the graduated discipline gate ──────────────────────────
+
+  Scenario: the discipline gate blocks compliant disciplines and warns the tail
+    When I lint all registered disciplines
+    Then no compliant discipline is blocked
+    And every develop discipline is reported clean
+    And the migration tail is reported as warnings
