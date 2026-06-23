@@ -1,7 +1,7 @@
 # Frugal — the minimal-code discipline
 
 <!-- doc-source: agency/_frugal.py agency/capabilities/frugal/_main.py Plan/done/332-frugal-core-discipline/spec.md Plan/done/348-frugal-capability-port/spec.md -->
-<!-- doc-hash: 089b26f3af5f1147 -->
+<!-- doc-hash: 60628807a8fa2c1b -->
 
 > **Lazy means efficient, not careless. The best code is the code never written.**
 

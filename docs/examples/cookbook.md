@@ -7,7 +7,7 @@ the shell). Each verb call records provenance — every action becomes a node in
 the graph that `SERVES` your intent.
 
 <!-- doc-source: agency/capabilities/panel/_main.py agency/capabilities/mode/_main.py agency/capabilities/persona/_main.py agency/capabilities/select/_main.py agency/capabilities/recommend/_main.py agency/capabilities/symbols/_main.py agency/capabilities/manage/_main.py agency/capabilities/document/_main.py agency/_substrate_tools.py -->
-<!-- doc-hash: b71602912a63c49c -->
+<!-- doc-hash: d48a8f19938f5b88 -->
 
 ## 0. Onboarding (one-time)
 
@@ -16,7 +16,7 @@ the graph that `SERVES` your intent.
 python -m agency.install --enable
 
 # Health-check — is the substrate ready, and can a fresh call succeed?
-agency doctor        # → ok, plugin_enabled, drift.surface_freshness, onboarding{ok, ms}
+agency doctor        # → ok, hooks.plugin_enabled, drift.surface_freshness, onboarding{ok, ms}
 ```
 
 Every session then starts the same way:

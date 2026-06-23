@@ -1,7 +1,7 @@
 # The three surfaces — install, CLI, MCP
 
-<!-- doc-source: agency/install.py agency/cli.py -->
-<!-- doc-hash: ae39bdc0f7ea4944 -->
+<!-- doc-source: agency/install.py agency/cli.py agency/_install_adapters.py -->
+<!-- doc-hash: 1de67871ce43c13d -->
 
 Agency presents the same capability surface three ways, all generated from the live
 registry. Code-mode (MCP) is canonical; the others are mirrors.
