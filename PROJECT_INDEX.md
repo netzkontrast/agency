@@ -1847,7 +1847,7 @@ AcceptanceCriterion). (23 symbols)
 
 The matrix is DERIVED from each spec's `vision_goals:` + `status:`
 frontmatter (Spec 149), never hand-maintained. (34 symbols)
-- **test_welcome.py** — Acceptance — agency_welcome (Spec 029 / 030). (37 symbols)
+- **test_welcome.py** — Acceptance — agency_welcome (Spec 029 / 030). (38 symbols)
 - **test_wet_generation.py** — Acceptance — use-case model selection + OpenRouter-first generation (Spec 352).
 
 All selection logic is network-free. (68 symbols)
