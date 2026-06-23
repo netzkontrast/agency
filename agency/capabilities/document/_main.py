@@ -210,6 +210,80 @@ class DocumentCapability(CapabilityBase):
         """
         return self._emit_graph_document(content, path)
 
+    @verb(role="effect", param_shapes={"sections": "[{heading, prompt}]"})
+    def compose(self, scope: str = "", target: str = "",
+                sections: list | None = None, apply_path: str = "",
+                system: str = "") -> dict:
+        """Compose a doc from a DETERMINISTIC scaffold + CUSTOM SAMPLED sections (Spec 394).
+
+        The template+sample MIX in ONE verb — the owner's "templates plus custom
+        sampled parts via MCP". The scaffold is a reproducible projection:
+        ``scope`` → ``render`` (a graph scope) XOR ``target`` → ``explain``
+        (code→markdown). Each ``sections`` entry is a ``{heading, prompt}`` whose
+        body is authored by an MCP ``ctx.host.sample`` call GROUNDED in that
+        scaffold (so the prose is about real state, not thin air). Degrades
+        honestly (Spec 391): with no sampling-capable host the section becomes a
+        placeholder that PRESERVES its prompt (``<!-- AGENT: sample — … -->``,
+        rule 9) and ``degraded=True`` — the document still assembles + round-trips.
+        Emitted via the keep-both ``_emit_graph_document`` (anchor + DocRevision +
+        SERVES); the clarity gate stays a SEPARATE ``ingest``/``sync`` pass so the
+        sampler never optimizes its own audit score.
+
+        Inputs: scope (render scope) XOR target (explain target) for the scaffold,
+                sections (list of {heading, prompt}), apply_path (target .md),
+                system (optional system prompt for every sampled section).
+        Returns: ``{document_id, revision_id, written, action, scaffold_tokens,
+                   sampled, degraded}``.
+        chain_next: ``document.ingest``/``sync`` to prompt-audit the body, then commit.
+        """
+        from agency._host_bridge import HostUnavailable
+        sections = sections or []
+        # 1) deterministic scaffold (the template half) — render XOR explain.
+        if scope:
+            base = self.render(scope)
+            if base.get("error"):
+                return base
+            scaffold, scaffold_tokens = base["content"], base.get("tokens", 0)
+        elif target:
+            ex = self.explain(target)
+            if ex.get("error"):
+                return ex
+            scaffold = ex["content"]
+            scaffold_tokens = _explain._count_tokens(scaffold)
+        else:
+            scaffold, scaffold_tokens = "", 0
+
+        # 2) custom sampled sections (the host half), each grounded in the scaffold.
+        host = self.ctx.host
+        can = host.can_sample()
+        parts = [scaffold] if scaffold else []
+        sampled: list[str] = []
+        degraded = False
+        for sec in sections:
+            heading = str((sec or {}).get("heading", "")).strip() or "Section"
+            prompt = str((sec or {}).get("prompt", "")).strip()
+            body = ""
+            if can and prompt:
+                messages = (
+                    "Document scaffold (deterministic — ground your prose in THIS "
+                    f"real state, do not invent):\n\n{scaffold}\n\n"
+                    f"Write the section '{heading}'. {prompt}")
+                try:
+                    body = host.sample(messages, system=system or None).text.strip()
+                    sampled.append(heading)
+                except HostUnavailable:
+                    body = ""
+            if not body:
+                # honest degradation — preserve the prompt for an agent with a host (rule 9).
+                degraded = True
+                body = f"<!-- AGENT: sample — {prompt} -->"
+            parts.append(f"## {heading}\n\n{body}")
+
+        assembled = ("\n\n".join(parts) + "\n") if parts else ""
+        emitted = self._emit_graph_document(assembled, apply_path)
+        return {**emitted, "scaffold_tokens": scaffold_tokens,
+                "sampled": sampled, "degraded": degraded}
+
     @verb(role="act")
     def explain(self, target: str, depth: str = "standard") -> dict:
         """Deterministically explain code as markdown, emitting a Reflection.
