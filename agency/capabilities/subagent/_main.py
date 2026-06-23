@@ -24,11 +24,32 @@ _SUBAGENT_DRIVEN_SKILL = {
                      "pattern": r"subagent|isolate|clean context|two.?stage review",
                      "confidence": 0.7},
     "phases": [
-        {"index": 1, "name": "write-spec", "produces": ["task_spec"]},
+        # Spec 378 — inline phase content (A1/A6) for subagent-driven development.
+        {"index": 1, "name": "write-spec", "produces": ["task_spec"],
+         "goal": "Write a self-contained task spec for the subagent.",
+         "instructions": "Spell out the task so a fresh subagent succeeds with NO parent "
+                         "context — goal, acceptance, the files in scope, and what NOT to "
+                         "touch. A vague spec yields a vague implementation.",
+         "freedom": "high"},
         {"index": 2, "name": "dispatch", "produces": ["implementation"],
-         "verbs": ["subagent.develop"]},
-        {"index": 3, "name": "spec-review", "produces": ["spec_passed"], "gate": "soft"},
-        {"index": 4, "name": "code-review", "produces": ["quality_passed"], "gate": "hard"},
+         "verbs": ["subagent.develop"],
+         "goal": "Dispatch the subagent to implement the spec.",
+         "instructions": "subagent.develop the spec as a child run; the subagent returns "
+                         "an implementation, not a conversation. Only the result crosses "
+                         "back.",
+         "freedom": "medium"},
+        {"index": 3, "name": "spec-review", "produces": ["spec_passed"], "gate": "soft",
+         "goal": "Check the implementation against the spec.",
+         "instructions": "Verify the implementation does what the SPEC asked — scope, "
+                         "acceptance. A soft gate: note gaps, but the code-review gate is "
+                         "the hard one.",
+         "freedom": "medium"},
+        {"index": 4, "name": "code-review", "produces": ["quality_passed"], "gate": "hard",
+         "goal": "Review the code for correctness + the Iron Law.",
+         "instructions": "Review for correctness first, then over-engineering / duplication "
+                         "(the Iron Law). Confirm this hard gate only when the code is "
+                         "genuinely mergeable.",
+         "freedom": "low"},
     ],
 }
 

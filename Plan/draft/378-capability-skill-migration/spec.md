@@ -161,3 +161,9 @@ were filled, no gate edit. Gate now: clean=19, warned=20, blocked=0. A Slice 5
 scenario asserts all three are reported clean (derived from the live gate — rule 8).
 The remaining 20-discipline tail is the same mechanical fill, owner-drivable
 capability-by-capability; each auto-joins the gate as it lands.
+
+**Slice 6 — SHIPPED: the cross-cap dispatch cluster.** `dispatch-decision` +
+`dispatching-parallel-agents` (delegate) and `subagent-driven-development`
+(subagent) gained full inline phase content (the eleven-signal heuristic, fan-out/
+join, spec→dispatch→review). Gate now: clean=22, warned=17, blocked=0. The
+delegation/parallelism doctrine is now self-contained in the skills themselves.
