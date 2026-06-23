@@ -913,6 +913,26 @@ intent_id = i["intent_id"]
 r = await call_tool("capability_<cap>_<verb>", {"intent_id": intent_id, ...})
 ```
 
+## Naming verbs: BARE substrate tools vs `capability_<cap>_<verb>`
+
+Two naming shapes coexist — guessing the wrong one burns a call:
+
+- **BARE substrate tools** (call by their plain name, NO prefix):
+  `agency_welcome`, `intent_bootstrap`, `agency_doctor`, `agency_reload`,
+  `agency_install`, and `memory_graph_provenance` (read an intent's
+  provenance — there is NO `manage_provenance`/`manage.provenance`).
+- **Every capability verb is PREFIXED** `capability_<cap>_<verb>`, with the
+  capability name in **underscores** (e.g. `capability_skill_generator_author`,
+  NOT the hyphenated skill-folder name). `search("<keyword>")` returns the exact
+  wire names; never hand-derive one from a dotted `cap.verb` guess.
+
+**`get_schema` an unfamiliar verb BEFORE the first call** — and for an
+object/array parameter use `detail="full"`, because `detailed` can render a
+nested param as a bare `any[]` and hide its required shape (e.g. `[{id, text}]`).
+A wrong-shaped argument raises and **aborts the whole `execute` block** (prior
+graph writes in the block are NOT rolled back — make batches idempotent, or guard
+each `call_tool` in try/except).
+
 ## Why both calls are required
 
 - **`agency_welcome`** is pure introspection (no graph writes). It

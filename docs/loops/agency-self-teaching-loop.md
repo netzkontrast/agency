@@ -168,8 +168,18 @@ never-truncate doctrine). → **Spec C.**
   into every generated SKILL.md. TDD: `tests/acceptance/test_skill_call_examples.py`
   (2 scenarios, green); 44-test skill/install/render slice green; all **36 per-cap
   skills regenerated** (+532 lines, additive). 
-- **Still:** D2 (`get_schema` nested object/array shapes), D4 (`using-agency` naming
-  rule), README regen, then the independent fresh-subagent re-verify.
+- **D4 shipped** — `_USING_AGENCY_SKILL_MD` now carries a "Naming verbs: BARE
+  substrate tools vs `capability_<cap>_<verb>`" section: the explicit bare-tool list
+  (incl. `memory_graph_provenance`, "no `manage_provenance`"), the underscored-prefix
+  rule, "`get_schema` (detail=full) before the first call", and the block-abort/partial-
+  write warning. TDD: `test_using_agency_teaches_the_wire_naming_rule` (green).
+- **D2 scoped + deferred to the next increment** (highest-leverage, but a genuine
+  substrate change). The wire schema is FastMCP-derived from each param's *annotation*
+  (`engine._wire` → `impl.__signature__`), so a `list` param renders `any[]`; the nested
+  `[{id,text}]` shape lives only in the docstring. Fix = mirror Spec 284's `param_enums`
+  with a `param_shapes` declaration folded into the description hint, OR surface the
+  docstring `Inputs:` shape in the `get_schema` renderer. Its own TDD pass — not rushed.
+- **Still:** D2, README regen, then the independent fresh-subagent re-verify → owner "done".
 
 ---
 

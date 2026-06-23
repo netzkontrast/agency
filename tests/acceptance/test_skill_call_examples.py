@@ -44,3 +44,20 @@ def test_call_examples_use_the_underscored_wire_name_for_underscored_caps():
     md, verbs = _render("skill_generator")
     assert any(f"capability_skill_generator_{v}" in md for v in verbs), md
     assert "capability_skill-generator_" not in md, "hyphenated wire name is unresolvable"
+
+
+def test_using_agency_teaches_the_wire_naming_rule():
+    """Spec 390 D4 — the meta-skill must distinguish the BARE substrate tools from
+    the prefixed `capability_<cap>_<verb>` verbs, and tell the agent to get_schema
+    an unfamiliar verb before the first call (the OBSERVE worst-gap C1/C2)."""
+    from agency.install import _USING_AGENCY_SKILL_MD as md
+    # names the bare substrate tools explicitly
+    for bare in ("agency_welcome", "intent_bootstrap", "agency_doctor",
+                 "memory_graph_provenance"):
+        assert bare in md, f"using-agency must name the bare tool {bare!r}"
+    # states the capability_<cap>_<verb> rule for everything else
+    assert "capability_<cap>_<verb>" in md
+    # distinguishes bare vs prefixed explicitly
+    assert "bare" in md.lower() and "prefix" in md.lower()
+    # tells the agent to get_schema an unfamiliar verb (detail="full" for objects)
+    assert "get_schema" in md and "full" in md
