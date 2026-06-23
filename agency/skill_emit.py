@@ -40,12 +40,18 @@ _BASH_WRAPPER_TEMPLATE = Template(
 _VERB_RULES_TEMPLATE = Template(
     (_RENDER_DIR / "verb-rules.md").read_text()
 )
-# Spec 373 Slice 1 / Spec 375 — per-type skill templates. The pillar template is
-# the first (its live consumer: the intent/lifecycle/memory concept skills);
-# capability/discipline variants follow the same `render/skill/<type>.md` pattern.
-_PILLAR_SKILL_TEMPLATE = Template(
-    (_RENDER_DIR / "skill" / "pillar.md").read_text()
-)
+# Spec 373 Slice 1 / Spec 375 — per-type skill HEAD templates (frontmatter +
+# `# <Title> <type>` heading). One file per `Skill.type` under `render/skill/`; the
+# self-contained data body (`_skill_data_sections`) is concatenated after the head
+# (NOT substituted, so a literal `$` in an example never breaks the render). The
+# renderer (`render_typed_skill`) selects by type — the per-type template set that
+# replaces a single generic shape (the C2 coherence convergence in Spec 370).
+# AGENCY-DRIFT: skill-type-templates — one render/skill/<type>.md per Skill.type.
+_SKILL_TYPE_TEMPLATES = {
+    t: Template((_RENDER_DIR / "skill" / f"{t}.md").read_text())
+    for t in ("pillar", "capability", "discipline")
+}
+_PILLAR_SKILL_TEMPLATE = _SKILL_TYPE_TEMPLATES["pillar"]   # back-compat alias
 
 # Engine-injected params: these are NOT user-facing args in the wrapper.
 _INJECTED_PARAMS = frozenset({"ctx", "client", "vcs", "memory", "caps"})
@@ -146,7 +152,12 @@ def _first_sentence_brief(fn) -> str:
 
 
 def _render_tier_b_anchor(verb_name: str, fn, brief: str) -> str:
-    """Render a `## <verb>` section for a Tier B verb (no separate reference file)."""
+    """Render a `## <verb>` in-skill section for a verb without a separate
+    reference file. Spec 373 Slice 3: the apologetic ``_(Tier B…)_`` stub no
+    longer ships to disk — a verb missing the Spec 016 Inputs:/Returns:/chain_next:
+    markers is surfaced as a LINT finding (Spec 377 ``lint_skill_schema``), not as
+    self-deprecating prose in the published skill. The section still carries the
+    brief + signature so the verb stays documented in-skill."""
     sig = "()"
     if fn:
         try:
@@ -156,10 +167,7 @@ def _render_tier_b_anchor(verb_name: str, fn, brief: str) -> str:
     return (
         f"## {verb_name}\n\n"
         f"{brief}\n\n"
-        f"Parameters: `{sig}`.\n\n"
-        f"_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: "
-        f"markers; reference is in-skill only. Add markers to upgrade to a "
-        f"separate references/{verb_name}.md.)_"
+        f"Parameters: `{sig}`."
     )
 
 
@@ -230,11 +238,14 @@ def _yaml_quote(s: str) -> str:
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _pillar_sections(skill: dict) -> str:
-    """The pillar's concept body — overview + optional sections — shared by the
-    standalone render and the capability-augment path. No frontmatter, no H1.
-    Sections are appended only when the source carries them (frugal; no empty
-    headers), so the render is deterministic (A7) and self-contained (A1)."""
+def _skill_data_sections(skill: dict) -> str:
+    """The v2 Skill's self-contained DATA body — overview + when-to-use/when-not +
+    the one example + the common-mistakes rationalization table + references —
+    shared by every per-type render (`render_typed_skill`) and the capability-
+    augment path. No frontmatter, no H1. Sections are appended only when the source
+    carries them (frugal; no empty headers), so the render is deterministic (A7)
+    and self-contained (A1). Type-agnostic: reads the v2 Skill schema fields, so a
+    pillar / capability / discipline all body-render through this one function."""
     parts: list[str] = []
     overview = (skill.get("overview") or "").strip()
     if overview:
@@ -266,25 +277,44 @@ def _pillar_sections(skill: dict) -> str:
     return "\n\n".join(parts)
 
 
-def render_pillar(skill: dict) -> dict[str, str]:
-    """Spec 375 — render a committed pillar `skill.yaml` (type=pillar) standalone
-    to `skills/<name>/SKILL.md` via the per-type pillar template.
+# Back-compat alias — `_pillar_sections` was the pre-373 name (the body renderer
+# started pillar-only; it is now the type-agnostic v2-Skill data renderer).
+_pillar_sections = _skill_data_sections
 
-    Deterministic (A7) — no LLM, no I/O beyond the template read; same source ⇒
-    byte-identical output. The body (`_pillar_sections`) is concatenated, NOT run
-    through Template.substitute, so a literal ``$`` in an example never breaks the
-    render. Used for pillars whose name does not collide with a live capability
-    (lifecycle · memory); a colliding pillar (intent) augments the cap skill via
-    `augment_with_pillar` instead."""
+
+def render_typed_skill(skill: dict) -> dict[str, str]:
+    """Spec 373 Slice 1 — the per-type skill renderer: render any v2 `Skill`
+    (`type` ∈ pillar|capability|discipline) self-contained (A1) to
+    `skills/<name>/SKILL.md` via its `render/skill/<type>.md` HEAD template + the
+    schema-driven data body (`_skill_data_sections`).
+
+    The body inlines whatever the Skill carries — overview, when-to-use/when-not,
+    the one example (R9), the common-mistakes rationalization table, references
+    one-deep (R4) — appended (NOT substituted), so a literal ``$`` in an example
+    never breaks the render. Deterministic (A7): same `skill` dict ⇒ byte-identical
+    output. Unknown/absent type → the capability template (the general case).
+    The description is the AUTHORED `description` field — never sentence-truncated."""
     name = _skill_name(skill["name"])
-    head = _PILLAR_SKILL_TEMPLATE.substitute(
+    stype = skill.get("type") or "capability"
+    template = _SKILL_TYPE_TEMPLATES.get(stype, _SKILL_TYPE_TEMPLATES["capability"])
+    head = template.substitute(
         gen_version=str(GEN_VERSION),
         name=name,
         title=str(skill["name"]).capitalize(),
         description=_yaml_quote((skill.get("description") or "").strip()),
     )
-    content = head.rstrip() + "\n\n" + _pillar_sections(skill) + "\n"
+    content = head.rstrip() + "\n\n" + _skill_data_sections(skill) + "\n"
     return {f"skills/{name}/SKILL.md": content}
+
+
+def render_pillar(skill: dict) -> dict[str, str]:
+    """Spec 375 — render a committed pillar `skill.yaml` (type=pillar) standalone
+    to `skills/<name>/SKILL.md`. Thin wrapper over the per-type renderer
+    (`render_typed_skill`, Spec 373) — pillars converge onto the ONE renderer so
+    there is no second render path (the C2 coherence convergence). Used for pillars
+    whose name does not collide with a live capability (lifecycle · memory); a
+    colliding pillar (intent) augments the cap skill via `augment_with_pillar`."""
+    return render_typed_skill({**skill, "type": "pillar"})
 
 
 def augment_with_pillar(existing_md: str, skill: dict) -> str:

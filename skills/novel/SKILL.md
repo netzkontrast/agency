@@ -159,12 +159,8 @@ Flesch Reading Ease for prose (transform, driver-free).
 
 Parameters: `(body: 'str')`.
 
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/analyze_readability.md.)_
-
 ## count_words
 
 Word + char counter (transform, driver-free).
 
 Parameters: `(body: 'str')`.
-
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/count_words.md.)_

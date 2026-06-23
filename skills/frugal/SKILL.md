@@ -68,12 +68,8 @@ The frugal reference card (the ponytail-help info): the discipline + the levels 
 
 Parameters: `()`.
 
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/help.md.)_
-
 ## level
 
 Report the active frugal level (env AGENCY_FRUGAL_LEVEL -> .agency/config.yaml -> full).
 
 Parameters: `()`.
-
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/level.md.)_
