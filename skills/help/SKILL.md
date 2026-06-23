@@ -73,7 +73,7 @@ agency execute --code \
 - **develop** — checklist, draft_plan, estimate, index, maintain, mode_select, optimize_skilldoc, plan_status, record_authoring_outcome, record_step_outcome, reference, reload, remediate, review, scaffold_capability, session_check, session_init, session_resume, skill_walk, validate_skill
 - **discover** — acceptance, ask, clarify, clarity, clarity_gate, interview, scope, status
 - **doctrine** — cite, principles, resolve, rules
-- **document** — convergence, explain, index_repo, ingest, mirror, render, reopen, restore_session, revisions, session, session_analytics, sync
+- **document** — convergence, emit, explain, index_repo, ingest, mirror, render, reopen, restore_session, revisions, session, session_analytics, sync
 - **dogfood** — apply_amendment, boundary_use_audit, collect, export, import, note, parse_amendment, recall_overflow_slice, record_decision, render, replay_events
 - **frugal** — debt, gain, help, instructions, level, review, set_level
 - **gate** — adjudicate, check, verdict

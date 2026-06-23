@@ -25,6 +25,7 @@ Document renders graph-native briefings: an index of a repo, an explanation of a
 | Verb | Role | Brief | Reference |
 |------|------|-------|-----------|
 | `convergence` | act | Audit a Document's convergence facets (Spec 292 C3). | [details](references/convergence.md) |
+| `emit` | effect | Persist ARBITRARY rendered content as a round-trippable Document (Spec 292). | [details](references/emit.md) |
 | `explain` | act | Deterministically explain code as markdown, emitting a Reflection. | [details](references/explain.md) |
 | `index_repo` | effect | Deterministic repo briefing. | [details](references/index_repo.md) |
 | `ingest` | effect | Round-trip a markdown file INTO the graph (file → graph; Spec 292). | [details](references/ingest.md) |

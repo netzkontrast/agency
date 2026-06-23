@@ -1,25 +1,25 @@
 <!-- agency-generated: v1 -->
 # analyze.report
 
-Render the Iron-Law quality report (Spec 382 §4) — READ-ONLY markdown.
+Render the Iron-Law quality report from the ported templates + persist it as a round-trippable Document (Spec 384 close-out / 382 §4).
 
 ## Inputs
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `findings (wire-shape finding dicts), mode (review/audit/…), scope (str), score (int — the Health Score, Spec 381).` |  |  |
+| `findings (wire-shape finding dicts — risk_code/message/source/ consequence/remedy/tier), mode (review/audit/debt/test/health/sweep), scope (str), score (int — the Health Score, Spec 381), path (optional .md to write + stamp the anchor into; "" = graph-only Document).` |  |  |
 
 ## Returns
 
-{report, mode}.
+{report, content, mode, score, document_id, written}.
 
 ## Chain-next
 
-document.render / document.sync to persist + round-trip (Spec 292).
+document.sync(path) after a human edits the written report.
 
 ## Details
 
-Projects the structured findings: a header with the Health Score, findings sorted by tier (critical→warning→suggestion) each as the Iron Law block (Symptom / Source / Consequence / Remedy), empty tiers omitted, a mermaid Module Dependency Graph in audit mode (R5), and a Summary. The render PATH is here; the template FILE is authored in Spec 384 (adopted via document.render then). Use when: producing the human-readable code-quality report from a review.
+Adopts the Spec 384 templates: each finding renders via ``iron-law-finding.md`` and the report shell via ``quality-report.md`` (``ctx.render``); the audit-only Module Dependency Graph is gated by the template's ``<!-- BEGIN IF is_audit -->`` block — honoured programmatically here (the interim conditional processor; **Spec 388** ports the templates to Jinja for a real engine). The rendered report is recorded as a ``Document`` via ``document.emit`` (stable anchor + ``DocRevision``), so an on-disk edit round-trips via ``document.sync`` (Spec 292). Use when: producing + persisting the human-readable code-quality report.
 
 ## Example
 

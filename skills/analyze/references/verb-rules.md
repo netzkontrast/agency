@@ -26,7 +26,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `analyze.performance` | transform | ✓ clean |
 | `analyze.quality` | transform | ✓ clean |
 | `analyze.record_run` | act | ✓ clean |
-| `analyze.report` | transform | ✓ clean |
+| `analyze.report` | effect | ✓ clean |
 | `analyze.review` | act | `long_brief` |
 | `analyze.run` | act | ✓ clean |
 | `analyze.sarif` | transform | ✓ clean |

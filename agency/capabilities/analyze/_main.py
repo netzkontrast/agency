@@ -16,6 +16,7 @@ Red flags:
 """
 from __future__ import annotations
 
+import re
 import time
 
 from agency.capability import (
@@ -73,6 +74,30 @@ def _rule_axis(rule: str) -> str:
         if axis:
             return axis
     return ""
+
+
+# Spec 384 close-out — honour the template `<!-- BEGIN IF flag -->…<!-- END IF -->`
+# conditional at render time (no engine existed; the markers were agent-only). Keep
+# the inner block when `flag` is truthy, drop the whole block otherwise. This is what
+# gates the audit-only Module Dependency Graph in quality-report.md.
+_COND_RE = re.compile(r"[ \t]*<!-- BEGIN IF (\w+) -->\n?(.*?)<!-- END IF -->\n?",
+                      re.DOTALL)
+
+
+def _strip_conditionals(text: str, flags: dict) -> str:
+    return _COND_RE.sub(
+        lambda m: m.group(2) if flags.get(m.group(1)) else "", text)
+
+
+# Drop the Spec-060 authoring annotations from the FINAL rendered report — they
+# guide the template author/agent, not the report reader. The template FILES keep
+# their markers (drift-tracked). (Spec 388 — the Jinja port replaces both strippers
+# with `{% if %}` blocks + comment syntax decided by the engine.)
+_COMMENT_RE = re.compile(r"[ \t]*<!-- (?:AGENT|doc-source):.*?-->\n?", re.DOTALL)
+
+
+def _strip_authoring_comments(text: str) -> str:
+    return _COMMENT_RE.sub("", text)
 
 
 _CODE_ANALYSIS_SKILL = {
@@ -596,28 +621,53 @@ class AnalyzeCapability(CapabilityBase):
         return {"passed": passed, "blocked": not passed, "evidence": evidence,
                 "gate": gid, "name": name}
 
-    @verb(role="transform")
+    @verb(role="effect")
     def report(self, findings: list = None, mode: str = "review", scope: str = "",
-               score: int = 100) -> dict:
-        """Render the Iron-Law quality report (Spec 382 §4) — READ-ONLY markdown.
+               score: int = 100, path: str = "") -> dict:
+        """Render the Iron-Law quality report from the ported templates + persist it
+        as a round-trippable Document (Spec 384 close-out / 382 §4).
 
-        Projects the structured findings: a header with the Health Score, findings
-        sorted by tier (critical→warning→suggestion) each as the Iron Law block
-        (Symptom / Source / Consequence / Remedy), empty tiers omitted, a mermaid
-        Module Dependency Graph in audit mode (R5), and a Summary. The render PATH
-        is here; the template FILE is authored in Spec 384 (adopted via
-        document.render then).
+        Adopts the Spec 384 templates: each finding renders via ``iron-law-finding.md``
+        and the report shell via ``quality-report.md`` (``ctx.render``); the
+        audit-only Module Dependency Graph is gated by the template's
+        ``<!-- BEGIN IF is_audit -->`` block — honoured programmatically here (the
+        interim conditional processor; **Spec 388** ports the templates to Jinja for
+        a real engine). The rendered report is recorded as a ``Document`` via
+        ``document.emit`` (stable anchor + ``DocRevision``), so an on-disk edit
+        round-trips via ``document.sync`` (Spec 292).
 
-        Inputs: findings (wire-shape finding dicts), mode (review/audit/…),
-                scope (str), score (int — the Health Score, Spec 381).
-        Returns: {report, mode}.
-        chain_next: document.render / document.sync to persist + round-trip (Spec 292).
+        Inputs: findings (wire-shape finding dicts — risk_code/message/source/
+                consequence/remedy/tier), mode (review/audit/debt/test/health/sweep),
+                scope (str), score (int — the Health Score, Spec 381), path (optional
+                .md to write + stamp the anchor into; "" = graph-only Document).
+        Returns: {report, content, mode, score, document_id, written}.
+        chain_next: document.sync(path) after a human edits the written report.
 
-        Use when: producing the human-readable code-quality report from a review.
+        Use when: producing + persisting the human-readable code-quality report.
         """
-        from ._report import render_report
+        from . import _report
         findings = findings or []
-        return {"report": render_report(findings, mode, scope, score), "mode": mode}
+        blocks = []
+        for f in _report.tier_sorted(findings):
+            rid = f.get("risk_code") or f.get("rule", "") or "Finding"
+            loc = ":".join(str(x) for x in (f.get("file", ""), f.get("line", "")) if x)
+            blocks.append(self.ctx.render(
+                "iron-law-finding", risk_name=rid, title=loc or "finding",
+                symptom=f.get("message", "") or f.get("evidence", ""),
+                source=f.get("source", ""), consequence=f.get("consequence", ""),
+                remedy=f.get("remedy", ""), fix_tier_label=""))
+        rendered = self.ctx.render(
+            "quality-report", mode=mode, scope=scope or "repo", score=score,
+            trend_suffix="", config_line="", verdict="",
+            module_graph=_report.mermaid_graph(findings) if mode == "audit" else "",
+            findings_block="\n\n".join(blocks), suppressed_block="",
+            summary=_report.summary(findings, score))
+        content = _strip_authoring_comments(
+            _strip_conditionals(rendered, {"is_audit": mode == "audit"}))
+        emit = self.ctx.call("document", "emit", content=content, path=path)
+        return {"report": content, "content": content, "mode": mode, "score": score,
+                "document_id": emit.get("document_id", ""),
+                "written": emit.get("written", "")}
 
     @verb(role="act")
     def improve(self, analysis_id: str, axes: list = None,

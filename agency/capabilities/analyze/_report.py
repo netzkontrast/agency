@@ -1,13 +1,11 @@
-"""Spec 382 §4 — the Iron-Law report render path (structured findings → markdown).
+"""Spec 382 §4 / 384 — report-render helpers (tiering · summary · mermaid body).
 
-Projects the structured findings into the human-readable report: a header with
-the Health Score, findings sorted by tier (critical→warning→suggestion) each as
-the Iron Law block (Symptom / Source / Consequence / Remedy), empty tiers
-omitted, a mermaid Module Dependency Graph in audit mode (R5), and a Summary.
-
-The render PATH lives here; the template FILE (Spec 060 `<!-- AGENT: -->`) is
-authored in Spec 384 and adopted via `document.render` then. Pure — no graph
-writes.
+The report RENDER PATH adopted the Spec 060 templates in Spec 384: ``analyze.report``
+renders ``quality-report.md`` + ``iron-law-finding.md`` via ``ctx.render`` and
+persists the result as a round-trippable ``Document`` (``document.emit``). These
+pure helpers supply the bits the template can't compute — the tier ordering, the
+one-line Summary, and the mermaid graph BODY (the template owns the heading + the
+audit `<!-- BEGIN IF is_audit -->` gate). Pure — no graph writes.
 """
 from __future__ import annotations
 
@@ -19,48 +17,28 @@ def _tier(f: dict) -> str:
     return f.get("tier") or _SEVERITY_TIER.get(str(f.get("severity", "")), "suggestion")
 
 
-def _mermaid(findings: list) -> list[str]:
-    """A Module Dependency Graph for audit mode — R5 import-cycle findings."""
+def tier_sorted(findings: list) -> list:
+    """Findings ordered critical → warning → suggestion (the report's render order)."""
+    order = {t: i for i, t in enumerate(_TIER_ORDER)}
+    return sorted(findings, key=lambda f: order.get(_tier(f), len(_TIER_ORDER)))
+
+
+def mermaid_graph(findings: list) -> str:
+    """The mermaid Module Dependency Graph BODY for audit mode (R5 import cycles).
+    Just the fenced block — the template supplies the ``## Module Dependency Graph``
+    heading inside its `<!-- BEGIN IF is_audit -->` gate (no double heading)."""
     cycles = [f for f in findings if f.get("risk_code") == "R5"]
     body = ("\n".join(f"  %% {f.get('file', '')}: {f.get('message', '')}"
                       for f in cycles)
             or "  %% no module-dependency findings")
-    return ["## Module Dependency Graph", "```mermaid", "graph TD", body, "```", ""]
+    return "```mermaid\ngraph TD\n" + body + "\n```"
 
 
-def _summary(by_tier: dict, score: int) -> str:
-    c, w, s = (len(by_tier["critical"]), len(by_tier["warning"]),
-               len(by_tier["suggestion"]))
+def summary(findings: list, score: int) -> str:
+    by = {t: [f for f in findings if _tier(f) == t] for t in _TIER_ORDER}
+    c, w, s = len(by["critical"]), len(by["warning"]), len(by["suggestion"])
     lead = ("Address the critical findings first." if c
             else "No critical findings; tighten the warnings." if w
             else "Only minor suggestions remain." if s
             else "Clean — no findings.")
-    return f"Health Score {score}/100 — {c} critical, {w} warning, {s} suggestion. {lead}"
-
-
-def render_report(findings: list, mode: str = "review", scope: str = "",
-                  score: int = 100) -> str:
-    """Render the Iron-Law report markdown from structured findings."""
-    out = [f"# Code Quality Report — {mode}",
-           f"**Scope:** {scope or 'repo'} · **Health Score:** {score}/100", ""]
-    by_tier = {t: [f for f in findings if _tier(f) == t] for t in _TIER_ORDER}
-    for t in _TIER_ORDER:
-        fs = by_tier[t]
-        if not fs:
-            continue                       # empty tiers omitted
-        out.append(f"## {t.capitalize()} ({len(fs)})")
-        for f in fs:
-            rid = f.get("risk_code") or f.get("rule", "")
-            out.append(f"### {rid} — {f.get('file', '')}:{f.get('line', '')}")
-            out.append(f"- **Symptom:** {f.get('message', '')}")
-            if f.get("source"):
-                out.append(f"- **Source:** {f['source']}")
-            if f.get("consequence"):
-                out.append(f"- **Consequence:** {f['consequence']}")
-            if f.get("remedy"):
-                out.append(f"- **Remedy:** {f['remedy']}")
-            out.append("")
-    if mode == "audit":
-        out += _mermaid(findings)
-    out += ["## Summary", _summary(by_tier, score)]
-    return "\n".join(out)
+    return f"{c} critical, {w} warning, {s} suggestion. {lead}"
