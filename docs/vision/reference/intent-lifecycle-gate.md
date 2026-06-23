@@ -1,7 +1,7 @@
 # Intent · Lifecycle · Gate — three of the four concepts
 
 <!-- doc-source: agency/intent.py agency/lifecycle.py agency/capabilities/gate/_main.py -->
-<!-- doc-hash: ab80bab255906f5b -->
+<!-- doc-hash: bbe1b06bbacb1e38 -->
 
 ## Intent (`agency/intent.py`)
 
@@ -75,6 +75,9 @@ The machine-vs-human split the canon draws (CORE.md:57-62):
   guarded against a no-op re-reject); on `True`, a `PASSED` edge. It validates the
   lifecycle serves the intent (walking the `SUPERSEDED_BY` chain). Returns the wire
   envelope `{"result": {passed, gate}}`.
+- **`gate.verdict(name)`** (Spec 382) — the **read-only** CI verdict reader: reads the
+  LATEST `Gate` by name and reports pass/block. Records nothing — the verdict surface
+  a CI step polls without mutating the graph.
 - **`gate.adjudicate(a, b, lifecycle_id="")`** (Spec 303) — adjudicates two CONFLICTING
   concerns by delegating to `doctrine.resolve` (the safety > correctness >
   maintainability > speed hierarchy), recording a `Gate` node + a `doctrine.resolve`

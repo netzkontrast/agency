@@ -1,4 +1,5 @@
-<!-- doc-source: agency/_loop.py agency/_lifecycle_data/machines.json Plan/362-looper-complete-port/spec.md Plan/draft/387-loop-activation/spec.md -->
+<!-- doc-source: agency/_loop.py agency/capabilities/loop/_main.py agency/_lifecycle_data/machines.json Plan/done/362-looper-complete-port/spec.md Plan/draft/387-loop-activation/spec.md -->
+<!-- doc-hash: 4f57b84b630c0f21 -->
 # The Loop subsystem — architecture & wiring contract
 
 > **Read this before touching `agency/_loop.py`,
@@ -9,12 +10,15 @@
 > nothing; this doc exists so that mistake is never repeated silently. If you add
 > loop surface, the **§Wiring contract** invariants are not optional.
 
-> **Status (2026-06-21): PRIMITIVES SHIPPED, NOT YET ACTIVATED.** Specs 363–369
-> landed the loop's pure logic (63 green acceptance scenarios). They are **not a
-> working loop**: zero production callers, no MCP surface, no host sampling, no
-> elicitation, no `Invocation` provenance. **Spec 387 (loop-activation)** wires it.
-> Read the [Current state vs target](#current-state-vs-target) table before
-> assuming any verb is reachable.
+> **Status (2026-06-23): W1 ACTIVATED; W2 IN PROGRESS.** Specs 363–369 landed the
+> loop's pure logic (63 green acceptance scenarios); **Spec 387 W1** then shipped the
+> thin `loop` capability (`agency/capabilities/loop/_main.py`, 15 verbs incl.
+> `open`/`advance`/`compile`/`emit`) — so the loop now has **MCP reach**
+> (`search`/`get_schema`/`execute`) and records **`Invocation` provenance** like any
+> capability verb. **Still pending in W2:** a generative `advance` that drafts via
+> `ctx.sample` (today `advance` walks states but does not yet sample the host) and real
+> `elicit` checkpoints. Read the [Current state vs target](#current-state-vs-target)
+> table for the per-concern state before assuming a verb is fully wired.
 
 ## What the loop is
 
@@ -160,7 +164,7 @@ satisfy these or you have shipped dormant code (CLAUDE.md *dormant-surface audit
 
 ## Pointers
 
-- **Specs:** [`Plan/362-looper-complete-port`](../../../Plan/362-looper-complete-port/spec.md)
+- **Specs:** [`Plan/done/362-looper-complete-port`](../../../Plan/done/362-looper-complete-port/spec.md)
   (master) · 363–369 (children) ·
   [`Plan/draft/387-loop-activation`](../../../Plan/draft/387-loop-activation/spec.md) (the wiring).
 - **Code:** `agency/_loop.py` (logic) · `agency/_lifecycle_data/loop/` (data) ·

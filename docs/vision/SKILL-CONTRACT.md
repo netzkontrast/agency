@@ -1,5 +1,5 @@
 <!-- doc-source: agency/_skill_parse.py agency/capabilities/plugin/clusters/lint.py agency/skill_emit.py Plan/draft/370-skill-system-v2/spec.md -->
-<!-- doc-hash: 65b05d44faa35697 -->
+<!-- doc-hash: d0ed53cf0eb63094 -->
 # Agency skill contract v2 — the layered, per-type, self-contained skill
 
 > Doctrine reference for the Spec 370 skill-system-v2 program (Specs 371–378).
@@ -135,11 +135,10 @@ Rollout is graduated so the legacy surface doesn't all break at once:
 - **Block set — committed `skill.yaml` (the pillars, 375).** `install.generate`
   raises and `check-drift` flags (section 2b) if any committed skill fails strict
   lint. `lint_pillars` is the gate.
-- **Warn — the 39 legacy disciplines.** They derive from capability ontologies
-  (via `emit_skill`), not committed `skill.yaml`, so the committed-skill gate does
-  not touch them. They stay implicitly "warn" until **Spec 378** fills their phase
-  `instructions` (A1) and migrates them onto the strict contract — at which point
-  the gate widens toward repo-wide block.
+- **Block — the 39 disciplines (Spec 378 complete).** They derive from capability
+  ontologies (via `emit_skill`), not committed `skill.yaml`. **Spec 378 finished the
+  migration**: every discipline is now self-contained, so `lint_disciplines` runs
+  `strict=True` (repo-wide block) — every discipline must pass, not merely warn.
 
 ## Provenance
 

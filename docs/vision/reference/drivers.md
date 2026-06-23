@@ -1,7 +1,7 @@
 # Drivers & Boundaries — external I/O (Spec 002)
 
-<!-- doc-source: agency/capability.py agency/engine.py examples/music_drivers.py Plan/inprogress/002-boundary-driver-protocol/spec.md -->
-<!-- doc-hash: d2f6736674a3fd78 -->
+<!-- doc-source: agency/capability.py agency/engine.py agency/capabilities/music/drivers.py Plan/inprogress/002-boundary-driver-protocol/spec.md -->
+<!-- doc-hash: f6000de4683bbac9 -->
 
 Every external side-effect (git, Jules, audio, a DB, object storage, the token counter,
 the Skills API) is isolated behind a **Driver** so it can be stubbed deterministically in

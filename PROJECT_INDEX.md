@@ -22,7 +22,7 @@
 
 ## Macro-structure
 
-**Capabilities:** `adr/`, `analyze/`, `branch/`, `clusters/`, `config/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `frugal/`, `gate/`, `intent/`, `jules/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `toolcalls/`, `workflow/`, `workspace/`
+**Capabilities:** `adr/`, `analyze/`, `branch/`, `clusters/`, `config/`, `delegate/`, `develop/`, `discover/`, `doctrine/`, `document/`, `dogfood/`, `frugal/`, `gate/`, `intent/`, `jules/`, `loop/`, `manage/`, `migrations/`, `mode/`, `music/`, `novel/`, `panel/`, `persona/`, `plugin/`, `prompt/`, `recommend/`, `reflect/`, `research/`, `select/`, `shell/`, `skill_generator/`, `skills/`, `subagent/`, `symbols/`, `thinking/`, `toolcalls/`, `workflow/`, `workspace/`
 
 ### `./` (1 files)
 - **conftest.py** (3 symbols)
@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (70 files)
+### `agency/` (71 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -75,7 +75,7 @@ dev-only ``scripts/`` tree (the wheel packages only ``agency``; importing
 ``scripts.*`` at runtime would crash the installed plugin). (22 symbols)
 - **_config.py** — Unified ``.agency/config.yaml`` — Spec 334 Slice 1 (resolver + registry).
 
-A single home for all agency config. (28 symbols)
+A single home for all agency config. (29 symbols)
 - **_coverage_gate.py** — Spec 169 Slice 1 — typed GateResult + pure evaluate() for the CI gate.
 
 The CI gate has three concerns: coverage trend (non-decreasing per
@@ -202,6 +202,11 @@ notifications. (19 symbols)
 When a verb returns more than the token budget (Spec 023), the engine
 truncates — and the truncated tail was LOST, even though it might hold
 the answer. (15 symbols)
+- **_pillars.py** — Spec 375 — the pillar-skill source loader.
+
+The three non-capability concepts of CORE.md's four (Intent · Lifecycle · Memory)
+are first-class skills, authored as committed `skill.yaml` of `type: pillar` under
+`agency/pillars/`. (8 symbols)
 - **_predicates.py** — Spec 011 — decidable gate predicates (pure module helpers, not verbs).
 
 A predicate that blocks a phase IS a `gate` (CLUSTERS:18). (9 symbols)
@@ -351,7 +356,7 @@ A pure rendering pass over Capability/Verb/Skill nodes. (22 symbols)
 
 This is the "in setup" that maps the harness-in-harness MICRO-skills (the engine's
 capability verbs) into MACRO-skills (the capabilities themselves) behind a single
-`help` discovery surface. (63 symbols)
+`help` discovery surface. (66 symbols)
 - **intent.py** — Intent — the human-owned root (why/what merged; deliverable is an attribute).
 
 capture -> confirm -> (amend via supersede). (12 symbols)
@@ -369,7 +374,7 @@ schema, the enumerated edge set, and the closed enums. (29 symbols)
 
 A skill is a Lifecycle of ordered Phases (a schema a capability contributes, e.g.
 the `develop` or `plugin` skills). (10 symbols)
-- **skill_emit.py** — Spec 031 §D + Spec 032 §G — per-capability skill emission pipeline. (30 symbols)
+- **skill_emit.py** — Spec 031 §D + Spec 032 §G — per-capability skill emission pipeline. (35 symbols)
 - **templates.py** — Templates — the prestructure for the resulting document of each step of a chain.
 
 A small library of *living document* skeletons a Capability `act` fills in. (14 symbols)
@@ -456,7 +461,7 @@ Spec 355 Slice 1 adds the Definition-of-Done hinge: `dod_check` (the eight
 SPEC-001-E criteria as decidable findings — DOCUMENTATION reuses 354 `validate`)
 and `approve` (the gate — blocks on a failed automated criterion, pauses at the
 human criteria via `ctx.elicit`, records a `Gate` node, and only the intent
-OWNER may confirm or override; an agent may not self-approve). (60 symbols)
+OWNER may confirm or override; an agent may not self-approve). (64 symbols)
 - **ontology.py** — adr ontology — the WH(Y) Decision node + its typed Schema + dependency edges
 (Spec 354).
 
@@ -466,7 +471,7 @@ think-hard-about-the-ontology-and-Schema pass (owner directive, 2026-06-20):
 - **AdrTheme is NOT a new node label** — a theme is a ``Document`` with
   ``kind="adr-theme"`` + a ``layer`` tag. (7 symbols)
 
-### `agency/capabilities/analyze/` (19 files)
+### `agency/capabilities/analyze/` (20 files)
 - **__init__.py** — analyze — multi-axis decidable code analysis (Spec 042).
 
 Folder-form capability. (3 symbols)
@@ -501,7 +506,11 @@ The twelve decay risks (R1-R6 code, T1-T6 test) are vendored as cited data in
 Every analyze.* axis returns a list of Finding value objects. (13 symbols)
 - **_main.py** — analyze — multi-axis decidable code analysis (Spec 042).
 
-Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions. (28 symbols)
+Analyze runs decidable transforms over source and reports findings on the quality, security, performance, and architecture axes as graph nodes the orchestrator can reason about, rather than prose opinions. (30 symbols)
+- **_migrate.py** — Spec 385 — one-time brooks-lint → agency quality migration (pure helpers).
+
+A project mid-stream on the brooks-lint plugin has two sidecar files: a
+``.brooks-lint.yaml`` config and a ``.brooks-lint-history.json`` trend. (6 symbols)
 - **_paths.py** — Spec 048 — analyze.paths axis.
 
 Surfaces intent-shape patterns that suggest a missing specialized
@@ -518,19 +527,18 @@ Rules shipped (v1):
 
 Composes radon's cyclomatic complexity + maintainability index into
 the agency Finding shape. (18 symbols)
-- **_report.py** — Spec 382 §4 — the Iron-Law report render path (structured findings → markdown).
+- **_report.py** — Spec 382 §4 / 384 — report-render helpers (tiering · summary · mermaid · the
+quality-report render itself).
 
-Projects the structured findings into the human-readable report: a header with
-the Health Score, findings sorted by tier (critical→warning→suggestion) each as
-the Iron Law block (Symptom / Source / Consequence / Remedy), empty tiers
-omitted, a mermaid Module Dependency Graph in audit mode (R5), and a Summary.
-
-The render PATH lives here; the template FILE (Spec 060 `<!-- AGENT: -->`) is
-authored in Spec 384 and adopted via `document.render` then. (7 symbols)
+``analyze.report`` delegates here: ``render_quality_report`` renders the Spec 384
+templates (``quality-report.md`` + ``iron-law-finding.md`` via ``ctx.render``) and
+applies the INTERIM ``<!-- BEGIN IF -->`` / authoring-comment processing — Spec 388
+replaces this whole strip path with a Jinja ``{% if %}`` engine, a one-file delete
+here. (13 symbols)
 - **_review.py** — Shared review core (Spec 380): scope-detect · merge · Iron Law gate · classify.
 
 This module is the single engine both develop.review (interactive) and
-analyze.review (headless/CI) drive. (10 symbols)
+analyze.review (headless/CI) drive. (24 symbols)
 - **_ruff.py** — Spec 050 — ruff wrapper.
 
 Composes ruff's 700+ Python lint rules into the agency Finding shape.
@@ -588,7 +596,7 @@ file. (7 symbols)
 - **__init__.py** — develop — discipline-walk templates + scaffolds. (2 symbols)
 - **_main.py** — develop — the development-workflow capability.
 
-Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance. (55 symbols)
+Develop owns the development disciplines as walkable skills, a capability scaffolder that lints clean, and an atomic skill walker that records every phase as provenance. (59 symbols)
 
 ### `agency/capabilities/discover/` (3 files)
 - **__init__.py** — discover — guided intent-discovery capability (Spec 307 program · 308 scaffold).
@@ -692,7 +700,7 @@ Mechanism (keep-both, bi-temporal, stable anchor):
   reusing the existing HTML-comment marker convention (cf. (11 symbols)
 - **_main.py** — document — graph-native rendering + briefing (Spec 043).
 
-Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph. (26 symbols)
+Document renders graph-native briefings: an index of a repo, an explanation of a subsystem, or a markdown rendering produced on demand from the graph. (27 symbols)
 - **_render.py** — Scope renderers for ``document.render`` — graph → markdown.
 
 Each function takes a Memory and returns the rendered markdown for
@@ -770,6 +778,16 @@ Per ``Plan/013-…/DESIGN.md`` "Design — `_jules_preambles.py`":
 A skill IS a capability (CORE.md:47-62) — Lifecycle templates of atomic
 gated step-graphs. (8 symbols)
 - **watch.py** (25 symbols)
+
+### `agency/capabilities/loop/` (2 files)
+- **__init__.py** — loop — design + run a verified agent loop (the looper port; Specs 362–369, 387). (2 symbols)
+- **_main.py** — loop — design + run a verified agent loop (the looper port; Specs 362–369, 387).
+
+The **wired surface** of the looper port: thin verbs delegating to the
+lifecycle-spine logic in ``agency/_loop.py`` so the loop is discoverable
+(``search``), schema'd (``get_schema``), runnable (``execute``/CLI), and — the
+point of Spec 387 W1 — records an ``Invocation`` on every call (the provenance
+moat the bare spine functions bypassed). (21 symbols)
 
 ### `agency/capabilities/manage/` (2 files)
 - **__init__.py** — manage — generic CRUD over every graph node type (Spec 293). (2 symbols)
@@ -968,7 +986,7 @@ functions; `AuthoringMixin` carries the thin `@verb` wrappers. (16 symbols)
 
 Spec 286 P3 OOP fix: the pre-split form spread each rule across THREE sites —
 a ``_check_<rule>`` function, an entry in the ``_REMEDIATION`` dict, and a hand
-wired call in ``lint_capability``. (85 symbols)
+wired call in ``lint_capability``. (90 symbols)
 - **publish.py** — Publish cluster — uploads a capability's Agent Skill to the Skills API. (4 symbols)
 - **reference.py** — Reference cluster — capability/verb reference lookup (the `help` map).
 
@@ -1085,7 +1103,7 @@ Folder-form per Spec 060 §Phase 3 / Spec 286 Goal 4. (2 symbols)
 
 ### `agency/capabilities/skill_generator/` (2 files)
 - **__init__.py** — skill_generator — generate a deploy-ready skill in one call. (2 symbols)
-- **_main.py** — skill_generator — generate a deploy-ready skill in one call. (4 symbols)
+- **_main.py** — skill_generator — author a deploy-ready skill, grounded in real code. (18 symbols)
 
 ### `agency/capabilities/skills/` (2 files)
 - **__init__.py** — skills — the first-class registry over every capability's walkable skills (Spec 026).
@@ -1130,7 +1148,7 @@ stays the moat (Intents/Invocations/Gates) while **no capture data is lost**
 
 Use when: a spec must move through its development stages (draft → open →
 inprogress → done, or superseded) as a TRACKED, queryable Lifecycle — not a
-hand-edited status field. (16 symbols)
+hand-edited status field. (17 symbols)
 - **ontology.py** — workflow ontology — the spec-state Lifecycle binding (Spec 357).
 
 No new node label: a spec's state IS a ``Lifecycle`` on the Spec 345 ``spec``
@@ -1268,14 +1286,14 @@ Closes the documented ENGINE GAP: the storyform gates + checks read a
 - **test_skill_emit.py** (10 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
 
-### `tests/acceptance/` (116 files)
+### `tests/acceptance/` (129 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.
 
 Phase C — the flat `tests/test_*.py` are converted into behaviour scenarios
 here (owner directive). (16 symbols)
 - **test_acceptance.py** — Acceptance — core engine behaviours: the code-mode wire contract, provenance
 (the moat), and the capability surface. (22 symbols)
-- **test_adr.py** — Acceptance — ADR ontology + capability, author & validate (Spec 354 Slice 1). (39 symbols)
+- **test_adr.py** — Acceptance — ADR ontology + capability, author & validate (Spec 354 Slice 1). (43 symbols)
 - **test_adr_dod.py** — Acceptance — ADR Definition-of-Done gate (Spec 355 Slice 1). (23 symbols)
 - **test_adr_extract.py** — Acceptance — ADR spec→decision extraction + ready predicate (Spec 356 Slice 1). (26 symbols)
 - **test_analyze.py** — Acceptance — analyze capability (Spec 042, Spec 048, Spec 084).
@@ -1327,10 +1345,19 @@ Dropped as implementation/structural (not behaviour):
 GAPS: branch.assess and branch.finish with a REAL git repository are external
 effects. (42 symbols)
 - **test_brooks_lint.py** — Acceptance — Brooks-lint conceptual-integrity pass (Spec 359). (14 symbols)
+- **test_capability_skill_migration.py** — Acceptance — capability skill migration (Spec 378 Slice 1, frugal A6 + phase-fill).
+
+The core develop disciplines gain real inline phase `instructions` (A1), validated
+the same as any skill (the schema doesn't care whether the data is auto-derived or
+capability-authored — A6). (17 symbols)
 - **test_codes_coverage.py** — Acceptance — codes-coverage audit behaviour (Spec 151).
 
 Grounds the Slice 2 gate that `.github/workflows/test.yml` runs (`--baseline
 --strict`). (19 symbols)
+- **test_command_v2.py** — Acceptance — Command v2 (Spec 376).
+
+The generated `/agency-<slug>` commands are CURATED: one per discipline + one per
+pillar, NOT a top-N alpha cap. (21 symbols)
 - **test_config.py** — Acceptance — unified config resolver + registry (Spec 334 Slice 1).
 
 Behaviour: a registered key resolves env > file > default; config_set persists;
@@ -1498,6 +1525,11 @@ COMPLETED != done. (42 symbols)
 advance() reads the machine state, runs the gate (criteria 364 + council verdict
 365), consults control_evaluate, then moves via the lifecycle pillar (the sole
 state writer). (25 symbols)
+- **test_loop_capability.py** — Acceptance — the loop capability (Spec 387 W1): reachable + provenance-recording.
+
+The dormant-surface audit as a STANDING test: the looper port's verbs are on the
+wire surface, schema'd, and record an `Invocation` when invoked — the moat the
+bare spine functions (363-369) bypassed. (10 symbols)
 - **test_loop_control.py** — Acceptance — the loop termination evaluator (Spec 366; ported from looper). (7 symbols)
 - **test_loop_council.py** — Acceptance — the loop council (Spec 365, looper port on the lifecycle spine).
 
@@ -1617,8 +1649,17 @@ GAPS:
 Converted from tests/test_output_overflow.py. (31 symbols)
 - **test_panel.py** — Acceptance — panel capability (Spec 294). (15 symbols)
 - **test_persona.py** — Acceptance — persona capability (Spec 297). (13 symbols)
+- **test_pillar_skills.py** — Acceptance — pillar skills (Spec 375 Slice 1).
+
+The three concept pillars (intent · lifecycle · memory) are committed `skill.yaml`
+of `type: pillar`, loaded by `agency._pillars.load_pillars`, validated against the
+371 schema, and rendered by `install.generate`. (26 symbols)
 - **test_plugin_authoring.py** — Acceptance — plugin authoring behaviour. (65 symbols)
 - **test_prompt.py** — Acceptance — prompt capability (Spec 109/127/129). (133 symbols)
+- **test_quality_chain.py** — Acceptance — Spec 380 §judgment: the subagent walks the Brooks review chain.
+
+The judgment subagent is driven by the vendored, mode-aware Brooks REVIEW CHAIN
+(the ordered review methodology), not a flat risk-dump. (20 symbols)
 - **test_quality_config.py** — Acceptance — Spec 381 §2: quality config block (tunability + validation).
 
 Behaviour-only: the config filters findings before scoring and surfaces
@@ -1631,14 +1672,29 @@ Iron Law) and a negative "What Not to Flag" fixture (the symptom-shaped-but-
 legitimate case is NOT flagged — the load-bearing half). (16 symbols)
 - **test_quality_coverage.py** — Acceptance — Spec 383: source-coverage grounding + SARIF property test. (18 symbols)
 - **test_quality_gate.py** — Acceptance — Spec 382 §2/§3: the quality CI gate. (15 symbols)
+- **test_quality_judgment.py** — Acceptance — Spec 380 §judgment: the LLM judgment pass (the wet-corpus unblock).
+
+The judgment pass produces the reasoning-heavy decay findings (R2/R3/R6/T1–T6)
+the decidable scanners cannot. (18 symbols)
+- **test_quality_migration.py** — Acceptance — Spec 385: brooks-lint sidecars → agency quality surface. (8 symbols)
 - **test_quality_report.py** — Acceptance — Spec 382 §4: the Iron-Law report render path.
 
 Behaviour-only: the report projects structured findings — sorted by tier, each as
 the Iron Law block, empty tiers omitted, mermaid in audit mode only. (12 symbols)
+- **test_quality_report_render.py** — Acceptance — Spec 384 close-out: the report-render verb (analyze.report).
+
+Closes 384's flagship scenario — the quality report RENDERS from the ported
+templates (quality-report.md + iron-law-finding.md) rather than a print, and is a
+round-trippable Document graph node (Spec 292). (6 symbols)
 - **test_quality_review.py** — Acceptance — Spec 380: six quality modes + develop.review seam.
 
 Behaviour-only: assert what the verbs and pure functions DO (roles, phase structure,
 return shapes, Iron Law gate predicate, merge contract). (43 symbols)
+- **test_quality_review_approval.py** — Acceptance — Spec 380 develop.review: subagent judgment + final approval elicit.
+
+The interactive review runs the judgment pass (fulfilled by a SUBAGENT — no
+external LLM) and then ELICITS the human to approve/reject the LLM-proposed
+judgment findings before they merge. (24 symbols)
 - **test_quality_run.py** — Acceptance — Spec 381 §3: QualityRun history graph node + trend.
 
 Behaviour-only: a run is a graph node (not a sidecar file); the trend is a query
@@ -1647,12 +1703,20 @@ that reads only prior COMPLETE same-mode runs. (15 symbols)
 
 Behaviour-only: SARIF validity + the rule set DERIVED from the live registry
 (rule 8 — never pinned) + the truncation locator. (18 symbols)
+- **test_quality_templates.py** — Acceptance — Spec 384: brooks prose → agency templates + references.
+
+The prose half of the Spec 379 port lands on agency's template doctrine (Spec 060
+`<!-- AGENT: -->` render assets) + the on-demand reference surface
+(`develop.reference`). (18 symbols)
 - **test_quality_triage.py** — Acceptance — Spec 381 §4: triage (suppression + acknowledgement). (20 symbols)
+- **test_quality_wet.py** — Acceptance — Spec 383 Slice 2b: the brooks JUDGMENT corpus (`-m wet`).
+
+The decidable risks have a paired fixture corpus (quality_corpus.feature). (8 symbols)
 - **test_recommend.py** — Acceptance — recommend capability (Spec 298). (10 symbols)
 - **test_reflect.py** — Acceptance — reflect (semantic recall). (11 symbols)
 - **test_relevance.py** — Acceptance — relevance filter (Spec 350 Slices 1, 2, and 3). (64 symbols)
 - **test_reload.py** — Acceptance — agency_reload: mid-session capability reload (Spec 302 Slice 2). (9 symbols)
-- **test_render_substrate.py** — Acceptance — render substrate and response envelope (Spec 023 / 146 / 154). (65 symbols)
+- **test_render_substrate.py** — Acceptance — render substrate and response envelope (Spec 023 / 146 / 154). (68 symbols)
 - **test_research.py** — Acceptance — research capability (Spec 044, Spec 052, Spec 126, Spec 168).
 
 Converted from: tests/test_research_capability.py, tests/test_research_verify.py,
@@ -1711,7 +1775,16 @@ Converted from tests/test_search_isomorphism.py. (13 symbols)
 
 Converted from tests/test_session_driver.py. (29 symbols)
 - **test_shell.py** — Acceptance — shell capability (Spec 073/075). (57 symbols)
+- **test_skill_author.py** — Acceptance — skill authoring grounding context (Spec 374 Slice 1).
+
+The grounding builder (`skill_generator.ground`) reads a capability's live
+surface — verbs, signatures (sans injected params), docstrings, ontology — into
+a structured dict. (38 symbols)
 - **test_skill_generator.py** — Acceptance — skill_generator capability: author + lint a SKILL.md (Spec 028). (10 symbols)
+- **test_skill_lint.py** — Acceptance — strict skill-schema lint (Spec 377 Slice 1).
+
+`plugin.lint_skill_schema` validates a 371 Skill dict against the strict contract
+(per-type completeness, R1 trigger, self-containment, no-stub, verb-resolves). (15 symbols)
 - **test_skill_phase_parse.py** — Acceptance — Skill/Phase parse boundary behaviour.
 
 Converted from:
@@ -1725,7 +1798,7 @@ Dropped as implementation/structural (not observable behaviour):
 Phase + Skill data model.
 
 The v2 schema is what 372–378 consume. (28 symbols)
-- **test_skill_walk.py** — Acceptance — skill walk behaviour. (29 symbols)
+- **test_skill_walk.py** — Acceptance — skill walk behaviour. (33 symbols)
 - **test_skills_registry.py** — Acceptance — skills registry behaviour.
 
 Converted from:
@@ -1778,7 +1851,7 @@ frontmatter (Spec 149), never hand-maintained. (34 symbols)
 - **test_wet_generation.py** — Acceptance — use-case model selection + OpenRouter-first generation (Spec 352).
 
 All selection logic is network-free. (68 symbols)
-- **test_workflow_skill.py** — Acceptance — the develop-spec repo-development workflow (Spec 358). (17 symbols)
+- **test_workflow_skill.py** — Acceptance — the develop-spec repo-development workflow (Spec 358). (20 symbols)
 - **test_workspace.py** — Acceptance — workspace capability (Spec 002).
 
 Converted from tests/test_workspace*.py (none existed in the flat suite — new coverage).

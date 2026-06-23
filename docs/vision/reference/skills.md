@@ -1,7 +1,7 @@
 # Skills — schemas, the walker, derivation, emission
 
 <!-- doc-source: agency/skill.py agency/skill_emit.py agency/disclosure.py agency/capabilities/skills/_main.py agency/capabilities/develop/_main.py -->
-<!-- doc-hash: fc308a6d68a629c1 -->
+<!-- doc-hash: ef3dd5bc5b7c8712 -->
 
 A **skill** is a phase-graph (a Lifecycle template) a capability ships on its
 `ontology.skills`. Skills are how workflow guard-rails become *walkable* discipline
@@ -23,7 +23,7 @@ modules.
 ## Two sources: authored vs derived (Spec 080/081)
 
 - **Authored** — a capability declares real disciplines on `ontology.skills`
-  (`develop`'s 11, `jules`'s 6, `intent`'s `critical-thinking`, `music`'s gated skills).
+  (`develop`'s 18, `jules`'s 6, `intent`'s `critical-thinking`, `music`'s gated skills).
 - **Derived** — a capability that authored *none* gets a `<cap>-usage` walk derived from
   its verbs (clustered by role, ≤6 phases, hard confirm gate) by `derive_usage_skill`
   in `as_capability()`. Authored skills override the derived default.
