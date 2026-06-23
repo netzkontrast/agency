@@ -1,7 +1,7 @@
 # Overview — the four concepts, the wire contract, the bootstrap flow
 
 <!-- doc-source: docs/vision/CORE.md agency/engine.py agency/capability.py -->
-<!-- doc-hash: b21f45260ee767d9 -->
+<!-- doc-hash: 31b3e17aea2acb2b -->
 
 The authoritative model is [../CORE.md](../CORE.md). This page is the
 engineering-level summary: what the pieces are and how a call flows through them.
@@ -33,9 +33,11 @@ substrate tools** plus a few bootstrap tools:
 - **`execute(code)`** → run code against the live verb surface **inside the sandbox**;
   only the return value crosses back (**code-mode** — CORE.md:9-18).
 
-Bootstrap tools (the documented exceptions, the eight in `SUBSTRATE_TOOLS`):
+Bootstrap tools (the documented exceptions, the eleven in `SUBSTRATE_TOOLS`):
 `intent_bootstrap`, `agency_welcome`, `agency_doctor`, `agency_install`, `agency_reload`,
-`lifecycle_gate`, `memory_graph_provenance`, `hook_event`. This set is guarded by the
+`lifecycle_gate`, `lifecycle_open`, `lifecycle_move`, `lifecycle_close`,
+`memory_graph_provenance`, `hook_event` (the three `lifecycle_open`/`move`/`close` writers
+landed with Spec 339). This set is guarded by the
 `tests/acceptance/features/capability_surface.feature` substrate-tools scenario.
 
 **Code-mode is the contract.** An agent does not call verbs one-RPC-at-a-time; it writes
