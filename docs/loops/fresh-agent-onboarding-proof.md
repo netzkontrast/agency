@@ -4,10 +4,11 @@
 > **Provenance intent:** `intent:771b09a6` (agency graph, `.agency/session.db`).
 > **Output target:** fold fixes into PR [#296](https://github.com/netzkontrast/agency/pull/296)
 > on branch `claude/docs-agent-onboarding-up91ym`.
-> **Last checkpoint:** Pass 2 ACT — code-mode chaining proven; registry-drift guard
-> shipped (welcome suite 10 passed); checkpoint doc-marker fixed.
-> **Next:** review + re-stamp the 10 stale reference docs (one per pass); live MCP
-> VERIFY still awaits a server reload.
+> **Last checkpoint:** Pass 4 ACT — all stale docs reviewed + fixed; `check-doc-drift`
+> now exits 0 (20 in sync, 0 stale). Spec 389 opened for the root-cause generator.
+> **Next (only open item):** live MCP VERIFY — awaits a server reload (harness-gated)
+> to confirm a cold agent sees 36 caps and exercises a previously-missing capability
+> through the live MCP with provenance.
 
 A copy-ready Loop Library loop that interconnects three published loops
 (#039 easy-onboarding, #001 docs-sweep, #010 full-product-evaluation) plus the
@@ -157,14 +158,32 @@ mis-generating; hand-maintenance lapsed (confirmed drift: `overview.md` says "ei
   mechanically-derivable fragments (substrate-tool list, verb rosters) regenerate — leaving
   only true prose hand-maintained. New spec, not a same-pass edit. → owner decision pending.
 
-**Remaining gaps (next passes, no-progress not yet reached):**
-- 10 reference docs still STALE (`docs/README.md`, `docs/guide/frugal.md`,
-  `docs/vision/reference/{drivers,install-cli,intent-lifecycle-gate,loop,overview,skills}.md`,
-  `docs/vision/SKILL-CONTRACT.md`, `docs/examples/cookbook.md`) — each needs a
-  content review + re-stamp (not a blanket hash bump).
+### Pass 4 — ACT (all stale docs reviewed + fixed)
+
+Dispatched 4 parallel read-only drift reviewers over the 8 remaining stale docs (each
+claim verified against current source via codegraph), then applied fixes centrally and
+re-stamped only after genuine review (no blind hash bumps):
+- **cookbook.md** — `agency doctor` field is `hooks.plugin_enabled`, not top-level.
+- **SKILL-CONTRACT.md** — the 39 disciplines now **block** (Spec 378 complete), not "warn".
+- **intent-lifecycle-gate.md** — added `gate.verdict` (Spec 382 read-only CI reader).
+- **skills.md** — `develop` ships **18** authored skills, not 11.
+- **drivers.md** / **install-cli.md** — marker fixes to track the real source
+  (`agency/capabilities/music/drivers.py`; `agency/_install_adapters.py`).
+- **README.md** / **frugal.md** — prose verified current, re-stamped only.
+- **loop.md** — corrected the overstated "NOT YET ACTIVATED" header to "W1 ACTIVATED;
+  W2 IN PROGRESS" (the `loop` capability now ships 15 verbs with MCP reach + Invocation
+  provenance; generative `ctx.sample` advance + elicit still pending), inserted the
+  missing doc-hash.
+
+**Result: `scripts/check-doc-drift` exits 0 — 20 in sync, 0 stale.** The "improve all
+documentation" objective is met. (34 docs remain unmarked — not a failure; they carry no
+`doc-source` and are out of the drift gate's scope unless `--strict`.)
+
+**Remaining gap (the loop's one open item):**
 - Live MCP VERIFY still pending a server reload (new session / harness) to confirm a
-  cold agent sees 36 caps and can exercise a previously-missing capability through the
-  live MCP with provenance.
+  cold agent sees 36 caps and can exercise a previously-missing capability (e.g.
+  `workflow`/`adr`) through the live MCP with provenance. Everything fixable from the
+  CLI lane this session is done.
 
 ---
 
