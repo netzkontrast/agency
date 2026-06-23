@@ -1,7 +1,7 @@
 <!-- agency-node: architecture-digest -->
 # agency — architecture digest
 
-Every recorded WH(Y) decision as a one-liner (20 across 5 layers), grouped by architecture layer — each links to the spec that established it with one central sentence from that spec. Linked specs are **approved**: a spec reaches `/inprogress` (and later `/done`) only once its decisions clear the ADR hinge, so an `/inprogress` spec is an approved one still shipping its last slices. The decision IS what ships — **code is the final decision**; the full rationale, neglected alternatives and trade-offs live in [`docs/adr/`](docs/adr/). Refreshed on spec-done via `adr.architecture(apply=True)`; emitted by the SessionStart hook.
+Every recorded WH(Y) decision as a one-liner (16 across 5 layers), grouped by architecture layer — each links to the spec that established it with one central sentence from that spec. Linked specs are **approved**: a spec reaches `/inprogress` (and later `/done`) only once its decisions clear the ADR hinge, so an `/inprogress` spec is an approved one still shipping its last slices. The decision IS what ships — **code is the final decision**; the full rationale, neglected alternatives and trade-offs live in [`docs/adr/`](docs/adr/). Refreshed on spec-done via `adr.architecture(apply=True)`; emitted by the SessionStart hook.
 
 ## Datalayer
 _how agency stores, versions and reconciles all state_
@@ -23,20 +23,6 @@ _the FastMCP engine and the wire contract every capability rides_
 - run multi-step work in code-mode execute so chains stay inside the sandbox — [`Plan/inprogress/005-context-mode-and-token-economics/spec.md`](Plan/inprogress/005-context-mode-and-token-economics/spec.md)
   > "The engine already pays the boot token cost well: `Engine.build_mcp` wraps the server in FastMCP's `CodeMode()` transform (`agency/engine.py:91-95`), so the only tools the model sees at start are…"
 
-## Lifecycle
-_how stateful entities transition, with provenance_
-
-- ctx.lifecycle.move is the sole state writer; domain code never writes state directly — [`Plan/inprogress/339-lifecycle-capability-write-frame/spec.md`](Plan/inprogress/339-lifecycle-capability-write-frame/spec.md)
-  > "Spec 338 §Architecture calls for a `lifecycle` capability that owns the CORE.md §3 verb frame"
-- lifecycle machines are data (machines.json), not code — [`Plan/inprogress/340-lifecycle-state-machine-transitions/spec.md`](Plan/inprogress/340-lifecycle-state-machine-transitions/spec.md)
-  > "`ontology.py:58 LifecycleState` constrains the *value* of `state`, but Spec 338 §Why item 2 documents the real defect — no transition is enforced"
-- a skill is a typed phase-graph — six types with a per-type required core, and a phase is a first-class object with inline content — [`Plan/done/371-phase-skill-schema/spec.md`](Plan/done/371-phase-skill-schema/spec.md)
-  > "Today a phase is `{index,name,produces,gate?,verbs?,sample?,…}` (no content) and a skill is `{name,description,body}` (enforces nothing)"
-- the phase graph is the single source — the walk and the rendered file read one phase — [`Plan/done/372-phase-single-source/spec.md`](Plan/done/372-phase-single-source/spec.md)
-  > "`SkillRun.current()` returns only `{index,name,produces,gate}` — the walking agent never receives `goal`/`instructions`/`example`"
-- the four concepts each ship a committed pillar skill — [`Plan/done/375-pillar-skills/spec.md`](Plan/done/375-pillar-skills/spec.md)
-  > "Agency emits a skill per capability but NONE for the concepts themselves"
-
 ## Workflow
 _the ADR-centred repo-development lifecycle (Spec 353 reconciliations)_
 
@@ -55,3 +41,7 @@ _the ADR-centred repo-development lifecycle (Spec 353 reconciliations)_
 - D4 using-agency stays curated constant, gains naming rule
 - Documentation generation mixes a deterministic template scaffold with MCP-sampled custom sections via document.compose
 - Fix the generator + substrate, never hand-edit the 36 skills
+
+## Lifecycle
+
+- Lifecycle transitions are enforced by a data-driven A2A table with a typed IllegalTransition and a terminal floor; Lifecycle.move is the sole state writer, guarded statically by check-drift (B3)

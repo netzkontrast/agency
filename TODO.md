@@ -333,7 +333,7 @@ Rebuild (derived from the Plan/ tree):
 - 337  per-tool-output-filters
 - 338  lifecycle-pillar-deep-program
 - 339  lifecycle-capability-write-frame
-- 340  lifecycle-state-machine-transitions
+- 340  lifecycle-state-machine-transitions   # Shipped (done) — data-driven A2A transition table + typed IllegalTransition + terminal floor + B3 static guard (check-drift clean); independently verified, 38 acceptance tests green
 - 341  lifecycle-observe-suite
 - 342  agent-as-lifecycle-parameterization
 - 343  lifecycle-management-discipline

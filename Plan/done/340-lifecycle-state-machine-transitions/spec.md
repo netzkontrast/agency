@@ -1,8 +1,9 @@
+<!-- agency-node: document:a6ffadf8 -->
 ---
 spec_id: "340"
 slug: lifecycle-state-machine-transitions
-status: partial
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2, 4]
@@ -166,10 +167,16 @@ high-cardinality). Fixed: the override is stored at ONE deterministic node id
 floor-violation paths are split so an `IllegalTransition` (a `ValueError` subclass)
 propagates instead of being swallowed back to the seed.
 
-Still (Slice 2): the **B3 static drift guard** (`scripts/check-drift` grep that
-fails CI on any `update(...{"state"` / `record("Lifecycle"` outside
-`agency/lifecycle.py`) is deferred to **339b** — `subagent`/`music` still write
-`state` directly, so the guard would red CI today; it lands once those writers are
-routed through `move`. Parameterization *variant data* (the `verify`-insert) lands
-in **342** (340 only proves the extension mechanism is monotone + floor-safe). The
-reachability/orphan check (F-2 b) activates when 342 supplies replacement edges.
+Shipped (Slice 2): the **B3 static drift guard** (`scripts/check-drift` grep that
+fails CI on any `update(...{"state"` / `record("Lifecycle"` / `record("SessionLifecycle"`
+outside `agency/lifecycle.py`) is now LIVE — `scripts/check-drift` lines 228–258 run
+it, the `subagent`/`music` direct-`state` writers have been routed through `move`, and
+the gate reports `lifecycle-state-writer: clean` (the one remaining non-lifecycle.py
+match — `develop/_main.py` — is a plan-step `state`, correctly whitelisted, so the
+guard is sound, not trivially passing). Independently verified 2026-06-23: 38 acceptance
+tests green (`test_lifecycle*`), required code present (`transitions.json`,
+`_lifecycle_transitions.py`, `lifecycle.py:218` sole-writer `move`). Out of scope for
+340 (correctly deferred): parameterization *variant data* (the `verify`-insert) lands
+in **342**; the reachability/orphan check (F-2 b) activates when 342 supplies
+replacement edges. 340's own scope — the monotone, floor-safe extension mechanism — is
+complete.
