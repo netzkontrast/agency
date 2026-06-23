@@ -380,3 +380,5 @@ Rebuild (derived from the Plan/ tree):
 - 385  quality-migration
 - 386  multilang-decidable-scanners
 - 387  loop-activation
+- 388  jinja-template-engine
+- 389  derived-fence-reference-docs
