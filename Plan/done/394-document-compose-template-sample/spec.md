@@ -1,10 +1,12 @@
 <!-- agency-node: document:8056d949 -->
 ---
-id: 394
+spec_id: "394"
 slug: document-compose-template-sample
-state: draft
+status: done
+state: done
+last_updated: 2026-06-23
 title: document.compose — deterministic template scaffold + MCP-sampled custom sections
-owner: user
+owner: "@agency"
 ---
 
 # Spec 394 — `document.compose`: the template + custom-sampled mix
