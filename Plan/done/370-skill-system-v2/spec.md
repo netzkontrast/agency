@@ -1,8 +1,8 @@
 ---
 spec_id: "370"
 slug: skill-system-v2
-status: draft
-state: draft
+status: done
+state: done
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [1, 3, 8]

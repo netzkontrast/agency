@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## skills verb audit — 0 of 5 verbs need work
+## skills verb audit — 0 of 6 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -22,6 +22,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `skills.lint` | transform | ✓ clean |
 | `skills.rank` | transform | ✓ clean |
 | `skills.render` | transform | ✓ clean |
+| `skills.source` | transform | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The

@@ -1,8 +1,8 @@
 ---
 spec_id: "377"
 slug: skill-lint-enforcement
-status: partial
-state: draft
+status: done
+state: done
 last_updated: 2026-06-22
 owner: "@agency"
 vision_goals: [1, 3]

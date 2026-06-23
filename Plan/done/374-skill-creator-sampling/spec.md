@@ -1,8 +1,8 @@
 ---
 spec_id: "374"
 slug: skill-creator-sampling
-status: partial
-state: draft
+status: done
+state: done
 last_updated: 2026-06-22
 owner: "@agency"
 vision_goals: [1, 3, 8]

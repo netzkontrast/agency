@@ -1,9 +1,9 @@
 ---
 spec_id: "371"
 slug: phase-skill-schema
-status: partial
-state: inprogress
-last_updated: 2026-06-20
+status: done
+state: done
+last_updated: 2026-06-23
 owner: "@agency"
 vision_goals: [1, 3]
 depends_on: ["152", "286"]
@@ -88,10 +88,41 @@ Done (file:line evidence):
   Existing `test_skill_phase_parse.py` (+ skill_walk / skills_registry /
   skill_generator) stay green; `install regen` clean; schemas non-dormant.
 
-Still (this spec's later slices):
-- Slice 2 — the per-capability `skill.yaml` loader + back-compat shim (a cap
-  with no `skill.yaml` derives a minimal Skill from today's SkillDoc).
-- Slice 3 — the `source`/`owner`/`source_stamp` metadata read API.
+**Slice 2 — SHIPPED: the `skill.yaml` loader + back-compat derive-shim (A6).**
+
+Done (file:line evidence):
+- `agency/_skill_load.py` — `load_skill(cap_name, doc, capabilities_root=)`:
+  a capability that SHIPS `<cap>/skill.yaml` (the A6 authored override) gets it
+  `yaml.safe_load`ed + `parse_skill`-validated (`owner="capability"`); otherwise
+  the Skill is DERIVED from the capability's docstring SkillDoc via
+  `derive_skill_dict` (`owner="auto"`) — the back-compat shim. The derived dict is
+  a minimal `type="capability"` Skill (whose required core is just `description`,
+  R1), with `overview`/`when_to_use`/`examples`/`common_mistakes` riding along when
+  the docstring carried them (rule 2 — no authored duplication). Either path is
+  gated by the same v2 `parse_skill`.
+- Tests: `tests/acceptance/features/skill_load.feature` + `test_skill_load.py` —
+  (1) deriving from a SkillDoc yields a valid `capability`/`auto` Skill;
+  (2) **every registered capability with a `skill_doc` loads a schema-valid v2
+  Skill** (the back-compat iron invariant, derived from the live registry — rule
+  8); (3) a `skill.yaml` override loads as `owner="capability"` and round-trips
+  its authored phases (A6).
+
+**Slice 3 — SHIPPED: the source/owner/source_stamp read API.**
+
+Done (file:line evidence):
+- `agency/_skill_load.py::skill_source(cap_name)` — the read API: `{name, owner,
+  source, source_stamp}` where `source ∈ derived|authored`, `owner ∈ auto|
+  capability` (A6). Surfaced as the **`skills.source(capability)`** verb
+  (`agency/capabilities/skills/_main.py`) — discoverable, MCP-wired, provenance-
+  recording (dogfood). Unknown capability → typed `{error}`.
+- Tests (same feature): the source API reports derived-vs-authored provenance for
+  bare/skill.yaml capabilities; the `skills.source` verb reports `develop` as a
+  derived skill owned by `auto` (driven through the live registry — rule 8).
+
+**Spec 371 COMPLETE — all three slices shipped.** The v2 schema (Slice 1) + the
+loader/shim (Slice 2) + the provenance read API (Slice 3) are the data model
+372–378 consume; every existing capability resolves to a valid v2 Skill with no
+committed file (rule 2), and A6 (a `skill.yaml` override) validates the same.
 
 Note: the `kind` axis (walk-shape) is kept REQUIRED for back-compat and is
 orthogonal to `type` (the R15 classification) — no cross-check between them.

@@ -131,6 +131,118 @@ class WorkflowCapability(CapabilityBase):
                                         "override": bool(override),
                                         "superseded_by": superseded_by_recorded})
 
+    @verb(role="effect")
+    def finish_spec(self, spec_id: str, approver: str = "", root: str = "Plan",
+                    rebuild_architecture: bool = True) -> ToolResult:
+        """FINISH_SPEC — the owner-triggered done-cascade as ONE trigger (Spec 388).
+        "This spec is done" bundled: move the spec to ``/done`` across ALL THREE
+        state representations kept in sync (physical ``Plan/<state>/`` folder +
+        ``state:`` frontmatter + the SpecLifecycle node — the agreement check-drift
+        gates), APPROVE any ADR decisions the spec REFINES (owner authority — an
+        agent never self-approves), and rebuild ``architecture.md``. The folder is
+        authoritative ("code/folder is the final decision"); the node + ADR steps
+        are best-effort so a not-yet-ingested spec still finishes cleanly.
+
+        Inputs: spec_id (the spec number/id), approver (the human owner's identity
+                — authorizes decision approval; '' skips it; 'agent' is rejected by
+                the gate), root (the Plan dir), rebuild_architecture (rebuild
+                ``architecture.md`` after — default True).
+        Returns: ``{spec_id, moved, from_state, folder, decisions_approved,
+                 node_synced, architecture_rebuilt}`` or ``{error}``.
+        chain_next: workflow.board to see the spec in /done; review the PR.
+        """
+        import re
+        import shutil
+        from agency.capabilities.document import _interconnect
+
+        base = os.path.abspath(root)
+        # 1. Locate the spec folder by `<spec_id>-…` dir name under a non-terminal
+        #    state (the folder IS the authoritative state — Spec 357).
+        src = from_state = folder_name = ""
+        for state in ("draft", "open", "inprogress"):
+            d = os.path.join(base, state)
+            if not os.path.isdir(d):
+                continue
+            for name in sorted(os.listdir(d)):
+                p = os.path.join(d, name)
+                if (name.split("-", 1)[0] == str(spec_id)
+                        and os.path.isfile(os.path.join(p, "spec.md"))):
+                    src, from_state, folder_name = p, state, name
+                    break
+            if src:
+                break
+        if not src:
+            return ToolResult.success(data={
+                "spec_id": spec_id, "moved": False,
+                "error": f"no spec {spec_id!r} under {root}/(draft|open|inprogress)"})
+
+        spec_md = os.path.join(src, "spec.md")
+        fm = _interconnect.parse_frontmatter(
+            _interconnect.extract_anchor(open(spec_md, encoding="utf-8").read())[1])
+        fid = str(fm.get("spec_id", "")).strip().strip('"') or str(spec_id)
+
+        # 2. Approve the spec's ADR decisions (owner authority), best-effort.
+        approved: list[str] = []
+        if approver:
+            try:
+                ready = self.ctx.call("adr", "spec_decisions_ready", spec_id=fid)
+                for dec in ready.get("decisions", []) or []:
+                    res = self.ctx.call("adr", "approve", decision_id=dec.get("id"),
+                                        approver=approver, override=True)
+                    if res.get("approved"):
+                        approved.append(dec.get("id"))
+            except Exception:                                  # noqa: BLE001
+                pass
+
+        # 3. Sync the SpecLifecycle node to `done` (best-effort — folder is the
+        #    authority; a not-yet-ingested spec simply has no node to sync).
+        node_synced = False
+        try:
+            docs = self.ctx.query_nodes("Document", where={"path": spec_md})
+            if docs:
+                doc_id = docs[0].get("id")
+                self.ctx.call("workflow", "open_spec", spec_id=doc_id)   # idempotent
+                cur = (self._spec_lifecycle(doc_id) or {}).get("state", "draft")
+                walk = {"draft": ["open", "inprogress", "done"],
+                        "open": ["inprogress", "done"],
+                        "inprogress": ["done"]}.get(cur, [])
+                for st in walk:
+                    self.ctx.call("workflow", "move_spec", spec_id=doc_id,
+                                  to_state=st, override=True)
+                node_synced = True
+        except Exception:                                      # noqa: BLE001
+            pass
+
+        # 4. Move the physical folder to /done + reconcile the frontmatter (the
+        #    authoritative state change — keeps folder == frontmatter).
+        dst_parent = os.path.join(base, "done")
+        os.makedirs(dst_parent, exist_ok=True)
+        dst = os.path.join(dst_parent, folder_name)
+        if os.path.exists(dst):
+            return ToolResult.success(data={
+                "spec_id": spec_id, "moved": False,
+                "error": f"target already exists: {os.path.relpath(dst, base)}"})
+        shutil.move(src, dst)
+        new_md = os.path.join(dst, "spec.md")
+        txt = open(new_md, encoding="utf-8").read()
+        txt = re.sub(r"(?m)^(state:\s*).*$", r"\1done", txt)
+        txt = re.sub(r"(?m)^(status:\s*).*$", r"\1done", txt)
+        open(new_md, "w", encoding="utf-8").write(txt)
+
+        # 5. Rebuild the architecture digest (DERIVED — Spec 360), best-effort.
+        arch = False
+        if rebuild_architecture:
+            try:
+                self.ctx.call("adr", "architecture", apply=True)
+                arch = True
+            except Exception:                                  # noqa: BLE001
+                pass
+
+        return ToolResult.success(data={
+            "spec_id": spec_id, "moved": True, "from_state": from_state,
+            "folder": os.path.relpath(dst, base), "decisions_approved": approved,
+            "node_synced": node_synced, "architecture_rebuilt": arch})
+
     @verb(role="transform")
     def board(self, state: str = "") -> ToolResult:
         """BOARD — the graph-native spec board: live SpecLifecycles grouped by

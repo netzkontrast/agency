@@ -178,5 +178,3 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 Count syllables in a word — deterministic, driver-free text math.
 
 Parameters: `(word: 'str')`.
-
-_(Tier B — verb docstring lacks Spec 016 Inputs:/Returns:/chain_next: markers; reference is in-skill only. Add markers to upgrade to a separate references/count_syllables.md.)_
