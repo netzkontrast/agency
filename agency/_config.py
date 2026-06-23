@@ -192,6 +192,29 @@ def config_set(dotted: str, value: Any, *, path: str | None = None) -> None:
     _READ_CACHE.pop(target, None)              # write invalidates the read-cache
 
 
+def merge_section(section: str, values: dict, *, path: str | None = None) -> dict:
+    """Shallow-merge a structured ``values`` dict into a whole config SECTION and
+    persist — the section-shaped twin of ``config_set`` (which writes a single
+    registered scalar key). For UNregistered structured blocks (e.g. the Spec 381
+    ``quality:`` block, written by the Spec 385 migration importer) that
+    ``config_set`` cannot address. Same durable write idiom as ``config_set`` —
+    deepcopy-read, makedirs, ``safe_dump(sort_keys=False)``, and crucially the
+    read-cache invalidation so a same-process read never serves a stale section.
+    Returns the merged section."""
+    if yaml is None:  # pragma: no cover - yaml is a declared dependency
+        raise RuntimeError("PyYAML is required for merge_section")
+    target = path or _resolve_config_path()
+    import copy
+    data = copy.deepcopy(_read(target))   # never mutate the read-cache's dict
+    merged = {**(data.get(section) or {}), **values}
+    data[section] = merged
+    os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+    with open(target, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+    _READ_CACHE.pop(target, None)              # write invalidates the read-cache
+    return merged
+
+
 # ── Spec 334 Slice 2 — the annotated scaffold generator ───────────────────────
 _HEADER = (
     "# .agency/config.yaml — all agency config (Spec 334). Safe to edit.\n"

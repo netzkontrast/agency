@@ -8,8 +8,7 @@ importer verbs (analyze.migrate_quality_*) stay thin. No I/O, no graph writes.
 """
 from __future__ import annotations
 
-import hashlib
-import json
+from ..._frontmatter import frontmatter_hash
 
 # brooks `.brooks-lint.yaml` keys that map 1:1 onto the unified `quality:` block
 # (Spec 381 §2). `suppress` is split out (→ Suppression nodes, §4); the rest ride.
@@ -32,9 +31,10 @@ def map_brooks_config(raw: dict) -> tuple[dict, list]:
 
 def history_key(rec: dict) -> str:
     """Stable content hash of a ``.brooks-lint-history.json`` record — the
-    idempotency key so a re-import never duplicates (keep-both, Spec 292)."""
-    blob = json.dumps(rec, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+    idempotency key so a re-import never duplicates (keep-both, Spec 292).
+    Delegates to the canonical content-hash (``_frontmatter.frontmatter_hash``) —
+    the dict-shaped twin already used for Artefact fingerprints."""
+    return frontmatter_hash(rec)
 
 
 def normalize_record(rec: dict) -> dict:

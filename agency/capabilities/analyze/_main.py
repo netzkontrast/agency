@@ -16,7 +16,6 @@ Red flags:
 """
 from __future__ import annotations
 
-import re
 import time
 
 from agency.capability import (
@@ -74,30 +73,6 @@ def _rule_axis(rule: str) -> str:
         if axis:
             return axis
     return ""
-
-
-# Spec 384 close-out — honour the template `<!-- BEGIN IF flag -->…<!-- END IF -->`
-# conditional at render time (no engine existed; the markers were agent-only). Keep
-# the inner block when `flag` is truthy, drop the whole block otherwise. This is what
-# gates the audit-only Module Dependency Graph in quality-report.md.
-_COND_RE = re.compile(r"[ \t]*<!-- BEGIN IF (\w+) -->\n?(.*?)<!-- END IF -->\n?",
-                      re.DOTALL)
-
-
-def _strip_conditionals(text: str, flags: dict) -> str:
-    return _COND_RE.sub(
-        lambda m: m.group(2) if flags.get(m.group(1)) else "", text)
-
-
-# Drop the Spec-060 authoring annotations from the FINAL rendered report — they
-# guide the template author/agent, not the report reader. The template FILES keep
-# their markers (drift-tracked). (Spec 388 — the Jinja port replaces both strippers
-# with `{% if %}` blocks + comment syntax decided by the engine.)
-_COMMENT_RE = re.compile(r"[ \t]*<!-- (?:AGENT|doc-source):.*?-->\n?", re.DOTALL)
-
-
-def _strip_authoring_comments(text: str) -> str:
-    return _COMMENT_RE.sub("", text)
 
 
 _CODE_ANALYSIS_SKILL = {
@@ -591,16 +566,13 @@ class AnalyzeCapability(CapabilityBase):
         from . import _migrate
         if not os.path.exists(config_path):
             return {"migrated": False, "reason": f"no {config_path}", "quality": {}}
-        raw = yaml.safe_load(open(config_path, encoding="utf-8")) or {}
+        with open(config_path, encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
         quality, suppress = _migrate.map_brooks_config(raw)
+        # Merge into .agency/config.yaml through the shared writer (deepcopy-read +
+        # makedirs + cache invalidation) — never a second hand-rolled config path.
+        merged = _config.merge_section("quality", quality)
         out_path = _config._resolve_config_path()
-        existing = {}
-        if os.path.exists(out_path):
-            existing = yaml.safe_load(open(out_path, encoding="utf-8")) or {}
-        existing["quality"] = {**(existing.get("quality") or {}), **quality}
-        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as fh:
-            yaml.safe_dump(existing, fh, sort_keys=False)
         supp_ids = []
         for s in suppress:
             risk = str(s.get("risk", "")).strip()
@@ -611,7 +583,7 @@ class AnalyzeCapability(CapabilityBase):
             if s.get("expires"):
                 props["expires"] = str(s["expires"])
             supp_ids.append(self.ctx.record_and_serve("Suppression", props))
-        return {"migrated": True, "quality": quality, "suppressions": supp_ids,
+        return {"migrated": True, "quality": merged, "suppressions": supp_ids,
                 "written": out_path, "source": config_path,
                 "source_preserved": os.path.exists(config_path)}
 
@@ -742,24 +714,8 @@ class AnalyzeCapability(CapabilityBase):
         Use when: producing + persisting the human-readable code-quality report.
         """
         from . import _report
-        findings = findings or []
-        blocks = []
-        for f in _report.tier_sorted(findings):
-            rid = f.get("risk_code") or f.get("rule", "") or "Finding"
-            loc = ":".join(str(x) for x in (f.get("file", ""), f.get("line", "")) if x)
-            blocks.append(self.ctx.render(
-                "iron-law-finding", risk_name=rid, title=loc or "finding",
-                symptom=f.get("message", "") or f.get("evidence", ""),
-                source=f.get("source", ""), consequence=f.get("consequence", ""),
-                remedy=f.get("remedy", ""), fix_tier_label=""))
-        rendered = self.ctx.render(
-            "quality-report", mode=mode, scope=scope or "repo", score=score,
-            trend_suffix="", config_line="", verdict="",
-            module_graph=_report.mermaid_graph(findings) if mode == "audit" else "",
-            findings_block="\n\n".join(blocks), suppressed_block="",
-            summary=_report.summary(findings, score))
-        content = _strip_authoring_comments(
-            _strip_conditionals(rendered, {"is_audit": mode == "audit"}))
+        content = _report.render_quality_report(
+            self.ctx, findings or [], mode, scope, score)
         emit = self.ctx.call("document", "emit", content=content, path=path)
         return {"report": content, "content": content, "mode": mode, "score": score,
                 "document_id": emit.get("document_id", ""),
