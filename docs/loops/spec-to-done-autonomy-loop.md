@@ -58,11 +58,26 @@ spec's old `inprogress`/`draft` path.
 | Pass | Spec(s) | Verdict | Outcome | PR |
 |---|---|---|---|---|
 | 1 | 394 document-compose · 340 lifecycle-state-machine-transitions | DONE (independently verified) | moved to `/done`; ADR decisions recorded; derived-digest regen reverted (caveat above) | #301 merged |
+| 2 | 339 lifecycle-capability-write-frame | DONE (independently verified — 98 tests green) | moved to `/done` via the cheaper recipe (`finish_spec(rebuild_architecture=False)`, no digest regen — nothing to revert) | #302 merged |
+| 3 | 341 lifecycle-observe-suite | **PARKED — genuinely partial** | Slice 2 (`lifecycle-board.md` convergence Document) is real remaining implementation, not a stale Followup; 342 + 343 already in `/done`. A new implement-TDD effort, deferred to a fresh-context session. | — (no merge) |
 
-## Stop condition
+## Terminal state (this run)
 
-No unfinished spec remains (won't happen in one session — 246 remain), or a full
-pass merges nothing (the chosen highest-value spec verifies NOT-DONE / blocked).
-The durable continuation point is this ledger + the cheap recipe: a later session
-(ideally with a DB carrying the full decision history) resumes the verify→cascade
-sweep and, periodically, a clean `adr.architecture(apply=True)` regeneration.
+Pass 3 **merged nothing** — the next genuine lifecycle candidate (341) needs a real
+new slice, so it was parked rather than force-shipped in a deep-context session.
+Per the stop rule ("a full pass merges nothing"), the run reaches its checkpoint
+terminal here. **Net: 3 specs driven to `/done` (394, 340, 339) across 2 merged PRs
+(#301, #302); 1 regression caught + fixed (the ephemeral-DB digest lossiness); the
+cheap recipe proven.** ~245 specs remain — inherently multi-session.
+
+## Continuation (next session)
+
+1. Resume the **verify → cheap-cascade** sweep on inprogress specs (the recipe
+   above), one independently-verified spec per pass.
+2. For genuinely-partial specs (like 341), run a real **implement-TDD** pass with
+   fresh context — these are the minority that need code, not just a state move.
+3. **Periodically**, in a session whose graph DB carries the full decision history
+   (NOT a fresh container), run ONE clean `adr.architecture(apply=True)` +
+   `adr.publish` to regenerate the derived digest — the step every fresh-container
+   pass deliberately skips (see the caveat above). Or fix decision-persistence so
+   the digest can be safely rebuilt anywhere.
