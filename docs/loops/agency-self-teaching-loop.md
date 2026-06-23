@@ -1,6 +1,8 @@
 # The Agency Self-Teaching Loop (spec-governed, single-PR)
 
-> **Status:** ACTIVE — running "until no progress" (resumable).
+> **Status:** ✅ **ACCEPTANCE MET (2026-06-23)** — one clean independent run across all
+> clusters, elicit/sample included, provenance-proven. See "Acceptance" below.
+> (Was: ACTIVE — running "until no progress".)
 > **Provenance intent:** `intent:6771acf8` (agency graph, `.agency/session.db`).
 > **Output target:** ONE PR from branch `claude/fresh-agent-onboarding-proof-t8ecjb`.
 > **Secondary goal (owner directive):** MAXIMIZE agency-MCP use to surface real
@@ -247,6 +249,32 @@ server-initiated mechanism — the independent verifier exercises the former liv
    then PAUSE for owner ADR-approval.
 
 ---
+
+## Acceptance — MET (2026-06-23)
+
+The loop's success gate (run config): *one representative code-mode chain per capability
+cluster, run by an independent fresh subagent, accepted on graph `Invocation SERVES
+intent` provenance with zero errors, ≥1 chain exercising elicit + sample mid-chain.*
+
+**Result — PASS.** A separate fresh subagent (only the committed, Spec 390/391-improved
+skills) drove one chain per cluster under `intent:72b7ba55`. **Judge (independent, via the
+graph, not self-report):** `memory_graph_provenance('intent:72b7ba55')` = **27 SERVES
+edges / 14 capabilities** (adr · analyze · config · develop · discover · intent · manage ·
+recommend · reflect · research · skills · thinking · workflow + bare substrate tools).
+`develop.skill_walk` present ⇒ the **elicit/sample input-required→resume→advance** round-trip
+ran; `discover.ask` present ⇒ the `param_shapes` shape-hint cluster ran. The final corrected
+run hit **zero errors across 15 calls**. The single exploration error (`goal=` vs `subject=`)
+**validated** Spec 390: the skill says "`get_schema` first"; ignoring it triggered the
+documented block-abort, following it fixed it.
+
+**Shipped (all on PR #298):** Spec 390 (D2 `param_shapes`→`get_schema` shapes · D3 per-cap
+code-mode call-examples · D4 `using-agency` wire-naming rule) + Spec 391 (honest
+elicit/sample signal; the Spec-285 mechanism was already correct). 14 plugin caveats
+(C1–C14) surfaced by dogfooding; the gate-relevant ones are closed.
+
+**Not in the acceptance gate (future passes, optional):** Spec C (`document.session`
+auto-append) + queued caveats C4/C5/C6/C8/C9–C14. The loop's acceptance condition is met;
+these are enhancements, not gate-blockers.
 
 ## How to resume
 
