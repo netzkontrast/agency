@@ -84,10 +84,28 @@ _BALANCED = {"Christensen", "Porter", "Drucker", "Taleb", "Meadows"}
 _STRATEGIC_ANALYSIS_SKILL = {
     "name": "strategic-analysis", "kind": "discipline",
     "phases": [
-        {"index": 1, "name": "frame", "produces": ["subject", "mode"]},
-        {"index": 2, "name": "convene", "produces": ["experts", "analysis"]},
-        {"index": 3, "name": "challenge", "produces": ["tensions"]},
-        {"index": 4, "name": "synthesize", "produces": ["synthesis"], "gate": "hard"},
+        {"index": 1, "name": "frame", "produces": ["subject", "mode"],
+         "goal": "Frame the subject and the panel mode.",
+         "instructions": "State what's under strategic analysis and the mode (sequential, "
+                         "debate, or Socratic). A sharp subject focuses the panel.",
+         "freedom": "medium"},
+        {"index": 2, "name": "convene", "produces": ["experts", "analysis"],
+         "goal": "Convene the expert lenses over the subject.",
+         "instructions": "Run each expert lens (Christensen, Porter, Drucker, …) over the "
+                         "subject; capture each one's distinct read. Don't collapse them "
+                         "into one voice.",
+         "freedom": "medium"},
+        {"index": 3, "name": "challenge", "produces": ["tensions"],
+         "goal": "Surface the tensions between the experts.",
+         "instructions": "Where do the lenses DISAGREE? The tensions are the signal — the "
+                         "places the strategy is genuinely contested, not the consensus.",
+         "freedom": "medium"},
+        {"index": 4, "name": "synthesize", "produces": ["synthesis"], "gate": "hard",
+         "goal": "Synthesise a decision from the tensions.",
+         "instructions": "Resolve the tensions into a strategic recommendation with its "
+                         "rationale. Confirm this gate only when the synthesis takes a "
+                         "position, not a summary of views.",
+         "freedom": "medium"},
     ],
 }
 

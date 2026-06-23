@@ -43,3 +43,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`strategic-analysis`** (discipline): frame → convene → challenge → synthesize
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'strategic-analysis', 'inputs': {}, 'intent_id': '…'})`
+  1. **frame** — Frame the subject and the panel mode.
+     State what's under strategic analysis and the mode (sequential, debate, or Socratic). A sharp subject focuses the panel.
+  2. **convene** — Convene the expert lenses over the subject.
+     Run each expert lens (Christensen, Porter, Drucker, …) over the subject; capture each one's distinct read. Don't collapse them into one voice.
+  3. **challenge** — Surface the tensions between the experts.
+     Where do the lenses DISAGREE? The tensions are the signal — the places the strategy is genuinely contested, not the consensus.
+  4. **synthesize** — Synthesise a decision from the tensions.
+     Resolve the tensions into a strategic recommendation with its rationale. Confirm this gate only when the synthesis takes a position, not a summary of views.

@@ -45,3 +45,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`mode-selection`** (discipline): assess → detect → activate → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'mode-selection', 'inputs': {}, 'intent_id': '…'})`
+  1. **assess** — Assess the work context.
+     Read the situation — what kind of work is this (design, build, debug, review)? The context drives which session mode fits.
+  2. **detect** — Detect the candidate modes.
+     Surface the modes that match the context; usually 1–2 are plausible. Don't force a mode the work doesn't call for.
+  3. **activate** — Activate the chosen mode.
+     Switch to the selected mode and record the ModeShift — the mode biases which disciplines + verbs you reach for next.
+  4. **confirm** — Confirm the mode with its rationale.
+     State WHY this mode fits the context. Confirm this gate only with a rationale grounded in the assessed work, not a default.

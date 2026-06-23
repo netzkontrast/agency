@@ -42,3 +42,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`capability-routing`** (discipline): frame → rank → select → confirm
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'capability-routing', 'inputs': {}, 'intent_id': '…'})`
+  1. **frame** — Frame the request to route.
+     State what the user is trying to do in terms the capability registry can match — the underlying need, not their phrasing.
+  2. **rank** — Rank the candidate capabilities.
+     Score the live capability surface against the framed request; produce a ranked shortlist with why each made it.
+  3. **select** — Select the best-fit capability.
+     Pick the top candidate that actually serves the need; a high rank on a wrong-shaped capability still loses.
+  4. **confirm** — Confirm the route with its rationale.
+     State why this capability beats the alternatives for THIS request. Confirm only with a grounded rationale.

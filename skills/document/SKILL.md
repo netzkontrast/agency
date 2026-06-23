@@ -55,3 +55,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`repo-briefing`** (discipline): scope → scan → render → publish
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'repo-briefing', 'inputs': {}, 'intent_id': '…'})`
+  1. **scope** — Fix the repo path + the token budget.
+     Name the root to brief and the max-tokens budget for the preview. The budget governs the preview only — a SAVED index is never truncated (it must not lie about the tree).
+  2. **scan** — Scan the tree into a structured index.
+     Walk the package tree — entry points, modules, notable patterns, recent reflections — into a recorded index. Capture every module; never drop entries to fit a budget.
+  3. **render** — Render the briefing markdown.
+     Render the index to the PROJECT_INDEX briefing — short fixed sections first (so they survive a budget), then the macro structure.
+  4. **publish** — Write the briefing in FULL.
+     On save the index renders in FULL — every module survives, no omission marker. Confirm this gate only when the saved briefing is complete.

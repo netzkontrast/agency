@@ -68,12 +68,38 @@ _LADDER_SKILL = {
                      "pattern": r"over-?engineer|simplif|bloat|yagni|minimal|lazy|do less|shortest",
                      "confidence": 0.7},
     "phases": [
-        {"index": 1, "name": "necessity", "produces": ["necessity_decision"]},     # YAGNI rung
-        {"index": 2, "name": "stdlib", "produces": ["stdlib_check"]},
-        {"index": 3, "name": "native", "produces": ["native_check"]},
-        {"index": 4, "name": "installed-dep", "produces": ["dep_check"]},
-        {"index": 5, "name": "one-line", "produces": ["one_line_check"]},
-        {"index": 6, "name": "minimum", "produces": ["minimum_impl"], "gate": "hard"},
+        {"index": 1, "name": "necessity", "produces": ["necessity_decision"],     # YAGNI rung
+         "goal": "Ask whether this is needed AT ALL (YAGNI).",
+         "instructions": "The first rung: does this need to exist? The cheapest code is "
+                         "the code you don't write. Reject the feature before optimising "
+                         "it.",
+         "freedom": "high"},
+        {"index": 2, "name": "stdlib", "produces": ["stdlib_check"],
+         "goal": "Prefer the standard library.",
+         "instructions": "If it IS needed, can the stdlib do it? Reach for batteries-"
+                         "included before anything external.",
+         "freedom": "medium"},
+        {"index": 3, "name": "native", "produces": ["native_check"],
+         "goal": "Prefer an existing native capability.",
+         "instructions": "Can an existing agency capability/verb do it? Extend the "
+                         "substrate before adding a dependency.",
+         "freedom": "medium"},
+        {"index": 4, "name": "installed-dep", "produces": ["dep_check"],
+         "goal": "Prefer an ALREADY-installed dependency.",
+         "instructions": "If a dep is unavoidable, prefer one already in the lockfile over "
+                         "a new one. Every new dep is a maintenance + supply-chain cost.",
+         "freedom": "medium"},
+        {"index": 5, "name": "one-line", "produces": ["one_line_check"],
+         "goal": "Prefer the one-line solution.",
+         "instructions": "Can it be a one-liner / a few lines inline rather than a new "
+                         "abstraction? Don't build a framework for a function.",
+         "freedom": "medium"},
+        {"index": 6, "name": "minimum", "produces": ["minimum_impl"], "gate": "hard",
+         "goal": "Ship the minimum that meets the floor.",
+         "instructions": "Implement the smallest thing that works — but NEVER cut the "
+                         "floor (validation, security, a11y). Confirm this gate only when "
+                         "the implementation is minimal AND complete.",
+         "freedom": "low"},
     ],
 }
 

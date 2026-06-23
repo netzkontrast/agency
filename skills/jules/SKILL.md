@@ -63,13 +63,49 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`jules-fanout`** (discipline): plan-batch → fan-out → join
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-fanout', 'inputs': {}, 'intent_id': '…'})`
+  1. **plan-batch** — Plan the batch of independent items.
+     Enumerate the independent items to fan out across Jules sessions — each must be self-contained (no shared state, no ordering dependency).
+  2. **fan-out** — Fan out a Jules session per item.
+     delegate.fan_out(driver='jules') spawns N child Lifecycles, each driving a Jules session, bounded by the quota arg.
+  3. **join** — Confirm every child resolved.
+     This skill does NOT auto-join — it pauses until you confirm every child session resolved to an outcome. Confirm only when the fan-out genuinely completed.
 - **`jules-pr-review-cycle`** (discipline): read-comments → draft-replies → reply-on-github
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-pr-review-cycle', 'inputs': {}, 'intent_id': '…'})`
+  1. **read-comments** — Read the PR review comments.
+     Fetch the review comments via GitHub MCP and read them for what they actually ask — understand before replying.
+  2. **draft-replies** — Draft replies carrying the protocol handshake.
+     jules.review_comment drafts each reply WITH the mandatory protocol handshake tail. Address the comment with technical substance, not performative agreement.
+  3. **reply-on-github** — Post the replies on GitHub.
+     Post the drafted replies via GitHub MCP. Be frugal — only reply where a reply genuinely advances the review.
 - **`jules-protocol-preamble`** (discipline): detect-mode → verify-remote-state → name-canonical-tools → set-scope → dispatched
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-protocol-preamble', 'inputs': {}, 'intent_id': '…'})`
+  1. **detect-mode** — Detect dogfood vs delegate mode.
+     jules.detect_mode resolves whether this dispatch is dogfood (self-source, Mode A) or delegate (another repo, Mode B). The mode drives the preamble and the read-only clone assertion.
+  2. **verify-remote-state** — Guard against a silent fail before dispatch.
+     jules.verify checks the remote branch state — the silent-fail guard (COMPLETED != pushed). Don't dispatch onto a dirty or unexpected remote.
+  3. **name-canonical-tools** — Lint that the prompt names every canonical tool.
+     jules.lint_prompt refuses to advance unless the assembled prompt NAMES every canonical tool symbol (read_file, …). A prompt that doesn't name its tools leaves the remote agent guessing.
+  4. **set-scope** — Declare the scope allow-list + read-only assertion.
+     Declare the affects-paths allow-list, the no-create-outside boundary, and (Mode B) the read-only agency-clone assertion. Scope is the safety rail on a remote agent.
+  5. **dispatched** — Confirm the dispatch landed with a session id.
+     The walker pauses until a session_id is supplied + confirmed. Confirm this gate only once the Jules session actually exists.
 - **`jules-recovery-when-stuck`** (discipline): classify-state → probe-once → patch-or-empty → recovered
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-recovery-when-stuck', 'inputs': {}, 'intent_id': '…'})`
+  1. **classify-state** — Classify the stuck session's state.
+     jules.status returns the session resource so you can branch on state + has_outputs — is it silently failed, awaiting approval, or genuinely still working?
+  2. **probe-once** — Probe the agent ONCE to push or reply empty.
+     jules.message nudges the agent to push its work or reply EMPTY — the canonical recovery probe. Probe once; don't spam a stuck session.
+  3. **patch-or-empty** — Extract the session's patch outputs.
+     jules.patch extracts the patch outputs (files/lines/bytes) for the recovery plan — the fallback when the agent won't push.
+  4. **recovered** — Confirm recovery — a PR url or EMPTY.
+     Supply the pr_url (or the sentinel EMPTY when no recovery was needed) + confirm. Confirm only when the session is genuinely recovered or definitively empty.
 - **`jules-self-improvement`** (discipline): collect-dogfood → fold-into-graph
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-self-improvement', 'inputs': {}, 'intent_id': '…'})`
+  1. **collect-dogfood** — Collect the dogfood observations.
+     dogfood.collect walks Plan/**/DOGFOOD-NOTES.md and returns the observations + a flat texts list ready for bulk ingestion.
+  2. **fold-into-graph** — Fold the observations into the graph as Reflections.
+     reflect.batch_note writes one Reflection node per text in a single invocation — the durable-memory half of the dogfood loop.
 - **`jules-tool-discipline`** (discipline): apply-tool-discipline
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'jules-tool-discipline', 'inputs': {}, 'intent_id': '…'})`
+  1. **apply-tool-discipline** — Lint that a draft prompt names its tools.
+     jules.lint_prompt over a draft prompt — the reusable predicate the preamble's phase 3 also invokes. Refuses unless every canonical tool symbol is named; walk it standalone to lint a draft before committing to a dispatch.

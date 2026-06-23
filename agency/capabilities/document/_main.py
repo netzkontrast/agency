@@ -31,10 +31,30 @@ _REPO_BRIEFING_SKILL = {
     "name": "repo-briefing",
     "kind": "discipline",
     "phases": [
-        {"index": 1, "name": "scope", "produces": ["path", "max_tokens"]},
-        {"index": 2, "name": "scan", "produces": ["index_id", "tokens"]},
-        {"index": 3, "name": "render", "produces": ["content"]},
-        {"index": 4, "name": "publish", "produces": ["written"], "gate": "hard"},
+        {"index": 1, "name": "scope", "produces": ["path", "max_tokens"],
+         "goal": "Fix the repo path + the token budget.",
+         "instructions": "Name the root to brief and the max-tokens budget for the "
+                         "preview. The budget governs the preview only — a SAVED index is "
+                         "never truncated (it must not lie about the tree).",
+         "freedom": "medium"},
+        {"index": 2, "name": "scan", "produces": ["index_id", "tokens"],
+         "goal": "Scan the tree into a structured index.",
+         "instructions": "Walk the package tree — entry points, modules, notable "
+                         "patterns, recent reflections — into a recorded index. Capture "
+                         "every module; never drop entries to fit a budget.",
+         "freedom": "low"},
+        {"index": 3, "name": "render", "produces": ["content"],
+         "goal": "Render the briefing markdown.",
+         "instructions": "Render the index to the PROJECT_INDEX briefing — short fixed "
+                         "sections first (so they survive a budget), then the macro "
+                         "structure.",
+         "freedom": "low"},
+        {"index": 4, "name": "publish", "produces": ["written"], "gate": "hard",
+         "goal": "Write the briefing in FULL.",
+         "instructions": "On save the index renders in FULL — every module survives, no "
+                         "omission marker. Confirm this gate only when the saved briefing "
+                         "is complete.",
+         "freedom": "low"},
     ],
 }
 

@@ -167,3 +167,29 @@ capability-by-capability; each auto-joins the gate as it lands.
 (subagent) gained full inline phase content (the eleven-signal heuristic, fan-out/
 join, spec→dispatch→review). Gate now: clean=22, warned=17, blocked=0. The
 delegation/parallelism doctrine is now self-contained in the skills themselves.
+
+**Slice 7 — SHIPPED: the whole tail + repo-wide block flip. 378 COMPLETE.**
+The remaining 17 disciplines across 11 capabilities gained full inline phase
+content (owner directive — "address the tail"): the 6 `jules` disciplines
+(protocol-preamble · tool-discipline · recovery · pr-review-cycle · fanout ·
+self-improvement), `repo-briefing` (document), `frugal` (the YAGNI ladder),
+`lifecycle-management` (manage), `mode-selection` (mode), `strategic-analysis`
+(panel), `specialist-dispatch` (persona), `capability-routing` (recommend),
+`approach-routing` (select), `skills-triage` (skills), `deep-research` (research),
+and the 15-phase `develop-spec` (workflow). **Every one of the 39 disciplines is
+now self-contained (A1).**
+
+With the migration complete, the gate **flipped to repo-wide block**
+(`partition_discipline_lint(strict=True)`, the default): EVERY discipline must
+pass the full contract; a new discipline shipped without phase `instructions` now
+BLOCKS, not warns (acceptance #3 — "repo-wide lint/schema block is ON"). `strict=
+False` preserves the graduated behavior for a future re-migration. check-drift's
+section 2c relabelled accordingly. Gate: **clean=39, warned=0, blocked=0.**
+
+**All three acceptance criteria met (re-scoped — A6 + phase-fill, not 33 committed
+skill.yaml):** every discipline is schema-valid + self-contained (no legacy
+single-template fallback in the discipline surface); A6 is demonstrated repo-wide
+(capability-authored richer skill data validating the same as auto-derived, no
+duplicated files, rule 2); repo-wide block is ON with check-drift green. The
+legacy single-template *prune* for capability SkillDocs remains 373 Slice 3's
+concern (per-type capability/discipline templates), tracked there.

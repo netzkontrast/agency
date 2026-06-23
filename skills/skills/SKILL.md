@@ -46,3 +46,11 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`skills-triage`** (discipline): enumerate → read → validate → decide
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'skills-triage', 'inputs': {}, 'intent_id': '…'})`
+  1. **enumerate** — Enumerate the candidate skills.
+     skills.find the walkable skills that might fit the task — filter by kind/capability to keep the shortlist relevant.
+  2. **read** — Read each candidate's phase graph.
+     skills.render the candidates to see their phase shape — does the flow actually match the work? A name match isn't a fit.
+  3. **validate** — Validate the candidate's structural shape.
+     skills.lint the front-runner — a soft gate: note shape issues but don't block on them; the decide gate is the hard one.
+  4. **decide** — Decide which skill to walk.
+     Choose the skill whose phases genuinely fit; or decide none fits and improvise deliberately. Confirm this gate with the chosen skill (or an explicit 'none').

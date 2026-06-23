@@ -90,11 +90,28 @@ _TRIAGE_SKILL = {
                      "pattern": r"skill|walkable|discipline|which.*(walk|skill)",
                      "confidence": 0.8},
     "phases": [
-        {"index": 1, "name": "enumerate", "produces": ["skill_inventory"], "verbs": ["find"]},
-        {"index": 2, "name": "read", "produces": ["phase_graph"], "verbs": ["render"]},
+        {"index": 1, "name": "enumerate", "produces": ["skill_inventory"], "verbs": ["find"],
+         "goal": "Enumerate the candidate skills.",
+         "instructions": "skills.find the walkable skills that might fit the task — filter "
+                         "by kind/capability to keep the shortlist relevant.",
+         "freedom": "medium"},
+        {"index": 2, "name": "read", "produces": ["phase_graph"], "verbs": ["render"],
+         "goal": "Read each candidate's phase graph.",
+         "instructions": "skills.render the candidates to see their phase shape — does the "
+                         "flow actually match the work? A name match isn't a fit.",
+         "freedom": "medium"},
         {"index": 3, "name": "validate", "produces": ["lint_report"], "verbs": ["lint"],
-         "gate": "soft"},
-        {"index": 4, "name": "decide", "produces": ["chosen_skill"], "gate": "hard"},
+         "gate": "soft",
+         "goal": "Validate the candidate's structural shape.",
+         "instructions": "skills.lint the front-runner — a soft gate: note shape issues "
+                         "but don't block on them; the decide gate is the hard one.",
+         "freedom": "low"},
+        {"index": 4, "name": "decide", "produces": ["chosen_skill"], "gate": "hard",
+         "goal": "Decide which skill to walk.",
+         "instructions": "Choose the skill whose phases genuinely fit; or decide none "
+                         "fits and improvise deliberately. Confirm this gate with the "
+                         "chosen skill (or an explicit 'none').",
+         "freedom": "low"},
     ],
 }
 

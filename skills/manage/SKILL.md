@@ -59,3 +59,15 @@ Drive this capability's verbs by WALKING a skill one phase at a time (progressiv
 
 - **`lifecycle-management`** (discipline): survey → triage → unblock → advance → close → report
   — walk it: `await call_tool('capability_develop_skill_walk', {'name': 'lifecycle-management', 'inputs': {}, 'intent_id': '…'})`
+  1. **survey** — Survey every in-flight lifecycle's state.
+     Read the board — open intents + every Lifecycle by state. Query the live state from the graph, never by eyeballing status fields.
+  2. **triage** — Triage what's blocked and what's next.
+     Identify which lifecycles are stalled and WHY — the blocker per stuck item. Separate genuinely-blocked from simply not-started.
+  3. **unblock** — Clear the blockers you can.
+     Resume the lifecycles whose gate now passes; for the rest, name the precise unblock action. Don't force a gate that hasn't met its predicate.
+  4. **advance** — Advance the unblocked lifecycles.
+     Move each unblocked lifecycle to its next legal state via lifecycle.move (the sole state writer) — illegal transitions are rejected by the machine.
+  5. **close** — Close the ones that reached terminal.
+     Close lifecycles that genuinely reached a terminal state; verify the closing gate. COMPLETED is not closed until verified.
+  6. **report** — Mirror the board to a readable artefact.
+     Project the live board state to the lifecycle-board document so the human sees what's in flight without re-querying.
