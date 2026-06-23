@@ -42,8 +42,10 @@ def _render(mode, score, findings, engine_iid):
 
 @then(parsers.re(r"the report header shows score (?P<score>\d+)"))
 def _header_score(score, report):
-    head = report.splitlines()[:3]
-    assert any(score in line for line in head), head
+    # Spec 384 — rendered from quality-report.md; the Health Score is in the header
+    # region (assert the value, not a pinned line index — rule 8).
+    head = report.splitlines()[:8]
+    assert any(f"{score}/100" in line for line in head), head
 
 
 @then("the critical finding appears before the warning finding")

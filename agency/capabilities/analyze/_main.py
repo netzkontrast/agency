@@ -536,6 +536,99 @@ class AnalyzeCapability(CapabilityBase):
         return {"run_id": run_id, "mode": mode, "score": sc, "counts": counts,
                 "status": status, "trend": trend}
 
+    # ── Spec 385 — one-time brooks-lint → agency quality migration ─────────────
+    # The two importer verbs live HERE (not develop, the draft's suggestion):
+    # analyze owns the QualityRun node + the quality: config semantics + the score,
+    # so the migration into them is cohesive — develop would author another
+    # capability's node type. Non-destructive (keep-both, Spec 292) + idempotent.
+
+    @verb(role="effect")
+    def migrate_quality_config(self, config_path: str = ".brooks-lint.yaml") -> dict:
+        """One-time importer: ``.brooks-lint.yaml`` → ``.agency/config.yaml quality:``
+        block + ``Suppression`` nodes (Spec 385 §1).
+
+        Maps the brooks config (disable/severity/ignore/focus/strictness/
+        custom_risks) onto the unified ``quality:`` block (Spec 381 §2), MERGING
+        into ``.agency/config.yaml`` (never clobbering other sections); ``suppress``
+        entries become ``Suppression{risk, glob}`` nodes (Spec 381 §4, read by the
+        score's ``apply_suppressions``). NON-DESTRUCTIVE — the ``.brooks-lint.yaml``
+        is left in place (keep-both, Spec 292); the 381 compat-read window is the
+        safety net while this makes the migration durable.
+
+        Inputs: config_path (the legacy ``.brooks-lint.yaml``).
+        Returns: {migrated, quality, suppressions, written, source, source_preserved}
+                 — or {migrated: False, reason} when the legacy file is absent.
+        chain_next: analyze.migrate_quality_history, then verify + /plugin uninstall.
+        """
+        import os
+        import yaml
+        from ... import _config
+        from . import _migrate
+        if not os.path.exists(config_path):
+            return {"migrated": False, "reason": f"no {config_path}", "quality": {}}
+        with open(config_path, encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
+        quality, suppress = _migrate.map_brooks_config(raw)
+        # Merge into .agency/config.yaml through the shared writer (deepcopy-read +
+        # makedirs + cache invalidation) — never a second hand-rolled config path.
+        merged = _config.merge_section("quality", quality)
+        out_path = _config._resolve_config_path()
+        supp_ids = []
+        for s in suppress:
+            risk = str(s.get("risk", "")).strip()
+            glob = str(s.get("glob") or s.get("pattern") or s.get("path") or "*")
+            if not risk:
+                continue
+            props = {"risk": risk, "glob": glob}
+            if s.get("expires"):
+                props["expires"] = str(s["expires"])
+            supp_ids.append(self.ctx.record_and_serve("Suppression", props))
+        return {"migrated": True, "quality": merged, "suppressions": supp_ids,
+                "written": out_path, "source": config_path,
+                "source_preserved": os.path.exists(config_path)}
+
+    @verb(role="effect")
+    def migrate_quality_history(self,
+                               history_path: str = ".brooks-lint-history.json") -> dict:
+        """One-time importer: ``.brooks-lint-history.json`` → back-dated
+        ``QualityRun`` nodes (Spec 385 §2).
+
+        Mints one ``QualityRun`` per record (Spec 381 §3) carrying the original
+        ``recorded_at`` date; records are inserted oldest-first so the bi-temporal
+        ``vfrom`` order matches the dates and the next ``analyze.record_run`` trend
+        is CONTINUOUS across the migration boundary. IDEMPOTENT — a per-record
+        content hash (``migrated_key``) skips an already-imported record, so a
+        re-run never duplicates (keep-both, Spec 292).
+
+        Inputs: history_path (the legacy ``.brooks-lint-history.json``).
+        Returns: {migrated, imported, skipped, run_ids} — or {migrated: False,
+                 reason} when the file is absent / not a JSON array.
+        chain_next: develop.review (its trend now spans the migration boundary).
+        """
+        import json as _json
+        import os
+        from . import _migrate
+        if not os.path.exists(history_path):
+            return {"migrated": False, "reason": f"no {history_path}", "imported": 0}
+        try:
+            records = _json.loads(open(history_path, encoding="utf-8").read() or "[]")
+        except ValueError as exc:
+            return {"migrated": False, "reason": f"bad JSON: {exc}", "imported": 0}
+        if not isinstance(records, list):
+            return {"migrated": False, "reason": "not a JSON array", "imported": 0}
+        existing = {r.get("migrated_key") for r in self.ctx.find("QualityRun")}
+        imported, skipped, ids = 0, 0, []
+        for rec in sorted(records, key=lambda r: str(r.get("date", ""))):
+            props = _migrate.normalize_record(rec)
+            if props["migrated_key"] in existing:
+                skipped += 1
+                continue
+            ids.append(self.ctx.record_and_serve("QualityRun", props))
+            existing.add(props["migrated_key"])
+            imported += 1
+        return {"migrated": True, "imported": imported, "skipped": skipped,
+                "run_ids": ids}
+
     @verb(role="transform")
     def sarif(self, findings: list = None, max_results: int = 0) -> dict:
         """Render Findings as SARIF 2.1.0 for code-scanning — READ-ONLY (Spec 382 §1).
@@ -596,28 +689,37 @@ class AnalyzeCapability(CapabilityBase):
         return {"passed": passed, "blocked": not passed, "evidence": evidence,
                 "gate": gid, "name": name}
 
-    @verb(role="transform")
+    @verb(role="effect")
     def report(self, findings: list = None, mode: str = "review", scope: str = "",
-               score: int = 100) -> dict:
-        """Render the Iron-Law quality report (Spec 382 §4) — READ-ONLY markdown.
+               score: int = 100, path: str = "") -> dict:
+        """Render the Iron-Law quality report from the ported templates + persist it
+        as a round-trippable Document (Spec 384 close-out / 382 §4).
 
-        Projects the structured findings: a header with the Health Score, findings
-        sorted by tier (critical→warning→suggestion) each as the Iron Law block
-        (Symptom / Source / Consequence / Remedy), empty tiers omitted, a mermaid
-        Module Dependency Graph in audit mode (R5), and a Summary. The render PATH
-        is here; the template FILE is authored in Spec 384 (adopted via
-        document.render then).
+        Adopts the Spec 384 templates: each finding renders via ``iron-law-finding.md``
+        and the report shell via ``quality-report.md`` (``ctx.render``); the
+        audit-only Module Dependency Graph is gated by the template's
+        ``<!-- BEGIN IF is_audit -->`` block — honoured programmatically here (the
+        interim conditional processor; **Spec 388** ports the templates to Jinja for
+        a real engine). The rendered report is recorded as a ``Document`` via
+        ``document.emit`` (stable anchor + ``DocRevision``), so an on-disk edit
+        round-trips via ``document.sync`` (Spec 292).
 
-        Inputs: findings (wire-shape finding dicts), mode (review/audit/…),
-                scope (str), score (int — the Health Score, Spec 381).
-        Returns: {report, mode}.
-        chain_next: document.render / document.sync to persist + round-trip (Spec 292).
+        Inputs: findings (wire-shape finding dicts — risk_code/message/source/
+                consequence/remedy/tier), mode (review/audit/debt/test/health/sweep),
+                scope (str), score (int — the Health Score, Spec 381), path (optional
+                .md to write + stamp the anchor into; "" = graph-only Document).
+        Returns: {report, content, mode, score, document_id, written}.
+        chain_next: document.sync(path) after a human edits the written report.
 
-        Use when: producing the human-readable code-quality report from a review.
+        Use when: producing + persisting the human-readable code-quality report.
         """
-        from ._report import render_report
-        findings = findings or []
-        return {"report": render_report(findings, mode, scope, score), "mode": mode}
+        from . import _report
+        content = _report.render_quality_report(
+            self.ctx, findings or [], mode, scope, score)
+        emit = self.ctx.call("document", "emit", content=content, path=path)
+        return {"report": content, "content": content, "mode": mode, "score": score,
+                "document_id": emit.get("document_id", ""),
+                "written": emit.get("written", "")}
 
     @verb(role="act")
     def improve(self, analysis_id: str, axes: list = None,

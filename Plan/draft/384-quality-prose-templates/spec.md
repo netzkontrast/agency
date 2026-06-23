@@ -294,10 +294,22 @@ brooks markdown files now live on agency's template + reference surface:
   doc-source + audit-gated graph + Iron-Law slots + references resolve + computed
   refs point at data. check-drift exit 0 (install + committed-skill lint clean).
 
-**Remaining in 384 — the report-render VERB.** The templates are READY but not yet
-WIRED to a render path: the "report renders from `quality-report.md` via
-`document.render` + is a round-trippable `Document` node, finding blocks rendered
-via `iron-law-finding.md`" scenario needs a thin `analyze.report(mode, scope,
-findings, score, …)` verb that composes the finding blocks + records the Document
-(Spec 292/382). Deferred to keep this slice the pure prose port; the next slice
-adds the verb + its acceptance. State stays `draft` (owner drives the ADR hinge).
+**The report-render VERB — SHIPPED 2026-06-23 (owner: "A" → close out 384).** The
+flagship scenario is wired: `analyze.report(findings, mode, scope, score, path="")`
+(the Spec 382 verb, now ADOPTING the templates per 382's own note) renders each
+finding via `iron-law-finding.md` + the report shell via `quality-report.md`
+(`ctx.render`), then persists the result as a **round-trippable `Document`** via the
+new `document.emit(content, path="")` primitive (the general twin of `document.mirror`
+— stable anchor + `DocRevision`, Spec 292; `path=""` = graph-only). The audit-only
+Module Dependency Graph is gated by the template's `<!-- BEGIN IF is_audit -->` block,
+honoured at render time. `_report.py` slimmed to the pure helpers (`tier_sorted` ·
+`mermaid_graph` · `summary`); the hand-built `render_report` is retired.
+- Tests: `test_quality_report_render.py` (renders from templates · is a Document node
+  · audit-gated graph · round-trippable) + the Spec 382 `test_quality_report.py`
+  (adapted to the template structure). 14 + 53 (document) green.
+- **Interim gate handling:** `analyze._main._strip_conditionals` /
+  `_strip_authoring_comments` are a one-off regex processor (no engine existed for
+  `<!-- BEGIN IF -->`). **Spec 388 (jinja-template-engine)** replaces them with real
+  `{% if %}`/`{% for %}` constructs + ports ALL templates — the proper fix the owner
+  directed; this interim ships the verb today. 384's prose port + report-render are
+  now functionally complete; state stays `draft` (owner drives the ADR hinge).

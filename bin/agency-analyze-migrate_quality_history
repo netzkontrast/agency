@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# agency-generated: v1 — capability_analyze_report
-# Render the Iron-Law quality report from the ported templates + persist it as a round-trippable Document (Spec 384 close-out / 382 §4).
-# Usage: agency-analyze-report [--intent-id ID] [findings] [mode] [scope] [score] [path]
+# agency-generated: v1 — capability_analyze_migrate_quality_history
+# One-time importer: ``.brooks-lint-history.json`` → back-dated ``QualityRun`` nodes (Spec 385 §2).
+# Usage: agency-analyze-migrate_quality_history [--intent-id ID] [history_path]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -65,15 +65,11 @@ def _coerce(raw, ann):
         return {}
     return raw
 _kw = {"intent_id": sys.argv[1]}
-if len(sys.argv) > 2: _kw["findings"] = _coerce(sys.argv[2], list)
-if len(sys.argv) > 3: _kw["mode"] = _coerce(sys.argv[3], str)
-if len(sys.argv) > 4: _kw["scope"] = _coerce(sys.argv[4], str)
-if len(sys.argv) > 5: _kw["score"] = _coerce(sys.argv[5], int)
-if len(sys.argv) > 6: _kw["path"] = _coerce(sys.argv[6], str)
+if len(sys.argv) > 2: _kw["history_path"] = _coerce(sys.argv[2], str)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 
 exec python -m agency.cli execute --code "
 import json
-return await call_tool('capability_analyze_report', json.loads(r'''${kwargs}'''))
+return await call_tool('capability_analyze_migrate_quality_history', json.loads(r'''${kwargs}'''))
 "

@@ -29,11 +29,13 @@ Analyze runs decidable transforms over source and reports findings on the qualit
 | `gate` | act | Record the quality gate verdict as an auditable Gate node (Spec 382 §2). | [details](references/gate.md) |
 | `graph` | transform | Query the provenance graph — a census of node types + a typed listing (read the graph). | [details](references/graph.md) |
 | `improve` | act | Read prior Analysis findings, draft an improvement plan as a Reflection. | [details](references/improve.md) |
+| `migrate_quality_config` | effect | One-time importer: ``.brooks-lint.yaml`` → ``.agency/config.yaml quality:`` block + ``Suppression`` nodes (Spec 385 §1). | [details](references/migrate_quality_config.md) |
+| `migrate_quality_history` | effect | One-time importer: ``.brooks-lint-history.json`` → back-dated ``QualityRun`` nodes (Spec 385 §2). | [details](references/migrate_quality_history.md) |
 | `paths` | transform | Spec 048 intent-path analysis: long chains + verb sequences. | [details](references/paths.md) |
 | `performance` | transform | AST-based hot-path lint: nested O(n²), += in loop, unbounded while True. | [details](references/performance.md) |
 | `quality` | transform | Decidable lint findings: unused imports, long lines, long functions, long files. | [details](references/quality.md) |
 | `record_run` | act | Record a QualityRun history node + return the trend (Spec 381 §3). | [details](references/record_run.md) |
-| `report` | transform | Render the Iron-Law quality report (Spec 382 §4) — READ-ONLY markdown. | [details](references/report.md) |
+| `report` | effect | Render the Iron-Law quality report from the ported templates + persist it as a round-trippable Document (Spec 384 close-out / 382 §4). | [details](references/report.md) |
 | `review` | act | Headless code-quality review for CI — never pauses; risky remedies auto-declined. | [details](references/review.md) |
 | `run` | act | Run the requested analysis axes and record an Analysis + per-Finding nodes. | [details](references/run.md) |
 | `sarif` | transform | Render Findings as SARIF 2.1.0 for code-scanning — READ-ONLY (Spec 382 §1). | [details](references/sarif.md) |

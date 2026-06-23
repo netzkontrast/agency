@@ -1,5 +1,7 @@
-<!-- agency-node: $report_node_id -->
 <!-- doc-source: brooks-lint@ec44ec8 skills/_shared/common.md (Report Template + Iron Law + Language rule) -->
+<!-- AGENT: the Spec-292 `<!-- agency-node: <id> -->` anchor is stamped by
+     document.emit on persist (analyze.report) — not templated here, so the
+     Document binding is never duplicated. -->
 # Quality Review — $mode
 
 **Scope:** $scope
