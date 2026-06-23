@@ -4,8 +4,10 @@
 > **Provenance intent:** `intent:771b09a6` (agency graph, `.agency/session.db`).
 > **Output target:** fold fixes into PR [#296](https://github.com/netzkontrast/agency/pull/296)
 > on branch `claude/docs-agent-onboarding-up91ym`.
-> **Last checkpoint:** Pass 1 OBSERVE + root-cause confirmed (stale MCP server).
-> **Blocked on:** harness/owner MCP-server reload before VERIFY can run.
+> **Last checkpoint:** Pass 2 ACT — code-mode chaining proven; registry-drift guard
+> shipped (welcome suite 10 passed); checkpoint doc-marker fixed.
+> **Next:** review + re-stamp the 10 stale reference docs (one per pass); live MCP
+> VERIFY still awaits a server reload.
 
 A copy-ready Loop Library loop that interconnects three published loops
 (#039 easy-onboarding, #001 docs-sweep, #010 full-product-evaluation) plus the
@@ -116,7 +118,38 @@ graph provenance proving the plugin path. Secondary hardening (optional, owner
 approval): add a drift guard so `agency_welcome`'s live cap set is checked against
 `discover_capabilities()` — a stale-server smoke test.
 
-### Pass 1 — VERIFY: not yet run (blocked on the CHOOSE/ACT decision above).
+### Pass 1 — VERIFY: deferred (live MCP VERIFY blocked on server reload; CLI lane used instead).
+
+### Pass 2 — ACT (CLI/MCP lane; owner directive: "improve the plugin autonomously")
+
+1. **Code-mode chaining proven on the stale MCP** — one `mcp__agency__execute` block
+   chained 5 `call_tool` calls (`intent_bootstrap` → `manage_provenance` →
+   `thinking.tradeoffs` → `reflect.note` → `manage_provenance`), returning a single
+   delta; the final provenance read saw the write made earlier in the same chain
+   (typed join: invocations · agents · artefacts · lifecycle · counts). Demonstrates
+   the "uses code-mode, does not circumvent the plugin" pillar.
+2. **Registry-drift guard shipped** (the durable fix for the Pass-1 hazard) — new
+   acceptance scenario *"welcome surfaces every discoverable capability (no registry
+   drift)"* in `tests/acceptance/features/welcome.feature` +
+   `tests/acceptance/test_welcome.py`. Asserts (rule 8, computed from live source, no
+   magic number) that a fresh engine's `agency_welcome` capability set **equals**
+   `discover_capabilities()`. Verified: full welcome suite **10 passed**. This guards
+   against any future hidden filter / failed registration / welcome dropping a
+   discovered capability.
+3. **Fixed this checkpoint's own `doc-source` marker** — it was malformed (prose +
+   brace-glob), so `scripts/check-doc-drift` flagged the file STALE. Re-pointed to real
+   space-separated source paths + computed `doc-hash` via the script's own
+   `_hash_sources`. Now in-sync (did **not** blanket `--update`, which would have
+   silently re-stamped 10 other genuinely-stale docs).
+
+**Remaining gaps (next passes, no-progress not yet reached):**
+- 10 reference docs still STALE (`docs/README.md`, `docs/guide/frugal.md`,
+  `docs/vision/reference/{drivers,install-cli,intent-lifecycle-gate,loop,overview,skills}.md`,
+  `docs/vision/SKILL-CONTRACT.md`, `docs/examples/cookbook.md`) — each needs a
+  content review + re-stamp (not a blanket hash bump).
+- Live MCP VERIFY still pending a server reload (new session / harness) to confirm a
+  cold agent sees 36 caps and can exercise a previously-missing capability through the
+  live MCP with provenance.
 
 ---
 
@@ -131,4 +164,5 @@ approval): add a drift guard so `agency_welcome`'s live cap set is checked again
 4. Keep this file's Run Log + Status updated each pass (it is the durable
    checkpoint; the graph DB is ephemeral in remote sessions).
 
-<!-- doc-source: agency_welcome registry vs CLAUDE.md repo-development-workflow section; agency/capabilities/{adr,workflow,frugal,loop} -->
+<!-- doc-source: agency/capabilities/__init__.py agency/_substrate_tools.py tests/acceptance/test_welcome.py -->
+<!-- doc-hash: f71f0b91a27922ad -->

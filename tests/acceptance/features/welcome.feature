@@ -25,6 +25,11 @@ Feature: agency_welcome onboarding tool (Spec 029 / 030)
     When I call agency_welcome
     Then the capabilities list is sorted
 
+  Scenario: welcome surfaces every discoverable capability (no registry drift)
+    Given a fresh agency engine in code-mode
+    When I call agency_welcome
+    Then the capabilities list equals the discoverable capability set
+
   Scenario: welcome is pure read — no graph mutations
     Given a fresh agency engine in code-mode
     When I call agency_welcome twice

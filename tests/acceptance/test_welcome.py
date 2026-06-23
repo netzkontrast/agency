@@ -149,6 +149,23 @@ def _sorted_caps(welcome_result):
     assert caps == sorted(caps), "capabilities list must be sorted"
 
 
+@then("the capabilities list equals the discoverable capability set")
+def _caps_equal_discovery(welcome_result):
+    # Rule 8 — assert the invariant against live source, not a frozen count.
+    # A fresh engine must surface EXACTLY the capabilities that
+    # discover_capabilities() finds in agency/capabilities/. Divergence means a
+    # hidden filter, a failed registration, or a registry stale vs the source
+    # tree (the onboarding hazard that lets a cold agent be told to use a
+    # capability it cannot discover -> circumvent the plugin).
+    from agency.capabilities import discover_capabilities
+    discovered = {c.name for c in discover_capabilities()}
+    surfaced = set(welcome_result["capabilities"])
+    assert surfaced == discovered, (
+        "agency_welcome's capability set drifted from agency/capabilities/: "
+        f"discovered-but-not-surfaced={sorted(discovered - surfaced)}, "
+        f"surfaced-but-not-discovered={sorted(surfaced - discovered)}")
+
+
 # ── Then steps — pure read ────────────────────────────────────────────────────
 
 @then("no Intent Invocation or Reflection nodes were created")
