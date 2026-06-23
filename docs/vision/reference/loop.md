@@ -1,4 +1,4 @@
-<!-- doc-source: agency/_loop.py agency/_lifecycle_data/machines.json Plan/362-looper-complete-port/spec.md Plan/draft/387-loop-activation/spec.md -->
+<!-- doc-source: agency/_loop.py agency/_lifecycle_data/machines.json Plan/done/362-looper-complete-port/spec.md Plan/draft/387-loop-activation/spec.md -->
 # The Loop subsystem — architecture & wiring contract
 
 > **Read this before touching `agency/_loop.py`,
@@ -160,7 +160,7 @@ satisfy these or you have shipped dormant code (CLAUDE.md *dormant-surface audit
 
 ## Pointers
 
-- **Specs:** [`Plan/362-looper-complete-port`](../../../Plan/362-looper-complete-port/spec.md)
+- **Specs:** [`Plan/done/362-looper-complete-port`](../../../Plan/done/362-looper-complete-port/spec.md)
   (master) · 363–369 (children) ·
   [`Plan/draft/387-loop-activation`](../../../Plan/draft/387-loop-activation/spec.md) (the wiring).
 - **Code:** `agency/_loop.py` (logic) · `agency/_lifecycle_data/loop/` (data) ·
