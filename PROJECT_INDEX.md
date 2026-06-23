@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (72 files)
+### `agency/` (73 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -239,6 +239,13 @@ in one place. (3 symbols)
 
 Pure ``relevance_filter(text, profile) -> dict`` that extracts signal lines from
 verbose output by include/exclude regex patterns + neighbour context. (10 symbols)
+- **_reload_sync.py** — Keep the INSTALLED ``agency`` package in step with the source checkout the MCP
+server runs in — the durable half of "update the installed version every time"
+(Spec 302 Slice 3).
+
+The pipx-only install doctrine (Spec 055/065) INTENDS an editable install
+(``pipx install --editable …``) so the running server always imports the live
+source. (10 symbols)
 - **_render.py** — Spec 283 Slice 1 — the capability render substrate (graph → markdown view).
 
 A capability declares a `RenderSpec`: a list of `RenderRule`s binding a node
@@ -1719,7 +1726,7 @@ The decidable risks have a paired fixture corpus (quality_corpus.feature). (8 sy
 - **test_recommend.py** — Acceptance — recommend capability (Spec 298). (10 symbols)
 - **test_reflect.py** — Acceptance — reflect (semantic recall). (11 symbols)
 - **test_relevance.py** — Acceptance — relevance filter (Spec 350 Slices 1, 2, and 3). (64 symbols)
-- **test_reload.py** — Acceptance — agency_reload: mid-session capability reload (Spec 302 Slice 2). (9 symbols)
+- **test_reload.py** — Acceptance — agency_reload: mid-session capability reload (Spec 302 Slice 2). (13 symbols)
 - **test_render_substrate.py** — Acceptance — render substrate and response envelope (Spec 023 / 146 / 154). (68 symbols)
 - **test_research.py** — Acceptance — research capability (Spec 044, Spec 052, Spec 126, Spec 168).
 
