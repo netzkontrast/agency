@@ -281,7 +281,7 @@ Rebuild (derived from the Plan/ tree):
 - 282  error-severity-taxonomy
 - 283  capability-render-substrate
 - 284  projected-enum-substrate
-- 285  mcp-sampling-and-assumption-gate
+- 285  mcp-sampling-and-assumption-gate     # Shipped (done) — HostBridge sample/elicit seam + assumption gate; independently verified, 20 tests green (Slice 2 wider-adoption out of scope)
 - 286  substrate-oop-refactor
 - 287  develop-plan-execute-skill
 - 289  sqlmodel-entity-store
@@ -338,12 +338,12 @@ Rebuild (derived from the Plan/ tree):
 - 342  agent-as-lifecycle-parameterization
 - 343  lifecycle-management-discipline
 - 344  lifecycle-transition-events
-- 345  lifecycle-generic-state-machine
+- 345  lifecycle-generic-state-machine       # Shipped (done) — data-driven machines.json + per-machine resolve + in-place enum widening (a2a default byte-identical); independently verified, 60 lifecycle tests green
 - 346  walkable-skill-tracker
 - 347  frugal-embedded-lifecycle
 - 348  frugal-capability-port
 - 349  pillar-event-bus
-- 350  relevance-output-filter
+- 350  relevance-output-filter               # Shipped (done) — pure relevance_filter wired at shell/jules/toolcall, profile-driven, fail-open, full= bypass; independently verified, 13 tests green (LLM-scored mode out of scope)
 - 351  liveness-doctor
 - 352  openrouter-first-wet-generation
 - 353  adr-agency-port

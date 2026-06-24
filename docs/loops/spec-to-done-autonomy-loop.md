@@ -61,6 +61,10 @@ spec's old `inprogress`/`draft` path.
 | 2 | 339 lifecycle-capability-write-frame | DONE (independently verified — 98 tests green) | moved to `/done` via the cheaper recipe (`finish_spec(rebuild_architecture=False)`, no digest regen — nothing to revert) | #302 merged |
 | 3 | 341 lifecycle-observe-suite | partial → escalated to TDD | initially parked as "needs a new slice"; the `/goal` gate correctly rejected parking-for-budget and required the TDD branch — see pass 4. | — |
 | 4 | 341 lifecycle-observe-suite (Slice 2) | **DONE — genuine TDD, independently verified** | `manage.lifecycle_trail(scope=)` added (unified board trail); RED→GREEN, second agent confirmed the test fails-without/passes-with; full CI green (pytest+quality+analyze); `finish_spec` → `/done` | #304 merged |
+| 5 | **parallel batch** of 6 (285, 345, 350, 283, 287, 110) | 3 DONE · 3 parked | **6 independent verifiers fanned out concurrently** (the throughput change). DONE → 285 (mcp-sampling, 20 tests), 345 (lifecycle-generic-SM, 60 tests), 350 (relevance-filter, 13 tests) — batch-cascaded to `/done` in one PR. PARKED → 283 (auto-render-on-mutation unbuilt), 287 (Slice-2 owner decision), 110 (only 11/17 verbs, Slice-2 unbuilt) — genuinely partial, evidence recorded. | #306 |
+
+### Batch-verification lesson (pass 5)
+Fanning out N verifiers in parallel is the throughput win — wall-clock ≈ one verifier, not N. **But the Followup-signal pre-screen over-counts DONE:** 4 of 6 "SHIPPED?"-classified specs say "Slice 1 shipped" yet have a *real* unbuilt Slice 2 (283/287/110 + the earlier 341). Only an independent verifier that RUNS the tests and greps for the named symbols distinguishes shipped-scope from shipped-Slice-1. So: keep the verifier gate per spec (never bulk-finish on the Followup wording), but run them in parallel and **batch-cascade only the confirmed-DONE** into one PR.
 
 ## Both loop branches are now proven
 

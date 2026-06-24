@@ -816,7 +816,7 @@ moat the bare spine functions bypassed). (21 symbols)
 The write/read management surface that completes the Memory pillar: a single,
 capability-AGNOSTIC CRUD over EVERY ontology label, so every aspect of the
 graph — Document, Intent, Track, Novel, Reflection, Session, … — has Create,
-Read, Update, Amend and Retract without per-capability code. (35 symbols)
+Read, Update, Amend and Retract without per-capability code. (36 symbols)
 
 ### `agency/capabilities/mode/` (2 files)
 - **__init__.py** — mode — SuperClaude behavioral modes, first-class (Spec 295). (2 symbols)
@@ -1257,7 +1257,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (33 symbols)
 
-### `tests/` (23 files)
+### `tests/` (24 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1307,6 +1307,10 @@ contention (TRANSIENT — retry helps). (30 symbols)
 - **test_host_bridge.py** — Spec 285 Slice 1 — HostBridge seam (sampling + elicitation boundary). (50 symbols)
 - **test_install_hint.py** (5 symbols)
 - **test_lifecycle_resume.py** (4 symbols)
+- **test_lifecycle_trail_scope.py** — Spec 341 Slice 2 — manage.lifecycle_trail(scope=…): the unified cross-lifecycle
+transition view.
+
+The per-lifecycle `lifecycle_trail(lifecycle_id)` already ships. (7 symbols)
 - **test_novel_storyform_node.py** — Spec 103 Slice 2 (Workstream D) — create_storyform / get_storyform.
 
 Closes the documented ENGINE GAP: the storyform gates + checks read a
