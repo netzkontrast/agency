@@ -1,8 +1,9 @@
+<!-- agency-node: document:a266cef0 -->
 ---
 spec_id: "345"
 slug: lifecycle-generic-state-machine
-status: shipped
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [3, 4]

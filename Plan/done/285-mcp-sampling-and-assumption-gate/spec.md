@@ -1,8 +1,9 @@
+<!-- agency-node: document:0cd7469d -->
 ---
 spec: 285
 title: mcp-sampling-and-assumption-gate
-status: Implementing (Slice 1 shipped)
-state: inprogress
+status: done
+state: done
 depends_on: [114, 279]
 clusters: [core]
 vision_goals: [1, 3, 8]

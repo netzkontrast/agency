@@ -1,8 +1,9 @@
+<!-- agency-node: document:76f71e69 -->
 ---
 spec_id: "350"
 slug: relevance-output-filter
-status: draft
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-20
 owner: "@agency"
 vision_goals: [2]
