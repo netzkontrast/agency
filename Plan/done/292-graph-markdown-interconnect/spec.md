@@ -1,8 +1,9 @@
+<!-- agency-node: document:d03cd6ec -->
 ---
 spec: 292
 title: graph-markdown-interconnect
-status: Partial (Slice 1 shipped)
-state: inprogress
+status: done
+state: done
 depends_on: [043, 109]
 clusters: [memory, document]
 vision_goals: [6, 7, 9]

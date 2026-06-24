@@ -1,8 +1,9 @@
+<!-- agency-node: document:e8411c05 -->
 ---
 spec_id: "153"
 slug: template-schema-coverage-closure
-status: partial
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-11
 owner: "@agency"
 enhances: "004"

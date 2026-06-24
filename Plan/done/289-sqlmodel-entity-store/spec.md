@@ -1,8 +1,9 @@
+<!-- agency-node: document:682676eb -->
 ---
 spec: 289
 title: sqlmodel-entity-store
-status: Implementing (Slices 1-2 shipped)
-state: inprogress
+status: done
+state: done
 depends_on: [048, 286]
 clusters: [core, substrate]
 vision_goals: [4, 5, 7]
@@ -98,9 +99,17 @@ Memory.record(label, props)  ── validate via EntityModels ──▶ graph no
   (proven: a graph node + its entity row coexist; the `agency_entity` table is
   visible on the graph's own connection — inline-join ready). Additive: `Memory`
   not yet wired (zero change to the live record path). 10 tests green.
-- **Slice 2b next:** wire `Memory.record`/`update` to dual-write the entity row
-  (same id) + add `entity_join(node_ids)` for inline content query.
-- **Slice 3:** FastAPI read surface over `EntityStore` (`[api]` extra).
+- **Slice 2b — SHIPPED (2026-06-23):** `Memory.record`/`update` dual-write the
+  entity row, typed row, and edge rows (independently verified at
+  `memory.py:46,85,88,126-127,182`), and **`EntityStore.entity_join(node_ids)`**
+  now provides the inline content query — order-preserving, absent-id-skipping,
+  `[{id, label, data}]` in one round-trip (`agency/_entity_store.py`;
+  `tests/test_entity_store_join.py`, RED→GREEN, 15 store tests green no regression).
+- **Slice 3 — OUT OF SCOPE (deferred follow-up):** the FastAPI read surface over
+  `EntityStore` is an optional `[api]`-extra delivery, not part of the "typed
+  SQL-queryable projection keyed by node id" core this spec delivers. The query
+  methods (`get`/`by_label`/`typed_rows`/`entity_join`) are the API-ready surface;
+  the HTTP binding is a separate, opt-in concern. 289's core scope is complete.
 - **Doctrine note:** "graph is the store" (CORE.md) holds — the graph stays
   complete; SQLModel adds a typed, SQL-queryable, FastAPI-ready projection of
   the SAME entities in the SAME `.db`, keyed by the graph node id.

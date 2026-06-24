@@ -25,7 +25,7 @@ Rebuild (derived from the Plan/ tree):
 - 010  novel-domain
 - 011  agentic-capabilities
 - 012  jules-complete-lifecycle-and-watcher
-- 013  jules-skills-and-capability-improvements
+- 013  jules-skills-and-capability-improvements   # Shipped (done) — 6 jules skills + lint_prompt/detect_mode/review_comment + Mode A/B preambles; independently verified, 60 tests green
 - 014  observation-to-spec-amendment
 - 016  capability-authoring-doctrine
 - 017  graph-native-dogfood-ledgers
@@ -40,7 +40,7 @@ Rebuild (derived from the Plan/ tree):
 - 026  skills-as-core-capability
 - 028  jules-folder-migration
 - 029  mcp-bootstrap-and-self-explain
-- 030  jules-key-doctor-stateful-welcome
+- 030  jules-key-doctor-stateful-welcome   # Shipped (done) — agency_doctor scriptable + stateful agency_welcome + no-key-leak; independently verified, 73 tests green
 - 031  skills-progressive-disclosure
 - 032  templates-schemas-oop-extensions
 - 039  distribution-and-e2e-hardening
@@ -149,7 +149,7 @@ Rebuild (derived from the Plan/ tree):
 - 150  dogfood-amendment-classifier
 - 151  toolresult-code-coverage-audit
 - 152  typed-skill-phase-parse-boundary
-- 153  template-schema-coverage-closure
+- 153  template-schema-coverage-closure   # Shipped (done) — schema coverage 1.0 (97/97), dormant_schemas==[] gated; independently verified, 44 tests green
 - 154  output-overflow-capture-recall
 - 155  automated-red-team-rerunner
 - 156  wet-pressure-path-and-loop-hooks
@@ -282,12 +282,12 @@ Rebuild (derived from the Plan/ tree):
 - 283  capability-render-substrate
 - 284  projected-enum-substrate
 - 285  mcp-sampling-and-assumption-gate     # Shipped (done) — HostBridge sample/elicit seam + assumption gate; independently verified, 20 tests green (Slice 2 wider-adoption out of scope)
-- 286  substrate-oop-refactor
+- 286  substrate-oop-refactor   # Shipped (done) — invoke 4-collaborator refactor + Verb value object + WireEnvelope, behaviour byte-stable; independently verified, check-drift clean
 - 287  develop-plan-execute-skill
-- 289  sqlmodel-entity-store
+- 289  sqlmodel-entity-store   # Shipped (done) — SQLModel typed entity store (shared db) + entity_join inline content query (TDD); Slice 3 FastAPI out of scope; 17 tests green
 - 290  management-capability
 - 291  pillar-package-reorg
-- 292  graph-markdown-interconnect
+- 292  graph-markdown-interconnect   # Shipped (done) — graph<->markdown keep-both round-trip (ingest/sync/mirror/emit + DocRevision); independently verified, 50 tests green
 - 293  memory-crud-management
 - 294  business-panel-capability
 - 295  behavioral-modes-capability

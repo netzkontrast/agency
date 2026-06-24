@@ -457,6 +457,21 @@ class EntityStore:
                 EntityRecord.label == label, EntityRecord.vto == OPEN)).all()
             return [dict(r[0].data) for r in rows]
 
+    def entity_join(self, node_ids: "list[str]") -> list[dict]:
+        """Spec 289 Slice 2b — inline content query: given graph node ids (e.g.
+        from a Cypher id-only query), return each one's mirrored entity content in
+        ONE round-trip as ``[{id, label, data}, ...]``. Input order is preserved;
+        an id with no row is skipped (not faked). Purely additive — the graph node
+        stays authoritative; this only reads the typed mirror."""
+        out: list[dict] = []
+        with Session(self._engine) as s:
+            for nid in node_ids:
+                rec = s.get(EntityRecord, nid)
+                if rec is not None:
+                    out.append({"id": nid, "label": rec.label,
+                                "data": dict(rec.data)})
+        return out
+
     def count(self) -> int:
         with Session(self._engine) as s:
             return len(s.exec(select(EntityRecord)).all())

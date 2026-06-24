@@ -1,8 +1,9 @@
+<!-- agency-node: document:df192abb -->
 ---
 spec: 286
 title: substrate-oop-refactor
-status: Implementing (Phase 3 leaves)
-state: inprogress
+status: done
+state: done
 depends_on: [040, 047, 053, 054]
 clusters: [core, meta]
 vision_goals: [4, 5, 6, 7]
