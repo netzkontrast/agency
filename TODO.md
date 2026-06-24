@@ -64,7 +64,7 @@ Rebuild (derived from the Plan/ tree):
 - 057  analyzer-rule-axis-registry
 - 058  reflection-link-lint
 - 059  toolresult-convenience-layer
-- 060  templates-schemas-agent-instructions
+- 060  templates-schemas-agent-instructions   # Shipped (done) — folder-discovered templates/schemas + ctx.template + Engine.materialise_ontology (production-wired, TDD); Phase 5 verb-migration opt-in
 - 061  install-surface-refresh
 - 062  session-start-pipx-install
 - 063  venv-fallback-install-path

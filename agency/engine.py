@@ -1134,6 +1134,19 @@ class Engine:
         if session_append_hook not in proc.post_invocation:
             proc.register_post_invocation(session_append_hook)
 
+    def materialise_ontology(self) -> dict:
+        """Spec 060/032 §D — record one ``Schema`` node per ``ontology.schemas``
+        entry and one ``Template`` node per ``ontology.templates`` entry, so the
+        typed/generative layer is a QUERYABLE part of the graph (not only in-memory
+        dicts) — the half Vision goals 2 & 7 lean on. Idempotent + bi-temporal: a
+        shape/body change supersedes (old versions retained). Opt-in: the
+        production server calls it once at bootstrap (``__main__``), like
+        ``enable_session_autolog``; a bare test Engine stays graph-clean unless it
+        opts in (no blast radius on the suite). Returns ``{schemas, templates}``
+        name→node-id maps."""
+        return {"schemas": self.ontology.materialise_schemas(self.memory),
+                "templates": self.ontology.materialise_templates(self.memory)}
+
     @staticmethod
     def _iter_mcp_tools(mcp):
         """Yield ``(key, tool)`` for every registered tool on a FastMCP server.

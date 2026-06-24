@@ -1,8 +1,9 @@
+<!-- agency-node: document:8449c8ef -->
 ---
 spec_id: "060"
 slug: templates-schemas-agent-instructions
-status: in-progress
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-03
 owner: "@agency"
 depends_on: ["016", "019", "031", "032", "059"]
@@ -88,9 +89,17 @@ all three together.
   cap's `OntologyExtension` (additive — file-based entries augment
   declared dict entries; collision raises with a clear file-vs-dict
   message).
-- [ ] `Ontology.materialise_schemas(memory)` + `materialise_templates(
+- [x] `Ontology.materialise_schemas(memory)` + `materialise_templates(
   memory)` run once at bootstrap completion (idempotent on re-open per
-  Spec 032 §D).
+  Spec 032 §D). **Shipped 2026-06-23:** `Engine.materialise_ontology()`
+  (`agency/engine.py`) calls both; the production server invokes it once in
+  `agency/__main__.py` (opt-in, like `enable_session_autolog` — bare test
+  engines stay graph-clean, no suite blast radius). RED→GREEN at
+  `tests/test_ontology_materialise.py` (records Schema + Template nodes,
+  idempotent on re-run; bare engine materialises nothing). Phase 5 (verb
+  migration to `ctx.template()`) remains explicit **opt-in** iteration work
+  per the spec author's own scoping — not a blocker; the typed/generative
+  layer is now a queryable graph projection (Vision goals 2 & 7).
 - [ ] `CapabilityContext.template(name)` substrate method: returns the
   `string.Template` body for the named template, raises `KeyError` if
   the cap doesn't ship that template. Same shape as `ctx.recall` /
