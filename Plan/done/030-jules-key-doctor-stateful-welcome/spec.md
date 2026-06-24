@@ -1,8 +1,9 @@
+<!-- agency-node: document:a526ad18 -->
 ---
 spec_id: "030"
 slug: jules-key-doctor-stateful-welcome
-status: draft
-state: inprogress
+status: done
+state: done
 owner: "@agency"
 depends_on: ["029"]
 affects:

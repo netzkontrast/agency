@@ -1,8 +1,9 @@
+<!-- agency-node: document:1a5c3a44 -->
 ---
 spec_id: "013"
 slug: jules-skills-and-capability-improvements
-status: draft
-state: inprogress
+status: done
+state: done
 owner: "@agency"
 depends_on: ["012"]
 affects:

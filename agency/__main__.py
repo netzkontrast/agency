@@ -54,6 +54,10 @@ def main() -> None:
     # Spec 392 — grow .agency/sessions/<intent>.activity.md on every capability
     # call (owner directive); best-effort, append-only, off for bare tests.
     engine.enable_session_autolog()
+    # Spec 060/032 §D — materialise the ontology's schemas + templates as graph
+    # nodes once at production bootstrap (the typed/generative layer becomes
+    # queryable). Idempotent + bi-temporal; opt-in so bare test engines stay clean.
+    engine.materialise_ontology()
     mcp = engine.build_mcp(codemode=True)
     mcp.run()                    # default transport = stdio
 
