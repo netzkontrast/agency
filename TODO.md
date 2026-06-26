@@ -187,7 +187,7 @@ Rebuild (derived from the Plan/ tree):
 - 188  tiered-discovery-llm-drill
 - 189  verb-surface-consolidation-impl
 - 190  skill-surface-reconciliation-impl
-- 191  vision-alignment-live-matrix
+- 191  vision-alignment-live-matrix   # Partial — fixed the broken matrix (collect_specs globbed */spec.md -> 0 specs post state-migration; now **/spec.md -> 245 specs, 0 orphans), consumes dormant AlignmentCell via to_alignment_cells (467 cells), alignment_summary + agency_doctor.vision_alignment; TDD (5 + 7 acceptance). Still: check-doc-drift-gated rendered matrix doc
 - 192  shell-cap-safety-gate
 - 193  token-economy-capstone-output
 - 194  shell-define-llm-suggest

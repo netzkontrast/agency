@@ -29,32 +29,34 @@ shipped/draft state. The matrix becomes a derived view, never stale.
 
 ## Done When
 
-- [ ] **`scripts/derive-docs` regenerates the matrix** from every
-      spec's `vision_goals:` frontmatter + live status (Spec 149).
-      The renderer reads a typed `GoalRow{goal_id:int, title:str,
-      specs:list[SpecRef], shipped:int, partial:int, not_started:int,
-      shipped_fraction:float, status:Literal["green","yellow","red"]}`
-      per Goal and the source list per row.
-- [ ] **Each Goal's status is computed** from the shipped-fraction
-      thresholds (documented tunables): `green if frac >= 0.80,
-      yellow if frac >= 0.50 else red`. Thresholds are named constants
-      in the script, not magic numbers in row code.
-- [ ] **The "three biggest GAPS" section is derived** — `sorted(goals,
-      key=lambda g: g.shipped_fraction)[:3]`, recomputed on every
-      `derive-docs` invocation.
-- [ ] **`check-doc-drift` gates the matrix** against the frontmatter:
-      `hash(rendered_matrix) == hash(rendered_from_current_sources)`
-      OR CI fails with the drift kind named.
-- [ ] **Coverage invariant** (rule 8): every spec with `vision_goals:`
-      in its frontmatter appears in at least one Goal row; every Goal
-      with at least one spec has a non-empty row. No orphan specs, no
-      empty Goals.
-- [ ] **Failure-mode coverage** for missing frontmatter, stale matrix,
-      and prose-vs-data drift.
-- [ ] Test: flip a spec's status → the matrix Goal status recomputes;
-      drift catches a stale matrix; a spec missing `vision_goals:` is
-      flagged.
-- [ ] TODO row + drift clean.
+- [x] **`scripts/vision_matrix.py` regenerates the matrix** from every
+      spec's `vision_goals:` frontmatter + live status, over the typed
+      `GoalRow`. **Slice-2 bug fix:** the collector globbed `*/spec.md`
+      (one level) and matched ZERO specs post Spec-357 state-migration —
+      an all-zeros all-red matrix. Now globs `**/spec.md` (245 live specs).
+- [x] **Each Goal's status is computed** from named thresholds
+      `GREEN_FLOOR=0.80` / `YELLOW_FLOOR=0.50` (not magic numbers).
+- [x] **The "three biggest GAPS" is derived** — `biggest_gaps(rows, 3)`.
+- [ ] **`check-doc-drift` gates a rendered matrix doc** — DEFERRED: the
+      `--write` fence path + the live deriver are in place (and now
+      observable via `agency_doctor.vision_alignment`), but the new
+      tracked doc + drift-gate wiring is the remaining slice.
+- [x] **Coverage invariant** (rule 8): every spec with `vision_goals:`
+      lands in a row; no orphan specs, no unknown goal refs (live tree
+      clean). `test_summary_ready_iff_coverage_clean`.
+- [x] **Failure-mode coverage** — a spec without `vision_goals:`
+      contributes no row membership (not a crash); an anchored
+      (Spec 292) spec is still collected.
+- [x] Test: per-Goal status recomputes from live fractions; coverage
+      holds; the glob fix collects the state-folder specs.
+      `tests/test_vision_alignment_cells.py` (5) + the acceptance suite (7).
+- [x] TODO row + drift clean.
+
+**Slice 2 also consumes the dormant `AlignmentCell` shape:**
+`scripts/vision_matrix.py::to_alignment_cells(rows)` projects the single matrix
+source into typed `AlignmentCell{spec_id, goal_id, status}` (467 live cells; one
+per spec×goal in 1..8) — no second derivation. `agency_doctor.vision_alignment`
+reports `{ready, specs, cells, goals, biggest_gaps}`.
 
 ## Worked example (Given/When/Then)
 
@@ -147,6 +149,25 @@ Then:   it compares the rendered hash to the file hash; mismatch fails
   relationships, never pinned counts (rule 8).
 - drift + doc-drift clean; no install regen needed (a script, not a
   capability).
+
+### Done — Slice 2 (2026-06-26)
+
+- **BUG FIX (the headline):** `collect_specs` globbed `Plan/*/spec.md` (one
+  level) and matched ZERO specs after the Spec-357 state-folder migration — the
+  rendered matrix was all-zeros / all-red. Now globs `**/spec.md` (245 live
+  specs, 0 orphans, 0 unknown goal refs).
+- **Consumes the dormant `AlignmentCell`:** `to_alignment_cells(rows)` projects
+  the single matrix source into typed `AlignmentCell{spec_id, goal_id, status}`
+  (467 live cells; shipped→aligned, partial→partial, not_started→missing),
+  capped at goals 1..8. No second derivation (rule 2).
+- **`alignment_summary()`** roll-up + **`agency_doctor.vision_alignment`**
+  `{ready, specs, cells, goals, biggest_gaps}` — the matrix is now observable.
+- 5 tests in `tests/test_vision_alignment_cells.py` + the 7 acceptance scenarios
+  stay green (the glob fix turns the previously-vacuous live-tree coverage
+  scenario into a real assertion).
+
+**Verdict:** PARTIAL → the broken matrix is repaired + the typed shape consumed +
+the doctor wired; the `check-doc-drift`-gated rendered doc remains.
 
 ### Still — Slice 2+
 

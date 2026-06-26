@@ -154,9 +154,14 @@ def collect_specs(plan_root: Path,
 
     ``status_index`` (from :func:`parse_status_index`) is the authoritative
     status source; a spec absent from it falls back to its frontmatter
-    `status:`. Pass ``None`` to use frontmatter only (testing / no TODO)."""
+    `status:`. Pass ``None`` to use frontmatter only (testing / no TODO).
+
+    Spec 357 — specs live in physical STATE folders
+    (``Plan/<state>/<NNN-slug>/spec.md``), so the collector globs RECURSIVELY
+    (``**/spec.md``). The prior one-level glob (``*/spec.md``) silently matched
+    ZERO specs post-migration, rendering an all-red all-zeros matrix."""
     refs: list[SpecRef] = []
-    for sp in sorted(Path(plan_root).glob("*/spec.md")):
+    for sp in sorted(Path(plan_root).glob("**/spec.md")):
         fm = parse_frontmatter(sp.read_text(encoding="utf-8"))
         goals = fm.get("vision_goals")
         if not isinstance(goals, list):
@@ -203,6 +208,57 @@ def coverage_report(specs: list[SpecRef], rows: list[GoalRow]) -> dict:
         (s.spec_id, g) for s in specs for g in s.goals if g not in known
     )
     return {"orphan_specs": orphan_specs, "unknown_goal_refs": unknown_goal_refs}
+
+
+# ── typed cell projection (Spec 191 Slice 2 — consume the AlignmentCell shape) ─
+_STATUS_TO_ALIGNMENT = {"shipped": "aligned", "partial": "partial",
+                        "not_started": "missing"}
+
+
+def to_alignment_cells(rows: "list[GoalRow]") -> list:
+    """Project the derived rows into the typed `AlignmentCell{spec_id, goal_id,
+    status}` (one per spec×goal). The single matrix source feeds the typed shape
+    — no second derivation. Goals beyond the shape's 1..8 range are skipped
+    (``AlignmentCell`` caps ``goal_id`` at 8; Goal 9 renders in the table)."""
+    from agency._typed_shapes_waves4_12 import AlignmentCell
+    cells = []
+    for row in rows:
+        if not (1 <= row.goal_id <= 8):
+            continue
+        for spec in row.specs:
+            cells.append(AlignmentCell(
+                spec_id=spec.spec_id, goal_id=row.goal_id,
+                status=_STATUS_TO_ALIGNMENT[spec.status]))
+    return cells
+
+
+def alignment_summary(plan_root: "Path | str" = "Plan",
+                      goals_md: "Path | str" = "docs/vision/GOALS.md",
+                      todo: "Path | str | None" = "TODO.md") -> dict:
+    """A doctor-friendly roll-up of the live matrix: per-Goal status + the three
+    biggest gaps + the coverage invariant. `ready` iff every spec with
+    `vision_goals:` lands in a row (no orphans) and no goal ref is unknown."""
+    plan_root = Path(plan_root)
+    goals = parse_goals(Path(goals_md).read_text(encoding="utf-8"))
+    todo_p = Path(todo) if todo else None
+    status_index = (parse_status_index(todo_p.read_text(encoding="utf-8"))
+                    if todo_p and todo_p.exists() else None)
+    specs = collect_specs(plan_root, status_index)
+    rows = build_rows(specs, goals)
+    rep = coverage_report(specs, rows)
+    gaps = biggest_gaps(rows, 3)
+    cells = to_alignment_cells(rows)
+    return {
+        "specs": len(specs),
+        "cells": len(cells),
+        "goals": len([r for r in rows if r.specs]),
+        "biggest_gaps": [g.goal_id for g in gaps],
+        "rows": [{"goal_id": r.goal_id, "shipped": r.shipped,
+                  "partial": r.partial, "not_started": r.not_started,
+                  "shipped_fraction": round(r.shipped_fraction, 3),
+                  "status": r.status} for r in rows],
+        "ready": not rep["orphan_specs"] and not rep["unknown_goal_refs"],
+    }
 
 
 # ── render ────────────────────────────────────────────────────────────────────
