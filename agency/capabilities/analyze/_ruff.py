@@ -11,6 +11,12 @@ this module supplies only the argv + payload mapping.
 """
 from __future__ import annotations
 
+# Spec 166 — the external CLI tool this wrapper shells out to + the pip extra it
+# ships under, so the wrapper registry (derive_wrapper_shapes) + the doctor's
+# analyze_extras DERIVE from the modules instead of a hand-listed tuple.
+EXTERNAL_TOOL = "ruff"
+EXTERNAL_EXTRA = "analyze"
+
 # Spec 057 — ruff codes this wrapper emits, all mapped to quality (longest-first in registry).
 AXIS_PREFIXES: dict[str, frozenset[str]] = {
     "quality": frozenset({"E", "F", "W", "I", "C", "N", "UP", "D",

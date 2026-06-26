@@ -7,6 +7,10 @@ supplies only the argv + payload mapping.
 """
 from __future__ import annotations
 
+# Spec 166 — external CLI tool + pip extra (derived wrapper registry).
+EXTERNAL_TOOL = "bandit"
+EXTERNAL_EXTRA = "analyze"
+
 # Spec 057 — the rule prefixes this module's findings carry (axis registry).
 AXIS_PREFIXES: dict[str, frozenset[str]] = {"security": frozenset({"B"})}
 

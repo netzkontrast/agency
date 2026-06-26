@@ -8,6 +8,10 @@ supplies the two argvs + payload mappings (one analyzer per radon sub-command).
 """
 from __future__ import annotations
 
+# Spec 166 — external CLI tool + pip extra (derived wrapper registry).
+EXTERNAL_TOOL = "radon"
+EXTERNAL_EXTRA = "analyze"
+
 # Spec 057 — radon rides on quality's Q prefix; declares none (symmetry).
 AXIS_PREFIXES: dict[str, frozenset[str]] = {}
 

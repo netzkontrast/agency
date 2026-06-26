@@ -471,12 +471,16 @@ class AgencyDoctor(SubstrateTool):
             # Spec 050 — report which `[analyze]` extras are
             # installed. Each wrapper degrades silently, but users
             # benefit from knowing whether ruff/bandit/radon are
-            # active.
-            # AGENCY-DRIFT: analyze-extras-list — keep this tuple
-            #   synced with pyproject [analyze] extras AND the
-            #   wrapper modules in agency/capabilities/analyze/.
+            # active. Spec 166 — the external-tool list DERIVES from the analyzer
+            # wrapper modules (each declares EXTERNAL_TOOL), so a new wrapper
+            # auto-appears and the prior AGENCY-DRIFT tag is retired.
             analyze_extras: dict[str, str] = {}
-            for tool in ("ruff", "bandit", "radon"):
+            try:
+                from ._wrapper_shapes import external_tools as _ext_tools
+                _analyze_tools = _ext_tools()
+            except Exception:  # noqa: BLE001 — fall back to the known set
+                _analyze_tools = ("ruff", "bandit", "radon")
+            for tool in _analyze_tools:
                 if shutil.which(tool):
                     try:
                         analyze_extras[tool] = _md.version(tool)
@@ -740,6 +744,16 @@ class AgencyDoctor(SubstrateTool):
                 plugin_ref_audit = {"ready": None, "findings": 0, "errors": 0,
                                     "warns": 0, "audited_invariants": []}
 
+            # Spec 166 Slice 2 — analyzer-wrapper registry: the external-tool set
+            # + typed WrapperShapes DERIVED from the wrapper modules (EXTERNAL_TOOL
+            # / AXIS_PREFIXES), so analyze_extras is never hand-listed.
+            try:
+                from ._wrapper_shapes import wrapper_shapes_summary
+                wrapper_coverage = wrapper_shapes_summary()
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                wrapper_coverage = {"ready": None, "wrappers": 0,
+                                    "external_tools": [], "shape_tools": []}
+
             # Spec 201 item 8 — the rich token-backend report (available tiers,
             # preferred, last-used, band-check). Best-effort.
             try:
@@ -819,6 +833,9 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 177 Slice 2 — plugin-reference audit (ready iff zero
                 # error-severity findings over the committed plugin files).
                 "plugin_ref_audit": plugin_ref_audit,
+                # Spec 166 Slice 2 — analyzer-wrapper registry (external-tool set
+                # + typed WrapperShapes derived from the wrapper modules).
+                "wrapper_coverage": wrapper_coverage,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
