@@ -676,6 +676,17 @@ class AgencyDoctor(SubstrateTool):
                 sessionstart_capture = {"ready": None, "intent_id": "",
                                         "open_intents": 0}
 
+            # Spec 169 Slice 2/4 — CI coverage-gate (verb-test-coverage dimension):
+            # one GateResult per capability from the live test-gap report; `ready`
+            # iff every capability has ≥ 1 test. Lets the operator see a regression
+            # (a new cap without a test) BEFORE it reaches CI.
+            try:
+                from ._coverage_gate import gate_summary as _gate_summary
+                coverage_gate = _gate_summary(engine)
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                coverage_gate = {"ready": None, "capabilities": 0,
+                                 "passing": 0, "failing": []}
+
             # Spec 201 item 8 — the rich token-backend report (available tiers,
             # preferred, last-used, band-check). Best-effort.
             try:
@@ -740,6 +751,9 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 176 Slice 2 — sessionstart-capture readiness (ready iff
                 # the session already SERVES an Intent; auto_ad_hoc fallback).
                 "sessionstart_capture": sessionstart_capture,
+                # Spec 169 Slice 2/4 — CI coverage-gate (verb-test-coverage;
+                # ready iff every capability has a test).
+                "coverage_gate": coverage_gate,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
