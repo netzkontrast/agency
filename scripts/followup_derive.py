@@ -183,8 +183,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     counts = {} if args.no_counts else _collect_counts(args.plan_root)
-    specs = ([args.spec] if args.spec
-             else sorted(args.plan_root.glob("*/spec.md")))
+    from scripts._spec_tree import spec_files
+    specs = ([args.spec] if args.spec else spec_files(args.plan_root))
 
     written = 0
     for sp in specs:

@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from agency.toolresult import Codes
+from scripts._spec_tree import spec_files
 
 
 class DeriveError(ValueError):
@@ -136,8 +137,9 @@ def derive_spec(spec_path: Path, *, counts: dict[str, int]) -> Derivation:
 
 
 def derive_tree(plan_root: Path, *, counts: dict[str, int]) -> DeriveReport:
-    """Walk `<plan_root>/*/spec.md` deterministically; derive each spec."""
-    paths = sorted(Path(plan_root).glob("*/spec.md"))
+    """Walk every lifecycle `spec.md` deterministically; derive each spec.
+    Spec 357 — the shared `spec_files` walker handles the state-folder nesting."""
+    paths = spec_files(plan_root)
     return DeriveReport(
         derivations=[derive_spec(p, counts=counts) for p in paths])
 
@@ -257,7 +259,7 @@ def check_derivation_drift(plan_root: Path, *,
     rep = derive_tree(plan_root, counts=counts)
     per_spec = {d.spec_id: d for d in rep.derivations}
     stale: list[tuple[Path, str]] = []
-    for sp in sorted(Path(plan_root).glob("*/spec.md")):
+    for sp in spec_files(plan_root):
         spec_id = _spec_id_from_dir(sp)
         d = per_spec.get(spec_id)
         if d is None:
@@ -348,7 +350,7 @@ def main(argv: list[str] | None = None) -> int:
         plan_root = Path(args.plan_root)
         touched: list[str] = []
         per_spec = {d.spec_id: d for d in rep.derivations}
-        for sp in sorted(plan_root.glob("*/spec.md")):
+        for sp in spec_files(plan_root):
             spec_id = _spec_id_from_dir(sp)
             d = per_spec.get(spec_id)
             if d is None:
