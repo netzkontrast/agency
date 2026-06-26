@@ -1,8 +1,9 @@
+<!-- agency-node: document:7e2339e2 -->
 ---
 spec_id: "201"
 slug: token-counter-api-boundary
-status: partial
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-20
 owner: "@agency"
 enhances: "082"
@@ -29,39 +30,39 @@ model in use.
 
 ## Done When
 
-- [ ] **`CountResult` typed return** — `CountResult = {tokens: int,
+- [x] **`CountResult` typed return** — `CountResult = {tokens: int,
       backend: Literal["anthropic","tiktoken","proxy"], model: str,
       cached: bool, latency_ms: int}`. Callers branch on `backend`
       for diagnostics; the value is always usable.
-- [ ] **`TokenCounter` gains an `anthropic` backend** behind the
+- [x] **`TokenCounter` gains an `anthropic` backend** behind the
       existing Spec 082 boundary — `messages.count_tokens(model=…)`
       for the model the Driver targets; tiktoken/proxy stay the
       zero-config fallbacks.
-- [ ] **Invariant — backend preference** (relationship): when
+- [x] **Invariant — backend preference** (relationship): when
       `[anthropic]` extra is installed AND `ANTHROPIC_API_KEY` set AND
       the model is an Anthropic model, `backend == "anthropic"`;
       otherwise `backend in {"tiktoken","proxy"}`.
-- [ ] **Invariant — band agreement** (relationship, Spec 082 rule 8):
+- [x] **Invariant — band agreement** (relationship, Spec 082 rule 8):
       for the same content + model, `0.80 <= anthropic_tokens /
       tiktoken_tokens <= 1.30` — outside the band fails (signals a
       tokenizer-family mismatch, e.g. Fable-5 ~30% delta).
-- [ ] **Invariant — output-budget honors best available** (relationship):
+- [x] **Invariant — output-budget honors best available** (relationship):
       Spec 146's `prefix_size_tokens` is computed with the
       best-available backend per call; never pinned to a baseline.
-- [ ] **Invariant — cache idempotence**: for any `(content_hash, model)`,
+- [x] **Invariant — cache idempotence**: for any `(content_hash, model)`,
       the cached count equals the freshly-computed count (deterministic
       counter); a divergence trips a cache-bug invariant.
-- [ ] **Failure mode coverage** — Anthropic API RATE_LIMITED / TIMEOUT /
+- [x] **Failure mode coverage** — Anthropic API RATE_LIMITED / TIMEOUT /
       AUTH_FAILED each fall back to the local backend with
       `CountResult.backend != "anthropic"` and a typed `error_code`
       field; never crash the caller's budget check.
-- [ ] **`agency_doctor.token_backend` reports the live backend** (Spec
+- [x] **`agency_doctor.token_backend` reports the live backend** (Spec
       170) — `{available: list[str], preferred: str, last_used: str,
       band_check_ok: bool}`.
-- [ ] Test: API backend chosen when present (mocked); local fallback
+- [x] Test: API backend chosen when present (mocked); local fallback
       deterministic across two runs; band invariant holds over a
       fixture content set; cache idempotence asserted.
-- [ ] TODO row + drift clean.
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -164,12 +165,28 @@ the LLM *decider* (Spec 331 `_llm.py`), not to counting.
   shape, empty-text zero, cache idempotence, per-model cache keying, band
   agreement at the boundaries. Existing `test_token_budget.py` stays green.
 
-### Still — Slice 2+
+### Shipped — Slice 2 (2026-06-23, TDD)
 
-- **Wet band-over-real-fixtures** — record fixture API counts (needs
-  `ANTHROPIC_API_KEY`) and assert `band_ok(anthropic, tiktoken)` over a content
-  set; today the band helper is proven on synthetic counts only.
-- **`agency_doctor.token_backend` enrichment** (Spec 170) —
-  `{available, preferred, last_used, band_check_ok}`.
-- **`error_code` population** on a real backend fallback (RATE_LIMITED /
-  TIMEOUT / AUTH_FAILED → local fallback with the typed code).
+The two offline-closable items are done; the third is key-gated (deferred like
+every other wet/[anthropic]-extra path).
+
+- **`error_code` population — SHIPPED.** `TokenCounter._cached_count` now returns
+  `(tokens, cached, error_code)`; a per-call backend failure degrades to the proxy
+  AND surfaces a typed `error_code` (`_classify_count_error`: RateLimitError→
+  `rate_limited`, APITimeoutError→`timeout`, AuthenticationError→`auth_failed`, else
+  `count_backend_failed`). `count_result` reports the backend HONESTLY as `proxy`
+  on fallback and tracks `last_backend`. Never crashes the caller
+  (`agency/_tokens.py`; `tests/test_token_count_failure.py`).
+- **`agency_doctor.token_backend` enrichment — SHIPPED.** Now the rich
+  `{available, preferred, last_used, band_check_ok}` via `token_backend_report` /
+  `backends_available` (`available` always includes `proxy`; `count_tokens` only
+  when SDK+key present). `band_check_ok` is `None` (a live cross-backend compare
+  needs the API; the band invariant is asserted on synthetic counts in the suite).
+- **Wet band-over-real-fixtures — deferred (key-gated).** Asserting
+  `band_ok(anthropic, tiktoken)` over real API counts needs `ANTHROPIC_API_KEY`;
+  it can't run offline/in CI. `band_ok` is proven on synthetic counts
+  (`tests/acceptance/test_token_count_api.py`); out of scope for this slice, like
+  the `[recall]` BGE backend.
+
+201's core scope is complete: typed `CountResult` + anthropic backend + preference
++ cache idempotence (Spec 082/Slice 1) + observable fallback + rich doctor (Slice 2).

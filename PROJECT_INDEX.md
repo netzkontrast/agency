@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (75 files)
+### `agency/` (76 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -239,6 +239,10 @@ heuristic, two implementations, drift risk").
 Both music's `lyric_report` family and novel's `analyze_readability`
 need a syllable count; promoting to a shared module so one fix lands
 in one place. (3 symbols)
+- **_reflection_link_sweep.py** — Spec 173 Slice 2 — live reflection-link coverage sweep over the graph.
+
+Slice 1 shipped the typed ``LinkFinding`` shape (``agency/_link_finding.py``) but it
+was dormant. (6 symbols)
 - **_relevance.py** — Spec 350 Slice 1 — relevance filter (content-aware output trimmer).
 
 Pure ``relevance_filter(text, profile) -> dict`` that extracts signal lines from
@@ -1261,7 +1265,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (33 symbols)
 
-### `tests/` (27 files)
+### `tests/` (28 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1334,6 +1338,10 @@ called (dormant surface). (4 symbols)
 object/array shape in the wire description (the get_schema-visible surface), so a
 fresh agent sees `context: [{id, text}]` instead of a bare `any[]`. (6 symbols)
 - **test_projected_enum.py** — Spec 284 — projected-enum substrate. (19 symbols)
+- **test_reflection_link_sweep.py** — Spec 173 Slice 2 — live reflection-link coverage sweep + WARN→error promotion.
+
+The dormant Slice-1 ``LinkFinding`` shape is now load-bearing: a graph sweep requires
+every live ``Reflection`` to carry BOTH ``SERVES`` and ``OBSERVED_DURING``. (13 symbols)
 - **test_render_driver_substrate.py** — Spec 283 Slice 1 (Workstream F) — capability render substrate. (20 symbols)
 - **test_session_autolog.py** — Spec 392 — per-intent session activity auto-append.
 

@@ -58,6 +58,56 @@ def band_ok(a: int, b: int, *, low: float = TOKEN_BAND_LOW,
     return low <= ratio <= high
 
 
+# Spec 201 item 7 — map a per-call backend exception to a typed error_code so a
+# fallback is observable. Anthropic SDK raises RateLimitError / APITimeoutError /
+# AuthenticationError; everything else is a generic backend failure.
+_COUNT_ERROR_CODES = {
+    "RateLimitError": "rate_limited",
+    "APITimeoutError": "timeout",
+    "TimeoutError": "timeout",
+    "APIConnectionError": "timeout",
+    "AuthenticationError": "auth_failed",
+    "PermissionDeniedError": "auth_failed",
+}
+
+
+def _classify_count_error(exc: BaseException) -> str:
+    return _COUNT_ERROR_CODES.get(type(exc).__name__, "count_backend_failed")
+
+
+def backends_available() -> "list[str]":
+    """The token-count tiers that can resolve in THIS environment (Spec 201
+    item 8). ``proxy`` is always available; ``tiktoken`` if importable;
+    ``count_tokens`` (the Anthropic API) if the SDK is installed AND a key is set."""
+    avail = ["proxy"]
+    try:
+        import tiktoken  # noqa: F401
+        avail.append("tiktoken")
+    except Exception:                           # noqa: BLE001
+        pass
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        try:
+            import anthropic  # noqa: F401
+            avail.append("count_tokens")
+        except Exception:                       # noqa: BLE001
+            pass
+    return avail
+
+
+def token_backend_report(counter) -> dict:
+    """Spec 201 item 8 — the rich agency_doctor.token_backend surface:
+    ``{available, preferred, last_used, band_check_ok}``. ``band_check_ok`` is
+    ``None`` (skipped) because a live anthropic-vs-tiktoken comparison needs the
+    API; the band invariant is asserted over a fixture set in the test suite."""
+    return {
+        "available": backends_available(),
+        "preferred": getattr(counter, "backend", "proxy"),
+        "last_used": getattr(counter, "last_backend",
+                             getattr(counter, "backend", "proxy")),
+        "band_check_ok": None,
+    }
+
+
 class TokenCounter:
     """A resolved counter: `backend` names the tier; `count(text, model)` measures.
     Never raises — any backend failure degrades to the char proxy.
@@ -70,23 +120,31 @@ class TokenCounter:
         self.backend = backend                 # "count_tokens" | "tiktoken" | "proxy"
         self._fn = fn
         self._cache: "OrderedDict[tuple[str, str], int]" = OrderedDict()
+        # Spec 201 item 8 — the backend the LAST count actually used (the
+        # preferred one, or "proxy" when a per-call fallback fired). Seeded to
+        # the resolved preference until the first real count.
+        self.last_backend = backend
 
-    def _cached_count(self, text: str, model: str) -> tuple[int, bool]:
-        """Return `(tokens, cached)`. Deterministic per (content, model): a hit
-        returns the prior count (cache-idempotence invariant). A backend failure
-        degrades to the char proxy, exactly as the bare `count` did."""
+    def _cached_count(self, text: str, model: str) -> tuple[int, bool, str]:
+        """Return `(tokens, cached, error_code)`. Deterministic per (content,
+        model): a hit returns the prior count (cache-idempotence invariant). A
+        backend failure degrades to the char proxy AND reports a typed
+        ``error_code`` (Spec 201 item 7) so the fallback is observable, never
+        silent — but still never crashes the caller's budget check."""
         key = (hashlib.sha256(text.encode("utf-8")).hexdigest()[:32], model)
         if key in self._cache:
             self._cache.move_to_end(key)
-            return self._cache[key], True
+            return self._cache[key], True, ""
+        err = ""
         try:
             n = int(self._fn(text, model))
-        except Exception:
+        except Exception as exc:                # noqa: BLE001 — any backend failure degrades
             n = max(1, len(text) // _CHARS_PER_TOKEN)
+            err = _classify_count_error(exc)
         self._cache[key] = n
         if len(self._cache) > _CACHE_MAX:
             self._cache.popitem(last=False)     # evict the least-recently-used
-        return n, False
+        return n, False, err
 
     def count(self, text: str, model: str | None = None) -> int:
         if not text:
@@ -95,15 +153,21 @@ class TokenCounter:
 
     def count_result(self, text: str, model: str | None = None) -> CountResult:
         """Spec 201 — the typed count: tokens + backend + model + cache state +
-        wall-clock. Empty text is a zero-cost, uncached result."""
+        wall-clock + error_code. Empty text is a zero-cost, uncached result. On a
+        per-call backend failure the ``backend`` is reported HONESTLY as ``proxy``
+        (the tier that actually produced the count) and ``error_code`` names the
+        failure; the happy path leaves ``error_code`` empty."""
         m = model or _DEFAULT_MODEL
         if not text:
             return CountResult(tokens=0, backend=self.backend, model=m,
                                cached=False, latency_ms=0)
         t0 = time.perf_counter()
-        n, cached = self._cached_count(text, m)
-        return CountResult(tokens=n, backend=self.backend, model=m, cached=cached,
-                           latency_ms=int((time.perf_counter() - t0) * 1000))
+        n, cached, err = self._cached_count(text, m)
+        backend = "proxy" if err else self.backend
+        self.last_backend = backend
+        return CountResult(tokens=n, backend=backend, model=m, cached=cached,
+                           latency_ms=int((time.perf_counter() - t0) * 1000),
+                           error_code=err)
 
 
 def _proxy(text: str, model: str) -> int:

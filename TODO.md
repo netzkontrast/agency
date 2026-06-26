@@ -197,7 +197,7 @@ Rebuild (derived from the Plan/ tree):
 - 198  cli-mirror-chain-parity
 - 199  agent-skills-publish-roundtrip
 - 200  walkable-usage-skill-depth
-- 201  token-counter-api-boundary
+- 201  token-counter-api-boundary   # Shipped (done) — CountResult+anthropic backend+cache (082) + observable error_code fallback + rich agency_doctor.token_backend (TDD); wet band key-gated
 - 202  skills-api-publish-managed
 - 203  analyze-graph-query-language
 - 204  reasoning-intent-driver-wet
