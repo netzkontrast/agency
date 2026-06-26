@@ -729,6 +729,17 @@ class AgencyDoctor(SubstrateTool):
                 architecture_metrics = {"ready": None, "metrics": 0,
                                         "cycles": 0, "god_modules": 0}
 
+            # Spec 177 Slice 2 — plugin-reference continuous-audit: the committed
+            # plugin files (plugin.json / marketplace.json / commands/*.md) swept
+            # against the open reference-invariant set. `ready` iff zero
+            # error-severity findings (the derived install surface passes).
+            try:
+                from ._plugin_ref_audit import ref_audit_summary
+                plugin_ref_audit = ref_audit_summary(project_dir or os.getcwd())
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                plugin_ref_audit = {"ready": None, "findings": 0, "errors": 0,
+                                    "warns": 0, "audited_invariants": []}
+
             # Spec 201 item 8 — the rich token-backend report (available tiers,
             # preferred, last-used, band-check). Best-effort.
             try:
@@ -805,6 +816,9 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 167 Slice 2 — architecture metrics (ready iff the
                 # fan-out/fan-in edge identity holds over the import graph).
                 "architecture_metrics": architecture_metrics,
+                # Spec 177 Slice 2 — plugin-reference audit (ready iff zero
+                # error-severity findings over the committed plugin files).
+                "plugin_ref_audit": plugin_ref_audit,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
