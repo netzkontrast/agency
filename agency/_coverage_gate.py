@@ -80,3 +80,42 @@ def evaluate(*, capability: str, baseline: float, current: float,
         missing_tests=tuple(missing),
         verdict="fail" if failed else "pass",
     )
+
+
+def derive_gate_results(engine) -> "tuple[GateResult, ...]":
+    """Slice 2 — one :class:`GateResult` per capability from the LIVE registry's
+    verb-test-coverage check (the fully-derivable invariant: every capability has
+    ≥ 1 test file). This is the part of the gate that needs no pytest-cov runtime:
+    ``engine._drift_signals()['capabilities_without_tests']`` IS the test-gap report
+    (Spec 054), so a new capability without a test fails its GateResult.
+
+    The coverage-% TREND dimension (baseline JSON refreshed per merge) + flake
+    re-run + the CI-workflow wiring are deferred Slices 3-5; here baseline ==
+    current == 1.0 (tested) / 0.0 (gap), so the verdict keys solely off
+    ``missing_tests`` and never makes an un-grounded coverage-% claim.
+    """
+    untested = set(engine._drift_signals().get("capabilities_without_tests", []))
+    results = []
+    for name in sorted(engine.registry.names()):
+        if name.startswith("_"):
+            continue
+        gap = name in untested
+        # missing carries the capability id when its test file is absent — the
+        # derivable verb-test-coverage signal (capability granularity).
+        missing = (name,) if gap else ()
+        cov = 0.0 if gap else 1.0
+        results.append(evaluate(capability=name, baseline=cov, current=cov,
+                                missing=missing))
+    return tuple(results)
+
+
+def gate_summary(engine) -> dict:
+    """A doctor-friendly roll-up of :func:`derive_gate_results` — the live
+    verb-test-coverage gate at a glance. ``ready`` iff every capability passes
+    (zero test-gaps)."""
+    results = derive_gate_results(engine)
+    failing = [r.capability for r in results if r.verdict == "fail"]
+    return {"capabilities": len(results),
+            "passing": sum(1 for r in results if r.verdict == "pass"),
+            "failing": failing,
+            "ready": not failing}

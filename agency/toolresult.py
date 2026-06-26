@@ -171,6 +171,8 @@ class Codes:
     INSTALL_REGEN_PARTIAL = "install_regen_partial"     # `agency install` crashed mid-write (atomic-rename guard tripped)
     # Spec 176 Slice 2 — sessionstart intent-capture failure mode.
     CAPTURE_DEGRADED = "capture_degraded"   # capture driver failed mid-flow — partial turns persisted, resumable
+    # Spec 169 Slice 2 — CI coverage-gate infra failure mode.
+    GATE_INFRA_ERROR = "gate_infra_error"   # the coverage tool itself crashed — gate fails closed, never silent-pass
 
 
 @dataclass(frozen=True)

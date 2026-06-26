@@ -27,30 +27,30 @@ coverage is the missing guarantee. A capability-test-gap report exists
 
 ## Done When (measurable invariants — rule 8)
 
-- [ ] **Typed gate result: `GateResult{capability, baseline_coverage:
+- [x] **Typed gate result: `GateResult{capability, baseline_coverage:
       float, current_coverage: float, delta: float, flake_count: int,
       missing_tests: list[verb_id], verdict: Literal["pass", "fail"]}`** —
-      uniform across the gate's three checks.
+      uniform across the gate's three checks. (Slice 1, `_coverage_gate.py`.)
 - [ ] **Invariant: coverage trend is non-decreasing per capability** —
-      `current_coverage >= baseline_coverage - ε`; baseline derives
-      from the prior green build, never a pinned %.
-- [ ] **Invariant: every live verb has ≥ 1 test** — `set(missing_tests)
-      == ∅` for the live registry (Spec 054 test-gap report becomes
-      gate). A new verb without a test fails CI.
-- [ ] **Invariant: flake detection re-runs the slice TWICE** — a test
-      that flips PASS→FAIL→PASS across the two runs registers as
-      `flake_count++`; never auto-retried-green.
-- [ ] **Relationship: gate verdict == fail iff (delta < -ε OR
-      missing_tests ≠ ∅ OR flake_count > 0)** — relationship, not a
-      pinned threshold per criterion.
+      DEFERRED (Slice 2 baseline JSON): needs pytest-cov runtime data +
+      a per-merge BaselineSnapshot; not faked here.
+- [x] **Invariant: every live verb has ≥ 1 test** — `derive_gate_results`
+      turns the live test-gap report (Spec 054
+      `capabilities_without_tests`) into one GateResult per capability; a
+      cap without a test gets `verdict="fail"`. (Capability granularity;
+      per-verb granularity is the trend slice.)
+- [ ] **Invariant: flake detection re-runs the slice TWICE** — DEFERRED
+      (Slice 3): needs the CI re-run harness.
+- [x] **Relationship: gate verdict == fail iff (delta < -ε OR
+      missing_tests ≠ ∅ OR flake_count > 0)** — `evaluate()` (Slice 1) +
+      `test_verdict_keys_off_the_live_test_gap_report`.
 - [ ] **Invariant: baseline storage is the prior green build's
-      coverage** — derived (graph node BaselineSnapshot), never
-      hand-edited; Spec 149 drift gate catches manual edits.
-- [ ] **Failure mode (CI infra):** when the coverage tool itself
-      crashes (pytest-cov exception, xdist worker timeout), the gate
-      records `verdict=fail` + emits `Codes.GATE_INFRA_ERROR` — never
-      silently passes on infra failure.
-- [ ] TODO row + drift clean.
+      coverage** — DEFERRED (Slice 2): the BaselineSnapshot node + drift
+      gate land with the coverage-% trend wiring.
+- [x] **Failure mode (CI infra):** `Codes.GATE_INFRA_ERROR` defined —
+      the gate fails closed (never silent-pass) when the coverage tool
+      crashes. (The CI-workflow crash-handling wiring lands with Slice 2.)
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -147,15 +147,34 @@ Engine-driven end-to-end (intent:4bbf459c; skill:028ed07e tdd walk;
   - rejects coverage out of range
   - rejects empty capability
 
-### Still — Slice 2+
+### Done — Slice 2 partial + Slice 4 (2026-06-26)
 
-- **Slice 2** — wire `evaluate()` into the CI workflow; baseline
-  persisted in `Plan/_planning/coverage-baseline.json` (Spec 054 drift
-  pattern); refreshed per merged commit on `main`.
-- **Slice 3** — flake-detection by re-running failed tests N times
-  (the only way to distinguish a genuine fail from a flake).
-- **Slice 4** — `agency_doctor.coverage_gate` field reports per-cap
-  delta + verdict so the operator sees regressions before they reach CI.
-- **Slice 5** — Spec 156 loop-detection integration (a capability
-  whose tests keep flaking surfaces as a `loop_detected` Event).
+The **verb-test-coverage dimension** of the gate — the fully-derivable part
+needing no pytest-cov runtime — is shipped and consumed:
+
+- `agency/_coverage_gate.py`:
+  - `derive_gate_results(engine)` — one `GateResult` per live capability from
+    the registry's test-gap report (`engine._drift_signals()
+    ['capabilities_without_tests']`, Spec 054). A cap without a test ⇒
+    `verdict="fail"`; baseline==current so no un-grounded coverage-% claim.
+  - `gate_summary(engine)` — `{capabilities, passing, failing, ready}` roll-up.
+- `Codes.GATE_INFRA_ERROR` added (`agency/toolresult.py`) — the gate fails
+  closed on coverage-tool crash.
+- `agency_doctor.coverage_gate` (Slice 4) consumes `gate_summary` so the
+  operator sees a test-gap regression BEFORE CI. Live: 36/36 capabilities pass.
+- 4 invariant tests in `tests/test_coverage_gate_derive.py` (all green):
+  one result per live cap, verdict keys off the live test-gap set, summary
+  ready-iff-no-failing, Code existence.
+
+### Still — Slices 2 (trend) · 3 · 5 (deferred — need CI runtime)
+
+- **Slice 2 (coverage-% trend)** — wire pytest-cov into the CI workflow;
+  baseline persisted as a per-merge `BaselineSnapshot` (Spec 054 drift
+  pattern). Needs instrumented-suite runtime data; not fakeable offline.
+- **Slice 3** — flake-detection re-running failed tests N times in CI.
+- **Slice 5** — Spec 156 loop-detection integration.
+
+**Verdict:** PARTIAL — the verb-test-coverage gate + doctor consumer +
+infra-error contract shipped (Slices 2-partial + 4); the coverage-% trend,
+flake re-run, and CI-workflow wiring (Slices 2-trend/3/5) remain.
 

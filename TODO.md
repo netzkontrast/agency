@@ -165,7 +165,7 @@ Rebuild (derived from the Plan/ tree):
 - 166  analyze-deps-extras-expand
 - 167  analyze-architecture-networkx-impl
 - 168  research-web-driver-depth
-- 169  ci-coverage-and-flake-gate
+- 169  ci-coverage-and-flake-gate   # Partial — Slice 1 (typed GateResult + pure evaluate) + Slice 2-partial/4 shipped: derive_gate_results() turns the live test-gap report into one GateResult per capability (verb-test-coverage dimension), GATE_INFRA_ERROR code (fail-closed), agency_doctor.coverage_gate (36/36 pass); TDD. Still: coverage-% trend (pytest-cov baseline JSON), flake re-run harness, CI-workflow wiring (Slices 2-trend/3/5 — need CI runtime)
 - 170  install-doctor-deepening
 - 171  node-id-guard-coverage   # Shipped (done) — live node-id-guard sweep (GuardFinding[] + GUARD_LINT_UNRESOLVED), WARN->error promotion (registry clean), agency_doctor.node_id_guard_coverage; TDD, check-drift clean
 - 172  analyzer-linter-expansion
