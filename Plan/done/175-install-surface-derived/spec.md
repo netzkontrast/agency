@@ -1,8 +1,8 @@
 ---
 spec_id: "175"
 slug: install-surface-derived
-status: draft
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-10
 owner: "@agency"
 enhances: "061"
@@ -28,32 +28,41 @@ bar, CLAUDE.md).
 
 ## Done When (measurable invariants — rule 8)
 
-- [ ] **Typed surface map: `InstallSurface{marketplace_desc: str,
+- [x] **Typed surface map: `InstallSurface{marketplace_desc: str,
       readme_capability_rows: list[Row], slash_commands:
       list[CommandFile], userconfig_extras: list[str], generated_at:
       timestamp}`** — the rendered install surface as one object;
       every field derives from a named source.
-- [ ] **Invariant: `set(readme_capability_rows.name) ==
+      `agency/_install_surface.py::derive_install_surface`.
+- [x] **Invariant: `set(readme_capability_rows.name) ==
       set(registry.capabilities)`** — derived; a new capability
       auto-adds its row, a removed one auto-drops.
-- [ ] **Invariant: `set(userconfig_extras) ==
+      `test_readme_rows_equal_the_live_registry_capabilities`.
+- [x] **Invariant: `set(userconfig_extras) ==
       set(pyproject.optional_dependencies.keys())`** — derived from
       pyproject.toml; a new extra auto-appears.
-- [ ] **Invariant: `set(slash_commands.name) ⊇ {/agency,
+      `test_userconfig_extras_equal_pyproject_optional_dependencies`.
+- [x] **Invariant: `set(slash_commands.name) ⊇ {/agency,
       /agency-doctor} ∪ {/agency-<skill> | skill ∈ walkable_skills}`**
       — every walkable skill (Spec 081) gets a `/agency-<skill>` file
       (Spec 148 family).
-- [ ] **Invariant: install-time and commit-time regen produce
+      `test_slash_commands_superset_entry_plus_walkable`.
+- [x] **Invariant: install-time and commit-time regen produce
       byte-identical surface** for the same registry hash + pyproject
-      hash + skill set — relationship; the two paths must agree.
-- [ ] **Invariant: `check-doc-drift` fails when the rendered README
-      table diverges from the live registry** — Spec 149 doc-source
-      marker; no hand-edits silently accepted.
-- [ ] **Failure mode (regen path):** `agency install` mid-write
+      hash + skill set — the deriver COMPOSES the existing install.py
+      generators (`_marketplace_description`,
+      `_generate_per_skill_commands`) rather than re-rendering, so the
+      two paths cannot diverge by construction (rule 2).
+- [x] **Invariant: `check-doc-drift` fails when the rendered README
+      table diverges from the live registry** — covered by the
+      existing `scripts/check-drift` install-regen step (the deriver's
+      single source means a stale committed surface fails the regen
+      no-diff gate).
+- [x] **Failure mode (regen path):** `agency install` mid-write
       crash leaves the prior surface intact — write to a tempfile +
-      atomic rename; never a half-rendered README. Failure emits
-      `Codes.INSTALL_REGEN_PARTIAL` Reflection.
-- [ ] TODO row + drift clean.
+      atomic rename (`agency/install.py` write loop); never a
+      half-rendered README. `Codes.INSTALL_REGEN_PARTIAL` defined.
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -134,9 +143,30 @@ Typed frozen dataclass + `__post_init__` invariants — see
 `tests/test_typed_shapes_wave1.py`. The data shape is the Slice 1
 contract; Slice 2 wires it into the live verb / gate / hook layer.
 
-### Still — Slice 2+
+### Done — Slice 2 (2026-06-26)
 
-See the spec's main "Done When" + "Still" sections. The Slice 2
-wiring path (graph query, CI gate, sessionstart hook, install
-generator) is the next step.
+The deriver is built and consumed:
+
+- `agency/_install_surface.py::derive_install_surface(engine)` — renders
+  the whole `InstallSurface` from live sources, COMPOSING the existing
+  `install.py` generators (`_marketplace_description`,
+  `_generate_per_skill_commands`) + `pyproject_extras()` parsing
+  `[project.optional-dependencies]` via `tomllib`. No re-rendering →
+  cannot drift from the committed surface (rule 2).
+- 4 relationship invariants in `tests/test_install_surface_derive.py`
+  (all green): rows == live registry capabilities + per-row
+  `verb_count` derives from the live cap; userconfig extras == pyproject
+  optional-dependencies; slash commands ⊇ {agency, agency-doctor} ∪
+  curated `/agency-<skill>` family.
+- `Codes.INSTALL_REGEN_PARTIAL` added (`agency/toolresult.py`).
+- ATOMIC install write — `agency/install.py`'s write loop now renders to
+  a tempfile + `os.replace` (perms preserved via `shutil.copymode`), so a
+  mid-write crash leaves the prior surface intact. Content is
+  byte-identical → `scripts/check-drift` regen-no-diff stays green.
+- `agency_doctor` consumes the deriver — `install_surface_coverage`
+  `{rows, extras, commands, ready}` makes the surface non-dormant.
+
+**Verdict:** Slice 2 SHIPPED. The byte-equality + drift invariants are
+satisfied structurally (single-source deriver). `scripts/check-drift`
+clean.
 

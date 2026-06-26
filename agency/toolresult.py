@@ -167,6 +167,8 @@ class Codes:
     # Spec 173 Slice 2 — reflection-link coverage failure modes.
     REFLECTION_NO_INTENT = "reflection_no_intent"       # Reflection write with no Intent in scope (substrate-enforced)
     REFLECTION_PARTIAL_LINKS = "reflection_partial_links"   # a Reflection carries only one of SERVES/OBSERVED_DURING
+    # Spec 175 Slice 2 — install-surface regen failure mode.
+    INSTALL_REGEN_PARTIAL = "install_regen_partial"     # `agency install` crashed mid-write (atomic-rename guard tripped)
 
 
 @dataclass(frozen=True)

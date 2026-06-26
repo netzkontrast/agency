@@ -171,7 +171,7 @@ Rebuild (derived from the Plan/ tree):
 - 172  analyzer-linter-expansion
 - 173  reflection-link-promote-error   # Shipped (done) — live reflection-link graph sweep (LinkFinding[] SERVES+OBSERVED_DURING), warn->error promotion (clean), REFLECTION_NO_INTENT substrate-enforced, agency_doctor.reflection_link_coverage; TDD
 - 174  template-verb-migration-closure
-- 175  install-surface-derived
+- 175  install-surface-derived   # Shipped (done) — derive_install_surface() composes existing install.py generators into one typed InstallSurface (rows==registry, extras==pyproject, commands⊇curated family); INSTALL_REGEN_PARTIAL + atomic install write (tempfile+os.replace, byte-identical); agency_doctor.install_surface_coverage; TDD, check-drift clean
 - 176  sessionstart-intent-capture
 - 177  plugin-reference-continuous-audit
 - 178  analyze-llm-judge-axis
