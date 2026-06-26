@@ -107,7 +107,7 @@ The ontology (`Ontology.nodes` = label→required fields, `Ontology.enums` =
 - **_entity_store.py** — Spec 289 Slice 2 — the graph-authoritative typed projection.
 
 Every graph data entity is MIRRORED into a typed row in a SQLModel
-(``table=True``) table that shares graphqlite's ONE ``.db`` file. (48 symbols)
+(``table=True``) table that shares graphqlite's ONE ``.db`` file. (49 symbols)
 - **_enums.py** — Spec 284 — projected-enum substrate.
 
 A *projected enum* is a field whose graph value is a closed enum, but whose
@@ -371,7 +371,7 @@ Skill loader. (46 symbols)
 A pure rendering pass over Capability/Verb/Skill nodes. (22 symbols)
 - **engine.py** — Engine — one FastMCP server + one graph.
 
-**Code-mode IS the contract** (lean: no separate four-verb surface). (70 symbols)
+**Code-mode IS the contract** (lean: no separate four-verb surface). (71 symbols)
 - **install.py** — Setup for the Agency Plugin for Claude Code.
 
 This is the "in setup" that maps the harness-in-harness MICRO-skills (the engine's
@@ -1257,7 +1257,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (33 symbols)
 
-### `tests/` (24 files)
+### `tests/` (26 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1292,6 +1292,9 @@ Two distinct engine-side defects this guards against:
 1. (13 symbols)
 - **test_entities.py** — Spec 289 Slice 1 — SQLModel entity models derived from the graph ontology. (9 symbols)
 - **test_entity_store.py** — Spec 289 Slice 2 — the canonical SQLite-backed entity store. (8 symbols)
+- **test_entity_store_join.py** — Spec 289 Slice 2b — EntityStore.entity_join(node_ids): inline content query.
+
+The spec's named verb (spec.md:70,82,102): given graph node ids (e.g. (4 symbols)
 - **test_entity_store_mirror.py** — Spec 289 Slice 2b — Memory mirrors authoritative graph writes into the
 graph-authoritative typed projection (EntityStore).
 
@@ -1315,6 +1318,11 @@ The per-lifecycle `lifecycle_trail(lifecycle_id)` already ships. (7 symbols)
 
 Closes the documented ENGINE GAP: the storyform gates + checks read a
 `Storyform` node, but no verb minted one. (13 symbols)
+- **test_ontology_materialise.py** — Spec 060 Phase 1 — Engine.materialise_ontology() wires the schema/template
+materialisers into a graph projection.
+
+The two `Ontology.materialise_{schemas,templates}` methods existed but were never
+called (dormant surface). (4 symbols)
 - **test_param_shapes.py** — Spec 390 D2 — param_shapes substrate: surface a param's required nested
 object/array shape in the wire description (the get_schema-visible surface), so a
 fresh agent sees `context: [{id, text}]` instead of a bare `any[]`. (6 symbols)

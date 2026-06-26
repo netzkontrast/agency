@@ -616,6 +616,21 @@ class AgencyDoctor(SubstrateTool):
             except Exception:  # noqa: BLE001 — never crash the doctor
                 installed = []
 
+            # Spec 171 Slice 2 — node-id-guard coverage: ready iff the live registry
+            # sweep is clean (zero unguarded *_id params AND every verb signature
+            # resolved; else GUARD_LINT_UNRESOLVED). The Spec 170 consumer signal +
+            # the WARN→error lint-promotion gate.
+            try:
+                from ._node_id_sweep import sweep as _nid_sweep
+                _nid = _nid_sweep(engine.registry)
+                node_id_guard_coverage = {
+                    "ready": _nid["ready"],
+                    "violations": _nid["violation_count"],
+                    "unresolved": len(_nid["unresolved"]),
+                }
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                node_id_guard_coverage = {"ready": None, "violations": 0, "unresolved": 0}
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -657,6 +672,8 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 153 Slice 3 — live schema-coverage fraction + priority
                 # ranking of uncovered labels by graph node-count.
                 "schema_coverage": schema_coverage,
+                # Spec 171 Slice 2 — node-id-guard coverage (ready iff sweep clean).
+                "node_id_guard_coverage": node_id_guard_coverage,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
