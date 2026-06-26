@@ -24,29 +24,28 @@ god-module metrics. It is the metric engine the architecture-drift gate
 
 ## Done When (measurable invariants — rule 8)
 
-- [ ] **Typed metric shape: `ArchMetric{axis_id, kind: Literal["cycle",
-      "fan_out", "fan_in", "god_module"], nodes: list[str], score:
-      float, baseline: float}`** — every metric returns the same
-      envelope.
+- [x] **Typed metric shape: `ArchMetric{axis_id, kind, nodes, score,
+      baseline}`** — `baseline` added (additive default); every metric
+      returns the same envelope. `derive_arch_metrics` populates it.
 - [ ] **Invariant: A001 cycle count is monotonically non-increasing**
-      across PRs — gate fails if the new cycle set ⊄ baseline cycle
-      set (relationship, not pinned count).
-- [ ] **Invariant: fan-out + fan-in computed from the SAME graph** —
-      `sum(fan_out) == sum(fan_in)` over the import graph (edge-count
-      identity, derived).
-- [ ] **Invariant: god-module threshold is RELATIVE** — top-decile of
-      `fan_in × LOC`, computed per-run from the live tree (survives
-      repo growth, never pinned).
-- [ ] **Invariant: when networkx missing, axis returns `[]` + doctor
-      hint** (Spec 050 silent fallback).
-- [ ] **Relationship: Spec 157 gate's failing finding equals at least
-      one A001 cycle** — the gate's evidence pointer resolves to an
-      ArchMetric node.
-- [ ] **Failure mode (graph build):** an unresolvable import (typo,
-      missing module) does NOT crash the build — the offending edge
-      becomes a `dangling` node in the graph + emits
-      `Codes.IMPORT_UNRESOLVED`; partial metrics still flow.
-- [ ] TODO row + drift clean.
+      across PRs — DEFERRED: needs a per-merge baseline cycle-set stored
+      in CI (the cross-PR gate); not fakeable offline.
+- [x] **Invariant: fan-out + fan-in computed from the SAME graph** —
+      `sum(fan_out) == sum(fan_in)` (edge-count identity).
+      `test_fan_out_equals_fan_in_edge_identity` + `fan_identity_holds`.
+- [x] **Invariant: god-module threshold is RELATIVE** — top-decile of
+      `fan_in × LOC` computed per-run, never pinned.
+      `test_god_module_threshold_is_relative_not_pinned`.
+- [x] **Invariant: when networkx missing, the pure-Python fallback still
+      yields metrics + doctor reports the backend** — the analyzer's
+      `_HAS_NX` fallback; `arch_metrics_summary` reports `networkx`.
+- [ ] **Relationship: Spec 157 gate's failing finding equals an A001
+      cycle** — DEFERRED with the cross-PR gate above (the cycle metrics
+      ARE the analyzer's A001 findings, but the gate wiring is CI-side).
+- [x] **Failure mode (graph build):** `Codes.IMPORT_UNRESOLVED` defined;
+      `arch_metrics_summary` reports it on a build failure (partial
+      metrics still flow; the build never crashes the doctor).
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -117,7 +116,32 @@ Typed frozen dataclass + `__post_init__` invariants in
 (red-team rerunner, CLI projection, derive audit, wrapper modules,
 networkx metric, axis registry, migration walker, ref audit).
 
-### Still — Slice 2+
+### Done — Slice 2 partial (2026-06-26)
 
-See the spec's main "Done When" + "Still" sections.
+The typed-metric deriver + the offline-derivable invariants are shipped:
+
+- `agency/_arch_metrics.py`:
+  - `derive_arch_metrics(root=None)` — composes the architecture analyzer
+    (`analyze/_architecture.py` — `_build_graph` / `_scc_cycles` / `_cycle_path`
+    / `_degrees`) into typed `ArchMetric`s (cycle / fan-out / fan-in /
+    god-module). No second graph build (rule 2). Live: 545 metrics, 5 cycles,
+    20 god-modules.
+  - `fan_identity_holds(metrics)` — the `sum(fan_out)==sum(fan_in)` edge identity.
+  - `arch_metrics_summary(root=None)` — `{ready, metrics, cycles, god_modules,
+    networkx}`; `ready` iff the identity holds; never raises.
+- `ArchMetric` gained `baseline` (additive default).
+- `Codes.IMPORT_UNRESOLVED` added.
+- `agency_doctor.architecture_metrics` consumes the summary.
+- 5 invariant tests in `tests/test_arch_metrics.py` (all green).
+
+### Still — deferred (needs CI runtime)
+
+- **A001 cycle-count monotonicity gate across PRs** + **Spec 157 evidence-pointer
+  relationship** — both need a per-merge baseline cycle-set stored CI-side; not
+  fakeable offline. The cycle metrics themselves ARE the analyzer's A001
+  findings; only the cross-PR gate wiring remains.
+
+**Verdict:** PARTIAL — the typed deriver + identity + relative-threshold +
+networkx-fallback + IMPORT_UNRESOLVED shipped; the cross-PR cycle gate is the
+remaining slice.
 

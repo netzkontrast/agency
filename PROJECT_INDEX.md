@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (76 files)
+### `agency/` (79 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -52,6 +52,10 @@ Three console-script entry points (Spec 039):
   `agency-mcp`    — MCP server entry; this module's :func:`main`.
   `agency-doctor` — bare-CLI health check; this module's
                     :func:`doctor_main`. (12 symbols)
+- **_axis_registry_sweep.py** — Spec 172 Slice 2 — derive the analyzer-axis registry from the live wrappers.
+
+Slice 1 shipped the typed `AxisRegistry` (prefix → analyzer_id, with `resolve`)
+but nothing populated it from the live analyzer set (dormant). (8 symbols)
 - **_capability_loader.py** — Spec 032 §B — capability folder loader. (13 symbols)
 - **_capture.py** — Capture-full helper — the no-truncate policy (user directive 2026-06-19).
 
@@ -80,7 +84,7 @@ A single home for all agency config. (29 symbols)
 
 The CI gate has three concerns: coverage trend (non-decreasing per
 capability), flake count (zero tolerance), and verb-test coverage (every
-verb has a test). (9 symbols)
+verb has a test). (11 symbols)
 - **_db_path.py** — DB path resolution per Spec 020 — central .agency/session.db.
 
 Resolution order (Spec 020 Done When item):
@@ -153,6 +157,14 @@ injected client), ``driver.backend()`` returns ``"none"`` and
 
 One ``surface_card`` (derived from the live registry + the Spec 332 frugal
 discipline) projected into each agent's native instruction format. (22 symbols)
+- **_install_surface.py** — Spec 175 Slice 2 — derive the whole install surface as ONE typed object.
+
+Slice 1 shipped the `InstallSurface` / `CapabilityRow` / `CommandFile` dataclasses
+but nothing populated them (dormant). (6 symbols)
+- **_intent_capture.py** — Spec 176 Slice 2 — the SessionStart intent-capture contract.
+
+Slice 1 shipped the typed `IntentCapture` record (`_typed_shapes_wave1.py`) but
+nothing populated it (dormant). (10 symbols)
 - **_invoke.py** — Spec 286 Phase-1 / A3 — the `Registry.invoke` decomposition.
 
 `Registry.invoke` was a ~105-line god-method fusing five responsibilities. (15 symbols)
@@ -324,7 +336,7 @@ The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
 - **_tokens.py** — Spec 082 — the token-count boundary.
 
 ONE place to count tokens, with tiers (best first):
-  1. (25 symbols)
+  1. (29 symbols)
 - **_toolcalls.py** — Ephemeral tool-call store — Spec 336 S2.
 
 Pre/post tool calls are high-volume and full-payload (no-truncate, Spec 336 S1).
@@ -1265,7 +1277,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (33 symbols)
 
-### `tests/` (28 files)
+### `tests/` (33 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1281,7 +1293,17 @@ recognized by `adr.spec_decisions_ready` (the /open→/inprogress hinge) because
 `draft` stored `spec` as a node PROPERTY but never created the `REFINES` EDGE the
 predicate traverses. (6 symbols)
 - **test_analyze_subprocess_analyzer.py** — Spec 286 — the shared SubprocessAnalyzer template scaffold. (21 symbols)
+- **test_axis_registry_sweep.py** — Spec 172 Slice 2 — analyzer-axis registry deriver invariants.
+
+`derive_axis_registry` composes the live analyzer wrappers' `AXIS_PREFIXES` into
+the typed `AxisRegistry` — longest-prefix-first, order-independent, with collision
++ malformed guards. (14 symbols)
 - **test_cli_chain_fields.py** (13 symbols)
+- **test_coverage_gate_derive.py** — Spec 169 Slice 2 — the live coverage-gate deriver invariants.
+
+`derive_gate_results` turns the live registry's test-gap report (Spec 054) into
+one typed `GateResult` per capability — the fully-derivable verb-test-coverage
+dimension of the CI gate. (8 symbols)
 - **test_develop_plan_execute.py** — Spec 287 — develop `plan-execute` discipline + Plan/PlanStep provenance.
 
 A first-class plan-authoring → execution-with-checkpoints discipline
@@ -1317,6 +1339,13 @@ succeeds) versus the known ``Failed to set property 'vfrom' on edge N``
 contention (TRANSIENT — retry helps). (30 symbols)
 - **test_host_bridge.py** — Spec 285 Slice 1 — HostBridge seam (sampling + elicitation boundary). (50 symbols)
 - **test_install_hint.py** (5 symbols)
+- **test_install_surface_derive.py** — Spec 175 Slice 2 — the install-surface deriver invariants. (8 symbols)
+- **test_intent_capture.py** — Spec 176 Slice 2 — SessionStart intent-capture contract invariants.
+
+The engine-side capture core the SessionStart hook drives: every session SERVES
+an Intent, capture never blocks (pure graph write), it is idempotent across
+re-entry, declines fall back to auto_ad_hoc, and AGENCY_INTENT reflects the
+resolved id. (14 symbols)
 - **test_lifecycle_resume.py** (4 symbols)
 - **test_lifecycle_trail_scope.py** — Spec 341 Slice 2 — manage.lifecycle_trail(scope=…): the unified cross-lifecycle
 transition view.
@@ -1350,6 +1379,8 @@ Every capability call appends one line to ``.agency/sessions/<intent>.activity.m
 - **test_session_snapshot.py** — Session-graph snapshot export/import — round-trip + value-only (Spec follow-up). (5 symbols)
 - **test_skill_emit.py** (10 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
+- **test_token_count_failure.py** — Spec 201 — the remaining two Done-When items: error_code population on
+per-call backend fallback, and the rich agency_doctor.token_backend report. (11 symbols)
 
 ### `tests/acceptance/` (133 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.

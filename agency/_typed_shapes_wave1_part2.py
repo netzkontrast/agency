@@ -121,6 +121,7 @@ class ArchMetric:
     kind:    ArchMetricKind
     nodes:   tuple[str, ...]
     score:   float
+    baseline: float = 0.0          # Spec 167 — prior-build score for the trend gate (0 = no baseline)
 
     def __post_init__(self) -> None:
         if not self.axis_id:
@@ -130,6 +131,8 @@ class ArchMetric:
                 f"kind must be one of {_AM_KINDS}; got {self.kind!r}")
         if self.score < 0.0:
             raise ValueError(f"score must be >= 0; got {self.score}")
+        if self.baseline < 0.0:
+            raise ValueError(f"baseline must be >= 0; got {self.baseline}")
 
 
 # ── Spec 172 — AxisRegistry ─────────────────────────────────────────
