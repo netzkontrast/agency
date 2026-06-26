@@ -167,7 +167,7 @@ Rebuild (derived from the Plan/ tree):
 - 168  research-web-driver-depth
 - 169  ci-coverage-and-flake-gate
 - 170  install-doctor-deepening
-- 171  node-id-guard-coverage
+- 171  node-id-guard-coverage   # Shipped (done) — live node-id-guard sweep (GuardFinding[] + GUARD_LINT_UNRESOLVED), WARN->error promotion (registry clean), agency_doctor.node_id_guard_coverage; TDD, check-drift clean
 - 172  analyzer-linter-expansion
 - 173  reflection-link-promote-error
 - 174  template-verb-migration-closure

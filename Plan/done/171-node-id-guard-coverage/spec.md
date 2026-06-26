@@ -1,8 +1,9 @@
+<!-- agency-node: document:5f22b868 -->
 ---
 spec_id: "171"
 slug: node-id-guard-coverage
-status: draft
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-10
 owner: "@agency"
 enhances: "056"
@@ -26,28 +27,28 @@ the lint promotes to error once the live registry is clean.
 
 ## Done When (measurable invariants — rule 8)
 
-- [ ] **Typed lint finding: `GuardFinding{verb_id, param_name,
+- [x] **Typed lint finding: `GuardFinding{verb_id, param_name,
       expected_label: str, severity: Literal["error", "warn"], file,
       line}`** — uniform finding shape across the WARN→error
       transition.
-- [ ] **Invariant: `unguarded_node_id_params == ∅`** across the live
+- [x] **Invariant: `unguarded_node_id_params == ∅`** across the live
       registry — derived sweep over every verb declaring a `*_id`
       param against `recall_typed` call sites.
-- [ ] **Invariant: each `*_id` param has exactly ONE declared label**
+- [x] **Invariant: each `*_id` param has exactly ONE declared label**
       — Spec 056's typed recall requires it; a param routing to two
       labels is a wire-shape bug (Spec 019).
-- [ ] **Invariant: lint severity is `error` iff sweep is clean** —
+- [x] **Invariant: lint severity is `error` iff sweep is clean** —
       relationship, not pinned timing; the promotion is gated on the
       live registry having zero violations (Spec 056/058 pattern).
-- [ ] **Relationship: a deliberately unguarded fixture verb fails
+- [x] **Relationship: a deliberately unguarded fixture verb fails
       the (post-promotion) lint** — proves the gate, not pinned.
-- [ ] **Invariant: `agency_doctor.node_id_guard_coverage.ready ==
+- [x] **Invariant: `agency_doctor.node_id_guard_coverage.ready ==
       True` iff sweep clean** — Spec 170 consumer; derived.
-- [ ] **Failure mode (lint itself):** the AST walk can't resolve a
+- [x] **Failure mode (lint itself):** the AST walk can't resolve a
       verb's signature (dynamic decorator chain) → emit
       `Codes.GUARD_LINT_UNRESOLVED` + the verb is flagged for manual
       review, NOT silently passed.
-- [ ] TODO row + drift clean.
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -116,9 +117,29 @@ Typed frozen dataclass + `__post_init__` invariants — see
 `tests/test_typed_shapes_wave1.py`. The data shape is the Slice 1
 contract; Slice 2 wires it into the live verb / gate / hook layer.
 
-### Still — Slice 2+
+### Shipped — Slice 2 (2026-06-23, TDD)
 
-See the spec's main "Done When" + "Still" sections. The Slice 2
-wiring path (graph query, CI gate, sessionstart hook, install
-generator) is the next step.
+The dormant `GuardFinding` shape is now load-bearing. **`agency/_node_id_sweep.py`**
+derives, over the LIVE registry (475 verbs), every `<label>_id` param read via a
+bare `recall`/`get_node` without a label check → typed `GuardFinding[]`, plus an
+`unresolved` list for any verb whose signature the AST walk can't resolve (flagged
+`Codes.GUARD_LINT_UNRESOLVED`, never silently passed). `ready` is True iff zero
+violations AND zero unresolved.
+
+- **Invariant proven clean:** the live sweep reports `violation_count == 0`,
+  `unresolved == []` (475 verbs all resolvable) → `ready == True`.
+- **Promotion (WARN→error):** `NodeIdGuardRule.severity` flipped `soft`→`block`
+  (`lint.py`) — gated on the sweep being clean, so a new violation now fails the
+  block-mode lint. Verified: 0 block findings across the live registry; the
+  fixture verb `badcap.peek(research_id)` (bare recall, no label) is flagged
+  `GuardFinding{expected_label:"Research", severity:"error"}` and breaks `ready`.
+- **Doctor:** `agency_doctor.node_id_guard_coverage == {ready, violations,
+  unresolved}` (Spec 170 consumer) — `ready == True` live.
+- **Tests:** `tests/test_node_id_guard_sweep.py` (sweep-clean · fixture-flagged ·
+  doctor-ready · code-exists), RED→GREEN; 58 lint/plugin + 17 doctor tests green
+  no regression; `check-drift` clean. `Codes.GUARD_LINT_UNRESOLVED` added.
+
+Slice-1's stale evidence note (the `tests/test_link_finding.py` /
+`test_typed_shapes_wave1.py` paths) predates the BDD migration; the live coverage
+is the sweep + the acceptance tests above.
 

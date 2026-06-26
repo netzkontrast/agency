@@ -162,6 +162,8 @@ class Codes:
     DERIVE_FENCE_BROKEN = "derive_fence_broken"   # opened fence has no matching close marker
     DERIVE_AMBIGUOUS = "derive_ambiguous"         # two specs claim the same derivation source
     DERIVE_MISSING_GOAL = "derive_missing_goal"   # spec missing required frontmatter
+    # Spec 171 Slice 2 — node-id-guard coverage sweep failure mode.
+    GUARD_LINT_UNRESOLVED = "guard_lint_unresolved"   # AST walk can't resolve a verb signature → manual review
 
 
 @dataclass(frozen=True)

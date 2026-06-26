@@ -531,7 +531,10 @@ class ReservedReturnKeyRule(CapabilityLintRule):
 
 class NodeIdGuardRule(CapabilityLintRule):
     kind = "node_id_guard"
-    severity = "soft"
+    # Spec 171 Slice 2 — promoted WARN→block: the live registry sweep is clean
+    # (zero unguarded *_id params; see agency/_node_id_sweep.py + the doctor's
+    # node_id_guard_coverage.ready), so the gate now FAILS any new violation.
+    severity = "block"
     remediation = {
         "what": "A verb reads a `<label>_id` param without verifying the node's label.",
         "steps": ["Use `memory.recall_typed(<param>, '<Label>')` instead of a bare recall/get_node."],
