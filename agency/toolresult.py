@@ -164,6 +164,9 @@ class Codes:
     DERIVE_MISSING_GOAL = "derive_missing_goal"   # spec missing required frontmatter
     # Spec 171 Slice 2 — node-id-guard coverage sweep failure mode.
     GUARD_LINT_UNRESOLVED = "guard_lint_unresolved"   # AST walk can't resolve a verb signature → manual review
+    # Spec 173 Slice 2 — reflection-link coverage failure modes.
+    REFLECTION_NO_INTENT = "reflection_no_intent"       # Reflection write with no Intent in scope (substrate-enforced)
+    REFLECTION_PARTIAL_LINKS = "reflection_partial_links"   # a Reflection carries only one of SERVES/OBSERVED_DURING
 
 
 @dataclass(frozen=True)

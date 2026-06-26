@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (74 files)
+### `agency/` (75 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -197,6 +197,10 @@ spec being re-walked over and over. (9 symbols)
 Claude Code's plugin system supports ``monitors/monitors.json`` — each entry is
 a long-running shell command whose stdout lines are delivered to the agent as
 notifications. (19 symbols)
+- **_node_id_sweep.py** — Spec 171 Slice 2 — live node-id-guard coverage sweep over the registry.
+
+Slice 1 shipped the typed ``GuardFinding`` shape; this is the derived sweep that
+makes it load-bearing. (11 symbols)
 - **_overflow.py** — Spec 154 Slice 1 — output overflow capture + recall (pure library).
 
 When a verb returns more than the token budget (Spec 023), the engine
@@ -1257,7 +1261,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (33 symbols)
 
-### `tests/` (26 files)
+### `tests/` (27 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1314,6 +1318,9 @@ contention (TRANSIENT — retry helps). (30 symbols)
 transition view.
 
 The per-lifecycle `lifecycle_trail(lifecycle_id)` already ships. (7 symbols)
+- **test_node_id_guard_sweep.py** — Spec 171 Slice 2 — the live node-id-guard coverage sweep + WARN→error promotion.
+
+The typed ``GuardFinding`` shape shipped in Slice 1 but was dormant. (14 symbols)
 - **test_novel_storyform_node.py** — Spec 103 Slice 2 (Workstream D) — create_storyform / get_storyform.
 
 Closes the documented ENGINE GAP: the storyform gates + checks read a
