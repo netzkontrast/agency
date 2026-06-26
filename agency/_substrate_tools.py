@@ -642,6 +642,26 @@ class AgencyDoctor(SubstrateTool):
             except Exception:  # noqa: BLE001 — never crash the doctor
                 reflection_link_coverage = {"ready": None, "unlinked": 0}
 
+            # Spec 175 Slice 2 — install-surface coverage: the whole install
+            # surface derived as ONE typed object from live sources (registry
+            # capability rows, pyproject extras, curated slash-command family).
+            # `ready` iff every documented row/extra/command derives (so a new
+            # capability/extra/walkable skill auto-appears, a removed one drops).
+            try:
+                from ._install_surface import derive_install_surface as _dis
+                _surf = _dis(engine)
+                install_surface_coverage = {
+                    "rows": len(_surf.readme_capability_rows),
+                    "extras": len(_surf.userconfig_extras),
+                    "commands": len(_surf.slash_commands),
+                    "ready": (bool(_surf.readme_capability_rows)
+                              and bool(_surf.userconfig_extras)
+                              and bool(_surf.slash_commands)),
+                }
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                install_surface_coverage = {"ready": None, "rows": 0,
+                                            "extras": 0, "commands": 0}
+
             # Spec 201 item 8 — the rich token-backend report (available tiers,
             # preferred, last-used, band-check). Best-effort.
             try:
@@ -700,6 +720,9 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 173 Slice 2 — reflection-link coverage (ready iff every
                 # Reflection has both SERVES + OBSERVED_DURING).
                 "reflection_link_coverage": reflection_link_coverage,
+                # Spec 175 Slice 2 — install-surface coverage (whole install
+                # surface derived as one typed object; ready iff all derive).
+                "install_surface_coverage": install_surface_coverage,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,

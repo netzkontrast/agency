@@ -1132,8 +1132,28 @@ def write(root: str) -> list[str]:
     for rel, content in files.items():
         path = os.path.join(root, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as f:
-            f.write(content)
+        # Spec 175 item 7 — ATOMIC write: render to a temp in the same dir then
+        # os.replace, so a mid-regen crash leaves the PRIOR file intact (never a
+        # half-rendered README/marketplace). Content is byte-identical, so the
+        # install-regen-no-diff gate is unaffected; perms are preserved.
+        import tempfile as _tempfile
+        import shutil as _shutil
+        _dir = os.path.dirname(path) or "."
+        _fd, _tmp = _tempfile.mkstemp(dir=_dir, prefix=".agency-regen-")
+        try:
+            with os.fdopen(_fd, "w") as f:
+                f.write(content)
+            if os.path.exists(path):
+                _shutil.copymode(path, _tmp)
+            else:
+                os.chmod(_tmp, 0o644)
+            os.replace(_tmp, path)
+        except Exception:
+            try:
+                os.unlink(_tmp)
+            except OSError:
+                pass
+            raise
         # Spec 032 §8a + Spec 062 — chmod +x for bash wrappers and
         # hook scripts; graceful degrade on RO mount.
         if (rel.startswith("bin/")
