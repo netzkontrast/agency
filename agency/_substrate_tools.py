@@ -642,6 +642,18 @@ class AgencyDoctor(SubstrateTool):
             except Exception:  # noqa: BLE001 — never crash the doctor
                 reflection_link_coverage = {"ready": None, "unlinked": 0}
 
+            # Spec 201 item 8 — the rich token-backend report (available tiers,
+            # preferred, last-used, band-check). Best-effort.
+            try:
+                from ._tokens import token_backend_report
+                _token_backend_report_val = token_backend_report(
+                    engine.drivers.get("token_counter"))
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                _token_backend_report_val = {"available": ["proxy"],
+                                             "preferred": "proxy",
+                                             "last_used": "proxy",
+                                             "band_check_ok": None}
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -660,7 +672,7 @@ class AgencyDoctor(SubstrateTool):
                 "embedder": engine.drivers.get("embedder").name,
                 # Spec 082 / 286-A2 — the live token-count backend (count_tokens /
                 # tiktoken / proxy), so a silent fallback to the proxy is visible.
-                "token_backend": engine.drivers.backend("token_counter"),
+                "token_backend": _token_backend_report_val,
                 # Spec 092 G3 / 286-A2 — the live LLM-decider backend (openrouter /
                 # anthropic / none), never the key. Custom-injected clients may
                 # omit backend() — the registry returns "custom".
