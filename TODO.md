@@ -156,7 +156,7 @@ Rebuild (derived from the Plan/ tree):
 - 157  architecture-drift-gate
 - 158  capability-scaffold-fixture-sweep
 - 159  dogfood-collect-deprecation-llm-classify
-- 160  cli-yaml-chain-and-fields-closure
+- 160  cli-yaml-chain-and-fields-closure   # Shipped (done) — CLI --chain (YAML dataflow over typed ChainStep, ${save_as.field} interpolation, one engine session, CHAIN_UNKNOWN_REF) + --fields projection already wired; Slice 2 adds field_projection() -> typed GateProjection (kept/dropped, was dormant); TDD (8 tests), check-drift clean
 - 161  skill-first-discovery-llm-rank
 - 162  skills-cap-llm-matcher
 - 163  progressive-disclosure-closure   # Shipped (done) — derive_skilldoc_status() renders each cap's live skill_doc + docstring-derived SkillDoc via emit_skill and compares byte-for-byte (36/36 byte_equal); SKILLDOC_MISSING_SECTION, agency_doctor.skilldoc_derive_coverage; references-set + bash-wrapper invariants live-enforced by install-regen drift gate; TDD (7 tests), check-drift clean

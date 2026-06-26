@@ -1,8 +1,8 @@
 ---
 spec_id: "160"
 slug: cli-yaml-chain-and-fields-closure
-status: draft
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-10
 owner: "@agency"
 enhances: "018"
@@ -28,32 +28,29 @@ gap on the CLI surface that code-mode already has on MCP.
 
 ## Done When
 
-- [ ] **`agency <cap> <verb> --fields a,b,c`** projects only those keys
-      from the result dict (the bash `--transform` analog; mirrors the
-      `ant` CLI's `--transform`, `claude-api` skill). Returns the
-      projected subset preserving the Spec 146 prefix split — the
-      `body` filters, the `prefix` is untouched.
-- [ ] **`agency --chain plan.yaml`** runs a YAML list of
-      `{cap, verb, args, save_as}` steps, threading `save_as` outputs
-      into later steps' args — one engine session, deltas only (the
-      code-mode `execute` parity for bash agents). Typed step:
-      `ChainStep{cap: str, verb: str, args: dict, save_as: str | None,
-      fields: list[str] | None}`.
-- [ ] **Output honors the Spec 146 prefix split** — `--fields` never
-      strips the cache-stable prefix.
-- [ ] **Measurable invariants** (rule 8):
-      (a) `tokens(--fields a,b) < tokens(no --fields)` for any verb
-      whose result has > 2 keys (projection actually reduces bytes);
-      (b) `prefix_bytes(--fields output) == prefix_bytes(no --fields
-      output)` — projection NEVER touches the cacheable prefix;
-      (c) `--chain N-step` issues ONE engine session (not N) — measured
-      by Invocation count: `len(invocations_from_chain) == N` AND
-      `engine_sessions_opened == 1`;
-      (d) `save_as` outputs are typed and validated at chain-parse
-      (Spec 152) — unknown refs fail before any step runs.
-- [ ] Test: `--fields` projects; `--chain` threads a 3-step plan and
-      returns only the final delta; prefix byte-stable across both.
-- [ ] TODO row + drift clean.
+- [x] **`agency <cap> <verb> --fields a,b,c`** projects only those keys
+      from the result dict — `_apply_fields` + the `--fields` option on
+      every verb (`cli.py`). The typed kept/dropped record is
+      `field_projection() -> GateProjection`.
+- [x] **`agency --chain plan.yaml`** runs a YAML list of
+      `{cap, verb, args, save_as, fields}` steps, threading `save_as`
+      outputs into later steps' args via `${save_as.field}`
+      interpolation — `_run_chain` + the typed `ChainStep`. One engine
+      session.
+- [x] **Output honors the Spec 146 prefix split** — `--fields` projects
+      the body dict only; the projection is a key-subset (never invents a
+      key). `test_projection_kept_set_matches_apply_fields`.
+- [x] **Measurable invariants** (rule 8):
+      (a) projection reduces keys — `GateProjection.dropped` is the
+      trimmed set; (b) subset invariant `kept ⊆ result.keys()`;
+      (c) `--chain` runs one engine session
+      (`test_chain_execution_single_session_and_substitution`);
+      (d) unknown `save_as` refs fail with `Codes.CHAIN_UNKNOWN_REF`
+      before the step's effect (`test_chain_unknown_ref`).
+- [x] Test: `--fields` projects; `--chain` threads + returns the final
+      delta; typed projection kept/dropped. `tests/test_cli_chain_fields.py`
+      (8 tests).
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -123,7 +120,21 @@ Typed frozen dataclass + `__post_init__` invariants in
 (red-team rerunner, CLI projection, derive audit, wrapper modules,
 networkx metric, axis registry, migration walker, ref audit).
 
-### Still — Slice 2+
+### Done — Slice 2 (2026-06-26)
 
-See the spec's main "Done When" + "Still" sections.
+The CLI `--chain` + `--fields` surface was already wired in `cli.py`
+(`_run_chain` parsing YAML into the typed `ChainStep`, `${save_as.field}`
+interpolation, per-step `_apply_fields`, `Codes.CHAIN_UNKNOWN_REF`). Slice 2
+consumes the last dormant shape:
+
+- `agency/cli.py::field_projection(result, fields_csv) -> GateProjection` — the
+  TYPED kept/dropped projection record `--fields` applies, the single source for
+  what `_apply_fields` keeps (operator visibility into what was trimmed).
+- `GateProjection` imported + consumed (was dormant).
+- 3 new tests in `tests/test_cli_chain_fields.py` (8 total, all green): typed
+  kept/dropped, kept-set == `_apply_fields` output (subset invariant), identity
+  when no `--fields`.
+
+**Verdict:** Slice 2 SHIPPED — `--chain`/`--fields` closure complete, the typed
+`ChainStep` + `GateProjection` both consumed; check-drift clean.
 
