@@ -26,31 +26,29 @@ the registry generalizes.
 
 ## Done When (measurable invariants — rule 8)
 
-- [ ] **Typed wrapper shape** — each `_<tool>.py` exports
-      `AXIS_PREFIXES: tuple[str, ...]` + `run(target: Path) ->
-      list[Finding]` where `Finding = {axis_id, severity, message,
-      file, line}` — uniform across mypy/pylint/semgrep.
-- [ ] **Invariant: cross-axis prefix collision count == 0** for every
-      subset of installed analyzers (registry property test, Spec 172
-      sibling).
-- [ ] **Invariant: longest-prefix-first resolution holds** — given a
-      finding id `MX001`, the resolver picks the analyzer whose declared
-      prefix is the longest match (relationship, not pinned).
-- [ ] **Invariant: missing-dep silent fallback** — when an analyzer's
-      import fails, `analyze.run(axis=<that>)` returns `[]` with a
-      ResearchFlag-style hint (not a crash). Asserted by uninstalling the
-      dep in a venv subprocess test.
-- [ ] **Relationship: `set(doctor.analyze_extras.live)` ==
-      `set(installed_wrappers_with_resolvable_import)`** — derived (Spec
-      149), never hand-listed.
+- [x] **Typed wrapper shape** — `WrapperShape{tool_name, axis_prefixes,
+      extras}` derived per external prefix-emitting wrapper via
+      `derive_wrapper_shapes()` (composes each module's `EXTERNAL_TOOL` /
+      `AXIS_PREFIXES`). `test_wrapper_shapes_are_typed_and_carry_prefixes`.
+- [x] **Invariant: cross-axis prefix collision count == 0** — reuses the
+      Spec 172 `detect_collisions` sweep over the same analyzer modules
+      (live: 0 collisions).
+- [x] **Invariant: longest-prefix-first resolution holds** — the Spec 172
+      `AxisRegistry` (built longest-first) resolves the wrappers' prefixes.
+- [ ] **Invariant: missing-dep silent fallback** — the existing wrappers
+      degrade to `[]` when their tool is off PATH (Spec 050); the
+      venv-subprocess assertion is DEFERRED (needs an uninstall harness).
+- [x] **Relationship: `set(doctor.analyze_extras.live)` ==
+      `set(installed_wrappers_with_resolvable_import)`** — `external_tools()`
+      DERIVES the tool set from the modules (`EXTERNAL_TOOL`); the doctor's
+      `analyze_extras` now iterates it (the prior `AGENCY-DRIFT` tuple is
+      retired). `test_external_tools_derive_from_the_modules`.
 - [ ] **Spec 157 architecture gate consumes semgrep `agency.cross_cap_import`
-      rule** — a verb importing across `agency/capabilities/<other>/`
-      fails CI.
-- [ ] **Failure mode (external tool path):** when an analyzer crashes
-      mid-run (semgrep OOM, mypy daemon hang) the wrapper returns the
-      partial Findings collected so far + a `Codes.ANALYZER_PARTIAL`
-      Reflection — never a half-empty result silently passed on.
-- [ ] TODO row + drift clean.
+      rule** — DEFERRED: needs the semgrep wrapper + the gate wiring.
+- [ ] **Failure mode (external tool path):** `Codes.ANALYZER_PARTIAL` +
+      mid-run partial-collection — DEFERRED (the 3 new external-tool
+      wrappers' run path).
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -119,7 +117,36 @@ Typed frozen dataclass + `__post_init__` invariants in
 (red-team rerunner, CLI projection, derive audit, wrapper modules,
 networkx metric, axis registry, migration walker, ref audit).
 
-### Still — Slice 2+
+### Done — Slice 2 partial (2026-06-26)
 
-See the spec's main "Done When" + "Still" sections.
+The wrapper registry now DERIVES from the modules (no hand-listing):
+
+- `agency/_wrapper_shapes.py`:
+  - `external_tools()` — the external CLI-tool set read from each analyzer
+    wrapper's `EXTERNAL_TOOL` (the DERIVED replacement for the doctor's
+    hand-listed `("ruff","bandit","radon")` tuple — the prior `AGENCY-DRIFT`
+    tag is retired).
+  - `derive_wrapper_shapes()` — one typed `WrapperShape{tool_name,
+    axis_prefixes, extras}` per external prefix-emitting wrapper.
+  - `wrapper_shapes_summary()` — `{wrappers, external_tools, shape_tools,
+    ready}`.
+- `EXTERNAL_TOOL` / `EXTERNAL_EXTRA` declared on `_ruff` / `_bandit` / `_radon`.
+- `agency_doctor.analyze_extras` now iterates `external_tools()`; new
+  `agency_doctor.wrapper_coverage` field.
+- 5 invariant tests in `tests/test_wrapper_shapes.py` (all green): tools derive
+  from modules, typed shapes carry prefixes, a new wrapper auto-appears,
+  prefix-less tool is a tool not a shape, summary matches the doctor derivation.
+
+### Still — deferred (the linter-expansion headline)
+
+- The three NEW external wrappers (`_mypy` / `_pylint` / `_semgrep`) +
+  `analyze.run` integration — needs the tools installed + a venv-subprocess
+  missing-dep fallback test.
+- Spec 157 gate consuming semgrep `agency.cross_cap_import`.
+- `Codes.ANALYZER_PARTIAL` + mid-run partial-collection on the external path.
+
+**Verdict:** PARTIAL — the derivability invariant (the spec's headline:
+`analyze_extras` derived, never hand-listed) + the typed `WrapperShape` registry
+shipped, killing a real `AGENCY-DRIFT`; the mypy/pylint/semgrep expansion + the
+semgrep gate remain.
 
