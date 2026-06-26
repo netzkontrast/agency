@@ -176,6 +176,10 @@ class Codes:
     # Spec 172 Slice 2 — analyzer-axis registry build failure modes.
     AXIS_PREFIX_COLLISION = "axis_prefix_collision"   # two analyzers claim the same prefix for DIFFERENT axes
     AXIS_PREFIX_MALFORMED = "axis_prefix_malformed"   # an analyzer's AXIS_PREFIXES is non-string / empty — fail fast at build
+    # Spec 163 Slice 2 — SkillDoc derive failure mode.
+    SKILLDOC_MISSING_SECTION = "skilldoc_missing_section"   # docstring has `Use when:` but is missing a required section — never emit a partial SkillDoc
+    # Spec 167 Slice 2 — architecture-metric build failure mode.
+    IMPORT_UNRESOLVED = "import_unresolved"   # an import edge can't be resolved to a module — flagged, not silently dropped
 
 
 @dataclass(frozen=True)

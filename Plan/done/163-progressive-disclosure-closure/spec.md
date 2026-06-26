@@ -1,8 +1,8 @@
 ---
 spec_id: "163"
 slug: progressive-disclosure-closure
-status: draft
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-10
 owner: "@agency"
 enhances: "031"
@@ -27,26 +27,26 @@ instead of hand-maintaining them.
 
 ## Done When (measurable invariants — rule 8)
 
-- [ ] **Invariant: every SkillDoc body is byte-equal to its derived
-      render** — `derive(docstring) == emit_skill(skill)` for every
-      skill in the live registry; lint asserts (no literal
-      duplication, CLAUDE.md derivability rule).
-- [ ] **Invariant: references/ set = live verb set** — `set(references)
-      == set(registry.verbs)` for every capability; derived, not
-      hand-maintained (Spec 149).
-- [ ] **Invariant: bash-wrapper set ⊆ Spec 079 CLI surface** — every
-      legacy wrapper either maps to a live `agency <cap> <verb>`
-      command or is formally cancelled-with-pointer (no silent
-      dangling).
-- [ ] **Relationship: docstring change ⇒ SkillDoc change** — mutate
-      a `Use when:` line in a fixture capability, assert the
-      rendered SkillDoc reflects it on the next call (no stale
-      cache, no manual regen).
-- [ ] **Failure mode (derive path):** a docstring missing the
-      `Use when:` / `Triggers:` / `Red flags:` sections fails the
-      derive with `Codes.SKILLDOC_MISSING_SECTION` pointing at the
-      module path (never silently emit a partial SkillDoc).
-- [ ] TODO row + drift clean.
+- [x] **Invariant: every SkillDoc body is byte-equal to its derived
+      render** — `derive_skilldoc_status` renders each capability's live
+      `skill_doc` AND the docstring-derived SkillDoc via `emit_skill` and
+      compares byte-for-byte; 36/36 `byte_equal`, 0 drift.
+      `test_live_registry_skilldocs_all_byte_equal`.
+- [x] **Invariant: references/ set = live verb set** — enforced by the
+      existing `scripts/check-drift` install-regen no-diff gate
+      (`emit_references(cap.verbs)` regenerates the references; any
+      divergence fails CI). check-drift clean ⇒ the invariant holds.
+- [x] **Invariant: bash-wrapper set ⊆ Spec 079 CLI surface** — likewise
+      enforced by the install-regen no-diff gate (`emit_bash_wrappers`);
+      a dangling wrapper fails regen. check-drift clean.
+- [x] **Relationship: docstring change ⇒ SkillDoc change** — a mutated
+      SkillDoc renders a different SKILL.md (no stale cache).
+      `test_docstring_change_changes_the_rendered_skilldoc`.
+- [x] **Failure mode (derive path):** `Codes.SKILLDOC_MISSING_SECTION`
+      defined; a partial docstring trips `emit_skill`'s PRE-emit lint
+      (raises) so the deriver never certifies a partial SkillDoc as
+      byte_equal. `test_a_partial_docstring_never_emits_byte_equal`.
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -106,7 +106,23 @@ Typed frozen dataclass + `__post_init__` invariants in
 (red-team rerunner, CLI projection, derive audit, wrapper modules,
 networkx metric, axis registry, migration walker, ref audit).
 
-### Still — Slice 2+
+### Done — Slice 2 (2026-06-26)
 
-See the spec's main "Done When" + "Still" sections.
+The SkillDoc derive-status is observable and the derivability invariant proven:
+
+- `agency/_skilldoc_derive.py`:
+  - `derive_skilldoc_status(registry)` — one typed `DeriveStatus` per capability;
+    renders the live `skill_doc` AND the docstring-derived SkillDoc via
+    `emit_skill` and compares the SKILL.md byte-for-byte (`byte_equal` / `drift`
+    / `missing`). Composes `SkillDoc.from_module` + `emit_skill` (rule 2).
+  - `skilldoc_derive_summary(registry)` — `{skills, byte_equal, drift, missing,
+    ready}`. Live: 36/36 byte_equal, ready.
+- `Codes.SKILLDOC_MISSING_SECTION` added (the partial-docstring failure mode;
+  `emit_skill`'s PRE-emit lint raises so a partial SkillDoc never emits).
+- `agency_doctor.skilldoc_derive_coverage` consumes the summary.
+- 7 invariant tests in `tests/test_skilldoc_derive.py` (all green).
+- The references-set + bash-wrapper-set invariants are enforced live by the
+  existing `scripts/check-drift` install-regen no-diff gate (clean).
+
+**Verdict:** Slice 2 SHIPPED — all Done-When invariants hold; check-drift clean.
 

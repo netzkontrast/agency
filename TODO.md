@@ -159,11 +159,11 @@ Rebuild (derived from the Plan/ tree):
 - 160  cli-yaml-chain-and-fields-closure
 - 161  skill-first-discovery-llm-rank
 - 162  skills-cap-llm-matcher
-- 163  progressive-disclosure-closure
+- 163  progressive-disclosure-closure   # Shipped (done) — derive_skilldoc_status() renders each cap's live skill_doc + docstring-derived SkillDoc via emit_skill and compares byte-for-byte (36/36 byte_equal); SKILLDOC_MISSING_SECTION, agency_doctor.skilldoc_derive_coverage; references-set + bash-wrapper invariants live-enforced by install-regen drift gate; TDD (7 tests), check-drift clean
 - 164  implementation-discipline-wet
 - 165  micro-extensions-closure
 - 166  analyze-deps-extras-expand
-- 167  analyze-architecture-networkx-impl
+- 167  analyze-architecture-networkx-impl   # Partial — derive_arch_metrics() composes the architecture analyzer's import graph into typed ArchMetrics (cycle/fan-out/fan-in/god-module, 545 live), fan-identity invariant, relative god-module top-decile, IMPORT_UNRESOLVED, ArchMetric.baseline, agency_doctor.architecture_metrics; TDD (5). Still: A001 cross-PR cycle-monotonicity gate + Spec-157 evidence relationship (need CI baseline)
 - 168  research-web-driver-depth
 - 169  ci-coverage-and-flake-gate   # Partial — Slice 1 (typed GateResult + pure evaluate) + Slice 2-partial/4 shipped: derive_gate_results() turns the live test-gap report into one GateResult per capability (verb-test-coverage dimension), GATE_INFRA_ERROR code (fail-closed), agency_doctor.coverage_gate (36/36 pass); TDD. Still: coverage-% trend (pytest-cov baseline JSON), flake re-run harness, CI-workflow wiring (Slices 2-trend/3/5 — need CI runtime)
 - 170  install-doctor-deepening

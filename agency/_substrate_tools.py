@@ -702,6 +702,33 @@ class AgencyDoctor(SubstrateTool):
                 axis_registry_coverage = {"ready": None, "entries": 0,
                                           "collisions": 0}
 
+            # Spec 163 Slice 2 — SkillDoc derive-status: every live capability's
+            # SkillDoc rendered from its live `skill_doc` must be byte-equal to
+            # the one derived from its module docstring (the derivability
+            # invariant). `ready` iff zero drift + zero missing.
+            try:
+                from ._skilldoc_derive import skilldoc_derive_summary
+                _sd = skilldoc_derive_summary(engine.registry)
+                skilldoc_derive_coverage = {"ready": _sd["ready"],
+                                            "skills": _sd["skills"],
+                                            "byte_equal": _sd["byte_equal"],
+                                            "drift": len(_sd["drift"]),
+                                            "missing": len(_sd["missing"])}
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                skilldoc_derive_coverage = {"ready": None, "skills": 0,
+                                            "byte_equal": 0, "drift": 0,
+                                            "missing": 0}
+
+            # Spec 167 Slice 2 — architecture metrics: the import graph projected
+            # into typed ArchMetrics (cycles / fan-out / fan-in / god-module).
+            # `ready` iff the fan-out/fan-in edge-count identity holds.
+            try:
+                from ._arch_metrics import arch_metrics_summary
+                architecture_metrics = arch_metrics_summary()
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                architecture_metrics = {"ready": None, "metrics": 0,
+                                        "cycles": 0, "god_modules": 0}
+
             # Spec 201 item 8 — the rich token-backend report (available tiers,
             # preferred, last-used, band-check). Best-effort.
             try:
@@ -772,6 +799,12 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 172 Slice 2 — analyzer-axis registry (ready iff zero
                 # prefix collisions + no malformed AXIS_PREFIXES).
                 "axis_registry_coverage": axis_registry_coverage,
+                # Spec 163 Slice 2 — SkillDoc derive-status (ready iff every
+                # SkillDoc is byte-equal to its docstring-derived render).
+                "skilldoc_derive_coverage": skilldoc_derive_coverage,
+                # Spec 167 Slice 2 — architecture metrics (ready iff the
+                # fan-out/fan-in edge identity holds over the import graph).
+                "architecture_metrics": architecture_metrics,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
