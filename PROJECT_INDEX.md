@@ -40,7 +40,7 @@ without preloading them.
 Boundaries are line-numbers verified against the source by inspecting
 the headings. (6 symbols)
 
-### `agency/` (79 files)
+### `agency/` (83 files)
 - **__init__.py** — agency — an installable Claude Code plugin: the v4 core on the real substrate.
 
 Four concepts (Intent, Capability, Lifecycle, Memory) + a FastMCP engine, over a
@@ -52,6 +52,13 @@ Three console-script entry points (Spec 039):
   `agency-mcp`    — MCP server entry; this module's :func:`main`.
   `agency-doctor` — bare-CLI health check; this module's
                     :func:`doctor_main`. (12 symbols)
+- **_arch_metrics.py** — Spec 167 Slice 2 — derive typed `ArchMetric`s from the live import graph.
+
+Slice 1 shipped the typed `ArchMetric` shape but nothing populated it (dormant).
+This is the deriver: it COMPOSES the architecture analyzer (`analyze/_architecture.py`
+— Spec 051) — `_build_graph` (AST import graph), `_scc_cycles`/`_cycle_path`
+(networkx-backed SCC, pure-Python fallback), and `_degrees` (fan-in/fan-out) —
+into typed `ArchMetric` findings. (9 symbols)
 - **_axis_registry_sweep.py** — Spec 172 Slice 2 — derive the analyzer-axis registry from the live wrappers.
 
 Slice 1 shipped the typed `AxisRegistry` (prefix → analyzer_id, with `resolve`)
@@ -223,6 +230,13 @@ the answer. (15 symbols)
 The three non-capability concepts of CORE.md's four (Intent · Lifecycle · Memory)
 are first-class skills, authored as committed `skill.yaml` of `type: pillar` under
 `agency/pillars/`. (8 symbols)
+- **_plugin_ref_audit.py** — Spec 177 Slice 2 — the plugin-reference continuous-audit sweep.
+
+Slice 1 shipped the typed `RefFinding` shape but nothing populated it (dormant).
+This is the audit: a deterministic, idempotent sweep over the committed plugin
+files (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
+`commands/*.md`) checking each against an OPEN set of reference invariants
+(Spec 064 — the `working-with-claude-code` reference). (16 symbols)
 - **_predicates.py** — Spec 011 — decidable gate predicates (pure module helpers, not verbs).
 
 A predicate that blocks a phase IS a `gate` (CLUSTERS:18). (9 symbols)
@@ -326,6 +340,10 @@ Live-skill compatibility (Codex review on PR #127):
   registry already uses; see `agency/capabilities/music/ontology.py`,
   `agency/capabilities/subagent/_main.py`, `agency/capabilities/skills.py`).
 - Top-level `kind` (e.g. (26 symbols)
+- **_skilldoc_derive.py** — Spec 163 Slice 2 — derive-status of every live capability's SkillDoc.
+
+Slice 1 shipped the typed `DeriveStatus` shape but nothing populated it
+(dormant). (6 symbols)
 - **_substrate_tools.py** — Substrate tools as a registered set — Spec 286 Phase 2 / A5.
 
 The engine exposes a handful of WIRE TOOLS that are **not** capability verbs:
@@ -377,6 +395,11 @@ The "strip / re-wrap `{result}`" rule (Spec 019) and the Spec 282 failure
 envelope (`{ok, error:{code,message,severity,retryable,trace_id}}`) were
 duplicated across `engine._wire`/`engine._shape_wire_result` and
 `cli._structured`. (7 symbols)
+- **_wrapper_shapes.py** — Spec 166 Slice 2 — derive the analyzer-wrapper registry from the live modules.
+
+Slice 1 shipped the typed `WrapperShape` but nothing populated it (dormant), and
+the doctor's `analyze_extras` hand-listed `("ruff", "bandit", "radon")` behind an
+`AGENCY-DRIFT` tag. (7 symbols)
 - **cache.py** — Spec 031 §E / Task 2.4 — atomic JSON cache for skill emit idempotency.
 
 The cache lives at <cache_dir>/skill-cache.json — a single document mapping
@@ -385,7 +408,7 @@ capability name → {hash, files: [paths]}. (10 symbols)
 - **cli.py** — Bash-callable engine — the L3 layer of the harness-in-harness ladder (Click).
 
 A bash-only agent (Jules, Codex, a raw LLM with a shell) has no MCP client and no
-Skill loader. (46 symbols)
+Skill loader. (47 symbols)
 - **disclosure.py** — Adaptive disclosure renderer — Spec 023 Phase 1.
 
 A pure rendering pass over Capability/Verb/Skill nodes. (22 symbols)
@@ -522,7 +545,7 @@ Rules shipped:
 - **_bandit.py** — Spec 050 — bandit wrapper.
 
 Composes bandit's CWE-mapped Python security ruleset into the agency
-Finding shape. (11 symbols)
+Finding shape. (13 symbols)
 - **_coverage.py** — Spec 383 §1 — source-coverage matrix loader (the brooks dozen).
 
 The twelve classic software-engineering books are vendored as cited data in
@@ -566,7 +589,7 @@ Rules shipped (v1):
 - **_radon.py** — Spec 050 — radon wrapper.
 
 Composes radon's cyclomatic complexity + maintainability index into
-the agency Finding shape. (18 symbols)
+the agency Finding shape. (20 symbols)
 - **_report.py** — Spec 382 §4 / 384 — report-render helpers (tiering · summary · mermaid · the
 quality-report render itself).
 
@@ -586,7 +609,7 @@ Degrades silently when ruff isn't on PATH (Spec 050 §"compose, don't
 replace" — internal Q001-Q004 still fire in that case).
 
 Subprocess + JSON; no Python-level ruff import (ruff is a Rust binary
-anyway). (11 symbols)
+anyway). (13 symbols)
 - **_sarif.py** — Spec 382 §1 — SARIF 2.1.0 emit, straight from structured Findings.
 
 Agency findings are born structured (Spec 360 ``Finding`` nodes), so SARIF renders
@@ -1277,7 +1300,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (33 symbols)
 
-### `tests/` (33 files)
+### `tests/` (37 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1293,12 +1316,16 @@ recognized by `adr.spec_decisions_ready` (the /open→/inprogress hinge) because
 `draft` stored `spec` as a node PROPERTY but never created the `REFINES` EDGE the
 predicate traverses. (6 symbols)
 - **test_analyze_subprocess_analyzer.py** — Spec 286 — the shared SubprocessAnalyzer template scaffold. (21 symbols)
+- **test_arch_metrics.py** — Spec 167 Slice 2 — typed architecture-metric deriver invariants.
+
+`derive_arch_metrics` composes the architecture analyzer's import graph into
+typed `ArchMetric` findings. (9 symbols)
 - **test_axis_registry_sweep.py** — Spec 172 Slice 2 — analyzer-axis registry deriver invariants.
 
 `derive_axis_registry` composes the live analyzer wrappers' `AXIS_PREFIXES` into
 the typed `AxisRegistry` — longest-prefix-first, order-independent, with collision
 + malformed guards. (14 symbols)
-- **test_cli_chain_fields.py** (13 symbols)
+- **test_cli_chain_fields.py** (16 symbols)
 - **test_coverage_gate_derive.py** — Spec 169 Slice 2 — the live coverage-gate deriver invariants.
 
 `derive_gate_results` turns the live registry's test-gap report (Spec 054) into
@@ -1366,6 +1393,10 @@ called (dormant surface). (4 symbols)
 - **test_param_shapes.py** — Spec 390 D2 — param_shapes substrate: surface a param's required nested
 object/array shape in the wire description (the get_schema-visible surface), so a
 fresh agent sees `context: [{id, text}]` instead of a bare `any[]`. (6 symbols)
+- **test_plugin_ref_audit.py** — Spec 177 Slice 2 — plugin-reference continuous-audit invariants.
+
+`audit_plugin_refs` sweeps the committed plugin files against an open set of
+reference invariants, producing typed `RefFinding`s. (8 symbols)
 - **test_projected_enum.py** — Spec 284 — projected-enum substrate. (19 symbols)
 - **test_reflection_link_sweep.py** — Spec 173 Slice 2 — live reflection-link coverage sweep + WARN→error promotion.
 
@@ -1379,8 +1410,13 @@ Every capability call appends one line to ``.agency/sessions/<intent>.activity.m
 - **test_session_snapshot.py** — Session-graph snapshot export/import — round-trip + value-only (Spec follow-up). (5 symbols)
 - **test_skill_emit.py** (10 symbols)
 - **test_skill_walk_part_b.py** — Spec 285 Slice 1 Part B — walk-level sampling + enforced assumption-gate. (29 symbols)
+- **test_skilldoc_derive.py** — Spec 163 Slice 2 — SkillDoc derive-status invariants.
+
+Every live capability's SkillDoc must be byte-equal to the SkillDoc derived from
+its module docstring (the derivability invariant). (12 symbols)
 - **test_token_count_failure.py** — Spec 201 — the remaining two Done-When items: error_code population on
 per-call backend fallback, and the rich agency_doctor.token_backend report. (11 symbols)
+- **test_wrapper_shapes.py** — Spec 166 Slice 2 — analyzer-wrapper registry deriver invariants. (10 symbols)
 
 ### `tests/acceptance/` (133 files)
 - **conftest.py** — Shared fixtures + helpers for the Gherkin acceptance suite.

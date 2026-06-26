@@ -754,6 +754,25 @@ class AgencyDoctor(SubstrateTool):
                 wrapper_coverage = {"ready": None, "wrappers": 0,
                                     "external_tools": [], "shape_tools": []}
 
+            # Spec 191 Slice 2 — vision-alignment matrix: every spec's
+            # vision_goals frontmatter rolled into per-Goal rows + typed
+            # AlignmentCells (one per spec×goal). `ready` iff no spec is orphaned
+            # and no goal ref is unknown (the coverage invariant). Best-effort:
+            # the matrix lives in scripts/, absent in some installed forms.
+            try:
+                from scripts.vision_matrix import alignment_summary
+                _root = project_dir or os.getcwd()
+                _vm = alignment_summary(
+                    os.path.join(_root, "Plan"),
+                    os.path.join(_root, "docs", "vision", "GOALS.md"),
+                    os.path.join(_root, "TODO.md"))
+                vision_alignment = {"ready": _vm["ready"], "specs": _vm["specs"],
+                                    "cells": _vm["cells"], "goals": _vm["goals"],
+                                    "biggest_gaps": _vm["biggest_gaps"]}
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                vision_alignment = {"ready": None, "specs": 0, "cells": 0,
+                                    "goals": 0, "biggest_gaps": []}
+
             # Spec 201 item 8 — the rich token-backend report (available tiers,
             # preferred, last-used, band-check). Best-effort.
             try:
@@ -836,6 +855,9 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 166 Slice 2 — analyzer-wrapper registry (external-tool set
                 # + typed WrapperShapes derived from the wrapper modules).
                 "wrapper_coverage": wrapper_coverage,
+                # Spec 191 Slice 2 — vision-alignment matrix (per-Goal rows +
+                # typed AlignmentCells derived from spec vision_goals frontmatter).
+                "vision_alignment": vision_alignment,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
