@@ -631,6 +631,17 @@ class AgencyDoctor(SubstrateTool):
             except Exception:  # noqa: BLE001 — never crash the doctor
                 node_id_guard_coverage = {"ready": None, "violations": 0, "unresolved": 0}
 
+            # Spec 173 Slice 2 — reflection-link coverage: ready iff every live
+            # Reflection carries BOTH SERVES + OBSERVED_DURING (the WARN→error
+            # promotion gate + the Spec 150 classifier's attribution guarantee).
+            try:
+                from ._reflection_link_sweep import sweep as _refl_sweep
+                _refl = _refl_sweep(engine.memory)
+                reflection_link_coverage = {"ready": _refl["ready"],
+                                            "unlinked": _refl["unlinked"]}
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                reflection_link_coverage = {"ready": None, "unlinked": 0}
+
             return {
                 "ok": len(next_steps) == 0,
                 "python_version": ".".join(str(v) for v in sys.version_info[:3]),
@@ -674,6 +685,9 @@ class AgencyDoctor(SubstrateTool):
                 "schema_coverage": schema_coverage,
                 # Spec 171 Slice 2 — node-id-guard coverage (ready iff sweep clean).
                 "node_id_guard_coverage": node_id_guard_coverage,
+                # Spec 173 Slice 2 — reflection-link coverage (ready iff every
+                # Reflection has both SERVES + OBSERVED_DURING).
+                "reflection_link_coverage": reflection_link_coverage,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,

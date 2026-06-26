@@ -587,7 +587,11 @@ class NodeIdGuardRule(CapabilityLintRule):
 
 class ReflectionLinkRule(CapabilityLintRule):
     kind = "reflection_link"
-    severity = "soft"
+    # Spec 173 Slice 2 — promoted WARN→block: the source lint is clean (every verb
+    # that records a Reflection links both edges) and the live graph sweep is clean
+    # (agency/_reflection_link_sweep.py + the doctor's reflection_link_coverage.ready),
+    # so the gate now FAILS any new partial-link verb.
+    severity = "block"
     remediation = {
         "what": "A Reflection is recorded without both SERVES and OBSERVED_DURING edges.",
         "steps": ["Link the recorded id with BOTH `SERVES` and `OBSERVED_DURING` to the intent."],

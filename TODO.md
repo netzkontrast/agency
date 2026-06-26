@@ -169,7 +169,7 @@ Rebuild (derived from the Plan/ tree):
 - 170  install-doctor-deepening
 - 171  node-id-guard-coverage   # Shipped (done) — live node-id-guard sweep (GuardFinding[] + GUARD_LINT_UNRESOLVED), WARN->error promotion (registry clean), agency_doctor.node_id_guard_coverage; TDD, check-drift clean
 - 172  analyzer-linter-expansion
-- 173  reflection-link-promote-error
+- 173  reflection-link-promote-error   # Shipped (done) — live reflection-link graph sweep (LinkFinding[] SERVES+OBSERVED_DURING), warn->error promotion (clean), REFLECTION_NO_INTENT substrate-enforced, agency_doctor.reflection_link_coverage; TDD
 - 174  template-verb-migration-closure
 - 175  install-surface-derived
 - 176  sessionstart-intent-capture
