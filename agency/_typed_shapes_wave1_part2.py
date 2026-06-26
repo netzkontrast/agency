@@ -197,6 +197,7 @@ class RefFinding:
     observed:  str
     expected:  str
     severity:  Severity
+    doc_source: str = ""           # Spec 177 — the reference doc this finding cites
 
     def __post_init__(self) -> None:
         if not self.file:

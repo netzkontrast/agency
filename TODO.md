@@ -173,7 +173,7 @@ Rebuild (derived from the Plan/ tree):
 - 174  template-verb-migration-closure
 - 175  install-surface-derived   # Shipped (done) — derive_install_surface() composes existing install.py generators into one typed InstallSurface (rows==registry, extras==pyproject, commands⊇curated family); INSTALL_REGEN_PARTIAL + atomic install write (tempfile+os.replace, byte-identical); agency_doctor.install_surface_coverage; TDD, check-drift clean
 - 176  sessionstart-intent-capture   # Shipped (done) — engine-side intent-capture contract (capture_session_intent: idempotent NO-OP re-entry, auto_ad_hoc non-blocking fallback, templated write-per-turn artefacts, AGENCY_INTENT env), CAPTURE_DEGRADED resumable payload, agency_doctor.sessionstart_capture; TDD (7 tests). Deferred refinement: shell-hook offer-timeout UI + live LLM-driver conversational capture (templated no-LLM path shipped)
-- 177  plugin-reference-continuous-audit
+- 177  plugin-reference-continuous-audit   # Shipped (done) — audit_plugin_refs() sweeps committed plugin files (plugin.json/marketplace.json/commands/*.md) against the open AUDITED_INVARIANTS set (6 baseline) producing typed RefFindings (doc_source added); idempotent, live tree clean; agency_doctor.plugin_ref_audit; TDD (5). Refinement: temporal reference-drift warn->error promotion (doc-source hash) deferred
 - 178  analyze-llm-judge-axis
 - 179  document-render-llm-narrative
 - 180  research-managed-agent-fanout
