@@ -662,6 +662,20 @@ class AgencyDoctor(SubstrateTool):
                 install_surface_coverage = {"ready": None, "rows": 0,
                                             "extras": 0, "commands": 0}
 
+            # Spec 176 Slice 2 — sessionstart-capture readiness: does the session
+            # already SERVE an Intent? `ready` iff an open Intent exists (the
+            # idempotency read — a session is never orphan). The non-blocking
+            # auto_ad_hoc fallback guarantees this once SessionStart has run.
+            try:
+                from ._intent_capture import open_intent_id as _open_iid
+                _oid = _open_iid(engine.memory)
+                sessionstart_capture = {"ready": bool(_oid),
+                                        "intent_id": _oid,
+                                        "open_intents": len(engine.memory.find("Intent"))}
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                sessionstart_capture = {"ready": None, "intent_id": "",
+                                        "open_intents": 0}
+
             # Spec 201 item 8 — the rich token-backend report (available tiers,
             # preferred, last-used, band-check). Best-effort.
             try:
@@ -723,6 +737,9 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 175 Slice 2 — install-surface coverage (whole install
                 # surface derived as one typed object; ready iff all derive).
                 "install_surface_coverage": install_surface_coverage,
+                # Spec 176 Slice 2 — sessionstart-capture readiness (ready iff
+                # the session already SERVES an Intent; auto_ad_hoc fallback).
+                "sessionstart_capture": sessionstart_capture,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,
