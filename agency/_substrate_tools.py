@@ -687,6 +687,21 @@ class AgencyDoctor(SubstrateTool):
                 coverage_gate = {"ready": None, "capabilities": 0,
                                  "passing": 0, "failing": []}
 
+            # Spec 172 Slice 2 — analyzer-axis registry: the live analyzer
+            # wrappers' AXIS_PREFIXES composed into the typed AxisRegistry;
+            # `ready` iff zero prefix collisions AND no malformed declarations
+            # (longest-prefix-first, order-independent). A new analyzer's
+            # prefixes auto-appear; a colliding one trips the guard.
+            try:
+                from ._axis_registry_sweep import axis_registry_summary
+                _axis = axis_registry_summary()
+                axis_registry_coverage = {"ready": _axis["ready"],
+                                          "entries": _axis.get("entries", 0),
+                                          "collisions": _axis.get("collision_count", 0)}
+            except Exception:  # noqa: BLE001 — never crash the doctor
+                axis_registry_coverage = {"ready": None, "entries": 0,
+                                          "collisions": 0}
+
             # Spec 201 item 8 — the rich token-backend report (available tiers,
             # preferred, last-used, band-check). Best-effort.
             try:
@@ -754,6 +769,9 @@ class AgencyDoctor(SubstrateTool):
                 # Spec 169 Slice 2/4 — CI coverage-gate (verb-test-coverage;
                 # ready iff every capability has a test).
                 "coverage_gate": coverage_gate,
+                # Spec 172 Slice 2 — analyzer-axis registry (ready iff zero
+                # prefix collisions + no malformed AXIS_PREFIXES).
+                "axis_registry_coverage": axis_registry_coverage,
                 # Spec 334 Slice 4 — unified-config: resolved values + sources
                 # (secrets redacted) + validation issues (also in next_steps).
                 "config": config_block,

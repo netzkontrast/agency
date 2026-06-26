@@ -173,6 +173,9 @@ class Codes:
     CAPTURE_DEGRADED = "capture_degraded"   # capture driver failed mid-flow — partial turns persisted, resumable
     # Spec 169 Slice 2 — CI coverage-gate infra failure mode.
     GATE_INFRA_ERROR = "gate_infra_error"   # the coverage tool itself crashed — gate fails closed, never silent-pass
+    # Spec 172 Slice 2 — analyzer-axis registry build failure modes.
+    AXIS_PREFIX_COLLISION = "axis_prefix_collision"   # two analyzers claim the same prefix for DIFFERENT axes
+    AXIS_PREFIX_MALFORMED = "axis_prefix_malformed"   # an analyzer's AXIS_PREFIXES is non-string / empty — fail fast at build
 
 
 @dataclass(frozen=True)

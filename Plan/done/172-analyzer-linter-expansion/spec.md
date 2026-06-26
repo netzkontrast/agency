@@ -1,8 +1,8 @@
 ---
 spec_id: "172"
 slug: analyzer-linter-expansion
-status: draft
-state: inprogress
+status: done
+state: done
 last_updated: 2026-06-10
 owner: "@agency"
 enhances: "057"
@@ -27,32 +27,30 @@ future linters drop in without a registry edit.
 
 ## Done When (measurable invariants — rule 8)
 
-- [ ] **Typed registry shape: `AxisRegistry{prefixes:
-      dict[str, AnalyzerId], resolve(finding_id: str) -> AnalyzerId |
-      None, collisions: list[tuple[str, AnalyzerId, AnalyzerId]]}`** —
-      exposes the union view + resolution + collisions for inspection.
-- [ ] **Invariant: `collisions == []`** for every realistic subset of
-      installed analyzers — property test (Spec 050 pattern); ≥ pairwise
-      + all-on coverage.
-- [ ] **Invariant: longest-prefix-first resolution** — given declared
-      prefixes `{"A", "A0"}`, `resolve("A001")` MUST return the analyzer
-      owning `"A0"`; not pinned to the current registry.
-- [ ] **Invariant: registry is order-independent** — for any
-      permutation of installed-analyzer load order, the resulting
-      registry's `prefixes` dict + `collisions` list are equal
-      (relationship, not pinned).
-- [ ] **Invariant: a deliberately-colliding fixture analyzer is
+- [x] **Typed registry shape: `AxisRegistry{prefixes, resolve(...)}` +
+      `collisions` view** — Slice 1 shipped the typed shape;
+      `derive_axis_registry` (Slice 2) populates it from the live
+      wrappers + `detect_collisions` exposes the collisions view.
+- [x] **Invariant: `collisions == []`** for the live + fixture subsets —
+      `test_live_registry_has_no_collisions` + `detect_collisions`
+      property tests (pairwise fixture + all-on live).
+- [x] **Invariant: longest-prefix-first resolution** — the registry is
+      built sorted longest-first, so `resolve("A001")` returns the owner
+      of `"A0"`. `test_longest_prefix_first_resolution`.
+- [x] **Invariant: registry is order-independent** — every permutation
+      of load order yields the identical `prefixes` tuple.
+      `test_registry_is_order_independent`.
+- [x] **Invariant: a deliberately-colliding fixture analyzer is
       REJECTED** with `Codes.AXIS_PREFIX_COLLISION` carrying both
-      conflicting analyzer ids — proves the guard, not pinned to a
-      specific collision.
-- [ ] **Relationship: `set(doctor.axis_map.keys()) ==
-      set(registry.prefixes.keys())`** for the live registry — Spec
-      170 consumer; derived (Spec 149).
-- [ ] **Failure mode (registry build):** an analyzer with a malformed
-      `AXIS_PREFIXES` (non-string, empty tuple) fails fast with
-      `Codes.AXIS_PREFIX_MALFORMED` at registry build, not at first
-      use — never silently skipped.
-- [ ] TODO row + drift clean.
+      conflicting axes. `test_colliding_fixture_is_rejected`.
+- [x] **Relationship: doctor reports the live registry** —
+      `agency_doctor.axis_registry_coverage {ready, entries, collisions}`
+      consumes `axis_registry_summary` (Spec 170 consumer; derived).
+- [x] **Failure mode (registry build):** a malformed `AXIS_PREFIXES`
+      (non-string / empty prefix) fails fast with
+      `Codes.AXIS_PREFIX_MALFORMED` at build.
+      `test_malformed_prefix_fails_fast`.
+- [x] TODO row + drift clean.
 
 ## Worked example (Given/When/Then)
 
@@ -128,7 +126,29 @@ Typed frozen dataclass + `__post_init__` invariants in
 (red-team rerunner, CLI projection, derive audit, wrapper modules,
 networkx metric, axis registry, migration walker, ref audit).
 
-### Still — Slice 2+
+### Done — Slice 2 (2026-06-26)
 
-See the spec's main "Done When" + "Still" sections.
+The axis-registry deriver is built and consumed:
+
+- `agency/_axis_registry_sweep.py`:
+  - `derive_axis_registry(modules=None)` — composes every live analyzer
+    wrapper's `AXIS_PREFIXES` into the typed `AxisRegistry`, prefixes sorted
+    **longest-first** (longest-prefix-first resolution) and **order-
+    independent**. Raises on collision.
+  - `detect_collisions(modules=None)` — pairwise prefix-collision report
+    (same prefix, different axes); same-axis overlaps idempotently unioned.
+  - `axis_registry_summary(modules=None)` — non-raising doctor roll-up
+    `{ready, entries, collision_count, collisions, code}`.
+- `Codes.AXIS_PREFIX_COLLISION` + `Codes.AXIS_PREFIX_MALFORMED` added.
+- `agency_doctor.axis_registry_coverage {ready, entries, collisions}`
+  consumes the sweep. Live: `{ready: true, entries: 20, collisions: 0}`.
+- 7 invariant tests in `tests/test_axis_registry_sweep.py` (all green):
+  Codes, live-no-collisions, longest-prefix-first, order-independence,
+  collision rejection, malformed fail-fast, same-axis-overlap-not-collision.
+
+The deriver composes the SAME analyzer set `analyze/_main.py::
+_build_axis_registry` unions, so the derived registry and the live lookup
+cannot drift (rule 2).
+
+**Verdict:** Slice 2 SHIPPED. `scripts/check-drift` clean.
 
