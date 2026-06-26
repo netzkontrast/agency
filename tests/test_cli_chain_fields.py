@@ -1,8 +1,8 @@
 import pytest
 from click.testing import CliRunner
 import json
-from agency.cli import cli
-from agency._typed_shapes_wave1_part2 import ChainStep
+from agency.cli import cli, field_projection, _apply_fields
+from agency._typed_shapes_wave1_part2 import ChainStep, GateProjection
 
 @pytest.fixture
 def runner():
@@ -94,3 +94,31 @@ def test_chain_unknown_ref(runner, intent_id, tmp_path):
     assert res.exit_code == 1
     parsed = json.loads(res.output)
     assert parsed.get("error") == "Codes.CHAIN_UNKNOWN_REF"
+
+
+def test_field_projection_is_typed_and_reports_kept_and_dropped():
+    # Spec 160 — the typed GateProjection record gives operator visibility into
+    # exactly what --fields trimmed.
+    result = {"a": 1, "b": 2, "c": 3}
+    proj = field_projection(result, "a,c")
+    assert isinstance(proj, GateProjection)
+    assert proj.kept == ("a", "c")
+    assert set(proj.dropped) == {"b"}
+
+
+def test_projection_kept_set_matches_apply_fields():
+    # the typed projection and the actual _apply_fields output agree (one source)
+    result = {"x": 1, "y": 2, "z": 3}
+    proj = field_projection(result, "y,x")
+    applied = _apply_fields(result, "y,x")
+    assert set(proj.kept) == set(applied.keys())
+    # subset invariant: projection never invents a key
+    assert set(applied.keys()) <= set(result.keys())
+
+
+def test_projection_identity_when_no_fields():
+    result = {"a": 1, "b": 2}
+    proj = field_projection(result, None)
+    assert proj.kept == ("a", "b") and proj.dropped == ()
+    # identity: _apply_fields returns the result unchanged
+    assert _apply_fields(result, None) is result

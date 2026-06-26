@@ -41,7 +41,7 @@ load_dotenv()            # committed .env template with ${VAR} expansion; no-op 
 
 from ._capture import keep_full
 from .engine import Engine
-from ._typed_shapes_wave1_part2 import ChainStep
+from ._typed_shapes_wave1_part2 import ChainStep, GateProjection
 
 
 def _structured(result):
@@ -248,6 +248,23 @@ def _apply_fields(result, fields_csv):
         if k in result:
             out[k] = result[k]
     return out
+
+
+def field_projection(result, fields_csv) -> GateProjection:
+    """Spec 160 — the TYPED kept/dropped projection record `--fields` applies.
+
+    Operator visibility into what the projection trimmed: ``kept`` is the
+    ordered key list the caller asked for (that exist), ``dropped`` is every
+    other top-level key. Identity (nothing dropped) when no ``fields_csv`` or a
+    non-dict result. The single source for what ``_apply_fields`` keeps."""
+    if not isinstance(result, dict):
+        return GateProjection(kept=(), dropped=())
+    if not fields_csv:
+        return GateProjection(kept=tuple(result.keys()), dropped=())
+    requested = [k.strip() for k in fields_csv.split(",") if k.strip()]
+    kept = tuple(k for k in requested if k in result)
+    dropped = tuple(k for k in result if k not in kept)
+    return GateProjection(kept=kept, dropped=dropped)
 
 
 def _emit_fields(result, rc, fields_csv=None):
