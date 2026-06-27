@@ -33,11 +33,15 @@ substrate tools** plus a few bootstrap tools:
 - **`execute(code)`** → run code against the live verb surface **inside the sandbox**;
   only the return value crosses back (**code-mode** — CORE.md:9-18).
 
-Bootstrap tools (the documented exceptions, the eleven in `SUBSTRATE_TOOLS`):
-`intent_bootstrap`, `agency_welcome`, `agency_doctor`, `agency_install`, `agency_reload`,
-`lifecycle_gate`, `lifecycle_open`, `lifecycle_move`, `lifecycle_close`,
-`memory_graph_provenance`, `hook_event` (the three `lifecycle_open`/`move`/`close` writers
-landed with Spec 339). This set is guarded by the
+Bootstrap tools (the documented exceptions in `SUBSTRATE_TOOLS`):
+
+<!-- derived:substrate-tools -->
+The **11** substrate tools (`SUBSTRATE_TOOLS`): `lifecycle_gate`, `lifecycle_open`, `lifecycle_move`, `lifecycle_close`, `memory_graph_provenance`, `hook_event`, `intent_bootstrap`, `agency_install`, `agency_doctor`, `agency_welcome`, `agency_reload`.
+<!-- /derived:substrate-tools -->
+
+(the three `lifecycle_open`/`move`/`close` writers landed with Spec 339). This set is
+derived from code by `scripts/derive_docs.py` (Spec 389 — `derive_docs --write-docs`
+regenerates the fence above) and guarded by the
 `tests/acceptance/features/capability_surface.feature` substrate-tools scenario.
 
 **Code-mode is the contract.** An agent does not call verbs one-RPC-at-a-time; it writes
