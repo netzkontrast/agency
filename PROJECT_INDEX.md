@@ -1247,9 +1247,13 @@ Music drivers graduated from ``examples/music_drivers.py`` into
 ``agency/capabilities/music/drivers.py`` as part of the Spec 094
 migration. (4 symbols)
 
-### `scripts/` (13 files)
+### `scripts/` (14 files)
 - **__init__.py** — Helper scripts (Spec 054 drift-management, Spec 149 derived-doc discipline,
 Spec 053 test-suite slicing). (1 symbols)
+- **_spec_tree.py** — Shared spec-tree walker — the ONE place that knows where spec files live.
+
+Spec 357 moved every spec into a physical STATE folder
+(``Plan/<state>/<NNN-slug>/spec.md``). (3 symbols)
 - **check_architecture.py** — Spec 157 Slice 1 — typed ArchitectureReport + wire-verb invariant audit.
 
 Spec 019 commits to EXACTLY three wire verbs at the engine boundary
@@ -1284,7 +1288,7 @@ all derive from one source. (23 symbols)
 - **derive_docs.py** — Spec 149 Slice 2 — `derive-docs` core derivation library.
 
 Spec 149 Slice 1 shipped the `vision_goals:` frontmatter validator + 129-
-spec baseline. (29 symbols)
+spec baseline. (30 symbols)
 - **followup_derive.py** — Spec 269 — per-spec Followup Implementation Status: derived FollowupBlock.
 
 Per CLAUDE.md rule 4 the per-spec deep state lives in each spec.md's
@@ -1298,9 +1302,9 @@ refresh. (13 symbols)
 - **vision_matrix.py** — Spec 191 — live vision-alignment matrix derivation.
 
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
-the first time a spec ships. (33 symbols)
+the first time a spec ships. (36 symbols)
 
-### `tests/` (37 files)
+### `tests/` (39 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1414,8 +1418,18 @@ Every capability call appends one line to ``.agency/sessions/<intent>.activity.m
 
 Every live capability's SkillDoc must be byte-equal to the SkillDoc derived from
 its module docstring (the derivability invariant). (12 symbols)
+- **test_spec_tree_glob.py** — Spec 357 follow-up — the spec-tree walker that resurrects the state-migration
+broken CI gates.
+
+Four spec-walking scripts globbed `Plan/*/spec.md` (one level) and matched ZERO
+specs after specs moved into `Plan/<state>/<NNN>/spec.md` — silently turning
+their CI gates (`check_vision_goals`, `derive_docs --check`) into no-ops. (9 symbols)
 - **test_token_count_failure.py** — Spec 201 — the remaining two Done-When items: error_code population on
 per-call backend fallback, and the rich agency_doctor.token_backend report. (11 symbols)
+- **test_vision_alignment_cells.py** — Spec 191 Slice 2 — the vision-matrix glob fix + typed AlignmentCell projection.
+
+The Slice-1 `scripts/vision_matrix.py` rendered an all-zeros matrix post Spec 357
+(its one-level glob missed the `Plan/<state>/<NNN>/spec.md` layout). (13 symbols)
 - **test_wrapper_shapes.py** — Spec 166 Slice 2 — analyzer-wrapper registry deriver invariants. (10 symbols)
 
 ### `tests/acceptance/` (133 files)

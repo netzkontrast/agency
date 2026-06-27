@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts._spec_tree import spec_files
+from scripts._spec_tree import spec_by_id, spec_files
 
 _REPO = Path(__file__).resolve().parents[1]
 _PLAN = _REPO / "Plan"
@@ -36,6 +36,15 @@ def test_spec_files_is_sorted_and_deterministic():
     a = spec_files(_PLAN)
     b = spec_files(_PLAN)
     assert a == b == sorted(a)
+
+
+def test_spec_by_id_is_state_folder_aware():
+    # a per-id lookup must survive the migration too (check-followup uses it)
+    p = spec_by_id(_PLAN, "191")
+    assert p is not None and p.name == "spec.md"
+    assert p.parent.name.split("-", 1)[0] == "191"
+    # a non-existent id returns None (no crash)
+    assert spec_by_id(_PLAN, "99999") is None
 
 
 def test_check_vision_goals_gate_is_live_again():
