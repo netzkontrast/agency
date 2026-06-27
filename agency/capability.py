@@ -18,6 +18,28 @@ from typing import Any, Callable, ClassVar, Optional, Protocol, runtime_checkabl
 
 from .memory import Memory
 from .ontology import OntologyExtension
+
+def _render_env(templates: Any = None) -> Any:
+    """A Jinja ``Environment`` behind ``ctx.render`` (Spec 388).
+
+    Imported lazily so loading ``capability`` never hard-requires jinja2 at module
+    load. ``StrictUndefined`` keeps the missing-var-raises safety of the old
+    ``string.Template.substitute``; autoescape is off (templates emit markdown, not
+    HTML — escaping `<`/`&` would corrupt mermaid + code blocks, and the inputs are
+    first-party finding/spec data). The loader resolves ``{% include %}`` /
+    ``{% import %}`` against the live ``ontology.templates`` (both bare-string and
+    ``string.Template`` shapes), so a template renders a sibling form once — e.g.
+    ``quality-report.md`` loops findings through ``iron-law-finding.md``."""
+    from jinja2 import Environment, FunctionLoader, StrictUndefined
+
+    def _load(name: str):
+        if not templates or name not in templates:
+            return None
+        t = templates[name]
+        return t.template if isinstance(t, _Template) else t
+
+    return Environment(undefined=StrictUndefined, autoescape=False,
+                       loader=FunctionLoader(_load))
 from ._verb import Verb
 
 
@@ -273,14 +295,20 @@ class CapabilityContext:
             pass
 
     def render(self, template: str, **vars: Any) -> str:
-        # Spec 060 round 9 — `ontology.templates` carries BOTH bare strings
-        # (dict-form declarations) and `string.Template` instances (file-
-        # form loader output). `_Template(string)` works for the string
-        # case but `_Template(Template)` TypeErrors. Detect both shapes.
+        # Spec 388 (owner directive 2026-06-23) — render through Jinja so a
+        # template's gates are decided programmatically: `{% if %}` / `{% for %}`
+        # are evaluated and `{# #}` comments are engine-stripped, replacing the
+        # interim Spec 384 regex strippers. `StrictUndefined` preserves the old
+        # `string.Template.substitute` safety (a missing var raises, never renders
+        # blank); autoescape is off because templates emit markdown, not HTML
+        # (escaping `<`/`&` would corrupt mermaid + code blocks, and the inputs are
+        # first-party finding/spec data, not untrusted web input).
+        # `ontology.templates` carries BOTH bare strings (dict-form declarations)
+        # and `string.Template` instances (file-form loader output); take the raw
+        # body off either shape. # AGENCY-DRIFT: template-engine
         tpl = self.ontology.templates[template]
-        if isinstance(tpl, _Template):
-            return tpl.substitute(**vars)
-        return _Template(tpl).substitute(**vars)
+        body = tpl.template if isinstance(tpl, _Template) else tpl
+        return _render_env(self.ontology.templates).from_string(body).render(**vars)
 
     def schema(self, name: str) -> list:
         return list(self.ontology.schemas.get(name, []))
