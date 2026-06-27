@@ -80,7 +80,46 @@ prose drift (still hand-reviewed, this spec just shrinks that surface).
 - Given a derived fence that is opened but unclosed, Then the run fails with
   `Codes.DERIVE_FENCE_BROKEN` (reuse the Spec 149 contract).
 
-## Followup — Implementation Status (draft)
+## Followup — Implementation Status
 
-Not started — drafted from the onboarding-proof loop's Pass-3 finding. Next: triage against
-Spec 259 (derived-doc-self-test) for overlap, then the acceptance phase.
+**IMPLEMENTED 2026-06-27 (TDD green).** The full IN-scope ships:
+
+- **The three code-introspection fence kinds** (`scripts/derive_docs.py`):
+  `render_substrate_tools()` (from `agency/_substrate_tools.py::SUBSTRATE_TOOLS`),
+  `render_driver_boundaries()` (live `Engine().drivers.names()` — the Spec-002
+  boundary set), and the parametrised `render_capability_verbs(<cap>)` (live
+  registry). A cached throwaway `_live_engine()` is built ONLY when a
+  boundary/verb fence is present (the `substrate-tools` fence reads a module tuple,
+  so it never pays the Engine cost). `apply_doc_fences(text)` regenerates every
+  `<!-- derived:<kind> -->` fence present, byte-preserving prose; an unclosed fence
+  raises `DeriveError(Codes.DERIVE_FENCE_BROKEN)` — reusing the Spec 149 contract.
+- **A `docs/` pass:** `derive_docs_pass(docs_root, write=)` + CLI `--write-docs` /
+  `--check-docs` (with `--docs-root`). `--check-docs` is the mechanical freshness
+  gate, now wired into `scripts/check-drift`.
+- **`check-doc-drift` integration:** the reusable logic moved to the importable
+  `scripts/_doc_drift.py` (the hyphenated script is now a thin shim). A stale doc is
+  triaged via `doc_has_derived_drift`: **STALE-AUTO** (derived fences out of date —
+  run `derive_docs --write-docs`) vs **STALE** (genuine prose drift — hand-review).
+  `--update` regenerates the fences before re-stamping, so an auto-resolvable doc
+  needs no hand edit. The derived pass never MASKS prose drift (the discriminator is
+  fence-content vs live code, independent of the source hash).
+- **First consumer + proof:** `docs/vision/reference/overview.md`'s substrate-tools
+  list is now a `<!-- derived:substrate-tools -->` fence, guarded by a standing test
+  (`test_overview_substrate_fence_in_sync_with_live`) + the `check-drift` gate.
+- **Tests:** `tests/test_derived_doc_fences.py` (19) — the renderers vs live source
+  (computed, not pinned — rule 8), fence rewrite/idempotence/prose-preservation, the
+  `DERIVE_FENCE_BROKEN` path, the derived-vs-prose discriminator, and the
+  `check_docs` triage (auto vs hand-review, `--update` regen). Full suite green,
+  `scripts/check-drift` clean.
+
+**Spec 259 overlap:** 259 (derived-doc-self-test) would TEST that derived docs stay
+in sync; 389 provides the derivation it tests — complementary, not blocking. 389
+ships its own standing guard (the overview in-sync test + the `check-drift` gate).
+
+**Still (deferred):** migrating MORE reference docs onto `driver-boundaries` /
+`capability-verbs` fences (the engine + CLI support them now; `overview.md` is the
+proof consumer). The 13 pre-existing prose-STALE docs remain hand-review (OUT of
+scope — 389 shrinks that surface, it does not rewrite prose).
+
+**Lifecycle:** code shipped + verified; awaiting owner ADR-approve + done-cascade
+(an agent never self-approves).

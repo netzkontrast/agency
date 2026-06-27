@@ -210,6 +210,145 @@ def render_fence_content(fence_id: str, derivation: "Derivation") -> str:
 _KNOWN_FENCES = ("test-count",)
 
 
+# ── Spec 389: code-introspection fences for hand-authored reference docs ──────
+# The Spec 149 fence engine derives per-spec facts (`test-count`) from a typed
+# `Derivation`. Spec 389 adds a SECOND family: fences whose content is derived
+# from the LIVE engine, not a per-spec object — the mechanically-derivable
+# fragments a hand doc copies from code (the `SUBSTRATE_TOOLS` roster, a
+# capability's verb list, the driver-boundary set). An author opts a fragment in
+# by wrapping it in `<!-- derived:<kind> -->` … `<!-- /derived:<kind> -->`;
+# `--write-docs` regenerates the fence from code, prose outside stays byte-exact.
+
+_DOC_FENCE_OPEN_RE = re.compile(r"<!--\s*derived:([A-Za-z0-9:_-]+)\s*-->")
+
+_LIVE_ENGINE = None
+
+
+def _live_engine():
+    """A throwaway in-process Engine for live introspection, built once and
+    cached. Lazy: only the boundary/verb fences need it; the `substrate-tools`
+    fence reads a module-level tuple, so a doc that only uses that fence never
+    pays the Engine-build cost."""
+    global _LIVE_ENGINE
+    if _LIVE_ENGINE is None:
+        import tempfile
+
+        from agency.engine import Engine
+        _LIVE_ENGINE = Engine(tempfile.mktemp(suffix=".db"),
+                              _require_skill_doc=False)
+    return _LIVE_ENGINE
+
+
+def _inline_code(names: list[str]) -> str:
+    """`a`, `b`, `c` — names rendered as inline code, comma-joined."""
+    return ", ".join(f"`{n}`" for n in names)
+
+
+def render_substrate_tools() -> str:
+    """The wire-name roster of `SUBSTRATE_TOOLS` (the engine's non-verb tools),
+    in declaration order. Source: `agency/_substrate_tools.py`."""
+    from agency._substrate_tools import SUBSTRATE_TOOLS
+    names = [t.name for t in SUBSTRATE_TOOLS]
+    return (f"The **{len(names)}** substrate tools (`SUBSTRATE_TOOLS`): "
+            f"{_inline_code(names)}.\n")
+
+
+def render_driver_boundaries() -> str:
+    """The named driver/boundary set the engine registers (Spec 002), sorted.
+    Source: `agency/engine.py::_boundary_defaults` (read live via the registry)."""
+    names = sorted(_live_engine().drivers.names())
+    return f"The **{len(names)}** driver boundaries: {_inline_code(names)}.\n"
+
+
+def render_capability_verbs(cap: str) -> str:
+    """A capability's verb roster, sorted. Source: the live registry."""
+    verbs = sorted(_live_engine().registry.get(cap).verbs.keys())
+    return f"`{cap}` — **{len(verbs)}** verbs: {_inline_code(verbs)}.\n"
+
+
+#: Fixed-id code-introspection fences. Parametrised kinds (e.g.
+#: `capability-verbs:<cap>`) are resolved by `doc_fence_content`.
+DOC_FENCE_RENDERERS = {
+    "substrate-tools": render_substrate_tools,
+    "driver-boundaries": render_driver_boundaries,
+}
+
+
+def doc_fence_content(fence_id: str) -> str | None:
+    """Render the canonical content for a code-introspection fence id, or None
+    when the id is not a known code-introspection kind (so callers leave
+    spec-only fences like `test-count` and unknown ids untouched)."""
+    if fence_id in DOC_FENCE_RENDERERS:
+        return DOC_FENCE_RENDERERS[fence_id]()
+    if fence_id.startswith("capability-verbs:"):
+        return render_capability_verbs(fence_id.split(":", 1)[1])
+    return None
+
+
+def doc_fence_ids(text: str) -> list[str]:
+    """Every code-introspection fence id opened in `text`, in order, de-duped.
+    Only OPEN markers (`<!-- derived:X -->`) match — the close marker
+    (`<!-- /derived:X -->`) carries a leading `/` the regex excludes. Spec-only
+    fences (`test-count`) and unknown ids are NOT returned — this family is the
+    code-introspection one."""
+    seen: list[str] = []
+    for m in _DOC_FENCE_OPEN_RE.finditer(text):
+        fid = m.group(1)
+        if fid not in seen and (fid in DOC_FENCE_RENDERERS
+                                or fid.startswith("capability-verbs:")):
+            seen.append(fid)
+    return seen
+
+
+def apply_doc_fences(text: str) -> str:
+    """Regenerate every code-introspection fence present in `text` from live
+    code. Prose outside the fences is byte-preserved. Raises ``DeriveError``
+    (``Codes.DERIVE_FENCE_BROKEN``) on an opened-but-unclosed fence — reusing
+    the Spec 149 fence contract."""
+    out = text
+    for fid in doc_fence_ids(text):
+        content = doc_fence_content(fid)
+        if content is None:
+            continue
+        out = rewrite_fence(out, fid, content)
+    return out
+
+
+def doc_has_derived_drift(text: str) -> bool:
+    """True iff regenerating `text`'s code-introspection fences would change it
+    — i.e. a fence is stale. The discriminator behind Spec 389's `check-doc-drift`
+    integration: a stale doc this returns True for is AUTO-resolvable (run
+    `--write-docs`); a stale doc with no derived drift is genuine prose drift
+    (hand-review). A doc with no derived fences is never derived-drifting."""
+    if not doc_fence_ids(text):
+        return False
+    return apply_doc_fences(text) != text
+
+
+def derive_docs_pass(docs_root: Path, *, write: bool = False
+                     ) -> tuple[list[Path], list[tuple[Path, str]]]:
+    """Walk `<docs_root>/**/*.md`; regenerate code-introspection fences. Returns
+    `(changed, broken)` — docs whose fences were stale (rewritten when
+    `write=True`) and docs with a fence error. Docs without derived fences are
+    skipped untouched."""
+    changed: list[Path] = []
+    broken: list[tuple[Path, str]] = []
+    for doc in sorted(docs_root.rglob("*.md")):
+        text = doc.read_text(encoding="utf-8")
+        if not doc_fence_ids(text):
+            continue
+        try:
+            out = apply_doc_fences(text)
+        except ValueError as e:
+            broken.append((doc, str(e)))
+            continue
+        if out != text:
+            changed.append(doc)
+            if write:
+                doc.write_text(out, encoding="utf-8")
+    return changed, broken
+
+
 def apply_derivations_to_spec_text(text: str, derivation: "Derivation") -> str:
     """Walk every known fence id; rewrite the ones present in `text`.
     Unknown fence ids are left alone — the author opts in by adding a
@@ -318,7 +457,41 @@ def main(argv: list[str] | None = None) -> int:
                              "spec has stale content (Slice 2.3 CI gate)")
     parser.add_argument("--repo-root", default=".",
                         help="repo root (for the pytest collect call)")
+    parser.add_argument("--docs-root", default="docs",
+                        help="root for the Spec 389 code-introspection doc fences "
+                             "(default: docs)")
+    parser.add_argument("--write-docs", action="store_true",
+                        help="Spec 389 — regenerate code-introspection fences "
+                             "(`substrate-tools`/`driver-boundaries`/`capability-verbs:<cap>`) "
+                             "in `<docs-root>/**/*.md` from live code")
+    parser.add_argument("--check-docs", action="store_true",
+                        help="Spec 389 — check doc fences for drift; exit 1 if any "
+                             "`<docs-root>` fence is stale (CI gate)")
     args = parser.parse_args(argv)
+
+    # Spec 389 — code-introspection fences over docs/ (independent of the
+    # per-spec test-count derivation, which needs the pytest collect).
+    if args.check_docs or args.write_docs:
+        changed, broken = derive_docs_pass(Path(args.docs_root),
+                                           write=args.write_docs)
+        for doc, err in broken:
+            print(f"  ! {doc}: {err}")
+        if args.write_docs:
+            for doc in changed:
+                print(f"  wrote {doc}")
+            print(f"derive-docs --write-docs: {len(changed)} doc(s) regenerated"
+                  + (f", {len(broken)} broken" if broken else ""))
+            return 1 if broken else 0
+        # --check-docs
+        if changed or broken:
+            print(f"DOC-FENCE DRIFT: {len(changed)} doc(s) have stale derived "
+                  f"fences — run `--write-docs` to regenerate")
+            for doc in changed:
+                print(f"    STALE  {doc}")
+            return 1
+        print("derive-docs --check-docs: all doc fences up to date")
+        return 0
+
     counts = _collect_live_test_counts(Path(args.repo_root))
     if args.check:
         stale = check_derivation_drift(Path(args.plan_root), counts=counts)
