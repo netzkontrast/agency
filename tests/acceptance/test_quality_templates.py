@@ -26,7 +26,10 @@ _QUALITY_MODES = sorted(s[len("quality-"):] for s in DEV_SKILLS
 
 
 def _agent_block(text: str) -> bool:
-    return "<!-- AGENT:" in text
+    # Spec 388 §6 — the render-author instruction is engine-agnostic: the HTML
+    # comment form (`<!-- AGENT: -->`, unported templates) OR the Jinja comment form
+    # (`{# AGENT: #}`, ported to the Jinja engine) both satisfy it.
+    return "<!-- AGENT:" in text or "{# AGENT:" in text
 
 
 # ── §3 the six mode walk templates ────────────────────────────────────────────
@@ -57,8 +60,8 @@ def test_each_mode_template_carries_agent_block_and_doc_source():
 def test_report_template_gates_the_audit_only_graph():
     body = (_ANALYZE_TPL / "quality-report.md").read_text(encoding="utf-8")
     assert _agent_block(body) and "doc-source:" in body
-    # the Module Dependency Graph is audit-mode only — a BEGIN IF conditional
-    assert "BEGIN IF is_audit" in body and "Module Dependency Graph" in body, body[:400]
+    # the Module Dependency Graph is audit-mode only — a Jinja {% if %} gate (Spec 388)
+    assert "{% if is_audit %}" in body and "Module Dependency Graph" in body, body[:400]
     # the language rule travels WITH the template (Spec 384 §1)
     assert "Language rule" in body, "report template missing the language rule block"
 
@@ -66,8 +69,9 @@ def test_report_template_gates_the_audit_only_graph():
 def test_iron_law_finding_template_has_four_slots():
     body = (_ANALYZE_TPL / "iron-law-finding.md").read_text(encoding="utf-8")
     assert "doc-source:" in body and _agent_block(body)
-    for slot in ("$symptom", "$source", "$consequence", "$remedy"):
-        assert slot in body, f"iron-law-finding.md missing {slot}"
+    # Spec 388 — the four Iron-Law slots are Jinja vars off the finding view-dict
+    for slot in ("f.symptom", "f.source", "f.consequence", "f.remedy"):
+        assert "{{ " + slot + " }}" in body, f"iron-law-finding.md missing {slot}"
 
 
 def test_remedy_template_exists_with_fix_tiers():

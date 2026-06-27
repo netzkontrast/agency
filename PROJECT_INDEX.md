@@ -404,7 +404,7 @@ the doctor's `analyze_extras` hand-listed `("ruff", "bandit", "radon")` behind a
 
 The cache lives at <cache_dir>/skill-cache.json — a single document mapping
 capability name → {hash, files: [paths]}. (10 symbols)
-- **capability.py** — Capability — the craft (the open concept). (82 symbols)
+- **capability.py** — Capability — the craft (the open concept). (84 symbols)
 - **cli.py** — Bash-callable engine — the L3 layer of the harness-in-harness ladder (Click).
 
 A bash-only agent (Jules, Codex, a raw LLM with a shell) has no MCP client and no
@@ -590,14 +590,15 @@ Rules shipped (v1):
 
 Composes radon's cyclomatic complexity + maintainability index into
 the agency Finding shape. (20 symbols)
-- **_report.py** — Spec 382 §4 / 384 — report-render helpers (tiering · summary · mermaid · the
+- **_report.py** — Spec 382 §4 / 384 / 388 — report-render helpers (tiering · summary · mermaid · the
 quality-report render itself).
 
-``analyze.report`` delegates here: ``render_quality_report`` renders the Spec 384
-templates (``quality-report.md`` + ``iron-law-finding.md`` via ``ctx.render``) and
-applies the INTERIM ``<!-- BEGIN IF -->`` / authoring-comment processing — Spec 388
-replaces this whole strip path with a Jinja ``{% if %}`` engine, a one-file delete
-here. (13 symbols)
+``analyze.report`` delegates here: ``render_quality_report`` builds the tier-sorted
+finding view-dicts and hands them to ``ctx.render("quality-report", findings=…)`` —
+the Jinja template (Spec 388) does the rest: ``{% if is_audit %}`` gates the Module
+Dependency Graph, ``{% for f in findings %}`` loops each finding through the
+``iron-law-finding`` form (``{% include %}``), and ``{# #}`` comments are
+engine-stripped. (9 symbols)
 - **_review.py** — Shared review core (Spec 380): scope-detect · merge · Iron Law gate · classify.
 
 This module is the single engine both develop.review (interactive) and
@@ -1305,6 +1306,7 @@ Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (36 symbols)
 
 ### `tests/` (39 files)
+### `tests/` (40 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1377,6 +1379,14 @@ The engine-side capture core the SessionStart hook drives: every session SERVES
 an Intent, capture never blocks (pure graph write), it is idempotent across
 re-entry, declines fall back to auto_ad_hoc, and AGENCY_INTENT reflects the
 resolved id. (14 symbols)
+- **test_jinja_template_engine.py** — Spec 388 — Jinja template engine: programmatic gates for all templates.
+
+Behaviour for the owner directive (2026-06-23): *"install jinja Template Engine
+and port all templates — let the gates be decided programmatically."* The
+``ctx.render`` seam (``CapabilityContext.render``) renders through a Jinja
+``Environment`` (``StrictUndefined``, autoescape off) so ``{% if %}`` / ``{% for %}``
+/ ``{# #}`` are first-class — replacing the interim Spec 384 regex strippers in
+``analyze/_report.py``. (19 symbols)
 - **test_lifecycle_resume.py** (4 symbols)
 - **test_lifecycle_trail_scope.py** — Spec 341 Slice 2 — manage.lifecycle_trail(scope=…): the unified cross-lifecycle
 transition view.
