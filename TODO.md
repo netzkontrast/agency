@@ -380,7 +380,7 @@ Rebuild (derived from the Plan/ tree):
 - 385  quality-migration
 - 386  multilang-decidable-scanners
 - 387  loop-activation
-- 388  jinja-template-engine
+- 388  jinja-template-engine   # Partial — core shipped (owner directive): jinja2 core dep, ctx.render → Jinja Environment (StrictUndefined, autoescape off, FunctionLoader for {% include %}), quality-report/iron-law-finding/improvement-plan/research-report ported ({% if %}/{% for %}/{# #}), interim Spec-384 strippers (strip_conditionals/strip_comments/_COND_RE/_COMMENT_RE) DELETED + render_quality_report shrunk (loop in template, no block-join). TDD: tests/test_jinja_template_engine.py (9) + quality-template contract tests updated; full suite 1742 green, check-drift clean. Still: cosmetic $var→{{ }} bulk-port of non-ctx.render templates (develop/quality-*, novel/*, music/* — already parse as Jinja, on the separate string.Template/scaffold path). Awaiting owner ADR-approve + done-cascade. NOTE: pre-existing spec_id collision with 388-spec-done-cascade.
 - 389  derived-fence-reference-docs
 - 388  spec-done-cascade
 - 390  skills-teach-the-call               # Shipped — skills carry code-mode call_tool examples

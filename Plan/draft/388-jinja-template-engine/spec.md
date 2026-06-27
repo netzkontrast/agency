@@ -184,3 +184,48 @@ pin, switch `ctx.render` to a `StrictUndefined`, autoescape-off `Environment`, p
 each template `$var`→`{{ }}` + `BEGIN IF`→`{% if %}` + author-notes→`{# #}` with a
 render-equivalence test per template, then delete the Spec 384 interim strippers and
 shrink `analyze.report`. RED→GREEN against the §Acceptance scenarios.
+
+**IMPLEMENTED 2026-06-27 (core shipped — TDD green).** The owner directive's heart —
+*install Jinja, decide gates programmatically* — is live:
+
+- **The engine.** `jinja2>=3.1` is a core dep (pyproject; `# AGENCY-DRIFT:
+  template-engine`). `CapabilityContext.render` (`capability.py`) renders through a
+  Jinja `Environment` (`StrictUndefined` keeps the missing-var-raises safety;
+  autoescape off for markdown) with a `FunctionLoader` over `ontology.templates`, so
+  `{% include %}` resolves siblings. `# AGENCY-DRIFT: template-engine` marks the seam.
+- **The gates are evaluated.** `quality-report.md` ports to `{% if is_audit %}`
+  (the live Module-Dependency-Graph gate) + `{% for f in findings %}{% include
+  "iron-law-finding" %}{% endfor %}` — the findings loop moved INTO the template
+  (OQ4 default). `iron-law-finding.md` ports to `{{ f.* }}` off a finding view-dict.
+  `improvement-plan.md` + `research-report.md` lose their dormant `<!-- BEGIN IF -->`
+  for `{% if %}`. Author/doc-source notes → `{# #}` (engine-stripped; OQ2 default).
+- **The interim hack is gone (§5).** `analyze/_report.py` no longer defines
+  `strip_conditionals` / `strip_comments` / `_COND_RE` / `_COMMENT_RE` (nor imports
+  `re`); `render_quality_report` shrank to "build finding view-dicts → `ctx.render`",
+  no manual block-join, no post-strip. `_finding_view` is the only added helper (pure
+  data prep — the wire-shape→slot mapping).
+- **Tests.** `tests/test_jinja_template_engine.py` — the 6 §Acceptance scenarios
+  (gate decided programmatically · loop renders list · `{# #}` stripped · 384
+  strippers gone · every template parses as Jinja + no `BEGIN IF` marker · missing
+  var raises `UndefinedError`) + an end-to-end `analyze.report` render. The Spec-384
+  contract tests (`tests/acceptance/test_quality_templates.py`) updated to the
+  engine-agnostic agent-block check (`<!-- AGENT -->` OR `{# AGENT #}`, §6) and the
+  Jinja `{% if %}` / `{{ f.* }}` slots. `scripts/check-drift` clean.
+- **Doc.** `docs/vision/CAPABILITY-AUTHORING.md` §"Templates instruct agents" carries
+  the Spec-388 Jinja callout + §4 conditional-section rewrite.
+
+**Still (deferred, NOT blocking the directive):** the bulk `$var`→`{{ }}` cosmetic
+port of the templates NOT on the `ctx.render` path (`develop/templates/quality-*.md`,
+`novel/*`, `music/*`, etc.). They already **parse as Jinja** (the acceptance gate) and
+are rendered by the separate `RenderTemplates`/`string.Template` path or are
+agent-filled scaffolds (the novel/music `{{ }}` are literal placeholders, NOT engine
+vars) — converting them would be cosmetic and risk breaking that path, so it waits
+until a template moves onto `ctx.render`. The lint `RenderSliceRule` (§6) does not
+exist in the current tree (`plugin/clusters/` absent) — no update needed; the
+agent-block contract is enforced by the acceptance tests instead.
+
+**Lifecycle:** code shipped + verified; awaiting the owner ADR-approve + done-cascade
+(`adr.approve` → `workflow.finish_spec` → `adr.architecture(apply=True)`) per doctrine
+— an agent never self-approves (panel B2.1). NOTE: a pre-existing spec_id collision
+exists (`Plan/draft/388-spec-done-cascade` also carries `spec_id: "388"`) — flagged,
+not resolved here (out of scope; a renumber is the owner's call).

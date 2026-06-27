@@ -366,11 +366,20 @@ When a verb returns a `ToolResult`:
 ## Templates instruct agents (Spec 060 — the Bitwize pattern)
 
 A capability's `templates/` folder ships markdown skeletons that
-verbs fill in. Today's pattern is "string.Template body + `$variable`
-substitutions" — load-and-render. Spec 060 lifts the template into a
+verbs fill in. Spec 060 lifts the template into a
 **dual-purpose artefact**: it renders the human-facing output AND
 carries inline instructions for the agent reading the template, so
 the agent knows what to do BEFORE/DURING/AFTER rendering.
+
+> **Spec 388 — `ctx.render` is a Jinja engine.** `ctx.render(name, **vars)`
+> renders through Jinja2 (`StrictUndefined`, autoescape off): `{{ var }}`
+> substitution, `{% if flag %}` / `{% for x in xs %}` evaluated gates and loops,
+> `{# render-time note #}` engine-stripped comments, and `{% include "sibling" %}`
+> across the capability's own `templates/`. A missing var still raises (the
+> `string.Template` safety, preserved). The legacy `$variable` + `<!-- BEGIN IF -->`
+> form below is the PRE-388 convention — `ctx.template(name).substitute(...)` keeps
+> the `string.Template` path for templates not yet ported, but new templates render
+> via `ctx.render` and use the Jinja constructs.
 
 The convention has four parts.
 
@@ -411,19 +420,23 @@ the YAML frontmatter under `verification.broken`. -->
 The instructions are imperative ("VERIFY", "REPLACE", "EMIT") and
 name the exact downstream action.
 
-### 4. Conditional sections (`<!-- BEGIN IF / END IF -->`)
+### 4. Conditional sections (`{% if flag %}` — Spec 388)
 
-Sections the agent emits ONLY when a flag is truthy. The engine
-doesn't preprocess these (v1 — Spec 060 OQ-4); the agent's logic
-walks the markers like any HTML comment:
+Sections rendered ONLY when a flag is truthy. Under Spec 388 the engine
+**evaluates** these — `ctx.render` decides the gate, the agent no longer walks
+markers by hand:
 
 ```markdown
-<!-- BEGIN IF has_verification -->
+{% if has_verification %}
 ## Verification
 
-$verification_block
-<!-- END IF -->
+{{ verification_block }}
+{% endif %}
 ```
+
+(The pre-388 form was a dormant `<!-- BEGIN IF has_verification -->…<!-- END IF -->`
+HTML comment the engine ignored — an interim regex processor honoured it for the
+quality report until the Jinja engine replaced both.)
 
 ### 5. Chain-next instruction at the tail
 

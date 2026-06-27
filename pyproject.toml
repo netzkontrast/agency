@@ -50,6 +50,14 @@ dependencies = [
     # YAML at engine/CLI/MCP startup), so PyYAML graduates from a dev-only dep to
     # core. Still pinned in [dev] too for the vision_goals frontmatter validator.
     "PyYAML>=6.0",
+    # Spec 388 (owner directive 2026-06-23) — Jinja2 is the template engine behind
+    # `ctx.render` (CapabilityContext.render): `{% if %}` / `{% for %}` / `{# #}`
+    # are first-class so a template's gates are decided programmatically, once, for
+    # every capability (replacing the interim Spec 384 regex strippers). CORE, not
+    # an extra — `ctx.render` is substrate; gating it behind an extra would make a
+    # core method conditionally fail. Small, pure-Python (markupsafe is its only
+    # transitive weight). # AGENCY-DRIFT: template-engine
+    "jinja2>=3.1",
 ]
 
 # AGENCY-DRIFT: deps-extras — adding/removing an extra here means:
