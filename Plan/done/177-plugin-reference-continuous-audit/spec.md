@@ -133,11 +133,11 @@ the wave-1 typed-shape batch-2 (intent:2219e694; engine-driven tdd walk).
 ### Done — Slice 1 (typed shape)
 
 Typed frozen dataclass + `__post_init__` invariants in
-`agency/_typed_shapes_wave1_part2.py`; tests in
-`tests/test_typed_shapes_wave1_part2.py` (17 tests total across the
-8-spec batch). Slice 2 wires each shape into its consuming runtime
-(red-team rerunner, CLI projection, derive audit, wrapper modules,
-networkx metric, axis registry, migration walker, ref audit).
+`agency/_typed_shapes_wave1_part2.py`. The standalone wave-1 shape-test file
+cited in the original draft does not exist (superseded); the shape is now
+exercised by the Slice-2 audit tests cited below. Slice 2 wires each shape into
+its consuming runtime (red-team rerunner, CLI projection, derive audit, wrapper
+modules, networkx metric, axis registry, migration walker, ref audit).
 
 ### Done — Slice 2 (2026-06-26)
 

@@ -28,6 +28,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PLAN = ROOT / "Plan"
 
+from scripts._spec_tree import spec_by_id, spec_files
+
 _STATUS = re.compile(r'^status:\s*"?([A-Za-z]+)', re.M)
 _FOLLOWUP = re.compile(r"## Followup.*?(?=\n## |\Z)", re.S)
 _TEST_REF = re.compile(r"tests/test_[A-Za-z0-9_]+\.py")
@@ -49,7 +51,7 @@ def _shipped_ids() -> set[str]:
         row = _SHIPPED_ROW.search(todo.read_text(errors="ignore"))
         if row:
             ids |= set(re.findall(r"\b(\d{3})\b", row.group(1)))
-    for spec in PLAN.glob("*/spec.md"):
+    for spec in spec_files(PLAN):     # Spec 357 — state-folder-aware walk
         fm = _STATUS.search(spec.read_text(errors="ignore"))
         if fm and fm.group(1).lower() in ("shipped", "done"):
             ids.add(spec.parent.name.split("-", 1)[0])
@@ -57,8 +59,7 @@ def _shipped_ids() -> set[str]:
 
 
 def _spec_path(sid: str) -> pathlib.Path | None:
-    hits = sorted(PLAN.glob(f"{sid}-*/spec.md"))
-    return hits[0] if hits else None
+    return spec_by_id(PLAN, sid)     # Spec 357 — state-folder-aware lookup
 
 
 def main(quiet: bool = False) -> int:

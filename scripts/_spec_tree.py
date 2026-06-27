@@ -27,3 +27,13 @@ def spec_files(root: "Path | str") -> "list[Path]":
             continue
         out.append(sp)
     return sorted(out)
+
+
+def spec_by_id(root: "Path | str", spec_id: str) -> "Path | None":
+    """The ``spec.md`` whose folder is ``<spec_id>-slug``, or ``None``.
+    State-folder aware (reuses :func:`spec_files`), so a per-id lookup survives
+    the Spec-357 migration the same way the tree walk does."""
+    for sp in spec_files(root):
+        if sp.parent.name.split("-", 1)[0] == str(spec_id):
+            return sp
+    return None

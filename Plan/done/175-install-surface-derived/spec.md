@@ -138,10 +138,10 @@ the typed-shape wave-1 batch (intent:ba14917e tdd walk).
 ### Done — Slice 1
 
 Typed frozen dataclass + `__post_init__` invariants — see
-`agency/_link_finding.py` (Spec 173) and `agency/_typed_shapes_wave1.py`
-(Specs 171/175/176). 19 tests in `tests/test_link_finding.py` +
-`tests/test_typed_shapes_wave1.py`. The data shape is the Slice 1
-contract; Slice 2 wires it into the live verb / gate / hook layer.
+`agency/_typed_shapes_wave1.py` (Specs 171/175/176). The standalone wave-1
+shape-test files cited in the original draft do not exist (superseded); the
+shape is now exercised by the Slice-2 deriver tests cited below. The data shape
+is the Slice 1 contract; Slice 2 wires it into the live verb / gate / hook layer.
 
 ### Done — Slice 2 (2026-06-26)
 
