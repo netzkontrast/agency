@@ -149,9 +149,12 @@ def check_spec(path: Path) -> SpecResult:
 
 
 def check_tree(root: Path) -> list[SpecResult]:
-    """Audit every `*/spec.md` directly under `root`. Sorted by spec_id for
-    deterministic output (Spec 149 idempotence invariant)."""
-    paths = sorted(root.glob("*/spec.md"))
+    """Audit every lifecycle `spec.md` under `root`. Sorted by spec_id for
+    deterministic output (Spec 149 idempotence invariant). Spec 357 — specs live
+    in state folders; the shared `spec_files` walker handles the nesting (the
+    prior one-level glob matched zero specs post-migration)."""
+    from scripts._spec_tree import spec_files
+    paths = spec_files(root)
     return [check_spec(p) for p in paths]
 
 

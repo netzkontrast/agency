@@ -7,6 +7,7 @@ state: done
 last_updated: 2026-06-23
 title: document.compose — deterministic template scaffold + MCP-sampled custom sections
 owner: "@agency"
+vision_goals: [7, 9]
 ---
 
 # Spec 394 — `document.compose`: the template + custom-sampled mix

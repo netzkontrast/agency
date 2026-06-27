@@ -157,11 +157,13 @@ def collect_specs(plan_root: Path,
     `status:`. Pass ``None`` to use frontmatter only (testing / no TODO).
 
     Spec 357 — specs live in physical STATE folders
-    (``Plan/<state>/<NNN-slug>/spec.md``), so the collector globs RECURSIVELY
-    (``**/spec.md``). The prior one-level glob (``*/spec.md``) silently matched
-    ZERO specs post-migration, rendering an all-red all-zeros matrix."""
+    (``Plan/<state>/<NNN-slug>/spec.md``); the shared ``spec_files`` walker
+    handles the nesting (and excludes ``_research``/``_planning`` artefacts). The
+    prior one-level glob (``*/spec.md``) silently matched ZERO specs
+    post-migration, rendering an all-red all-zeros matrix."""
+    from scripts._spec_tree import spec_files
     refs: list[SpecRef] = []
-    for sp in sorted(Path(plan_root).glob("**/spec.md")):
+    for sp in spec_files(plan_root):
         fm = parse_frontmatter(sp.read_text(encoding="utf-8"))
         goals = fm.get("vision_goals")
         if not isinstance(goals, list):
