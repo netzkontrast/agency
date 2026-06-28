@@ -2,8 +2,8 @@
 ---
 spec_id: "389"
 slug: derived-fence-reference-docs
-status: draft
-state: draft
+status: done
+state: done
 last_updated: 2026-06-23
 owner: "@agency"
 vision_goals: [2, 9]
@@ -121,5 +121,6 @@ ships its own standing guard (the overview in-sync test + the `check-drift` gate
 proof consumer). The 13 pre-existing prose-STALE docs remain hand-review (OUT of
 scope — 389 shrinks that surface, it does not rewrite prose).
 
-**Lifecycle:** code shipped + verified; awaiting owner ADR-approve + done-cascade
-(an agent never self-approves).
+**Lifecycle:** DONE — owner approved (`AdR.approve`, 2026-06-27); done-cascade run
+(`workflow.finish_spec` → `Plan/done/`, decision **WORKFLOW-04** recorded + approved
+in `docs/adr/adr-workflow.md`, `architecture.md` rebuilt).
