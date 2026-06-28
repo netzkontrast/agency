@@ -13,7 +13,7 @@ status: proposed
 
 | Master ADR | Layer | Aggregate Status | Decisions |
 |---|---|---|---|
-| Capabilities — decisions | capabilities | in-progress | 5 live · 0 superseded |
+| Capabilities — decisions | capabilities | in-progress | 6 live · 0 superseded |
 
 ## a capability is a self-registering folder under agency/capabilities/ (the drop-in bar)
 
@@ -89,4 +89,19 @@ status: proposed
 **accepting that** every discipline must carry real phase instructions before it lands.
 
 **Source:** [`Plan/done/377-skill-lint-enforcement/spec.md`](../../Plan/done/377-skill-lint-enforcement/spec.md)
+
+## render capability templates through a Jinja2 engine so their gates are programmatic
+
+| Decision ID | Status | Proposed By |
+|---|---|---|
+| CAPABILITIES-06 | approved | agent |
+
+**In the context of** capabilities rendering markdown templates that need conditional sections and loops,  
+**facing** `string.Template` (`$var` only) plus dormant `<!-- BEGIN IF -->` comment markers no engine evaluated (and an interim per-capability regex stripper),  
+**we decided for** `ctx.render` rendering through a Jinja2 `Environment` (`StrictUndefined`, autoescape off, a `FunctionLoader` for `{% include %}`),  
+**and neglected** keeping `string.Template` plus per-capability regex processors for each marker,  
+**to achieve** `{% if %}` / `{% for %}` / `{# #}` evaluated once for every capability — the gate decided by the renderer, with the interim strippers deleted,  
+**accepting that** a `jinja2` core dependency and templates authored in Jinja syntax (the missing-var-raises safety is preserved by `StrictUndefined`).
+
+**Source:** [`Plan/done/388-jinja-template-engine/spec.md`](../../Plan/done/388-jinja-template-engine/spec.md)
 
