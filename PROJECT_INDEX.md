@@ -1248,13 +1248,16 @@ Music drivers graduated from ``examples/music_drivers.py`` into
 ``agency/capabilities/music/drivers.py`` as part of the Spec 094
 migration. (4 symbols)
 
-### `scripts/` (14 files)
+### `scripts/` (15 files)
 - **__init__.py** — Helper scripts (Spec 054 drift-management, Spec 149 derived-doc discipline,
 Spec 053 test-suite slicing). (1 symbols)
+- **_doc_drift.py** — Doc-drift detection core (importable) — Spec 054 source-hashing +
+Spec 389 derived-fence triage (STALE-AUTO vs hand-review prose drift); the reusable
+logic behind the hyphenated `check-doc-drift` shim. (4 symbols)
 - **_spec_tree.py** — Shared spec-tree walker — the ONE place that knows where spec files live.
 
 Spec 357 moved every spec into a physical STATE folder
-(``Plan/<state>/<NNN-slug>/spec.md``). (3 symbols)
+(``Plan/<state>/<NNN-slug>/spec.md``). (4 symbols)
 - **check_architecture.py** — Spec 157 Slice 1 — typed ArchitectureReport + wire-verb invariant audit.
 
 Spec 019 commits to EXACTLY three wire verbs at the engine boundary
@@ -1305,8 +1308,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (36 symbols)
 
-### `tests/` (39 files)
-### `tests/` (40 files)
+### `tests/` (41 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1337,6 +1339,11 @@ the typed `AxisRegistry` — longest-prefix-first, order-independent, with colli
 `derive_gate_results` turns the live registry's test-gap report (Spec 054) into
 one typed `GateResult` per capability — the fully-derivable verb-test-coverage
 dimension of the CI gate. (8 symbols)
+- **test_derived_doc_fences.py** — Spec 389 — derived fences for hand-authored reference docs.
+
+Extends the Spec 149 fence engine with code-introspection fence kinds
+(substrate-tools / driver-boundaries / capability-verbs) that regenerate from live
+code, plus the derived-vs-prose doc-drift discriminator. (19 symbols)
 - **test_develop_plan_execute.py** — Spec 287 — develop `plan-execute` discipline + Plan/PlanStep provenance.
 
 A first-class plan-authoring → execution-with-checkpoints discipline
@@ -1433,7 +1440,7 @@ broken CI gates.
 
 Four spec-walking scripts globbed `Plan/*/spec.md` (one level) and matched ZERO
 specs after specs moved into `Plan/<state>/<NNN>/spec.md` — silently turning
-their CI gates (`check_vision_goals`, `derive_docs --check`) into no-ops. (9 symbols)
+their CI gates (`check_vision_goals`, `derive_docs --check`) into no-ops. (10 symbols)
 - **test_token_count_failure.py** — Spec 201 — the remaining two Done-When items: error_code population on
 per-call backend fallback, and the rich agency_doctor.token_backend report. (11 symbols)
 - **test_vision_alignment_cells.py** — Spec 191 Slice 2 — the vision-matrix glob fix + typed AlignmentCell projection.

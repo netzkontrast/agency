@@ -409,6 +409,18 @@ fi
 say
 
 # ----------------------------------------------------------------------
+# doc-fence drift (Spec 389 — code-introspection fences in docs/)
+# ----------------------------------------------------------------------
+say "==> doc-fence drift (Spec 389 — via derive_docs --check-docs)"
+if DOC_FENCE_OUT=$(python -m scripts.derive_docs --check-docs 2>&1); then
+  say "    $DOC_FENCE_OUT"
+else
+  [[ "$QUIET" -eq 0 ]] && echo "$DOC_FENCE_OUT" | sed 's/^/    /'
+  DRIFT=1
+fi
+say
+
+# ----------------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------------
 if [[ "$DRIFT" -eq 0 ]]; then
