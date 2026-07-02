@@ -11,7 +11,7 @@ The narrative order DERIVED as a typed path over PRECEDES (transform) — a topo
 
 ## Returns
 
-``{order: [beat_id], edges_traversed}``.
+``{order: [beat_id], beats: [{beat_id, label, scene_id}], edges_traversed}`` — ``order`` is the id path (Spec 238), ``beats`` the enriched Spec-128 reading-order shape.
 
 ## Chain-next
 

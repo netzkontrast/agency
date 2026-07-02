@@ -234,11 +234,11 @@ Rebuild (derived from the Plan/ tree):
 - 235  graph-neighbors-typed-paths
 - 236  research-ingest-corpus-management
 - 237  scene-brief-cache-discipline
-- 238  story-time-graph-query   # Shipped (code) — narrative_order as PRECEDES topological path (cycle = typed TEMPORAL_CYCLE), story_time_query surfaces when_story-vs-scene-order contradictions (coverage, vacuous-truth empty scope), events_pov_witnessed intersection (REVEALED_IN x pov_character_id x before_when, UNKNOWN_CHARACTER typed); TDD (4); PR #328. Note: direct edge walks until Spec 203 graph_query ships
+- 238  story-time-graph-query   # Shipped (code) — narrative_order as PRECEDES topological path (cycle = typed TEMPORAL_CYCLE), story_time_query surfaces when_story-vs-scene-order contradictions (coverage, vacuous-truth empty scope), events_pov_witnessed intersection (REVEALED_IN x pov_character_id x before_when, UNKNOWN_CHARACTER typed); TDD (4); PR #328. CI fix: merged the duplicate Spec-128 narrative_order (order + beats keys in one verb), TEMPORAL_CYCLE/UNKNOWN_CHARACTER promoted to Codes members. Note: direct edge walks until Spec 203 graph_query ships
 - 239  dramatica-fragments-derive
 - 240  scene-writer-llm-loop
 - 241  character-knowledge-llm-extract
-- 242  codex-entity-fuzzy-match
+- 242  codex-entity-fuzzy-match   # Shipped (code) — match_codex_entries upgraded to decidable/judged MatchResult (word-boundary \b regex with spans + confidence None; "raven" never matches "ravenous"), driver-backed fuzzy pass (codex_match driver, graceful degrade judged=[]), re: raw-regex triggers with per-entry CODEX_ENTRY_INVALID, MATCH_INVALID span rejection, legacy matches key retained; TDD (6); PR #328
 - 243  structure-templates-llm-anchor
 - 244  voice-profiles-llm-derive
 - 245  sensitivity-managed-reader

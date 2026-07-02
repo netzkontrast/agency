@@ -121,7 +121,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `lock_index` | transform | The Master-Index of active locks (transform) — consulted before any contested drafting decision. | [details](references/lock_index.md) |
 | `manuscript_coherence_check` | transform | Chapter-sequence contiguity check (transform, driver-free). | [details](references/manuscript_coherence_check.md) |
 | `mark_narrative_beat` | effect | Mint a NarrativeBeat + optional PRECEDES edge from a predecessor (effect). | [details](references/mark_narrative_beat.md) |
-| `match_codex_entries` | transform | Scan ``text`` for any registered codex trigger and return matches (transform). | [details](references/match_codex_entries.md) |
+| `match_codex_entries` | transform | Scan ``text`` for codex triggers — word-boundary decidable + optional fuzzy judged (transform). | [details](references/match_codex_entries.md) |
 | `mode_block_report` | transform | The §1 block table (transform): every block with mode / bridge target / genre; chapters in NO block are the unstaged surface. | [details](references/mode_block_report.md) |
 | `motif_echo_report` | transform | Per-scene echo counts + per-motif trail (transform); flags scenes over the cap (stacking = allegory). | [details](references/motif_echo_report.md) |
 | `narrative_order` | transform | The narrative order DERIVED as a typed path over PRECEDES (transform) — a topological order of the beat DAG, never an ad-hoc property sort. | [details](references/narrative_order.md) |

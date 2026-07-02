@@ -158,55 +158,6 @@ class StoryTimeMixin:
             "beat_id": bid, "scene_id": scene_id, "label": beat_label,
         })
 
-    @verb(role="transform")
-    def narrative_order(self, novel_id: str) -> ToolResult:
-        """Topo-sort over PRECEDES for the canonical narrative reading order (transform).
-
-        Inputs: novel_id.
-        Returns: ``{beats: [{beat_id, label, scene_id}]}`` ordered so every
-                 predecessor appears before its successor.
-        chain_next: author's checklist for the manuscript's narrative spine.
-        """
-        if self.ctx.recall(novel_id) is None:
-            return ToolResult.failure(
-                Codes.NOT_FOUND, f"novel_id={novel_id!r} not found")
-        beats = [b for b in self.ctx.find("NarrativeBeat")
-                  if b.get("novel") == novel_id]
-        # Build predecessor map by querying PRECEDES.
-        edges = []
-        for a_props, b_props in self.ctx.edge_pairs(
-                "PRECEDES", "NarrativeBeat", "NarrativeBeat"):
-            a_id = a_props.get("id")
-            b_id = b_props.get("id")
-            if a_id and b_id:
-                edges.append((a_id, b_id))
-        # Kahn's algorithm over the beats of THIS novel.
-        beat_ids = {b.get("id") for b in beats}
-        in_degree = {bid: 0 for bid in beat_ids}
-        successors: dict = {bid: [] for bid in beat_ids}
-        for a, b in edges:
-            if a in beat_ids and b in beat_ids:
-                in_degree[b] += 1
-                successors[a].append(b)
-        queue = [bid for bid, d in in_degree.items() if d == 0]
-        order: list[str] = []
-        while queue:
-            n = queue.pop(0)
-            order.append(n)
-            for s in successors[n]:
-                in_degree[s] -= 1
-                if in_degree[s] == 0:
-                    queue.append(s)
-        beat_by_id = {b.get("id"): b for b in beats}
-        return ToolResult.success(data={
-            "beats": [
-                {"beat_id": bid,
-                 "label": beat_by_id[bid].get("label"),
-                 "scene_id": beat_by_id[bid].get("scene")}
-                for bid in order if bid in beat_by_id
-            ],
-        })
-
     # ── Spec 238 — story-time graph queries ─────────────────────────────────
 
     @verb(role="transform")
@@ -217,7 +168,9 @@ class StoryTimeMixin:
         naming the trapped node ids.
 
         Inputs: novel_id.
-        Returns: ``{order: [beat_id], edges_traversed}``.
+        Returns: ``{order: [beat_id], beats: [{beat_id, label, scene_id}],
+                 edges_traversed}`` — ``order`` is the id path (Spec 238),
+                 ``beats`` the enriched Spec-128 reading-order shape.
         chain_next: ``novel.story_time_query`` for the contradiction scan.
         """
         _, fail = self._require_novel(novel_id)
@@ -248,10 +201,16 @@ class StoryTimeMixin:
         if len(order) != len(ids):
             trapped = sorted(ids - set(order))
             return ToolResult.failure(
-                "TEMPORAL_CYCLE",
+                Codes.TEMPORAL_CYCLE,
                 f"PRECEDES cycle among {trapped}")
+        beat_by_id = {b["id"]: b for b in beats}
         return ToolResult.success(data={
-            "order": order, "edges_traversed": edges})
+            "order": order,
+            "beats": [{"beat_id": bid,
+                       "label": beat_by_id[bid].get("label"),
+                       "scene_id": beat_by_id[bid].get("scene")}
+                      for bid in order],
+            "edges_traversed": edges})
 
     @verb(role="transform")
     def story_time_query(self, novel_id: str) -> ToolResult:
@@ -331,7 +290,8 @@ class StoryTimeMixin:
         """
         if self.ctx.recall(character_id) is None:
             return ToolResult.failure(
-                "UNKNOWN_CHARACTER", f"character {character_id!r} not found")
+                Codes.UNKNOWN_CHARACTER,
+                f"character {character_id!r} not found")
         out = []
         all_events = self.ctx.find("StoryTimeEvent")
         for ev in all_events:
