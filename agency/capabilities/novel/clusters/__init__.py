@@ -18,6 +18,7 @@ from .codex import CodexMixin
 from .character_knowledge import CharacterKnowledgeMixin
 from .structure import StructureMixin
 from .voice import VoiceMixin
+from .dual_storyform import DualStoryformMixin
 
 __all__ = [
     "NovelBase",
@@ -32,4 +33,5 @@ __all__ = [
     "CharacterKnowledgeMixin",
     "StructureMixin",
     "VoiceMixin",
+    "DualStoryformMixin",
 ]

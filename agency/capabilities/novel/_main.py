@@ -699,6 +699,10 @@ novel_ontology = OntologyExtension(
         # create overwrites). Targets beyond `character` are optional
         # fields; unset sentence targets derive from drafted scenes.
         "VoiceProfile": ["character"],
+        # Spec 136 — dual-storyform (post-Dramatica). A set groups N
+        # simultaneous storyforms; a transition records a Vortex.
+        "StoryformSet": ["novel", "label", "count"],
+        "StoryformTransition": ["storyform_set_id", "from_role", "to_role"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -738,6 +742,10 @@ novel_ontology = OntologyExtension(
         "FULFILS",      # Scene → BeatExpectation (this scene fulfils the beat)
         # Spec 134 — voice signature.
         "VOICE_OF",     # VoiceProfile → Character (CodexEntry)
+        # Spec 136 — dual-storyform.
+        "MEMBER_OF",    # Storyform → StoryformSet
+        "ROUTED_TO",    # Scene → Storyform (props: mode=hard|soft)
+        "TRANSITIONS",  # StoryformTransition → StoryformSet
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -779,6 +787,7 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     CharacterKnowledgeMixin,
     StructureMixin,
     VoiceMixin,
+    DualStoryformMixin,
 )
 
 
@@ -794,6 +803,7 @@ class NovelCapability(
     CharacterKnowledgeMixin,
     StructureMixin,
     VoiceMixin,
+    DualStoryformMixin,
     NovelBase,
     CapabilityBase,
 ):
