@@ -40,6 +40,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `canon_gate` | transform | The drafting hard-stop (transform): refuse to treat a proposal/quarry/gap node as fact without an explicit author override — the KP "check the Master-Index first" rule, chainable from any drafting skill. | [details](references/canon_gate.md) |
 | `capture_claim` | effect | Record a NovelClaim node SERVING the intent (effect). | [details](references/capture_claim.md) |
 | `capture_idea` | effect | Record an Idea node SERVING the intent (effect). | [details](references/capture_idea.md) |
+| `catalogue_query` | transform | Cross-work catalogue query (transform) — every scene across the author's novels reached by TRAVERSING the declared edges (Novel → CHAPTER_OF → SCENE_OF; Motif → ECHOES_IN), never a label scan with a Python foreign-key filter (the Spec 125 dormant-edge anti-pattern). | [details](references/catalogue_query.md) |
 | `chapter_report` | transform | Read-only aggregate over the novel's chapters (transform). | [details](references/chapter_report.md) |
 | `chapter_report_full` | act | Full editorial dashboard for one chapter (act). | [details](references/chapter_report_full.md) |
 | `check_alter_recognition` | transform | The "recognized, never labeled" discipline (transform): alters are identified by syntax + somatik + lexicon, never by headers or labels; clinical veil terms are forbidden before the reveal chapter. | [details](references/check_alter_recognition.md) |

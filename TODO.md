@@ -218,7 +218,7 @@ Rebuild (derived from the Plan/ tree):
 - 219  novel-storyform-llm-assist
 - 220  novel-prose-driver-wet
 - 221  novel-research-fanout
-- 222  novel-catalogue-graph-query
+- 222  novel-catalogue-graph-query   # Shipped (code) — catalogue_query: cross-work scenes via CHAPTER_OF/SCENE_OF/ECHOES_IN traversal (no label scans — standing test), motif + canon_status filters, max_rows/next_cursor paging, fields projection, byte-stable prefix (author/schema/capability_set_hash); TDD (4); PR #328. Note: 203 graph_query routing when 203 ships
 - 223  novel-manuscript-managed-export
 - 224  novel-gates-llm-judge
 - 225  prompt-cap-slice2-llm
