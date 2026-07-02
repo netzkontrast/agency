@@ -2,8 +2,8 @@
 ---
 spec_id: "388"
 slug: jinja-template-engine
-status: draft
-state: draft
+status: done
+state: done
 last_updated: 2026-06-23
 owner: "@agency"
 vision_goals: [3, 6]
@@ -224,8 +224,9 @@ until a template moves onto `ctx.render`. The lint `RenderSliceRule` (§6) does 
 exist in the current tree (`plugin/clusters/` absent) — no update needed; the
 agent-block contract is enforced by the acceptance tests instead.
 
-**Lifecycle:** code shipped + verified; awaiting the owner ADR-approve + done-cascade
-(`adr.approve` → `workflow.finish_spec` → `adr.architecture(apply=True)`) per doctrine
-— an agent never self-approves (panel B2.1). NOTE: a pre-existing spec_id collision
+**Lifecycle:** DONE — owner approved (`AdR.approve`, 2026-06-27); done-cascade run
+(`workflow.finish_spec` → `Plan/done/`, decision **CAPABILITIES-06** recorded +
+approved in `docs/adr/adr-capabilities.md`, `architecture.md` rebuilt to 21
+decisions). NOTE: a pre-existing spec_id collision
 exists (`Plan/draft/388-spec-done-cascade` also carries `spec_id: "388"`) — flagged,
 not resolved here (out of scope; a renumber is the owner's call).

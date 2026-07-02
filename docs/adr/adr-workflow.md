@@ -13,7 +13,7 @@ status: proposed
 
 | Master ADR | Layer | Aggregate Status | Decisions |
 |---|---|---|---|
-| Workflow — decisions | workflow | proposed | 3 live · 0 superseded |
+| Workflow — decisions | workflow | proposed | 4 live · 0 superseded |
 
 ## specs flow through physical Plan/<state>/ folders mirrored by a SpecLifecycle node (keep-both)
 
@@ -59,4 +59,19 @@ status: proposed
 **accepting that** a theme file can become a dumping ground without the MIN-rule validators and the file is a render of the graph rather than its source.
 
 **Source:** [`Plan/done/354-adr-ontology-capability/spec.md`](../../Plan/done/354-adr-ontology-capability/spec.md) — "The `adr` repo (`/adr/specs/SPEC-001-A..E`) defines the *enhanced WH(Y) ADR* on paper"
+
+## derive reference-doc fragments from live code via `<!-- derived -->` fences
+
+| Decision ID | Status | Proposed By |
+|---|---|---|
+| WORKFLOW-04 | approved | agent |
+
+**In the context of** hand-authored reference docs copying facts from code (the substrate-tool roster, a capability's verbs, the driver-boundary set) that rot on every refactor,  
+**facing** those hand-typed fragments going silently stale while `check-doc-drift` could only demand a whole-doc re-stamp,  
+**we decided for** code-introspection `<!-- derived:<kind> -->` fences that regenerate those fragments from the live engine, with `check-doc-drift` triaging derived-zone drift (auto-fix via `derive_docs --write-docs`) apart from prose drift (hand-review),  
+**and neglected** auto-generating whole docs, or leaving every fragment hand-maintained,  
+**to achieve** the derivable fragments staying current mechanically while the hand-review surface shrinks to genuine prose,  
+**accepting that** authors must wrap a derivable fragment in a fence and a `derive_docs --check-docs` gate runs in `check-drift`.
+
+**Source:** [`Plan/done/389-derived-fence-reference-docs/spec.md`](../../Plan/done/389-derived-fence-reference-docs/spec.md)
 
