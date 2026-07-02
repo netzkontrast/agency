@@ -733,7 +733,8 @@ def _sample_phase(ctx, raw_phase: dict, call_outputs: dict):
     return None
 
 
-def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
+def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "",
+                dry_run: bool = False) -> dict:
     """The atomic walker (Spec 018 Win 1). Walk a registered skill to the first
     hard gate in ONE call, returning the documented status contract. Composes
     `SkillRun` — the boilerplate (open run, submit each phase, stop at the gate)
@@ -746,6 +747,14 @@ def _skill_walk(ctx, name: str, inputs: dict, resume_from: str = "") -> dict:
                 "available": sorted(skills),
                 "skill_id": None, "completed_phases": []}
     schema = ontology.skill(name)
+    if dry_run:
+        # Spec 142 — preview the walk WITHOUT firing verb side-effects:
+        # each phase reports what it WOULD invoke; nothing touches the graph.
+        return {"status": "dry-run", "skill": name,
+                "phases": [{"phase": ph.get("name"),
+                            "would_invoke": list(ph.get("verbs", []) or []),
+                            "gate": ph.get("gate", "")}
+                           for ph in schema.get("phases", [])]}
     memory, registry, intent_id = ctx.memory, ctx.registry, ctx.intent_id
     inputs = dict(inputs or {})
 
@@ -1492,7 +1501,8 @@ class DevelopCapability(CapabilityBase):
         return self.ctx.engine.reload()
 
     @verb(role="act")
-    def skill_walk(self, name: str, inputs: dict, resume_from: str = "") -> dict:
+    def skill_walk(self, name: str, inputs: dict, resume_from: str = "",
+                   dry_run: bool = False) -> dict:
         """Walk a registered skill to the first hard gate in ONE call (the atomic walker).
 
         Replaces the 5× ``SkillRun(...).submit(...)`` boilerplate: supply the
@@ -1503,14 +1513,17 @@ class DevelopCapability(CapabilityBase):
         — re-entering a paused walk confirms that gate and continues.
 
         Inputs: name (registered skill, e.g. 'tdd'), inputs (map of produce→value),
-                resume_from (a prior skill_id to resume; "" starts fresh).
+                resume_from (a prior skill_id to resume; "" starts fresh),
+                dry_run (Spec 142 — preview: each phase reports would_invoke,
+                no verb fires, nothing touches the graph).
         Returns: a status-contract shape — one of:
           - ``{status: "completed", skill_id, outputs}``
           - ``{status: "input-required", phase, blocked_on, resume_with, skill_id, partial_outputs}``
           - ``{status: "failed", phase, error, skill_id, completed_phases}``
         chain_next: on input-required, re-call with resume_from + resume_with keys.
         """
-        return _skill_walk(self.ctx, name, inputs, resume_from=resume_from)
+        return _skill_walk(self.ctx, name, inputs, resume_from=resume_from,
+                           dry_run=dry_run)
 
     # ════════════════════════════════════════════════════════════════════════
     # Spec 114 — plugin-as-session-driver: 3 verbs for the session lifecycle
