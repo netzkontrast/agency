@@ -717,6 +717,10 @@ novel_ontology = OntologyExtension(
         # Iser gaps registered first-class.
         "RevealRule": ["novel", "fact", "tier"],
         "Leerstelle": ["novel", "scene_id", "kind"],
+        # Spec 140 — author-authored R-rules + motif/anchor discipline.
+        "ProjectRule": ["novel", "rule_id", "severity"],
+        "Motif": ["novel", "slug"],
+        "Anchor": ["novel", "name"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -770,6 +774,10 @@ novel_ontology = OntologyExtension(
         # Spec 139 — reveal-discipline.
         "GOVERNS_REVEAL",  # RevealRule → the fact-bearing node
         "HAS_GAP",         # Leerstelle → Scene
+        # Spec 140 — motif + anchor discipline.
+        "ECHOES_IN",       # Motif → Scene (each echo)
+        "PLANTS",          # Anchor → Scene (plant site)
+        "PAYS_OFF",        # Anchor → Scene (payoff site)
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -815,6 +823,7 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     CanonMixin,
     PluralMixin,
     RevealMixin,
+    RulesetsMixin,
 )
 
 
@@ -834,6 +843,7 @@ class NovelCapability(
     CanonMixin,
     PluralMixin,
     RevealMixin,
+    RulesetsMixin,
     NovelBase,
     CapabilityBase,
 ):
