@@ -1,0 +1,356 @@
+# Spec 143 — Kohärenz-Protokoll deep prompt fragments.
+# Six families, project-overlay vocabulary the Dramatica set (Spec 129) lacks.
+# Loaded ONLY when the graph carries a CharacterSystem or StoryformSet (or the
+# caller passes family/kp scope explicitly) — non-KP novels never see these.
+# Lint contract (tested): slug ~ ^kp\.[a-z]+(\.[a-z0-9-]+)+$ · family ∈ the six
+# · each text ≤ 300 tokens.
+fragments:
+  # ── 1. plurality (Spec 138) ─────────────────────────────────────────────
+  - slug: kp.alter.anp
+    family: plurality
+    text: >
+      Write this scene from an apparently-normal part: surface-functional,
+      managerial prose. Feelings arrive as observations of the body, never
+      named directly. Sentences complete themselves; the syntax holds even
+      when the content shakes. Somatic tells stay peripheral — a cold hand,
+      a delayed blink — at most one per paragraph.
+  - slug: kp.alter.ep
+    family: plurality
+    text: >
+      An emotional part fronts: the sentence length collapses under affect.
+      Present-tense intrusions, sensory flooding, no managerial framing.
+      The part does not know it is a part — it is the feeling. Never label
+      the switch; let syntax and somatik carry it.
+  - slug: kp.alter.special
+    family: plurality
+    text: >
+      A special-function part fronts for exactly its function (witness,
+      archivist, negotiator). Its voice is narrow and precise; outside its
+      function it defers or falls silent. Show the seam where its competence
+      ends.
+  - slug: kp.alter.mirror
+    family: plurality
+    text: >
+      A mirror-part reflects an external entity the system internalised.
+      Its lexicon borrows from that entity — but a beat too late, slightly
+      wrong, like a translation. The reader should feel quotation without
+      quotation marks.
+  - slug: kp.alter.fight
+    family: plurality
+    text: >
+      Fight fronts: clipped imperatives, threat-mapping of every room,
+      distances in body-lengths. No metaphor. Anger is not described, it is
+      the grammar — verbs first, subjects last, no subordinate clauses.
+  - slug: kp.alter.freeze
+    family: plurality
+    text: >
+      Freeze fronts: time dilates, the prose catalogs harmless details at
+      unbearable length while the dangerous thing stays in peripheral
+      clauses. Passive voice is allowed here and only here.
+  - slug: kp.alter.caregiver
+    family: plurality
+    text: >
+      The caregiver fronts: second-person address leaks in ("you're safe
+      now"), warmth vocabulary, diminutives. Watch the taboo list — this
+      part must not become cute; its tenderness costs visible effort.
+  - slug: kp.alter.rationalist
+    family: plurality
+    text: >
+      The rationalist fronts: numbered reasoning, conditionals, exact
+      quantities. Contractions disappear. Affect appears only as data about
+      the body ("heart rate elevated"), never as feeling.
+
+  # ── 2. klein-c & dual-storyform (Spec 136) ──────────────────────────────
+  - slug: kp.dual.inversion
+    family: klein-c
+    text: >
+      Two complete storyforms run simultaneously, related by involution:
+      every dynamic in A has its exact inverse in B (Steadfast↔Change,
+      Decision↔Action, Success↔Failure). When you draft an A-scene, its
+      B-shadow exists; mirror, never resolve, in this beat.
+  - slug: kp.dual.class-pair
+    family: klein-c
+    text: >
+      In an A-storyform scene the MC operates from Mind and the OS from
+      Psychology; in the parallel B-scene the MC operates from Universe and
+      the OS from Physics. The swap is the separation made structural —
+      keep each side pure within its scene.
+  - slug: kp.route.hard
+    family: klein-c
+    text: >
+      Hard-routed scene: exactly ONE storyform owns this scene. Every beat,
+      image and stake reads within that form alone. No bridge imagery; the
+      other storyform is structurally absent, not hinted.
+  - slug: kp.route.soft
+    family: klein-c
+    text: >
+      Soft-routed bridge scene: BOTH storyforms' readings are simultaneously
+      true. Every load-bearing image must be interpretable in A and in B
+      without forcing. Do not wink at the reader — the doubleness is
+      carried, not announced.
+  - slug: kp.transition.operative
+    family: klein-c
+    text: >
+      Operative Vortex: one storyform overtakes the other in the mechanics
+      of the plot. The pivot is a Decision that retroactively reframes prior
+      Actions. Show the handoff through consequence, not commentary.
+  - slug: kp.transition.ontological
+    family: klein-c
+    text: >
+      Ontological Vortex: the ground of what is real shifts between forms.
+      Objects keep their names and change their nature. Draft the scene so
+      re-reading it after the reveal inverts its meaning without editing a
+      word.
+  - slug: kp.transition.synthesis
+    family: klein-c
+    text: >
+      Synthesis: the post-orthodox third position that leaves the Klein
+      scheme. Neither A nor B wins; a new frame holds both as partial. The
+      prose may finally use the vocabulary both forms forbade — sparingly.
+
+  # ── 3. mode-blocks + genre accents (Spec 141) ───────────────────────────
+  - slug: kp.mode.linear-introspective
+    family: mode-block
+    text: >
+      Linear-introspective mode: one consciousness moving forward in time,
+      interiority foregrounded, causality intact. Scene bridges are
+      memory-associative but never break chronology.
+  - slug: kp.mode.cyclic-recursive
+    family: mode-block
+    text: >
+      Cyclic-recursive mode: scenes rhyme with earlier scenes; progress is a
+      spiral, not a line. Repeat structures with one changed element and let
+      the change carry the meaning.
+  - slug: kp.mode.linear-ascending
+    family: mode-block
+    text: >
+      Linear-ascending mode: external escalation, shortening scenes, rising
+      stakes. Interiority compresses to flashes. The chapter accelerates
+      toward its edge.
+  - slug: kp.mode.vortex-still
+    family: mode-block
+    text: >
+      Vortex-still mode: at the centre of maximum structural violence the
+      prose goes quiet. Long sentences, few events, total attention. The
+      storm is in what the syntax refuses to do.
+  - slug: kp.mode.choral
+    family: mode-block
+    text: >
+      Choral mode: multiple voices carry the scene without a controlling
+      narrator. Attribute by voice-DNA alone; the reader assembles the
+      chorus. No voice summarises another.
+  - slug: kp.mode.framing
+    family: mode-block
+    text: >
+      Framing mode (prolog/coda): the ouroboros register — mythic distance,
+      present tense or timeless aorist, imagery that the ring's other end
+      will mirror. Plant only what the far frame pays off.
+  - slug: kp.genre.philosophical-horror
+    family: mode-block
+    text: >
+      Genre accent philosophical horror: dread arrives through implication
+      and category-error, never gore. The horrifying thing is what the
+      premise means, shown operating in the mundane.
+  - slug: kp.genre.literary-sf
+    family: mode-block
+    text: >
+      Genre accent literary SF: the novum is treated as lived furniture, not
+      exposition. Technical precision in service of interiority; no
+      infodumps — capability shown through casual use.
+  - slug: kp.genre.technothriller
+    family: mode-block
+    text: >
+      Genre accent technothriller: procedural concreteness, clocks, named
+      systems, verified detail. Paragraphs shorten; verbs of operation
+      dominate. Affect rides under the procedure.
+  - slug: kp.genre.choral-drama
+    family: mode-block
+    text: >
+      Genre accent choral drama: the scene is an ensemble negotiation;
+      conflict topology drives who may speak after whom. Stage the phobia
+      matrix — max-pairs never co-front without cost on the page.
+  - slug: kp.genre.metaphysical-climax
+    family: mode-block
+    text: >
+      Genre accent metaphysical climax: the abstractions become actors.
+      Keep one concrete sensory anchor per paragraph or the scene lifts off
+      into allegory.
+  - slug: kp.genre.spiritual-apotheosis
+    family: mode-block
+    text: >
+      Genre accent spiritual apotheosis: resolution as widening, not
+      victory. The register may become liturgical, but every liturgical
+      sentence must still do narrative work.
+
+  # ── 4. reveal tiers / channels / veil (Spec 139) ────────────────────────
+  - slug: kp.tier.reader
+    family: reveal
+    text: >
+      Reader-tier constraint: check what the READER may know at this
+      chapter. The reader can know more than the POV (irony) or less
+      (mystery) — decide which gap this scene runs and keep it stable.
+  - slug: kp.tier.pov
+    family: reveal
+    text: >
+      POV-tier constraint: the fronting consciousness must not know what it
+      has not learned. Its blind spot shapes the prose — what it cannot see
+      it cannot describe, only circle.
+  - slug: kp.tier.antagonist
+    family: reveal
+    text: >
+      Antagonist-tier constraint: the antagonist's structural blindness is
+      load-bearing. Scenes it focalises must render its non-seeing as
+      confident competence, never as stupidity.
+  - slug: kp.channel.glitch
+    family: reveal
+    text: >
+      Reveal channel glitch: information leaks through malfunction — a
+      skipped timestamp, a doubled word, a sensory report that contradicts
+      itself. The glitch is never commented on in-scene.
+  - slug: kp.channel.log
+    family: reveal
+    text: >
+      Reveal channel log: documentary intrusion (protocol, transcript,
+      file). The log's format is exact and its content exceeds what the
+      surrounding narration admits to knowing.
+  - slug: kp.channel.sensory
+    family: reveal
+    text: >
+      Reveal channel sensory: the body knows first. Deliver the information
+      as somatik — temperature, weight, vertigo — chapters before any voice
+      names it.
+  - slug: kp.channel.dialogue
+    family: reveal
+    text: >
+      Reveal channel dialogue: a speaker says more than they know or less
+      than they mean. The reveal rides subtext; no character may summarise
+      it aloud.
+  - slug: kp.channel.metaphor
+    family: reveal
+    text: >
+      Reveal channel metaphor: the image system carries the fact before the
+      plot does. Choose vehicle domains that will retroactively read as
+      literal.
+  - slug: kp.channel.narration
+    family: reveal
+    text: >
+      Reveal channel narration: the narrating instance states it plainly —
+      the rarest channel. Use only at tier-sanctioned chapters; plainness
+      after long indirection is the payoff.
+  - slug: kp.veil.maintain
+    family: reveal
+    text: >
+      The multiplicity-veil holds: no clinical vocabulary, no naming of
+      parts, no external diagnosis. Plurality is textural — pronoun slips,
+      lost time, skills without memory of learning them.
+  - slug: kp.veil.leak-via-glitch
+    family: reveal
+    text: >
+      Veiled leak: let plurality show ONLY through glitch-channel cues, max
+      three per scene (R-4). Each cue must be deniable as ordinary
+      distraction on first read and unmistakable on re-read.
+  - slug: kp.veil.payoff
+    family: reveal
+    text: >
+      Veil payoff chapter: the accumulated glitches converge; the reader's
+      hypothesis is confirmed slightly BEFORE the POV's. Pay the reader for
+      their assembly work — name nothing clinically even now.
+
+  # ── 5. R-rules (Spec 140) ───────────────────────────────────────────────
+  - slug: kp.rule.r4-micro-cues
+    family: r-rule
+    text: >
+      R-4: at most three micro-cues per bridge scene. A micro-cue is any
+      signature phrase, somatic tell or lexicon marker signalling a switch.
+      Beyond three the scene over-signals — cut the weakest.
+  - slug: kp.rule.r5-hot-polarity
+    family: r-rule
+    text: >
+      R-5 hot-polarity: cold-ozone lexicon (AEGIS) and warmth lexicon
+      (Juna) never share a scene-space. If both must appear, a hard scene
+      break separates them — the mixture is the one forbidden temperature.
+  - slug: kp.rule.r6-one-concept
+    family: r-rule
+    text: >
+      R-6: one philosophical concept per scene. The scene may EMBODY many,
+      but only one may surface in explicit vocabulary. Stack of named
+      concepts = lecture, strike and re-dramatise.
+  - slug: kp.rule.r7-genesis-echo
+    family: r-rule
+    text: >
+      R-7: max one Genesis-motif echo per scene (Rauschen, Form, Klick,
+      Phantom, Resonanz). Echoes stack into allegory; one echo resonates.
+  - slug: kp.rule.r8-aegis-register
+    family: r-rule
+    text: >
+      R-8 AEGIS register: no metaphor, no moral vocabulary, no affect words,
+      no first person. AEGIS lines are operations. Any breach is a plot
+      event, not a style slip.
+  - slug: kp.rule.r9-no-style-mimicry
+    family: r-rule
+    text: >
+      R-9: Genesis style-markers are never repeated verbatim in later
+      chapters. Echo the structure, never the string — verbatim recurrence
+      collapses frame and body.
+  - slug: kp.predicate.mutual-exclusion
+    family: r-rule
+    text: >
+      Authoring a mutual-exclusion rule: name the two lexicons (set_a,
+      set_b) whose co-presence in one scene is the defect. Choose terms
+      concrete enough to grep and rare enough not to false-fire.
+  - slug: kp.predicate.per-scene-budget
+    family: r-rule
+    text: >
+      Authoring a per-scene-budget rule: pick the countable (motif edge,
+      substring set, regex), set the cap, and state in the rationale what
+      breaks when the cap is exceeded.
+  - slug: kp.predicate.forbidden-verbatim
+    family: r-rule
+    text: >
+      Authoring a forbidden-verbatim rule: list the exact protected strings.
+      Add scene exemptions ONLY for the origin scene; everything else must
+      transform, not quote.
+  - slug: kp.predicate.register-forbidden
+    family: r-rule
+    text: >
+      Authoring a register-forbidden rule: bind the speaker tag, then the
+      forbidden classes with small word-boundary lexicons per class. Test
+      against a compliant line before registering.
+
+  # ── 6. synthesis movements (§15 — critique prompts) ────────────────────
+  - slug: kp.synthesis.philosophical
+    family: synthesis
+    text: >
+      Critique axis — philosophical: what claim about separation and
+      integration does this scene make operational? If the claim is only
+      stated, not enacted in structure, the scene fails this axis.
+  - slug: kp.synthesis.narratological
+    family: synthesis
+    text: >
+      Critique axis — narratological: which storyform slot does this scene
+      serve, in which mode-block, at which bridge frequency? A scene serving
+      no slot is decoration.
+  - slug: kp.synthesis.editorial
+    family: synthesis
+    text: >
+      Critique axis — editorial: run the R-checklist mentally — polarity,
+      echoes, register, cues. Which rule is closest to breach, and is the
+      near-breach doing work or accumulating debt?
+  - slug: kp.synthesis.ontological
+    family: synthesis
+    text: >
+      Critique axis — ontological: whose reality-frame does the scene's
+      furniture obey — A's, B's, or the synthesis? Mixed furniture without
+      a soft-route is a category leak.
+  - slug: kp.synthesis.epistemological
+    family: synthesis
+    text: >
+      Critique axis — epistemological: for each tier (reader, POV,
+      antagonist) — what do they know AFTER this scene that they did not
+      before, and through which channel? A scene moving no tier is inert.
+  - slug: kp.synthesis.reader-experiential
+    family: synthesis
+    text: >
+      Critique axis — reader-experiential: what does the reader ASSEMBLE
+      here (gap, echo, contradiction) versus merely receive? Name the
+      Leerstelle this scene opens or closes.
