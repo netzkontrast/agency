@@ -137,6 +137,8 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `publication_gate` | effect | Terminal composite: publish_ready + ≥1 export + front-matter declared (effect). | [details](references/publication_gate.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `quarry_filter` | transform | List the Steinbruch (transform): quarry-status nodes — deprecated material an author may still mine, never auto-canon. | [details](references/quarry_filter.md) |
+| `query_co_front` | transform | Scenes where two system alters co-front (transform): every scene whose cast holds ≥ 2 alters of this system, filtered by pair kind — ``max`` (max-intensity conflict pairs; the canon violation), ``adjacent`` (any conflict edge), ``any`` (all pairs). | [details](references/query_co_front.md) |
+| `query_phobia_cycles` | transform | Find PHOBIA_OF cycles in the conflict matrix (transform) — pure edge walk. | [details](references/query_phobia_cycles.md) |
 | `query_ready_gate` | effect | Composite gate: status ≥ beta + content-clean (effect). | [details](references/query_ready_gate.md) |
 | `reader_function_audit` | transform | Tag which Iser reader-layers a scene serves (transform): does it give the reader something to ASSEMBLE, not just consume? | [details](references/reader_function_audit.md) |
 | `record_alter_conflict` | effect | Mint the ``PHOBIA_OF`` conflict-matrix edge a→b (effect). | [details](references/record_alter_conflict.md) |

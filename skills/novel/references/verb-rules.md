@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## novel verb audit — 2 of 157 verbs need work
+## novel verb audit — 2 of 159 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -131,6 +131,8 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `novel.publication_gate` | effect | ✓ clean |
 | `novel.publish_ready_gate` | effect | ✓ clean |
 | `novel.quarry_filter` | transform | ✓ clean |
+| `novel.query_co_front` | transform | ✓ clean |
+| `novel.query_phobia_cycles` | transform | ✓ clean |
 | `novel.query_ready_gate` | effect | ✓ clean |
 | `novel.reader_function_audit` | transform | ✓ clean |
 | `novel.record_alter_conflict` | effect | ✓ clean |

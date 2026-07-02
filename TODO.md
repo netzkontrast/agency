@@ -244,7 +244,7 @@ Rebuild (derived from the Plan/ tree):
 - 245  sensitivity-managed-reader
 - 246  dual-storyform-klein-c-tests   # Shipped (code) — V4 property sweep (220 legal pairs by construction), involution + flip commutation, single-slot mutation names slot+generator, typed failure modes (insufficient_slots, unknown_slot); check enriched with flip_class/flip_dynamics/diagnostic; TDD (4); PR #328
 - 247  canon-locks-managed-approval
-- 248  plural-character-graph-query
+- 248  plural-character-graph-query   # Shipped (code) — query_phobia_cycles (DFS over PHOBIA_OF via neighbors, weights computed from intensity, self-loops/empty legal) + query_co_front (max computed from live matrix — demotes when a heavier edge lands; adjacent/any kinds); IDs never labels; dormant-edge audit as standing test; TDD (4); PR #328. Note: routes through direct edge walks until Spec 203 graph_query ships
 - 249  reveal-discipline-veil-llm
 - 250  project-rulesets-llm-author
 - 251  chapter-briefing-llm-render

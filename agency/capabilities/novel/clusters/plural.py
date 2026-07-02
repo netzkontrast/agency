@@ -9,6 +9,7 @@ the no-fusion resolution invariant — the canonical end-state is a plural
 """
 from __future__ import annotations
 
+import itertools
 import re
 
 from agency.capability import verb
@@ -299,6 +300,122 @@ class PluralMixin:
                         "scenes_with_inference": sum(1 for r in rows
                                                      if r["inferred_alter"]),
                         "ambiguous": ambiguous}})
+
+
+    # ── Spec 248 — plural-character graph queries ───────────────────────────
+    # Pure graph walks over the declared edges (ctx.neighbors) — never a
+    # find(label)+foreign-key filter while the edge sits idle (the CLAUDE.md
+    # dormant-edge anti-pattern). Results carry alter IDs, never labels —
+    # the recognition discipline holds across the query surface too.
+
+    #: intensity → weight (computed mapping, not per-pair literals).
+    _PHOBIA_WEIGHT = {"max": 1.0, "phobic-avoidance": 0.75,
+                      "friction": 0.5, "ambivalent": 0.25}
+
+    @verb(role="transform")
+    def query_phobia_cycles(self, system_id: str) -> ToolResult:
+        """Find PHOBIA_OF cycles in the conflict matrix (transform) — pure
+        edge walk. An alter system with no conflicts legally returns an
+        empty CycleSet; a self-loop reports as length 1 (signal, not crash).
+
+        Inputs: system_id.
+        Returns: ``{cycles: [{alter_ids, length, weight}], system_id}`` —
+                 ids only, never names (recognition discipline).
+        chain_next: ``novel.conflict_matrix_report`` for the cell detail.
+        """
+        if self.ctx.recall(system_id) is None:
+            return ToolResult.failure(
+                Codes.NOT_FOUND, f"system {system_id!r} not found")
+        alter_ids = {a["id"] for a in self._alters(system_id)}
+        weight_of: dict[tuple, float] = {}
+        adj: dict[str, list[str]] = {a: [] for a in alter_ids}
+        for a in alter_ids:
+            for b in self.ctx.neighbors(a, "PHOBIA_OF", direction="out"):
+                if b["id"] in alter_ids:
+                    adj[a].append(b["id"])
+        for c in self.ctx.find("AlterConflict"):
+            if c.get("a") in alter_ids and c.get("b") in alter_ids:
+                weight_of[(c["a"], c["b"])] = self._PHOBIA_WEIGHT.get(
+                    c.get("intensity", ""), 0.0)
+        cycles: list[dict] = []
+        seen_cycles: set[tuple] = set()
+
+        def _dfs(start: str, node: str, path: list[str]) -> None:
+            for nxt in adj.get(node, []):
+                if nxt == start:
+                    cyc = path[:]
+                    key = tuple(sorted(cyc))
+                    if key not in seen_cycles:
+                        seen_cycles.add(key)
+                        w = [weight_of.get((cyc[i], cyc[(i + 1) % len(cyc)]),
+                                           0.0) for i in range(len(cyc))]
+                        cycles.append({"alter_ids": cyc, "length": len(cyc),
+                                       "weight": round(sum(w) / len(w), 3)})
+                elif nxt not in path and len(path) < len(alter_ids):
+                    _dfs(start, nxt, path + [nxt])
+
+        for a in sorted(alter_ids):
+            _dfs(a, a, [a])
+        return ToolResult.success(data={
+            "cycles": cycles, "system_id": system_id})
+
+    @verb(role="transform")
+    def query_co_front(self, system_id: str,
+                       pair_kind: str = "max") -> ToolResult:
+        """Scenes where two system alters co-front (transform): every scene
+        whose cast holds ≥ 2 alters of this system, filtered by pair kind —
+        ``max`` (max-intensity conflict pairs; the canon violation),
+        ``adjacent`` (any conflict edge), ``any`` (all pairs). Max-pair
+        membership is COMPUTED from the live matrix, never pinned.
+
+        Inputs: system_id, pair_kind (max|adjacent|any).
+        Returns: ``{occurrences: [{scene_id, alter_ids, pair_kind,
+                 violates_canon}], system_id}``.
+        chain_next: split the violating scenes (the KP discipline) or pass
+                    allow_max_pair explicitly at compose time.
+        """
+        if pair_kind not in ("max", "adjacent", "any"):
+            return ToolResult.failure(
+                Codes.INVALID_ARGUMENT,
+                "pair_kind must be max|adjacent|any")
+        if self.ctx.recall(system_id) is None:
+            return ToolResult.failure(
+                Codes.NOT_FOUND, f"system {system_id!r} not found")
+        alter_ids = {a["id"] for a in self._alters(system_id)}
+        conflicts = [c for c in self.ctx.find("AlterConflict")
+                     if c.get("a") in alter_ids and c.get("b") in alter_ids]
+        max_weight = max((self._PHOBIA_WEIGHT.get(c.get("intensity", ""),
+                                                  0.0) for c in conflicts),
+                         default=0.0)
+        max_pairs = {frozenset((c["a"], c["b"])) for c in conflicts
+                     if self._PHOBIA_WEIGHT.get(c.get("intensity", ""),
+                                                0.0) == max_weight
+                     and max_weight > 0}
+        edge_pairs = {frozenset((c["a"], c["b"])) for c in conflicts}
+        occurrences: list[dict] = []
+        for scene in self.ctx.find("Scene"):
+            cast = {x.strip() for x in
+                    str(scene.get("cast") or "").split(",") if x.strip()}
+            if scene.get("pov_character_id"):
+                cast.add(scene["pov_character_id"])
+            fronting = sorted(cast & alter_ids)
+            if len(fronting) < 2:
+                continue
+            pairs = {frozenset(p)
+                     for p in itertools.combinations(fronting, 2)}
+            if pair_kind == "max":
+                hit = pairs & max_pairs
+            elif pair_kind == "adjacent":
+                hit = pairs & edge_pairs
+            else:
+                hit = pairs
+            if hit:
+                occurrences.append({
+                    "scene_id": scene["id"], "alter_ids": fronting,
+                    "pair_kind": pair_kind,
+                    "violates_canon": bool(pairs & max_pairs)})
+        return ToolResult.success(data={
+            "occurrences": occurrences, "system_id": system_id})
 
     @verb(role="transform")
     def validate_no_fusion(self, system_id: str) -> ToolResult:
