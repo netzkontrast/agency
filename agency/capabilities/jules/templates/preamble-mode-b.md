@@ -6,7 +6,7 @@ does NOT carry agency's operational docs into the target repo, so
 this preamble MUST prepend an explicit READ-ONLY clone block that
 makes those docs reachable. -->
 
-You are operating against **$source** — an external repo. The agency
+You are operating against **{{ source }}** — an external repo. The agency
 plugin's operational doctrine lives in a separate repo; read it from
 the public clone before touching code:
 
@@ -25,7 +25,7 @@ Then read (READ-ONLY — do not modify your clone of the agency repo):
 agency plugin into the target repo unless the task body explicitly
 requests it. -->
 
-$task_body
+{{ task_body }}
 
 <!-- AGENT: Before submit, follow the target repo's testing
 conventions (its README / CONTRIBUTING). Per AGENCY_PROTOCOL §9,

@@ -1251,9 +1251,14 @@ migration. (4 symbols)
 ### `scripts/` (15 files)
 - **__init__.py** — Helper scripts (Spec 054 drift-management, Spec 149 derived-doc discipline,
 Spec 053 test-suite slicing). (1 symbols)
-- **_doc_drift.py** — Doc-drift detection core (importable) — Spec 054 source-hashing +
-Spec 389 derived-fence triage (STALE-AUTO vs hand-review prose drift); the reusable
-logic behind the hyphenated `check-doc-drift` shim. (4 symbols)
+- **_doc_drift.py** — Doc-drift detection core (importable) — Spec 054 hashing + Spec 389 derived fences.
+
+`scripts/check-doc-drift` is a hyphenated shim that can't be imported; this module
+holds the reusable logic so it is unit-testable.
+
+The Spec 054 mechanism: a hand-written doc lists the source files it documents in a
+``<!-- doc-source: … -->`` marker and stamps a ``<!-- doc-hash: … -->`` over their
+bytes. (13 symbols)
 - **_spec_tree.py** — Shared spec-tree walker — the ONE place that knows where spec files live.
 
 Spec 357 moved every spec into a physical STATE folder
@@ -1292,7 +1297,7 @@ all derive from one source. (23 symbols)
 - **derive_docs.py** — Spec 149 Slice 2 — `derive-docs` core derivation library.
 
 Spec 149 Slice 1 shipped the `vision_goals:` frontmatter validator + 129-
-spec baseline. (30 symbols)
+spec baseline. (43 symbols)
 - **followup_derive.py** — Spec 269 — per-spec Followup Implementation Status: derived FollowupBlock.
 
 Per CLAUDE.md rule 4 the per-spec deep state lives in each spec.md's
@@ -1341,9 +1346,10 @@ one typed `GateResult` per capability — the fully-derivable verb-test-coverage
 dimension of the CI gate. (8 symbols)
 - **test_derived_doc_fences.py** — Spec 389 — derived fences for hand-authored reference docs.
 
-Extends the Spec 149 fence engine with code-introspection fence kinds
-(substrate-tools / driver-boundaries / capability-verbs) that regenerate from live
-code, plus the derived-vs-prose doc-drift discriminator. (19 symbols)
+Extends the Spec 149 `<!-- derived:<id> -->` fence engine with code-introspection
+fence kinds that regenerate from the LIVE engine — so the mechanically-derivable
+fragments of a hand doc (the `SUBSTRATE_TOOLS` roster, a capability's verb list,
+the driver-boundary set) stop rotting on every refactor. (29 symbols)
 - **test_develop_plan_execute.py** — Spec 287 — develop `plan-execute` discipline + Plan/PlanStep provenance.
 
 A first-class plan-authoring → execution-with-checkpoints discipline

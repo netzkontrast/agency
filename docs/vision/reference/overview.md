@@ -53,7 +53,8 @@ and only the conclusion returns. This is why adding verbs never widens the wire.
 1. **Bootstrap** (`Engine.__init__`, `engine.py`): build the core `Ontology`; discover
    every `CapabilityBase` under `agency/capabilities/` (+ any `extra_capabilities`);
    merge each capability's `OntologyExtension` **strictly** onto core; register its
-   verbs; build the `DriverRegistry` (the nine boundaries, lazily wired); validate each capability's
+   verbs; build the `DriverRegistry` (the driver boundaries, lazily wired — the live
+   roster is fenced in [drivers.md](drivers.md)); validate each capability's
    docstring-derived `SkillDoc`. Nothing is written to the graph at bootstrap.
 2. **Intent first**: every verb requires an `Intent`. An agent mints one via
    `intent_bootstrap` (or `agency intent …` on the CLI). `Registry.invoke` rejects any

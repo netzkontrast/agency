@@ -13,7 +13,8 @@
 <!-- AGENT: Fixability tier per finding — [quick-fix] mechanical + local (safe to
      auto-apply); [guided] needs a judgement call (propose, await confirm);
      [manual] structural (describe, never auto-apply). This tier IS the
-     $fix_tier_label slot in the iron-law-finding template. Safe = auto-apply under
+     f.fix_tier_label slot in the iron-law-finding template (Spec 388 Jinja
+     view-dict). Safe = auto-apply under
      develop.remediate(apply_safe=True); risky = reported in gated[] for confirm. -->
 
 <!-- AGENT: Close with a Fix Summary table — | Finding | Tier | Status | — so the

@@ -133,6 +133,24 @@ def test_overview_substrate_fence_in_sync_with_live() -> None:
         "`python -m scripts.derive_docs --write-docs`")
 
 
+def test_every_fenced_doc_in_sync_with_live() -> None:
+    """Standing guard over the WHOLE docs/ tree (389 follow-up): every doc that
+    opted a fragment into a derived fence stays in sync with live code. The set
+    is discovered live (rule 8), so a newly-fenced doc is guarded automatically."""
+    stale = []
+    fenced = 0
+    for doc in sorted((_REPO / "docs").rglob("*.md")):
+        text = doc.read_text(encoding="utf-8")
+        if not doc_fence_ids(text):
+            continue
+        fenced += 1
+        if doc_has_derived_drift(text):
+            stale.append(str(doc.relative_to(_REPO)))
+    assert fenced >= 2, "expected at least overview.md + drivers.md to carry fences"
+    assert not stale, (f"derived fences stale in {stale} — run "
+                       "`python -m scripts.derive_docs --write-docs`")
+
+
 # ── derive_docs_pass over a docs tree ─────────────────────────────────────────
 
 def test_derive_docs_pass_writes_stale_fence(tmp_path) -> None:

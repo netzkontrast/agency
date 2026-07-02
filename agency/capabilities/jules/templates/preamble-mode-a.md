@@ -20,7 +20,7 @@ copy:
 below applies in the dogfood context — the engine + capability code
 + test suite are in scope. -->
 
-$task_body
+{{ task_body }}
 
 <!-- AGENT: Before submit, run `python -m pytest -q -m "not e2e"` and
 include the result in your reply. Per AGENCY_PROTOCOL §9, end every

@@ -77,7 +77,8 @@ def test_iron_law_finding_template_has_four_slots():
 def test_remedy_template_exists_with_fix_tiers():
     body = (_DEVELOP_TPL / "quality-remedy.md").read_text(encoding="utf-8")
     assert _agent_block(body) and "doc-source:" in body
-    assert "$fix_tier_label" in body  # the slot the iron-law template references
+    # the slot the iron-law template references (Spec 388 — the Jinja view-dict)
+    assert "f.fix_tier_label" in body
 
 
 # ── §5 judgment prose as on-demand references ─────────────────────────────────
