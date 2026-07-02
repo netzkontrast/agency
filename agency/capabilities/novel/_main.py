@@ -721,6 +721,9 @@ novel_ontology = OntologyExtension(
         "ProjectRule": ["novel", "rule_id", "severity"],
         "Motif": ["novel", "slug"],
         "Anchor": ["novel", "name"],
+        # Spec 141 — narrative-mode blocks (mode-changes are NOT storyform
+        # boundaries; the check makes the distinction machine-checkable).
+        "ModeBlock": ["novel", "label", "mode"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -778,6 +781,8 @@ novel_ontology = OntologyExtension(
         "ECHOES_IN",       # Motif → Scene (each echo)
         "PLANTS",          # Anchor → Scene (plant site)
         "PAYS_OFF",        # Anchor → Scene (payoff site)
+        # Spec 141 — mode blocks.
+        "IN_MODE_BLOCK",   # Chapter → ModeBlock
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -824,6 +829,7 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     PluralMixin,
     RevealMixin,
     RulesetsMixin,
+    ModeBlocksMixin,
 )
 
 
@@ -844,6 +850,7 @@ class NovelCapability(
     PluralMixin,
     RevealMixin,
     RulesetsMixin,
+    ModeBlocksMixin,
     NovelBase,
     CapabilityBase,
 ):

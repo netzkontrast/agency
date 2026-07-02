@@ -23,6 +23,7 @@ from .canon import CanonMixin
 from .plural import PluralMixin
 from .reveal import RevealMixin
 from .rulesets import RulesetsMixin
+from .modeblocks import ModeBlocksMixin
 
 __all__ = [
     "NovelBase",
@@ -42,4 +43,5 @@ __all__ = [
     "PluralMixin",
     "RevealMixin",
     "RulesetsMixin",
+    "ModeBlocksMixin",
 ]
