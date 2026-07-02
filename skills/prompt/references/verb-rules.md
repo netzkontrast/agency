@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## prompt verb audit — 0 of 19 verbs need work
+## prompt verb audit — 0 of 24 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -24,10 +24,14 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `prompt.brief_finalize` | effect | ✓ clean |
 | `prompt.brief_render` | act | ✓ clean |
 | `prompt.catalog_list` | transform | ✓ clean |
+| `prompt.compose_drafting_brief` | transform | ✓ clean |
+| `prompt.compose_voice_locked_brief` | act | ✓ clean |
 | `prompt.engineer` | act | ✓ clean |
 | `prompt.evaluate` | effect | ✓ clean |
+| `prompt.exemplar_pool` | transform | ✓ clean |
 | `prompt.fragment` | transform | ✓ clean |
 | `prompt.fragments_for` | transform | ✓ clean |
+| `prompt.fragments_for_scope` | transform | ✓ clean |
 | `prompt.framework` | transform | ✓ clean |
 | `prompt.frameworks_for` | transform | ✓ clean |
 | `prompt.intent_capture` | act | ✓ clean |
@@ -36,6 +40,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `prompt.render` | act | ✓ clean |
 | `prompt.route_framework` | effect | ✓ clean |
 | `prompt.token_budget_gate` | effect | ✓ clean |
+| `prompt.voice_drift_audit` | act | ✓ clean |
 
 > Generated from each verb's live docstring (`prompt.evaluate(target="tool-desc")`).
 > A clean row meets the grammar; a flagged row names the rule it breaks. The

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_create_scene
 # Record a Scene node + SCENE_OF the parent Chapter (effect).
-# Usage: agency-novel-create_scene [--intent-id ID] <chapter_id> <slug> <pov>
+# Usage: agency-novel-create_scene [--intent-id ID] <chapter_id> <slug> <pov> [pov_character_id]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -71,6 +71,7 @@ _kw = {"intent_id": sys.argv[1]}
 _kw["chapter_id"] = _coerce(sys.argv[2], str)
 _kw["slug"] = _coerce(sys.argv[3], str)
 _kw["pov"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["pov_character_id"] = _coerce(sys.argv[5], str)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

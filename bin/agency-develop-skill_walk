@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_develop_skill_walk
 # Walk a registered skill to the first hard gate in ONE call (the atomic walker).
-# Usage: agency-develop-skill_walk [--intent-id ID] <name> <inputs> [resume_from]
+# Usage: agency-develop-skill_walk [--intent-id ID] <name> <inputs> [resume_from] [dry_run]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -71,6 +71,7 @@ _kw = {"intent_id": sys.argv[1]}
 _kw["name"] = _coerce(sys.argv[2], str)
 _kw["inputs"] = _coerce(sys.argv[3], dict)
 if len(sys.argv) > 4: _kw["resume_from"] = _coerce(sys.argv[4], str)
+if len(sys.argv) > 5: _kw["dry_run"] = _coerce(sys.argv[5], bool)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

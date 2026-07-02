@@ -7,7 +7,7 @@ Record a Scene node + SCENE_OF the parent Chapter (effect).
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `chapter_id, slug (scene-local short name), pov (a ``SCENE_POV`` member or rich text projected onto one).` |  |  |
+| `chapter_id, slug (scene-local short name), pov (a ``SCENE_POV`` member or rich text projected onto one), pov_character_id (optional — the character whose VoiceProfile gates this scene, Spec 134).` |  |  |
 
 ## Returns
 

@@ -24,6 +24,7 @@ from .plural import PluralMixin
 from .reveal import RevealMixin
 from .rulesets import RulesetsMixin
 from .modeblocks import ModeBlocksMixin
+from .preflight import PreflightMixin
 
 __all__ = [
     "NovelBase",
@@ -44,4 +45,5 @@ __all__ = [
     "RevealMixin",
     "RulesetsMixin",
     "ModeBlocksMixin",
+    "PreflightMixin",
 ]

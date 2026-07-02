@@ -742,6 +742,26 @@ R_RULE_AUTHOR_SKILL = {
     ],
 }
 
+NOVEL_PREFLIGHT_SKILL = {
+    "name": "novel-preflight", "kind": "auditor",
+    "phases": [
+        {"index": 1, "name": "briefing-ready",
+         "produces": ["briefing_verdict"],
+         "verbs": ["novel.briefing_checklist"]},
+        {"index": 2, "name": "canon-clean", "produces": ["canon_verdict"],
+         "verbs": ["novel.canon_audit"]},
+        {"index": 3, "name": "reveal-clear", "produces": ["reveal_verdict"],
+         "verbs": ["novel.check_veil", "novel.reveal_timeline_report"]},
+        {"index": 4, "name": "r-rules-dry-run",
+         "produces": ["r_rule_verdict"],
+         "verbs": ["novel.run_project_rules"]},
+        {"index": 5, "name": "voice-ready", "produces": ["voice_verdict"],
+         "verbs": ["novel.check_alter_recognition",
+                   "novel.preflight_report"], "gate": "hard"},
+    ],
+}
+
+
 CHAPTER_BRIEFING_AUTHOR_SKILL = {
     "name": "chapter-briefing-author", "kind": "builder",
     "phases": [
@@ -908,7 +928,9 @@ novel_ontology = OntologyExtension(
             "alter-roster-builder": ALTER_ROSTER_BUILDER_SKILL,
             "reveal-rule-author": REVEAL_RULE_AUTHOR_SKILL,
             "r-rule-author": R_RULE_AUTHOR_SKILL,
-            "chapter-briefing-author": CHAPTER_BRIEFING_AUTHOR_SKILL},
+            "chapter-briefing-author": CHAPTER_BRIEFING_AUTHOR_SKILL,
+            # Spec 145 — the pre-scene composite audit (the daily driver).
+            "novel-preflight": NOVEL_PREFLIGHT_SKILL},
     schemas={
         # Spec 102: logline replaces `premise` in the canonical phase name;
         # both verb args + skill produce the same field set.
@@ -947,6 +969,7 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     RevealMixin,
     RulesetsMixin,
     ModeBlocksMixin,
+    PreflightMixin,
 )
 
 
@@ -968,6 +991,7 @@ class NovelCapability(
     RevealMixin,
     RulesetsMixin,
     ModeBlocksMixin,
+    PreflightMixin,
     NovelBase,
     CapabilityBase,
 ):
