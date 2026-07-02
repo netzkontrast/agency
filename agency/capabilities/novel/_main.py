@@ -713,6 +713,10 @@ novel_ontology = OntologyExtension(
         "CharacterSystem": ["novel", "name", "model"],
         "Alter": ["system_id", "name", "category"],
         "AlterConflict": ["a", "b", "vector"],
+        # Spec 139 — reveal-discipline (three audience tiers) + deliberate
+        # Iser gaps registered first-class.
+        "RevealRule": ["novel", "fact", "tier"],
+        "Leerstelle": ["novel", "scene_id", "kind"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -763,6 +767,9 @@ novel_ontology = OntologyExtension(
         "PHOBIA_OF",    # Alter → Alter (the conflict matrix)
         "VOICED_BY",    # Alter → VoiceProfile (current binding = property)
         "MIRRORS",      # mirror-Alter → external entity
+        # Spec 139 — reveal-discipline.
+        "GOVERNS_REVEAL",  # RevealRule → the fact-bearing node
+        "HAS_GAP",         # Leerstelle → Scene
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -807,6 +814,7 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     DualStoryformMixin,
     CanonMixin,
     PluralMixin,
+    RevealMixin,
 )
 
 
@@ -825,6 +833,7 @@ class NovelCapability(
     DualStoryformMixin,
     CanonMixin,
     PluralMixin,
+    RevealMixin,
     NovelBase,
     CapabilityBase,
 ):

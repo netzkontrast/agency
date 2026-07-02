@@ -21,6 +21,7 @@ from .voice import VoiceMixin
 from .dual_storyform import DualStoryformMixin
 from .canon import CanonMixin
 from .plural import PluralMixin
+from .reveal import RevealMixin
 
 __all__ = [
     "NovelBase",
@@ -38,4 +39,5 @@ __all__ = [
     "DualStoryformMixin",
     "CanonMixin",
     "PluralMixin",
+    "RevealMixin",
 ]
