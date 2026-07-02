@@ -24,11 +24,16 @@ seams into one named table.
 
 ## How the engine wires it
 
-`Engine.__init__` builds one `DriverRegistry` registering the **nine** core boundaries —
-`runner` · `jules` · `vcs` · `embedder` · `web_search` · `token_counter` ·
-`skills_client` · `llm` (the LLM-decider, Spec 092 G3) · `anthropic` (the AnthropicDriver,
-Spec 147) — as **lazy factories** (explicit injection wins; an unused boundary is never
-constructed) and derives
+`Engine.__init__` builds one `DriverRegistry` registering the core boundaries:
+
+<!-- derived:driver-boundaries -->
+The **9** driver boundaries: `anthropic`, `embedder`, `jules`, `llm`, `runner`, `skills_client`, `token_counter`, `vcs`, `web_search`.
+<!-- /derived:driver-boundaries -->
+
+(the set above is derived from code — Spec 389, `derive_docs --write-docs`; notably
+`llm` is the LLM-decider, Spec 092 G3, and `anthropic` the AnthropicDriver, Spec 147).
+They register as **lazy factories** (explicit injection wins; an unused boundary is never
+constructed) and the engine derives
 `Registry.injectors` from it (one source of truth, so `inject=[…]` + `ctx.client` keep
 working). A `drivers={…}` kwarg lets a host register **a domain cluster with no new
 Engine kwarg and no new injectors key**.

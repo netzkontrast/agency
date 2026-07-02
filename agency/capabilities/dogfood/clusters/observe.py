@@ -123,16 +123,17 @@ class ObserveMixin:
         notes = self.ctx.query_nodes(
             "Reflection", {"plan_slug": plan_slug, "scope": "observation"})
         notes.sort(key=lambda r: r.get("vfrom", 0))
-        # Spec 060 — render via `ctx.template('dogfood-notes')` so the
-        # markdown shape lives as a file and iterating it is a markdown
-        # commit, not a Python edit. Strip the `<!-- AGENT: -->` blocks
-        # from the human-facing output (Spec 060 §Renderers strip blocks
-        # for human-facing output).
-        import re as _re
-        tpl = self.ctx.template("dogfood-notes")
+        # Spec 060 — render via the `dogfood-notes` template so the markdown
+        # shape lives as a file and iterating it is a markdown commit, not a
+        # Python edit. Spec 388 — the template's render-time notes are Jinja
+        # `{# #}` comments, so `ctx.render` strips them from the human-facing
+        # output itself (the manual `<!-- -->` regex strip is gone).
+        def _render(body: str) -> str:
+            return self.ctx.render("dogfood-notes", plan_slug=plan_slug,
+                                   body=body)
+
         if not notes:
-            content = tpl.substitute(plan_slug=plan_slug, body="\n(none yet)\n")
-            content = _re.sub(r"<!--.*?-->", "", content, flags=_re.DOTALL).strip()
+            content = _render("\n(none yet)\n").strip()
             return {"content": content + "\n", "count": 0,
                     "omitted": 0, "tokens": _count_tokens(content),
                     "plan_slug": plan_slug}
@@ -148,14 +149,10 @@ class ObserveMixin:
             # an oversize single observation can't push the rendered
             # payload past the cap. Trim the chunk if the probe overshoots
             # and stop iteration (the budget marker is appended later).
-            probe = tpl.substitute(
-                plan_slug=plan_slug,
-                body="".join(body_parts) + chunk,
-            )
+            probe = _render("".join(body_parts) + chunk)
             if _count_tokens(probe) > max_tokens * 0.92:
                 # Compute remaining headroom and truncate this chunk to fit.
-                current = tpl.substitute(
-                    plan_slug=plan_slug, body="".join(body_parts))
+                current = _render("".join(body_parts))
                 headroom_tokens = max(0, int(max_tokens * 0.92) - _count_tokens(current))
                 # Token-budget proxy: ~4 chars per token (mirrors _count_tokens
                 # fallback). Trim chunk to that char budget.
@@ -174,9 +171,7 @@ class ObserveMixin:
             body_parts.append(
                 f"\n_… ({omitted} more observations omitted to fit "
                 f"max_tokens={max_tokens})_\n")
-        content = tpl.substitute(plan_slug=plan_slug, body="".join(body_parts))
-        # Strip AGENT instruction blocks for the human-view output.
-        content = _re.sub(r"<!--.*?-->", "", content, flags=_re.DOTALL).strip() + "\n"
+        content = _render("".join(body_parts)).strip() + "\n"
         return {"content": content, "count": rendered_count,
                 "omitted": omitted, "tokens": _count_tokens(content),
                 "plan_slug": plan_slug}

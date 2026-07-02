@@ -214,14 +214,19 @@ shrink `analyze.report`. RED→GREEN against the §Acceptance scenarios.
 - **Doc.** `docs/vision/CAPABILITY-AUTHORING.md` §"Templates instruct agents" carries
   the Spec-388 Jinja callout + §4 conditional-section rewrite.
 
-**Still (deferred, NOT blocking the directive):** the bulk `$var`→`{{ }}` cosmetic
-port of the templates NOT on the `ctx.render` path (`develop/templates/quality-*.md`,
-`novel/*`, `music/*`, etc.). They already **parse as Jinja** (the acceptance gate) and
-are rendered by the separate `RenderTemplates`/`string.Template` path or are
-agent-filled scaffolds (the novel/music `{{ }}` are literal placeholders, NOT engine
-vars) — converting them would be cosmetic and risk breaking that path, so it waits
-until a template moves onto `ctx.render`. The lint `RenderSliceRule` (§6) does not
-exist in the current tree (`plugin/clusters/` absent) — no update needed; the
+**Follow-up COMPLETE (owner directive "Implementierung Both", 2026-06-28):** the
+remaining eight `$var` templates are ported to `{{ }}` — `analysis-summary`,
+`checklist`, `quality-remedy` (prose slot reference → `f.fix_tier_label`),
+`explanation`, `reflection-note`, `dogfood-notes`, `preamble-mode-a/b`. The one
+live `string.Template` consumer among them, `dogfood.render`
+(`dogfood/clusters/observe.py`), now renders through `ctx.render` — its manual
+`<!-- -->` regex strip is DELETED (the template's render-notes became `{# #}`
+Jinja comments the engine strips), the same hack-removal pattern as the analyze
+strippers. A standing test (`test_no_string_template_var_remains`) guards that no
+capability template reintroduces `$var`. Zero `$var` templates remain — the "port
+ALL templates" directive is fully closed. The novel/music `{{ }}` scaffolds were
+already valid Jinja placeholders and needed no change. The lint `RenderSliceRule`
+(§6) does not exist in the current tree (`plugin/clusters/` absent) — the
 agent-block contract is enforced by the acceptance tests instead.
 
 **Lifecycle:** DONE — owner approved (`AdR.approve`, 2026-06-27); done-cascade run

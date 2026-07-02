@@ -116,10 +116,19 @@ prose drift (still hand-reviewed, this spec just shrinks that surface).
 in sync; 389 provides the derivation it tests — complementary, not blocking. 389
 ships its own standing guard (the overview in-sync test + the `check-drift` gate).
 
-**Still (deferred):** migrating MORE reference docs onto `driver-boundaries` /
-`capability-verbs` fences (the engine + CLI support them now; `overview.md` is the
-proof consumer). The 13 pre-existing prose-STALE docs remain hand-review (OUT of
-scope — 389 shrinks that surface, it does not rewrite prose).
+**Follow-up COMPLETE (owner directive "Implementierung Both", 2026-06-28):**
+`docs/vision/reference/drivers.md`'s hand-typed "the **nine** core boundaries —
+`runner` · …" roster is now a `<!-- derived:driver-boundaries -->` fence (the
+inline spec notes for `llm`/`anthropic` stay as prose after it); `overview.md`'s
+decorative "the nine boundaries" count in the bootstrap flow is de-numbered and
+points at the drivers.md fence instead (a count in running prose is drift bait —
+remove it rather than fence mid-sentence). A live-discovered standing test
+(`test_every_fenced_doc_in_sync_with_live`) now guards EVERY fenced doc under
+`docs/` — a newly-fenced doc is covered automatically (rule 8). No
+`capability-verbs` fence was placed — no reference doc currently hand-copies a
+verb roster (YAGNI; the kind stays available). The 13 pre-existing prose-STALE
+docs remain hand-review (OUT of scope — 389 shrinks that surface, it does not
+rewrite prose).
 
 **Lifecycle:** DONE — owner approved (`AdR.approve`, 2026-06-27); done-cascade run
 (`workflow.finish_spec` → `Plan/done/`, decision **WORKFLOW-04** recorded + approved

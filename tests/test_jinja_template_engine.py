@@ -97,6 +97,16 @@ def test_no_begin_if_marker_remains() -> None:
     assert not offenders, f"BEGIN IF marker still present in: {offenders}"
 
 
+def test_no_string_template_var_remains() -> None:
+    """Spec 388 follow-up — the port is COMPLETE: no capability template still
+    carries a `string.Template` `$var` placeholder (the pre-388 syntax)."""
+    import re
+    dollar_var = re.compile(r"\$\{?[a-zA-Z_]")
+    offenders = [str(p.relative_to(_REPO)) for p in _TEMPLATE_GLOB
+                 if dollar_var.search(p.read_text())]
+    assert not offenders, f"$var placeholders still present in: {offenders}"
+
+
 # ── Scenario: missing vars still fail loudly ──────────────────────────────────
 
 def test_missing_var_raises() -> None:

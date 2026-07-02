@@ -1,12 +1,12 @@
 ---
-scope: "$scope"
-intent_id: "$intent_id"
-vfrom: "$vfrom"
+scope: "{{ scope }}"
+intent_id: "{{ intent_id }}"
+vfrom: "{{ vfrom }}"
 ---
 
 # Reflection
 
-$text
+{{ text }}
 
 <!-- AGENT: Reflections are durable cross-session memory. Use scope
 to tag the lens: `observation` (raw signal), `reflection` (post-task

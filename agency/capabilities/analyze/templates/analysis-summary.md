@@ -5,11 +5,11 @@
 each contribute a Finding count by severity. Use this to triage at
 a glance; drill into individual Findings via the analysis_id. -->
 
-_path: $path_  ·  _started_at: $started_at_
+_path: {{ path }}_  ·  _started_at: {{ started_at }}_
 
 ## Totals by axis
 
-$totals_table
+{{ totals_table }}
 
 <!-- AGENT: Highest-severity findings appear first in the table. A
 'fail' severity is a hard block — fix before merging. A 'warn' is a
@@ -21,5 +21,5 @@ soft block — fix if practical. 'info' is FYI. -->
 an improvement plan filtered by axis. Run `analyze.cleanup(path)` to
 remove dead code surfaced by the architecture axis. -->
 
-- `analyze.improve(analysis_id=$analysis_id)` — improvement plan
-- `analyze.cleanup(path='$path')` — dead-code removal
+- `analyze.improve(analysis_id={{ analysis_id }})` — improvement plan
+- `analyze.cleanup(path='{{ path }}')` — dead-code removal
