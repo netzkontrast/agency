@@ -361,5 +361,10 @@ Anchors: 734, telefon-stille, silas-halbsatz, waerme-debut
    doesn't bookkeep), and `record_motif_echo` stays as an override.
 
 ## Followup
+**IMPLEMENTED 2026-07-02 (TDD green — PR #328, branch claude/agency-novel-specs).**
+Shipped as a novel cluster mixin per the drop-in pattern; see the TODO.md row
+for the one-line summary and the test suite named in `affects:` for the
+behavioural contract. Deviations from the draft (if any) are documented in the
+module docstring of the shipped cluster. Remaining: the 2xx slice-2 follow-up
+specs build on this surface.
 
-(Populated when the PR ships.)

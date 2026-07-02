@@ -129,19 +129,19 @@ Rebuild (derived from the Plan/ tree):
 - 130  scene-writer-skill
 - 131  character-knowledge-ledger
 - 132  codex-entity-tracking
-- 133  story-structure-templates
-- 134  pov-voice-profiles
+- 133  story-structure-templates   # Shipped (code) — 5 vendored beat sheets + overlay, BeatExpectation/FULFILS, apply/anchor/coverage/position-report, storyform-build phase 7, drafting soft-warn; TDD (12); PR #328
+- 134  pov-voice-profiles   # Shipped (code) — VoiceProfile/VOICE_OF, score_voice_match 0-100, check_pov_voice, drift report/gate, 5-scene auto-derivation; +Spec 138 alter-taboo hard layer, +Spec 144 Sprach-DNA fields; TDD (11); PR #328
 - 135  sensitivity-reader-workflow
-- 136  dual-storyform-architecture
-- 137  canon-provenance-locks
-- 138  plural-character-system
-- 139  reveal-discipline
-- 140  project-rulesets-motifs
-- 141  chapter-briefing-mode-blocks
-- 142  novel-craft-skill-walks
-- 143  kohaerenz-prompt-fragments
-- 144  voice-locked-drafting-prompt
-- 145  novel-preflight-composite-skill
+- 136  dual-storyform-architecture   # Shipped (code) — StoryformSet (N-ary) + Klein-c inversion (V4), Vortex transitions + driver-flip legality, hard/soft routing, bridge-frequency curve, composite check + Artefact; TDD (13); PR #328
+- 137  canon-provenance-locks   # Shipped (code) — canon_status [K]/[V]/[S]/[L] cross-cutting, Lock newer-wins chains, Master-Index, conflict resolution, quarry promotion, canon_audit, canon_gate; TDD (9); PR #328
+- 138  plural-character-system   # Shipped (code) — CharacterSystem/Alter roster, PHOBIA_OF matrix (AlterConflict cells) + max-pair warnings, VOICED_BY binding, never-labeled + veil recognition, switching_log (R-4), validate_no_fusion; TDD (8); PR #328
+- 139  reveal-discipline   # Shipped (code) — RevealRule three tiers + premature check, timeline report, check_veil, Leerstelle first-class, reader_function_audit, reveal_gate; TDD (8); PR #328
+- 140  project-rulesets-motifs   # Shipped (code) — ProjectRule over 4 decidable predicates, run_project_rules checklist, severity-tiered gate, Motif echo-trail (cap 1), named Anchors plant->payoff; TDD (7); PR #328
+- 141  chapter-briefing-mode-blocks   # Shipped (code) — ModeBlock (6 modes) + IN_MODE_BLOCK, mode!=storyform-boundary check, genre-bleed, render_chapter_briefing aggregates 136-140 into the Jinja template, section-M checklist; TDD (7); PR #328
+- 142  novel-craft-skill-walks   # Shipped (code) — six per-cluster walks registered (gates at the KP halt points); develop.skill_walk gains dry_run (would_invoke preview, zero side effects); TDD (4); PR #328
+- 143  kohaerenz-prompt-fragments   # Shipped (code) — kp-fragments.yaml (6 families, 55 fragments, lint as standing test), prompt.fragments_for_scope (KP scope keys, budget_take), prompt.compose_drafting_brief; overlay isolation via CharacterSystem/StoryformSet detection; TDD (6); PR #328
+- 144  voice-locked-drafting-prompt   # Shipped (code) — prompt.compose_voice_locked_brief (section-structured, co-front guard, TABOO never truncated), exemplar_pool (intent-hash rotation), voice_drift_audit (leaked-other-alter verdict); TDD (5); PR #328
+- 145  novel-preflight-composite-skill   # Shipped (code) — novel.preflight_report (5 read-only verdicts over 137-144, blockers/warnings, pre-flight Artefact) + novel-preflight walkable skill (voice-ready hard gate); TDD (4); PR #328
 - 146  engine-output-prefix-discipline
 - 147  anthropic-driver-boundary
 - 148  agency-slash-family-and-sessionstart
