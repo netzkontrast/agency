@@ -52,6 +52,7 @@ from .clusters import (
     AssemblyMixin,
     FragmentsMixin,
     FrameworksMixin,
+    VoiceLockMixin,
 )
 
 # ─── Re-exports for back-compat (symbols imported elsewhere or test-referenced) ───
@@ -101,6 +102,7 @@ class PromptCapability(
     AssemblyMixin,
     FragmentsMixin,
     FrameworksMixin,
+    VoiceLockMixin,
     PromptBase,
     CapabilityBase,
 ):

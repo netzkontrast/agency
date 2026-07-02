@@ -14,6 +14,7 @@ from .gates import GatesMixin
 from .assembly import AssemblyMixin
 from .fragments import FragmentsMixin
 from .frameworks import FrameworksMixin
+from .voice_lock import VoiceLockMixin
 
 __all__ = [
     "PromptBase",
@@ -23,4 +24,5 @@ __all__ = [
     "AssemblyMixin",
     "FragmentsMixin",
     "FrameworksMixin",
+    "VoiceLockMixin",
 ]

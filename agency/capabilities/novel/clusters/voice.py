@@ -25,7 +25,11 @@ AUTO_DERIVE_MIN_SCENES = 5
 
 _PROFILE_FIELDS = ("vocabulary_floor", "sentence_avg_target",
                    "sentence_avg_stddev", "taboo_words", "signature_phrases",
-                   "formality_target", "contractions")
+                   "formality_target", "contractions",
+                   # Spec 144 — the Sprach-DNA fields the voice-locked
+                   # drafting prompt consumes (open-set; set via update).
+                   "sentence_shape", "vocabulary_preferred",
+                   "vocabulary_forbidden", "example_sentences")
 
 _CONTRACTION_RE = re.compile(r"\b\w+'\w+\b")
 
