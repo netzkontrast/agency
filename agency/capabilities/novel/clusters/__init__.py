@@ -19,6 +19,7 @@ from .character_knowledge import CharacterKnowledgeMixin
 from .structure import StructureMixin
 from .voice import VoiceMixin
 from .dual_storyform import DualStoryformMixin
+from .canon import CanonMixin
 
 __all__ = [
     "NovelBase",
@@ -34,4 +35,5 @@ __all__ = [
     "StructureMixin",
     "VoiceMixin",
     "DualStoryformMixin",
+    "CanonMixin",
 ]

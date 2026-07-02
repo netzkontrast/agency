@@ -703,6 +703,10 @@ novel_ontology = OntologyExtension(
         # simultaneous storyforms; a transition records a Vortex.
         "StoryformSet": ["novel", "label", "count"],
         "StoryformTransition": ["storyform_set_id", "from_role", "to_role"],
+        # Spec 137 — canonized decision with newer-wins supersession chain.
+        # `canon_status` itself is a CROSS-CUTTING property on any node
+        # (marker, not node) — only the Lock has its own lifecycle.
+        "Lock": ["novel", "topic", "content"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -746,6 +750,8 @@ novel_ontology = OntologyExtension(
         "MEMBER_OF",    # Storyform → StoryformSet
         "ROUTED_TO",    # Scene → Storyform (props: mode=hard|soft)
         "TRANSITIONS",  # StoryformTransition → StoryformSet
+        # Spec 137 — canon locks.
+        "LOCKS",        # Lock → the node it governs (optional binding)
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -788,6 +794,7 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     StructureMixin,
     VoiceMixin,
     DualStoryformMixin,
+    CanonMixin,
 )
 
 
@@ -804,6 +811,7 @@ class NovelCapability(
     StructureMixin,
     VoiceMixin,
     DualStoryformMixin,
+    CanonMixin,
     NovelBase,
     CapabilityBase,
 ):
