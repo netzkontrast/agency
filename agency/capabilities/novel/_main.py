@@ -707,6 +707,12 @@ novel_ontology = OntologyExtension(
         # `canon_status` itself is a CROSS-CUTTING property on any node
         # (marker, not node) — only the Lock has its own lifecycle.
         "Lock": ["novel", "topic", "content"],
+        # Spec 138 — plural-character system (dissociative-system model).
+        # AlterConflict carries the matrix CELL (vector/intensity/rationale)
+        # because Memory has no edge-prop reader; PHOBIA_OF stays the edge.
+        "CharacterSystem": ["novel", "name", "model"],
+        "Alter": ["system_id", "name", "category"],
+        "AlterConflict": ["a", "b", "vector"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -752,6 +758,11 @@ novel_ontology = OntologyExtension(
         "TRANSITIONS",  # StoryformTransition → StoryformSet
         # Spec 137 — canon locks.
         "LOCKS",        # Lock → the node it governs (optional binding)
+        # Spec 138 — plural-character system.
+        "ALTER_OF",     # Alter → CharacterSystem
+        "PHOBIA_OF",    # Alter → Alter (the conflict matrix)
+        "VOICED_BY",    # Alter → VoiceProfile (current binding = property)
+        "MIRRORS",      # mirror-Alter → external entity
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -795,6 +806,7 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     VoiceMixin,
     DualStoryformMixin,
     CanonMixin,
+    PluralMixin,
 )
 
 
@@ -812,6 +824,7 @@ class NovelCapability(
     VoiceMixin,
     DualStoryformMixin,
     CanonMixin,
+    PluralMixin,
     NovelBase,
     CapabilityBase,
 ):

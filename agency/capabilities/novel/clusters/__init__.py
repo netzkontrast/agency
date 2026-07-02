@@ -20,6 +20,7 @@ from .structure import StructureMixin
 from .voice import VoiceMixin
 from .dual_storyform import DualStoryformMixin
 from .canon import CanonMixin
+from .plural import PluralMixin
 
 __all__ = [
     "NovelBase",
@@ -36,4 +37,5 @@ __all__ = [
     "VoiceMixin",
     "DualStoryformMixin",
     "CanonMixin",
+    "PluralMixin",
 ]

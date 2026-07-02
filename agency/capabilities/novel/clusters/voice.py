@@ -253,9 +253,24 @@ class VoiceMixin:
         if not scored.ok:
             return scored
         data = scored.data
+        deviations = list(data["deviations"])
+        score = data["score"]
+        # Spec 138 — plural anti-cliché layer: when the POV character is an
+        # Alter carrying taboo_rules, any matched rule is a HARD violation.
+        node = self.ctx.recall(char) or {}
+        rules = [r.strip().lower() for r in
+                 str(node.get("taboo_rules") or "").split(",") if r.strip()]
+        low = scene.get("body", "").lower()
+        hits = sorted(r for r in rules if r in low)
+        if hits:
+            deviations.append({"field": "alter_taboo_rules",
+                               "target": "absent",
+                               "actual": ",".join(hits),
+                               "severity": "hard"})
+            score = 0
         return ToolResult.success(data={
-            "passed": data["score"] >= VOICE_PASS_THRESHOLD,
-            "score": data["score"], "deviations": data["deviations"],
+            "passed": score >= VOICE_PASS_THRESHOLD,
+            "score": score, "deviations": deviations,
             "character_id": char,
         })
 
