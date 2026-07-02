@@ -1,0 +1,20 @@
+{
+  "template_id": "heros-journey",
+  "name": "Hero's Journey (12 stages)",
+  "source": "Joseph Campbell via Christopher Vogler, The Writer's Journey",
+  "license_note": "Public-domain mythic structure; prompts are original prose.",
+  "beats": [
+    {"slug": "ordinary-world", "name": "Ordinary World", "position": 0.0, "prompt": "What does normal look like, and what is missing from it?"},
+    {"slug": "call-to-adventure", "name": "Call to Adventure", "position": 0.08, "prompt": "What summons disturbs the ordinary world?"},
+    {"slug": "refusal", "name": "Refusal of the Call", "position": 0.15, "prompt": "Why does the hero hesitate — what fear speaks?"},
+    {"slug": "mentor", "name": "Meeting the Mentor", "position": 0.2, "prompt": "Who or what equips the hero to cross over?"},
+    {"slug": "crossing-threshold", "name": "Crossing the Threshold", "position": 0.25, "prompt": "What marks the point of no return into the special world?"},
+    {"slug": "tests-allies-enemies", "name": "Tests, Allies, Enemies", "position": 0.35, "prompt": "How does the special world teach its rules?"},
+    {"slug": "approach-inmost-cave", "name": "Approach to the Inmost Cave", "position": 0.5, "prompt": "What preparations precede the central ordeal?"},
+    {"slug": "ordeal", "name": "Ordeal", "position": 0.6, "prompt": "What death-and-rebirth does the hero face at the core?"},
+    {"slug": "reward", "name": "Reward (Seizing the Sword)", "position": 0.7, "prompt": "What is won, and at what hidden cost?"},
+    {"slug": "road-back", "name": "The Road Back", "position": 0.75, "prompt": "What pursuit or consequence drives the return?"},
+    {"slug": "resurrection", "name": "Resurrection", "position": 0.9, "prompt": "What final test proves the change is real?"},
+    {"slug": "return-with-elixir", "name": "Return with the Elixir", "position": 0.98, "prompt": "What boon does the hero bring back to the ordinary world?"}
+  ]
+}

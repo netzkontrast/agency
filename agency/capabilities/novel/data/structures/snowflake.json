@@ -1,0 +1,13 @@
+{
+  "template_id": "snowflake",
+  "name": "Snowflake (three-disaster spine)",
+  "source": "Randy Ingermanson, the Snowflake Method",
+  "license_note": "The one-sentence -> paragraph expansion spine (setup, three disasters, ending) as manuscript positions; prompts are original prose.",
+  "beats": [
+    {"slug": "setup", "name": "Setup sentence", "position": 0.0, "prompt": "One sentence: who wants what, against what?"},
+    {"slug": "disaster-1", "name": "First Disaster", "position": 0.25, "prompt": "What first disaster forces commitment (end of act one)?"},
+    {"slug": "disaster-2", "name": "Second Disaster", "position": 0.5, "prompt": "What second disaster closes the easy way out?"},
+    {"slug": "disaster-3", "name": "Third Disaster", "position": 0.75, "prompt": "What third disaster forces the final confrontation?"},
+    {"slug": "ending", "name": "Ending", "position": 0.9, "prompt": "How does the confrontation resolve the one-sentence promise?"}
+  ]
+}

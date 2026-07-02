@@ -1,0 +1,23 @@
+{
+  "template_id": "save-the-cat",
+  "name": "Save the Cat (15-beat sheet)",
+  "source": "Blake Snyder, Save the Cat! (2005)",
+  "license_note": "Beat names are widely-taught structural vocabulary; prompts are original prose. No Snyder text is reproduced.",
+  "beats": [
+    {"slug": "opening-image", "name": "Opening Image", "position": 0.0, "prompt": "What single image states the 'before' world?"},
+    {"slug": "theme-stated", "name": "Theme Stated", "position": 0.05, "prompt": "Who voices the lesson the protagonist must learn, and how obliquely?"},
+    {"slug": "setup", "name": "Set-Up", "position": 0.07, "prompt": "Which flaws, wants and stakes must the reader see before everything changes?"},
+    {"slug": "catalyst", "name": "Catalyst", "position": 0.1, "prompt": "What event makes the old life impossible to continue?"},
+    {"slug": "debate", "name": "Debate", "position": 0.15, "prompt": "What question does the protagonist wrestle with before committing?"},
+    {"slug": "break-into-two", "name": "Break into Two", "position": 0.22, "prompt": "What choice moves the protagonist into the new world?"},
+    {"slug": "b-story", "name": "B Story", "position": 0.27, "prompt": "Which relationship carries the theme while the A-plot runs?"},
+    {"slug": "fun-and-games", "name": "Fun and Games", "position": 0.3, "prompt": "What is the promise of the premise — the scenes on the poster?"},
+    {"slug": "midpoint", "name": "Midpoint", "position": 0.5, "prompt": "What false victory or false defeat raises the stakes and starts the clock?"},
+    {"slug": "bad-guys-close-in", "name": "Bad Guys Close In", "position": 0.55, "prompt": "How do external pressure and internal dissent tighten together?"},
+    {"slug": "all-is-lost", "name": "All Is Lost", "position": 0.68, "prompt": "What loss (with a whiff of death) strips the protagonist bare?"},
+    {"slug": "dark-night-of-the-soul", "name": "Dark Night of the Soul", "position": 0.72, "prompt": "What does the protagonist finally understand in the wreckage?"},
+    {"slug": "break-into-three", "name": "Break into Three", "position": 0.77, "prompt": "How do A-story and B-story fuse into the solution?"},
+    {"slug": "finale", "name": "Finale", "position": 0.85, "prompt": "How is the lesson proven in action, step by step?"},
+    {"slug": "final-image", "name": "Final Image", "position": 0.99, "prompt": "What closing image mirrors the opening and shows the change?"}
+  ]
+}

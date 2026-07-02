@@ -347,7 +347,7 @@ class LifecycleMixin:
 
     @verb(role="effect", param_enums={"pov": SCENE_POV})
     def create_scene(self, chapter_id: str, slug: str,
-                      pov: str) -> ToolResult:
+                      pov: str, pov_character_id: str = "") -> ToolResult:
         """Record a Scene node + SCENE_OF the parent Chapter (effect).
 
         Spec 284 — ``pov`` is a *projected enum*: it accepts rich free text
@@ -357,7 +357,9 @@ class LifecycleMixin:
         PERMANENT, listing the members.
 
         Inputs: chapter_id, slug (scene-local short name), pov (a ``SCENE_POV``
-                member or rich text projected onto one).
+                member or rich text projected onto one), pov_character_id
+                (optional — the character whose VoiceProfile gates this
+                scene, Spec 134).
         Returns: ``{scene_id, chapter_id, slug, pov, pov_detail?}``.
         chain_next: ``novel.create_scene`` for next beat or back to
                     ``novel.set_chapter_status`` once the chapter's
@@ -375,6 +377,9 @@ class LifecycleMixin:
         props = {"chapter": chapter_id, "slug": slug, "pov": canonical}
         if detail:
             props["pov_detail"] = detail
+        # Spec 134 — the POV character whose VoiceProfile gates this scene.
+        if pov_character_id:
+            props["pov_character_id"] = pov_character_id
         sid = self.ctx.record_and_serve("Scene", props, parent=chapter_id, edge="SCENE_OF")
         out = {"scene_id": sid, "chapter_id": chapter_id,
                "slug": slug, "pov": canonical}

@@ -1,0 +1,14 @@
+{
+  "template_id": "three-act",
+  "name": "Three-Act Structure",
+  "source": "Classical dramatic structure (Aristotle via Syd Field)",
+  "license_note": "Public-domain structural vocabulary; prompts are original prose.",
+  "beats": [
+    {"slug": "hook", "name": "Hook", "position": 0.0, "prompt": "What promise opens the story?"},
+    {"slug": "inciting-incident", "name": "Inciting Incident", "position": 0.12, "prompt": "What disturbance sets the story question?"},
+    {"slug": "first-act-break", "name": "First Act Break", "position": 0.25, "prompt": "What irreversible commitment ends the beginning?"},
+    {"slug": "midpoint", "name": "Midpoint", "position": 0.5, "prompt": "What reversal re-frames the goal at the centre?"},
+    {"slug": "second-act-break", "name": "Second Act Break (Crisis)", "position": 0.75, "prompt": "What lowest point forces the final approach?"},
+    {"slug": "climax", "name": "Climax", "position": 0.9, "prompt": "Where is the story question answered decisively?"}
+  ]
+}

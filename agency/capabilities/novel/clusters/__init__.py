@@ -16,6 +16,8 @@ from .world import WorldMixin
 from .storytime import StoryTimeMixin
 from .codex import CodexMixin
 from .character_knowledge import CharacterKnowledgeMixin
+from .structure import StructureMixin
+from .voice import VoiceMixin
 
 __all__ = [
     "NovelBase",
@@ -28,4 +30,6 @@ __all__ = [
     "StoryTimeMixin",
     "CodexMixin",
     "CharacterKnowledgeMixin",
+    "StructureMixin",
+    "VoiceMixin",
 ]

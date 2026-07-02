@@ -482,6 +482,13 @@ STORYFORM_BUILD_SKILL = {
          "produces": ["storyform_coherent"],
          "verbs": ["novel.novel_coherence_check"],
          "gate": "hard"},
+        # Spec 133 — OPTIONAL chained template-pick: once the storyform
+        # passes, the author can apply a pacing structure without leaving
+        # the walk. No gate — skipping it never blocks the build.
+        {"index": 7, "name": "structure-template-pick",
+         "produces": ["structure_applied"],
+         "verbs": ["novel.list_structure_templates",
+                   "novel.apply_structure"]},
     ],
 }
 
@@ -635,7 +642,8 @@ SCENE_WRITER_SKILL = {
          "verbs": ["novel.check_filter_words",
                    "novel.check_dialogue_attribution",
                    "novel.check_show_dont_tell",
-                   "novel.novel_coherence_check"]},
+                   "novel.novel_coherence_check",
+                   "novel.check_pov_voice"]},
         {"index": 5, "name": "integrate",
          "produces": ["scene_integrated"],
          "verbs": ["novel.integrate_scene_body"],
@@ -682,6 +690,15 @@ novel_ontology = OntologyExtension(
         "CodexEntry":   ["novel", "slug", "name", "kind"],
         # Spec 131 — character-knowledge ledger.
         "KnownFact":    ["character", "fact"],
+        # Spec 133 — structure-template pacing layer. One node per beat of
+        # the APPLIED template (there is no StructureTemplate node — the
+        # vendored JSONs are the templates; a node nothing mints would be
+        # dormant surface). `scene_id` fills when the author anchors a scene.
+        "BeatExpectation": ["novel", "template_id", "beat_slug"],
+        # Spec 134 — per-character voice signature (one per character;
+        # create overwrites). Targets beyond `character` are optional
+        # fields; unset sentence targets derive from drafted scenes.
+        "VoiceProfile": ["character"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -717,6 +734,10 @@ novel_ontology = OntologyExtension(
         # Spec 131 — character-knowledge ledger edges.
         "KNOWS",        # Character → KnownFact
         "LEARNED_IN",   # KnownFact → Scene
+        # Spec 133 — structure pacing layer.
+        "FULFILS",      # Scene → BeatExpectation (this scene fulfils the beat)
+        # Spec 134 — voice signature.
+        "VOICE_OF",     # VoiceProfile → Character (CodexEntry)
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -756,6 +777,8 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     StoryTimeMixin,
     CodexMixin,
     CharacterKnowledgeMixin,
+    StructureMixin,
+    VoiceMixin,
 )
 
 
@@ -769,6 +792,8 @@ class NovelCapability(
     StoryTimeMixin,
     CodexMixin,
     CharacterKnowledgeMixin,
+    StructureMixin,
+    VoiceMixin,
     NovelBase,
     CapabilityBase,
 ):
