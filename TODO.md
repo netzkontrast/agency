@@ -234,7 +234,7 @@ Rebuild (derived from the Plan/ tree):
 - 235  graph-neighbors-typed-paths
 - 236  research-ingest-corpus-management
 - 237  scene-brief-cache-discipline
-- 238  story-time-graph-query
+- 238  story-time-graph-query   # Shipped (code) — narrative_order as PRECEDES topological path (cycle = typed TEMPORAL_CYCLE), story_time_query surfaces when_story-vs-scene-order contradictions (coverage, vacuous-truth empty scope), events_pov_witnessed intersection (REVEALED_IN x pov_character_id x before_when, UNKNOWN_CHARACTER typed); TDD (4); PR #328. Note: direct edge walks until Spec 203 graph_query ships
 - 239  dramatica-fragments-derive
 - 240  scene-writer-llm-loop
 - 241  character-knowledge-llm-extract

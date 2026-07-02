@@ -92,6 +92,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `developmental_gate` | effect | Composite gate: structure-level editorial readiness (effect). | [details](references/developmental_gate.md) |
 | `dispatch_novel_research` | effect | Mint a research lead + record NovelClaim (delegates to research cap). | [details](references/dispatch_novel_research.md) |
 | `dual_storyform_coherence_check` | act | Composite (act): ``novel_coherence_check`` on EACH member + Klein-c inversion + legality of every recorded transition; records a ``dual-storyform-report`` Artefact. | [details](references/dual_storyform_coherence_check.md) |
+| `events_pov_witnessed` | transform | The POV knowledge intersection (transform): events REVEALED_IN a scene the character fronts (``pov_character_id``), optionally cut to those with ``when_story`` < ``before_when``. |witnessed| ≤ |all|. | [details](references/events_pov_witnessed.md) |
 | `export_docx` | effect | Render manuscript + write docx via FormatDriver (effect). | [details](references/export_docx.md) |
 | `export_epub` | effect | Render manuscript + write epub via FormatDriver (effect). | [details](references/export_epub.md) |
 | `export_pdf` | effect | Render manuscript + write PDF via FormatDriver (effect). | [details](references/export_pdf.md) |
@@ -122,7 +123,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `match_codex_entries` | transform | Scan ``text`` for any registered codex trigger and return matches (transform). | [details](references/match_codex_entries.md) |
 | `mode_block_report` | transform | The §1 block table (transform): every block with mode / bridge target / genre; chapters in NO block are the unstaged surface. | [details](references/mode_block_report.md) |
 | `motif_echo_report` | transform | Per-scene echo counts + per-motif trail (transform); flags scenes over the cap (stacking = allegory). | [details](references/motif_echo_report.md) |
-| `narrative_order` | transform | Topo-sort over PRECEDES for the canonical narrative reading order (transform). | [details](references/narrative_order.md) |
+| `narrative_order` | transform | The narrative order DERIVED as a typed path over PRECEDES (transform) — a topological order of the beat DAG, never an ad-hoc property sort. | [details](references/narrative_order.md) |
 | `novel_coherence_check` | effect | Composite gate (Spec 120): runs all 11 storyform checks with chaining. | [details](references/novel_coherence_check.md) |
 | `novel_progress` | transform | Aggregate progress (word-count + per-status counts) for a novel (transform). | [details](references/novel_progress.md) |
 | `pay_off_anchor` | effect | Record an anchor's payoff scene (effect). | [details](references/pay_off_anchor.md) |
@@ -171,6 +172,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `set_chapter_status` | effect | Flip a Chapter's enum-checked lifecycle status (effect). | [details](references/set_chapter_status.md) |
 | `set_novel_status` | effect | Flip a Novel's enum-checked lifecycle status (effect). | [details](references/set_novel_status.md) |
 | `set_reveal_rule` | effect | Mint/update a ``RevealRule`` — upsert keyed by (novel, fact, tier) (effect). | [details](references/set_reveal_rule.md) |
+| `story_time_query` | transform | The continuity scan (transform): every StoryTimeEvent + beat, and SURFACED temporal contradictions — an event whose scene-order (HAPPENS_AT) contradicts its ``when_story`` ordering is returned in ``contradictions``, never silently sorted around. | [details](references/story_time_query.md) |
 | `storyform_critical_pass` | act | Critical-thinking pass over the storyform (act, xcap to thinking). | [details](references/storyform_critical_pass.md) |
 | `structure_position_report` | transform | Target vs actual manuscript position per anchored beat (transform). | [details](references/structure_position_report.md) |
 | `switching_log` | transform | Infer per scene which alter fronts (transform) — matched from the bound voice signatures against the scene body — plus the R-4 micro-cue count (max 3 per bridge). | [details](references/switching_log.md) |

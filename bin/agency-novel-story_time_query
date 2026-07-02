@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# agency-generated: v1 — capability_novel_narrative_order
-# The narrative order DERIVED as a typed path over PRECEDES (transform) — a topological order of the beat DAG, never an ad-hoc property sort.
-# Usage: agency-novel-narrative_order [--intent-id ID] <novel_id>
+# agency-generated: v1 — capability_novel_story_time_query
+# The continuity scan (transform): every StoryTimeEvent + beat, and SURFACED temporal contradictions — an event whose scene-order (HAPPENS_AT) contradicts its ``when_story`` ordering is returned in ``contradictions``, never silently sorted around.
+# Usage: agency-novel-story_time_query [--intent-id ID] <novel_id>
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -74,5 +74,5 @@ print(json.dumps(_kw))
 
 exec python -m agency.cli execute --code "
 import json
-return await call_tool('capability_novel_narrative_order', json.loads(r'''${kwargs}'''))
+return await call_tool('capability_novel_story_time_query', json.loads(r'''${kwargs}'''))
 "
