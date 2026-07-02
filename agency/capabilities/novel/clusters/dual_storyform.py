@@ -123,6 +123,16 @@ class DualStoryformMixin:
                 Codes.INVALID_ARGUMENT,
                 "klein-c needs a primary AND a secondary member")
         ab, bb = _body_of(a), _body_of(b)
+        # Spec 246 — degenerate set: neither classes nor dynamics present on
+        # both members means there is nothing to invert. Fail typed, never
+        # crash.
+        if not ((ab.get("classes") or ab.get("dynamics"))
+                and (bb.get("classes") or bb.get("dynamics"))):
+            return ToolResult.success(data={
+                "passed": False, "class_pair": {"inverted": False},
+                "dynamics": {}, "non_inverted": [],
+                "flip_class": "broken", "flip_dynamics": "broken",
+                "diagnostic": "insufficient_slots"})
         non_inverted: list[dict] = []
 
         a_mc = ab.get("classes", {}).get("mc", "")
@@ -137,21 +147,42 @@ class DualStoryformMixin:
                                  "b_value": f"{b_mc}/{b_os}"})
 
         dynamics: dict[str, dict] = {}
+        unknown: list[str] = []
         for slot, pair in _DYNAMICS_INVERSE.items():
             av = ab.get("dynamics", {}).get(slot, "")
             bv = bb.get("dynamics", {}).get(slot, "")
+            for v in (av, bv):
+                if v and v not in pair:
+                    unknown.append(f"{slot}={v}")
             inverted = bool(av and bv and av != bv and {av, bv} == pair)
             dynamics[slot] = {"a": av, "b": bv, "inverted": inverted}
             if not inverted:
                 non_inverted.append({"slot": slot, "a_value": av,
                                      "b_value": bv})
+        # Spec 246 — the diagnostic names WHICH Z₂ generator broke, and the
+        # two flips report independently (V₄ = Z₂(class) × Z₂(dynamics)).
+        dyn_ok = all(d["inverted"] for d in dynamics.values())
+        flip_class = "preserved" if class_ok else "broken"
+        flip_dynamics = "preserved" if dyn_ok else "broken"
+        if unknown:
+            diagnostic = f"unknown_slot: {', '.join(sorted(unknown))}"
+        elif class_ok and dyn_ok:
+            diagnostic = ""
+        else:
+            broken_slots = [d["slot"] for d in non_inverted]
+            gen = ("class" if not class_ok else "dynamics") \
+                if class_ok != dyn_ok else "class+dynamics"
+            diagnostic = (f"Z2 generator on {gen} violated: "
+                          f"{', '.join(broken_slots)} not inverted")
         return ToolResult.success(data={
-            "passed": class_ok and all(d["inverted"]
-                                       for d in dynamics.values()),
+            "passed": class_ok and dyn_ok,
             "class_pair": {"a_mc": a_mc, "b_mc": b_mc, "a_os": a_os,
                            "b_os": b_os, "inverted": class_ok},
             "dynamics": dynamics,
             "non_inverted": non_inverted,
+            "flip_class": flip_class,
+            "flip_dynamics": flip_dynamics,
+            "diagnostic": diagnostic,
         })
 
     @verb(role="effect")

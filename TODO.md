@@ -242,7 +242,7 @@ Rebuild (derived from the Plan/ tree):
 - 243  structure-templates-llm-anchor
 - 244  voice-profiles-llm-derive
 - 245  sensitivity-managed-reader
-- 246  dual-storyform-klein-c-tests
+- 246  dual-storyform-klein-c-tests   # Shipped (code) — V4 property sweep (220 legal pairs by construction), involution + flip commutation, single-slot mutation names slot+generator, typed failure modes (insufficient_slots, unknown_slot); check enriched with flip_class/flip_dynamics/diagnostic; TDD (4); PR #328
 - 247  canon-locks-managed-approval
 - 248  plural-character-graph-query
 - 249  reveal-discipline-veil-llm
