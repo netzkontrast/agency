@@ -789,7 +789,7 @@ Dogfood's verbs lean on module-level helper functions (the amendment
 classifier rules, the observation-header parser, the export version
 constant) rather than instance-level driver wiring. (2 symbols)
 - **amendment.py** — dogfood.amendment — Reflection→spec-amendment classifier (Spec 150/147/279). (29 symbols)
-- **observe.py** — dogfood.observe — graph-native observation ledgers (Spec 017). (12 symbols)
+- **observe.py** — dogfood.observe — graph-native observation ledgers (Spec 017). (13 symbols)
 - **portage.py** — dogfood.portage — JSON export + replay for merge-conflict recovery (Spec 020). (13 symbols)
 - **session.py** — dogfood.session — session-tracking: decisions, boundary audit, replay (Spec 114/195/154). (8 symbols)
 
@@ -1349,7 +1349,7 @@ dimension of the CI gate. (8 symbols)
 Extends the Spec 149 `<!-- derived:<id> -->` fence engine with code-introspection
 fence kinds that regenerate from the LIVE engine — so the mechanically-derivable
 fragments of a hand doc (the `SUBSTRATE_TOOLS` roster, a capability's verb list,
-the driver-boundary set) stop rotting on every refactor. (29 symbols)
+the driver-boundary set) stop rotting on every refactor. (30 symbols)
 - **test_develop_plan_execute.py** — Spec 287 — develop `plan-execute` discipline + Plan/PlanStep provenance.
 
 A first-class plan-authoring → execution-with-checkpoints discipline
@@ -1399,7 +1399,7 @@ and port all templates — let the gates be decided programmatically."* The
 ``ctx.render`` seam (``CapabilityContext.render``) renders through a Jinja
 ``Environment`` (``StrictUndefined``, autoescape off) so ``{% if %}`` / ``{% for %}``
 / ``{# #}`` are first-class — replacing the interim Spec 384 regex strippers in
-``analyze/_report.py``. (19 symbols)
+``analyze/_report.py``. (20 symbols)
 - **test_lifecycle_resume.py** (4 symbols)
 - **test_lifecycle_trail_scope.py** — Spec 341 Slice 2 — manage.lifecycle_trail(scope=…): the unified cross-lifecycle
 transition view.
