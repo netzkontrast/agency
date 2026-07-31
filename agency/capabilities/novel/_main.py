@@ -836,6 +836,8 @@ novel_ontology = OntologyExtension(
         # `canon_status` itself is a CROSS-CUTTING property on any node
         # (marker, not node) — only the Lock has its own lifecycle.
         "Lock": ["novel", "topic", "content"],
+        # Spec 247 — the reviewed path to a Lock (propose -> approve).
+        "CanonProposal": ["novel", "scope", "tier"],
         # Spec 138 — plural-character system (dissociative-system model).
         # AlterConflict carries the matrix CELL (vector/intensity/rationale)
         # because Memory has no edge-prop reader; PHOBIA_OF stays the edge.

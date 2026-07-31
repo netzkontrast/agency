@@ -243,7 +243,7 @@ Rebuild (derived from the Plan/ tree):
 - 244  voice-profiles-llm-derive
 - 245  sensitivity-managed-reader
 - 246  dual-storyform-klein-c-tests   # Shipped (code) — V4 property sweep (220 legal pairs by construction), involution + flip commutation, single-slot mutation names slot+generator, typed failure modes (insufficient_slots, unknown_slot); check enriched with flip_class/flip_dynamics/diagnostic; TDD (4); PR #328
-- 247  canon-locks-managed-approval
+- 247  canon-locks-managed-approval   # Shipped (code) — propose_canon/approve_canon/list_canon_proposals: CanonProposal node + legal status DAG (proposal->approved|rejected, approved->superseded), monotonic + idempotent approval, K-tier evidence gate + author-override gate at propose-time, Lock stamped proposed_by/approved_by/proposal_id (count relation == approved proposals), supersession via NEW proposal keeps lineage, rejection Reflection + canon-churn observation (N=3, idempotent), managed-agent approver denied (APPROVAL_DENIED), Spec-176 sub-Intent per proposal; TDD (6); PR #328
 - 248  plural-character-graph-query   # Shipped (code) — query_phobia_cycles (DFS over PHOBIA_OF via neighbors, weights computed from intensity, self-loops/empty legal) + query_co_front (max computed from live matrix — demotes when a heavier edge lands; adjacent/any kinds); IDs never labels; dormant-edge audit as standing test; TDD (4); PR #328. Note: routes through direct edge walks until Spec 203 graph_query ships
 - 249  reveal-discipline-veil-llm
 - 250  project-rulesets-llm-author

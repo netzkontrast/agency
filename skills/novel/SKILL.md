@@ -29,6 +29,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `anchor_beat` | effect | Map a manuscript scene to a beat: ``FULFILS`` edge + the expectation's ``scene_id`` (effect). | [details](references/anchor_beat.md) |
 | `anchor_status_report` | transform | The Chekhov's-gun audit for NAMED anchors (transform): planted- but-unpaid anchors are the open foreshadowing debt. | [details](references/anchor_status_report.md) |
 | `apply_structure` | effect | Apply a structure template: mint one ``BeatExpectation`` per beat (effect). | [details](references/apply_structure.md) |
+| `approve_canon` | effect | Decide a CanonProposal (effect) — approval is the ONLY path that mints an approval-provenance Lock. | [details](references/approve_canon.md) |
 | `archive_codex_entry` | effect | Flag a CodexEntry as archived (effect, soft-delete). | [details](references/archive_codex_entry.md) |
 | `assign_chapter_to_block` | effect | Bind a chapter to its block via ``IN_MODE_BLOCK`` (effect). | [details](references/assign_chapter_to_block.md) |
 | `assign_voice_to_alter` | effect | Bind a Spec 134 ``VoiceProfile`` to an alter (effect). | [details](references/assign_voice_to_alter.md) |
@@ -109,6 +110,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `leerstellen_report` | transform | List the registered deliberate gaps (transform). | [details](references/leerstellen_report.md) |
 | `line_gate` | effect | Composite gate: prose-level editorial readiness (effect). | [details](references/line_gate.md) |
 | `link_character_to_world` | effect | Add a typed edge from Character → World child (effect). | [details](references/link_character_to_world.md) |
+| `list_canon_proposals` | transform | List CanonProposals for a novel (transform), optionally filtered by status / scope. | [details](references/list_canon_proposals.md) |
 | `list_chapters` | transform | List a novel's chapters ordered by number (transform). | [details](references/list_chapters.md) |
 | `list_claims` | transform | List captured claims with an optional verified-status filter (transform). | [details](references/list_claims.md) |
 | `list_codex_entries` | transform | List CodexEntries for a novel, optionally filtered by kind (transform). | [details](references/list_codex_entries.md) |
@@ -137,6 +139,7 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `project_rule_gate` | transform | Composite manuscript gate (transform): fails iff any scene carries a finding AT or ABOVE ``block_at``; lower severities surface as warnings (§10.2 — critical strikes, medium/low reviewer-check). | [details](references/project_rule_gate.md) |
 | `promote_from_quarry` | effect | Flip a quarry node → proposal + mint the Lock recording the promotion (effect). | [details](references/promote_from_quarry.md) |
 | `promote_idea` | effect | Transition an Idea to a Novel, recording the PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |
+| `propose_canon` | effect | Open a CanonProposal — the reviewed path toward a Lock (effect). | [details](references/propose_canon.md) |
 | `publication_gate` | effect | Terminal composite: publish_ready + ≥1 export + front-matter declared (effect). | [details](references/publication_gate.md) |
 | `publish_ready_gate` | effect | Composite gate: contiguous chapters + status ≥ querying (effect). | [details](references/publish_ready_gate.md) |
 | `quarry_filter` | transform | List the Steinbruch (transform): quarry-status nodes — deprecated material an author may still mine, never auto-canon. | [details](references/quarry_filter.md) |
@@ -249,7 +252,7 @@ await call_tool("capability_novel_anchor_status_report", {"intent_id": iid})
 await call_tool("capability_novel_apply_structure", {"intent_id": iid})
 ```
 
-More verbs: `capability_novel_archive_codex_entry`, `capability_novel_assign_chapter_to_block`, `capability_novel_assign_voice_to_alter`, `capability_novel_audit_novel_provenance`, `capability_novel_beta_ready_gate`, `capability_novel_bridge_frequency_report`, `capability_novel_briefing_checklist`, `capability_novel_canon_audit` …
+More verbs: `capability_novel_approve_canon`, `capability_novel_archive_codex_entry`, `capability_novel_assign_chapter_to_block`, `capability_novel_assign_voice_to_alter`, `capability_novel_audit_novel_provenance`, `capability_novel_beta_ready_gate`, `capability_novel_bridge_frequency_report`, `capability_novel_briefing_checklist` …
 
 ## analyze_readability
 

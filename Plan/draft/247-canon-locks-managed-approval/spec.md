@@ -113,3 +113,42 @@ Then:   a CanonDecision is recorded with lock_id=K-013;
    **Recommend**: no — approval is human-only by doctrine; the Driver
    may propose, never approve. A test asserts `approver.kind !=
    "managed_agent"` across the corpus.
+
+## Followup — Implementation Status (IMPLEMENTED 2026-07-02, PR #328)
+
+Shipped in `agency/capabilities/novel/clusters/canon.py` — TDD, 6 tests in
+`tests/test_canon_locks_approval.py`; the Spec-137 suite stays green.
+
+**Done:**
+- `propose_canon` mints a `CanonProposal` node (ontology-declared;
+  schema-coverage baseline updated) with the source-hierarchy gate at
+  propose-time: `tier="K"` requires evidence naming an existing Lock,
+  `tier="author"` requires `author_override=True`, a non-dict/empty
+  payload is a typed VALIDATION_FAILED. Every proposal mints a serving
+  sub-Intent (Spec 176) parented to the session intent.
+- `approve_canon` walks the legal DAG only: proposal→approved |
+  proposal→rejected, approved→superseded; repeat approve is idempotent
+  (first wins, existing decision returned); approve-after-reject and
+  reject-after-approve are typed failures. Approval is the only path
+  minting a provenance-stamped Lock (`proposed_by + approved_by +
+  proposal_id + tier` as properties — Memory has no edge-prop reader, so
+  provenance is property-queryable; relation `#provenance-locks ==
+  #approved-proposals` tested).
+- Supersession: `propose_canon(supersedes_lock=…)` → on approval the old
+  lock gets `superseded_by` (Spec-137 chain kept), the old proposal flips
+  approved→superseded, `lock_index` shows only the new lock.
+- Rejection records a `canon-rejection` Reflection with the reason; a
+  scope rejected ≥ `CANON_CHURN_N=3` times mints ONE `scope="observation"`
+  `canon-churn` Reflection per (novel, scope) — the Spec-150
+  `parse_amendment` feed — idempotently.
+- Human-only approval: `approver_kind="managed_agent"` and empty approver
+  → `Codes.APPROVAL_DENIED`; agents may propose (`proposed_by` free).
+- `list_canon_proposals(novel_id, status, scope)` — the review queue.
+
+**Still open (deferred):**
+- Quorum policy (Open Q1) — single approver ships; N-of-M per-scope
+  policy is a follow-up when a real project needs it.
+- Proposal TTL / `lapsed` status (Open Q2) — needs a time-source
+  discipline decision first (no auto-expiry shipped).
+- Spec 245/250/243 driver-mediated proposers land their outputs through
+  `propose_canon` when those specs ship (the gate is ready).

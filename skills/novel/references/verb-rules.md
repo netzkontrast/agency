@@ -13,7 +13,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 - **`Returns:`** — the wire shape; error / null cases too (`missing_returns`)
 - **`chain_next:`** — the verb to call next, or `(terminal)` (advisory `no_chain_next`)
 
-## novel verb audit — 2 of 163 verbs need work
+## novel verb audit — 2 of 166 verbs need work
 
 | Verb | Role | tool-desc flags |
 |------|------|-----------------|
@@ -23,6 +23,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `novel.anchor_beat` | effect | ✓ clean |
 | `novel.anchor_status_report` | transform | ✓ clean |
 | `novel.apply_structure` | effect | ✓ clean |
+| `novel.approve_canon` | effect | ✓ clean |
 | `novel.archive_codex_entry` | effect | ✓ clean |
 | `novel.assign_chapter_to_block` | effect | ✓ clean |
 | `novel.assign_voice_to_alter` | effect | ✓ clean |
@@ -103,6 +104,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `novel.leerstellen_report` | transform | ✓ clean |
 | `novel.line_gate` | effect | ✓ clean |
 | `novel.link_character_to_world` | effect | ✓ clean |
+| `novel.list_canon_proposals` | transform | ✓ clean |
 | `novel.list_chapters` | transform | ✓ clean |
 | `novel.list_claims` | transform | ✓ clean |
 | `novel.list_codex_entries` | transform | ✓ clean |
@@ -131,6 +133,7 @@ any verb docstring with `prompt.evaluate(target="tool-desc")`.
 | `novel.project_rule_gate` | transform | ✓ clean |
 | `novel.promote_from_quarry` | effect | ✓ clean |
 | `novel.promote_idea` | effect | ✓ clean |
+| `novel.propose_canon` | effect | ✓ clean |
 | `novel.publication_gate` | effect | ✓ clean |
 | `novel.publish_ready_gate` | effect | ✓ clean |
 | `novel.quarry_filter` | transform | ✓ clean |
