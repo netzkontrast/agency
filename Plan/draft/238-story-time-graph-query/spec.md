@@ -88,3 +88,7 @@ Then:   result.contradictions includes (E3, E2) AND
 3. **Contradiction policy.** Surface and continue, or raise?
    **Recommend:** surface in `result.contradictions` — the query is
    read-only diagnostic; gates (Spec 233) decide whether to block.
+
+## Followup
+
+**IMPLEMENTED 2026-07-02 (PR #328).** Three query verbs on the storytime cluster; contradictions are surfaced, never sorted around; a PRECEDES cycle is a typed TEMPORAL_CYCLE naming the trapped ids. Deviations: Spec 203/235 are still draft, so the queries walk HAPPENS_AT/REVEALED_IN/PRECEDES directly (re-route when 203 lands); 'witnessed' is defined via REVEALED_IN scenes fronted by the character (Spec 131 KnownFact intersection composes on top).

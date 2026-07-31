@@ -25,7 +25,7 @@ class ManuscriptMixin:
         chapter numbers between 1 and the max present number.
         chain_next: ``novel.render_manuscript`` when contiguous.
         """
-        _, fail = self._require_novel(novel_id)
+        node, fail = self._require_novel(novel_id)
         if fail is not None:
             return fail
         chapters = self.ctx.neighbors(novel_id, "CHAPTER_OF")
@@ -35,10 +35,20 @@ class ManuscriptMixin:
             for n in range(1, max(numbers) + 1):
                 if n not in numbers:
                     gaps.append(n)
+        # Spec 133 — soft warning: a drafting novel with no structure
+        # template applied has unmeasured pacing. Never blocks (`passed`
+        # is untouched); the author may ignore it.
+        warnings: list[str] = []
+        if node.get("status") == "drafting" and not any(
+                b.get("novel") == novel_id
+                for b in self.ctx.find("BeatExpectation")):
+            warnings.append("no structure template applied; pacing is "
+                            "unmeasured (novel.apply_structure)")
         return ToolResult.success(data={
             "passed": not gaps,
             "chapter_count": len(chapters),
             "gaps": gaps,
+            "warnings": warnings,
         })
 
     @verb(role="act")

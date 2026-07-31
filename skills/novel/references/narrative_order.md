@@ -1,7 +1,7 @@
 <!-- agency-generated: v1 -->
 # novel.narrative_order
 
-Topo-sort over PRECEDES for the canonical narrative reading order (transform).
+The narrative order DERIVED as a typed path over PRECEDES (transform) — a topological order of the beat DAG, never an ad-hoc property sort.
 
 ## Inputs
 
@@ -11,11 +11,11 @@ Topo-sort over PRECEDES for the canonical narrative reading order (transform).
 
 ## Returns
 
-``{beats: [{beat_id, label, scene_id}]}`` ordered so every predecessor appears before its successor.
+``{order: [beat_id], beats: [{beat_id, label, scene_id}], edges_traversed}`` — ``order`` is the id path (Spec 238), ``beats`` the enriched Spec-128 reading-order shape.
 
 ## Chain-next
 
-author's checklist for the manuscript's narrative spine.
+``novel.story_time_query`` for the contradiction scan.
 
 ## Details
 

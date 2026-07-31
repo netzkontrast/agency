@@ -21,7 +21,8 @@ class StoryformMixin:
     """Storyform cluster — Dramatica NCP decidable checks + coherence (Spec 103/120)."""
 
     @verb(role="effect")
-    def create_storyform(self, novel_id: str, body: dict | None = None) -> ToolResult:
+    def create_storyform(self, novel_id: str, body: dict | None = None,
+                         role: str = "") -> ToolResult:
         """Mint the Storyform node for a novel + STORYFORM_OF edge (effect).
 
         Spec 103 Slice 2 (Workstream D) — closes the documented ENGINE GAP:
@@ -42,6 +43,17 @@ class StoryformMixin:
         if fail is not None:
             return fail
         body_json = json.dumps(body, sort_keys=True) if body else ""
+        # Spec 136 — `role` set: mint a NEW member storyform for a
+        # StoryformSet instead of the legacy idempotent per-novel update.
+        if role:
+            sid = self.ctx.record("Storyform",
+                                  {"novel": novel_id, "body": body_json,
+                                   "role": role})
+            self.ctx.link(sid, novel_id, "STORYFORM_OF")
+            self.ctx.link(sid, self.ctx.intent_id, "SERVES")
+            return ToolResult.success(data={
+                "storyform_id": sid, "novel_id": novel_id,
+                "has_body": bool(body_json)})
         # Idempotent: one Storyform per novel — update the existing body.
         existing = next((s for s in self.ctx.find("Storyform")
                          if s.get("novel") == novel_id), None)

@@ -482,6 +482,13 @@ STORYFORM_BUILD_SKILL = {
          "produces": ["storyform_coherent"],
          "verbs": ["novel.novel_coherence_check"],
          "gate": "hard"},
+        # Spec 133 — OPTIONAL chained template-pick: once the storyform
+        # passes, the author can apply a pacing structure without leaving
+        # the walk. No gate — skipping it never blocks the build.
+        {"index": 7, "name": "structure-template-pick",
+         "produces": ["structure_applied"],
+         "verbs": ["novel.list_structure_templates",
+                   "novel.apply_structure"]},
     ],
 }
 
@@ -635,7 +642,8 @@ SCENE_WRITER_SKILL = {
          "verbs": ["novel.check_filter_words",
                    "novel.check_dialogue_attribution",
                    "novel.check_show_dont_tell",
-                   "novel.novel_coherence_check"]},
+                   "novel.novel_coherence_check",
+                   "novel.check_pov_voice"]},
         {"index": 5, "name": "integrate",
          "produces": ["scene_integrated"],
          "verbs": ["novel.integrate_scene_body"],
@@ -645,6 +653,135 @@ SCENE_WRITER_SKILL = {
 
 
 # ─────────────────────────── ontology ───────────────────────────
+# ─────────── Spec 142 — six per-cluster walkable authoring skills ───────────
+# Each turns the scattered 136-141 verbs into ONE ordered, gated operation an
+# author triggers by name via develop.skill_walk (Spec 130 precedent). Hard
+# gates sit exactly where the KP discipline halts.
+
+DUAL_STORYFORM_AUTHOR_SKILL = {
+    "name": "dual-storyform-author", "kind": "builder",
+    "phases": [
+        {"index": 1, "name": "define-set", "produces": ["set_defined"],
+         "verbs": ["novel.create_storyform_set"]},
+        {"index": 2, "name": "add-A", "produces": ["primary_added"],
+         "verbs": ["novel.create_storyform", "novel.add_storyform_to_set"]},
+        {"index": 3, "name": "add-B", "produces": ["secondary_added"],
+         "verbs": ["novel.create_storyform", "novel.add_storyform_to_set"]},
+        {"index": 4, "name": "verify-inversion",
+         "produces": ["inversion_verified"],
+         "verbs": ["novel.check_klein_c_inversion"], "gate": "hard"},
+        {"index": 5, "name": "route-first-scenes",
+         "produces": ["opening_routed"],
+         "verbs": ["novel.route_scene_storyform",
+                   "novel.bridge_frequency_report"]},
+    ],
+}
+
+CANON_LOCK_AUTHOR_SKILL = {
+    "name": "canon-lock-author", "kind": "builder",
+    "phases": [
+        {"index": 1, "name": "stamp-status", "produces": ["status_stamped"],
+         "verbs": ["novel.set_canon_status"]},
+        {"index": 2, "name": "record-lock", "produces": ["lock_recorded"],
+         "verbs": ["novel.record_lock"]},
+        {"index": 3, "name": "audit-review", "produces": ["audit_clean"],
+         "verbs": ["novel.canon_audit"], "gate": "hard"},
+        {"index": 4, "name": "index-publish", "produces": ["index_published"],
+         "verbs": ["novel.lock_index"]},
+    ],
+}
+
+ALTER_ROSTER_BUILDER_SKILL = {
+    "name": "alter-roster-builder", "kind": "builder",
+    "phases": [
+        {"index": 1, "name": "system-create", "produces": ["system_created"],
+         "verbs": ["novel.create_character_system"]},
+        {"index": 2, "name": "roster-add", "produces": ["roster_added"],
+         "verbs": ["novel.add_alter"]},
+        {"index": 3, "name": "voice-bind", "produces": ["voices_bound"],
+         "verbs": ["novel.create_voice_profile",
+                   "novel.assign_voice_to_alter"]},
+        {"index": 4, "name": "matrix-record", "produces": ["matrix_recorded"],
+         "verbs": ["novel.record_alter_conflict"]},
+        {"index": 5, "name": "mirror-bind", "produces": ["mirrors_bound"],
+         "verbs": []},
+        {"index": 6, "name": "discipline-verify",
+         "produces": ["discipline_verified"],
+         "verbs": ["novel.validate_no_fusion",
+                   "novel.conflict_matrix_report"], "gate": "hard"},
+    ],
+}
+
+REVEAL_RULE_AUTHOR_SKILL = {
+    "name": "reveal-rule-author", "kind": "builder",
+    "phases": [
+        {"index": 1, "name": "enumerate-facts", "produces": ["facts_listed"],
+         "verbs": []},
+        {"index": 2, "name": "set-rules", "produces": ["rules_set"],
+         "verbs": ["novel.set_reveal_rule"]},
+        {"index": 3, "name": "veil-configure", "produces": ["veil_configured"],
+         "verbs": ["novel.check_veil"]},
+        {"index": 4, "name": "gate-verify", "produces": ["reveals_gated"],
+         "verbs": ["novel.reveal_gate"], "gate": "hard"},
+    ],
+}
+
+R_RULE_AUTHOR_SKILL = {
+    "name": "r-rule-author", "kind": "builder",
+    "phases": [
+        {"index": 1, "name": "pick-predicate",
+         "produces": ["predicate_picked"], "verbs": []},
+        {"index": 2, "name": "params-author", "produces": ["params_authored"],
+         "verbs": []},
+        {"index": 3, "name": "register", "produces": ["rule_registered"],
+         "verbs": ["novel.register_project_rule"]},
+        {"index": 4, "name": "dry-run", "produces": ["dry_run_done"],
+         "verbs": ["novel.run_project_rules"]},
+        {"index": 5, "name": "gate-attach", "produces": ["gate_attached"],
+         "verbs": ["novel.project_rule_gate"], "gate": "hard"},
+    ],
+}
+
+NOVEL_PREFLIGHT_SKILL = {
+    "name": "novel-preflight", "kind": "auditor",
+    "phases": [
+        {"index": 1, "name": "briefing-ready",
+         "produces": ["briefing_verdict"],
+         "verbs": ["novel.briefing_checklist"]},
+        {"index": 2, "name": "canon-clean", "produces": ["canon_verdict"],
+         "verbs": ["novel.canon_audit"]},
+        {"index": 3, "name": "reveal-clear", "produces": ["reveal_verdict"],
+         "verbs": ["novel.check_veil", "novel.reveal_timeline_report"]},
+        {"index": 4, "name": "r-rules-dry-run",
+         "produces": ["r_rule_verdict"],
+         "verbs": ["novel.run_project_rules"]},
+        {"index": 5, "name": "voice-ready", "produces": ["voice_verdict"],
+         "verbs": ["novel.check_alter_recognition",
+                   "novel.preflight_report"], "gate": "hard"},
+    ],
+}
+
+
+CHAPTER_BRIEFING_AUTHOR_SKILL = {
+    "name": "chapter-briefing-author", "kind": "builder",
+    "phases": [
+        {"index": 1, "name": "block-assign", "produces": ["block_assigned"],
+         "verbs": ["novel.assign_chapter_to_block"]},
+        {"index": 2, "name": "render-briefing",
+         "produces": ["briefing_rendered"],
+         "verbs": ["novel.render_chapter_briefing"]},
+        {"index": 3, "name": "gap-resolve", "produces": ["gaps_resolved"],
+         "verbs": ["novel.canon_audit"]},
+        {"index": 4, "name": "checklist-run", "produces": ["checklist_ready"],
+         "verbs": ["novel.briefing_checklist"], "gate": "hard"},
+        {"index": 5, "name": "archive-as-artefact",
+         "produces": ["briefing_archived"],
+         "verbs": ["novel.set_canon_status"]},
+    ],
+}
+
+
+
 novel_ontology = OntologyExtension(
     nodes={
         # Lifecycle (Slice 1 minimum — extended in 102/103/...)
@@ -682,6 +819,42 @@ novel_ontology = OntologyExtension(
         "CodexEntry":   ["novel", "slug", "name", "kind"],
         # Spec 131 — character-knowledge ledger.
         "KnownFact":    ["character", "fact"],
+        # Spec 133 — structure-template pacing layer. One node per beat of
+        # the APPLIED template (there is no StructureTemplate node — the
+        # vendored JSONs are the templates; a node nothing mints would be
+        # dormant surface). `scene_id` fills when the author anchors a scene.
+        "BeatExpectation": ["novel", "template_id", "beat_slug"],
+        # Spec 134 — per-character voice signature (one per character;
+        # create overwrites). Targets beyond `character` are optional
+        # fields; unset sentence targets derive from drafted scenes.
+        "VoiceProfile": ["character"],
+        # Spec 136 — dual-storyform (post-Dramatica). A set groups N
+        # simultaneous storyforms; a transition records a Vortex.
+        "StoryformSet": ["novel", "label", "count"],
+        "StoryformTransition": ["storyform_set_id", "from_role", "to_role"],
+        # Spec 137 — canonized decision with newer-wins supersession chain.
+        # `canon_status` itself is a CROSS-CUTTING property on any node
+        # (marker, not node) — only the Lock has its own lifecycle.
+        "Lock": ["novel", "topic", "content"],
+        # Spec 247 — the reviewed path to a Lock (propose -> approve).
+        "CanonProposal": ["novel", "scope", "tier"],
+        # Spec 138 — plural-character system (dissociative-system model).
+        # AlterConflict carries the matrix CELL (vector/intensity/rationale)
+        # because Memory has no edge-prop reader; PHOBIA_OF stays the edge.
+        "CharacterSystem": ["novel", "name", "model"],
+        "Alter": ["system_id", "name", "category"],
+        "AlterConflict": ["a", "b", "vector"],
+        # Spec 139 — reveal-discipline (three audience tiers) + deliberate
+        # Iser gaps registered first-class.
+        "RevealRule": ["novel", "fact", "tier"],
+        "Leerstelle": ["novel", "scene_id", "kind"],
+        # Spec 140 — author-authored R-rules + motif/anchor discipline.
+        "ProjectRule": ["novel", "rule_id", "severity"],
+        "Motif": ["novel", "slug"],
+        "Anchor": ["novel", "name"],
+        # Spec 141 — narrative-mode blocks (mode-changes are NOT storyform
+        # boundaries; the check makes the distinction machine-checkable).
+        "ModeBlock": ["novel", "label", "mode"],
     },
     enums={
         ("Novel",   "status"): NOVEL_STATUS,
@@ -717,6 +890,30 @@ novel_ontology = OntologyExtension(
         # Spec 131 — character-knowledge ledger edges.
         "KNOWS",        # Character → KnownFact
         "LEARNED_IN",   # KnownFact → Scene
+        # Spec 133 — structure pacing layer.
+        "FULFILS",      # Scene → BeatExpectation (this scene fulfils the beat)
+        # Spec 134 — voice signature.
+        "VOICE_OF",     # VoiceProfile → Character (CodexEntry)
+        # Spec 136 — dual-storyform.
+        "MEMBER_OF",    # Storyform → StoryformSet
+        "ROUTED_TO",    # Scene → Storyform (props: mode=hard|soft)
+        "TRANSITIONS",  # StoryformTransition → StoryformSet
+        # Spec 137 — canon locks.
+        "LOCKS",        # Lock → the node it governs (optional binding)
+        # Spec 138 — plural-character system.
+        "ALTER_OF",     # Alter → CharacterSystem
+        "PHOBIA_OF",    # Alter → Alter (the conflict matrix)
+        "VOICED_BY",    # Alter → VoiceProfile (current binding = property)
+        "MIRRORS",      # mirror-Alter → external entity
+        # Spec 139 — reveal-discipline.
+        "GOVERNS_REVEAL",  # RevealRule → the fact-bearing node
+        "HAS_GAP",         # Leerstelle → Scene
+        # Spec 140 — motif + anchor discipline.
+        "ECHOES_IN",       # Motif → Scene (each echo)
+        "PLANTS",          # Anchor → Scene (plant site)
+        "PAYS_OFF",        # Anchor → Scene (payoff site)
+        # Spec 141 — mode blocks.
+        "IN_MODE_BLOCK",   # Chapter → ModeBlock
     },
     skills={"novel-concept": NOVEL_CONCEPT_SKILL,
             "character-architect": CHARACTER_ARCHITECT_SKILL,
@@ -726,7 +923,16 @@ novel_ontology = OntologyExtension(
             "publish-prep": PUBLISH_PREP_SKILL,
             "developmental-editor": DEVELOPMENTAL_EDITOR_SKILL,
             "line-editor": LINE_EDITOR_SKILL,
-            "scene-writer": SCENE_WRITER_SKILL},
+            "scene-writer": SCENE_WRITER_SKILL,
+            # Spec 142 — the six per-cluster authoring walks.
+            "dual-storyform-author": DUAL_STORYFORM_AUTHOR_SKILL,
+            "canon-lock-author": CANON_LOCK_AUTHOR_SKILL,
+            "alter-roster-builder": ALTER_ROSTER_BUILDER_SKILL,
+            "reveal-rule-author": REVEAL_RULE_AUTHOR_SKILL,
+            "r-rule-author": R_RULE_AUTHOR_SKILL,
+            "chapter-briefing-author": CHAPTER_BRIEFING_AUTHOR_SKILL,
+            # Spec 145 — the pre-scene composite audit (the daily driver).
+            "novel-preflight": NOVEL_PREFLIGHT_SKILL},
     schemas={
         # Spec 102: logline replaces `premise` in the canonical phase name;
         # both verb args + skill produce the same field set.
@@ -735,6 +941,7 @@ novel_ontology = OntologyExtension(
         "manuscript":     ["novel", "body", "chapter_count"],
     },
 )
+
 
 
 
@@ -756,6 +963,15 @@ from .clusters import (  # noqa: E402  (after module-level names the mixins impo
     StoryTimeMixin,
     CodexMixin,
     CharacterKnowledgeMixin,
+    StructureMixin,
+    VoiceMixin,
+    DualStoryformMixin,
+    CanonMixin,
+    PluralMixin,
+    RevealMixin,
+    RulesetsMixin,
+    ModeBlocksMixin,
+    PreflightMixin,
 )
 
 
@@ -769,6 +985,15 @@ class NovelCapability(
     StoryTimeMixin,
     CodexMixin,
     CharacterKnowledgeMixin,
+    StructureMixin,
+    VoiceMixin,
+    DualStoryformMixin,
+    CanonMixin,
+    PluralMixin,
+    RevealMixin,
+    RulesetsMixin,
+    ModeBlocksMixin,
+    PreflightMixin,
     NovelBase,
     CapabilityBase,
 ):

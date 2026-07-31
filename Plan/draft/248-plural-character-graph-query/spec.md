@@ -111,3 +111,7 @@ Then:   CycleSet.cycles contains [A,B,C] with length=3, weight=0.9;
 3. **Recognition check at query layer or consumer layer?**
    **Recommend**: query layer — the substrate guarantees the
    discipline; consumers cannot forget to apply it. Spec 216 codifies.
+
+## Followup
+
+**IMPLEMENTED 2026-07-02 (PR #328).** Both queries ship as pure PHOBIA_OF edge walks with intensity-derived weights; max-pair membership is computed (test proves demotion when a heavier edge lands); results carry alter IDs only. Deviations: Spec 203 (analyze.graph_query) is itself draft, so the queries walk edges directly — re-route through graph_query when 203 lands; the switching_log-as-typed-path invariant needs Scene timestamps (not in the ontology) and moves to the 235 follow-up.

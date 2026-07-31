@@ -99,3 +99,7 @@ Then:   first call returns ok=True, flip_a="preserved",
    or always live? **Recommend**: live, with the taxonomy hash recorded
    in the test artefact; Spec 149 flags if a taxonomy bump invalidates
    the property fixtures.
+
+## Followup
+
+**IMPLEMENTED 2026-07-02 (PR #328).** See tests/test_klein_c_property.py.

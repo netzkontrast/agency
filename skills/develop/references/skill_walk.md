@@ -7,7 +7,7 @@ Walk a registered skill to the first hard gate in ONE call (the atomic walker).
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `name (registered skill, e.g. 'tdd'), inputs (map of produce→value), resume_from (a prior skill_id to resume; "" starts fresh).` |  |  |
+| `name (registered skill, e.g. 'tdd'), inputs (map of produce→value), resume_from (a prior skill_id to resume; "" starts fresh), dry_run (Spec 142 — preview` |  | each phase reports would_invoke, no verb fires, nothing touches the graph). |
 
 ## Returns
 

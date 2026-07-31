@@ -152,3 +152,7 @@ happened.
    **Recommend**: yes — surfaces accidental scans (a count of 1 on an
    edge that should be many is a hint of `find(label)`+Python-filter
    regression).
+
+## Followup
+
+**IMPLEMENTED 2026-07-02 (PR #328).** catalogue_query ships the decidable core: edge-traversal (dormant-edge audit as a standing test), budgeted paging, fields projection, byte-stable prefix. Deviations: routes edges directly until Spec 203 lands; overflow_handle (Spec 154 capture) deferred to the 203 re-route — paging covers the budget contract meanwhile; deps 217/218/221 are LLM-driver slices and orthogonal to this read surface.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_narrative_order
-# Topo-sort over PRECEDES for the canonical narrative reading order (transform).
+# The narrative order DERIVED as a typed path over PRECEDES (transform) — a topological order of the beat DAG, never an ad-hoc property sort.
 # Usage: agency-novel-narrative_order [--intent-id ID] <novel_id>
 set -euo pipefail
 

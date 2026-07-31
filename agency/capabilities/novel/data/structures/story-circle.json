@@ -1,0 +1,16 @@
+{
+  "template_id": "story-circle",
+  "name": "Story Circle (8 steps)",
+  "source": "Dan Harmon's Story Circle (after Campbell)",
+  "license_note": "Widely-taught 8-step cycle; prompts are original prose.",
+  "beats": [
+    {"slug": "you", "name": "You (comfort zone)", "position": 0.0, "prompt": "Who is the character in their zone of comfort?"},
+    {"slug": "need", "name": "Need", "position": 0.125, "prompt": "What do they want that comfort cannot give?"},
+    {"slug": "go", "name": "Go", "position": 0.25, "prompt": "How do they enter an unfamiliar situation?"},
+    {"slug": "search", "name": "Search", "position": 0.375, "prompt": "How do they adapt to the new rules?"},
+    {"slug": "find", "name": "Find", "position": 0.5, "prompt": "Where do they get what they wanted?"},
+    {"slug": "take", "name": "Take", "position": 0.625, "prompt": "What heavy price does the finding exact?"},
+    {"slug": "return", "name": "Return", "position": 0.75, "prompt": "How do they come back to the familiar?"},
+    {"slug": "change", "name": "Change", "position": 0.875, "prompt": "How are they now capable of what they were not?"}
+  ]
+}

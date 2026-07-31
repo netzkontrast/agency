@@ -789,7 +789,7 @@ Dogfood's verbs lean on module-level helper functions (the amendment
 classifier rules, the observation-header parser, the export version
 constant) rather than instance-level driver wiring. (2 symbols)
 - **amendment.py** — dogfood.amendment — Reflection→spec-amendment classifier (Spec 150/147/279). (29 symbols)
-- **observe.py** — dogfood.observe — graph-native observation ledgers (Spec 017). (12 symbols)
+- **observe.py** — dogfood.observe — graph-native observation ledgers (Spec 017). (13 symbols)
 - **portage.py** — dogfood.portage — JSON export + replay for merge-conflict recovery (Spec 020). (13 symbols)
 - **session.py** — dogfood.session — session-tracking: decisions, boundary audit, replay (Spec 114/195/154). (8 symbols)
 
@@ -990,24 +990,42 @@ Resolution order (first hit wins):
 1. (24 symbols)
 - **drivers_production.py** — novel production drivers — Spec 121. (30 symbols)
 
-### `agency/capabilities/novel/clusters/` (11 files)
+### `agency/capabilities/novel/clusters/` (15 files)
 - **__init__.py** — novel.clusters — cluster mixins composed into the single NovelCapability.
 
 Spec 286 P3 — the ~95-verb ``novel`` god-class split into one mixin per
-SDLC/domain cluster. (12 symbols)
+SDLC/domain cluster. (16 symbols)
 - **_base.py** — novel.clusters._base — shared NovelCapability infrastructure (Spec 286 P3).
 
 The production-driver auto-wiring (Spec 121) + NOT_FOUND guards extracted
 verbatim from ``novel/_main.py`` into a base mixin every cluster mixin and
 the composed ``NovelCapability`` inherit. (11 symbols)
+- **canon.py** — novel.canon — canon provenance markers & locks (Spec 137).
+
+The KP source-of-truth discipline: every canon fact carries a provenance
+marker — ``[K]`` canonical · ``[V]`` proposal · ``[S]`` quarry (deprecated
+raw stock) · ``[L]`` gap. (16 symbols)
 - **character_knowledge.py** — novel.character_knowledge — Character-knowledge cluster — knowledge ledger + anachronism audit + provenance (Spec 131). (8 symbols)
 - **codex.py** — novel.codex — Codex cluster — Novelcrafter-parity codex entries (Spec 132). (10 symbols)
+- **dual_storyform.py** — novel.dual_storyform — dual-storyform architecture, post-Dramatica (Spec 136).
+
+The Kohärenz Protokoll runs TWO simultaneous, complete storyforms in one work,
+related by an involutive Klein-c inversion (V₄ = Z₂(class) × Z₂(dynamics)),
+with structured Vortex transitions and per-scene hard/soft routing.
+``StoryformSet`` groups the members (N-ary by design); the checks verify the
+inversion symmetry, transition legality (no driver-flip WITHIN a storyform),
+and the bridge-frequency curve. (21 symbols)
 - **lifecycle.py** — novel.lifecycle — Lifecycle cluster — concept -> novel -> chapter -> scene -> render + idea/session (Spec 101/102). (31 symbols)
 - **manuscript.py** — novel.manuscript — Manuscript cluster — catalogue coherence, renderers, composite gates, FormatDriver export (Spec 106/107/108/124). (18 symbols)
 - **prose.py** — novel.prose — Prose cluster — driver-free prose analysis + editorial pipeline + craft gates (Spec 104/122). (21 symbols)
 - **research.py** — novel.research — Research cluster — claims + xcap research/prompt/thinking integration (Spec 105 + tight-integration). (12 symbols)
 - **storyform.py** — novel.storyform — Storyform cluster — Dramatica NCP decidable checks + coherence (Spec 103/120). (23 symbols)
 - **storytime.py** — novel.storytime — Story-time / narrative-time cluster — events, reveals, narrative beats (Spec 128). (10 symbols)
+- **structure.py** — novel.structure — story structure templates, the pacing layer (Spec 133). (17 symbols)
+- **voice.py** — novel.voice — POV voice profiles, the per-character voice signature (Spec 134).
+
+Spec 122's ``check_voice_consistency`` treats the manuscript as ONE voice;
+multi-POV novels need per-POV signatures. (23 symbols)
 - **world.py** — novel.world — World cluster — world sub-graph: cultures, religions, languages, magic, axioms (Spec 123). (15 symbols)
 
 ### `agency/capabilities/panel/` (2 files)
@@ -1313,7 +1331,7 @@ refresh. (13 symbols)
 Spec 072 produced the SPEC-VISION-ALIGNMENT matrix by hand; it goes stale
 the first time a spec ships. (36 symbols)
 
-### `tests/` (41 files)
+### `tests/` (46 files)
 - **conftest.py** — Spec 016 v2 Phase 5 — shared engine/iid fixtures.
 
 Eliminates the 13 duplicate fixture blocks the test suite carried
@@ -1349,7 +1367,7 @@ dimension of the CI gate. (8 symbols)
 Extends the Spec 149 `<!-- derived:<id> -->` fence engine with code-introspection
 fence kinds that regenerate from the LIVE engine — so the mechanically-derivable
 fragments of a hand doc (the `SUBSTRATE_TOOLS` roster, a capability's verb list,
-the driver-boundary set) stop rotting on every refactor. (29 symbols)
+the driver-boundary set) stop rotting on every refactor. (30 symbols)
 - **test_develop_plan_execute.py** — Spec 287 — develop `plan-execute` discipline + Plan/PlanStep provenance.
 
 A first-class plan-authoring → execution-with-checkpoints discipline
@@ -1399,7 +1417,7 @@ and port all templates — let the gates be decided programmatically."* The
 ``ctx.render`` seam (``CapabilityContext.render``) renders through a Jinja
 ``Environment`` (``StrictUndefined``, autoescape off) so ``{% if %}`` / ``{% for %}``
 / ``{# #}`` are first-class — replacing the interim Spec 384 regex strippers in
-``analyze/_report.py``. (19 symbols)
+``analyze/_report.py``. (20 symbols)
 - **test_lifecycle_resume.py** (4 symbols)
 - **test_lifecycle_trail_scope.py** — Spec 341 Slice 2 — manage.lifecycle_trail(scope=…): the unified cross-lifecycle
 transition view.
@@ -1408,10 +1426,25 @@ The per-lifecycle `lifecycle_trail(lifecycle_id)` already ships. (7 symbols)
 - **test_node_id_guard_sweep.py** — Spec 171 Slice 2 — the live node-id-guard coverage sweep + WARN→error promotion.
 
 The typed ``GuardFinding`` shape shipped in Slice 1 but was dormant. (14 symbols)
+- **test_novel_canon_locks.py** — Spec 137 — canon provenance markers & locks (the KP [K]/[V]/[S]/[L] discipline). (16 symbols)
+- **test_novel_dual_storyform.py** — Spec 136 — dual-storyform architecture (post-Dramatica). (23 symbols)
+- **test_novel_plural_character.py** — Spec 138 — plural-character system (dissociative-system model).
+
+``CharacterSystem`` + ``Alter`` roster (ANP/EP/special/mirror × trauma layers),
+the typed ``PHOBIA_OF`` conflict matrix with max-pair co-front warnings, per-
+alter voice binding (``VOICED_BY`` → Spec 134), the "recognized, never labeled"
+scene discipline incl. (16 symbols)
 - **test_novel_storyform_node.py** — Spec 103 Slice 2 (Workstream D) — create_storyform / get_storyform.
 
 Closes the documented ENGINE GAP: the storyform gates + checks read a
 `Storyform` node, but no verb minted one. (13 symbols)
+- **test_novel_structure_templates.py** — Spec 133 — story structure templates (pacing layer). (20 symbols)
+- **test_novel_voice_profiles.py** — Spec 134 — POV voice profiles (per-character voice signature).
+
+``VoiceProfile`` node + ``VOICE_OF`` edge; create/update/get; a deviation-based
+0–100 ``score_voice_match``; per-scene ``check_pov_voice`` against the scene's
+``pov_character_id``; a manuscript ``voice_drift_report`` + composite
+``voice_drift_gate``. (20 symbols)
 - **test_ontology_materialise.py** — Spec 060 Phase 1 — Engine.materialise_ontology() wires the schema/template
 materialisers into a graph projection.
 

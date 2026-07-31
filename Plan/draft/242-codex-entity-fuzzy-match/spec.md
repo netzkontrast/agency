@@ -109,3 +109,37 @@ remain interpretable.
 3. **Performance.** Naive scan on every gate run? **Recommend:** memoize
    per `(text_sha256, codex_version)` in the engine cache — cheap and
    keyed on derivable inputs, never on time.
+
+## Followup — Implementation Status (IMPLEMENTED 2026-07-02, PR #328)
+
+Shipped as an in-place upgrade of `novel.match_codex_entries`
+(`agency/capabilities/novel/clusters/codex.py`) — TDD, 6 tests in
+`tests/test_codex_fuzzy.py`.
+
+**Done:**
+- MatchResult partition: `decidable` (word-boundary `\b` regex hits with
+  `span: [start, end]`, `kind="whole_word"`, `confidence: None`), `judged`
+  (driver-backed fuzzy, `kind="fuzzy"`, float confidence + `model_id`),
+  `total == len(decidable) + len(judged)`.
+- Canonical false-positive trap closed: "raven" never matches inside
+  "ravenous"; every decidable span is boundary-aligned (asserted both sides).
+- Fuzzy pass: opt-in `fuzzy=True`, resolves the `codex_match` driver on
+  `ctx.drivers`; absent driver → graceful degrade (`judged=[]`,
+  `fuzzy_status="driver_unavailable"`), decidable unchanged. Mocked-driver
+  test maps "Sebatsian" → Sebastian at 0.85.
+- Failure modes: unknown novel → `Codes.CODEX_NOT_FOUND` typed failure;
+  malformed `re:`-prefixed raw-regex trigger → entry named in `invalid`
+  with `codex_entry_invalid`, other entries still match; out-of-bounds
+  driver span → rejected into `invalid` with `match_invalid`.
+- Legacy `matches` key retained (first decidable hit per entry, Spec-132
+  shape) — `prompt.assemble_scene_brief` and the acceptance feature keep
+  working; since it derives from decidable only, gates consume only
+  decidable by construction.
+
+**Still open (deferred):**
+- Spec 216 shared name-exposure substrate not yet extracted — the matcher
+  is self-contained here; unify when 216 ships.
+- Open Q2 multi-word phrase→per-token fallback and Open Q3 memoization
+  (`text_sha256, codex_version`) deferred until a real corpus shows need.
+- No built-in Levenshtein fallback: fuzzy is driver-only by design (the
+  driver owns the threshold policy per Open Q1).

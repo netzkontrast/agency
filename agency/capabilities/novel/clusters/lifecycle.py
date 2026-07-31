@@ -308,6 +308,82 @@ class LifecycleMixin:
             "novel_id": novel_id, "status": status,
         })
 
+
+    # ── Spec 222 — catalogue graph-query + output budget ────────────────────
+
+    @verb(role="transform")
+    def catalogue_query(self, author: str, motif: str = "",
+                        canon_status: str = "", fields: str = "",
+                        max_rows: int = 20,
+                        cursor: int = 0) -> ToolResult:
+        """Cross-work catalogue query (transform) — every scene across the
+        author's novels reached by TRAVERSING the declared edges (Novel →
+        CHAPTER_OF → SCENE_OF; Motif → ECHOES_IN), never a label scan with a
+        Python foreign-key filter (the Spec 125 dormant-edge anti-pattern).
+        Output honors the budget: ``max_rows`` shown, ``next_cursor`` pages,
+        the prefix block is byte-stable per author scope (cache-friendly).
+
+        Inputs: author, motif (optional slug — scenes echoing it),
+                canon_status (optional [K]/[V]/[S]/[L] filter), fields
+                (csv projection of row keys), max_rows, cursor.
+        Returns: ``{prefix: {author_id, schema_version,
+                 capability_set_hash}, body: {query, rows, total, shown,
+                 edges_traversed, next_cursor}}``.
+        chain_next: re-call with ``cursor=next_cursor`` for the next page.
+        """
+        from agency._envelope import capability_set_hash as _csh
+        edges_traversed: list[str] = []
+        novels = [n for n in self.ctx.find("Novel")
+                  if n.get("author") == author]
+        rows: list[dict] = []
+        for novel in novels:
+            chapters = self.ctx.neighbors(novel["id"], "CHAPTER_OF")
+            edges_traversed.append("CHAPTER_OF")
+            for ch in chapters:
+                for sc in self.ctx.neighbors(ch["id"], "SCENE_OF",
+                                             direction="in"):
+                    edges_traversed.append("SCENE_OF")
+                    rows.append({"novel_id": novel["id"],
+                                 "novel_title": novel.get("title", ""),
+                                 "chapter": int(ch.get("number", 0)),
+                                 "scene_id": sc["id"],
+                                 "slug": sc.get("slug", ""),
+                                 "canon_status": sc.get("canon_status", ""),
+                                 "scene": sc})
+        if motif:
+            echoed: set[str] = set()
+            for m in self.ctx.find("Motif"):
+                if m.get("slug") != motif:
+                    continue
+                for sc in self.ctx.neighbors(m["id"], "ECHOES_IN",
+                                             direction="out"):
+                    echoed.add(sc["id"])
+                    edges_traversed.append("ECHOES_IN")
+            rows = [r for r in rows if r["scene_id"] in echoed]
+        if canon_status:
+            rows = [r for r in rows
+                    if r["scene"].get("canon_status") == canon_status]
+        for r in rows:
+            r.pop("scene", None)
+        if fields:
+            keep = [f.strip() for f in fields.split(",") if f.strip()]
+            rows = [{k: r.get(k) for k in keep} for r in rows]
+        total = len(rows)
+        page = rows[cursor:cursor + max_rows]
+        next_cursor = (cursor + max_rows
+                       if cursor + max_rows < total else None)
+        query = (f"author={author}"
+                 + (f" motif={motif}" if motif else "")
+                 + (f" canon_status={canon_status}" if canon_status else ""))
+        return ToolResult.success(data={
+            "prefix": {"author_id": author, "schema_version": "1",
+                       "capability_set_hash":
+                           _csh(self.ctx.registry.names())},
+            "body": {"query": query, "rows": page, "total": total,
+                     "shown": len(page),
+                     "edges_traversed": sorted(set(edges_traversed)),
+                     "next_cursor": next_cursor}})
+
     @verb(role="transform")
     def list_chapters(self, novel_id: str) -> ToolResult:
         """List a novel's chapters ordered by number (transform).
@@ -347,7 +423,7 @@ class LifecycleMixin:
 
     @verb(role="effect", param_enums={"pov": SCENE_POV})
     def create_scene(self, chapter_id: str, slug: str,
-                      pov: str) -> ToolResult:
+                      pov: str, pov_character_id: str = "") -> ToolResult:
         """Record a Scene node + SCENE_OF the parent Chapter (effect).
 
         Spec 284 — ``pov`` is a *projected enum*: it accepts rich free text
@@ -357,7 +433,9 @@ class LifecycleMixin:
         PERMANENT, listing the members.
 
         Inputs: chapter_id, slug (scene-local short name), pov (a ``SCENE_POV``
-                member or rich text projected onto one).
+                member or rich text projected onto one), pov_character_id
+                (optional — the character whose VoiceProfile gates this
+                scene, Spec 134).
         Returns: ``{scene_id, chapter_id, slug, pov, pov_detail?}``.
         chain_next: ``novel.create_scene`` for next beat or back to
                     ``novel.set_chapter_status`` once the chapter's
@@ -375,6 +453,9 @@ class LifecycleMixin:
         props = {"chapter": chapter_id, "slug": slug, "pov": canonical}
         if detail:
             props["pov_detail"] = detail
+        # Spec 134 — the POV character whose VoiceProfile gates this scene.
+        if pov_character_id:
+            props["pov_character_id"] = pov_character_id
         sid = self.ctx.record_and_serve("Scene", props, parent=chapter_id, edge="SCENE_OF")
         out = {"scene_id": sid, "chapter_id": chapter_id,
                "slug": slug, "pov": canonical}

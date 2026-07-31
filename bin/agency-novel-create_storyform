@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_novel_create_storyform
 # Mint the Storyform node for a novel + STORYFORM_OF edge (effect).
-# Usage: agency-novel-create_storyform [--intent-id ID] <novel_id> [body]
+# Usage: agency-novel-create_storyform [--intent-id ID] <novel_id> [body] [role]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -70,6 +70,7 @@ def _coerce(raw, ann):
 _kw = {"intent_id": sys.argv[1]}
 _kw["novel_id"] = _coerce(sys.argv[2], str)
 if len(sys.argv) > 3: _kw["body"] = _coerce(sys.argv[3], dict)
+if len(sys.argv) > 4: _kw["role"] = _coerce(sys.argv[4], str)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

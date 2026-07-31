@@ -30,10 +30,14 @@ Author research dossiers, engineer token-budgeted prompts, route a draft to the 
 | `brief_finalize` | effect | Finalize a ResearchBrief — flips its status (effect). | [details](references/brief_finalize.md) |
 | `brief_render` | act | Render a ResearchBrief body from the dossier-skeleton template (act). | [details](references/brief_render.md) |
 | `catalog_list` | transform | List bundled CatalogModule entries optionally filtered by category (transform). | [details](references/catalog_list.md) |
+| `compose_drafting_brief` | transform | Compose the LLM-side drafting brief for ONE scene (transform; Spec 143) — the prompt counterpart of Spec 127's graph-side ``assemble_scene_brief``. | [details](references/compose_drafting_brief.md) |
+| `compose_voice_locked_brief` | act | Compose the §-structured voice-locked drafting brief for one scene and one fronting alter (act). | [details](references/compose_voice_locked_brief.md) |
 | `engineer` | act | Render a PromptInstance inside a token budget (act). | [details](references/engineer.md) |
 | `evaluate` | effect | Goal-aware multi-dimension evaluation of a prompt body (effect). | [details](references/evaluate.md) |
+| `exemplar_pool` | transform | N example sentences from the alter's Sprach-DNA pool (transform), rotated deterministically by intent-id hash so successive drafts see varied exemplars — never the same three every call. | [details](references/exemplar_pool.md) |
 | `fragment` | transform | Look up a single Dramatica prompt fragment (transform). | [details](references/fragment.md) |
 | `fragments_for` | transform | Compose multiple fragments for a storyform scope (transform). | [details](references/fragments_for.md) |
+| `fragments_for_scope` | transform | Compose KP fragments for a drafting scope (transform; Spec 143). | [details](references/fragments_for_scope.md) |
 | `framework` | transform | Look up a single prompt-engineering framework by slug (transform). | [details](references/framework.md) |
 | `frameworks_for` | transform | Budget-aware candidate list for a known intent category (transform). | [details](references/frameworks_for.md) |
 | `intent_capture` | act | Record a structured ResearchIntent SERVING the intent (act). | [details](references/intent_capture.md) |
@@ -42,6 +46,7 @@ Author research dossiers, engineer token-budgeted prompts, route a draft to the 
 | `render` | act | Fill a framework's template with ``fields`` → a PromptInstance (act). | [details](references/render.md) |
 | `route_framework` | effect | Route a free-text ``draft`` to the ONE right framework (effect). | [details](references/route_framework.md) |
 | `token_budget_gate` | effect | Computed token-budget gate — passes iff approx_tokens ≤ max_tokens (effect). | [details](references/token_budget_gate.md) |
+| `voice_drift_audit` | act | Post-draft defensive audit (act): scan the drafted body against the assigned alter's profile — forbidden lexicon, taboo violations, signature presence, a register score — and flag ``leaked-other-alter`` when the body matches a DIFFERENT bound alter's voice better. | [details](references/voice_drift_audit.md) |
 
 ## Example
 
@@ -79,4 +84,4 @@ await call_tool("capability_prompt_brief_finalize", {"intent_id": iid})
 await call_tool("capability_prompt_brief_render", {"intent_id": iid})
 ```
 
-More verbs: `capability_prompt_catalog_list`, `capability_prompt_engineer`, `capability_prompt_evaluate`, `capability_prompt_fragment`, `capability_prompt_fragments_for`, `capability_prompt_framework`, `capability_prompt_frameworks_for`, `capability_prompt_intent_capture` …
+More verbs: `capability_prompt_catalog_list`, `capability_prompt_compose_drafting_brief`, `capability_prompt_compose_voice_locked_brief`, `capability_prompt_engineer`, `capability_prompt_evaluate`, `capability_prompt_exemplar_pool`, `capability_prompt_fragment`, `capability_prompt_fragments_for` …

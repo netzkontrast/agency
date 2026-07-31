@@ -5,5 +5,23 @@
 #
 # Format: one label per line
 #
-# ✅ All ontology labels are now schema-covered (Spec 153 Slice 6 Wave 6 —
-# novel + core Schema/Tool backfill, coverage 0.809 → 1.0)
+# Spec 153 Slice 6 Wave 6 reached coverage 1.0; the Spec 133-141 KP wave
+# (novel structure/voice/dual-storyform/canon/plural/reveal/rulesets/
+# mode-blocks) + the 2xx slice (247 CanonProposal) added the graph-only
+# node types below — schema backfill is a
+# named follow-up of that wave (author schemas, then shrink this list).
+Alter
+AlterConflict
+Anchor
+BeatExpectation
+CanonProposal
+CharacterSystem
+Leerstelle
+Lock
+ModeBlock
+Motif
+ProjectRule
+RevealRule
+StoryformSet
+StoryformTransition
+VoiceProfile

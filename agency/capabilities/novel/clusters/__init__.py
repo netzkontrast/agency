@@ -16,6 +16,15 @@ from .world import WorldMixin
 from .storytime import StoryTimeMixin
 from .codex import CodexMixin
 from .character_knowledge import CharacterKnowledgeMixin
+from .structure import StructureMixin
+from .voice import VoiceMixin
+from .dual_storyform import DualStoryformMixin
+from .canon import CanonMixin
+from .plural import PluralMixin
+from .reveal import RevealMixin
+from .rulesets import RulesetsMixin
+from .modeblocks import ModeBlocksMixin
+from .preflight import PreflightMixin
 
 __all__ = [
     "NovelBase",
@@ -28,4 +37,13 @@ __all__ = [
     "StoryTimeMixin",
     "CodexMixin",
     "CharacterKnowledgeMixin",
+    "StructureMixin",
+    "VoiceMixin",
+    "DualStoryformMixin",
+    "CanonMixin",
+    "PluralMixin",
+    "RevealMixin",
+    "RulesetsMixin",
+    "ModeBlocksMixin",
+    "PreflightMixin",
 ]

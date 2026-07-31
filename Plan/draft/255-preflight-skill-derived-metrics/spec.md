@@ -115,3 +115,43 @@ Then:   report.verdicts has 6 keys (auto-extended), including the
    **Recommend**: both — each phase declares `max_ms` (default
    50ms); total has the 200ms hard cap. A slow phase surfaces
    `Codes.PREFLIGHT_SLOW` naming the phase.
+
+## Followup — Implementation Status (IMPLEMENTED 2026-07-02, PR #328)
+
+Shipped as a rewrite of `agency/capabilities/novel/clusters/preflight.py` —
+TDD, 7 tests in `tests/test_preflight_metrics.py` (legacy Spec-145 suite
+`tests/test_novel_preflight_skill.py` stays green).
+
+**Done:**
+- `@preflight_phase(phase_id, label, source_labels)` decorator + registry
+  scan over the composed capability's MRO — the five Spec-145 audits are now
+  registered phases; the verdicts dict derives from the registry at call
+  time. A 6th phase attached anywhere on `NovelCapability` auto-appears
+  (tested); removal auto-disappears and changes `audit_verb_set_hash`.
+- Derivation parity: `set(verdicts) == audit_verbs` asserted in test and at
+  runtime under `debug=True`.
+- Per-phase `duration_ms` + `total_duration_ms`; no-hidden-overhead
+  relation (`total <= sum(phases) + epsilon`); 40-chapter fixture under the
+  `PREFLIGHT_BUDGET_MS=200` tunable. Overrun emits a `Codes.PREFLIGHT_SLOW`
+  warning — full report always returned.
+- Graph-only invariant: counting fake drivers registered under every
+  plausible name record zero calls during a run.
+- Failure isolation: a phase that raises marks `status="fail"` with the
+  exception text; all other phases continue.
+- Recurrence → amendment feed: each run stores a `findings_index` on the
+  pre-flight Artefact; a `(phase, category)` recurring `>= RECURRENCE_N=3`
+  across the novel's run history mints ONE `scope="observation"` Reflection
+  (`kind="preflight-recurrence"`) — the Spec-150 `parse_amendment` feed —
+  idempotently (already-reflected clusters never re-mint).
+- `novel.preflight_readiness(novel_id)` — wired/total per phase from the
+  declared `source_labels` (RevealRule / ProjectRule / ModeBlock /
+  VoiceProfile presence).
+
+**Still open (deferred):**
+- `agency_doctor` integration (Spec 170) — readiness ships as a novel verb;
+  surfacing it inside the doctor report is the 170 slice.
+- Open Q2 phase ordering (`requires:` declarations) unimplemented — all
+  phases run serially in declaration order; revisit if a phase gains a
+  dependency.
+- Per-phase `max_ms` budgets (Open Q3) — only the total budget ships;
+  per-verdict `duration_ms` already names the slow phase.

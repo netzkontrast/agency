@@ -129,19 +129,19 @@ Rebuild (derived from the Plan/ tree):
 - 130  scene-writer-skill
 - 131  character-knowledge-ledger
 - 132  codex-entity-tracking
-- 133  story-structure-templates
-- 134  pov-voice-profiles
+- 133  story-structure-templates   # Shipped (code) — 5 vendored beat sheets + overlay, BeatExpectation/FULFILS, apply/anchor/coverage/position-report, storyform-build phase 7, drafting soft-warn; TDD (12); PR #328
+- 134  pov-voice-profiles   # Shipped (code) — VoiceProfile/VOICE_OF, score_voice_match 0-100, check_pov_voice, drift report/gate, 5-scene auto-derivation; +Spec 138 alter-taboo hard layer, +Spec 144 Sprach-DNA fields; TDD (11); PR #328
 - 135  sensitivity-reader-workflow
-- 136  dual-storyform-architecture
-- 137  canon-provenance-locks
-- 138  plural-character-system
-- 139  reveal-discipline
-- 140  project-rulesets-motifs
-- 141  chapter-briefing-mode-blocks
-- 142  novel-craft-skill-walks
-- 143  kohaerenz-prompt-fragments
-- 144  voice-locked-drafting-prompt
-- 145  novel-preflight-composite-skill
+- 136  dual-storyform-architecture   # Shipped (code) — StoryformSet (N-ary) + Klein-c inversion (V4), Vortex transitions + driver-flip legality, hard/soft routing, bridge-frequency curve, composite check + Artefact; TDD (13); PR #328
+- 137  canon-provenance-locks   # Shipped (code) — canon_status [K]/[V]/[S]/[L] cross-cutting, Lock newer-wins chains, Master-Index, conflict resolution, quarry promotion, canon_audit, canon_gate; TDD (9); PR #328
+- 138  plural-character-system   # Shipped (code) — CharacterSystem/Alter roster, PHOBIA_OF matrix (AlterConflict cells) + max-pair warnings, VOICED_BY binding, never-labeled + veil recognition, switching_log (R-4), validate_no_fusion; TDD (8); PR #328
+- 139  reveal-discipline   # Shipped (code) — RevealRule three tiers + premature check, timeline report, check_veil, Leerstelle first-class, reader_function_audit, reveal_gate; TDD (8); PR #328
+- 140  project-rulesets-motifs   # Shipped (code) — ProjectRule over 4 decidable predicates, run_project_rules checklist, severity-tiered gate, Motif echo-trail (cap 1), named Anchors plant->payoff; TDD (7); PR #328
+- 141  chapter-briefing-mode-blocks   # Shipped (code) — ModeBlock (6 modes) + IN_MODE_BLOCK, mode!=storyform-boundary check, genre-bleed, render_chapter_briefing aggregates 136-140 into the Jinja template, section-M checklist; TDD (7); PR #328
+- 142  novel-craft-skill-walks   # Shipped (code) — six per-cluster walks registered (gates at the KP halt points); develop.skill_walk gains dry_run (would_invoke preview, zero side effects); TDD (4); PR #328
+- 143  kohaerenz-prompt-fragments   # Shipped (code) — kp-fragments.yaml (6 families, 55 fragments, lint as standing test), prompt.fragments_for_scope (KP scope keys, budget_take), prompt.compose_drafting_brief; overlay isolation via CharacterSystem/StoryformSet detection; TDD (6); PR #328
+- 144  voice-locked-drafting-prompt   # Shipped (code) — prompt.compose_voice_locked_brief (section-structured, co-front guard, TABOO never truncated), exemplar_pool (intent-hash rotation), voice_drift_audit (leaked-other-alter verdict); TDD (5); PR #328
+- 145  novel-preflight-composite-skill   # Shipped (code) — novel.preflight_report (5 read-only verdicts over 137-144, blockers/warnings, pre-flight Artefact) + novel-preflight walkable skill (voice-ready hard gate); TDD (4); PR #328
 - 146  engine-output-prefix-discipline
 - 147  anthropic-driver-boundary
 - 148  agency-slash-family-and-sessionstart
@@ -218,7 +218,7 @@ Rebuild (derived from the Plan/ tree):
 - 219  novel-storyform-llm-assist
 - 220  novel-prose-driver-wet
 - 221  novel-research-fanout
-- 222  novel-catalogue-graph-query
+- 222  novel-catalogue-graph-query   # Shipped (code) — catalogue_query: cross-work scenes via CHAPTER_OF/SCENE_OF/ECHOES_IN traversal (no label scans — standing test), motif + canon_status filters, max_rows/next_cursor paging, fields projection, byte-stable prefix (author/schema/capability_set_hash); TDD (4); PR #328. Note: 203 graph_query routing when 203 ships
 - 223  novel-manuscript-managed-export
 - 224  novel-gates-llm-judge
 - 225  prompt-cap-slice2-llm
@@ -233,25 +233,25 @@ Rebuild (derived from the Plan/ tree):
 - 234  format-driver-pandoc-managed
 - 235  graph-neighbors-typed-paths
 - 236  research-ingest-corpus-management
-- 237  scene-brief-cache-discipline
-- 238  story-time-graph-query
+- 237  scene-brief-cache-discipline   # Shipped (code) — assemble_scene_brief renders stability-descending (frozen storyform -> semi pov/voice -> volatile alphabetical), splits into byte-stable prefix + volatile suffix (prompt == prefix+suffix byte-exact), cache_control breakpoint only above CACHE_MIN_PREFIX_TOKENS=1024 (overridable; cache_ineligible / cache_unsupported degrade codes, brief always returned), Spec-201 driver count_tokens when wired; prefix byte-identical across volatile-only scene edits (5-call test + mocked-driver cache-hit proof); TDD (6); PR #328
+- 238  story-time-graph-query   # Shipped (code) — narrative_order as PRECEDES topological path (cycle = typed TEMPORAL_CYCLE), story_time_query surfaces when_story-vs-scene-order contradictions (coverage, vacuous-truth empty scope), events_pov_witnessed intersection (REVEALED_IN x pov_character_id x before_when, UNKNOWN_CHARACTER typed); TDD (4); PR #328. CI fix: merged the duplicate Spec-128 narrative_order (order + beats keys in one verb), TEMPORAL_CYCLE/UNKNOWN_CHARACTER promoted to Codes members. Note: direct edge walks until Spec 203 graph_query ships
 - 239  dramatica-fragments-derive
 - 240  scene-writer-llm-loop
 - 241  character-knowledge-llm-extract
-- 242  codex-entity-fuzzy-match
+- 242  codex-entity-fuzzy-match   # Shipped (code) — match_codex_entries upgraded to decidable/judged MatchResult (word-boundary \b regex with spans + confidence None; "raven" never matches "ravenous"), driver-backed fuzzy pass (codex_match driver, graceful degrade judged=[]), re: raw-regex triggers with per-entry CODEX_ENTRY_INVALID, MATCH_INVALID span rejection, legacy matches key retained; TDD (6); PR #328
 - 243  structure-templates-llm-anchor
 - 244  voice-profiles-llm-derive
 - 245  sensitivity-managed-reader
-- 246  dual-storyform-klein-c-tests
-- 247  canon-locks-managed-approval
-- 248  plural-character-graph-query
+- 246  dual-storyform-klein-c-tests   # Shipped (code) — V4 property sweep (220 legal pairs by construction), involution + flip commutation, single-slot mutation names slot+generator, typed failure modes (insufficient_slots, unknown_slot); check enriched with flip_class/flip_dynamics/diagnostic; TDD (4); PR #328
+- 247  canon-locks-managed-approval   # Shipped (code) — propose_canon/approve_canon/list_canon_proposals: CanonProposal node + legal status DAG (proposal->approved|rejected, approved->superseded), monotonic + idempotent approval, K-tier evidence gate + author-override gate at propose-time, Lock stamped proposed_by/approved_by/proposal_id (count relation == approved proposals), supersession via NEW proposal keeps lineage, rejection Reflection + canon-churn observation (N=3, idempotent), managed-agent approver denied (APPROVAL_DENIED), Spec-176 sub-Intent per proposal; TDD (6); PR #328
+- 248  plural-character-graph-query   # Shipped (code) — query_phobia_cycles (DFS over PHOBIA_OF via neighbors, weights computed from intensity, self-loops/empty legal) + query_co_front (max computed from live matrix — demotes when a heavier edge lands; adjacent/any kinds); IDs never labels; dormant-edge audit as standing test; TDD (4); PR #328. Note: routes through direct edge walks until Spec 203 graph_query ships
 - 249  reveal-discipline-veil-llm
 - 250  project-rulesets-llm-author
 - 251  chapter-briefing-llm-render
 - 252  novel-skill-walks-managed
 - 253  kp-fragments-derive-overlay
 - 254  voice-locked-cache-discipline
-- 255  preflight-skill-derived-metrics
+- 255  preflight-skill-derived-metrics   # Shipped (code) — @preflight_phase registry: verdicts derive from registered audit methods (6th phase auto-extends, raising phase fails alone), per-phase duration_ms + total < 200ms budget (PREFLIGHT_SLOW warning on overrun, never truncated), audit_verb_set_hash, graph-only invariant (zero driver calls), recurring (phase,category) >= N=3 mints one Spec-150 observation Reflection per cluster (idempotent), preflight_readiness wired/total; TDD (7); PR #328. Deferred: agency_doctor wiring (Spec 170 integration)
 - 256  anthropic-driver-fallbacks
 - 257  output-prefix-managed-cache
 - 258  dogfood-classifier-quality-loop

@@ -180,6 +180,22 @@ class Codes:
     SKILLDOC_MISSING_SECTION = "skilldoc_missing_section"   # docstring has `Use when:` but is missing a required section — never emit a partial SkillDoc
     # Spec 167 Slice 2 — architecture-metric build failure mode.
     IMPORT_UNRESOLVED = "import_unresolved"   # an import edge can't be resolved to a module — flagged, not silently dropped
+    # Spec 238 — story-time graph-query failure modes (promoted from
+    # literal-string call sites per the codes-coverage gate).
+    TEMPORAL_CYCLE = "temporal_cycle"         # PRECEDES cycle — no topological order exists
+    UNKNOWN_CHARACTER = "unknown_character"   # POV horizon queried for a character id not in the graph
+    # Spec 242 — codex entity-match failure modes.
+    CODEX_NOT_FOUND = "codex_not_found"       # novel/codex scope id unknown — nothing to match against
+    CODEX_ENTRY_INVALID = "codex_entry_invalid"   # a codex entry's trigger regex fails to compile — entry named, others still match
+    DRIVER_UNAVAILABLE = "driver_unavailable"     # fuzzy pass requested but no match driver wired — decidable returned, judged=[]
+    MATCH_INVALID = "match_invalid"           # driver returned a malformed match (out-of-bounds span) — suggestion rejected
+    # Spec 255 — preflight derived-metrics warning code.
+    PREFLIGHT_SLOW = "preflight_slow"         # total preflight wall-clock exceeded the budget — full report still returned
+    # Spec 247 — canon approval workflow.
+    APPROVAL_DENIED = "approval_denied"       # approver missing/unauthorized (managed agents may propose, never approve)
+    # Spec 237 — scene-brief cache-discipline degrade codes (brief always returned).
+    CACHE_INELIGIBLE = "cache_ineligible"     # prefix below the 1024-token cache floor — breakpoint omitted
+    CACHE_UNSUPPORTED = "cache_unsupported"   # wired driver rejects cache_control — breakpoint omitted
 
 
 @dataclass(frozen=True)

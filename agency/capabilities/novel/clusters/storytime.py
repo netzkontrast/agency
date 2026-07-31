@@ -158,51 +158,154 @@ class StoryTimeMixin:
             "beat_id": bid, "scene_id": scene_id, "label": beat_label,
         })
 
+    # ── Spec 238 — story-time graph queries ─────────────────────────────────
+
     @verb(role="transform")
     def narrative_order(self, novel_id: str) -> ToolResult:
-        """Topo-sort over PRECEDES for the canonical narrative reading order (transform).
+        """The narrative order DERIVED as a typed path over PRECEDES
+        (transform) — a topological order of the beat DAG, never an ad-hoc
+        property sort. A PRECEDES cycle is a typed TEMPORAL_CYCLE failure
+        naming the trapped node ids.
 
         Inputs: novel_id.
-        Returns: ``{beats: [{beat_id, label, scene_id}]}`` ordered so every
-                 predecessor appears before its successor.
-        chain_next: author's checklist for the manuscript's narrative spine.
+        Returns: ``{order: [beat_id], beats: [{beat_id, label, scene_id}],
+                 edges_traversed}`` — ``order`` is the id path (Spec 238),
+                 ``beats`` the enriched Spec-128 reading-order shape.
+        chain_next: ``novel.story_time_query`` for the contradiction scan.
         """
-        if self.ctx.recall(novel_id) is None:
-            return ToolResult.failure(
-                Codes.NOT_FOUND, f"novel_id={novel_id!r} not found")
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
         beats = [b for b in self.ctx.find("NarrativeBeat")
-                  if b.get("novel") == novel_id]
-        # Build predecessor map by querying PRECEDES.
-        edges = []
-        for a_props, b_props in self.ctx.edge_pairs(
-                "PRECEDES", "NarrativeBeat", "NarrativeBeat"):
-            a_id = a_props.get("id")
-            b_id = b_props.get("id")
-            if a_id and b_id:
-                edges.append((a_id, b_id))
-        # Kahn's algorithm over the beats of THIS novel.
-        beat_ids = {b.get("id") for b in beats}
-        in_degree = {bid: 0 for bid in beat_ids}
-        successors: dict = {bid: [] for bid in beat_ids}
-        for a, b in edges:
-            if a in beat_ids and b in beat_ids:
-                in_degree[b] += 1
-                successors[a].append(b)
-        queue = [bid for bid, d in in_degree.items() if d == 0]
+                 if b.get("novel") == novel_id]
+        ids = {b["id"] for b in beats}
+        succ: dict[str, set] = {i: set() for i in ids}
+        indeg = {i: 0 for i in ids}
+        edges = 0
+        for b in beats:
+            for nxt in self.ctx.neighbors(b["id"], "PRECEDES",
+                                          direction="out"):
+                if nxt["id"] in ids:
+                    succ[b["id"]].add(nxt["id"])
+                    indeg[nxt["id"]] += 1
+                    edges += 1
         order: list[str] = []
-        while queue:
-            n = queue.pop(0)
+        frontier = sorted(i for i in ids if indeg[i] == 0)
+        while frontier:
+            n = frontier.pop(0)
             order.append(n)
-            for s in successors[n]:
-                in_degree[s] -= 1
-                if in_degree[s] == 0:
-                    queue.append(s)
-        beat_by_id = {b.get("id"): b for b in beats}
+            for m in sorted(succ[n]):
+                indeg[m] -= 1
+                if indeg[m] == 0:
+                    frontier.append(m)
+        if len(order) != len(ids):
+            trapped = sorted(ids - set(order))
+            return ToolResult.failure(
+                Codes.TEMPORAL_CYCLE,
+                f"PRECEDES cycle among {trapped}")
+        beat_by_id = {b["id"]: b for b in beats}
         return ToolResult.success(data={
-            "beats": [
-                {"beat_id": bid,
-                 "label": beat_by_id[bid].get("label"),
-                 "scene_id": beat_by_id[bid].get("scene")}
-                for bid in order if bid in beat_by_id
-            ],
-        })
+            "order": order,
+            "beats": [{"beat_id": bid,
+                       "label": beat_by_id[bid].get("label"),
+                       "scene_id": beat_by_id[bid].get("scene")}
+                      for bid in order],
+            "edges_traversed": edges})
+
+    @verb(role="transform")
+    def story_time_query(self, novel_id: str) -> ToolResult:
+        """The continuity scan (transform): every StoryTimeEvent + beat, and
+        SURFACED temporal contradictions — an event whose scene-order
+        (HAPPENS_AT) contradicts its ``when_story`` ordering is returned in
+        ``contradictions``, never silently sorted around.
+
+        Inputs: novel_id.
+        Returns: ``{events, beats, contradictions: [{earlier, later,
+                 reason}], coverage}`` — coverage 1.0 on an empty scope
+                 (vacuous truth).
+        chain_next: fix the contradicting when_story anchors; re-run.
+        """
+        _, fail = self._require_novel(novel_id)
+        if fail is not None:
+            return fail
+        events = [ev for ev in self.ctx.find("StoryTimeEvent")
+                  if ev.get("novel") == novel_id]
+        beats = [b["id"] for b in self.ctx.find("NarrativeBeat")
+                 if b.get("novel") == novel_id]
+        chapters = {c["id"]: int(c.get("number", 0))
+                    for c in self.ctx.neighbors(novel_id, "CHAPTER_OF")}
+        # narrative position of each event = the chapter of a scene that
+        # HAPPENS_AT it (earliest when several).
+        narrative_pos: dict[str, int] = {}
+        for ev in events:
+            pos = [chapters.get((self.ctx.recall(s.get("chapter", ""))
+                                 or {}).get("id",
+                                            s.get("chapter", "")),
+                                chapters.get(s.get("chapter", ""), 0))
+                   for s in self.ctx.neighbors(ev["id"], "HAPPENS_AT",
+                                               direction="in")]
+            if pos:
+                narrative_pos[ev["id"]] = min(pos)
+        contradictions: list[dict] = []
+        anchored = [ev for ev in events if ev["id"] in narrative_pos
+                    and ev.get("when_story")]
+        for i, e1 in enumerate(anchored):
+            for e2 in anchored[i + 1:]:
+                w1, w2 = e1["when_story"], e2["when_story"]
+                n1 = narrative_pos[e1["id"]]
+                n2 = narrative_pos[e2["id"]]
+                # story-time says e1 before e2 but BOTH scenes sit in the
+                # same direction? Only flag a hard inversion of anchors.
+                if w1 < w2 and n1 > n2 and n1 != n2:
+                    contradictions.append({
+                        "earlier": e1["id"], "later": e2["id"],
+                        "reason": f"when_story {w1!r} < {w2!r} but scene "
+                                  f"order ch{n1} > ch{n2}"})
+                elif w2 < w1 and n2 > n1:
+                    contradictions.append({
+                        "earlier": e2["id"], "later": e1["id"],
+                        "reason": f"when_story {w2!r} < {w1!r} but scene "
+                                  f"order ch{n2} > ch{n1}"})
+        total = len(events)
+        visited = len(narrative_pos)
+        coverage = (visited / total) if total else 1.0
+        return ToolResult.success(data={
+            "events": [{"event_id": ev["id"], "label": ev.get("label", ""),
+                        "when_story": ev.get("when_story", "")}
+                       for ev in events],
+            "beats": beats,
+            "contradictions": contradictions,
+            "coverage": round(coverage, 3)})
+
+    @verb(role="transform")
+    def events_pov_witnessed(self, character_id: str,
+                             before_when: str = "") -> ToolResult:
+        """The POV knowledge intersection (transform): events REVEALED_IN a
+        scene the character fronts (``pov_character_id``), optionally cut to
+        those with ``when_story`` < ``before_when``. |witnessed| ≤ |all|.
+
+        Inputs: character_id, before_when (optional when_story ceiling).
+        Returns: ``{events: [{event_id, label, when_story}], total_events}``.
+        chain_next: compare against Spec 131's KnownFact ledger.
+        """
+        if self.ctx.recall(character_id) is None:
+            return ToolResult.failure(
+                Codes.UNKNOWN_CHARACTER,
+                f"character {character_id!r} not found")
+        out = []
+        all_events = self.ctx.find("StoryTimeEvent")
+        for ev in all_events:
+            scenes = self.ctx.neighbors(ev["id"], "REVEALED_IN",
+                                        direction="out")
+            if not any(s.get("pov_character_id") == character_id
+                       for s in scenes):
+                continue
+            if before_when and not (ev.get("when_story", "")
+                                    < before_when):
+                continue
+            out.append({"event_id": ev["id"],
+                        "label": ev.get("label", ""),
+                        "when_story": ev.get("when_story", "")})
+        out.sort(key=lambda e: e["when_story"])
+        return ToolResult.success(data={
+            "events": out, "total_events": len(all_events)})

@@ -26,6 +26,25 @@ from ._base import _approx_tokens
 _FRAGMENTS_FILE = (Path(__file__).parent.parent.parent / "novel"
                    / "data" / "dramatica" / "fragments.json")
 _DEFAULT_OVERLAY_PATH = ".agency/dramatica-fragments-overlay.yaml"
+# Spec 143 — the Kohärenz-Protokoll deep-fragment overlay (six families).
+_KP_FRAGMENTS_FILE = (Path(__file__).parent.parent.parent / "novel"
+                      / "data" / "kp-fragments.yaml")
+KP_FAMILIES = {"plurality", "klein-c", "mode-block", "reveal", "r-rule",
+               "synthesis"}
+
+
+@lru_cache(maxsize=1)
+def _load_kp_fragments() -> dict:
+    """slug → {text, family} from the vendored KP overlay (Spec 143)."""
+    import yaml
+    raw = yaml.safe_load(_KP_FRAGMENTS_FILE.read_text(encoding="utf-8")) or {}
+    out: dict[str, dict] = {}
+    for f in raw.get("fragments", []) or []:
+        slug = f.get("slug", "")
+        if slug:
+            out[slug] = {"text": str(f.get("text", "")).strip(),
+                         "family": f.get("family", "")}
+    return out
 
 
 class FragmentsMixin:
@@ -127,6 +146,140 @@ class FragmentsMixin:
             "truncated_at": truncated_at,
             "skipped_no_fragment": skipped,
         })
+
+    def _kp_active(self, scope: dict) -> bool:
+        """Overlay isolation (Spec 143): KP fragments load only when the graph
+        carries a CharacterSystem/StoryformSet, or the scope opts in
+        explicitly (family / kp key). Non-KP novels see only Dramatica."""
+        if scope.get("family") in KP_FAMILIES or scope.get("kp"):
+            return True
+        return bool(self.ctx.find("CharacterSystem")
+                    or self.ctx.find("StoryformSet"))
+
+    @verb(role="transform")
+    def fragments_for_scope(self, scope: dict,
+                            max_tokens: int = 2000) -> ToolResult:
+        """Compose KP fragments for a drafting scope (transform; Spec 143).
+
+        KP scope keys (all optional; earlier = higher priority when the
+        budget binds): mode_block, genre_accent, audience_tier, routing_mode,
+        transition_kind, predicate_kind, veil (maintain|leak-via-glitch|
+        payoff), reveal_channels (list), alter_id (Alter node → category +
+        function fragments), r_rule_ids (list — registered R-rule handles),
+        family (whole-family pull), kp (bool opt-in).
+
+        Inputs: scope (dict), max_tokens (total budget, ≤2000 default).
+        Returns: ``{fragments: [{slug, kind, text, tokens, family}],
+                 total_tokens, truncated_at, skipped_no_fragment}``.
+        chain_next: ``prompt.compose_drafting_brief(scene_id)`` for the
+                    scene-level composition.
+        """
+        store = _load_kp_fragments()
+        if not self._kp_active(scope):
+            return ToolResult.success(data={
+                "fragments": [], "total_tokens": 0, "truncated_at": None,
+                "skipped_no_fragment": [], "kp_active": False})
+        slugs: list[str] = []
+        # highest-specificity first: the alter beats its archetype beats mode
+        alter_id = scope.get("alter_id")
+        if alter_id:
+            alter = self.ctx.recall(alter_id) or {}
+            fn = str(alter.get("function", "")).strip().lower()
+            if fn and f"kp.alter.{fn}" in store:
+                slugs.append(f"kp.alter.{fn}")
+            cat = alter.get("category", "")
+            if cat:
+                slugs.append(f"kp.alter.{cat}")
+        for key, prefix in (("routing_mode", "kp.route."),
+                            ("transition_kind", "kp.transition."),
+                            ("mode_block", "kp.mode."),
+                            ("genre_accent", "kp.genre."),
+                            ("audience_tier", "kp.tier."),
+                            ("veil", "kp.veil."),
+                            ("predicate_kind", "kp.predicate.")):
+            v = scope.get(key)
+            if v:
+                slugs.append(prefix + str(v).strip().lower()
+                             .replace(" ", "-"))
+        for ch in scope.get("reveal_channels") or []:
+            slugs.append(f"kp.channel.{str(ch).strip().lower()}")
+        for rid in scope.get("r_rule_ids") or []:
+            key = str(rid).strip().lower().replace("-", "")
+            hit = next((slug for slug in store
+                        if slug.startswith(f"kp.rule.{key}-")
+                        or slug.startswith(f"kp.rule.{key}.")), None)
+            slugs.append(hit or f"kp.rule.{key}")
+        fam = scope.get("family")
+        if fam:
+            slugs.extend(sorted(sl for sl, f in store.items()
+                                if f["family"] == fam))
+        seen: set[str] = set()
+        skipped: list[str] = []
+        candidates: list[dict] = []
+        for slug in slugs:
+            if slug in seen:
+                continue
+            seen.add(slug)
+            entry = store.get(slug)
+            if entry is None:
+                skipped.append(slug)
+                continue
+            candidates.append({"slug": slug, "kind": "kp-fragment",
+                               "family": entry["family"],
+                               "text": entry["text"],
+                               "tokens": _approx_tokens(entry["text"])})
+        fragments, over = budget_take(candidates, lambda f: f["tokens"],
+                                      max_tokens)
+        return ToolResult.success(data={
+            "fragments": fragments,
+            "total_tokens": sum(f["tokens"] for f in fragments),
+            "truncated_at": len(fragments) if over else None,
+            "skipped_no_fragment": skipped, "kp_active": True})
+
+    @verb(role="transform")
+    def compose_drafting_brief(self, scene_id: str,
+                               max_tokens: int = 2000) -> ToolResult:
+        """Compose the LLM-side drafting brief for ONE scene (transform;
+        Spec 143) — the prompt counterpart of Spec 127's graph-side
+        ``assemble_scene_brief``. Reads the scene's mode-block, routing,
+        fronting alter, reveal channels and R-rules from the graph, pulls
+        the matching KP fragments, and returns ONE newline-joined brief.
+
+        Inputs: scene_id, max_tokens.
+        Returns: ``{brief, sources: [slug], total_tokens}``.
+        chain_next: feed ``brief`` as the system prompt of the scene draft.
+        """
+        scene = self.ctx.recall(scene_id)
+        if scene is None:
+            return ToolResult.success(data={
+                "scene_id": scene_id, "error": "NOT_FOUND"})
+        chapter = self.ctx.recall(scene.get("chapter", "")) or {}
+        novel_id = chapter.get("novel", "")
+        number = int(chapter.get("number", 0))
+        block = next((b for b in self.ctx.find("ModeBlock")
+                      if b.get("novel") == novel_id
+                      and int(b.get("from_chapter", 0)) <= number
+                      <= int(b.get("to_chapter", 0))), None) or {}
+        rules = [r.get("rule_id", "") for r in self.ctx.find("ProjectRule")
+                 if r.get("novel") == novel_id]
+        channels = sorted({r.get("channel", "")
+                           for r in self.ctx.find("RevealRule")
+                           if r.get("novel") == novel_id
+                           and r.get("channel")})
+        scope = {"kp": True,
+                 "mode_block": block.get("mode", ""),
+                 "genre_accent": block.get("genre_accent", ""),
+                 "routing_mode": scene.get("route_mode", ""),
+                 "alter_id": scene.get("pov_character_id", ""),
+                 "reveal_channels": channels,
+                 "r_rule_ids": rules}
+        res = self.fragments_for_scope(
+            {k: v for k, v in scope.items() if v}, max_tokens=max_tokens)
+        frags = res.data["fragments"] if res.ok else []
+        return ToolResult.success(data={
+            "brief": "\n\n".join(f["text"] for f in frags),
+            "sources": [f["slug"] for f in frags],
+            "total_tokens": sum(f["tokens"] for f in frags)})
 
     @verb(role="effect")
     def register_fragment(self, slug: str, text: str,
