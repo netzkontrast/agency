@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agency-generated: v1 — capability_prompt_assemble_scene_brief
 # Compose a Novelcrafter-style scene brief from graph state (act).
-# Usage: agency-prompt-assemble_scene_brief [--intent-id ID] <scene_id> [max_tokens] [section_budget]
+# Usage: agency-prompt-assemble_scene_brief [--intent-id ID] <scene_id> [max_tokens] [section_budget] [cache_floor_tokens]
 set -euo pipefail
 
 iid="${AGENCY_INTENT_ID:-}"
@@ -71,6 +71,7 @@ _kw = {"intent_id": sys.argv[1]}
 _kw["scene_id"] = _coerce(sys.argv[2], str)
 if len(sys.argv) > 3: _kw["max_tokens"] = _coerce(sys.argv[3], int)
 if len(sys.argv) > 4: _kw["section_budget"] = _coerce(sys.argv[4], int)
+if len(sys.argv) > 5: _kw["cache_floor_tokens"] = _coerce(sys.argv[5], int)
 print(json.dumps(_kw))
 ' "$iid" "${args[@]}") || { echo "error: failed to build kwargs JSON" >&2; exit 3; }
 

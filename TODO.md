@@ -233,7 +233,7 @@ Rebuild (derived from the Plan/ tree):
 - 234  format-driver-pandoc-managed
 - 235  graph-neighbors-typed-paths
 - 236  research-ingest-corpus-management
-- 237  scene-brief-cache-discipline
+- 237  scene-brief-cache-discipline   # Shipped (code) — assemble_scene_brief renders stability-descending (frozen storyform -> semi pov/voice -> volatile alphabetical), splits into byte-stable prefix + volatile suffix (prompt == prefix+suffix byte-exact), cache_control breakpoint only above CACHE_MIN_PREFIX_TOKENS=1024 (overridable; cache_ineligible / cache_unsupported degrade codes, brief always returned), Spec-201 driver count_tokens when wired; prefix byte-identical across volatile-only scene edits (5-call test + mocked-driver cache-hit proof); TDD (6); PR #328
 - 238  story-time-graph-query   # Shipped (code) — narrative_order as PRECEDES topological path (cycle = typed TEMPORAL_CYCLE), story_time_query surfaces when_story-vs-scene-order contradictions (coverage, vacuous-truth empty scope), events_pov_witnessed intersection (REVEALED_IN x pov_character_id x before_when, UNKNOWN_CHARACTER typed); TDD (4); PR #328. CI fix: merged the duplicate Spec-128 narrative_order (order + beats keys in one verb), TEMPORAL_CYCLE/UNKNOWN_CHARACTER promoted to Codes members. Note: direct edge walks until Spec 203 graph_query ships
 - 239  dramatica-fragments-derive
 - 240  scene-writer-llm-loop

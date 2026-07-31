@@ -101,3 +101,44 @@ Then:   the breakpoint is OMITTED AND Codes.CACHE_INELIGIBLE is logged
 3. **Cache TTL.** Default 5-min ephemeral or 1-hour? **Recommend:**
    1-hour for scene-writer loop (Spec 240) — the iterate cadence
    exceeds 5 min in real walks.
+
+## Followup — Implementation Status (IMPLEMENTED 2026-07-02, PR #328)
+
+Shipped in `agency/capabilities/prompt/clusters/assembly.py` — TDD, 6 tests
+in `tests/test_scene_brief_cache.py`; the Spec-127 acceptance contract
+(`tests/acceptance/test_prompt.py`) stays green untouched.
+
+**Done:**
+- Stability classes declared per composer INPUT (not per label): frozen =
+  storyform; semi = pov_card, voice_constraints; volatile = world_rules
+  (it scans the scene cast), scene_cast, continuity, foreshadowing —
+  volatile renders alphabetically (Open Q2). Render order IS
+  stability-descending; sections_meta ranks asserted non-increasing.
+- The brief splits at the frozen/semi ↔ volatile boundary:
+  `prompt == prefix + suffix` byte-exact; per-section
+  `{name, stability, byte_offset, token_count}` metadata with offsets
+  verified against the encoded prompt.
+- Prefix byte-stability RELATIONAL: five calls around a cast + body edit
+  yield exactly ONE distinct prefix while the suffix moves.
+- `cache` block: breakpoint at `len(prefix.encode())` only above the
+  floor; `CACHE_MIN_PREFIX_TOKENS = 1024` is a documented tunable with a
+  per-call `cache_floor_tokens` override (relation-tested, no fabricated
+  1024-token fixture); below-floor → `Codes.CACHE_INELIGIBLE`, driver
+  with `supports_cache_control=False` → `Codes.CACHE_UNSUPPORTED` — brief
+  returned intact in both.
+- Spec 201: a wired `anthropic` driver's `count_tokens` is authoritative
+  (`prefix_tokens + suffix_tokens == total_tokens` under the driver
+  count); heuristic fallback otherwise.
+- Mocked-driver cache-hit proof: the fake only reports
+  `cache_read_input_tokens` when the second call's prefix BYTES equal the
+  cached ones — `read >= prefix_tokens * 0.9` asserted.
+- Robustness fix en route: a Storyform body that JSON-parses to a
+  non-dict no longer crashes `_BriefContext.from_scene`.
+
+**Still open (deferred):**
+- `Codes.SCENE_NOT_FOUND` typed failure — the Spec-127 acceptance contract
+  pins success-with-`error="NOT_FOUND"`; flipping it is a breaking-change
+  slice to take together with that suite.
+- Second breakpoint (Open Q1) unimplemented — one boundary ships.
+- 1-hour TTL (Open Q3) is advisory metadata (`cache.ttl`); enforcement
+  lives with the consuming driver (Spec 240 scene-writer loop).

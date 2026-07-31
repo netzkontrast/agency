@@ -191,6 +191,9 @@ class Codes:
     MATCH_INVALID = "match_invalid"           # driver returned a malformed match (out-of-bounds span) — suggestion rejected
     # Spec 255 — preflight derived-metrics warning code.
     PREFLIGHT_SLOW = "preflight_slow"         # total preflight wall-clock exceeded the budget — full report still returned
+    # Spec 237 — scene-brief cache-discipline degrade codes (brief always returned).
+    CACHE_INELIGIBLE = "cache_ineligible"     # prefix below the 1024-token cache floor — breakpoint omitted
+    CACHE_UNSUPPORTED = "cache_unsupported"   # wired driver rejects cache_control — breakpoint omitted
 
 
 @dataclass(frozen=True)

@@ -1,4 +1,4 @@
-"""prompt.assembly — Dynamic prompt assembly (Spec 127).
+"""prompt.assembly — Dynamic prompt assembly (Spec 127 + Spec 237).
 
 Spec 286 P3 — extracted verbatim from ``prompt/_main.py``; behaviour-frozen
 relocation into a cluster mixin composed into the single PromptCapability.
@@ -6,6 +6,18 @@ relocation into a cluster mixin composed into the single PromptCapability.
 Walks the graph for a Scene (or Chapter) and composes a bounded prompt with
 sourced provenance. Pure transform; no LLM call; no driver dep —
 fake-friendly for CI.
+
+Spec 237 — cache discipline: sections render in STABILITY-DESCENDING order
+(frozen → semi → volatile; volatile alphabetical so suffix diffs stay
+reviewable). The brief splits at the frozen/semi ↔ volatile boundary into a
+byte-stable ``prefix`` (the ``cache_control`` breakpoint candidate) and a
+``suffix``; a scene-state edit that touches only volatile inputs leaves the
+prefix BYTE-IDENTICAL across calls. Stability is classified by what each
+composer actually READS (world_rules scans the scene cast, so it is
+volatile despite being codex-backed). The breakpoint is emitted only when
+the prefix clears the claude-api 1024-token cache floor
+(``CACHE_MIN_PREFIX_TOKENS``); below it the brief still returns with
+``cache.code = cache_ineligible`` — graceful degrade, never a raise.
 """
 from __future__ import annotations
 
@@ -13,9 +25,28 @@ from dataclasses import dataclass
 from typing import Any
 
 from agency.capability import verb
-from agency.toolresult import ToolResult
+from agency.toolresult import Codes, ToolResult
 
 from ._base import _CHARS_PER_TOKEN, _approx_tokens
+
+# Spec 237 — stability class per section, keyed by the composer's INPUTS:
+# frozen = ontology/storyform bodies; semi = scene identity (pov) that only
+# changes on authorial re-decision; volatile = anything reading scene state
+# (cast, bodies, story-time events).
+_STABILITY = {
+    "storyform": "frozen",
+    "pov_card": "semi",
+    "voice_constraints": "semi",
+    "world_rules": "volatile",
+    "scene_cast": "volatile",
+    "continuity": "volatile",
+    "foreshadowing": "volatile",
+}
+STABILITY_RANK = {"frozen": 2, "semi": 1, "volatile": 0}
+# claude-api cache eligibility floor (documented tunable, not a snapshot).
+CACHE_MIN_PREFIX_TOKENS = 1024
+# Open Q3 — the scene-writer iterate cadence exceeds 5 min; 1-hour TTL.
+CACHE_TTL = "1h"
 
 
 class AssemblyMixin:
@@ -24,25 +55,43 @@ class AssemblyMixin:
     @verb(role="act")
     def assemble_scene_brief(self, scene_id: str,
                               max_tokens: int = 4000,
-                              section_budget: int = 320) -> ToolResult:
+                              section_budget: int = 320,
+                              cache_floor_tokens: int = 0) -> ToolResult:
         """Compose a Novelcrafter-style scene brief from graph state (act).
 
         Walks Scene → Chapter → Novel → Storyform, then for each section
-        (storyform / pov_card / scene_cast / world_rules / continuity /
-        foreshadowing / voice_constraints) calls a private composer that
-        truncates to ``section_budget``. Sections render in priority order
-        (storyform highest, voice_constraints lowest); when ``max_tokens``
-        binds, lower-priority sections drop with a ``truncated`` flag.
+        (storyform / pov_card / voice_constraints / world_rules /
+        scene_cast / continuity / foreshadowing) calls a private composer
+        that truncates to ``section_budget``. Spec 237: sections render in
+        stability-descending order (frozen first, volatile last; volatile
+        alphabetical) and the brief splits into a byte-stable ``prefix``
+        (frozen + semi — the ``cache_control`` breakpoint candidate) and a
+        volatile ``suffix``. When ``max_tokens`` binds, later (more
+        volatile) sections drop with a ``truncated`` flag. Token counts
+        come from a wired ``anthropic`` driver's ``count_tokens`` (Spec
+        201) when present, else the 4-chars/token heuristic; the driver's
+        ``supports_cache_control=False`` degrades to
+        ``cache.code = cache_unsupported`` (breakpoint omitted, brief
+        intact).
 
         Inputs: scene_id (graph id of a Scene node), max_tokens (total cap),
-                section_budget (per-section cap).
+                section_budget (per-section cap), cache_floor_tokens
+                (0 → the CACHE_MIN_PREFIX_TOKENS=1024 claude-api floor;
+                override for smaller-context drivers).
         Returns: ``{prompt, sections, token_count, sources, truncated,
-                  brief_id}`` — ``brief_id`` is the Artefact node id
-                  recorded for provenance. ``{error: 'NOT_FOUND', ...}``
-                  when scene_id doesn't resolve.
-        chain_next: hand ``prompt`` to a generation driver; on return,
-                    record the scene body back to the graph (Spec 130
-                    scene-writer skill phase 5).
+                  brief_id, prefix, suffix, prefix_tokens, suffix_tokens,
+                  total_tokens, sections_meta: [{name, stability,
+                  byte_offset, token_count}], cache: {eligible,
+                  breakpoint_offset, min_prefix_tokens, ttl, code}}`` —
+                  invariants: ``prompt == prefix + suffix`` (byte-exact),
+                  ``prefix_tokens + suffix_tokens == total_tokens``,
+                  sections_meta stability ranks are non-increasing.
+                  ``{error: 'NOT_FOUND', ...}`` when scene_id doesn't
+                  resolve (Spec 127 contract).
+        chain_next: hand ``prompt`` to a generation driver with
+                    ``cache_control`` at ``cache.breakpoint_offset``; on
+                    return, record the scene body back to the graph (Spec
+                    130 scene-writer skill phase 5).
         """
         ctx = _BriefContext.from_scene(self.ctx, scene_id)
         if ctx.error:
@@ -55,15 +104,16 @@ class AssemblyMixin:
         truncated: list[str] = []
         running_total = 0
 
-        # Section composition order — earlier = higher priority on budget bind.
+        # Spec 237 — stability-descending; within a class the declared order
+        # is the budget priority; volatile is alphabetical (Open Q2).
         composers = [
             ("storyform", _compose_storyform),
             ("pov_card", _compose_pov_card),
-            ("scene_cast", _compose_scene_cast),
-            ("world_rules", _compose_world_rules),
+            ("voice_constraints", _compose_voice_constraints),
             ("continuity", _compose_continuity),
             ("foreshadowing", _compose_foreshadowing),
-            ("voice_constraints", _compose_voice_constraints),
+            ("scene_cast", _compose_scene_cast),
+            ("world_rules", _compose_world_rules),
         ]
         for name, composer in composers:
             text, src = composer(ctx, self)
@@ -80,7 +130,22 @@ class AssemblyMixin:
                 sources.append({**s, "contributed": name})
             running_total += tokens
 
-        prompt_body = _render_brief(sections)
+        prompt_body, prefix, suffix, meta = _render_split(sections)
+        counter, supports_cache = self._token_counter()
+        prefix_tokens = counter(prefix)
+        suffix_tokens = counter(suffix)
+        floor = cache_floor_tokens or CACHE_MIN_PREFIX_TOKENS
+        cache: dict = {"eligible": False, "breakpoint_offset": None,
+                       "min_prefix_tokens": floor,
+                       "ttl": CACHE_TTL, "code": None}
+        if not supports_cache:
+            cache["code"] = Codes.CACHE_UNSUPPORTED
+        elif prefix_tokens < floor:
+            cache["code"] = Codes.CACHE_INELIGIBLE
+        else:
+            cache["eligible"] = True
+            cache["breakpoint_offset"] = len(prefix.encode("utf-8"))
+
         # Provenance: record the brief Artefact + SERVES intent.
         aid = self.ctx.record_and_serve("Artefact", {
             "kind": "scene-brief",
@@ -96,7 +161,33 @@ class AssemblyMixin:
             "sources": sources,
             "truncated": truncated,
             "brief_id": aid,
+            "prefix": prefix,
+            "suffix": suffix,
+            "prefix_tokens": prefix_tokens,
+            "suffix_tokens": suffix_tokens,
+            "total_tokens": prefix_tokens + suffix_tokens,
+            "sections_meta": meta,
+            "cache": cache,
         })
+
+    def _token_counter(self):
+        """Spec 201 — the wired ``anthropic`` driver's ``count_tokens`` is
+        authoritative when present; the 4-chars/token heuristic otherwise.
+        Returns ``(counter_fn, supports_cache_control)``."""
+        reg = self.ctx.drivers
+        drv = (reg.get("anthropic")
+               if (reg is not None and reg.has("anthropic")) else None)
+        count = getattr(drv, "count_tokens", None) if drv else None
+        supports = bool(getattr(drv, "supports_cache_control", True)) \
+            if drv else True
+        if callable(count):
+            def counter(text: str) -> int:
+                try:
+                    return int(count(text))
+                except Exception:
+                    return _approx_tokens(text)
+            return counter, supports
+        return _approx_tokens, supports
 
 
 # ─────────────────────────── Spec 127 brief assembly ───────────────────────────
@@ -141,7 +232,8 @@ class _BriefContext:
                     try:
                         import json as _json
                         ncp = _json.loads(sf["body"])
-                        storyform_scope = _ncp_to_scope(ncp)
+                        if isinstance(ncp, dict):   # a bare-string body is not an NCP
+                            storyform_scope = _ncp_to_scope(ncp)
                     except (ValueError, TypeError):
                         pass
                     break
@@ -323,11 +415,38 @@ _SECTION_TITLES = {
     "voice_constraints": "Voice + craft constraints",
 }
 
+# Spec 237 — the render order IS stability-descending (frozen → semi →
+# volatile alphabetical); the prefix/suffix split falls at the boundary.
+_RENDER_ORDER = ("storyform", "pov_card", "voice_constraints",
+                 "continuity", "foreshadowing", "scene_cast", "world_rules")
 
-def _render_brief(sections: dict) -> str:
-    """Render the SceneBrief as structured markdown (per Open Q1)."""
-    parts: list[str] = ["# Scene brief\n"]
-    for name in _SECTION_TITLES:
-        if name in sections:
-            parts.append(f"## {_SECTION_TITLES[name]}\n\n{sections[name]}\n")
-    return "\n".join(parts)
+
+def _render_split(sections: dict) -> tuple[str, str, str, list[dict]]:
+    """Render the SceneBrief as structured markdown split at the cache
+    boundary (Spec 237): ``prefix`` holds the header + every frozen/semi
+    section, ``suffix`` every volatile one; ``prompt == prefix + suffix``
+    byte-exact. Also returns per-section metadata ``{name, stability,
+    byte_offset, token_count}`` with byte offsets into the full prompt."""
+    prefix_parts: list[str] = ["# Scene brief\n"]
+    suffix_parts: list[str] = []
+    meta: list[dict] = []
+    offset = len(prefix_parts[0].encode("utf-8")) + 1   # + the join "\n"
+    rendered_prefix_done = False
+    for name in _RENDER_ORDER:
+        if name not in sections:
+            continue
+        stability = _STABILITY[name]
+        block = f"## {_SECTION_TITLES[name]}\n\n{sections[name]}\n"
+        target = (suffix_parts if stability == "volatile" else prefix_parts)
+        if stability == "volatile":
+            rendered_prefix_done = True
+        elif rendered_prefix_done:      # defensive: order guarantees this
+            raise AssertionError("stability order violated in render")
+        target.append(block)
+        meta.append({"name": name, "stability": stability,
+                     "byte_offset": offset,
+                     "token_count": _approx_tokens(sections[name])})
+        offset += len(("\n" + block).encode("utf-8"))
+    prefix = "\n".join(prefix_parts)
+    suffix = ("\n" + "\n".join(suffix_parts)) if suffix_parts else ""
+    return prefix + suffix, prefix, suffix, meta

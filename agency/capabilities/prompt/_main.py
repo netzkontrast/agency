@@ -84,7 +84,7 @@ from .clusters.assembly import (  # noqa: F401
     _BriefContext,
     _SECTION_TITLES,
     _ncp_to_scope,
-    _render_brief,
+    _render_split,
     _truncate_to_tokens,
 )
 from .clusters.frameworks import (  # noqa: F401
