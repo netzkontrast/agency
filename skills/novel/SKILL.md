@@ -132,7 +132,8 @@ Five-verb path from premise to manuscript: conceptualize → create_novel → cr
 | `plant_anchor` | effect | Plant a named foreshadowing anchor in a scene (effect) — earliest plant kept; re-planting adds a PLANTS edge without moving the origin. | [details](references/plant_anchor.md) |
 | `pov_options` | transform | Structured POV choices for an assumption-gate (transform). | [details](references/pov_options.md) |
 | `pre_draft_gate` | effect | Composite gate: storyform + research + chapters present (effect). | [details](references/pre_draft_gate.md) |
-| `preflight_report` | act | The pre-scene readiness audit (act) — five read-only verdicts over the 137–144 stack, one composite ``{ready, blockers, warnings}``, and a recorded ``pre-flight`` Artefact. | [details](references/preflight_report.md) |
+| `preflight_readiness` | transform | Preflight readiness for a novel (transform) — per registered audit phase, is its graph substrate present (Spec 255 × Spec 170)? | [details](references/preflight_readiness.md) |
+| `preflight_report` | act | The pre-scene readiness audit (act) — every REGISTERED audit phase run read-only over the 137–144 stack, one composite ``{ready, blockers, warnings}``, and a recorded ``pre-flight`` Artefact. | [details](references/preflight_report.md) |
 | `project_rule_gate` | transform | Composite manuscript gate (transform): fails iff any scene carries a finding AT or ABOVE ``block_at``; lower severities surface as warnings (§10.2 — critical strikes, medium/low reviewer-check). | [details](references/project_rule_gate.md) |
 | `promote_from_quarry` | effect | Flip a quarry node → proposal + mint the Lock recording the promotion (effect). | [details](references/promote_from_quarry.md) |
 | `promote_idea` | effect | Transition an Idea to a Novel, recording the PROMOTED_TO edge (effect). | [details](references/promote_idea.md) |

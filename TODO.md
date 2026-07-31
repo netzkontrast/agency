@@ -251,7 +251,7 @@ Rebuild (derived from the Plan/ tree):
 - 252  novel-skill-walks-managed
 - 253  kp-fragments-derive-overlay
 - 254  voice-locked-cache-discipline
-- 255  preflight-skill-derived-metrics
+- 255  preflight-skill-derived-metrics   # Shipped (code) — @preflight_phase registry: verdicts derive from registered audit methods (6th phase auto-extends, raising phase fails alone), per-phase duration_ms + total < 200ms budget (PREFLIGHT_SLOW warning on overrun, never truncated), audit_verb_set_hash, graph-only invariant (zero driver calls), recurring (phase,category) >= N=3 mints one Spec-150 observation Reflection per cluster (idempotent), preflight_readiness wired/total; TDD (7); PR #328. Deferred: agency_doctor wiring (Spec 170 integration)
 - 256  anthropic-driver-fallbacks
 - 257  output-prefix-managed-cache
 - 258  dogfood-classifier-quality-loop

@@ -189,6 +189,8 @@ class Codes:
     CODEX_ENTRY_INVALID = "codex_entry_invalid"   # a codex entry's trigger regex fails to compile — entry named, others still match
     DRIVER_UNAVAILABLE = "driver_unavailable"     # fuzzy pass requested but no match driver wired — decidable returned, judged=[]
     MATCH_INVALID = "match_invalid"           # driver returned a malformed match (out-of-bounds span) — suggestion rejected
+    # Spec 255 — preflight derived-metrics warning code.
+    PREFLIGHT_SLOW = "preflight_slow"         # total preflight wall-clock exceeded the budget — full report still returned
 
 
 @dataclass(frozen=True)
