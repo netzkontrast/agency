@@ -1,5 +1,14 @@
 # Kohärenz Protokoll — canon corpus (worked example)
 
+> **Staleness note (2026-10-26).** These six files are the canon set as ingested on
+> 2026-06-10. The live repository (`netzkontrast/kohaerenzprotokoll`, `Manuscript/kanon.md`
+> and `Plan/decisions/`) has moved since: five Guardians instead of two (C6), the names of
+> KW2–KW4 undecided (C9/Q5), AEGIS as Protagonist and Reason of storyform B with first-person
+> chapters Kap 0, 6, 16, 22, 28 (W10-B, C14), growth `stop` on both storyforms, NCP 3.0.0-rc.1
+> instead of 1.3.0, and `[S]` meaning "a source says it" rather than "quarry". Read them as the
+> worked example that grounded Specs 136–141, never as the novel's current state; the current
+> state is file-authoritative in the live repository.
+
 A six-document canon set for a single novel-in-progress, **Kohärenz
 Protokoll** (German, hard-SF / philosophical-horror / psychological-thriller).
 Ingested from Google Drive on 2026-06-10 via `research.ingest_gdoc` (Spec 126,
