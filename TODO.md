@@ -388,3 +388,4 @@ Rebuild (derived from the Plan/ tree):
 - 392  session-activity-autolog            # Shipped — .agency/sessions/<intent>.activity.md auto-append
 - 393  adr-draft-refines-edge              # Shipped — adr.draft(spec=) creates the REFINES hinge edge
 - 394  document-compose-template-sample    # Partial (draft) — document.compose verb shipped + tested ahead of the ADR walk; owner merge = approval → then adr-approve + move_spec(done)
+- 395  host-capability-loader               # Not started (draft) — AGENCY_EXTRA_CAPABILITIES resolved at the agency-mcp + CLI entry points into Engine(extra_capabilities=…); opened from the Kohärenz rebuild session (host tier-2 bridge); needs ADR approval before implementation
